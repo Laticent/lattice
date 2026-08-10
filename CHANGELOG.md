@@ -307,7 +307,7 @@ in patch versions.
   rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
   on `#studio-editor` — now selects by `data-pane-role` instead.
 - **Scrolling the Studio's add-slide gallery no longer accumulates a live engine iframe per
-  tile — the crash behind "the tab died and reloaded".** The thumbnail windowing was one-way:
+  tile — the mechanism behind "the tab died and reloaded".** The thumbnail windowing was one-way:
   `useInView` disconnected its `IntersectionObserver` on a tile's *first* intersection, so
   `visible` never returned to false and every tile the author had scrolled past kept its own
   engine document mounted for the lifetime of the grid. Measured on the built site, one scroll
@@ -324,25 +324,29 @@ in patch versions.
   helped: that gates re-renders, not the frame, so the fix unmounts the preview. Re-measured on
   the same surface: **33 live frames and ~1.35GB, flat across four full traversals and five
   open/close cycles.** Present's Slide Overview shares the hook and had the same profile on a
-  long deck, so it is fixed with it. `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md`.
+  long deck, so it is fixed with it. What is verified is that the growth is now BOUNDED; the
+  reporting device was never reproduced (this sandbox has 4GB of heap headroom), and 33 live
+  documents is still substantial on a phone — so the budget being right for every device is
+  inference, not measurement. `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md`.
 
-- **A slide thumbnail no longer runs the overflow watcher — no QA chrome on a tile, and no
-  observer per frame.** Every preview frame boots the engine runtime, and a frame with no
-  export-settings block resolves to the `author` marker level by design. In a grid of
-  thumbnails that is wrong twice: the marks are unreadable at ~260px, and in the add-slide
-  gallery they describe a *catalog sample* the author neither wrote nor can fix — the
-  shipped gallery painted an **"Overflows" tab on the `image` tile** and type-floor alarms
-  on `state-chart` and `quadrant`. The cost is per-document too, so it multiplied by the
-  grid: each frame armed a permanent `MutationObserver` over `document.body` plus a resize
-  listener, rAF-dispatching a full-document scan whose probes force layout. `SlideThumbFace`
-  now stamps `<html data-lattice-thumbnail>` on the frames it renders (the add-slide gallery,
-  its looks panels, and Present's slide overview), and the runtime routes those to
-  `overflow-marker: off` — the level that already sweeps and then installs nothing: no probe,
-  no observer, no resize handler. The type-floor alarm goes with it; it is the same watcher.
-  **Every other surface is unchanged** and still watched at `author` — the Studio's own
-  preview, the landing islands, the VS Code preview, an Export-to-Marp bundle — which the new
-  tests control for explicitly. Measured on the same overflowing deck: RSS 1442 → 1337MB and
-  1336 → 1304 event listeners, about one per frame.
+- **A slide thumbnail no longer runs the overflow watcher — no QA chrome on a tile.** Every
+  preview frame boots the engine runtime, and a frame with no export-settings block resolves
+  to the `author` marker level by design. In a grid of thumbnails that is wrong twice: the
+  marks are unreadable at ~260px, and in the add-slide gallery they describe a *catalog
+  sample* the author neither wrote nor can fix — the shipped gallery painted an **"Overflows"
+  tab on the `image` tile** and type-floor alarms on `state-chart` and `quadrant`. The cost is
+  per-document too, so it multiplied by the grid: on every dispatch of the runtime's shared
+  post-mutation pass, each frame ran a cell-aware geometry probe, a text-rect walk over
+  anything clipping, culprit drill-down and the Fix-Me overlay draw — all layout-forcing —
+  plus the `scroll` listener that draw binds per document. `SlideThumbFace` now stamps
+  `data-lattice-thumbnail` on the frames it renders (the add-slide gallery, its looks panels,
+  Present's slide overview, and Reshape's variant tiles), and the runtime routes those to
+  `overflow-marker: off` — the level that already sweeps and then installs nothing. The
+  type-floor alarm goes with it; it is the same watcher. **Every other surface is unchanged**
+  and still watched at `author` — the Studio's own preview, the landing islands, the VS Code
+  preview, an Export-to-Marp bundle — which the new tests control for explicitly. Measured on
+  the same overflowing deck: RSS 1442 → 1337MB, 1336 → 1304 event listeners. *Not* a saving in
+  observers: the shared `MutationObserver` belongs to the geometry pass, which thumbnails keep.
   `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md` §6.
 
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,

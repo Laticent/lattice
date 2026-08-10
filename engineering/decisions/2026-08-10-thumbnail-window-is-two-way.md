@@ -15,13 +15,17 @@ summary: >
   A second pass then stops the engine runtime's overflow/type-floor watcher from running in a
   thumbnail at all: every frame was booting it at `author` level, so the shipped gallery painted an
   "Overflows" tab on the `image` tile and type-floor alarms on `state-chart`/`quadrant` — QA chrome
-  describing a catalog sample nobody can fix — while each frame armed a permanent MutationObserver
-  and a forced-layout probe, once per frame across the grid. `<html data-lattice-thumbnail>` routes
-  it to `off`, the level that already installs nothing. Measurement did NOT support the stronger
-  claim that overflow is a second crash cause, and that is recorded too. Also records two traps: an
-  unforced GC reads `Documents` as a leak, and `resolve-overflow-marker.js`'s "the probe always
-  runs" describes the export contract, not this watcher — believing it nearly bought a redundant
-  bypass. One pre-existing bounded residue logged, not fixed.
+  describing a catalog sample nobody can fix — while each frame ran a layout-forcing probe pass on
+  every shared post-mutation dispatch. `<html data-lattice-thumbnail>` routes it to `off`, the level
+  that already installs nothing. Measurement did NOT support the stronger claim that overflow is a
+  second crash cause, and that is recorded too. The adversarial trio (#25) then found two real
+  defects in the fix itself — a coalesced IntersectionObserver batch could poison the budget
+  registry into the very leak it closes, and recycling wiped a module-level cache at scroll
+  frequency — plus a hollow test and four overstated claims, all corrected here (§8). Records four
+  traps: an unforced GC reads `Documents` as a leak; `resolve-overflow-marker.js`'s "the probe always
+  runs" describes the export contract, not this watcher; the watcher installs no observer of its own;
+  and a stepped test scroll cannot reproduce coalesced observer delivery. One pre-existing bounded
+  residue logged, not fixed.
 ---
 
 # The thumbnail window only opened — #1463
@@ -138,12 +142,35 @@ in the viewport. A cold tile beats a dead tab.
 the same profile on a long deck, so the fix lands in the hook and both surfaces get it; the two
 comments are corrected in the same change.
 
-The overview pays slightly more for a recycle than the picker does: its thumbs render the whole deck
-narrowed to one slide, so a remount is a slice render. That is cheap and cached —
-`single-slide-render.ts`'s `sliceCache` is a 24-entry LRU that `dispose()` deliberately does **not**
-clear (its own comment explains why: a per-renderer dispose must not wipe a module-level cache every
-other host is using). The picker's tiles take the whole-deck memo path instead, where each tile
-overwrites the single memo slot anyway, so recycling costs it nothing that was not already lost.
+What a recycle costs differs by path, and the first version of this section got it wrong in both
+directions. Corrected in place rather than deleted, because the wrong version is precisely what made
+the trade look free:
+
+- **The picker uses neither cache.** `key` is `null` unless `slideIndex` is a number, and the
+  picker's tiles pass none — so they neither read nor write the whole-deck memo. A returning picker
+  tile pays a full uncached render. The earlier claim that each tile "overwrites the single memo slot
+  anyway" was false twice over: they are not in that path at all.
+- **The overview uses both, depending on the deck.** A plain deck slices, hitting the 24-entry
+  `sliceCache` — which `dispose()` deliberately does not clear. A deck carrying a deck-derived fact
+  renders the WHOLE DECK per tile and shares one memo entry across the grid, which is the case the
+  memo exists for.
+
+That second case is where recycling first went wrong, and it was a regression this change introduced.
+`dispose()` cleared the shared whole-deck memo unconditionally — harmless while a thumbnail never
+unmounted, since dispose fired once, at grid close. Two-way windowing makes it fire at **scroll
+frequency**, so every eviction wiped the memo for every other host on the page and the next overview
+tile paid a cold whole-deck parse (~39ms on a 58-slide deck) where the grid had previously paid one
+in total. It reached the Studio's own preview behind an open picker too.
+
+`dispose()` now **refcounts live renderers** and releases the memo only when the last one goes. That
+is the same argument `clearDeckMemo`'s own comment already makes for why dispose must not touch
+`sliceCache` ("dispose() is PER-RENDERER while the slice cache is module-level and shared"); once
+recycling exists, the memo belongs in that category. Pinned by three cases in
+`single-slide-render.thumbnail.test.ts` — the middle one reproduces the regression exactly (engine
+calls 1 → 2 with a single recycle in between) and goes red if the unconditional clear returns.
+
+Rough edge, logged not fixed: `SLICE_CACHE_MAX` (24) sits below `PREVIEW_BUDGET` (32), so on a deck
+longer than 24 slides a full traversal can still outrun the slice cache.
 
 ## 5. Verification
 
@@ -158,7 +185,7 @@ overwrites the single memo slot anyway, so recycling costs it nothing that was n
   a fix that simply stopped rendering previews could not pass.
 - **Visual, real surface** — screenshots at 1440px and 390px at the bottom of the grid, immediately
   after jumping back to the top, and mid-grid. Every visible tile is rendered in all of them.
-- The docs unit suite (2772 tests), lint, and typecheck are green, as are the neighboring e2e specs
+- The docs unit suite (2856 tests), lint, and typecheck are green, as are the neighboring e2e specs
   (`insert-component`, `present`, `present-guide`, `slide-ops`).
 
 ## 6. The second half — a thumbnail is watched by nothing
@@ -190,11 +217,23 @@ In a grid of thumbnails that is wrong twice over:
       · quadrant:    type-floor alarm
    ```
 
-2. **The cost is per-document, so it multiplies by the grid.** Each frame arms a
-   permanent `MutationObserver` over `document.body` (`subtree + childList +
-   characterData + attributes`) plus a resize listener, rAF-dispatching a full-document
-   scan whose probes force layout — once per frame, across every frame the grid holds
-   open.
+2. **The cost is per-document, so it multiplies by the grid.** Be exact about what that
+   cost is — the first version of this note was not, and the correction matters because a
+   false cost claim shapes the next optimization.
+
+   **What is NOT saved:** the observer. `startOverflowWatcher` installs nothing of its own —
+   no `MutationObserver`, no resize listener, no rAF. It registers `check` with
+   `schedulePostMutation`, whose shared observer + resize listener are installed by the
+   first caller, and that is `patchSectionGeometry()` — which this change deliberately keeps.
+   Measured by booting the real runtime with both instrumented: **3 MutationObservers and 1
+   resize listener in both the thumbnail and the normal case, identical.** The earlier claim
+   that each frame "arms a permanent MutationObserver plus a resize listener" was wrong, and
+   it shipped in five places.
+
+   **What IS saved,** per frame, on every dispatch of that shared rAF: the whole `check` pass
+   — a cell-aware geometry probe, a text-rect walk over anything that clips, drill-down
+   culprit resolution, and `drawFixMeTags` — all layout-forcing — plus the one `scroll`
+   listener `drawFixMeTags` binds per document. Real, and smaller than first claimed.
 
 ### What it was NOT doing: crashing the tab
 
@@ -215,7 +254,7 @@ compounding §1's frame accumulation, not a second cause of it.
 
 ### The fix, and the wrong turn on the way to it
 
-`SlideThumbFace` — the one face all three grids share — stamps `<html
+`SlideThumbFace` — the one face every thumbnail grid shares — stamps `<html
 data-lattice-thumbnail>` on the frame it renders, via `SingleSlideOptions.thumbnail` →
 `srcdoc()`. The runtime reads it and routes the watcher to `off`.
 
@@ -262,11 +301,93 @@ side effect: a reader of a thumbnail can no more resize a figure than fix a clip
   `.overflow=1, tabs=1, illegibleTabs=2` to zero across all 33 frames, and the `image`
   tile's red ring is visibly gone at 390px.
 - **Cost**, same overflowing 40-slide overview: RSS 1442 → 1337MB, event listeners
-  1336 → 1304 (about one per frame — the resize handler the watcher no longer installs),
-  style recalc 1.15 → 0.97s. Modest, and the direction confirms the observers really are
-  absent.
+  1336 → 1304, style recalc 1.15 → 0.97s. The listener delta was first attributed to "the
+  resize handler the watcher no longer installs" — wrong, per the correction above; that
+  handler belongs to `patchSectionGeometry` and is still installed. It is the `scroll`
+  listener `drawFixMeTags` binds once per document, which fits ~34 overflowing frames.
 
-## 7. Logged, not fixed
+## 7. What the adversarial trio found (HARD RULE #25)
+
+Red team, Munger inversion, and an independent checker, run against the shipping diff. They found
+**two real defects in the fix**, one hollow test of mine, and four overstated claims. Recorded
+because the pattern is more useful than the patches.
+
+### D1 — the fix could reinstate the bug it closes
+
+`useInView` destructured `entries[0]`. `IntersectionObserver` accumulates records and delivers them
+as one array, so under load a single target arrives with several — measured on the real Studio,
+**4–10 coalesced `[intersecting, not-intersecting]` batches per flick-scroll of the gallery**.
+
+The one-way version could read the first entry safely: a dropped record only delayed a mount that
+was going to happen anyway. The two-way version keeps *persistent state* keyed off that read, so a
+dropped record is permanent corruption. `[in, out]` mounted the tile and marked it `inBand: true`
+while it was actually out of band, and `enforcePreviewBudget` skips in-band slots — so that slot
+could never be reclaimed. The red team drove it to **96 mounted tiles against a budget of 32**:
+#1463 in full, restored by its own fix. The mirror shape `[out, in]` recycled a tile the user was
+looking at, falsifying §3's central invariant. One real-surface run of the stepped script even
+reported `live = 62` — the exact pre-fix number.
+
+Fixed by reading the last entry, which is the observer's current answer and the only one this hook
+has a use for. (The repo's two other IntersectionObserver call sites already take `entries.some(…)`;
+the destructure was the outlier.) Pinned by four cases that deliver real multi-entry batches — all
+four go red against `entries[0]`.
+
+### D2 — recycling wiped a shared cache at scroll frequency
+
+`dispose()` cleared the module-level whole-deck memo unconditionally. See §4: fixed with a refcount.
+
+### D3 — my "nothing is installed" test was a hollow gate
+
+It asserted no ring and no tab after a mutation. jsdom lays nothing out, so `scrollHeight` and
+`clientHeight` are both 0 and the probe finds no overflow **at any level** — the test passed just as
+happily with the routing reverted. Exactly the shape this repo has shipped once before (a gate keyed
+on a class only one of six emitting paths used).
+
+Fixed by giving the harness geometry — a section reporting 2000px of content in a 700px box — plus a
+`Range.prototype.getClientRects` shim, without which the content probe throws and aborts `check()`
+midway. With a positive control asserting the *unflagged* document IS marked, five cases now go red
+on revert where one did before.
+
+### D4 — four claims that were not true
+
+| claim | what the code says |
+|---|---|
+| "each frame arms a permanent MutationObserver + resize listener" | `startOverflowWatcher` installs **nothing**; `patchSectionGeometry` owns the shared observer and is kept. Measured identical in both cases. §6.2 |
+| "the picker's tiles overwrite the single memo slot anyway" | they never touch the memo — `key` is `null` without a `slideIndex`. §4 |
+| "1336 → 1304 listeners — the resize handler the watcher no longer installs" | that handler is still installed; the delta is `drawFixMeTags`' per-document `scroll` listener. §6 |
+| "an in-band tile is never recycled" | was false via D1; true again after the fix, and now actually tested |
+
+### D5 — the oracle could not see the defect it guards
+
+The e2e scrolled in steps with a pause, which hands the observer a clean idle window and produces
+**zero** coalesced batches (0 across 12 stepped runs, versus 4–10 in every rAF-continuous one). It
+now flick-scrolls from inside a `requestAnimationFrame` loop, three traversals, and additionally
+asserts the settled count — a scale-free property, unlike the ceiling, so it does not quietly become
+a desktop-only assertion. Tagged `@crosswidth` so a 390px number exists at all.
+
+### Still open, deliberately
+
+- **`PREVIEW_BUDGET = 32` is device-blind**, chosen from one desktop measurement. All three lenses
+  flagged it, and tagging the spec `@crosswidth` finally produced the number that did not exist:
+  at **390×844 the grid settles at 32 live documents, 70 `Documents`, ~1.28GB RSS** after three
+  flick traversals — against 33 / 72 / ~1.36GB on the desktop. The phone holds essentially the
+  same working set as a workstation with twenty times the headroom, because the constant knows
+  nothing about the device. That is bounded (the whole point), but it is not *tuned*. Scaling it —
+  `inBand + slack`, or a `navigator.deviceMemory` clamp — is a real improvement and a separate
+  change; what this note does is stop claiming the phone case is verified when only the desktop
+  one was.
+- **`SLICE_CACHE_MAX` (24) < `PREVIEW_BUDGET` (32)** — a long overview traversal can outrun the
+  slice cache.
+- **Two of the four grids show the author's own content, and §6's justification was written only
+  about the gallery.** `ReshapePicker` previews the author's slide in each variant look, and
+  Present's **slide overview** shows their whole deck — so "a catalog sample the author neither
+  wrote nor can fix" is true of the picker and false of both of those. Naming Reshape while leaving
+  the overview implicit was an oversight, not a decision; both are listed here now. The shape that
+  would keep both wins is to make the level a property of the GRID rather than of `SlideThumbFace`:
+  `off` for the picker's catalog samples, and the authoring level for the two grids showing the
+  author's own slides. That is a product call, so it is surfaced rather than taken silently.
+
+## 8. Logged, not fixed
 
 Closing the gallery leaves ~69 documents resident (it was ~80 before this change) with only the one
 live preview left in the page — a few hundred MB that the close does not hand back promptly. It is

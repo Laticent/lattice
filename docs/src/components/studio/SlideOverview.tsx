@@ -12,9 +12,10 @@ import { hasMermaid, SlideThumbFace, useInView } from './slide-thumb';
 // WINDOWED (shared useInView) — a thumb defers its render until it scrolls into view,
 // and gives the iframe back once it is far enough off screen that the shared preview
 // budget wants the slot (#1463; the window used to be one-way, so a long deck's grid
-// accumulated every thumb the user had scrolled past). Off-screen thumbs cost a ref
-// and a placeholder box; a recycled one re-renders from the slice cache on return.
-// The SAME windowing + face powers the Studio add-slide gallery (SlidePicker).
+// accumulated every thumb the user had scrolled past). Off-screen thumbs cost a ref and a
+// placeholder box; a recycled one re-renders on return — from the slice cache on a plain deck,
+// or from the shared whole-deck memo on a deck-context one (see the note in the body below).
+// The SAME windowing + face powers the Studio add-slide gallery (SlidePicker) and Reshape.
 
 function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; slideCount: number; slideMarkdown: string; mermaid: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
 	const [ref, visible] = useInView<HTMLButtonElement>();
@@ -36,11 +37,14 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 	// since the engine numbers a slide by its position among the sections it parses.
 	//
 	// Each visible tile therefore pays one whole-deck engine parse (~39ms for a 58-slide deck,
-	// per 2026-07-11-preview-performance-diagnosis.md) instead of one slide's. Bounded, not
-	// per-keystroke: tiles are WINDOWED by `useInView` (only scrolled-in tiles render) and this is
-	// a modal sorter that renders each tile ONCE and keeps it. A shared render distributed across
-	// tiles would be cheaper still, but it means moving the render out of the per-host renderer —
-	// deliberately left for a follow-up rather than smuggled into this fix.
+	// per 2026-07-11-preview-performance-diagnosis.md) instead of one slide's — but only the FIRST
+	// tile does: the whole-deck memo in single-slide-render.ts is module-level precisely so the
+	// grid's tiles share one parse. Bounded, not per-keystroke: tiles are WINDOWED by `useInView`.
+	// A recycled tile DOES remount and re-render (#1463 made the window two-way), but `dispose()`
+	// no longer clears that shared memo unless it is the last renderer on the page — without that
+	// refcount every eviction cost the next tile a cold whole-deck parse, on this exact surface.
+	// A shared render distributed across tiles would be cheaper still, but it means moving the
+	// render out of the per-host renderer — deliberately left for a follow-up.
 	const deck = frontMatter + set.join(SLIDE_SEP);
 	return (
 		<div role="dialog" aria-modal="true" aria-label="Slide overview" className="absolute inset-0 z-20 flex flex-col bg-[color-mix(in_srgb,var(--bg)_94%,transparent)] backdrop-blur-sm">

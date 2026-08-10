@@ -36,9 +36,23 @@ class FakeIO {
 
 /** Drive the observer that is watching `el` with a given intersection state. */
 function intersect(el: Element, isIntersecting: boolean) {
+	deliver(el, [isIntersecting]);
+}
+
+/**
+ * Deliver a COALESCED BATCH — several entries for one target in a single callback, which is what
+ * a real IntersectionObserver does when the update-observations step runs more than once before
+ * its task is serviced. Measured on the real Studio: 4–10 such batches per flick-scroll of the
+ * gallery, overwhelmingly the shape `[true, false]`.
+ *
+ * This is the delivery the first cut of the fix could not survive and this suite could not model:
+ * it always sent exactly one entry, so the hook's `([e])` destructure looked correct. Every
+ * assertion about the budget is only as good as this function.
+ */
+function deliver(el: Element, states: boolean[]) {
 	act(() => {
 		for (const o of observers) {
-			if (!o.disconnected && o.targets.has(el)) o.cb([{ target: el, isIntersecting }]);
+			if (!o.disconnected && o.targets.has(el)) o.cb(states.map((isIntersecting) => ({ target: el, isIntersecting })));
 		}
 	});
 }
@@ -122,6 +136,67 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 		for (let i = 0; i < n; i++) intersect(container.querySelector(`[data-testid="tile-${i}"]`) as Element, true);
 		for (let i = 0; i < n; i++) expect(isLive(container, i)).toBe(true);
 		expect(livePreviewCount()).toBe(n);
+		unmount();
+	});
+
+	// ── Coalesced batches ────────────────────────────────────────────────────────
+	// A real observer delivers several entries for one target in one callback. Reading
+	// only the first is permanent corruption here, because the hook keeps state keyed off
+	// the read — these three cases are the shapes that broke it, all found by the
+	// adversarial trio and all demonstrated on the real surface before being pinned here.
+
+	it('a [in, out] batch claims no slot — the poison that made one immortal', () => {
+		const { container, unmount } = render(<Grid n={4} />);
+		// Tile 0 flicks into and straight back out of the band inside one delivery — the shape
+		// measured 4–10 times per flick-scroll of the real gallery. The batch NETS to "out of
+		// band", so the right outcome is that nothing mounts at all.
+		//
+		// Reading entries[0] instead mounted it AND marked it `inBand: true` while it was
+		// actually out — and since the observer's own state was already "not intersecting" it
+		// never reported again, so `enforcePreviewBudget` (which skips in-band slots) could
+		// never reclaim that slot. Poison ~32 and the budget evicts nothing.
+		deliver(container.querySelector('[data-testid="tile-0"]') as Element, [true, false]);
+		expect(isLive(container, 0), 'an out-of-band tile was mounted').toBe(false);
+		expect(livePreviewCount(), 'an out-of-band tile is holding a budget slot').toBe(0);
+		unmount();
+	});
+
+	it('an [out, in] batch on an ON-SCREEN tile does not recycle it — the falsified invariant', () => {
+		// This is the case that made "an in-band tile is never recycled" untrue. Tile 0 is on
+		// screen the whole time; its last entry says so. Reading entries[0] marked it evictable
+		// and the next tile needing a slot tore down something the user was looking at.
+		const n = PREVIEW_BUDGET + 4;
+		const { container, unmount } = render(<Grid n={n} />);
+		const t0 = container.querySelector('[data-testid="tile-0"]') as Element;
+		intersect(t0, true);
+		for (let i = 1; i < n - 1; i++) {
+			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
+			intersect(el, true);
+			intersect(el, false);
+		}
+		deliver(t0, [false, true]); // still on screen, reported in one coalesced batch
+		intersect(container.querySelector(`[data-testid="tile-${n - 1}"]`) as Element, true);
+		expect(isLive(container, 0), 'a tile the user can see was recycled').toBe(true);
+		unmount();
+	});
+
+	it('an [out, in] batch on a cold tile MOUNTS it — no blank box on screen', () => {
+		const { container, unmount } = render(<Grid n={4} />);
+		deliver(container.querySelector('[data-testid="tile-0"]') as Element, [false, true]);
+		expect(isLive(container, 0), 'an on-screen tile was left as a placeholder').toBe(true);
+		unmount();
+	});
+
+	it('every delivery coalesced still holds the budget — #1463 must not return this way', () => {
+		// The worst case the red team ran on the real surface: a scroll where every delivery is
+		// a batch. With entries[0] this mounted all 96 tiles against a budget of 32.
+		const n = 96;
+		const { container, unmount } = render(<Grid n={n} />);
+		for (let i = 0; i < n; i++) {
+			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
+			deliver(el, [true, false]);
+		}
+		expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_BUDGET);
 		unmount();
 	});
 

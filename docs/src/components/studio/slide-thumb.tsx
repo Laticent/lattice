@@ -101,7 +101,31 @@ export function useInView<T extends Element>(rootMargin = '250px'): [React.RefOb
 		}
 		const token = tokenRef.current;
 		const io = new IntersectionObserver(
-			([e]) => {
+			(entries) => {
+				// READ THE LAST ENTRY, never `entries[0]`. IntersectionObserver accumulates
+				// records and delivers them as one array when its task finally runs, so if the
+				// "update intersection observations" step runs twice before that task is
+				// serviced — which a flick-scroll over a grid of booting engine iframes does
+				// routinely — one target arrives with several entries. Measured on the real
+				// Studio: 4–10 coalesced `[intersecting, not-intersecting]` batches per
+				// flick-scroll of the gallery.
+				//
+				// The one-way version could destructure the first entry safely: a dropped
+				// record only delayed a mount that was going to happen anyway. This hook keeps
+				// PERSISTENT STATE keyed off the read, so a dropped record is permanent
+				// corruption — `[in, out]` mounts the tile and marks it `inBand: true` while it
+				// is actually out of band, and `enforcePreviewBudget` skips in-band slots, so
+				// that slot can never be reclaimed. Poison ~32 of them and the budget can evict
+				// nothing: #1463 restored in full, by the very code that fixes it. The
+				// symmetrical shape `[out, in]` is what let an ON-SCREEN tile be recycled,
+				// falsifying this file's own central invariant.
+				//
+				// The last entry is the observer's current answer, which is the only one this
+				// hook has any use for. (The repo's other two IntersectionObserver call sites —
+				// RestyleShowcase, FieldCardsLive — take `entries.some(...)`; the destructure
+				// here was the outlier.)
+				const e = entries[entries.length - 1];
+				if (!e) return;
 				if (e.isIntersecting) {
 					setVisible(true);
 					touchPreview(token, { inBand: true, recycle: () => setVisible(false) });
@@ -194,11 +218,12 @@ export function SlideThumbFace({ options, sample, slideIndex, slideCount, slideM
 			extraCss={extraCss}
 			active={active}
 			className={className}
-			// THE thumbnail declaration, made once for all three grids that use this face
-			// (the picker's tiles + looks, Present's overview). It stamps the frame so the
-			// engine runtime skips its overflow / type-floor watcher: at this size the marks
-			// are unreadable, in the gallery they describe a catalog sample nobody can fix,
-			// and the watcher's permanent observer would run once per frame across the grid.
+			// THE thumbnail declaration, made once for every grid that uses this face — the
+			// picker's tiles AND its looks panel, Present's slide overview, and Reshape's
+			// variant tiles. It stamps the frame so the engine runtime routes its overflow /
+			// type-floor watcher to `off`: at this size the marks are unreadable, and the
+			// watcher's probe pass forces layout once per frame across the whole grid.
+			// (It does NOT remove an observer — see isThumbnailDocument() in lib/runtime.)
 			thumbnail
 			aria-hidden
 		/>

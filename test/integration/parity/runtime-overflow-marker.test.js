@@ -43,11 +43,30 @@ const SLIDE = '<section class="content"><h2>Title</h2><p>Body.</p></section>';
  * block. `fetch` is stubbed to reject so no network fallback can quietly supply an
  * answer — everything here comes from the block or from the surface default.
  */
-async function boot({ block = '', markup = SLIDE, thumbnail = false } = {}) {
+async function boot({ block = '', markup = SLIDE, thumbnail = false, overflowing = false } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html${thumbnail ? ' data-lattice-thumbnail' : ''}><head></head><body>${markup}${block}</body></html>`,
     { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
   );
+  // GEOMETRY, or the assertion is over an empty set. jsdom lays nothing out, so every element
+  // reports scrollHeight === clientHeight === 0 and `probeSectionOverflow` finds no overflow AT ANY
+  // LEVEL — which means a test that only asserts "no ring, no tab" passes just as happily with the
+  // fix reverted. (It did: the first cut of the thumbnail suite below was exactly that hollow gate,
+  // caught by the adversarial trio.) Faking a section that is 2000px of content in a 700px box
+  // makes the probe fire, so `author` really marks and `off` really does not, and the difference is
+  // what the tests read. Installed BEFORE the runtime boots, and only for the cases that ask.
+  if (overflowing) {
+    Object.defineProperty(dom.window.HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 2000; } });
+    Object.defineProperty(dom.window.HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 700; } });
+    // jsdom's Range has no getClientRects, and the CONTENT probe walks text via a Range — so
+    // without this `probeContentClipped` throws and aborts check() midway, after the ring is
+    // toggled but before the tab is drawn. Returning no rects is the honest answer for a
+    // layout-less DOM ("no text was measurably cut"), which leaves the GEOMETRY verdict above as
+    // the thing under test and lets the pass run to completion.
+    if (!dom.window.Range.prototype.getClientRects) {
+      dom.window.Range.prototype.getClientRects = function getClientRects() { return []; };
+    }
+  }
   dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
   const el = dom.window.document.createElement('script');
   el.textContent = RUNTIME_SRC;
@@ -139,12 +158,35 @@ describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
     dom.window.close();
   });
 
-  // The load-bearing half. `off` is not "a quieter mark" — it returns before any probe,
-  // observer or resize handler exists, which is the whole reason a thumbnail uses it.
-  // Pinned behaviorally: mutate the document the way the shared observer watches for
-  // (attributes + childList) and require that nothing re-marks it.
-  test('nothing is installed — a later mutation draws no ring, tab or alarm', async () => {
-    const dom = await boot({ thumbnail: true });
+  // THE POSITIVE CONTROL, and it has to come first: it proves the geometry harness really does
+  // make the watcher fire, so the silence asserted below is the thumbnail flag's doing and not
+  // jsdom's. Without this pair the "no ring, no tab" assertion is over an empty set — the exact
+  // hollow-gate shape this repo has shipped once before.
+  test('CONTROL: the same overflowing document, unflagged, IS marked', async () => {
+    const dom = await boot({ overflowing: true });
+    const { document } = dom.window;
+    assert.deepEqual(levelsOn(document), ['author']);
+    assert.equal(document.querySelectorAll('section.overflow').length, 1, 'the harness must make the probe fire');
+    assert.equal(document.querySelectorAll('.overflow-tab').length, 1, 'author level draws the tab');
+    dom.window.close();
+  });
+
+  // The load-bearing half, now with something to be silent ABOUT. `off` is not "a quieter mark" —
+  // it returns before any probe exists, which is the whole reason a thumbnail uses it.
+  test('an overflowing THUMBNAIL draws nothing at all', async () => {
+    const dom = await boot({ thumbnail: true, overflowing: true });
+    const { document } = dom.window;
+    assert.deepEqual(levelsOn(document), ['off']);
+    assert.equal(document.querySelectorAll('section.overflow, section.illegible').length, 0, 'a ring was drawn');
+    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'a tab was drawn');
+    dom.window.close();
+  });
+
+  // …and stays silent when the DOM changes under it, which is what "installs nothing" means in
+  // practice: the shared post-mutation dispatch still runs (patchSectionGeometry owns it and is
+  // deliberately kept), so a re-marking watcher WOULD get another chance here. It must not take it.
+  test('nothing is installed — a later mutation still draws nothing', async () => {
+    const dom = await boot({ thumbnail: true, overflowing: true });
     const { document } = dom.window;
     const s = document.querySelector('section[data-lattice-slide]');
     s.setAttribute('data-poke', '1');
