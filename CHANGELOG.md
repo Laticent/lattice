@@ -251,6 +251,28 @@ in patch versions.
   nightly) now guards it, checked in both directions: it fails on the unfixed engine
   and passes on the fixed one. (#1554)
 
+- **Changed: taking the no-safe-default gate's cheap exit is now a recorded decision.**
+  `checkNoSafeDefaultTokens` offers two exits when it fires — derive the token, or give the
+  read a `var()` fallback. The second is legal, often correct, and **permanently removes the
+  token from the gate's view**, which is the exact construction that produced the defect the
+  gate exists to prevent: `--cat-N-ink` carried a fallback at every read and was still missing
+  from the generator for a year, degrading onto a value repaired to the 3:1 *graphical* floor
+  and then painted as 4.5:1 label text. A new `SANCTIONED_FALLBACK_READS` ledger makes that
+  exit traceable, following the same fails-both-ways idiom as `SANCTIONED_MARGINS` /
+  `SANCTIONED_HEX`: an unlisted fallback-only token is an error, **and** a sanction that no
+  longer applies is an error, so the list cannot rot. Each entry must name what the fallback
+  lands on and why that value carries the same contract the read needs — and that field is
+  **checked, not just recorded**: re-point a read at a different-contract token and the gate
+  now names the read, which is the `--cat-N-ink` construction exactly. Two kinds of entry
+  today, 13 rows: the twelve `--cat-N-texture` (falling back to their own `--cat-N-fill`,
+  which is simply the un-textured rendering) and `--spectrum-solid` (falling back to
+  `--accent`, the intended value for every theme that doesn't override it). The gate's
+  **no-allowlist stance on the derive exit is unchanged** — a token with an unrescued read
+  still fails with no way to list it away. The ledger lists 13 where the tracking issue counts
+  17; both are right, and the extra term is that no engine default rescues the read, which
+  drops four tokens whose fallback is incidental.
+  (`engineering/decisions/2026-08-10-fallback-exit-ledger.md`)
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested
