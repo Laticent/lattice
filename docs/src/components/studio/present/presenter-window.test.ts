@@ -83,11 +83,29 @@ function bootPresenterScript() {
 	return { opener, sent: () => opener.postMessage.mock.calls.map((c) => c[0]).filter((m) => m?.pp === 'go') };
 }
 /** jsdom has no constructible TouchEvent — build the two fields the script reads. */
-function touch(type: string, x: number, y: number, target?: Element | null) {
+/**
+ * A touch event carrying BOTH lists, as every real one does: `touches` is what is
+ * still down, `changedTouches` is what just moved or lifted. The `touches` half
+ * used to be omitted here, which made a pinch unrepresentable in this suite — and
+ * a pinch is precisely what the swipe rule used to mis-read as a slide turn
+ * (2026-08-10-preview-pinch-zoom.md).
+ */
+function touchAt(type: string, points: Array<[number, number]>, target?: Element | null) {
+	const list = points.map(([x, y]) => ({ clientX: x, clientY: y }));
 	const ev = new Event(type, { bubbles: true });
-	Object.defineProperty(ev, 'changedTouches', { value: [{ clientX: x, clientY: y }], configurable: true });
+	// On touchend the lifted points are no longer down — that difference is what the
+	// finger-count guard reads to know a gesture has finished.
+	// `targetTouches` (contacts on THIS element) is what the handlers count — see the
+	// note in preview-zoom.ts. Here every contact is on the stage, so it matches
+	// `touches`; both are present because a real TouchEvent always carries both.
+	Object.defineProperty(ev, 'touches', { value: type === 'touchend' ? [] : list, configurable: true });
+	Object.defineProperty(ev, 'targetTouches', { value: type === 'touchend' ? [] : list, configurable: true });
+	Object.defineProperty(ev, 'changedTouches', { value: list, configurable: true });
 	if (target) Object.defineProperty(ev, 'target', { value: target, configurable: true });
 	return ev;
+}
+function touch(type: string, x: number, y: number, target?: Element | null) {
+	return touchAt(type, [[x, y]], target);
 }
 
 describe('presenter-window — navigation parity', () => {
@@ -142,6 +160,23 @@ describe('presenter-window — navigation parity', () => {
 		window.dispatchEvent(touch('touchstart', 400, 300));
 		window.dispatchEvent(touch('touchend', 395, 60)); // a vertical scroll
 		expect(sent().map((m) => m.v)).toEqual([1]);
+	});
+
+	it('does NOT turn the slide on a pinch — the defect this window shared with the shell', () => {
+		// Two fingers land and spread. The finger that ends the gesture has travelled
+		// 100px horizontally, which clears the 45px swipe threshold — so before the
+		// finger-count guard this relayed a slide turn to the whole room.
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(touchAt('touchstart', [[400, 300], [500, 300]]));
+		window.dispatchEvent(touchAt('touchmove', [[300, 300], [600, 300]]));
+		window.dispatchEvent(touchAt('touchend', [[300, 300], [600, 300]]));
+		expect(sent()).toEqual([]);
+	});
+
+	it('does NOT turn the slide on a trackpad pinch — ctrl+wheel is zoom, not nav', () => {
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(new WheelEvent('wheel', { deltaY: -240, ctrlKey: true, bubbles: true }));
+		expect(sent()).toEqual([]);
 	});
 
 	it('mirrors the stage without swallowing gestures — the frames are pointer-inert', () => {

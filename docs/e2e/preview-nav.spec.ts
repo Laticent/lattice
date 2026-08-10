@@ -134,6 +134,111 @@ test('@parity a touch swipe turns the deck', async ({ page }) => {
 	await expect(page.getByText(`Slide 2 / ${n}`, { exact: true })).toBeVisible();
 });
 
+// ── Zoom, and the gestures it had to take back (#pinch-zoom) ─────────────────
+// A PINCH used to be measured as a swipe: every surface read `touches[0]` against
+// `changedTouches[0]` and none counted the fingers, so two fingers spreading 100px
+// each cleared the 45px swipe threshold and turned the deck. Measured on this
+// surface before the fix: pinch on slide 3 landed on slide 4 at 1440 and 820, and
+// the trackpad half (a pinch arrives as ctrl+wheel) misfired at every width.
+// Contract: engineering/decisions/2026-08-10-preview-pinch-zoom.md.
+//
+// These start MID-DECK deliberately. A misfired `prev` on slide 1 clamps and looks
+// exactly like a correctly-ignored gesture — the first cut of this probe reported a
+// false "no nav" on the phone project for precisely that reason.
+async function toSlide3(page: import('@playwright/test').Page) {
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('ArrowRight');
+	const n = await slideCount(page);
+	await expect(page.getByText(`Slide 3 / ${n}`, { exact: true })).toBeVisible();
+	return n;
+}
+/** A real two-finger pinch — CDP touch points, not a synthesized DOM event. */
+async function pinch(page: import('@playwright/test').Page, box: { x: number; y: number; width: number; height: number }, out = true) {
+	const cdp = await page.context().newCDPSession(page);
+	const cy = box.y + box.height / 2;
+	const cx = box.x + box.width / 2;
+	const pt = (x: number) => ({ x, y: cy, radiusX: 12, radiusY: 12, force: 1 });
+	const from = out ? 20 : 100;
+	const to = out ? 100 : 20;
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(cx - from), pt(cx + from)] });
+	for (let i = 1; i <= 6; i++) {
+		const half = from + ((to - from) * i) / 6;
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(cx - half), pt(cx + half)] });
+	}
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+/** The zoom badge only exists above fit scale, so its presence IS "the slide is zoomed". */
+const zoomBadge = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /Reset zoom to fit/ });
+
+test('@parity a two-finger pinch zooms the slide instead of turning the deck', async ({ page }) => {
+	test.skip(!test.info().project.use.hasTouch, 'this project models a device with no touchscreen');
+	const n = await toSlide3(page);
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await pinch(page, box);
+	// The deck did NOT move…
+	await expect(page.getByText(`Slide 3 / ${n}`, { exact: true })).toBeVisible();
+	// …and the slide DID zoom.
+	await expect(zoomBadge(page)).toBeVisible();
+	// Pinching back in returns to fit, which is the only way back on a touch-only device.
+	await pinch(page, box, false);
+	await expect(zoomBadge(page)).toHaveCount(0);
+	await expect(page.getByText(`Slide 3 / ${n}`, { exact: true })).toBeVisible();
+});
+
+test('@parity a trackpad pinch (ctrl+wheel) zooms instead of turning the deck', async ({ page }) => {
+	// Runs on EVERY project, touch or not: Chromium delivers a trackpad pinch as a
+	// ctrl+wheel, so this is the desktop half of the same gesture and it misfired even
+	// on the plain `desktop` project.
+	const n = await toSlide3(page);
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	const x = box.x + box.width / 2;
+	const y = box.y + box.height / 2;
+	// modifiers bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8.
+	await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: -240, modifiers: 2 });
+	await expect(zoomBadge(page)).toBeVisible();
+	await expect(page.getByText(`Slide 3 / ${n}`, { exact: true })).toBeVisible();
+	// The badge is the pointer-free way back to fit — a trackpad has no middle button.
+	await zoomBadge(page).click();
+	await expect(zoomBadge(page)).toHaveCount(0);
+});
+
+test('@parity a middle-button drag zooms, and a middle click snaps back to fit', async ({ page }) => {
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cx = box.x + box.width / 2;
+	const cy = box.y + box.height / 2;
+	await page.mouse.move(cx, cy);
+	await page.mouse.down({ button: 'middle' });
+	await page.mouse.move(cx, cy - 120, { steps: 6 }); // drag UP → zoom in
+	await page.mouse.up({ button: 'middle' });
+	await expect(zoomBadge(page)).toBeVisible();
+	// A press that does not travel is a click, not a drag.
+	await page.mouse.move(cx, cy);
+	await page.mouse.down({ button: 'middle' });
+	await page.mouse.up({ button: 'middle' });
+	await expect(zoomBadge(page)).toHaveCount(0);
+});
+
+test('@parity zoom does not leak onto the next slide', async ({ page }) => {
+	// 3× carried onto the next slide would land the reader in a random corner of it.
+	const n = await slideCount(page);
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.x + box.width / 2, y: box.y + box.height / 2, deltaX: 0, deltaY: -240, modifiers: 2 });
+	await expect(zoomBadge(page)).toBeVisible();
+	await page.keyboard.press('ArrowRight');
+	await expect(page.getByText(`Slide 2 / ${n}`, { exact: true })).toBeVisible();
+	await expect(zoomBadge(page)).toHaveCount(0);
+});
+
 test('@parity navigating never steals the caret, so two presses both land', async ({ page }) => {
 	// If turning the deck dropped focus into the editor, the SECOND arrow press
 	// would move the caret instead — navigation that works exactly once.
@@ -175,4 +280,58 @@ test('arrow navigation does not re-open a preview the author collapsed', async (
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('End');
 	await expect(collapsed()).toHaveCount(1);
+});
+
+test('@parity resizing the pane while zoomed never blanks the slide', async ({ page }) => {
+	// The splitter drag, "Collapse editor" and a window resize all change the zoom
+	// box. Nothing re-bounded the pan, so a zoomed-and-panned slide sat entirely
+	// outside the new box: the preview rendered BLANK with a "400%" badge beside it,
+	// and on the chromeless surfaces there is no badge to click your way out with.
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	// Zoom hard, anchored at the far corner so the pan runs to its bound.
+	for (let i = 0; i < 6; i++) {
+		await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.x + box.width, y: box.y + box.height, deltaX: 0, deltaY: -240, modifiers: 2 });
+	}
+	await expect(zoomBadge(page)).toBeVisible();
+	// Shrink the window — the same geometry change the splitter makes.
+	const vp = page.viewportSize();
+	expect(vp).not.toBeNull();
+	if (!vp) return;
+	await page.setViewportSize({ width: vp.width, height: Math.round(vp.height * 0.55) });
+	await page.waitForTimeout(400);
+
+	// TWO outcomes are correct here, and which one a project gets depends on whether
+	// the new geometry crosses a layout branch: either the slide is STILL ZOOMED (the
+	// pan re-bound against the new box), or the holder remounted and zoom RESET to fit
+	// — a fresh controller starts at fit and now announces it, so the badge goes with
+	// it. Asserting one specific outcome would be asserting this project's breakpoints.
+	// What must never happen is the third state: zoomed, but no longer covering its
+	// box — which is the blank preview this test exists for.
+	const state = await page.evaluate(() => {
+		const host = document.querySelector('[aria-label="Live deck preview"]');
+		const clip = host?.parentElement;
+		if (!host || !clip) return null;
+		const a = host.getBoundingClientRect();
+		const b = clip.getBoundingClientRect();
+		return {
+			transform: (host as HTMLElement).style.transform,
+			gaps: { left: a.left - b.left, top: a.top - b.top, right: b.right - a.right, bottom: b.bottom - a.bottom },
+		};
+	});
+	expect(state).not.toBeNull();
+	if (!state) return;
+	const zoomedNow = await zoomBadge(page).count();
+	if (zoomedNow === 0) {
+		// Reset to fit: the transform is cleared, so the slide fills its box by layout.
+		expect(state.transform, 'reset to fit must clear the transform, not strand one').toBe('');
+		return;
+	}
+	// Still zoomed — every edge must reach or overhang the clip box. A positive value
+	// is exposed background; before the re-bound this was the full width of the box.
+	for (const [edge, v] of Object.entries(state.gaps)) {
+		expect(v, `${edge} edge exposed ${v}px of background`).toBeLessThanOrEqual(1);
+	}
 });

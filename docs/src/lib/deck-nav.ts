@@ -79,6 +79,34 @@ export function isTypingTarget(el: Element | null): boolean {
  * `document.activeElement` itself, so it stays testable without a live document
  * and honest about shadow/portal cases where the two differ.
  */
+/**
+ * The ZOOM keys — `+`/`=` in, `-`/`_` out, `0` back to fit — or `null`.
+ *
+ * Zoom is the fourth input verb, and it shipped reachable only by pinch, ctrl+wheel
+ * or a middle button: gated on pointer capability, which is precisely what this
+ * module's parity rule forbids. A keyboard-only or switch user had no route to zoom
+ * at all, and no route back — the reset badge only exists once you have ALREADY
+ * zoomed with a pointer.
+ *
+ * Same guards as {@link shellKeyAction}, and for the same reasons: a modified chord
+ * belongs to the app or the browser (⌘+ / ⌘- are the browser's own page zoom, which
+ * we must never steal), and a keystroke aimed at a typing target is the author
+ * typing a literal `-` or `0`.
+ *
+ * `=` and `_` are the unshifted faces of `+` and `-`, so the keys work without
+ * reaching for Shift — which is the point of offering them at all.
+ */
+const ZOOM_KEYS: Record<string, string> = { '+': 'in', '=': 'in', '-': 'out', _: 'out', '0': 'reset' };
+
+export function zoomKeyAction(
+	e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>,
+	target: Element | null,
+): string | null {
+	if (e.metaKey || e.ctrlKey || e.altKey) return null;
+	if (isTypingTarget(target)) return null;
+	return Object.hasOwn(ZOOM_KEYS, e.key) ? ZOOM_KEYS[e.key] : null;
+}
+
 export function shellKeyAction(
 	e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
 	target: Element | null,

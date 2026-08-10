@@ -87,6 +87,19 @@ test('the present-transport kernels the player already inlines are still self-co
 		const keyAction = inlineIntoEmptyScope(t.keyAction, 'keyAction');
 		assert.equal(keyAction('ArrowRight', t.PRESENT_KEYMAP), 'next');
 		assert.throws(() => keyAction('ArrowRight'), ReferenceError, 'the no-map form is NOT inlinable — the player must pass the keymap');
+
+		// The zoom rule joined the inlined set when the presenter screen gained pinch
+		// (2026-08-10-preview-pinch-zoom.md). `createZoomGesture` is the biggest kernel
+		// the popup carries and the easiest to break this way — it closes over `emit`,
+		// `bound` and `about`, all of which must be INTERNAL, not module-scope.
+		const zoomStep = inlineIntoEmptyScope(t.zoomStep, 'zoomStep');
+		assert.ok(zoomStep(-100) > 1, 'the inlined step still zooms in on a push away');
+
+		const zoom = inlineIntoEmptyScope(t.createZoomGesture, 'createZoomGesture')();
+		zoom.down([{ x: 0, y: 0 }, { x: 100, y: 0 }]);
+		zoom.move([{ x: -50, y: 0 }, { x: 150, y: 0 }], { w: 1000, h: 600 });
+		assert.equal(zoom.state().scale, 2, 'the inlined gesture still pinches');
+		assert.equal(zoom.up(0).swipeBlocked, true, 'and still blocks the swipe it would otherwise fake');
 	});
 });
 

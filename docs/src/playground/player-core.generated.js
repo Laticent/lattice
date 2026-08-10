@@ -193,10 +193,12 @@ __export(present_transport_exports, {
   PRESENT_KEYMAP: () => PRESENT_KEYMAP,
   createTransport: () => createTransport,
   createWheelGate: () => createWheelGate,
+  createZoomGesture: () => createZoomGesture,
   fitScale: () => fitScale,
   keyAction: () => keyAction,
   padInset: () => padInset,
-  swipeAction: () => swipeAction
+  swipeAction: () => swipeAction,
+  zoomStep: () => zoomStep
 });
 function fitScale({ stageW, stageH, slideW, slideH, insetX = 0, insetY = 0 }) {
   return Math.min((stageW - insetX) / slideW, (stageH - insetY) / slideH);
@@ -219,6 +221,160 @@ function createWheelGate({ threshold = 40, cooldown = 480 } = {}) {
     if (now - last < cooldown) return null;
     last = now;
     return d > 0 ? "next" : "prev";
+  };
+}
+function zoomStep(delta, { rate = 15e-4 } = {}) {
+  return Math.exp(-delta * rate);
+}
+function createZoomGesture({ min = 1, max = 4, onChange } = {}) {
+  let scale = 1;
+  let x = 0;
+  let y = 0;
+  let span = 0;
+  let px = 0;
+  let py = 0;
+  let multi = false;
+  let moved = false;
+  const emit = () => {
+    if (onChange) onChange({ scale, x, y });
+  };
+  const bound = (view) => {
+    const cw = view.w * scale;
+    const ch = view.h * scale;
+    x = cw <= view.w ? 0 : Math.max(view.w - cw, Math.min(0, x));
+    y = ch <= view.h ? 0 : Math.max(view.h - ch, Math.min(0, y));
+  };
+  const about = (next, ax, ay, view) => {
+    const s = Math.max(min, Math.min(max, next));
+    if (s !== scale) {
+      x = ax - (ax - x) / scale * s;
+      y = ay - (ay - y) / scale * s;
+      scale = s;
+    }
+    bound(view);
+  };
+  return {
+    /** The transform to apply: `translate(x, y) scale(scale)`, origin top-left. */
+    state: () => ({ scale, x, y }),
+    /** True once the reader has zoomed past fit — the "one finger pans" mode. */
+    zoomed: () => scale > 1,
+    /**
+     * Pointers went down or changed. `points` is EVERY pointer currently down,
+     * as `[{x, y}, …]`; pass the whole list on every touchstart, because a second
+     * finger landing is what turns a swipe-in-progress into a pinch.
+     */
+    down(points) {
+      if (points.length > 1) {
+        multi = true;
+        const a = points[0];
+        const b = points[1];
+        span = Math.hypot(b.x - a.x, b.y - a.y);
+        px = (a.x + b.x) / 2;
+        py = (a.y + b.y) / 2;
+      } else if (points.length === 1) {
+        px = points[0].x;
+        py = points[0].y;
+      }
+    },
+    /**
+     * Pointers moved. Returns what the gesture IS, so the caller knows whether to
+     * `preventDefault` (a pinch or a pan owns the gesture; the page must not
+     * scroll or zoom under it) and whether a swipe is still on the table.
+     *
+     * @returns {'pinch'|'pan'|null}
+     */
+    move(points, view) {
+      if (points.length > 1) {
+        multi = true;
+        const a = points[0];
+        const b = points[1];
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        if (span > 0) {
+          moved = true;
+          x += mx - px;
+          y += my - py;
+          about(scale * (dist / span), mx, my, view);
+          emit();
+        }
+        span = dist;
+        px = mx;
+        py = my;
+        return "pinch";
+      }
+      if (points.length === 1) {
+        if (scale <= 1) return null;
+        moved = true;
+        x += points[0].x - px;
+        y += points[0].y - py;
+        px = points[0].x;
+        py = points[0].y;
+        bound(view);
+        emit();
+        return "pan";
+      }
+      return null;
+    },
+    /**
+     * A pointer lifted. `remaining` is how many are still down.
+     *
+     * `swipeBlocked` is the whole point: it stays true from the moment a second
+     * finger lands until the last one lifts, so the finger that ends a pinch can
+     * never be measured as a swipe. Reading it is what a surface must do BEFORE
+     * calling {@link swipeAction}.
+     *
+     * @returns {{swipeBlocked:boolean}}
+     */
+    up(remaining) {
+      const swipeBlocked = multi || moved;
+      if (remaining > 0) {
+        span = 0;
+      } else {
+        span = 0;
+        multi = false;
+        moved = false;
+      }
+      return { swipeBlocked };
+    },
+    /** Re-baseline the single-pointer anchor — after `up`, for the surviving finger. */
+    anchor(point) {
+      px = point.x;
+      py = point.y;
+    },
+    /** Zoom by a multiplicative `factor` about a point — the wheel and drag path. */
+    by(factor, ax, ay, view) {
+      about(scale * factor, ax, ay, view);
+      emit();
+    },
+    /**
+     * Re-clamp against the CURRENT view without moving the slide — what a viewport
+     * RESIZE owes. `bound()` otherwise runs only inside a gesture, so a box that
+     * shrinks while zoomed leaves the pan clamped to a box that no longer exists,
+     * and the content can sit entirely outside the visible area (a blank surface).
+     */
+    nudge(dx, dy, view) {
+      x += dx;
+      y += dy;
+      bound(view);
+      emit();
+    },
+    /**
+     * Back to fit. Also what a slide change owes, so zoom never leaks across slides.
+     *
+     * ALWAYS emits, even when already at fit. Chrome (a zoom badge) derives its own
+     * existence from these announcements, and a caller that reset a surface whose
+     * chrome had gone stale — a remount, a fresh handle on a re-attached surface —
+     * got silence and left the stale badge on screen, claiming a scale that was no
+     * longer real and doing nothing when clicked. An idempotent announcement is
+     * cheap; a missing one is unrecoverable from the outside.
+     */
+    reset() {
+      scale = 1;
+      x = 0;
+      y = 0;
+      emit();
+    }
   };
 }
 function createTransport({ count, start = 0, onShow }) {

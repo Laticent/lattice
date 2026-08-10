@@ -90,3 +90,102 @@ test('the slide overview opens with the G key and lists every slide', async ({ p
 	await page.getByRole('button', { name: 'Close slide overview' }).click();
 	await expect(overview).toBeHidden();
 });
+
+// ── Zoom on the delivery surface (#pinch-zoom) ───────────────────────────────
+// Present shared the shell's defect exactly: `touches[0]` measured against
+// `changedTouches[0]` with no finger count, so a pinch cleared the 45px swipe
+// threshold and turned the slide — in front of the room, mid-talk. Tagged @parity
+// so it runs at all three widths in both pointer states.
+// Contract: engineering/decisions/2026-08-10-preview-pinch-zoom.md.
+
+const presentZoomBadge = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /Reset zoom to fit/ });
+
+test('@parity a pinch in Present zooms the slide instead of turning it', async ({ page }) => {
+	test.skip(!test.info().project.use.hasTouch, 'this project models a device with no touchscreen');
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	// Start mid-deck: a misfired `prev` on slide 1 clamps and is indistinguishable
+	// from a gesture correctly ignored.
+	await page.keyboard.press('ArrowRight');
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	const cy = box.y + box.height / 2;
+	const cx = box.x + box.width / 2;
+	const pt = (x: number) => ({ x, y: cy, radiusX: 12, radiusY: 12, force: 1 });
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(cx - 20), pt(cx + 20)] });
+	for (let i = 1; i <= 6; i++) {
+		const half = 20 + (90 * i) / 6;
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(cx - half), pt(cx + half)] });
+	}
+	await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+
+	await expect(presentZoomBadge(page)).toBeVisible();
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+});
+
+test('@parity a trackpad pinch in Present zooms; the badge returns it to fit', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await page.keyboard.press('ArrowRight');
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	// modifiers bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8.
+	await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.x + box.width / 2, y: box.y + box.height / 2, deltaX: 0, deltaY: -240, modifiers: 2 });
+	await expect(presentZoomBadge(page)).toBeVisible();
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+	await presentZoomBadge(page).click();
+	await expect(presentZoomBadge(page)).toHaveCount(0);
+});
+
+test('@parity leaving a slide in Present drops the zoom with it', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.x + box.width / 2, y: box.y + box.height / 2, deltaX: 0, deltaY: -240, modifiers: 2 });
+	await expect(presentZoomBadge(page)).toBeVisible();
+	await page.keyboard.press('ArrowRight');
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+	await expect(presentZoomBadge(page)).toHaveCount(0);
+});
+
+// Present's swipe and wheel NAVIGATION moved out of React props and into the zoom
+// controller. Nothing asserted it still worked there — so a later change to the
+// backdrop, the effect order, or that module could have killed wheel and swipe nav
+// in Present with every gate green. That is #1294's failure mode with a longer
+// causal chain, and these two cells are the guard against it.
+
+test('@parity a plain wheel still turns the deck in Present', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, 260);
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+});
+
+test('@parity a one-finger swipe still turns the deck in Present', async ({ page }) => {
+	test.skip(!test.info().project.use.hasTouch, 'this project models a device with no touchscreen');
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	const y = box.y + box.height / 2;
+	const from = box.x + box.width * 0.7;
+	const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number) =>
+		cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 12, radiusY: 12, force: 1 }] });
+	await send('touchStart', from);
+	for (let i = 1; i <= 5; i++) await send('touchMove', from - (200 * i) / 5);
+	await send('touchEnd', from - 200);
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+});

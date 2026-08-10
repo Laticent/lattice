@@ -1287,8 +1287,13 @@ describe('StudioShell — slide navigation parity', () => {
 			seedStop('write');
 			render(<StudioShell options={options} />);
 			const surface = previewSurface();
-			fireEvent.touchStart(surface, { touches: [{ clientX: 500, clientY: 300 }], bubbles: true });
-			fireEvent.touchEnd(surface, { changedTouches: [{ clientX: 300, clientY: 310 }], bubbles: true });
+			// `targetTouches` — the contacts on THIS element — is what the controller
+			// counts, deliberately: `touches` is every contact on the document, so a
+			// finger resting on another pane used to read as a second pinch finger and
+			// kill the swipe. A real TouchEvent always carries all three lists; a fixture
+			// that omits one is testing a shape the browser never produces.
+			fireEvent.touchStart(surface, { touches: [{ clientX: 500, clientY: 300 }], targetTouches: [{ clientX: 500, clientY: 300 }], bubbles: true });
+			fireEvent.touchEnd(surface, { touches: [], targetTouches: [], changedTouches: [{ clientX: 300, clientY: 310 }], bubbles: true });
 			expect(viewedSlide()).toBe(2);
 		});
 
