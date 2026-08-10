@@ -11,8 +11,10 @@ summary: >
   declares `@import 'lattice';` at its top, which in CSS means the imported sheet's rules come
   FIRST and the importing theme wins — and lattice-emulator.js's OWN Mermaid token reader
   already models it that way at :852, citing that exact @import rationale in its comment,
-  while the injected CSS at :691 does the opposite. So the file holds two contradictory models
-  of one cascade, and 9 tokens (134 declarations) consequently resolve TWO WAYS IN ONE RENDER:
+  while the injected CSS at :691 does the opposite — as does a third site, :1548's
+  engine.addThemes, which also puts the layout first. So two of the three places that order
+  these stylesheets already agree with the themes, and the odd one out is the one that builds
+  the page; and 9 tokens (134 declarations) consequently resolve TWO WAYS IN ONE RENDER:
   a gantt's baked SVG gets the palette's --diagram-active while the CSS around it gets the
   base's. Flipping the concat is one line and fixes both, but it ACTIVATES every dead
   declaration — verified visually: ardesia's code slide swaps the base's Night Owl syntax
@@ -62,8 +64,17 @@ const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
 ```
 
 The Mermaid token reader puts the palette **last** and cites the `@import` rationale in as
-many words. So the export path holds **two contradictory models of one cascade**, and the one
-with the reasoning attached is the one that is not used to build the page.
+many words.
+
+**There is a third site, and it agrees with the reader.** `lattice-emulator.js:1548` —
+`engine.addThemes([layout CSS, palette])` — hands `lib/engine` the layout first and the
+palette second. It feeds the engine rather than the injected `${css}`, so it does not change
+what the export paints; it means **two of the three places that order these two stylesheets
+already agree with what the themes declare**, and the odd one out is the one that builds the
+page.
+
+So the export path holds contradictory models of one cascade, and the model with the
+reasoning attached is not the one used to render.
 
 ## 2. Measured
 
