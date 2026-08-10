@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Studio's pre-paint shell and the hydrated app already share boot state through localStorage read by an inline head script, with the storage FORMAT declared once in dependency-free modules both sides import - so the splitter jank reported as "the shell doesn't know where the divider was" was never a sharing gap. Measured on the built site at 1440x900 with the split dragged to editor 25%, the shell had it right from t=320ms; the APP mounted at its hardcoded 46/54 default at t=1467ms and only applied the saved layout at t=3317ms, ~400ms after the shell was dismissed - a 302px jump in plain view. The asymmetry is TIMING, not channel - the shell reads before paint, the app read two animation frames after mount, and those frames queue behind the ~505KB engine fetch. Cookies were considered and rejected - the docs site builds static (no adapter, no per-request render), so a cookie cannot reach a server that does not run, and client-side it is strictly worse than localStorage. Fix - the saved layout is read during the first render and handed to react-resizable-panels as its defaultLayout, with a self-verifying backstop for config changes. Remaining known gaps recorded, chief among them the docked side panels the shell does not model.
+summary: The Studio's pre-paint shell and the hydrated app already share boot state through localStorage read by an inline head script, with the storage FORMAT declared once in dependency-free modules both sides import - so the splitter jank reported as "the shell doesn't know where the divider was" was never a sharing gap. Measured on the built site at 1440x900 with the split dragged to editor 25%, the shell had it right from t=320ms; the APP mounted at its hardcoded 46/54 default at t=1467ms and only applied the saved layout at t=3317ms, ~400ms after the shell was dismissed - a 302px jump in plain view. The asymmetry is TIMING, not channel - the shell reads before paint, the app read two animation frames after mount, and those frames queue behind the ~505KB engine fetch. Cookies were considered and rejected - the docs site builds static (no adapter, no per-request render), so a cookie cannot reach a server that does not run, and client-side it is strictly worse than localStorage. Fix - on a client:only surface the saved layout is read during the first render and handed to react-resizable-panels as its defaultLayout; a hydrated surface keeps the post-mount restore, because that seed reaches the panel's inline style during RENDER and React 19 does not patch inline-style hydration mismatches. The first draft of this change seeded both surfaces and froze the Playground's flex-basis permanently - the adversarial trio caught it before merge, and the record of that is kept below rather than tidied away. Remaining known gaps recorded, chief among them the docked side panels the shell does not model.
 ---
 
 # What the Studio's shell and app share, and why the splitter still jumped
@@ -97,13 +97,32 @@ it does not control. Here it lost: the shell's own dismissal is triggered by the
 live preview's first render, which lands *before* those starved frames do.
 
 **The fix is to remove the correction pass, not to speed it up.** The library
-(`react-resizable-panels` v4) accepts a `defaultLayout` on the group, and — this is
-what makes it usable on both surfaces — consumes it inside its own init layout
-effect rather than rendering from it. So it can be computed during the client render
-without changing the markup React hydrates, which means no style mismatch for React
-19 to silently drop. The hook now reads the saved layout during render and hands it
-over; the group initializes at the user's widths and the default share is never laid
-out at all.
+(`react-resizable-panels` v4) accepts a `defaultLayout` on the group. The hook reads
+the saved layout during render and hands it over; the group initializes at the user's
+widths and the default share is never laid out at all.
+
+**But only on a surface that never server-renders, and the reason is the most
+important thing in this note.** `defaultLayout` is NOT confined to the library's init
+effect: `getPanelStyles` reads it during RENDER and returns `{flexGrow}` from it
+whenever the group has no live state yet (`if (n?.[P]) return { flexGrow: n?.[P] }`).
+On a hydrated island the server rendered the panel's `defaultSize` and the client's
+first render produces something different, and React 19 does not patch inline-style
+hydration mismatches — it says so in as many words: *"this won't be patched up."* The
+DOM keeps the server's declarations while React's prop record believes the client's,
+so `flex-basis: 0` and `flex-shrink: 1` are never written, `flex-basis` resolves to
+`auto`, and the grow values stop deciding the layout — permanently, for the life of
+the page.
+
+The first draft of this change asserted the opposite ("consumes it inside its own
+init layout effect rather than rendering from it") and seeded BOTH surfaces on the
+strength of it. On the Playground that turned a divider dragged to 472px into 678px
+on reload, and left it non-linear afterwards: a keyboard nudge that moved
+`aria-valuenow` 25 → 30 moved the pane 34px where its own reported share claims 72px.
+The library's state stayed right while the pixels went wrong, which is exactly why
+the existing reload test in `docs/e2e/split.spec.ts` — it asserts `aria-valuenow` —
+sailed past it. So: the Studio (`client:only`) is seeded, the Playground
+(`client:load`) is not, and the option is named `clientOnlyPanelIds` so the
+constraint travels with the call rather than living in a comment.
 
 To read storage during render the hook has to know the panel ids *before* the group
 mounts — the only runtime source of the real ids is `groupRef.getLayout()`, which is
@@ -116,47 +135,79 @@ the rendered panels finds no saved layout for its bucket (and the library ignore
 `defaultLayout` that does not cover every panel), and the post-mount backstop
 re-derives the bucket from the actual panels. It costs a jump, never wrong widths.
 
-## Two things the measurement turned up on the way
+## A claim this note used to make, and why it is gone
 
-**The Playground had never restored its split at all.** Its group reports no layout
-for ~245ms after its panels are in the DOM, and the old restore treated the empty
-`getLayout()` as "nothing to do" and returned for good — so a dragged divider there
-was persisted on every drag and dropped on every load. The restore now keeps the
-want as a pending flag, satisfied by whichever signal arrives first.
+An earlier draft said **"the Playground had never restored its split at all"**, on
+the strength of a synthetic layout written into `localStorage` mid-session and a
+reload that came back at the default. That is false, and both the independent checker
+and a rebuild of `origin/main` refuted it: a real drag to 472px reloads to 472px on
+`main`, and the pre-existing `docs/e2e/split.spec.ts` reload test passes there. The
+old `useEffect` + double-rAF restore was late on the Studio, not absent on the
+Playground.
 
-**A `setLayout` issued while the library is initializing is discarded silently.**
-Measured: the Playground's saved 25/75 went in at t=393ms and the library reported
-its own 46.667/53.333 at t=417ms. So the backstop cannot treat "I called setLayout"
-as done — it re-asserts until the group reports the target back, bounded by attempts
-(a share below a pane's px minimum is legitimately clamped and will never match) and
-by a deadline.
+It is recorded rather than deleted because the false claim did real damage: it was
+the justification for seeding the Playground at all, and for a re-assert loop built
+on a second bad measurement ("a `setLayout` during init is discarded silently" —
+observed only on a build where the seed was already corrupting the layout). Both are
+gone. The backstop now does what the old one did, one step earlier (a layout effect
+rather than two animation frames) and without the permanent give-up when
+`getLayout()` is still empty.
+
+**The lesson worth keeping:** a synthetic value written into storage is not the same
+experiment as the value the app itself wrote. The stored share the app produces is a
+measured percentage; a hand-picked one exercises clamping and content-sizing paths
+the real one never reaches. Drive the real control.
 
 ## Verification
 
 Per HARD RULE #23, on the real built surface, driven through the real divider:
 
-- **Studio** — drag the divider to editor 402px, reload: the pane is 402px on the
-  first frame it exists, and never any other width. Pinned by
+- **Studio** — drag the real divider to editor 402px, reload: the pane is 402px on
+  the first frame it exists, and never any other width. 3/3 on the drag-then-reload
+  journey and 4/4 from a seeded layout. Pinned by
   `docs/e2e/studio-instant-shell.spec.ts`, "the app never lays out the default share
   when a dragged split is stored", which asserts the *whole log* of pane widths is a
   single entry. Confirmed to fail without the fix (it logs the default first) and
   pass with it.
-- **Playground** — the saved layout is now asserted onto the group (it previously
-  was not at all). Its panes do not land at the dragged pixel position; see below.
+- **Playground** — drag to 472px, reload, still 472px, and a keyboard nudge moves the
+  pane by the share it reports. Pinned by a new case in
+  `docs/e2e/playground-state.spec.ts` that measures the PANE rather than
+  `aria-valuenow`, because the seeded build kept the latter correct while the former
+  was 206px out.
+- **One residual, observed once in ~10 Studio runs** and worth stating rather than
+  averaging away: under extreme CPU load (three agents plus a build on the same box)
+  a run mounted at the default share and was corrected by the backstop at t=3636ms —
+  the old jank, back for one load. The seed is what makes the common case exact; the
+  backstop is what makes the pathological case merely late.
 
 ## Known gaps, recorded rather than fixed
 
-- **The Playground's panes do not land where the drag left them.** Restoring the
-  stored 28.599% re-applies that share and the pane lays out at 649px where the drag
-  left it at 412px. The library expresses a layout as `flex-grow` with
-  `flex-basis: auto`, so once the two panes' content bases overflow the row, flex
-  SHRINKS them in proportion to those bases and the grow values stop deciding. The
-  Studio never shows it because its pane content collapses to nothing. This is a
-  Playground flex-sizing question, not a timing one, and it is pre-existing — before
-  this change the Playground did not restore at all. Not pulled into this diff
-  (HARD RULE #17, #18's off-path rule). Note that `.pg-pane` is on the INNER div; the
-  flex item is the library's outer wrapper, so a `flex-basis` rule on that class is
-  inert — tried and reverted.
+- **`defaultSize="45"` / `"55"` on the Playground's panels are invalid CSS lengths.**
+  A unitless number is not a length, so the `flex-basis` the library server-renders
+  from them is dropped by the parser. It is inert today — the client render replaces
+  it — but it is the latent fragility that made the hydration mismatch destructive
+  rather than merely noisy, and it deserves its own fix. Genuinely pre-existing (it is
+  on `main`), genuinely off this change's path.
+- **A COLLAPSED pane still jumps, and the headline claim does not cover it.** The
+  collapse restore is a separate effect, still `ready` + a double rAF, and this change
+  deliberately leaves it alone. Measured on this branch at 1440x900 with a collapsed
+  pane and a saved layout: the editor lands at 360px and snaps to its 46px rail 867ms
+  later; with the preview collapsed the jump is 1033px. Both also fire a toast — "Editor
+  collapsed." — on a plain reload the user never touched. The pre-paint shell has this
+  RIGHT the whole time (it reads the collapse key and draws the rail from t~75ms), so
+  whether a human sees the wrong state is a race against shell dismissal. Identical on
+  `main`, so pre-existing and not a regression — but it is squarely on this change's path
+  and is the obvious next slice, because it is the same bug in the same hook.
+- **A legally-saveable share can silently collapse a pane on a narrower window, and
+  persist it.** The editor's minimum is 300px, so at 1440 the smallest saveable share is
+  ~20.85%; restore 21% into a 700px window and it falls below the library's collapse
+  midpoint, so the pane snaps to its rail and `pollCollapse` writes the collapse to
+  sessionStorage. The user collapsed nothing. Identical on `main`.
+- **A mouse drag of the Playground divider did not re-engage after a reload** in
+  Playwright, on this branch AND on `main` alike, while a keyboard nudge of the same
+  separator works. Most likely a synthetic-input artifact rather than a product
+  defect, but it is unexplained, it reproduced 3/3 on both builds, and it is written
+  down here rather than forgotten.
 - **The shell models only the bare editor|preview configuration.** A visitor who
   leaves with Settings, the Assistant, the Library or the tablet Inspector docked
   gets a shell drawn without that column and with the default editor|preview share,

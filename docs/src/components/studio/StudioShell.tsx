@@ -1703,10 +1703,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	//     wider, Settings docked, bare Write, tablet Inspector) keeps its own remembered
 	//     widths — Library carries its own id because it docks wider than Coach/Lenses;
 	//   · the hook hands it to the library as the group's starting layout, which it can only
-	//     do if it knows the ids BEFORE the group mounts (#1523).
-	// The config key is derived from it, so the two cannot drift: a panel added to the JSX
-	// and not to this list is a missed restore, and that is the failure the derivation is
-	// here to make impossible.
+	//     do if it knows the ids BEFORE the group mounts (#1523). Passed as
+	//     `clientOnlyPanelIds` because that seed is only safe on an island that never
+	//     server-renders — this one is `client:only` (studio.astro). The Playground, which
+	//     hydrates, deliberately does not pass it (#1553).
+	// `splitConfigKey` is DERIVED from this list, so those two cannot drift. Be precise about
+	// what that does and does not buy: it does NOT tie the list to the JSX below, which stays a
+	// second hand-maintained copy of the same four conditions ~2,200 lines away. A panel added
+	// to the render and not to this list is worse than a missed restore — `configKey` would not
+	// change either, so the restore effect never re-runs on that toggle, and the seed can render
+	// another config's saved share (the library rejects an incomplete `defaultLayout` in its init
+	// path but not in `getPanelStyles`). Every reachable combination was enumerated and agrees
+	// today; keep them in step by hand, and treat this note as the reason to.
 	const splitPanelIds = [
 		...(desktop && effectiveStop === 'build' && inspectorOpen ? ['studio-settings'] : []),
 		...(desktop && effectiveStop === 'build' && assistantOpen ? [libraryOpen ? 'studio-library' : 'studio-assistant'] : []),
@@ -1721,7 +1729,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// two must sum to 100, and a designer re-tuning the default split will find one file.
 		defaultRatio: 100 - PREVIEW_CHROME.defaultPreviewFrac * 100,
 		configKey: splitConfigKey,
-		panelIds: splitPanelIds,
+		clientOnlyPanelIds: splitPanelIds,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
 		// authoritative refit of every live host on release covers any host that was

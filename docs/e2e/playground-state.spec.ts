@@ -155,3 +155,63 @@ test('@crosswidth Reset names its target and arm-confirms over a dirty draft', a
 		.not.toContain('Edited beyond the sample.');
 	expect(await page.evaluate((k) => localStorage.getItem(k), BACKUP_KEY)).toContain('Edited beyond the sample.');
 });
+
+// ── The divider comes back where you left it, and the pane MEASURES that share (#1553) ────
+//
+// Two assertions, because the second is the one that hurts and it hides behind the first.
+//
+// The tempting fix for a splitter that restores late is to hand the saved layout to the
+// library as the group's `defaultLayout`, which is what the Studio now does. That is WRONG on
+// this surface and silently so: `getPanelStyles` reads the prop during RENDER, and this island
+// is `client:load`, so the server renders the panel's `defaultSize` and the client's first
+// render disagrees. React 19 does not patch inline-style hydration mismatches ("this won't be
+// patched up"), so the DOM keeps the server's declarations while React's prop record believes
+// the client's. `flex-basis: 0` and `flex-shrink: 1` never get written, `flex-basis` resolves
+// to `auto`, and from then on the grow values stop deciding the layout. Measured on that build:
+// a divider dragged to 472px came back at 678px.
+//
+// The give-away is that the library's own state stays RIGHT while the pixels go wrong — which
+// is why the existing `split.spec.ts` reload test, which asserts `aria-valuenow`, sails
+// straight past it. So this test measures the PANE, and then nudges the separator by keyboard
+// and measures again: a frozen basis moves the pane by a fraction of what the share says.
+test('the split divider restores where it was dragged, and the pane measures that share', async ({ page }) => {
+	await gotoPlayground(page);
+	const group = page.locator('#pg-split');
+	const editor = page.locator('#pg-split-editor');
+	await expect(group).toBeVisible();
+	const handle = group.locator('[data-slot="resizable-handle"]').first();
+	const width = async () => Math.round((await editor.boundingBox())!.width);
+
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('the split divider has no box — the group never laid out');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 - 200, box.y + box.height / 2, { steps: 12 });
+	await page.mouse.up();
+	const dragged = await width();
+	// Guard against a vacuous pass: if the drag did nothing, every assertion below is trivial.
+	expect(dragged, 'the drag did not move the divider — the rest of this test proves nothing').toBeLessThan(600);
+
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await expect(editor).toBeVisible();
+	await expect
+		.poll(width, { timeout: 15_000, message: 'the saved split was not restored after reload' })
+		.toBeCloseTo(dragged, -1);
+
+	// …and the pane must MEASURE its share, not merely report it. One keyboard step moves the
+	// separator by a known percentage of the group; with a live flex-basis the pane follows,
+	// with a frozen one it drifts a fraction of the distance (measured: 34px against 72px).
+	const before = await width();
+	const valueBefore = Number(await handle.getAttribute('aria-valuenow'));
+	await handle.focus();
+	await page.keyboard.press('Shift+ArrowRight');
+	await expect.poll(async () => Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(valueBefore);
+	const valueAfter = Number(await handle.getAttribute('aria-valuenow'));
+	const groupW = Math.round((await group.boundingBox())!.width);
+	const expectedDelta = ((valueAfter - valueBefore) / 100) * groupW;
+	const actualDelta = (await width()) - before;
+	expect(
+		actualDelta,
+		`the pane moved ${actualDelta}px where its own aria-valuenow claims ${Math.round(expectedDelta)}px — its flex-basis is frozen`,
+	).toBeGreaterThan(expectedDelta * 0.75);
+});

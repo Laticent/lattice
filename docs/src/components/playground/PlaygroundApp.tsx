@@ -87,11 +87,17 @@ export type PlaygroundData = {
 // The Explore surface's walk position: a component's gallery plan (stable step
 // kinds) or a full gallery deck (slide-index positions — no plan exists).
 /**
- * The split's panel ids — ONE declaration, used for the Panels themselves AND as the
- * persistence bucket the hook seeds its `defaultLayout` from.
+ * The split's panel ids — ONE declaration, used for both Panels. Retyping them at the call
+ * sites is how the Studio's equivalent once drifted: a rename compiles, types fine, and simply
+ * misses the storage lookup at runtime (#1495).
  *
- * Retyping them at the call sites is how the Studio's equivalent once drifted: a rename
- * compiles, types fine, and simply misses the storage lookup at runtime (#1495).
+ * NOT passed to `useResizableSplit` as `clientOnlyPanelIds`, deliberately. That option seeds
+ * the library's `defaultLayout`, which reaches the panel's inline style during RENDER — and
+ * this island is `client:load` (playground.astro), so it server-renders and hydrates. React 19
+ * does not patch inline-style hydration mismatches, so seeding here froze the pane's
+ * flex-basis for the life of the page: a divider dragged to 412px came back at 653px and then
+ * mis-tracked every subsequent drag. The hook's post-mount backstop restores this split
+ * instead, and lands on the same 412px. See the option's own note (#1553).
  */
 const PG_SPLIT_PANEL_IDS = ['pg-split-editor', 'pg-split-preview'] as const;
 
@@ -577,7 +583,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// widths to the library as its starting layout instead of laying out at 45/55 and
 		// correcting after. Declared HERE (not derived in the hook) because the only runtime
 		// source of the real ids is the mounted group, which is one mount too late.
-		panelIds: PG_SPLIT_PANEL_IDS,
 
 		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {

@@ -3610,11 +3610,18 @@ own) is not a builder and needs no entry.
   paint arrived ~400ms AFTER the correct placeholder was taken away.
 - **Fix (shipped):** the saved layout is read during the first render and handed to
   `react-resizable-panels` as the group's `defaultLayout`, so it initializes at the
-  remembered widths and the default share is never laid out. The consumer declares
-  its `panelIds` because the only runtime source of the real ids — the mounted
+  remembered widths and the default share is never laid out. The consumer declares its
+  `clientOnlyPanelIds` because the only runtime source of the real ids — the mounted
   group — is one mount too late. Pinned by the `@smoke` case in
   `docs/e2e/studio-instant-shell.spec.ts` that asserts the pane's whole width log is
   one entry.
+- **Do NOT copy that seed to a splitter on a page that server-renders.**
+  `getPanelStyles` reads `defaultLayout` during RENDER, so on a hydrated island it is a
+  style mismatch React 19 refuses to patch ("this won't be patched up"): the DOM keeps
+  the server's `flex-basis` forever and the pane stops measuring the share it reports.
+  The give-away is `aria-valuenow` staying right while the pixels go wrong. The
+  Playground (`client:load`) therefore restores post-mount and only the Studio
+  (`client:only`) is seeded.
 - **The general rule:** the shell and the app share boot state through the same
   storage, so they agree at rest; they disagree in the FIRST SECOND whenever one
   reads before paint and the other corrects after it. If you add shared boot state,

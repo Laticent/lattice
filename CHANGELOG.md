@@ -53,10 +53,13 @@ in patch versions.
   layout, read from storage during the first render rather than written back two
   animation frames after mount — frames which, on the Studio, queue behind the
   ~505KB engine fetch. The Studio's panes are now laid out at the remembered widths
-  on the first frame they exist, and never at any other width. The Playground's
-  saved split, which had never been restored at all (its group reports no layout for
-  ~245ms after mount, and the old restore gave up permanently the first time it
-  asked), is now re-asserted until the group takes it.
+  on the first frame they exist, and never at any other width — as long as neither
+  pane was left collapsed, which is restored by a separate path this change does not
+  touch and which still jumps once. The Playground, which
+  server-renders, deliberately keeps the post-mount restore it already had: seeding a
+  hydrated splitter is silently destructive, because the seed reaches the panel's
+  inline style during render and React does not patch inline-style hydration
+  mismatches — the pane's `flex-basis` would freeze for the life of the page.
 
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
