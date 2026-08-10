@@ -3593,3 +3593,68 @@ own) is not a builder and needs no entry.
   the same one the two-pass bench gate encodes: **a check-run conclusion is not
   evidence until its inputs have completed.**
 - **Triggered by:** #1427.
+
+### The editor|preview divider snaps to the middle a moment after the page loads
+
+- **Symptom:** you drag the Studio's divider, reload, and the divider appears where
+  you left it — then jumps to roughly the middle, then jumps back. Reads as the
+  pre-paint placeholder not knowing where the splitter was.
+- **Why (and why the obvious reading is wrong):** the placeholder knows exactly. It
+  reads the persisted split in `studio.astro`'s pre-paint seed and draws it correctly.
+  It is the APP that was late. `StudioShell` rendered its panels at a hardcoded
+  46/54, and `useResizableSplit` applied the saved layout in an effect deferred by a
+  double `requestAnimationFrame` — frames that queue behind the ~505KB engine fetch.
+  Measured at 1440x900 with the split at editor 25%: the shell had the divider at
+  360.75px from t=320ms, the app mounted at 662/777 at t=1467ms, the shell was
+  dismissed at t=2896ms, and the saved layout landed at t=3317ms. So the corrected
+  paint arrived ~400ms AFTER the correct placeholder was taken away.
+- **Fix (shipped):** the saved layout is read during the first render and handed to
+  `react-resizable-panels` as the group's `defaultLayout`, so it initializes at the
+  remembered widths and the default share is never laid out. The consumer declares its
+  `clientOnlyPanelIds` because the only runtime source of the real ids — the mounted
+  group — is one mount too late. Pinned by the `@smoke` case in
+  `docs/e2e/studio-instant-shell.spec.ts` that asserts the pane's whole width log is
+  one entry.
+- **Do NOT copy that seed to a splitter on a page that server-renders.**
+  `getPanelStyles` reads `defaultLayout` during RENDER, so on a hydrated island it is a
+  style mismatch React 19 refuses to patch ("this won't be patched up"): the DOM keeps
+  the server's `flex-basis` forever and the pane stops measuring the share it reports.
+  The give-away is `aria-valuenow` staying right while the pixels go wrong. The
+  Playground (`client:load`) therefore restores post-mount and only the Studio
+  (`client:only`) is seeded.
+- **The Playground's version of the same disease, and its different cure:** that
+  island server-renders, so before hydration its panes carry no `flex-grow` and an
+  inline `flex-basis:45` — unitless, therefore invalid, therefore dropped. The panes
+  size to CONTENT and leave the row empty (measured: 123px + 300px = 29% of the row,
+  for ~1s on a reload). Because the inline value is invalid and the inline grow is
+  absent, a STYLESHEET can own that window — which is what the 2026-07-19 migration
+  note wrongly assumed was impossible when it retired the old CSS-var seed. The seed
+  is back (`playground.astro` + the `--pg-split-a/b` rules in `playground.css`), and
+  that, not `defaultLayout`, is how you give a hydrated splitter a correct first paint.
+### The Playground's preview pane is empty for seconds after a reload
+
+- **Symptom:** reload the Playground and the preview half is a blank void until the
+  engine finishes loading, then a slide appears. The Studio never does this.
+- **Why:** the Playground DOES have a pre-paint snapshot replay (`.pg-ssr-shell`,
+  gated on `data-pg-shell="on"`), and it was dead. Its gate compared the cached
+  snapshot's `srcHash` against `fp(lattice-docs-pg-source)` — the visitor's DRAFT,
+  which is only written once they type in the editor. Anyone who just picks
+  components has no draft, so the comparison was the snapshot's real hash against the
+  hash of the empty string. Measured: every other clause (`v`, palette, mode, html,
+  css) passed and this one failed `96ae8e9b` vs `1505`.
+- **How to tell:** watch `document.documentElement.getAttribute('data-pg-shell')`
+  across a reload. If it is never `"on"`, the replay was rejected — evaluate the gate's
+  clauses one at a time rather than guessing which.
+- **The trap that hid it:** every existing test waited for the LIVE filmstrip, which
+  arrives either way. A silent pre-paint mechanism needs a test that asserts the
+  MECHANISM ran, not that the content eventually appeared.
+- **Fix (shipped):** with no draft, the identity of what will render is
+  `lattice-docs-pg-inserted-hash` — which the same seed already uses for its `pristine`
+  test. Pinned by "a reload replays the cached slide before the engine renders".
+- **Triggered by:** #1553.
+
+- **The general rule:** the shell and the app share boot state through the same
+  storage, so they agree at rest; they disagree in the FIRST SECOND whenever one
+  reads before paint and the other corrects after it. If you add shared boot state,
+  make the app read it at render, not in an effect.
+- **Triggered by:** `engineering/decisions/2026-08-10-shell-app-boot-state-sharing.md`.

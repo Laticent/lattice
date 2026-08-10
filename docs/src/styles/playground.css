@@ -103,6 +103,27 @@
 	min-height: 0;
 	overflow: hidden; /* a collapsed pane (28px) must clip its inner content */
 }
+/* PRE-HYDRATION SPLIT (#1553). This island server-renders, and until it hydrates the two panel
+   wrappers carry NO flex-grow and an inline `flex-basis:45` — a unitless number, which is not a
+   valid CSS length, so the parser drops it. The panes therefore size to their CONTENT and leave
+   the rest of the row empty: on an iPad reload, an 85px editor and a 205px preview with the
+   viewport blank beside them, for as long as hydration takes. That is not the default share
+   painting early; it is no share at all.
+   Because the inline basis is invalid and the inline grow is absent, a stylesheet CAN own this
+   window — which is what the 2026-07-19 migration note assumed was impossible when it retired
+   the old CSS-var seed. The vars are set by the pre-paint script in playground.astro from the
+   SAME saved layout the app will restore, so a returning resizer's first paint is already their
+   split; the fallbacks are the panels' own defaultSize, so a newcomer's first paint is what
+   hydration is about to produce. Once React commits, the library writes a real inline
+   `flex-grow` and takes the layout back — these rules cannot fight it. */
+.pg-split > #pg-split-editor {
+	flex-basis: 0;
+	flex-grow: var(--pg-split-a, 45);
+}
+.pg-split > #pg-split-preview {
+	flex-basis: 0;
+	flex-grow: var(--pg-split-b, 55);
+}
 /* The pane's real content (label + editor/preview). Kept mounted + inert while
    collapsed so CodeMirror history and the preview iframe survive the interlude;
    hidden by the collapsed rule below so only the rail shows in the 28px strip. */
@@ -233,7 +254,13 @@ body[data-view='read'] .pg-pane-label {
 	height: 100%;
 }
 /* SSR text placeholder painted before CodeMirror hydrates (LCP), removed on
- * mount. Approximates the editor's monospace look + the line-number gutter. */
+ * mount. Approximates the editor's monospace look + the line-number gutter.
+ * `pre-wrap`, not `pre` (#1553): CodeMirror mounts with line wrapping on, so `pre`
+ * made every long line CLIP at the pane edge and then re-flow into two or three
+ * wrapped lines the instant the editor booted — the same class of defect as the
+ * split jumping, one pane over. Wrapping here means the placeholder breaks where the
+ * editor is about to break. The wrapped continuation lines still lack CodeMirror's
+ * hanging indent, so this is closer, not identical. */
 .pg-editor-placeholder {
 	position: absolute;
 	inset: 0;
@@ -244,7 +271,7 @@ body[data-view='read'] .pg-pane-label {
 	line-height: 1.5;
 	color: var(--text-body);
 	background: var(--bg);
-	white-space: pre;
+	white-space: pre-wrap;
 	overflow: hidden;
 	pointer-events: none;
 }

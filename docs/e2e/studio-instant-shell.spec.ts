@@ -1,4 +1,4 @@
-import { STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_PANEL_IDS } from '../src/components/studio/preview-rect';
+import { PREVIEW_CHROME, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_PANEL_IDS } from '../src/components/studio/preview-rect';
 import { expect, test } from './studio-fixture';
 
 // The Studio's pre-paint INSTANT SHELL vs the app it hands off to (#1438).
@@ -676,4 +676,60 @@ test.describe('@minfont a raised browser minimum font size', () => {
 			expect(Math.abs((shell.box as Rect)[3] - (app.box as Rect)[3]), 'slide box height').toBeLessThanOrEqual(TOLERANCE);
 		});
 	}
+});
+
+// ── The hand-off's OTHER half: what the APP paints, not what the shell does ──────────────
+//
+// Every test above asks whether the shell drew the right thing. This one asks whether the app
+// then keeps it — because for a returning visitor with a dragged divider it did not (#1523).
+// The shell had the remembered split from t=320ms and drew it correctly; the app mounted at
+// the panels' hardcoded 46/54 default, and the saved layout was only applied ~1.9s later, some
+// 400ms AFTER the shell had been dismissed. The divider jumped 302px on a 1440px viewport, in
+// full view. Right, then wrong, then right.
+//
+// So the assertion is not "it ends up right" — the old code ended up right too. It is that the
+// editor pane is NEVER LAID OUT at any width other than the remembered one: one entry in the
+// width log, taken from the first frame the pane exists. A regression to a post-paint restore
+// puts the default in that log and fails here, whatever the final state is.
+test('the app never lays out the default share when a dragged split is stored @smoke', async ({ page }) => {
+	await page.addInitScript((layout) => {
+		try {
+			localStorage.setItem('lattice-docs-split-studio', layout);
+		} catch {
+			/* storage blocked — nothing to restore; the width assertion below would be vacuous, so
+			   the final-width poll doubles as the guard that the restore path ran at all */
+		}
+	}, splitLayout(75));
+	// Log every DISTINCT editor-pane width from the first frame the pane is in the DOM. Zero is
+	// dropped rather than recorded: a rect measured in the same frame the element is attached
+	// can legitimately read 0 before the group's first layout, and that is not a share the user
+	// ever sees painted.
+	await page.addInitScript(() => {
+		const log: number[] = [];
+		(window as unknown as { __editorWidths: number[] }).__editorWidths = log;
+		const tick = () => {
+			const el = document.querySelector('[data-pane-role="editor"]');
+			if (el) {
+				const w = Math.round(el.getBoundingClientRect().width);
+				if (w > 0 && log[log.length - 1] !== w) log.push(w);
+			}
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	await page.locator('[data-pane-role="editor"]').waitFor({ state: 'attached', timeout: 45_000 });
+
+	// 25% of the group (1440 minus the 1px separator) = 359.75 → 360. The default share the
+	// regression painted is 46% = 662px, so the two are never confusable.
+	const expected = Math.round(0.25 * (1440 - PREVIEW_CHROME.splitSeparatorW));
+	await expect
+		.poll(async () => (await page.evaluate(() => (window as unknown as { __editorWidths: number[] }).__editorWidths)).at(-1), {
+			timeout: 45_000,
+			message: 'the editor pane never reached the remembered share',
+		})
+		.toBe(expected);
+	const widths = await page.evaluate(() => (window as unknown as { __editorWidths: number[] }).__editorWidths);
+	expect(widths, 'the app laid out a share it then corrected — the split restore is back to a post-paint write').toEqual([expected]);
 });

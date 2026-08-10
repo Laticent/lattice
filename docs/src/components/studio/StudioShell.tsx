@@ -462,8 +462,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	//     the two disagree in a NEW TAB by construction.
 	//   · A TRANSIENT STOP (`quietened` / `revealBuild`) changes what is rendered without
 	//     changing what is persisted, so the measured stop is not the stop that will boot.
-	// `splitConfigKey` already names the docked set ('EP' is the bare editor|preview pair),
-	// so it is the honest test for the first — the same value the layout store buckets by.
+	// `splitPanelIds` already names the docked set (just the editor|preview pair means nothing
+	// is docked), so it is the honest test for the first — the same list the layout store
+	// buckets by.
 	// When the layout is not boot-shaped, DROP the stored rect rather than leave a stale one
 	// to be replayed: the shell's compute path models every boot layout there is (stop,
 	// breakpoint, cinema, the Build activity rail, the persisted split AND the collapsed
@@ -1694,15 +1695,33 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// so the slide overhung the shrinking neighbor pane (the "bleed"). One transform
 	// write on one host per frame is negligible; onDragEnd runs one authoritative refit
 	// as a belt-and-suspenders snap.
-	// The persistence bucket — which panels the group currently renders, so each
-	// configuration (Coach open, Library open wider, Settings docked, bare Write,
-	// tablet Inspector) keeps its own remembered widths. Library is 'L' vs the
-	// coach/lenses 'A' because it docks wider and gets its own saved width.
-	const splitConfigKey =
-		(desktop && effectiveStop === 'build' && inspectorOpen ? 'S' : '') +
-		(desktop && effectiveStop === 'build' && assistantOpen ? (libraryOpen ? 'L' : 'A') : '') +
-		'EP' +
-		(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? 'T' : '');
+	// The panels the group is ABOUT TO RENDER — in the same order and under the same
+	// conditions as the JSX below, which is why this sits beside the hook rather than being
+	// inferred from it. Two things read it, and they are why it is a list of real ids now
+	// rather than the hand-spelled 'SAEPT' key it used to be:
+	//   · it IS the persistence bucket, so each configuration (Coach open, Library open
+	//     wider, Settings docked, bare Write, tablet Inspector) keeps its own remembered
+	//     widths — Library carries its own id because it docks wider than Coach/Lenses;
+	//   · the hook hands it to the library as the group's starting layout, which it can only
+	//     do if it knows the ids BEFORE the group mounts (#1523). Passed as
+	//     `clientOnlyPanelIds` because that seed is only safe on an island that never
+	//     server-renders — this one is `client:only` (studio.astro). The Playground, which
+	//     hydrates, deliberately does not pass it (#1553).
+	// `splitConfigKey` is DERIVED from this list, so those two cannot drift. Be precise about
+	// what that does and does not buy: it does NOT tie the list to the JSX below, which stays a
+	// second hand-maintained copy of the same four conditions ~2,200 lines away. A panel added
+	// to the render and not to this list is worse than a missed restore — `configKey` would not
+	// change either, so the restore effect never re-runs on that toggle, and the seed can render
+	// another config's saved share (the library rejects an incomplete `defaultLayout` in its init
+	// path but not in `getPanelStyles`). Every reachable combination was enumerated and agrees
+	// today; keep them in step by hand, and treat this note as the reason to.
+	const splitPanelIds = [
+		...(desktop && effectiveStop === 'build' && inspectorOpen ? ['studio-settings'] : []),
+		...(desktop && effectiveStop === 'build' && assistantOpen ? [libraryOpen ? 'studio-library' : 'studio-assistant'] : []),
+		...STUDIO_SPLIT_PANEL_IDS,
+		...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['studio-tablet-inspector'] : []),
+	];
+	const splitConfigKey = splitPanelIds.join(',');
 	const split = useResizableSplit({
 		storageKey: STUDIO_SPLIT_KEY,
 		active: splitUsable,
@@ -1710,6 +1729,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// two must sum to 100, and a designer re-tuning the default split will find one file.
 		defaultRatio: 100 - PREVIEW_CHROME.defaultPreviewFrac * 100,
 		configKey: splitConfigKey,
+		clientOnlyPanelIds: splitPanelIds,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
 		// authoritative refit of every live host on release covers any host that was
@@ -1728,7 +1748,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// with either armed measures one stop and boots into another. Ending a Build session with
 	// quiet armed stored a Write-shaped rect that the next load replayed against Build — the box
 	// 29px off, through the replay path the shell trusts over compute.
-	rectBootShapedRef.current = splitConfigKey === 'EP' && effectiveStop === posture && !(splitUsable && split.collapsed);
+	rectBootShapedRef.current = splitPanelIds.length === STUDIO_SPLIT_PANEL_IDS.length && effectiveStop === posture && !(splitUsable && split.collapsed);
 	// Collapse via a header glyph (or a ⌘K command): if focus was inside the
 	// now-inert pane it would drop to <body>; hand it to the always-visible rail.
 	const collapseFromHeader = React.useCallback((side: SplitSide) => {

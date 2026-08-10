@@ -155,3 +155,100 @@ test('@crosswidth Reset names its target and arm-confirms over a dirty draft', a
 		.not.toContain('Edited beyond the sample.');
 	expect(await page.evaluate((k) => localStorage.getItem(k), BACKUP_KEY)).toContain('Edited beyond the sample.');
 });
+
+// ── The divider comes back where you left it, and the pane MEASURES that share (#1553) ────
+//
+// Two assertions, because the second is the one that hurts and it hides behind the first.
+//
+// The tempting fix for a splitter that restores late is to hand the saved layout to the
+// library as the group's `defaultLayout`, which is what the Studio now does. That is WRONG on
+// this surface and silently so: `getPanelStyles` reads the prop during RENDER, and this island
+// is `client:load`, so the server renders the panel's `defaultSize` and the client's first
+// render disagrees. React 19 does not patch inline-style hydration mismatches ("this won't be
+// patched up"), so the DOM keeps the server's declarations while React's prop record believes
+// the client's. `flex-basis: 0` and `flex-shrink: 1` never get written, `flex-basis` resolves
+// to `auto`, and from then on the grow values stop deciding the layout. Measured on that build:
+// a divider dragged to 472px came back at 678px.
+//
+// The give-away is that the library's own state stays RIGHT while the pixels go wrong — which
+// is why the existing `split.spec.ts` reload test, which asserts `aria-valuenow`, sails
+// straight past it. So this test measures the PANE, and then nudges the separator by keyboard
+// and measures again: a frozen basis moves the pane by a fraction of what the share says.
+//
+// @smoke — i.e. the PER-PR tier, not the nightly. It earns that because the failure it guards
+// is silent, permanent, and has already passed a fully green CI run once: the seeded build
+// shipped with every gate green, `aria-valuenow` correct, and the pane 206px out. A guard that
+// only runs overnight would have caught it a day after the merge.
+test('@smoke the split divider restores where it was dragged, and the pane measures that share', async ({ page }) => {
+	await gotoPlayground(page);
+	const group = page.locator('#pg-split');
+	const editor = page.locator('#pg-split-editor');
+	await expect(group).toBeVisible();
+	const handle = group.locator('[data-slot="resizable-handle"]').first();
+	const width = async () => Math.round((await editor.boundingBox())!.width);
+
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('the split divider has no box — the group never laid out');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 - 200, box.y + box.height / 2, { steps: 12 });
+	await page.mouse.up();
+	const dragged = await width();
+	// Guard against a vacuous pass: if the drag did nothing, every assertion below is trivial.
+	expect(dragged, 'the drag did not move the divider — the rest of this test proves nothing').toBeLessThan(600);
+
+	// Sample the panes every frame from document start, so the PRE-hydration paint is on the
+	// record too — that is where the reported jank actually lived. Before the CSS-var seed, a
+	// throttled reload showed the two panes at 123px and 300px covering 35% of the row, with the
+	// rest of the viewport simply empty, for about a second; then the 45/55 default; then the
+	// restore. Three states, two of them wrong.
+	await page.addInitScript(() => {
+		const log: { e: number; v: number; cover: number }[] = [];
+		(window as unknown as { __paneLog: typeof log }).__paneLog = log;
+		const t0 = performance.now();
+		const tick = () => {
+			const g = document.querySelector('#pg-split');
+			const e = document.querySelector('#pg-split-editor');
+			const v = document.querySelector('#pg-split-preview');
+			if (g && e && v) {
+				const gw = g.getBoundingClientRect().width;
+				const ew = Math.round(e.getBoundingClientRect().width);
+				const vw = Math.round(v.getBoundingClientRect().width);
+				const last = log[log.length - 1];
+				if (gw > 0 && (!last || last.e !== ew || last.v !== vw)) log.push({ e: ew, v: vw, cover: Math.round(((ew + vw) / gw) * 100) });
+			}
+			if (performance.now() - t0 < 10_000) requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await expect(editor).toBeVisible();
+	await expect
+		.poll(width, { timeout: 15_000, message: 'the saved split was not restored after reload' })
+		.toBeCloseTo(dragged, -1);
+
+	// The panes must FILL the row in every frame they were measured in. This is the assertion
+	// that would have caught the reported jank: the widths eventually being right says nothing
+	// about the second the user spent looking at two slivers against an empty viewport.
+	const paneLog = await page.evaluate(() => (window as unknown as { __paneLog: { e: number; v: number; cover: number }[] }).__paneLog);
+	expect(paneLog.length, 'the pane sampler recorded nothing — the assertion below would be vacuous').toBeGreaterThan(0);
+	const worst = Math.min(...paneLog.map((s) => s.cover));
+	expect(worst, `the split left the row uncovered at some point (${JSON.stringify(paneLog)})`).toBeGreaterThanOrEqual(99);
+
+	// …and the pane must MEASURE its share, not merely report it. One keyboard step moves the
+	// separator by a known percentage of the group; with a live flex-basis the pane follows,
+	// with a frozen one it drifts a fraction of the distance (measured: 34px against 72px).
+	const before = await width();
+	const valueBefore = Number(await handle.getAttribute('aria-valuenow'));
+	await handle.focus();
+	await page.keyboard.press('Shift+ArrowRight');
+	await expect.poll(async () => Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(valueBefore);
+	const valueAfter = Number(await handle.getAttribute('aria-valuenow'));
+	const groupW = Math.round((await group.boundingBox())!.width);
+	const expectedDelta = ((valueAfter - valueBefore) / 100) * groupW;
+	const actualDelta = (await width()) - before;
+	expect(
+		actualDelta,
+		`the pane moved ${actualDelta}px where its own aria-valuenow claims ${Math.round(expectedDelta)}px — its flex-basis is frozen`,
+	).toBeGreaterThan(expectedDelta * 0.75);
+});

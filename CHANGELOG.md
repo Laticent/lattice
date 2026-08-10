@@ -42,6 +42,51 @@ in patch versions.
   cannot reintroduce it. **The exported HTML player is NOT fixed by this** — it
   carries the same defect in a worse form and is gated on export sign-off; tracked
   separately. See `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
+- **Fixed: the editor|preview divider now opens where you left it, instead of
+  jumping to the middle a moment after the page loads.** A returning visitor with a
+  dragged split watched the divider land in the right place, snap back to the
+  default, and jump again — measured at 1440px with the split at editor 25%: the
+  pre-paint placeholder drew the divider at the remembered 360px from 320ms, the app
+  mounted at its hardcoded 46/54 default at 1467ms, the placeholder was dismissed at
+  2896ms, and the saved widths were only applied at 3317ms. A 302px jump, ~400ms of
+  it in plain sight. The saved layout is now handed to the splitter as its STARTING
+  layout, read from storage during the first render rather than written back two
+  animation frames after mount — frames which, on the Studio, queue behind the
+  ~505KB engine fetch. The Studio's panes are now laid out at the remembered widths
+  on the first frame they exist, and never at any other width — as long as neither
+  pane was left collapsed, which is restored by a separate path this change does not
+  touch and which still jumps once. The Playground, which
+  server-renders, deliberately keeps the post-mount restore it already had: seeding a
+  hydrated splitter is silently destructive, because the seed reaches the panel's
+  inline style during render and React does not patch inline-style hydration
+  mismatches — the pane's `flex-basis` would freeze for the life of the page. It gets
+  its pre-paint correctness from a stylesheet instead.
+
+- **Fixed: the Playground no longer opens as two slivers against an empty
+  viewport.** Until the editor island hydrated, the two panes carried no `flex-grow`
+  at all and an inline `flex-basis:45` — a unitless number, which is not a valid CSS
+  length, so the browser threw it away. The panes sized to their content and left the
+  rest of the row blank: measured on a reload at iPad width, 123px and 300px covering
+  29% of the row for about a second, then the 45/55 default, then the saved split.
+  Three states, two of them wrong, on every reload. A pre-paint script now seeds the
+  saved shares as CSS custom properties and the stylesheet owns that window, so the
+  first paint is already the split you left — one state, measured at 100% coverage
+  from the first frame.
+
+- **Fixed: the Playground's preview pane no longer sits empty while the engine
+  loads.** It has had a pre-paint snapshot replay for as long as it has had a preview
+  — a cached last slide, painted before the island hydrates. It was switched off for
+  almost everybody. Its gate compared the snapshot's hash against
+  `lattice-docs-pg-source`, which holds the visitor's DRAFT and only exists once they
+  have typed in the editor; a visitor who only picks components never writes one, so
+  the check compared the real hash against the hash of the empty string and rejected
+  every time. Measured: every other clause passed, and the preview stayed a void for
+  ~4s until the engine rendered. With no draft, the identity of what will render is
+  the inserted hash — which the same script already relies on elsewhere. The cached
+  slide now paints at ~510ms instead of ~4.3s. The editor's own placeholder also
+  wraps like CodeMirror does, instead of clipping every long line and re-flowing on
+  mount.
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested
