@@ -26,6 +26,13 @@ import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_PANEL_IDS } from '../components/playground/pg-split';
+// The storage keys the pre-paint seed reads, from the module that DECLARES them rather
+// than restated as literals in the inline script. `playground-controller.ts` has no
+// imports of its own, so an Astro page can pull five strings out of it without dragging
+// React or the island into this page's module graph — the same reason `pg-split.ts`
+// exists (#1495). Closes the drift risk the 2026-08-10 boot-state note recorded as a
+// known gap: a renamed key used to fail SILENTLY here, seeding the wrong first paint.
+import { HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY, WALK_H_KEY } from '../lib/playground-controller';
 import { joinBase } from '../lib/base-url.mjs';
 import { isPreviewDeploy } from '../lib/deploy-env.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -157,7 +164,24 @@ const pgData = {
 		<title>Lattice playground — try it in the browser</title>
 		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
-		<script is:inline define:vars={{ validPalettes: palettes, PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS }}>
+		<script
+			is:inline
+			define:vars={{
+				validPalettes: palettes,
+				PG_SPLIT_KEY,
+				PG_SPLIT_BUCKET,
+				PG_SPLIT_PANEL_IDS,
+				SOURCE_KEY,
+				VIEW_KEY,
+				HANDOFF_KEY,
+				INSERTED_HASH_KEY,
+				WALK_H_KEY,
+				// The app clamps the boot view to Edit when the host stages no walk plans (the
+				// test harness). Baked in at build time so the mirror below cannot diverge on
+				// that branch either.
+				exploreAvailable: !!pgData.plansBase,
+			}}
+		>
 			(function () {
 				var r = document.documentElement;
 				try {
@@ -202,6 +226,70 @@ const pgData = {
 							}
 						}
 					} catch (e2) {}
+					// BOOT-VIEW SEED (#1563). `body[data-view]` is the single biggest piece of
+					// client-only state on this surface: in Explore it removes the editor pane,
+					// takes the preview full-bleed, drops both pane labels and moves the walk bar to
+					// the foot of the column. The app resolved it in a mount effect, so a returning
+					// Explore visitor got the EDIT layout at first paint and watched it rebuild
+					// ~900ms later (measured at 1194x834, CPU throttled 6x: the editor pane 337px
+					// wide then gone, the preview 856 → 1194 → 1194x619). Resolve it here instead and
+					// publish it on <html>, which playground.css reads alongside the body attribute;
+					// the app takes ownership at mount and drops it.
+					//
+					// This is a MIRROR of resolveStartupView (playground-controller.ts) — an inline
+					// pre-paint script cannot import — so the two drifting apart is the one way it
+					// can silently break. `playground-first-paint.spec.ts` drives every branch of the
+					// precedence table on the real page and requires the pre-paint answer to equal
+					// the hydrated one.
+					var src = '';
+					try { src = localStorage.getItem(SOURCE_KEY) || ''; } catch (e3) {}
+					var ih = null;
+					try { ih = localStorage.getItem(INSERTED_HASH_KEY); } catch (e3) {}
+					var hasHandoff = false;
+					try {
+						var hv = JSON.parse(localStorage.getItem(HANDOFF_KEY) || 'null');
+						hasHandoff = !!(hv && typeof hv.md === 'string' && hv.md);
+					} catch (e3) {}
+					var rawView = new URLSearchParams(location.search || '').get('view');
+					var urlView = rawView === 'read' || rawView === 'explore' ? 'read' : rawView === 'edit' ? 'edit' : null;
+					var savedView = null;
+					try { savedView = localStorage.getItem(VIEW_KEY); } catch (e3) {}
+					// djb2 hex — byte-identical to `fingerprint` in playground-controller.ts, so the
+					// pristine test here reaches the same verdict the app's will.
+					var fp = function (t) {
+						var h = 5381;
+						for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+						return (h >>> 0).toString(16);
+					};
+					var pristine = !src || !src.trim() ? true : ih != null && fp(src) === ih;
+					var view;
+					if (hasHandoff) view = 'edit';
+					else if (urlView) view = urlView;
+					else if (savedView === 'read' || savedView === 'edit') view = savedView;
+					else view = pristine ? 'read' : 'edit';
+					if (!exploreAvailable) view = 'edit';
+					r.setAttribute('data-pg-view', view);
+					// The single-pane phone layout keys off body[data-pane], derived from the same
+					// answer (Explore shows the deck, Edit the editor). Seeded on <html> for the same
+					// reason, and consumed by the same aliased selectors.
+					r.setAttribute('data-pg-pane', view === 'read' ? 'preview' : 'edit');
+					// RESERVE THE WALK BAND. In Explore the walk bar mounts only once the
+					// component's plan has been fetched — about a second after the deck is on
+					// screen — and takes ~100px off the preview when it does, jumping the whole
+					// deck up mid-read. Its height is the caption's, so nothing here can derive
+					// it; the app measures its own bar and stores it, and this hands that
+					// measurement back. Only at the width it was measured at: the caption wraps,
+					// so a desktop height is meaningless on a phone. No measurement (a first
+					// visit) → no reserve, and the load behaves as it always did.
+					if (view === 'read') {
+						try {
+							var wh = JSON.parse(localStorage.getItem(WALK_H_KEY) || 'null');
+							if (wh && wh.h > 0 && wh.w === window.innerWidth) r.style.setProperty('--pg-walk-h', wh.h + 'px');
+						} catch (e3) {}
+					}
+					// Hand the resolution to the body-parse replay below rather than have it
+					// recompute — ONE mirror on this page, not two.
+					window.__pgBoot = { view: view, hasHandoff: hasHandoff, src: src, insertedHash: ih, fp: fp };
 				} catch (e) {}
 			})();
 		</script>
@@ -235,38 +323,19 @@ const pgData = {
 				if (!box) return;
 				var palette = root.getAttribute('data-palette') || 'cuoio';
 				var mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
-				// djb2 hex — byte-identical to `fingerprint` in playground-controller.ts, the
-				// same hash the capture stamps, so the two agree on the draft's identity.
-				function fp(t) {
-					var h = 5381;
-					for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
-					return (h >>> 0).toString(16);
-				}
 				try {
-					var src = '';
-					try { src = localStorage.getItem('lattice-docs-pg-source') || ''; } catch (e) {}
-					// Mirror resolveStartupView: only an Edit boot shows the draft. A handoff
-					// forces Edit but REPLACES the draft (so its post-apply content differs) →
-					// don't paint; an explicit/persisted Explore view boots a gallery deck; a
-					// pristine draft opens Explore. Paint only on a genuine Edit-of-this-draft.
-					var hasHandoff = false;
-					try {
-						var hv = JSON.parse(localStorage.getItem('lattice-docs-pg-handoff') || 'null');
-						hasHandoff = !!(hv && typeof hv.md === 'string' && hv.md);
-					} catch (e) {}
-					var rawView = new URLSearchParams(location.search || '').get('view');
-					var urlView = rawView === 'read' || rawView === 'explore' ? 'read' : rawView === 'edit' ? 'edit' : null;
-					var savedView = null;
-					try { savedView = localStorage.getItem('lattice-docs-pg-view'); } catch (e) {}
-					var ih = null;
-					try { ih = localStorage.getItem('lattice-docs-pg-inserted-hash'); } catch (e) {}
-					var pristine = !src || !src.trim() ? true : ih != null && fp(src) === ih;
-					var view;
-					if (hasHandoff) view = 'handoff';
-					else if (urlView === 'read' || urlView === 'edit') view = urlView;
-					else if (savedView === 'read' || savedView === 'edit') view = savedView;
-					else view = pristine ? 'read' : 'edit';
-					if (view !== 'edit') return;
+					// The boot resolution is the head seed's — recomputing it here would be a
+					// SECOND mirror of resolveStartupView on one page, free to drift from the
+					// first (#1563). Only an Edit boot shows the draft: a handoff forces Edit but
+					// REPLACES the draft (so its post-apply content differs) → don't paint; an
+					// explicit/persisted Explore view boots a gallery deck; a pristine draft opens
+					// Explore. Paint only on a genuine Edit-of-this-draft.
+					var boot = window.__pgBoot;
+					if (!boot || boot.view !== 'edit' || boot.hasHandoff) return;
+					var src = boot.src;
+					var ih = boot.insertedHash;
+					// djb2 hex — the same hash the capture stamps, so the two agree on identity.
+					var fp = boot.fp;
 					var raw = localStorage.getItem('lattice-docs-pg-last-slide');
 					if (!raw) return;
 					var snap = JSON.parse(raw);
@@ -284,28 +353,85 @@ const pgData = {
 					// same `ih` the `pristine` test above already relies on for exactly this reason.
 					// Absent both, we do not know what is coming and must not paint.
 					var willRender = src && src.trim() ? fp(src) : ih;
-					if (snap && snap.v === 1 && snap.palette === palette && snap.mode === mode && snap.html && snap.css && willRender && snap.srcHash === willRender) {
+					var fit = snap && snap.fit;
+					if (
+						snap && snap.v === 2 && snap.palette === palette && snap.mode === mode && snap.html && snap.css &&
+						willRender && snap.srcHash === willRender &&
+						fit && fit.boxW > 0 && fit.boxH > 0 && fit.w > 0 && fit.h > 0
+					) {
 						var st = document.createElement('style');
 						st.id = 'pg-ssr-snap-css';
 						st.textContent = snap.css;
 						document.head.appendChild(st);
-						// Measure the preview pane and set the scale vars the shell CSS uses to
-						// transform-scale the intrinsic-size slide (mirroring the live FIT agent, so
-						// the container-query fonts match). Set as custom props on the box (not on a
-						// child) so React's dangerouslySetInnerHTML re-parse can't wipe them. Padding
-						// (16px) matches the shell box + the live filmstrip body padding.
+						// PLACE THE CACHED SLIDE WHERE THE LIVE ONE IS ABOUT TO LAND (#1563).
+						//
+						// This used to derive its own geometry — center the slide in the pane, less a
+						// 16px padding — and the live filmstrip derives a DIFFERENT one, from an
+						// `html,body{padding:18px}` that applies to BOTH elements plus a `safe center`
+						// on a clamped deck height. Measured at 1194x834 with the split dragged: the
+						// cached slide painted at [354,261,824x464] and the live one arrived at
+						// [374,290,784x441] — 20px right, 29px down and 40px narrower. So the slide a
+						// person had been looking at for three seconds shrank and jumped as the engine
+						// took over.
+						//
+						// Reproducing the filmstrip's chain here would be a second model of a layout
+						// the srcdoc's CSS already owns — the drift engine the Studio's shell is made
+						// of. Instead the app MEASURES its own live slide at capture time and stores
+						// the rect (`snap.fit`, in preview-wrap coordinates, alongside the wrap size it
+						// was measured in); this replays that measurement. If the filmstrip's padding
+						// changes tomorrow, the next capture records the new number and nothing here
+						// needs to know.
+						//
+						// The wrap can be a different size than at capture (a re-dragged split, a
+						// resized window), so rescale: width by the pure width ratio, and the vertical
+						// position by the ratio of the SLACK above the slide to the slack available —
+						// which reproduces a centered slide and a top-pinned one exactly, and
+						// interpolates between them rather than guessing which rule applied.
 						var sw = snap.w || 1280;
 						var sh = snap.h || 720;
 						var wrap = box.parentElement;
-						var avail = ((wrap ? wrap.clientWidth : box.clientWidth) || sw + 32) - 32;
-						var sc = avail > 0 ? avail / sw : 1;
+						var boxW = (wrap ? wrap.clientWidth : box.clientWidth) || fit.boxW;
+						var boxH = (wrap ? wrap.clientHeight : box.clientHeight) || fit.boxH;
+						var k = boxW / fit.boxW;
+						var slideW = fit.w * k;
+						var slideH = fit.h * k;
+						var slackWas = fit.boxH - fit.h;
+						var slackNow = boxH - slideH;
+						var top = slackWas > 0 ? (fit.y / slackWas) * slackNow : fit.y * k;
+						var left = fit.x * k;
+						var sc = slideW / sw;
+						// Set as custom props on the box (not on a child) so React's
+						// dangerouslySetInnerHTML re-parse can't wipe them.
 						box.style.setProperty('--pg-ssr-w', sw + 'px');
 						box.style.setProperty('--pg-ssr-h', sh + 'px');
 						box.style.setProperty('--pg-ssr-scale', String(sc));
+						box.style.setProperty('--pg-ssr-x', left + 'px');
+						box.style.setProperty('--pg-ssr-y', Math.max(0, top) + 'px');
 						box.innerHTML = snap.html;
 						window.__pgShellHtml = snap.html;
 						root.setAttribute('data-pg-shell', 'on');
 					}
+				} catch (e) {}
+			})();
+		</script>
+
+		<!-- Editor pre-paint seed (#1563). The SSR'd <pre> placeholder carries the STARTER
+		     deck — the only source the build knows — but CodeMirror is about to open the
+		     visitor's saved draft. For anyone who has edited anything, the editor therefore
+		     paints one deck and replaces it with another a second later. The draft is in
+		     localStorage, so write it in before first paint and stash it for React to render
+		     the same value (EditorHost), which makes hydration a no-op rather than a swap
+		     back. Plain textContent — never innerHTML — so the draft is inert text here. -->
+		<script is:inline>
+			(function () {
+				try {
+					var boot = window.__pgBoot;
+					var draft = boot && boot.src;
+					if (!draft || !draft.trim()) return;
+					var ph = document.querySelector('.pg-editor-placeholder');
+					if (!ph) return;
+					ph.textContent = draft;
+					window.__pgEditorSeed = draft;
 				} catch (e) {}
 			})();
 		</script>

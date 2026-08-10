@@ -20,12 +20,19 @@ import { cn } from '@/lib/utils';
  *
  * `detached` is the honest sync state: the editor's draft holds no recognized
  * component, so the trigger says so instead of showing a stale name.
+ *
+ * `pending` is that honesty one step earlier (#1563): which component is current depends
+ * on localStorage and on the draft, and the SERVER has neither. Rather than server-render
+ * the catalog's first entry and swap it a second later — measured on a reload as
+ * "actors (draft differs)" becoming "verdict-grid" — the trigger says nothing until the
+ * island can say something true.
  */
 export function ComponentPicker({
 	components,
 	lenses,
 	current,
 	detached,
+	pending,
 	query,
 	onQueryChange,
 	lensId,
@@ -36,6 +43,7 @@ export function ComponentPicker({
 	lenses: Lens[];
 	current: string;
 	detached?: boolean;
+	pending?: boolean;
 	query: string;
 	onQueryChange: (q: string) => void;
 	lensId: string;
@@ -68,8 +76,8 @@ export function ComponentPicker({
 					aria-label="Pick a component"
 					className="w-full justify-between font-normal"
 				>
-					<span className={cn('truncate', detached && 'text-muted-foreground italic')}>
-						{current ? (detached ? `${current} (draft differs)` : current) : 'Pick a component…'}
+					<span className={cn('truncate', !pending && detached && 'text-muted-foreground italic')}>
+						{pending ? '' : current ? (detached ? `${current} (draft differs)` : current) : 'Pick a component…'}
 					</span>
 					<ChevronsUpDown className="opacity-50" />
 				</Button>

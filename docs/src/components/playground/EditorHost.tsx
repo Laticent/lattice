@@ -54,6 +54,17 @@ export function EditorHost({
 	// Vocab is static (page-build data); read it from a ref so the mount effect
 	// stays [] (one init) without taking a reactive dependency on the prop.
 	const vocabRef = React.useRef(vocab);
+	// What the placeholder SHOWS. `initialDoc` is the starter deck — the only source a
+	// build-time render can know — but the editor opens the visitor's saved draft, so for
+	// anyone who has edited anything the placeholder used to paint one deck and CodeMirror
+	// replaced it with another (#1563). playground.astro's pre-paint seed writes the draft
+	// into this node before first paint and leaves it here; rendering the same string means
+	// hydration reconciles to what is already on screen instead of swapping it back.
+	// `suppressHydrationWarning` on the <pre> covers the deliberate server/client
+	// difference — the client value is the one already in the DOM.
+	const placeholderRef = React.useRef<string>(
+		(typeof window !== 'undefined' ? (window as unknown as { __pgEditorSeed?: string }).__pgEditorSeed : '') || initialDoc,
+	);
 
 	React.useEffect(() => {
 		const host = hostRef.current;
@@ -87,8 +98,8 @@ export function EditorHost({
 		<div className="pg-editor-host" id="editor-host">
 			<div className="pg-editor-mount" ref={hostRef} />
 			{!mounted && (
-				<pre className="pg-editor-placeholder" aria-hidden="true">
-					{initialDocRef.current}
+				<pre className="pg-editor-placeholder" aria-hidden="true" suppressHydrationWarning>
+					{placeholderRef.current}
 				</pre>
 			)}
 		</div>

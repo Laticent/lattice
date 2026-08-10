@@ -43,6 +43,7 @@ import {
 	sanitizePalette,
 	VIEW_KEY,
 	variantSource,
+	WALK_H_KEY,
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
@@ -105,6 +106,52 @@ type Walk =
 	| { kind: 'plan'; plan: Plan; index: number }
 	| { kind: 'deck'; label: string; index: number; count: number };
 
+/** How long #preview takes to fade in (`playground.css`'s `#preview` transition), and
+ *  therefore how long the instant-shell must stay behind it before being torn down. One
+ *  declaration would be better than two, but a CSS transition duration is not readable
+ *  from here without a computed-style round-trip on an element that may not exist yet;
+ *  `playground-first-paint.spec.ts` measures the hand-off itself, so a drift shows up as
+ *  the defect rather than as a mismatched constant. */
+const SHELL_FADE_MS = 200;
+
+/**
+ * The boot view the pre-paint script resolved and published on `<html data-pg-view>`
+ * (playground.astro). It is the same answer `resolveStartupView` is about to give — read
+ * before paint so the Explore layout is drawn once rather than assembled after hydration
+ * (#1563). Null on the server, and on a page whose seed did not run.
+ */
+function bootView(): 'read' | 'edit' | null {
+	try {
+		const v = document.documentElement.getAttribute('data-pg-view');
+		return v === 'read' || v === 'edit' ? v : null;
+	} catch {
+		return null;
+	}
+}
+
+/** The pane the same seed implies: Explore shows the deck, Edit the editor. */
+function bootPane(): 'edit' | 'preview' {
+	return bootView() === 'read' ? 'preview' : 'edit';
+}
+
+/**
+ * Hand layout ownership from the pre-paint seed to the app, in one step.
+ *
+ * The seeded `<html>` attributes and the app's `<body>` ones drive the SAME rules (the
+ * `:is(:root[data-pg-…], body[data-…])` aliases in playground.css). Leaving a stale seed in
+ * place while the app writes a different answer is not merely redundant — on the phone the
+ * two would hide opposite panes and leave the surface blank. So the body attribute goes on
+ * and the seed comes off together, in one task, so the pair is never observable.
+ */
+function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
+	const body = document.body;
+	body.setAttribute('data-view', view);
+	body.setAttribute('data-pane', pane);
+	const root = document.documentElement;
+	root.removeAttribute('data-pg-view');
+	root.removeAttribute('data-pg-pane');
+}
+
 /**
  * The playground controller — the React port of the old inline IIFE
  * (playground.astro:407-714). React owns the chrome (pickers, tabs, sheets,
@@ -131,9 +178,31 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return resolveComponent(catalog, null).name;
 		}
 	});
-	const [status, setStatus] = React.useState('Ready.');
+	// The status line's FIRST value has to be true at first paint, not merely true later
+	// (#1563). It said "Ready." — which nothing was: the island had not hydrated, the engine
+	// bundle had not been requested, and nothing had rendered. A person watched it read
+	// "Ready." → "Loading engine…" → "Rendered N slide(s)." on every reload, the first of
+	// those three a claim the page could not support (and 57px narrower than the second, so
+	// it moved as well). Starting at the state the app is actually in leaves two values,
+	// both true, and the first one stable.
+	const [status, setStatus] = React.useState('Loading engine…');
 	const [isError, setIsError] = React.useState(false);
-	const [pane, setPane] = React.useState<'edit' | 'preview'>('edit');
+	// False through SSR and the first client render, true from the first effect — the
+	// standard "has this hydrated yet" flag, and the honest answer for a toolbar value the
+	// SERVER cannot know (#1563). The component picker used to server-render the first
+	// entry in the catalog, so a returning visitor read "actors (draft differs)" for a
+	// second and then watched it become "verdict-grid". A value that is about to be
+	// replaced is worse than no value: render nothing until there is something true to say.
+	const [hydrated, setHydrated] = React.useState(false);
+	React.useEffect(() => setHydrated(true), []);
+	// Which pane the phone layout shows. Seeded from the pre-paint boot resolution
+	// (playground.astro publishes it on <html data-pg-pane>) rather than defaulting to
+	// 'edit': the mount effect below mirrors this into body[data-pane], and starting at
+	// the wrong value made an Explore boot write 'preview' (startup), then 'edit' (this
+	// state), then 'preview' again — the phone's single-pane layout flipping to the editor
+	// and back. `pane` drives no markup, only that attribute, so reading a browser global
+	// in the initializer cannot desync hydration.
+	const [pane, setPane] = React.useState<'edit' | 'preview'>(() => bootPane());
 	const [sourceVersion, setSourceVersion] = React.useState(0); // drives DeckSetup cue
 	// Picker search + lens survive reopen AND reload (the "search is never
 	// remembered" jank, fixed at its source: state owned here, persisted).
@@ -249,6 +318,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Ref-indirected so `render` (defined above the capture callback) can fire the
 	// post-first-render capture without a use-before-declaration cycle.
 	const captureFirstSlideRef = React.useRef<() => void>(() => {});
+	// Pending teardown of the instant-shell, held so unmount can cancel it (a setState
+	// after unmount is a React warning, and on the Studio→Playground back-and-forth it is
+	// reachable). See goLive below.
+	const shellDropRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	React.useEffect(
+		() => () => {
+			if (shellDropRef.current) clearTimeout(shellDropRef.current);
+		},
+		[],
+	);
 
 	// Defer the "live" transition until the in-frame slides are actually VISIBLE. The
 	// engine writes the srcdoc, then the in-iframe FIT agent scales the sections and only
@@ -265,9 +344,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!wrap || wrap.classList.contains('is-live')) return; // already live (patch renders)
 		const start = Date.now();
 		const goLive = () => {
+			// `is-live` starts BOTH halves of the hand-off at once: #preview fades in over
+			// 0.2s and the instant-shell fades out from directly behind it. Since the replay
+			// now paints the cached slide at the rect the filmstrip is about to use (#1563),
+			// the two pictures coincide and the swap is invisible rather than a jump.
 			wrap.classList.add('is-live');
-			setShellHtml(null);
-			document.documentElement.removeAttribute('data-pg-shell');
+			// Tear the shell DOWN only once that fade has finished. Doing it here — as this
+			// did — pulled the cached slide the instant the iframe *started* fading in, so a
+			// half-transparent slide sat over the bare pane for the whole 200ms.
+			if (shellDropRef.current) clearTimeout(shellDropRef.current);
+			shellDropRef.current = setTimeout(() => {
+				shellDropRef.current = null;
+				setShellHtml(null);
+				document.documentElement.removeAttribute('data-pg-shell');
+			}, SHELL_FADE_MS + 60);
 		};
 		const check = () => {
 			let ready = false;
@@ -483,6 +573,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const snap = captureFirstSectionFromFrame(fr, {
 				w: lastGeomRef.current.w,
 				h: lastGeomRef.current.h,
+				// The box the replay paints into — `.pg-preview-wrap`, the instant-shell's offset
+				// parent. Given it, the capture records WHERE the live slide sits inside it, so the
+				// next load's cached slide lands on the pixels the filmstrip is about to use rather
+				// than on a second guess at the filmstrip's own geometry (#1563).
+				box: fr.parentElement,
 				palette: root.getAttribute('data-palette') || 'cuoio',
 				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
 				// Hash the RENDERED source (matches the captured html). The replay recomputes
@@ -1096,7 +1191,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (r.fallback) setWalkNotice(`“${url.c}” is not a component any more — showing ${r.name}.`);
 		}
 		const v = exploreAvailable ? resolveStartupView({ hasHandoff, savedView, urlView: url.view, source: src, insertedHash: ih }) : 'edit';
-		document.body.setAttribute('data-view', v);
+		// Take the layout over from the pre-paint seed. `v` is what the seed predicted (the
+		// e2e boot-view parity cases hold the two to that), so in the normal case this
+		// changes which attribute carries the answer, not the answer — and therefore not a
+		// single pixel. It is also the recovery path if they ever DO disagree: the app's
+		// answer is the real one and it lands here, on the first commit, rather than
+		// leaving the seed's wrong guess on screen.
+		adoptBootSeed(v, v === 'read' ? 'preview' : 'edit');
 		// An explicit ?view= is an explicit choice — persist it, so a reload (the
 		// walk URL-sync strips edit params) and a new tab stay on the chosen surface.
 		if (url.view) {
@@ -1110,9 +1211,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			viewRef.current = 'read';
 			setView('read');
 			// Same synchronous pane reveal as setViewMode — the first walk render
-			// must measure a visible iframe on the phone single-pane layout.
+			// must measure a visible iframe on the phone single-pane layout. (The
+			// attribute itself is already set, by adoptBootSeed above.)
 			setPane('preview');
-			document.body.setAttribute('data-pane', 'preview');
 			void startWalkRef.current(target, url.s);
 		} else if (exploreAvailable) {
 			// Warm the walk behind the editor so the Explore chrome (and the tour's
@@ -1269,6 +1370,29 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	}, [pane]);
 	React.useEffect(() => () => document.body.removeAttribute('data-pane'), []);
 
+	// Publish the walk bar's measured height so the NEXT load can reserve its band before
+	// the bar exists (#1563 — the seed reads WALK_H_KEY, playground.css spends it as
+	// `--pg-walk-h`). Measured rather than declared because the height is the caption's:
+	// it wraps, so it depends on the text and on the width. Stored with the width it was
+	// taken at, so a desktop measurement is never replayed onto a phone.
+	//
+	// Runs whenever the bar or the caption changes, in a layout effect so the measurement
+	// is of the committed DOM. Writing an unchanged value is skipped — this is on the walk
+	// stepping path, which fires on every arrow press.
+	const walkHRef = React.useRef(0);
+	React.useLayoutEffect(() => {
+		if (view !== 'read' || !walk) return;
+		const bar = document.getElementById('pg-walk');
+		const h = bar?.offsetHeight ?? 0;
+		if (h < 1 || h === walkHRef.current) return;
+		walkHRef.current = h;
+		try {
+			localStorage.setItem(WALK_H_KEY, JSON.stringify({ w: window.innerWidth, h }));
+		} catch {
+			/* private mode */
+		}
+	}, [view, walk]);
+
 	// ── Walk bar derivations (cheap; recomputed per render) ─────────────────────
 	const walkVariantLabels = React.useMemo(() => {
 		if (walk?.kind !== 'plan') return {};
@@ -1307,9 +1431,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				    source in the editor (2026-07-06 simplification). */}
 				{exploreAvailable && (
 					<div className="pg-mode" role="tablist" aria-label="Playground mode">
+						{/* data-pg-mode is the stable hook the PRE-PAINT seed styles through
+						    (playground.css): until the island hydrates, `view` is this component's
+						    default and not the boot resolution, so the SSR markup marks Edit active
+						    even on an Explore boot. The seed knows better and the stylesheet paints
+						    from it; the class below takes over the moment the seed is dropped. */}
 						<button
 							type="button"
 							role="tab"
+							data-pg-mode="read"
 							aria-selected={view === 'read'}
 							aria-label="Explore"
 							title="Explore — view the deck"
@@ -1321,6 +1451,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						<button
 							type="button"
 							role="tab"
+							data-pg-mode="edit"
 							aria-selected={view === 'edit'}
 							aria-label="Edit"
 							title="Edit — the current slide's markdown"
@@ -1340,6 +1471,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							components={components}
 							lenses={lenses}
 							current={currentName}
+							pending={!hydrated}
 							detached={!draftComponent}
 							query={pickerQuery}
 							onQueryChange={onPickerQuery}
@@ -1356,7 +1488,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						    chip strip: every slide in the deck (title, default, each variant,
 						    stress, compositions, anti-patterns, see-also). Prev/Next step; this
 						    jumps. Disabled in Edit or without a walk. */}
-						<Select value={stepValue} onValueChange={onWalkChip} disabled={view !== 'read' || walkChips.length === 0}>
+						{/* The value is shown only where it MEANS something. In Edit this control is
+						    disabled — there is nothing to jump — yet it used to fill in with the
+						    warmed walk's first step a second and a half after load, so a dead
+						    dropdown quietly changed from "—" to "Title" while the visitor watched
+						    (#1563). Empty means "no step selected", which is the truth here. */}
+						<Select value={view === 'read' ? stepValue : ''} onValueChange={onWalkChip} disabled={view !== 'read' || walkChips.length === 0}>
 							<SelectTrigger id="pg-step" size="sm" aria-label="Jump to slide" className="w-full">
 								<SelectValue placeholder="—" />
 							</SelectTrigger>

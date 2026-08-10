@@ -3690,3 +3690,49 @@ own) is not a builder and needs no entry.
   reads before paint and the other corrects after it. If you add shared boot state,
   make the app read it at render, not in an effect.
 - **Triggered by:** `engineering/decisions/2026-08-10-shell-app-boot-state-sharing.md`.
+
+### The Playground's cached slide jumps when the live preview takes over
+
+- **Symptom:** a reload shows a real slide almost immediately (the instant shell doing
+  its job), and then, three or four seconds later, that slide shrinks and shifts as the
+  engine's filmstrip appears. Nothing is broken afterwards — it just moved.
+- **Why:** the two halves each derived their own geometry. The replay centered the slide
+  in the preview pane less a 16px padding; the live filmstrip centers it inside a srcdoc
+  whose `html,body{padding:18px}` applies to BOTH elements — so the usable width is
+  `frameW - 72`, not `- 32` — with `justify-content: safe center` over a FIT-clamped deck
+  height. Measured at 1194x834: cached `[354,261,824x464]`, live `[374,290,784x441]`.
+- **Do NOT fix it by re-deriving the filmstrip's chain in the replay.** That is a second
+  model of a layout the srcdoc's own CSS owns, and it drifts the moment either padding
+  changes — the exact failure the Studio shell's six hand-measured constants keep having.
+- **Fix (shipped):** the app MEASURES its own live slide when it captures the snapshot and
+  stores the rect in the replay box's coordinates (`snap.fit`, plus the box size it was
+  measured in, snapshot `v: 2`); the replay places the cached slide there, rescaling if the
+  pane has changed. The hand-off is then a cross-fade in place. If the filmstrip's geometry
+  changes, the next capture records it and nothing in the replay needs to know.
+- **The general rule:** when the pre-paint side needs a number a THIRD party decides, have
+  the app measure what happened and publish it — don't mirror the third party's arithmetic.
+- **Triggered by:** #1563.
+
+### The Playground's Explore layout arrives a second after the page does
+
+- **Symptom:** open the Playground with nothing saved (or with Explore remembered) and the
+  page paints as the two-pane EDITOR — markdown on the left, preview on the right — then
+  about a second later the editor pane vanishes, the deck goes full width, the pane labels
+  disappear and a walk bar drops in at the bottom.
+- **Why:** every one of those is `body[data-view='read']`, and the app set that attribute in
+  a mount effect. Before it ran, the CSS saw no attribute and drew the Edit layout.
+  Measured at 1194x834, CPU 6x: editor pane 337px at t=487ms and gone at t=1349ms; preview
+  856 → 1194 → 1194x619.
+- **Fix (shipped):** the pre-paint script resolves the boot view — it already computed the
+  same answer to gate the snapshot replay — and publishes `<html data-pg-view>`;
+  `playground.css` reads it through `:is(:root[data-pg-view='read'], body[data-view='read'])`
+  aliases, and `adoptBootSeed` moves ownership to the app in one step at mount.
+- **Both attributes must never be live at once.** They drive the same rules, so a stale seed
+  beside a different body value hides OPPOSITE panes on the phone and leaves the surface
+  blank. Setting the body attribute and removing the seed is therefore one function, not two
+  effects.
+- **The walk bar is the one piece CSS cannot know**, because its height is the caption's. The
+  app publishes its own measurement (`lattice-docs-pg-walk-h`, `{w, h}`) and the seed spends
+  it as `--pg-walk-h` on a reserve keyed to the bar's ABSENCE — the gap runs from first paint
+  until the bar mounts, which is well after hydration.
+- **Triggered by:** #1563.
