@@ -2,18 +2,20 @@
 status: proposed
 summary: >
   The export bundle concatenates the theme BEFORE the base, so base.tokens.css's plain :root
-  block lands later at equal specificity and wins — 426 palette declarations across 36 tokens
-  and 18 palette files are dead on the export path — and because every -dark variant inlines its
-  parent, 31 of 32 selectable themes render with at least one dead declaration. Measured in Chromium 131 using each order
-  verbatim. The root cause is sharper than "the concat is in the wrong order": every theme
+  block lands later at equal specificity and wins — 36 distinct tokens are dead on the export
+  path, and EVERY ONE of the 32 selectable themes renders at least one of them (932 dead
+  declarations counted per theme as loaded). Measured in real Chromium using each order
+  verbatim, with the harness inlined in the note so the numbers are re-derivable — two earlier
+  drafts published wrong counts by measuring each theme FILE standalone, which misses that a
+  -dark variant and a11y-base inherit their parent's losses whole. The root cause is sharper than "the concat is in the wrong order": every theme
   declares `@import 'lattice';` at its top, which in CSS means the imported sheet's rules come
   FIRST and the importing theme wins — and lattice-emulator.js's OWN Mermaid token reader
   already models it that way at :852, citing that exact @import rationale in its comment,
   while the injected CSS at :691 does the opposite. So the file holds two contradictory models
   of one cascade, and 9 tokens (134 declarations) consequently resolve TWO WAYS IN ONE RENDER:
   a gantt's baked SVG gets the palette's --diagram-active while the CSS around it gets the
-  base's. Flipping the concat is one line and fixes both, but it ACTIVATES all 426 dead
-  declarations — verified visually: ardesia's code slide swaps the base's Night Owl syntax
+  base's. Flipping the concat is one line and fixes both, but it ACTIVATES every dead
+  declaration — verified visually: ardesia's code slide swaps the base's Night Owl syntax
   colors for ardesia's own curated muted ramp, which is what its author wrote and nobody has
   ever seen. That changes exported PDF bytes across nearly every theme, so it is a QUALITY-BAR
   sign-off gate and this record stops there rather than shipping the flip.
@@ -65,37 +67,81 @@ with the reasoning attached is the one that is not used to build the page.
 
 ## 2. Measured
 
-Real Chromium 131, loading each order verbatim and reading `getComputedStyle` on a `section`.
+**Method, stated so the numbers are re-derivable** — earlier drafts of this section published
+two different wrong counts, so the harness is inline below rather than described. It mirrors
+`loadPaletteWithImports` (`lattice-emulator.js:666`), which inlines every non-`lattice`
+`@import` into ONE `paletteCSS` string, then compares real Chromium `getComputedStyle` on a
+`section` under the export order (`paletteCSS + layoutCSS`) against the declared order
+(`layoutCSS + paletteCSS`). A token whose computed value differs between the two is dead today.
+
+**Measuring each theme FILE standalone is the mistake both earlier drafts made.** A `-dark`
+variant is `@import 'parent'; :root { color-scheme: dark; }` and `a11y-base` is
+`@import 'onyx';` — measured alone they lose nothing of their own, measured as the emulator
+loads them they carry their parent's losses whole.
 
 | | |
 |---|---|
-| declarations shadowed on the export path | **426** |
-| distinct tokens | **36** |
-| palette FILES that lose declarations of their own | **18** of 32 |
-| selectable themes that RENDER with a dead declaration | **31** of 32 |
+| distinct tokens affected | **36** |
+| themes with at least one dead declaration | **32 of 32** |
+| dead declarations, counted per theme as loaded | **932** |
 
-**The two palette numbers are different, and the second is the one that matters.** 18 counts
-files carrying declarations of their *own* that die. The 13 `-dark` variants score 0 there
-because they declare nothing but `@import 'parent'; :root { color-scheme: dark; }` — but the
-emulator inlines the parent into the same `paletteCSS` string, so the base still lands after
-it and the parent's losses are inherited whole. Measured on `indaco-dark`: `--diagram-active`
-renders as the base's `#F5E6D8` where indaco declares `light-dark(#ECC0A8, #91450E)`. So every
-`-dark` variant carries its parent's dead declarations, and only `a11y-base` is genuinely
-clean — its own tokens (the categorical fills) are ones the base declares only under
-`section.print`, a conditional selector that never competes at `:root`.
+**There is no clean theme.** The worst are `cuoio` (35), the `atelier`/`brina`/`burgundy`/
+`laguna`/`magnolia`/`mustard` group (32 each) and `ardesia`/`concrete`/`crepuscolo` (31);
+the lightest are `indaco` (16) and `carta` (18). Each `-dark` variant matches its parent
+exactly, which is the inheritance above showing up in the data.
 
-Worst affected: `cuoio` (35), `atelier`/`brina`/`burgundy`/`laguna`/`magnolia`/`mustard` (32
-each), `ardesia`/`concrete`/`crepuscolo` (31). The largest families are the twelve `--hljs-*`
-(13 palettes each), the `--diagram-*` state tokens (14 each), and — worth noticing —
-`--pass` / `--fail` / `--warn` / `--seq-500`, which are **semantic status colors**.
+The 36 tokens are the twelve `--hljs-*`, the `--diagram-*` state family, `--code-text`,
+`--code-inline-fg`, the `--chart-state-*` trio, the `--on-dark-*` tier, `--on-accent`, and —
+worth noticing — `--pass` / `--fail` / `--warn` / `--seq-500`, which are **semantic status
+colors**.
+
+*(An earlier draft published "426 declarations across 18 palette files", then "31 of 32
+themes". The first counted only declarations physically written in each file, measured
+standalone; the second kept that standalone basis and added a wrong exemption for `a11y-base`.
+A static textual count over `:root` blocks gives a lower figure again — roughly 386–402
+depending on how `:root, section` blocks are treated — because it cannot see computed
+inheritance. The computed measurement above is the one that describes what renders.)*
 
 **The sharpest consequence: 9 tokens resolve two different ways in the same render.**
 `--diagram-active`, `--diagram-active-mark`, `--diagram-critical`, `--diagram-critical-mark`,
 `--diagram-done`, `--diagram-done-mark`, `--diagram-note`, `--diagram-today` and `--fail` are
-read by **both** the CSS and the Mermaid token map — 134 declarations. The baked SVG gets the
-palette's value (reader = palette last); the CSS around it gets the base's (injected = base
-last). A gantt bar and the CSS that frames it are painted from the same token name and
-different values.
+read by **both** the CSS and the Mermaid token map. The baked SVG gets the palette's value
+(reader = palette last); the CSS around it gets the base's (injected = base last). A gantt bar
+and the CSS that frames it are painted from the same token name and different values.
+
+<details>
+<summary>The harness (node, needs <code>CHROME_PATH</code>)</summary>
+
+```js
+import fs from 'node:fs'; import path from 'node:path'; import puppeteer from 'puppeteer-core';
+const R = process.cwd(), T = path.join(R, 'themes');
+const layoutCSS = fs.readFileSync(path.join(R, 'dist/lattice.css'), 'utf8');
+function loadWithImports(file, seen = new Set()) {          // mirrors lattice-emulator.js:666
+  if (seen.has(file)) return ''; seen.add(file);
+  const c = fs.readFileSync(file, 'utf8'); let imported = '';
+  for (const m of c.matchAll(/@import\s+["']?([A-Za-z0-9_-]+)["']?\s*;/g)) {
+    if (m[1] === 'lattice') continue;
+    const p = path.join(path.dirname(file), `${m[1]}.css`);
+    if (fs.existsSync(p)) imported += loadWithImports(p, seen) + '\n';
+  }
+  return imported + c;
+}
+const declared = (css) => [...new Set([...css.replace(/\/\*[\s\S]*?\*\//g, '')
+  .matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]))].sort();
+const b = await puppeteer.launch({ executablePath: process.env.CHROME_PATH, args: ['--no-sandbox'] });
+const page = await b.newPage();
+for (const f of fs.readdirSync(T).filter((x) => x.endsWith('.css')).sort()) {
+  const paletteCSS = loadWithImports(path.join(T, f)), toks = declared(paletteCSS);
+  const read = async (css) => { await page.setContent(
+    `<!doctype html><html><head><style>${css}</style></head><body><section></section></body></html>`);
+    return page.evaluate((n) => { const s = getComputedStyle(document.querySelector('section'));
+      return Object.fromEntries(n.map((k) => [k, s.getPropertyValue(k).trim()])); }, toks); };
+  const now = await read(`${paletteCSS}\n${layoutCSS}`), flipped = await read(`${layoutCSS}\n${paletteCSS}`);
+  console.log(f, toks.filter((t) => now[t] !== flipped[t]).length);
+}
+await b.close();
+```
+</details>
 
 ## 3. What flipping the order actually does
 
@@ -116,13 +162,13 @@ numbers, pink interpolation); **after**, it renders in ardesia's own curated ram
 blues, teals and greens, quieter and visibly of-a-piece with the theme. That second rendering
 is what ardesia's author wrote and what no user has ever seen.
 
-So the flip does not "fix a bug" so much as **turn on 426 curated declarations that have never
-rendered**. That is very likely the right outcome — the palettes were authored to be seen —
+So the flip does not "fix a bug" so much as **turn on curated declarations that have never
+rendered, in every theme that ships**. That is very likely the right outcome — the palettes were authored to be seen —
 but it is a change to the shipped appearance of nearly every theme, not a no-op.
 
 ## 4. Why this record stops here
 
-**This changes the bytes of an exported artifact across 31 of 32 selectable themes.** CLAUDE.md's QUALITY BAR
+**This changes the bytes of an exported artifact across all 32 selectable themes.** CLAUDE.md's QUALITY BAR
 makes that the one explicit exception to acting without being asked: it requires the owner's
 inspection, with a representative deck rendered in both dark and light mode, before it ships.
 So the deliverable here is the measurement and the model, and the flip is **not** in this
@@ -141,8 +187,8 @@ Three directions remain open, and the measurement changes how they rank:
    tokens out of the Mermaid reader's view — a second-order hazard (1) does not have.
 3. **Gate it.** Fail the build when a palette declares a `:root` token the base also declares
    at `:root`, and require the base to use a zero-specificity default there. Useful *with*
-   (1) or (2), not instead: on its own it makes the 426 a build error rather than a render
-   defect, which needs one of the fixes anyway.
+   (1) or (2), not instead: on its own it makes the dead declarations a build error rather than
+   a render defect, which needs one of the fixes anyway.
 
 **Recommendation: (1), then (3) to hold the line** — but the visual sign-off is the gate, and
 it is the owner's.
@@ -160,7 +206,7 @@ declare an ink default — but the exemption itself should not be removed in the
 ## 6. Not verified
 
 - **No render sweep across the affected themes.** Four were rendered (ardesia, cuoio, onyx,
-  carta) out of 31. A full before/after sweep, in both modes, is part of the sign-off package and
+  carta) out of 32. A full before/after sweep, in both modes, is part of the sign-off package and
   is not in hand.
 - **PPTX and HTML export paths.** Only the PDF/PNG path was exercised. Both consume the same
   bundle, so the same inversion should apply, but it was not measured. **UNVERIFIED.**
@@ -168,7 +214,7 @@ declare an ink default — but the exemption itself should not be removed in the
   may already be correct, which would make the preview and the export disagree — worth
   checking before (1) lands, since it decides whether this fix makes those two *agree* or
   merely swaps which one is wrong.
-- **Whether every one of the 426 activations is desirable.** The four sampled palettes looked
+- **Whether every activation is desirable.** The four sampled palettes looked
   better afterwards. Nobody has looked at the other 14, and a palette could carry a stale
   declaration that was written against an older base and never re-checked *because* it was
   dead.
