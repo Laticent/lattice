@@ -1532,11 +1532,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// navigation passes `false`: turning the deck with a swipe, a wheel or an arrow
 	// key is intent to keep reading, and taking the caret would hand the NEXT arrow
 	// press to the editor instead of the deck (#1294).
-	function goToSlide(i: number, opts: { focus?: boolean } = {}) {
+	function goToSlide(i: number, opts: { focus?: boolean; expand?: boolean } = {}) {
 		// Moving the preview is INTENT to see it (the Playground's toPreview
 		// lesson): a collapsed preview expands first — a no-op when it's open —
 		// so a navigation never lands in a hidden pane.
-		splitApiRef.current.expand('b');
+		//
+		// `expand: false` for KEY and GESTURE nav. That rule was written for an explicit
+		// PICK (a rail row, the ‹ › buttons), where re-opening the pane is the point.
+		// An arrow key is not a pick: an author who collapsed the preview to write
+		// full-width should not have their layout rearranged by a stray keystroke. With
+		// the pane collapsed the arrows still walk the deck — the editor scrolls slide to
+		// slide — which is the useful reading of "move through slides" in an editor-only
+		// layout, and it leaves the choice of pane widths where the author put it.
+		if (opts.expand !== false) splitApiRef.current.expand('b');
 		const idx = Math.max(0, Math.min(i, viewSlides.length - 1));
 		setActiveSlide(idx);
 		const fullIdx = composeLens === 'full' ? idx : slides.indexOf(viewSlides[idx]);
@@ -2294,7 +2302,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		const cur = slideNoRef.current; // 1-based; goToSlide takes a 0-based index
 		const to = action === 'next' ? cur : action === 'prev' ? cur - 2 : action === 'first' ? 0 : action === 'last' ? Number.MAX_SAFE_INTEGER : null;
 		if (to === null) return; // an action this surface does not implement — do nothing, quietly
-		goToSlideRef.current(to, { focus: false });
+		goToSlideRef.current(to, { focus: false, expand: false });
 	}, []);
 	const onPreviewTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; swipeRef.current = { x: t.clientX, y: t.clientY }; };
 	const onPreviewTouchEnd = (e: React.TouchEvent) => {

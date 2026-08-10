@@ -162,3 +162,17 @@ test('the arrow keys stand down while the author is typing', async ({ page }) =>
 	await typeInEditor(page, 'parity');
 	await expect(page.getByLabel('Deck source')).toContainText('parity');
 });
+
+// A collapsed preview is a layout the AUTHOR chose. Turning the deck by key must
+// not rearrange it — `goToSlide`'s expand-first rule was written for an explicit
+// PICK (a rail row, the < > buttons), where re-opening the pane is the point.
+// Real-browser only: the split API needs real layout, so jsdom cannot see this.
+test('arrow navigation does not re-open a preview the author collapsed', async ({ page }) => {
+	const collapsed = () => page.locator('[data-split-collapsed="b"]');
+	await expect(collapsed()).toHaveCount(0);
+	await page.getByRole('button', { name: 'Collapse preview' }).click();
+	await expect(collapsed()).toHaveCount(1);
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('End');
+	await expect(collapsed()).toHaveCount(1);
+});

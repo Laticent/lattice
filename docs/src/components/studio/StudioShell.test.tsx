@@ -1435,3 +1435,4 @@ describe('StudioShell — navigation regressions found in review', () => {
 		}
 	});
 });
+
