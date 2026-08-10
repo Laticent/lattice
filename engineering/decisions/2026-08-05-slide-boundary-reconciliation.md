@@ -242,3 +242,76 @@ always split there. It survives as the right spelling for a rule *inside a conta
 
 Items 2 and 3 of #1271 — the adjacency-preserving equivalence harness, and structural gating — are
 untouched. They are a separate thread with their own dependency (2 → 3).
+
+---
+
+## Amendment (2026-08-10) — the invariant belongs where the frame is fed, not in the fallback
+
+#1551 walked straight through the guard this note established, and the escape route is worth
+recording because it generalizes.
+
+**What happened.** Paste a deck carrying its own `---` front-matter block below an existing one.
+Front matter is only front matter at offset 0, so the pasted block is ordinary markdown: its opening
+`---` becomes a thematic break, its closing one a setext underline under `header: "…"`. The engine
+splits one more section than the Studio counts, `alignmentFailure` fires, and `narrowToSlide`
+correctly returns `null` — every step above doing exactly what §4 says it should. The caller then
+falls back to "render that one authored chunk alone", **and the chunk still contains an `hr`**. Two
+sections went into a frame whose CSS and scale transform assume exactly one, so the second — the
+author's actual content — sat below the fold and never painted. Rail count, page number and chunk
+all agreed with each other and disagreed with the render. Silent, and content-destroying: the class
+§1 was written to end.
+
+**The near-miss.** The obvious home for the fix is the `narrowToSlide === null` branch, since that is
+the route the bug report walks. That is the wrong home, and a first cut that put it there passed its
+own e2e while the defect was still on screen. `wantsContext` is **false** whenever the deck does not
+need deck context, and then `renderSource` is `slideMarkdown` outright — the engine renders the lone
+chunk and the fallback is never entered at all. Two routes reach the frame; a guard in one of them
+protects neither reliably.
+
+So the check now sits **after every route, immediately before the frame is fed**: if a host asked for
+a single slide (`slideIndex` + `slideMarkdown`) and the HTML about to be written carries more than
+one `<section`, refuse. That is the same sentence §4's walker comment already states for the
+whole-deck path — "never stack every section into a frame whose CSS and scale transform assume
+exactly one" — applied to the surface it was always about.
+
+**Refusing had to become audible.** `ok:false` on a `loader` host (Present, the editor preview) used
+to leave the Nacre skeleton spinning forever with no message — a deterministic failure rendered as
+"still loading". Trading a silently missing slide for a silently spinning one is no trade, so
+`DeckPreview` now raises its failure card on a deterministic `ok:false` for loader hosts too, and
+carries the renderer's reason instead of a bare "This preview couldn't render." The never-paint
+ceiling stays non-loader-only: there a skeleton is honest, because the render may still land.
+
+**Left open, deliberately.** Two things this exposes are not fixed here. (a) `splitSlides` and
+`splitOnHr` still disagree about the empty leading chunk; making them agree would remove *this*
+deck's mismatch, but the fallback stays reachable by other 1→N expansions, so hardening was needed
+either way. (b) A stray interior front-matter block is a plausible authoring mistake, and a
+`lint-core.js` rule flagging `---`-delimited YAML below offset 0 would catch it at the source — the
+actionable cure, since the render fix can only refuse. Both are their own cards under HARD RULE #17.
+
+
+### Correction (2026-08-10, from the maker-checker) — it is the HEADING split, not an `hr`
+
+The paragraph above originally said the fallback failed because "the chunk still contains an
+`hr`". It does not, and the correction matters because it re-aims the follow-up work.
+
+The pasted block's closing `---` is a setext underline (stated correctly above) — and the
+`<h2>` it produces is the **second heading in the chunk**, which the DEFAULT `split: headings`
+ruler turns into a new section. Flip the same deck to `split: rule` and the counts agree and
+#1551 disappears entirely. So the residual is not the empty leading chunk: it is that
+`separatorRanges` / `splitSlides` model `hr` separators only and are blind to heading splits,
+while `lib/core/bake-splits.js` and `lib/core/section-source-split.js` already use
+`headingSplitPoints`.
+
+**That blindness is also why the first cut of the guard was wrong.** It REFUSED whenever a
+lone chunk rendered as more than one section, on the assumption that this only happens when
+the author has erred. It usually is not an error: `split: headings` is the engine default, so
+a deck written as `# Title` + two `##` with no `---` anywhere is one chunk to the caller and
+three sections to the engine. Refusing painted an error card over the most ordinary deck
+shape there is; `glossary: auto` (which appends a slide to every slice render) and
+`_focusSteps` did the same — 3 committed decks / 8 slides, and the corpus understates it
+because committed decks happen to use explicit separators. The guard now **narrows** to the
+caller's section and refuses only when the markup cannot be walked at all.
+
+Counting also moved from a `/<section\b/g` tally to `sectionsOf`: the tally counted the
+string inside an HTML comment, so `<!-- <section> -->` in author content scored 2 against 1
+real section and refused a working slide.
