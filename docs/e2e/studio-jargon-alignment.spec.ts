@@ -18,8 +18,20 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DECK = fs.readFileSync(path.join(HERE, '../../examples/gallery-jargon.md'), 'utf8');
 
-/** `splitSlides` from docs/src/components/studio/lint.ts, replicated so the test cannot drift from a
- *  local import path — same regex, same fence masking, same drop-empties behavior. */
+/** An INDEPENDENT slide splitter, deliberately not the Studio's — so the rail-count assertion below
+ *  has something to disagree with. Read the limits before trusting it:
+ *
+ *  It is NOT parity with `lint.ts`. That claim was true when written and is now false: since #1271
+ *  (2026-08-05) `lint.ts` derives boundaries from the engine's own markdown-it via
+ *  `lib/core/slide-boundaries.mjs`, not a regex. This replica still matches `\n-{3,}\n`, so the two
+ *  disagree on at least six real forms — `***`, `___`, `- - -`, a trailing space after `---`, an
+ *  indented `  ---`, and a `---` inside an HTML comment. `examples/gallery-jargon.md` uses plain
+ *  `---` throughout, which is the only reason this passes.
+ *
+ *  So: adding any of those forms to the deck reds this file for a DECK reason, reported as a rail
+ *  count mismatch — "the count is off", which is the user report these specs exist for. Whether to
+ *  keep an independent splitter (and teach it the other forms) or import the real one (and lose the
+ *  independence) is an open call, not settled here. */
 function splitSlides(src: string): string[] {
 	const fences = fenceRanges(src);
 	const inFence = (i: number) => fences.some(([a, b]) => i >= a && i < b);
@@ -77,8 +89,9 @@ test('jargon deck: every rail selection previews THAT slide', async ({ page }) =
 /** The line `revealSlide` scrolls to: a slide's first line of actual CONTENT. Mirrors
  *  `slideEditableOffset` in docs/src/components/studio/lint.ts — skip blank lines and lone directive
  *  comments (`<!-- _class: … -->` and siblings), fall back to the slide's first line when a slide is
- *  nothing but directives. Replicated rather than imported for the same reason `splitSlides` is: the
- *  test states the contract independently of the module it is checking. */
+ *  nothing but directives. Replicated rather than imported so the test states the contract
+ *  independently of the module it checks — and unlike `splitSlides` above, this one IS still parity:
+ *  `slideEditableOffset` walks past blank lines and lone directive comments with the same rule. */
 function editableLineOf(slide: string): string {
 	const isDirective = (l: string) => /^<!--(?:(?!-->).)*-->$/.test(l);
 	const lines = slide.split('\n').map((l) => l.trim());
@@ -135,6 +148,17 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 		expect(docLines.filter((l) => l === t).length, `sampled slide ${i}'s first editable line ${JSON.stringify(t)} is not unique in the deck, so it cannot identify a rendered line`).toBe(1);
 	}
 	const TOLERANCE = 40; // ~1.5 lines: absorbs yMargin + rounding, far under one slide
+	// Generous against the measured settle (61–225ms on an unloaded box, and the poll's own 100ms step
+	// quantizes it) while still an order of magnitude under a stall a human would notice. Wide enough
+	// that CI contention alone should not trip it; narrow enough to catch a deferred or dropped scroll.
+	const SETTLE_BUDGET_MS = 1_500;
+	// The caret is only readable when the editor took focus, which on this project it does:
+	// `StudioShell.goToSlide` passes `focus: hasFinePointer()`, and the desktop project reports
+	// `(hover: hover) and (pointer: fine)` — verified, not assumed. A rail pick on a TOUCH device
+	// deliberately skips the focus (it would raise the keyboard), so this half of the contract is
+	// desktop-only by design. Where the caret cannot be read the index is recorded and reported rather
+	// than silently passed.
+	const caretUnmeasured: number[] = [];
 	const measure = (text: string) =>
 		page.evaluate(
 			({ text }: { text: string }) => {
@@ -148,8 +172,23 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 				// neighbor, and reporting "" tells the reader nothing.
 				const atTopEl = lines.find((l) => l.getBoundingClientRect().bottom > s.top + 1 && (l.textContent ?? '').trim());
 				const atTopText = (atTopEl?.textContent ?? '').trim().slice(0, 60);
-				if (!el) return { found: false, offset: 0, atTopText };
-				return { found: true, offset: Math.round(el.getBoundingClientRect().top - s.top), atTopText };
+				// THE CARET, not just the scroll. `revealSlide` has a two-part contract — frame the slide
+				// AND park the caret on its first editable line, so the next keystroke edits the slide you
+				// picked instead of corrupting its `_class` directive (#1288/#1291). Measuring only the
+				// scroll left that half unguarded at EVERY tier: pointing the selection at the raw slide
+				// start (the directive line) while leaving the scroll correct keeps all three specs green
+				// and puts the author's first keystroke inside the comment.
+				//
+				// Read the NATIVE selection, not a cursor element: this editor enables no `drawSelection`
+				// extension, so there is no `.cm-cursor` to measure — CodeMirror leaves the caret to the
+				// browser's contenteditable. Climb from the selection anchor to its `.cm-line` and compare
+				// text, which is exact rather than geometric.
+				const sel = window.getSelection();
+				let node: Node | null = sel?.rangeCount ? sel.anchorNode : null;
+				while (node && !(node instanceof HTMLElement && node.classList.contains('cm-line'))) node = node.parentNode;
+				const caretLine = node instanceof HTMLElement ? (node.textContent ?? '').trim() : null;
+				if (!el) return { found: false, offset: 0, atTopText, caretLine };
+				return { found: true, offset: Math.round(el.getBoundingClientRect().top - s.top), atTopText, caretLine };
 			},
 			{ text },
 		);
@@ -171,12 +210,20 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 		// Yield a frame first so the loop cannot open that window. (In practice Playwright's click
 		// round-trip already outlasts a frame — measured 44–225ms — but "in practice" is not a contract.)
 		await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
-		const deadline = Date.now() + 5_000;
+		// AND THE POLL IS BOUNDED ON *TIME*, not just on correctness. Polling to success trades away the
+		// one thing the fixed sleep it replaced still measured: a reveal that lands correctly but SLOWLY
+		// used to fail (the 350ms wait expired and the assertion read a stale position); a poll absorbs
+		// any stall shorter than its deadline and reports green. That was demonstrated, not feared —
+		// deferring the scroll dispatch by 2.5s passes this test post-poll and FAILS it pre-poll. So the
+		// settle time is now part of the assertion: correct AND prompt, or it reports.
+		const t0 = Date.now();
+		const deadline = t0 + 5_000;
 		let m = await measure(want);
 		while ((!m?.found || Math.abs(m.offset) > TOLERANCE) && Date.now() < deadline) {
 			await page.waitForTimeout(100);
 			m = await measure(want);
 		}
+		const settleMs = Date.now() - t0;
 		if (!m) {
 			wrong.push(`rail ${i}: no editor scroller found`);
 		} else if (!m.found) {
@@ -185,8 +232,21 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 			wrong.push(
 				`rail ${i}: slide ${i}'s first editable line ${JSON.stringify(want)} sits ${m.offset}px from the top of the editor (want 0 ±${TOLERANCE}) — a different slide is framed; the line at the top is ${JSON.stringify(m.atTopText)}`,
 			);
+		} else if (settleMs > SETTLE_BUDGET_MS) {
+			wrong.push(
+				`rail ${i}: the editor framed the right slide but took ${settleMs}ms to do it (budget ${SETTLE_BUDGET_MS}ms) — a reveal this slow is a visible stall after every rail click`,
+			);
+		} else if (m.caretLine === null) {
+			caretUnmeasured.push(i);
+		} else if (m.caretLine !== want) {
+			wrong.push(
+				`rail ${i}: the slide is framed but the CARET sits on ${JSON.stringify(m.caretLine.slice(0, 60))} instead of slide ${i}'s first editable line ${JSON.stringify(want)} — the next keystroke would edit the wrong line (a caret in the _class directive corrupts it, #1288/#1291)`,
+			);
 		}
 	}
+	// The caret half is only guarded where it could be READ. If the cursor layer never rendered, say so
+	// loudly rather than reporting a coverage level this run did not achieve.
+	expect(caretUnmeasured, `the caret could not be measured on rails ${caretUnmeasured.join(', ')} — the cursor layer did not render, so revealSlide's caret contract went unchecked`).toEqual([]);
 	expect(wrong, `the editor framed the wrong slide:\n${wrong.join('\n')}`).toEqual([]);
 });
 
@@ -271,8 +331,12 @@ test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) 
 			);
 		}
 	}
-	// A run in which every index skipped would otherwise pass having asserted NOTHING — the same
-	// silent-green hole the skip path always had, now closed.
-	expect(skipped.length, `every sampled slide was skipped (${skipped.join(', ')}) — the test asserted nothing`).toBeLessThan(indices.length);
+	// SKIPS ARE REPORTED AND FLOORED. "Not all of them skipped" was too weak: under CPU contention the
+	// 10s scroll loop starts shedding indices, and 6 of 7 could skip while the run still went green —
+	// measured, at 14x throttle the LAST slide (the one this file singles out as the hard case) drops
+	// out silently. On this deck exactly one index is legitimately unassertable (3, the headingless
+	// quote slide), so anything beyond that is coverage erosion and says so by name.
+	if (skipped.length) console.log(`[alignment] skipped slides: ${skipped.join(', ')}`);
+	expect(skipped, `more slides were skipped than this deck can legitimately skip — coverage eroded rather than failed`).toEqual([3]);
 	expect(wrong, `the preview showed a different slide than the one being edited:\n${wrong.join('\n')}`).toEqual([]);
 });
