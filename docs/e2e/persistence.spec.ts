@@ -4,14 +4,26 @@ import { appendToEditor, expect, FIRST_PAINT_TIMEOUT, gotoStudio, persistedSourc
 // restores from localStorage — the cause-effect the user relies on).
 
 // A reload is a cold first paint again, so the wait goes through the shared
-// fixture helper — re-deriving it here is what re-inherits the 15s assertion
-// default this suite's flake point came from (#1572).
+// fixture helper — re-deriving it here is what re-inherits the 15s defaults this
+// suite's flake point came from (#1572).
 async function waitReady(page: import('@playwright/test').Page): Promise<void> {
 	await page.getByLabel('Deck source').waitFor({ state: 'visible', timeout: FIRST_PAINT_TIMEOUT });
 	await waitForStudioPaint(page);
 }
 
+/**
+ * Both tests here paint TWICE — once on entry, once after the reload — and a test
+ * plus its hooks share ONE timeout slot. Two 45s paint budgets do not fit inside
+ * the config's 60s default, so under real starvation the runner would kill the test
+ * before the fixture's own diagnosis could fire, and a triager would get a bare
+ * "Test timeout exceeded" for what is a paint stall. 120s makes the budget the
+ * fixture advertises actually reachable on the reload path. Same move as
+ * `gallery-preview-budget.spec.ts:39` and the `studio-preview-sync.spec.ts` block.
+ */
+const TWO_PAINT_BUDGET = 120_000;
+
 test('a deck edit survives a reload', async ({ page }) => {
+	test.setTimeout(TWO_PAINT_BUDGET);
 	await gotoStudio(page);
 	const n = await slideCount(page);
 
@@ -32,6 +44,7 @@ test('a deck edit survives a reload', async ({ page }) => {
 // after a reload is what happens with an empty store, so a default target would let
 // this pass without anything being persisted or restored at all.
 test('the palette choice survives a reload', async ({ page }) => {
+	test.setTimeout(TWO_PAINT_BUDGET);
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Theme' }).click();
 	await page.getByRole('menuitem', { name: 'Burgundy' }).click();

@@ -169,46 +169,80 @@ happened." Each cause-effect test names an **oracle** — what proves the effect
 
 ### Timeouts — a setup wait is not an assertion (added 2026-08-10, #1572)
 
-`expect.timeout` (15s) is the budget for *an assertion about behavior*. Getting
-the app into the state a spec starts from is **setup**, and it deserves a
-setup-shaped budget of its own. `gotoStudio` inherited the assertion default for
-the Studio's cold first paint — an island hydrate, a lazy engine chunk and a full
-render inside a srcdoc iframe — and because nearly every spec calls it in a
-`beforeEach`, that one line became the suite-wide flake surface: the timeout was
+A config default is the budget for *an assertion about behavior* (`expect.timeout`)
+or *an action* (`use.actionTimeout`) — both 15s here. Getting the app into the
+state a spec starts from is neither: it is **setup**, and it deserves a
+setup-shaped budget of its own. `gotoStudio`'s first-paint wait inherited both
+defaults — one per half, `waitFor` from `actionTimeout` and `not.toBeEmpty` from
+`expect.timeout` — for an island hydrate, a lazy engine chunk and a full render
+inside a srcdoc iframe. 49 of 61 spec files reach the Studio through it (14 from a
+`beforeEach`), so that one line was the suite-wide flake surface: the timeout was
 reported against whichever spec drew the slow worker, so it looked like a
 different bug each time it appeared.
 
-Measured on a 4-core box, deliberately oversubscribed 4× (`--workers=16`,
-`--retries=0`), 54 first paints:
+Reproduce with **`docs/scripts/first-paint-bench.mjs`**, committed with the change
+— a budget sized by a distribution nobody can re-measure is a guess with a decimal
+point:
 
-| median | p90 | p95 | max | over the 15s default |
-|---|---|---|---|---|
-| 7.5s | 19.5s | 20.6s | 22.0s | **13 / 54 (24%)** |
+```
+cd docs && npm run build:e2e && npm run preview:e2e &
+SAMPLES=54 CONC=16 node scripts/first-paint-bench.mjs
+```
+
+54 cold paints on a 4-core box at `CONC=16` (4× oversubscription, one browser
+process per slot, as a Playwright worker has):
+
+| milestone | median | p90 | p95 | max | past 15s |
+|---|---|---|---|---|---|
+| slide root visible | 16.5s | 18.6s | 19.6s | 20.0s | — |
+| root not empty (what the fixture waits for) | 16.7s | 19.0s | 21.0s | 21.2s | **42 / 54 (78%)** |
 
 So under starvation the old budget sat *inside* the observed distribution — the
-wait was not detecting a defect, it was sampling the load. The paint now gets
-`FIRST_PAINT_TIMEOUT` (45s, the budget `studio-instant-shell.spec.ts` already
-spends on the same iframe), which leaves 2× headroom over the worst observed
-paint and still sits under the 60s test timeout, so a genuine hang fails *here*,
-named, rather than as an unexplained runner timeout.
+wait was not detecting a defect, it was sampling the load. `FIRST_PAINT_TIMEOUT`
+is 45s, ~2× the worst paint measured.
 
-Two rules generalize from it:
+**Two instruments, agreeing where it counts and differing where it doesn't.** The
+first pass measured the real suite instead, by hand-instrumenting the fixture and
+running `--workers=16 --retries=0`: p95 20.6s and max 22.0s, within noise of the
+harness above, but a **7.5s median and 13/54 past 15s** rather than 16.7s and
+42/54. The tail agrees because the tail is what saturation produces either way;
+the middle differs because the runner staggers test starts while the harness
+launches 16 cold visits at once. The 45s budget is sized off the tail, which both
+instruments put at 21–22s. Only the harness is committed, so only its numbers are
+reproducible — the in-runner figures are recorded here as corroboration, not as
+something a reader can re-derive.
 
-- **A shared fixture wait states its own budget.** Inheriting an assertion
-  default couples every spec's reliability to a number tuned for something else.
+Three rules generalize from it:
+
+- **A shared fixture wait states its own budget**, and names *which* default it is
+  escaping. Inheriting couples every spec's reliability to a number tuned for
+  something else — and `actionTimeout: 15_000` still silently governs every click
+  and fill in this suite under the same starvation.
 - **A shared fixture failure says what stalled and that it is the fixture.** The
   wait throws "the Studio never painted its first slide within 45s", names which
   of the two stages stalled, and says the cause is usually a starved worker — a
   bare locator timeout sends the triager to read the reporting spec, which is the
   one place the cause is not. Only a *timeout* is re-labeled; anything else
   escapes as itself.
+- **A setup budget must fit the slot it runs in.** A `beforeEach` and its test
+  share **one** 60s timeout, and the runner kills the test from outside the
+  fixture's `try` — so a budget that cannot fit buys a *worse* failure than the one
+  it replaced: a bare "Test timeout exceeded" instead of a located error, 60s later.
+  Hence one deadline across both halves (45s total, not 45s each), and
+  `test.setTimeout(120_000)` on the two `persistence.spec.ts` tests, which paint
+  twice. This was the first version's real defect, and it was caught by an
+  independent checker rather than by any gate.
 
-CI (`workers: 2`, `retries: 1`) never ran the configuration that provoked this,
-and the E2E tier is nightly, off the PR gate — so this was latent triage cost, not
-a broken gate. **Still open at that stress:** at 4× oversubscription the 60s
-*test* timeout becomes the binding constraint for reload specs (one
-`persistence.spec.ts` run exceeded it, with both of its cold paints inside
-budget). That is a property of the runner budget, not of this wait, and nobody
+**How much this actually mattered.** The E2E tier is nightly and this
+configuration is not one CI runs (`workers: 2`, `retries: 1`). It is not entirely
+off the PR path either: `ci.yml`'s `studio-smoke` job runs 16 `@smoke` tests on
+every docs-touching PR with `--retries=0`, seven of them through `gotoStudio` —
+**advisory**, deliberately absent from `ci`'s `needs`, so a red there reports
+without blocking. Latent triage cost, then, not a broken gate.
+
+The 45s budget makes the fixture's own diagnosis reachable; it does not make the
+suite immune to starvation. At 4× oversubscription plenty else in a spec body can
+still exhaust a 60s test — that is a property of the runner budget, and nobody
 runs 16 workers on 4 cores.
 
 ### Watching a run — headed, UI mode, trace, video (RPA-style observability)
