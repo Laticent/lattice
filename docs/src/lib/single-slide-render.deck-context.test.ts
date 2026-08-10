@@ -626,7 +626,24 @@ describe('supplied SECTION position (the progress rail)', () => {
 // Supplying a count INVERTS the gate's failure direction: as a probe, a `divider` mentioned in
 // prose cost a wasted parse and produced correct output; as a counter the same match paints an
 // extra dot and bumps the watermark glyph. So an ambiguous deck goes back to the whole-deck render.
-describe('an ambiguous divider count falls back to the deck render', () => {
+// THIS BLOCK CHANGED ITS ANSWER, and the reason is the point rather than a relaxation.
+//
+// It used to assert that a `_class: divider` shown inside code forced the WHOLE-DECK render. That
+// bail existed because the divider count was derived over a whole-body code-blanked copy and
+// compared against the raw reading: when the two disagreed, the derivation could not tell which
+// was right, so it refused rather than paint an extra rail dot — "fail safe, not fail wrong".
+//
+// The disagreement is gone at its source. `dividerDerivation` now chunks the RAW body and blanks
+// EACH CHUNK for its own divider test, so a divider inside code is simply not a divider for that
+// slide, in the caller's own index space. There is no second reading to be unsure between — so
+// these decks take the CHEAP slice route and print a TRUE section, which is strictly better than
+// the whole-deck render they used to be pushed onto. (That change also fixed a real defect: the
+// blanked-chunk indexing could return the wrong section entirely when blanking moved a thematic
+// break. See lib/diagnostics/slice-equivalence-core.mjs.)
+//
+// What must still hold — and is what these now assert — is the property the bail was protecting:
+// a divider mentioned in code must NOT create a second divider section.
+describe('a divider mentioned inside code is not counted, and no longer forces the deck render', () => {
 	const rendered = async (deck: string) => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
@@ -637,14 +654,19 @@ describe('an ambiguous divider count falls back to the deck render', () => {
 	};
 	const REAL = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n## Tail.\n';
 
-	it('renders the DECK when a divider is mentioned in an inline code span', async () => {
+	it('takes the SLICE for a divider in an inline code span, counting ONE section not two', async () => {
 		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\nWrite `<!-- _class: divider -->` here.\n\n---\n\n## Tail.\n';
-		expect((await rendered(deck)).source).toBe(deck);
+		const out = await rendered(deck);
+		expect(out.source).toBe('THE SLICE');
+		// One real divider (slide 0). The code-span mention must not add a second.
+		expect(out.page?.deckSection).toEqual({ index: 1, total: 1 });
 	});
 
-	it('renders the DECK when a divider is mentioned in an indented code block', async () => {
+	it('takes the SLICE for a divider in an indented code block, counting ONE section not two', async () => {
 		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n    <!-- _class: divider -->\n\n---\n\n## Tail.\n';
-		expect((await rendered(deck)).source).toBe(deck);
+		const out = await rendered(deck);
+		expect(out.source).toBe('THE SLICE');
+		expect(out.page?.deckSection).toEqual({ index: 1, total: 1 });
 	});
 
 	it('still takes the SLICE for an unambiguous divider deck — the optimization survives', async () => {

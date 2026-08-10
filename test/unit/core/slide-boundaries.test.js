@@ -304,17 +304,52 @@ test('the parse is memoized per source, so a keystroke pays for one', () => {
 	assert.equal(slideBoundaries(body), a, 'a second string must not evict the first');
 });
 
+// The cache SIZE and the eviction ORDER are the two properties nothing else in this
+// file pins, and an independent check proved it: with only the tests above, both
+// `MEMO_MAX = 2` (one below the measured typing working set, i.e. thrashing restored)
+// and a plain FIFO (the recency re-insert deleted) passed everything. A constant with
+// no test is how this drifts back silently.
+const MEMO_MAX = 6;
+
+test('the cache holds the whole per-keystroke working set — the floor, not just a number', () => {
+	// THREE distinct strings is what one keystroke actually asks about: the editor's body,
+	// the preview's `editorSample` body (StudioShell rebuilds it from trimmed chunks, so it
+	// is never byte-equal), and a code-blanked copy. Replay that, twice over, and nothing
+	// may re-parse. At MEMO_MAX below the working set this reads high and fails.
+	const a = '# One\n\n```\ncode\n```\n\n---\n\n# Two\n';
+	const b = `${a}\n`; // the rebuilt preview string: same deck, one byte different
+	const c = a.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, ''); // the code-blanked copy
+	resetBoundaryMemo();
+	for (let round = 0; round < 2; round++) for (const s of [a, b, c]) slideBoundaries(s);
+	assert.equal(boundaryParseCount(), 3, 'three distinct strings, asked twice, must cost three parses');
+});
+
+test('eviction is least-recently-USED, not least-recently-inserted', () => {
+	// The recency re-insert is the entire difference between an LRU and a FIFO, and it is
+	// what matters the moment the working set exceeds the cap. Fill the cache, TOUCH the
+	// oldest entry so it becomes the newest, then overflow by one: a FIFO drops the touched
+	// entry, an LRU drops the one after it.
+	const decks = Array.from({ length: MEMO_MAX + 1 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
+	resetBoundaryMemo();
+	for (let i = 0; i < MEMO_MAX; i++) slideBoundaries(decks[i]);
+	const touched = slideBoundaries(decks[0]); // hit — now the most recently used
+	slideBoundaries(decks[MEMO_MAX]); // overflow: evicts the LEAST recently used, which is deck 1
+	assert.equal(slideBoundaries(decks[0]), touched, 'the touched entry must survive — a FIFO would have dropped it');
+	assert.notEqual(slideBoundaries(decks[1]), undefined);
+	assert.equal(boundaryParseCount(), MEMO_MAX + 2, 'only deck 1 re-parsed: MEMO_MAX cold + the overflow + deck 1');
+});
+
 test('the memo stays BOUNDED — the oldest entry is evicted, not kept forever', () => {
 	// Boundedness was the single entry's real virtue and is the thing an LRU could
-	// quietly lose. Five distinct strings through a 4-entry cache must drop the oldest.
+	// quietly lose. MEMO_MAX+1 distinct strings must drop the oldest.
 	resetBoundaryMemo();
-	const decks = Array.from({ length: 5 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
+	const decks = Array.from({ length: MEMO_MAX + 1 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
 	const first = slideBoundaries(decks[0]);
-	for (let i = 1; i < 5; i++) slideBoundaries(decks[i]);
+	for (let i = 1; i < MEMO_MAX + 1; i++) slideBoundaries(decks[i]);
 	assert.notEqual(slideBoundaries(decks[0]), first, 'the oldest entry must have been evicted');
-	// 5 cold parses, then the re-parse of the evicted deck 0. A cache that grew without
-	// bound would read 5 here, which is the regression this number exists to catch.
-	assert.equal(boundaryParseCount(), 6, '5 cold parses + 1 re-parse of the evicted entry');
+	// N+1 cold parses, then the re-parse of the evicted deck 0. A cache that grew without
+	// bound would skip that last one, which is the regression this number exists to catch.
+	assert.equal(boundaryParseCount(), MEMO_MAX + 2, 'MEMO_MAX+1 cold parses + 1 re-parse of the evicted entry');
 });
 
 // THE COST THIS MEMO EXISTS TO REMOVE, pinned as a COUNT rather than a duration —
