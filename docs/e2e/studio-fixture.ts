@@ -358,13 +358,29 @@ export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIM
 		// wearing the paint-timeout message.) If the predicate ever stops matching,
 		// the original error is what escapes — you lose the nicety, not the truth.
 		if (!isWaitTimeout(cause)) throw cause;
+		// A root that appeared and then WENT AWAY reads, from stage 2's point of view,
+		// exactly like a root that never filled — same timeout, same locator. It is a
+		// different defect (a frame re-set, a re-mounted preview) and pointing the
+		// triager at the engine's render would be pointing at the wrong thing, so ask
+		// the page which one happened. A red-team pass demonstrated the mislabeling.
+		// The probe is best-effort: if the page is gone, keep the message we have.
+		if (stalled.startsWith('the slide root rendered')) {
+			try {
+				if ((await slide.count()) === 0) stalled = 'the slide root rendered and then vanished (the preview frame was re-set under the wait)';
+			} catch {
+				/* page/frame unreachable — the original wording stands */
+			}
+		}
 		// A bare locator timeout names the locator and nothing else, which sends a
 		// triager reading the reporting spec — the one place the cause is NOT. Say
 		// what stalled, and that it is the fixture's setup rather than the subject.
+		// Elapsed AND budget, not budget alone: a caller that narrowed the budget to
+		// near-zero (having spent it upstream) would otherwise report "within 0.001s".
 		// The underlying error is NOT re-printed here: Playwright renders `cause` as
 		// its own `[cause]:` block, so quoting the message would print it twice.
 		throw new Error(
-			`The Studio never painted its first slide within ${budget / 1000}s — ${stalled} ` +
+			`The Studio never painted its first slide — ${stalled} — after ` +
+				`${((Date.now() - started) / 1000).toFixed(1)}s of a ${(budget / 1000).toFixed(1)}s budget ` +
 				`(\`${LIVE_PREVIEW}\` » \`.lattice\`).\n` +
 				'This is the shared fixture wait, not an assertion in the spec that reported it: ' +
 				'the usual cause is a starved worker (re-run with --workers=2) or an engine chunk ' +
