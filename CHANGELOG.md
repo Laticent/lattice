@@ -73,6 +73,20 @@ in patch versions.
   first paint is already the split you left — one state, measured at 100% coverage
   from the first frame.
 
+- **Fixed: the Playground's preview pane no longer sits empty while the engine
+  loads.** It has had a pre-paint snapshot replay for as long as it has had a preview
+  — a cached last slide, painted before the island hydrates. It was switched off for
+  almost everybody. Its gate compared the snapshot's hash against
+  `lattice-docs-pg-source`, which holds the visitor's DRAFT and only exists once they
+  have typed in the editor; a visitor who only picks components never writes one, so
+  the check compared the real hash against the hash of the empty string and rejected
+  every time. Measured: every other clause passed, and the preview stayed a void for
+  ~4s until the engine rendered. With no draft, the identity of what will render is
+  the inserted hash — which the same script already relies on elsewhere. The cached
+  slide now paints at ~510ms instead of ~4.3s. The editor's own placeholder also
+  wraps like CodeMirror does, instead of clipping every long line and re-flowing on
+  mount.
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested

@@ -3631,6 +3631,28 @@ own) is not a builder and needs no entry.
   note wrongly assumed was impossible when it retired the old CSS-var seed. The seed
   is back (`playground.astro` + the `--pg-split-a/b` rules in `playground.css`), and
   that, not `defaultLayout`, is how you give a hydrated splitter a correct first paint.
+### The Playground's preview pane is empty for seconds after a reload
+
+- **Symptom:** reload the Playground and the preview half is a blank void until the
+  engine finishes loading, then a slide appears. The Studio never does this.
+- **Why:** the Playground DOES have a pre-paint snapshot replay (`.pg-ssr-shell`,
+  gated on `data-pg-shell="on"`), and it was dead. Its gate compared the cached
+  snapshot's `srcHash` against `fp(lattice-docs-pg-source)` — the visitor's DRAFT,
+  which is only written once they type in the editor. Anyone who just picks
+  components has no draft, so the comparison was the snapshot's real hash against the
+  hash of the empty string. Measured: every other clause (`v`, palette, mode, html,
+  css) passed and this one failed `96ae8e9b` vs `1505`.
+- **How to tell:** watch `document.documentElement.getAttribute('data-pg-shell')`
+  across a reload. If it is never `"on"`, the replay was rejected — evaluate the gate's
+  clauses one at a time rather than guessing which.
+- **The trap that hid it:** every existing test waited for the LIVE filmstrip, which
+  arrives either way. A silent pre-paint mechanism needs a test that asserts the
+  MECHANISM ran, not that the content eventually appeared.
+- **Fix (shipped):** with no draft, the identity of what will render is
+  `lattice-docs-pg-inserted-hash` — which the same seed already uses for its `pristine`
+  test. Pinned by "a reload replays the cached slide before the engine renders".
+- **Triggered by:** #1553.
+
 - **The general rule:** the shell and the app share boot state through the same
   storage, so they agree at rest; they disagree in the FIRST SECOND whenever one
   reads before paint and the other corrects after it. If you add shared boot state,

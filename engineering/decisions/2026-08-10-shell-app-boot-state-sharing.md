@@ -218,6 +218,42 @@ Pinned by the `@smoke` Playground case, which now asserts the panes cover the ro
 every frame it sampled — an assertion that fails on the old build with the three-state
 log printed in the message.
 
+## What the Studio does that the Playground did not
+
+The split seed above fixed the pane WIDTHS and the reporter still called the
+Playground janky, which was correct. Filming both surfaces reloading, side by side at
+the same size and throttle, shows why — and the difference is not the splitter:
+
+| | Studio | Playground (before) |
+|---|---|---|
+| shell | `position:fixed; inset:0`, opaque, the app's real chrome | `.pg-ssr-shell`, `position:absolute` INSIDE the preview pane |
+| shown to | every visitor, unconditionally, from HTML-parse time | only when a snapshot replay passes its gate |
+| preview area | a Nacre placeholder at the box's EXACT final rect | empty until the engine renders |
+| island | `client:only` — nothing server-rendered to hydrate in view | `client:load` — the real DOM assembles on screen |
+
+The Studio's guarantee is that **you never watch it being built**: one skeleton, at
+the geometry the app is about to use, dismissed only once the live preview has
+painted. The Playground builds in front of you.
+
+And the mechanism that was supposed to soften that was **dead code**. The Playground's
+pre-paint snapshot replay gates on
+`snap.srcHash === fp(localStorage['lattice-docs-pg-source'])` — but `pg-source` holds
+the visitor's DRAFT, written only once they type in the editor. A visitor who only
+picks components never writes one, so the comparison was the snapshot's real hash
+against the hash of the empty string. Measured on a fresh profile: `v`, `palette`,
+`mode`, `html`, `css` all passed; `srcHash` compared `96ae8e9b` to `1505` and
+rejected. `data-pg-shell` was never set, `.pg-ssr-shell` stayed `display:none`, and
+the pane was a void for ~4s on every reload.
+
+With no draft, the identity of what will render is the INSERTED hash — which the very
+same script already reads for its `pristine` test two lines earlier. The cached slide
+now paints at ~510ms and hands off to the live filmstrip at ~2.9s.
+
+**Why no test caught it, which is the transferable part:** every assertion on this
+surface waited for the LIVE filmstrip, and that arrives either way. A silent pre-paint
+mechanism needs a test that asserts *the mechanism ran*, not that the content
+eventually appeared. There is one now.
+
 ## Known gaps, recorded rather than fixed
 
 - **`defaultSize="45"` / `"55"` on the Playground's panels are invalid CSS lengths.**

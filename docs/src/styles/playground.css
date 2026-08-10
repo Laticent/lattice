@@ -254,7 +254,13 @@ body[data-view='read'] .pg-pane-label {
 	height: 100%;
 }
 /* SSR text placeholder painted before CodeMirror hydrates (LCP), removed on
- * mount. Approximates the editor's monospace look + the line-number gutter. */
+ * mount. Approximates the editor's monospace look + the line-number gutter.
+ * `pre-wrap`, not `pre` (#1553): CodeMirror mounts with line wrapping on, so `pre`
+ * made every long line CLIP at the pane edge and then re-flow into two or three
+ * wrapped lines the instant the editor booted — the same class of defect as the
+ * split jumping, one pane over. Wrapping here means the placeholder breaks where the
+ * editor is about to break. The wrapped continuation lines still lack CodeMirror's
+ * hanging indent, so this is closer, not identical. */
 .pg-editor-placeholder {
 	position: absolute;
 	inset: 0;
@@ -265,7 +271,7 @@ body[data-view='read'] .pg-pane-label {
 	line-height: 1.5;
 	color: var(--text-body);
 	background: var(--bg);
-	white-space: pre;
+	white-space: pre-wrap;
 	overflow: hidden;
 	pointer-events: none;
 }

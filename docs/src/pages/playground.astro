@@ -270,7 +270,21 @@ const pgData = {
 					var raw = localStorage.getItem('lattice-docs-pg-last-slide');
 					if (!raw) return;
 					var snap = JSON.parse(raw);
-					if (snap && snap.v === 1 && snap.palette === palette && snap.mode === mode && snap.html && snap.css && snap.srcHash === fp(src)) {
+					// WHAT IS ABOUT TO RENDER, hashed — and it is NOT always `fp(src)` (#1553).
+					// `pg-source` holds the visitor's DRAFT, and it only exists once they have typed
+					// into the editor. A visitor who only ever picks components never writes one, so
+					// `src` is '' and `fp(src)` is the hash of the empty string — which never equals
+					// the hash the capture stamped from the source it actually rendered. That single
+					// clause switched this whole instant shell off for everyone who had not hand-
+					// edited a deck: measured, every other clause passed (v1, palette, mode, html,
+					// css) and this one failed '96ae8e9b' vs '1505', so `data-pg-shell` was never
+					// set, `.pg-ssr-shell` stayed `display:none`, and the preview pane was an empty
+					// void until the engine rendered.
+					// With no draft, the identity of what will render is the INSERTED hash — the
+					// same `ih` the `pristine` test above already relies on for exactly this reason.
+					// Absent both, we do not know what is coming and must not paint.
+					var willRender = src && src.trim() ? fp(src) : ih;
+					if (snap && snap.v === 1 && snap.palette === palette && snap.mode === mode && snap.html && snap.css && willRender && snap.srcHash === willRender) {
 						var st = document.createElement('style');
 						st.id = 'pg-ssr-snap-css';
 						st.textContent = snap.css;
