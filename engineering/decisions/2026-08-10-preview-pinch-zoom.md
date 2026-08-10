@@ -171,12 +171,43 @@ synthesized DOM event (HARD RULE #23).
   and after, on both export paths, not by reading the source. No export sign-off
   was required.
 
-**UNVERIFIED on a real surface: the presenter screen's zoom.** Its pinch and
-`ctrl`+wheel guards are covered by jsdom unit tests, and the generated script was
-driven in a harness — but the presenter view is a `window.open` popup that the
-Playwright suite does not drive, so no artifact from the real surface exists. The
-claim for that surface is "the rule is shared and the guards are unit-tested", not
-"verified".
+**The presenter screen shipped UNVERIFIED here, and is now verified.** That note
+read: its guards are covered by jsdom unit tests and the generated script was
+driven in a harness, but the presenter view is a `window.open` popup the Playwright
+suite does not drive, so no artifact from the real surface existed. It does now —
+`docs/e2e/presenter-zoom.spec.ts`, which catches the popup with
+`context.waitForEvent('page')` and dispatches genuine CDP touch and wheel events
+INTO it. Three `@parity` cells, green at `desktop` / `desktop-touch` /
+`tablet-touch`:
+
+- a **two-finger pinch** scales the current-slide stage (its measured on-screen box
+  grows past fit) and relays no navigation;
+- a **trackpad pinch** (`ctrl`+wheel) does the same on a machine with no
+  touchscreen — the cell that matters, since that is the path that scrubbed the deck
+  from every laptop before #1555 — and the badge returns the stage to fit;
+- a **plain wheel still turns the deck**.
+
+"Relays no navigation" is measured **at the wire, not at the pixel**: the popup
+never navigates itself, it posts `{pp:'go', v:±1}` to its opener, so the spec
+records every such message arriving at the opener and asserts a pinch produces
+none. The plain-wheel cell is the **positive control for that instrument** — it
+drives the same relay through the same spy and REQUIRES a delta — so a spy that
+stopped recording, or a popup that never received the events, fails there instead
+of turning the two "no nav" cells vacuously green. That is the lesson from the
+first probe in this change (a harness that cannot tell "ignored" from "clamped" is
+measuring the clamp), applied one layer up.
+
+The cells are also **mutation-checked**, which is what separates them from a
+formality: with `swipeBlocked` deleted from the popup's touchend and its
+`ctrl`+wheel branch disabled, the two zoom cells go red and the plain-wheel control
+stays green. Visual evidence at 1440: the stage at 4×, clipped by the screen's
+rounded box, badge reading `400%`, opener counter still `2 / 7`.
+
+**The mobile projects SKIP rather than pass.** The presenter launcher is
+`hidden … md:inline-flex` — a phone has no second screen to put a presenter view
+on — so at 390px there is no surface to drive. Stated here because "green at every
+width" would be an overstatement of the same kind this note already flags for the
+three touch-only cells.
 
 ## Performance — and the defect the measurement found
 
