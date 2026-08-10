@@ -246,6 +246,37 @@ section.split-panel.watermark .panel-right :is(ol,ul) + ul > li:nth-child(2)::be
  * confirmed by looking at the render (2026-07-03-semantic-html-accessibility.md §18.1). */
 section.split-panel.watermark:not(.mirror) { --marp-slide-header-color: var(--on-accent-secondary); --marp-slide-footer-color: var(--on-accent-secondary); }
 
+/* HEADER BERTH UNDER `mirror` (#680). `section header` is absolutely positioned
+ * to the slide's LEFT inset and is NOT in flow, so nothing reserves its band.
+ * Unmirrored that inset is over `.panel-left`, whose content is bottom- or
+ * center-aligned, so the band is empty. `.mirror` row-reverses the panels
+ * (base.modifiers.css) WITHOUT moving the chrome, so the band lands over
+ * `.panel-right`.
+ *
+ * The boxes do not actually OVERLAP — measured, the rubric's top sits ~0.1px
+ * under the header's bottom. What it does is read as a second header line:
+ * two mono/uppercase rows stacked with no breathing room. Worth stating
+ * precisely, because someone debugging a true overprint will look elsewhere.
+ *
+ * SCOPED TO THE `h3` THAT COLLIDES, not to the column. Padding the column costs
+ * every mirrored slide ~45px at 1280 out of an `overflow: clip` box — including
+ * `steps` (whose `.panel-right` is `justify-content: safe center`, so its band
+ * was already empty), `proof capstone`, and the gallery's own `mirror` slide,
+ * which has no rubric at all and begins 340px below the header. Those paid for
+ * a collision they never had, and a slide already near its column limit would
+ * have started clipping. Only a leading `h3` sits in the band, so only a leading
+ * `h3` reserves it.
+ *
+ * Not in portrait: the reflow below stacks the panels, putting `.panel-left`
+ * back on top, so the band is clear again.
+ *
+ * The value adds to the rubric's own leading rather than replacing it — the
+ * variant's `.panel-right` padding still applies above this. Padding, not
+ * margin (#20). */
+section.split-panel.mirror:has(> header):not([data-orientation="portrait"]) .panel-right > h3:first-child {
+  padding-top: calc(var(--frame-inset-y) + 1.4 * var(--fs-meta));
+}
+
 /* Hardening: element siblings of <strong> in a card li don't inherit
  * the parent's font-weight:700. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.split-panel :is(ul,ol) > li > strong ~ * { font-weight: 400; }

@@ -180,6 +180,39 @@ section.math.feature > :is(ul, ol) {
   grid-row: 3;
   align-self: center;
 }
+/* HANGING INDENT (#680) — LEGEND LIST ONLY, and the scope is the whole point.
+ *
+ * The defect: the `·` is an INLINE ::before with `padding-right`, so a WRAPPED
+ * line starts under the marker instead of under the first line's text, and the
+ * legend loses its left edge ("… must be / invertible", math.gallery p2).
+ *
+ * The fix takes the marker out of flow and reserves its gutter with padding —
+ * the blockquote-bullet idiom from base.modifiers.css. That is safe HERE and
+ * unsafe generally, which is why it is not on `section.math ul > li`:
+ *
+ *   · `.compare` is a MULTI-COLUMN container. An absolutely-positioned marker
+ *     inside a fragmented `li` resolves against the fragmentainer, not the
+ *     fragment — column 1's bullets paint at the top of column 2 and column 2's
+ *     paint past the right column rule, outside the frame. Observed on both the
+ *     PDF and the live DOM; the `li` boxes stay correct, so no gate sees it.
+ *   · `.matrix.decompose` centers its text. `left: 0` pins the marker to the
+ *     full-width row while the text is centered ~570px away, orphaning it.
+ *
+ * The legend selector below already excludes derivation/theorem/compare/canvas/
+ * matrix/stats, so scoping to it dodges both. A future variant that wants the
+ * hanging indent must opt IN here, not inherit it. Padding, not margin (#20). */
+section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol) > li,
+section.math.feature > :is(ul, ol) > li {
+  padding-left: var(--sp-sm);
+  position: relative;
+}
+section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol) > li::before,
+section.math.feature > :is(ul, ol) > li::before {
+  position: absolute;
+  left: 0;
+  padding-right: 0;
+}
+
 section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol)::before,
 section.math.feature > :is(ul, ol)::before {
   content: 'where';

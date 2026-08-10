@@ -43,9 +43,9 @@ const {
 // Nominal sizes mirroring quadrant.styles.css, same as the kernel's own FS
 // table. Kept here rather than imported so a kernel-side typo can't make the
 // test agree with the bug.
-const FS_LABEL = 11;    // .quadrant-label
-const FS_ZONE = 10.5;   // .quadrant-label--zone
-const FS_ITEM = 8.5;    // .quadrant-dot-label / .quadrant-bubble-label
+const FS_LABEL = 12;    // .quadrant-label
+const FS_ZONE = 11.5;   // .quadrant-label--zone
+const FS_ITEM = 9.5;    // .quadrant-dot-label / .quadrant-bubble-label
 const ADV_UPPER = 0.68; // uppercase + tracked, as the emitter measures it
 const ADV = 0.6;
 
@@ -591,7 +591,7 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
     const lines = [...m[1].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
       .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
-    const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * 8.5 * 0.6;
+    const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * FS_ITEM * 0.6;
     // Horizontal extent follows the ANCHOR, exactly as the emitter computes it —
     // a side-placed label is start/end anchored, not centered.
     const x0 = lines[0].x;
@@ -599,8 +599,8 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
     return {
       left,
       right: left + widest,
-      top: Math.min(...lines.map((l) => l.y)) - 8.5 * above,
-      bottom: Math.max(...lines.map((l) => l.y)) + 8.5 * below,
+      top: Math.min(...lines.map((l) => l.y)) - FS_ITEM * above,
+      bottom: Math.max(...lines.map((l) => l.y)) + FS_ITEM * below,
     };
   });
   assert.ok(labels.length >= 5);
@@ -738,8 +738,11 @@ test('buildQuadrant: a chart with no bottom names reserves no band for them', ()
 test('buildQuadrant: a name wraps to the width its COLUMN has, not the full budget', () => {
   // Without this, a `threshold` target near an axis extreme gave a 15-unit
   // column a 120-unit name.
-  const { cornerBudget } = require('../../../lib/components/chart/quadrant/quadrant.transform');
-  assert.equal(cornerBudget(400), 120, 'a wide column is capped at the wrap budget');
+  const { cornerBudget, LW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  // Against LW.corner, not a literal: the budget tracks the corner FONT size, so
+  // it moves whenever that does (#680 took it 120 -> 140). The BEHAVIOR under
+  // test is the cap/passthrough/floor, not the number.
+  assert.equal(cornerBudget(LW.corner + 260), LW.corner, 'a wide column is capped at the wrap budget');
   assert.equal(cornerBudget(90), 90, 'a narrow column gets its own width');
   assert.equal(cornerBudget(4), 72, 'and never drops below a readable floor');
 });

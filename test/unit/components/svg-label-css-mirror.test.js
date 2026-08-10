@@ -99,6 +99,14 @@ describe('quadrant: kernel font sizes mirror quadrant.styles.css', () => {
     ['badge', ':is(section.quadrant, figure.chart-frame) .quadrant-target-badge'],
     ['axis', ':is(section.quadrant, figure.chart-frame) .quadrant-axis-name'],
     ['tick', ':is(section.quadrant, figure.chart-frame) .quadrant-tick'],
+    // Added after a review found these riding on discipline: `labelMagic` and
+    // `labelZone` both MOVED in #680 with no gate, and `.quadrant-bubble-label`
+    // is a SECOND rule that must mirror `dotLabel` — only `.quadrant-dot-label`
+    // was asserted, so the bubble one could drift silently.
+    ['labelMagic', ':is(section.quadrant, figure.chart-frame) .quadrant-label--magic'],
+    ['labelZone', ':is(section.quadrant, figure.chart-frame) .quadrant-label--zone'],
+    ['bubbleValue', ':is(section.quadrant, figure.chart-frame) .quadrant-bubble-value'],
+    ['dotLabel', ':is(section.quadrant, figure.chart-frame) .quadrant-bubble-label'],
   ]) {
     test(`${key} matches ${selector}`, () => {
       const fromCss = declaredFontSize(css, selector);

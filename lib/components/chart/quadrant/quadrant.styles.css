@@ -190,8 +190,8 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * CSS px ≠ pt. Values are intentional deviations from the 12-token scale;
  * scoped to :is(section.quadrant, figure.chart-frame) so themes can override per-component via the token. */
 :is(section.quadrant, figure.chart-frame) {
-  --quadrant-axis-size: 12px;  /* raised from 11px — axis name, still below token min */
-  --quadrant-tick-size: 10px;  /* raised from 8px (≈5.7pt at desk) */
+  --quadrant-axis-size: 14px;  /* #680: 12 -> 14 */
+  --quadrant-tick-size: 12px;  /* #680: 10 -> 12 */
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-axis-name {
   fill: var(--text-heading);
@@ -232,19 +232,19 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
    * cannot silently move again. */
   fill: color-mix(in oklab, var(--cell-ink, var(--quadrant-label-ink)) 65%, var(--text-heading));
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 /* Magic variant: heavier, more ceremonial labels with extra tracking. */
 :is(section.quadrant, figure.chart-frame) .quadrant-label--magic {
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.08em;
 }
 /* Threshold variant: zone names live ON the chart as action prompts. */
 :is(section.quadrant, figure.chart-frame) .quadrant-label--zone {
-  font-size: 10.5px;
+  font-size: 11.5px;
   letter-spacing: 0.06em;
 }
 
@@ -257,7 +257,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 :is(section.quadrant, figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 500;
 }
 
@@ -279,7 +279,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 :is(section.quadrant, figure.chart-frame) .quadrant-bubble-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 500;
 }
 
@@ -320,7 +320,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 :is(section.quadrant, figure.chart-frame) .quadrant-cohort-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -333,7 +333,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 :is(section.quadrant, figure.chart-frame) .quadrant-target-badge {
   fill: var(--quadrant-target);
   font-family: var(--font-mono, var(--font-body));
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
 }
 
