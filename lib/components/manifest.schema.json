@@ -263,7 +263,7 @@
     },
     "variantAxes": {
       "type": "array",
-      "description": "Optional. Groups this layout's variants into orthogonal axes for docs / gallery / variant-chip presentation (e.g. a 'Basemap' axis us/world vs a 'Modifier' axis highlight/robinson/grouped). Members MUST be a subset of variants[]. Purely presentational — the engine routes tokens independently regardless of this grouping.",
+      "description": "Optional. Groups this layout's variants into orthogonal axes (e.g. a 'Basemap' axis us/world vs a 'Modifier' axis highlight/robinson/grouped). Members MUST be a subset of variants[]. Drives docs / gallery / variant-chip presentation AND the Studio's Reshape control, which uses `exclusive` to decide whether picking a look REPLACES its axis-mates or stacks alongside them — so declare `exclusive` wherever the layout's CSS really does make the members alternatives, or Reshape will let an author write a combination that cannot render. The RENDER path still routes tokens independently: this grouping is authoring intent, not a cascade rule.",
       "items": {
         "type": "object",
         "additionalProperties": false,

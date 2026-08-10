@@ -58,6 +58,37 @@ test('an unclassified look toggles — it never stacks forever @studio', async (
 	await settled(page).toEqual(['kpi']);
 });
 
+test('Default keeps the universal slide settings it never offered @studio', async ({ page }) => {
+	// `scale-xl` and `no-period` come from the slide drawer's typography/period axes, not
+	// from any Reshape tile. Default used to delete them along with the component's looks —
+	// silent data loss with no affordance to undo it, on all 38 components with variants.
+	await gotoStudio(page);
+	await setEditorContent(page, [FM, '<!-- _class: kpi ops scale-xl no-period dark -->', '', '## Revenue ahead of plan.', '', '1. $2.4B', '   - Total revenue', ''].join('\n'));
+	await settled(page).toEqual(['kpi', 'ops', 'scale-xl', 'no-period', 'dark']);
+
+	await pick(page, 'Reshape to Default');
+	await settled(page).toEqual(['kpi', 'scale-xl', 'no-period', 'dark']);
+});
+
+test('the Default tile only claims "Current" when clicking really is a no-op @studio', async ({ page }) => {
+	// On a bare `map` the tile badged itself Current and previewed the slide unchanged —
+	// then clicking it wrote `map world`, because Default restores the axis default. The
+	// badge now asks the model whether the click changes anything.
+	await gotoStudio(page);
+	await setEditorContent(page, [FM, '<!-- _class: map -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', ''].join('\n'));
+	await settled(page).toEqual(['map']);
+
+	await page.getByRole('button', { name: 'Reshape slide' }).click();
+	const dflt = page.getByRole('button', { name: 'Reshape to Default', exact: true });
+	await expect(dflt).toHaveAttribute('aria-pressed', 'false');
+	await dflt.click();
+	await settled(page).toEqual(['map', 'world']);
+
+	// Now it IS the base form, so the tile may claim Current — and clicking is inert.
+	await page.getByRole('button', { name: 'Reshape slide' }).click();
+	await expect(page.getByRole('button', { name: 'Reshape to Default', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('a classified component swaps within its axis and keeps the rest @studio', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, MAP_DECK);

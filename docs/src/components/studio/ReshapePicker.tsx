@@ -37,7 +37,6 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	const component = getClassTokens(chunk)[0] ?? '';
 	const looks = React.useMemo(() => componentLooks(variants, axes, variantAxes), [variants, axes, variantAxes]);
 	const tokens = React.useMemo(() => new Set(getClassTokens(chunk)), [chunk]);
-	const hasVariant = looks.some((l) => variantActive(tokens, l.token));
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -57,18 +56,25 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 				</div>
 				<div className="grid max-h-[60vh] grid-cols-2 gap-2.5 overflow-y-auto overscroll-contain [touch-action:pan-y] sm:grid-cols-3 lg:grid-cols-4">
 					{looks.map((look) => {
-						// An ACTIVE toggle would preview itself turned OFF — that IS what clicking it
-						// does — which reads as the wrong slide on the tile badged "Current". Show the
-						// slide as it stands, and let the action name say what the click will do.
-						const on = look.token ? variantActive(tokens, look.token) : !hasVariant;
-						const removes = on && !!look.token && !look.exclusive;
+						// "Current" means CLICKING CHANGES NOTHING, not "this token is present" — the
+						// two came apart on the Default tile, which restores an axis default, so on a
+						// bare `map` it claimed to be current and then rewrote `_class` to `map world`.
+						// Ask the model instead of guessing from the token set.
+						const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
+						const on = next === chunk;
+						// An active TOGGLE is the one tile whose click is deliberately destructive: it
+						// removes the look. Preview the slide as it stands (previewing it turned off
+						// reads as the wrong slide) and say so — in the label AND on the badge, since
+						// an accessible name alone leaves a sighted author no warning at all.
+						const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
 						return (
 							<ReshapeTile
 								key={look.token || '__default'}
-								sample={(frontMatter ?? '') + (on ? chunk : applyVariant(chunk, look.token, axes, variants, variantAxes))}
+								sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
 								label={look.token ? look.label : 'Default'}
 								actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
-								active={on}
+								badge={removes ? 'Current ×' : on ? 'Current' : ''}
+								active={on || removes}
 								options={options}
 								paletteOverride={paletteOverride}
 								extraTheme={extraTheme}
@@ -87,7 +93,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	);
 }
 
-function ReshapeTile({ sample, label, actionLabel, active, options, paletteOverride, extraTheme, modeOverride, extraCss, onClick }: { sample: string; label: string; actionLabel: string; active: boolean; options: SingleSlideOptions; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; onClick: () => void }) {
+function ReshapeTile({ sample, label, actionLabel, badge, active, options, paletteOverride, extraTheme, modeOverride, extraCss, onClick }: { sample: string; label: string; actionLabel: string; badge: string; active: boolean; options: SingleSlideOptions; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; onClick: () => void }) {
 	const [ref, visible] = useInView<HTMLButtonElement>();
 	return (
 		<button
@@ -100,7 +106,7 @@ function ReshapeTile({ sample, label, actionLabel, active, options, paletteOverr
 		>
 			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" />
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{label}</div>
-			{active && <span className="absolute right-1 top-1 rounded bg-[var(--accent)] px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-[var(--on-accent)]">Current</span>}
+			{!!badge && <span className="absolute right-1 top-1 rounded bg-[var(--accent)] px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-[var(--on-accent)]">{badge}</span>}
 		</button>
 	);
 }

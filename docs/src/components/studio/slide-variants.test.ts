@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getClassTokens, setClassTokens } from './slide-directives';
-import { applyVariant, componentLooks, humanizeVariant, variantActive, variantSample } from './slide-variants';
+import { applyVariant, componentLooks, humanizeVariant, variantActive, variantNoop, variantSample } from './slide-variants';
 
 // Variants as class-token surgery (2026-07-18-slide-variants-in-gallery.md). The token
 // mutators (slide-directives) are covered separately; these lock the variant semantics:
@@ -119,6 +119,33 @@ describe('slide-variants — variant looks are class tokens', () => {
 			expect(toks(cur)).toEqual(['kpi', look]);
 		}
 		expect(toks(applyVariant(cur, '', {}, KPI, KPI_AXES))).toEqual(['kpi']);
+	});
+
+	it('applyVariant Default keeps the author\'s UNIVERSAL slide settings', () => {
+		// `scale-*` / `no-period` / `tone-*` are vocab-axis tokens set in the slide drawer,
+		// not looks this picker offers — Reshape must not delete a setting it never showed,
+		// because there is no tile to get it back from.
+		const VOCAB = { scale: ['scale-s', 'scale-xl'], period: ['no-period'], tone: ['tone-warn'] };
+		const cur = kwith(['kpi', 'ops', 'scale-xl', 'no-period', 'dark']);
+		expect(toks(applyVariant(cur, '', VOCAB, KPI, KPI_AXES))).toEqual(['kpi', 'scale-xl', 'no-period', 'dark']);
+	});
+
+	it('applyVariant re-picking the ACTIVE exclusive look changes nothing at all', () => {
+		// setGroupToken removes-then-appends, so a naive re-pick reordered `_class`
+		// (`map world highlight` → `map highlight world`): no visual change, but it dirties
+		// the deck and burns an undo checkpoint on a click that did nothing.
+		const cur = mwith(['map', 'world', 'highlight']);
+		expect(applyVariant(cur, 'world', {}, MAP, MAP_AXES)).toBe(cur);
+	});
+
+	it('variantNoop tells the Default tile whether clicking would really change nothing', () => {
+		// The bug this closes: a bare `map` has no look active, so the Default tile badged
+		// itself "Current" and previewed the slide unchanged — then clicking it wrote
+		// `map world`, because Default restores the axis default.
+		expect(variantNoop(MBASE, '', {}, MAP, MAP_AXES)).toBe(false);
+		expect(toks(applyVariant(MBASE, '', {}, MAP, MAP_AXES))).toEqual(['map', 'world']);
+		// Once the default IS present, Default really is a no-op.
+		expect(variantNoop(mwith(['map', 'world']), '', {}, MAP, MAP_AXES)).toBe(true);
 	});
 
 	it('variantActive requires ALL sub-tokens of a look to be present', () => {

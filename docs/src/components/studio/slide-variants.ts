@@ -110,10 +110,14 @@ export function variantSample(skeleton: string, token: string): string {
  * toggle"). Classifying a component in its manifest moves its variants from rule 3 up
  * into rule 1; until then the fallback is honest about not knowing.
  *
- * The empty token is "reshape back to the base form": clear every declared variant and
- * axis member, then restore each exclusive axis's declared `default` (a `map` with no
- * basemap is not a base form, it's a broken slide). The component token and any
- * non-variant tokens — universal config applied via slide settings — always survive.
+ * The empty token is "reshape back to the base form": clear this COMPONENT's variants
+ * (its declared set plus every member of its own axes), then restore each exclusive
+ * axis's declared `default` — a `map` with no basemap is not a base form, it's a broken
+ * slide. The component token and every non-variant token survive, and that emphatically
+ * includes the vocab axes (`scale-*`, `tone-*`, `insight-*`, `no-period`, `claim-*`):
+ * those are UNIVERSAL per-slide config the author sets in the slide drawer, not looks
+ * this picker offers. Reshape must never delete a setting it doesn't even display —
+ * there'd be no tile to get it back from.
  *
  * EVERY parameter is REQUIRED, deliberately, with no defaults: they are what makes a
  * look exclusive, and a caller that omits one silently falls through to a weaker rule.
@@ -125,21 +129,48 @@ export function applyVariant(chunk: string, token: string, axes: Record<string, 
 	if (token) {
 		// 1. The component's own classification wins — it is the most specific thing we know.
 		const own = variantAxes.find((a) => a.members.includes(token));
-		if (own) return own.exclusive ? setGroupToken(chunk, own.members.flatMap(parts), token) : toggleParts(chunk, token);
+		if (own) return own.exclusive ? swap(chunk, own.members.flatMap(parts), token) : toggleParts(chunk, token);
 		// 2. A vocab exclusive axis (e.g. insight-*, were it ever a declared variant).
 		for (const members of Object.values(axes)) {
-			if (members.includes(token)) return setGroupToken(chunk, members, token);
+			if (members.includes(token)) return swap(chunk, members, token);
 		}
 		// 3. Unclassified — toggle, so picking never stacks and never silently strips.
 		return toggleParts(chunk, token);
 	}
-	// Base form: strip every declared variant + axis member, leaving the component
-	// (`tokens[0]`, never a variant) and any non-variant tokens — then put back the
-	// declared default of each exclusive axis.
-	const strip = new Set<string>([...componentVariants.flatMap(parts), ...variantAxes.flatMap((a) => a.members.flatMap(parts)), ...Object.values(axes).flat()]);
+	// Base form: strip THIS COMPONENT's looks — its declared variants and its own axes'
+	// members — then put back the declared default of each exclusive axis. The vocab axes
+	// are deliberately NOT in the strip set: `scale-xl` / `no-period` / `tone-*` are the
+	// author's universal slide settings, and Reshape offers no tile to restore them.
+	const strip = new Set<string>([...componentVariants.flatMap(parts), ...variantAxes.flatMap((a) => a.members.flatMap(parts))]);
 	const kept = getClassTokens(chunk).filter((t) => !strip.has(t));
 	for (const a of variantAxes) if (a.exclusive && a.default) kept.push(...parts(a.default));
 	return setClassTokens(chunk, kept);
+}
+
+/**
+ * Pick `token` out of a mutually-exclusive group — but leave the chunk BYTE-identical
+ * when it already holds exactly that member. `setGroupToken` removes-then-appends, so
+ * re-picking the look you already have would reorder `_class` (`map world highlight` →
+ * `map highlight world`): no visual change, but it dirties the deck and burns an undo
+ * checkpoint on a click that did nothing.
+ */
+function swap(chunk: string, members: readonly string[], token: string): string {
+	const next = setGroupToken(chunk, members, token);
+	return sameTokens(chunk, next) ? chunk : next;
+}
+
+/** Do two chunks carry the same `_class` tokens, order aside? */
+function sameTokens(a: string, b: string): boolean {
+	const x = getClassTokens(a);
+	const y = getClassTokens(b);
+	return x.length === y.length && x.every((t) => y.includes(t));
+}
+
+/** Would picking this look leave the slide exactly as it is? (Drives the "Current" badge
+ *  for the Default tile, whose click can otherwise restore an axis default and so is NOT
+ *  a no-op even when no look is active.) */
+export function variantNoop(chunk: string, token: string, axes: Record<string, readonly string[]>, componentVariants: readonly string[], variantAxes: readonly VariantAxis[]): boolean {
+	return applyVariant(chunk, token, axes, componentVariants, variantAxes) === chunk;
 }
 
 /** Turn a look ON if any of its sub-tokens is missing, OFF when all are already present. */

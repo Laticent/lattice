@@ -401,9 +401,21 @@ the rendering pipeline:
 - the **per-component docs** (`lib/components/<name>/<name>.docs.md`) are generated from the enriched manifest fields
 - the **autocomplete data** for editor plugins reads `variants`
 - the **gallery decision-tree** uses `function` → `form` → `name`
+- the **Studio's Reshape control** reads `variantAxes` to decide whether
+  picking a look *replaces* its axis-mates or *stacks* alongside them
 
 The rendering pipeline (CSS rules, JS post-processors, Mermaid
 integration) is unchanged. The manifest is metadata, not behavior.
+
+**`variantAxes` is an authoring contract, not just docs furniture.** It
+groups a layout's variants into orthogonal axes, and `exclusive: true`
+says the members are alternatives — `map` is `world` **or** `us`, never
+both. Reshape honors that: an exclusive axis swaps, a non-exclusive one
+toggles, and a variant in no axis toggles (the safe fallback — the Studio
+won't delete a token it can't prove is redundant). So an axis whose CSS
+really does make its members alternatives **must** declare `exclusive`,
+or Reshape will happily write a combination that can't render. Declaring
+it wrong is a defect, not a formatting preference.
 
 ### 6.5 Universal variants — four tiers
 
