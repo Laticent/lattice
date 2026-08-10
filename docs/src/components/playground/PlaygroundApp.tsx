@@ -43,7 +43,6 @@ import {
 	sanitizePalette,
 	VIEW_KEY,
 	variantSource,
-	WALK_H_KEY,
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
@@ -132,6 +131,25 @@ function bootView(): 'read' | 'edit' | null {
 /** The pane the same seed implies: Explore shows the deck, Edit the editor. */
 function bootPane(): 'edit' | 'preview' {
 	return bootView() === 'read' ? 'preview' : 'edit';
+}
+
+/**
+ * Whether an incoming handoff was present BEFORE FIRST PAINT, per the seed. Null when
+ * the seed did not run (no window, no storage), which is the caller's cue to fall back
+ * to reading the key itself.
+ *
+ * This exists because the key is a one-shot that a child effect consumes: by the time
+ * the startup effect reads storage the handoff can already be deleted, and the highest-
+ * precedence rule in `resolveStartupView` then silently never fires. The seed's read is
+ * the only one that happens before anything can consume it.
+ */
+function readBootHandoff(): boolean | null {
+	try {
+		const boot = (window as unknown as { __pgBoot?: { hasHandoff?: boolean } }).__pgBoot;
+		return boot ? !!boot.hasHandoff : null;
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -1183,6 +1201,19 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		} catch {
 			/* private mode */
 		}
+		// …but the handoff key may ALREADY BE GONE by the time this runs, and then the
+		// read above is a lie. `EditorHost` is a CHILD, React flushes child passive
+		// effects before the parent's, and its `onReady` runs `consumeHandoff`, which
+		// deletes the key — measured at t=338ms, six milliseconds before this effect's
+		// own read. `resolveStartupView` then falls through to `isPristine`, and since
+		// `applyHandoff` has just recorded the insert hash, the draft IS pristine, so a
+		// visitor handed a deck from the Studio was dropped into the Explore gallery
+		// instead of the editor holding their deck — after watching the editor pane sit
+		// there for ~900ms and vanish. The pre-paint seed read the key BEFORE any of
+		// that could run, so prefer its answer; the local read is the fallback for a
+		// page whose seed did not run at all.
+		const boot = readBootHandoff();
+		if (boot !== null) hasHandoff = boot;
 		let target = readerComponent;
 		if (url.c) {
 			const r = resolveComponent(catalog, url.c);
@@ -1207,13 +1238,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				/* private mode */
 			}
 		}
+		// The pane STATE has to be corrected too, not just the attribute. It is seeded
+		// from `bootPane()` now, and the effect that mirrors it into body[data-pane]
+		// is declared below this one — so leaving it alone lets the SEED's value be
+		// written back over the app's answer on the very next commit, and the phone
+		// settles in Edit with its editor pane hidden. Set it on both branches.
+		setPane(v === 'read' ? 'preview' : 'edit');
 		if (v === 'read') {
 			viewRef.current = 'read';
 			setView('read');
-			// Same synchronous pane reveal as setViewMode — the first walk render
-			// must measure a visible iframe on the phone single-pane layout. (The
-			// attribute itself is already set, by adoptBootSeed above.)
-			setPane('preview');
 			void startWalkRef.current(target, url.s);
 		} else if (exploreAvailable) {
 			// Warm the walk behind the editor so the Explore chrome (and the tour's
@@ -1370,28 +1403,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	}, [pane]);
 	React.useEffect(() => () => document.body.removeAttribute('data-pane'), []);
 
-	// Publish the walk bar's measured height so the NEXT load can reserve its band before
-	// the bar exists (#1563 — the seed reads WALK_H_KEY, playground.css spends it as
-	// `--pg-walk-h`). Measured rather than declared because the height is the caption's:
-	// it wraps, so it depends on the text and on the width. Stored with the width it was
-	// taken at, so a desktop measurement is never replayed onto a phone.
-	//
-	// Runs whenever the bar or the caption changes, in a layout effect so the measurement
-	// is of the committed DOM. Writing an unchanged value is skipped — this is on the walk
-	// stepping path, which fires on every arrow press.
-	const walkHRef = React.useRef(0);
-	React.useLayoutEffect(() => {
-		if (view !== 'read' || !walk) return;
-		const bar = document.getElementById('pg-walk');
-		const h = bar?.offsetHeight ?? 0;
-		if (h < 1 || h === walkHRef.current) return;
-		walkHRef.current = h;
-		try {
-			localStorage.setItem(WALK_H_KEY, JSON.stringify({ w: window.innerWidth, h }));
-		} catch {
-			/* private mode */
-		}
-	}, [view, walk]);
 
 	// ── Walk bar derivations (cheap; recomputed per render) ─────────────────────
 	const walkVariantLabels = React.useMemo(() => {

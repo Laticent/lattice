@@ -47,10 +47,6 @@ export function EditorHost({
 	const onReadyRef = React.useRef(onReady);
 	onChangeRef.current = onChange;
 	onReadyRef.current = onReady;
-	// The starter doc seeds the editor exactly once; later prop changes (there are
-	// none in practice) must not re-init the single EditorView. Read it from a ref
-	// so the mount effect has no reactive dependency on it.
-	const initialDocRef = React.useRef(initialDoc);
 	// Vocab is static (page-build data); read it from a ref so the mount effect
 	// stays [] (one init) without taking a reactive dependency on the prop.
 	const vocabRef = React.useRef(vocab);
@@ -71,7 +67,14 @@ export function EditorHost({
 		if (!host || viewRef.current) return; // StrictMode double-mount guard
 		const ed = createEditor({
 			parent: host,
-			doc: initialDocRef.current,
+			// The SEEDED text, not the starter — the same string the placeholder is showing.
+			// Opening CodeMirror on the starter and letting the controller's `onReady` swap in
+			// the saved draft worked only because both land in one commit flush; that was an
+			// unwritten ordering invariant this change introduced, and one React scheduling
+			// change away from a visible starter-deck flash. Opening on the draft removes the
+			// invariant instead of relying on it (the controller's later setValue is then a
+			// no-op on identical text).
+			doc: placeholderRef.current,
 			vocab: vocabRef.current,
 			autocomplete: false, // validation only on this surface; the picker owns templates
 			onChange: (v: string) => onChangeRef.current(v),

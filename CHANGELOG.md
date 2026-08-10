@@ -55,11 +55,21 @@ in patch versions.
   said "Ready." when nothing was ready, showed a component you had not picked, and filled
   in a step on a dropdown that was disabled. All of it is now resolved before first paint:
   the boot view (and the pane it implies) is seeded on `<html>` and consumed by the
-  stylesheet, the cached slide is placed at the rect the app itself measured the live one
-  at last time and cross-fades in place, the walk bar's band is reserved from the height
-  the app published, and any toolbar value the server cannot know renders as nothing
-  rather than as a guess. One geometry per element, in both views, pinned by a per-frame
-  sampler in the per-PR tier.
+  stylesheet, the cached slide is placed at the rect the app itself measured the live one at
+  last time and cross-fades in place, and any toolbar value the server cannot know renders as
+  nothing rather than as a guess. Pinned by a per-frame sampler in the per-PR tier that
+  requires the pre-paint replay to have actually run before it believes the geometry it
+  produced. The walk bar still takes its ~100px band when it arrives in Explore: a reserve
+  for it was built and withdrawn, because the height available to reserve from is the
+  previous slide's caption and the band belongs to the next boot's first slide.
+- **Fixed: a deck handed to the Playground opened the gallery instead of the editor.** An
+  incoming handoff is the highest-precedence startup rule — it forces the editor — but the
+  key is a one-shot, and the editor's own mount effect consumed it before the controller
+  read it (a child's effects flush before its parent's; measured six milliseconds apart).
+  The rule silently never fired: the deck loaded into CodeMirror while the visitor was
+  dropped into the Explore walkthrough, after watching the editor pane sit there for ~900ms
+  and vanish. The startup path now takes that answer from the pre-paint seed, which reads
+  the key before anything can consume it.
 - **Fixed: the Playground's editor text no longer shifts when CodeMirror mounts.** The SSR
   placeholder used its own type metrics (0.85rem/1.5 against the editor's 13.5px/1.6) and
   sat 34px from the left against the editor's 43px, so every line slid right and down as

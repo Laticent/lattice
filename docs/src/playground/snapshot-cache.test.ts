@@ -76,7 +76,11 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		const first = document.querySelector('.lattice > section') as HTMLElement;
 		// Frame-local coordinates: the live slide sits 36px in and 139px down inside the frame.
 		first.getBoundingClientRect = () => rect(36, 139, 784, 441);
-		return { contentDocument: document, getBoundingClientRect: () => rect(338, 151, 856, 683) } as unknown as HTMLIFrameElement;
+		// The frame is deliberately INSET from the box (10px right, 4px down) rather than flush
+		// with it. Flush rects make `fr.left - br.left` zero, so the cross-frame term could be
+		// dropped or sign-flipped and this test would still pass — it asserted the transform
+		// without ever exercising it.
+		return { contentDocument: document, getBoundingClientRect: () => rect(348, 155, 846, 679) } as unknown as HTMLIFrameElement;
 	}
 
 	it('captures ONLY the first section, wrapped in a fresh .lattice (not the whole filmstrip)', () => {
@@ -106,7 +110,8 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		// The frame is flush with the box here, so the slide's box coordinates are its
 		// frame-local ones; the box's own size rides along for the rescale.
-		expect(snap?.fit).toEqual({ x: 36, y: 139, w: 784, h: 441, boxW: 856, boxH: 683 });
+		// x = (frame.left - box.left) + section.left = 10 + 36; y = (155 - 151) + 139 = 143.
+		expect(snap?.fit).toEqual({ x: 46, y: 143, w: 784, h: 441, boxW: 856, boxH: 683 });
 	});
 
 	it('refuses to capture when it cannot measure a fit — a snapshot the replay would reject', () => {

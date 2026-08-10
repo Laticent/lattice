@@ -28,14 +28,6 @@ export const FOCUS_KEY = 'lattice-docs-pg-focus';
 export const HANDOFF_KEY = 'lattice-docs-pg-handoff';
 export const BACKUP_KEY = 'lattice-docs-pg-source-backup';
 export const INSERTED_HASH_KEY = 'lattice-docs-pg-inserted-hash';
-/**
- * The Explore walk bar's last measured height, as `{ w, h }` — the viewport width it was
- * measured at, and the height it came out. Published so the pre-paint seed can RESERVE the
- * band the bar is about to occupy (#1563): the bar mounts a second after the deck paints,
- * and without a reserve it takes ~100px off the preview at that moment. Width-qualified
- * because the caption wraps, so a height from a desktop says nothing about a phone.
- */
-export const WALK_H_KEY = 'lattice-docs-pg-walk-h';
 
 export type Handoff = { md: string; from: string; ts: number };
 

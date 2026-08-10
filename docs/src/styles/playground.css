@@ -755,24 +755,6 @@
 	display: none;
 }
 
-/* RESERVE THE WALK BAND (#1563). In Explore the walk bar is the last thing to arrive: it
-   needs the component's plan fetched and parsed, so it mounts around a second after the
-   deck is already on screen and takes ~100px off the bottom of the preview when it does —
-   the whole deck jumping up mid-read. Nothing here can know its height in advance, so the
-   app MEASURES its own bar and stores it, and the pre-paint seed hands that measurement
-   back as `--pg-walk-h` (only when the stored measurement was taken at this viewport
-   width — a height measured on a desktop is meaningless on a phone, where the caption
-   wraps to four lines).
-   The reserve is keyed on the bar's ABSENCE, not on hydration: the gap to cover runs from
-   first paint until the bar actually exists, which is well after the island has hydrated.
-   With no stored measurement — a first visit — the fallback is 0 and the load behaves as
-   it always did; there is nothing to guess with, and a wrong guess would move the deck in
-   the opposite direction. */
-:root[data-pg-view='read'] .pg-page:not(:has(.pg-walk)),
-body[data-view='read'].pg-page:not(:has(.pg-walk)) {
-	padding-block-end: var(--pg-walk-h, 0px);
-}
-
 /* ── Mode toggle (2026-07-06 simplification) ─────────────────────────────────
    Explore / Edit as a compact two-icon segmented control, replacing the pills.
    ◱ view the deck · ✎ edit its markdown. */

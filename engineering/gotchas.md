@@ -3706,9 +3706,15 @@ own) is not a builder and needs no entry.
   changes — the exact failure the Studio shell's six hand-measured constants keep having.
 - **Fix (shipped):** the app MEASURES its own live slide when it captures the snapshot and
   stores the rect in the replay box's coordinates (`snap.fit`, plus the box size it was
-  measured in, snapshot `v: 2`); the replay places the cached slide there, rescaling if the
-  pane has changed. The hand-off is then a cross-fade in place. If the filmstrip's geometry
-  changes, the next capture records it and nothing in the replay needs to know.
+  measured in, snapshot `v: 2`); the replay places the cached slide exactly there. The
+  hand-off is then a cross-fade in place. If the filmstrip's geometry changes, the next
+  capture records it and nothing in the replay needs to know.
+- **A measurement is valid ONLY for the box it was taken in.** The first draft rescaled the
+  stored rect into a differently-sized pane and was measurably 5–18px out, because the
+  filmstrip centers at `18 + (boxH-h)/2` — the srcdoc's html padding sits OUTSIDE the box it
+  centers in, so a slack ratio cannot reproduce it. The replay now refuses when the pane
+  differs from the captured one, and a ResizeObserver withdraws the shell if the pane moves
+  underneath it. A blank that never moves beats a slide that jumps.
 - **The general rule:** when the pre-paint side needs a number a THIRD party decides, have
   the app measure what happened and publish it — don't mirror the third party's arithmetic.
 - **Triggered by:** #1563.
@@ -3731,8 +3737,13 @@ own) is not a builder and needs no entry.
   beside a different body value hides OPPOSITE panes on the phone and leaves the surface
   blank. Setting the body attribute and removing the seed is therefore one function, not two
   effects.
-- **The walk bar is the one piece CSS cannot know**, because its height is the caption's. The
-  app publishes its own measurement (`lattice-docs-pg-walk-h`, `{w, h}`) and the seed spends
-  it as `--pg-walk-h` on a reserve keyed to the bar's ABSENCE — the gap runs from first paint
-  until the bar mounts, which is well after hydration.
+- **The walk bar still arrives late and takes its band, and a reserve for it was BUILT AND
+  WITHDRAWN.** Don't rebuild it the same way. The only height available to reserve from is the
+  one the last session measured — the caption of the slide it ended on — while the band belongs
+  to the next boot's FIRST slide. Measured on an ordinary flow (open a component, step three
+  slides, come back): 127px reserved against a 184px bar, so the deck still shrank, just
+  differently; on a stale deep link it pushed the deck 71px the other way. Worse, the reserve
+  was keyed on the bar's absence with no time bound, so a plan fetch that 404s (a designed
+  path) left a permanent dead band — 109px on a phone, 13% of the viewport, for the session.
+  Reserving it correctly needs the first slide's caption height for the deck about to boot.
 - **Triggered by:** #1563.

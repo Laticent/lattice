@@ -32,7 +32,7 @@ import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_PANEL_IDS } from '../components
 // React or the island into this page's module graph — the same reason `pg-split.ts`
 // exists (#1495). Closes the drift risk the 2026-08-10 boot-state note recorded as a
 // known gap: a renamed key used to fail SILENTLY here, seeding the wrong first paint.
-import { HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY, WALK_H_KEY } from '../lib/playground-controller';
+import { HANDOFF_KEY, INSERTED_HASH_KEY, SOURCE_KEY, VIEW_KEY } from '../lib/playground-controller';
 import { joinBase } from '../lib/base-url.mjs';
 import { isPreviewDeploy } from '../lib/deploy-env.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -175,7 +175,6 @@ const pgData = {
 				VIEW_KEY,
 				HANDOFF_KEY,
 				INSERTED_HASH_KEY,
-				WALK_H_KEY,
 				// The app clamps the boot view to Edit when the host stages no walk plans (the
 				// test harness). Baked in at build time so the mirror below cannot diverge on
 				// that branch either.
@@ -241,6 +240,7 @@ const pgData = {
 					// can silently break. `playground-first-paint.spec.ts` drives every branch of the
 					// precedence table on the real page and requires the pre-paint answer to equal
 					// the hydrated one.
+					try {
 					var src = '';
 					try { src = localStorage.getItem(SOURCE_KEY) || ''; } catch (e3) {}
 					var ih = null;
@@ -273,23 +273,12 @@ const pgData = {
 					// answer (Explore shows the deck, Edit the editor). Seeded on <html> for the same
 					// reason, and consumed by the same aliased selectors.
 					r.setAttribute('data-pg-pane', view === 'read' ? 'preview' : 'edit');
-					// RESERVE THE WALK BAND. In Explore the walk bar mounts only once the
-					// component's plan has been fetched — about a second after the deck is on
-					// screen — and takes ~100px off the preview when it does, jumping the whole
-					// deck up mid-read. Its height is the caption's, so nothing here can derive
-					// it; the app measures its own bar and stores it, and this hands that
-					// measurement back. Only at the width it was measured at: the caption wraps,
-					// so a desktop height is meaningless on a phone. No measurement (a first
-					// visit) → no reserve, and the load behaves as it always did.
-					if (view === 'read') {
-						try {
-							var wh = JSON.parse(localStorage.getItem(WALK_H_KEY) || 'null');
-							if (wh && wh.h > 0 && wh.w === window.innerWidth) r.style.setProperty('--pg-walk-h', wh.h + 'px');
-						} catch (e3) {}
-					}
 					// Hand the resolution to the body-parse replay below rather than have it
-					// recompute — ONE mirror on this page, not two.
+					// recompute — ONE mirror on this page, not two. `hasHandoff` also travels to
+					// the APP (PlaygroundApp's startup effect), because this read is the only one
+					// that happens before a child effect can consume the one-shot key.
 					window.__pgBoot = { view: view, hasHandoff: hasHandoff, src: src, insertedHash: ih, fp: fp };
+					} catch (e4) {}
 				} catch (e) {}
 			})();
 		</script>
@@ -378,38 +367,59 @@ const pgData = {
 						// the srcdoc's CSS already owns — the drift engine the Studio's shell is made
 						// of. Instead the app MEASURES its own live slide at capture time and stores
 						// the rect (`snap.fit`, in preview-wrap coordinates, alongside the wrap size it
-						// was measured in); this replays that measurement. If the filmstrip's padding
-						// changes tomorrow, the next capture records the new number and nothing here
-						// needs to know.
+						// was measured in); this replays that measurement verbatim.
 						//
-						// The wrap can be a different size than at capture (a re-dragged split, a
-						// resized window), so rescale: width by the pure width ratio, and the vertical
-						// position by the ratio of the SLACK above the slide to the slack available —
-						// which reproduces a centered slide and a top-pinned one exactly, and
-						// interpolates between them rather than guessing which rule applied.
+						// A MEASUREMENT IS ONLY VALID FOR THE BOX IT WAS TAKEN IN. An earlier draft
+						// rescaled into a different box — width by the pure ratio, the vertical by the
+						// ratio of the slack — and claimed that reproduced a centered slide exactly. It
+						// does not: the filmstrip centers at `18 + (boxH - h)/2`, because the srcdoc's
+						// html padding sits OUTSIDE the box it centers in, so a slack ratio is off by
+						// `18 * dBoxH / (boxH - h)` vertically and `72 * dBoxW / boxW` across. Measured
+						// on a frozen snapshot replayed into a resized window: 5.1px and 18.3px out.
+						// The rescale was exact only where it did nothing.
+						//
+						// So we do not guess. If the pane is not the pane the measurement was taken in,
+						// paint nothing: the visitor gets the pane's brand fill for a beat — a blank
+						// that never moves — instead of a slide that jumps, which is the whole defect
+						// this mechanism exists to remove. The next capture re-measures at the new size
+						// and the load after that is exact again. A pixel of tolerance absorbs the
+						// sub-pixel rounding of a fractional pane width.
+						var wrap = box.parentElement;
+						var boxW = wrap ? wrap.clientWidth : box.clientWidth;
+						var boxH = wrap ? wrap.clientHeight : box.clientHeight;
+						if (Math.abs(boxW - fit.boxW) > 1 || Math.abs(boxH - fit.boxH) > 1) return;
 						var sw = snap.w || 1280;
 						var sh = snap.h || 720;
-						var wrap = box.parentElement;
-						var boxW = (wrap ? wrap.clientWidth : box.clientWidth) || fit.boxW;
-						var boxH = (wrap ? wrap.clientHeight : box.clientHeight) || fit.boxH;
-						var k = boxW / fit.boxW;
-						var slideW = fit.w * k;
-						var slideH = fit.h * k;
-						var slackWas = fit.boxH - fit.h;
-						var slackNow = boxH - slideH;
-						var top = slackWas > 0 ? (fit.y / slackWas) * slackNow : fit.y * k;
-						var left = fit.x * k;
-						var sc = slideW / sw;
+						var st = document.createElement('style');
+						st.id = 'pg-ssr-snap-css';
+						st.textContent = snap.css;
+						document.head.appendChild(st);
 						// Set as custom props on the box (not on a child) so React's
 						// dangerouslySetInnerHTML re-parse can't wipe them.
 						box.style.setProperty('--pg-ssr-w', sw + 'px');
 						box.style.setProperty('--pg-ssr-h', sh + 'px');
-						box.style.setProperty('--pg-ssr-scale', String(sc));
-						box.style.setProperty('--pg-ssr-x', left + 'px');
-						box.style.setProperty('--pg-ssr-y', Math.max(0, top) + 'px');
+						box.style.setProperty('--pg-ssr-scale', String(fit.w / sw));
+						box.style.setProperty('--pg-ssr-x', fit.x + 'px');
+						box.style.setProperty('--pg-ssr-y', fit.y + 'px');
 						box.innerHTML = snap.html;
 						window.__pgShellHtml = snap.html;
 						root.setAttribute('data-pg-shell', 'on');
+						// FOLD IF THE PANE MOVES UNDER US. The placement is absolute and computed once,
+						// so a pane that changes size after this point leaves the cached slide the wrong
+						// size AND in the wrong place — it overflows and clips, where the old centered
+						// shell would merely have been the wrong size. Two real triggers: the visitor
+						// resizing during the ~2s the shell is up, and the split seed writing a share the
+						// library then clamps to its 320px minimum at hydration (measured 238px pre-paint
+						// against 320px after). Withdrawing beats correcting: the same reasoning as the
+						// box check above, one moment later.
+						if (wrap && typeof ResizeObserver === 'function') {
+							var ro = new ResizeObserver(function () {
+								if (Math.abs(wrap.clientWidth - fit.boxW) <= 1 && Math.abs(wrap.clientHeight - fit.boxH) <= 1) return;
+								root.removeAttribute('data-pg-shell');
+								ro.disconnect();
+							});
+							ro.observe(wrap);
+						}
 					}
 				} catch (e) {}
 			})();

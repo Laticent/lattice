@@ -93,6 +93,12 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				previewPane: rectOf(document.querySelector('#pg-split-preview')),
 				slide: visibleSlide(),
 			};
+			// Did the replay actually fire? Recorded as a sample so the assertions can tell a
+			// shell that landed exactly on the live slide from one that never painted at all.
+			if (document.documentElement?.getAttribute('data-pg-shell') === 'on') {
+				const arr = (log.shellFired ||= []);
+				if (!arr.length) arr.push({ t: now, rect: [1, 1, 1, 1] });
+			}
 			for (const [key, rect] of Object.entries(frame)) {
 				const arr = (log[key] ||= []);
 				const last = arr[arr.length - 1];
@@ -182,6 +188,19 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 	await page.waitForTimeout(1500);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+
+	// LIVENESS FIRST, and it is not decoration. `visibleSlide()` falls back from the cached
+	// slide to the live one, so "one geometry" is satisfied by EITHER half alone: delete the
+	// stored snapshot and this case still passes, with the entire replay — snapshot v2,
+	// measureFit, the placement, the cross-fade — never executing. Two independent reviewers
+	// demonstrated exactly that, and it is the same trap this file's header describes.
+	// So require the mechanism to have RUN before believing anything about the geometry it
+	// produced. The only visible difference otherwise is the first slide at ~490ms instead of
+	// ~2400ms, which no rect can see.
+	expect(
+		log.shellFired?.length ?? 0,
+		'the pre-paint replay never ran, so the single geometry below is the live filmstrip alone — the assertion is vacuous',
+	).toBeGreaterThan(0);
 	assertOneGeometry(log, TRACKED);
 });
 
@@ -208,7 +227,21 @@ test('an Explore reload paints one geometry per element too', async ({ page }) =
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	// The editor pane does not exist in Explore (the layout removes it), so it is not tracked.
-	assertOneGeometry(log, ['bar', 'previewPane', 'slide']);
+	//
+	// The preview pane is NOT tracked either, and that is a stated limit rather than an
+	// oversight: the walk bar mounts only once the component's plan has been fetched and takes
+	// ~100px off the bottom when it does. A draft of this change reserved that band from a
+	// stored measurement; it was withdrawn because the stored height is the PREVIOUS slide's
+	// caption while the bar it reserves for belongs to the NEXT boot's first slide, so on an
+	// ordinary step-then-return it produced two geometries anyway — and on a failed plan fetch
+	// the reserve never came off at all. What this case DOES guarantee is that the Explore
+	// layout itself no longer assembles: no phantom editor pane, no full-bleed transition, no
+	// pane labels appearing and vanishing.
+	assertOneGeometry(log, ['bar', 'slide']);
+	expect(
+		(log.editorPane ?? []).length,
+		'the editor pane was laid out during an Explore boot — the Edit layout painted first and was dismantled in view',
+	).toBe(0);
 });
 
 // A toolbar control that lights the WRONG option and corrects itself is the same defect as
@@ -317,10 +350,33 @@ test("the editor placeholder's text starts where CodeMirror's will", async ({ pa
 // So: drive every branch on the real page and require the pre-paint answer to equal the
 // hydrated one. This is the guard the split seed did not have.
 for (const c of [
+	// Rule 1 — a handoff forces Edit, and it BEATS a persisted Explore view. This case was
+	// missing from the first version of this table, and it was the one that mattered: the app
+	// re-read the one-shot handoff key at mount, by which time a child effect had already
+	// consumed it, so the highest-precedence rule silently never fired and a visitor handed a
+	// deck landed in the Explore gallery instead of the editor holding it.
+	{
+		name: 'a handoff, over a persisted Explore view',
+		url: '/playground/',
+		setup: { 'lattice-docs-pg-view': 'read', 'lattice-docs-pg-handoff': '{"md":"# handed off\\n","from":"the Studio","ts":1}' },
+		expected: 'edit',
+	},
 	{ name: 'an explicit ?view=edit', url: '/playground/?view=edit', setup: null, expected: 'edit' },
 	{ name: 'an explicit ?view=read', url: '/playground/?view=read', setup: null, expected: 'read' },
+	// `?view=explore` is an alias for read, mapped in BOTH the mirror and parsePlaygroundUrl.
+	{ name: 'the ?view=explore alias', url: '/playground/?view=explore', setup: null, expected: 'read' },
 	{ name: 'a persisted view', url: '/playground/', setup: { 'lattice-docs-pg-view': 'edit' }, expected: 'edit' },
+	{ name: 'a persisted Explore view', url: '/playground/', setup: { 'lattice-docs-pg-view': 'read' }, expected: 'read' },
 	{ name: 'a pristine draft', url: '/playground/', setup: null, expected: 'read' },
+	// Pristine is not the same as EMPTY: a draft that still hashes to the last recorded insert
+	// is untouched, so it opens Explore too. This exercises the fp()/isPristine pair rather
+	// than the empty-string short-circuit the case above takes.
+	{
+		name: 'a pristine draft that has content',
+		url: '/playground/',
+		setup: { 'lattice-docs-pg-source': 'x', 'lattice-docs-pg-inserted-hash': '2b61d' },
+		expected: 'read',
+	},
 	{ name: 'a dirty draft', url: '/playground/', setup: { 'lattice-docs-pg-source': '# a draft the visitor typed\n' }, expected: 'edit' },
 ] as const) {
 	test(`the pre-paint boot view matches the app's: ${c.name}`, async ({ page }) => {
