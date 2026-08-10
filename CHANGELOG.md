@@ -35,7 +35,7 @@ in patch versions.
   desktop, tablet and phone widths, because no device class owns an input: a desktop
   may be a touchscreen laptop or a mouse-driven tower, a tablet takes a keyboard case
   and a mouse, and a phone can be paired with either. PageUp/PageDown (what a
-  presentation clicker emits) and Home/End work too. The rules for all three verbs now
+  presentation clicker emits) and Home/End jump to the first and last slide. The rules for all three verbs now
   come from the shared transport kernel (`lib/core/present-transport.mjs`, which gains
   `createWheelGate`) rather than being hand-rolled per surface with drifting constants,
   which is how the shell and Present came to disagree in the first place. The arrow

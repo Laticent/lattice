@@ -105,13 +105,62 @@ the *next* arrow press moves the caret instead. Navigation would work exactly
 once. So `goToSlide` takes a `focus` override and every gesture/keyboard path
 passes `false`.
 
+## What the review round caught
+
+The first cut of this change passed every gate, a 70/70 real-surface matrix, and
+an e2e suite — and still shipped four defects. An independent checker found them.
+They are worth naming, because each one hid in the same blind spot: **the tests
+covered the verbs the matrix enumerated, and every defect lived in a cell the
+matrix did not have.**
+
+1. **`Home` and `End` navigated BACKWARD one slide.** The shell's mover was
+   `action === 'next' ? … : …` — a two-way collapse over a keymap that carries
+   four actions, so `first` and `last` both fell through to "prev". `End` on
+   slide 4 went to slide 3, and `preventDefault` stole the browser's own
+   behavior on the way, so the key did something wrong *instead of* something
+   right. The unit test asserting `SHELL_KEYMAP.End === 'last'` passed
+   throughout: the map was right and the consumer ignored it. **The
+   CHANGELOG shipped the claim "Home/End work too" while they did not.**
+2. **The new global keydown double-fired on every roving-tabindex widget.**
+   Radix's roving focus calls `preventDefault()` and does *not* stop
+   propagation, so the event still reached the window listener: one `ArrowRight`
+   on the Inspector's pill tabs both moved the highlight and turned the deck —
+   which re-pointed a slide-scoped Inspector at a different slide mid-edit. The
+   fix is to honor `e.defaultPrevented`, which covers every such widget
+   generically, with a widened role list behind it for widgets that own arrows
+   without calling `preventDefault`.
+3. **`hasTouch: true` on the `tablet` Playwright project moved 4.2% of the
+   pixels in a committed `@visual` baseline** — 4× the configured tolerance —
+   because `(pointer: coarse)` raises `.cm-content` to 16px (`editor-theme.ts`,
+   the iOS zoom-on-focus defense) and re-wraps every line. The irony is exact:
+   the `desktop-touch` project exists *because* folding touch into an existing
+   project changes unrelated specs, and the same mistake was then made to
+   `tablet` and `mobile`. Fixed the same way — `tablet-touch` / `mobile-touch`
+   are their own projects, and the visual baselines keep the pointer state they
+   were blessed under.
+4. **`PresentRail` lost its roving-focus contract for `Home`/`End`.** It shields
+   the arrows with `stopImmediatePropagation` but never needed to shield
+   `Home`/`End`, because Present used to ignore them. Routing the full shared
+   keymap through Present made them live, so one `End` press both moved the
+   rail's focus and jumped the deck. Moving focus is not activating.
+
+The lesson generalizes past this change: **a verb matrix proves only the cells it
+contains.** Three of the four defects were in a key or a project the matrix never
+enumerated, and the fourth was in a widget interaction no navigation test would
+think to drive. A checker reading the diff for blast radius found all four in one
+pass.
+
 ## Verification
 
 Real surfaces, real input — CDP touch sequences for swipe, genuine key and wheel
 events for the rest (HARD RULE #23). Three viewports (1440 / 820 / 390) × five
 surfaces × five verbs, plus the guards:
 
-- **70/70 combinations navigate.**
+- **70/70 combinations navigate.** This matrix was an ad-hoc harness and is **not
+  committed**, so the claim is not independently reproducible — the `@parity` e2e
+  suite is its durable successor, and it now carries the `Home`/`End` cell the
+  matrix lacked. Prefer the suite; treat the 70/70 as the history of how the gap
+  was found, not as a standing gate.
 - Caret in the editor: arrows move the caret, not the deck; typing still types.
 - Two consecutive arrow presses both move the deck (the focus-steal regression
   this would otherwise have shipped).

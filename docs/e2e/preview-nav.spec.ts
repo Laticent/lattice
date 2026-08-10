@@ -87,6 +87,17 @@ test('@parity PageDown / PageUp turn the deck — what a presentation clicker em
 	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
 });
 
+test('@parity Home / End jump to the first and last slide', async ({ page }) => {
+	// The matrix that shipped the first cut of #1294 had no Home/End cell, and the
+	// mover collapsed every non-'next' action to 'prev' — so End went BACKWARD one
+	// slide while preventDefault stole the browser's own behavior.
+	const n = await slideCount(page);
+	await page.keyboard.press('End');
+	await expect(page.getByText(`Slide ${n} / ${n}`, { exact: true })).toBeVisible();
+	await page.keyboard.press('Home');
+	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
+});
+
 test('@parity a plain mouse wheel turns the deck', async ({ page }) => {
 	// deltaY ONLY — what every wheel mouse emits, and what the old horizontal-only
 	// rule ignored on every surface in the shell (#1294).

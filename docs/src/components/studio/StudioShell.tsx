@@ -2282,9 +2282,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// CodeMirror would hand the very next arrow press to the caret instead of the
 	// deck — one keystroke of navigation, then silence.
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
-	const wheelGateRef = React.useRef(createWheelGate());
+	// Lazy: `useRef(createWheelGate())` would build and discard a gate on EVERY
+	// render (the argument is evaluated unconditionally; useRef keeps only the first).
+	const wheelGateRef = React.useRef<ReturnType<typeof createWheelGate> | null>(null);
+	const wheelGate = (wheelGateRef.current ??= createWheelGate());
+	// Every action the kernel can name gets its own landing, keyed by name. An
+	// `action === 'next' ? … : …` two-way collapse silently turned Home into "prev"
+	// and End into "prev" — the keymap carries four actions, not two, so a binary
+	// switch is wrong the moment `first`/`last` reach it.
 	const nav = React.useCallback((action: string) => {
-		goToSlideRef.current(action === 'next' ? slideNoRef.current : slideNoRef.current - 2, { focus: false });
+		const cur = slideNoRef.current; // 1-based; goToSlide takes a 0-based index
+		const to = action === 'next' ? cur : action === 'prev' ? cur - 2 : action === 'first' ? 0 : action === 'last' ? Number.MAX_SAFE_INTEGER : null;
+		if (to === null) return; // an action this surface does not implement — do nothing, quietly
+		goToSlideRef.current(to, { focus: false });
 	}, []);
 	const onPreviewTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; swipeRef.current = { x: t.clientX, y: t.clientY }; };
 	const onPreviewTouchEnd = (e: React.TouchEvent) => {
@@ -2297,7 +2307,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		if (act) nav(act);
 	};
 	const onPreviewWheel = (e: React.WheelEvent) => {
-		const act = wheelGateRef.current(e.deltaX, e.deltaY, e.timeStamp);
+		const act = wheelGate(e.deltaX, e.deltaY, e.timeStamp);
 		if (act) nav(act);
 	};
 	// Arrow keys (and PageUp/PageDown, what a presentation clicker emits) turn the
@@ -2314,6 +2324,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	React.useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (presentOpenRef.current || viewRef.current === 'fabricate') return;
+			// SOMETHING ALREADY ANSWERED THIS KEY. A widget that owns the arrows for its
+			// own focus movement — every Radix roving-focus group: the Inspector's pill
+			// tabs, its Auto/Light/Dark and M/L/XL radio segments, the Library's column —
+			// calls `preventDefault()` and does NOT stop propagation, so the event still
+			// reaches this window listener. Without this check one ArrowRight both moved
+			// the highlight AND turned the deck, which re-pointed a slide-scoped Inspector
+			// at a different slide mid-interaction. Honoring `defaultPrevented` covers
+			// every such widget generically, including ones not written yet — a role
+			// allowlist has to be extended for each new one and silently misses the rest.
+			if (e.defaultPrevented) return;
 			const act = shellKeyAction(e, document.activeElement);
 			if (!act) return;
 			e.preventDefault();

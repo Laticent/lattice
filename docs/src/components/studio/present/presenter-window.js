@@ -138,6 +138,15 @@ export function buildPresenterDoc() {
 	// bundler renames imported functions and `.toString()` carries the renamed
 	// form, which is what once left `padInset` undefined inside `buildStageDoc`
 	// (see the note there). Same idiom, same reason.
+	//
+	// THE `var` BINDING FIXES THE NAME, NOT THE BODY. It restores the identifier a
+	// call site uses; it cannot restore a free variable INSIDE a function's source.
+	// `swipeAction` and `createWheelGate` are safe because their defaults are
+	// literals. `keyAction`'s default is `map = PRESENT_KEYMAP` — a module-scope
+	// read, which minifies to a name that does not exist in this popup. So the call
+	// site below MUST pass the map explicitly; the no-map form would throw at the
+	// first key press, in production only. `test/unit/export/inlinable-kernels.test.js`
+	// pins exactly this (it asserts the no-map form throws when inlined).
 	const navKernel =
 		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)};\n` +
 		`var keyAction=${keyAction.toString()};\n` +

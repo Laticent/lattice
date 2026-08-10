@@ -1361,3 +1361,77 @@ describe('StudioShell — slide navigation parity', () => {
 		expect(viewedSlide()).toBe(3);
 	});
 });
+
+// ── Regressions the #1294 checker caught (all four CONFIRMED on the real surface) ──
+describe('StudioShell — navigation regressions found in review', () => {
+	const seed = () => {
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'q3-board', title: 'Q3 Board Review', builtin: true }]));
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'write', lensDefaults: false }));
+	};
+	const viewed = () => {
+		const counter = screen.queryByText(/^Slide \d+ \/ \d+$/);
+		return Number(/^Slide (\d+)/.exec(counter?.textContent ?? '')?.[1]);
+	};
+	const total = () => {
+		const counter = screen.queryByText(/^Slide \d+ \/ \d+$/);
+		return Number(/\/ (\d+)$/.exec(counter?.textContent ?? '')?.[1]);
+	};
+
+	it('End jumps to the LAST slide and Home to the first — not one slide backward', () => {
+		// The mover was `action === 'next' ? … : …`, a two-way collapse over a keymap that
+		// carries FOUR actions, so End and Home both fell through to "prev". End on slide 4
+		// went to 3, and Home went to 2 — while preventDefault stole the browser's own
+		// behavior, so the key did something wrong INSTEAD of something right.
+		seed();
+		render(<StudioShell options={options} />);
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewed()).toBe(4);
+		fireEvent.keyDown(window, { key: 'End' });
+		expect(viewed()).toBe(total());
+		fireEvent.keyDown(window, { key: 'Home' });
+		expect(viewed()).toBe(1);
+	});
+
+	it('a key another widget already answered does not ALSO turn the deck', () => {
+		// Radix's roving-focus groups (the Inspector's pill tabs, its Auto/Light/Dark and
+		// size segments) call preventDefault and do NOT stop propagation, so the event still
+		// reaches the window listener. One ArrowRight moved the highlight AND turned the
+		// deck, which re-pointed a slide-scoped Inspector at a different slide.
+		seed();
+		render(<StudioShell options={options} />);
+		const before = viewed();
+		// act() so React flushes before we read — a raw dispatch leaves the assertion
+		// reading a stale render, which would make this guard pass with or without the fix.
+		act(() => {
+			const consumed = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+			consumed.preventDefault(); // what the roving-focus group does before this listener runs
+			window.dispatchEvent(consumed);
+		});
+		expect(viewed()).toBe(before);
+		// An unconsumed press still navigates — the guard is not a blanket mute.
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewed()).toBe(before + 1);
+	});
+
+	it('a focused roving-tabindex widget owns the arrows even without preventDefault', () => {
+		// The second line of defense: a widget that owns arrows but never calls
+		// preventDefault is invisible to the check above, so the role list catches it.
+		seed();
+		render(<StudioShell options={options} />);
+		const before = viewed();
+		for (const role of ['tablist', 'radiogroup', 'slider', 'toolbar']) {
+			const host = document.createElement('div');
+			host.setAttribute('role', role);
+			const item = document.createElement('button');
+			host.append(item);
+			document.body.append(host);
+			item.focus();
+			fireEvent.keyDown(window, { key: 'ArrowRight' });
+			expect(viewed(), `a focused ${role} must keep its arrows`).toBe(before);
+			host.remove();
+		}
+	});
+});

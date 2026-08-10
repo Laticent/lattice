@@ -37,18 +37,36 @@ export const SHELL_KEYMAP: Record<string, string> = Object.fromEntries(
  * `contenteditable` host, so the `isContentEditable` branch covers the editor
  * without either library needing to know this function exists.
  *
- * The `role` list covers the Radix menus, comboboxes and listboxes the Studio
- * chrome is built from: while one is open its focused item owns Arrow keys for
- * moving the highlight, and turning the slide underneath it would be a surprise.
+ * The `role` list covers two families. First, the overlays — menu, listbox,
+ * combobox, dialog — where a focused item owns Arrow keys for moving the
+ * highlight and turning the slide underneath would be a surprise. Second, the
+ * ROVING-TABINDEX widgets that live inline in the Studio chrome (the Inspector's
+ * pill tabs, its Auto/Light/Dark and size segments, sliders): there is no overlay
+ * to detect, the widget is simply on the page and owns the arrows while focused.
+ *
+ * This list is the second line of defense, not the first. The primary guard is
+ * the caller's `defaultPrevented` check, which catches every widget that answers
+ * the key — including ones nobody has written yet. This list adds the widgets
+ * that own arrows WITHOUT calling `preventDefault`, which a propagation check
+ * cannot see.
  */
+const ARROW_OWNING_ROLES = [
+	// Overlays
+	'menu', 'menubar', 'listbox', 'combobox', 'dialog', 'alertdialog',
+	// Inline roving-tabindex widgets
+	'tablist', 'tab', 'radiogroup', 'radio', 'toolbar', 'slider', 'spinbutton',
+	'tree', 'treegrid', 'grid', 'listitem', 'option', 'application',
+]
+	.map((r) => `[role="${r}"]`)
+	.join(',');
+
 export function isTypingTarget(el: Element | null): boolean {
 	if (!el) return false;
 	const node = el as HTMLElement;
 	if (node.isContentEditable) return true;
 	const tag = node.tagName;
 	if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-	// A focused item inside an open menu/dialog owns its own arrow-key semantics.
-	return !!node.closest?.('[role="menu"],[role="listbox"],[role="combobox"],[role="dialog"],[role="alertdialog"]');
+	return !!node.closest?.(ARROW_OWNING_ROLES);
 }
 
 /**
