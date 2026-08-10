@@ -121,6 +121,7 @@ const STEPS = [
   // for AA). Reads theme SOURCE only, so it is order-independent; it must simply run
   // before anything that copies themes/ into dist/.
   { label: 'categorical on-canvas ink (themes/*.css)', script: 'derive-cat-ink.js' },
+  { label: 'chart categorical ink (themes/*.css)', script: 'derive-chart-cat-ink.js' },
   { label: 'capability index (engineering/capabilities.md)', script: 'build-capabilities.js' },
   // §0c's split-treatment table — renders TREATMENTS (lib/core/split-facts.js) into
   // the split decision note. Reads manifests + that map; order-independent.

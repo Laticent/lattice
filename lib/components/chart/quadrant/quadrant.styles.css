@@ -218,13 +218,15 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
    * — the whole job of a region label. `--cell-ink` is routed from the
    * `data-cell` the label carries.
    *
-   * But it is DARKENED toward the page's own heading ink first, because
-   * `--chart-cat-N-ink` is a GRAPHICAL ink: it was designed and gated at the
-   * 3:1 WCAG 1.4.11 floor for dots, strokes and borders. This is the first
-   * place it carries text, which needs 4.5:1 — and taking it raw put 12 of 216
-   * theme × mode × cell combinations below AA (`concrete` light bottom-right
-   * measured 3.04:1, down from 10.56:1 when the name was maximum-contrast
-   * black/white inside the tint).
+   * But it is DARKENED toward the page's own heading ink first — and the reason
+   * has CHANGED, so read this rather than assuming. `--chart-cat-N-ink` is now a
+   * curated, text-safe value on the shipped palettes (#1536,
+   * tools/derive-chart-cat-ink.js), but it is solved against the SLIDE SURFACES,
+   * `--bg` and `--bg-alt`. This label sits on the region TINT, which is a much
+   * closer surface: taking the curated ink raw here puts 77 of 240 palette × mode
+   * × slot combinations below AA, worst 3.33:1 (`concrete` light slot 5). Worse
+   * than the 12-of-216 the older graphical ink managed, not better. The mix stays
+   * until the cycle grows an on-fill ink solved against the tint itself.
    *
    * 65% is measured, not guessed: it is the largest hue share that clears AA in
    * EVERY theme (worst case `concrete` light at 4.99:1). More hue is prettier

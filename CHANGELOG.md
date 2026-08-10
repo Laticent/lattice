@@ -46,6 +46,23 @@ in patch versions.
   included here; this entry records the measurement and the model.
   (`engineering/decisions/2026-08-10-palette-concat-order.md`)
 
+- **Changed: chart categorical text now keeps the hue the theme author curated.** Where a
+  chart paints text in a categorical color it used to mix that color toward the page's
+  heading ink at render time to make it text-safe — which worked, and quietly sheared the
+  hue by up to 18.9° and mixed away a third of the chroma (worst case 55%) to buy contrast
+  headroom it already had; the mix sat as high as 18.6:1 against a 4.5 floor. Each palette
+  now carries a curated, committed `--chart-catN-ink`, solved by the same shared recipe the
+  `--cat-N-ink` tier uses: hue and chroma held exactly, lightness moved only as far as AA
+  against both slide surfaces requires. Worst hue shift drops from 18.9° to **2.33°** and
+  mean chroma kept rises from 66% to **100%**, with nothing below AA in either mode. The visible
+  change reaches every surface that paints in a categorical ink — matrix-grid row labels
+  and filled-cell text, quadrant region labels and dots, pie wedge strokes, word-cloud
+  words — most visibly the matrix-grid row label, which now reads in its own category
+  color rather than a muted version of it. Charts that paint categorical text on a *tinted* cell
+  (the quadrant region names, matrix-grid filled cells) deliberately keep the old mix —
+  measured, taking the curated ink raw there would put 77 of 240 combinations below AA,
+  because a tint is a much closer surface than the slide. (#1536)
+
 - **Added: pinch to zoom a slide, on every Studio surface and every device.** The
   Studio preview, Present and the presenter screen now zoom the slide — not the
   page — by pinch (touch), `ctrl`/`⌘`+wheel (mouse, and what a trackpad pinch

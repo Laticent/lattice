@@ -387,6 +387,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/component-gen-eval.mjs` | AI component-generation evaluator — runs the FROZEN, held-out adversarial prompt |
 | `tools/cvd-audit.js` | Colour-vision-deficiency (CVD) collapse audit for Lattice themes. |
 | `tools/derive-cat-ink.js` | Generate the curated `--cat-1-ink … --cat-12-ink` block for every palette. |
+| `tools/derive-chart-cat-ink.js` | Generate the curated `--chart-cat1-ink … --chart-cat8-ink` block for every |
 | `tools/export-chart-svg.js` | Export a deck's chart(s) as standalone image files — SVG for the vector |
 | `tools/export-marp.js` | export-marp — produce a portable, self-contained bundle of a Lattice deck for |
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |

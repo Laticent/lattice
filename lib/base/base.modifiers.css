@@ -505,6 +505,16 @@ section.print {
   --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
   --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
   --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  /* …and the chart cycle's INK follows the band for the same reason the --cat-N-ink
+   * block above does. It used to ride along for free, being derived from
+   * --chart-cat-N-hue; it is a committed per-theme token now (#1536), so it must be
+   * remapped explicitly or the seed inherits straight through and a printed slide
+   * shows a full-hue row label inside an otherwise grayscale grid. Reaches the PDF
+   * export path, so it is not merely a screen concern. */
+  --chart-cat1-ink: var(--print-chart-1); --chart-cat2-ink: var(--print-chart-2);
+  --chart-cat3-ink: var(--print-chart-3); --chart-cat4-ink: var(--print-chart-4);
+  --chart-cat5-ink: var(--print-chart-5); --chart-cat6-ink: var(--print-chart-6);
+  --chart-cat7-ink: var(--print-chart-7); --chart-cat8-ink: var(--print-chart-8);
   --chart-state-pass: var(--print-pass);
   --chart-state-warn: var(--print-warn);
   --chart-state-fail: var(--print-fail);

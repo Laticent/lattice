@@ -323,3 +323,96 @@ implementation — the design question is settled; the per-theme classification 
 give monochrome identities the a11y luminance+texture treatment — so the tokens carry their
 semantics and the collapse we found cannot recur. Then converge the themes, doc, and skill.
 This is a human-pick design doc; nothing is implemented.
+
+---
+
+## Amendment (2026-08-10) — Track 4's ink half shipped, and the mix it replaced was two different things
+
+#1536 took the **ink** half of Track 4: `--chart-cat1-ink … --chart-cat8-ink` are now
+generated per palette by `tools/derive-chart-cat-ink.js` and committed next to the
+`--chart-catN` cycle, calling the SAME `solveInkArm` from `lib/theme/cat-ink.js` that
+`derive-cat-ink.js` and the Studio's browser generator use. Track 4's "no drift" clause is
+satisfied by sharing the solver rather than a CSS partial — the partial would still have
+been two copies of the *values*; one solver is one copy of the *recipe*.
+
+Fidelity, over 15 palettes × 2 modes × 8 slots (240 pairs, 166 chromatic at source
+chroma ≥ 0.05):
+
+| | render-time `color-mix(… 65%, --text-heading)` | committed solve |
+|---|---|---|
+| worst hue shift | 18.9° (`crepuscolo` light, slot 8) | **2.33°** |
+| mean chroma kept | 66% | **100%** |
+| worst chroma kept | 45% | — |
+| below AA | 0 | 0 |
+
+So the mix was never a contrast defect; it was over-correction, sitting as high as 18.6:1
+against a 4.5 floor and paying up to 55% of the chroma for headroom it already had.
+
+### The finding that changed the scope: two of the three mixes are on a DIFFERENT surface
+
+#1536 asked for all three render-time mixes to be deleted — `quadrant.styles.css` and
+`matrix-grid.styles.css` ×2 — on the reading that they were one workaround copied three
+times. They are not, and the difference is the whole safety argument:
+
+- `matrix-grid.styles.css` row label (`td:first-child`) paints on the **slide surface**.
+  `--bg` / `--bg-alt` are exactly what the solve targets, so the mix is gone and the
+  curated ink is taken raw.
+- `quadrant.styles.css` `.quadrant-label` and `matrix-grid.styles.css` `.cell.cell-filled`
+  paint on the row/cell **TINT** (`--chart-cat-N-fill`) — a much closer surface the solve
+  never considered. Measured: taking the curated ink raw there puts **77 of 240**
+  combinations below AA, worst **3.33:1** (`concrete` light, slot 5). That is materially
+  worse than the 12-of-216 the quadrant comment already recorded for the graphical ink.
+  Both keep their mix, with the measurement written at the call site.
+
+**Correction, from the maker-checker pass.** An earlier draft of this amendment said the
+row label was "the only pixel this change moves". That is false, and it mattered because it
+was used to size the visual review. The ink token feeds far more than the row label —
+`.quadrant-dot`, pie wedge strokes, `--timeline-dot-ink`, `--fill-ink`, legend swatch
+strokes, kanban lane color, word-cloud word fill — and the two SURVIVING mixes take the
+changed ink as their input, so their output moved too. Measured A/B in real Chromium:
+`concrete` light and dark move 5 surfaces each, `indaco` dark 5, `indaco` light 1.
+
+The direction is safe — the surviving mixes IMPROVED, matrix-grid `.cell.cell-filled` going
+from 6 of 240 sub-AA (worst 3.90:1) to 0 of 240 (worst 4.60:1) — but "safe" is a conclusion
+that had to be measured, not the reason the claim was made.
+
+Deleting all three would therefore have shipped an accessibility regression that no gate
+catches — `check-viz-render` gates black SVG paint, and the ink/`--bg` gate added here
+correctly says nothing about a tint. **Closing the remaining two needs an on-fill ink
+solved against the tint itself** (per slot, since the surface varies per slot), which is
+its own card.
+
+### Two regressions the maker-checker caught before merge
+
+Both were self-inflicted, and both are the same shape: a token that used to be DERIVED
+became COMMITTED, and everything that relied on the derivation following its source
+silently stopped following it.
+
+1. **The print band.** `section.print` remaps `--chart-cat1…8` to the print grays. The ink
+   used to ride along for free, being derived from `--chart-cat-N-hue`; as a committed
+   token it inherited straight through, so a printed slide showed a full-hue row label
+   inside an otherwise grayscale grid — and that reaches the PDF export path. The
+   `--cat-N-ink` tier had already hit this and carries a comment about it twelve lines
+   above the chart remap; the fix is the same eight lines.
+2. **Themes with no committed ink.** `lib/theme/derive.js` emits `--chart-catN` for
+   Studio-generated themes but not the ink, so they fall through to the fallback — which,
+   with the safety mix deleted, was the bare graphical value painted as text at the 3:1
+   floor. Against the repo's committed theme sampler: 167 of 200 generated themes below
+   AA, worst 3.18:1. The fallback now KEEPS the mix, so the curated value wins where it
+   exists and no theme is worse off than before.
+
+### Gating
+
+`derive-chart-cat-ink.js --check` runs inside `build:check` and does two things: proves the
+committed block equals a fresh solve (so a hand-edit is regenerated over, not silently
+kept), and asserts directly that all 240 committed inks clear AA against both `--bg` and
+`--bg-alt` in both modes. Its scope is stated in the source: **slide surfaces only, not the
+tint** — the distinction above is exactly the kind that a gate silently mis-scoped would
+hide.
+
+### Explicitly not changed
+
+`.quadrant-dot-label` keeps `--quadrant-label-ink` (`light-dark(black, white)`), palette-blind
+by design because those item names sit on tinted cells. #1536 flagged it as a separate
+question; the answer is that it stays maximum-contrast, for the same surface reason as the
+two mixes above.
