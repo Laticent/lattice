@@ -479,6 +479,59 @@ in patch versions.
   Full measurement, what each change is separately worth, and what is still owed in
   `engineering/decisions/2026-07-30-preview-deck-context-and-render-cost.md` (Amendment 7).
 
+- **Quadrant labels are legible at presentation size; the chart's shape is unchanged.** #680 raised
+  two things: the chart paints ~44% of the width it is given, and its labels are too small. Both
+  measured true — 390px inside an 896px box, and item labels at 8.5 viewBox units, which is ~11.8px
+  on a 1920-wide slide against ~26px body text. Only the second is a defect. The first is
+  arithmetic: `preserveAspectRatio="meet"` fits a 1.21:1 unit into a ~2.5:1 chart-body, and the CSS
+  is doing its job (the SVG's border box measures exactly its container's content box in the real
+  print DOM). The charts that fill more of the stage do it by carrying a key beside the diagram, so
+  closing the gap means changing what the quadrant *is*. Two ways of doing that were built, rendered
+  and **rejected** — widening the plot to 840 units flattens every cell to ~3:1 and reads as a
+  stretched chart; pie's square-plot-plus-key-rail moves every name out of the plot and turns each
+  point into a numbered dot the reader has to look up. Both are recorded in the decision note so
+  they are not retried. What ships is the type alone: item labels **8.5 → 9.5 units** (~11.8px →
+  ~13.2px at 1920) with the wrap budget 104 → 120, plus quadrant names 11 → 12, axis 12 → 14, ticks
+  10 → 12, and zone/magic/cohort/badge to match. The corner wrap budget went 120 → 140 alongside the
+  name size, or a two-word group ("Quick Operational Wins") lost its last word to an ellipsis.
+  **9.5 is a corpus-measured ceiling.** An earlier pass stopped at 10.5 because both dense fixtures
+  in `quadrant.test.js` still placed every name there — but those are 5- and 6-point clusters, and
+  the gallery's own *"Stress test — fourteen initiatives … the ceiling"* slide is denser than
+  either. At 10.5 it silently dropped `Per-decision profiles`. Swept across every quadrant slide in
+  the repo (88 items): 8.5/104 gave 88 of 88 with 28 labels wrapped; **9.5/120 gives 88 of 88 with
+  17 wrapped**; 10 and 10.5 give 83 of 88. So the shipped pair is bigger type *and* fewer wrapped
+  lines than the code it replaces. `charBudget()` is `floor(width / (fontSize × 0.6))`, so 9.5/120
+  is 21 characters a line against the old 20 — names wrap slightly *less*, not "no more" as an
+  earlier draft of this entry claimed. `bubbleValue` deliberately did not move: it is painted inside
+  its bubble, whose radius is the data.
+
+- **A mirrored `split-panel` ran its rubric straight into the running header.** `section header` is
+  absolutely positioned to the slide's LEFT inset and is not in flow, so nothing reserves its band.
+  Unmirrored, that inset sits over `.panel-left`, whose content is bottom- or center-aligned — the
+  band is empty and nobody notices. `mirror` row-reverses the panels without moving the chrome, so
+  the header lands over `.panel-right`, whose rubric starts at its own `--sp-xl` padding, well
+  inside the band. Measured, the two boxes do not quite *overlap* (~0.1px apart); what they do is
+  read as one stacked pair of mono/uppercase lines — worth stating precisely, since someone chasing
+  a true overprint would look in the wrong place. The berth is reserved on the leading `h3` that
+  actually collides, not on the column: padding the column cost ~45px out of an `overflow: clip` box
+  on every mirrored slide, including `steps` (already center-aligned, so its band was empty), `proof
+  capstone`, and the gallery's own `mirror` slide, which has no rubric at all. Those paid for a
+  collision they never had, and a slide near its column limit would have begun clipping. Scoped as
+  it now is, all 24 pages of the split-panel gallery are pixel-identical to before.
+
+- **A wrapped line in a `math` legend fell back to the bullet margin.** The `·` marker was an inline
+  `::before` with `padding-right`, which indents the first line but not continuations — so the second
+  line of "…must be / invertible" started under the bullet instead of under the text (#680). The
+  marker now comes out of flow and the row reserves its gutter with padding, the idiom the blockquote
+  bullets already use. **Scoped to the legend list, deliberately.** Applied to every `section.math ul
+  > li` it broke two variants: `.compare` is a multi-column container, and an absolutely-positioned
+  marker inside a fragmented `li` resolves against the fragmentainer rather than the fragment, so
+  column one's bullets painted at the top of column two and column two's painted past the right
+  column rule, outside the frame; `.matrix.decompose` centers its text, so `left: 0` pinned the
+  marker to the full-width row while the text sat ~570px away. Both render correctly with the rule
+  scoped to the legend selector, which already excludes those variants. A future variant that wants
+  the hanging indent opts in rather than inheriting it.
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

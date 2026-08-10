@@ -9172,6 +9172,39 @@ section.math.feature > :is(ul, ol) {
   grid-row: 3;
   align-self: center;
 }
+/* HANGING INDENT (#680) — LEGEND LIST ONLY, and the scope is the whole point.
+ *
+ * The defect: the `·` is an INLINE ::before with `padding-right`, so a WRAPPED
+ * line starts under the marker instead of under the first line's text, and the
+ * legend loses its left edge ("… must be / invertible", math.gallery p2).
+ *
+ * The fix takes the marker out of flow and reserves its gutter with padding —
+ * the blockquote-bullet idiom from base.modifiers.css. That is safe HERE and
+ * unsafe generally, which is why it is not on `section.math ul > li`:
+ *
+ *   · `.compare` is a MULTI-COLUMN container. An absolutely-positioned marker
+ *     inside a fragmented `li` resolves against the fragmentainer, not the
+ *     fragment — column 1's bullets paint at the top of column 2 and column 2's
+ *     paint past the right column rule, outside the frame. Observed on both the
+ *     PDF and the live DOM; the `li` boxes stay correct, so no gate sees it.
+ *   · `.matrix.decompose` centers its text. `left: 0` pins the marker to the
+ *     full-width row while the text is centered ~570px away, orphaning it.
+ *
+ * The legend selector below already excludes derivation/theorem/compare/canvas/
+ * matrix/stats, so scoping to it dodges both. A future variant that wants the
+ * hanging indent must opt IN here, not inherit it. Padding, not margin (#20). */
+section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol) > li,
+section.math.feature > :is(ul, ol) > li {
+  padding-left: var(--sp-sm);
+  position: relative;
+}
+section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol) > li::before,
+section.math.feature > :is(ul, ol) > li::before {
+  position: absolute;
+  left: 0;
+  padding-right: 0;
+}
+
 section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol)::before,
 section.math.feature > :is(ul, ol)::before {
   content: 'where';
@@ -11931,8 +11964,8 @@ section.quadrant .quadrant-split[data-kind="target"], figure.chart-frame .quadra
  * CSS px ≠ pt. Values are intentional deviations from the 12-token scale;
  * scoped to :is(section.quadrant, figure.chart-frame) so themes can override per-component via the token. */
 section.quadrant, figure.chart-frame{
-  --quadrant-axis-size: 12px;  /* raised from 11px — axis name, still below token min */
-  --quadrant-tick-size: 10px;  /* raised from 8px (≈5.7pt at desk) */
+  --quadrant-axis-size: 14px;  /* #680: 12 -> 14 */
+  --quadrant-tick-size: 12px;  /* #680: 10 -> 12 */
 }
 section.quadrant .quadrant-axis-name, figure.chart-frame .quadrant-axis-name{
   fill: var(--text-heading);
@@ -11973,19 +12006,19 @@ section.quadrant .quadrant-label, figure.chart-frame .quadrant-label{
    * cannot silently move again. */
   fill: color-mix(in oklab, var(--cell-ink, var(--quadrant-label-ink)) 65%, var(--text-heading));
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 /* Magic variant: heavier, more ceremonial labels with extra tracking. */
 section.quadrant .quadrant-label--magic, figure.chart-frame .quadrant-label--magic{
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.08em;
 }
 /* Threshold variant: zone names live ON the chart as action prompts. */
 section.quadrant .quadrant-label--zone, figure.chart-frame .quadrant-label--zone{
-  font-size: 10.5px;
+  font-size: 11.5px;
   letter-spacing: 0.06em;
 }
 
@@ -11998,7 +12031,7 @@ section.quadrant .quadrant-dot, figure.chart-frame .quadrant-dot{
 section.quadrant .quadrant-dot-label, figure.chart-frame .quadrant-dot-label{
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 500;
 }
 
@@ -12020,7 +12053,7 @@ section.quadrant .quadrant-bubble-value, figure.chart-frame .quadrant-bubble-val
 section.quadrant .quadrant-bubble-label, figure.chart-frame .quadrant-bubble-label{
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 500;
 }
 
@@ -12061,7 +12094,7 @@ section.quadrant .quadrant-hull-line, figure.chart-frame .quadrant-hull-line{
 section.quadrant .quadrant-cohort-label, figure.chart-frame .quadrant-cohort-label{
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -12074,7 +12107,7 @@ section.quadrant .quadrant-cohort-label, figure.chart-frame .quadrant-cohort-lab
 section.quadrant .quadrant-target-badge, figure.chart-frame .quadrant-target-badge{
   fill: var(--quadrant-target);
   font-family: var(--font-mono, var(--font-body));
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -14705,6 +14738,37 @@ section.split-panel.watermark .panel-right :is(ol,ul) + ul > li:nth-child(2)::be
  * `--text-muted`, which is what the content side wants. Surfaced by the G10 axe gate and
  * confirmed by looking at the render (2026-07-03-semantic-html-accessibility.md §18.1). */
 section.split-panel.watermark:not(.mirror) { --marp-slide-header-color: var(--on-accent-secondary); --marp-slide-footer-color: var(--on-accent-secondary); }
+
+/* HEADER BERTH UNDER `mirror` (#680). `section header` is absolutely positioned
+ * to the slide's LEFT inset and is NOT in flow, so nothing reserves its band.
+ * Unmirrored that inset is over `.panel-left`, whose content is bottom- or
+ * center-aligned, so the band is empty. `.mirror` row-reverses the panels
+ * (base.modifiers.css) WITHOUT moving the chrome, so the band lands over
+ * `.panel-right`.
+ *
+ * The boxes do not actually OVERLAP — measured, the rubric's top sits ~0.1px
+ * under the header's bottom. What it does is read as a second header line:
+ * two mono/uppercase rows stacked with no breathing room. Worth stating
+ * precisely, because someone debugging a true overprint will look elsewhere.
+ *
+ * SCOPED TO THE `h3` THAT COLLIDES, not to the column. Padding the column costs
+ * every mirrored slide ~45px at 1280 out of an `overflow: clip` box — including
+ * `steps` (whose `.panel-right` is `justify-content: safe center`, so its band
+ * was already empty), `proof capstone`, and the gallery's own `mirror` slide,
+ * which has no rubric at all and begins 340px below the header. Those paid for
+ * a collision they never had, and a slide already near its column limit would
+ * have started clipping. Only a leading `h3` sits in the band, so only a leading
+ * `h3` reserves it.
+ *
+ * Not in portrait: the reflow below stacks the panels, putting `.panel-left`
+ * back on top, so the band is clear again.
+ *
+ * The value adds to the rubric's own leading rather than replacing it — the
+ * variant's `.panel-right` padding still applies above this. Padding, not
+ * margin (#20). */
+section.split-panel.mirror:has(> header):not([data-orientation="portrait"]) .panel-right > h3:first-child {
+  padding-top: calc(var(--frame-inset-y) + 1.4 * var(--fs-meta));
+}
 
 /* Hardening: element siblings of <strong> in a card li don't inherit
  * the parent's font-weight:700. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
