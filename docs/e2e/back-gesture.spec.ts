@@ -1,5 +1,5 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
-import { LIVE_PREVIEW } from './studio-fixture';
+import { expect, type Page, test } from '@playwright/test';
+import { backEntryRegistered, controlReady, currentSlide } from './studio-fixture';
 
 // #1226 — the back gesture must dismiss the top overlay, never leave the Studio.
 //
@@ -17,64 +17,47 @@ import { LIVE_PREVIEW } from './studio-fixture';
 const MENU = 'Menu';
 const HOST = 'Deck';
 
-// KEPT for the cases below, where the registration genuinely has no signal — NOT as a blanket
-// settle. It spans drawer-PAINTS → drawer-REGISTERS the history entry a following `goBack()`
-// pops, which an assertion on the dialog alone can win the race against.
+// ONE declaration, 23 CALL SITES, and they are NOT all the same kind — read this before
+// deleting one. #1526's census counts this file as "14 sleeps" because it greps
+// `waitForTimeout(`; the honest count of fixed 650ms waits here is 23. The sweep in #1564
+// judged the RAW sleeps and this helper's role, not each of the 23 individually. What is
+// known about them:
 //
-// Where a signal EXISTS, `backEntryRegistered` is used instead (see below). It does not exist
-// here, and these are the sites that keep the sleep:
-//   · a DOOR transition (Menu → Themes/Library). It pushes nothing — `history.length` holds at
-//     3 → 3 and the ownership flag is already `true` from the parent — so any poll for either
-//     is satisfied before the door is even open, i.e. it is not a wait at all.
-//   · a re-open AFTER RELOAD, where the module ADOPTS the surviving marked entry rather than
-//     pushing (3 → 3, which is the very thing that test asserts).
+//   · LOAD-BEARING — a synchronous `history.length` read follows, with no retry to absorb a
+//     slow registration (the reload test), and one site where an ABSENCE is asserted
+//     (`Close` must not exist) which no poll can shorten safely.
+//   · NO SIGNAL EXISTS — a DOOR transition (Menu → Themes/Library) pushes nothing:
+//     `history.length` holds at 3 → 3 and `__latticeOverlayBack` is already `true` from the
+//     parent, so `backEntryRegistered` returns instantly there and is not a wait at all. Same
+//     for a re-open AFTER RELOAD, where the module ADOPTS the surviving marked entry.
+//   · PROBABLY DEAD TIME — the majority. An auto-retrying assertion follows that already
+//     polls a real change (`toHaveText`, `toHaveCount`), so the settle adds latency and no
+//     power. These have NOT been individually judged and are the remaining work in this file;
+//     removing one is safe only where no `goBack()` and no synchronous read follows it.
+//
+// Where a signal exists and the site was judged, `backEntryRegistered` replaced this.
 const settle = (page: Page) => page.waitForTimeout(650);
 const dialog = (page: Page) => page.locator('[role=dialog]');
-
-/** The Studio island is LIVE once the engine has painted a slide — the same universal ready
- *  signal `studio-fixture.gotoStudio` uses, and it holds on a phone viewport. Replaces a fixed
- *  post-`goto` sleep: measured ~100ms after `networkidle` (so it is also faster), and unlike a
- *  sleep it fails loudly if the island never comes up instead of proceeding into a dead click. */
-function studioLive(page: Page): Promise<void> {
-	return page.frameLocator(LIVE_PREVIEW).locator('.lattice').first().waitFor({ state: 'visible', timeout: 30_000 });
-}
-
-/** Wait until an overlay has REGISTERED the history entry a following `goBack()` pops.
- *  `docs/src/lib/overlay-back.ts` records ownership in `history.state` under its STATE_KEY
- *  (`__latticeOverlayBack`) — the observable the fixed settle was standing in for. Valid only
- *  for the FIRST overlay over a bare page: measured `false → true` at 231ms on the site nav,
- *  while a door transition leaves it already `true`, which is why those sites keep `settle`. */
-async function backEntryRegistered(page: Page): Promise<void> {
-	await expect
-		.poll(() => page.evaluate(() => (history.state as { __latticeOverlayBack?: boolean } | null)?.__latticeOverlayBack === true), { timeout: 10_000 })
-		.toBe(true);
-}
-
-/** A control backed by an Astro island is inert until that island hydrates — server HTML with
- *  no listeners, so the click is swallowed and the next assertion fails 15s later blaming the
- *  wrong thing. Ask the control's OWN island, never a global count: `/` keeps two below-fold
- *  islands (StudioPreview, RestyleShowcase) unhydrated forever, so `astro-island[ssr]` never
- *  reaches zero there. */
-async function controlReady(control: Locator): Promise<void> {
-	await control.waitFor({ state: 'visible' });
-	// Fails CLOSED: a control with no island ancestor is NOT "ready" by default. Written the
-	// other way (`!el.closest(...)?.hasAttribute('ssr')`) this silently becomes a no-op the day
-	// the header moves out of an island — the same chrome drift `CHROME` exists to catch — and
-	// these tests would quietly revert to clicking straight after `networkidle`.
-	await expect
-		.poll(() => control.evaluate((el) => { const i = el.closest('astro-island'); return !!i && !i.hasAttribute('ssr'); }), { timeout: 20_000 })
-		.toBe(true);
-}
 /** `.last()` — during a hand-off the outgoing drawer and its child are briefly BOTH
  *  mounted, and the topmost is the surface under test. Reading `.first()` here made an
  *  earlier version of this check assert against the drawer that was leaving, and pass
  *  vacuously. */
 const title = (page: Page) => dialog(page).last().locator('h2,[data-slot=sheet-title]').first();
 
+/** Ready = the engine has PAINTED a slide. Both halves, exactly as `gotoStudio` defines it —
+ *  waiting only for visibility would accept an empty frame. Replaces a fixed 1200ms bet, and is
+ *  strictly stronger than the `toBeVisible()` it sat behind: the `/studio/` SSR skeleton ships two
+ *  inert `aria-label="Menu"` buttons and no live preview at all, so the old gate could satisfy
+ *  itself against dead markup. */
+async function studioPainted(page: Page) {
+	await currentSlide(page).waitFor({ state: 'visible', timeout: 30_000 });
+	await expect(currentSlide(page)).not.toBeEmpty();
+}
+
 async function openStudio(page: Page) {
 	await page.goto('/studio/', { waitUntil: 'networkidle' });
 	await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
-	await studioLive(page);
+	await studioPainted(page);
 }
 
 test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', () => {
@@ -179,7 +162,7 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		await page.reload({ waitUntil: 'networkidle' });
 		// Wait for the island to be LIVE again before asserting nothing reopened — asserting
 		// straight after the reload would pass vacuously against a page that has not mounted yet.
-		await studioLive(page);
+		await studioPainted(page);
 		await expect(dialog(page)).toHaveCount(0);
 
 		// Re-open, then close: the adopted entry is reused and then spent, so the depth
@@ -209,11 +192,19 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 
 		// The visible deck band above the sheet — where a thumb reaches for "get out".
 		await page.mouse.click(196, 25);
-		// KEPT DELIBERATELY (#1526). The regression is the MENU COMING BACK after the child
-		// closes, so the pass condition is "and then nothing else happened" — a class no poll can
-		// express. Sampled every 50ms on this project the sheet count goes 1 → 0 at ~460ms and
-		// stays 0 through 2.2s; polling for count 0 would fire at 460ms and never observe a
-		// re-open after it. The interval must OUTLAST the window the bug lives in, not race it.
+		// KEPT (#1526). The regression is the MENU COMING BACK after the child closes, so the pass
+		// condition is "and then nothing else happened", which a poll for `count === 0` cannot
+		// express — it fires at the first zero (~410–460ms sampled here) and never sees a later
+		// re-open. So the interval must OUTLAST the window the bug lives in.
+		//
+		// TWO HONEST LIMITS, since this is the weakest guard in the file:
+		//  1. It samples ONCE, at t=1200ms. A re-open at 1250ms, or one that opens and closes
+		//     inside the window, still passes. A MutationObserver installed before the tap —
+		//     record, dwell, then assert the trace never went back to ≥1 — would be strictly
+		//     stronger and is the right fix; it is not done here.
+		//  2. The 1200ms is calibrated on a build where the bug does NOT exist, so it says how
+		//     long the FIXED app takes to settle, not how wide the bug's window is. Treat it as
+		//     a floor that happened to hold, not a measured bound.
 		await page.waitForTimeout(1200);
 		await expect(dialog(page)).toHaveCount(0);
 

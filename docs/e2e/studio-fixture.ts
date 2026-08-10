@@ -147,6 +147,38 @@ export function currentSlide(page: Page): Locator {
 	return livePreview(page).locator('.lattice').first();
 }
 
+/**
+ * A control backed by an Astro island is INERT until that island hydrates — server HTML with no
+ * listeners, so the click is swallowed and the next assertion fails much later blaming the wrong
+ * thing. This is what a fixed post-`goto` sleep was standing in for.
+ *
+ * Asks the control's OWN island, never a global count: `/` keeps two below-fold islands
+ * (StudioPreview, RestyleShowcase) unhydrated forever, so `astro-island[ssr]` never reaches zero
+ * there. Fails CLOSED — a control with no island ancestor is not "ready" by default, or this
+ * silently becomes a no-op the day the chrome moves out of an island (the #780 drift class).
+ */
+export async function controlReady(control: Locator): Promise<void> {
+	await control.waitFor({ state: 'visible' });
+	await expect
+		.poll(() => control.evaluate((el) => { const i = el.closest('astro-island'); return !!i && !i.hasAttribute('ssr'); }), { timeout: 20_000 })
+		.toBe(true);
+}
+
+/**
+ * Wait until an overlay has REGISTERED the history entry a following `goBack()` pops.
+ * `docs/src/lib/overlay-back.ts` records ownership in `history.state` under its STATE_KEY
+ * (`__latticeOverlayBack`) — the observable a fixed settle was standing in for.
+ *
+ * Valid ONLY for the first overlay over a bare page: measured `false → true` at 231ms on the site
+ * nav, while a DOOR transition (Menu → Themes) pushes nothing and leaves the flag already `true`,
+ * so calling this there returns instantly and is not a wait at all.
+ */
+export async function backEntryRegistered(page: Page): Promise<void> {
+	await expect
+		.poll(() => page.evaluate(() => (history.state as { __latticeOverlayBack?: boolean } | null)?.__latticeOverlayBack === true), { timeout: 10_000 })
+		.toBe(true);
+}
+
 /** Bottom-rail slide buttons — exactly one per slide (a fuzz invariant). */
 export function railButtons(page: Page): Locator {
 	return page.locator('nav[aria-label="Slide navigator"] button');
