@@ -417,7 +417,7 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
   // (`checkHexLiterals` in tools/check-ownership.js, which runs
   // `stripCommentsKeepOffsets` before looking). Without that this assertion is
   // STRICTER than the rule it mirrors: an issue reference in a comment is all hex
-  // digits, so `#1546` reads as a colour literal and fails a block whose CSS is
+  // digits, so `#1546` reads as a color literal and fails a block whose CSS is
   // perfectly palette-blind. A hex in prose is not a palette dependency.
   test('palette-blind — no hex literals anywhere in the SPECTRUM block', () => {
     const code = block.replace(/\/\*[\s\S]*?\*\//g, '');
