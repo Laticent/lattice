@@ -60,7 +60,7 @@ test.describe('Present — the between-slide beat', () => {
 				labelAtAdvance = await label();
 				break;
 			}
-			await page.waitForTimeout(60);
+			await page.waitForTimeout(60); // the POLL INTERVAL of this hand-rolled loop, not a settle
 		}
 
 		// THE ASSERTION. Measured against the unfixed build, the control read "Play the
@@ -71,10 +71,19 @@ test.describe('Present — the between-slide beat', () => {
 		// barge in on it. Unfixed, the tap took the play branch (so this reads Pause), and the
 		// pending timer then fired a second, non-resume play() that restarted the slide.
 		await transport.click();
-		await page.waitForTimeout(250);
-		expect(await label(), 'a tap during the beat pauses the deck').toBe('Play the presentation');
+		// The label CHANGES on a correct tap (Pause → "Play the presentation"), so there IS a
+		// signal — poll it, bounded. Unfixed, the tap took the play branch and the label stayed
+		// "Pause", so exhausting this budget is the failure it is meant to report, not a flake.
+		await expect
+			.poll(label, { timeout: 2_000, message: 'a tap during the beat pauses the deck' })
+			.toBe('Play the presentation');
 		const held = await position();
-		await page.waitForTimeout(4500); // past the full beat the tap interrupted
+		// KEPT DELIBERATELY (#1526). The pass condition here is that NOTHING happens: no surviving
+		// timer resumes playback and the deck does not advance. There is no signal to poll for the
+		// absence of an event — a poll would be satisfied by the already-correct state the instant
+		// it ran, and never observe the barge-in it exists to catch. The interval must outlast the
+		// 4000ms beat the tap interrupted (set in beforeEach), so it is a budget, not a guess.
+		await page.waitForTimeout(4500);
 		expect(await label(), 'no timer survived the tap to resume playback').toBe('Play the presentation');
 		expect(await position(), 'and the deck did not advance past the slide it was paused on').toBe(held);
 	});
@@ -128,10 +137,19 @@ test.describe('Present — the between-slide beat', () => {
 		expect(new Set(atRest.slice(1).map((s) => s.track)).size, 'every other segment shares one resting track').toBe(1);
 
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-		await page.waitForTimeout(1500);
-		const early = (await segments())[0].progress;
-		await page.waitForTimeout(3000);
-		const later = (await segments())[0].progress;
+
+		// The fill must APPEAR and then MOVE, and both had a signal — so poll. But keep the
+		// original intervals as the poll BOUNDS instead of discarding them: each sleep was doing
+		// two jobs, settling AND capping how long the app may take, and an unbounded poll keeps
+		// only the first. The regression this guards is a starved rAF loop, whose signature is a
+		// fill that crawls rather than one that never paints — exactly what an unbounded poll
+		// would wait out and pass (the #1523 lesson). Measured on this project: the fill appears
+		// at ~110ms and climbs ~15px/s, so these bounds keep an order of magnitude of headroom.
+		const progressPx = async () => (await segments())[0].progress;
+		await expect.poll(progressPx, { timeout: 1_500 }).toBeGreaterThan(0);
+		const early = await progressPx();
+		await expect.poll(progressPx, { timeout: 4_000 }).toBeGreaterThan(early);
+		const later = await progressPx();
 
 		expect(early, 'the progress fill appeared once playback started').toBeGreaterThan(0);
 		expect(later, `the fill advanced with the clock (${early}px → ${later}px)`).toBeGreaterThan(early);
@@ -182,12 +200,12 @@ test.describe('Present — a deck carries its own pace', () => {
 		// (`data-beat="hold"`) rather than inferred from a control's label — the transport
 		// deliberately keeps reading Pause through a hold, which is the #1352 fix.
 		const advanced = Date.now() + 60_000;
-		while (Date.now() < advanced && (await position()) === first) await page.waitForTimeout(60);
+		while (Date.now() < advanced && (await position()) === first) await page.waitForTimeout(60); // poll interval
 		expect(await position(), 'the deck never advanced to the second slide').not.toBe(first);
 
 		const start = Date.now();
 		const holdEnd = Date.now() + 20_000;
-		while (Date.now() < holdEnd && (await dialog.getAttribute('data-beat')) === 'hold') await page.waitForTimeout(60);
+		while (Date.now() < holdEnd && (await dialog.getAttribute('data-beat')) === 'hold') await page.waitForTimeout(60); // poll interval
 		const held = Date.now() - start;
 
 		// `deliberate` is ~2.2s and `brisk` ~0.8s. Anything under 1.5s means the workspace preset

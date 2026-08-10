@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
+import { LIVE_PREVIEW } from './studio-fixture';
 
 // #1226 — the back gesture must dismiss the top overlay, never leave the Studio.
 //
@@ -16,8 +17,37 @@ import { expect, type Page, test } from '@playwright/test';
 const MENU = 'Menu';
 const HOST = 'Deck';
 
+// KEPT DELIBERATELY (#1526) — not an un-swept sleep. This spans the gap between a drawer
+// PAINTING and it REGISTERING the history entry a following `goBack()` pops: measured on this
+// project at ~162ms and ~165ms after the click, i.e. 3ms apart, so an assertion on the dialog
+// alone can win the race and pop the wrong entry. There is no signal to poll for the
+// registration: `history.length` does NOT grow on a door transition (Menu → Themes measured
+// 3 → 3) nor on a re-open after reload, where the module ADOPTS the surviving entry rather
+// than pushing (measured 3 → 3, which is the point of the reload test below). So "poll until
+// the length grows" would hang on precisely the cases that matter. Used only where a
+// `goBack()` follows; plain readiness now waits on the signals below instead.
 const settle = (page: Page) => page.waitForTimeout(650);
 const dialog = (page: Page) => page.locator('[role=dialog]');
+
+/** The Studio island is LIVE once the engine has painted a slide — the same universal ready
+ *  signal `studio-fixture.gotoStudio` uses, and it holds on a phone viewport. Replaces a fixed
+ *  post-`goto` sleep: measured ~100ms after `networkidle` (so it is also faster), and unlike a
+ *  sleep it fails loudly if the island never comes up instead of proceeding into a dead click. */
+function studioLive(page: Page): Promise<void> {
+	return page.frameLocator(LIVE_PREVIEW).locator('.lattice').first().waitFor({ state: 'visible', timeout: 30_000 });
+}
+
+/** A control backed by an Astro island is inert until that island hydrates — server HTML with
+ *  no listeners, so the click is swallowed and the next assertion fails 15s later blaming the
+ *  wrong thing. Ask the control's OWN island, never a global count: `/` keeps two below-fold
+ *  islands (StudioPreview, RestyleShowcase) unhydrated forever, so `astro-island[ssr]` never
+ *  reaches zero there. */
+async function controlReady(control: Locator): Promise<void> {
+	await control.waitFor({ state: 'visible' });
+	await expect
+		.poll(() => control.evaluate((el) => !el.closest('astro-island')?.hasAttribute('ssr')), { timeout: 20_000 })
+		.toBe(true);
+}
 /** `.last()` — during a hand-off the outgoing drawer and its child are briefly BOTH
  *  mounted, and the topmost is the surface under test. Reading `.first()` here made an
  *  earlier version of this check assert against the drawer that was leaving, and pass
@@ -27,7 +57,7 @@ const title = (page: Page) => dialog(page).last().locator('h2,[data-slot=sheet-t
 async function openStudio(page: Page) {
 	await page.goto('/studio/', { waitUntil: 'networkidle' });
 	await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
-	await page.waitForTimeout(1200);
+	await studioLive(page);
 }
 
 test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', () => {
@@ -52,10 +82,10 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		await expect(dialog(page)).toHaveCount(0);
 		expect(page.url()).toContain('/studio');
 
-		// Only with nothing open does back mean "leave".
+		// Only with nothing open does back mean "leave". The URL is the signal, so poll it
+		// rather than betting on an interval — and it still FAILS if we never leave.
 		await page.goBack();
-		await settle(page);
-		expect(page.url()).not.toContain('/studio');
+		await expect.poll(() => page.url(), { timeout: 15_000 }).not.toContain('/studio');
 	});
 
 	test('every drawer opened from the bar closes on back and stays in the Studio', async ({ page }) => {
@@ -105,8 +135,7 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		// The entry we pushed has to be spent, or this back would be eaten by a drawer
 		// that is no longer on screen (acceptance check 3).
 		await page.goBack();
-		await settle(page);
-		expect(page.url()).not.toContain('/studio');
+		await expect.poll(() => page.url(), { timeout: 15_000 }).not.toContain('/studio');
 	});
 
 	test('dismissing by the scrim leaves NO history residue', async ({ page }) => {
@@ -118,8 +147,7 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		await expect(dialog(page)).toHaveCount(0);
 
 		await page.goBack();
-		await settle(page);
-		expect(page.url()).not.toContain('/studio');
+		await expect.poll(() => page.url(), { timeout: 15_000 }).not.toContain('/studio');
 	});
 
 	test('a reload with a panel open ADOPTS its entry instead of stacking a second one', async ({ page }) => {
@@ -132,7 +160,9 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		const len = await page.evaluate(() => history.length);
 
 		await page.reload({ waitUntil: 'networkidle' });
-		await page.waitForTimeout(1800);
+		// Wait for the island to be LIVE again before asserting nothing reopened — asserting
+		// straight after the reload would pass vacuously against a page that has not mounted yet.
+		await studioLive(page);
 		await expect(dialog(page)).toHaveCount(0);
 
 		// Re-open, then close: the adopted entry is reused and then spent, so the depth
@@ -162,6 +192,11 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 
 		// The visible deck band above the sheet — where a thumb reaches for "get out".
 		await page.mouse.click(196, 25);
+		// KEPT DELIBERATELY (#1526). The regression is the MENU COMING BACK after the child
+		// closes, so the pass condition is "and then nothing else happened" — a class no poll can
+		// express. Sampled every 50ms on this project the sheet count goes 1 → 0 at ~460ms and
+		// stays 0 through 2.2s; polling for count 0 would fire at 460ms and never observe a
+		// re-open after it. The interval must OUTLAST the window the bug lives in, not race it.
 		await page.waitForTimeout(1200);
 		await expect(dialog(page)).toHaveCount(0);
 
@@ -200,22 +235,22 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 	test('the site nav sheet closes on back and stays on the page', async ({ page }) => {
 		await page.goto('/', { waitUntil: 'networkidle' });
-		await page.waitForTimeout(1200);
+		const nav = page.getByRole('button', { name: /menu/i }).first();
+		await controlReady(nav);
 		const start = page.url();
 
-		await page.getByRole('button', { name: /menu/i }).first().click();
-		await page.waitForTimeout(700);
+		await nav.click();
+		// `toHaveCount(1)` is itself the bounded poll for "the sheet opened".
 		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+		await settle(page); // registration race, as above — a goBack follows
 
 		await page.goBack();
-		await page.waitForTimeout(800);
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
 		expect(page.url(), 'back left the site instead of closing the nav').toBe(start);
 
 		// And with it closed, back means what it always did.
 		await page.goBack();
-		await page.waitForTimeout(900);
-		expect(page.url()).not.toBe(start);
+		await expect.poll(() => page.url(), { timeout: 15_000 }).not.toBe(start);
 	});
 
 	test('the site SEARCH dialog closes on back too — same header, same rule', async ({ page }) => {
@@ -224,30 +259,30 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 		// single row of chrome. It is a `CommandDialog` rather than a `Sheet`, which is
 		// exactly why it did not look like the others.
 		await page.goto('/', { waitUntil: 'networkidle' });
-		await page.waitForTimeout(1200);
+		const search = page.getByRole('button', { name: /search/i }).first();
+		await controlReady(search);
 		const start = page.url();
 
-		await page.getByRole('button', { name: /search/i }).first().click();
-		await page.waitForTimeout(800);
+		await search.click();
 		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+		await settle(page); // registration race, as above — a goBack follows
 
 		await page.goBack();
-		await page.waitForTimeout(800);
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
 		expect(page.url(), 'back left the site instead of closing search').toBe(start);
 	});
 
 	test("the Playground's Galleries sheet closes on back and stays on the page", async ({ page }) => {
 		await page.goto('/playground/', { waitUntil: 'networkidle' });
-		await page.waitForTimeout(2200);
+		const galleries = page.getByRole('button', { name: 'Galleries', exact: true }).first();
+		await controlReady(galleries);
 		const start = page.url();
 
-		await page.getByRole('button', { name: 'Galleries', exact: true }).first().click();
-		await page.waitForTimeout(1000);
+		await galleries.click();
 		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+		await settle(page); // registration race, as above — a goBack follows
 
 		await page.goBack();
-		await page.waitForTimeout(800);
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
 		expect(page.url()).toBe(start);
 	});
