@@ -75,6 +75,12 @@ export default defineConfig({
 	//   @mobile      mobile-layout-specific (single swappable pane) — mobile only;
 	//                the two-pane layout applies at ≥ tablet, so these can't run there
 	//   @crosswidth  same assertion worth running at desktop AND mobile (the paint check)
+	//   @parity      input-verb parity (keyboard/wheel/touch) — ALL THREE widths, in
+	//                BOTH pointer states (the `*-touch` projects). A verb that works at
+	//                the width the feature was written on and nowhere else is the exact
+	//                bug #1294 reported, so these can never be desktop-only. Distinct
+	//                from @crosswidth (desktop+mobile) and from @visual (screenshots):
+	//                these are functional oracles.
 	//   @visual      screenshot evidence — all three widths
 	//   @webkit-phone   real WebKit at devices['iPhone 15 Pro'] — engine behavior a Chromium
 	//                   project cannot stand in for (history traversal, #1226)
@@ -101,6 +107,18 @@ export default defineConfig({
 			},
 			grep: /@minfont/,
 		},
+		// The SAME width as `desktop`, with a touchscreen. "Desktop" is a device class,
+		// not an input: the machine may be a tower with a wheel mouse (the `desktop`
+		// project) or a laptop whose screen takes fingers (this one), and slide
+		// navigation owes both (#1294). A separate project rather than `hasTouch` on
+		// `desktop`, because touch emulation flips the pointer media query — which is
+		// what `hasFinePointer()` reads to decide whether picking a slide takes the
+		// caret. Folding it in would silently change every other desktop spec.
+		{
+			name: 'desktop-touch',
+			use: { viewport: { width: 1440, height: 900 }, hasTouch: true },
+			grep: /@parity/,
+		},
 		{
 			name: 'tablet',
 			use: { viewport: { width: 820, height: 1180 } },
@@ -110,6 +128,24 @@ export default defineConfig({
 			name: 'mobile',
 			use: { viewport: { width: 390, height: 844 } },
 			grep: /@mobile|@crosswidth|@visual/,
+		},
+		// The touchscreen halves of tablet and phone. Same widths as the two projects
+		// above, and deliberately SEPARATE from them for the reason the `desktop-touch`
+		// note gives: `hasTouch` flips `(pointer: coarse)`, and the editor restyles on it
+		// (`editor-theme.ts` raises `.cm-content` to 16px to defeat the iOS zoom-on-focus),
+		// which re-wraps every line. Folding touch into `tablet` moved 4.2% of the pixels
+		// in the committed `@visual` baseline — 4x the configured tolerance — for a spec
+		// that has nothing to do with touch. So the visual baselines keep the pointer state
+		// they were blessed under, and the parity verbs get their own projects.
+		{
+			name: 'tablet-touch',
+			use: { viewport: { width: 820, height: 1180 }, hasTouch: true },
+			grep: /@parity/,
+		},
+		{
+			name: 'mobile-touch',
+			use: { viewport: { width: 390, height: 844 }, hasTouch: true },
+			grep: /@parity/,
 		},
 		// TWO non-Chromium projects, each deliberately narrow. They exist for DIFFERENT
 		// reasons and must not share a tag — hence `@webkit-phone` / `@webkit-tablet` and the

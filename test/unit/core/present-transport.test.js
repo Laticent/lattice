@@ -107,3 +107,51 @@ test('swipeAction turns only on a decisive horizontal gesture', () => {
 	assert.equal(swipeAction({ dx: 30, dy: 5 }), null, 'below the 45px threshold → nothing');
 	assert.equal(swipeAction({ dx: 60, dy: 55 }), null, 'too diagonal (not 1.3× horizontal) → nothing');
 });
+
+// ── createWheelGate — the third input verb (#1294) ────────────────────────────
+// The rule the Studio shell, Present, and the presenter screen each used to
+// hand-roll with different constants (the shell's horizontal-only test is what
+// made a plain wheel mouse a no-op in Read/Write/Build).
+
+test('createWheelGate reads the DOMINANT axis, so a mouse and a trackpad both work', () => {
+	const { createWheelGate } = K;
+	// A tower mouse emits pure deltaY.
+	assert.equal(createWheelGate()(0, 120, 0), 'next', 'wheel down advances');
+	assert.equal(createWheelGate()(0, -120, 0), 'prev', 'wheel up goes back');
+	// A trackpad two-finger flick emits mostly deltaX.
+	assert.equal(createWheelGate()(120, 0, 0), 'next', 'trackpad right advances');
+	assert.equal(createWheelGate()(-120, 0, 0), 'prev', 'trackpad left goes back');
+	// A tilt-wheel emits both — the larger axis decides.
+	assert.equal(createWheelGate()(-200, 60, 0), 'prev', 'the dominant axis wins the tie-break');
+});
+
+test('createWheelGate ignores a soft scroll and rate-limits one physical flick', () => {
+	const { createWheelGate } = K;
+	const gate = createWheelGate();
+	assert.equal(gate(0, 12, 0), null, 'below the 40px threshold is reading, not navigating');
+	assert.equal(gate(0, 120, 100), 'next', 'a firm flick lands');
+	// Trackpad momentum fires a burst; the cooldown collapses it to the one move.
+	assert.equal(gate(0, 120, 200), null, 'inside the 480ms cooldown → swallowed');
+	assert.equal(gate(0, 120, 400), null, 'still inside the cooldown');
+	assert.equal(gate(0, 120, 700), 'next', 'past the cooldown the next flick lands');
+});
+
+test('createWheelGate instances hold independent cooldowns', () => {
+	const { createWheelGate } = K;
+	// Each surface constructs its own gate; one surface's flick must not mute another's.
+	const a = createWheelGate();
+	const b = createWheelGate();
+	assert.equal(a(0, 120, 0), 'next');
+	assert.equal(b(0, 120, 0), 'next', 'a second gate is not throttled by the first');
+});
+
+test('createWheelGate survives being inlined into an empty scope', () => {
+	const { createWheelGate } = K;
+	// The presenter window writes this kernel into a popup via `.toString()`, which
+	// carries no closure — a module-scope constant used as a default would inline to
+	// `<name> is not defined` at runtime. Same contract as inlinable-kernels.test.js.
+	const inlined = new Function(`"use strict"; var createWheelGate = ${createWheelGate.toString()}; return createWheelGate;`)();
+	const gate = inlined();
+	assert.equal(gate(0, 120, 0), 'next', 'the inlined gate still gates');
+	assert.equal(gate(0, 120, 10), null, 'and still carries its own cooldown state');
+});

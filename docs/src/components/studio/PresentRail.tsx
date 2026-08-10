@@ -74,8 +74,13 @@ function PresentRailImpl({
 		},
 		[total],
 	);
-	// Roving tabindex: ←/→ move focus WITHIN the rail; Enter/Space jump. stopImmediatePropagation
-	// keeps the overlay's window-level ←/→ (goPrev/goNext) from also firing while the rail has focus.
+	// Roving tabindex: ←/→ and Home/End move focus WITHIN the rail; Enter/Space jump.
+	// stopImmediatePropagation keeps the overlay's window-level handler from ALSO acting
+	// while the rail has focus — moving focus is not activating, which is the whole point
+	// of a roving tabindex. Home/End need the shield as much as the arrows do: the overlay
+	// used to ignore them, but it now routes the full shared keymap (which carries
+	// Home→first / End→last), so without this one End press both moved the highlight and
+	// jumped the deck (#1294).
 	const onKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
 			e.preventDefault();
@@ -87,9 +92,11 @@ function PresentRailImpl({
 			focusSeg(focusIdx - 1);
 		} else if (e.key === 'Home') {
 			e.preventDefault();
+			e.nativeEvent.stopImmediatePropagation();
 			focusSeg(0);
 		} else if (e.key === 'End') {
 			e.preventDefault();
+			e.nativeEvent.stopImmediatePropagation();
 			focusSeg(total - 1);
 		} else if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();

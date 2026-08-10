@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
+import { shellKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
@@ -32,6 +33,7 @@ import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome'
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
+import { createWheelGate, swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -1526,11 +1528,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Navigate to a slide from the preview side (rail / arrows): move the preview
 	// AND scroll the editor to that slide (mapping the viewed index back to its
 	// position in the full source), so the two panes stay in lock-step.
-	function goToSlide(i: number) {
+	// `opts.focus` overrides the pointer-derived default below. Gesture and keyboard
+	// navigation passes `false`: turning the deck with a swipe, a wheel or an arrow
+	// key is intent to keep reading, and taking the caret would hand the NEXT arrow
+	// press to the editor instead of the deck (#1294).
+	function goToSlide(i: number, opts: { focus?: boolean; expand?: boolean } = {}) {
 		// Moving the preview is INTENT to see it (the Playground's toPreview
 		// lesson): a collapsed preview expands first — a no-op when it's open —
 		// so a navigation never lands in a hidden pane.
-		splitApiRef.current.expand('b');
+		//
+		// `expand: false` for KEY and GESTURE nav. That rule was written for an explicit
+		// PICK (a rail row, the ‹ › buttons), where re-opening the pane is the point.
+		// An arrow key is not a pick: an author who collapsed the preview to write
+		// full-width should not have their layout rearranged by a stray keystroke. With
+		// the pane collapsed the arrows still walk the deck — the editor scrolls slide to
+		// slide — which is the useful reading of "move through slides" in an editor-only
+		// layout, and it leaves the choice of pane widths where the author put it.
+		if (opts.expand !== false) splitApiRef.current.expand('b');
 		const idx = Math.max(0, Math.min(i, viewSlides.length - 1));
 		setActiveSlide(idx);
 		const fullIdx = composeLens === 'full' ? idx : slides.indexOf(viewSlides[idx]);
@@ -1546,7 +1560,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// navigation into a chore, so touch gets the reveal WITHOUT the focus: the
 		// slide still scrolls into view, and tapping into the text (a deliberate act,
 		// with the keyboard as its expected consequence) is what starts editing.
-		const focus = hasFinePointer();
+		const focus = opts.focus ?? hasFinePointer();
 		editorRef.current?.revealSlide(fullIdx, { focus });
 		composeRef.current?.revealSlide(fullIdx, { focus });
 	}
@@ -2191,6 +2205,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
+	// Mirrors for the mount-once navigation listeners below: the keydown handler is
+	// bound to `window` for the shell's lifetime, so it must read the LIVE slide,
+	// mover and Present state rather than the render that installed it.
+	const slideNoRef = React.useRef(slideNo);
+	slideNoRef.current = slideNo;
+	const goToSlideRef = React.useRef(goToSlide);
+	goToSlideRef.current = goToSlide;
+	const presentOpenRef = React.useRef(presentOpen);
+	presentOpenRef.current = presentOpen;
 	// The full-deck index of the slide currently in view (for handing off to Present).
 	const activeFullIndex = composeLens === 'full' ? slideNo - 1 : Math.max(0, slides.indexOf(viewSlides[slideNo - 1]));
 
@@ -2249,28 +2272,84 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		ro.observe(holder);
 		previewHolderRoRef.current = ro;
 	}, []);
-	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
-	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).
+	// ── Slide navigation: all three input verbs, on every surface ─────────────────
+	// Touch swipe, wheel (mouse OR trackpad, either axis) and the arrow keys all
+	// turn the viewed deck, at every breakpoint. No verb is gated on device class:
+	// a "desktop" is as likely to be a touchscreen laptop as a tower, a tablet
+	// takes a keyboard case and a mouse, and a phone can be paired with both
+	// (#1294). The thresholds come from the shared kernel so the shell, Present and
+	// the presenter screen cannot drift apart again — the horizontal-only wheel
+	// rule this replaces ignored every wheel mouse ever made.
+	//
+	// `nav('next'|'prev')` is the one mover: goToSlide(slideNo) is next,
+	// goToSlide(slideNo - 2) is prev (both clamp).
+	//
+	// GESTURE NAV DOES NOT TAKE THE CARET (`focus: false`). Clicking a filmstrip
+	// row is intent to work on that slide, so it lands the caret there; flicking or
+	// arrowing through the deck is intent to keep READING, and yanking focus into
+	// CodeMirror would hand the very next arrow press to the caret instead of the
+	// deck — one keystroke of navigation, then silence.
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
-	const wheelAtRef = React.useRef(0);
+	// Lazy: `useRef(createWheelGate())` would build and discard a gate on EVERY
+	// render (the argument is evaluated unconditionally; useRef keeps only the first).
+	const wheelGateRef = React.useRef<ReturnType<typeof createWheelGate> | null>(null);
+	const wheelGate = (wheelGateRef.current ??= createWheelGate());
+	// Every action the kernel can name gets its own landing, keyed by name. An
+	// `action === 'next' ? … : …` two-way collapse silently turned Home into "prev"
+	// and End into "prev" — the keymap carries four actions, not two, so a binary
+	// switch is wrong the moment `first`/`last` reach it.
+	const nav = React.useCallback((action: string) => {
+		const cur = slideNoRef.current; // 1-based; goToSlide takes a 0-based index
+		const to = action === 'next' ? cur : action === 'prev' ? cur - 2 : action === 'first' ? 0 : action === 'last' ? Number.MAX_SAFE_INTEGER : null;
+		if (to === null) return; // an action this surface does not implement — do nothing, quietly
+		goToSlideRef.current(to, { focus: false, expand: false });
+	}, []);
 	const onPreviewTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; swipeRef.current = { x: t.clientX, y: t.clientY }; };
 	const onPreviewTouchEnd = (e: React.TouchEvent) => {
 		const s = swipeRef.current;
 		swipeRef.current = null;
 		if (!s) return;
 		const t = e.changedTouches[0];
-		const dx = t.clientX - s.x;
-		// Horizontal intent only — ignore vertical scrolls and small jitters.
-		if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(t.clientY - s.y)) return;
-		goToSlide(dx < 0 ? slideNo : slideNo - 2);
+		if (!t) return;
+		const act = swipeAction({ dx: t.clientX - s.x, dy: t.clientY - s.y });
+		if (act) nav(act);
 	};
 	const onPreviewWheel = (e: React.WheelEvent) => {
-		if (Math.abs(e.deltaX) < 30 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // horizontal only
-		const now = Date.now();
-		if (now - wheelAtRef.current < 400) return; // debounce a continuous trackpad swipe
-		wheelAtRef.current = now;
-		goToSlide(e.deltaX > 0 ? slideNo : slideNo - 2);
+		const act = wheelGate(e.deltaX, e.deltaY, e.timeStamp);
+		if (act) nav(act);
 	};
+	// Arrow keys (and PageUp/PageDown, what a presentation clicker emits) turn the
+	// deck from anywhere in the shell that isn't a typing target — so Read, where
+	// there is no editor at all, arrows straight through, and Write/Build arrow
+	// through whenever the caret isn't in the text. `shellKeyAction` returns null
+	// for a modified chord, for a focused input/contenteditable, and for a focused
+	// item inside an open menu or dialog.
+	//
+	// Present and Fabricate are excluded: Present binds its OWN window handler
+	// (with Space, Escape and the overview keys on top), so leaving this one live
+	// would move the deck twice per press, and Fabricate is a full-screen surface
+	// with no deck on show.
+	React.useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (presentOpenRef.current || viewRef.current === 'fabricate') return;
+			// SOMETHING ALREADY ANSWERED THIS KEY. A widget that owns the arrows for its
+			// own focus movement — every Radix roving-focus group: the Inspector's pill
+			// tabs, its Auto/Light/Dark and M/L/XL radio segments, the Library's column —
+			// calls `preventDefault()` and does NOT stop propagation, so the event still
+			// reaches this window listener. Without this check one ArrowRight both moved
+			// the highlight AND turned the deck, which re-pointed a slide-scoped Inspector
+			// at a different slide mid-interaction. Honoring `defaultPrevented` covers
+			// every such widget generically, including ones not written yet — a role
+			// allowlist has to be extended for each new one and silently misses the rest.
+			if (e.defaultPrevented) return;
+			const act = shellKeyAction(e, document.activeElement);
+			if (!act) return;
+			e.preventDefault();
+			nav(act);
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [nav]);
 
 	// ── The editor's live preview (in-flow; Present owns its own) ──────────────────
 	// The editor preview is a normal layout child of `previewBoxRef` (see below) — no
@@ -3052,8 +3131,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				)}
 			</div>
 			)}
-			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
-			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
+			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
+			    here; the arrow keys do the same from the window listener above, so all
+			    three verbs work on every device. The card's aspect ratio follows the
+			    deck's selected Size, not a fixed 16:9. */}
 			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug

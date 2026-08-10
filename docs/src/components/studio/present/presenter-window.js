@@ -22,7 +22,7 @@
 //     second screen. Framework-agnostic — the Drawing Board (vanilla) and the
 //     Studio (React, via a thin wrapper) both pass closures into their state.
 
-import { fitScale, padInset } from '../../../../../lib/core/present-transport.mjs';
+import { createWheelGate, fitScale, keyAction, PRESENT_KEYMAP, padInset, swipeAction } from '../../../../../lib/core/present-transport.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
 
@@ -132,6 +132,26 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
  * opener, and ←/→/space/PageUp/PageDown drive navigation from the second screen.
  */
 export function buildPresenterDoc() {
+	// The navigation kernel, inlined VERBATIM — this popup is written with
+	// `document.write` into an `about:blank` window and cannot `import`. Bound to
+	// `var`s named exactly as the script's call sites use them: the production
+	// bundler renames imported functions and `.toString()` carries the renamed
+	// form, which is what once left `padInset` undefined inside `buildStageDoc`
+	// (see the note there). Same idiom, same reason.
+	//
+	// THE `var` BINDING FIXES THE NAME, NOT THE BODY. It restores the identifier a
+	// call site uses; it cannot restore a free variable INSIDE a function's source.
+	// `swipeAction` and `createWheelGate` are safe because their defaults are
+	// literals. `keyAction`'s default is `map = PRESENT_KEYMAP` — a module-scope
+	// read, which minifies to a name that does not exist in this popup. So the call
+	// site below MUST pass the map explicitly; the no-map form would throw at the
+	// first key press, in production only. `test/unit/export/inlinable-kernels.test.js`
+	// pins exactly this (it asserts the no-map form throws when inlined).
+	const navKernel =
+		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)};\n` +
+		`var keyAction=${keyAction.toString()};\n` +
+		`var swipeAction=${swipeAction.toString()};\n` +
+		`var createWheelGate=${createWheelGate.toString()};`;
 	return [
 		'<!doctype html><html><head><meta charset="utf-8"><title>Presenter view</title>',
 		'<meta name="viewport" content="width=device-width,initial-scale=1">',
@@ -170,7 +190,11 @@ export function buildPresenterDoc() {
 		// Whole, uncropped slides: the stage iframe fit-scales each slide to fit (letterboxed,
 		// never cropped); the 16/9 frame matches the slide box so nothing is clipped.
 		'.pp-screen{position:relative;background:var(--pp-bg);border:1px solid var(--pp-border);border-radius:14px;overflow:hidden;min-height:0;aspect-ratio:16/9;box-shadow:0 12px 34px rgba(0,0,0,.38)}',
-		'.pp-screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0}',
+		// pointer-events:none so a wheel flick or a swipe over the stage reaches the
+		// window's navigation listeners instead of being swallowed by the iframe (the
+		// same rule the Studio shell's preview holder uses). Both stages are passive
+		// mirrors of the audience screen — there is nothing in them to click.
+		'.pp-screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}',
 		// The NEXT preview is capped so it can never crowd the notes + nav off a short window
 		// (it yields; the notes 1fr scrolls; the nav row stays on screen).
 		'.pp-next{min-height:0}.pp-next .pp-screen{max-height:32vh}',
@@ -196,6 +220,7 @@ export function buildPresenterDoc() {
 		'<button class="pp-btn pp-fwd" id="next-btn">Next ›</button></div></div>',
 		'</div></div>',
 		'<script>(function(){',
+		navKernel,
 		'var P=window.opener;var cur=document.getElementById("cur"),nxt=document.getElementById("next");',
 		'var clock=document.getElementById("clock"),count=document.getElementById("count"),notes=document.getElementById("notes");',
 		'var doc=null,total=0,last=0,started=Date.now(),timer=null;',
@@ -214,9 +239,30 @@ export function buildPresenterDoc() {
 		'function disarm(){armed=false;rb.classList.remove("armed");rb.textContent="Reset timer";if(armT){clearTimeout(armT);armT=null}}',
 		'rb.onclick=function(){if(armed){disarm();started=Date.now();tick();return}',
 		'armed=true;rb.classList.add("armed");rb.textContent="Confirm reset";armT=setTimeout(disarm,2500)};',
+		// NAVIGATION — all three input verbs, same as every other Present surface (#1294).
+		// The second screen is as likely to be a touchscreen laptop or a tablet propped on
+		// a lectern as a mouse-driven tower, so keyboard, wheel and swipe all drive it.
+		//
+		// Every rule comes from the inlined kernel block above, so the presenter screen
+		// cannot drift from the stage it mirrors. Actions become DELTAS because that is
+		// this window's relay protocol (`send("go", ±n)`); the opener clamps, so a delta
+		// past either end is exactly "first"/"last".
+		'var NAVDELTA={next:1,prev:-1,first:-1e9,last:1e9};',
+		'function nav(a){if(a)send("go",NAVDELTA[a])}',
+		// The notes panel scrolls; a wheel or drag inside it is reading, not navigating.
+		'function inNotes(t){return !!(t&&t.closest&&t.closest("#notes"))}',
 		'window.addEventListener("keydown",function(e){',
-		'if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){e.preventDefault();send("go",1)}',
-		'else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();send("go",-1)}});',
+		'if(e.metaKey||e.ctrlKey||e.altKey)return;',
+		'var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;e.preventDefault();nav(a)});',
+		'var wheelGate=createWheelGate();',
+		'window.addEventListener("wheel",function(e){',
+		'if(inNotes(e.target))return;nav(wheelGate(e.deltaX,e.deltaY,e.timeStamp))},{passive:true});',
+		'var tsx=0,tsy=0;',
+		'window.addEventListener("touchstart",function(e){',
+		'var t=e.changedTouches[0];if(t){tsx=t.clientX;tsy=t.clientY}},{passive:true});',
+		'window.addEventListener("touchend",function(e){',
+		'var t=e.changedTouches[0];if(!t||inNotes(e.target))return;',
+		'nav(swipeAction({dx:t.clientX-tsx,dy:t.clientY-tsy}))},{passive:true});',
 		'window.addEventListener("message",function(e){var d=e.data||{};',
 		// Adopt the Studio\'s accent so the second screen speaks the deck\'s color, not a fixed one
 		// (falls back to the cuoio gold in :root when the opener sends none, e.g. the Drawing Board).

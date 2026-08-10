@@ -25,6 +25,25 @@ in patch versions.
 
 ## Unreleased
 
+- **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
+  every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
+  plain mouse wheel did nothing anywhere in the shell: the wheel handler tested
+  `deltaX` alone, so it answered a trackpad's horizontal flick and ignored the
+  vertical `deltaY` that every wheel mouse in the world emits. The presenter
+  ("project") screen took the keyboard but neither wheel nor swipe. All three verbs
+  now work at all five surfaces — Read, Write, Build, Present, presenter screen — at
+  desktop, tablet and phone widths, because no device class owns an input: a desktop
+  may be a touchscreen laptop or a mouse-driven tower, a tablet takes a keyboard case
+  and a mouse, and a phone can be paired with either. PageUp/PageDown (what a
+  presentation clicker emits) and Home/End jump to the first and last slide. The rules for all three verbs now
+  come from the shared transport kernel (`lib/core/present-transport.mjs`, which gains
+  `createWheelGate`) rather than being hand-rolled per surface with drifting constants,
+  which is how the shell and Present came to disagree in the first place. The arrow
+  keys stand down whenever the caret is in the editor, a text field, or an open menu,
+  and navigating by gesture or key no longer pulls focus into the editor — that would
+  have handed the *next* arrow press to the caret instead of the deck. Clicking a
+  filmstrip row still lands the caret on that slide, unchanged. (#1294)
+
 - **Removed 12 dead code-block rules that had never rendered.** `section pre.hljs` was
   styled once in the engine and overridden in **11 of the 14 palettes** — and the selector
   matches nothing on any surface. `lib/engine/index.js` highlights with

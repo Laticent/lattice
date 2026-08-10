@@ -460,6 +460,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Authoring/rendering Mermaid diagrams | `engineering/mermaid.md` |
 | Adding a `tint-*` / `mark-*` treatment | `engineering/treatments.md` |
 | Adding an INGEST for markdown (a file read, an import, a model reply, a zip) — line endings + BOM | `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md` + `SANCTIONED_EOL_BOUNDARIES` |
+| Adding/changing a surface that SHOWS a slide — it owes keyboard + wheel + touch, from the kernel | `engineering/decisions/2026-08-10-input-verb-parity.md` + `lib/core/present-transport.mjs` |
 | Categorical **texture** (a11y/onyx/concrete/print patterns, the `--cat-N-texture` channel) | `engineering/textures.md` |
 | Palette tokens, Mermaid contract | `design/theming.md` |
 | **Who owns color** — engine vs theme vs deck vs consumer, and which record settled each piece | `engineering/decisions/2026-08-09-color-theme-ownership.md` |

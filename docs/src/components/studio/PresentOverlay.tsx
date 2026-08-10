@@ -22,7 +22,7 @@ import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
-import { swipeAction } from '../../../../lib/core/present-transport.mjs';
+import { createWheelGate, keyAction, PRESENT_KEYMAP, swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { SLIDE_SEP } from './deck-ops';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
@@ -971,6 +971,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, []);
 	const goNext = React.useCallback(() => { dismissHint(); setIdx((i) => Math.min(i + 1, count - 1)); }, [count, dismissHint]);
 	const goPrev = React.useCallback(() => { dismissHint(); setIdx((i) => Math.max(i - 1, 0)); }, [dismissHint]);
+	const goFirst = React.useCallback(() => { dismissHint(); setIdx(0); }, [dismissHint]);
+	const goLast = React.useCallback(() => { dismissHint(); setIdx(Math.max(count - 1, 0)); }, [count, dismissHint]);
+	// The kernel's action names → this overlay's movers, so the shared keymap drives
+	// navigation instead of a hand-written key list that drifts from every other surface.
+	const NAV = React.useMemo<Record<string, () => void>>(() => ({ next: goNext, prev: goPrev, first: goFirst, last: goLast }), [goNext, goPrev, goFirst, goLast]);
 
 	// ── Quiet Bloom reveal (S4) ────────────────────────────────────────────────
 	// `wake()` reveals the bloom chrome and arms a fold-back timer; a pointer over the
@@ -995,11 +1000,15 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, [open, wake]);
 
 
-	// Swipe (touch) + wheel (desktop) navigation, alongside the keyboard. Swipe reuses the
-	// shared kernel's geometry (threshold/ratio) so it matches the export player exactly;
-	// wheel is throttled so one flick advances one slide, not ten.
+	// Swipe (touch) + wheel (mouse or trackpad) navigation, alongside the keyboard. Both
+	// reuse the shared kernel's geometry — swipe's threshold/ratio and the wheel gate's
+	// dominant-axis + cooldown — so Present, the Studio shell, the presenter screen and
+	// the export player all turn a deck on the same numbers (#1294).
 	const touchRef = React.useRef<{ x: number; y: number } | null>(null);
-	const wheelAt = React.useRef(0);
+	// Lazy — `useRef(createWheelGate())` builds and discards a gate on every render
+	// (the argument is evaluated unconditionally; useRef keeps only the first).
+	const wheelGateRef = React.useRef<ReturnType<typeof createWheelGate> | null>(null);
+	const wheelGate = (wheelGateRef.current ??= createWheelGate());
 	const onTouchStart = React.useCallback((e: React.TouchEvent) => {
 		wake();
 		const t = e.touches[0];
@@ -1017,14 +1026,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const onWheel = React.useCallback((e: React.WheelEvent) => {
 		wake();
 		if (overviewOpen) return; // don't scrub the deck behind the open overview
-		const now = e.timeStamp;
-		if (now - wheelAt.current < 480) return;
-		const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-		if (Math.abs(d) < 40) return; // a firm flick, not a reflexive scroll-to-read
-		wheelAt.current = now;
-		if (d > 0) goNext();
-		else goPrev();
-	}, [wake, goNext, goPrev, overviewOpen]);
+		const act = wheelGate(e.deltaX, e.deltaY, e.timeStamp);
+		if (act === 'next') goNext();
+		else if (act === 'prev') goPrev();
+		// `wheelGate` is the ref's value — a stable identity across renders, so listing it
+		// keeps the dep check honest without churning the callback.
+	}, [wake, goNext, goPrev, overviewOpen, wheelGate]);
 
 	// First-run hint — teach the bloom + gestures exactly once, then never again.
 	//
@@ -1064,21 +1071,30 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				e.preventDefault();
 				return;
 			}
-			if (e.key === 'Escape') onClose();
-			else if (e.key === 'g' || e.key === 'G') {
+			if (e.key === 'Escape') { onClose(); return; }
+			if (e.key === 'g' || e.key === 'G') {
 				e.preventDefault();
 				setOverviewOpen(true);
-			} else if (e.key === 'ArrowRight' || e.key === ' ') {
+				return;
+			}
+			// Everything that MOVES the deck comes from the shared keymap: arrows, Space,
+			// and the PageUp/PageDown a presentation clicker actually emits, plus Home/End.
+			// Escape and `g` stay local — they are this overlay's own verbs, not the deck's.
+			// Pass the map EXPLICITLY. The one-argument form leans on `keyAction`'s
+			// `map = PRESENT_KEYMAP` default, which is a module-scope read — fine here (this
+			// module is bundled, not inlined), but it is the form someone would copy into the
+			// presenter popup, where `.toString()` inlining drops the closure and the default
+			// resolves to a minified name that does not exist there.
+			// `test/unit/export/inlinable-kernels.test.js` pins both halves of that contract.
+			const act = keyAction(e.key, PRESENT_KEYMAP);
+			if (act && NAV[act]) {
 				e.preventDefault();
-				goNext();
-			} else if (e.key === 'ArrowLeft') {
-				e.preventDefault();
-				goPrev();
+				NAV[act]();
 			}
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [open, onClose, goNext, goPrev, overviewOpen, wake]);
+	}, [open, onClose, NAV, overviewOpen, wake]);
 	// Close the sorter whenever Present closes, so re-opening starts on the slide.
 	React.useEffect(() => {
 		if (!open) setOverviewOpen(false);

@@ -3466,6 +3466,32 @@ own) is not a builder and needs no entry.
   "still working, not crashed", and in High Contrast there is no rail at all.
 - **Removable when:** the rail carries a forced-colors block.
 
+### A slide surface ignores one input device (a wheel mouse does nothing; arrows are dead)
+
+- **Symptom:** A surface that shows a slide turns fine with one input and not
+  another — a trackpad flick works but a wheel mouse does nothing, or swipe
+  works but the arrow keys are inert. Typically it works on the machine the
+  feature was written on, which is what keeps it alive.
+- **Cause:** The surface hand-rolled its own rule for that verb instead of
+  reading the kernel. The classic is a wheel test written as "horizontal
+  intent" — `Math.abs(deltaX) <= Math.abs(deltaY)` returns early for the pure
+  `deltaY` a wheel mouse always emits, so the rule answers a trackpad and
+  ignores every mouse (#1294). The keyboard version is a hand-written
+  `e.key === 'ArrowRight' || …` list that drifts from `PRESENT_KEYMAP` and
+  quietly drops PageUp/PageDown — which is what a presentation clicker sends.
+- **Fix:** Take all three rules from `lib/core/present-transport.mjs` —
+  `keyAction`/`PRESENT_KEYMAP` (keyboard), `swipeAction` (touch),
+  `createWheelGate` (mouse + trackpad, dominant axis) — plus
+  `docs/src/lib/deck-nav.ts`'s `shellKeyAction` for any surface where the user
+  can also be typing. Never branch a verb on breakpoint or on a pointer-capability
+  probe: a laptop has a touchscreen, a tablet has a keyboard case, a phone can
+  have both. See `engineering/decisions/2026-08-10-input-verb-parity.md`.
+- **Also check:** an `<iframe>` over the slide swallows wheel and touch before
+  they reach your listener. Both the Studio's preview holder and the presenter
+  screen's stage frames set `pointer-events: none` for exactly this reason.
+- **Triggered by:** adding a new surface that shows slides, or "fixing" gesture
+  navigation locally instead of in the kernel.
+
 ### A control's own icon renders sliced/outside its button, and every overflow guard is green
 
 - **Symptom:** A control in a tight toolbar paints part of itself outside its
