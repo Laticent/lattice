@@ -171,7 +171,10 @@
   text-align: right;
   font-weight: 700;
   font-size: var(--fs-body);
-  color: color-mix(in oklab, var(--row-ink, var(--text-heading)) 65%, var(--text-heading));
+  /* Raw `--row-ink`: it is a curated text-safe value now, solved per palette
+   * against both slide surfaces, so the old `color-mix(… 65%, --text-heading)`
+   * would only re-shear the hue the solve preserves (#1536). */
+  color: var(--row-ink, var(--text-heading));
   padding-left: 0;
 }
 
@@ -230,6 +233,13 @@
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-filled {
   background: var(--row-fill, var(--accent));
   border: 2px solid var(--row-hue, var(--accent));
+  /* NOT the raw curated ink. This text sits on `--row-fill` — the row's TINT —
+   * and `--chart-catN-ink` is solved against --bg / --bg-alt, which are different
+   * (and further) surfaces. Measured across 15 palettes x 2 modes x 8 slots, taking
+   * it raw here puts 77 of 240 combinations below AA (worst 3.33:1, `concrete`
+   * light slot 5), so the mix toward the heading ink stays until the cycle grows an
+   * on-fill ink solved against the tint itself. #1536 removed the mix only where
+   * the ink lands on a slide surface. */
   color: color-mix(in oklab, var(--row-ink, var(--accent)) 65%, var(--text-heading));
 }
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-outlined {
