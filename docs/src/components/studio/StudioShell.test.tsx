@@ -1227,3 +1227,137 @@ describe('StudioShell — the posture dial keeps its words at every width it ren
 		}
 	});
 });
+
+// ── Slide navigation parity: every verb, every stop, every breakpoint (#1294) ──
+// The Studio must turn a deck by arrow key, by wheel and by swipe — on a tower
+// with a mouse, a touchscreen laptop, a tablet with a keyboard case, and a phone
+// with either paired to it. Nothing here branches on device class, and neither
+// does the shell: each surface listens for all three verbs, always. The REAL
+// surfaces are driven in a browser (see the #1294 verification run); these pin
+// the wiring so a refactor cannot quietly drop a verb.
+describe('StudioShell — slide navigation parity', () => {
+	const seedStop = (posture: 'read' | 'write' | 'build') => {
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'q3-board', title: 'Q3 Board Review', builtin: true }]));
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture, lensDefaults: false }));
+	};
+	// The viewed slide, read the way each stop shows it: Write/Build carry the
+	// "Slide N / M" counter in the preview header; Read strips that chrome, so the
+	// filmstrip's aria-current row is the oracle there.
+	const viewedSlide = () => {
+		const counter = screen.queryByText(/^Slide \d+ \/ \d+$/);
+		if (counter) return Number(/^Slide (\d+)/.exec(counter.textContent ?? '')?.[1]);
+		const current = document.querySelector('[aria-current="true"]');
+		const label = current?.getAttribute('aria-label') ?? '';
+		return Number(/^Slide (\d+)/.exec(label)?.[1]);
+	};
+	// Gestures land on the preview; both handlers sit on the holder the slide is in,
+	// so dispatching on the rendered preview and letting the event bubble is exactly
+	// the path a real finger or wheel takes.
+	const previewSurface = () => screen.getAllByTestId('deck-preview')[0];
+
+	for (const stop of ['read', 'write', 'build'] as const) {
+		it(`arrow keys turn the deck at the ${stop} stop`, () => {
+			seedStop(stop);
+			render(<StudioShell options={options} />);
+			expect(viewedSlide()).toBe(1);
+			fireEvent.keyDown(window, { key: 'ArrowRight' });
+			expect(viewedSlide()).toBe(2);
+			fireEvent.keyDown(window, { key: 'ArrowRight' });
+			expect(viewedSlide()).toBe(3);
+			fireEvent.keyDown(window, { key: 'ArrowLeft' });
+			expect(viewedSlide()).toBe(2);
+		});
+	}
+
+	for (const bp of ['desktop', 'tablet', 'mobile'] as const) {
+		it(`a plain mouse wheel turns the deck on ${bp} — the regression #1294 reported`, () => {
+			// deltaY ONLY: what every wheel mouse in the world emits. The shell used to
+			// test `deltaX` alone, so a mouse scrolled and nothing happened.
+			setViewport(bp);
+			seedStop('write');
+			render(<StudioShell options={options} />);
+			expect(viewedSlide()).toBe(1);
+			fireEvent.wheel(previewSurface(), { deltaX: 0, deltaY: 240, bubbles: true });
+			expect(viewedSlide()).toBe(2);
+		});
+
+		it(`a touch swipe turns the deck on ${bp}`, () => {
+			setViewport(bp);
+			seedStop('write');
+			render(<StudioShell options={options} />);
+			const surface = previewSurface();
+			fireEvent.touchStart(surface, { touches: [{ clientX: 500, clientY: 300 }], bubbles: true });
+			fireEvent.touchEnd(surface, { changedTouches: [{ clientX: 300, clientY: 310 }], bubbles: true });
+			expect(viewedSlide()).toBe(2);
+		});
+
+		it(`arrow keys turn the deck on ${bp} — a tablet or phone may well have a keyboard`, () => {
+			setViewport(bp);
+			seedStop('write');
+			render(<StudioShell options={options} />);
+			fireEvent.keyDown(window, { key: 'ArrowRight' });
+			expect(viewedSlide()).toBe(2);
+		});
+	}
+
+	it('a trackpad flick still works — the wheel reads whichever axis moved further', () => {
+		seedStop('write');
+		render(<StudioShell options={options} />);
+		fireEvent.wheel(previewSurface(), { deltaX: 240, deltaY: 0, bubbles: true });
+		expect(viewedSlide()).toBe(2);
+	});
+
+	it('a soft scroll is reading, not navigating', () => {
+		seedStop('write');
+		render(<StudioShell options={options} />);
+		fireEvent.wheel(previewSurface(), { deltaX: 0, deltaY: 8, bubbles: true });
+		expect(viewedSlide()).toBe(1);
+	});
+
+	it('PageUp/PageDown work — that is what a presentation clicker emits', () => {
+		seedStop('write');
+		render(<StudioShell options={options} />);
+		fireEvent.keyDown(window, { key: 'PageDown' });
+		expect(viewedSlide()).toBe(2);
+		fireEvent.keyDown(window, { key: 'PageUp' });
+		expect(viewedSlide()).toBe(1);
+	});
+
+	it('the arrow keys stay out of the way while the author is typing', () => {
+		seedStop('write');
+		render(<StudioShell options={options} />);
+		// A focused text field owns its arrows — moving the caret, not the deck.
+		const input = document.createElement('input');
+		document.body.append(input);
+		input.focus();
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewedSlide()).toBe(1);
+		input.remove();
+		// And with focus back on the page, the very same key turns the deck.
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewedSlide()).toBe(2);
+	});
+
+	it('a modified chord is a shortcut, never a slide turn', () => {
+		seedStop('write');
+		render(<StudioShell options={options} />);
+		fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true });
+		fireEvent.keyDown(window, { key: 'ArrowRight', altKey: true });
+		expect(viewedSlide()).toBe(1);
+	});
+
+	it('turning the deck does not steal the caret into the editor', () => {
+		// Gesture/keyboard nav passes `focus: false`: if navigating took focus, the
+		// NEXT arrow press would move the caret in CodeMirror instead of the deck —
+		// exactly one keystroke of working navigation.
+		seedStop('write');
+		render(<StudioShell options={options} />);
+		const before = document.activeElement;
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewedSlide()).toBe(2);
+		expect(document.activeElement).toBe(before);
+		fireEvent.keyDown(window, { key: 'ArrowRight' });
+		expect(viewedSlide()).toBe(3);
+	});
+});

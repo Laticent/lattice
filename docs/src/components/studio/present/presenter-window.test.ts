@@ -63,6 +63,93 @@ describe('presenter-window — buildPresenterDoc', () => {
 	});
 });
 
+// ── The presenter screen navigates by keyboard, wheel AND touch (#1294) ────────
+// A second screen is as often a touchscreen laptop or a lectern tablet as a
+// mouse-driven tower, so all three verbs must reach the relay. These drive the
+// window's REAL inlined script rather than grepping the document for listener
+// names: a kernel binding that failed to inline (the `padInset` class of bug this
+// file already carries a scar from) still greps fine and throws at runtime.
+
+/** Run the presenter document's inline script against this jsdom document. */
+function bootPresenterScript() {
+	const doc = buildPresenterDoc();
+	const body = doc.slice(doc.indexOf('<body>') + 6, doc.indexOf('<script>'));
+	const script = doc.slice(doc.indexOf('<script>') + 8, doc.lastIndexOf('</script>'));
+	document.body.innerHTML = body;
+	const opener = { postMessage: vi.fn() };
+	Object.defineProperty(window, 'opener', { value: opener, configurable: true, writable: true });
+	// eslint-disable-next-line no-new-func -- the point is to execute exactly what ships
+	new Function(script)();
+	return { opener, sent: () => opener.postMessage.mock.calls.map((c) => c[0]).filter((m) => m?.pp === 'go') };
+}
+/** jsdom has no constructible TouchEvent — build the two fields the script reads. */
+function touch(type: string, x: number, y: number, target?: Element | null) {
+	const ev = new Event(type, { bubbles: true });
+	Object.defineProperty(ev, 'changedTouches', { value: [{ clientX: x, clientY: y }], configurable: true });
+	if (target) Object.defineProperty(ev, 'target', { value: target, configurable: true });
+	return ev;
+}
+
+describe('presenter-window — navigation parity', () => {
+	afterEach(() => { document.body.innerHTML = ''; vi.restoreAllMocks(); });
+
+	it('relays the arrow keys, and the PageUp/PageDown a clicker emits', () => {
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown' }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp' }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+		expect(sent().map((m) => m.v)).toEqual([1, -1, 1, -1, 1]);
+	});
+
+	it('leaves a modified chord alone — those are the OS/app shortcuts', () => {
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', metaKey: true }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', ctrlKey: true }));
+		expect(sent()).toEqual([]);
+	});
+
+	it('relays Home/End as a past-the-end delta, which the opener clamps to first/last', () => {
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'End' }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home' }));
+		const [last, first] = sent();
+		expect(last.v).toBeGreaterThan(1000);
+		expect(first.v).toBeLessThan(-1000);
+	});
+
+	it('relays a wheel flick — a plain mouse (deltaY) as readily as a trackpad (deltaX)', () => {
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(new WheelEvent('wheel', { deltaY: 240, bubbles: true }));
+		expect(sent().map((m) => m.v)).toEqual([1]);
+	});
+
+	it('does not turn the slide when the wheel is scrolling the speaker notes', () => {
+		const { sent } = bootPresenterScript();
+		const notes = document.getElementById('notes');
+		expect(notes).toBeTruthy();
+		const ev = new WheelEvent('wheel', { deltaY: 240, bubbles: true });
+		notes?.dispatchEvent(ev);
+		expect(sent()).toEqual([]);
+	});
+
+	it('relays a touch swipe, and ignores a vertical drag', () => {
+		const { sent } = bootPresenterScript();
+		window.dispatchEvent(touch('touchstart', 400, 300));
+		window.dispatchEvent(touch('touchend', 200, 310)); // decisively left
+		expect(sent().map((m) => m.v)).toEqual([1]);
+		window.dispatchEvent(touch('touchstart', 400, 300));
+		window.dispatchEvent(touch('touchend', 395, 60)); // a vertical scroll
+		expect(sent().map((m) => m.v)).toEqual([1]);
+	});
+
+	it('mirrors the stage without swallowing gestures — the frames are pointer-inert', () => {
+		// A wheel or swipe over the slide must reach the window listener, not the iframe.
+		expect(buildPresenterDoc()).toContain('pointer-events:none');
+	});
+});
+
 // A fake second window, as window.open would return.
 function fakeWindow() {
 	return { document: { open: vi.fn(), write: vi.fn(), close: vi.fn() }, postMessage: vi.fn(), closed: false, close: vi.fn(function (this: { closed: boolean }) { this.closed = true; }) };

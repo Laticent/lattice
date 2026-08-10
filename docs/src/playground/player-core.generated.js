@@ -192,6 +192,7 @@ var present_transport_exports = {};
 __export(present_transport_exports, {
   PRESENT_KEYMAP: () => PRESENT_KEYMAP,
   createTransport: () => createTransport,
+  createWheelGate: () => createWheelGate,
   fitScale: () => fitScale,
   keyAction: () => keyAction,
   padInset: () => padInset,
@@ -209,6 +210,16 @@ function keyAction(key, map = PRESENT_KEYMAP) {
 function swipeAction({ dx, dy, threshold = 45, ratio = 1.3 }) {
   if (Math.abs(dx) <= threshold || Math.abs(dx) <= Math.abs(dy) * ratio) return null;
   return dx < 0 ? "next" : "prev";
+}
+function createWheelGate({ threshold = 40, cooldown = 480 } = {}) {
+  let last = -Infinity;
+  return (dx, dy, now) => {
+    const d = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+    if (Math.abs(d) < threshold) return null;
+    if (now - last < cooldown) return null;
+    last = now;
+    return d > 0 ? "next" : "prev";
+  };
 }
 function createTransport({ count, start = 0, onShow }) {
   const size = () => typeof count === "function" ? count() : count;
