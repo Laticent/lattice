@@ -384,6 +384,26 @@ around the viewport; and "first line near the scroller's center" was wrong by co
 above center. The assertion that discriminates: **the editor's vertical center falls inside slide *i***
 — it passes with the fix and fails on 6 of 8 sampled indices without it.
 
+**UPDATE 2026-08-10 (#1315): that assertion is retired — the contract it measured was replaced, and the
+guard was not.** #1301 changed `revealSlide` from `scrollIntoView(range, { y: 'center' })` over the whole
+slide to `scrollIntoView(slideEditableOffset(doc, index), { y: 'start', yMargin: 8 })` — TOP-ANCHOR the
+slide's first line of content, skipping its `<!-- _class: … -->` directive — deliberately, because
+centering leaves the previous slide's tail above the one you picked and shows a different amount of it
+per slide. The centering assertion was left pointing at the old behavior and has failed 7 of 8 rails on
+`main` ever since, on a NIGHTLY suite that is off the PR gate. Nothing about the framing was broken;
+measured on a real run, all eight sampled rails land the right slide's first editable line **+5px** below
+the scroller top. The guard now measures THAT — distance from the top, 0 ±40px — which an off-by-one
+misses by 246–462px (verified by re-injecting `index - 1`, the same negative-control discipline as above;
+rail 0 correctly still passes, since `index - 1` clamps to slide 0).
+
+**The generalizable finding is the failure mode, not the arithmetic.** A guard is written against a
+contract, and it keeps asserting that contract after the contract is replaced — reporting nothing about
+the behavior that replaced it while looking, in every listing, like coverage. Two things make it
+survivable: the guard's tier (nightly, so it goes red without blocking anything) and the fact that
+nothing in a contract change forces its guard to be re-read. So a change to a documented behavior
+carries an obligation to grep the specs that name it — `revealSlide` appears in exactly one e2e spec —
+and a red nightly is a defect to triage, not a background condition.
+
 ## 8. Off-path defects found, logged not fixed (HARD RULE #18)
 
 - **A bare `# h1` on a default `form` slide renders white-on-white.** `base.elements.css` sets
