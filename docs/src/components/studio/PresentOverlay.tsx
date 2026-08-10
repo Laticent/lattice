@@ -1016,7 +1016,25 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// Contract: engineering/decisions/2026-08-10-preview-pinch-zoom.md.
 	const backdropRef = React.useRef<HTMLDivElement>(null);
 	const zoomRef = React.useRef<PreviewZoomHandle | null>(null);
-	const [zoomScale, setZoomScale] = React.useState(1);
+	// The badge's EXISTENCE is state; its NUMBER is a direct DOM write. A pinch
+	// samples at pointer rate, so a numeric `useState` re-rendered this whole
+	// component per sample — measured on the shell's identical badge as two ~55ms
+	// long tasks per pinch under CPU throttle. A boolean bails out after the first.
+	const [zoomed, setZoomed] = React.useState(false);
+	const zoomScaleRef = React.useRef(1);
+	const zoomBadgeRef = React.useRef<HTMLButtonElement>(null);
+	const paintZoomBadge = React.useCallback((scale: number) => {
+		zoomScaleRef.current = scale;
+		setZoomed(scale > 1);
+		const el = zoomBadgeRef.current;
+		if (!el) return;
+		const pct = `${Math.round(scale * 100)}%`;
+		if (el.dataset.pct === pct) return;
+		el.dataset.pct = pct;
+		// textContent would wipe the icon child — replace only the trailing text node.
+		el.lastChild && (el.lastChild.textContent = pct);
+		el.setAttribute('aria-label', `Reset zoom to fit — currently ${pct}`);
+	}, []);
 	// Latest-ref idiom: the controller attaches ONCE per open (re-attaching mid-
 	// gesture would drop it), so it must not close over a `goNext`/`overviewOpen`
 	// that changes every slide.
@@ -1029,7 +1047,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			viewport: () => cardRef.current,
 			target: () => cardRef.current?.querySelector<HTMLElement>('[aria-label="Presented slide"]') ?? null,
 			onNav: (action) => { if (action === 'next') navRef.current.goNext(); else if (action === 'prev') navRef.current.goPrev(); },
-			onZoom: setZoomScale,
+			onZoom: paintZoomBadge,
 			onInput: () => navRef.current.wake(),
 			// The overview owns navigation by tap while it is open, and zooming the
 			// slide behind it would be invisible anyway.
@@ -1040,7 +1058,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			zoomRef.current = null;
 			handle.dispose();
 		};
-	}, [open]);
+		// `paintZoomBadge` is `useCallback([])` — stable, so this still attaches once
+		// per open rather than re-binding (and dropping) an in-flight gesture.
+	}, [open, paintZoomBadge]);
 	// Zoom belongs to the slide being read, not to the deck — and never survives the
 	// talk: leaving Present at 3× would hand the next session a cropped first slide.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: these ARE the triggers; the handle is a ref.
@@ -1198,8 +1218,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				    pinched to make a point and now needs the whole slide again. A pinch-in
 				    also returns to fit; this is the one-tap version, and the only route on a
 				    trackpad, which has no middle button. */}
-				{zoomScale > 1 && (
-					<Tip label="Reset zoom to fit"><button type="button" onClick={() => zoomRef.current?.reset()} aria-label={`Reset zoom to fit — currently ${Math.round(zoomScale * 100)}%`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] sm:text-[13px]"><Minimize2 className="size-4" />{Math.round(zoomScale * 100)}%</button></Tip>
+				{zoomed && (
+					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} aria-label={`Reset zoom to fit — currently ${Math.round(zoomScaleRef.current * 100)}%`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] sm:text-[13px]"><Minimize2 className="size-4" />{`${Math.round(zoomScaleRef.current * 100)}%`}</button></Tip>
 				)}
 				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button></Tip>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>

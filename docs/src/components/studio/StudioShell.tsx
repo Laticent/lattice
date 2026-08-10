@@ -2258,7 +2258,27 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// effect would leave the listeners bound to a detached pre-rotation holder while
 	// the live one answered no gesture at all.
 	const zoomRef = React.useRef<PreviewZoomHandle | null>(null);
-	const [previewZoom, setPreviewZoom] = React.useState(1);
+	// The badge's EXISTENCE is React state; its NUMBER is not. A pinch samples at
+	// pointer rate (~120Hz on a good trackpad), so a `useState(scale)` here fired a
+	// fresh setState per sample and re-rendered this whole (very large) component
+	// mid-gesture — measured at 4x/6x CPU throttle as two ~55ms long tasks and 15
+	// frames over 32ms during one pinch, against ZERO for the pan that writes the
+	// same transform without touching the badge. A boolean bails out of re-rendering
+	// on every sample after the first (React compares with Object.is), and the
+	// percentage is written straight to the DOM below.
+	const [previewZoomed, setPreviewZoomed] = React.useState(false);
+	const previewZoomScale = React.useRef(1);
+	const zoomBadgeRef = React.useRef<HTMLButtonElement>(null);
+	const paintZoomBadge = React.useCallback((scale: number) => {
+		previewZoomScale.current = scale;
+		setPreviewZoomed(scale > 1);
+		const el = zoomBadgeRef.current;
+		if (!el) return; // not mounted yet — the mount render reads the ref for its first text
+		const pct = `${Math.round(scale * 100)}%`;
+		if (el.textContent === pct) return;
+		el.textContent = pct;
+		el.setAttribute('aria-label', `Reset zoom to fit — currently ${pct}`);
+	}, []);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
 		previewHolderRoRef.current?.disconnect();
 		previewHolderRoRef.current = null;
@@ -2282,7 +2302,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			viewport: () => previewBoxRef.current,
 			target: () => previewBoxRef.current?.querySelector<HTMLElement>('[aria-label="Live deck preview"]') ?? null,
 			onNav: (action) => navRef.current(action),
-			onZoom: setPreviewZoom,
+			onZoom: paintZoomBadge,
 		});
 		const measure = (contentRect?: { width: number; height: number }) => {
 			// `entry.contentRect` is the CONTENT box (excludes padding/border) — the same box
@@ -2298,7 +2318,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		const ro = new ResizeObserver(([entry]) => measure(entry?.contentRect));
 		ro.observe(holder);
 		previewHolderRoRef.current = ro;
-	}, []);
+		// `paintZoomBadge` is itself `useCallback([])`, so listing it keeps this ref
+		// callback stable — the holder is not re-bound on every render.
+	}, [paintZoomBadge]);
 	// ── Slide navigation: all three input verbs, on every surface ─────────────────
 	// Touch swipe, wheel (mouse OR trackpad, either axis) and the arrow keys all
 	// turn the viewed deck, at every breakpoint. No verb is gated on device class:
@@ -3146,8 +3168,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    who zoomed by accident WHY the slide is cropped, and it is the pointer-free
 				    way back to fit (a middle-click also resets, but a trackpad has no middle
 				    button). Absent at fit scale — an always-on "100%" would be noise. */}
-				{previewZoom > 1 && (
-					<Tip label="Reset zoom to fit"><button type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoom * 100)}%`}>{Math.round(previewZoom * 100)}%</button></Tip>
+				{previewZoomed && (
+					// Mount-time text comes from the ref (the controller set it before flipping
+					// the boolean); every later sample updates this node directly, never through
+					// a render. See `paintZoomBadge`.
+					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoomScale.current * 100)}%`}>{Math.round(previewZoomScale.current * 100)}%</button></Tip>
 				)}
 				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
 				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>

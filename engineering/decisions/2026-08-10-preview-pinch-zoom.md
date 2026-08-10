@@ -133,6 +133,48 @@ synthesized DOM event (HARD RULE #23).
   do not reach it — asserted by building `playerJs()` and grepping, not by reading
   the source. No export sign-off was required.
 
+## Performance — and the defect the measurement found
+
+Measured on the real built Studio under CPU throttle, the browser-side regime
+`docs/scripts/frame-bench.mjs` established (`npm run bench` is the ENGINE
+benchmark and has no gesture scenario, so it is not the instrument for this).
+Three questions, each measured: does zooming trigger an engine render, what do
+frames look like during the gesture, and what does it cost at idle.
+
+The headline is structural: **a pinch causes ZERO engine renders**, at every
+throttle and viewport. That is the design working — a transform on a rendered
+layer is not a re-render, so the whole edit→paint pipeline stays asleep.
+
+But the first measurement, at 6× throttle on a 390px viewport, found a defect
+that reasoning had missed:
+
+| pinch, 40 samples @ 6× CPU | p95 frame | frames > 32ms | long tasks |
+|---|---|---|---|
+| first cut | 50.0ms | 15 | 57ms, 51ms |
+| after the fix | 16.8ms | 1 | one ~55ms |
+
+The tell was that **panning was perfectly smooth (60fps, no long tasks) while
+pinching was not** — both write the same transform through the same code, so the
+difference could not be the transform. It was the badge: `onZoom` fired a React
+`setState` **per gesture sample**, re-rendering `StudioShell` — one of the largest
+components in the app — around 40 times during a single pinch. The claim "the
+transform bypasses React" was true; the badge quietly did not.
+
+The fix splits the two: the badge's **existence** is React state (a boolean, which
+bails out of re-rendering on every sample after the first), and its **number** is
+written straight to the DOM node. Same for Present. Repeated across three runs,
+p95 is now indistinguishable from idle.
+
+The one remaining ~55ms task is once per gesture, not per sample — the badge
+mounting plus the re-raster at the new scale. For scale: a plain **slide change**
+on the same device costs an engine render, two comparable long tasks and 4 janky
+frames. **Zooming is now cheaper than turning the page.**
+
+This is worth recording as a method note, not just a fix: the defect was invisible
+to every correctness gate (all 61 `@parity` cells passed with it present), and
+reasoning had explicitly concluded the opposite. Only measuring the gesture on a
+throttled device found it, and only the *pan-vs-pinch contrast* localized it.
+
 **UNVERIFIED, and stated as such: real iOS and Android Safari.** CDP touch in
 headless Chromium is not a physical phone, and iOS drives its page zoom through
 non-standard `gesturestart`/`gesturechange` events that Chromium never fires. Those
