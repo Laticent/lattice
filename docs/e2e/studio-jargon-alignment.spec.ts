@@ -156,16 +156,21 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	for (const i of indices) {
 		await railButtons(page).nth(i).click();
 		const want = editableLineOf(authored[i]);
-		// POLL to the settled state rather than sleeping a guessed interval. The scroll is a synchronous
-		// CodeMirror dispatch, so this normally converges on the first read and costs nothing — but a
-		// fixed wait is a bet that a loaded CI box finishes in the time the author guessed, and losing
-		// that bet reads as a real failure. Bounded so a genuinely wrong position still reports: the loop
-		// exits on the deadline with the LAST measurement, which the assertions below then judge.
+		// POLL to the settled state rather than sleeping a guessed interval — a fixed wait is a bet that a
+		// loaded CI box finishes in the time the author guessed, and losing that bet reads as a real
+		// failure. Bounded so a genuinely wrong position still reports: the loop exits on the deadline
+		// with the LAST measurement, which the assertions below then judge.
 		//
-		// Safe to poll to success here — unlike the settle in the caret→preview test below — because the
-		// state being measured is the one this click is supposed to produce, not a state that was already
-		// correct before the click. There is no window in which a stale-but-passing reading can be
-		// mistaken for the click's effect.
+		// Polling to success is safe HERE (unlike the caret→preview test below) because a rail click
+		// moves the editor to a slide it was not on, so the passing state is the one this click produces
+		// — not one that was already true beforehand. The one exception is the boundary: `revealSlide`'s
+		// dispatch is synchronous but its SCROLL is not — CodeMirror ends `update` with
+		// `requestMeasure()`, which applies the scroll target inside a `requestAnimationFrame` callback
+		// one frame later. So a read taken before that frame sees the PREVIOUS slide's position, and for
+		// consecutive sampled indices that stale reading is the one a +1 off-by-one would need to pass.
+		// Yield a frame first so the loop cannot open that window. (In practice Playwright's click
+		// round-trip already outlasts a frame — measured 44–225ms — but "in practice" is not a contract.)
+		await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
 		const deadline = Date.now() + 5_000;
 		let m = await measure(want);
 		while ((!m?.found || Math.abs(m.offset) > TOLERANCE) && Date.now() < deadline) {
@@ -198,43 +203,76 @@ test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) 
 	await expect.poll(() => railButtons(page).count(), { timeout: 60_000 }).toBe(authored.length);
 
 	const wrong: string[] = [];
-	for (const i of [1, 2, 3, 7, 20, 40, authored.length - 1]) {
+	const skipped: number[] = [];
+	const indices = [1, 2, 3, 7, 20, 40, authored.length - 1];
+	const previewText = async () => (await livePreview(page).locator('.lattice section').first().innerText()).replace(/\s+/g, ' ');
+	for (const i of indices) {
 		const want = headingOf(authored[i]);
-		if (!want) continue;
-		// Reveal the slide first so its lines are built, then CLICK one of its own lines — the caret
-		// move is what has to drive the preview, so it must come from a real click, not from the rail
-		// selection that revealed it. Clicking the slide's LAST line (not its first) also guards the
-		// boundary: an off-by-one at the chunk edge would map it to the next slide.
-		await railButtons(page).nth(i).click();
+		// No heading (the sampled quote slide) — it cannot be identified in the preview by text. Counted
+		// as a skip like every other, so the all-skipped guard below sees the true total.
+		if (!want) {
+			skipped.push(i);
+			continue;
+		}
+		// THE PREVIEW MUST START SOMEWHERE ELSE. Revealing slide i with the rail — the obvious way to
+		// build its lines — also moves the PREVIEW to slide i, which makes the assertion below true
+		// before the click under test does anything. That is not hypothetical: with the rail-reveal
+		// shape, deleting `await line.click()` outright left this test GREEN. It could detect a wrong
+		// index mapping and could not detect a click that did nothing at all.
+		//
+		// So: park the preview on slide 0, then SCROLL the editor to build slide i's lines. Scrolling
+		// the CodeMirror scroller moves no caret, so the preview stays on slide 0 while slide i becomes
+		// clickable — and the pass condition turns into an observable CHANGE (0 → i) that a dead click
+		// cannot produce. That also retires the 400ms settle this used to need: there is now a positive
+		// signal to poll for, so nothing here is a guessed interval.
+		await railButtons(page).nth(0).click();
 		const ownLines = authored[i].split('\n').map((l) => l.trim()).filter((l) => l.length > 8);
 		const target = ownLines[ownLines.length - 1];
+		// A slide of nothing but short lines yields no target; `hasText: undefined` would silently drop
+		// the text filter and click an arbitrary line, so skip rather than measure the wrong thing.
+		if (!target) {
+			skipped.push(i);
+			continue;
+		}
+		// `hasText` is a SUBSTRING match, so this is only sound while the target appears once. Test 2's
+		// pre-check has the same requirement for the same reason; assert it here too rather than
+		// inheriting today's deck as a silent assumption.
+		if (DECK.split('\n').filter((l) => l.trim().includes(target)).length !== 1) {
+			skipped.push(i);
+			continue;
+		}
 		const line = page.locator('.cm-line', { hasText: target }).first();
-		// Wait for the SIGNAL (the reveal built this slide's lines) instead of a guessed interval. A line
-		// that never appears was virtualized away — the timeout is this loop's SKIP condition, not a
-		// failure, which is why it is caught rather than allowed to fail the test.
-		try {
-			await expect.poll(() => line.count(), { timeout: 5_000 }).toBeGreaterThan(0);
-		} catch {
-			continue; // line not built (virtualized away) — skip rather than fake it
+		// Scroll (not reveal) until the line is built. Bounded; a line that never appears was virtualized
+		// away, which is this loop's SKIP — counted below, never silent.
+		const deadline = Date.now() + 10_000;
+		while ((await line.count()) === 0 && Date.now() < deadline) {
+			await page.locator('.cm-scroller').evaluate((el) => {
+				el.scrollTop += 600;
+			});
+			await page.waitForTimeout(50);
+		}
+		if ((await line.count()) === 0) {
+			skipped.push(i);
+			continue;
+		}
+		// The preview is still on slide 0 — assert that, so a failure to park it can never masquerade as
+		// a passing click below.
+		const before = await previewText();
+		if (want && before.includes(want)) {
+			wrong.push(`slide ${i}: the preview already showed it BEFORE the click, so this iteration could not test anything`);
+			continue;
 		}
 		await line.click();
-		// THIS SETTLE IS LOAD-BEARING — do not replace it with a poll, and do not delete it. The rail
-		// click above ALREADY put the preview on slide i — that is not a guess, it is exactly what the
-		// FIRST test in this file proves — so the assertion below is true before the line click does
-		// anything. Polling it would pass instantly against that stale-but-correct state and never see
-		// the click's effect at all. What an off-by-one does here is MOVE the preview to slide i+1
-		// shortly after the click, so the test's power comes from reading the preview only AFTER the
-		// click has had time to land. There is no positive signal to poll for; "no change" is the pass,
-		// and a poll cannot distinguish "no change" from "not yet changed".
-		await page.waitForTimeout(400);
 		try {
-			await expect
-				.poll(async () => (await livePreview(page).locator('.lattice section').first().innerText()).replace(/\s+/g, ' '), { timeout: 8_000 })
-				.toContain(want);
+			await expect.poll(previewText, { timeout: 8_000 }).toContain(want);
 		} catch {
-			const got = (await livePreview(page).locator('.lattice section').first().innerText()).replace(/\s+/g, ' ').slice(0, 90);
-			wrong.push(`clicked into slide ${i} (line ${JSON.stringify(target.slice(0, 40))}): preview showed ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`);
+			wrong.push(
+				`clicked into slide ${i} (line ${JSON.stringify(target.slice(0, 40))}): preview showed ${JSON.stringify((await previewText()).slice(0, 90))}, expected ${JSON.stringify(want)}`,
+			);
 		}
 	}
+	// A run in which every index skipped would otherwise pass having asserted NOTHING — the same
+	// silent-green hole the skip path always had, now closed.
+	expect(skipped.length, `every sampled slide was skipped (${skipped.join(', ')}) — the test asserted nothing`).toBeLessThan(indices.length);
 	expect(wrong, `the preview showed a different slide than the one being edited:\n${wrong.join('\n')}`).toEqual([]);
 });
