@@ -274,14 +274,31 @@ function parseIndex(readme) {
   // line keeps a trailing \r, so no heading and no footer compares equal and the block
   // reports a dozen problems that name anything but the line endings — the same
   // diagnostic rabbit hole this file already paid for once on the front-matter side.
+  // A SECOND begin marker inside the block means a duplicated index was appended. `splice`
+  // is bounded by the FIRST begin/end pair, so a stray copy is never rewritten — it would sit
+  // there permanently, with rows for notes that may not exist.
+  if (readme.indexOf(BEGIN, b + BEGIN.length) !== -1 || readme.indexOf(END, e + END.length) !== -1) {
+    return { headings: [], rows: [], stray: ['a second decisions-index marker pair is present — only the first is ever regenerated'], footer: null, footers: 0, blankRuns: true };
+  }
   const body = readme.slice(b + BEGIN.length, e).replace(/\r\n/g, '\n').split('\n');
   const headings = [];
   const rows = []; // { group, file, line }
   const stray = [];
   let footer = null;
+  let footers = 0;
   let group = null;
+  // A generated markdown list needs its blank lines: with them stripped, the closing line
+  // becomes a lazy continuation INSIDE the last list item and the block renders as one
+  // run-on bullet. The gate is the only thing standing between that and a committed file.
+  // Only a blank BETWEEN two content lines counts. The newline before the end marker is
+  // always there and says nothing.
+  let blankRuns = false;
+  let seenContent = false;
+  let pendingBlank = false;
   for (const line of body) {
-    if (!line.trim()) continue;
+    if (!line.trim()) { if (seenContent) pendingBlank = true; continue; }
+    if (pendingBlank) { blankRuns = true; pendingBlank = false; }
+    seenContent = true;
     if (HEADING_GROUP.has(line)) {
       headings.push(line);
       group = HEADING_GROUP.get(line);
@@ -293,12 +310,13 @@ function parseIndex(readme) {
       continue;
     }
     if (line === FOOTER) {
+      footers += 1;
       footer = line;
       continue;
     }
     stray.push(line);
   }
-  return { headings, rows, stray, footer };
+  return { headings, rows, stray, footer, footers, blankRuns };
 }
 
 /**
@@ -312,13 +330,18 @@ function parseIndex(readme) {
  * Returns a list of human-readable problems; empty means the index is faithful.
  */
 function verify(readme, notes) {
-  const { headings, rows, stray, footer } = parseIndex(readme);
+  const { headings, rows, stray, footer, footers, blankRuns } = parseIndex(readme);
   const problems = [];
+
+  // Stray lines are reported BEFORE the empty-scan guard: a structural problem (a second
+  // marker pair) makes `rows` empty by design, and returning "the block is empty" instead of
+  // naming the real cause sends the reader looking in the wrong place.
+  for (const line of stray) problems.push(`unrecognized line inside the index block: ${line.slice(0, 120)}`);
 
   // Fail loud on an empty scan: with notes on disk and no rows parsed, every check
   // below is vacuously clean, and a gate that cannot fail is also a claim.
   if (notes.length && !rows.length) {
-    problems.push('the committed index has no entries at all — the block is empty, or its rows no longer parse');
+    if (!problems.length) problems.push('the committed index has no entries at all — the block is empty, or its rows no longer parse');
     return problems;
   }
 
@@ -365,7 +388,10 @@ function verify(readme, notes) {
   for (const h of new Set(headings)) if (!wantHeadings.includes(h)) problems.push(`group heading present but its group is empty: ${h}`);
 
   if (!footer) problems.push('the closing line is missing or edited — regenerate with `npm run decisions:index`');
-  for (const line of stray) problems.push(`unrecognized line inside the index block: ${line.slice(0, 120)}`);
+  else if (footers > 1) problems.push(`the closing line appears ${footers} times — it must appear once`);
+  // Without its blank lines the block is still parseable here but renders as one run-on
+  // bullet, with the closing line swallowed into the last list item.
+  if (rows.length && !blankRuns) problems.push('the index block has no blank lines — markdown needs them, or the list renders as one run-on item with the closing line inside it');
 
   return problems;
 }

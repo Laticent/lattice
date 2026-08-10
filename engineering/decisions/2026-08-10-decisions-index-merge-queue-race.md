@@ -112,7 +112,13 @@ actually responsible for:
 - no row without a note behind it;
 - the group headings present are exactly the non-empty groups;
 - nothing unrecognized inside the markers — which is what catches an unresolved
-  conflict marker, or hand-edited prose someone dropped into a generated block.
+  conflict marker, or hand-edited prose someone dropped into a generated block;
+- the block keeps its **blank lines**, appears **once**, and closes **once**. Those three
+  came from the red team, which found the first cut accepting them: with blanks stripped the
+  list still parses here but renders as one run-on bullet with the closing line swallowed into
+  the last item; a duplicated closing line was silently overwritten rather than counted; and a
+  second appended marker pair is permanent, because `splice` is bounded by the FIRST pair and
+  would never rewrite the copy.
 
 It asserts **nothing** about row order.
 
