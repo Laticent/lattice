@@ -1,3 +1,4 @@
+import { STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_PANEL_IDS } from '../src/components/studio/preview-rect';
 import { expect, test } from './studio-fixture';
 
 // The Studio's pre-paint INSTANT SHELL vs the app it hands off to (#1438).
@@ -57,9 +58,15 @@ const ENGINE_HOLD_MS = 2500;
 // than the drift it exists to catch — the shell forcing a system font stack moved it 20.5px.
 const PILL_TOLERANCE = 6;
 
-/** The app's split-layout store, as `useResizableSplit` writes it (see preview-rect.ts). */
+/**
+ * The app's split-layout store, as `useResizableSplit` writes it. Built from the SHARED
+ * declarations rather than retyped: a third hand-written copy of the format let the spec and
+ * the seed agree with each other while both disagreed with the hook (#1495).
+ */
 const splitLayout = (previewPct: number) =>
-	JSON.stringify({ 'studio-editor,studio-preview': { 'studio-editor': 100 - previewPct, 'studio-preview': previewPct } });
+	JSON.stringify({
+		[STUDIO_SPLIT_BUCKET]: { [STUDIO_SPLIT_PANEL_IDS[0]]: 100 - previewPct, [STUDIO_SPLIT_PANEL_IDS[1]]: previewPct },
+	});
 
 type Case = {
 	w: number;
