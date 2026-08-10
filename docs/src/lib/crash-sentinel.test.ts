@@ -4,8 +4,10 @@ import {
 	BEAT_MS,
 	breadcrumb,
 	classifySession,
+	clearAllSessions,
 	clearCrashReports,
 	collectCrashReports,
+	crashReportStats,
 	dismissCrashReport,
 	elapsedLabel,
 	formatCrashReport,
@@ -370,6 +372,114 @@ describe('the recorder', () => {
 		expect(() => startCrashSentinel()).not.toThrow();
 		expect(() => breadcrumb('action', 'still fine')).not.toThrow();
 		spy.mockRestore();
+	});
+});
+
+// The whole point of a local recorder is that it must never become the storage
+// accumulation problem it exists to diagnose. These prove the bound end to end
+// rather than trusting the individual caps.
+describe('storage never accumulates', () => {
+	const sessionBytes = () =>
+		Object.keys(localStorage)
+			.filter((k) => k.startsWith(SESSION_PREFIX))
+			.reduce((n, k) => n + k.length + (localStorage.getItem(k) as string).length, 0);
+	const sessionCount = () => Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX)).length;
+
+	it('stays flat across 200 boots — the steady state is a constant, not a slope', () => {
+		const counts: number[] = [];
+		for (let i = 0; i < 200; i++) {
+			__resetSentinelForTest(); // each iteration is a fresh page load
+			startCrashSentinel();
+			// Saturate this session's rings, so every record left behind is a big one.
+			for (let c = 0; c < 120; c++) breadcrumb('action', 'x'.repeat(300));
+			counts.push(sessionCount());
+		}
+		// 5 retained past records + the live one. Constant from the moment it fills.
+		expect(Math.max(...counts)).toBeLessThanOrEqual(6);
+		expect(counts.slice(-50).every((n) => n === counts[counts.length - 1])).toBe(true);
+		// And the bytes are bounded too, not just the record count.
+		expect(sessionBytes()).toBeLessThan(120_000);
+	});
+
+	it('caps the breadcrumb ring and the heap trajectory inside one record', () => {
+		startCrashSentinel();
+		for (let i = 0; i < 500; i++) breadcrumb('action', `step ${i}`);
+		const rec = liveSession() as SessionRecord;
+		expect(rec.crumbs.length).toBeLessThanOrEqual(60);
+		expect(rec.mem.length).toBeLessThanOrEqual(24);
+	});
+
+	// The one field whose SHAPE a caller controls. Values were always clipped;
+	// the key count was not, so an unbounded set of distinct keys would have grown
+	// forever — the only unbounded path in the module.
+	it('caps the number of context keys, while still updating existing ones', () => {
+		startCrashSentinel();
+		for (let i = 0; i < 100; i++) setCrashContext({ [`k${i}`]: `v${i}` });
+		const ctx = (liveSession() as SessionRecord).context;
+		expect(Object.keys(ctx).length).toBeLessThanOrEqual(12);
+		// An already-present key must still update once the cap is reached.
+		const existing = Object.keys(ctx)[0];
+		setCrashContext({ [existing]: 'updated' });
+		expect((liveSession() as SessionRecord).context[existing]).toBe('updated');
+	});
+
+	it('expires records older than the retention window', () => {
+		const ancient = { ...newRecord('old', Date.now() - 30 * 24 * 60 * 60 * 1000), lastBeat: Date.now() - 30 * 24 * 60 * 60 * 1000 };
+		localStorage.setItem(SESSION_PREFIX + 'old', JSON.stringify(ancient));
+		startCrashSentinel(); // prunes on boot
+		expect(localStorage.getItem(SESSION_PREFIX + 'old')).toBeNull();
+	});
+
+	// Measured on the real Studio: deleting the keys was NOT enough. "Delete
+	// Everything" reloads ~1.1s later, and in that window the shell's own effects
+	// re-populate the record and `pagehide` writes it back — a fully-populated
+	// record reappearing under a key that had just been erased.
+	it('stays erased even when the page keeps running and tries to write again', () => {
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential Q3' });
+		clearAllSessions();
+		// Everything the live page would still do before its reload:
+		setCrashContext({ Deck: 'Confidential Q3' });
+		breadcrumb('action', 'late crumb');
+		noteError(new Error('late error'));
+		dispatchEvent(new Event('pagehide')); // the write on the way out
+		expect(sessionCount()).toBe(0);
+		const rec = liveSession() as SessionRecord;
+		expect(rec.context).toEqual({});
+		expect(rec.crumbs).toEqual([]);
+	});
+
+	it('lifts the seal on the next page load, so recording resumes', () => {
+		startCrashSentinel();
+		clearAllSessions();
+		__resetSentinelForTest();
+		startCrashSentinel(); // the reload
+		breadcrumb('action', 'after reload');
+		expect(sessionCount()).toBe(1);
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'after reload')).toBe(true);
+	});
+
+	it('clearAllSessions leaves nothing behind — including the LIVE record', () => {
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential Q3' });
+		breadcrumb('action', 'something private');
+		localStorage.setItem(SESSION_PREFIX + 'other', JSON.stringify(newRecord('other', Date.now())));
+		clearAllSessions();
+		expect(sessionCount()).toBe(0);
+		expect(sessionStorage.getItem(TAB_SESSION_KEY)).toBeNull();
+		// The in-memory record is scrubbed too, or the next beat would rewrite the
+		// deck title the user just asked to erase.
+		const rec = liveSession() as SessionRecord;
+		expect(rec.context).toEqual({});
+		expect(rec.crumbs).toEqual([]);
+	});
+
+	it('crashReportStats sees the records, so the storage panel can account for them', () => {
+		expect(crashReportStats()).toEqual({ count: 0, bytes: 0 });
+		startCrashSentinel();
+		const stats = crashReportStats();
+		expect(stats.count).toBe(1);
+		expect(stats.bytes).toBeGreaterThan(0);
 	});
 });
 

@@ -95,6 +95,8 @@ export const MEM_PRESSURE = 0.85;
 const SIGNAL_WINDOW_MS = 15_000;
 
 const CRUMB_MAX_CHARS = 180;
+/** Context labels a report may carry. Caps the one field a caller controls the SHAPE of. */
+const MAX_CONTEXT_KEYS = 12;
 
 export type BreadcrumbKind =
 	| 'boot'
@@ -573,12 +575,61 @@ export function dismissCrashReport(id: string): void {
 	safeRemove(ls(), SESSION_PREFIX + id);
 }
 
-/** Forget every stored session but the live one — the Workspace → Data action. */
+/** Forget every stored session but the live one — the Workspace → Crash reports action. */
 export function clearCrashReports(): void {
 	for (const k of sessionKeys()) {
 		if (liveId && k === SESSION_PREFIX + liveId) continue;
 		safeRemove(ls(), k);
 	}
+}
+
+/**
+ * Forget EVERY session record, the live one included — for Privacy & Data's
+ * "Delete Everything", which promises to leave nothing behind.
+ *
+ * Distinct from `clearCrashReports` on purpose: that one spares the live record
+ * because clearing your history should not blind the recorder mid-session. This
+ * one does not, because a privacy sweep that skips the record currently holding
+ * your deck's title would make the promise false. The recorder keeps running and
+ * simply re-creates its record on the next beat, with a fresh trail.
+ */
+export function clearAllSessions(): void {
+	// SEAL FIRST, delete second. Scrubbing the live record is not enough on its
+	// own, and this was measured on the real Studio rather than reasoned about:
+	// "Delete Everything" reloads the page ~1.1s later, and in that window the
+	// shell's own React effects legitimately re-populate the record (the deck
+	// state changes, so the `setCrashContext` effect re-runs) and `pagehide`
+	// then persists it on the way out — putting a fully-populated record back
+	// under a key that had just been deleted. Racing those effects is
+	// unwinnable; refusing to write is not. Every write path is a no-op from
+	// here until the next page load calls `startCrashSentinel`.
+	sealed = true;
+	for (const k of sessionKeys()) safeRemove(ls(), k);
+	safeRemove(ss(), TAB_SESSION_KEY);
+	if (live) {
+		live.crumbs.length = 0;
+		live.mem.length = 0;
+		live.context = {};
+		live.lastError = undefined;
+		live.errorCount = 0;
+	}
+}
+
+/**
+ * Bytes these records occupy right now — so the storage accounting that exists to
+ * make accumulation VISIBLE can actually see them. A diagnostic that is invisible
+ * to the storage diagnostic is how the next accumulation bug hides.
+ */
+export function crashReportStats(): { count: number; bytes: number } {
+	let count = 0;
+	let bytes = 0;
+	for (const k of sessionKeys()) {
+		const raw = safeGet(ls(), k);
+		if (raw === null) continue;
+		count++;
+		bytes += k.length + raw.length;
+	}
+	return { count, bytes };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -587,6 +638,13 @@ export function clearCrashReports(): void {
 
 let live: SessionRecord | null = null;
 let stop: (() => void) | null = null;
+/**
+ * Set by `clearAllSessions` — the user asked to be forgotten, so nothing more is
+ * written for the rest of this page's life. Cleared only by a fresh
+ * `startCrashSentinel`, i.e. the next load. See that function for why a scrub
+ * alone was measurably not enough.
+ */
+let sealed = false;
 /** Breadcrumbs dropped before `start()` ran (an early import racing the island). */
 const preStart: Breadcrumb[] = [];
 
@@ -625,7 +683,7 @@ function navigationType(): string {
  * and retry once — a recorder that dies of its own weight reports nothing at all.
  */
 function persist(): void {
-	if (!live) return;
+	if (!live || sealed) return;
 	const key = SESSION_PREFIX + live.id;
 	if (safeSet(ls(), key, JSON.stringify(live))) return;
 	live.crumbs = live.crumbs.slice(-12);
@@ -635,6 +693,7 @@ function persist(): void {
 
 /** Record one labeled step. Callers pass LABELS — never deck text, never user prose. */
 export function breadcrumb(kind: BreadcrumbKind, message: string): void {
+	if (sealed) return;
 	const m = clip(message);
 	if (!m) return;
 	if (!live) {
@@ -646,12 +705,21 @@ export function breadcrumb(kind: BreadcrumbKind, message: string): void {
 	if (live.crumbs.length > MAX_CRUMBS) live.crumbs.shift();
 }
 
-/** Attach or update the labels shown at the top of a report (deck title, posture, slide count). */
+/**
+ * Attach or update the labels shown at the top of a report (deck title, posture,
+ * slide count).
+ *
+ * The KEY COUNT is capped, not just the value length. Values were clipped from
+ * the start, but nothing stopped a caller from writing an unbounded set of
+ * distinct keys (`slide-1`, `slide-2`, …) — the one path in this module that
+ * could have grown without limit, which is exactly the failure this recorder
+ * must not have. Once full, existing keys still update; new ones are dropped.
+ */
 export function setCrashContext(patch: Record<string, string | number | undefined>): void {
-	if (!live) return;
+	if (!live || sealed) return;
 	for (const [k, v] of Object.entries(patch)) {
 		if (v === undefined || v === null || v === '') delete live.context[k];
-		else live.context[k] = clip(String(v), 80);
+		else if (k in live.context || Object.keys(live.context).length < MAX_CONTEXT_KEYS) live.context[clip(k, 40)] = clip(String(v), 80);
 	}
 }
 
@@ -661,7 +729,7 @@ export function setCrashContext(patch: Record<string, string | number | undefine
  * caught React fault is in the record even though it never reached `window`.
  */
 export function noteError(err: unknown, source?: string): void {
-	if (!live) return;
+	if (!live || sealed) return;
 	const e = err as { message?: string; stack?: string } | undefined;
 	const message = clip(e?.message || String(err ?? 'unknown error'), 300);
 	live.errorCount++;
@@ -695,6 +763,7 @@ export function startCrashSentinel(): () => void {
 	if (stop) return stop;
 	if (typeof document === 'undefined') return () => {};
 
+	sealed = false; // a new page load is a new session; the seal was for the old one
 	const now = Date.now();
 	// Read the tab mirror BEFORE overwriting it — this is the tab-continuity
 	// signal, and there is exactly one moment it is readable.
@@ -872,5 +941,6 @@ export function __resetSentinelForTest(): void {
 	stop = null;
 	priorTabSessionId = null;
 	priorTabDiscarded = false;
+	sealed = false;
 	preStart.length = 0;
 }

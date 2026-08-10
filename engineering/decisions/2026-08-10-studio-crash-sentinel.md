@@ -224,6 +224,22 @@ is invited to paste into a public issue. Deck size earns its place because a hea
 deck is the leading suspect in an out-of-memory report and is invisible from every
 other field.
 
+**Privacy & Data must reach these records, and a scrub alone does not.** They
+carry deck titles, page URLs, the user agent and error stacks — "your data" by
+any reading — so `clearEverything` calls `clearAllSessions`, or `governance.ts`'s
+own promise ("must not leave that behind, or the privacy promise is false") is
+false for a store it does not know about. Deleting the keys turned out to be
+insufficient, and this was **measured, not reasoned**: "Delete Everything"
+reloads the page ~1.1s later, and inside that window the shell's own React
+effects legitimately re-populate the live record (clearing decks changes deck
+state, so the `setCrashContext` effect re-runs) and `pagehide` persists it on the
+way out — a fully-populated record reappearing under a key just erased. Racing
+those effects is unwinnable; refusing to write is not. `clearAllSessions` SEALS
+the recorder: every write path is a no-op until the next load lifts it. The keys
+are also counted by `crashReportStats` and folded into the Decks line of the
+storage panel — an unaccounted writer is exactly how the next accumulation bug
+would hide from the panel built to show it.
+
 **It must not become the problem it diagnoses.** A "just log it locally"
 diagnostic that grows without bound is the storage-accumulation defect
 (`2026-07-21-storage-accumulation-diagnostic.md`) in a new coat. Bounds: a 60-entry
