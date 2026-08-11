@@ -109,8 +109,19 @@ So the alias is consulted in both places (`asPosture`), and:
   editor-preference effect (`saveSettings({ validation })`,
   `StudioShell.tsx:973`) runs unconditionally on mount, so a legacy workspace is
   normalized within a second of opening the Studio. Confirmed on the real
-  surface, not assumed. That gives the alias a genuinely finite life: it exists
-  for the one load between the rename shipping and the user's next session.
+  surface, not assumed.
+- **`POSTURE_ALIASES` is PERMANENT, not a one-load shim.** An earlier draft of
+  this note claimed it "exists for the one load between the rename shipping and
+  the user's next session." That is true of *localStorage* and false overall, and
+  the counter-example is fix #3 below: `importStudioState` restores a workspace
+  backup `.json` verbatim, and a backup file has unbounded lifetime — a backup
+  taken today, restored in two years, still carries `posture: 'build'`. Do not
+  delete this map on the theory that it has expired. The guard against deleting
+  it anyway is a test, not a comment: `studio-store.test.ts`'s *"normalizes the
+  stop on WRITE too, so an old backup cannot re-seed the legacy name"* fails if
+  the map goes. (Named here because the canonical record is where someone looks
+  before removing load-bearing code, and this one previously told them the
+  opposite. Caught by the Munger-inversion lens.)
 - **the pre-paint seed gets the same map.** `studio.astro` reads the same
   localStorage key before hydration to size the instant shell, and it now
   receives `POSTURES`, `POSTURE_ALIASES` and `LEGACY_ONBOARDED_POSTURE` through
@@ -128,6 +139,37 @@ So the alias is consulted in both places (`asPosture`), and:
 dial existed, who had reached the full surface and must not be demoted — now
 returns the named `LEGACY_ONBOARDED_POSTURE` constant rather than a bare literal,
 for the same single-declaration reason `BOOT_POSTURE` exists.
+
+### The migration is one-directional, and that is an accepted cost
+
+**Forward** — old storage, new bundle — is what the alias covers, and it is the
+direction that matters. **Backward is not covered, and it is destructive.** A
+*pre-rename* bundle reads `posture: 'craft'`, fails its `isPosture` check, derives
+`'write'` — and `saveSettings` spreads the already-coerced `loadSettings()`, so
+the mount effect *writes the demotion back*. Rolling forward again does not
+restore it; there is nothing left for the alias to alias.
+
+Two ways a person meets that: a **revert deploy** (`docs.yml` publishes on every
+push to `main`, so a revert is one merge from serving the old bundle), and — more
+common, less noticed — **a Studio tab left open across a deploy**, still running
+the old JS, clobbering storage on its next settings write.
+
+This is named rather than fixed, deliberately. The textbook answer is
+**expand/contract**: release N accepts both spellings but still *writes*
+`'build'`; release N+1 flips the writer. That closes the window at the cost of a
+release where the stored value disagrees with the id, the label, the CSS and the
+type — a *third* vocabulary, which is the thing this change exists to remove —
+plus a follow-up PR that has to actually happen. Priced against the harm, that is
+not worth it: **the loss is one workspace preference on a public docs site, and
+the recovery is one click on an always-visible dial.** No deck, no source, no
+export is touched. If the same rename is ever done to something whose loss is not
+one click — a deck id, a source key, anything under `SRC_PREFIX` — expand/contract
+is the right shape and this paragraph is the reason.
+
+No evidence in this PR reaches that direction, and none can: testing it requires
+running the *old* code against the *new* storage, which is not reachable from this
+tree. It is reasoned, not measured, and it is the one storage state the
+verification below does not cover.
 
 ## What did not change
 

@@ -575,7 +575,15 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var posture = null, settings = null;
 						try { settings = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); } catch (e7) {}
 						var storedStop = settings && settings.posture;
-						if (typeof storedStop === 'string' && POSTURE_ALIASES[storedStop]) storedStop = POSTURE_ALIASES[storedStop];
+						// hasOwnProperty.call, matching studio-store's asPosture semantics. (The STORE
+						// uses Object.hasOwn; this is an `is:inline` script, which Astro passes through
+						// VERBATIM — no transpile, no polyfill — so it takes the form with no floor.)
+						// A bare truthiness test on the map makes 'constructor' / 'toString' an
+						// INHERITED hit — harmless here only because the POSTURES whitelist on the
+						// next line rejects the function it returns. Two halves of a mirror that has
+						// already drifted twice should not validate by different idioms; the day the
+						// map grows a second entry, the weaker half is the one that surprises someone.
+						if (typeof storedStop === 'string' && Object.prototype.hasOwnProperty.call(POSTURE_ALIASES, storedStop)) storedStop = POSTURE_ALIASES[storedStop];
 						if (POSTURES.indexOf(storedStop) !== -1) posture = storedStop;
 						if (!posture) posture = (settings && settings.onboarded === true) ? LEGACY_ONBOARDED_POSTURE : BOOT_POSTURE;
 						// THE ONE CHROME GATE THAT IS NEITHER WIDTH NOR STOP. The header's tours

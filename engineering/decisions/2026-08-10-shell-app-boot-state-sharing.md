@@ -53,7 +53,7 @@ down as one:
   graph — see the header note in `split-storage.ts` (#1495).
 
 What the shell already resolves pre-paint: palette, color mode, `color-scheme`, the
-boot posture (Read/Write/Build), the deck title, the deck's authored aspect ratio,
+boot posture (Read/Write/Craft), the deck title, the deck's authored aspect ratio,
 the tours preference, the breakpoint-derived chrome bands, **the split fraction**,
 the collapsed side, and a replay of the app's own last measured preview rect.
 
