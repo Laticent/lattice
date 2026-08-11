@@ -139,7 +139,7 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #546878;  /* slate mist — muted cool gray               */
+  --hljs-comment:    #708596;  /* slate mist — muted cool gray               */
   --hljs-keyword:    #7EA8C8;  /* steel blue — control flow, italic          */
   --hljs-built_in:   #6ABCB0;  /* sage teal — functions, italic              */
   --hljs-number:     #C4A882;  /* warm sand — numeric literals               */

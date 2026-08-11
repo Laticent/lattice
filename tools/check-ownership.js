@@ -5321,11 +5321,17 @@ function catContrast(a, b) {
 // --cat-N-ink tier is declared in base.tokens.css, not in any theme; and the
 // a11y-* palettes reach the cycle through `@import 'onyx'`, so read alone they
 // look like a theme with no categorical tokens at all.
-function catPaletteSource(name, seen = new Set()) {
+// `themesDir` is threaded through the recursion so a caller can point the whole
+// flatten at a fixture tree. It defaults to the real one, so every existing caller
+// is unchanged — but without it a `themesDir` argument on a GATE is a lie: the gate
+// would list fixture filenames and then read the real files' contents, and a
+// mutation test against the fixture would pass because nothing it wrote was ever
+// read. That is how this was found.
+function catPaletteSource(name, seen = new Set(), themesDir = THEMES_DIR) {
   if (seen.has(name)) return '';
   seen.add(name);
   if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
-  const file = path.join(THEMES_DIR, `${name}.css`);
+  const file = path.join(themesDir, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -5333,7 +5339,7 @@ function catPaletteSource(name, seen = new Set()) {
   // raw scan treats that sentence as a real import. Harmless where the named
   // theme is imported anyway, silently wrong the moment a comment names one that
   // is not — it would flatten a foreign palette's tokens into the gate's map.
-  for (const m of catStripComments(css).matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen)}\n`;
+  for (const m of catStripComments(css).matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen, themesDir)}\n`;
   return `${out}${css}`;
 }
 
@@ -5510,25 +5516,30 @@ const HLJS_TOKENS = Object.freeze([
 ].map((t) => `--hljs-${t}`));
 
 /**
- * The two that are DELIBERATELY quiet, and are therefore not held to the text floor.
+ * NO EXEMPTIONS. All twelve tokens are held to the floor, including the two that
+ * are deliberately quiet.
  *
- * This exemption is a real WCAG tension, not an oversight, so it is written down
- * rather than left as a gap. A code comment and a semicolon are de-emphasized on
- * purpose by every syntax theme that exists — that de-emphasis IS the design, and
- * it is how a reader's eye finds the code. Holding them to 4.5:1 would make a
- * comment as prominent as the statement it annotates.
+ * The first cut of this gate exempted `--hljs-comment` and `--hljs-punctuation`,
+ * on the argument that de-emphasis IS the design and that holding them to 4.5:1
+ * would make a comment as loud as the statement it annotates. The measurement
+ * behind it was real — 64 comment and 46 punctuation values under the floor,
+ * against 4 for every other token combined — but the conclusion did not follow.
+ * The exemption was reasoning about the WRONG END of the scale: de-emphasis is a
+ * question of where a token sits RELATIVE to the code around it, and the floor is
+ * a question of whether a human can read it at all. Both can be satisfied, because
+ * the floor is 4.5:1 and the content tokens sit far above it.
  *
- * Measured before choosing: across the shipped palettes, 64 `--hljs-comment` and
- * 46 `--hljs-punctuation` values sit under 4.5:1, against **4** for every other
- * token combined. A gate demanding 110 palette edits to enforce a reading no
- * syntax theme follows would be damage done to make a number zero. The other ten
- * tokens are the actual code, and they are gated at budget 0.
+ * So the 110 values were repaired instead of excused, each lifted through
+ * `ensureContrast` (OKLCH, hue and chroma held, first step that clears) — the
+ * MINIMUM movement that reaches the floor, which lands them at 4.5–4.7:1. The
+ * hierarchy was verified afterwards rather than assumed: across all 64
+ * theme-modes, no content token sits below the repaired comment, so a comment is
+ * still the quietest thing in the panel — it is now quiet AND legible instead of
+ * quiet and, for 110 shipped values, unreadable.
  *
- * WCAG's own position is that this text needs 4.5:1 and these values do not meet
- * it. That is a product decision about a real accessibility trade-off, and it
- * belongs to the owner — it is flagged here, not settled here.
+ * The lesson is worth keeping: an exemption that comes with a big number attached
+ * is the shape of a defect being counted rather than fixed.
  */
-const HLJS_QUIET_TOKENS = Object.freeze(['--hljs-comment', '--hljs-punctuation']);
 
 function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   const failures = [];
@@ -5537,7 +5548,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   for (const file of fs.readdirSync(themesDir).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    const map = catParseTokens(catPaletteSource(name));
+    const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
     // A palette that declares no syntax colors of its own inherits the base's,
     // which the base is responsible for — nothing here to check.
     if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
@@ -5546,7 +5557,6 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       const bg = catResolve(map, '--code-bg', mode);
       if (!bg) continue;   // unresolvable surface — the token-parity gate owns that
       for (const token of HLJS_TOKENS) {
-        if (HLJS_QUIET_TOKENS.includes(token)) continue;   // see the note above
         if (!map.has(token)) continue;
         const fg = catResolve(map, token, mode);
         if (!fg) continue;
@@ -7247,7 +7257,6 @@ module.exports = {
   checkCatInkFallback,
   checkHljsContrast,
   HLJS_TOKENS,
-  HLJS_QUIET_TOKENS,
   checkNoSafeDefaultTokens,
   noSafeDefaultTokens,
   fallbackOnlyTokens,

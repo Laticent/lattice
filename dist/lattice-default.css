@@ -26007,7 +26007,7 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
  * the dark brown without importing the cool Night Owl palette used by
  * the indaco theme. */
 :root {
-  --hljs-comment:    #7A6A58;  /* muted warm brown, italic               */
+  --hljs-comment:    #92816f;  /* muted warm brown, italic               */
   --hljs-keyword:    #D4A04A;  /* warm amber-gold, italic                */
   --hljs-built_in:   #8EBA6A;  /* warm lime-green — built-ins            */
   --hljs-number:     #D48A6A;  /* warm orange-rust                       */

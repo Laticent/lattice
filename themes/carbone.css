@@ -238,7 +238,7 @@
  * kept to a single accent so the terminal register never feels warm.
  * All values clear ≥4.5:1 on the code block background (#0E0E10). */
 :root {
-  --hljs-comment:    #5F7A5F;  /* muted forest green, italic             */
+  --hljs-comment:    #688368;  /* muted forest green, italic             */
   --hljs-keyword:    #7DE38A;  /* electric accent green — control flow   */
   --hljs-built_in:   #4FC6C6;  /* bright cyan — built-in functions       */
   --hljs-number:     #F2C05A;  /* warm amber — numeric literals          */

@@ -9,22 +9,26 @@
  * #1527's before/after sweep could never have found it, because a value under the
  * floor in *both* orders never registers as a crossing.
  *
- * The exemption is the part to guard hardest. `--hljs-comment` and
- * `--hljs-punctuation` are deliberately quiet, and a test that let the exemption
- * silently widen would give back the whole gate.
+ * ALL TWELVE TOKENS ARE GATED. The first cut exempted `--hljs-comment` and
+ * `--hljs-punctuation` as deliberately quiet; the 110 sub-floor values behind that
+ * exemption were repaired instead. The tests below pin BOTH halves of what makes
+ * that repair correct: every token is really gated (no exemption crept back), and
+ * a comment is still the quietest thing in the panel (legible did not become loud).
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const {
-  checkHljsContrast, HLJS_TOKENS, HLJS_QUIET_TOKENS, catResolve, catContrast,
+  checkHljsContrast, HLJS_TOKENS, catResolve, catContrast,
 } = require('../../../tools/check-ownership.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(ROOT, 'themes');
+const FLOOR = 4.5;
 
 /** A theme's tokens with its `@import` chain flattened — base first, then the theme. */
 function flatten(name, seen = new Set()) {
@@ -46,6 +50,34 @@ function tokens(css) {
   return map;
 }
 
+/**
+ * A full copy of `themes/` with ONE declaration rewritten to its own theme's
+ * `--code-bg` — contrast 1.00:1, invisible, and guaranteed to fail whatever the
+ * panel's lightness is. A fixed hex cannot do that job: near-white fails on a light
+ * panel and sails through on a dark one, so half the tokens would be "tested"
+ * against a value that was never a violation.
+ *
+ * The copy is the WHOLE corpus on purpose. A one-file temp dir trips the gate's
+ * empty-scan guard before the token loop runs, which would let this pass for the
+ * wrong reason — the guard firing rather than the token being caught.
+ */
+function themesWithMutation(token) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'latt-hljs-'));
+  let patched = null;
+  for (const f of fs.readdirSync(THEMES)) {
+    const src = fs.readFileSync(path.join(THEMES, f), 'utf8');
+    let out = src;
+    const re = new RegExp(`(${token}\\s*:\\s*)#[0-9a-fA-F]{3,8}(\\s*;)`);
+    if (!patched && f.endsWith('.css') && re.test(src)) {
+      const bg = catResolve(tokens(flatten(f.replace(/\.css$/, ''))), '--code-bg', 'light');
+      if (bg) { out = src.replace(re, `$1${bg}$2`); patched = { theme: f, bg }; }
+    }
+    fs.writeFileSync(path.join(dir, f), out);
+  }
+  assert.ok(patched, `no theme declares ${token} on a resolvable panel — the mutation is inert`);
+  return dir;
+}
+
 describe('--hljs-* contrast against --code-bg', () => {
   test('the live tree is clean', () => {
     const errors = [];
@@ -53,28 +85,22 @@ describe('--hljs-* contrast against --code-bg', () => {
     assert.deepEqual(errors, []);
   });
 
-  test('CANARY — a gated token below the floor is named', () => {
-    const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'latt-hljs-'));
-    fs.writeFileSync(path.join(dir, 'probe.css'),
-      "@import 'lattice';\n:root{--surface-inverse:#ffffff;--hljs-keyword:#f7f7f7;}\n");
-    const errors = [];
-    checkHljsContrast(errors, dir);
-    // The empty-scan guard fires first on a one-theme dir; either way it must not pass silently.
-    assert.notDeepEqual(errors, [], 'a near-invisible keyword must not pass');
-    fs.rmSync(dir, { recursive: true, force: true });
+  test('MUTATION — every one of the twelve tokens is really gated', () => {
+    // The exemption this replaced meant two tokens could be driven to near-zero
+    // contrast and the gate stayed green. If one ever comes back, exactly this
+    // fails, and it fails per-token rather than in aggregate.
+    for (const token of HLJS_TOKENS) {
+      const dir = themesWithMutation(token);
+      const errors = [];
+      checkHljsContrast(errors, dir);
+      fs.rmSync(dir, { recursive: true, force: true });
+      assert.notDeepEqual(errors, [], `${token} driven to near-invisible must fail the gate`);
+      assert.ok(errors.join(' ').includes(token), `the failure must NAME ${token}, not just count it`);
+    }
   });
 
-  test('the exemption covers exactly two tokens, and they are the quiet ones', () => {
-    // If this list ever grows, the gate has been widened rather than the palettes
-    // fixed — which is the failure mode that would give the whole thing back.
-    assert.deepEqual([...HLJS_QUIET_TOKENS].sort(), ['--hljs-comment', '--hljs-punctuation']);
-    for (const t of HLJS_QUIET_TOKENS) assert.ok(HLJS_TOKENS.includes(t), `${t} is a real hljs token`);
-  });
-
-  test('the exempt population is genuinely large and the gated one genuinely small', () => {
-    // The exemption's justification IS this ratio. If it inverts, the reasoning in
-    // the note stops holding and the exemption should be revisited.
-    const under = {};
+  test('no shipped value sits under the floor — comments and punctuation included', () => {
+    const under = [];
     for (const f of fs.readdirSync(THEMES).sort()) {
       if (!f.endsWith('.css')) continue;
       const map = tokens(flatten(f.replace(/\.css$/, '')));
@@ -84,17 +110,42 @@ describe('--hljs-* contrast against --code-bg', () => {
         for (const t of HLJS_TOKENS) {
           if (!map.has(t)) continue;
           const fg = catResolve(map, t, mode);
-          if (fg && catContrast(fg, bg) < 4.5) under[t] = (under[t] || 0) + 1;
+          if (fg && catContrast(fg, bg) < FLOOR) {
+            under.push(`${f}/${mode} ${t} ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}`);
+          }
         }
       }
     }
-    const quiet = HLJS_QUIET_TOKENS.reduce((s, t) => s + (under[t] || 0), 0);
-    const gated = Object.entries(under).filter(([t]) => !HLJS_QUIET_TOKENS.includes(t))
-      .reduce((s, [, n]) => s + n, 0);
-    assert.equal(gated, 0, `gated tokens must all clear AA; under the floor: ${JSON.stringify(under)}`);
-    assert.ok(quiet > 20,
-      `the exemption is justified by the quiet population being large (found ${quiet}); if it has `
-      + 'shrunk, the palettes were fixed and the exemption can go');
+    assert.deepEqual(under, [], `sub-AA syntax colors: ${under.join('; ')}`);
+  });
+
+  test('DESIGN — a comment is still the quietest thing in the panel', () => {
+    // The repair had to satisfy two things at once: clear the floor, and stay
+    // de-emphasized. Lifting a comment ABOVE the code it annotates would be a
+    // different defect from the one that was fixed, and a contrast gate cannot
+    // see it — this is the assertion that keeps the fix honest.
+    const louder = [];
+    for (const f of fs.readdirSync(THEMES).sort()) {
+      if (!f.endsWith('.css')) continue;
+      const map = tokens(flatten(f.replace(/\.css$/, '')));
+      for (const mode of ['light', 'dark']) {
+        const bg = catResolve(map, '--code-bg', mode);
+        const cfg = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
+        if (!bg || !cfg) continue;
+        const comment = catContrast(cfg, bg);
+        for (const t of HLJS_TOKENS) {
+          // `--hljs-punctuation` is quiet by the same design and lands at the same
+          // floor, so the two sit within a few hundredths of each other; the
+          // meaningful comparison is against the tokens that carry the CODE.
+          if (t === '--hljs-comment' || t === '--hljs-punctuation' || !map.has(t)) continue;
+          const fg = catResolve(map, t, mode);
+          if (fg && catContrast(fg, bg) < comment) {
+            louder.push(`${f}/${mode} ${t} ${catContrast(fg, bg).toFixed(2)} < comment ${comment.toFixed(2)}`);
+          }
+        }
+      }
+    }
+    assert.deepEqual(louder, [], `comment is no longer the quietest: ${louder.join('; ')}`);
   });
 
   test('indaco specifically — the live defect this gate was written by', () => {
@@ -102,7 +153,7 @@ describe('--hljs-* contrast against --code-bg', () => {
     const bg = catResolve(map, '--code-bg', 'light');
     const fg = catResolve(map, '--hljs-literal', 'light');
     assert.equal(bg, '#003d66');
-    assert.ok(catContrast(fg, bg) >= 4.5,
+    assert.ok(catContrast(fg, bg) >= FLOOR,
       `indaco --hljs-literal ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
   });
 });

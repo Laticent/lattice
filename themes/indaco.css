@@ -191,7 +191,7 @@
  * Background is kept as our brand dark (#001D33 + spectrum) rather than
  * Night Owl's #011627. All token colors are verbatim Night Owl values. */
 :root {
-  --hljs-comment:    #637777;  /* Night Owl: muted teal-grey, italic     */
+  --hljs-comment:    #95aaaa;  /* Night Owl: muted teal-grey, italic     */
   --hljs-keyword:    #c792ea;  /* Night Owl: soft purple, italic         */
   --hljs-built_in:   #addb67;  /* Night Owl: yellow-green — functions    */
   --hljs-number:     #F78C6C;  /* Night Owl: warm orange                 */

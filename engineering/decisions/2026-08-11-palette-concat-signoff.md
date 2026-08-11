@@ -248,16 +248,50 @@ in Chromium on a real `section.code pre`, not just in the token map. That is a
 borrowed palette meeting a panel it was not chosen for, and no sweep comparing
 *orders* could ever have found it.
 
-**`--hljs-comment` and `--hljs-punctuation` are exempt, and the reason is a real
-trade-off rather than an oversight.** Measured before deciding: 64 comment values
-and 46 punctuation values sit under 4.5:1 across the shipped palettes, against
-**4** for every other token combined. De-emphasizing a comment is what makes code
-findable — it is the design, and every syntax theme in existence does it. A gate
-demanding 110 palette edits to enforce a reading nobody follows would be damage
-done to make a number zero. WCAG's own position is that this text needs 4.5:1 and
-these values do not meet it; that is the owner's call, flagged here rather than
-settled by a gate. The other ten tokens are the actual code and are at budget 0.
+### 7a. The exemption, and why it was wrong — corrected same day
 
-Mutation-tested three ways: reverting indaco's literal fails and names it,
-a quiet token driven to 1.4:1 does **not** fail (the exemption is real, not
-accidental), and a non-quiet token driven to 1.4:1 does.
+The gate shipped its first cut with `--hljs-comment` and `--hljs-punctuation`
+**exempt**, and the argument was written down at length: 64 comment values and 46
+punctuation values sit under 4.5:1 across the shipped palettes, against **4** for
+every other token combined; de-emphasis is what makes code findable; a gate
+demanding 110 palette edits to enforce a reading no syntax theme follows would be
+damage done to make a number zero. WCAG says otherwise, so it was flagged to the
+owner rather than settled.
+
+**The owner's answer was to fix it, and on inspection the argument was reasoning
+about the wrong end of the scale.** De-emphasis is a question of where a token
+sits *relative to the code around it*. The floor is a question of whether a human
+can read it *at all*. The floor is 4.5:1 and the content tokens sit well above it,
+so both are satisfiable at once — the exemption traded away legibility to buy a
+hierarchy it never had to spend anything on.
+
+So all 110 were repaired. Each was lifted through `ensureContrast`
+(`lib/theme/color.js` — OKLCH, hue and chroma held, first step that clears), which
+is the *minimum* movement that reaches the floor: they land at 4.5–4.7:1, not at
+body-text contrast. That collapsed to **23 declaration sites across 14 files**,
+because `onyx.css` alone supplies the values 28 theme-modes inherit.
+
+**The hierarchy was verified afterwards, not assumed.** Across all 64 theme-modes,
+no content token sits below a repaired comment — a comment is still the quietest
+thing in the panel. Rendered `indaco` and `crepuscolo` (the largest lift, 1.96 →
+4.57:1) and looked at them: the comments read comfortably and still visibly
+recede behind the keywords and strings.
+
+The lesson is the transferable part: **an exemption that arrives with a big number
+attached is usually a defect being counted rather than fixed.** 110 was presented
+as the reason not to act; it was the size of the problem.
+
+### 7b. A defect in the gate, found by the test that replaced the exemption
+
+Writing the per-token mutation test exposed a second bug — in the gate's own
+signature. `checkHljsContrast(errors, themesDir)` listed *filenames* from
+`themesDir` but read their *contents* through `catPaletteSource`, which hardcoded
+the real `THEMES_DIR`. So a fixture tree could be scanned by name while the real
+palettes were measured, and a mutation test against the fixture would pass because
+nothing it wrote was ever read — the canary in the exemption-era test was green for
+exactly that wrong reason. `catPaletteSource` now threads `themesDir` through its
+recursion, defaulted so every other caller is unchanged.
+
+Mutation-tested per token, all twelve: each driven to its own theme's `--code-bg`
+(1.00:1 — guaranteed to fail whatever the panel's lightness, which a fixed hex
+cannot be) must fail the gate *and name the token*.

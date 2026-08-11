@@ -138,7 +138,7 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #3A5468;  /* dark steel — muted cool                    */
+  --hljs-comment:    #678298;  /* dark steel — muted cool                    */
   --hljs-keyword:    #7CB0D4;  /* bright steel — control flow, italic        */
   --hljs-built_in:   #70C8B8;  /* teal — functions, italic                   */
   --hljs-number:     #E8C06A;  /* warm gold — numeric literals               */
@@ -149,7 +149,7 @@
   --hljs-variable:   #78B8CC;  /* cool teal — variables                      */
   --hljs-params:     #A8C0D0;  /* pale steel blue — parameters               */
   --hljs-tag:        #D09088;  /* warm rose — HTML tags                      */
-  --hljs-punctuation:#507090;  /* steel blue — operators                     */
+  --hljs-punctuation:#6182a3;  /* steel blue — operators                     */
 }
 
 :root {

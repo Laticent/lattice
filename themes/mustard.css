@@ -143,7 +143,7 @@
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
-  --hljs-comment:    #584830;  /* dark amber — muted                         */
+  --hljs-comment:    #89785e;  /* dark amber — muted                         */
   --hljs-keyword:    #D4A840;  /* bright mustard — control flow, italic      */
   --hljs-built_in:   #78B8A8;  /* sage teal — functions, italic              */
   --hljs-number:     #E8C870;  /* bright gold — numeric literals             */
@@ -154,7 +154,7 @@
   --hljs-variable:   #C8A850;  /* warm gold — variables                      */
   --hljs-params:     #B8A070;  /* warm buff — parameters                     */
   --hljs-tag:        #C87868;  /* oxblood rose — HTML tags                   */
-  --hljs-punctuation:#786040;  /* dark amber — operators                     */
+  --hljs-punctuation:#907756;  /* dark amber — operators                     */
 }
 
 :root {

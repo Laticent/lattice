@@ -7,8 +7,12 @@
   today, in both concat orders. Lifted in OKLCH holding hue (14.4° → 14.3°) to `#ff7f8e`, 4.67:1.
   A second miss, `cuoio`'s `--hljs-literal` at 4.05:1, is repaired the same way; that one has never
   rendered, because the export loads the base after the theme, so it is a prerequisite for #1527's
-  concat flip rather than a live defect. **`--hljs-comment` and `--hljs-punctuation` are exempt,
-  with the reason recorded**: 64 and 46 shipped values sit under 4.5:1 against 4 for every other
-  token combined, and de-emphasizing a comment is the design rather than a defect — WCAG disagrees,
-  and that trade-off is flagged for a decision rather than settled by a gate.
+  concat flip rather than a live defect.
+- **Fixed: 110 comment and punctuation colors that were too faint to read comfortably.** Across the
+  shipped palettes, 64 `--hljs-comment` and 46 `--hljs-punctuation` values sat under 4.5:1 on their
+  own code panel — `crepuscolo`'s comments at 1.96:1, `magnolia`'s at 2.03:1. Every one is repaired,
+  lifted in OKLCH with hue and chroma held by the smallest step that clears the floor, so they land
+  at 4.5–4.7:1 rather than at body-text contrast. **Comments still recede** — verified across all 64
+  theme-modes that no content token sits below a repaired comment, and confirmed by looking at real
+  renders. `--hljs-*` is now gated at budget 0 with **no exemptions**, mutation-tested per token.
   (`engineering/decisions/2026-08-11-palette-concat-signoff.md` §7)
