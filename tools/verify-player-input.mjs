@@ -31,13 +31,11 @@ import { chromium } from '../docs/node_modules/@playwright/test/index.mjs'; // t
 // carries no theme, so its "dark" evidence was byte-for-byte its light evidence while the run
 // printed ALL CHECKS PASSED.
 //
-// A DEFAULT-SIZE (16:9, 1280×720) deck, deliberately. The first deck tried here was
-// `gallery-jargon.md`, which declares `size: 4K` — and the player's fit() hardcodes
-// 1280×720, so every slide rendered at 3× and spilled out of its frame. That is a real,
-// PRE-EXISTING export defect and it is not this change's to fix (the artifact is
-// byte-identical to `main` outside the pointer block), but it made the sign-off images
-// useless. The overflow check below is what turns that from something a human has to notice
-// into something the run refuses to hand over.
+// The overflow check below started as a guard against a defect this file used to describe as
+// out of scope: the player hardcoded 1280×720, so `gallery-jargon.md` (`size: 4K`) rendered
+// every slide at 3× and spilled its frame, which made the sign-off images useless. That is
+// fixed (#1577) — the canvas is threaded from the host now — and the check stays, because it
+// is the thing that would notice a regression without anyone having to look.
 const DECK = process.env.DECK || 'examples/finish-backdrops.md';
 const out = path.resolve('.scratch/out/player-input');
 mkdirSync('.scratch/out', { recursive: true });
@@ -287,7 +285,7 @@ const overflow = await shot.evaluate(() => {
 check(
 	'the sign-off slide actually fits its frame (a spilled slide is not evidence)',
 	overflow.scroll <= overflow.box + 2,
-	`content ${overflow.scroll}px in a ${overflow.box}px slide — a deck declaring a non-default \`size:\` will fail here, because the player's fit() hardcodes 1280×720`,
+	`content ${overflow.scroll}px in a ${overflow.box}px slide`,
 );
 
 const ground = {};
@@ -302,6 +300,92 @@ for (const mode of ['light', 'dark']) {
 }
 check('the sign-off artifacts are genuinely two different modes', ground.light !== ground.dark, `light ${ground.light} vs dark ${ground.dark}`);
 console.log(`wrote ${file} and .scratch/out/player-input-{light,dark}.png`);
+
+// ── NON-DEFAULT canvases, on real artifacts (#1577) ─────────────────────────
+//
+// The class of deck that used to export unreadable: laid out by the engine for its declared
+// canvas, then crushed into the player's hardcoded HD box. Asserting the geometry is not
+// enough — the failure was visible as content spilling its own frame — so that is what is
+// measured, plus the scaled frame landing inside the stage.
+//
+// FOUR ASPECT CLASSES, not one. The first cut of this checked only the 4K deck, which is
+// landscape and merely larger; every genuinely different shape (tall, portrait, extra-tall)
+// went unexercised, and those are the ones the no-JS ladder change actually bites. The
+// no-JS floor is checked with JAVASCRIPT DISABLED, because that ladder is the only part of
+// this fix the scripted path never touches — it had no real-surface coverage of any kind.
+const CANVASES = [
+	['4K', 'examples/gallery-jargon.md', '3840px x 2160px'],
+	['story', 'examples/adaptive-sizing.md', '1080px x 1920px'],
+	['portrait', 'examples/social-portrait.md', '1080px x 1350px'],
+	['mobile', 'examples/social-mobile.md', '1080px x 2340px'],
+];
+for (const [label, deck, expected] of CANVASES) {
+	const szOut = path.resolve(`.scratch/out/player-size-${label}`);
+	execFileSync(process.execPath, ['lattice-emulator.js', deck, szOut, '--player'], { stdio: 'pipe' });
+
+	const szCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+	const sz = await szCtx.newPage();
+	await sz.goto(`file://${szOut}.html`);
+	await sz.waitForSelector('#lp-stage');
+	await sz.evaluate(() => document.fonts.ready);
+	await sz.keyboard.press('ArrowRight');
+	await sz.waitForTimeout(500);
+	const m = await sz.evaluate(() => {
+		const s = document.querySelector('.lp-frame.lp-active section[data-lattice-slide]');
+		const frameEl = s.closest('.lp-frame');
+		const frame = frameEl.getBoundingClientRect();
+		const sec = s.getBoundingClientRect();
+		const stage = document.querySelector('body > #lp-app > #lp-stage').getBoundingClientRect();
+		return {
+			box: `${getComputedStyle(s).width} x ${getComputedStyle(s).height}`,
+			// The SCALED section against its frame. `scrollHeight` was the first oracle here and
+			// it was vacuous for three of the four canvases: the section is a flex column with
+			// overflow:hidden, so squeezing its box re-lays-out the content instead of producing
+			// scrollable overflow — story/portrait/mobile reported scroll == client on the BROKEN
+			// build and the check passed. The rendered geometry cannot lie the same way.
+			secVsFrame: `${Math.round(sec.width)}x${Math.round(sec.height)} in ${Math.round(frame.width)}x${Math.round(frame.height)}`,
+			sized: Math.abs(sec.width - frame.width) <= 2 && Math.abs(sec.height - frame.height) <= 2,
+			fits: frame.width <= stage.width + 1 && frame.height <= stage.height + 1,
+			frame: `${Math.round(frame.width)}x${Math.round(frame.height)}`,
+		};
+	});
+	check(`${label}: the deck keeps its OWN canvas in the player`, m.box === expected, m.box);
+	check(`${label}: the scaled slide fills its frame exactly`, m.sized, m.secVsFrame);
+	check(`${label}: and the scaled frame fits the stage`, m.fits, m.frame);
+	await szCtx.close();
+
+	// The no-JS floor, at TWO widths, measuring the SECTION and not just the frame.
+	//
+	// The first version checked only `frame <= viewport` at 390. That could not fail for a canvas
+	// narrower than 1280 — a mis-tuned ladder makes those frames too SMALL, never oversized — and
+	// it never looked at the section, so restoring the pre-fix 1280x720 no-JS rule passed while
+	// the rendered floor was visibly sliced. Two widths because the upper ladder rungs are only
+	// reachable above 1000px, and corrupting them was invisible to everything.
+	for (const [w, h] of [
+		[390, 844],
+		[1440, 900],
+	]) {
+		const noJs = await browser.newContext({ viewport: { width: w, height: h }, javaScriptEnabled: false });
+		const nj = await noJs.newPage();
+		await nj.goto(`file://${szOut}.html`);
+		await nj.waitForTimeout(300);
+		const n = await nj.evaluate(() => {
+			const frEl = document.querySelector('.lp-frame');
+			const fr = frEl.getBoundingClientRect();
+			const s = frEl.querySelector('section[data-lattice-slide]');
+			const sec = s.getBoundingClientRect();
+			return {
+				w: Math.round(fr.width),
+				doc: document.documentElement.clientWidth,
+				sized: Math.abs(sec.width - fr.width) <= 2 && Math.abs(sec.height - fr.height) <= 2,
+				secVsFrame: `${Math.round(sec.width)}x${Math.round(sec.height)} in ${Math.round(fr.width)}x${Math.round(fr.height)}`,
+			};
+		});
+		check(`${label} @${w}: the no-JS floor stays inside the viewport`, n.w <= n.doc + 1, `frame ${n.w}px vs viewport ${n.doc}px`);
+		check(`${label} @${w}: and its slide fills the frame it was given`, n.sized, n.secVsFrame);
+		await noJs.close();
+	}
+}
 
 await browser.close();
 console.log(process.exitCode ? '\nFAILED' : '\nALL CHECKS PASSED');

@@ -23,8 +23,11 @@ const { READ_ALONG_VERSION, parseEnvelope } = require('../../../lib/core/lattice
 let minifyCss;
 let resolveLightDark;
 let themeDualMode;
+let playerCss;
+let playerJs;
+let resolveCanvas;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode } = await import('../../../lib/export/player-core.mjs'));
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas } = await import('../../../lib/export/player-core.mjs'));
 });
 
 // ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
@@ -531,6 +534,102 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
 	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
 	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
+});
+
+// ── the deck's own canvas reaches the player (#1577) ─────────────────────────
+//
+// The player hardcoded 1280x720 in nine places, so a deck declaring any other `size:` was laid
+// out by the engine for its real canvas — the type scale rides `--_sec-1cqi`, derived from that
+// canvas — and then forced into an HD box. A 4K deck rendered every token at 3x: headings over
+// body copy, slides cut off mid-word. Silently, because the same run's PDF was correct. 35 of
+// the committed decks that declare a `size:` reproduce it.
+//
+// The geometry is THREADED from the host rather than derived from the document: both hosts
+// already resolve it, and parsing it back out of our own emitted CSS would mean reading two
+// different shapes with no rule at all in some fixtures.
+
+test('a non-default canvas reaches every sizing site in the player CSS (#1577)', async () => {
+	const css = playerCss(false, false, { w: 3840, h: 2160 });
+	// Present frame + slide, read-slides frame + slide, and the no-JS floor: five sites, and a
+	// miss in any one of them is a differently-broken deck rather than a smaller bug.
+	assert.match(css, /\.lp-frame\.lp-active\{[^}]*width:calc\(3840px \* var\(--lp-fit-present/, 'present frame');
+	assert.match(css, /\.lp-frame\.lp-active section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'present slide');
+	assert.match(css, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(3840px \*/, 'read-slides frame');
+	assert.match(css, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'read-slides slide');
+	assert.match(css, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'no-JS floor slide');
+	assert.doesNotMatch(css, /1280px!important/, 'no HD literal survives for a 4K deck');
+});
+
+test('the fit math divides by the deck canvas, not by 1280x720 (#1577)', async () => {
+	const js = await playerJs('', null, false, { w: 1080, h: 1920 });
+	assert.match(js, /slideW:1080,slideH:1920,insetX:40,insetY:40/, 'present fit');
+	assert.match(js, /slideW:1080,slideH:1920,insetX:40,insetY:0/, 'read-slides fit');
+	assert.doesNotMatch(js, /slideW:1280/, 'no HD divisor survives');
+});
+
+test("the no-JS floor's scale ladder follows the canvas, keeping the frame the same width", async () => {
+	// The ladder shipped as fixed fractions of 1280 — a literal no find-and-replace over "1280"
+	// would catch, because the number is not there. Unscaled, a 1080-wide story deck sits 778px
+	// wide at the top rung instead of 922. The floor is a scrolling column, so the width is what
+	// matters and the fraction is derived from it.
+	const hd = playerCss(false, false);
+	const story = playerCss(false, false, { w: 1080, h: 1920 });
+	// ALL FOUR RUNGS, from the module — not just rung 0, and not literal arithmetic. An earlier
+	// version of this cell asserted `Math.abs(1080*0.3319 - 1280*0.28) < 1`, which references
+	// nothing under test and cannot fail for any edit: it documented the reasoning instead of
+	// gating it. Corrupting any of the upper three rungs was invisible to the whole suite.
+	const rungs = (css) => [...css.matchAll(/--lp-fit:(\.\d+)\}/g)].map((m) => Number.parseFloat(m[1]));
+	const hdRungs = rungs(hd);
+	const storyRungs = rungs(story);
+	assert.deepEqual(hdRungs, [0.28, 0.4, 0.56, 0.72], 'an HD deck keeps the historical literals');
+	assert.equal(storyRungs.length, 4, 'a non-default canvas still emits four rungs');
+	// Each rung must put the frame at the SAME physical width as the HD deck's — that is what
+	// the ladder means, and it is the property the derivation exists to preserve.
+	storyRungs.forEach((r, i) => {
+		assert.ok(Math.abs(1080 * r - 1280 * hdRungs[i]) < 1, `rung ${i}: 1080×${r} should match HD's 1280×${hdRungs[i]}`);
+	});
+});
+
+test('the HD literals and the derived ladder cannot drift apart', () => {
+	// Two arrays state the same ladder — the target widths and the byte-frozen HD literals — and
+	// nothing made them agree. Re-tune one and the other silently disagrees, and because the
+	// HD path takes the literal branch, no default export ever exercises the derived code.
+	const derivedAtHd = playerCss(false, false, { w: 1280, h: 720 });
+	const asIfNotHd = playerCss(false, false, { w: 1280.0001, h: 720 });
+	const rungs = (css) => [...css.matchAll(/--lp-fit:(\.?\d*\.?\d+)\}/g)].map((m) => Number.parseFloat(m[1]));
+	rungs(derivedAtHd).forEach((r, i) => {
+		assert.ok(Math.abs(r - rungs(asIfNotHd)[i]) < 0.0002, `rung ${i}: the literal and the derivation disagree`);
+	});
+});
+
+test('the canvas is taken from the host, DERIVED from the document, then defaulted (#1577)', () => {
+	// Threading alone left the defect armed for any caller outside this repo — `lib/*` is a
+	// published export, and the Tauri wrapper calls this from another tree. Each route is pinned
+	// because each one silently produced a wrong-but-plausible player before.
+	const doc = '<style>section{--_sec-1cqi:10.800px;--_sec-1cqh:19.200px}</style>';
+	assert.deepEqual(resolveCanvas({ width: 3840, height: 2160, docHtml: doc }), { w: 3840, h: 2160 }, 'the host wins when it speaks');
+	assert.deepEqual(resolveCanvas({ docHtml: doc }), { w: 1080, h: 1920 }, 'the document is read when it does not');
+	// The CSS-string shape is what the engine's own resolveSize returns; a host wiring the
+	// obvious object used to get a silent 1280x720.
+	assert.deepEqual(resolveCanvas({ width: '1080px', height: '1920px', docHtml: doc }), { w: 1080, h: 1920 }, 'a CSS-string geometry falls through rather than defaulting');
+	// One axis is worse than none: it asserts an aspect nobody stated and clips every slide.
+	assert.deepEqual(resolveCanvas({ width: 1080, docHtml: doc }), { w: 1080, h: 1920 }, 'a half-stated geometry is not half-applied');
+	assert.deepEqual(resolveCanvas({}), { w: 1280, h: 720 }, 'and only then the historical default');
+});
+
+test('a deck with NO declared size is byte-identical — the fallback is the historical canvas', async () => {
+	// The whole class of decks that worked before this existed must not move a byte, which is
+	// what lets the frozen-artifact golden stay put. Omitting the geometry is a supported call:
+	// third-party callers and fixtures rely on it, so it defaults rather than throwing.
+	const withOut = await buildPlayerHtml({ docHtml, source, now: 0, build: 'X', playerVersion: 'X' });
+	const withHd = await buildPlayerHtml({ docHtml, source, now: 0, build: 'X', playerVersion: 'X', width: 1280, height: 720 });
+	assert.equal(withOut.html, withHd.html, 'omitting the canvas is the same as passing the default');
+});
+
+test('assemblePlayer threads a declared canvas end to end (#1577)', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0, width: 1080, height: 1350 });
+	assert.match(html, /width:1080px!important;height:1350px!important/, 'the CSS carries the portrait canvas');
+	assert.match(html, /slideW:1080,slideH:1350/, 'and so does the fit math');
 });
 
 test('Read·Slides is unified onto Present\'s frame, with a floating Home/End overlay + Present mouse wheel', async () => {

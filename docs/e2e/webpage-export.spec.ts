@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // The Studio "Webpage (.html)" export must produce a player that actually RUNS in a
 // real browser — not just assemble bytes. This drives the full Share → Webpage flow,
@@ -52,5 +52,45 @@ test('the Studio webpage export produces a player that boots (styled + script ru
 		return s ? getComputedStyle(s).backgroundColor : '';
 	});
 	expect(cover, 'the deck CSS applies (styled slide, not raw Markdown)').not.toBe('rgba(0, 0, 0, 0)');
+	await viewer.close();
+});
+
+// #1577 — the deck's declared canvas has to survive the STUDIO export, not just the CLI's.
+//
+// The player hardcoded 1280×720, so a deck declaring any other `size:` exported laid out for
+// its real canvas and then crushed into an HD box — unreadable, and invisible, because the PDF
+// beside it was correct. The fix threads the canvas from each host, and the Studio half is the
+// one with the wider blast radius: it is what a person clicking "Share" actually uses.
+//
+// This exists because that half was the fix's only ungated line. Deleting `width`/`height` from
+// share-export.ts regresses the defect in full while `docs npm test`, `typecheck`, and the cell
+// above all stay green — the cell above asserts the player BOOTS, never what size it thinks the
+// slides are.
+test('the Studio webpage export carries a deck declared canvas (#1577)', async ({ page, context }, testInfo) => {
+	test.setTimeout(120_000);
+	await gotoStudio(page);
+	// `size: story` is 1080×1920 — different from HD on both axes, so a fallback to 1280×720
+	// cannot coincidentally match either one.
+	await setEditorContent(
+		page,
+		['---', 'theme: indaco', 'size: story', '---', '', '# A nine by sixteen deck', '', '---', '', '## Second slide', '', 'Body copy.', ''].join('\n'),
+	);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('dialog').getByRole('button', { name: /^Webpage \(\.html\)/ }).click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 90_000 });
+	await page.getByRole('button', { name: /Download webpage|Exporting/ }).click();
+	const file = path.join(testInfo.outputDir, 'story-export.html');
+	await (await downloadPromise).saveAs(file);
+
+	const viewer = await context.newPage();
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	// Wait for the SIGNAL, not a guessed interval: the player marks exactly one frame active
+	// once its script has run, which is also the element this test measures.
+	await viewer.waitForSelector('.lp-frame.lp-active section[data-lattice-slide]', { state: 'attached' });
+	const box = await viewer.evaluate(() => {
+		const s = document.querySelector('.lp-frame.lp-active section[data-lattice-slide]');
+		return s ? `${getComputedStyle(s).width} x ${getComputedStyle(s).height}` : '';
+	});
+	expect(box, 'the exported slide keeps the deck canvas, not the player default').toBe('1080px x 1920px');
 	await viewer.close();
 });
