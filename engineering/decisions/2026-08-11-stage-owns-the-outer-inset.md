@@ -604,6 +604,38 @@ the manifest opt-out, which tells the author not to write this slide. **Alignmen
 loses to not-cropping-content; everywhere the two do not conflict, alignment
 wins.** No other arm misaligns anywhere.
 
+### 8.1.2 The browser surface, driven for real
+
+Everything above is the **PDF export** surface. HARD RULE #23 says a verification
+claim names its surface, and the second surface this change ships to — the
+docs-site Playground, where slide HTML renders into a live `srcdoc` iframe — had
+been driven by nobody: not by me, not by any of the three trio agents. Left as
+UNVERIFIED, that was a real hole, because the Playground loads the same engine
+bundle through an entirely different path (no print box, no page box, a scaled
+container).
+
+So it was driven. `cd docs && npm run dev`, then a real browser that **clicks the
+Playground's own component picker** and selects each chart in turn — not a
+synthetic harness, not a hand-built document. Measured inside the live preview
+iframe, normalizing out the preview's own scale (1.045):
+
+| | |
+|---|---|
+| components driven through the real picker | **14 / 14** |
+| chart slides measured in the live preview | **105** |
+| inset violations (body vs holder content box) | **0** |
+| chart body misaligned with its own masthead | **0** |
+
+Body and masthead both land at **64** — the alignment this whole change is about,
+now confirmed on the surface a human actually looks at rather than inferred from
+the export. Artifact: `/tmp/pg-kanban.png`, the Playground with the kanban gallery
+loaded, picker reading `kanban`, 10 slides rendered.
+
+**Still genuinely unverified, and named rather than glossed:** the marp-vscode
+webview. It cannot be driven from this sandbox — the retired width calc's comment
+claimed that surface as its reason, and that claim remains untested in either
+direction (see §6).
+
 Found by the trio's inversion pass. Nothing caught it mechanically: the
 `claim-bleed-unsafe` linter reads a manifest `excludes` list only matrix-grid
 declares, and no committed deck combines a chart with `claim-bleed`, so there was
