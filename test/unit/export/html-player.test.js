@@ -118,7 +118,11 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	const css = ':root{--bg:light-dark(#FFFFFF,#001D33)}';
 	const { darkBlock } = themeDualMode(css);
 	// A `.dark` section is dark unconditionally — outside the attribute rule AND the media query.
-	assert.match(darkBlock, /^section\[data-lattice-slide\]\.dark\{--bg:#001D33;\}/, 'a .dark slide carries the dark values in EVERY player scheme');
+	assert.match(darkBlock, /^section\[data-lattice-slide\]\.dark:not\(\.print\)\{--bg:#001D33;/, 'a .dark slide carries the dark values in EVERY player scheme');
+	// `:not(.print)` is not decoration. Without it this (0,2,1) rule outranks `section.print`
+	// (0,1,1), so a `_class: dark` slide in a `color-mode: print` deck took the dark canvas
+	// under the print band's near-black ink — 1.10:1, measured, where it had been 18.88:1.
+	assert.match(darkBlock, /\.dark:not\(\.print\)/, 'the .dark pin never outranks the print band');
 	// The blanket dark rule skips every pinned section, so a pin is never overridden…
 	assert.match(darkBlock, /section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.print\)/, 'the blanket dark rule applies only to UNPINNED sections');
 	// …and a light-pinned section is restored to the LIGHT literals when the player is dark.
@@ -133,6 +137,24 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// Written without `:is()` / `:not(a,b)` — those selector-list forms are Safari-14-era, and
 	// an engine that cannot parse one drops the WHOLE rule, which here would un-theme dark mode.
 	assert.doesNotMatch(darkBlock, /:is\(|:not\([^)]*,/, 'no selector-list :is()/:not() the target engines might not parse');
+});
+
+test('themeDualMode carries DERIVED tokens onto the pinned scope, transitively', () => {
+	// A theme defines tokens in terms of the dual-mode ones — `--cat-on-fill:
+	// var(--text-heading)`, `--status-*: var(--pass)`, the `--seq-*`/`--diagram-*` families.
+	// A custom property is substituted where it is DECLARED, so those resolve against the
+	// LIGHT value at `:root` and the section inherits an already-resolved light ink — pinning
+	// the surface dark while the ink on it stays light. Measured on a categorical `.dark`
+	// slide in light scheme: 11.97:1 before, 2.80:1 after.
+	//
+	// They are re-emitted VERBATIM, not resolved: re-declaring them on the pinned section
+	// moves the substitution there, so the var() lookup finds the pinned value and any depth
+	// of chain follows for free.
+	const css = ':root{--text-heading:light-dark(#0A1628,#FFFFFF);--cat-on-fill:var(--text-heading);--badge-ink:var(--cat-on-fill);--unrelated:#123456}';
+	const { darkBlock } = themeDualMode(css);
+	assert.match(darkBlock, /--cat-on-fill:var\(--text-heading\)/, 'a token derived from a dual-mode token is re-declared at the pinned scope');
+	assert.match(darkBlock, /--badge-ink:var\(--cat-on-fill\)/, 'and transitively — a token derived from a derived one');
+	assert.doesNotMatch(darkBlock, /--unrelated/, 'a token that depends on nothing dual-mode is left alone');
 });
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
@@ -819,7 +841,14 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// down and re-armed the very cross-contact measurement this change exists to kill; (3) the
 	// guard had three overlapping reads, none individually killable by a mutation, so it was
 	// reshaped to one. Script-only throughout: no markup, no CSS, no layout.
-	assert.equal(sha, 'c65687ef2d960de2ea2c90c99c1e4c9fb5fb48d345bd831d45259b29794bb2d1', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the DECK-MODE toggle. The player script gained `applyDeckMode`, which adds
+	// and removes the deck's own color-mode class on every section when the viewer flips the
+	// toggle — the fix for a `color-mode: dark` deck rendering as a dark slide marooned on a
+	// light page, because the old toggle re-themed the chrome and left the pinned slides. The
+	// only other movement is conditional and absent here: `data-lp-deck-mode` is stamped on
+	// <html> ONLY when the deck declares a pinning `color-mode:`, and this fixture's source
+	// declares none, so the golden's markup is unchanged and the delta is script bytes alone.
+	assert.equal(sha, '34d8b9bb0af07f38084de64508cc7965946a6870028bd0bf3c068bb112b61433', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

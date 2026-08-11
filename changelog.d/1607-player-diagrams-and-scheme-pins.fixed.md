@@ -13,13 +13,29 @@
   and a wall of it where Read·Article should have shown the diagram. The Studio now bakes the deck
   through the shared capture frame first, the browser-side twin of the CLI's own player capture.
   Runtime-inflated components (state-chart, function-plot) are baked by the same step.
-- **A dark-authored deck no longer goes blank when the player is toggled to light.** The player
-  replaces `light-dark()` with static CSS, which erased Lattice's per-slide scheme pins — so a
-  `color-mode: dark` deck viewed in light gave every slide light surfaces under `--text-display`,
-  a constant `#FFFFFF`: title, divider and closing rendered white on white. `section.dark` now
-  carries the dark values in both player schemes, `.light`/`.color-light` keep light values in
-  dark, and `.print` keeps its own band (previously overridden in dark mode, printing `#111111`
-  ink on a `#001D33` canvas).
+- **The player's light/dark toggle re-themes a pinned deck instead of half-theming it.** A
+  deck-wide `color-mode:` is a CLASS the engine stamps on every section, not a token swap — so
+  the toggle now adds and removes that class rather than trying to re-resolve tokens underneath
+  it. Before, a `color-mode: dark` deck tapped to light left the slide dark while the chrome,
+  stage and letterbox went white: a dark rectangle on a white page, reading as a broken
+  download, with Read·Article light at the same toggle position. Now the deck renders exactly as
+  if it had never been authored dark — bookends on the inverse panel at 11.29:1, content slides
+  white at 18.13:1. Only the two PINNING modes are managed; `system`/`inherited` already defer,
+  and `print` is a paper band, not a scheme. A one-off `_class: dark` accent slide keeps its
+  class in both schemes, as a design choice rather than a color mode.
+- **Derived tokens follow a pinned slide's scheme.** Only declarations literally containing
+  `light-dark()` were re-emitted, so tokens defined in terms of them — `--cat-on-fill`,
+  `--status-*`, the `--seq-*`/`--diagram-*` families — kept resolving at `:root` and inherited a
+  light ink onto a dark-pinned surface: 11.97:1 → 2.80:1 on a categorical `.dark` slide. They are
+  now re-declared at the pinned scope, verbatim and transitively, so the substitution happens
+  where the pin is.
+- **A `_class: dark` accent slide keeps its scheme in both player modes.** The player replaces
+  `light-dark()` with static CSS, which erased Lattice's per-slide scheme pins — so a dark-pinned
+  slide viewed in light got light surfaces under `--text-display`, a constant `#FFFFFF`: white ink
+  on a white canvas. The pin is re-emitted, `.light`/`.color-light` keep light values in dark, and
+  `.print` keeps its own band in both directions — including a `_class: dark` slide inside a
+  `color-mode: print` deck, at 18.88:1. (A deck-WIDE mode no longer relies on this at all; the
+  toggle moves its class instead.)
 - **`--strip-notes` strips notes again, and the Studio's webpage export keeps them.** Baking the
   deck through the capture frame put every slide through `sanitizeSlideHtml`, which deletes comment
   nodes — and the speaker-note, `describe:` and `caption:` channels ARE comments. So the export lost
