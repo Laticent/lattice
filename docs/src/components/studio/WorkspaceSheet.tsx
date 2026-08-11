@@ -780,22 +780,30 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							    A row rather than a switch: the sentinel records unconditionally (a
 							    crash you must opt into recording is a crash you never catch — see
 							    lib/crash-sentinel.ts), so what belongs here is the standing way back
-							    in after the boot toast has gone, plus the way to forget them. Absent
-							    entirely when there is nothing to report, rather than sitting here
-							    permanently at zero. */}
-							{crashCount > 0 && (
-								<div className="mt-6">
-									<GroupLabel icon={<ShieldAlert className="size-3.5" />}>Crash reports</GroupLabel>
-									<div className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-										<span className="min-w-0 flex-1">
-											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">
-												{crashCount === 1 ? '1 session ended unexpectedly' : `${crashCount} sessions ended unexpectedly`}
-											</span>
-											<span className="block text-[11px] text-muted-foreground">
-												What the Studio was doing, how memory was trending, and the last error it saw — recorded on this device. Nothing is sent
-												anywhere; reporting one opens a pre-filled GitHub issue you look over and submit yourself.
-											</span>
+							    in after the boot toast has gone, plus the way to forget them.
+							    ALWAYS PRESENT, including at zero. The first cut hid the whole group
+							    when there was nothing to report — "don't show a permanently-empty
+							    row" — and that was wrong for a DIAGNOSTIC. It was reported from a real
+							    phone as "I don't see it": a hidden row is indistinguishable from a
+							    feature that never shipped, or one that has silently broken. The empty
+							    state is the USEFUL state — it says the recorder is armed, so a later
+							    silence reads as "nothing crashed" rather than "nothing is watching".
+							    The destructive control still appears only when there is something to
+							    destroy. */}
+							<div className="mt-6">
+								<GroupLabel icon={<ShieldAlert className="size-3.5" />}>Crash reports</GroupLabel>
+								<div className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<span className="min-w-0 flex-1">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">
+											{crashCount === 0 ? 'Nothing to report' : crashCount === 1 ? '1 session ended unexpectedly' : `${crashCount} sessions ended unexpectedly`}
 										</span>
+										<span className="block text-[11px] text-muted-foreground">
+											{crashCount === 0
+												? 'The Studio is watching. If a session ever ends without closing cleanly — a crash, or the browser reclaiming the tab — the report lands here, and nothing leaves this device.'
+												: 'What the Studio was doing, how memory was trending, and the last error it saw — recorded on this device. Nothing is sent anywhere; reporting one opens a pre-filled GitHub issue you look over and submit yourself.'}
+										</span>
+									</span>
+									{crashCount > 0 && (
 										<span className="flex shrink-0 items-center gap-1.5">
 											<Button
 												size="sm"
@@ -827,9 +835,9 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 												label="crash reports"
 											/>
 										</span>
-									</div>
+									)}
 								</div>
-							)}
+							</div>
 						</div>
 					)}
 

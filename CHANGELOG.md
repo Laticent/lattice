@@ -134,7 +134,9 @@ in patch versions.
   is quiet), with the trail behind it. **Report on GitHub** hands you a pre-filled
   issue under your own account; nothing is sent anywhere on its own, and nothing but
   labels — deck title, slide count, deck size — ever enters the record. Reports are
-  reachable afterwards from Workspace → Crash reports, and clearable there — and
+  reachable afterwards from Workspace → General → Crash reports — which is always
+  there, saying so even when nothing has crashed, so you can tell "nothing went
+  wrong" from "nothing is watching" — and clearable there — and
   Workspace → Privacy & Data's "Delete everything" erases them along with the rest,
   with the recorder sealed so nothing is written back before the page reloads. See
   `engineering/decisions/2026-08-10-studio-crash-sentinel.md`.

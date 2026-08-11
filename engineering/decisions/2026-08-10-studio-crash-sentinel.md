@@ -154,10 +154,18 @@ match.
   form, submitted under the user's own login). HARD RULE #15: no second reporting
   mechanism. The issue body is byte-identical to the markdown the **Copy report**
   button produces, so what the user reads is what they post.
-- **Workspace → Crash reports** is the standing way back in after the toast has
-  gone, plus a two-tap clear (the shared `DeleteBtn`). Its own group, deliberately
-  NOT inside Diagnostics — that whole block sits behind `PERF_OVERLAY_AVAILABLE`,
-  a GA gate expected to go false, and a crash report has to outlive it.
+- **Workspace → General → Crash reports** is the standing way back in after the
+  toast has gone, plus a two-tap clear (the shared `DeleteBtn`). Its own group,
+  deliberately NOT inside Diagnostics — that whole block sits behind
+  `PERF_OVERLAY_AVAILABLE`, a GA gate expected to go false, and a crash report has
+  to outlive it. The group is **always present, including at zero**. The first cut
+  hid it when there was nothing to report, on the tidy-looking reasoning that a
+  permanently-empty row is noise; that was wrong for a diagnostic and was reported
+  from a real phone as "I don't see it". A hidden row is indistinguishable from a
+  feature that never shipped or has silently broken, so the empty state is the
+  useful state: it says the recorder is armed, and a later silence then reads as
+  "nothing crashed" rather than "nothing is watching". Only the destructive
+  control is conditional.
 
 ## Why not a library (HARD RULE #15 asks, and the answer is "there isn't one")
 
