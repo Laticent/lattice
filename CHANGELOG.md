@@ -100,7 +100,7 @@ in patch versions.
   sleep, on a stale entry whose sleep is gone, and — the case a text grep cannot see —
   on a drifted count: sleeps that are the body of a named single-expression helper are
   counted at their **call sites**, so `back-gesture`'s one `settle` declaration counts
-  as the 23 waits it actually is. Seeded from the current tree with the #1564 judgments
+  as the 23 waits it actually is. Costs ~600ms on `build:check`. Seeded from the current tree with the #1564 judgments
   transcribed and everything else labelled `UNJUDGED`, so "nobody looked" is now visible
   rather than implied by silence. No product behavior change. See #1575, #1526.
 

@@ -568,7 +568,8 @@ real sleeps with the build green.
 Counts are of *waits*, not of `waitForTimeout(` matches: a sleep that is the **entire
 body** of a named function counts once per reference to that name. `back-gesture`'s
 `settle` is one declaration called 23 times, so a text census recorded that file as
-"14" while it held 24 fixed waits — adding a 24th `settle(page)` call now fails the
+"14" (the figure #1526 carries, from before #1564 folded its raw sleeps into the helper —
+not re-derivable from the current tree) while it held 24 fixed waits — adding a 24th `settle(page)` call now fails the
 build. A function that merely *contains* a sleep among other work is not a helper and
 counts once.
 

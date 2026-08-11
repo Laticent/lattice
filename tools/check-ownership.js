@@ -3458,6 +3458,11 @@ const SANCTIONED_E2E_SLEEPS = [
   { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 700, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
   { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 800, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
   { file: 'docs/e2e/webpage-export.spec.ts', ms: 500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  // Arrived from main while this PR was open — the ratchet caught them, which is the point.
+  { file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — landed in #1561 after this gate was written; the gate flagged it on rebase.' },
+  { file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1000, count: 1, why: 'UNJUDGED — landed in #1581 after this gate was written; the gate flagged it on rebase.' },
+  { file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 3, why: 'UNJUDGED — landed in #1581 after this gate was written; the gate flagged it on rebase.' },
+  { file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1, why: 'UNJUDGED — landed after this gate was written; the gate flagged it on rebase.' },
 ];
 
 // Extensions Playwright's default testMatch admits. NOT `listSourceFiles`, which omits
@@ -3530,16 +3535,31 @@ function e2eSleepCensus(dir) {
 
   const eachNode = (node, fn) => { fn(node); node.forEachChild((c) => eachNode(c, fn)); };
 
-  /** References to `name` that are not its own declaration or an import/export specifier. */
-  const refCount = (name, sf) => {
+  /**
+   * References to `name`, excluding its own declaration and import/export specifiers.
+   *
+   * `member` flips which side counts. A free helper is referenced bare (`settle(p)`), so a
+   * `.settle` property access is somebody else's symbol and must NOT count. An object-property
+   * or class-method helper is the opposite: every call site IS `h.settle(p)`, so excluding
+   * property accesses reported 1 for a helper called N times — a `via` that implied call-site
+   * counting which never happened.
+   *
+   * KNOWN LIMIT, shared by both modes: this is textual identifier matching with no scope or
+   * import resolution, so a shadowed local of the same name, or a same-named symbol in a file
+   * that never imports the helper, inflates the count. That direction fails LOUD (a drifted
+   * count), which is why it is tolerated rather than solved with a type checker.
+   */
+  const refCount = (name, sf, member = false) => {
     let n = 0;
     eachNode(sf, (node) => {
       if (!ts.isIdentifier(node) || node.text !== name) return;
       const p = node.parent;
       if (!p) return;
-      if ((ts.isVariableDeclaration(p) || ts.isFunctionDeclaration(p) || ts.isParameter(p)) && p.name === node) return;
+      if ((ts.isVariableDeclaration(p) || ts.isFunctionDeclaration(p) || ts.isParameter(p)
+        || ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p)) && p.name === node) return;
       if (ts.isImportSpecifier(p) || ts.isExportSpecifier(p) || ts.isImportClause(p)) return;
-      if (ts.isPropertyAccessExpression(p) && p.name === node) return;
+      const isMemberRef = ts.isPropertyAccessExpression(p) && p.name === node;
+      if (member ? !isMemberRef : isMemberRef) return;
       n++;
     });
     return n;
@@ -3547,7 +3567,10 @@ function e2eSleepCensus(dir) {
 
   /** The named function whose ENTIRE body is this call, if any. */
   const sleepHelperFor = (call) => {
-    const body = call.parent && ts.isAwaitExpression(call.parent) ? call.parent : call;
+    let body = call.parent && ts.isAwaitExpression(call.parent) ? call.parent : call;
+    // `(p) => (p.waitForTimeout(650))` is a concise body too; the ParenthesizedExpression broke
+    // the identity check and silently reported 1 where the truth was N.
+    while (body.parent && ts.isParenthesizedExpression(body.parent)) body = body.parent;
     const outer = body.parent;
     if (!outer) return null;
     let fnNode = null;
@@ -3555,13 +3578,20 @@ function e2eSleepCensus(dir) {
     else if ((ts.isExpressionStatement(outer) || ts.isReturnStatement(outer)) && outer.parent
       && ts.isBlock(outer.parent) && outer.parent.statements.length === 1) {
       const fn = outer.parent.parent;
-      if (fn && (ts.isArrowFunction(fn) || ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn))) fnNode = fn;
+      if (fn && (ts.isArrowFunction(fn) || ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn)
+        || ts.isMethodDeclaration(fn))) fnNode = fn;
     }
     if (!fnNode) return null;
+    if (ts.isMethodDeclaration(fnNode) && ts.isIdentifier(fnNode.name)) {
+      return { name: fnNode.name.text, exported: false, member: true };
+    }
     if (ts.isFunctionDeclaration(fnNode) && fnNode.name) {
       return { name: fnNode.name.text, exported: !!fnNode.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) };
     }
     const decl = fnNode.parent;
+    if (decl && ts.isPropertyAssignment(decl) && ts.isIdentifier(decl.name)) {
+      return { name: decl.name.text, exported: false, member: true }; // `{ settle: (p) => … }`
+    }
     if (decl && ts.isVariableDeclaration(decl) && ts.isIdentifier(decl.name)) {
       const stmt = decl.parent?.parent;
       return { name: decl.name.text, exported: !!(stmt && ts.canHaveModifiers(stmt) && ts.getModifiers(stmt)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) };
@@ -3574,8 +3604,14 @@ function e2eSleepCensus(dir) {
     eachNode(sf, (node) => {
       if (!ts.isCallExpression(node)) return;
       const callee = node.expression;
+      // `page['waitForTimeout'](500)` is an ElementAccessExpression: neither a property access
+      // nor a bare identifier. Omitting it was a TOTAL bypass — the call produced no row at all
+      // and needed no sanction.
       const name = ts.isPropertyAccessExpression(callee) ? callee.name.text
-        : ts.isIdentifier(callee) ? callee.text : null;
+        : ts.isIdentifier(callee) ? callee.text
+        : ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression)
+          ? callee.argumentExpression.text
+          : null;
       if (name !== 'waitForTimeout') return;
 
       const arg = node.arguments[0];
@@ -3588,7 +3624,7 @@ function e2eSleepCensus(dir) {
       if (helper) {
         const scope = helper.exported ? parsed : parsed.filter((x) => x.sf === sf);
         // No -1: refCount already excludes the declaration's own name node.
-        const refs = scope.reduce((a, x) => a + refCount(helper.name, x.sf), 0);
+        const refs = scope.reduce((a, x) => a + refCount(helper.name, x.sf, helper.member), 0);
         if (refs > 0) { count = refs; via = helper.name; }
       }
 
@@ -3609,6 +3645,13 @@ function fmtSleep(ms) {
 
 function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctions = SANCTIONED_E2E_SLEEPS) {
   const census = e2eSleepCensus(e2eDir);
+  // A duplicate (file, ms) pair would be last-wins in the Map below and both entries would be
+  // marked seen — so the loser is neither enforced nor reported stale. Name it instead.
+  const keyCounts = new Map();
+  for (const s of sanctions) keyCounts.set(`${s.file}|${s.ms}`, (keyCounts.get(`${s.file}|${s.ms}`) || 0) + 1);
+  for (const [k, n] of keyCounts) {
+    if (n > 1) errors.push(`duplicate SANCTIONED_E2E_SLEEPS entries for ${k.replace('|', ' @ ')} — one silently shadows the other; merge them.`);
+  }
   const listed = new Map(sanctions.map((s) => [`${s.file}|${s.ms}`, s]));
   const seen = new Set();
 

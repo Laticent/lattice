@@ -2773,8 +2773,8 @@ describe('check-ownership: checkE2ESleeps (#1575)', () => {
   });
 
   test('a `function` helper counts at its call sites too, not just an arrow', () => {
-    // studio-fixture.ts writes every shared helper as `export function`, so an arrow-only
-    // rule would count the house style as 1.
+    // studio-fixture.ts writes most shared helpers as `export function` (20 of them, vs 5
+    // `export const`), so an arrow-only rule would count the house style as 1.
     const dir = mkTree({
       'a.spec.ts': [
         'async function settle(page) { await page.waitForTimeout(650); }',
@@ -2853,6 +2853,63 @@ describe('check-ownership: checkE2ESleeps (#1575)', () => {
       'broken.spec.ts': 'export function oops( {\nawait page.waitForTimeout(4321);',
     });
     assert.throws(() => e2eSleepCensus(dir), /could not parse 1 e2e file\(s\)/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('helper shapes that used to under-count now count at their call sites', () => {
+    // Each of these reported 1 where the truth is N — a `count: 1` that never drifts is
+    // exactly the hole this gate exists to close, so they are pinned rather than trusted.
+    const cases = [
+      ['parenthesized concise body', 'const s = (p) => (p.waitForTimeout(650));\ns(p);s(p);s(p);', 3],
+      ['object-property arrow', 'const h = { settle: (p) => p.waitForTimeout(1) };\nh.settle(p);h.settle(p);', 2],
+      ['class method', 'class F { settle(p) { return p.waitForTimeout(2); } }\nf.settle(p);f.settle(p);', 2],
+    ];
+    for (const [label, body, expected] of cases) {
+      const dir = mkTree({ 'a.spec.ts': body });
+      assert.equal(e2eSleepCensus(dir)[0].count, expected, label);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("CANARY — page['waitForTimeout'](500) is seen; it used to be a total bypass", () => {
+    // An ElementAccessExpression is neither a property access nor an identifier, so the call
+    // produced NO row at all and needed no sanction.
+    const dir = mkTree({ 'a.spec.ts': "await page['waitForTimeout'](500);" });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census.length, 1, 'the call must be visible');
+    assert.equal(census[0].ms, 500);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('CANARY — duplicate sanction entries are named, not silently shadowed', () => {
+    const dir = mkTree({ 'a.spec.ts': 'await page.waitForTimeout(700);' });
+    const rel = path.relative(process.cwd(), path.join(dir, 'a.spec.ts')).replace(/\\/g, '/');
+    const errors = [];
+    checkE2ESleeps(errors, dir, [
+      { file: rel, ms: 700, count: 1, why: 'first' },
+      { file: rel, ms: 700, count: 99, why: 'shadowed — never enforced, never reported stale' },
+    ]);
+    assert.ok(errors.some((e) => /duplicate SANCTIONED_E2E_SLEEPS entries/.test(e)));
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('KNOWN LIMIT — indirection and wrappers defeat the call-site count', () => {
+    // A helper reached through another helper, or wrapped in test.step, counts 1. Pinned so
+    // the limit is recorded rather than discovered later and mistaken for a bug.
+    const dir = mkTree({
+      'a.spec.ts': 'const s = (p) => p.waitForTimeout(650);\nconst twice = (p) => s(p);\ntwice(p);twice(p);twice(p);',
+    });
+    assert.equal(e2eSleepCensus(dir)[0].count, 1, 'one level of indirection is not resolved');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('KNOWN LIMIT — refCount is textual, so a shadowed same-name symbol inflates', () => {
+    // Fails LOUD (a drifted count), never silent — which is why it is tolerated rather than
+    // solved with a full type checker.
+    const dir = mkTree({
+      'a.spec.ts': 'const s = (p) => p.waitForTimeout(650);\ns(p);\nfunction other() { const s = 5; return s + s; }',
+    });
+    assert.ok(e2eSleepCensus(dir)[0].count > 1, 'over-counts, in the direction that fails loudly');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
