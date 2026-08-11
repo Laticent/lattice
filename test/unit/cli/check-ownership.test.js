@@ -2489,6 +2489,18 @@ describe('no-safe-default token gate (#1457)', () => {
         'a literal fallback resolves, so the no-safe-default gate must stay silent');
     });
 
+    // The line between the two literal-terminated shapes. `var(--x, var(--y, transparent))`
+    // HOPS THROUGH a token, and that hop is what can silently drift onto a different
+    // contract — the --cat-N-ink defect. `var(--x, color-mix(… var(--text-heading)))` has no
+    // hop: the fallback is the value, written at the read, with no second token to drift
+    // onto. Requiring a ledger row for the second would tax the safest form of the pattern.
+    // Live example of the second: --chart-catN-ink (chart-family.css).
+    test('an inline-EXPRESSION fallback with no token hop is not ledger population', () => {
+      const expr = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
+      assert.deepEqual(fallbackOnlyTokens(inputs({ bareReads: expr })), [],
+        'no second token to drift onto — nothing a ledger row could say');
+    });
+
     test('a synthetic themesDir does not drag the global ledger in with it', () => {
       // The seam exists so the gate can be bitten with synthetic input. Comparing a
       // repo-wide constant against a made-up palette would emit one stale error per row.

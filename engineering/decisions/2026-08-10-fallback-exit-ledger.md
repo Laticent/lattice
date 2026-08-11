@@ -109,8 +109,16 @@ different-contract token and every arm stayed green, while the committed justifi
 says in as many words that it lands on the same-role fill and *not* on a mark) went false. The
 `--cat-N-ink` construction, inside the change built to surface it. Such reads are now recorded
 and flagged rather than dropped: the main gate still treats `endsLiteral` as rescued, so its
-population is unchanged at zero, while the ledger compares their chain like any other. 255
-previously-invisible reads came into view; the ledger stayed at 13 rows.
+population is unchanged at zero, while the ledger compares their chain like any other.
+
+**The line is a TOKEN HOP, not the literal.** A first cut counted every literal-terminated
+read, which immediately taxed an unrelated change: #1573's `--chart-catN-ink` reads fall back
+to an inline `color-mix(…)` expression, and the gate demanded eight ledger rows for a pattern
+carrying none of the risk. The hop is what can drift — `var(--x, var(--y, …))` can be
+re-pointed at a different-contract `--y` — whereas `var(--x, color-mix(…))` has no second
+token: the fallback is the value, written at the read. So the population is chains that pass
+through at least one token, literal tail or not. Both evasion shapes still fail; the safe
+inline form is left alone.
 
 **The no-allowlist stance on the DERIVE exit is unchanged.** That stance is deliberate and
 this does not touch it: a token with an unrescued read still fails with no way to list it away.

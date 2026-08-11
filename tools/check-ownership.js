@@ -2860,10 +2860,20 @@ function fallbackOnlyTokens({ themeTokens, rootDefaults, slideDefaults, mapDefau
     if (read.rootRead) return rootDefaults.has(name);
     return slideDefaults.has(name);
   };
-  // Taking the cheap exit includes a chain that bottoms out in a literal — that is the form
-  // `checkNoSafeDefaultTokens`'s own remediation text recommends, so it must be in view here.
+  // Taking the cheap exit means the fallback routes through ANOTHER TOKEN — that is the
+  // shape that can silently drift onto a different contract, which is what --cat-N-ink did.
+  // A chain through a token counts even when it bottoms out in a literal
+  // (`var(--x, var(--y, transparent))`), because the re-point to --y is the risk and the
+  // literal tail merely hid it from the scanner (found by the red team).
+  //
+  // A fallback that is an inline EXPRESSION with no token hop — `var(--x, #ccc)`, or
+  // `var(--chart-cat1-ink, color-mix(… var(--text-heading)))` — is deliberately NOT in this
+  // population. There is no second token for it to drift onto: the fallback is the value,
+  // written at the read. Requiring a ledger row for it would tax the safest form of the
+  // pattern and say nothing a reviewer could act on.
   const rescuedByChain = (read) =>
-    read.endsLiteral === true || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
+    (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read))
+    || (read.endsLiteral === true && (read.chain ?? []).length > 0);
   const out = [];
   for (const token of [...bareReads.keys()].sort()) {
     if (!themeTokens.has(token) || contract.has(token)) continue;
