@@ -368,7 +368,7 @@ async function sweepTier() {
       // measures a real sweep rather than the cache answering instantly.
       const scoped = () => {
         const t = performance.now();
-        window.latticeFit.sweep();
+        window.latticeSweep.sweep();
         return performance.now() - t;
       };
       // Warm both (first touch pays for layout neither shape is responsible for),
@@ -376,7 +376,7 @@ async function sweepTier() {
       // the mean is dominated by whatever else the box is doing.
       unscoped(); scoped();
       const best = (fn) => Math.min(fn(), fn(), fn());
-      const plan = window.latticeFit.sweep();
+      const plan = window.latticeSweep.sweep();
       return {
         slides: all.length,
         overflowing,

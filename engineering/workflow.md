@@ -383,6 +383,26 @@ that was just load. The extra ~1 min is paid only when something already looks r
 The **export tier** stands on one pass (an ~11-minute puppeteer arm cannot be re-run
 on a hunch); its ±50% band is sized for that.
 
+**Three tiers, three flags — and the third measures something the other two
+structurally cannot.** `--export` (rasterize) and `--print` (re-place) are whole
+puppeteer cycles. `--sweep` times the overflow / type-floor probes against a
+filmstrip-virtualized deck in a real browser, and it exists because that path was
+invisible to everything else: the probes run over LAID-OUT DOM, so the in-process
+render tier never touches them, and inside an ~8-second export cycle a few
+milliseconds of probing is unmeasurable. A whole-document per-frame scan shipped
+and stayed on exactly that blind spot
+(`engineering/decisions/2026-08-11-overflow-sweep-generation.md`).
+
+That tier also **gates a floor rather than a band**, which is worth copying when
+you add a tier of your own. Its rows record two numbers measured on the same page
+in the same run — the scoped sweep and the whole-document shape it replaced — so
+the ratio between them divides the hardware out. But a ratio built on a
+sub-millisecond measurement inherits all of that measurement's jitter: a ±40% band
+called an identical tree a REGRESSION on the run after it was blessed. The failure
+worth catching is "the scope was re-widened", which collapses the ratio toward 1×
+from anywhere in the 8–24× range these decks bless at, so the check asserts a **3×
+floor**. Pick the gate that names the property, not the one that names the number.
+
 The loop for any perf-intent change:
 
 1. **Capture before.** On the *base* commit (or trust the committed baseline if it's
@@ -391,7 +411,9 @@ The loop for any perf-intent change:
    *same machine, same session* (cross-machine ms aren't comparable).
 3. **Add coverage.** If no dataset exercises the path you optimized, add one to the
    `datasets` array in `engine-bench.mjs` so the win is tracked over time (HARD RULE
-   #19c). A perf PR that touches an unbenchmarked path should grow the bench.
+   #19c). A perf PR that touches an unbenchmarked path should grow the bench — and
+   if the path does not run in Node at all (browser layout, real DOM), it needs a
+   TIER, not a dataset; `sweepTier()` is the worked example.
 4. **Ratchet the baseline.** `npm run bench:bless` rewrites `baseline.json`; commit
    it in the SAME PR. The file diff is your before→after of record.
 5. **Verify the band.** `npm run bench:check` must end *within variance* (exit 0).
