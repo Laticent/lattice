@@ -29,6 +29,10 @@
 //                           docs zone, where Starlight owns the mobile menu (it
 //                           also carries the page TOC).
 import NavActions from './NavActions.tsx';
+// The React-free label derivation (#1592). `palette-label.ts` imports only the generated
+// theme catalog, so pulling it in here costs this page's module graph nothing — the point of
+// splitting it out of `PaletteSelectItems.tsx`, which drags radix + React behind it.
+import { paletteLabel } from '../../lib/palette-label';
 import { joinBase } from '../../lib/base-url.mjs';
 import { appsNav, contentNav, librariesNav, primaryNav, GITHUB_URL, isCurrent, librariesActive } from '../../lib/nav.mjs';
 
@@ -48,7 +52,92 @@ const pagefindUrl = url('pagefind/pagefind.js');
 const homeHref = url('');
 
 const Wrapper = standalone ? 'header' : 'div';
+
+// palette → the label the theme <select> shows, resolved at BUILD time so the pre-paint
+// seed below is a lookup rather than a second copy of the derivation (#1592).
+// `[\w-]` is belt and braces before these names reach a CSS selector below; they come from
+// our own generated token file, matched by a regex that already excludes quotes. ONE filtered
+// list feeds both the label map and the rules, so the seed can never call a palette shipped
+// that has no rule to reveal it.
+const seedablePalettes = palettes.filter((p) => /^[\w-]+$/.test(p));
+const paletteLabels = Object.fromEntries(seedablePalettes.map((p) => [p, paletteLabel(p)]));
+// What PaletteControls falls back to when the attribute names nothing this build ships —
+// declared here so the seed resolves the SAME palette the control's first render will.
+const fallbackPalette = seedablePalettes[0] ?? null;
+// ONE RULE PER PALETTE, so the theme control's label is painted from `<html data-palette>`
+// rather than written into the DOM by a script that has to beat the first frame (#1592).
+// PaletteControls renders every label and these show one — the same shape as the mode
+// toggle's three icons, and for the same reason: the server cannot know the answer, but the
+// attribute carrying it is set before anything paints. Handed to the seed below and appended
+// to <head> there; see the note at that line for why it cannot be a <style> in this template.
+const paletteLabelCss = seedablePalettes
+	.map((p) => `:root[data-palette="${p}"] [data-palette-label="${p}"]{display:inline}`)
+	.join('\n');
 ---
+
+<!-- PRE-PAINT CHROME SEED (#1592). The header's two controls are the last things on the
+     site that still tell the visitor something they will take back a second later: the theme
+     <select> rendered EMPTY and filled in with "Burgundy" whenever the island hydrated, and
+     the mode toggle rendered the Monitor ("System") icon at a visitor who had pinned dark —
+     a control naming the WRONG stop, which is worse than one naming none. Measured at
+     1440x900 with the CPU throttled 6x: empty/Monitor from t≈145ms, correct at t≈1.9s on the
+     component reference, t≈3.8s on the landing, t≈5.1s on the Playground.
+     Both answers are already in localStorage before paint. This publishes them on <html>,
+     and the controls are PAINTED FROM THOSE ATTRIBUTES by the rules at the foot of this file
+     — so nothing has to write into the markup, and the first frame is already right.
+     It runs ABOVE the header markup, which is what makes that true: an earlier draft patched
+     the trigger's text right after the markup instead, and a per-frame sampler caught the
+     un-seeded state ~1 run in 3 ("Indaco"/System at t=114ms, correct at t=177ms). A script
+     that has to beat the first paint of markup it sits below is a race; setting an attribute
+     the markup has not been parsed against yet is not.
+     Deliberately here rather than in a per-route head script: this header is the thing that
+     has the defect, and it is on every page. It is idempotent with the head seeds that
+     already stamp `data-palette` (playground.astro, ComponentsLayout, ThemeProvider) — they
+     agree by construction, both reading `lattice-docs-palette` — and it is the only one on
+     the landing, which has none. -->
+<script is:inline define:vars={{ paletteLabels, fallbackPalette, paletteLabelCss }}>
+	(function () {
+		try {
+			var r = document.documentElement;
+			// A palette this build still ships. Anything else names a theme whose CSS 404s, and
+			// the head seeds drop such a value for the same reason.
+			var shipped = function (n) { return !!n && Object.prototype.hasOwnProperty.call(paletteLabels, n); };
+			var p = null;
+			try { p = localStorage.getItem('lattice-docs-palette'); } catch (e) {}
+			// DROP a stored palette this build no longer ships, rather than merely declining to
+			// spend it. Normalizing the attribute alone was not enough: `syncFromStorage` re-reads
+			// the KEY at mount with no validation of its own and stamps it straight back, so the
+			// page painted the fallback and then flipped to a theme whose CSS 404s — a palette
+			// flash this seed introduced. `playground.astro`'s head seed has always cleared it for
+			// exactly this reason ("blank in my browser, fine in private browsing"); the site-wide
+			// surfaces had nothing that did, so they never recovered.
+			if (p && !shipped(p)) {
+				try { localStorage.removeItem('lattice-docs-palette'); } catch (e) {}
+				p = null;
+			}
+			if (!shipped(p)) p = r.getAttribute('data-palette');
+			if (!shipped(p)) p = fallbackPalette;
+			// Publish it even when it did not change: the label rules below resolve from this
+			// attribute, so leaving an unshippable one in place would show no label at all.
+			if (shipped(p)) r.setAttribute('data-palette', p);
+			// THE LABEL RULES, injected here rather than shipped as a <style> in the template.
+			// A dynamic style tag in an .astro component is not bundled into the head — Astro
+			// emits it at the END of the body, i.e. after the header it is supposed to style,
+			// which reopens the very window this seed exists to close (measured: no label at
+			// all from t≈165ms to t≈365ms, ~1 run in 3). Appending it to <head> from a script
+			// that runs before the header is parsed does not have that problem. It is the whole
+			// table, not just the palette in force, so a later pick is styled too.
+			var st = document.createElement('style');
+			st.textContent = paletteLabelCss;
+			(document.head || r).appendChild(st);
+			// The mode PREFERENCE, which `data-mode` cannot express: System-resolved-dark and
+			// pinned-dark are the same resolved mode and a different stop.
+			var m = null;
+			try { m = localStorage.getItem('lattice-docs-mode'); } catch (e) {}
+			r.setAttribute('data-mode-pref', m === 'light' || m === 'dark' ? m : 'system');
+		} catch (e) {}
+	})();
+</script>
 
 <Wrapper class:list={['site-header', { 'is-standalone': standalone }]}>
 	<div class:list={['site-header-inner', { wide }]}>
@@ -122,6 +211,41 @@ const Wrapper = standalone ? 'header' : 'div';
 		if (e.key === 'Escape') closeTools();
 	});
 </script>
+
+<style is:global>
+	/* THE MODE TOGGLE'S ICON, chosen by the seeded preference rather than by React (#1592).
+	   PaletteControls renders all three (Monitor · Sun · Moon) and these rules show one.
+	   It has to work this way round: the server cannot know which stop the visitor is on, so
+	   React choosing would put Monitor in the HTML and Moon in the client's first render for
+	   anyone who pinned dark — a hydration mismatch React 19 does not patch. Rendering the
+	   same three on both sides moves the choice to an attribute the pre-paint seed above has
+	   already written, so the button names the right stop from the first frame.
+	   `is:global` because the icons live inside the React island, which Astro's scoping
+	   attribute never reaches. */
+	[data-slot='mode-icon'] {
+		display: none;
+	}
+	:root[data-mode-pref='system'] [data-slot='mode-icon'][data-pref='system'],
+	:root[data-mode-pref='light'] [data-slot='mode-icon'][data-pref='light'],
+	:root[data-mode-pref='dark'] [data-slot='mode-icon'][data-pref='dark'] {
+		display: block;
+	}
+	/* No seed (scripting off, or a surface that never runs the header's): show the System
+	   stop rather than an empty button. It is also the default preference, so it is the
+	   honest answer for anyone whose choice we cannot read. */
+	:root:not([data-mode-pref]) [data-slot='mode-icon'][data-pref='system'] {
+		display: block;
+	}
+
+	/* THE THEME CONTROL'S LABEL, painted from `<html data-palette>` for the same reason and by
+	   the same means: PaletteControls renders every palette's label and one rule per palette
+	   shows the one in force. Only the base rule can live here — the per-palette ones are
+	   injected into <head> by the seed above, because a dynamic <style> in this template is
+	   emitted after the header it styles. */
+	[data-palette-label] {
+		display: none;
+	}
+</style>
 
 <style>
 	/* The component owns its styles, so Astro bundles them into BOTH worlds —

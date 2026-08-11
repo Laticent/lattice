@@ -3687,9 +3687,28 @@ const SANCTIONED_E2E_SLEEPS = [
   { file: 'docs/e2e/webpage-export.spec.ts', ms: 500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
   // Arrived from main while this PR was open — the ratchet caught them, which is the point.
   { file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — landed in #1561 after this gate was written; the gate flagged it on rebase.' },
-  { file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1000, count: 1, why: 'UNJUDGED — landed in #1581 after this gate was written; the gate flagged it on rebase.' },
-  { file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 3, why: 'UNJUDGED — landed in #1581 after this gate was written; the gate flagged it on rebase.' },
+  {
+    file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 7,
+    why: 'MEASUREMENT WINDOW (#1589/#1588/#1590), not a settle. Every one of these follows a '
+       + 'signal that has ALREADY been awaited (`.pg-preview-wrap.is-live`, the walk position, '
+       + 'the 404 toast) and then keeps the per-frame sampler running for a beat, because what '
+       + 'this file asserts is "and then nothing moved". Polling cannot express that: an '
+       + 'auto-retrying matcher fires at the first frame that satisfies it and never sees the '
+       + 'second geometry arriving after. The bound is the 0.2s shell-to-filmstrip cross-fade '
+       + 'plus room for a late correction pass; shortening it is what stops these cases '
+       + 'catching the defect they were written for. Three were inherited from #1581 and were '
+       + 'UNJUDGED; they are judged now and the four added here are the same shape.',
+  },
   { file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1, why: 'UNJUDGED — landed after this gate was written; the gate flagged it on rebase.' },
+  {
+    file: 'docs/e2e/site-chrome-first-paint.spec.ts', ms: 1500, count: 1,
+    why: 'MEASUREMENT WINDOW (#1592), not a settle. Hydration itself is polled — Astro removes '
+       + 'the `ssr` attribute from `<astro-island>` when the component mounts, so the case asks '
+       + 'for that instead of guessing an interval. This dwell is what follows it: the defect '
+       + 'was a CORRECTION PASS, so the sampler has to keep running for a beat after the moment '
+       + 'that pass would have fired, and "no second value appeared" is an absence no poll '
+       + 'expresses.',
+  },
 ];
 
 // Extensions Playwright's default testMatch admits. NOT `listSourceFiles`, which omits

@@ -124,6 +124,19 @@
 	flex-basis: 0;
 	flex-grow: var(--pg-split-b, 55);
 }
+/* THE PANES' PIXEL MINIMUMS are NOT applied here (#1589) — the seed in playground.astro
+   appends them to <head> as a media-query-scoped stylesheet, because which of them applies
+   depends on the viewport and only the seed knows the saved share. Two reasons this is not
+   a static rule:
+   · Restoring a saved layout is not a clamp. The library resolves an under-minimum size in
+     TWO branches: below the MIDPOINT of `collapsedSize` and `minSize` it snaps a collapsible
+     pane to the 28px rail; only above it does it clamp to the minimum. A static
+     `min-width: 320px` paints 320 where the app is about to show 28 — measured 292px wrong,
+     held ~1.3s, on the share a divider dragged past its minimum leaves behind.
+   · The rules have to name the panel ids and the a→editor / b→preview mapping, which
+     `PG_SPLIT_PANEL_IDS` and the seed own. Generating them there keeps that in one place;
+     restating them here was a silent-drift surface with no gate.
+   What stays here is only what is true at every width: nothing. See playground.astro. */
 /* The pane's real content (label + editor/preview). Kept mounted + inert while
    collapsed so CodeMirror history and the preview iframe survive the interlude;
    hidden by the collapsed rule below so only the rail shows in the 28px strip. */
@@ -684,9 +697,26 @@
 
 /* Walk bar: Prev · N/M · Next + the slide's caption. Explore-only; pins to the
    bottom of the page column at every width (the `body[data-view='read']` rule
-   below), so the deck fills the band above it and only the deck iframe scrolls. */
+   below), so the deck fills the band above it and only the deck iframe scrolls.
+   ITS HEIGHT IS A CONSTANT, AND EVERY RULE BELOW THAT LOOKS FUSSY IS WHY (#1588). The bar
+   is mounted from the first paint (WalkBar is no longer gated on the walk), so if its
+   height still depended on its contents the preview pane would simply move later instead
+   of sooner: the plan arrives ~1.2s in and brings a caption with it. So the row never
+   wraps, the position holds a fixed slot, and the caption box is exactly
+   `--pg-walk-cap-lines` lines tall whatever it holds. Measured before: the pane 720 → 619
+   at 1194x834 and 680 → 571 at 390x844; the worst caption in the staged plans (`math`, 289
+   chars) made the bar 184px on a phone — 22% of the viewport, for prose already printed on
+   the slide above it. */
 .pg-walk {
-	display: flex;
+	/* HIDDEN BY DEFAULT, revealed in Explore — not the other way round (#1588). The bar is
+	   always mounted now, so whatever the CSS says with no boot view resolved is what a
+	   visitor gets when the pre-paint seed does not run. It can fail to run: its outer `try`
+	   opens with a `localStorage` read, which THROWS where storage is denied (Safari's "block
+	   all cookies", a partitioned context, a privacy extension), and `<body>` carries no
+	   `data-view` until the island mounts. Defaulting to shown put a 93px dead nav in EDIT
+	   view for ~1.5s on that path — the same band this change exists to remove, on an error
+	   path that could not produce it before the bar was always mounted (HARD RULE #18). */
+	display: none;
 	flex-direction: column;
 	gap: 6px;
 	padding: 8px 16px 10px;
@@ -697,7 +727,11 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	flex-wrap: wrap;
+	/* NOT `wrap`. A wrapped row is a second height for the same bar, and the label that
+	   would wrap it — "Next component: kpi →" — appears exactly when the visitor reaches the
+	   end of a plan, mid-read. The next button truncates instead (below); its aria-label
+	   still carries the whole thing. */
+	flex-wrap: nowrap;
 }
 .pg-walk-step {
 	border: 1px solid var(--border);
@@ -708,6 +742,17 @@
 	background: transparent;
 	color: inherit;
 	cursor: pointer;
+	/* NEITHER OF THESE IS COSMETIC (#1588). `flex-wrap: nowrap` on the row stops the ROW
+	   wrapping; it does nothing about text wrapping INSIDE a shrinkable item. A first draft
+	   hardened only `.next`, so a long cross-component label squeezed Prev — which keeps the
+	   default `flex-shrink: 1` — until "‹ Prev" broke onto two lines and the bar grew 20.8px
+	   mid-read. Measured at 390x844 on the `matrix-grid` plan's last slide ("Next component:
+	   obligation-matrix →", 237px): the bar 101.48 → 122.28px, the preview pane 578.52 →
+	   557.72. The whole ≤390px band was affected and a SHORTER label does not trip it, which
+	   is how the first verification missed it. Prev and the position are now rigid; `.next`
+	   is the only elastic item in the row, and it truncates. */
+	flex: 0 0 auto;
+	white-space: nowrap;
 }
 .pg-walk-step:hover:not(:disabled),
 .pg-walk-step:focus-visible {
@@ -722,18 +767,48 @@
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* The only elastic item in a no-wrap row: the cross-component label ("Next component:
+   kpi →") truncates rather than wrapping the row onto a second line. Prev and the position
+   keep their intrinsic width, so nothing in the row moves as the label appears. */
+.pg-walk-step.next {
+	flex: 0 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 .pg-walk-pos {
 	font-size: 12.5px;
 	color: var(--muted-foreground, inherit);
 	font-variant-numeric: tabular-nums;
+	/* A fixed slot, wide enough for "16 / 16", so the steppers do not slide sideways when
+	   the plan lands and turns an empty span into a position — nor again on the step from
+	   "9 / 12" to "10 / 12". Tabular figures make the reservation exact. */
+	min-width: 4em;
+	text-align: center;
 }
+/* The caption slot — ALSO the notice's (WalkBar renders one element for both). Exactly
+   `--pg-walk-cap-lines` lines tall whatever it holds, including nothing: that is what makes
+   the bar's height a constant the SSR'd markup already has right.
+   `margin: 0` is load-bearing, not tidiness — this is a <p>, and the UA's 1em block margin
+   was adding 26px to every bar and quietly making the parent's `gap: 6px` a fiction. */
 .pg-walk-caption {
+	--pg-walk-cap-lines: 2;
+	--pg-walk-cap-line-height: 1.45;
+	margin: 0;
 	font-size: 13px;
-	line-height: 1.45;
+	line-height: var(--pg-walk-cap-line-height);
 	color: var(--muted-foreground, inherit);
+	/* `1em` is this element's own font-size, so the box is `lines × line-height` exactly —
+	   the same arithmetic the browser does, without depending on the `lh` unit. */
+	block-size: calc(var(--pg-walk-cap-lines) * var(--pg-walk-cap-line-height) * 1em);
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: var(--pg-walk-cap-lines);
+	line-clamp: var(--pg-walk-cap-lines);
+	overflow: hidden;
 }
-.pg-walk-notice {
-	font-size: 12.5px;
+.pg-walk-caption.is-notice {
 	color: var(--accent);
 }
 @media (max-width: 560px) {
@@ -749,11 +824,6 @@
 	}
 }
 
-/* The Walk bar mounts in both modes (the tour's reveal hook needs it findable);
-   only Explore SHOWS it. */
-:is(:root[data-pg-view='edit'], body[data-view='edit']) .pg-walk {
-	display: none;
-}
 
 /* ── Mode toggle (2026-07-06 simplification) ─────────────────────────────────
    Explore / Edit as a compact two-icon segmented control, replacing the pills.
@@ -822,6 +892,10 @@
    walk bar is always last. A top border reads it as a footer separator now that
    the deck sits above it rather than below. */
 :is(:root[data-pg-view='read'], body[data-view='read']) .pg-walk {
+	/* The bar mounts in both modes — the tour's reveal hook needs it findable in Edit too —
+	   and this is the ONE rule that shows it. Stated as a reveal rather than as a hide in
+	   Edit, so a boot with no resolved view shows nothing rather than a dead nav bar. */
+	display: flex;
 	order: 10;
 	border-block-start: 1px solid var(--border);
 	border-block-end: 0;

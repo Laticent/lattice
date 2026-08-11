@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, P
 import * as React from 'react';
 import { toast } from 'sonner';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
-import { PG_SPLIT_KEY, PG_SPLIT_PANEL_IDS } from '@/components/playground/pg-split';
+import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -168,6 +168,11 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
 	const root = document.documentElement;
 	root.removeAttribute('data-pg-view');
 	root.removeAttribute('data-pg-pane');
+	// The split seed's PIXEL CLAMP goes with them (#1589). The grow vars can stay — the
+	// library's inline `flex-grow` outranks a stylesheet — but the `min-width` the clamp
+	// rules apply has no inline counterpart to lose to, so left up it would pin a pane the
+	// visitor collapses at its 320px minimum instead of letting it reach the 28px rail.
+	root.removeAttribute('data-pg-split-seed');
 }
 
 /**
@@ -666,7 +671,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		mql.addEventListener('change', sync);
 		return () => mql.removeEventListener('change', sync);
 	}, []);
-	const RAIL_W = 28; // px collapsed-pane rail width (the always-visible restore edge)
+	// px collapsed-pane rail width (the always-visible restore edge). Declared in pg-split.ts
+	// because the pre-paint seed needs it too: the library snaps a restored pane to THIS rather
+	// than to `minSize` below the midpoint of the two, and a seed that models only the clamp
+	// paints 320px where the app is about to show 28.
+	const RAIL_W = PG_SPLIT_RAIL;
 	// Preview reveal choreography (was useSplit.onExpand): a deck change deferred
 	// while collapsed needs a full fresh render; otherwise one re-fit + patch heals
 	// the view. Double-rAF so the iframe is laid out + measurable first.
@@ -1583,23 +1592,25 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</button>
 			)}
 
-			{/* The Walk bar — Explore's stepping (Prev · N / M · Next + caption).
-			    Mounted whenever a walk exists (CSS hides it in Edit) so the tour's
-			    reveal hook can find it. Stepping jumps; the step dropdown above jumps
-			    directly. Edit-this-slide and the transcript are gone — flip to Edit. */}
-			{walk && (
-				<WalkBar
-					index={walk.index}
-					count={walkCount}
-					caption={walkSlide?.caption || ''}
-					onPrev={() => stepWalk(-1)}
-					onNext={() => stepWalk(1)}
-					nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
-					prevDisabled={walk.index === 0 && !walkPrevComp}
-					nextDisabled={walkAtEnd && !walkNextComp}
-					notice={walkNotice}
-				/>
-			)}
+			{/* The Walk bar — Explore's stepping (Prev · N / M · Next + caption). ALWAYS
+			    mounted, including on the server and before any plan has been fetched (#1588):
+			    in Explore it is chrome, not walk state, and mounting it with the walk meant a
+			    ~100px band arriving a second after the deck and shoving it up mid-read. Its
+			    height cannot vary (see WalkBar + playground.css), so the pane it shares the
+			    column with has one geometry for the whole load. CSS hides it in Edit — where the
+			    tour's reveal hook still needs it findable. Stepping jumps; the step dropdown
+			    above jumps directly. Edit-this-slide and the transcript are gone — flip to Edit. */}
+			<WalkBar
+				index={walk?.index ?? 0}
+				count={walkCount}
+				caption={walkSlide?.caption || ''}
+				onPrev={() => stepWalk(-1)}
+				onNext={() => stepWalk(1)}
+				nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
+				prevDisabled={!walk || (walk.index === 0 && !walkPrevComp)}
+				nextDisabled={!walk || (walkAtEnd && !walkNextComp)}
+				notice={walkNotice}
+			/>
 
 			{/* Parked handoff: an external "Open in Playground" arrived over a dirty
 			    draft. Apply consumes the key; Not now keeps it parked (nothing lost). */}
@@ -1650,7 +1661,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					id={PG_SPLIT_PANEL_IDS[0]}
 					className="pg-pane editor"
 					panelRef={split.editorRef}
-					minSize={280}
+					minSize={PG_SPLIT_MIN.editor}
 					defaultSize="45"
 					collapsible={split.ready}
 					collapsedSize={RAIL_W}
@@ -1693,7 +1704,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					id={PG_SPLIT_PANEL_IDS[1]}
 					className="pg-pane preview"
 					panelRef={split.previewRef}
-					minSize={320}
+					minSize={PG_SPLIT_MIN.preview}
 					defaultSize="55"
 					collapsible={split.ready}
 					collapsedSize={RAIL_W}

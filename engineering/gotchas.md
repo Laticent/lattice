@@ -3755,7 +3755,16 @@ own) is not a builder and needs no entry.
   underneath it. A blank that never moves beats a slide that jumps.
 - **The general rule:** when the pre-paint side needs a number a THIRD party decides, have
   the app measure what happened and publish it — don't mirror the third party's arithmetic.
-- **Triggered by:** #1563.
+- **A capture taken with the preview COLLAPSED cannot poison the next load, and it is worth
+  knowing why (#1590).** Two independent guards, either of which alone refuses: the box the
+  fit is measured against (`.pg-preview-wrap`) sits inside the `.pg-pane-inner` a collapsed
+  pane hides, so it is 0x0 — and the preview iframe has no layout under a `display:none`
+  ancestor, so the slide inside it is 0x0 too. `captureFirstSectionFromFrame` returns null,
+  `savePlaygroundSnapshot` is never reached, and the PREVIOUS good snapshot stays. Driven on
+  the real surface (collapse → render → leave-capture → expand → reload): the stored `ts` is
+  unchanged and the replay lands on the live slide within 0.05px. If you ever relax
+  `measureFit`'s zero-box check, this is what you are removing.
+- **Triggered by:** #1563, #1590.
 
 ### The Playground's Explore layout arrives a second after the page does
 
@@ -3775,13 +3784,129 @@ own) is not a builder and needs no entry.
   beside a different body value hides OPPOSITE panes on the phone and leaves the surface
   blank. Setting the body attribute and removing the seed is therefore one function, not two
   effects.
-- **The walk bar still arrives late and takes its band, and a reserve for it was BUILT AND
-  WITHDRAWN.** Don't rebuild it the same way. The only height available to reserve from is the
-  one the last session measured — the caption of the slide it ended on — while the band belongs
-  to the next boot's FIRST slide. Measured on an ordinary flow (open a component, step three
-  slides, come back): 127px reserved against a 184px bar, so the deck still shrank, just
-  differently; on a stale deep link it pushed the deck 71px the other way. Worse, the reserve
-  was keyed on the bar's absence with no time bound, so a plan fetch that 404s (a designed
-  path) left a permanent dead band — 109px on a phone, 13% of the viewport, for the session.
-  Reserving it correctly needs the first slide's caption height for the deck about to boot.
-- **Triggered by:** #1563.
+- **The walk bar used to arrive late and take its band, and a RESERVE for it was built and
+  withdrawn — don't rebuild that.** The only height available to reserve from is the one the
+  last session measured (the caption of the slide it ended on) while the band belongs to the
+  next boot's FIRST slide: 127px reserved against a 184px bar on an ordinary flow, 71px the
+  other way on a stale deep link, and — keyed on the bar's absence with no time bound — a
+  permanent dead band whenever the plan fetch 404s.
+- **What fixed it instead (#1588): stop reserving a box and just have the box.** In Explore
+  the walk bar is CHROME, not walk state, so it is rendered unconditionally — in the SSR'd
+  markup, before any plan exists — with only its contents waiting for the network (steppers
+  disabled, position empty). Then nothing is allowed to change its height: the row is
+  `nowrap`, EVERY item in it except `.next` is rigid, the position holds a fixed slot, and the
+  caption box is exactly `--pg-walk-cap-lines` lines whatever it holds. A notice shares that
+  line-box rather than adding one.
+- **`flex-wrap: nowrap` is not enough on its own, and the near-miss is worth knowing.** It
+  stops the ROW wrapping; it does nothing about text wrapping INSIDE a shrinkable item. With
+  only `.next` hardened, a long cross-component label squeezed Prev until "‹ Prev" broke onto
+  two lines and the bar grew 20.8px — at ≤390px, mid-read, at exactly the moment the bar is
+  supposed to be still. A SHORT label does not trip it (the threshold is ≈220px), which is how
+  the first verification cleared it.
+- **The bar is hidden by DEFAULT and Explore reveals it — not hidden in Edit.** Its visibility
+  hangs on the pre-paint seed, and the seed's outer `try` opens with a `localStorage` read, so
+  storage denied means no boot view at all. Defaulting to shown put a 93px dead nav in EDIT
+  for ~1.5s on that path.
+- **If you touch the walk bar, its height is the invariant.** Anything content-shaped you add
+  — a second notice line, a wrapping row, an un-clamped caption, a button that can shrink —
+  puts the jump back, and the e2e case that catches it is the Explore one in
+  `playground-first-paint.spec.ts` (which tracks `previewPane` and `walkBar` again precisely
+  because of this). Test it with the LONGEST cross-component label, not the first one you hit.
+- **`aria-live` has to arrive WITH its value.** `.pg-walk-pos` is SSR'd empty; a live region
+  already in the tree that goes from nothing to "1 / 8" is a change, and assistive tech
+  announces it. The attribute is set only once there is a position, so the region reads as
+  arriving populated. A pending state has to be pending to AT too.
+- **Triggered by:** #1563, #1588.
+
+### The Playground's divider is in one place before hydration and another after
+
+- **Symptom:** reload the Playground on a window narrower than the one you last sized it in
+  and the editor|preview divider paints in one place, then jumps a few tens of pixels as the
+  island hydrates. Often accompanied by the instant shell simply not appearing.
+- **Why:** the saved layout is a pair of PERCENTAGES; the panes' minimums are PIXELS
+  (`PG_SPLIT_MIN` — editor 280, preview 320). A share that clears its minimum at the window it
+  was saved in can fall below it at a narrower one. The library clamps at hydration; the
+  pre-paint seed spent the raw share. Measured: a real drag to a 25% preview at 1920, reloaded
+  at 1194, painted **298.3px** and settled at **320px**. The missing shell is downstream — the
+  cached slide's rect was measured in a box that changed size, so the box-match gate declined.
+- **Fix (shipped, #1589):** the seed emits `min-width` rules into `<head>`, scoped to the
+  viewport band where the library actually clamps, and `data-pg-split-seed` gates them.
+- **RESTORING IS NOT CLAMPING, and this is the trap.** `react-resizable-panels` resolves an
+  under-minimum size in TWO branches (`Z()` in its bundle): a `collapsible` pane restored below
+  the MIDPOINT of `collapsedSize` and `minSize` snaps to the rail; only above it does it clamp
+  to the minimum. Modeling the clamp alone painted a 320px preview where the app then handed
+  off to a 28px rail — 292px wrong, held ~1.3s, WORSE than the defect it fixed. `PG_SPLIT_RAIL`
+  and `PG_SPLIT_SNAP_MIDPOINT` exist so the seed can express both branches; below the midpoint
+  it emits nothing and the raw share paints. `Z()` is the RESTORE path — a drag goes through
+  `le()`'s own half-delta arithmetic, so don't reuse the midpoint to predict a drag. The Studio's `preview-rect.ts` has carried this
+  rule since #1553 ("clamping alone painted a 300px preview where the app handed off to a 46px
+  rail") — read it before writing a pre-paint side for any splitter here.
+- **Do NOT reach for the sessionStorage collapse marker to detect this.** It was tried: the
+  marker is per-tab, the sub-minimum SHARE is in `localStorage` and permanent, so a new tab
+  takes the clamp branch and breaks. *A guard is only as good as the shortest-lived thing it
+  reads.*
+- **`!important` is load-bearing there, and setting the style on the element is not the
+  shortcut it looks like.** The SSR'd panel wrapper carries `min-width:0` INLINE, so a plain
+  stylesheet rule loses. Writing `el.style.minWidth` instead would win the cascade and then
+  never be undone: React's prop record would still read `0`, so the library would never write
+  over it, and the clamp would outlive the seed for the life of the page.
+- **The clamp must die with the seed.** `adoptBootSeed` drops `data-pg-split-seed` alongside
+  the view/pane attributes. A surviving `min-width:320px` would stop a collapsed preview from
+  ever reaching its 28px rail — the grow vars are safe to leave only because the library's
+  inline `flex-grow` outranks them, and `min-width` has no such counterpart.
+- **Triggered by:** #1589, from the red-team pass on #1563/#1581.
+
+### A header control shows nothing (or the wrong thing) for a second after every page load
+
+- **Symptom:** the theme `<select>` in the site header is empty on load and fills in with the
+  persisted palette a second or more later; the light/dark button shows the Monitor
+  ("System") icon at someone who pinned dark, then swaps. Every page of the site.
+- **Why (two causes, and the second is the surprising one):** the control read its state in a
+  mount effect, so it had nothing to say until the `client:idle` island hydrated — under load
+  that was 1.9s to 5.1s. And radix's `SelectValue` with no children renders NOTHING: the
+  selected item's text is portaled in by `SelectItemText`, which only exists once a layout
+  effect has built the closed content's DocumentFragment. So the trigger was empty in the SSR
+  markup no matter what the value was.
+- **Fix (shipped, #1592):** both controls are PAINTED FROM `<html>` ATTRIBUTES. PaletteControls
+  renders every palette's label and all three mode icons; one CSS rule per palette (and three
+  for the stops) shows the one in force. A pre-paint seed in `SiteHeader.astro` publishes
+  `data-palette` and `data-mode-pref`, and `PaletteControls` reads them in its first render so
+  its own state agrees.
+- **The seed sits ABOVE the header markup, and that is the second half of the fix.** A first
+  draft patched the trigger's text right AFTER the markup instead. A per-frame sampler caught
+  the un-seeded state about one run in three ("Indaco"/System at t=114ms, corrected at
+  t=177ms): a script that has to beat the first paint of markup it sits below is a race.
+  Setting an attribute the markup has not been parsed against yet is not.
+- **The per-palette rules are injected by that script, not shipped as a `<style>` in the
+  component.** A `<style set:html>` in an `.astro` file is not bundled into the head — Astro
+  emits it at the END of the body, i.e. after the header it styles, which reopens the same
+  window (measured: no label at all from t≈165ms to t≈365ms). Appending the sheet to `<head>`
+  from a script that runs before the header is parsed does not have that problem.
+- **`data-mode` cannot stand in for `data-mode-pref`.** System-resolved-dark and pinned-dark
+  are the same resolved mode and a different STOP, and the icon names the stop.
+- **The mode icon is three icons with CSS picking one, and that is not decoration.** The
+  server cannot know the stop, so React choosing would put Monitor in the HTML and Moon in
+  the client's first render — a hydration mismatch React 19 does not patch. Rendering the
+  same three on both sides moves the choice to an attribute the seed has already written.
+- **A seed that NORMALIZES a bad stored value must also CLEAR it.** The first version rewrote
+  `<html data-palette>` to a shipped palette and left the key alone; `syncFromStorage` re-reads
+  the key at mount with no validation and stamped it straight back, so the page painted the
+  fallback and then flipped to a theme whose CSS 404s — a flash the seed itself introduced.
+  `playground.astro` has always removed the key; the site-wide surfaces had nothing that did.
+- **Making one control truthful can make the one beside it a liar.** The command palette sets the
+  palette directly and `storage` only fires cross-tab, so `PaletteControls`' state never moved:
+  once the trigger read correctly, the select's LIST still ticked the old palette — and
+  re-picking the item radix believes is selected fires no `onValueChange`, so it was a dead
+  control. `site-chrome` dispatches `CHROME_CHANGE_EVENT` on a same-tab set and the control
+  listens. If you add another writer of palette/mode, go through `site-chrome`.
+- **If you add a header control that shows persisted state,** give it the same shape: render
+  every possible value, pick one with CSS keyed on an `<html>` attribute, and set that
+  attribute above the markup. `site-chrome-first-paint.spec.ts` samples every frame across
+  three page families and fails on any second value.
+- **A per-frame sampler must know when a control is half-PARSED.** The three mode icons are
+  large inline SVGs and the HTML parser yields between them, so a frame can land on a button
+  holding two of the three — no icon lit, which reads as a second value for the control and
+  fails about one run in eight. That is absence, not a state a person sees: the sampler skips
+  a frame whose button does not hold all three, and the case asserts the settled DOM does hold
+  all three so the skip cannot hide a real regression.
+- **Triggered by:** #1592.

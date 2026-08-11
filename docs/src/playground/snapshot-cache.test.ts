@@ -121,6 +121,19 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(captureFirstSectionFromFrame(fakeFrame(), { palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 })).toBeNull();
 	});
 
+	// A COLLAPSED preview pane is the shape that would do real damage if this leaked (#1590):
+	// `.pg-preview-wrap` lives inside `.pg-pane-inner`, which a collapsed pane hides, so the
+	// box measures 0x0 while the filmstrip behind it is still perfectly capturable. A fit
+	// taken there would be replayed into an EXPANDED pane on the next load, and the ratio
+	// between a ~28px rail and a 656px pane is where the "23x oversized slide at first paint"
+	// worry comes from. The capture refuses instead, which is also what keeps the previous
+	// good snapshot: `savePlaygroundSnapshot` is never reached. Confirmed on the real surface
+	// as well — the stored `ts` is unchanged across a capture attempted while collapsed.
+	it('refuses a fit measured in a COLLAPSED pane (a 0x0 box), keeping the last good snapshot', () => {
+		const collapsed = { getBoundingClientRect: () => rect(1166, 151, 0, 0) } as unknown as HTMLElement;
+		expect(captureFirstSectionFromFrame(fakeFrame(), { box: collapsed, palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 })).toBeNull();
+	});
+
 	it('carries the srcHash identity and returns null on an empty filmstrip', () => {
 		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'cuoio', mode: 'dark', srcHash: 'deadbeef', ts: 9 });
 		expect(snap?.srcHash).toBe('deadbeef');

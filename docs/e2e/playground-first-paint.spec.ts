@@ -1,3 +1,4 @@
+import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL, PG_SPLIT_SNAP_MIDPOINT } from '../src/components/playground/pg-split';
 import { expect, test } from './studio-fixture';
 
 // ── The Playground must not ASSEMBLE IN VIEW (#1563) ──────────────────────────────────
@@ -91,6 +92,10 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				bar: rectOf(document.querySelector('.pg-bar')),
 				editorPane: rectOf(document.querySelector('#pg-split-editor')),
 				previewPane: rectOf(document.querySelector('#pg-split-preview')),
+				// Explore's walk bar. `display:none` in Edit, so it reads null there and records
+				// nothing; in Explore it shares the page column with the preview pane, which is why
+				// it moving is the same event as the pane shrinking (#1588).
+				walkBar: rectOf(document.querySelector('#pg-walk')),
 				slide: visibleSlide(),
 			};
 			// Did the replay actually fire? Recorded as a sample so the assertions can tell a
@@ -166,9 +171,14 @@ async function seedRealSession(page: import('@playwright/test').Page) {
 	await page.mouse.up();
 	const dragged = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
 	expect(dragged, 'the drag did not move the divider — the reload below would prove nothing').toBeLessThan(500);
-	// The capture runs shortly after the first render and again on leave; give the
-	// post-drag geometry a chance to be the one that gets stored.
-	await page.waitForTimeout(1500);
+	// What the reload actually needs is the drag PERSISTED, and the hook writes it on the
+	// group's `onLayoutChanged` — so ask for it rather than sleeping on it. (The snapshot is
+	// re-captured at the dragged size by the `pagehide` on the navigation itself.)
+	await expect
+		.poll(() => page.evaluate(([k, b]) => JSON.parse(localStorage.getItem(k) || 'null')?.[b] ?? null, [PG_SPLIT_KEY, PG_SPLIT_BUCKET] as const), {
+			timeout: 15_000,
+		})
+		.not.toBeNull();
 }
 
 // ── The card's acceptance check ───────────────────────────────────────────────────────
@@ -204,6 +214,141 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 	assertOneGeometry(log, TRACKED);
 });
 
+// A saved split is a pair of PERCENTAGES; the panes' minimums are PIXELS. A share that clears
+// its minimum at the window it was saved in can fall below it at a narrower one — the library
+// clamps at hydration, and the pre-paint seed used to spend the raw share, so the two disagreed
+// and the divider moved (#1589). The instant shell is collateral: its slide is placed at a rect
+// measured in a box that no longer exists, so it declines outright.
+//
+// The experiment has to cross two window sizes, which is why it sets its own viewports rather
+// than taking the file's. The divider is driven with the KEYBOARD rather than a mouse drag:
+// the separator's arrow-key resize is as real a control as a drag (it is the ARIA one), and a
+// synthetic drag on this splitter is documented as not re-engaging after a reload
+// (2026-08-10-shell-app-boot-state-sharing.md § Known gaps).
+test('a share below a pane minimum at a narrower window is clamped BEFORE paint, not after', async ({ page }) => {
+	await page.setViewportSize({ width: 1920, height: 900 });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	// The engine's first live render — the signal that the group has laid out for real, so a
+	// keyboard resize lands on settled geometry rather than on the pre-hydration one.
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
+
+	// Shrink the preview to roughly a quarter of the pair — comfortably above its 320px
+	// minimum at 1920, and below it at 1194.
+	const separator = page.locator('#pg-split [data-slot="resizable-handle"]').first();
+	await separator.focus();
+	for (let i = 0; i < 60; i++) {
+		const w = await page.locator('#pg-split-preview').evaluate((el) => el.getBoundingClientRect().width);
+		if (w <= 500) break;
+		await page.keyboard.press('ArrowRight');
+	}
+	// Poll for the PERSISTED share rather than sleeping on it: the hook writes on the group's
+	// `onLayoutChanged`, which is the thing this waits for and can be asked about directly.
+	const readShare = () =>
+		page.evaluate(
+			([key, bucket, id]) => {
+				const store = JSON.parse(localStorage.getItem(key) || 'null');
+				return store?.[bucket]?.[id] ?? null;
+			},
+			[PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS[1]] as const,
+		);
+	await expect.poll(readShare, { timeout: 15_000 }).not.toBeNull();
+	const share = await readShare();
+	expect(share, 'the keyboard resize did not persist a share — the reload below would prove nothing').toBeGreaterThan(0);
+	// THE EXPERIMENT'S OWN PRECONDITION. If the saved share still clears the minimum at 1194
+	// there is nothing to clamp and the assertions underneath are vacuous, so fail here
+	// instead — with the number, so a future change of `minSize` says why it stopped applying.
+	const rawAt1194 = (1194 - 1) * ((share as number) / 100);
+	expect(
+		rawAt1194,
+		`the saved share resolves to ${rawAt1194.toFixed(1)}px at 1194, which is already above the ${PG_SPLIT_MIN.preview}px minimum — nothing is being clamped`,
+	).toBeLessThan(PG_SPLIT_MIN.preview);
+
+	await page.setViewportSize({ width: 1194, height: 834 });
+	await throttle(page);
+	await sampleFrames(page);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await page.waitForTimeout(1500);
+
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	assertOneGeometry(log, ['editorPane', 'previewPane']);
+	// …and the one geometry is the CLAMPED one, not the raw share that happens to be stable
+	// because nothing ever corrected it.
+	const settled = distinct(log.previewPane ?? [])[0]?.rect;
+	expect(settled?.[2], `the preview pane settled at ${settled?.[2]}px, not the ${PG_SPLIT_MIN.preview}px minimum`).toBeGreaterThanOrEqual(
+		PG_SPLIT_MIN.preview - 2,
+	);
+});
+
+// …and the OTHER branch, which the first version of the clamp got wrong in a way that was
+// worse than the defect it fixed. Restoring a saved layout is not a clamp: `react-resizable-
+// panels` snaps a COLLAPSIBLE pane restored below the midpoint of `collapsedSize` and
+// `minSize` to the rail, and only above that midpoint does it clamp to the minimum. A seed
+// that models the clamp alone paints 320px where the app is about to show 28 — measured 292px
+// wrong, held ~1.3s, on the share the divider leaves behind the moment it is dragged past its
+// minimum (a gesture the collapse button's own tooltip advertises).
+//
+// The tab boundary is part of the experiment, not a shortcut: the SHARE is in localStorage and
+// permanent, the collapse marker is in sessionStorage and per-tab, so a new tab is where a
+// guard built on the marker fails. Clearing sessionStorage is what opening one does.
+test('a share below the snap midpoint is NOT clamped — the seed lets the rail happen', async ({ page }) => {
+	await page.setViewportSize({ width: 1920, height: 900 });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
+
+	// Drive the real separator PAST the preview's minimum, which is how a visitor reaches this
+	// state and what leaves the sub-minimum share behind.
+	const separator = page.locator('#pg-split [data-slot="resizable-handle"]').first();
+	await separator.focus();
+	for (let i = 0; i < 24; i++) {
+		const w = await page.locator('#pg-split-preview').evaluate((el) => el.getBoundingClientRect().width);
+		if (w <= PG_SPLIT_RAIL + 1) break;
+		await page.keyboard.press('ArrowRight');
+	}
+	const readShare = () =>
+		page.evaluate(
+			([key, bucket, id]) => JSON.parse(localStorage.getItem(key) || 'null')?.[bucket]?.[id] ?? null,
+			[PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS[1]] as const,
+		);
+	await expect.poll(readShare, { timeout: 15_000 }).not.toBeNull();
+	const share = (await readShare()) as number;
+
+	await page.setViewportSize({ width: 1194, height: 834 });
+	const pane = (1194 - 1) * (share / 100);
+	// THE PRECONDITION. If the saved share does not land below the midpoint there is no snap
+	// branch to exercise and everything under this is vacuous — fail here, with the number.
+	expect(
+		pane,
+		`the saved share resolves to ${pane.toFixed(1)}px at 1194, which is above the ${PG_SPLIT_SNAP_MIDPOINT.preview}px snap midpoint — the library will clamp, not snap`,
+	).toBeLessThan(PG_SPLIT_SNAP_MIDPOINT.preview);
+
+	// A new tab: the share survives, the per-tab collapse marker does not.
+	await page.evaluate(() => sessionStorage.clear());
+	await throttle(page);
+	await sampleFrames(page);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	// NOT `.pg-preview-wrap.is-live` — a collapsed pane hides `.pg-pane-inner`, so the wrap this
+	// file usually waits on never becomes visible. The pane reaching its rail IS the settle.
+	await expect(page.locator('#pg-split-preview')).toHaveJSProperty('offsetWidth', PG_SPLIT_RAIL, { timeout: 30_000 });
+	await page.waitForTimeout(1500);
+
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	const seen = distinct(log.previewPane ?? []);
+	expect(seen.length, 'the sampler never saw the preview pane').toBeGreaterThan(0);
+	// THE FIRST PAINT must be the share the seed was given, not the minimum. This is the whole
+	// case: the minimum here is a 292px lie about a pane that is on its way to a 28px rail.
+	expect(
+		seen[0].rect?.[2],
+		`the pre-paint pane is ${seen[0].rect?.[2]}px — the seed spent the ${PG_SPLIT_MIN.preview}px minimum on a share that snaps to the ${PG_SPLIT_RAIL}px rail: ${JSON.stringify(seen)}`,
+	).toBeLessThan(PG_SPLIT_SNAP_MIDPOINT.preview);
+	// ANTI-VACUITY: the library really did take the SNAP branch. Were it clamping instead, the
+	// assertion above would be guarding a branch this case never entered.
+	expect(
+		seen[seen.length - 1].rect?.[2],
+		`the pane settled at ${seen[seen.length - 1].rect?.[2]}px rather than the ${PG_SPLIT_RAIL}px rail — the library clamped, so this case tested the wrong branch`,
+	).toBeLessThanOrEqual(PG_SPLIT_RAIL + 2);
+});
+
 // Explore is the surface a PRISTINE visitor lands on, so its first paint is the one most
 // people see. It is also where the most geometry depends on a value only the client has:
 // `body[data-view='read']` removes the editor pane, takes the preview full-bleed, drops the
@@ -212,36 +357,195 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 test('an Explore reload paints one geometry per element too', async ({ page }) => {
 	await throttle(page);
 	await seedRealSession(page);
-	// One full Explore visit first, so the reload under test is a RETURNING one: the walk
-	// bar's height is measured and published by the session that shows it, and the reserve
-	// on the next load spends that measurement.
+	// One full Explore visit first, so the reload under test is a RETURNING one.
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
-	await expect(page.locator('#pg-walk')).toBeVisible({ timeout: 30_000 });
-	await page.waitForTimeout(1000);
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
 
 	await sampleFrames(page);
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
 	await page.waitForTimeout(1500);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	// The editor pane does not exist in Explore (the layout removes it), so it is not tracked.
-	//
-	// The preview pane is NOT tracked either, and that is a stated limit rather than an
-	// oversight: the walk bar mounts only once the component's plan has been fetched and takes
-	// ~100px off the bottom when it does. A draft of this change reserved that band from a
-	// stored measurement; it was withdrawn because the stored height is the PREVIOUS slide's
-	// caption while the bar it reserves for belongs to the NEXT boot's first slide, so on an
-	// ordinary step-then-return it produced two geometries anyway — and on a failed plan fetch
-	// the reserve never came off at all. What this case DOES guarantee is that the Explore
-	// layout itself no longer assembles: no phantom editor pane, no full-bleed transition, no
-	// pane labels appearing and vanishing.
-	assertOneGeometry(log, ['bar', 'slide']);
+	// EVERYTHING ELSE IS, including the preview pane and the walk bar — which used to be
+	// excluded, because the bar mounted only once the component's plan had been fetched and took
+	// ~100px off the bottom when it did (#1588). The bar is now Explore chrome rather than walk
+	// state: mounted from the SSR'd markup with a height its contents cannot change.
+	assertOneGeometry(log, ['bar', 'previewPane', 'walkBar', 'slide']);
 	expect(
 		(log.editorPane ?? []).length,
 		'the editor pane was laid out during an Explore boot — the Edit layout painted first and was dismantled in view',
 	).toBe(0);
+	// ANTI-VACUITY. Every assertion above is satisfied by a walk bar that never appeared at
+	// all — a plan fetch that silently failed would give one pane geometry and one (absent)
+	// bar. So require the walk to have actually arrived, in the same log.
+	expect(
+		(log.walkBar ?? []).length,
+		'the walk bar never laid out, so "one geometry" above is the absence of a bar rather than a bar that did not move',
+	).toBeGreaterThan(0);
+});
+
+// …and again on the phone, which is the other reference condition in the card and the one
+// where the band is worth the most: 109px of an 844px viewport, 13%.
+test.describe('on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+	test('the Explore walk bar is there from the first paint, not a second in', async ({ page }) => {
+		await throttle(page);
+		// A warm-up visit, so the reload under test is a returning one. There is no split to
+		// drag below 820px — the tabs own the layout — so the seed under test is the boot view.
+		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 40_000 });
+		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
+
+		await sampleFrames(page);
+		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
+		await page.waitForTimeout(1500);
+
+		const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+		assertOneGeometry(log, ['previewPane', 'walkBar']);
+		expect((log.walkBar ?? []).length, 'the walk bar never laid out — nothing was measured').toBeGreaterThan(0);
+	});
+});
+
+// The bar's height has to be a constant even when the walk NEVER ARRIVES. A plan fetch that
+// 404s is a designed path (the staged tree is rewritten by a deploy while a tab sits open, and
+// it is the path a flaky mobile connection takes); the reserve withdrawn in #1581 failed
+// exactly here, leaving a permanent 109px dead band because it was keyed on the bar's absence
+// with no time bound. There is no reserve now — the bar IS the chrome — so the same experiment
+// should show one geometry and an honestly inert bar.
+test('a plan fetch that 404s leaves an inert bar, not a dead band', async ({ page }) => {
+	await page.route(/\/plans\/.*\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	await throttle(page);
+	await sampleFrames(page);
+	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-walk')).toBeVisible();
+	// The 404 path's own signal: `startWalk` raises a sticky "out of date" toast when the plan
+	// fetch fails in Explore. Waiting for it means the failure has been HANDLED, rather than
+	// guessing an interval long enough for it to have been. (`[data-sonner-toast]`, not
+	// `.pg-toast` — the surface's toasts are sonner's and carry no such class.)
+	await expect(page.locator('[data-sonner-toast]')).toContainText(/out of date/i, { timeout: 30_000 });
+	await page.waitForTimeout(1500);
+
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	assertOneGeometry(log, ['previewPane', 'walkBar']);
+	// Inert AND honest: no invented position, and no stepper that does nothing when pressed.
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText('');
+	await expect(page.locator('#pg-walk .pg-walk-step').first()).toBeDisabled();
+	await expect(page.locator('#pg-walk .pg-walk-step.next')).toBeDisabled();
+});
+
+// THE ONE INPUT SHAPE THAT WAS REASONED ABOUT AND NEVER RUN (#1590). A snapshot captured while
+// the preview pane is COLLAPSED, replayed into an expanded one: `fit.boxW` would be a rail's
+// width against a full pane, a ratio of ~23x, and the failure would be a wildly oversized slide
+// at first paint. Two arguments said it was already safe — the box-match gate, and `measureFit`
+// refusing a zero box — and neither had been driven. This drives the whole sequence through the
+// real controls (collapse, capture, expand, reload) rather than asserting either argument.
+//
+// Result on the real surface: the wrap measures 0x0 while collapsed (it sits inside the
+// `.pg-pane-inner` a collapsed pane hides), so the capture returns null and never overwrites
+// the good snapshot — and the reload replays that good one exactly onto the live slide.
+test('a snapshot survives a COLLAPSED capture and still replays exactly when the pane comes back', async ({ page }) => {
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
+	const snapshotTs = () => page.evaluate(() => JSON.parse(localStorage.getItem('lattice-docs-pg-last-slide') || 'null')?.ts ?? null);
+	// The post-first-render capture is on a timer inside the app; poll for its result rather
+	// than betting on the interval.
+	await expect.poll(snapshotTs, { timeout: 30_000 }).not.toBeNull();
+	const good = await snapshotTs();
+
+	// Collapse through the real control, then do everything that would normally produce a
+	// capture: a fresh render, and the leave events a navigation fires.
+	await page.locator('.pg-pane.preview .pg-pane-collapse').click();
+	await expect(page.locator('#pg-split-preview')).toHaveJSProperty('offsetWidth', 28);
+	// One of the two guards, recorded rather than relied on (see the note below the dispatch).
+	expect(
+		await page.evaluate(() => {
+			const r = document.querySelector('.pg-preview-wrap')?.getBoundingClientRect();
+			return [r?.width ?? -1, r?.height ?? -1];
+		}),
+		'the collapsed wrap is measurable, so a fit COULD be taken in it — one of the two guards this case rests on has changed',
+	).toEqual([0, 0]);
+	// The app SAYS it has stopped rendering, which is the state this case needs to be in.
+	await expect(page.locator('.pg-status')).toContainText(/collapsed/i);
+	// Now fire the leave events a navigation fires. `captureFirstSlide` runs for real — the view
+	// is Edit, the frame is there, a render has landed — and refuses inside `measureFit`. The
+	// capture is synchronous in these handlers, so the store is already written when `evaluate`
+	// returns.
+	//
+	// WHAT THIS CASE DOES AND DOES NOT PROVE, because the two are easy to conflate and an
+	// earlier version of this comment did. It proves the OUTCOME: remove `measureFit`'s zero
+	// guard entirely and the assertion below fails, so a collapsed capture really cannot
+	// overwrite the good snapshot. It does NOT isolate WHICH half of that guard earns it —
+	// remove only the `br` (box) half and the case still passes, because the preview iframe has
+	// no layout under a `display:none` ancestor, so the SECTION rect is 0x0 and short-circuits
+	// first. The `[0, 0]` assertion above is therefore a statement about the box, not a proof
+	// that the box is what refuses. Two guards, either sufficient; this case is sensitive to
+	// losing both.
+	await page.evaluate(() => {
+		document.dispatchEvent(new Event('visibilitychange'));
+		window.dispatchEvent(new Event('pagehide'));
+	});
+	expect(await snapshotTs(), 'a capture taken with the pane collapsed overwrote the good snapshot').toBe(good);
+
+	// Expand and reload: the cached slide must land on the live one, not 23x oversized.
+	await page.locator('.pg-pane.preview [data-slot="split-rail"]').click({ force: true });
+	await expect(page.locator('#pg-split-preview')).not.toHaveJSProperty('offsetWidth', 28);
+	// Rendering resumes with the pane — the status line goes "…collapsed…" → "Rendered N
+	// slide(s)." across the expand, which is a real transition rather than a settle.
+	await expect(page.locator('.pg-status')).toContainText(/rendered/i, { timeout: 30_000 });
+	await expect
+		.poll(() => page.evaluate(() => Math.round(document.querySelector('.pg-preview-wrap')?.getBoundingClientRect().width ?? 0)))
+		.toBeGreaterThan(100);
+
+	await page.addInitScript(() => {
+		const seen: { shell: number[]; wrap: number[] }[] = [];
+		(window as unknown as { __shell: typeof seen }).__shell = seen;
+		const t0 = performance.now();
+		const tick = () => {
+			const sec = document.querySelector('#pg-ssr-slidebox section');
+			const wrap = document.querySelector('.pg-preview-wrap');
+			if (sec && wrap) {
+				const r = sec.getBoundingClientRect();
+				const w = wrap.getBoundingClientRect();
+				if (r.width > 0) seen.push({ shell: [r.x - w.x, r.y - w.y, r.width, r.height], wrap: [w.width, w.height] });
+			}
+			if (performance.now() - t0 < 9000) requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	// One dwell, and it is the measurement window rather than a settle: the shell hands off to
+	// the live filmstrip over a 0.2s cross-fade, and the comparison below is between the two.
+	await page.waitForTimeout(1500);
+
+	const shell = (await page.evaluate(() => (window as unknown as { __shell: { shell: number[]; wrap: number[] }[] }).__shell))[0];
+	expect(shell, 'the replay never painted, so nothing was checked for the oversize this case is about').toBeTruthy();
+	// The oversize guard, stated in the terms the card used: a slide replayed from a rail-sized
+	// box would be many times its container. It must fit inside the box it was placed in.
+	expect(shell.shell[2], `the replayed slide is ${shell.shell[2]}px wide inside a ${shell.wrap[0]}px box`).toBeLessThanOrEqual(shell.wrap[0] + 1);
+	// …and it is not merely small — it is where the live slide lands.
+	const live = await page.evaluate(() => {
+		const f = document.querySelector('#preview') as HTMLIFrameElement | null;
+		const wrap = document.querySelector('.pg-preview-wrap');
+		const sec = f?.contentDocument?.querySelector('.lattice > section');
+		if (!f || !sec || !wrap) return null;
+		const fr = f.getBoundingClientRect();
+		const sr = sec.getBoundingClientRect();
+		const wr = wrap.getBoundingClientRect();
+		return [fr.x - wr.x + sr.x, fr.y - wr.y + sr.y, sr.width, sr.height];
+	});
+	expect(live, 'the live filmstrip never rendered — there is nothing to compare the replay against').toBeTruthy();
+	for (const [i, label] of ['x', 'y', 'width', 'height'].entries()) {
+		expect(Math.abs((live as number[])[i] - shell.shell[i]), `the replayed slide's ${label} is ${((live as number[])[i] - shell.shell[i]).toFixed(1)}px off the live one`).toBeLessThanOrEqual(2);
+	}
 });
 
 // A toolbar control that lights the WRONG option and corrects itself is the same defect as
@@ -387,15 +691,29 @@ for (const c of [
 			for (const [k, v] of Object.entries(entries ?? {})) localStorage.setItem(k, v);
 		}, c.setup);
 
-		// Read the seed BEFORE hydration can drop it: the app removes the root attribute in the
-		// same effect that sets the body one, so poll for the pair rather than for either alone.
-		await page.goto(c.url, { waitUntil: 'commit' });
-		const seeded = await page.evaluate(() => {
-			// documentElement exists by `commit` for a document that has begun parsing; the head
-			// script has already run by then, since it is inline and synchronous.
-			return document.documentElement.getAttribute('data-pg-view');
+		// LATCH the seed from inside the page rather than reading it once from out here. The
+		// value has a window: the head script writes it, and `adoptBootSeed` removes it at mount.
+		// Reading at `waitUntil: 'commit'` was a bet on landing inside that window from the other
+		// side of the wire — the navigation can commit BEFORE the inline head script has run, and
+		// under load in this sandbox it did, about one run in eight, reporting `null` as "the
+		// pre-paint script published no boot view". A sampler that records the first non-null
+		// value cannot be early or late. (`document.documentElement?` because `addInitScript`
+		// runs before it exists — the trap this file's header opens with.)
+		await page.addInitScript(() => {
+			const tick = () => {
+				const v = document.documentElement?.getAttribute('data-pg-view');
+				if (v) {
+					(window as unknown as { __seededView: string }).__seededView = v;
+					return;
+				}
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
 		});
-		expect(seeded, `the pre-paint script published no boot view for ${c.name}`).toBe(c.expected);
+		await page.goto(c.url, { waitUntil: 'commit' });
+		await expect
+			.poll(() => page.evaluate(() => (window as unknown as { __seededView?: string }).__seededView ?? null), { timeout: 15_000 })
+			.toBe(c.expected);
 		await expect(page.locator('body')).toHaveAttribute('data-view', c.expected);
 	});
 }

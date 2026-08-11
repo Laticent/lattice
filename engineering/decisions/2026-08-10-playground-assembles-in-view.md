@@ -127,6 +127,13 @@ takes its band when it does. Reserving it correctly needs the first slide's capt
 for the deck about to boot, which is per-deck-per-slide state — a much larger mechanism than
 the jump is worth.
 
+**Closed in #1588, and not by reserving anything.** The follow-up dropped the question the
+reserve was an answer to: in Explore the walk bar is *chrome*, not walk state, so it is
+rendered unconditionally — in the server-rendered markup, before any plan exists — and only
+its contents wait for the network. Its height is then made a constant by construction rather
+than predicted from a measurement. See
+`2026-08-11-playground-first-paint-followups.md`.
+
 ## Verification
 
 Per HARD RULE #23, on the real built surface, at the card's conditions
@@ -207,6 +214,11 @@ is the same case that exposes it.
   a valid `v: 2` at 1194x834. This is right rather than unfortunate (there is no visible
   preview to snapshot), and it self-heals the moment the visitor shows the preview pane, but
   the v1 format DID store there and the first draft of this note understated the scope.
+  **The collapsed-pane case is now RUN rather than reasoned (#1590)** — the sequence a visitor
+  can actually reach (collapse, capture, expand, reload) refuses the capture and replays the
+  previous good snapshot within 0.05px, and it turns out there are two independent guards
+  rather than the one this note assumed: the 0x0 wrap, and a preview iframe that has no layout
+  under a `display:none` ancestor, so the slide inside it measures 0x0 too.
 - **The status line is now STABLE, not uniformly true.** Two values instead of three on the
   common path, both true. In the collapsed-preview boot it is still three
   ("Loading engine…" → "Preview collapsed — rendering paused." → "…render deferred."), and
@@ -217,6 +229,9 @@ is the same case that exposes it.
   `docs/src/components/site/`, on every page of the site, and fixing it there is a change
   to shared chrome rather than to this surface. Genuinely pre-existing and off this
   change's path (#18), logged here rather than pulled into the diff.
+  **Closed in #1592**, along with the sibling defect nobody had noticed: the mode toggle
+  rendered the "System" icon at anyone who had pinned dark — a control naming the WRONG stop
+  rather than none. See `2026-08-11-playground-first-paint-followups.md`.
 - **Explore has no instant shell.** The replay is deliberately Edit-only — a gallery or
   plan deck has no stable draft-source identity, so replaying one could flash the wrong
   deck. Explore's preview is therefore the pane's solid brand fill until the engine
