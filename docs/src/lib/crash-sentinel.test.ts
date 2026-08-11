@@ -14,6 +14,7 @@ import {
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
+	markReported,
 	newRecord,
 	noteError,
 	pruneSessions,
@@ -23,6 +24,8 @@ import {
 	setCrashContext,
 	startCrashSentinel,
 	TAB_SESSION_KEY,
+	unreportedCrashReports,
+	WIPE_SIGNAL_KEY,
 } from './crash-sentinel';
 
 // Anchored an hour behind the real clock, not at a fixed epoch: `startCrashSentinel`
@@ -533,6 +536,67 @@ describe('storage never accumulates', () => {
 		const stats = crashReportStats();
 		expect(stats.count).toBe(1);
 		expect(stats.bytes).toBeGreaterThan(0);
+	});
+});
+
+describe('the reachability fixes', () => {
+	const withNav = (type: string, fn: () => void) => {
+		// biome-ignore lint/suspicious/noExplicitAny: minimal navigation-timing stub
+		const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation(((k: string) => (k === 'navigation' ? [{ type }] : [])) as any);
+		try { fn(); } finally { spy.mockRestore(); }
+	};
+
+	// iOS fires `pagehide` on backgrounding, so a tab the OS later evicts used to
+	// look exactly like a clean exit — the commonest mobile "it reloaded itself"
+	// reported nothing at all.
+	it('reports a tab evicted from the page cache, but only for the tab that owned it', () => {
+		const evicted = rec({ id: 'ev', closed: true, bfcached: true, lastBeat: Date.now() });
+		localStorage.setItem(SESSION_PREFIX + 'ev', JSON.stringify(evicted));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'ev');
+		withNav('reload', () => {
+			startCrashSentinel(); // latches the tab mirror + navigation type
+			const [report] = collectCrashReports(Date.now() + 1000);
+			expect(report?.ending).toBe('reclaimed');
+			expect(report?.facts.join(' ')).toMatch(/dropped from it rather than resumed/i);
+		});
+		// A plain clean exit is still silent.
+		__resetSentinelForTest();
+		localStorage.clear();
+		sessionStorage.clear();
+		localStorage.setItem(SESSION_PREFIX + 'clean', JSON.stringify(rec({ id: 'clean', closed: true, lastBeat: Date.now() })));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'clean');
+		withNav('reload', () => {
+			startCrashSentinel();
+			expect(collectCrashReports(Date.now() + 1000)).toEqual([]);
+		});
+	});
+
+	it('interrupts once — a report already announced is not re-toasted', () => {
+		localStorage.setItem(SESSION_PREFIX + 'a', JSON.stringify(rec({ id: 'a' })));
+		startCrashSentinel();
+		const now = Date.now() + STALE_MS + 1;
+		expect(unreportedCrashReports(now)).toHaveLength(1);
+		markReported('a');
+		expect(unreportedCrashReports(now)).toHaveLength(0);
+		// …but it is still LISTED, so Workspace can show and clear it.
+		expect(collectCrashReports(now)).toHaveLength(1);
+	});
+
+	// `sealed` is per-document, so a wipe in tab A did nothing for tab B — whose
+	// next beat rewrote the record tab A had just erased.
+	it('seals this tab when ANOTHER tab broadcasts a wipe', () => {
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential' });
+		breadcrumb('action', 'before the wipe');
+		// The event another document's clearAllSessions would raise here.
+		dispatchEvent(Object.assign(new Event('storage'), { key: WIPE_SIGNAL_KEY, newValue: '1' }));
+		breadcrumb('action', 'after the wipe');
+		dispatchEvent(new Event('pagehide'));
+		const left = Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX));
+		expect(left).toEqual([]);
+		const rec2 = liveSession() as SessionRecord;
+		expect(rec2.context).toEqual({});
+		expect(rec2.crumbs).toEqual([]);
 	});
 });
 

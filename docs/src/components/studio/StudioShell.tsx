@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
+import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -402,11 +402,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [crashReports, setCrashReports] = React.useState<CrashReport[]>([]);
 	const [crashOpen, setCrashOpen] = React.useState(false);
 	React.useEffect(() => {
-		const found = collectCrashReports(Date.now());
-		if (!found.length) return;
-		setCrashReports(found);
-		const newest = found[0];
-		toast(`Last session ended unexpectedly — ${crashReportTitle(newest).toLowerCase()}`, {
+		setCrashReports(collectCrashReports(Date.now()));
+		// Interrupt ONCE per report. `markReported` persists that we said it, so a
+		// report the user simply ignored does not re-toast on every subsequent boot
+		// until they explicitly discard it — it stays listed in Workspace instead.
+		const fresh = unreportedCrashReports(Date.now());
+		if (!fresh.length) return;
+		for (const r of fresh) markReported(r.id);
+		toast(crashReportTitle(fresh[0]), {
 			duration: 12_000,
 			description: 'Your decks are safe. Open the report to see what the Studio recorded.',
 			action: { label: 'See report', onClick: () => setCrashOpen(true) },
@@ -416,7 +419,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Workspace → Crash reports → View. See OPEN_CRASH_REPORT_EVENT for why this is
 	// an event and not a prop.
 	React.useEffect(() => {
-		const open = () => setCrashOpen(true);
+		// RE-COLLECT, don't just open. `crashReports` was gathered once at mount,
+		// but a report that is not same-tab only becomes eligible after the
+		// staleness window — so Workspace could count one (it re-collects on open)
+		// while the shell still held none, the sheet was never mounted, and View
+		// was a button that did nothing at all.
+		const open = () => {
+			setCrashReports(collectCrashReports(Date.now()));
+			setCrashOpen(true);
+		};
 		addEventListener(OPEN_CRASH_REPORT_EVENT, open);
 		return () => removeEventListener(OPEN_CRASH_REPORT_EVENT, open);
 	}, []);

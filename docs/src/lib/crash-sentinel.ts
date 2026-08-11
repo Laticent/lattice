@@ -65,6 +65,13 @@ export const TAB_SESSION_KEY = 'lattice-studio-tab-session';
  * an event rather than a prop threaded across the whole shell.
  */
 export const OPEN_CRASH_REPORT_EVENT = 'lattice:open-crash-report';
+/**
+ * Cross-tab wipe signal. Written-then-removed by `clearAllSessions` so every
+ * OTHER Studio tab on this origin seals itself — see the `storage` listener.
+ */
+// NOT under SESSION_PREFIX — `sessionKeys()` scans by that prefix, so a signal
+// key living under it would be read back as a (malformed) session record.
+export const WIPE_SIGNAL_KEY = 'lattice-studio-wipe-signal';
 
 /** Heartbeat period: how stale `lastBeat` can be on a healthy session. */
 export const BEAT_MS = 5_000;
@@ -152,6 +159,16 @@ export type SessionRecord = {
 	closed?: boolean;
 	/** Set while the tab is frozen (discard-eligible); cleared on resume. */
 	frozen?: boolean;
+	/**
+	 * Set when `pagehide` fired with `persisted` — the page went into the
+	 * back/forward cache rather than being torn down. Cleared if it comes back.
+	 * A record left in this state was evicted from that cache and never resumed,
+	 * which is how an iOS tab eviction presents: Safari fires `pagehide` on
+	 * backgrounding, so the ONLY trace of a reclaim there is this flag.
+	 */
+	bfcached?: boolean;
+	/** The user has already been told about this one — see `markReported`. */
+	reported?: boolean;
 	page: string;
 	ua: string;
 	/** How this document was entered — `reload` on a crash-restore. */
@@ -298,6 +315,12 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
  * mistake for a corpse.
  */
 export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean): boolean {
+	// A record closed INTO the page cache that never resumed was evicted, not
+	// exited — and only the tab it belonged to can tell the difference, because
+	// coming back at all is what would have cleared the flag. This is the iOS
+	// reclaim path; without it Safari's backgrounding `pagehide` made the most
+	// common mobile "it reloaded itself" invisible.
+	if (rec.closed && rec.bfcached && sameTab) return true;
 	if (rec.closed) return false;
 	// A record from the future (clock change, an edited value) is not evidence.
 	if (rec.lastBeat > now + BEAT_MS) return false;
@@ -334,8 +357,10 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 
 	// ── HOW IT ENDED. `wasDiscarded` is the browser answering; everything else
 	// is us observing that it stopped.
-	const reclaimed = sameTab && tabDiscarded;
-	if (reclaimed) facts.push('The browser reports that it reclaimed this tab to free memory (`document.wasDiscarded`).');
+	const evicted = !!rec.bfcached && sameTab;
+	const reclaimed = (sameTab && tabDiscarded) || evicted;
+	if (sameTab && tabDiscarded) facts.push('The browser reports that it reclaimed this tab to free memory (`document.wasDiscarded`).');
+	else if (evicted) facts.push('The tab was put in the browser\'s page cache when you switched away, and was dropped from it rather than resumed — how an evicted tab presents (the usual cause on iPhone/iPad).');
 	else if (rec.frozen) facts.push('The browser had frozen this tab in the background, and it never resumed.');
 
 	// ── ERRORS. Report it and when; do not rank it.
@@ -627,6 +652,26 @@ export function collectCrashReports(now: number): CrashReport[] {
 	return out.sort((a, b) => b.endedAt - a.endedAt);
 }
 
+/**
+ * Remember that the user has been TOLD about this one. The toast fires on a
+ * boot-time collect, so without a marker a report the user simply ignored came
+ * back on every subsequent load until they explicitly discarded it — an alarm
+ * that repeats until acknowledged is an alarm people learn to ignore, taking the
+ * one real report with it. The record stays (Workspace still lists it); only the
+ * interruption is spent.
+ */
+export function markReported(id: string): void {
+	const rec = readRecord(SESSION_PREFIX + id);
+	if (!rec) return;
+	rec.reported = true;
+	safeSet(ls(), SESSION_PREFIX + id, JSON.stringify(rec));
+}
+
+/** Reports the user has not been interrupted about yet. */
+export function unreportedCrashReports(now: number): CrashReport[] {
+	return collectCrashReports(now).filter((r) => !r.record.reported);
+}
+
 /** Forget one report (the user read it, or filed it). */
 export function dismissCrashReport(id: string): void {
 	safeRemove(ls(), SESSION_PREFIX + id);
@@ -663,6 +708,11 @@ export function clearAllSessions(): void {
 	sealed = true;
 	for (const k of sessionKeys()) safeRemove(ls(), k);
 	safeRemove(ss(), TAB_SESSION_KEY);
+	// Tell every other Studio tab to seal itself and drop its live record. Written
+	// then removed so a later wipe fires a fresh event (a `storage` event only
+	// fires when the value CHANGES).
+	safeSet(ls(), WIPE_SIGNAL_KEY, String(Date.now()));
+	safeRemove(ls(), WIPE_SIGNAL_KEY);
 	if (live) {
 		live.crumbs.length = 0;
 		live.mem.length = 0;
@@ -934,11 +984,19 @@ export function startCrashSentinel(): () => void {
 	// pagehide is the ONE reliable end-of-life event (beforeunload/unload do not
 	// fire on mobile Safari). `persisted` means the page went into the bfcache and
 	// may come back — close it anyway; `pageshow` reopens it if it does.
-	const onPageHide = () => {
+	const onPageHide = (ev: PageTransitionEvent) => {
 		if (!live) return;
 		live.lastBeat = Date.now();
 		live.closed = true;
-		breadcrumb('lifecycle', 'pagehide');
+		// `persisted` means the page went into the back/forward cache and MAY come
+		// back — so it is closed, but not necessarily finished. Recording which kind
+		// of ending it was is what closes the iOS blind spot: Safari fires pagehide
+		// when the app is backgrounded, so a tab the OS later evicts leaves a record
+		// that is `closed` AND `bfcached`, with no `pageshow` to clear it. Without
+		// this flag that eviction is indistinguishable from a clean exit, and the
+		// commonest "it reloaded itself" on an iPhone reported nothing at all.
+		live.bfcached = !!ev?.persisted;
+		breadcrumb('lifecycle', ev?.persisted ? 'pagehide (into the page cache)' : 'pagehide');
 		persist();
 	};
 	// `pageshow` fires on EVERY load, not only a bfcache restore — measured on the
@@ -950,6 +1008,7 @@ export function startCrashSentinel(): () => void {
 		if (!live || !ev.persisted) return;
 		live.closed = false;
 		live.frozen = false;
+		live.bfcached = false; // it DID come back — not an eviction after all
 		breadcrumb('lifecycle', 'pageshow (bfcache restore)');
 		live.lastBeat = Date.now();
 		persist();
@@ -971,22 +1030,43 @@ export function startCrashSentinel(): () => void {
 		persist();
 	};
 
+	// A privacy wipe in ANOTHER tab has to reach this one. `sealed` is module
+	// state, so tab A sealing itself did nothing for tab B — whose next beat
+	// rewrote the record tab A had just erased, deck title and all, making
+	// "Delete Everything" false whenever a second Studio tab was open. The
+	// `storage` event fires in every OTHER document on the origin, which is
+	// exactly the reach that was missing.
+	const onStorage = (ev: StorageEvent) => {
+		if (ev.key !== WIPE_SIGNAL_KEY || !ev.newValue) return;
+		sealed = true;
+		if (live) {
+			live.crumbs.length = 0;
+			live.mem.length = 0;
+			live.context = {};
+			live.lastError = undefined;
+			live.errorCount = 0;
+		}
+		safeRemove(ls(), SESSION_PREFIX + (liveId ?? ''));
+	};
+	addEventListener('storage', onStorage);
+
 	addEventListener('error', onError);
 	addEventListener('unhandledrejection', onRejection);
 	document.addEventListener('securitypolicyviolation', onCsp);
 	document.addEventListener('visibilitychange', onVisibility);
-	addEventListener('pagehide', onPageHide);
+	addEventListener('pagehide', onPageHide as EventListener);
 	addEventListener('pageshow', onPageShow as EventListener);
 	document.addEventListener('freeze', onFreeze);
 	document.addEventListener('resume', onResume);
 
 	stop = () => {
 		clearInterval(timer);
+		removeEventListener('storage', onStorage);
 		removeEventListener('error', onError);
 		removeEventListener('unhandledrejection', onRejection);
 		document.removeEventListener('securitypolicyviolation', onCsp);
 		document.removeEventListener('visibilitychange', onVisibility);
-		removeEventListener('pagehide', onPageHide);
+		removeEventListener('pagehide', onPageHide as EventListener);
 		removeEventListener('pageshow', onPageShow as EventListener);
 		document.removeEventListener('freeze', onFreeze);
 		document.removeEventListener('resume', onResume);

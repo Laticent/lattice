@@ -261,6 +261,55 @@ yet. `CrashSentinel.astro`'s hoisted `<script>` runs before `client:only` island
 hydrate; Vite dedupes the module across the page's chunks, so the island's own
 imports get the same instance and the same live record.
 
+## What the adversarial trio changed (2026-08-11)
+
+All three lenses ran against the shipping diff. They agreed the MECHANISM is
+right and no library provides it — and that the layer which NAMED A CAUSE was
+wrong in the way that matters: it sounded certain. That layer is gone. Five
+verdicts collapsed to two endings, only one of which is ever asserted
+(`reclaimed`, when `document.wasDiscarded` says so); everything else is reported
+as a measured fact. `describeSession` replaced `classifySession`.
+
+Why the guess could not be recalibrated: `MEM_PRESSURE` tested the JS heap
+against `jsHeapSizeLimit` (~4 GB on desktop) while a Studio tab dies from
+renderer memory that number cannot see — so a real leak printed "There is no
+clear cause" above its own 9x-growth evidence. And the cause is not knowable
+from in here: verified that after a real renderer crash the next load sees no
+`ReportingObserver` crash report (that goes only to a server endpoint this site
+deliberately lacks), and `measureUserAgentSpecificMemory` needs cross-origin
+isolation the preview iframes would not survive.
+
+Defects the trio found and this branch fixed:
+
+- **A malformed record bricked the Studio** — the guard checked four fields,
+  `RECORD_VERSION` was written and never read, and the throw landed in a mount
+  effect, so the island boundary replaced the whole app on every load for seven
+  days. Reproduced independently by two lenses.
+- **`STALE_MS` was off by 5x** — the justifying comment reasoned from the TICK
+  cadence while `lastBeat` only advances every fifth tick, so a healthy
+  background tab was harvested as a crash.
+- **The OAuth `?code=` reached the report** — captured from `location.search` by
+  the hoisted script before the island scrubs it. Now a presence flag only.
+- **Tab continuity was false** — `sessionStorage` is COPIED into a window opened
+  by another, so duplicating a tab reported a live session as crashed. Now
+  cross-checked against the navigation type.
+- **"Report on GitHub" 414'd** above ~8 KB, worst on the richest reports.
+- **The panel showed less than it posted**, under a footer inviting review.
+- **A closed laptop lid** was reported as an 8-hour main-thread freeze.
+- **Delete Everything did not hold with two tabs** — `sealed` is per-document; a
+  cross-tab `storage` broadcast now seals the others.
+- **The toast repeated** on every boot until explicitly discarded.
+- **Workspace → View was dead** for any report that became eligible after mount.
+- **A vacuous test**: the heap cap was asserted in jsdom, which exposes no
+  `performance.memory`, so it passed with the cap deleted. The watchdog had no
+  timer coverage at all.
+
+Also closed: the **iOS blind spot**. Safari fires `pagehide` on backgrounding, so
+an evicted tab looked like a clean exit and reported nothing — the commonest
+"it reloaded itself" on an iPhone. A `pagehide` with `persisted` now records
+`bfcached`, and a record left in that state for the SAME tab is reported as a
+reclaim. Still UNVERIFIED on real iOS hardware.
+
 ## What this does NOT do, and how to tell
 
 Honest boundaries, per HARD RULE #23:

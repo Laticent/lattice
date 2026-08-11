@@ -93,3 +93,8 @@ themes/*.html
 .perf/
 .perf-out/
 .scratch-*
+
+# Astro scratch written by a root-level `astro sync` / `astro preview` run.
+# docs/.gitignore covers docs/.astro; nothing covered the repo root, so a stray
+# run left preview.json/preview.log tracked (and tripped the lint-coverage gate).
+.astro/
