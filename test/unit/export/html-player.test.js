@@ -25,8 +25,9 @@ let resolveLightDark;
 let themeDualMode;
 let playerCss;
 let playerJs;
+let resolveCanvas;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs } = await import('../../../lib/export/player-core.mjs'));
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas } = await import('../../../lib/export/player-core.mjs'));
 });
 
 // ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
@@ -573,10 +574,47 @@ test("the no-JS floor's scale ladder follows the canvas, keeping the frame the s
 	// matters and the fraction is derived from it.
 	const hd = playerCss(false, false);
 	const story = playerCss(false, false, { w: 1080, h: 1920 });
-	assert.match(hd, /html:not\(\.lp-js\)\{--lp-fit:\.28\}/, 'an HD deck keeps the historical literals');
-	assert.match(story, /html:not\(\.lp-js\)\{--lp-fit:\.3319\}/, 'and a 1080-wide deck gets the fraction that means the same width');
-	// 1080 * .3319 = 358.5px, the same rung the HD deck sits at (1280 * .28 = 358.4).
-	assert.ok(Math.abs(1080 * 0.3319 - 1280 * 0.28) < 1, 'the two ladders produce the same physical width');
+	// ALL FOUR RUNGS, from the module — not just rung 0, and not literal arithmetic. An earlier
+	// version of this cell asserted `Math.abs(1080*0.3319 - 1280*0.28) < 1`, which references
+	// nothing under test and cannot fail for any edit: it documented the reasoning instead of
+	// gating it. Corrupting any of the upper three rungs was invisible to the whole suite.
+	const rungs = (css) => [...css.matchAll(/--lp-fit:(\.\d+)\}/g)].map((m) => Number.parseFloat(m[1]));
+	const hdRungs = rungs(hd);
+	const storyRungs = rungs(story);
+	assert.deepEqual(hdRungs, [0.28, 0.4, 0.56, 0.72], 'an HD deck keeps the historical literals');
+	assert.equal(storyRungs.length, 4, 'a non-default canvas still emits four rungs');
+	// Each rung must put the frame at the SAME physical width as the HD deck's — that is what
+	// the ladder means, and it is the property the derivation exists to preserve.
+	storyRungs.forEach((r, i) => {
+		assert.ok(Math.abs(1080 * r - 1280 * hdRungs[i]) < 1, `rung ${i}: 1080×${r} should match HD's 1280×${hdRungs[i]}`);
+	});
+});
+
+test('the HD literals and the derived ladder cannot drift apart', () => {
+	// Two arrays state the same ladder — the target widths and the byte-frozen HD literals — and
+	// nothing made them agree. Re-tune one and the other silently disagrees, and because the
+	// HD path takes the literal branch, no default export ever exercises the derived code.
+	const derivedAtHd = playerCss(false, false, { w: 1280, h: 720 });
+	const asIfNotHd = playerCss(false, false, { w: 1280.0001, h: 720 });
+	const rungs = (css) => [...css.matchAll(/--lp-fit:(\.?\d*\.?\d+)\}/g)].map((m) => Number.parseFloat(m[1]));
+	rungs(derivedAtHd).forEach((r, i) => {
+		assert.ok(Math.abs(r - rungs(asIfNotHd)[i]) < 0.0002, `rung ${i}: the literal and the derivation disagree`);
+	});
+});
+
+test('the canvas is taken from the host, DERIVED from the document, then defaulted (#1577)', () => {
+	// Threading alone left the defect armed for any caller outside this repo — `lib/*` is a
+	// published export, and the Tauri wrapper calls this from another tree. Each route is pinned
+	// because each one silently produced a wrong-but-plausible player before.
+	const doc = '<style>section{--_sec-1cqi:10.800px;--_sec-1cqh:19.200px}</style>';
+	assert.deepEqual(resolveCanvas({ width: 3840, height: 2160, docHtml: doc }), { w: 3840, h: 2160 }, 'the host wins when it speaks');
+	assert.deepEqual(resolveCanvas({ docHtml: doc }), { w: 1080, h: 1920 }, 'the document is read when it does not');
+	// The CSS-string shape is what the engine's own resolveSize returns; a host wiring the
+	// obvious object used to get a silent 1280x720.
+	assert.deepEqual(resolveCanvas({ width: '1080px', height: '1920px', docHtml: doc }), { w: 1080, h: 1920 }, 'a CSS-string geometry falls through rather than defaulting');
+	// One axis is worse than none: it asserts an aspect nobody stated and clips every slide.
+	assert.deepEqual(resolveCanvas({ width: 1080, docHtml: doc }), { w: 1080, h: 1920 }, 'a half-stated geometry is not half-applied');
+	assert.deepEqual(resolveCanvas({}), { w: 1280, h: 720 }, 'and only then the historical default');
 });
 
 test('a deck with NO declared size is byte-identical — the fallback is the historical canvas', async () => {

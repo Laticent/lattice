@@ -30,11 +30,10 @@ in patch versions.
   any other size — `4K`, `story`, `portrait`, `square`, `mobile` — was laid out by the engine
   for its real canvas and then forced into an HD box. Everything came out about 3× too large:
   headings overlapping body copy, slides cut off mid-word. It was silent, because the same
-  run's PDF was correct and the CLI printed a normal success line. **35 of the committed decks
-  that declare a `size:` reproduce it**, and so does any deck of yours that does. The canvas is
+  run's PDF was correct and the CLI printed a normal success line. **87 committed decks reproduce it**, and so does any deck of yours that does. The canvas is
   now handed to the player by whichever host exported it — the CLI and the Studio's "Download
   as webpage" both already knew it — and the no-JS fallback's scale ladder follows it too, so a
-  portrait deck sits at the same width on screen as a landscape one instead of a third of it.
+  portrait deck sits at the same width on screen as a landscape one instead of 84% of it.
   A deck that declares no `size:` exports **byte-identical** to before.
 
 - **Investigated (no behavior change yet): every shipped theme has palette declarations that

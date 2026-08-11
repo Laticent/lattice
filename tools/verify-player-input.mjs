@@ -332,33 +332,59 @@ for (const [label, deck, expected] of CANVASES) {
 	await sz.waitForTimeout(500);
 	const m = await sz.evaluate(() => {
 		const s = document.querySelector('.lp-frame.lp-active section[data-lattice-slide]');
-		const frame = s.closest('.lp-frame').getBoundingClientRect();
+		const frameEl = s.closest('.lp-frame');
+		const frame = frameEl.getBoundingClientRect();
+		const sec = s.getBoundingClientRect();
 		const stage = document.querySelector('body > #lp-app > #lp-stage').getBoundingClientRect();
 		return {
 			box: `${getComputedStyle(s).width} x ${getComputedStyle(s).height}`,
-			scroll: s.scrollHeight,
-			clientH: s.clientHeight,
+			// The SCALED section against its frame. `scrollHeight` was the first oracle here and
+			// it was vacuous for three of the four canvases: the section is a flex column with
+			// overflow:hidden, so squeezing its box re-lays-out the content instead of producing
+			// scrollable overflow — story/portrait/mobile reported scroll == client on the BROKEN
+			// build and the check passed. The rendered geometry cannot lie the same way.
+			secVsFrame: `${Math.round(sec.width)}x${Math.round(sec.height)} in ${Math.round(frame.width)}x${Math.round(frame.height)}`,
+			sized: Math.abs(sec.width - frame.width) <= 2 && Math.abs(sec.height - frame.height) <= 2,
 			fits: frame.width <= stage.width + 1 && frame.height <= stage.height + 1,
 			frame: `${Math.round(frame.width)}x${Math.round(frame.height)}`,
 		};
 	});
 	check(`${label}: the deck keeps its OWN canvas in the player`, m.box === expected, m.box);
-	check(`${label}: its content does not spill that canvas`, m.scroll <= m.clientH + 2, `${m.scroll}px in ${m.clientH}px`);
+	check(`${label}: the scaled slide fills its frame exactly`, m.sized, m.secVsFrame);
 	check(`${label}: and the scaled frame fits the stage`, m.fits, m.frame);
 	await szCtx.close();
 
-	// The no-JS floor, at a PHONE width — where a ladder tuned to 1280 puts an oversized frame
-	// through the side of the viewport on a narrow canvas.
-	const noJs = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false });
-	const nj = await noJs.newPage();
-	await nj.goto(`file://${szOut}.html`);
-	await nj.waitForTimeout(300);
-	const n = await nj.evaluate(() => {
-		const fr = document.querySelector('.lp-frame').getBoundingClientRect();
-		return { w: Math.round(fr.width), doc: document.documentElement.clientWidth };
-	});
-	check(`${label}: the no-JS floor stays inside the viewport`, n.w <= n.doc + 1, `frame ${n.w}px vs viewport ${n.doc}px`);
-	await noJs.close();
+	// The no-JS floor, at TWO widths, measuring the SECTION and not just the frame.
+	//
+	// The first version checked only `frame <= viewport` at 390. That could not fail for a canvas
+	// narrower than 1280 — a mis-tuned ladder makes those frames too SMALL, never oversized — and
+	// it never looked at the section, so restoring the pre-fix 1280x720 no-JS rule passed while
+	// the rendered floor was visibly sliced. Two widths because the upper ladder rungs are only
+	// reachable above 1000px, and corrupting them was invisible to everything.
+	for (const [w, h] of [
+		[390, 844],
+		[1440, 900],
+	]) {
+		const noJs = await browser.newContext({ viewport: { width: w, height: h }, javaScriptEnabled: false });
+		const nj = await noJs.newPage();
+		await nj.goto(`file://${szOut}.html`);
+		await nj.waitForTimeout(300);
+		const n = await nj.evaluate(() => {
+			const frEl = document.querySelector('.lp-frame');
+			const fr = frEl.getBoundingClientRect();
+			const s = frEl.querySelector('section[data-lattice-slide]');
+			const sec = s.getBoundingClientRect();
+			return {
+				w: Math.round(fr.width),
+				doc: document.documentElement.clientWidth,
+				sized: Math.abs(sec.width - fr.width) <= 2 && Math.abs(sec.height - fr.height) <= 2,
+				secVsFrame: `${Math.round(sec.width)}x${Math.round(sec.height)} in ${Math.round(fr.width)}x${Math.round(fr.height)}`,
+			};
+		});
+		check(`${label} @${w}: the no-JS floor stays inside the viewport`, n.w <= n.doc + 1, `frame ${n.w}px vs viewport ${n.doc}px`);
+		check(`${label} @${w}: and its slide fills the frame it was given`, n.sized, n.secVsFrame);
+		await noJs.close();
+	}
 }
 
 await browser.close();

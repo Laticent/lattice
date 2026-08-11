@@ -174,6 +174,49 @@ describe('html-player export — Present fits the viewport (P3c)', () => {
 	}, { timeout: TIMEOUT });
 });
 
+// #1577 — a deck's OWN canvas survives the export, ON EVERY PR.
+//
+// The player hardcoded 1280×720, so any deck declaring a non-default `size:` exported laid out
+// for its real canvas and then crushed into an HD box: ~3× oversized, unreadable. It survived
+// from the player's first release across ~80 committed decks because it was INVISIBLE — the
+// same run's PDF was correct, so nothing and nobody looked at the webpage.
+//
+// This cell exists because the fix's own real-surface proof lives in `tools/verify-player-input.mjs`,
+// which is on-demand and gates nothing. A change whose entire lesson is "the defect survived
+// because nothing automatically looked" must not leave its proof somewhere nothing automatically
+// runs. The block above already spawns the real CLI and drives Chromium on every PR — it just
+// did it against a DEFAULT-size deck, the one deck in the space that could never catch this.
+//
+// Mutation-checked: deleting `width: slideW, height: slideH` from the CLI host passes the entire
+// unit suite AND the rest of this file. This is the cell that fails.
+describe('html-player export — a declared `size:` reaches the player (#1577)', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	// A portrait deck: small, committed, and a canvas that differs from HD on BOTH axes.
+	const DECK = path.join(ROOT, 'examples', 'social-portrait.md');
+	const TIMEOUT = 120000;
+	let html;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canvas-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	}, { timeout: TIMEOUT });
+
+	test('the exported player sizes its slides to the DECK canvas, not to 1280×720', () => {
+		// social-portrait.md declares `size: portrait` → 1080×1350.
+		assert.match(html, /section\[data-lattice-slide\]\{width:1080px!important;height:1350px!important/, 'the present rule carries the deck canvas');
+		assert.match(html, /slideW:1080,slideH:1350/, 'and so does the fit math the script runs');
+		// The HD literal must not survive anywhere that sizes a slide. Scoped to the sizing
+		// shape on purpose: `720px` legitimately appears elsewhere (the caption band's measure).
+		assert.doesNotMatch(html, /width:1280px!important/, 'no HD canvas rule survives for a portrait deck');
+		assert.doesNotMatch(html, /slideW:1280/, 'no HD divisor survives either');
+	}, { timeout: TIMEOUT });
+});
+
 // P3d — speaker notes: default-in, with a --strip-notes privacy export that must
 // scrub the note text from EVERY baked copy (the DOM aside AND the envelope source).
 // The grep test is the whole point: a stripped file that leaks note text is a bug.

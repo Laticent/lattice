@@ -391,11 +391,11 @@ a security defect in the player JS lives **forever** in every file already sent.
     Real-surface verified: Present nav + edge-clamping driven in Chromium.
     - **CORRECTION (2026-08-11, #1577).** "The export player's `fit()` hard-coded 1280×720" was
       recorded above as a *forked constant the kernel unified* — but unifying the fit MATH left
-      the CANVAS hardcoded, in nine places (five CSS rules, the two `fitScale` calls, and the
+      the CANVAS hardcoded, in nine places (six CSS rules, the two `fitScale` calls, and the
       no-JS floor's `--lp-fit` ladder, which was fractions of 1280 with the literal nowhere in
       sight). The engine derives a deck's type scale from its REAL canvas via `--_sec-1cqi`, so
       every deck declaring a non-default `size:` exported laid out for its own canvas and then
-      crushed into an HD box — ~3× oversized, headings over body copy, cut off mid-word, on 35
+      crushed into an HD box — ~3× oversized, headings over body copy, cut off mid-word, on 87
       committed decks and silently, since the same run's PDF was correct. The canvas is now
       THREADED from the host (`data.width`/`data.height` → `playerCss`/`playerJs`), which both
       the CLI and the Studio already resolve; deriving it from the emitted document was rejected

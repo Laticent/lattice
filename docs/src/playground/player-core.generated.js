@@ -1807,6 +1807,21 @@ function themeDualMode(css) {
   return { base, darkBlock };
 }
 var PLAYER_CANVAS = { w: 1280, h: 720 };
+function resolveCanvas(data = {}) {
+  const px = (v) => Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0;
+  const w = px(data.width);
+  const h = px(data.height);
+  if (w && h) return { w, h };
+  const doc = String(data.docHtml || "");
+  const cqi = doc.match(/--_sec-1cqi:\s*([0-9.]+)px/);
+  const cqh = doc.match(/--_sec-1cqh:\s*([0-9.]+)px/);
+  if (cqi && cqh) {
+    const dw = Math.round(Number.parseFloat(cqi[1]) * 100);
+    const dh = Math.round(Number.parseFloat(cqh[1]) * 100);
+    if (dw > 0 && dh > 0) return { w: dw, h: dh };
+  }
+  return { ...PLAYER_CANVAS };
+}
 var NO_JS_FRAME_WIDTHS = [358.4, 512, 716.8, 921.6];
 var NO_JS_LADDER_HD = [".28", ".40", ".56", ".72"];
 function playerCss(narration2 = false, captions = narration2, canvas = PLAYER_CANVAS) {
@@ -1973,10 +1988,10 @@ ${captions ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that s
    collapses to near-zero, rendering the type illegibly tiny (documented, previously
    REJECTED for this exact reason: engineering/gotchas.md "Preview slides collapse \u2026
    CSS zoom", decision doc 2026-07-02-preview-scale-zoom.md). transform is immune \u2014
-   cqi resolves ONCE against the intrinsic 1280\xD7720 box, and transform only scales the
+   cqi resolves ONCE against the intrinsic canvas box, and transform only scales the
    already-resolved paint. transform doesn't collapse the LAYOUT box the way zoom did,
    so each slide is wrapped in a .lp-frame sized to the scaled footprint
-   (calc(1280px * var(--lp-fit))) \u2014 the flex column's gap then packs against that
+   (calc(<canvas>px * var(--lp-fit))) \u2014 the flex column's gap then packs against that
    real size, same visual result as zoom gave, without breaking cqi. --lp-fit is set
    fluidly by the script to fill the column; the mobile default also serves the floor. */
 [data-lp-view=read-slides] #lp-doc{display:none}
@@ -2768,10 +2783,7 @@ async function assemblePlayer(data, caps) {
   const hasAudio = hasNarration && (data.narration || []).some((cues) => (cues || []).some((c) => typeof c?.audio === "string" && c.audio.startsWith("data:")));
   const paceName = frontMatterPace(source);
   const beats = { slide: paceBeatMs("slide", paceName), section: paceBeatMs("section", paceName) };
-  const canvas = {
-    w: Number(data.width) > 0 ? Number(data.width) : PLAYER_CANVAS.w,
-    h: Number(data.height) > 0 ? Number(data.height) : PLAYER_CANVAS.h
-  };
+  const canvas = resolveCanvas(data);
   const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "", hasNarration ? beats : null, hasCaptions, canvas);
   const jsHash = await caps.sha256(js);
   const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; ${hasAudio ? "media-src data:; " : ""}base-uri 'none'; form-action 'none'`;
