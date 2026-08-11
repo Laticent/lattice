@@ -142,8 +142,23 @@ Numbers are not the sign-off; the QUALITY BAR asks for someone to look. Renderin
 the checklist slide before and after for the affected themes splits the eleven into
 two genuinely different things.
 
-**`a11y-achromatopsia` dark is a real regression, and it is at source.** The
-palette declares flat grays with no light-dark() pair:
+**CORRECTION (2026-08-11, after the sweep): seven of the eleven crossings are in
+a mode those themes declare they do not have.** All five a11y palettes carry
+`modes: ["light"]` in their manifests, `a11y-base.css` pins
+`:root:root { color-scheme: light }` specifically to beat the global dark toggle,
+and `checkThemeModes` is green — so the CSS genuinely provides one face. The sweep
+rendered every theme at `color-mode: light` AND `dark`, which for those five is a
+configuration the palette does not claim to support. **They are not a flip
+blocker**, and the recommendation in §5 is corrected accordingly. What the sweep
+did surface is a different, real gap: **nothing prevents `color-mode: dark` on a
+light-only theme.** The `:root:root` pin beats the global toggle but not a per-deck
+mode, which lands on the section — a11y-base's own comment says the pin cannot
+reach there. Nothing warns and no gate covers it. The paragraph below stands as a
+description of what that unsupported state looks like; it is no longer a
+prerequisite.
+
+**`a11y-achromatopsia` in that unsupported dark mode.** The palette declares flat
+grays with no light-dark() pair:
 
 ```css
 --pass: #4d4d4d;  --warn: #6E6E6E;  --fail: #2e2e2e;
@@ -182,16 +197,21 @@ accessibility deck.
 
 The order that follows from the measurement:
 
-1. **Repair the masked defects first, as their own change** — `a11y-achromatopsia`
-   (and check its three siblings' dark-mode status grays) needs `light-dark()`
-   pairs; `cuoio` needs `--hljs-literal` lifted over 4.5:1. Both are palette edits
-   with no engine change, and both are correct on their own merits whether or not
-   the flip ever lands.
-2. **Land an `--hljs-* × --code-bg` AA gate with the flip**, as the issue asks.
-   The harness in §3 is that gate's prototype and it already finds one violation;
-   twelve tokens × 32 themes × 2 modes have no contrast test anywhere today.
-   The status trio wants the same treatment against the surface it is actually
-   painted on, which §4 shows is not always `--bg`.
+1. **~~Repair the a11y status grays first.~~ DONE, and it was the wrong list.**
+   The a11y crossings are in an unsupported mode (§4's correction). The repairs
+   that were actually owed, both landed:
+   - **`indaco` `--hljs-literal` 3.71:1 → 4.67:1.** Not a flip prerequisite at all
+     — a **live** AA failure in shipped output, in both concat orders, found by
+     the new gate rather than by this sweep (the sweep compares orders, so a value
+     under the floor in *both* never registers as a crossing).
+   - **`cuoio` `--hljs-literal` 4.05:1 → 4.68:1.** A genuine flip prerequisite:
+     today the base's `#ff5874` paints at 5.68:1 on cuoio's panel, so cuoio's own
+     value has never rendered.
+2. **~~Land an `--hljs-* × --code-bg` AA gate with the flip.~~ LANDED, ahead of
+   it** — see §7. It is what found the indaco defect, which is the argument for
+   gating before the flip rather than with it. The status trio still wants the same
+   treatment against the surface it is actually painted on, which §4 shows is not
+   always `--bg`.
 3. **Then flip `lattice-emulator.js:691`**, with the sweep re-run as the proof.
 
 **This is still a human gate.** The artifacts are the four contact sheets and the
@@ -213,3 +233,223 @@ a11y comparison in the PR; the decision is the owner's.
 - **The other 22 token families.** Only `--hljs-*` and the status trio were
   contrast-measured. The `--diagram-*` family visibly changes the gantt and kanban
   slides and nothing here says whether those changes clear any floor.
+
+## 7. The `--hljs-*` gate (landed 2026-08-11)
+
+`checkHljsContrast` resolves each `--hljs-*` token against its own theme's
+`--code-bg`, per mode, through `catResolve` — the same resolver the categorical
+arms use, so the two cannot disagree about what a token resolves to.
+
+**It earned itself immediately.** `indaco` declares Night Owl's `#ff5874`
+verbatim, and the comment above the block says so — but Night Owl tuned that
+against Night Owl's panel (`#011627`), and indaco's `--code-bg` is the lighter
+`#003d66`. 3.71:1, **rendering that way today**, in both concat orders. Verified
+in Chromium on a real `section.code pre`, not just in the token map. That is a
+borrowed palette meeting a panel it was not chosen for, and no sweep comparing
+*orders* could ever have found it.
+
+### 7a. The exemption, and why it was wrong — corrected same day
+
+The gate shipped its first cut with `--hljs-comment` and `--hljs-punctuation`
+**exempt**, and the argument was written down at length: 64 comment values and 46
+punctuation values sit under 4.5:1 across the shipped palettes, against **4** for
+every other token combined; de-emphasis is what makes code findable; a gate
+demanding 110 palette edits to enforce a reading no syntax theme follows would be
+damage done to make a number zero. WCAG says otherwise, so it was flagged to the
+owner rather than settled.
+
+**The owner's answer was to fix it, and on inspection the argument was reasoning
+about the wrong end of the scale.** De-emphasis is a question of where a token
+sits *relative to the code around it*. The floor is a question of whether a human
+can read it *at all*. The floor is 4.5:1 and the content tokens sit well above it,
+so both are satisfiable at once — the exemption traded away legibility to buy a
+hierarchy it never had to spend anything on.
+
+So all 110 were repaired. Each was lifted through `ensureContrast`
+(`lib/theme/color.js` — OKLCH, hue and chroma held, first step that clears), which
+is the *minimum* movement that reaches the floor: they land at 4.5–4.7:1, not at
+body-text contrast. That collapsed to **23 declaration sites across 14 files**,
+because `onyx.css` alone supplies the values 28 theme-modes inherit.
+
+**The hierarchy was verified afterwards, not assumed.** Across all 64 theme-modes,
+no token that carries CODE sits below a repaired comment.
+
+> **Correction (same day, from the independent checker).** This paragraph first
+> said "a comment is still the quietest thing in the panel", and that is **false in
+> 26 of 66 theme-modes** — `--hljs-punctuation` is lifted to the same floor and
+> lands a few hundredths either side of the comment. The test passed only because
+> it skips punctuation. Comment and punctuation are peers at the bottom by design;
+> the claim that holds is the narrower one now stated above.
+>
+> **And the visual sign-off cited an artifact that refutes it.** This paragraph
+> originally read *"Rendered `indaco` and `crepuscolo` (the largest lift, 1.96 →
+> 4.57:1) and looked at them: the comments read comfortably."* Probed in Chromium,
+> all four of those `.scratch/after-*.html` files paint `#637777` — the
+> **unrepaired base** value — because the emulator loads the base last (§7d). The
+> repaired theme values were never on screen, and on that path they cannot be. The
+> renders were real; they were renders of the old value. That is exactly the HARD
+> RULE #23 failure the rule exists for, committed while quoting the rule.
+>
+> The claim is now carried by artifacts that do show it: the CI golden montages on
+> `code · light · slide 2` (default palette) and `code · dark · slide 3` (the
+> comment-dense stress slide), where the before/after differ and the overlay marks
+> only comment lines.
+
+The lesson is the transferable part: **an exemption that arrives with a big number
+attached is usually a defect being counted rather than fixed.** 110 was presented
+as the reason not to act; it was the size of the problem.
+
+**A second defect the lift itself introduced.** Pushing comment and punctuation to
+the same floor collapsed them: `concrete` ended 2/255 apart in one channel — OKLab
+ΔE 0.0030 against the repo's own `CAT_INK_COLLAPSE_DIST` of 0.010, having been
+0.1378 before. Same in laguna, crepuscolo, atelier, mustard, onyx, brina, magnolia.
+Legible and indistinguishable is a different defect from illegible, and no contrast
+number can see it. Punctuation is now separated to ΔE ≥ 0.030 across 8 declaration
+sites, moved toward the code (it *is* code — braces, semicolons) so the comment
+stays the quietest. The gate and a test both enforce it now.
+
+### 7b. A defect in the gate, found by the test that replaced the exemption
+
+Writing the per-token mutation test exposed a second bug — in the gate's own
+signature. `checkHljsContrast(errors, themesDir)` listed *filenames* from
+`themesDir` but read their *contents* through `catPaletteSource`, which hardcoded
+the real `THEMES_DIR`. So a fixture tree could be scanned by name while the real
+palettes were measured, and a mutation test against the fixture would pass because
+nothing it wrote was ever read — the canary in the exemption-era test was green for
+exactly that wrong reason. `catPaletteSource` now threads `themesDir` through its
+recursion, defaulted so every other caller is unchanged.
+
+Mutation-tested per token, all twelve: each driven to its own theme's `--code-bg`
+(1.00:1 — guaranteed to fail whatever the panel's lightness, which a fixed hex
+cannot be) must fail the gate *and name the token*.
+
+### 7c. The base palette — the biggest miss, found by distrusting a clean result
+
+After the fourteen themes were repaired, a full **340-render** regression sweep
+(75 galleries × 2 moods + 190 deck goldens) reported **zero drift**. That could not
+be true of a change that moved colors in fourteen palettes, so it got traced
+instead of accepted.
+
+The sweep was not broken. `regression-gate.mjs` renders every golden with
+`dist/lattice.css`, and **that bundle's comment color is not any theme's** — it is
+`lib/base/base.tokens.css`'s own `--hljs-comment`, which the theme edits never
+touched. The sweep was correctly reporting that fourteen theme edits did not reach
+the bundle everything actually renders with.
+
+And that value was **`#637777` at 3.63:1** on the base's `--code-bg` (`#001d33`) —
+Night Owl's value a third time, tuned for Night Owl's `#011627`. This is the
+palette `dist/lattice.css` ships: what a deck renders with before any theme is
+chosen, and what the regression gate itself renders every golden with. **It was the
+most-read sub-AA value in the repo.**
+
+`checkHljsContrast` could not see it. The gate scanned `themes/` and its own
+comment excused the omission — *"a palette that declares no syntax colors of its
+own inherits the base's, which the base is responsible for"* — but nothing made the
+base responsible. The gate now scans `lattice` first and not optionally. Verified
+by running the widened gate against the un-repaired value: it fails and names it
+(`lattice/light --hljs-comment #637777 on --code-bg #001d33 = 3.63:1`).
+
+Lifted to `#748989`, 4.64:1, hue and chroma held.
+
+**The transferable lesson is the second one this section has produced, and it is
+the sharper of the two: a gate that reports clean after a change it should have
+seen is making a claim, and the claim is checkable.** Three defects in this
+section — the exemption, the `themesDir` lie, and the base blind spot — were all
+found by asking a green result to justify itself.
+
+### 7d. The export path — where the "Fixed" claim did not reach
+
+An independent checker was run on the finished branch, and its lead finding was
+that **the headline repair did not reach the surface the changelog named.**
+
+`lattice-emulator.js:690` is `const css = paletteCSS + '\n' + layoutCSS;` — the
+base is concatenated **after** the theme, so on the export path the base's
+`--hljs-*` win and a theme's own values never paint. That inversion *is* #1527, and
+the flip is deliberately not shipped here. It was written into this branch's own
+commit message to explain why cuoio's repair "has never rendered" — and then the
+opposite was asserted for indaco, which requires the theme to win. Both numbers
+read 3.71:1 only because indaco and the base declare the same Night Owl hex, so the
+measurement was right and the conclusion about the *fix* was wrong.
+
+Verified independently before acting, in real Chromium on real emulator output:
+
+```
+panel                      rgb(0,61,102)      #003d66
+--hljs-literal resolves to #ff5874            (the BASE's value)
+painted                    rgb(255,88,116)  = 3.71:1
+```
+
+`lib/engine/css.js:389` inlines the base at the theme's `@import` position, so the
+engine/docs/Studio path *did* get the repair. The export — the CLI, all 45
+exemplars — did not.
+
+**The gate had the matching blind spot.** It paired base tokens with the *base's*
+panel and theme tokens with the *theme's*, which models the post-flip world. The
+combination the export actually paints — base token on theme panel — was measured
+by nothing. Sixteen such pairs were under the floor: `--hljs-comment` on 12 panels
+(worst 3.06 on indaco) and `--hljs-literal` on 4 (worst 3.71).
+
+**The repair.** The base's two offenders are now solved against *every* panel they
+can land on — its own plus all 15 distinct `--code-bg` values in the corpus —
+rather than against Night Owl's or the base's alone: comment `#92a8a8` (worst
+4.51:1), literal `#ff7c8c` (worst 4.58:1). `checkHljsContrast` now judges the base
+against the whole panel set, so both concat orders are safe and the flip's
+prerequisite is genuinely met rather than asserted.
+
+**Two more things the checker caught, both real:**
+
+- `lib/theme/derive.js` still held generated `--hljs-*` to **3:1**, with a comment
+  calling syntax highlighting "decorative" — the exact argument §7a spends forty
+  lines refuting. Every theme the Studio generated shipped comments at ~3.1:1: the
+  defect being *manufactured downstream* while the committed palettes were repaired.
+  Now 4.5; two seeds that produced 3.10 and 3.12 now produce 4.91 and 4.71.
+- The gate **silently skipped any value it could not parse** — `rgb()`, `hsl()`,
+  `oklch()`, a named color, 8-digit hex — contradicting the resolver's own
+  documented contract ("never a silent skip") and making the gate evadable by
+  changing notation alone. An unreadable value is now a loud error. Note the
+  disclosed caveat had this backwards: it named `color-mix()`, which was always
+  handled, and missed the notations that actually escaped.
+
+### 7e. `kit/Sample-Deck.pdf`, and a null result read as proof
+
+The checker raised the marp kit's sample deck as a likely fourth stale artifact. It
+was dismissed in a commit message with: *"it is not a tracked file (`git ls-files`
+finds nothing), only a `.scratch` export artifact."*
+
+**Every clause of that was false.** `kit/Sample-Deck.pdf` is tracked, is in `HEAD`,
+and has its own entry in `checkCommittedPdfs` — a registry that by construction
+lists only tracked artifacts. The cause is worth recording because it is a general
+trap: the check ran immediately after a `cd docs`, so `git ls-files | grep -i
+sample-deck` was scoped to `docs/` and returned nothing. **A null result is only as
+strong as the scope of the search, and the scope was never checked.** The dismissal
+then rested on that null.
+
+Re-done properly, with marp-cli — the artifact's real producer, which turned out to
+be installable here after all (`npx @marp-team/marp-cli@^4.3.1` against the kit's
+own config, exactly as `dist/marp-kit/README.md` instructs):
+
+| comparison | pages differing (of 13) |
+|---|---|
+| committed vs render from **this branch** | 5 |
+| committed vs render from **`origin/main`** | 4 |
+| render from `main` vs render from **this branch** | **1 — p-05** |
+
+So four of the five are environmental — this container's font rasterization, not
+anyone's change — and **exactly one page is this branch's**: p-05, the front-matter
+slide, whose yaml `#` comments and `true` literals are the two tokens repaired here.
+Confirmed by looking at it.
+
+The refreshed PDF is committed. That bakes in the four environmental pages, which is
+an accepted cost: the artifact is `watcher: null` precisely because it is
+*"what a recipient's marp-cli produces"* and cannot be reproduced deterministically
+from here, so it is environment-flavored by design — while a stale code panel in the
+deck that demonstrates the kit is a real defect.
+
+**The lesson §7c drew was right but too narrow.** It said a gate reporting clean
+after a change it should have seen is making a checkable claim. The sharper version:
+**a gate encodes a model of where the value lands, and that model is the thing most
+likely to be wrong.** Every defect in this section — the exemption, the `themesDir`
+lie, the base blind spot, and this one — was the gate measuring the wrong pair, not
+measuring the right pair badly. Four of them, in one swimlane, found by three
+different means: a red team, a distrusted green result, and an independent checker.
+The checker was the only one that caught this one, and it was nearly not run.

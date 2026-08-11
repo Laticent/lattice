@@ -117,7 +117,7 @@
 
 /* ── highlight.js syntax tokens (Night Owl, on the warm code panel) ──── */
 :root {
-  --hljs-comment:    #7c776b;
+  --hljs-comment:    #948f82;
   --hljs-keyword:    #c792ea;
   --hljs-built_in:   #addb67;
   --hljs-number:     #F78C6C;

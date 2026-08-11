@@ -1070,12 +1070,28 @@
   --on-dark-ghost:     color-mix(in srgb, white 32%, transparent);
   --on-dark-watermark: color-mix(in srgb, white 12%, transparent);
 
-  /* hljs fallbacks — Night Owl palette, overridden by each theme */
-  --hljs-comment:    #637777;
+  /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
+   *
+   * These are not only a fallback. `lattice-emulator.js` concatenates
+   * `paletteCSS + layoutCSS`, so on the EXPORT path the base is loaded AFTER the
+   * theme and these values WIN — a theme's own `--hljs-*` never paints there
+   * (that inversion is #1527, and the flip is not shipped yet). So each of these
+   * must clear AA on every panel it can land on: this base's `--code-bg`
+   * (#001d33) AND all 15 distinct `--code-bg` values across the theme corpus.
+   *
+   * `--hljs-comment` and `--hljs-literal` are solved for that whole set rather
+   * than for Night Owl's own #011627 panel. Night Owl's #637777 read 3.63:1 here
+   * and 2.39:1 on indaco; #ff5874 read 3.71:1 on indaco. Both were repaired first
+   * against this base's panel alone, which fixed the docs/Studio path and left the
+   * export still painting sub-AA — the gate could not see it, because it paired
+   * base tokens only with the base's own panel. Worst case now: comment 4.51:1,
+   * literal 4.58:1, both on indaco's #003d66. `checkHljsContrast` measures the
+   * base against every theme panel so this cannot regress. */
+  --hljs-comment:    #92a8a8;
   --hljs-keyword:    #c792ea;
   --hljs-built_in:   #addb67;
   --hljs-number:     #F78C6C;
-  --hljs-literal:    #ff5874;
+  --hljs-literal:    #ff7c8c;
   --hljs-string:     #ecc48d;
   --hljs-title:      #DCDCAA;
   --hljs-type:       #82aaff;
@@ -26007,11 +26023,19 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
  * the dark brown without importing the cool Night Owl palette used by
  * the indaco theme. */
 :root {
-  --hljs-comment:    #7A6A58;  /* muted warm brown, italic               */
+  --hljs-comment:    #92816f;  /* muted warm brown, italic               */
   --hljs-keyword:    #D4A04A;  /* warm amber-gold, italic                */
   --hljs-built_in:   #8EBA6A;  /* warm lime-green — built-ins            */
   --hljs-number:     #D48A6A;  /* warm orange-rust                       */
-  --hljs-literal:    #C05A6A;  /* warm rose-pink — booleans/null         */
+  /* Was #C05A6A, which is 4.05:1 on this theme's own --code-bg (#1e1a15) — under
+   * the AA floor for code text. Lifted in OKLCH holding hue (12.2 -> 12.4) and
+   * chroma, +0.036 lightness, the same move derive-cat-ink makes for the ink tier:
+   * 4.68:1, clearing AA + the 0.15 margin cat-ink.js uses so an 8-bit round-trip
+   * cannot drop it back under. Found by #1527's sign-off sweep; the miss was
+   * invisible because the export loads the base AFTER the theme, so the base's
+   * #ff5874 has been painting instead. This changes nothing rendered TODAY and is
+   * a prerequisite for the concat flip. */
+  --hljs-literal:    #CC6574;  /* warm rose-pink — booleans/null         */
   --hljs-string:     #C8885A;  /* warm terracotta                        */
   --hljs-title:      #D4B868;  /* warm amber-yellow, italic              */
   --hljs-type:       #7ABAB0;  /* muted teal — cool contrast on warm bg  */

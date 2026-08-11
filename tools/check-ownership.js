@@ -5337,11 +5337,17 @@ function catContrast(a, b) {
 // --cat-N-ink tier is declared in base.tokens.css, not in any theme; and the
 // a11y-* palettes reach the cycle through `@import 'onyx'`, so read alone they
 // look like a theme with no categorical tokens at all.
-function catPaletteSource(name, seen = new Set()) {
+// `themesDir` is threaded through the recursion so a caller can point the whole
+// flatten at a fixture tree. It defaults to the real one, so every existing caller
+// is unchanged — but without it a `themesDir` argument on a GATE is a lie: the gate
+// would list fixture filenames and then read the real files' contents, and a
+// mutation test against the fixture would pass because nothing it wrote was ever
+// read. That is how this was found.
+function catPaletteSource(name, seen = new Set(), themesDir = THEMES_DIR) {
   if (seen.has(name)) return '';
   seen.add(name);
   if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
-  const file = path.join(THEMES_DIR, `${name}.css`);
+  const file = path.join(themesDir, `${name}.css`);
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
@@ -5349,7 +5355,7 @@ function catPaletteSource(name, seen = new Set()) {
   // raw scan treats that sentence as a real import. Harmless where the named
   // theme is imported anyway, silently wrong the moment a comment names one that
   // is not — it would flatten a foreign palette's tokens into the gate's map.
-  for (const m of catStripComments(css).matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen)}\n`;
+  for (const m of catStripComments(css).matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen, themesDir)}\n`;
   return `${out}${css}`;
 }
 
@@ -5498,9 +5504,185 @@ function catInkCollapsePairs(inks, marks) {
   return out;
 }
 
+/**
+ * The twelve `--hljs-*` syntax colors, against the code panel they are painted on.
+ *
+ * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
+ * the one large token family the categorical gate above does not reach. That gap
+ * hid a real defect: `cuoio`'s `--hljs-literal` sits at 4.05:1 on its own
+ * `--code-bg`, under the AA floor for code text. Nobody saw it because the export
+ * bundle concatenates the theme BEFORE the base, so the base's `#ff5874` has been
+ * painting instead of the theme's value — which is exactly why #1527's concat flip
+ * needs this gate to land with it. A curated value nobody has ever rendered is a
+ * value nobody has ever checked.
+ *
+ * FLOOR: `CAT_TEXT_FLOOR` (4.5). Syntax highlighting is small text on a panel;
+ * there is no "graphical" reading of it. Held to the bare AA floor rather than
+ * AA + margin, so the gate reports a real WCAG failure and not a house preference
+ * — the extra margin belongs in the repair, and `derive-cat-ink`'s solver applies
+ * it there.
+ *
+ * SURFACE: `--code-bg`, resolved per theme per mode through `catResolve` — the
+ * same resolver the categorical arms use, so the two cannot disagree about what a
+ * token resolves to (HARD RULE #15).
+ */
+const HLJS_TOKENS = Object.freeze([
+  'built_in', 'comment', 'keyword', 'literal', 'number', 'params',
+  'punctuation', 'string', 'tag', 'title', 'type', 'variable',
+].map((t) => `--hljs-${t}`));
+
+/**
+ * NO EXEMPTIONS. All twelve tokens are held to the floor, including the two that
+ * are deliberately quiet.
+ *
+ * The first cut of this gate exempted `--hljs-comment` and `--hljs-punctuation`,
+ * on the argument that de-emphasis IS the design and that holding them to 4.5:1
+ * would make a comment as loud as the statement it annotates. The measurement
+ * behind it was real — 64 comment and 46 punctuation values under the floor,
+ * against 4 for every other token combined — but the conclusion did not follow.
+ * The exemption was reasoning about the WRONG END of the scale: de-emphasis is a
+ * question of where a token sits RELATIVE to the code around it, and the floor is
+ * a question of whether a human can read it at all. Both can be satisfied, because
+ * the floor is 4.5:1 and the content tokens sit far above it.
+ *
+ * So the 110 values were repaired instead of excused, each lifted through
+ * `ensureContrast` (OKLCH, hue and chroma held, first step that clears) — the
+ * MINIMUM movement that reaches the floor, which lands them at 4.5–4.7:1. The
+ * hierarchy was verified afterwards rather than assumed: across all 64
+ * theme-modes, no token that carries CODE sits below the repaired comment. Say it
+ * that way and not "the comment is the quietest thing in the panel" — the looser
+ * sentence shipped in the first cut and was false in 26 of 66 theme-modes, because
+ * `--hljs-punctuation` is lifted to the same floor and lands a few hundredths
+ * either side. Comment and punctuation are peers at the bottom by design; what
+ * must never invert is comment against the code.
+ *
+ * The lesson is worth keeping: an exemption that comes with a big number attached
+ * is the shape of a defect being counted rather than fixed.
+ */
+
+function checkHljsContrast(errors, themesDir = THEMES_DIR) {
+  const failures = [];
+  let evaluated = 0;
+  let themesScanned = 0;
+  const unreadable = [];
+  // THE BASE IS SCANNED FIRST, and it is not optional. `lattice` is the palette
+  // `dist/lattice.css` ships — what a deck renders with before any theme is picked,
+  // and what `regression-gate.mjs` itself renders every golden with — so it is the
+  // most-read palette in the repo, not an edge case.
+  //
+  // The first cut of this gate skipped it, on the reasoning quoted in the loop
+  // below: a theme with no syntax colors of its own "inherits the base's, which the
+  // base is responsible for". Nothing made the base responsible. It shipped
+  // `--hljs-comment: #637777` — Night Owl's value, tuned for Night Owl's #011627 —
+  // at 3.63:1 on the base's darker #001d33, and no gate could say so. It was found
+  // by asking why a full 340-render regression sweep showed no drift after fourteen
+  // themes changed color: the sweep renders with `dist/lattice.css`, whose comment
+  // color the theme edits never touched.
+  const scan = ['lattice', ...fs.readdirSync(themesDir).sort()
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => f.replace(/\.css$/, ''))];
+  const maps = new Map(scan.map((n) => [n, catParseTokens(catPaletteSource(n, new Set(), themesDir))]));
+
+  // EVERY panel a token can land on. The base's tokens do not only paint on the
+  // base's own --code-bg: `lattice-emulator.js` concatenates `paletteCSS +
+  // layoutCSS`, so on the EXPORT path the base is loaded AFTER the theme and its
+  // --hljs-* WIN over the theme's. Pairing base-with-base and theme-with-theme
+  // models the post-flip world (#1527) and leaves the shipping one unmeasured:
+  // that hole hid indaco rendering --hljs-literal at 3.71:1 and --hljs-comment at
+  // 3.06:1 while this gate reported clean and a "Fixed" changelog entry shipped.
+  // Until the flip lands, a base value must clear the floor on EVERY panel.
+  const panels = new Map();   // bg -> the palette/mode that owns it, for the message
+  for (const [name, map] of maps) {
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--code-bg', mode);
+      if (bg && !panels.has(bg)) panels.set(bg, `${name}/${mode}`);
+    }
+  }
+
+  for (const name of scan) {
+    const map = maps.get(name);
+    // A theme that declares no syntax colors of its own inherits the base's, which
+    // is now checked above rather than assumed — nothing further here.
+    if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
+    themesScanned += 1;
+    for (const mode of ['light', 'dark']) {
+      const own = catResolve(map, '--code-bg', mode);
+      if (!own) continue;   // unresolvable surface — the token-parity gate owns that
+      // The base is judged against the whole corpus of panels; a theme only against
+      // its own, because a theme's value can never paint on another theme's panel.
+      const against = name === 'lattice' ? [...panels.keys()] : [own];
+      for (const token of HLJS_TOKENS) {
+        if (!map.has(token)) continue;
+        const fg = catResolve(map, token, mode);
+        if (!fg) {
+          // NOT a silent skip. `catResolve` returns null for any notation it cannot
+          // read — rgb()/hsl()/oklch()/a named color/8-digit hex — and skipping
+          // those quietly makes the gate evadable by changing notation alone, which
+          // contradicts the resolver's own documented contract above.
+          unreadable.push(`${name} ${token} = ${String(map.get(token)).trim()}`);
+          continue;
+        }
+        for (const bg of against) {
+          evaluated += 1;
+          const ratio = catContrast(fg, bg);   // the same helper the categorical arms use
+          if (ratio < CAT_TEXT_FLOOR) {
+            const where = bg === own ? '--code-bg' : `--code-bg of ${panels.get(bg)}`;
+            failures.push(`${name}/${mode} ${token} ${fg} on ${where} ${bg} = ${ratio.toFixed(2)}:1`);
+          }
+        }
+      }
+      // De-emphasis is a RELATIVE property no contrast number can see. Lifting
+      // comment and punctuation to the same floor collapsed them into one gray in
+      // eight palettes (concrete reached OKLab dE 0.0030, 1.01:1 against each
+      // other) — legible, and indistinguishable, which is a different defect from
+      // the one the lift fixed. Judged against the repo's own collapse floor.
+      const cmt = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
+      const pun = map.has('--hljs-punctuation') && catResolve(map, '--hljs-punctuation', mode);
+      if (cmt && pun) {
+        const dist = oklabDistance(cmt, pun);
+        if (dist < CAT_INK_COLLAPSE_DIST) {
+          failures.push(
+            `${name}/${mode} --hljs-comment ${cmt} and --hljs-punctuation ${pun} collapse — ` +
+            `OKLab dE ${dist.toFixed(4)} < ${CAT_INK_COLLAPSE_DIST}`,
+          );
+        }
+      }
+    }
+  }
+  if (unreadable.length) {
+    errors.push(
+      `${unreadable.length} \`--hljs-*\` value(s) are in a notation catResolve cannot read, so they were never ` +
+      `measured: ${unreadable.slice(0, 6).join('; ')}${unreadable.length > 6 ? `, +${unreadable.length - 6} more` : ''}. ` +
+      'Write the value as a hex literal (or a light-dark()/var()/color-mix() of hex literals) so the floor applies. ' +
+      'An unreadable value is an UNCHECKED value, not a passing one.',
+    );
+  }
+  // A gate that cannot fail is also a claim (#1535). Twelve tokens across the
+  // curated palettes is hundreds of pairs; a near-zero count means the scan broke.
+  if (evaluated < 100) {
+    errors.push(
+      `checkHljsContrast evaluated only ${evaluated} token-mode pairs across ${themesScanned} theme(s) — ` +
+      'the curated palettes declare twelve syntax colors each, so this is a broken scan, not a clean tree.',
+    );
+    return;
+  }
+  if (failures.length) {
+    errors.push(
+      `${failures.length} \`--hljs-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
+      `--code-bg: ${failures.slice(0, 8).join('; ')}${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. ` +
+      'Lift the value in OKLCH holding hue and chroma (the move derive-cat-ink makes for the ink tier) rather ' +
+      'than picking a new colour by eye — the palette author chose the hue. NOTE these values may not be ' +
+      'rendering today: the export loads the base AFTER the theme, so a theme\'s syntax colors are dead on ' +
+      'the export path until #1527\'s concat flip lands. A value nobody has rendered is a value nobody has ' +
+      'checked, which is why this gate exists before the flip rather than after it.',
+    );
+  }
+}
+
 function checkCatContrast(errors) {
   checkCatInkDeclared(errors);
   checkCatInkFallback(errors);
+  checkHljsContrast(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
@@ -7162,6 +7344,8 @@ module.exports = {
   CAT_INK_COLLAPSE_DIST,
   catInkCollapsePairs,
   checkCatInkFallback,
+  checkHljsContrast,
+  HLJS_TOKENS,
   checkNoSafeDefaultTokens,
   noSafeDefaultTokens,
   fallbackOnlyTokens,

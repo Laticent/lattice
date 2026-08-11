@@ -32,12 +32,12 @@
 	"code.light": {
 		"src": "lib/components/code/code/code.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "c1c9d278c018b6d69ded638b83e9fcd0baa4bdff7ff3bf0af39f9830fe68bb7d"
+		"srcSha256": "691707e168b80a4bc1104899882853b2fb58b6371a70a788364f97c31cadeeb0"
 	},
 	"code.dark": {
 		"src": "lib/components/code/code/code.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "7eab9375e8adfcf0254defb69888d08e1b20c6b9babf2b27f25dddbb1341e093"
+		"srcSha256": "8ab66106e79e2b9cee250ed8395b523f3e5c4bf848861ae2f70cbe4cd9778111"
 	},
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",

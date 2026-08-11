@@ -107,7 +107,10 @@ const STATUS = {
 
 const GROUPS = [
   ['active', '### Active — proposed · in-progress · blocked'],
-  ['shipped', '### Shipped — pending teardown (absorb into canon, then delete)'],
+  // NOT "pending teardown". That heading asserted a process that never ran once in
+  // 391 notes, and the folder is a dated archive by decision (#1597, 2026-08-11) —
+  // a stale claim in a generated file is exactly what this repo treats as a defect.
+  ['shipped', '### Shipped — the work landed; the note stays as the record'],
   ['historical', '### Historical — superseded'],
 ];
 const HEADING_GROUP = new Map(GROUPS.map(([group, heading]) => [heading, group]));

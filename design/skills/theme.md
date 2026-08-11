@@ -206,7 +206,16 @@ the full 95-token per-theme contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
-the 10 core tokens, define: all 12 `--hljs-*` code-syntax colors; **all 12**
+the 10 core tokens, define: all 12 `--hljs-*` code-syntax colors — each of which
+must clear **4.5:1 against your `--code-bg`**, comments and punctuation included
+(`checkHljsContrast`, via `build:check`). Syntax highlighting is small text a human
+reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption for
+"deliberately quiet" tokens was tried and removed, because de-emphasis is about
+where a token sits *relative to the code* and the floor is about whether it can be
+read at all. Comment and punctuation must also not **collapse** into each other
+(OKLab ΔE ≥ 0.010, the same anti-collapse floor `--cat-*` uses). Solve a failing
+value with `ensureContrast` (`lib/theme/color.js`) — OKLCH, hue and chroma held —
+rather than by eye. Also define **all 12**
 `--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,
 `--text-label`, `--code-text`; `--pass-bg` / `--fail-bg` / `--warn-bg`; the
 `--scheme-dark-*` block; the `--diagram-*` semantic palette; `--c-container` /
