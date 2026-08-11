@@ -12,9 +12,20 @@ import { defineConfig, devices } from '@playwright/test';
 // already have running so you don't rebuild every run.
 //
 // Browser: Chromium from the sandbox at PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
-// (build 1194 ↔ @playwright/test 1.56.1). Do NOT run `playwright install` here.
-// In CI, provision the pinned browser explicitly (the version pin IS the browser
-// pin). See the decision doc §"Sandbox + CI browser provisioning".
+// (build 1194 ↔ @playwright/test 1.56.1). In CI, provision the pinned browser
+// explicitly (the version pin IS the browser pin). See the decision doc
+// §"Sandbox + CI browser provisioning".
+//
+// WEBKIT IS REACHABLE FROM THE SANDBOX — it is simply not preinstalled:
+//
+//   cd docs && npx playwright install-deps webkit && npx playwright install webkit
+//
+// (~2 min, lands in the same PLAYWRIGHT_BROWSERS_PATH.) This note used to read
+// "Chromium only / do NOT run playwright install here", which cost real time: it
+// stopped an investigation of #1554 — a WebKit-only duplicate-paint bug on
+// `math compare` — on the belief that the engine could not be run here at all. It
+// can, and the `webkit-phone` / `webkit-tablet` projects below are worth driving
+// locally before trusting a Chromium pass on anything engine-divergent.
 //
 // trace + video are ON by default (decision doc §"Watching a run") so every run
 // leaves an RPA-style, scrubable record — the same artifacts the nightly relies

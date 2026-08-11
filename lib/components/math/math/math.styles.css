@@ -492,6 +492,44 @@ section.math.compare > h3 {
  * label text — measurable, and outside the border just as the margin was. */
 section.math.compare > h3 + * { padding-top: var(--sp-sm); }
 section.math.compare > h3:first-of-type { break-before: avoid; }
+
+/* THE MASTHEAD BAND AND THE COLUMN LABELS ARE ATOMS — they may not split across
+ * a column boundary. Captions deliberately still may.
+ *
+ * WHICH BOX ACTUALLY FRAGMENTS: the EYEBROW paragraph, not the h3. #1554 reads
+ * as "WebKit paints the first h3 twice", and that is the visible symptom, but
+ * the ghost is a paint copy — the box WebKit fragments across the
+ * `column-span: all` spanner is the in-flow content that PRECEDES the spanner.
+ * Measured on 8 compare shapes x light/dark x 1180x820 and 1180x703:
+ *
+ *   no rule at all …………………………………… 12/32 clean
+ *   `> h3 { break-inside: avoid }` … 12/32 clean   ← the "obvious" fix does NOTHING
+ *   eyebrow paragraph only ………………… 32/32 clean
+ *   this rule ……………………………………………… 32/32 clean
+ *
+ * and a compare slide with NO eyebrow never had the bug. So the eyebrow arm
+ * below is load-bearing and must not be dropped; h2 and h3 are belt-and-braces
+ * on boxes that never wanted to split anyway. Do not "simplify" this to `> h3`.
+ *
+ * WHY NOT `> *`: it also makes the CAPTION prose an atom, and that is a real
+ * regression on a slide whose caption is taller than its column — the caption
+ * relocates whole instead of flowing, leaving a gap and pushing the next h3
+ * group off the slide entirely. Verified against the export path: with the
+ * arms below, an overflowing compare slide renders byte-identically to the
+ * unfixed engine, while `> *` does not.
+ *
+ * WHY IT WAS INVISIBLE: the BOXES stay correct. `getBoundingClientRect` and
+ * `getClientRects` alike report only the second fragment, `section.overflow` is
+ * 0, and `scrollHeight == clientHeight`, so every gate this repo owns — all of
+ * which measure boxes — passes. Only a rasterized WebKit view sees it, which is
+ * why the guard is a pixel spec (`docs/e2e/math-compare-webkit.spec.ts`, tagged
+ * `@webkit-tablet`) rather than a measurement.
+ *
+ * See engineering/decisions/2026-08-10-compare-column-atoms.md. */
+section.math.compare > :is(h2, h3, p:has(> code:only-child):has(+ h2)) {
+  break-inside: avoid;
+}
+
 section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   break-inside: avoid;
   padding-bottom: var(--sp-sm);

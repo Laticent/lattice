@@ -237,6 +237,20 @@ in patch versions.
   loading skeleton spinning forever when a render definitively failed — a definite
   failure now shows an explanation and a Retry instead of spinning. (#1551)
 
+- **Fixed: a `math compare` slide no longer paints its first column label twice in
+  Safari.** WebKit fragmented content across the full-width headline and drew a ghost
+  copy of the first column label on top of the title — reported from an iPad, and
+  invisible to every gate we own because the boxes stay correct
+  (`getBoundingClientRect` and `getClientRects` alike report only the second
+  fragment, and the slide reports no overflow). Chromium was never affected. The box
+  that fragments turned out to be the *eyebrow* paragraph rather than the heading, so
+  the fix makes the masthead band and the column labels unbreakable while leaving
+  caption prose free to flow — deliberately, since making captions unbreakable too
+  would relocate an overflowing caption whole and push the next column group off the
+  slide. No committed deck re-renders. A WebKit raster spec (`@webkit-tablet`,
+  nightly) now guards it, checked in both directions: it fails on the unfixed engine
+  and passes on the fixed one. (#1554)
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested
