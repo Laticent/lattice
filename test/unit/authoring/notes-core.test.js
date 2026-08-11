@@ -460,3 +460,59 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.equal(core.stripNotesFromSource(source, new Set()), source);
   });
 });
+
+// ── Directive classification ────────────────────────────────────────────────
+// `stripNotesFromSource` deletes any comment whose body was lifted as a note. Its
+// directive safety used to rest on the ENGINE having consumed every directive before
+// notes-core ever saw the HTML. That is the engine's property, not this module's, and it
+// fails on a deck where a directive survives into the rendered section — the directive is
+// lifted as a note and then deleted from the verbatim source the envelope carries, so the
+// recipient re-imports a deck whose slide has silently lost its class.
+describe('notes-core: a directive is never a note', () => {
+  test('parity — the mirrored directive names match lib/engine/directives.js', () => {
+    // Same discipline as the Marpit pragma mirror above: this module stays dependency-free,
+    // and this test fails the moment the engine's registry gains or loses a name.
+    const engine = require('../../../lib/engine/directives.js');
+    assert.deepEqual(
+      [...core.KNOWN_DIRECTIVE_NAMES].sort(),
+      [...engine.KNOWN_DIRECTIVES].sort(),
+      'KNOWN_DIRECTIVE_NAMES mirrors the engine KNOWN_DIRECTIVES',
+    );
+    assert.deepEqual(
+      [...core.FLAG_DIRECTIVE_NAMES].sort(),
+      [...engine.FLAG_DIRECTIVES].sort(),
+      'FLAG_DIRECTIVE_NAMES mirrors the engine FLAG_DIRECTIVES',
+    );
+  });
+
+  test('a directive surviving into rendered HTML is not lifted as a note, so the scrub cannot eat it', () => {
+    const html = '<section data-lattice-slide><!-- _class: title --><h1>Q3</h1><!-- A real note. --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['A real note.'], 'only the note is lifted');
+
+    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- A real note. -->\n';
+    const out = core.stripNotesFromSource(source, new Set(core.noteBodiesFromHtml(html)));
+    assert.match(out, /_class: title/, 'the directive survives --strip-notes');
+    assert.doesNotMatch(out, /A real note\./, 'and the note is still scrubbed');
+  });
+
+  test('multi-line and bare-flag directive forms are recognized', () => {
+    assert.ok(core.isDirectiveComment('_class: title'));
+    assert.ok(core.isDirectiveComment('_class: title\n_paginate: true'), 'every line a directive');
+    assert.ok(core.isDirectiveComment('_build'), 'a bare FLAG directive');
+    assert.ok(core.isDirectiveComment('backgroundColor: #fff'));
+  });
+
+  test('prose is still a note — the classifier does not open a leak', () => {
+    // The dangerous direction: over-classifying would keep a real note OUT of the scrub
+    // set, and it would ship in a --strip-notes export. A note is not a directive merely
+    // for containing a colon, or for naming a directive word without one.
+    assert.ok(!core.isDirectiveComment('Note: mention the caveat'), 'word+colon prose');
+    assert.ok(!core.isDirectiveComment('color'), 'a bare NON-flag directive word is prose');
+    assert.ok(!core.isDirectiveComment('Remember: the class is important'));
+    assert.ok(!core.isDirectiveComment('_class: title\nAnd then say this.'), 'mixed → treated as a note');
+    assert.ok(!core.isDirectiveComment(''), 'empty is not a directive');
+
+    const html = '<section data-lattice-slide><!-- Note: mention the caveat --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['Note: mention the caveat'], 'still scrubbable');
+  });
+});

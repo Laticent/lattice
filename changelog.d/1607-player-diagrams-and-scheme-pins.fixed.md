@@ -63,9 +63,10 @@
 - **A failed diagram bake is reported rather than swallowed.** It shipped the un-inflated fence in
   silence — the exact defect the bake exists to fix — and the two most likely failures (the bake
   returning nothing usable, and a slide-count mismatch) did not even reach the `catch`, because
-  neither throws. All three paths now warn. The signal is still weaker than it should be: the
-  status line is transient and the export's own completion toast still says the file is ready, so
-  a durable failure indicator is outstanding.
+  neither throws. All three paths now warn, AND the reason reaches the completion toast: a
+  degraded export reads "Webpage ready — but diagrams ship as source, not as drawings." The
+  status line alone was not enough — it is replaced by the next message and gone by the time the
+  file lands, so the only durable thing the author saw was a toast saying the file was fine.
 - **`waitForDiagrams` waits for the fences the runtime has not reached yet.** It counted only
   existing `.mermaid` boxes, and an untagged fence has none — so on the very deck it exists to
   wait for it saw nothing pending and returned at once. It now gates on the runtime's own
@@ -128,7 +129,23 @@
   (as a parse error, but it closes) and the kernel regex only knew `-->`, so a one-character typo
   merged a note with whatever followed it into a single body — which then entered the
   `--strip-notes` scrub set, so the whole span was deleted from the envelope source. Aligning the
-  terminator splits them again. *Still outstanding, and narrower than it was:* when a malformed
-  comment stops the engine consuming an adjacent directive, that directive survives into the
-  rendered section and can therefore still reach the scrub set. An unterminated `<!--` is a
-  separate, pre-existing case with the same shape.
+  terminator splits them again.
+- **A directive can no longer be deleted from the author's own source.** `stripNotesFromSource`
+  removes any comment whose body was lifted as a note, and its directive safety rested on the
+  ENGINE having consumed every directive before the extractor ever saw the HTML. That is the
+  engine's property, not the extractor's, and it does not hold when a directive survives into the
+  rendered section — one malformed neighbouring comment is enough. `<!-- _class: title -->` was
+  then lifted as a note and scrubbed out of the verbatim source the envelope carries, so the
+  recipient re-imported a deck whose slide had silently lost its class. `noteBodiesFromHtml` now
+  classifies directives itself (`isDirectiveComment`, mirroring the engine's `KNOWN_DIRECTIVES`
+  with a parity test), so the guarantee is local and unconditional. The classifier requires EVERY
+  line to be a directive line, which keeps the two failure modes apart: looser matching would
+  hold a genuine note like `Note: mention the caveat` OUT of the scrub set, which is a leak — the
+  worse direction.
+- **An unterminated `<!--` is now an authoring error instead of a silent leak.** The comment
+  matcher requires a terminator, so an unclosed comment yields no note body at all,
+  `--strip-notes` finds nothing to remove, and the text ships verbatim in the shared file's
+  embedded source — the exact opposite of what the author asked for. New lint rule
+  `unterminated-comment` (error). Deliberately a lint finding rather than a scrub: making the
+  strip match to EOF would delete the rest of the deck from the author's own source, which is
+  worse than the leak it fixes.

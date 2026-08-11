@@ -297,7 +297,10 @@ export async function shareHtmlPlayer(
 	// that synthesizes: the bake reads this device's clip store first and bills only the
 	// sentences it does not have, in `voice`, and REFUSES if any of them cannot be prepared.
 	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal },
-): Promise<void> {
+	// Resolves to a DEGRADATION reason when the export completed but shipped something
+	// lesser than intended (today: the diagram bake did not run), else undefined. The
+	// caller surfaces it in the completion toast — see the return at the end.
+): Promise<string | undefined> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra);
@@ -352,6 +355,7 @@ export async function shareHtmlPlayer(
 	// render: the same file we shipped before, never a failed export.
 	onStatus?.('Rendering diagrams…');
 	let baked: string[] | null = null;
+	let bakeWarning: string | undefined;
 	try {
 		const ex = await exporters();
 		const result = await ex.bakeDeckSections({
@@ -381,11 +385,13 @@ export async function shareHtmlPlayer(
 			// `catch` below cannot see because nothing threw.
 			console.warn(`lattice: diagram bake produced ${result.sections.length} slides for a ${noteRecord.length}-slide deck; exporting without it.`);
 			onStatus?.('Diagrams could not be rendered — exporting without them…');
+			bakeWarning = 'diagrams ship as source, not as drawings';
 		} else {
 			// `bakeDeckSections` returns null rather than throwing when the frame yields
 			// nothing usable — the other silent path.
 			console.warn('lattice: the diagram bake produced nothing usable; exporting without it.');
 			onStatus?.('Diagrams could not be rendered — exporting without them…');
+			bakeWarning = 'diagrams ship as source, not as drawings';
 		}
 	} catch (err) {
 		// The static render is a SAFE fallback (it is the file we shipped before the bake
@@ -396,6 +402,7 @@ export async function shareHtmlPlayer(
 		// Say so, loudly enough to be seen in the export UI, not just the console.
 		console.warn('lattice: diagram bake failed; the webpage export ships un-rendered diagram source.', err);
 		onStatus?.('Diagrams could not be rendered — exporting without them…');
+		bakeWarning = 'diagrams ship as source, not as drawings';
 	}
 	const tagged = (baked ?? recordSections).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
 	const slides = materializeNotes(tagged, notesCore, noteRecord, stripNotes);
@@ -555,6 +562,13 @@ export async function shareHtmlPlayer(
 	onStatus?.('Downloading…');
 	const { downloadText } = await import('./download');
 	downloadText(`${name}.html`, finalHtml, 'text/html');
+	// A DEGRADED export is still an export, but the author must not be told it is fine.
+	// `onStatus` is transient — it is replaced by the next line and gone by the time the
+	// file lands — so a bake failure announced only there is invisible in practice, and
+	// the completion toast then says "Webpage ready." over a file whose diagrams shipped
+	// as raw source. Returning the reason lets the caller put it IN the toast, which is
+	// the part that persists.
+	return bakeWarning;
 }
 
 /**

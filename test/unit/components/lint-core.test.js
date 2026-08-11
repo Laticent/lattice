@@ -806,3 +806,37 @@ describe('lint-core: stray overflow-marker (an export setting, not a deck key)',
     assert.deepEqual(found.sort(), ['stray-export-settings', 'stray-overflow-marker']);
   });
 });
+
+// An unterminated `<!--` is a PRIVACY trap on export, not only a rendering one: the note
+// extractor's comment matcher requires a terminator, so `--strip-notes` finds no body to
+// remove and the text ships verbatim in the shared file's embedded source. The author asked
+// for the opposite. It is a lint finding rather than a scrub because making the strip match
+// to EOF would delete the rest of the deck from the author's own source.
+describe('lint-core: unterminated comment', () => {
+	const vocab = {};
+	const rules = (src) => core.lintTextWith(src, vocab).map((f) => f.rule);
+
+	test('an unclosed comment is flagged as an error', () => {
+		const src = '---\nmarp: true\n---\n\n# Q3\n\n<!-- Board only: 4.2M\n\n# Next\n';
+		const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'unterminated-comment');
+		assert.ok(f, 'the unclosed comment is named');
+		assert.equal(f.severity, 'error');
+		assert.match(f.message, /strip-notes/, 'and says why it matters on export, not just on screen');
+		assert.match(f.fix, /-->/);
+	});
+
+	test('a well-formed comment is not flagged', () => {
+		const src = '---\nmarp: true\n---\n\n# Q3\n\n<!-- Board only: 4.2M -->\n\n# Next\n';
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
+	test('the `--!>` terminator counts as closed, as it does in the parser', () => {
+		const src = '---\nmarp: true\n---\n\n# Q3\n\n<!-- Board only: 4.2M --!>\n';
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
+	test('a `<!--` inside a code fence is sample text, not a comment', () => {
+		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!-- sample, deliberately unclosed', '```', ''].join('\n');
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+});

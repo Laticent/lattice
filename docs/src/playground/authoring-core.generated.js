@@ -943,6 +943,25 @@ var require_lint_core = __commonJS({
       });
       return out;
     }
+    var UNTERMINATED_COMMENT_RE = /<!--(?![\s\S]*?--!?>)/;
+    function findUnterminatedComment(source) {
+      const findings = [];
+      splitTopLevel(String(source == null ? "" : source)).forEach((chunk, idx) => {
+        const body = withoutCodeBlocks(chunk);
+        const m = body.match(UNTERMINATED_COMMENT_RE);
+        if (!m) return;
+        const line = (body.slice(m.index).split("\n")[0] || "<!--").trim();
+        findings.push({
+          slide: idx + 1,
+          rule: "unterminated-comment",
+          severity: "error",
+          line: line.slice(0, 80),
+          message: "This HTML comment is never closed, so everything after it is swallowed \u2014 and on export it is WORSE than invisible: `--strip-notes` cannot find an unterminated comment, so the text ships in the shared file's embedded source even when you asked for notes to be stripped.",
+          fix: "Close the comment with `-->`."
+        });
+      });
+      return findings;
+    }
     function findInlineTitleBodyLine(sample) {
       if (!sample) return null;
       for (const line of sample.split("\n")) {
@@ -1649,6 +1668,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
       if (vocab.colorModeNames) findings.push(...findUnknownColorMode(source, vocab.colorModeNames));
       findings.push(...findDeprecatedClassColorMode(source));
+      findings.push(...findUnterminatedComment(source));
       findings.push(...findRefusedDeckClass(source));
       if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
@@ -3070,12 +3090,45 @@ var require_notes_core = __commonJS({
     function isCaptionComment(body) {
       return CAPTION_MATCHER.test(String(body == null ? "" : body).trim());
     }
+    var KNOWN_DIRECTIVE_NAMES = [
+      "theme",
+      "paginate",
+      "header",
+      "footer",
+      "class",
+      "backgroundColor",
+      "backgroundImage",
+      "backgroundPosition",
+      "backgroundRepeat",
+      "backgroundSize",
+      "color",
+      "size",
+      "style",
+      "lang",
+      "marp",
+      "logo",
+      "focus",
+      "focusStyle",
+      "focusSteps",
+      "build",
+      "debug",
+      "lens"
+    ];
+    var FLAG_DIRECTIVE_NAMES = ["build", "debug", "lens"];
+    var DIRECTIVE_LINE = new RegExp(
+      `^_?(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^_?(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
+    );
+    function isDirectiveComment(body) {
+      const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
+      return lines.length > 0 && lines.every((l) => DIRECTIVE_LINE.test(l));
+    }
     function noteBodiesFromHtml(sectionHtml) {
       const re = new RegExp(COMMENT_SOURCE, "g");
       const bodies = [];
       for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
         const body = m[1].trim();
         if (!body || isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
+        if (isDirectiveComment(body)) continue;
         bodies.push(body);
       }
       return bodies;
@@ -3203,9 +3256,12 @@ var require_notes_core = __commonJS({
     }
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
+      KNOWN_DIRECTIVE_NAMES,
+      FLAG_DIRECTIVE_NAMES,
       isToolingComment,
       isDescriptionComment,
       isCaptionComment,
+      isDirectiveComment,
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,
