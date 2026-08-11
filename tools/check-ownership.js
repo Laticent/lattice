@@ -2109,6 +2109,7 @@ function checkFinishChromeExclusions(errors) {
     '.deck-logo',        // lib/runtime applyDeckLogo* / applyDeckLogoToHtml — first child
     '.overflow-tab',     // the overflow watcher (defends itself with !important)
     '.illegible-tab',    // the legibility watcher
+    '.fixme-tab',        // the Fix-Me label (defends itself with !important)
     '.lat-split-rail',   // lib/core/footer-dock.js — section level when there is no footer Cell
     '.lattice-bg',       // the image layout's photo panel — a direct child on every composition
   ]);
@@ -2116,7 +2117,9 @@ function checkFinishChromeExclusions(errors) {
   const missing = [];
   for (const [hook, file] of hooks) {
     if (!SECTION_LEVEL_CHROME.has(hook)) continue;
-    if (hook === '.overflow-tab') continue; // asserts position:absolute !important itself
+    // Both assert `position: absolute !important` at their own declaration, so
+    // base.finish.css's `position: relative` cannot reach them either way.
+    if (hook === '.overflow-tab' || hook === '.fixme-tab') continue;
     const named = excluded.some((e) => e === hook || e.endsWith(hook));
     if (!named) missing.push(`${hook} (positioned in ${file})`);
   }
@@ -2382,6 +2385,19 @@ const SANCTIONED_HEX = [
   {
     file: 'lib/base/base.modifiers.css', hex: '#fff', count: 2,
     why: 'overflow-tab + type-floor-tab label ink — fixed white on the fixed authoring fills; same exception.',
+  },
+  {
+    file: 'lib/base/base.modifiers.css', hex: '#f0e442', count: 2,
+    why: 'FIX-ME culprit outline + tab fill — the third authoring alarm, in Okabe-Ito CVD-safe '
+       + 'yellow so it stays distinguishable from the overflow red and the type-floor amber when a '
+       + 'slide earns more than one at once. Same fixed-color exception as those two: an authoring '
+       + 'alarm must read identically loud in every palette and color mode. Inherited from the JS '
+       + 'overlay this replaced, which used the identical hue (documented at the declaration, '
+       + 'base.modifiers.css "THE FIX-ME SIGNAL").',
+  },
+  {
+    file: 'lib/base/base.modifiers.css', hex: '#1a1300', count: 1,
+    why: 'FIX-ME tab label ink — near-black on the fixed yellow chip (~15.8:1); same exception.',
   },
   {
     file: 'lib/base/base.modifiers.css', hex: '#b8730a', count: 2,

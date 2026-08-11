@@ -4,36 +4,36 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 4.92,
-    "rmePct": 3.81
+    "ms": 3.89,
+    "rmePct": 3.22
   },
   "blessedOn": {
     "node": "v22",
     "platform": "linux/x64",
     "cpus": 4,
-    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz"
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
   },
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 10.49,
-      "ms": 51.61,
-      "slidesPerSec": 1124,
-      "rmePct": 2.08
+      "index": 14.3,
+      "ms": 55.62,
+      "slidesPerSec": 1043,
+      "rmePct": 5.26
     },
     "charts": {
       "slides": 15,
-      "index": 8.84,
-      "ms": 43.52,
-      "slidesPerSec": 345,
-      "rmePct": 1.89
+      "index": 11.94,
+      "ms": 46.43,
+      "slidesPerSec": 323,
+      "rmePct": 1.94
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 28.07,
-      "ms": 138.14,
-      "slidesPerSec": 2519,
-      "rmePct": 1.96
+      "index": 40.98,
+      "ms": 159.37,
+      "slidesPerSec": 2184,
+      "rmePct": 2.5
     }
   },
   "printDatasets": {
@@ -56,6 +56,29 @@
       "slides": 15,
       "ms": 2936.28,
       "rmePct": 1.05
+    }
+  },
+  "sweepDatasets": {
+    "normal (jargon)": {
+      "slides": 58,
+      "overflowing": 6,
+      "scopedMs": 0.4,
+      "unscopedMs": 9.4,
+      "ratio": 23.5
+    },
+    "charts": {
+      "slides": 15,
+      "overflowing": 6,
+      "scopedMs": 0.7,
+      "unscopedMs": 6.1,
+      "ratio": 8.71
+    },
+    "overflowing (x40)": {
+      "slides": 40,
+      "overflowing": 40,
+      "scopedMs": 1.9,
+      "unscopedMs": 20.7,
+      "ratio": 10.89
     }
   }
 }

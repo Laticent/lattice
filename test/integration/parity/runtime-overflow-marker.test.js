@@ -127,6 +127,18 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
   });
 });
 
+// A marker tab that SPEAKS — the property that replaced "a tab exists".
+//
+// The three tabs are BERTHS the markup carries now (lib/core/fit-berth.js), so
+// counting elements no longer answers "is a marker drawn": every slide has three
+// of them, always, empty. What a reader can see is the TEXT, so that is what
+// these assertions read. The distinction is the whole change — a watcher that
+// creates and destroys chrome is a watcher whose DOM writes feed the observer
+// that scheduled it.
+const speakingTabs = (doc) => [...doc.querySelectorAll('.overflow-tab, .illegible-tab, .fixme-tab')]
+  .filter((el) => (el.textContent || '').trim() !== '')
+  .map((el) => `${el.className}="${el.textContent}"`);
+
 describe('overflow-marker — `off` clears what is already there and stays stamped', () => {
   // `off` returns before installing the probe, so the stamp has to happen on the
   // way out. It is the half that survives lattice-emulator.js's own inline watcher,
@@ -140,7 +152,7 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off'], 'stamped, so the CSS suppression can key on it');
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'the rings are gone');
-    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'the tabs are gone');
+    assert.deepEqual(speakingTabs(document), [], 'the tabs say nothing');
     dom.window.close();
   });
 });
@@ -167,7 +179,14 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['author']);
     assert.equal(document.querySelectorAll('section.overflow').length, 1, 'the harness must make the probe fire');
-    assert.equal(document.querySelectorAll('.overflow-tab').length, 1, 'author level draws the tab');
+    // BOTH author registers, which is what `author` means: the geometry tab names the
+    // defect, and the Fix-Me label names the box to fix (the Form default wraps this
+    // slide's body in a `.cell-stage`, so it is Case A — a clip cell that is genuinely
+    // over, not the hedged density guess).
+    assert.deepEqual(speakingTabs(document),
+      ['overflow-tab="Overflows"', 'fixme-tab="Fix Me"'], 'author level fills the tabs');
+    assert.equal(document.querySelectorAll('.fit-culprit').length, 1,
+      'and outlines the culprit cell in place — no overlay layer');
     dom.window.close();
   });
 
@@ -178,7 +197,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);
     assert.equal(document.querySelectorAll('section.overflow, section.illegible').length, 0, 'a ring was drawn');
-    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'a tab was drawn');
+    assert.deepEqual(speakingTabs(document), [], 'a tab was drawn');
     dom.window.close();
   });
 
@@ -193,7 +212,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     s.insertAdjacentHTML('beforeend', '<p>more content, arriving after boot</p>');
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'no ring was drawn');
-    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'no tab was drawn');
+    assert.deepEqual(speakingTabs(document), [], 'no tab was drawn');
     dom.window.close();
   });
 
@@ -207,7 +226,8 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const dom = await boot({ markup: marked, specimen: true });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);
-    assert.equal(document.querySelectorAll('.overflow, .illegible, .overflow-tab, .illegible-tab').length, 0);
+    assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0);
+    assert.deepEqual(speakingTabs(document), []);
     dom.window.close();
   });
 

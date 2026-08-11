@@ -1581,6 +1581,86 @@ section[data-logo-corner] > .illegible-tab {
 }
 section:not(.illegible) > .illegible-tab { display: none; }
 
+/* ── THE FIX-ME SIGNAL — WHICH box to fix, drawn INSIDE the slide ─────────────
+ *
+ * The third authoring register. The ring says the slide overflows; this says
+ * which cell (or which item inside it) is responsible, so the author is not left
+ * hunting. Author-only, like the type-floor alarm beside it and for the same
+ * reason — a reader cannot act on "this cell is over budget".
+ *
+ * IT USED TO BE JAVASCRIPT. A `position: fixed` overlay layer in `document.body`
+ * held one absolutely-positioned box per culprit, rebuilt from
+ * `getBoundingClientRect()` on every watcher pass and re-synced on a `scroll`
+ * listener. That shape was chosen to honor a real constraint — a marker must
+ * never become a DOM CHILD of the cell it reports on, because appending even an
+ * absolutely-positioned child shifts `nth-child` for every sibling selector
+ * inside that cell, and a marker that perturbs the layout it measures can
+ * manufacture the overflow it reports (HARD RULE #20).
+ *
+ * `outline` honors that constraint outright. It is drawn OUTSIDE the box model —
+ * no reflow, no space consumed, no child appended — so no index moves and no
+ * measurement changes. And because the browser paints it at the element's real
+ * position, it tracks scroll and the preview's own transform scale for free,
+ * which the fixed overlay had to chase with a scroll listener and scaled-rect
+ * arithmetic (the same visual-vs-layout pixel confusion behind the
+ * Playground/Studio overflow disagreement, 2026-07-29-section-cq-icb-leak.md).
+ *
+ * The LABEL is section-level rather than per-cell, and that is not a cosmetic
+ * choice: an absolutely-positioned tag on the CELL needs the cell to be
+ * `position: relative`, which changes the containing block for every
+ * absolutely-positioned descendant it holds — author content moving because a QA
+ * marker was drawn. The section is already the containing block the other two
+ * tabs position against, so the berth costs nothing and risks nothing.
+ *
+ * BOTTOM-right, not top-right: the top-right corner is the overflow/type-floor
+ * stack's territory (and the deck logo's), and a slide earning the Fix-Me signal
+ * has by definition already earned the overflow tab above it. */
+section.fit-marked > .fixme-tab {
+  /* `!important` for the same reason the overflow tab asserts it:
+   * `base.finish.css`'s `section.finish > *:not(.backdrop)` sets
+   * `position: relative` at the same (0,2,1) specificity from a later file, and
+   * an in-flow "corner tag" is a full-width band that pushes content down —
+   * i.e. the marker consuming the stage height it is reporting on. */
+  position: absolute !important;
+  bottom: 0;
+  right: 0;
+  z-index: 50;
+  /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
+   * the same exception the overflow red and the type-floor amber take: an
+   * authoring alarm must read identically loud in every palette and color mode.
+   * Distinct from both so three simultaneous signals stay tellable apart. */
+  background: #f0e442;
+  color: #1a1300;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: var(--sp-2xs) var(--sp-sm);
+  border-top-left-radius: var(--radius-md);
+  pointer-events: none;
+}
+section:not(.fit-marked) > .fixme-tab { display: none; }
+/* The culprit itself. `outline-offset: -3px` draws the rule just INSIDE the box
+ * edge so it reads as "this box" rather than floating between it and its
+ * neighbor — and, on a clip cell flush against the frame, so it is not clipped
+ * away by the very box it marks. */
+.fit-culprit {
+  outline: 3px solid #f0e442;
+  outline-offset: -3px;
+}
+/* Author-only, enforced in CSS as well as in the watcher. The watcher already
+ * gates this register on `policy.authorTags`, so these rules are belt to that
+ * braces — the same defense the `off` suppression above carries, and for the
+ * same reason: a marker class can arrive from a BUILD-TIME stamp or a concurrent
+ * watcher that never consulted the level, and a QA outline on a delivered slide
+ * is exactly what the marker register exists to prevent. */
+section[data-lattice-overflow-marker="reader"] > .fixme-tab,
+section[data-lattice-overflow-marker="off"] > .fixme-tab { display: none !important; }
+section[data-lattice-overflow-marker="reader"] .fit-culprit,
+section[data-lattice-overflow-marker="off"] .fit-culprit { outline: none; }
+
 /* ════════════════════════════════════════════════════════════════════════
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.

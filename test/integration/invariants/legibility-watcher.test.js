@@ -124,7 +124,17 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
       await new Promise((r) => setTimeout(r, 2500));
       const n = await page.evaluate(() => ({
         rings: document.querySelectorAll('section.illegible').length,
-        tabs: document.querySelectorAll('.illegible-tab').length,
+        // COUNTED BY WHAT A READER CAN SEE, not by how many elements exist. The
+        // three marker tabs are berths the markup carries now
+        // (lib/core/fit-berth.js), so every slide holds an `.illegible-tab`
+        // whether or not it says anything — this deck has 11 of them and always
+        // will. What must be zero is tabs that SPEAK, and (belt to that braces,
+        // since this test drives the real browser and can therefore ask) tabs
+        // the browser actually paints.
+        tabs: [...document.querySelectorAll('.illegible-tab')]
+          .filter((el) => (el.textContent || '').trim() !== '').length,
+        paintedTabs: [...document.querySelectorAll('.illegible-tab')]
+          .filter((el) => getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0).length,
         // The fluid viewer's LOAD-BEARING geometry: each slide sizes itself
         // `width: min(100%, 100dvh * --fill-max-aspect)`, and that percentage resolves
         // against the slide's PARENT. Anything interposed between <body> and the
@@ -136,6 +146,7 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
       await page.close();
       assert.equal(n.rings, 0, `a reader at ${w}x${h} must see no type-floor ring (saw ${n.rings})`);
       assert.equal(n.tabs, 0, `…and no type-floor tab at ${w}x${h} (saw ${n.tabs})`);
+      assert.equal(n.paintedTabs, 0, `…and none the browser paints at ${w}x${h} (saw ${n.paintedTabs})`);
       // Regression guard: the export shell's <main id="deck"> landmark shipped and made
       // every fluid slide 0px wide — a 100%-broken shipped feature that `npm test`, the
       // integration tier and CI were all green through, because nothing measured the
