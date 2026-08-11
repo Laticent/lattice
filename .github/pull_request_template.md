@@ -20,7 +20,12 @@ NOT verified. A small before → after table helps when several things shifted.
 
 ## What changed
 
-<!-- The fix, concretely — name the files / functions touched. -->
+<!-- The fix, concretely — name the files / functions touched.
+
+     USER-VISIBLE? Add a `changelog.d/<slug>.<category>.md` fragment in the same
+     change (HARD RULE #10) — NOT a line in `CHANGELOG.md` `## Unreleased`, which
+     is the shared region that ejects PRs from the merge queue. Contract:
+     `changelog.d/README.md`. -->
 
 ## Tests
 

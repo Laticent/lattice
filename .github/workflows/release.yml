@@ -15,12 +15,14 @@ name: Release (prepare)
 # else in the repo merges without a human — see CLAUDE.md rule 7.
 #
 # The bump level is derived deterministically from the CHANGELOG `## Unreleased`
-# section (tools/changelog.js) unless overridden. See RELEASE.md.
+# section PLUS every pending `changelog.d/` fragment (tools/changelog.js) unless
+# overridden. Per-PR entries live in changelog.d/ (#1593); the release folds them
+# in and deletes them. See RELEASE.md.
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: 'Version bump (auto = read from CHANGELOG ## Unreleased)'
+        description: 'Version bump (auto = read from CHANGELOG ## Unreleased + changelog.d/)'
         type: choice
         default: auto
         options: [auto, patch, minor, major]
@@ -100,12 +102,13 @@ jobs:
 
           ## Problem / Why
 
-          Time to ship v$V. The bump is derived from \`CHANGELOG.md\` \`## Unreleased\` by \`tools/changelog.js\`.
+          Time to ship v$V. The bump is derived from \`CHANGELOG.md\` \`## Unreleased\` plus every pending \`changelog.d/\` fragment by \`tools/changelog.js\`.
 
           ## What changed
 
           - \`package.json\` + \`package-lock.json\` — version bumped to $V.
-          - \`CHANGELOG.md\` — \`## Unreleased\` rolled into a dated \`## $V\` section, fresh empty Unreleased seeded above it.
+          - \`CHANGELOG.md\` — pending \`changelog.d/\` fragments folded into \`## Unreleased\` under their category headings, then rolled into a dated \`## $V\` section, fresh empty Unreleased seeded above it.
+          - \`changelog.d/\` — the fragments this release consumed, deleted.
           - \`dist/\` — rebuilt (the emulator bundle inlines \`package.json\`, so the bump restales it).
 
           ## Tests

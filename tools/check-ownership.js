@@ -65,6 +65,8 @@ const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex m
 const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-contrast: the engine's own custom-property evaluator (reused, not reinvented)
 const { oklabDistance } = require('../lib/theme/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
+// changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
+const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -6367,6 +6369,24 @@ function checkCommittedPdfs(errors) {
   }
 }
 
+/**
+ * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
+ * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
+ * seven ejections in one evening before this).
+ *
+ * The FORMAT IS DEFINED ONCE, in tools/changelog.js — the module that assembles
+ * a fragment at release time is the module that says what a valid one looks
+ * like. This gate only surfaces what it reports, so the two cannot drift into
+ * disagreeing (the same `rowFor` discipline #1547 used for the decision index).
+ *
+ * Fails both ways: a malformed fragment errors, and a MISSING `changelog.d/`
+ * errors too — a gate that scans nothing is also a claim.
+ */
+function checkChangelogFragments(errors) {
+  for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -6419,6 +6439,7 @@ function run() {
   checkAgentModelPinning(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
+  checkChangelogFragments(errors);
   return {
     errors,
     counts: {
@@ -6471,6 +6492,7 @@ module.exports = {
   parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
   checkCommittedPdfs,
+  checkChangelogFragments,
   auditPdfOwnership,
   PDF_OWNERSHIP,
   checkUniversalTableGuard,

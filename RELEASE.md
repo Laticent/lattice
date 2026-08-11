@@ -26,10 +26,11 @@
 
 A release is a git tag `v<x.y.z>` whose number matches `package.json`
 `version`, pointing at a commit with a freshly built, in-sync `dist/` and a
-`CHANGELOG.md` whose `## Unreleased` items have been rolled into a dated
-section. The tag is the source of truth; the GitHub Release (and, when
+`CHANGELOG.md` whose `## Unreleased` items — and every pending `changelog.d/`
+fragment, folded in and deleted by the same commit — have been rolled into a
+dated section. The tag is the source of truth; the GitHub Release (and, when
 enabled, npm publish) follows from it. **The bump level is derived
-deterministically from `## Unreleased`** — see Versioning.
+deterministically from `## Unreleased` + the fragments** — see Versioning.
 
 ## The distribution contract
 
@@ -55,10 +56,12 @@ npm pack --dry-run        # inspect file list + size; no .pdf should appear
 ## Versioning
 
 Semver. `package.json` `version` is the single source of truth. **The bump
-level is computed from `CHANGELOG.md` `## Unreleased`** by
-`tools/changelog.js`, mapping Keep-a-Changelog categories to semver:
+level is computed from `CHANGELOG.md` `## Unreleased` plus every pending
+`changelog.d/` fragment** by `tools/changelog.js`, mapping Keep-a-Changelog
+categories to semver. A fragment's category is in its FILENAME
+(`<slug>.<category>.md`), so it maps through the same table:
 
-| Category in `## Unreleased` | Bump |
+| Category in `## Unreleased` / a fragment filename | Bump |
 |---|---|
 | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 | `### Added`, `### Changed`, `### Deprecated` | **minor** |
