@@ -3131,15 +3131,6 @@ var require_notes_core = __commonJS({
         caption: captionFromHtml(html)
       }));
     }
-    function carryCommentsForward(baked, source) {
-      const target = String(baked == null ? "" : baked);
-      const comments = String(source == null ? "" : source).match(new RegExp(COMMENT_SOURCE, "g")) || [];
-      if (!comments.length) return target;
-      const missing = comments.filter((c) => target.indexOf(c) === -1);
-      if (!missing.length) return target;
-      const close = target.lastIndexOf("</section>");
-      return close === -1 ? target + missing.join("") : target.slice(0, close) + missing.join("") + target.slice(close);
-    }
     function stripNotesFromSource(source, noteBodies) {
       const set = noteBodies instanceof Set ? noteBodies : new Set(noteBodies);
       if (set.size === 0) return String(source == null ? "" : source);
@@ -3217,7 +3208,6 @@ var require_notes_core = __commonJS({
       captionFromHtml,
       extractSlideCaptions,
       slideNoteRecord,
-      carryCommentsForward,
       stripCommentNodes,
       stripNotesFromSource,
       stripCaptionsFromSource,
@@ -3320,17 +3310,17 @@ var import_scorecard = __toESM(require_scorecard());
 var import_notes_core = __toESM(require_notes_core());
 var import_deck_canon = __toESM(require_deck_canon());
 var import_split_sections = __toESM(require_split_sections());
+var splitSectionsCore = import_split_sections.default.splitSections;
 var export_deckCanon = import_deck_canon.default;
 var export_lintCore = import_lint_core.default;
 var export_notesCore = import_notes_core.default;
 var export_reviewCore = import_review_core.default;
 var export_scorecard = import_scorecard.default;
-var export_splitSectionsCore = import_split_sections.default;
 export {
   export_deckCanon as deckCanon,
   export_lintCore as lintCore,
   export_notesCore as notesCore,
   export_reviewCore as reviewCore,
   export_scorecard as scorecard,
-  export_splitSectionsCore as splitSectionsCore
+  splitSectionsCore
 };

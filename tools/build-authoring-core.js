@@ -58,7 +58,9 @@ import deckCanon from './deck-canon.js';
 // slides with the docs site's flat "next </section>" scan truncates any slide holding a
 // hand-authored <section>, silently emptying its notes. Bundled beside the channel that
 // depends on it rather than left to a second, wrong splitter on the browser side.
-import splitSectionsCore from '../core/split-sections.js';
+import splitSectionsMod from '../core/split-sections.js';
+// Re-exported as the FUNCTION, not the CJS module object — consumers call it directly.
+const splitSectionsCore = splitSectionsMod.splitSections;
 
 export { lintCore, reviewCore, scorecard, notesCore, deckCanon, splitSectionsCore };
 `;

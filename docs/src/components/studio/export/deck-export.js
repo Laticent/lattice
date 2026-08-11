@@ -28,7 +28,6 @@
 // jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
 
 import { themeImportNames } from '../../../lib/theme-fetch.ts';
-import { notesCore } from '../../../playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -401,6 +400,27 @@ export async function waitForDiagrams(doc, budgetMs = 4000) {
 		if (!pending) return;
 		await new Promise((r) => setTimeout(r, 120));
 	}
+}
+
+/**
+ * The per-slide comment channel (note / `describe:` / `caption:`) for a deck, lifted from
+ * the ENGINE render.
+ *
+ * Every capture-frame consumer needs this and none of them can read it out of the frame:
+ * `createCaptureFrame` builds through `buildSrcdoc`, which sanitizes, and the sanitizer
+ * deletes comment nodes. Split DEPTH-AWARE — the flat "next `</section>`" scan truncates
+ * a slide holding a hand-authored `<section>` while leaving the slide COUNT correct, so
+ * the loss passes a parity check unnoticed.
+ *
+ * @param {string} html the engine's rendered deck HTML
+ * @returns {Promise<{note: string|null, description: string|null, caption: string|null}[]>}
+ */
+async function slideChannelRecord(html) {
+	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-core.generated.js');
+	const sections = splitSectionsCore(String(html || ''))
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
+	return notesCore.slideNoteRecord(sections);
 }
 
 // Inline styles the in-iframe FIT agent writes onto every section to scale the preview
@@ -1032,6 +1052,9 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
 export async function exportPptx(render, name, onStatus, meta) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
+	// Lift the `describe:` channel from the ENGINE render, before the capture frame
+	// sanitizes it away — see the altText note in the slide loop below.
+	const describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 	const { sections, fontEmbedCSS } = await sectionsOf(frame);
@@ -1058,10 +1081,17 @@ export async function exportPptx(render, name, onStatus, meta) {
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const png = await rasterizeSection(sections[i], fontEmbedCSS);
-		// Alt text: the slide's own `describe:` description, read from the very
-		// section being rasterized, else a neutral "Slide N" (never let pptxgenjs
-		// default `descr` to the image filename — junk a screen reader reads).
-		const altText = (notesCore.descriptionFromHtml(sections[i].outerHTML) || '').trim() || `Slide ${i + 1}`;
+		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
+		// (never let pptxgenjs default `descr` to the image filename — junk a screen
+		// reader reads).
+		//
+		// Read from the RECORD, not from the rasterized section. `sections` comes out of
+		// the capture frame, and that frame sanitizes — `sanitizeSlideHtml` deletes comment
+		// nodes, which is where `describe:` lives. So every PowerPoint export handed screen
+		// readers "Slide 1" while the author's description sat intact in the engine render
+		// one step upstream. Same root cause as the webpage export's lost notes; the record
+		// is lifted before the frame exists.
+		const altText = (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
