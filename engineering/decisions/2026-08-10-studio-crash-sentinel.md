@@ -504,3 +504,61 @@ physical iPhone, and the premise behind defect 1 (that Firefox for iOS does not
 type its own recovery load as `reload`) is still unconfirmed. What ships here
 touches neither: the errors, the next steps, the guards and the toast are all
 independent of it.
+
+## The wipe a sleeping tab slept through (#1616, 2026-08-11)
+
+A tab that is **frozen** — parked in the back/forward cache, or suspended by the
+Page Lifecycle API as a phone does to a backgrounded tab — is not running tasks.
+So it never received `WIPE_SIGNAL_KEY`, the `storage` event that tells every other
+Studio tab a privacy wipe happened. It thawed believing all was well, and its next
+5-second heartbeat wrote its session back into storage. The user asked for their
+data to be deleted and a crash record reappeared.
+
+A live event cannot fix this: the failure mode *is* "the recipient was not
+running". Only something the tab can READ on waking can. So `clearAllSessions`
+now also leaves `WIPE_MARK_KEY`, a durable timestamp, and `catchUpOnWipe()`
+compares it against the value this document last saw.
+
+It is wired into three places, deliberately overlapping:
+
+- `resume` — the Page Lifecycle wake-up.
+- `pageshow` with `persisted` — the back/forward-cache wake-up.
+- **`tick`, the heartbeat itself** — the belt to those braces. Whatever path a
+  document wakes by, including one nobody has thought of, the heartbeat is the
+  thing that would resurrect the data, so it re-reads the mark before it can.
+
+`WIPE_MARK_KEY` **survives the wipe on purpose.** A wipe that erased its own
+evidence could not defend against the next sleeping tab. It holds one epoch
+millisecond — no deck content, no identifiers, nothing about what was deleted —
+and that is a considered exception to "erase everything", not an oversight.
+
+### Verified with a real browser freeze
+
+`.scratch/wipe-frozen-tab.mjs` freezes tab A through CDP
+`Page.setWebLifecycleState('frozen')` — the browser genuinely stops running its
+tasks, which is the whole reason it misses the broadcast — wipes from tab B, then
+wakes A and lets it beat.
+
+```
+PASS  tab A has a live session record
+PASS  everything is deleted while tab A sleeps
+PASS  the woken tab did NOT write its session back
+PASS  still nothing several heartbeats later
+```
+
+**And the check discriminates**, which matters more than it passing: re-run
+against a build without the fix, the same harness reports
+`FAIL … lattice-studio-session-264d71dd…` — the bug reproduced, then closed.
+
+### Scope: is anything else exposed?
+
+Asked, because a shared wipe path suggests a general hole. **No** — the crash
+recorder was uniquely vulnerable because it writes on an unconditional timer.
+Decks save on a 400ms debounce *triggered by editing* (`StudioShell`), so a woken
+tab does not spontaneously rewrite them.
+
+One residual, logged rather than fixed here because this change neither caused
+nor worsens it: a woken tab still holds its deck in memory, so if the user
+**edits** after a wipe, that deck is saved again. That is arguably correct — they
+are actively authoring — but it is worth a deliberate decision rather than an
+accident.

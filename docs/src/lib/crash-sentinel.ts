@@ -72,6 +72,26 @@ export const OPEN_CRASH_REPORT_EVENT = 'lattice:open-crash-report';
 // NOT under SESSION_PREFIX — `sessionKeys()` scans by that prefix, so a signal
 // key living under it would be read back as a (malformed) session record.
 export const WIPE_SIGNAL_KEY = 'lattice-studio-wipe-signal';
+/**
+ * DURABLE record that a wipe happened, and when.
+ *
+ * `WIPE_SIGNAL_KEY` is written-then-removed, so it only reaches tabs that are
+ * RUNNING at that instant. A tab that is frozen — parked in the back/forward
+ * cache, or suspended by the Page Lifecycle API — is by definition not running
+ * tasks, so it hears nothing. It later thaws believing all is well and its next
+ * heartbeat writes its session straight back into storage. The user asked for
+ * their data to be deleted and a record reappeared.
+ *
+ * A live event cannot solve that; only something the tab can READ when it wakes
+ * can. So the wipe leaves a timestamp behind and every resume path compares it
+ * against the one seen at boot.
+ *
+ * This key deliberately SURVIVES "Delete everything" — a wipe that erased its own
+ * evidence could not defend against the next frozen tab. It holds a single epoch
+ * millisecond: no deck content, no identifiers, nothing about what was deleted.
+ * That is a considered exception to "erase everything", not an oversight.
+ */
+export const WIPE_MARK_KEY = 'lattice-studio-wiped-at';
 
 /** Heartbeat period: how stale `lastBeat` can be on a healthy session. */
 export const BEAT_MS = 5_000;
@@ -788,6 +808,46 @@ export function pruneSessions(now: number, keepId?: string): void {
 	for (const rec of records.slice(KEEP_RECORDS)) safeRemove(ls(), SESSION_PREFIX + rec.id);
 }
 
+/**
+ * The wipe mark this document last saw. Set at boot and after every check, so a
+ * resume compares against what THIS tab knew, not against nothing.
+ */
+let seenWipeMark: string | null = null;
+
+/**
+ * Did a privacy wipe happen while this document was not running?
+ *
+ * Called on every path where a frozen or cached document comes back to life. If
+ * the durable mark has changed since this tab last looked, another tab wiped the
+ * data in the interval — so this tab seals itself and scrubs what it is holding,
+ * exactly as it would have done had it been awake to hear the event.
+ *
+ * @returns true if a wipe was detected (and applied).
+ */
+function catchUpOnWipe(): boolean {
+	let mark: string | null = null;
+	try {
+		mark = ls()?.getItem(WIPE_MARK_KEY) ?? null;
+	} catch {
+		return false; // storage unreadable — no evidence either way, so no action
+	}
+	if (mark === seenWipeMark) return false;
+	seenWipeMark = mark;
+	if (mark === null) return false; // the mark was cleared, not set — not a wipe
+	sealed = true;
+	if (live) {
+		live.crumbs.length = 0;
+		live.mem.length = 0;
+		live.context = {};
+		live.lastError = undefined;
+		live.errorGroups = undefined;
+		live.failedLoads = undefined;
+		live.errorCount = 0;
+	}
+	safeRemove(ls(), SESSION_PREFIX + (liveId ?? ''));
+	return true;
+}
+
 // Captured at start(), BEFORE the tab mirror is overwritten — this is the only
 // moment the previous tab session id is still readable.
 let priorTabSessionId: string | null = null;
@@ -940,8 +1000,14 @@ export function clearAllSessions(): void {
 	// Tell every other Studio tab to seal itself and drop its live record. Written
 	// then removed so a later wipe fires a fresh event (a `storage` event only
 	// fires when the value CHANGES).
-	safeSet(ls(), WIPE_SIGNAL_KEY, String(Date.now()));
+	const at = String(Date.now());
+	safeSet(ls(), WIPE_SIGNAL_KEY, at);
 	safeRemove(ls(), WIPE_SIGNAL_KEY);
+	// …and leave the durable mark for tabs that were asleep for the event above.
+	safeSet(ls(), WIPE_MARK_KEY, at);
+	// The tab that DID the wipe has already sealed itself; record the mark so it
+	// does not later "discover" its own wipe and re-run the scrub.
+	seenWipeMark = at;
 	if (live) {
 		live.crumbs.length = 0;
 		live.mem.length = 0;
@@ -1159,6 +1225,11 @@ export function startCrashSentinel(): () => void {
 	// false and falls back to the `frozen` inference).
 	priorTabDiscarded = document.wasDiscarded === true;
 	bootNavType = navigationType();
+	try {
+		seenWipeMark = ls()?.getItem(WIPE_MARK_KEY) ?? null;
+	} catch {
+		seenWipeMark = null;
+	}
 
 	const id = newId(now);
 	liveId = id;
@@ -1199,6 +1270,10 @@ export function startCrashSentinel(): () => void {
 	let lastVisible = document.visibilityState === 'visible';
 
 	const tick = () => {
+		// Belt to the braces above. Whatever path this document woke by — including
+		// one nobody has thought of yet — the heartbeat is the thing that would
+		// resurrect deleted data, so it re-reads the mark before it can.
+		if (catchUpOnWipe()) return;
 		if (!live) return;
 		const t = Date.now();
 		const gap = t - lastTick;
@@ -1305,6 +1380,9 @@ export function startCrashSentinel(): () => void {
 	// and re-stamping it would put a lie in every trail.
 	const onPageShow = (ev: PageTransitionEvent) => {
 		if (!live || !ev.persisted) return;
+		// Back from the page cache, where this document was frozen and deaf to the
+		// wipe broadcast. Same reason as `onResume`, different way of falling asleep.
+		if (catchUpOnWipe()) return;
 		live.closed = false;
 		live.frozen = false;
 		live.bfcached = false; // it DID come back — not an eviction after all
@@ -1324,6 +1402,9 @@ export function startCrashSentinel(): () => void {
 	};
 	const onResume = () => {
 		if (!live) return;
+		// The tab was suspended and could not hear a wipe broadcast. Check before
+		// anything else — `breadcrumb`/`persist` below would write to storage.
+		if (catchUpOnWipe()) return;
 		live.frozen = false;
 		breadcrumb('lifecycle', 'resume');
 		persist();
@@ -1392,6 +1473,7 @@ export function __resetSentinelForTest(): void {
 	priorTabSessionId = null;
 	priorTabDiscarded = false;
 	sealed = false;
+	seenWipeMark = null;
 	preStart.length = 0;
 	// Module-level and therefore NOT reset by clearing storage: a session proven
 	// dead in one test stayed proven in the next, so a later test could pass or
