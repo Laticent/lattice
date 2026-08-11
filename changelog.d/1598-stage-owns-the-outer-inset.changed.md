@@ -12,7 +12,13 @@
   owns it in the `.canvas` rule, where a box that paints a surface earns one. Kept by two gates: `checkStageInsetOwnership`
   (`tools/check-ownership.js`, via `build:check`) and a measured inset assertion in
   `check-chart-fit.js` at landscape/portrait/square.
-  The adversarial trio caught four override paths that had to be re-checked against the new
-  tie — `no-form`, `canvas`, `claim-hero`/`claim-bleed`, and a tall/strip `state-chart` — each
-  now measured byte-identical to its pre-change render.
+  The change is **inline-only**: a body's BLOCK padding turned out to be a clip margin, not an
+  inset (`overflow` cuts at the padding box), and removing it clipped nine decks that had never
+  clipped — so it stays, renamed for its job. The adversarial trio caught four override paths
+  that had to be re-checked against the new tie (`no-form`, `canvas`, `claim-hero`/`claim-bleed`,
+  a tall/strip `state-chart`), each now measured byte-identical to its pre-change render; and
+  the reclaim exposed two boxes that were bigger than their container by construction —
+  **gantt**'s SVG (a `max-height: 100%` that never bound) and **matrix-grid**'s figure
+  (`width: 100%` plus a `padding-left` under content-box sizing) — both fixed here.
+  `npm run overflow:check` is clean: zero newly-clipping pages across 268 decks.
   `engineering/decisions/2026-08-11-stage-owns-the-outer-inset.md`. (#1598)

@@ -22,8 +22,9 @@ an overstuffed chart spill rather than silently clip).
 ## 1. The rule
 
 > **The stage owns the outer inset. A body owns only the spacing between its own
-> elements — `gap` between its children, plus whatever padding is genuinely
-> required by a thing that paints its own surface.**
+> elements — `gap` between its children, a CLIP MARGIN where its overflow must
+> not cut at the layout edge, and whatever padding is genuinely required by a
+> thing that paints its own surface.**
 
 HARD RULE #20 already fixes *what* to space with (`padding` and `gap`, never
 `margin`). This fixes *which box* the outer inset belongs to. Where there is no
@@ -32,6 +33,20 @@ the body plays the stage's part. The rule is about ownership, not a class name.
 
 Four of six buckets already kept it. This card wrote it down and fixed the two
 that did not.
+
+**The clip-margin clause is not decoration, and it is the one thing the card did
+not know.** `overflow` cuts at the PADDING box, so a body's padding is doing two
+jobs at once: it insets content from the box's edge AND it lets content paint
+that far past the layout box before anything is lost. For chart and diagram the
+INLINE half was a genuine duplicate of the frame inset and the BLOCK half was
+the slack — and the difference is measurable, not a matter of taste. Removing
+the block half clipped nine decks that had never clipped (§7). So this change is
+**inline-only**, and the block padding stays on the body, renamed for what it
+does. The property whose actual job that is, `overflow-clip-margin`, is the
+right long-term spelling and does not work yet: Chromium 131 accepts only a
+plain `<length>` there, and every spacing token in this repo is a `calc()` over
+`--_sec-1cqi` (measured — `overflow-clip-margin: var(--sp-lg)` computes to
+`0px`).
 
 ## 2. What was wrong, measured
 
@@ -60,12 +75,13 @@ separate inset doing the first one's job, and it was not counted.
 
 ## 3. What changed
 
-- **`.cell-stage` gained the outer inset** on the chart path
-  (`section.chart-frame > .cell-stage { padding: var(--sp-lg) var(--sp-2xl) }`).
-  Diagram takes **no** stage padding — see §5.
+- **`.cell-stage` gained the outer INLINE inset** on the chart path
+  (`section.chart-frame > .cell-stage { padding-inline: var(--chart-inset-x) }`).
+  Diagram takes **no** stage padding — see §6.
 - **Both width calcs retired.** `.chart-body`, the `.mermaid` runtime target, the
   un-rendered source `<pre>`, and `.mermaid-error` are all `width: 100%` now.
-- **`.chart-body` lost its own padding** and keeps everything else that made
+- **`.chart-body` lost its own INLINE padding and kept its block padding**, the
+  latter documented as the clip margin it is. It keeps everything else that made
   deleting the element wrong: `container-type: size` (the definite box the SVG
   sizing model reads), the `flex: 0 0 auto` pin on the list-charts (so an
   overstuffed one SPILLS and `overflow-probe.js` catches it), the panel anchor,
@@ -76,7 +92,7 @@ separate inset doing the first one's job, and it was not counted.
   overridden by a child, so a tuning of the inset has to travel with the inset it
   tunes. Values moved verbatim:
 
-  | | block | inline |
+  | | block (clip margin, stays on the body) | inline (the inset, moves) |
   |---|---|---|
   | shared default | `--sp-lg` | `--sp-2xl` |
   | tall/strip family | `--sp-md` | `--sp-sm` |
@@ -84,12 +100,13 @@ separate inset doing the first one's job, and it was not counted.
   | timeline-list | `--sp-xl` / `--sp-lg` | `--sp-2xl` |
   | timeline-list tall/strip | `--sp-lg` | `--sp-xl` |
 
-  They re-home to **tokens on the section**, not to padding on the stage — see §5,
-  which is the correction the trio forced.
+  Both columns re-home to **tokens on the section** (`--chart-inset-x`, `-top`,
+  `-bottom`), not to padding on a box — see §5, which is the correction the trio
+  forced. The stage reads the inline token; the body reads the block pair.
 
 - **The glass panel keeps its inset and now OWNS it.** `.canvas` re-adds
-  `padding: var(--sp-lg) var(--sp-2xl)` to `.chart-body`, conditional on the
-  surface existing. That is the same case `code`'s `pre` earns its padding for,
+  `padding-inline: var(--chart-inset-x)` to `.chart-body`, conditional on the
+  surface existing (the block half never left). That is the same case `code`'s `pre` earns its padding for,
   and the reason the default (canvas off, nothing painted) earns none.
 - **`.chart-caption` lost its inline padding, kept its block padding.** It is a
   stage SIBLING of the body, so its `--sp-2xl` was the same duplicated inset —
@@ -326,6 +343,51 @@ Only the TOP token has a seam to sit in on the `no-form` path; that section's ow
   chart in that narrow band no longer autosplits, and **#680 must budget for the
   threshold moving again, in the strict direction, when it zeroes that
   `--chart-inset-*`.** `chart-overflow-preserved.test.js` is 7/7 green.
+
+### 7.1 The corpus sweep, and the two components it condemned
+
+`npm run overflow:check` renders all 268 committed decks and ratchets clipped
+pages against `test/integration/overflow-baseline.json`. It is the instrument
+that settled the block axis, and it found what no box measurement could: the
+first cut, with the block padding moved to the stage, made **nine decks clip
+pages that had never clipped** — journey (5 pages), matrix-grid (5), the chart
+bucket gallery, `gallery-jargon` p57, the CI baseline deck p89,
+`data-viz-gallery` p4/p7, `chart-family-coverage` p3,
+`bloom-engineering-journey` p11 and `impact-annual-report` p5.
+
+The first of them was found by **looking at a raster**, not by a gate: a gantt
+page came back from the golden re-render stamped "Content clipped". That is the
+QUALITY BAR's rebuild-and-actually-look-at-it earning its keep — every automated
+gate in the repo was green on that page.
+
+Scoping to the inline axis took nine decks to four. The remaining four were one
+component each, both latent for as long as they had existed and both tipped into
+failure by the inline reclaim — HARD RULE #18's "a pre-existing fragility your
+change merely tipped into failure" case, which is fixed, not filed:
+
+- **gantt** — `.gantt-svg` has carried `max-height: 100%` all along and it never
+  once bound: a percentage max-height resolves to `none` against an auto-height
+  parent, and `.gantt-chart` had no height. The SVG's only real constraint was
+  its width, so widening the body 896 → 1024 took the stress slide's drawing
+  306 → 350px against a 315px stage. `.gantt-chart` now takes `height: 100%` (of
+  `.chart-body`, which fills the stage by flex, so it is definite); the existing
+  `max-height` binds and the drawing letterboxes. All five gallery slides
+  measured: svg height ≤ stage height, the four that already fitted unchanged.
+- **matrix-grid** — `.matrix-grid-figure` is `width: 100%`, and its
+  `[data-row-axis]` arm adds a `padding-left` for the rotated label gutter. Under
+  content-box sizing that made the figure `100% + --sp-lg`, **32px wider than its
+  container by construction**, on every grid with a row axis. The body's inline
+  padding was 64px of clip slack around it; reclaiming that left the figure
+  spilling 16px past the clip on each side, taking the table's outer columns with
+  it. `box-sizing: border-box` makes the gutter part of the figure instead of an
+  addition to it.
+
+Both are the same shape, and worth naming: **a box that is bigger than its
+container, hidden by slack.** Reclaiming an inset is how you find them, which is
+an argument for doing it rather than against.
+
+Final sweep: **7 clipped slides across 4 decks, none above the committed baseline
+of 7** — zero newly-clipping pages.
 
 ## 8. How the rule is kept
 

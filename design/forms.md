@@ -368,8 +368,9 @@ The gap contract above says Cells never touch. This says who pays for the space
 they keep:
 
 > **The stage owns the outer inset. A body owns only the spacing between its own
-> elements — `gap` between its children, plus whatever padding is genuinely
-> required by a thing that paints its own surface.**
+> elements — `gap` between its children, a CLIP MARGIN where its overflow must
+> not cut at the layout edge, and whatever padding is genuinely required by a
+> thing that paints its own surface.**
 
 This is HARD RULE #20's idiom extended by one level. #20 fixes *what* to space
 with (`padding` and `gap`, never `margin`); this fixes *which box* the outer inset
@@ -394,7 +395,18 @@ from the slide edge to the body box, before #1598 closed it:
 | chart | `.chart-body` | stage **+ a width calc + padding** | 128 | **192** ⚠️⚠️ |
 
 Four of the six buckets already kept the rule; two paid twice, and the chart paid
-three times — 192px per side against prose's 64. The debt was invisible for as
+three times — 192px per side against prose's 64.
+
+**On the INLINE axis.** The clip-margin clause is why: `overflow` cuts at the
+PADDING box, so a body's padding both insets content *and* lets it paint that far
+past the layout box before anything is lost. For chart and diagram the inline half
+was the duplicate; the block half was the slack, and charts rely on it (journey's
+mood legend overshoots its column by 21px, matrix-grid's rows by a few, radar's
+rim labels by design). Removing it clipped nine decks that had never clipped, so
+#1598 is inline-only and the block padding stays on the body, named for its job.
+`overflow-clip-margin` is the property that should carry it and cannot yet —
+Chromium 131 takes only a plain `<length>` there, and every spacing token here is
+a `calc()`. The debt was invisible for as
 long as it existed, and was costed at half its real size when someone finally went
 looking (#680 recorded the chart's inline cost as 128px; it was 256).
 
