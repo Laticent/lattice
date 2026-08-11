@@ -85,3 +85,11 @@
   attributes with no URL or script grammar, so the allowlist widening costs the threat model
   nothing; `<script>` and `<foreignObject>` remain barred. Measured across the 75 gallery decks:
   543 and 66 dropped respectively.
+- **The note boundary reads a comment the way the browser does.** `--!>` closes an HTML comment
+  (as a parse error, but it closes) and the kernel regex only knew `-->`, so a one-character typo
+  merged a note with whatever followed it into a single body — which then entered the
+  `--strip-notes` scrub set, so the whole span was deleted from the envelope source. Aligning the
+  terminator splits them again. *Still outstanding, and narrower than it was:* when a malformed
+  comment stops the engine consuming an adjacent directive, that directive survives into the
+  rendered section and can therefore still reach the scrub set. An unterminated `<!--` is a
+  separate, pre-existing case with the same shape.

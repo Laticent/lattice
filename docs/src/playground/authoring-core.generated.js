@@ -3057,7 +3057,7 @@ var require_notes_core = __commonJS({
       // remark-lint (remark-message-control)
       /^lint (disable|enable|ignore).*$/
     ];
-    var COMMENT_SOURCE = "<!--+([\\s\\S]*?)--+>";
+    var COMMENT_SOURCE = "<!--+([\\s\\S]*?)--+!?>";
     function isToolingComment(body) {
       const t = String(body == null ? "" : body).trim();
       return MAGIC_COMMENT_MATCHERS.some((re) => re.test(t));
