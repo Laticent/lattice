@@ -122,7 +122,6 @@ in patch versions.
   as the 23 waits it actually is. Costs ~600ms on `build:check`. Seeded from the current tree with the #1564 judgments
   transcribed and everything else labelled `UNJUDGED`, so "nobody looked" is now visible
   rather than implied by silence. No product behavior change. See #1575, #1526.
-
 - **Added: pinch to zoom a slide, on every Studio surface and every device.** The
   Studio preview, Present and the presenter screen now zoom the slide — not the
   page — by pinch (touch), `ctrl`/`⌘`+wheel (mouse, and what a trackpad pinch

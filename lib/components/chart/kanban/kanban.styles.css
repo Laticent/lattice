@@ -18,10 +18,11 @@
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
 
 :is(section.kanban, figure.kanban).chart-frame .chart-body {
-  /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding
-   * (sp-lg / sp-2xl) so the surface panel matches every other chart — the old
-   * width:100% pushed it full-bleed (no side margin) and the sp-xs bottom let
-   * the cards touch the hairline. Columns still stretch + top-align. */
+  /* Inherit the shared inset — the stage cell's, since #1598 — so kanban is inset
+   * exactly like every other chart. Don't re-assert one here: full-bleed left the
+   * board with no side berth and an sp-xs bottom let the cards touch the hairline,
+   * and a body-level inset is now what the Forms inset rule bans (design/forms.md
+   * §6.1). Columns still stretch + top-align. */
   align-items: stretch;
   justify-content: flex-start;
 }

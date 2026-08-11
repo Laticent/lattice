@@ -7,10 +7,11 @@
  * a bar (filled to --pct), a numeric readout, and an optional status pill.
  * The fill colour tints with the status. */
 :is(section.progress, figure.progress).chart-frame .chart-body {
-  /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding so
-   * the surface panel matches every other chart — the old width:100% +
-   * max-width:76.5cqi made the progress panel noticeably narrower (big side
-   * margins) than the rest. Bars still stretch + gap within the shared width. */
+  /* Inherit the shared inset — the stage cell's, since #1598 — so progress is
+   * inset exactly like every other chart. Don't re-assert one here: the old
+   * width:100% + max-width:76.5cqi made the progress panel noticeably narrower
+   * (big side margins) than the rest, and a body-level inset is now what the Forms
+   * inset rule bans (design/forms.md §6.1). Bars still stretch + gap. */
   align-items: stretch;
   gap: var(--sp-md);
 }

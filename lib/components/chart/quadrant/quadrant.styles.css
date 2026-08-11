@@ -74,7 +74,7 @@
  * skeleton and h2 styling all come from section.chart-frame. The figure
  * just slots into .chart-body as a centred flex row of svg (+ optional
  * legend, for the cohort variant). */
-/* .chart-body inherits the shared width + padding (sp-lg / sp-2xl) so the
+/* .chart-body fills the stage cell, which owns the inset since #1598, so the
  * surface panel matches every other chart's size and inset — no
  * quadrant-specific override. */
 

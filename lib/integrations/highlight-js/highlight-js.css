@@ -77,9 +77,11 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
  * :where() reduces specificity to 0 so the slide-context rule
  * (`section.diagram > .mermaid`, specificity 0,2,1) always wins. Both
  * rules would otherwise be (0,2,1) and source order would let this
- * non-slide rule override the cqi-based slide width. At HD the two
- * values coincide (1152px = calc(100cqi-2*sp-2xl)), hiding the bug; at
- * 4K the container would be stuck at 1152px instead of 3456px. */
+ * non-slide rule override the slide-context width. At HD the two values
+ * coincided (1152px, which is what the slide rule's retired inset calc also
+ * produced), hiding the bug; at 4K the container would be stuck at 1152px
+ * instead of 3456px. The slide rule is `width: 100%` since #1598 — the same
+ * specificity story, and the coincidence at HD is unchanged. */
 :where(:is(pre, marp-pre)[data-mermaid-state="rendered"] + .mermaid) {
   align-items:center; justify-content:center;
   width:1152px; height:480px;
@@ -118,9 +120,13 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
  * source `<pre>`, the runtime `.mermaid` SVG target, and the `.mermaid-error`
  * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
  * The bare `section.diagram >` arm keeps the `no-form` (unwrapped) slide working. */
+/* Full width of the box that already carries the frame inset (#1598) — the error
+ * block replaces the diagram in place, so it must sit on the diagram's own edges;
+ * the retired `calc(100cqi - 2 * var(--sp-2xl))` was a second inset that put it
+ * 64px inside them. design/forms.md §6.1. */
 section.diagram > .mermaid-error,
 section.diagram > .cell-stage > .mermaid-error {
-  width:calc(100cqi - 2 * var(--sp-2xl));
+  width:100%;
 }
 section.diagram > .mermaid-error-label,
 section.diagram > .cell-stage > .mermaid-error-label,

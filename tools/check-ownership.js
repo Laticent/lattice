@@ -1766,6 +1766,228 @@ function checkMarginDiscipline(errors) {
   }
 }
 
+// ─── Stage-inset ownership (Forms inset rule, design/forms.md §6.1, #1598) ──
+// THE RULE: the stage owns the outer inset; a body owns only the spacing between
+// its own elements. HARD RULE #20 already fixes WHAT to space with (`padding` and
+// `gap`, never `margin`); this fixes WHICH BOX the outer inset belongs to.
+//
+// WHAT THIS GATE CATCHES, and why it is a grep and not a render. A body re-derives
+// the frame inset in a shape that reads as SIZING: it takes the container's own
+// width in container units and subtracts a spacing token —
+// `width: calc(100cqi - 2 * var(--sp-2xl))`. That is not a width, it is an inset
+// wearing a width's clothes, and it is invisible as a defect because the box it
+// produces looks deliberate: the chart is centered, it is inside the frame, and
+// nothing overflows. It cost 128px per side on every chart (frame + calc + the
+// body's own padding = 192 against prose's 64) and 64px on every diagram, for
+// years, and #680 costed the chart's inline debt at HALF the real number because
+// the calc reads as sizing rather than as spacing.
+//
+// It is measurable — a rendered body's border box should equal its stage's content
+// box — and `tools/check-chart-fit.js` DOES assert exactly that on a real render at
+// three sizes. This gate is the cheap half of the pair: it runs browser-free inside
+// `build:check`, on EVERY component (not just the charts a fixture happens to
+// cover), and it fires the moment the shape is typed rather than after a 3-render
+// sweep somebody has to remember to run.
+//
+// TWO CHECKS, because the defect has two natural spellings and they need different
+// scopes:
+//
+//   (a) REPO-WIDE — a container-unit SUBTRACTION on a sizing property. There is no
+//       legitimate reason to compute "my container's width, less some spacing"
+//       inside a frame whose inset is already `--frame-x`; the container-unit
+//       basis is what makes it an inset rather than a size.
+//
+//   (b) BODY SHEETS ONLY — `padding` (or a `padding-*` longhand) on a rule whose
+//       subject is a known BODY element: `.chart-body`, `.mermaid`, `.mermaid-svg`.
+//       This is the easiest wrong move of all — "inset the chart a bit more" is
+//       spelled `padding` by anyone who has not read design/forms.md §6.1 — and
+//       (a) cannot see it, because a container-unit subtraction in `padding` is
+//       spacing that says so and is the rule's OWN idiom. Two exits, both from the
+//       rule's second clause rather than bolted on: a selector naming `.canvas`
+//       (the chart's glass panel PAINTS a surface, so it earns an internal inset)
+//       and a selector naming `figure` (the Read·Article projection is not a Form
+//       — it re-hosts a body with no `.cell-stage` above it, so there is no stage
+//       there to own anything).
+//
+// KNOWN HOLES, stated rather than implied. (a) cannot see a pre-evaluated fraction
+// (`width: 90cqi` is the same defect with the arithmetic already done — and the
+// comment this change deleted literally taught that spelling), and (b) only knows
+// the three body classes named below. Both are covered by the RENDER assertion in
+// check-chart-fit.js, which measures the box chain instead of reading the CSS.
+// That is why the pair exists; neither half is sufficient alone.
+//
+// Budget 0 + a sanction list, failing BOTH ways like SANCTIONED_MARGINS: an
+// unlisted offender fails, and a listed sanction that no longer matches fails too,
+// so the allowlist cannot rot into a silent pass.
+const SANCTIONED_STAGE_INSETS = [
+  // EMPTY, and it stayed empty. The one entry this list briefly carried — the
+  // `padding-bottom` on `.mermaid:has(+ .mermaid-error)` — went STALE the moment
+  // check (b) narrowed to the inline axis, and the gate said so rather than
+  // letting the sanction rot into a silent pass. That is the list working: a
+  // block-axis seam was never an inset, so it never needed sanctioning.
+];
+
+// The body elements the Forms inset rule governs — the boxes that dock in a stage
+// cell. Adding one here is how a newly-migrated component joins check (b).
+const INSET_BODY_SELECTORS = ['.chart-body', '.mermaid-svg', '.mermaid'];
+
+/**
+ * Blank out `var(--name)` references, keeping the parens balanced and the length
+ * stable. Load-bearing: a token NAME contains hyphens, so a naive "is there a `-`
+ * after 100cqi" test fires on the entirely legitimate
+ * `calc(100cqi * var(--canvas-scale))`. Only an operator hyphen should count.
+ */
+function blankVarRefs(value) {
+  return value.replace(/var\(\s*--[\w-]+/g, (m) => `var(${'x'.repeat(m.length - 4)}`);
+}
+
+// The INLINE-axis sizing properties, plus custom properties (a `--w:` holding the
+// shape and a `width: var(--w)` reading it is the same defect, one indirection
+// away). Deliberately NOT the block axis: `height: calc(100cqh - var(--masthead-h))`
+// is an ordinary "fill the container minus a reserved band", which is not what this
+// rule is about — the outer inset is an INLINE concern, and firing on the block axis
+// would push legitimate code into the allowlist, which is how an allowlist rots.
+const INLINE_SIZE_PROPS =
+  /^(?:width|min-width|max-width|inline-size|min-inline-size|max-inline-size|flex-basis|--[\w-]+)$/;
+
+/**
+ * (a) A full-container basis, less a SPACING TOKEN, on an inline sizing property:
+ * `calc(100cqi - 2 * var(--sp-2xl))` and its spellings. Three conjuncts, each one
+ * narrowing a false-positive class the trio found:
+ *   · basis `100cq[iw]` or `100%` — the whole of the container, not a fraction;
+ *   · a subtraction inside a math function (`calc`/`min`/`max`/`clamp`);
+ *   · the subtrahend names a SPACING token (`--sp-*`) or a FRAME token — which is
+ *     what makes it an inset rather than arithmetic. `max-width: calc(100cqi - 2px)`
+ *     is a hairline correction, not a re-derived frame inset, and must not fire.
+ * The cost of that last conjunct is stated in the KNOWN HOLES note above: a
+ * hard-coded `calc(100cqi - 128px)` escapes (a) and is left to the render assertion.
+ */
+function offendingStageInsets(css) {
+  const out = [];
+  // Declaration values only (after `:`, up to `;`/`}`), so a selector or an
+  // at-rule preamble can never trip it.
+  const DECL = /(^|[;{])\s*(--[\w-]+|[a-zA-Z-]+)\s*:\s*([^;{}]*)/g;
+  // The WHOLE container, and the very next operator is a subtraction. Both halves
+  // are load-bearing: `calc(100% / 3 - 2 * var(--sp-md) / 3)` is an N-up track
+  // width (a FRACTION of the container, less its share of the gaps) and appears
+  // legitimately in pricing and cards-grid — matching a bare `100%` anywhere in the
+  // expression fired on all five of them.
+  const BASIS = /(?:calc|min|max|clamp)\([^;]*(?:\b100cq(?:[iw]|min|max)\b|(?<![\d.])100%)\s*-\s/;
+  const SPACING = /var\(\s*--(?:sp-|frame-)/;
+  let m = DECL.exec(css);
+  while (m !== null) {
+    const [, , prop, value] = m;
+    // Only SIZING properties: a container-unit subtraction in `padding`/`gap`/
+    // `translate` is spacing that says so, and is check (b)'s business, not (a)'s.
+    if (INLINE_SIZE_PROPS.test(prop)) {
+      // `var(--name)` refs are blanked first: a token NAME contains hyphens, so an
+      // unguarded operator test fires on `calc(100cqi * var(--canvas-scale))`.
+      // A DIVISION means a track width, not an inset: `calc((100% - 2 * var(--sp-lg))
+      // / 3)` is math's 3-up column (the container, less its gaps, split three ways).
+      // A re-derived frame inset never divides — it subtracts and stops.
+      const probe = blankVarRefs(value);
+      if (BASIS.test(probe) && SPACING.test(value) && !probe.includes('/')) {
+        out.push({ prop, value: value.trim().replace(/\s+/g, ' ') });
+      }
+    }
+    m = DECL.exec(css);
+  }
+  return out;
+}
+
+/**
+ * (b) `padding` on a body element's own rule. Walks (selector, block) pairs so the
+ * exits can key on the SELECTOR — `.canvas` (the body paints a panel there) and
+ * `figure` (the Read·Article projection, which has no stage) — rather than on a
+ * file path, which would exempt whole sheets instead of the cases that earn it.
+ */
+function offendingBodyPadding(css) {
+  const out = [];
+  const RULE = /([^{}]+)\{([^{}]*)\}/g;
+  let m = RULE.exec(css);
+  while (m !== null) {
+    const selector = m[1].trim().replace(/\s+/g, ' ');
+    const block = m[2];
+    // The rule's SUBJECT (its last compound), not any ancestor in the selector:
+    // `section.chart-frame .chart-body { padding }` offends, `.chart-body p {}`
+    // does not — that padding belongs to the `p`. Functional pseudos are emptied
+    // first so a class named only INSIDE one (`.mermaid:has(+ .mermaid-error)`)
+    // does not read as the subject, and classes are compared WHOLE — substring
+    // matching made `.mermaid` swallow `.mermaid-error`, a painted box that earns
+    // its padding, and `.mermaid-error-detail` with it.
+    let subject = selector.split(',')[0].trim();
+    let prev;
+    do { prev = subject; subject = subject.replace(/:(?:is|where|not|has)\([^()]*\)/g, ''); }
+    while (subject !== prev);
+    subject = subject.split(/[\s>+~]+/).filter(Boolean).pop() || '';
+    const subjectClasses = new Set([...subject.matchAll(/\.([\w-]+)/g)].map((c) => c[1]));
+    const subjectsBody = INSET_BODY_SELECTORS.some((cls) => subjectClasses.has(cls.slice(1)));
+    if (subjectsBody && !/\.canvas|figure/.test(selector)) {
+      for (const d of block.split(';')) {
+        const [prop, ...rest] = d.split(':');
+        const value = rest.join(':').trim();
+        // INLINE only. A body's BLOCK padding is a CLIP MARGIN, not an inset —
+        // `overflow` cuts at the padding box, so it is the slack a chart paints
+        // into before anything is lost, and removing it clipped nine decks
+        // (#1598 §7). The `padding` SHORTHAND is matched because it sets both.
+        if (/^\s*padding(?:-(?:inline|right|left))?(?:-(?:start|end))?\s*$/.test(prop)
+          && value && !/^0(?:px|em|rem|%)?$/.test(value)) {
+          out.push({ prop: prop.trim(), value: `${value} (on \`${selector}\`)` });
+        }
+      }
+    }
+    m = RULE.exec(css);
+  }
+  return out;
+}
+
+function checkStageInsetOwnership(errors) {
+  const offences = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const rel = path.relative(ROOT, file);
+    for (const o of offendingStageInsets(css)) offences.push({ file: rel, ...o });
+    for (const o of offendingBodyPadding(css)) offences.push({ file: rel, ...o });
+  }
+  // A sanction with no stated reason is a waiver, not a record — the error text and
+  // design/forms.md §6.1 both promise "with its justification", so require it.
+  for (const s of SANCTIONED_STAGE_INSETS) {
+    if (!s.why?.trim()) {
+      errors.push(
+        `SANCTIONED_STAGE_INSETS entry for ${s.file} (${s.prop}) has no \`why\` — a sanction ` +
+        'without a stated justification is a silent waiver. Add one or delete the entry.',
+      );
+    }
+  }
+  const remaining = [...offences];
+  const stale = [];
+  for (const s of SANCTIONED_STAGE_INSETS) {
+    const i = remaining.findIndex((o) => o.file === s.file && o.prop === s.prop && o.value === s.value);
+    if (i === -1) stale.push(s);
+    else remaining.splice(i, 1);
+  }
+  if (remaining.length) {
+    const top = remaining.slice(0, 5).map((o) => `${o.file} (${o.prop}: ${o.value})`).join(', ');
+    errors.push(
+      `${remaining.length} container-width inset(s) in engine CSS (budget 0). ` +
+      '`calc(100cq* − <spacing>)` on a sizing property is an OUTER INSET wearing a width\'s ' +
+      'clothes: the frame already insets the body once via --frame-x, so this re-derives it a ' +
+      'second time and the figure pays twice (design/forms.md §6.1 — the stage owns the outer ' +
+      'inset, a body owns only the spacing between its own elements). Fill the box that already ' +
+      'carries the inset (`width: 100%`) and put any component-specific inset on the STAGE CELL ' +
+      `(\`section.<x> > .cell-stage { padding: … }\`). Offending: ${top}. If a container-width ` +
+      'subtraction is provably the only answer, add it to SANCTIONED_STAGE_INSETS in ' +
+      'tools/check-ownership.js with its justification.',
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `stale stage-inset sanction in tools/check-ownership.js — \`${s.value}\` in ${s.file} is no ` +
+      'longer present. Remove the SANCTIONED_STAGE_INSETS entry so the allowlist stays honest.',
+    );
+  }
+}
+
 // ── Frame chrome stays out of flow under a slide `finish:` ────────────────────────
 // `base.finish.css` lifts slide content above the finish backdrop. The z-index is the
 // intent; the `position: relative` that carries it must NOT reach a child that already
@@ -6689,6 +6911,7 @@ function run() {
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
+  checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
   checkMathRendererParity(errors);
   checkSectionBoxOwnership(errors);

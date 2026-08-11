@@ -362,6 +362,83 @@ bled.**
 So clip attaches to the Cell; the ring attaches to the slide; Tiles inherit their
 box guarantee from the Cell they fill.
 
+### 6.1 The stage owns the outer inset
+
+The gap contract above says Cells never touch. This says who pays for the space
+they keep:
+
+> **The stage owns the outer inset. A body owns only the spacing between its own
+> elements — `gap` between its children, a CLIP MARGIN where its overflow must
+> not cut at the layout edge, and whatever padding is genuinely required by a
+> thing that paints its own surface.**
+
+This is HARD RULE #20's idiom extended by one level. #20 fixes *what* to space
+with (`padding` and `gap`, never `margin`); this fixes *which box* the outer inset
+belongs to. Where there is no stage — a `no-form` slide, a Read·Article `figure`
+re-host — the box that HOLDS the body plays the stage's part; the rule is about
+ownership, not about a class name.
+
+**Why it needs saying.** A body can re-derive the frame inset in a shape that
+reads as sizing rather than as spacing: `width: calc(100cqi - 2 * var(--sp-2xl))`
+takes its container's own width and subtracts a spacing token. Nothing about the
+result looks wrong — the box is centered, inside the frame, and overflows
+nothing — it is simply inset twice. Measured on a 1280×720 indaco render, distance
+from the slide edge to the body box, before #1598 closed it:
+
+| bucket | body element | insets | body box | painted content |
+|---|---|---|---|---|
+| prose (`compare-table`) | `p` | stage only | 64 | 64 ✅ |
+| code | `pre` | stage + the block's own padding | 64 | 88 ✅ |
+| masthead (band) | — | stage inset; `padding-bottom` only | 64 | 64 ✅ |
+| footer (band) | — | positional, no padding | 30 | 30 ✅ |
+| diagram | `.mermaid-svg` | stage **+ a width calc** | 128 | 128 ⚠️ |
+| chart | `.chart-body` | stage **+ a width calc + padding** | 128 | **192** ⚠️⚠️ |
+
+Four of the six buckets already kept the rule; two paid twice, and the chart paid
+three times — 192px per side against prose's 64.
+
+**On the INLINE axis.** The clip-margin clause is why: `overflow` cuts at the
+PADDING box, so a body's padding both insets content *and* lets it paint that far
+past the layout box before anything is lost. For chart and diagram the inline half
+was the duplicate; the block half was the slack, and charts rely on it (journey's
+mood legend overshoots its column by 21px, matrix-grid's rows by a few, radar's
+rim labels by design). Removing it clipped nine decks that had never clipped, so
+#1598 is inline-only and the block padding stays on the body, named for its job.
+`overflow-clip-margin` is the property that should carry it and cannot yet —
+Chromium 131 takes only a plain `<length>` there, and every spacing token here is
+a `calc()`. The debt was invisible for as
+long as it existed, and was costed at half its real size when someone finally went
+looking (#680 recorded the chart's inline cost as 128px; it was 256).
+
+**Code is the legitimate exception, and shows what the second clause is for.** Its
+`pre` sits at the plain stage inset at full stage width and carries `padding`
+because the block **paints its own surface** — text must not touch a visible edge.
+The chart's opt-in `canvas` panel earns its inset the same way, and owns it in the
+`.canvas` rule rather than unconditionally: a body that paints nothing owes
+nothing.
+
+**How it is kept.** Two gates, deliberately paired, because each is blind to the
+other's failures:
+
+- `checkStageInsetOwnership` (`tools/check-ownership.js`, via `build:check`) —
+  browser-free, budget 0 + `SANCTIONED_STAGE_INSETS`, across every component. Two
+  checks: a full-container basis less a spacing token on an inline sizing property
+  (the calc), and `padding` on a body element's own rule (the easiest wrong move),
+  the latter exempting a selector that names `.canvas` or `figure`. Its holes are
+  stated at the gate rather than implied.
+- the **inset assertion** in `tools/check-chart-fit.js` — a real render at
+  landscape/portrait/square asserting the body's border box coincides with its
+  HOLDER's content box on the inline axis (the stage under the Form, the section on
+  the `no-form` path), and that the body carries no padding of its own unless it
+  **paints its own surface**. That exemption is measured too — a non-transparent
+  background, a background image, or a real border — rather than keyed on a class
+  list, which would have to be kept in sync with every future body that paints. The
+  block axis is deliberately unasserted: a pinned list body is centered at its
+  natural height, and an overstuffed one MUST spill so `overflow-probe.js` can
+  see it.
+
+Record: `engineering/decisions/2026-08-11-stage-owns-the-outer-inset.md`.
+
 This is the contract the open chrome-over-content defect
 (`engineering/decisions/2026-06-13-islands-sketch-density-collisions.md`)
 violates — chrome painted over content is a Cell failing to reserve its box and

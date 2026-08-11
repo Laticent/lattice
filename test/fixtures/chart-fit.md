@@ -399,3 +399,43 @@ Four milestones show the shape; the date chips carry the when.
 - roadmap `2`
 - contracts `1`
 - residency `1`
+
+---
+
+<!-- _class: diagram -->
+
+## A diagram is a body in a stage cell too.
+
+The inset assertion (#1598) governs every bucket with a stage, not just the
+charts — so the fixture carries one diagram, and the `.mermaid-svg` arm of the
+body selector is exercised by the shipped gate rather than only by hand-pointing
+it at `diagram.gallery.md`. A `<blockquote>` sibling below is the case that made
+diagram's second inset visible: it always sat at the frame inset while the
+diagram sat 64px inside it.
+
+```mermaid
+flowchart LR
+  A["Section"] --> B["Stage"]
+  B --> C["Body"]
+```
+
+> The body, the dek and this panel share one left edge.
+
+---
+
+<!-- _class: timeline-list no-form -->
+
+## A chart with no Form still has a holder.
+
+`no-form` (per slide) and `form: off` (per deck) are supported opt-outs, and on
+that path there is no `.cell-stage` — the SECTION holds the body, so the section
+owns the inset. This slide is here because the inset assertion used to skip a
+stage-less section entirely, and that is the exact path #1598's first cut
+regressed on.
+
+1. `Q1` The first milestone
+   - One clause says what changed here.
+2. `Q2` The second, marked `decision`
+   - A tag names the milestone's kind.
+3. `Q3` The third milestone
+   - Sixteen words is each entry's budget.

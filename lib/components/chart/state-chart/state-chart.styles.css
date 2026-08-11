@@ -44,9 +44,33 @@ section.state-chart {
   --state-label-bg: var(--bg);
 }
 
+/* THE OUTER INSET, state-chart's tuning of it (#1598). Re-homed from `.chart-body`
+ * to the family's inset TOKENS (chart-family.css): a parent's padding cannot be
+ * overridden by a child, so the tuning has to live where the inset now does — and
+ * as a token it reaches BOTH holders (`.cell-stage` under the Form, the section on
+ * the `no-form` path) from one declaration. Only the block token differs from the
+ * family default, so only that one is restated.
+ *
+ * The values are state-chart's own, moved verbatim — and because state-chart never
+ * carried the family's width calc (it already shipped `width: 100%`), its geometry
+ * is unchanged to the pixel: the body box, the caption's text box, and the legend
+ * band all land exactly where they did. It is the in-tree precedent that the calc
+ * was never load-bearing. */
+section.state-chart.chart-frame {
+  /* The INLINE token is restated at the family default deliberately, not omitted.
+   * As a padding on `.chart-body` this tuning sat at (0,3,1) and beat the tall/strip
+   * family rule (0,2,1), so a TALL state-chart kept the wide `--sp-2xl` side inset.
+   * As tokens, state-chart declares at (0,2,1) and tall/strip at (0,1,1) — so an
+   * omitted `--chart-inset-x` would fall through to tall/strip's `--sp-sm` and the
+   * body would gain 158px (+20.7%) at portrait. Measured by the trio's red team;
+   * naming the token is how state-chart stays in the tie it used to win. */
+  --chart-inset-x: var(--sp-2xl);
+  --chart-inset-top: var(--sp-md);
+  --chart-inset-bottom: var(--sp-md);
+}
+
 section.state-chart.chart-frame .chart-body {
   width: 100%;
-  padding: var(--sp-md) var(--sp-2xl);
   display: flex;
   /* The figure is the only in-flow child on the DEFAULT variant; the status legend
    * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody
