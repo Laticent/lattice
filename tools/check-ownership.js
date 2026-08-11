@@ -3600,6 +3600,22 @@ function listSourceFiles(dir, out = []) {
 //   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
+  // ── judged in #1618 ──────────────────────────────────────────────────────────
+  {
+    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 12000, count: 1,
+    why: 'JUDGED KEEP (#1618). The pass condition is "and then the data did NOT come back". '
+       + 'A poll for zero records fires at the first zero — which is the state the moment the '
+       + 'wipe lands — and would go green without ever waking the frozen tab, i.e. it would pass '
+       + 'against the bug. The interval has to outlast several 5s heartbeats, because the '
+       + 'regression IS a heartbeat writing the record back. Verified to fail against the '
+       + 'pre-fix build, which a poll here could not do.',
+  },
+  {
+    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 1,
+    why: 'JUDGED KEEP (#1618). Absence assertion: an ordinary visit must NOT raise a crash toast. '
+       + 'There is no signal to poll for a thing that should never appear, and the toast is '
+       + 'raised from a mount effect that has long since run at 2s.',
+  },
   // ── judged in #1564 ──────────────────────────────────────────────────────────
   {
     file: 'docs/e2e/back-gesture.spec.ts', ms: 650, count: 23, via: 'settle',

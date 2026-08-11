@@ -562,3 +562,33 @@ nor worsens it: a woken tab still holds its deck in memory, so if the user
 **edits** after a wipe, that deck is saved again. That is arguably correct — they
 are actively authoring — but it is worth a deliberate decision rather than an
 accident.
+
+
+## The tests that can actually fail (#1618, 2026-08-11)
+
+Every defect this feature shipped was invisible to the unit tier, and the pattern
+is sharp enough to state as a rule: **jsdom can check what the recorder WRITES,
+never what a browser DOES.** The toast that clipped its own text, the description
+that was near-black on near-black, the two liveness designs that convicted live
+tabs, the tab that slept through a wipe — none of them can fail a jsdom test, and
+two of them shipped *because* their unit tests passed.
+
+`docs/e2e/crash-sentinel.spec.ts` commits what the throwaway harnesses proved:
+
+| Spec | Project | What it pins |
+|---|---|---|
+| the report surfaces and says what to try | `desktop` | toast shape, description legibility + not clipped, the steps section, opaque-error attribution, no sideways overflow |
+| the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
+| a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
+| a wipe survives a frozen tab | `desktop` (Chromium) | #1625, via CDP `Page.setWebLifecycleState` — a real freeze, since a dispatched `resume` never stops the document and so cannot reproduce it |
+
+The contract is shared by two `test()` calls rather than one tagged spec, because
+the project tags are exclusive: a `@webkit-phone` test does **not** run on
+`desktop`. Both matter — desktop is the broad net, WebKit is the engine that
+reported the bug.
+
+**Each spec was verified to FAIL against the code before its fix**, not merely to
+pass after it. Re-breaking the toast to its shipped state (`rounded-full`, Sonner's
+own description color) fails the spec on the radius assertion. That check is the
+whole point: a passing test that cannot fail is exactly what let two bad liveness
+designs through this month.
