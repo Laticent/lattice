@@ -2405,6 +2405,139 @@ describe('no-safe-default token gate (#1457)', () => {
       'an empty fallback is not a fallback');
   });
 
+  // #1545 — the gate's SECOND exit, made auditable.
+  //
+  // Exit 2 (give the read a var() fallback) is HARD-RULE-#3-legal, costs ten seconds, and
+  // permanently removes the token from the gate's view. That is the exact construction
+  // that produced the defect the gate exists to prevent: --cat-N-ink had a fallback at
+  // every read and was STILL missing from the generator for a year. These pin the ledger
+  // that makes taking the exit a recorded decision — and, like every allowlist in this
+  // file, that it fails on a STALE entry as well as an unlisted one.
+  describe('fallbackOnlyTokens — the ledger for the cheap exit', () => {
+    const { fallbackOnlyTokens, SANCTIONED_FALLBACK_READS } = require('../../../tools/check-ownership.js');
+    const chainRead = (where, chain) => [{ where, kind: 'css', rootRead: false, chain }];
+
+    test('REPORTS a theme token whose only rescue is a fallback chain', () => {
+      const found = fallbackOnlyTokens(inputs({ bareReads: new Map([['c-container', chainRead('lib/x.css:1', ['bg'])]]) }));
+      assert.deepEqual(found.map((f) => f.token), ['c-container']);
+      assert.deepEqual(found[0].chain, ['bg'], 'it reports what the fallback lands on, which is the thing to justify');
+    });
+
+    test('does NOT report a token the ENGINE defaults — that is not taking the cheap exit', () => {
+      const found = fallbackOnlyTokens(inputs({
+        slideDefaults: new Set(['bg', 'c-container']),
+        bareReads: new Map([['c-container', chainRead('lib/x.css:1', ['bg'])]]),
+      }));
+      assert.deepEqual(found, [], 'an engine default rescues the read on its own; the fallback is incidental');
+    });
+
+    test('does NOT report a token the gate itself already fires on', () => {
+      // An UNrescued read is the loud path. Reporting it here too would ask for a
+      // justification for a token that is failing the gate outright.
+      const found = fallbackOnlyTokens(inputs({ bareReads: new Map([['c-container', chainRead('lib/x.css:1', ['never-declared'])]]) }));
+      assert.deepEqual(found, [], 'an unresolvable chain is a gate failure, not a ledger entry');
+    });
+
+    test('does NOT report a token already in the contract', () => {
+      const found = fallbackOnlyTokens(inputs({
+        contract: new Set(['bg', 'c-container']),
+        bareReads: new Map([['c-container', chainRead('lib/x.css:1', ['bg'])]]),
+      }));
+      assert.deepEqual(found, [], 'deriving the token is exit 1 — nothing to justify');
+    });
+
+    test('the SANCTIONED entry\'s `fallback` is enforced against the real tree, not just recorded', () => {
+      // The finding that made this arm exist: re-point one read at a different-contract
+      // token and every OTHER arm stays green — the chain still resolves, the token is
+      // still fallback-only, the sanction is still live — while the recorded justification
+      // silently becomes false. That is the --cat-N-ink construction.
+      const { checkNoSafeDefaultTokens, SANCTIONED_FALLBACK_READS } = require('../../../tools/check-ownership.js');
+      const entry = SANCTIONED_FALLBACK_READS.find((e) => e.token === 'cat-1-texture');
+      assert.ok(entry, 'expected a --cat-1-texture sanction to mutate');
+      const real = entry.fallback;
+      entry.fallback = 'cat-1-mark';
+      try {
+        const errors = [];
+        checkNoSafeDefaultTokens(errors);
+        assert.ok(
+          errors.some((e) => /falls back to --cat-1-mark, but/.test(e)),
+          `a sanction naming the wrong fallback must fail; got: ${errors.join(' | ') || '(no errors)'}`,
+        );
+      } finally {
+        entry.fallback = real;
+      }
+    });
+
+    // The evasion the red team found: `bareVarReads` used to SKIP any chain bottoming out in
+    // a literal, so `var(--cat-1-texture, var(--cat-1-mark, transparent))` re-pointed the read
+    // at a different-contract token and every arm stayed green — while the committed
+    // justification, which says it lands on the same-role fill and NOT on a mark, went false.
+    // That is the --cat-N-ink construction, inside the change built to surface it. And it is
+    // the form `checkNoSafeDefaultTokens`'s own remediation text recommends.
+    test('a literal-TAILED fallback chain is still compared against the sanction', () => {
+      const litRead = (where, chain) => [{ where, kind: 'css', rootRead: false, chain, endsLiteral: true }];
+      const found = fallbackOnlyTokens(inputs({ bareReads: new Map([['c-container', litRead('lib/x.css:1', ['other'])]]) }));
+      assert.equal(found.length, 1, 'a literal-tailed chain is still taking the cheap exit');
+      assert.deepEqual(found[0].reads[0].chain, ['other'], 'and the ledger must see what it points at');
+    });
+
+    test('a literal-terminated read is RESCUED for the main gate — behavior unchanged', () => {
+      // Recording these reads must not make the gate itself start reporting them: a chain
+      // ending in a literal always resolves, which is why they were skipped in the first place.
+      const litOnly = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
+      assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: litOnly })), [],
+        'a literal fallback resolves, so the no-safe-default gate must stay silent');
+    });
+
+    // The line between the two literal-terminated shapes. `var(--x, var(--y, transparent))`
+    // HOPS THROUGH a token, and that hop is what can silently drift onto a different
+    // contract — the --cat-N-ink defect. `var(--x, color-mix(… var(--text-heading)))` has no
+    // hop: the fallback is the value, written at the read, with no second token to drift
+    // onto. Requiring a ledger row for the second would tax the safest form of the pattern.
+    // Live example of the second: --chart-catN-ink (chart-family.css).
+    test('an inline-EXPRESSION fallback with no token hop is not ledger population', () => {
+      const expr = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
+      assert.deepEqual(fallbackOnlyTokens(inputs({ bareReads: expr })), [],
+        'no second token to drift onto — nothing a ledger row could say');
+    });
+
+    test('a synthetic themesDir does not drag the global ledger in with it', () => {
+      // The seam exists so the gate can be bitten with synthetic input. Comparing a
+      // repo-wide constant against a made-up palette would emit one stale error per row.
+      const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-seam-'));
+      fs.writeFileSync(path.join(dir, 'synthetic.css'), ':root { --accent: red; --bg: white; }\n');
+      const errors = [];
+      checkNoSafeDefaultTokens(errors, { themesDir: dir });
+      assert.equal(errors.filter((e) => /stale fallback sanction/.test(e)).length, 0,
+        'the ledger must not fire against a themes dir it was never written for');
+    });
+
+    test('every sanctioned entry carries the two things that make it a record', () => {
+      assert.ok(SANCTIONED_FALLBACK_READS.length, 'the ledger must not be empty while the population is');
+      for (const s of SANCTIONED_FALLBACK_READS) {
+        assert.ok(s.token && !s.token.startsWith('--'), `${s.token}: bare token name, no leading --`);
+        assert.ok(s.fallback, `--${s.token}: must name what the fallback LANDS ON`);
+        assert.ok(s.why && s.why.length > 80, `--${s.token}: must say why that value carries the read's contract`);
+      }
+    });
+
+    // NO end-to-end "the ledger matches the live tree" test here: the suite already runs
+    // `checkNoSafeDefaultTokens(errors)` over the real repo further down this file, and that
+    // call fails on an unlisted token, a stale sanction AND a diverged fallback alike. A
+    // second identical call would be documentation, not coverage (HARD RULE #15).
+    test('every read is carried, not just the first — a divergent chain on read N is the point', () => {
+      const two = new Map([['c-container', [
+        { where: 'lib/a.css:1', kind: 'css', rootRead: false, chain: ['bg'] },
+        { where: 'lib/b.css:9', kind: 'css', rootRead: false, chain: ['other'] },
+      ]]]);
+      const found = fallbackOnlyTokens(inputs({ contract: new Set(['bg', 'other']), bareReads: two }));
+      assert.equal(found.length, 1);
+      assert.deepEqual(found[0].reads.map((r) => r.chain[0]), ['bg', 'other'],
+        'the gate compares the sanctioned fallback against EVERY read; reporting only the first would hide drift');
+    });
+  });
+
   test('parseVarChain reads the chain, and a literal terminal ends it', () => {
     const { parseVarChain } = require('../../../tools/check-ownership.js');
     assert.deepEqual(parseVarChain('--x'), { token: 'x', chain: [], endsLiteral: false });
@@ -2454,12 +2587,20 @@ describe('no-safe-default token gate (#1457)', () => {
     assert.deepEqual(noSafeDefaultTokens(inputs({ themeTokens: new Set(['bg']) })), []);
   });
 
-  test('bareVarReads separates a bare read from a read with a fallback', () => {
+  // A literal-terminated read is RECORDED and FLAGGED rather than skipped (#1545). It is
+  // still not a no-safe-default hit — `noSafeDefaultTokens` treats `endsLiteral` as rescued,
+  // because a chain bottoming out in a literal always resolves — but the fallback LEDGER has
+  // to see it: `var(--x, var(--y, transparent))` is a cheap-exit fallback pointing at --y,
+  // and skipping it let a sanctioned token be silently re-pointed at a different-contract
+  // token with the gate green.
+  test('bareVarReads flags a literal-terminated read rather than dropping it', () => {
     const reads = bareVarReads('a{color:var(--one)}\nb{color:var(--two, red)}\nc{color:var( --three )}', 'f.css');
-    assert.deepEqual([...reads.keys()].sort(), ['one', 'three']);
+    assert.deepEqual([...reads.keys()].sort(), ['one', 'three', 'two']);
     assert.equal(reads.get('one')[0].where, 'f.css:1');
     assert.equal(reads.get('one')[0].kind, 'css');
     assert.equal(reads.get('one')[0].rootRead, false);
+    assert.equal(reads.get('one')[0].endsLiteral, false, 'a bare read is not literal-terminated');
+    assert.equal(reads.get('two')[0].endsLiteral, true, 'a literal fallback is flagged, not dropped');
   });
 
   // The first cut stripped comments by DELETING them, newlines included, so every

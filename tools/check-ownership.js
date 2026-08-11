@@ -2700,15 +2700,22 @@ function bareVarReads(css, label, into = new Map()) {
     const close = matchParen(s, i + 3);
     if (close === -1) continue;
     const parsed = parseVarChain(s.slice(i + 4, close));
-    if (!parsed || parsed.endsLiteral) continue;
+    if (!parsed) continue;
     const line = s.slice(0, i).split('\n').length;
     const selector = selectorAt(i);
     if (!into.has(parsed.token)) into.set(parsed.token, []);
+    // A chain terminating in a LITERAL is recorded, flagged, NOT skipped. It always
+    // resolves, so `noSafeDefaultTokens` still treats it as rescued and the main gate's
+    // behavior is unchanged — but the #1545 LEDGER has to see it, because
+    // `var(--x, var(--y, transparent))` is a cheap-exit fallback pointing at --y, and
+    // skipping it let a sanctioned token be silently re-pointed at a different-contract
+    // token with the gate green (found by the adversarial trio, HARD RULE #25).
     into.get(parsed.token).push({
       where: `${label}:${line}`,
       kind: 'css',
       rootRead: selector === null || isUnconditionalRoot(selector),
       chain: parsed.chain,
+      endsLiteral: parsed.endsLiteral,
     });
   }
   return into;
@@ -2764,14 +2771,126 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
   // A read is rescued by a default the reader can reach — on the token itself, or on
   // any token its fallback chain falls through to. A chain token that is CONTRACT
   // -guaranteed rescues it too: every theme emits it, so the chain always resolves.
+  // `endsLiteral` reads are recorded now (so the #1545 ledger can compare their chain), and
+  // a chain bottoming out in a literal ALWAYS resolves — so it is rescued here, exactly as
+  // it was when such reads were skipped outright. The main gate's population is unchanged.
   const rescued = (name, read) =>
-    defaulted(name, read) || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
+    defaulted(name, read) || read.endsLiteral === true
+    || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
   return [...bareReads.keys()]
     .filter((t) => {
       if (!themeTokens.has(t) || contract.has(t)) return false;
       return bareReads.get(t).some((r) => !rescued(t, r));
     })
     .sort();
+}
+
+/**
+ * The tokens that take `checkNoSafeDefaultTokens`'s SECOND exit — a theme token, absent
+ * from `REQUIRED_TOKENS`, whose every read is rescued ONLY by a `var()` fallback.
+ *
+ * WHY THIS LIST EXISTS (#1545). The gate offers two honest exits when it fires: derive
+ * the token (an hour of color work) or give the read a fallback (ten seconds). The second
+ * is HARD-RULE-#3-legal and permanently removes the token from the gate's view, because a
+ * read with a resolving fallback is not reported by design. That is the exact construction
+ * that produced the defect the gate exists to prevent: `--cat-N-ink` carried a fallback at
+ * every read, was gated by `checkCatInkFallback`, and was STILL missing from the generator
+ * for a year — degrading onto `--cat-N-mark`, a value repaired to the 3:1 GRAPHICAL floor
+ * and then painted as label text needing 4.5:1. Measured in
+ * 2026-08-10-no-safe-default-token-contract.md: 176 of 200 sampled `brand-mono` themes
+ * carried a sub-AA label that way.
+ *
+ * So this is NOT an allowlist for shipping broken — the gate's no-allowlist stance on the
+ * DERIVE exit is deliberate and unchanged. It is a ledger for the CHEAP exit, so taking it
+ * is a recorded decision rather than a silent one. Fails BOTH ways, like SANCTIONED_MARGINS
+ * / SANCTIONED_HEX: an unlisted token is an error, and a listed token that no longer takes
+ * the exit is a stale entry that must be removed.
+ *
+ * The bar for an entry: say what the fallback LANDS ON and why that value carries the same
+ * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
+ */
+const SANCTIONED_FALLBACK_READS = [
+  ...Array.from({ length: 12 }, (_, i) => ({
+    token: `cat-${i + 1}-texture`,
+    fallback: `cat-${i + 1}-fill`,
+    why:
+      'the texture channel is OPTIONAL by design: a texture is redundant encoding layered ' +
+      'over a categorical fill, so falling back to that slot\'s own fill is the un-textured ' +
+      'rendering, which is exactly what a non-texture theme should look like. The fallback ' +
+      'lands on a CONTRACT token with the same role, not on a different one — unlike ' +
+      '--cat-N-ink, which fell onto a value repaired to the 3:1 graphical floor and was then ' +
+      'painted as 4.5:1 label text. Whether a GENERATED theme should carry a texture channel ' +
+      'at all is a live design question, not a defect in this fallback: only four pattern ' +
+      'sets exist and each bakes a literal gray/concrete ramp in lib/core/accessibility-' +
+      'textures.js, so a derived theme cannot point at one without gray chips that contradict ' +
+      'its own --cat-N-fill. Tracked in #1562; see engineering/textures.md.',
+  })),
+  {
+    token: 'spectrum-solid',
+    fallback: 'accent',
+    why:
+      'a per-theme OVERRIDE, not a required slot. `--spectrum-solid` exists only so a theme ' +
+      'whose accent is too near-black to read as a bar (onyx, concrete) can name a different ' +
+      'hue for the solid spectrum style; every other theme wants exactly --accent, which is a ' +
+      'contract token. The fallback IS the intended value for the common case, so a theme ' +
+      'omitting it is correct rather than degraded.',
+  },
+];
+
+/**
+ * Tokens whose reads are ALL rescued, and where at least one read is rescued ONLY by a
+ * fallback chain rather than by an engine default — i.e. the ones sitting in the gate's
+ * blind spot because someone took (or inherited) the cheap exit.
+ *
+ * Deliberately narrower than the issue's own population. #1545 counts "declared by shipped
+ * palettes, absent from REQUIRED_TOKENS, and read only with fallbacks", which is 17 tokens
+ * and reproduces exactly. This adds one term — that NO engine default rescues the read —
+ * which drops the four whose fallback is incidental (--code-inline-fg and the three
+ * --marp-slide-*-color) and leaves 13. A token the engine also defaults is not taking
+ * this exit at all: its reads resolve whether or not anyone wrote a fallback, so a ledger
+ * row for it would carry no decision.
+ *
+ * EVERY via-chain read is returned, not just the first. The ledger checks each one against
+ * the fallback it claims, and a divergent chain on read #12 of 19 is exactly the silent
+ * drift this exists to catch.
+ */
+function fallbackOnlyTokens({ themeTokens, rootDefaults, slideDefaults, mapDefaults, bareReads, contract }) {
+  const defaulted = (name, read) => {
+    if (read.kind === 'map') return (mapDefaults ?? rootDefaults).has(name);
+    if (read.rootRead) return rootDefaults.has(name);
+    return slideDefaults.has(name);
+  };
+  // Taking the cheap exit means the fallback routes through ANOTHER TOKEN — that is the
+  // shape that can silently drift onto a different contract, which is what --cat-N-ink did.
+  // A chain through a token counts even when it bottoms out in a literal
+  // (`var(--x, var(--y, transparent))`), because the re-point to --y is the risk and the
+  // literal tail merely hid it from the scanner (found by the red team).
+  //
+  // A fallback that is an inline EXPRESSION with no token hop — `var(--x, #ccc)`, or
+  // `var(--chart-cat1-ink, color-mix(… var(--text-heading)))` — is deliberately NOT in this
+  // population. There is no second token for it to drift onto: the fallback is the value,
+  // written at the read. Requiring a ledger row for it would tax the safest form of the
+  // pattern and say nothing a reviewer could act on.
+  const rescuedByChain = (read) =>
+    (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read))
+    || (read.endsLiteral === true && (read.chain ?? []).length > 0);
+  const out = [];
+  for (const token of [...bareReads.keys()].sort()) {
+    if (!themeTokens.has(token) || contract.has(token)) continue;
+    const reads = bareReads.get(token);
+    // An unrescued read means the gate itself fires; that is the loud path, not this one.
+    if (reads.some((r) => !defaulted(token, r) && !rescuedByChain(r))) continue;
+    const viaChain = reads.filter((r) => !defaulted(token, r) && rescuedByChain(r));
+    if (viaChain.length) {
+      out.push({
+        token,
+        where: viaChain[0].where,
+        chain: viaChain[0].chain ?? [],
+        reads: viaChain.map((r) => ({ where: r.where, chain: r.chain ?? [] })),
+      });
+    }
+  }
+  return out;
 }
 
 function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB_DIR } = {}) {
@@ -2851,6 +2970,76 @@ function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB
       'give every read a `var(--x, <fallback>)` that terminates in a literal. There is no allowlist — and note ' +
       'which exit you are taking: the fallback exit is what --cat-N-ink already does, and it is exactly how the ' +
       'ink tier went missing from the generator for a year without any gate noticing.',
+    );
+  }
+
+  // ── The SECOND exit, made auditable (#1545) ────────────────────────────────
+  // Taking the cheap exit is legitimate; taking it SILENTLY is what let the ink tier sit
+  // outside the contract for a year. Every token now in that blind spot must carry a
+  // justification here, and a justification that no longer describes reality must go.
+  //
+  // Scoped to the REAL palettes: the ledger is a global constant describing the shipped
+  // tree, so comparing it against a synthetic `themesDir` would emit a stale error per
+  // entry for every token that dir happens not to declare. That seam exists so the gate
+  // can be bitten with synthetic input; keep it usable.
+  if (themesDir !== THEMES_DIR) return;
+
+  const fallbackOnly = fallbackOnlyTokens({ themeTokens, rootDefaults, slideDefaults, mapDefaults, bareReads, contract });
+  const sanctioned = new Map(SANCTIONED_FALLBACK_READS.map((s) => [s.token, s]));
+  if (sanctioned.size !== SANCTIONED_FALLBACK_READS.length) {
+    const seen = new Set();
+    const dupes = new Set();
+    for (const { token } of SANCTIONED_FALLBACK_READS) {
+      if (seen.has(token)) dupes.add(token);
+      seen.add(token);
+    }
+    errors.push(`duplicate SANCTIONED_FALLBACK_READS entries in tools/check-ownership.js: ${[...dupes].map((t) => `--${t}`).join(', ')}. One row per token, or the justifications can disagree with each other.`);
+  }
+  const unlisted = fallbackOnly.filter((f) => !sanctioned.has(f.token));
+  if (unlisted.length) {
+    const shown = unlisted.slice(0, 6).map((f) => `--${f.token} (${f.where} → ${f.chain.map((c) => `--${c}`).join(' → ') || 'literal'})`).join(', ');
+    errors.push(
+      `${unlisted.length} theme token(s) are outside REQUIRED_TOKENS and invisible to the no-safe-default gate ` +
+      `because every read carries a var() fallback, with no record of that being a decision: ${shown}` +
+      `${unlisted.length > 6 ? `, +${unlisted.length - 6} more` : ''}. That is the gate's CHEAP exit, and it is ` +
+      'the exact construction that produced the defect the gate exists to prevent — --cat-N-ink had a fallback at ' +
+      'every read and was still missing from the generator for a year, degrading onto a value repaired to the 3:1 ' +
+      'graphical floor and then painted as 4.5:1 label text. Either derive the token, or add it to ' +
+      'SANCTIONED_FALLBACK_READS in tools/check-ownership.js saying what the fallback LANDS ON and why that value ' +
+      'carries the same contract the read needs (a record, not a waiver — same idiom as SANCTIONED_MARGINS/#20 and ' +
+      'SANCTIONED_PREVIEW_BUILDERS/#22).',
+    );
+  }
+
+  // A sanction goes wrong in TWO ways, and only one of them is the token disappearing.
+  // The other is the token still being fallback-only while the fallback it claims has
+  // changed underneath it — re-point `var(--cat-1-texture, var(--cat-1-fill))` at
+  // `--cat-1-mark` and every other arm here stays green (the chain still resolves, the
+  // token is still fallback-only) while the recorded justification, which says in as many
+  // words that it lands on the same-role token and NOT on a mark, becomes false. That is
+  // the --cat-N-ink construction exactly, so the `fallback` field is CHECKED, not just
+  // recorded, on EVERY via-chain read rather than the first.
+  const byToken = new Map(fallbackOnly.map((f) => [f.token, f]));
+  const stale = [];
+  for (const s of SANCTIONED_FALLBACK_READS) {
+    const live = byToken.get(s.token);
+    if (!live) { stale.push(`--${s.token}`); continue; }
+    const wrong = live.reads.filter((r) => (r.chain[0] ?? null) !== s.fallback);
+    if (wrong.length) {
+      const shown = wrong.slice(0, 3).map((r) => `${r.where} → ${r.chain.length ? `--${r.chain[0]}` : 'literal'}`).join(', ');
+      errors.push(
+        `SANCTIONED_FALLBACK_READS says --${s.token} falls back to --${s.fallback}, but ${wrong.length} of ` +
+        `${live.reads.length} read(s) fall back to something else: ${shown}${wrong.length > 3 ? ', …' : ''}. ` +
+        'Either restore the fallback, or rewrite the entry — a justification that names the wrong target is how ' +
+        '--cat-N-ink degraded onto the 3:1 graphical floor while every gate stayed green.',
+      );
+    }
+  }
+  if (stale.length) {
+    errors.push(
+      `${stale.length} stale fallback sanction(s) in tools/check-ownership.js — ${stale.join(', ')} no longer reach ` +
+      'the gate through a fallback-only read (derived, reads changed, or the palettes stopped declaring them). ' +
+      'Remove the SANCTIONED_FALLBACK_READS entries so the ledger stays honest.',
     );
   }
 }
@@ -6043,6 +6232,8 @@ module.exports = {
   checkCatInkFallback,
   checkNoSafeDefaultTokens,
   noSafeDefaultTokens,
+  fallbackOnlyTokens,
+  SANCTIONED_FALLBACK_READS,
   cssRuleBlocks,
   rootScopedTokens,
   slideScopedTokens,
