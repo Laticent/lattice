@@ -59,6 +59,17 @@ export const CHROME = {
 	 * A spec asserting a row inside it must pick the role for the tier it's testing.
 	 */
 	moreControls: 'Menu',
+	/**
+	 * The three posture-dial segments, in dial order. Desktop + tablet only — the
+	 * phone header gates the dial on `!mobile`, so there is no posture control there.
+	 *
+	 * Listed here because the third stop's accessible name CHANGED on 2026-08-11
+	 * ("Build — every panel" → "Craft — every panel", the Craft rename), and the
+	 * spec that steps the dial had it hardcoded — the exact #780 shape this map
+	 * exists to prevent, on a suite that only runs nightly. The transient variant a
+	 * summoned panel produces is `<hint>, showing temporarily`.
+	 */
+	postureStops: ['Read — just the slides', 'Write — editor + preview', 'Craft — every panel'],
 } as const;
 
 // ── Share-dialog export contract ───────────────────────────────────────────

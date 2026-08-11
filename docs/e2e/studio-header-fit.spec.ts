@@ -93,11 +93,11 @@ const MIN_SPARE_AT_FLOOR = 16;
 // textContent lookup would match nothing, the click would be a no-op, and every
 // control would report "stable" for the emptiest possible reason. `aria-pressed`
 // flipping is what proves the step actually happened.
-const STOPS = [
-	{ name: 'Read — just the slides', word: 'Read' },
-	{ name: 'Write — editor + preview', word: 'Write' },
-	{ name: 'Craft — every panel', word: 'Craft' },
-] as const;
+// Names come from CHROME.postureStops, not hardcoded here: the third stop was
+// renamed Build → Craft on 2026-08-11, and this list is nightly-only, so a private
+// copy is the #780 drift waiting to happen. The visible WORD is the last space-
+// separated token before the em dash — the dial renders exactly that.
+const STOPS = CHROME.postureStops.map((name) => ({ name, word: name.split(' —')[0] }));
 
 /** The tail controls whose x must not move when the dial steps (#1371). Present and
  *  Share are in both headers; the rest exist per tier, and a missing one is skipped
