@@ -523,11 +523,61 @@ the shown slide — which reads as "free" rather than as a broken harness.
 
 The pinned Chromium is **pre-installed** at `PLAYWRIGHT_BROWSERS_PATH=
 /opt/pw-browsers` (build 1194 ↔ `@playwright/test` 1.56.1) — do **NOT** run
-`playwright install`. Two things genuinely can't run here: the `@visual`
-snapshot bless (runner-specific AA) and the PDF-export journeys (need the
-Google-Fonts CDN the sandbox blocks) — those stay nightly/UNVERIFIED locally,
-per HARD RULE #23. `CHROME_PATH` is the *Puppeteer* cache and is irrelevant to
-Playwright.
+`playwright install` *for Chromium*. One thing genuinely can't run here: the
+`@visual` snapshot bless (runner-specific AA), which stays nightly/UNVERIFIED
+locally per HARD RULE #23. `CHROME_PATH` is the *Puppeteer* cache and is
+irrelevant to Playwright.
+
+**The PDF-export journeys DO run here** (corrected 2026-08-10). This section used
+to say they need a Google-Fonts CDN the sandbox blocks; `journeys/author-export`
+and `journeys/chart-export` were driven green repeatedly against the real Share
+sheet during #1552, download artifact and all. Don't skip them on the old advice.
+
+**WebKit is not in the base image — check before you conclude a spec is broken.** Only
+Chromium is baked in (`/opt/pw-browsers/chromium-1194`). The `@webkit-phone` /
+`@webkit-tablet` projects (`back-gesture`, the tablet-divergence specs) need WebKit
+installed first, which is a *separate* action from the Chromium warning above and does
+not touch the Chromium pin:
+
+```
+ls -d /opt/pw-browsers/webkit-*      # already there? a previous session may have installed it
+npx playwright install webkit        # if not — lands in PLAYWRIGHT_BROWSERS_PATH
+npx playwright install-deps webkit   # as root; the binary will not launch without these
+```
+
+Once installed it persists for the life of the sandbox, so a later check will find it
+present — don't take that as evidence the base image ships it. Without it,
+`--project=webkit-phone` fails to launch, which reads as a broken spec rather than a
+missing browser.
+
+**Fixed sleeps are gated.** Every `page.waitForTimeout(...)` call under `docs/e2e/**` —
+whatever its argument — must carry an entry in `SANCTIONED_E2E_SLEEPS`
+(`tools/check-ownership.js`, via `build:check`) saying why it is not a poll. A fixed wait on a nightly suite is a bet
+that a loaded box finishes inside a guessed interval, and losing it looks exactly like
+a real failure (#1526). The gate fails three ways: an **unlisted** sleep, a **stale**
+entry whose sleep is gone, and a **drifted count**.
+
+That third one is the reason it exists rather than a grep. The census **parses** the
+suite (TypeScript compiler API) instead of matching text, because two hand-rolled
+attempts got it wrong in ways that mattered: a `\d+`-only regex never saw
+`waitForTimeout(SETTLE_STEP_MS)` in `studio-header-fit`, and a hand-written
+comment/string blanker read the three backticks inside the regex literal
+``/^\s*(```|~~~)/`` in `studio-preview-perf` as a template literal and swallowed four
+real sleeps with the build green.
+
+Counts are of *waits*, not of `waitForTimeout(` matches: a sleep that is the **entire
+body** of a named function counts once per reference to that name. `back-gesture`'s
+`settle` is one declaration called 23 times, so a text census recorded that file as
+"14" while it held 24 fixed waits — adding a 24th `settle(page)` call now fails the
+build. A function that merely *contains* a sleep among other work is not a helper and
+counts once.
+
+Before adding one, do what #1526 asks: **name the signal it waits for.** If there is
+one, poll it bounded. If there is not — because the expected outcome is "nothing
+changes" — keep the sleep, and note that a `MutationObserver` (record, dwell, then
+assert the trace stayed empty) is usually stronger than sampling once at the end.
+Entries seeded as `UNJUDGED` are inherited, not blessed: they record only that the
+sleep exists.
 
 **`page.mouse.*` is a real pointer drag — but never a *touch* drag.** Playwright's
 `page.mouse.down/move/up` makes Chromium synthesize the full `pointerdown`/`pointermove`/

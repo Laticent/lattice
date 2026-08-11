@@ -94,6 +94,15 @@ in patch versions.
   (the quadrant region names, matrix-grid filled cells) deliberately keep the old mix —
   measured, taking the curated ink raw there would put 77 of 240 combinations below AA,
   because a tint is a much closer surface than the slide. (#1536)
+- **Internal: fixed e2e sleeps are now gated.** Every `page.waitForTimeout(...)` call under
+  `docs/e2e/**` — whatever its argument — needs an entry in `SANCTIONED_E2E_SLEEPS` (`tools/check-ownership.js`,
+  via `build:check`) justifying why it is not a poll. The gate fails on an unlisted
+  sleep, on a stale entry whose sleep is gone, and — the case a text grep cannot see —
+  on a drifted count: sleeps that are the body of a named single-expression helper are
+  counted at their **call sites**, so `back-gesture`'s one `settle` declaration counts
+  as the 23 waits it actually is. Seeded from the current tree with the #1564 judgments
+  transcribed and everything else labelled `UNJUDGED`, so "nobody looked" is now visible
+  rather than implied by silence. No product behavior change. See #1575, #1526.
 
 - **Added: pinch to zoom a slide, on every Studio surface and every device.** The
   Studio preview, Present and the presenter screen now zoom the slide — not the
