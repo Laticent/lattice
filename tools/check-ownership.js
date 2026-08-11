@@ -1880,7 +1880,7 @@ function offendingStageInsets(css) {
   // width (a FRACTION of the container, less its share of the gaps) and appears
   // legitimately in pricing and cards-grid — matching a bare `100%` anywhere in the
   // expression fired on all five of them.
-  const BASIS = /(?:calc|min|max|clamp)\([^;]*(?:\b100cq[iw]\b|(?<![\d.])100%)\s*-\s/;
+  const BASIS = /(?:calc|min|max|clamp)\([^;]*(?:\b100cq(?:[iw]|min|max)\b|(?<![\d.])100%)\s*-\s/;
   const SPACING = /var\(\s*--(?:sp-|frame-)/;
   let m = DECL.exec(css);
   while (m !== null) {

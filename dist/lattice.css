@@ -15115,6 +15115,14 @@ section.state-chart {
  * band all land exactly where they did. It is the in-tree precedent that the calc
  * was never load-bearing. */
 section.state-chart.chart-frame {
+  /* The INLINE token is restated at the family default deliberately, not omitted.
+   * As a padding on `.chart-body` this tuning sat at (0,3,1) and beat the tall/strip
+   * family rule (0,2,1), so a TALL state-chart kept the wide `--sp-2xl` side inset.
+   * As tokens, state-chart declares at (0,2,1) and tall/strip at (0,1,1) — so an
+   * omitted `--chart-inset-x` would fall through to tall/strip's `--sp-sm` and the
+   * body would gain 158px (+20.7%) at portrait. Measured by the trio's red team;
+   * naming the token is how state-chart stays in the tie it used to win. */
+  --chart-inset-x: var(--sp-2xl);
   --chart-inset-top: var(--sp-md);
   --chart-inset-bottom: var(--sp-md);
 }
@@ -20257,31 +20265,35 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
    drops the glass card clear of the header hairline without a margin. The frame is
    header → body (→ optional caption); the body→caption seam keeps the same lift,
    which reads as deliberate breathing room on a bleeding canvas. */
-/* THE PANEL IS THE HOLDER when the canvas is on, so the STAGE yields the block
- * inset to it (#1598). The panel paints on `.chart-body` and re-adds the block
- * inset below as its own; leaving the stage's in place too would inset the block
- * axis TWICE and shorten the glass card by 2 x --sp-lg — a self-inflicted
- * regression the trio's checker measured at 64px of lost drawing height on a
- * `quadrant canvas`. Zeroing the token here (rather than the stage's padding)
- * keeps the no-form path in step for free, which is the whole reason the inset is
- * a token. The INLINE token stays: the frame inset is still the frame's, the panel
- * sits at 1024 as it always did, and the panel's own inline inset is the padding
- * below. Result: a `canvas` chart is byte-identical to its pre-#1598 render. */
-section.chart-frame.canvas:not(.state-chart) {
-  --chart-inset-top: 0px;
-  --chart-inset-bottom: 0px;
-}
+/* THE PANEL IS THE HOLDER when the canvas is on, so the STAGE yields the BLOCK
+ * inset to it (#1598). The panel paints on `.chart-body` and takes the block inset
+ * below as its own internal one; leaving the stage's in place too insets that axis
+ * TWICE — measured by the trio's checker at 64px of lost drawing height on a
+ * `quadrant canvas`, with the glass card dropped 32px. The INLINE inset stays on
+ * the stage: that one is the frame's, it is what puts the panel at 1024 as it
+ * always was, and the panel's own inline inset is the padding below — the same
+ * two-inset chain a canvas chart had before, in the two boxes that own them.
+ * Result: a `canvas` chart is byte-identical to its pre-#1598 render, at every
+ * deck shape. */
+section.chart-frame.canvas:not(.state-chart) > .cell-stage { padding-block: 0; }
 section.chart-frame.canvas:not(.state-chart) { row-gap: var(--sp-lg); }
 section.chart-frame.canvas:not(.state-chart) .chart-body {
   /* THE PANEL'S OWN INTERNAL INSET — the one padding the Forms inset rule leaves
    * on a body (design/forms.md §6.1): this box PAINTS A SURFACE here (the glass
    * card below), and content must not touch a visible edge. Exactly the case
    * `code`'s `pre` earns its padding for, and exactly why the default (canvas OFF,
-   * nothing painted) earns none. It is the same `--sp-lg`/`--sp-2xl` this box
-   * carried unconditionally before #1598 — what changed is that it is now
-   * CONDITIONAL on the surface existing, and is the panel's inset rather than a
-   * third copy of the frame's. */
-  padding: var(--sp-lg) var(--sp-2xl);
+   * nothing painted) earns none. It is the inset this box carried unconditionally
+   * before #1598 — what changed is that it is now CONDITIONAL on the surface
+   * existing, and is the panel's rather than a third copy of the frame's.
+   *
+   * It reads the same TOKENS the stage does, and that is load-bearing: written as a
+   * literal `var(--sp-lg) var(--sp-2xl)` it stopped following the tall/strip
+   * adaptive tuning, which used to govern this very declaration at (0,2,1). The
+   * trio's red team measured the cost on a portrait `quadrant canvas` — the panel's
+   * inline inset jumped 26.3px to 105.3px, 4x, and the drawing lost 18% of its
+   * width inside a panel whose outer box had not moved. A token cannot drift from
+   * its tuning that way. */
+  padding: var(--chart-inset-top) var(--chart-inset-x) var(--chart-inset-bottom);
   /* Float the panel clear of the header divider. The .chart-header::after
    * accent hairline sits at the header's bottom edge; without this gap the
    * lifted glass card's top edge lands right on it and the two separators
@@ -20611,6 +20623,18 @@ section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
  * radar's 36cqi). Palette-blind. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) {
   --cover-gutter: calc(var(--_sec-1cqi, 1cqi) * 5);   /* caption text inset */
+  /* NO outer inset — that is what "bleed" means (#1598). `padding: 0` below zeroes
+   * the SECTION's, and this zeroes the STAGE's, because the two are one inset in
+   * two boxes and the body cannot override a parent's padding. Without it the stage
+   * silently put 32/64 back and the full-bleed chart was inset 64px per side with a
+   * 64px-shorter body — its `<svg>` then overflowing the `overflow:hidden` box by
+   * ~20px. Found by the trio's red team; the fixture carries no `claim-*` slide, so
+   * the render gate was green through it. The body keeps its OWN inset (below): at
+   * bleed it is the only box between the chart and the slide edge, and a chart
+   * touching the true edge is not what this preset is for. */
+  --chart-inset-x: 0px;
+  --chart-inset-top: 0px;
+  --chart-inset-bottom: 0px;
   position: relative;
   padding: 0;
   border: none;

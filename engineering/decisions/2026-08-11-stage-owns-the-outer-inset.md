@@ -245,6 +245,39 @@ Only the TOP token has a seam to sit in on the `no-form` path; that section's ow
   stage yields the block inset to the box that paints, on BOTH holder paths at
   once. Re-measured: panel 1024 x 407.7 @ x=128 filling the stage with its own
   32/64 inset — its pre-#1598 geometry exactly.
+- **`claim-hero` / `claim-bleed` on a piechart or radar is byte-identical too,
+  after a second fix the trio's red team forced.** That preset zeroes the
+  SECTION's padding for a true bleed and gives `.chart-body` `width: 100%` with
+  its own inset — so the stage's new padding silently put 32/64 back, insetting
+  the full-bleed chart 64px per side and shortening its body by 64px, at which
+  point the `<svg>` overflowed the `overflow: hidden` box by ~20px. The fixture
+  carries no `claim-*` slide, so the render gate was green through it. The preset
+  now zeroes the inset TOKENS alongside its `padding: 0`, because the two are one
+  inset in two boxes. Re-measured against the pre-change tree, landscape and
+  portrait: body content box and `<svg>` identical to the pixel.
+- **A tall/strip `canvas` chart is byte-identical too, after a third.** The
+  panel's internal inset was written as a literal `var(--sp-lg) var(--sp-2xl)`,
+  which stopped following the tall/strip adaptive tuning that used to govern that
+  exact declaration at (0,2,1). Measured on a portrait `quadrant canvas`: the
+  panel's inline inset jumped 26.3 → 105.3px (4×) and the drawing lost 18% of its
+  width inside a panel whose outer box had not moved. The panel now reads the same
+  TOKENS the stage does, so it cannot drift from the tuning again.
+- **A tall/strip `state-chart` keeps the tie it used to win, after a fourth.** As a
+  padding, state-chart's tuning sat at (0,3,1) and beat the tall/strip family rule
+  (0,2,1), so a portrait state-chart kept the wide `--sp-2xl` side inset. As tokens
+  it declares at (0,2,1) and tall/strip at (0,1,1) — so an omitted
+  `--chart-inset-x` fell through to `--sp-sm` and the body gained 158px (+20.7%).
+  It now restates the inline token at the family default deliberately. Re-measured:
+  body content `761.4 @ x=159.3` before and after.
+
+  **The pattern in those three is worth naming**, because it is the cost of moving
+  an inset up a box: a per-chart or per-modifier rule that used to win a
+  specificity tie *on the padding declaration itself* does not automatically win
+  the same tie on the token, and a rule that overrode the padding on the BODY has
+  no purchase on a parent's. Every override of this inset had to be re-checked
+  against the new tie, and three of them needed a line. The render assertion cannot
+  catch this class — it checks ownership, not the tuning's value — which is why the
+  before/after box chain on the real render is the evidence here.
 - **Two moves that are NOT neutral, disclosed rather than discovered later.** The
   chart CAPTION, a stage sibling, moves 32px UP the block axis (its border box
   narrows to the stage content box; its text box is unchanged at 1024 @ x=128, which
@@ -253,7 +286,13 @@ Only the TOP token has a seam to sit in on the `no-form` path; that section's ow
   1280 @ x=0 to 1152 @ x=64. That one is an improvement (the heading used to bleed
   to the literal slide edge while the chart sat at x=128), but it is a change on a
   path the card never asked to touch, so it is stated here rather than left to be
-  found.
+  found. Also on `no-form`: the block seam is a `row-gap`, so it scales with the
+  number of section children rather than being a fixed two-sided inset on the body.
+  Measured — 2 children +32px of body height, 3 children neutral (the shape the
+  values were checked against), 4 children −31.6px. Kept as a gap deliberately: it
+  IS the seam between a container's own children, which is the half of the rule a
+  container owns, and a uniform rhythm across a flex column is the more defensible
+  behavior. No committed deck puts a chart on `no-form`.
 - **`check:chart-fit` improved, and was already red.** Before: 5 clips
   (landscape roadmap +10.5, portrait progress +15, portrait timeline-list +12.3,
   square progress +55.5, square roadmap +203). After: 4 — landscape roadmap
@@ -306,8 +345,12 @@ Two gates, paired deliberately, because each is blind to the other's failures.
   Its **known holes are stated in the gate, not implied**: (a) cannot see a
   pre-evaluated fraction (`width: 90cqi` is the same defect with the arithmetic
   already done — and the comment this change deleted literally taught that
-  spelling) or a `100%` subtraction, and (b) only knows the three body classes it
-  names. The render assertion covers both.
+  spelling), a hard-coded subtrahend (`calc(100cqi - 128px)`, excluded so a
+  hairline correction does not fire), or an absolutely-positioned
+  `left`/`right`/`inset` inset, which is a different mechanism entirely; and (b)
+  only knows the three body classes it names. The render assertion covers the
+  first two and nothing covers the third — an `inset`-based re-derivation would
+  need its own check if one ever appears.
 
   Verified against 16 spellings, including the two false positives the trio found
   in the first cut: `calc(100cqi * var(--canvas-scale))` and

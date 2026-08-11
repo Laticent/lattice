@@ -133,8 +133,7 @@ in patch versions.
   neutral to the pixel (the `cqh` basis is the same number, subtracted one box higher), while
   the inline duplicate is reclaimed. A diagram's body now shares one left edge with its title,
   dek and Key Insight for the first time. The opt-in `canvas` glass panel keeps its inset and
-  owns it in the `.canvas` rule, where a box that paints a surface earns one. All chart and
-  diagram gallery PDFs re-rendered. Kept by two gates: `checkStageInsetOwnership`
+  owns it in the `.canvas` rule, where a box that paints a surface earns one. Kept by two gates: `checkStageInsetOwnership`
   (`tools/check-ownership.js`, via `build:check`) and a measured inset assertion in
   `check-chart-fit.js` at landscape/portrait/square.
   `engineering/decisions/2026-08-11-stage-owns-the-outer-inset.md`. (#1598)
