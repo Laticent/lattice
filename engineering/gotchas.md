@@ -3755,7 +3755,16 @@ own) is not a builder and needs no entry.
   underneath it. A blank that never moves beats a slide that jumps.
 - **The general rule:** when the pre-paint side needs a number a THIRD party decides, have
   the app measure what happened and publish it — don't mirror the third party's arithmetic.
-- **Triggered by:** #1563.
+- **A capture taken with the preview COLLAPSED cannot poison the next load, and it is worth
+  knowing why (#1590).** Two independent guards, either of which alone refuses: the box the
+  fit is measured against (`.pg-preview-wrap`) sits inside the `.pg-pane-inner` a collapsed
+  pane hides, so it is 0x0 — and the preview iframe has no layout under a `display:none`
+  ancestor, so the slide inside it is 0x0 too. `captureFirstSectionFromFrame` returns null,
+  `savePlaygroundSnapshot` is never reached, and the PREVIOUS good snapshot stays. Driven on
+  the real surface (collapse → render → leave-capture → expand → reload): the stored `ts` is
+  unchanged and the replay lands on the live slide within 0.05px. If you ever relax
+  `measureFit`'s zero-box check, this is what you are removing.
+- **Triggered by:** #1563, #1590.
 
 ### The Playground's Explore layout arrives a second after the page does
 

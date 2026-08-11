@@ -358,6 +358,92 @@ test('a plan fetch that 404s leaves an inert bar, not a dead band', async ({ pag
 	await expect(page.locator('#pg-walk .pg-walk-step.next')).toBeDisabled();
 });
 
+// THE ONE INPUT SHAPE THAT WAS REASONED ABOUT AND NEVER RUN (#1590). A snapshot captured while
+// the preview pane is COLLAPSED, replayed into an expanded one: `fit.boxW` would be a rail's
+// width against a full pane, a ratio of ~23x, and the failure would be a wildly oversized slide
+// at first paint. Two arguments said it was already safe — the box-match gate, and `measureFit`
+// refusing a zero box — and neither had been driven. This drives the whole sequence through the
+// real controls (collapse, capture, expand, reload) rather than asserting either argument.
+//
+// Result on the real surface: the wrap measures 0x0 while collapsed (it sits inside the
+// `.pg-pane-inner` a collapsed pane hides), so the capture returns null and never overwrites
+// the good snapshot — and the reload replays that good one exactly onto the live slide.
+test('a snapshot survives a COLLAPSED capture and still replays exactly when the pane comes back', async ({ page }) => {
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
+	await page.waitForTimeout(2000);
+	const snapshotTs = () => page.evaluate(() => JSON.parse(localStorage.getItem('lattice-docs-pg-last-slide') || 'null')?.ts ?? null);
+	const good = await snapshotTs();
+	expect(good, 'no snapshot was captured at all — the rest of this case would prove nothing').toBeTruthy();
+
+	// Collapse through the real control, then do everything that would normally produce a
+	// capture: a fresh render, and the leave events a navigation fires.
+	await page.locator('.pg-pane.preview .pg-pane-collapse').click();
+	await expect(page.locator('#pg-split-preview')).toHaveJSProperty('offsetWidth', 28);
+	expect(
+		await page.evaluate(() => {
+			const r = document.querySelector('.pg-preview-wrap')?.getBoundingClientRect();
+			return [r?.width ?? -1, r?.height ?? -1];
+		}),
+		'the collapsed wrap is measurable, so a fit COULD be taken in it — the argument this case rests on has changed',
+	).toEqual([0, 0]);
+	await page.locator('.cm-content').click({ force: true });
+	await page.keyboard.type('\n<!-- a render while the preview is collapsed -->\n');
+	await page.waitForTimeout(2000);
+	await page.evaluate(() => {
+		document.dispatchEvent(new Event('visibilitychange'));
+		window.dispatchEvent(new Event('pagehide'));
+	});
+	await page.waitForTimeout(500);
+	expect(await snapshotTs(), 'a capture taken with the pane collapsed overwrote the good snapshot').toBe(good);
+
+	// Expand and reload: the cached slide must land on the live one, not 23x oversized.
+	await page.locator('.pg-pane.preview [data-slot="split-rail"]').click({ force: true });
+	await expect(page.locator('#pg-split-preview')).not.toHaveJSProperty('offsetWidth', 28);
+	await page.waitForTimeout(1000);
+
+	await page.addInitScript(() => {
+		const seen: { shell: number[]; wrap: number[] }[] = [];
+		(window as unknown as { __shell: typeof seen }).__shell = seen;
+		const t0 = performance.now();
+		const tick = () => {
+			const sec = document.querySelector('#pg-ssr-slidebox section');
+			const wrap = document.querySelector('.pg-preview-wrap');
+			if (sec && wrap) {
+				const r = sec.getBoundingClientRect();
+				const w = wrap.getBoundingClientRect();
+				if (r.width > 0) seen.push({ shell: [r.x - w.x, r.y - w.y, r.width, r.height], wrap: [w.width, w.height] });
+			}
+			if (performance.now() - t0 < 9000) requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await page.waitForTimeout(1000);
+
+	const shell = (await page.evaluate(() => (window as unknown as { __shell: { shell: number[]; wrap: number[] }[] }).__shell))[0];
+	expect(shell, 'the replay never painted, so nothing was checked for the oversize this case is about').toBeTruthy();
+	// The oversize guard, stated in the terms the card used: a slide replayed from a rail-sized
+	// box would be many times its container. It must fit inside the box it was placed in.
+	expect(shell.shell[2], `the replayed slide is ${shell.shell[2]}px wide inside a ${shell.wrap[0]}px box`).toBeLessThanOrEqual(shell.wrap[0] + 1);
+	// …and it is not merely small — it is where the live slide lands.
+	const live = await page.evaluate(() => {
+		const f = document.querySelector('#preview') as HTMLIFrameElement | null;
+		const wrap = document.querySelector('.pg-preview-wrap');
+		const sec = f?.contentDocument?.querySelector('.lattice > section');
+		if (!f || !sec || !wrap) return null;
+		const fr = f.getBoundingClientRect();
+		const sr = sec.getBoundingClientRect();
+		const wr = wrap.getBoundingClientRect();
+		return [fr.x - wr.x + sr.x, fr.y - wr.y + sr.y, sr.width, sr.height];
+	});
+	expect(live, 'the live filmstrip never rendered — there is nothing to compare the replay against').toBeTruthy();
+	for (const [i, label] of ['x', 'y', 'width', 'height'].entries()) {
+		expect(Math.abs((live as number[])[i] - shell.shell[i]), `the replayed slide's ${label} is ${((live as number[])[i] - shell.shell[i]).toFixed(1)}px off the live one`).toBeLessThanOrEqual(2);
+	}
+});
+
 // A toolbar control that lights the WRONG option and corrects itself is the same defect as
 // a pane that lands in the wrong place. The mode toggle's `is-active` comes from the
 // island's `view` state, which defaults to Edit, so an Explore boot server-rendered the

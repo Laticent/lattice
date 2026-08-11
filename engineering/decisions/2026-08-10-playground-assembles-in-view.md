@@ -214,6 +214,11 @@ is the same case that exposes it.
   a valid `v: 2` at 1194x834. This is right rather than unfortunate (there is no visible
   preview to snapshot), and it self-heals the moment the visitor shows the preview pane, but
   the v1 format DID store there and the first draft of this note understated the scope.
+  **The collapsed-pane case is now RUN rather than reasoned (#1590)** — the sequence a visitor
+  can actually reach (collapse, capture, expand, reload) refuses the capture and replays the
+  previous good snapshot within 0.05px, and it turns out there are two independent guards
+  rather than the one this note assumed: the 0x0 wrap, and a preview iframe that has no layout
+  under a `display:none` ancestor, so the slide inside it measures 0x0 too.
 - **The status line is now STABLE, not uniformly true.** Two values instead of three on the
   common path, both true. In the collapsed-preview boot it is still three
   ("Loading engine…" → "Preview collapsed — rendering paused." → "…render deferred."), and
