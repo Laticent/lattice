@@ -456,6 +456,46 @@ reader falls back, so records already sitting in users' browsers survive — a b
 would have discarded the very report that prompted all of this. Bump only when
 new code would *misread* an old record; adding a field it can ignore is not that.
 
+### Verified on WebKit (2026-08-11)
+
+Playwright ships **WebKit**, Safari's engine — which this session had wrongly
+written off as unreachable. It is not iOS (no device, no Safari chrome, no real
+touch stack), but it IS the engine underneath both Safari and the Firefox for iOS
+build the original report came from, and every visual claim here had been measured
+on Chromium only. Re-run against it, at 390px, on a record shaped like the
+reported one:
+
+```
+PASS  the crash toast appears on WebKit at all       358x87, radius 16px
+PASS  it is a card, not a stretched pill
+PASS  its description sits inside the box            (the reported clipping)
+PASS  its description is not near-black on near-black
+PASS  the panel opens and renders the steps
+PASS  it names the memory-blind next step
+PASS  it attributes the opaque errors instead of listing blanks
+PASS  it says there are no memory readings on this engine
+PASS  no horizontal page overflow at 390px
+```
+
+Two facts previously listed here as unverified are now measured rather than
+assumed:
+
+- **`performance.memory` does not exist on WebKit** (`hasMemory: false`), which is
+  what the report's "No memory readings — this browser does not expose them"
+  line asserts, and what makes the "open it once in Chrome" step the right
+  advice on this engine.
+- **`navigator.locks` DOES exist on WebKit** (`hasLocks: true`). That removes one
+  unknown from #1621: the primitive is available on Safari's engine, so the open
+  question there is narrowed to its bfcache cost.
+
+**Still not answered: whether WebKit refuses to bfcache a page holding a Web
+Lock.** Three harness attempts failed to produce a working CONTROL — bfcache never
+engaged for the no-lock case either, in WebKit or Chromium — so the measurement is
+vacuous in both directions and is reported as such rather than dressed up. The
+Chromium half of that question was answered by a review pass with a working
+control (`notRestoredReasons: [{reason: "lock"}]`); the WebKit half is open, and
+it is the measurement #1621 turns on.
+
 Real iOS remains **UNVERIFIED** (HARD RULE #23) — none of this was driven on a
 physical iPhone, and the premise behind defect 1 (that Firefox for iOS does not
 type its own recovery load as `reload`) is still unconfirmed. What ships here
