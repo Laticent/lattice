@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, FIRST_PAINT_TIMEOUT, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
 
 // Preview RENDER-PATH perf, measured on the real built Studio — the instrument HARD RULE #19
 // wants for any claim about the preview's cost, and the one HARD RULE #23 accepts (a real
@@ -121,11 +121,8 @@ const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (
 /** Assembled, so the literal never appears anywhere a code frame or grep could pick it up. */
 const BREACH_TOKEN = `::perf-${'ceiling'}-breach::`;
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // ESM: no __dirname
-type InteractionCap = { renderP50: number; totalP50: number; frameP50: number };
 const BUDGET = JSON.parse(fs.readFileSync(path.join(HERE, '../../test/benchmark/preview-budget.json'), 'utf8')) as {
-	// `firstPaint` is a different SHAPE, not another interaction: boot is one elapsed span,
-	// not an engine/frame/total split, so it carries a single `p50` (see the cold-paint test).
-	ceilings: Record<'navigation' | 'typing', InteractionCap> & { firstPaint: { p50: number } };
+	ceilings: Record<string, { renderP50: number; totalP50: number; frameP50: number }>;
 };
 
 function report(label: string, samples: Sample[], interaction?: 'navigation' | 'typing', deck?: string): void {
@@ -237,77 +234,3 @@ test(`@perf preview render path — navigation vs typing (${kind} deck)`, async 
 	expect((await drain(page)).length).toBeGreaterThan(0);
 });
 }
-
-// ── COLD FIRST PAINT — the boot cost nothing else guards (#1586) ────────────────
-//
-// Everything above measures a render that happens AFTER the app is up. Nothing in the
-// repo asserted how long it takes to GET up: `studio-instant-shell.spec.ts` waits 45s on
-// the preview iframe but asserts layout, Lighthouse's LCP is the parent document (the
-// engine paints inside the `iframe.live` srcdoc and never contributes), and `script-size`
-// / TBT catch bundle bloat rather than a slower render — both against 24h-ago `main`, so
-// a few percent a day never trips them. The only thing that had ever failed on a slow
-// cold paint was `gotoStudio`'s fixture wait, which #1583 raised from 15s to 45s for
-// reasons about worker starvation and not about the app.
-//
-// IN THIS FILE, not its own, and that is load-bearing: `--grep @perf` is how the nightly
-// selects this tier (perf-nightly.yml), and a second @perf FILE would run concurrently
-// with this one at `workers: 2`. Boot timings taken beside three CPU-throttled render
-// tests measure the contention, and cold context launches beside them would inflate their
-// keystroke p50s in return. One file is `mode: 'serial'` (configured above), so neither
-// happens. LAST in the file for the same reason stated once: serial mode skips what
-// follows a failure, so a boot breach must not be able to skip the render ceilings.
-//
-// NO CPU THROTTLE, unlike everything above. The render tests model a mid-range phone
-// because that is where a slow keystroke is felt. Boot is the number a user waits on with
-// whatever machine they have, and the regression worth catching here — a chunk that stops
-// being preloaded, a blocking script on the boot path, an island that hydrates later — is
-// a multiple, not a percentage. Throttling would add variance without adding sensitivity.
-//
-// MEASURED THROUGH THE FIXTURE'S OWN ANNOTATION rather than a stopwatch in this spec:
-// `waitForStudioPaint` records every paint it performs, so the spec and the fixture cannot
-// drift into measuring two different milestones. That annotation is the page's own
-// `performance.now()` at paint — i.e. FROM NAVIGATION START, covering the pre-DOMContentLoaded
-// slice. A stopwatch here (or in the fixture) would start after `page.goto` resolved and be
-// blind to a render-blocking script, which is one of the three regressions named above; a
-// checker demonstrated that hole against an earlier cut of this test.
-test('@perf studio cold first paint stays under its ceiling', async ({ browser }) => {
-	const SAMPLES = 7;
-	// THE SLOT MUST NOT BE THE BINDING CONSTRAINT. Each sample is internally bounded by the
-	// fixture's FIRST_PAINT_TIMEOUT, so the worst legal run is SAMPLES x that. An earlier cut
-	// set 180s, which is ~25.7s per sample — so a boot regression past ~26x died on the TEST
-	// timeout before reaching the ceiling assertion, emitted no breach token, and
-	// perf-nightly.yml filed it as a harness failure instead of a regression. That inverts the
-	// alarm precisely when it has the most to say, which is the failure this file's header
-	// warns about one level down.
-	test.setTimeout(SAMPLES * FIRST_PAINT_TIMEOUT + 60_000);
-
-	for (let i = 0; i < SAMPLES; i++) {
-		// A FRESH CONTEXT per sample — this measures a COLD visit, and a reused context
-		// carries a warm HTTP cache, a warm module graph and a populated localStorage, so
-		// samples 2..n would answer a different question than sample 1.
-		const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
-		try {
-			await gotoStudio(await ctx.newPage());
-		} finally {
-			await ctx.close();
-		}
-	}
-
-	const ms = test
-		.info()
-		.annotations.filter((a) => a.type === 'first-paint')
-		.map((a) => Number.parseInt(a.description ?? '', 10))
-		.filter(Number.isFinite);
-	// The instrument, asserted before what it measures: a fixture that stopped annotating
-	// would leave `ms` empty and every ceiling below vacuously green.
-	expect(ms.length, `no first-paint annotations — waitForStudioPaint stopped recording, so this ceiling measured nothing`).toBe(SAMPLES);
-
-	const sorted = [...ms].sort((a, b) => a - b);
-	const p50 = sorted[Math.floor(sorted.length / 2)];
-	console.log(`\nCOLD FIRST PAINT — ${SAMPLES} fresh contexts, no throttle`);
-	console.log(`  samples: ${ms.join(', ')} ms`);
-	console.log(`  p50 ${p50}ms  min ${sorted[0]}ms  max ${sorted[sorted.length - 1]}ms`);
-
-	const cap = BUDGET.ceilings.firstPaint.p50;
-	expect(p50, `${BREACH_TOKEN} cold first paint: p50 ${p50}ms is past the ${cap}ms ceiling — the Studio takes materially longer to become usable, which is a code change, not drift`).toBeLessThan(cap);
-});

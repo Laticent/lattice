@@ -340,10 +340,12 @@ export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIM
 		// `Math.max(1, …)`: a 0 timeout means "no timeout" to Playwright, so a
 		// deadline already spent must ask for the smallest budget, not an endless one.
 		await expect(slide).not.toBeEmpty({ timeout: Math.max(1, deadline - Date.now()) });
-		// Record what the paint actually cost, on the real suite at real concurrency.
-		// The budget above is only re-derivable from a harness someone has to
-		// remember to run; this makes every nightly report carry the distribution it
-		// was sized against.
+		// Record what the paint cost, on the real suite at real concurrency, as a
+		// `first-paint` annotation in the Playwright report. This is an OBSERVATION,
+		// not a budget: nothing asserts on it (see the note below on why the ceiling
+		// that was going to was withdrawn), and its value is that every nightly run
+		// accumulates real-runner data that a future guard can be sized against —
+		// which is exactly what nobody had when sizing `FIRST_PAINT_TIMEOUT`.
 		//
 		// MEASURED FROM THE PAGE'S NAVIGATION START, not from this function's entry.
 		// `performance.now()` inside the document is relative to that document's own
@@ -351,18 +353,27 @@ export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIM
 		// deferred script, then hydrate, chunk load and render. Wall time around these
 		// two waits would begin AFTER `page.goto(…, 'domcontentloaded')` had already
 		// resolved — which excludes the entire pre-DCL slice, so a 2s render-blocking
-		// script on the boot path (one of the regressions the @perf ceiling in
-		// `studio-preview-perf.spec.ts` exists to catch) took real boot from 1.1s to
-		// 3.2s and moved this number by nothing. A checker demonstrated exactly that.
+		// script on the boot path took real boot from 1.1s to 3.2s and moved the
+		// number by nothing. A checker demonstrated exactly that, and an independent
+		// red-team run reproduced the fixed span against an 18s document stall.
 		// A reload re-origins `performance.now()`, so the post-reload path measures
-		// the reload rather than the original visit.
+		// the reload rather than the original visit — and a call that does NOT follow
+		// a navigation would report time-since-navigation, not time-to-paint. Today
+		// every caller follows one.
 		//
-		// Never allowed to fail a test — `test.info()` throws outside a running test,
-		// and `evaluate` can lose the page to a teardown race. An instrument must not
-		// become a failure mode.
+		// NEVER ALLOWED TO FAIL OR STALL A TEST. `test.info()` throws outside a running
+		// test and `evaluate` can lose the page to a teardown race — hence the catch.
+		// The RACE matters as much: `page.evaluate` takes no timeout of its own and
+		// resolves only when the page's main thread runs the expression, so under the
+		// worker starvation this whole module exists to survive (#1572) a wedged main
+		// thread would hang here — in 51 spec files — and no catch would see it. An
+		// instrument that can hang the suite it measures is worse than no instrument.
 		try {
-			const sinceNavigation = await page.evaluate(() => Math.round(performance.now()));
-			base.info().annotations.push({ type: 'first-paint', description: `${sinceNavigation}ms` });
+			const sinceNavigation = await Promise.race([
+				page.evaluate(() => Math.round(performance.now())),
+				new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_000)),
+			]);
+			if (sinceNavigation !== null) base.info().annotations.push({ type: 'first-paint', description: `${sinceNavigation}ms` });
 		} catch {
 			/* not inside a test, or the page went away — nothing to annotate */
 		}

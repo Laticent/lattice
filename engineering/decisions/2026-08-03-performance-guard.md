@@ -329,84 +329,61 @@ If `[perf-nightly-engine]` fires zero true positives and at least one harness-fa
 in six months, the right move is to delete the two bench arms and the comparator and keep the
 preview ceilings — roughly 30% of the surface for most of the value.
 
-## Slice 4 — cold boot gets a ceiling (shipped 2026-08-11, #1586)
+## Slice 4 — cold boot gets a MEASUREMENT, and the ceiling that was going to come with it did not survive review (2026-08-11, #1586)
 
-Every tier above measures a render that happens **after** the app is up. Nothing measured how long
+Every tier above measures a render that happens **after** the app is up. Nothing measures how long
 it takes to *get* up, and the near-misses each fail for a different reason:
 `studio-instant-shell.spec.ts` waits 45s on the preview iframe but asserts **layout**; Lighthouse
-does load `/studio/` but LCP is per-document and the engine paints inside the `iframe.live`
-srcdoc, which never contributes to the parent's; `script-size` and TBT catch bundle bloat rather
-than a slower render, and both compare against 24h-ago `main`, so a few percent a day trips
-neither.
+does load `/studio/` but LCP is per-document and the engine paints inside the `iframe.live` srcdoc,
+which never contributes to the parent's; `script-size` and TBT catch bundle bloat rather than a
+slower render, and both compare against 24h-ago `main`, so a few percent a day trips neither.
 
 So the only thing that had ever failed on a slow cold paint was `gotoStudio`'s fixture wait — and
-#1583 raised it from 15s to 45s for reasons about **worker starvation**, not about the app. That
-change did not remove a working guard; it loosened one that barely worked (against a ~1.3s healthy
-paint, the old wait needed a ~12× regression to trip, the new one ~35×). But it is exactly the
-moment to notice that the guard was accidental, because #1583's own rule — *a setup wait is not an
-assertion* — is right and could be misread as *therefore boot cost needs no oracle*. The opposite
-follows: boot cost is a product concern here — the instant shell exists because of it (#1438) — and
-it now has a real one.
+#1583 raised it from 15s to 45s for reasons about **worker starvation**, not about the app.
 
-**A correction worth keeping, because the wrong version was load-bearing.** The first cut of this
-slice justified the ceiling against "the ~4s void #1553 describes". #1553's void is the
-**Playground's** preview pane (*"empty until ~4.3s"* in its results table); the Studio's row in that
-same table is a 302px divider jump at ~400ms, and the issue separates the two surfaces explicitly
-because the Studio is `client:only` behind an opaque shell while the Playground hydrates on screen.
-This ceiling only ever loads `/studio/`. So the argument that the "right" number was ~4000 reasoned
-about a regression on a route this guard does not visit — and a maintainer tightening 6000 → 4000
-"to catch the #1553 state" would buy false alarms for nothing. Caught by a checker, not by a gate.
+**What shipped: an observation, not a guard.** `waitForStudioPaint` annotates every paint it
+performs as `first-paint` in the Playwright report, measured from the page's own navigation start.
+Nothing asserts on it. The value is that the nightly now accumulates real-runner boot data
+continuously, across ~49 spec files, which is precisely what nobody had when this slice tried to
+set a number.
 
-**Built on the measurement #1583 already added**, not a new harness. `waitForStudioPaint`
-annotates every paint as `first-paint` in the Playwright report, so the ceiling reads the fixture's
-own number and the two cannot drift into measuring different milestones. The test asserts the
-annotation exists *before* asserting the ceiling — a fixture that stopped recording would leave the
-sample list empty and the ceiling vacuously green, which is the silently-zero failure mode slice 2
-already had to fix once.
+**What did not ship, and why — because the reasoning is the useful part.** A `@perf` ceiling of
+6000ms was written, measured, mutation-checked, and withdrawn after the adversarial trio
+(HARD RULE #25) put it on the real surface. Three independent, reproduced results killed it:
 
-**The span is the page's own `performance.now()` at paint — from NAVIGATION START — and the first
-cut got this wrong.** It timed wall-clock around the two waits inside `waitForStudioPaint`, which
-begin only after `page.goto(…, 'domcontentloaded')` has resolved. That excludes connect, HTML,
-parse and every blocking or deferred script: a checker injected a 2s render-blocking script, took
-real boot from 1.1s to 3.2s — precisely "a blocking script on the boot path", one of the three
-regressions this ceiling names — and the measured number did not move (982 → 1059ms, inside noise).
-Green forever, at any ceiling value. Reading the page's clock instead closes it, demonstrated with
-the same injected delay: 1293 → 3150ms. The lesson generalizes past this test — *an instrument
-inherits the blind spots of wherever it starts counting*, and a wall clock in the test process
-starts at a moment the browser chose, not the one the user experiences.
+- **The statistic could not see the regression shape that matters.** A p50 of 7 cold boots passes
+  a catastrophe. Demonstrated by stalling 3 of 7 documents by 18s: samples
+  `19423, 19561, 19423, 1509, 1579, 1559, 1356` → **p50 1579ms, green**. Nearly half of cold visits
+  taking 19.5s is exactly what a boot guard exists for. p50 is right for 20 keystrokes with one GC
+  pause; for 7 boots a bimodal tail *is* the regression, and no assertion looked at the tail.
+- **The number had ~1.3x real headroom, not the 4.5x recorded.** Pinned to 2 cores with two
+  competing processes — the closest available analogue to a hosted runner also hosting the preview
+  server — a **healthy** tree read p50 4.1–4.5s against the 6000ms cap, and a healthy single sample
+  reached 5906ms. The recorded 1286–1345ms band never reproduced; independent runs put the minimum
+  p50 at 1405ms and one full-tier p50 at 3044ms. "Observed variance is tight" was an artifact of a
+  28-sample window taken on a quiet box.
+- **The test destabilized the tier it lived in.** Creating and closing 7 browser contexts inside
+  one test, under the config's `trace: 'on'`, failed **9 of 24 runs** with `ENOENT` on trace
+  artifacts at `ctx.close()` (`--trace=off`: 9/9 green). That failure is *tokenless*, so on those
+  nights `perf-nightly.yml` reports a harness failure, files nothing, **and the three working
+  render ceilings above stop reporting too**.
 
-**It lives inside `studio-preview-perf.spec.ts`, and that is load-bearing rather than tidy.**
-`--grep @perf` is how `perf-nightly.yml` selects this tier; a second `@perf` **file** would run
-beside the existing one at `workers: 2`, so boot timings would be taken next to three CPU-throttled
-render tests and cold context launches would inflate their keystroke p50s in return. One file is
-`mode: 'serial'`, and Playwright collapses the selection to a single worker — verified: the
-full-tier p50 (1322ms) lands INSIDE the standalone spread (1286–1345ms), so co-location costs
-nothing measurable. It sits **last** in the file because
-serial mode skips what follows a failure, so a boot breach must not be able to skip the render
-ceilings.
+**And a fourth, which is about the surface rather than the number.** The `@perf` tier is served by
+`build:e2e`, which — unlike the deployed `build` — never runs `inject-modulepreload.mjs`:
+`grep -c 'rel="modulepreload"' dist/studio/index.html` reads **0** after `build:e2e` and **50**
+after the inject. So "a chunk stopped being preloaded" was unobservable by construction. Injecting
+the hints and re-measuring showed why fixing that would not have helped either — p50 1766/2008/1995
+with 50 preloads vs 1968/2012/1984 without, within noise, because the origin is `localhost` with
+~0 RTT and round trips are the whole point of a preload. **A localhost cold-boot timing cannot see
+network-shaped boot regressions at all.** The sibling `perf-collect.mjs` avoids this by injecting
+before Lighthouse runs; a future boot guard belongs where that machinery already lives.
 
-No throttle, unlike the render tiers. They model a mid-range phone because that is where a slow
-keystroke is felt; boot is what a user waits on with the machine they have, and the regressions
-worth catching — a chunk that stops being preloaded, a blocking script on the boot path, an island
-that hydrates later — are multiples, not percentages.
-
-**The ceiling is 6000ms against a 1286–1345ms healthy p50, and it is provisional.** All three limits
-are written into `preview-budget.json` rather than left implicit. (1) Every reading is from a
-4-core sandbox and no GitHub runner has run this yet, so the ~4.5× headroom is sized for an unknown
-runner speed rather than for observed variance — which is tight (1154–1789ms across 28 samples).
-(2) A single paint slower than `FIRST_PAINT_TIMEOUT` (45s) fails inside the fixture with its own
-**tokenless** error, so a regression past ~33× is filed as a harness failure rather than a breach —
-the alarm inverting exactly where it has most to say, which is the same trap slice 2's breach token
-was introduced to escape. The TEST SLOT is no longer part of that: an earlier cut set 180s against
-7 samples of up to 45s each, so a regression past ~26× died on the slot before reaching the
-assertion; it is now sized at `SAMPLES × FIRST_PAINT_TIMEOUT`. (3) It guards the **desktop** project
-only, because the `@perf` step runs `--project=desktop` — boot on a phone, where it is felt most,
-is still unguarded. The @perf log
-prints the p50 every night; tighten it once real runs are on record.
-
-Mutation-checked both ways, because the discrimination is the whole point of the token: a breach
-emits `::perf-ceiling-breach::` and the nightly files a regression; a dead instrument fails
-*without* it and the nightly logs a harness failure instead.
+**The generalizable lesson, which is the reason this section exists at all.** Every gate in this
+document was justified by *what regression it catches*. This one was justified by *what number a
+healthy run produces* — and those are different questions. A budget sized from healthy readings
+tells you nothing about whether the failure you care about would cross it, and here it did not:
+the guard would have passed a 13x catastrophe while false-alarming a healthy runner. Size the next
+one against a reproduced bad state, on a surface that can express it.
 
 ## What this does not do
 

@@ -281,7 +281,7 @@ every docs-touching PR with `--retries=0`, several of them through `gotoStudio` 
 **advisory**, deliberately absent from `ci`'s `needs`, so a red there reports
 without blocking. Latent triage cost, then, not a broken gate.
 
-**Two gaps this left open** — the first since closed, the second standing.
+**Two gaps this left open**, both still open — see each bullet for where they stand.
 
 - **Nothing bounds the Studio's cold first paint.** `studio-instant-shell.spec.ts`
   and `studio-shell-parity.spec.ts` wait 45s on the iframe element but assert
@@ -289,20 +289,15 @@ without blocking. Latent triage cost, then, not a broken gate.
   navigation and typing p50s taken *after* the paint; the Lighthouse budget measures
   the parent document, and the engine paints inside a srcdoc iframe that does not
   contribute to its LCP. So this wait was the only de facto bound on boot cost, and
-  it went from 15s to 45s — against the ~1.6s paint this section measures at CI's own
-  concurrency, that is a tripwire moving from ~9× to ~28×. It was a bad oracle either
-  way, and "a setup wait is not an assertion" must not be read as *therefore boot cost
-  needs no oracle*. It needs a real one. **CLOSED (#1586, 2026-08-11):** boot now has a
-  `@perf` ceiling that reads the `first-paint` annotation this change added, in
-  `studio-preview-perf.spec.ts` — see `2026-08-03-performance-guard.md` § Slice 4.
-  A note on reconciling the numbers, since two live in this file: **1.6s is the
-  `CONC=2` column above**, and the ceiling is set against **~1.3s**, which is a
-  *sequential* cold visit measured from navigation start. A first cut of this
-  cross-reference explained the gap as standalone-bench-versus-fixture; that is wrong,
-  and `SAMPLES=8 CONC=1 npm run perf:first-paint` refutes it by reading ~1.1s from the
-  same bench. The gap is **concurrency** — the bench's own sweep is the evidence — plus
-  the ~180ms of pre-DOMContentLoaded work the ceiling's span includes and the bench's
-  does not.
+  it went from 15s to 45s. It was a bad oracle either way, and "a setup wait is not
+  an assertion" must not be read as *therefore boot cost needs no oracle*.
+  **STILL OPEN (#1586).** A ceiling was attempted and withdrawn: the adversarial trio
+  showed a p50 of 7 boots passes a 13x catastrophe, that its headroom on a
+  runner-like box was ~1.3x rather than the 4.5x recorded, and that the test
+  destabilized the tier it lived in. What DID ship is the measurement — every paint
+  is annotated `first-paint` in the report, from navigation start — so the data a
+  defensible guard needs now accumulates nightly. Full reasoning:
+  `2026-08-03-performance-guard.md` § Slice 4.
 - **The WebKit projects keep a local copy of this wait.** `back-gesture.spec.ts`
   still inherits the 15s `expect.timeout` on its second half, because those projects
   cannot be run in the sandbox that centralized the fixture and a shared helper
