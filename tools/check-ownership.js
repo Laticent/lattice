@@ -3645,18 +3645,31 @@ function fmtSleep(ms) {
 
 function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctions = SANCTIONED_E2E_SLEEPS) {
   const census = e2eSleepCensus(e2eDir);
-  // A duplicate (file, ms) pair would be last-wins in the Map below and both entries would be
-  // marked seen — so the loser is neither enforced nor reported stale. Name it instead.
-  const keyCounts = new Map();
-  for (const s of sanctions) keyCounts.set(`${s.file}|${s.ms}`, (keyCounts.get(`${s.file}|${s.ms}`) || 0) + 1);
-  for (const [k, n] of keyCounts) {
-    if (n > 1) errors.push(`duplicate SANCTIONED_E2E_SLEEPS entries for ${k.replace('|', ' @ ')} — one silently shadows the other; merge them.`);
+  // NUL as the separator, not `|`: a sleep argument is arbitrary expression TEXT, so
+  // `waitForTimeout(a || b)` puts pipes inside the key and a printable separator could both
+  // collide and mangle the message on the way out.
+  const keyOf = (file, ms) => `${file}\u0000${ms}`;
+
+  // A duplicate (file, ms) pair would be last-wins in the lookup below AND both entries would
+  // be marked seen — so the loser is neither enforced nor reported stale. Name it, building the
+  // message from the entry's own fields rather than by unpicking the key.
+  const firstSeen = new Map();
+  for (const s of sanctions) {
+    const k = keyOf(s.file, s.ms);
+    if (firstSeen.has(k)) {
+      errors.push(
+        `duplicate SANCTIONED_E2E_SLEEPS entries for ${s.file} @ ${fmtSleep(s.ms)} — ` +
+        'one silently shadows the other; merge them.',
+      );
+    } else {
+      firstSeen.set(k, s);
+    }
   }
-  const listed = new Map(sanctions.map((s) => [`${s.file}|${s.ms}`, s]));
+  const listed = firstSeen;
   const seen = new Set();
 
   for (const row of census) {
-    const key = `${row.file}|${row.ms}`;
+    const key = keyOf(row.file, row.ms);
     const s = listed.get(key);
     if (!s) {
       seen.add(key);
@@ -3681,7 +3694,7 @@ function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctio
   }
 
   for (const s of sanctions) {
-    if (!seen.has(`${s.file}|${s.ms}`)) {
+    if (!seen.has(keyOf(s.file, s.ms))) {
       errors.push(
         `stale e2e-sleep sanction in tools/check-ownership.js — ${s.file} no longer has a ` +
         `${fmtSleep(s.ms)} fixed wait (#1575). Remove the SANCTIONED_E2E_SLEEPS entry so the allowlist ` +
