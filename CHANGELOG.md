@@ -45,6 +45,38 @@ in patch versions.
   bytes across every theme, so it is an export sign-off gate and is deliberately **not**
   included here; this entry records the measurement and the model.
   (`engineering/decisions/2026-08-10-palette-concat-order.md`)
+- **Fixed: the Playground no longer assembles itself in view on a reload.** #1553 gave
+  the panes their remembered widths; the page still built the rest in front of you.
+  Measured at 1194x834 with the CPU throttled 6x: the cached slide painted at 824x464 and
+  the live filmstrip replaced it at 784x441, 20px right and 29px down — the slide you were
+  reading shrank and jumped. In Explore — where a first-time visitor lands — the EDIT
+  layout painted first, so a 337px editor pane sat there for ~900ms before vanishing, the
+  preview went 856 → 1194 → 1194x619, and the mode toggle lit the wrong icon. The toolbar
+  said "Ready." when nothing was ready, showed a component you had not picked, and filled
+  in a step on a dropdown that was disabled. All of it is now resolved before first paint:
+  the boot view (and the pane it implies) is seeded on `<html>` and consumed by the
+  stylesheet, the cached slide is placed at the rect the app itself measured the live one at
+  last time and cross-fades in place, and any toolbar value the server cannot know renders as
+  nothing rather than as a guess. Pinned by a per-frame sampler in the per-PR tier that
+  requires the pre-paint replay to have actually run before it believes the geometry it
+  produced. The walk bar still takes its ~100px band when it arrives in Explore: a reserve
+  for it was built and withdrawn, because the height available to reserve from is the
+  previous slide's caption and the band belongs to the next boot's first slide.
+- **Fixed: a deck handed to the Playground opened the gallery instead of the editor.** An
+  incoming handoff is the highest-precedence startup rule — it forces the editor — but the
+  key is a one-shot, and the editor's own mount effect consumed it before the controller
+  read it (a child's effects flush before its parent's; measured six milliseconds apart).
+  The rule silently never fired: the deck loaded into CodeMirror while the visitor was
+  dropped into the Explore walkthrough, after watching the editor pane sit there for ~900ms
+  and vanish. The startup path now takes that answer from the pre-paint seed, which reads
+  the key before anything can consume it.
+- **Fixed: the Playground's editor text no longer shifts when CodeMirror mounts.** The SSR
+  placeholder used its own type metrics (0.85rem/1.5 against the editor's 13.5px/1.6) and
+  sat 34px from the left against the editor's 43px, so every line slid right and down as
+  the editor booted, by a gap that grew 1.2px per line down the file. It now takes its
+  metrics from the same theme the editor is built from, including the 16px bump iOS forces
+  on touch devices — which had been re-wrapping every line on iPad. It also shows YOUR
+  saved draft now, not the starter deck the build knows.
 
 - **Changed: chart categorical text now keeps the hue the theme author curated.** Where a
   chart paints text in a categorical color it used to mix that color toward the page's

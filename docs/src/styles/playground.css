@@ -200,7 +200,7 @@
    two panes and hosts the collapse button. In Explore there's one preview and
    nothing to collapse to; on a phone only one pane ever shows and the mode
    toggle already says which — so the label is pure noise. Reclaim its band. */
-body[data-view='read'] .pg-pane-label {
+:is(:root[data-pg-view='read'], body[data-view='read']) .pg-pane-label {
 	display: none;
 }
 @media (max-width: 820px) {
@@ -260,20 +260,51 @@ body[data-view='read'] .pg-pane-label {
  * wrapped lines the instant the editor booted — the same class of defect as the
  * split jumping, one pane over. Wrapping here means the placeholder breaks where the
  * editor is about to break. The wrapped continuation lines still lack CodeMirror's
- * hanging indent, so this is closer, not identical. */
+ * hanging indent, so this is closer, not identical.
+ *
+ * TYPE METRICS ARE CODEMIRROR'S, not an approximation of them (#1563). They used to be
+ * 0.85rem/1.5 against the editor's 13.5px/1.6, and the text sat 34px from the left
+ * against the editor's 43px — so every line of the deck slid right and down as the
+ * editor booted, by a gap that GREW down the file (1.2px per line). Sources, all in
+ * `editor.js`'s `latticeTheme`: `&{fontSize:13.5px}`, `.cm-scroller{lineHeight:1.6}`,
+ * `.cm-content{padding:14px 0}`, plus CodeMirror's own `.cm-line{padding:0 2px 0 6px}`.
+ * The 6px of that last one is folded into the padding here, because this <pre> stands in
+ * for the content, not for a line inside it. */
 .pg-editor-placeholder {
 	position: absolute;
 	inset: 0;
 	margin: 0;
-	padding: 4px 8px 4px 34px;
-	font-family: var(--sl-font-mono, 'JetBrains Mono', monospace);
-	font-size: 0.85rem;
-	line-height: 1.5;
+	/* --pg-editor-gutter is `.cm-gutters`: the line-number column, the 0.9em lint gutter
+	   (`.cm-gutter-lint`), and the 1px right border. Unlike the metrics above it is
+	   CONTENT-derived — a deck of 100+ lines widens the number column — so this is the
+	   two-digit case, which is the starter deck and almost every draft. The e2e case
+	   "the placeholder's text starts where CodeMirror's will" measures the real pair and
+	   fails if this drifts, rather than trusting the arithmetic. */
+	--pg-editor-gutter: 37px;
+	padding: 14px 2px 14px calc(var(--pg-editor-gutter) + 6px);
+	font-family: var(--font-mono);
+	font-size: 13.5px;
+	line-height: 1.6;
 	color: var(--text-body);
 	background: var(--bg);
 	white-space: pre-wrap;
 	overflow: hidden;
 	pointer-events: none;
+}
+/* Still an approximation in ONE respect, deliberately: CodeMirror renders markdown
+   headings and bold spans in a heavier face, which is wider, so a line carrying them can
+   wrap a word earlier than this plain-text stand-in does. Matching that would mean
+   tokenizing markdown in the placeholder — a second highlighter to keep in step with the
+   first. The metrics above make every plain line land exactly; a heading line can still
+   re-wrap. */
+/* iOS Safari auto-zooms a focused input under 16px, so the editor raises `.cm-content`
+   to 16px on coarse pointers (editor.js). The placeholder has to make the same move or
+   every line re-wraps at hydration — on the very device (iPad) that surfaced two of the
+   three defects #1553 fixed. */
+@media (pointer: coarse) {
+	.pg-editor-placeholder {
+		font-size: 16px;
+	}
 }
 .pg-editor-host .cm-editor.cm-focused {
 	outline: none;
@@ -351,27 +382,57 @@ body[data-view='read'] .pg-pane-label {
 	pointer-events: none;
 }
 :root[data-pg-shell='on'] .pg-ssr-shell {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	justify-content: center;
+	display: block;
+	/* The captured critical CSS re-targets the filmstrip's own `html,body` rules onto this
+	   box (snapshot-cache.js scopes them here so they can't repaint the real page), which
+	   brings `min-height:100vh` and an 18px page padding with them. Both have to be put
+	   back: the first stretched the box to the viewport instead of the pane, and the second
+	   moves the padding box the replayed slide is positioned against — an 18px error in the
+	   one placement this whole mechanism exists to get exact. */
 	min-height: 0;
-	padding: 16px; /* matches the live filmstrip's body padding (deck-preview gap/padding) */
+	padding: 0;
 	background: var(--bg-alt);
 }
+/* The hand-off is a swap IN PLACE, not a removal (#1563). The replay now paints the cached
+   slide at the rect the live filmstrip is about to use, so the two are the same picture and
+   the only thing left to do is trade which one is on top. `#preview` fades in over 0.2s; the
+   shell fades out over the same window from directly behind it, so no frame shows bare pane.
+   `display:none` here would drop the shell the instant the iframe STARTED fading in — a
+   200ms window of a half-transparent slide over the empty brand fill. The box is
+   `pointer-events:none` and sits under the iframe, so a lingering transparent layer is inert.
+   React clears the HTML once the fade is done (markLiveWhenSlidesVisible). */
+.pg-ssr-shell {
+	transition: opacity 0.2s ease;
+}
 .pg-preview-wrap.is-live .pg-ssr-shell {
-	display: none;
+	opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+	.pg-ssr-shell {
+		transition: none;
+	}
 }
 /* The captured critical CSS carries the filmstrip's `.lattice{visibility:hidden}`
    gate (the live doc's FIT agent flips it — the shell has none) and
    `content-visibility:auto` virtualization; force both visible so the single shell
    slide actually paints. !important beats the (scoped, non-important) captured rules.
-   Size the .lattice to the SCALED slide box (via the vars the replay measures) so the
-   flex centering lands on the visible slide, not the un-scaled 1280×720 layout box. */
+   Positioned — not centered — at the replayed rect: `--pg-ssr-x/y` are where the app
+   MEASURED its own live slide last time, rescaled to this pane. Centering here is what
+   made the hand-off jump: the filmstrip is centered over a different box, inside a
+   different padding, so two independent "center it" rules landed 29px apart. */
+/* `!important` on the geometry, not decoration: the captured CSS is injected into a
+   <style> appended to <head> AFTER this sheet, and `scopeSelector` rewrites the
+   filmstrip's root rules to this exact selector — so at equal specificity the snapshot
+   would win on source order alone. It carries no `.lattice` box today (the playground
+   frame ships `slideBox()`, which only sizes `.lattice > section`), but "today" is not a
+   contract, and the whole point of these five declarations is to be exact. */
 .pg-ssr-shell .lattice {
 	visibility: visible !important;
-	width: calc(var(--pg-ssr-w, 1280px) * var(--pg-ssr-scale, 1));
-	height: calc(var(--pg-ssr-h, 720px) * var(--pg-ssr-scale, 1));
+	position: absolute !important;
+	left: var(--pg-ssr-x, 0px) !important;
+	top: var(--pg-ssr-y, 0px) !important;
+	width: calc(var(--pg-ssr-w, 1280px) * var(--pg-ssr-scale, 1)) !important;
+	height: calc(var(--pg-ssr-h, 720px) * var(--pg-ssr-scale, 1)) !important;
 	overflow: hidden;
 }
 /* Mirror the live FIT agent EXACTLY: keep the section at its intrinsic @size box and
@@ -465,12 +526,12 @@ body[data-view='read'] .pg-pane-label {
 	   it from flow entirely, same "stays mounted, just not laid out" contract as
 	   `display:none` on the inner content (CodeMirror + the preview iframe both
 	   survive — nothing unmounts). */
-	body[data-pane='preview'] .pg-split > #pg-split-editor,
-	body[data-pane='preview'] .pg-pane.editor {
+	:is(:root[data-pg-pane='preview'], body[data-pane='preview']) .pg-split > #pg-split-editor,
+	:is(:root[data-pg-pane='preview'], body[data-pane='preview']) .pg-pane.editor {
 		display: none !important;
 	}
-	body[data-pane='edit'] .pg-split > #pg-split-preview,
-	body[data-pane='edit'] .pg-pane.preview {
+	:is(:root[data-pg-pane='edit'], body[data-pane='edit']) .pg-split > #pg-split-preview,
+	:is(:root[data-pg-pane='edit'], body[data-pane='edit']) .pg-pane.preview {
 		display: none !important;
 	}
 }
@@ -579,11 +640,11 @@ body[data-view='read'] .pg-pane-label {
 	   goes full-bleed. react-resizable-panels wraps each Panel in an outer div
 	   (carrying the id) around the inner div that holds .pg-pane, so a .pg-pane rule
 	   lands on the grandchild and can't shrink the outer track. */
-	body[data-view='read'] .pg-split > #pg-split-editor,
-	body[data-view='read'] .pg-split > [data-slot='resizable-handle'] {
+	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-split > #pg-split-editor,
+	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-split > [data-slot='resizable-handle'] {
 		display: none !important;
 	}
-	body[data-view='read'] .pg-pane.preview .pg-rail {
+	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-pane.preview .pg-rail {
 		display: none !important;
 	}
 }
@@ -608,11 +669,11 @@ body[data-view='read'] .pg-pane-label {
    already scales the slide to whatever width it's given, so no outer aspect-lock
    is needed there; the filmstrip scrolls and Prev/Next still steps regardless. */
 @media not (max-width: 820px) {
-	body[data-view='read'] .pg-preview-wrap {
+	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-preview-wrap {
 		display: flex;
 		justify-content: center;
 	}
-	body[data-view='read'] #preview {
+	:is(:root[data-pg-view='read'], body[data-view='read']) #preview {
 		height: 100%;
 		width: auto;
 		aspect-ratio: var(--pg-deck-aspect, 16 / 9);
@@ -690,7 +751,7 @@ body[data-view='read'] .pg-pane-label {
 
 /* The Walk bar mounts in both modes (the tour's reveal hook needs it findable);
    only Explore SHOWS it. */
-body[data-view='edit'] .pg-walk {
+:is(:root[data-pg-view='edit'], body[data-view='edit']) .pg-walk {
 	display: none;
 }
 
@@ -725,6 +786,22 @@ body[data-view='edit'] .pg-walk {
 	background: var(--accent);
 	color: var(--accent-ink, var(--bg));
 }
+/* PRE-PAINT ACTIVE MODE (#1563). `is-active` comes from the island's `view` state, which
+   defaults to Edit and only becomes the boot resolution once the mount effect has run — so
+   an Explore boot server-rendered the toggle with the PENCIL lit and swapped it a second
+   later. The seed resolved the same answer before paint, so paint from it: neutralize the
+   server's class and light the button the seed names. Both rules live and die with
+   `data-pg-view`, which the app removes in the same step that makes the class true
+   (adoptBootSeed) — so there is no window where the two disagree. */
+:root[data-pg-view] .pg-mode-btn.is-active {
+	background: transparent;
+	color: var(--text-muted);
+}
+:root[data-pg-view='read'] .pg-mode-btn[data-pg-mode='read'],
+:root[data-pg-view='edit'] .pg-mode-btn[data-pg-mode='edit'] {
+	background: var(--accent);
+	color: var(--accent-ink, var(--bg));
+}
 .pg-mode-btn svg {
 	width: 17px;
 	height: 17px;
@@ -744,7 +821,7 @@ body[data-view='edit'] .pg-walk {
    the deck iframe. `order:10` clears the toolbar clusters (max order 3) so the
    walk bar is always last. A top border reads it as a footer separator now that
    the deck sits above it rather than below. */
-body[data-view='read'] .pg-walk {
+:is(:root[data-pg-view='read'], body[data-view='read']) .pg-walk {
 	order: 10;
 	border-block-start: 1px solid var(--border);
 	border-block-end: 0;

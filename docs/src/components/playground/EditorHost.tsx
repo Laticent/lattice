@@ -47,20 +47,34 @@ export function EditorHost({
 	const onReadyRef = React.useRef(onReady);
 	onChangeRef.current = onChange;
 	onReadyRef.current = onReady;
-	// The starter doc seeds the editor exactly once; later prop changes (there are
-	// none in practice) must not re-init the single EditorView. Read it from a ref
-	// so the mount effect has no reactive dependency on it.
-	const initialDocRef = React.useRef(initialDoc);
 	// Vocab is static (page-build data); read it from a ref so the mount effect
 	// stays [] (one init) without taking a reactive dependency on the prop.
 	const vocabRef = React.useRef(vocab);
+	// What the placeholder SHOWS. `initialDoc` is the starter deck — the only source a
+	// build-time render can know — but the editor opens the visitor's saved draft, so for
+	// anyone who has edited anything the placeholder used to paint one deck and CodeMirror
+	// replaced it with another (#1563). playground.astro's pre-paint seed writes the draft
+	// into this node before first paint and leaves it here; rendering the same string means
+	// hydration reconciles to what is already on screen instead of swapping it back.
+	// `suppressHydrationWarning` on the <pre> covers the deliberate server/client
+	// difference — the client value is the one already in the DOM.
+	const placeholderRef = React.useRef<string>(
+		(typeof window !== 'undefined' ? (window as unknown as { __pgEditorSeed?: string }).__pgEditorSeed : '') || initialDoc,
+	);
 
 	React.useEffect(() => {
 		const host = hostRef.current;
 		if (!host || viewRef.current) return; // StrictMode double-mount guard
 		const ed = createEditor({
 			parent: host,
-			doc: initialDocRef.current,
+			// The SEEDED text, not the starter — the same string the placeholder is showing.
+			// Opening CodeMirror on the starter and letting the controller's `onReady` swap in
+			// the saved draft worked only because both land in one commit flush; that was an
+			// unwritten ordering invariant this change introduced, and one React scheduling
+			// change away from a visible starter-deck flash. Opening on the draft removes the
+			// invariant instead of relying on it (the controller's later setValue is then a
+			// no-op on identical text).
+			doc: placeholderRef.current,
 			vocab: vocabRef.current,
 			autocomplete: false, // validation only on this surface; the picker owns templates
 			onChange: (v: string) => onChangeRef.current(v),
@@ -87,8 +101,8 @@ export function EditorHost({
 		<div className="pg-editor-host" id="editor-host">
 			<div className="pg-editor-mount" ref={hostRef} />
 			{!mounted && (
-				<pre className="pg-editor-placeholder" aria-hidden="true">
-					{initialDocRef.current}
+				<pre className="pg-editor-placeholder" aria-hidden="true" suppressHydrationWarning>
+					{placeholderRef.current}
 				</pre>
 			)}
 		</div>

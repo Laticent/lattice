@@ -54,6 +54,17 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	// agent's inline transform on each section (as the live preview carries). Uses the
 	// global jsdom document so `<style>` populates styleSheets (a detached
 	// createHTMLDocument does not parse them, so the critical-CSS walk would be empty).
+	//
+	// Rects are STUBBED, because jsdom reports every box as 0x0 and the capture refuses a
+	// snapshot it cannot measure a fit for (#1563 — a snapshot with no fit is one the
+	// replay will reject, so storing it would only overwrite a good one). The numbers are
+	// the real proportions from a 1194x834 session: an 856x683 preview pane, an iframe
+	// filling it, and the live slide inset 36px and centered.
+	const rect = (left: number, top: number, width: number, height: number) =>
+		({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }) as DOMRect;
+	function fakeBox() {
+		return { getBoundingClientRect: () => rect(338, 151, 856, 683) } as unknown as HTMLElement;
+	}
 	function fakeFrame() {
 		document.head.innerHTML = '<style>.title{color:red}section{color:blue}</style>';
 		document.body.innerHTML =
@@ -62,11 +73,18 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 			'<section class="title" style="transform:scale(0.3)"><h1>Two</h1></section>' +
 			'<section class="title" style="transform:scale(0.3)"><h1>Three</h1></section>' +
 			'</div>';
-		return { contentDocument: document } as unknown as HTMLIFrameElement;
+		const first = document.querySelector('.lattice > section') as HTMLElement;
+		// Frame-local coordinates: the live slide sits 36px in and 139px down inside the frame.
+		first.getBoundingClientRect = () => rect(36, 139, 784, 441);
+		// The frame is deliberately INSET from the box (10px right, 4px down) rather than flush
+		// with it. Flush rects make `fr.left - br.left` zero, so the cross-frame term could be
+		// dropped or sign-flipped and this test would still pass — it asserted the transform
+		// without ever exercising it.
+		return { contentDocument: document, getBoundingClientRect: () => rect(348, 155, 846, 679) } as unknown as HTMLIFrameElement;
 	}
 
 	it('captures ONLY the first section, wrapped in a fresh .lattice (not the whole filmstrip)', () => {
-		const snap = captureFirstSectionFromFrame(fakeFrame(), { palette: 'indaco', mode: 'light', srcHash: 'abc', w: 1280, h: 720, ts: 1 });
+		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', w: 1280, h: 720, ts: 1 });
 		expect(snap).not.toBeNull();
 		expect(snap?.html).toContain('One');
 		expect(snap?.html).not.toContain('Two');
@@ -80,18 +98,36 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	});
 
 	it('strips the FIT agent inline transform/margin from the captured slide', () => {
-		const snap = captureFirstSectionFromFrame(fakeFrame(), { palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.html).not.toContain('scale(0.3)');
 		expect(snap?.html).not.toContain('margin-bottom');
 	});
 
+	// The fit is what makes the cached slide land ON the live one instead of near it
+	// (#1563): stored in the replay box's coordinates, alongside the box size it was taken
+	// in, so a later replay into a re-dragged pane rescales rather than misplaces.
+	it('records where the live slide sits inside the box the replay paints into', () => {
+		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		// The frame is flush with the box here, so the slide's box coordinates are its
+		// frame-local ones; the box's own size rides along for the rescale.
+		// x = (frame.left - box.left) + section.left = 10 + 36; y = (155 - 151) + 139 = 143.
+		expect(snap?.fit).toEqual({ x: 46, y: 143, w: 784, h: 441, boxW: 856, boxH: 683 });
+	});
+
+	it('refuses to capture when it cannot measure a fit — a snapshot the replay would reject', () => {
+		// No box (an older caller, or a frame with no wrap): the html and css would be fine,
+		// but without a fit the replay declines to paint. Refusing here keeps the PREVIOUS
+		// good snapshot in place instead of overwriting it with an unusable one.
+		expect(captureFirstSectionFromFrame(fakeFrame(), { palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 })).toBeNull();
+	});
+
 	it('carries the srcHash identity and returns null on an empty filmstrip', () => {
-		const snap = captureFirstSectionFromFrame(fakeFrame(), { palette: 'cuoio', mode: 'dark', srcHash: 'deadbeef', ts: 9 });
+		const snap = captureFirstSectionFromFrame(fakeFrame(), { box: fakeBox(), palette: 'cuoio', mode: 'dark', srcHash: 'deadbeef', ts: 9 });
 		expect(snap?.srcHash).toBe('deadbeef');
 		expect(snap?.palette).toBe('cuoio');
 		expect(snap?.mode).toBe('dark');
 		const empty = document.implementation.createHTMLDocument('');
-		expect(captureFirstSectionFromFrame({ contentDocument: empty } as unknown as HTMLIFrameElement, { palette: 'indaco', mode: 'light', srcHash: '', ts: 0 })).toBeNull();
+		expect(captureFirstSectionFromFrame({ contentDocument: empty } as unknown as HTMLIFrameElement, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: '', ts: 0 })).toBeNull();
 	});
 });
 

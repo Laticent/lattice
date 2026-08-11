@@ -173,7 +173,16 @@ export function captureFromFrame(frame, meta) {
  * pre-paint replay matches on, in place of the Studio's deckId. SANITIZES at the
  * chokepoint (#22) exactly like captureFromFrame — the capture-without-sanitize path is
  * impossible by construction.
- * @returns {{v:1,srcHash:string,html:string,css:string,w:number,h:number,palette:string,mode:string,ts:number}|null}
+ *
+ * `meta.box` is the element the replay paints INTO (the preview wrap). Given it, the
+ * snapshot also carries `fit` — where the LIVE slide actually sits inside that box, and how
+ * big the box was when it was measured. That is what makes the hand-off from the cached
+ * slide to the live filmstrip a swap in place instead of a jump (#1563): the filmstrip's
+ * geometry comes from a chain of srcdoc CSS (`html,body{padding}` applied to both elements,
+ * `justify-content:safe center` over a clamped deck height) that the replay cannot re-derive
+ * without becoming a second model of it. Measuring beats mirroring — if that chain changes,
+ * the next capture records the new answer for free.
+ * @returns {{v:2,srcHash:string,html:string,css:string,w:number,h:number,fit:{x:number,y:number,w:number,h:number,boxW:number,boxH:number}|null,palette:string,mode:string,ts:number}|null}
  */
 export function captureFirstSectionFromFrame(frame, meta) {
 	try {
@@ -182,6 +191,13 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		if (!lattice) return null;
 		const first = lattice.querySelector(':scope > section');
 		if (!first) return null;
+		// Measure BEFORE the clone strips the FIT agent's inline transform: `first` is the
+		// live, scaled section, and its rect is exactly what the visitor is looking at.
+		const fit = measureFit(frame, first, meta.box);
+		// No box to measure against (or a frame not laid out) → no fit, and the replay's gate
+		// refuses to paint rather than guess a position. A missing shell costs one dull pane;
+		// a guessed one costs the jump this whole mechanism exists to remove.
+		if (!fit) return null;
 		// Clone slide 0 into a fresh `.lattice` wrapper (preserving any modifier classes
 		// on the filmstrip's `.lattice`). Strip the FIT agent's inline scale/margin — they
 		// scale the LIVE filmstrip to its container and are meaningless once detached; the
@@ -211,7 +227,36 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// Same relative-font-URL rewrite as captureFromFrame: the replayed CSS lives in
 		// the TOP document (`/playground/`), so `url(fonts/…)` must be made absolute.
 		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
-		return { v: 1, srcHash: meta.srcHash || '', html, css, w: meta.w || 1280, h: meta.h || 720, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };
+		return { v: 2, srcHash: meta.srcHash || '', html, css, w: meta.w || 1280, h: meta.h || 720, fit, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Where the live slide sits inside the box the replay will paint into, in that box's
+ * coordinates, plus the box's own size at the time of measuring (so a later replay into a
+ * differently-sized pane can rescale rather than misplace).
+ *
+ * `section` is measured inside the iframe's own viewport, so its rect is offset by the
+ * frame's position in the top document; both are then made relative to `box`.
+ * @returns {{x:number,y:number,w:number,h:number,boxW:number,boxH:number}|null}
+ */
+function measureFit(frame, section, box) {
+	try {
+		if (!box || !frame) return null;
+		const br = box.getBoundingClientRect();
+		const fr = frame.getBoundingClientRect();
+		const sr = section.getBoundingClientRect();
+		if (!(br.width > 0 && br.height > 0 && sr.width > 0 && sr.height > 0)) return null;
+		return {
+			x: fr.left - br.left + sr.left,
+			y: fr.top - br.top + sr.top,
+			w: sr.width,
+			h: sr.height,
+			boxW: br.width,
+			boxH: br.height,
+		};
 	} catch {
 		return null;
 	}
