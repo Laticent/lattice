@@ -155,7 +155,7 @@ export const PREVIEW_CHROME = {
 	// ── The editor|preview split, exactly as react-resizable-panels lays it out ──────────
 	// The library distributes PERCENTAGES over the group width MINUS its separators, so the
 	// preview pane is `(groupW - splitSeparatorW) * pct`. Verified to 0.01px at 1440 for the
-	// default share, two dragged shares, a collapsed editor, and the Build stop's narrower
+	// default share, two dragged shares, a collapsed editor, and the Craft stop's narrower
 	// group. The 1px looks like rounding until you notice it is the difference between a
 	// band that lands on the divider and one that lands beside it.
 	splitSeparatorW: 1, // <ResizableHandle> is `w-px`

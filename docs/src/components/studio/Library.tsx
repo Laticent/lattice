@@ -62,7 +62,7 @@ function themeSwatches(t: StudioTheme): string[] {
 	return ['var(--accent)'];
 }
 
-// The Library's transport: a docked left column (desktop-Build) or a PanelSheet
+// The Library's transport: a docked left column (desktop-Craft) or a PanelSheet
 // (compact) — a right sheet at tablet, a bottom sheet on a phone. The inner content
 // is identical across all three; `PanelHeader` absorbs the one difference that used
 // to need a fork (a bare `h2` when docked vs `SheetTitle` inside the portal).
@@ -84,7 +84,7 @@ function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boole
 export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onChanged, notify }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
-	/** Desktop-Build: render as a docked left column (plain div, no Sheet portal),
+	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
 	 *  closed via its launcher toggle. Compact: omit → the right-side Sheet. */
 	docked?: boolean;
 	options: SingleSlideOptions;

@@ -2223,7 +2223,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, []);
-	// Fabricate is its own full-screen surface; never sit quietened OR build-revealed
+	// Fabricate is its own full-screen surface; never sit quietened OR craft-revealed
 	// behind it, but SUSPEND-and-RESTORE either transient so exiting Fabricate returns
 	// you to the exact surface you left — not a posture you didn't choose (R5). Present
 	// is an overlay (it doesn't swap the compose body), so it needs no such dance. A

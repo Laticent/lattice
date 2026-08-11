@@ -174,7 +174,11 @@ export default {
 			url: '/studio', ready: '.cm-content', settle: 1500,
 			// dial to the CRAFT posture so the full UI (activity bar, op rail, both editor toggles)
 			// is present + selectors deterministic; every studio cycle shares this → matched floors.
-			setup: async (page) => { await page.click('button[aria-label="Build — every panel"]').catch(() => {}); await wait(page, 700); },
+			// NOT `.catch(() => {})`. A swallowed click here does not fail — it silently benchmarks
+			// the WRITE surface against floors calibrated for Craft, which is worse than a red run.
+			// (That is exactly what the Build → Craft rename did to this line before the checker
+			// caught it: comments renamed, selector not, error eaten.)
+			setup: async (page) => { await page.click('button[aria-label="Craft — every panel"]'); await wait(page, 700); },
 		},
 		landing: { url: '/', ready: '[role="tablist"][aria-label="Hero view"]', settle: 2000 },
 		playground: { url: '/playground', ready: '#editor-host .cm-editor', settle: 2000 },

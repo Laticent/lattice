@@ -28,6 +28,7 @@ import {
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	resolveTitle,
 	retitleSource,
+	type StudioSettings,
 	saveActiveDeck,
 	saveChat,
 	saveChatDraft,
@@ -531,6 +532,33 @@ describe('studio-store — settings', () => {
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'sculpt' }));
 		expect(loadSettings().posture).toBe('write');
 		expect(hasStoredPosture()).toBe(false);
+	});
+
+	it('an Object.prototype key is not a stop (the alias map is not a lookup oracle)', () => {
+		// POSTURE_ALIASES is an object literal, so a bare `ALIASES[v]` truthiness test makes
+		// 'constructor' / 'toString' / '__proto__' truthy INHERITED hits — and the resolved
+		// "stop" is then a function, which matches no dial segment, so the dial lights
+		// nothing. That is precisely the state `asPosture` exists to prevent, and storage is
+		// attacker-adjacent (importStudioState restores a .json's settings verbatim).
+		for (const junk of ['constructor', 'toString', 'valueOf', '__proto__', 'hasOwnProperty']) {
+			localStorage.clear();
+			localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: junk }));
+			expect(loadSettings().posture).toBe('write');
+			expect(hasStoredPosture()).toBe(false);
+		}
+	});
+
+	it('normalizes the stop on WRITE too, so an old backup cannot re-seed the legacy name', () => {
+		// importStudioState ends in `saveSettings(data.settings)` — a whole settings object
+		// lifted verbatim out of a backup file, spread AFTER loadSettings()'s normalization.
+		// A backup taken before the rename carries posture:'build'; without a write-side
+		// normalize it lands back in storage and the alias has to live forever.
+		localStorage.clear();
+		saveSettings({ posture: 'build' } as unknown as Partial<StudioSettings>);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('craft');
+		// Junk arriving the same way falls back rather than being persisted as-is.
+		saveSettings({ posture: 'sculpt' } as unknown as Partial<StudioSettings>);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 
 	it('seeds language from the browser the first time, then honors the saved pick', () => {

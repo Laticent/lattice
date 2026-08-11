@@ -692,10 +692,20 @@ export const POSTURES: readonly Posture[] = ['read', 'write', 'craft'];
  * wrong skeleton and the hand-off shows as a jump — see BOOT_POSTURE below.
  */
 export const POSTURE_ALIASES: Readonly<Record<string, Posture>> = { build: 'craft' };
-/** Resolve a stored value (current name or legacy alias) to a stop, else null. */
+/**
+ * Resolve a stored value (current name or legacy alias) to a stop, else null.
+ *
+ * `Object.hasOwn` rather than a bare `POSTURE_ALIASES[v]` truthiness test: the map is
+ * an object literal, so `'constructor'` / `'toString'` / `'__proto__'` would look up
+ * INHERITED members and hand back a truthy non-Posture. Storage is attacker-adjacent
+ * enough for that to matter — `importStudioState` restores `settings` verbatim from a
+ * `.json` a person was handed — and the symptom is the exact one the validation below
+ * exists to prevent: a "valid" stop that no dial segment matches, so the dial lights
+ * nothing. (Found by the independent checker on this rename.)
+ */
 const asPosture = (v: unknown): Posture | null => {
 	if (POSTURES.includes(v as Posture)) return v as Posture;
-	return (typeof v === 'string' && POSTURE_ALIASES[v]) || null;
+	return typeof v === 'string' && Object.hasOwn(POSTURE_ALIASES, v) ? POSTURE_ALIASES[v] : null;
 };
 /**
  * The stop a browser with no explicitly-stored posture boots on — the ONE
@@ -785,7 +795,14 @@ export function loadSettings(): StudioSettings {
 // sheet reflects live without a remount.
 export const SETTINGS_EVENT = 'lattice:settings';
 export function saveSettings(partial: Partial<StudioSettings>): void {
-	write(SETTINGS_LS, { ...loadSettings(), ...partial });
+	const next = { ...loadSettings(), ...partial };
+	// Normalize the stop at the WRITE boundary, not just the read one. `partial` can
+	// carry a legacy or junk value straight past `loadSettings`'s normalization —
+	// `importStudioState` passes a whole `settings` object lifted verbatim out of a
+	// backup file, and a backup taken before the Craft rename holds `posture: 'build'`.
+	// Without this the old spelling re-enters storage at an arbitrary future date, so
+	// POSTURE_ALIASES would have to live forever instead of covering one load.
+	write(SETTINGS_LS, { ...next, posture: asPosture(next.posture) ?? BOOT_POSTURE });
 	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_EVENT));
 }
 
