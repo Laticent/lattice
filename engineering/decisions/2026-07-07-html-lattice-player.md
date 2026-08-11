@@ -389,6 +389,19 @@ a security defect in the player JS lives **forever** in every file already sent.
     since its script is CSP-hashed and can't import) and drives Present through it; the fit is unchanged
     (`scale(0.95625)` at 1280×800, verified) and the keymap gains PageUp/PageDown/Home/End for free.
     Real-surface verified: Present nav + edge-clamping driven in Chromium.
+    - **CORRECTION (2026-08-11, #1577).** "The export player's `fit()` hard-coded 1280×720" was
+      recorded above as a *forked constant the kernel unified* — but unifying the fit MATH left
+      the CANVAS hardcoded, in nine places (five CSS rules, the two `fitScale` calls, and the
+      no-JS floor's `--lp-fit` ladder, which was fractions of 1280 with the literal nowhere in
+      sight). The engine derives a deck's type scale from its REAL canvas via `--_sec-1cqi`, so
+      every deck declaring a non-default `size:` exported laid out for its own canvas and then
+      crushed into an HD box — ~3× oversized, headings over body copy, cut off mid-word, on 35
+      committed decks and silently, since the same run's PDF was correct. The canvas is now
+      THREADED from the host (`data.width`/`data.height` → `playerCss`/`playerJs`), which both
+      the CLI and the Studio already resolve; deriving it from the emitted document was rejected
+      because that means regex-reading our own CSS in two host-specific shapes, absent entirely
+      in some fixtures. A deck with no declared `size:` is byte-identical, which is why the
+      frozen-artifact golden did not move.
   - **P3b — docs-side stage reconciliation — SHIPPED (2026-07-08).** The map corrected the plan: the docs
     `buildStageDoc` was NOT itself on the kernel, and `drawing-board-present` already imported it (no fork
     there), while `drawing-board-practice` carried its OWN inline copy of the stage doc (pad ×0.04). So P3b:

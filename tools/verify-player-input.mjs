@@ -31,13 +31,11 @@ import { chromium } from '../docs/node_modules/@playwright/test/index.mjs'; // t
 // carries no theme, so its "dark" evidence was byte-for-byte its light evidence while the run
 // printed ALL CHECKS PASSED.
 //
-// A DEFAULT-SIZE (16:9, 1280×720) deck, deliberately. The first deck tried here was
-// `gallery-jargon.md`, which declares `size: 4K` — and the player's fit() hardcodes
-// 1280×720, so every slide rendered at 3× and spilled out of its frame. That is a real,
-// PRE-EXISTING export defect and it is not this change's to fix (the artifact is
-// byte-identical to `main` outside the pointer block), but it made the sign-off images
-// useless. The overflow check below is what turns that from something a human has to notice
-// into something the run refuses to hand over.
+// The overflow check below started as a guard against a defect this file used to describe as
+// out of scope: the player hardcoded 1280×720, so `gallery-jargon.md` (`size: 4K`) rendered
+// every slide at 3× and spilled its frame, which made the sign-off images useless. That is
+// fixed (#1577) — the canvas is threaded from the host now — and the check stays, because it
+// is the thing that would notice a regression without anyone having to look.
 const DECK = process.env.DECK || 'examples/finish-backdrops.md';
 const out = path.resolve('.scratch/out/player-input');
 mkdirSync('.scratch/out', { recursive: true });
@@ -287,7 +285,7 @@ const overflow = await shot.evaluate(() => {
 check(
 	'the sign-off slide actually fits its frame (a spilled slide is not evidence)',
 	overflow.scroll <= overflow.box + 2,
-	`content ${overflow.scroll}px in a ${overflow.box}px slide — a deck declaring a non-default \`size:\` will fail here, because the player's fit() hardcodes 1280×720`,
+	`content ${overflow.scroll}px in a ${overflow.box}px slide`,
 );
 
 const ground = {};
@@ -302,6 +300,40 @@ for (const mode of ['light', 'dark']) {
 }
 check('the sign-off artifacts are genuinely two different modes', ground.light !== ground.dark, `light ${ground.light} vs dark ${ground.dark}`);
 console.log(`wrote ${file} and .scratch/out/player-input-{light,dark}.png`);
+
+// ── a NON-DEFAULT canvas, on a real artifact (#1577) ─────────────────────────
+//
+// The class of deck that used to export unreadable: laid out by the engine for its declared
+// canvas, then crushed into the player's hardcoded HD box. Asserting the geometry is not
+// enough — the failure was visible as content spilling its own frame, so that is what is
+// measured, plus the frame landing inside the stage rather than overflowing it.
+{
+	const szOut = path.resolve('.scratch/out/player-size');
+	execFileSync(process.execPath, ['lattice-emulator.js', 'examples/gallery-jargon.md', szOut, '--player'], { stdio: 'pipe' });
+	const szCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+	const sz = await szCtx.newPage();
+	await sz.goto(`file://${szOut}.html`);
+	await sz.waitForSelector('#lp-stage');
+	await sz.evaluate(() => document.fonts.ready);
+	await sz.keyboard.press('ArrowRight');
+	await sz.keyboard.press('ArrowRight');
+	await sz.waitForTimeout(600);
+	const m = await sz.evaluate(() => {
+		const s = document.querySelector('.lp-frame.lp-active section[data-lattice-slide]');
+		const frame = s.closest('.lp-frame').getBoundingClientRect();
+		const stage = document.querySelector('body > #lp-app > #lp-stage').getBoundingClientRect();
+		return {
+			box: `${getComputedStyle(s).width} x ${getComputedStyle(s).height}`,
+			scroll: s.scrollHeight,
+			clientH: s.clientHeight,
+			fits: frame.width <= stage.width + 1 && frame.height <= stage.height + 1,
+		};
+	});
+	check('a 4K deck keeps its OWN canvas in the player', m.box === '3840px x 2160px', m.box);
+	check('…its content does not spill that canvas', m.scroll <= m.clientH + 2, `${m.scroll}px in ${m.clientH}px`);
+	check('…and the scaled frame fits the stage', m.fits);
+	await szCtx.close();
+}
 
 await browser.close();
 console.log(process.exitCode ? '\nFAILED' : '\nALL CHECKS PASSED');

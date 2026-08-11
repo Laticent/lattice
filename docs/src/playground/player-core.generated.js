@@ -1806,7 +1806,13 @@ function themeDualMode(css) {
   const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}}`;
   return { base, darkBlock };
 }
-function playerCss(narration2 = false, captions = narration2) {
+var PLAYER_CANVAS = { w: 1280, h: 720 };
+var NO_JS_FRAME_WIDTHS = [358.4, 512, 716.8, 921.6];
+var NO_JS_LADDER_HD = [".28", ".40", ".56", ".72"];
+function playerCss(narration2 = false, captions = narration2, canvas = PLAYER_CANVAS) {
+  const CW = canvas.w;
+  const CH = canvas.h;
+  const ladder = CW === PLAYER_CANVAS.w ? NO_JS_LADDER_HD : NO_JS_FRAME_WIDTHS.map((px) => String(Math.round(px / CW * 1e4) / 1e4).replace(/^0\./, "."));
   return `
 :root{color-scheme:light dark}
 html,body{margin:0;padding:0;background:var(--bg,#fff)}
@@ -1905,9 +1911,9 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
    scales into the frame from its top-left (transform-origin:0 0). Shadow rides the
    frame (the scaled section's own shadow would shrink with it). */
 .lp-js [data-lp-view=present] .lp-frame.lp-active{display:block;
- width:calc(1280px * var(--lp-fit-present,.5));height:calc(720px * var(--lp-fit-present,.5));
+ width:calc(${CW}px * var(--lp-fit-present,.5));height:calc(${CH}px * var(--lp-fit-present,.5));
  border-radius:12px;box-shadow:0 24px 70px -22px rgba(0,0,0,.45)}
-.lp-js [data-lp-view=present] .lp-frame.lp-active section[data-lattice-slide]{width:1280px!important;height:720px!important;
+.lp-js [data-lp-view=present] .lp-frame.lp-active section[data-lattice-slide]{width:${CW}px!important;height:${CH}px!important;
  transform:scale(var(--lp-fit-present,.5));transform-origin:0 0}
 .lp-js [data-lp-view=present] #lp-doc{display:none}
 /* Present prev/next \u2014 a control ROW docked at the BOTTOM of the column (flex:none),
@@ -1996,9 +2002,9 @@ ${captions ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that s
    frame to make the column fit \u2014 squishing the frame (e.g. 201px \u2192 107px) while the
    scaled section stays full height and overflows the squished frame (clipped). flex:none
    keeps every frame at its calc()'d height so the stage SCROLLS instead of squishing. */
-[data-lp-view=read-slides] .lp-frame{flex:none;width:calc(1280px * var(--lp-fit,.28));height:calc(720px * var(--lp-fit,.28));overflow:hidden;border-radius:12px;
+[data-lp-view=read-slides] .lp-frame{flex:none;width:calc(${CW}px * var(--lp-fit,.28));height:calc(${CH}px * var(--lp-fit,.28));overflow:hidden;border-radius:12px;
  border:1px solid var(--border,#e5e5e5);box-shadow:0 10px 34px -14px rgba(0,0,0,.4)}
-[data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0}
+[data-lp-view=read-slides] section[data-lattice-slide]{width:${CW}px!important;height:${CH}px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0}
 /* READ\xB7SLIDES floating Home/End \u2014 an AUTO-REVEALING "jump to top / bottom" affordance,
    OVERLAID (position:absolute over the scrolling stage), so the continuous scroll flow is
    never obstructed by a docked row. It REVEALS on scroll / touch / tap and idle-HIDES after
@@ -2107,13 +2113,13 @@ ${captions ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that s
    mobile browsers), scripting disabled, or a script error \u2014 the deck falls back to a
    readable stacked column instead of a BLANK page (present mode had hidden every slide
    until JS marked one active). The bar's live-only controls hide in this state. */
-html:not(.lp-js){--lp-fit:.28}
-@media(min-width:560px){html:not(.lp-js){--lp-fit:.40}}
-@media(min-width:760px){html:not(.lp-js){--lp-fit:.56}}
-@media(min-width:1000px){html:not(.lp-js){--lp-fit:.72}}
+html:not(.lp-js){--lp-fit:${ladder[0]}}
+@media(min-width:560px){html:not(.lp-js){--lp-fit:${ladder[1]}}}
+@media(min-width:760px){html:not(.lp-js){--lp-fit:${ladder[2]}}}
+@media(min-width:1000px){html:not(.lp-js){--lp-fit:${ladder[3]}}}
 html:not(.lp-js) #lp-stage{max-width:980px;margin:0 auto;padding:68px 16px 90px;display:flex;flex-direction:column;align-items:center;gap:22px}
-html:not(.lp-js) .lp-frame{width:calc(1280px * var(--lp-fit));height:calc(720px * var(--lp-fit));overflow:hidden;border-radius:12px}
-html:not(.lp-js) section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit));transform-origin:0 0;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+html:not(.lp-js) .lp-frame{width:calc(${CW}px * var(--lp-fit));height:calc(${CH}px * var(--lp-fit));overflow:hidden;border-radius:12px}
+html:not(.lp-js) section[data-lattice-slide]{width:${CW}px!important;height:${CH}px!important;transform:scale(var(--lp-fit));transform-origin:0 0;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
 html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes-btn,html:not(.lp-js) #lp-full{display:none}
 `.trim();
 }
@@ -2330,7 +2336,7 @@ onViewChanged=function(v){if(playBtn)playBtn.style.display=v==='present'?'':'non
  if(v!=='present'&&narPlaying){setPlaying(false);stopAudio();clearCaption();}};
 `;
 }
-async function playerJs(animaJs = "", beats = null, captions = !!beats) {
+async function playerJs(animaJs = "", beats = null, captions = !!beats, canvas = PLAYER_CANVAS) {
   const { fitScale: fitScale2, createTransport: createTransport2, keyAction: keyAction2, swipeAction: swipeAction2, PRESENT_KEYMAP: PRESENT_KEYMAP2 } = await Promise.resolve().then(() => (init_present_transport(), present_transport_exports));
   const capKernel = captions ? `var makeCursor=${(await Promise.resolve().then(() => (init_dist(), dist_exports))).makeCursor.toString()};
 ` : "";
@@ -2405,7 +2411,7 @@ if(nextBtn)nextBtn.onclick=function(){t.next();};
 // stage and grid top-aligned it, pushing the slide down.
 function fit(){if(view!=='present')return;
  var st=lpEl('lp-stage');if(!st)return;
- root.style.setProperty('--lp-fit-present',fitScale({stageW:st.clientWidth,stageH:st.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40}));}
+ root.style.setProperty('--lp-fit-present',fitScale({stageW:st.clientWidth,stageH:st.clientHeight,slideW:${canvas.w},slideH:${canvas.h},insetX:40,insetY:40}));}
 // READ\xB7SLIDES fit: size each slide to the SAME footprint Present uses \u2014 fitScale over the
 // visible stage box with the same 40px inset \u2014 so the first slide is IDENTICAL between the
 // two tabs (a seamless switch, no jump) and each slide fills the viewport with the next
@@ -2416,7 +2422,7 @@ function fitRead(){var st=lpEl('lp-stage');if(!st)return;
  // Fit into ~86% of the visible stage HEIGHT (with a 40px side inset) \u2014 nearly Present-sized,
  // but the reserved ~14% guarantees the NEXT slide peeks below the fold on every viewport,
  // not just sits at the exact edge. Width stays the constraint on a narrow/portrait screen.
- root.style.setProperty('--lp-fit',fitScale({stageW:st.clientWidth,stageH:st.clientHeight*0.86,slideW:1280,slideH:720,insetX:40,insetY:0}));}
+ root.style.setProperty('--lp-fit',fitScale({stageW:st.clientWidth,stageH:st.clientHeight*0.86,slideW:${canvas.w},slideH:${canvas.h},insetX:40,insetY:0}));}
 function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle('lp-active',n===i);});
  // The VISIBLE text stays the compact "2 / 7" the design wants; the accessible
  // name spells it out, because a screen reader announcing a bare "2 / 7" gives a
@@ -2762,7 +2768,11 @@ async function assemblePlayer(data, caps) {
   const hasAudio = hasNarration && (data.narration || []).some((cues) => (cues || []).some((c) => typeof c?.audio === "string" && c.audio.startsWith("data:")));
   const paceName = frontMatterPace(source);
   const beats = { slide: paceBeatMs("slide", paceName), section: paceBeatMs("section", paceName) };
-  const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "", hasNarration ? beats : null, hasCaptions);
+  const canvas = {
+    w: Number(data.width) > 0 ? Number(data.width) : PLAYER_CANVAS.w,
+    h: Number(data.height) > 0 ? Number(data.height) : PLAYER_CANVAS.h
+  };
+  const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "", hasNarration ? beats : null, hasCaptions, canvas);
   const jsHash = await caps.sha256(js);
   const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; ${hasAudio ? "media-src data:; " : ""}base-uri 'none'; form-action 'none'`;
   const envelope = (0, import_lattice_doc.buildEnvelope)(
@@ -2775,7 +2785,7 @@ async function assemblePlayer(data, caps) {
 <meta http-equiv="Content-Security-Policy" content="${escapeAttr(csp)}">
 <title>${escapeText(title)}</title>
 ${styles}
-<style>${minifyCss(playerCss(hasNarration, hasCaptions))}</style>
+<style>${minifyCss(playerCss(hasNarration, hasCaptions, canvas))}</style>
 ${darkStyle}
 </head><body>
 <header id="lp-bar">

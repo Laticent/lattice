@@ -208,6 +208,9 @@ type PlayerCore = {
 			docHtml: string;
 			source: string;
 			title?: string;
+			/** The deck's real canvas in px. Omitted → the player's historical 1280x720 (#1577). */
+			width?: number;
+			height?: number;
 			theme?: unknown;
 			config?: unknown;
 			notes?: boolean;
@@ -403,6 +406,12 @@ export async function shareHtmlPlayer(
 			docHtml,
 			source: envelopeSource,
 			title,
+			// The deck's REAL canvas, the same numbers this function already wrote into the
+			// exported document's own sizing rule. Without them the player hardcoded 1280x720,
+			// so a deck declaring a non-default `size:` exported at ~3x and spilled its frame
+			// while the PDF beside it was correct (#1577).
+			width: w,
+			height: h,
 			theme: { name: palette, mode: scheme },
 			config: undefined,
 			notes: !stripNotes,

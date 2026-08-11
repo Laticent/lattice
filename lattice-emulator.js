@@ -3144,6 +3144,12 @@ async function renderBody(browser, g, closeBrowser) {
         // the stated privacy tradeoff (§Notes on export).
         source: stripSharedSource(rawMd, noteStripSet),
         title: deckTitle,
+        // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
+        // declaring a non-default `size:` exported laid out for its own canvas and then
+        // crushed into an HD box — type at 3x, slides cut off mid-word, and silently, since
+        // this same run's PDF was correct (#1577). Already resolved above for the render.
+        width: slideW,
+        height: slideH,
         theme: { name: paletteName, mode: deckScheme },
         // The engine's shallow front-matter parse doesn't read the nested `captions:` map (it
         // surfaces as `""`), so `config` normally carries no caption text — but an inline

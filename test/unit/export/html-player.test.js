@@ -23,8 +23,10 @@ const { READ_ALONG_VERSION, parseEnvelope } = require('../../../lib/core/lattice
 let minifyCss;
 let resolveLightDark;
 let themeDualMode;
+let playerCss;
+let playerJs;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode } = await import('../../../lib/export/player-core.mjs'));
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs } = await import('../../../lib/export/player-core.mjs'));
 });
 
 // ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
@@ -531,6 +533,65 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
 	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
 	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
+});
+
+// ── the deck's own canvas reaches the player (#1577) ─────────────────────────
+//
+// The player hardcoded 1280x720 in nine places, so a deck declaring any other `size:` was laid
+// out by the engine for its real canvas — the type scale rides `--_sec-1cqi`, derived from that
+// canvas — and then forced into an HD box. A 4K deck rendered every token at 3x: headings over
+// body copy, slides cut off mid-word. Silently, because the same run's PDF was correct. 35 of
+// the committed decks that declare a `size:` reproduce it.
+//
+// The geometry is THREADED from the host rather than derived from the document: both hosts
+// already resolve it, and parsing it back out of our own emitted CSS would mean reading two
+// different shapes with no rule at all in some fixtures.
+
+test('a non-default canvas reaches every sizing site in the player CSS (#1577)', async () => {
+	const css = playerCss(false, false, { w: 3840, h: 2160 });
+	// Present frame + slide, read-slides frame + slide, and the no-JS floor: five sites, and a
+	// miss in any one of them is a differently-broken deck rather than a smaller bug.
+	assert.match(css, /\.lp-frame\.lp-active\{[^}]*width:calc\(3840px \* var\(--lp-fit-present/, 'present frame');
+	assert.match(css, /\.lp-frame\.lp-active section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'present slide');
+	assert.match(css, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(3840px \*/, 'read-slides frame');
+	assert.match(css, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'read-slides slide');
+	assert.match(css, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'no-JS floor slide');
+	assert.doesNotMatch(css, /1280px!important/, 'no HD literal survives for a 4K deck');
+});
+
+test('the fit math divides by the deck canvas, not by 1280x720 (#1577)', async () => {
+	const js = await playerJs('', null, false, { w: 1080, h: 1920 });
+	assert.match(js, /slideW:1080,slideH:1920,insetX:40,insetY:40/, 'present fit');
+	assert.match(js, /slideW:1080,slideH:1920,insetX:40,insetY:0/, 'read-slides fit');
+	assert.doesNotMatch(js, /slideW:1280/, 'no HD divisor survives');
+});
+
+test("the no-JS floor's scale ladder follows the canvas, keeping the frame the same width", async () => {
+	// The ladder shipped as fixed fractions of 1280 — a literal no find-and-replace over "1280"
+	// would catch, because the number is not there. Unscaled, a 1080-wide story deck sits 778px
+	// wide at the top rung instead of 922. The floor is a scrolling column, so the width is what
+	// matters and the fraction is derived from it.
+	const hd = playerCss(false, false);
+	const story = playerCss(false, false, { w: 1080, h: 1920 });
+	assert.match(hd, /html:not\(\.lp-js\)\{--lp-fit:\.28\}/, 'an HD deck keeps the historical literals');
+	assert.match(story, /html:not\(\.lp-js\)\{--lp-fit:\.3319\}/, 'and a 1080-wide deck gets the fraction that means the same width');
+	// 1080 * .3319 = 358.5px, the same rung the HD deck sits at (1280 * .28 = 358.4).
+	assert.ok(Math.abs(1080 * 0.3319 - 1280 * 0.28) < 1, 'the two ladders produce the same physical width');
+});
+
+test('a deck with NO declared size is byte-identical — the fallback is the historical canvas', async () => {
+	// The whole class of decks that worked before this existed must not move a byte, which is
+	// what lets the frozen-artifact golden stay put. Omitting the geometry is a supported call:
+	// third-party callers and fixtures rely on it, so it defaults rather than throwing.
+	const withOut = await buildPlayerHtml({ docHtml, source, now: 0, build: 'X', playerVersion: 'X' });
+	const withHd = await buildPlayerHtml({ docHtml, source, now: 0, build: 'X', playerVersion: 'X', width: 1280, height: 720 });
+	assert.equal(withOut.html, withHd.html, 'omitting the canvas is the same as passing the default');
+});
+
+test('assemblePlayer threads a declared canvas end to end (#1577)', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0, width: 1080, height: 1350 });
+	assert.match(html, /width:1080px!important;height:1350px!important/, 'the CSS carries the portrait canvas');
+	assert.match(html, /slideW:1080,slideH:1350/, 'and so does the fit math');
 });
 
 test('Read·Slides is unified onto Present\'s frame, with a floating Home/End overlay + Present mouse wheel', async () => {
