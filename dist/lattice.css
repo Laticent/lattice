@@ -19848,6 +19848,19 @@ section.chart-frame {
   --chart-inset-x: 0px;
   --chart-inset-top: var(--sp-lg);
   --chart-inset-bottom: var(--sp-lg);
+
+  /* The PANEL's internal inset — a DIFFERENT quantity from the frame inset above,
+   * and they must not share a token. The opt-in `.canvas` glass card paints a
+   * surface on `.chart-body`, and its padding is what keeps content off that
+   * painted edge; the frame inset is what keeps the body off the slide edge. They
+   * were the same 64px number for years, which is exactly why #1598 coupled the
+   * panel's rule to `--chart-inset-x` and why that coupling was invisible — until
+   * the frame inset went to 0 and took the panel's inset with it. Measured on a
+   * `quadrant canvas`: panel padding `32px 0px`, the SVG running 65..1215 inside a
+   * card at 64..1216 — content 1px from the glass edge, on a rule whose own
+   * comment says it exists to prevent exactly that. Separate tokens, so a future
+   * move of one cannot silently move the other. */
+  --chart-panel-x: var(--sp-2xl);
 }
 /* CONSUMER 2 of the inset tokens — the `no-form` path.
  * Scoped `:not(.form)` deliberately. This block used to carry an UNSCOPED
@@ -19874,8 +19887,20 @@ section.chart-frame {
  * seam to sit in; the section's own `padding-bottom` (the footer band, well over
  * any `--chart-inset-bottom`) is the bottom clearance. */
 section.chart-frame:not(.form) {
-  /* section-OWN cqi: route the footer band through --_sec-1cqi (preview self-reference) */
-  padding: 0 var(--chart-inset-x) calc(4.375 * var(--_sec-1cqi, 1cqi));
+  /* THE FRAME INSET IS SPELLED OUT HERE, because on this path nothing else
+   * supplies it. Under the Form, `section.form`'s own `padding: … var(--frame-x) …`
+   * is the 64px safe margin and `--chart-inset-x` is only what a chart adds ON TOP
+   * of it. There is no `section.form` here, so this declaration is the whole inset
+   * — and reading `--chart-inset-x` alone meant that taking the chart's extra to 0
+   * took the SAFE MARGIN with it: measured, a `no-form` chart's body and heading
+   * both ran 0..1280, to the literal slide edge, worse than before any of this
+   * work. `--frame-x` is declared on `section.form`, so it cannot be read here;
+   * `5 × --_sec-1cqi` is that token's own definition, kept in step by hand.
+   * (The `4.375` bottom is the footer band. section-OWN cqi throughout: route
+   * through --_sec-1cqi for the preview self-reference.) */
+  padding: 0
+           calc(var(--_sec-1cqi, 1cqi) * 5 + var(--chart-inset-x))
+           calc(4.375 * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── Categorical chart colour model ───────────────────────────────────────
@@ -20305,7 +20330,11 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
  * tunes); it used to be spelled twice, once in the width calc and once in the
  * padding, and it is now spelled once for both holders. */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
-  /* NO inline override any more. This tuning existed to pull the side inset IN
+  /* The PANEL's inset still tightens on a narrow box — that half of the tuning is
+   * about the glass card's internal berth and is unaffected by the frame inset
+   * going to 0. */
+  --chart-panel-x: var(--sp-sm);
+  /* NO frame-inset override any more. This tuning existed to pull the side inset IN
    * from `--sp-2xl` on a narrow box, where 64px per side ate width a portrait
    * chart cannot spare. With the default at 0 there is nothing left to reclaim —
    * restating `--sp-sm` here would PUSH the chart out, inverting the tuning's
@@ -20380,7 +20409,7 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * inline inset jumped 26.3px to 105.3px, 4x, and the drawing lost 18% of its
    * width inside a panel whose outer box had not moved. A token cannot drift from
    * its tuning that way. */
-  padding-inline: var(--chart-inset-x);
+  padding-inline: var(--chart-panel-x);
   /* Float the panel clear of the header divider. The .chart-header::after
    * accent hairline sits at the header's bottom edge; without this gap the
    * lifted glass card's top edge lands right on it and the two separators
