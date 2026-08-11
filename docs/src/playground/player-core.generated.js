@@ -1949,22 +1949,30 @@ function themeDualMode(css) {
   if (!darkDecls.length) return { base, darkBlock: "" };
   const derivedDecls = [];
   {
-    const known = new Set(darkKeys);
-    const pool = [];
+    const isRootScope = (selectorList) => selectorList.split(",").some((s) => /^:root(?:\[[^\]]*\]|:[a-z-]+(?:\([^()]*\))?)*$/.test(s.trim()));
+    const pool = /* @__PURE__ */ new Map();
     const declAny = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g;
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let rule;
     let d;
-    while (d = declAny.exec(noComments)) {
-      if (darkKeys.has(d[1])) continue;
-      pool.push([d[1], resolveLightDark(d[2], 0).trim()]);
+    while (rule = ruleRe.exec(noComments)) {
+      if (!isRootScope(rule[1])) continue;
+      declAny.lastIndex = 0;
+      const block = `${rule[2]}}`;
+      while (d = declAny.exec(block)) {
+        if (darkKeys.has(d[1])) continue;
+        pool.set(d[1], resolveLightDark(d[2], 0).trim());
+      }
     }
-    for (let pass = 0; pass < pool.length; pass++) {
+    const known = new Set(darkKeys);
+    for (let pass = 0; pass < pool.size; pass++) {
       let grew = false;
-      for (const entry of pool) {
-        if (!entry || known.has(entry[0])) continue;
-        const refs = [...entry[1].matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map((r) => r[1]);
+      for (const [name, value] of pool) {
+        if (known.has(name)) continue;
+        const refs = [...value.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map((r) => r[1]);
         if (!refs.some((r) => known.has(r))) continue;
-        known.add(entry[0]);
-        derivedDecls.push(`${entry[0]}:${entry[1]}`);
+        known.add(name);
+        derivedDecls.push(`${name}:${value}`);
         grew = true;
       }
       if (!grew) break;
@@ -2979,7 +2987,7 @@ async function assemblePlayer(data, caps) {
     }
     return out2;
   }).join("\n");
-  const darkStyle = darkOverrides ? `<style>${minifyCss(darkOverrides)}</style>` : "";
+  const darkStyle = darkOverrides ? `<style id="lattice-dual-mode">${minifyCss(darkOverrides)}</style>` : "";
   const lang = doc.documentElement.getAttribute("lang") || "en";
   const title = data.title || doc.querySelector("title")?.textContent || "Lattice deck";
   const rawScheme = data.theme?.mode || data.mode;

@@ -287,8 +287,36 @@ describe('notes-core: caption channel (caption:)', () => {
         '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- caption: Read aloud. --></section>',
         '<section><h1>B</h1></section>',
       ]);
-      assert.deepEqual(rec[0], { note: 'A note.', description: 'A chart.', caption: 'Read aloud.' });
-      assert.deepEqual(rec[1], { note: null, description: null, caption: null });
+      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', caption: 'Read aloud.' });
+      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, caption: null });
+    });
+
+    // The privacy contract behind `noteBodies`. `note` JOINS a slide's notes with a blank
+    // line, so splitting it back on '\n\n' is not the inverse: a SINGLE note containing a
+    // blank line shatters into fragments, and `stripNotesFromSource` matches a comment's
+    // WHOLE trimmed body — so nothing matches and the note ships in a --strip-notes export.
+    // That shipped in the Studio while the CLI, which passes the bodies, was correct.
+    test('noteBodies survives a note that contains a blank line — the strip set the join cannot rebuild', () => {
+      const body = 'Board only.\n\nDo not share.';
+      const rec = core.slideNoteRecord([`<section><h1>Q3</h1><!--\n${body}\n--></section>`]);
+      assert.deepEqual(rec[0].noteBodies, [body], 'the pre-join body is carried whole');
+
+      const source = `---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!--\n${body}\n-->\n`;
+      const stripped = core.stripNotesFromSource(source, new Set(rec.flatMap((r) => r.noteBodies)));
+      assert.ok(!stripped.includes('Do not share'), 'the note is scrubbed from the envelope source');
+      assert.ok(stripped.includes('_class: title'), 'and the directive beside it survives');
+
+      const rebuilt = new Set(rec.flatMap((r) => (r.note ? r.note.split('\n\n') : [])));
+      assert.ok(
+        core.stripNotesFromSource(source, rebuilt).includes('Do not share'),
+        'guard: rebuilding the set by splitting the joined note really does leak (this is the bug)',
+      );
+    });
+
+    test('noteBodies still separates two notes authored on one slide', () => {
+      const rec = core.slideNoteRecord(['<section><!-- First note. --><!-- Second note. --></section>']);
+      assert.deepEqual(rec[0].noteBodies, ['First note.', 'Second note.'], 'each comment is its own body');
+      assert.equal(rec[0].note, 'First note.\n\nSecond note.', 'and the display join is unchanged');
     });
 
     test('a depth-aware split keeps the note a flat split loses — with the COUNT identical', () => {

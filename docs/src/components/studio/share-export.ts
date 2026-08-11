@@ -157,7 +157,14 @@ type NotesCore = {
 };
 
 /** One slide's whole comment channel, lifted once at the render boundary. */
-type SlideNoteRecord = { note: string | null; description: string | null; caption: string | null };
+// `note` is the display JOIN of a slide's notes; `noteBodies` is the pre-join array. The
+// privacy scrub must use `noteBodies` — see `slideNoteRecord` in lib/authoring/notes-core.js.
+type SlideNoteRecord = {
+	note: string | null;
+	noteBodies: string[];
+	description: string | null;
+	caption: string | null;
+};
 
 /** The depth-aware `<section>` walker (lib/core/split-sections.js), via the authoring bundle. */
 type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: string; inner?: string; cls?: string }[];
@@ -403,7 +410,7 @@ export async function shareHtmlPlayer(
 	// this scrub into a no-op — the leak. A multi-note slide joins its notes with a
 	// blank line, so split them back apart: the scrub matches INDIVIDUAL bodies.
 	const envelopeSource = stripNotes
-		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => (r.note ? r.note.split('\n\n') : []))))
+		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => r.noteBodies || [])))
 		: source;
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
@@ -802,8 +809,7 @@ export async function shareCaptions(
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');
-	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
-		import('@/playground/deck-preview.js'),
+	const [authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
@@ -812,9 +818,16 @@ export async function shareCaptions(
 		import('./lint'),
 	]);
 	const { splitSlides } = lintMod;
-	const deck = deckMod as unknown as { splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
-	const sections = deck.splitSections(out.html);
+	// DEPTH-AWARE, for the same reason the webpage export is: the flat splitter pairs each
+	// `<section>` with the NEXT `</section>`, so a slide containing a hand-authored
+	// `<section>` is truncated at the nested close tag and its `<!-- caption: -->` / note
+	// falls outside the chunk — while the slide COUNT stays right, so parity cannot catch it.
+	// That slide then narrates the DOM projection instead of the author's caption, silently.
+	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
+	const sections = splitSectionsCore(out.html)
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
 
 	// The FULL narration chain, identical to the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`

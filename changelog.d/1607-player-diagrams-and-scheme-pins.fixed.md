@@ -42,7 +42,11 @@
   every note and accessible description, and, worse, the empty set left `stripNotesFromSource` with
   nothing to remove: a deck exported with **Strip speaker notes** on shipped the note text verbatim
   in its envelope. The channel is now lifted ONCE at the render boundary (`notesCore.slideNoteRecord`) and read from
-  there, so nothing downstream depends on a comment surviving a DOM round trip. It is split
+  there — as the INDIVIDUAL note bodies (`noteBodies`), not by splitting the display-joined
+  `note` back on the blank line: the strip matcher compares a comment's WHOLE trimmed body, so
+  a single note that CONTAINS a blank line shattered into fragments that matched nothing and
+  shipped verbatim. A first repair did exactly that and narrowed the leak rather than closing
+  it. Nothing downstream depends on a comment surviving a DOM round trip. It is split
   DEPTH-AWARE: the flat splitter truncates a slide holding a hand-authored `<section>` at the nested
   close tag, dropping its comments while leaving the slide COUNT correct — so the loss passed a
   count-parity check unnoticed, and a first attempt at this fix still leaked on that deck shape.
@@ -85,6 +89,41 @@
   attributes with no URL or script grammar, so the allowlist widening costs the threat model
   nothing; `<script>` and `<foreignObject>` remain barred. Measured across the 75 gallery decks:
   543 and 66 dropped respectively.
+- **The derived-token closure reads `:root` only.** The first cut of it scanned the WHOLE
+  stylesheet and re-emitted what it found at section scope — but the hoist drops the original
+  selector, which is sound only for tokens declared at `:root`. The engine also declares custom
+  properties inside COMPONENT rules (`--elevation-card` on `section.lifted`, `--pill-border` on
+  an nth-child arm, the entire `--fs-*` type scale on size classes), and at `(0,7,1)` the hoisted
+  copy outranked the rule it was read from: `_class: flat` got the lifted card's shadow back,
+  and a pill border recolored to a categorical mark — in the DEFAULT light view, no toggle
+  needed. Measured on `dist/lattice.css` + `themes/indaco.css`: 281 of 435 candidate tokens had
+  a declaration outside `:root`. The scan now takes only blocks whose SUBJECT is `:root`
+  (`:root[…] .lattice-bg` does not qualify), and takes the LAST declaration of a token rather
+  than the first, as the cascade does — 203 tokens carry more than one.
+- **The prune gate identifies the deck stylesheet by id, not by size.** The dual-mode block
+  carries the token body once per scheme scope, so it is not necessarily smaller than the
+  PRUNED deck CSS beside it; once it overtook it, the integration gate silently measured the
+  wrong block and went red. It ships as `<style id="lattice-dual-mode">` and is excluded by id,
+  the same way the embedded-font block already was.
+- **A diagram that fails to bake now says so on both hosts.** The per-diagram `catch` was
+  silent, and an unbaked diagram keeps its `<foreignObject>` — which the sanitizer strips,
+  shipping the wordless diagram this whole change exists to prevent. Silence there is
+  indistinguishable from success, which is how the original defect stayed unnoticed. Both the
+  CLI and the Studio now count the failures and warn with the count.
+- **The `.vtt` caption export uses the depth-aware split too.** `shareCaptions` still ran the
+  flat splitter, so on the same nested-`<section>` deck shape the rest of this change fixes, a
+  slide's `<!-- caption: -->` and note fell outside its chunk and it narrated the DOM projection
+  instead — with the slide count correct, so parity could not catch it.
+- **The PowerPoint alt text checks its parity before binding.** The description record and the
+  rasterized sections come from two different splits and were bound BY INDEX with no length
+  check; any divergence would have given every later slide someone else's description, silently.
+  A mismatch now warns and falls back to neutral alt text.
+- **Size.** These fixes make the exported file bigger, and that is worth stating plainly for a
+  file whose purpose is being emailed around. Measured against `main` on the same decks:
+  `color-mode.md` 461,749 → 492,216 bytes (+6.6%), `mermaid-diagram-surface.md` 601,524 →
+  730,767 (+21.5%). The first is the dual-mode block (the scheme-pin fix); the second is mostly
+  the baked diagram text, which IS the feature. Scoping the derived closure to `:root` took the
+  dual-mode block from ~68.6 KB to ~38.6 KB.
 - **The note boundary reads a comment the way the browser does.** `--!>` closes an HTML comment
   (as a parse error, but it closes) and the kernel regex only knew `-->`, so a one-character typo
   merged a note with whatever followed it into a single body — which then entered the

@@ -2702,21 +2702,32 @@ async function renderBody(browser, g, closeBrowser) {
       // such dependency (it bakes its colors at render time either way).
       const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
-      inflatedPlayerHtml = await g(() => page.evaluate(() => {
+      const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
         const SEL = '.mermaid-svg > svg, .mermaid > svg';
         const live = document.querySelectorAll(SEL);
         const copies = root.querySelectorAll(SEL);
+        let unbaked = 0;
         for (let i = 0; i < live.length && i < copies.length; i++) {
           // Per-diagram try: one un-flattenable svg keeps its (unbaked) self rather
-          // than costing the whole capture.
+          // than costing the whole capture. COUNTED, not swallowed — an unbaked svg
+          // keeps its <foreignObject>, the player's sanitizer strips it, and the
+          // diagram ships as shapes with no words: precisely the defect this bake
+          // exists to prevent. Silence there is indistinguishable from success.
           try {
             copies[i].replaceWith(window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' }));
-          } catch (_e) { /* keep this diagram as-is */ }
+          } catch (_e) { unbaked++; }
         }
-        return `<!DOCTYPE html>\n${root.outerHTML}`;
+        return { html: `<!DOCTYPE html>\n${root.outerHTML}`, unbaked, total: live.length };
       }), 'player capture: serialize baked DOM');
+      inflatedPlayerHtml = baked.html;
+      if (baked.unbaked) {
+        console.warn(
+          `  WARNING: ${baked.unbaked}/${baked.total} diagram(s) could not be baked for the player; ` +
+            'they will ship without their labels.'
+        );
+      }
     } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
   }
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the

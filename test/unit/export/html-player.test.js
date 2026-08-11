@@ -157,6 +157,34 @@ test('themeDualMode carries DERIVED tokens onto the pinned scope, transitively',
 	assert.doesNotMatch(darkBlock, /--unrelated/, 'a token that depends on nothing dual-mode is left alone');
 });
 
+test('themeDualMode reads DERIVED tokens from :root only — a component-local one is never hoisted', () => {
+	// The hoist drops the original selector, which is sound ONLY for `:root` tokens (see the
+	// function's docblock). The engine also declares custom properties inside COMPONENT rules
+	// — `--elevation-card` on `section.lifted`, `--pill-border` on an nth-child arm, the whole
+	// `--fs-*` scale on size classes. Scanning the WHOLE sheet lifted those onto every slide
+	// at (0,7,1), outranking the rules they were read from: `_class: flat` got the lifted
+	// card's shadow back, and a pill border recolored to a categorical mark. Measured on
+	// dist/lattice.css + themes/indaco.css, 281 of 435 candidate tokens were affected.
+	const css = [
+		':root{--text-heading:light-dark(#0A1628,#FFFFFF);--cat-on-fill:var(--text-heading)}',
+		'section.lifted{--elevation-card:var(--text-heading)}',
+		':root[data-lattice-view="fluid"] .lattice-bg{--bg-local:var(--text-heading)}',
+	].join('');
+	const { darkBlock } = themeDualMode(css);
+	assert.match(darkBlock, /--cat-on-fill:var\(--text-heading\)/, 'the :root-declared derived token still comes along');
+	assert.doesNotMatch(darkBlock, /--elevation-card/, 'a component-local token is NOT hoisted onto every section');
+	assert.doesNotMatch(darkBlock, /--bg-local/, 'nor one whose selector merely mentions :root but has a descendant subject');
+});
+
+test('themeDualMode takes the LAST declaration of a derived token, as the cascade does', () => {
+	// A theme may re-declare a token at `:root` later in the sheet (an override block). The
+	// first pass walked source order and kept the FIRST match, taking the losing value —
+	// 203 tokens carry more than one declaration in the real stylesheet.
+	const css = ':root{--text-heading:light-dark(#0A1628,#FFFFFF);--ink:var(--text-heading)}:root{--ink:var(--text-heading) /* override */}';
+	const { darkBlock } = themeDualMode(css);
+	assert.equal((darkBlock.match(/--ink:/g) || []).length, 5, 'emitted once per scheme scope, not twice per scope');
+});
+
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
 // of 2026-07-07-html-lattice-player.md. These pin the §Security v1 gate: the shipped
 // file is offline (no file://), the slide DOM is sanitized, the ONE player script is

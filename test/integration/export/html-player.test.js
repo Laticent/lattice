@@ -69,6 +69,11 @@ describe('html-player export (--player)', () => {
 		let css = '';
 		for (const b of blocks) {
 			if (/lattice-embedded-fonts/.test(b[1])) continue;
+			// The dual-mode block is NOT the deck stylesheet and can be larger than it (it
+			// repeats the token body once per scheme scope). Selecting the deck CSS by size
+			// alone silently picked it up instead, and this assertion then measured the wrong
+			// block. Both non-deck blocks are excluded by id.
+			if (/lattice-dual-mode/.test(b[1])) continue;
 			if (b[2].length > css.length) css = b[2];
 		}
 		const fullMin = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.min.css'), 'utf8');

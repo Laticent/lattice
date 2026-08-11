@@ -480,12 +480,21 @@ export async function bakeDeckSections(render) {
 		// `figure.chart-frame` recolor. Mermaid bakes its colors at render time anyway.
 		const { flattenSvgStyles } = await import('../../../playground/standalone-svg.generated.js');
 		const win = frame.contentWindow;
-		for (const svg of doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg')) {
+		// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the
+		// player's sanitizer strips it, and the diagram ships as shapes with no words —
+		// exactly the defect this bake exists to prevent. Silence here is indistinguishable
+		// from success, which is how the original bug went unnoticed for so long.
+		let unbaked = 0;
+		const svgs = doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg');
+		for (const svg of svgs) {
 			try {
 				svg.replaceWith(flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' }));
 			} catch {
-				/* one un-flattenable diagram keeps its own markup */
+				unbaked++;
 			}
+		}
+		if (unbaked) {
+			console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
 		}
 		for (const sec of sections) {
 			for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
@@ -1058,6 +1067,18 @@ export async function exportPptx(render, name, onStatus, meta) {
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 	const { sections, fontEmbedCSS } = await sectionsOf(frame);
+	// The record and the rasterized sections come from two different splits of the same
+	// render, and the alt text below binds them BY INDEX. If they ever disagree on length,
+	// every slide past the divergence gets someone else's description — a silent
+	// mis-binding that reads as correct. The webpage export treats exactly this parity as
+	// its correctness gate; say so here too rather than trusting the index.
+	if (describeRecord.length !== sections.length) {
+		console.warn(
+			`[deck-export] describe-record/slide mismatch (${describeRecord.length} vs ${sections.length}); ` +
+				'falling back to neutral alt text rather than risk mis-bound descriptions.',
+		);
+		describeRecord.length = 0;
+	}
 	const { default: PptxGenJS } = await import('pptxgenjs');
 	const pptx = new PptxGenJS();
 	const { eng, summary } = provenance(meta, sections.length);

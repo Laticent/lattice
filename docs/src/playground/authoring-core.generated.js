@@ -3127,6 +3127,13 @@ var require_notes_core = __commonJS({
     function slideNoteRecord(sections) {
       return (Array.isArray(sections) ? sections : []).map((html) => ({
         note: notesFromHtml(html),
+        // The INDIVIDUAL note bodies, kept alongside the display-joined `note`. The strip
+        // matcher compares a comment's WHOLE trimmed body, and `note` joins a slide's notes
+        // with a blank line — so re-deriving the bodies by splitting `note` on '\n\n' is not
+        // its inverse: a SINGLE note containing a blank line shatters into fragments, none of
+        // which equals the body, and the note then survives a --strip-notes export. Carrying
+        // the pre-join array removes the guesswork.
+        noteBodies: noteBodiesFromHtml(html),
         description: descriptionFromHtml(html),
         caption: captionFromHtml(html)
       }));
