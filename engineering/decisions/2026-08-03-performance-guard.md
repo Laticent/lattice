@@ -344,7 +344,7 @@ So the only thing that had ever failed on a slow cold paint was `gotoStudio`'s f
 **What shipped: an observation, not a guard.** `waitForStudioPaint` annotates every paint it
 performs as `first-paint` in the Playwright report, measured from the page's own navigation start.
 Nothing asserts on it. The value is that the nightly now accumulates real-runner boot data
-continuously, across ~49 spec files, which is precisely what nobody had when this slice tried to
+continuously, across the 51 spec files that reach it, which is precisely what nobody had when this slice tried to
 set a number.
 
 **What did not ship, and why — because the reasoning is the useful part.** A `@perf` ceiling of
@@ -370,8 +370,9 @@ set a number.
 
 **And a fourth, which is about the surface rather than the number.** The `@perf` tier is served by
 `build:e2e`, which — unlike the deployed `build` — never runs `inject-modulepreload.mjs`:
-`grep -c 'rel="modulepreload"' dist/studio/index.html` reads **0** after `build:e2e` and **50**
-after the inject. So "a chunk stopped being preloaded" was unobservable by construction. Injecting
+`grep -o 'rel="modulepreload"' dist/studio/index.html | wc -l` reads **0** after `build:e2e` and
+**50** after the inject. (`grep -c` counts matching *lines*, and all 50 hints land on one — so it
+reads 0 then 1, which is what an earlier draft of this paragraph quoted.) So "a chunk stopped being preloaded" was unobservable by construction. Injecting
 the hints and re-measuring showed why fixing that would not have helped either — p50 1766/2008/1995
 with 50 preloads vs 1968/2012/1984 without, within noise, because the origin is `localhost` with
 ~0 RTT and round trips are the whole point of a preload. **A localhost cold-boot timing cannot see

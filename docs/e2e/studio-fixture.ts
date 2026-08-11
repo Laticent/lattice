@@ -271,7 +271,7 @@ export async function gotoStudio(page: Page): Promise<void> {
  * A first paint is not an assertion about behavior — it is setup, getting the app
  * to the state a spec starts from, and it costs an island hydrate, a lazy engine
  * chunk load and a full render inside a srcdoc iframe. Under CPU oversubscription
- * that legitimately exceeds 15s, and 49 of 61 spec files reach the Studio through
+ * that legitimately exceeds 15s, and 51 of 64 spec files reach the Studio through
  * `gotoStudio` (14 of them from a `beforeEach`), so inheriting those defaults made
  * this one wait the suite-wide flake surface: the timeout was reported against
  * whichever spec drew the slow worker, so it looked like a different bug every
@@ -342,10 +342,12 @@ export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIM
 		await expect(slide).not.toBeEmpty({ timeout: Math.max(1, deadline - Date.now()) });
 		// Record what the paint cost, on the real suite at real concurrency, as a
 		// `first-paint` annotation in the Playwright report. This is an OBSERVATION,
-		// not a budget: nothing asserts on it (see the note below on why the ceiling
-		// that was going to was withdrawn), and its value is that every nightly run
-		// accumulates real-runner data that a future guard can be sized against —
-		// which is exactly what nobody had when sizing `FIRST_PAINT_TIMEOUT`.
+		// not a budget: nothing asserts on it. A ceiling was written against this
+		// number and withdrawn — `engineering/decisions/2026-08-03-performance-guard.md`
+		// § Slice 4 has the three reproduced results that killed it, and the four
+		// constraints a future guard has to satisfy (#1586). Its value meanwhile is
+		// that every nightly run accumulates real-runner boot data, which is exactly
+		// what nobody had when trying to pick that number.
 		//
 		// MEASURED FROM THE PAGE'S NAVIGATION START, not from this function's entry.
 		// `performance.now()` inside the document is relative to that document's own
