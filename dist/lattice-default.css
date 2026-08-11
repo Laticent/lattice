@@ -10132,6 +10132,17 @@ section.matrix-2x2 > .cell-stage {
 section.matrix-grid .matrix-grid-figure, figure.matrix-grid .matrix-grid-figure{
   position: relative;
   width: 100%;
+  /* BORDER-box, and load-bearing: the `[data-row-axis]` arm below adds a
+   * `padding-left` for the rotated label gutter, and under content-box sizing that
+   * made the figure `100% + --sp-lg` — 32px WIDER than the box it sits in, by
+   * construction, on every grid with a row axis. It never showed because
+   * `.chart-body`'s own inline padding was 64px of clip slack around it; #1598
+   * reclaimed that inline padding (it was the frame inset derived a third time)
+   * and the figure started spilling 16px past the clip on each side, taking the
+   * table's outer columns with it. Measured on matrix-grid.gallery.md: figure
+   * 1056 in a 1024 clip, five pages stamped "Content clipped".
+   * (HARD RULE #18 — a latent fragility my change tipped into failure is mine.) */
+  box-sizing: border-box;
 }
 /* The rotated-label gutter is reserved ONLY when a row axis was authored —
  * a single-part eyebrow (or none) has no ::before to fill it, so the
