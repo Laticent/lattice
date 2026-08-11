@@ -149,10 +149,22 @@ direction that matters. **Backward is not covered, and it is destructive.** A
 the mount effect *writes the demotion back*. Rolling forward again does not
 restore it; there is nothing left for the alias to alias.
 
-Two ways a person meets that: a **revert deploy** (`docs.yml` publishes on every
-push to `main`, so a revert is one merge from serving the old bundle), and — more
-common, less noticed — **a Studio tab left open across a deploy**, still running
-the old JS, clobbering storage on its next settings write.
+Two ways a person meets that, and only two — the service worker does *not* open a
+third. `sw.js` serves navigations network-first, so online you always get the fresh
+page; offline you get the cached page, but if your last online visit was
+post-deploy that cached page is the *new* one, and if it was pre-deploy your
+storage still says `'build'` and there is nothing to lose. The two paths are a
+**revert deploy** (`docs.yml` publishes on every push to `main`, so a revert is one
+merge from serving the old bundle) and **a Studio tab left open across a deploy**,
+still running the old JS.
+
+**No user action is required on either path.** An earlier draft of this section said
+the stale tab clobbers storage "on its next settings write", which reads as *if they
+toggle something*. A bare page load is enough: `StudioShell`'s mount effects
+(`:257` and `:975`) both call `saveSettings` unconditionally. And the demotion is
+visible **before hydration** as well as after — the pre-paint seed reads the same
+value, so the old bundle paints the Write skeleton (wrong header run, wrong dial, no
+52px rail) from first paint.
 
 This is named rather than fixed, deliberately. The textbook answer is
 **expand/contract**: release N accepts both spellings but still *writes*
@@ -166,10 +178,35 @@ export is touched. If the same rename is ever done to something whose loss is no
 one click — a deck id, a source key, anything under `SRC_PREFIX` — expand/contract
 is the right shape and this paragraph is the reason.
 
-No evidence in this PR reaches that direction, and none can: testing it requires
-running the *old* code against the *new* storage, which is not reachable from this
-tree. It is reasoned, not measured, and it is the one storage state the
-verification below does not cover.
+**This direction IS measured.** An earlier draft of this section claimed the
+opposite — "no evidence reaches that direction, and none can, because testing it
+requires running the *old* code against the *new* storage, which is not reachable
+from this tree." That was false, and the way it was false is worth recording,
+because it is the shape HARD RULE #23 is aimed at: *"can't be tested from here"* is
+itself a claim about a surface, and this one was one `curl` from being wrong. The
+old code is not in the tree — it is **deployed**, at `lattice.style/studio/`, which
+still serves the pre-rename bundle. The red-team pass mirrored it to disk, healed
+its dynamic-import chunks until the island hydrated, served it locally, seeded
+`posture: 'craft'`, and drove it with real Chromium at 1440×900:
+
+```
+OLD bundle, storage = what the NEW bundle writes
+  seedStop: 'write'   appStop: 'write'   dial: "Write — editor + preview"
+  stored:   'write'   ← rewritten, no interaction
+
+OLD bundle, control, storage = posture:'build'
+  seedStop: 'build'   appStop: 'build'   dial: "Build — every panel"
+  stored:   'build'
+```
+
+So the destructive round trip is confirmed end to end on two real surfaces, not
+reasoned. The *pricing* above is unchanged — one preference, one click — but it is
+now priced against a measurement.
+
+**The general lesson, which outlives this rename:** when a change alters a value
+that a *previously deployed* build reads, the old build is testable, because it is
+still being served. Mirror it and drive it. "Not reachable from this tree" is a
+statement about the repository, not about the world.
 
 ## What did not change
 
@@ -227,9 +264,19 @@ first pass of this change, all now fixed in the same PR:
 1. **`tools/perf-torture/scenarios/studio.mjs` still clicked `Build — every
    panel`** — and the click was wrapped in `.catch(() => {})`, so the Studio
    torture scenario would have quietly benchmarked the *Write* surface against
-   floors calibrated for Craft. The selector is fixed and the swallow removed:
-   this scenario's whole point is a deterministic full-UI surface, so a failed
-   dial must be loud.
+   floors calibrated for Craft. Selector fixed and the swallow removed.
+   **That fix was inert, and the red-team pass caught it:** the caller
+   (`perf-torture/engine.mjs`, both the measure and confirm paths) wrapped
+   `surf.setup` in its own `try/catch` that printed one `console.error` and
+   *continued* — so removing the inner `.catch` turned a silent no-op into a
+   quiet-but-continuing one, which is a footnote in a long benchmark log, not a
+   failure. `surf.setup` is now uncaught on both paths: it establishes the
+   *surface* the run is about, so a failed setup invalidates the comparison
+   rather than degrading one cycle (`prep`, which arranges state *within* a
+   surface, stays caught). `studio` is the only surface with a `setup`, so this
+   changes no other scenario. *Two lessons: a fix to an error-swallow has to
+   follow the throw all the way up, and "must be loud" is a claim to verify, not
+   assert.*
 2. **`asPosture` accepted `Object.prototype` keys.** `POSTURE_ALIASES[v]` on an
    object literal makes `'constructor'` a truthy hit, so a hand-edited or imported
    `posture: 'constructor'` resolved to a non-Posture and the dial lit *no*

@@ -575,16 +575,26 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var posture = null, settings = null;
 						try { settings = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); } catch (e7) {}
 						var storedStop = settings && settings.posture;
-						// hasOwnProperty.call, matching studio-store's asPosture semantics. (The STORE
-						// uses Object.hasOwn; this is an `is:inline` script, which Astro passes through
-						// VERBATIM — no transpile, no polyfill — so it takes the form with no floor.)
-						// A bare truthiness test on the map makes 'constructor' / 'toString' an
-						// INHERITED hit — harmless here only because the POSTURES whitelist on the
-						// next line rejects the function it returns. Two halves of a mirror that has
-						// already drifted twice should not validate by different idioms; the day the
-						// map grows a second entry, the weaker half is the one that surprises someone.
-						if (typeof storedStop === 'string' && Object.prototype.hasOwnProperty.call(POSTURE_ALIASES, storedStop)) storedStop = POSTURE_ALIASES[storedStop];
+						// The next two lines are `asPosture` (studio-store), transliterated. Both halves
+						// of this mirror must run the SAME ALGORITHM, not merely reach the same answer
+						// for today's inputs — this seed and that function have already drifted twice
+						// (#1286), and each drift was a line that was right when it was written.
+						//
+						//   · VALIDATE, THEN ALIAS — the order matters. It only coincides with
+						//     alias-then-validate while no alias KEY is also a current stop; the day
+						//     the map gains one (a plausible "merge two stops" edit, e.g.
+						//     `{ write: 'craft' }`) the two orders resolve differently and the
+						//     skeleton paints a stop the app is not about to render.
+						//   · hasOwnProperty.call, not a bare truthiness test on the map, or
+						//     'constructor' / 'toString' are INHERITED hits that resolve to a
+						//     function. (The store says `Object.hasOwn`; this is an `is:inline`
+						//     script, which Astro passes through VERBATIM — no transpile, no
+						//     polyfill — so it takes the form with no browser floor.)
+						//
+						// Neither diverges today; the adversarial pass proved it over 135 storage
+						// populations plus 16 driven through the real built page. Both were armed.
 						if (POSTURES.indexOf(storedStop) !== -1) posture = storedStop;
+						else if (typeof storedStop === 'string' && Object.prototype.hasOwnProperty.call(POSTURE_ALIASES, storedStop)) posture = POSTURE_ALIASES[storedStop];
 						if (!posture) posture = (settings && settings.onboarded === true) ? LEGACY_ONBOARDED_POSTURE : BOOT_POSTURE;
 						// THE ONE CHROME GATE THAT IS NEITHER WIDTH NOR STOP. The header's tours
 						// button is gated on `toursEnabled()` (playground/tour-prefs.js, key
