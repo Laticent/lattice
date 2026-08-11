@@ -19,7 +19,6 @@ import {
 	newRecord,
 	noteError,
 	noteFailedLoad,
-	PONG_KEY,
 	pruneSessions,
 	SESSION_PREFIX,
 	type SessionRecord,
@@ -29,7 +28,6 @@ import {
 	TAB_SESSION_KEY,
 	unreportedCrashReports,
 	WIPE_SIGNAL_KEY,
-	watchLateCrashReports,
 } from './crash-sentinel';
 
 // Anchored an hour behind the real clock, not at a fixed epoch: `startCrashSentinel`
@@ -670,115 +668,16 @@ describe('isSessionRecord — the guard that keeps a bad record from taking the 
 // reload said nothing at all, and the report that finally appeared answered
 // "what am I supposed to do with this?" with facts and no next step.
 describe('what the first real crash report exposed', () => {
-	const withNavType = async (type: string, fn: () => void | Promise<void>) => {
-		// biome-ignore lint/suspicious/noExplicitAny: a minimal navigation-timing stub; the real type demands ~30 fields the code never reads.
-		const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation(((k: string) => (k === 'navigation' ? [{ type }] : [])) as any);
-		try {
-			await fn();
-		} finally {
-			spy.mockRestore();
-		}
-	};
 
-	// DEFECT 1 — the automatic reload showed nothing, and only a MANUAL reload
-	// surfaced the report. Immediate reporting required a navigation typed
-	// `reload`, and the browser's own recovery load was not typed that way.
-	//
-	// The FIRST attempt at this fix was wrong and is worth recording, because the
-	// wrong version passed a test that looked exactly like a right one: it watched
-	// the record for 21s and called the owner dead if no heartbeat landed. But a
-	// hidden tab is throttled to roughly one beat every FIVE minutes (see
-	// STALE_MS), so 21s of silence is the NORMAL state of a live background tab —
-	// it would have reported the tab running next door as a corpse, and offered a
-	// Discard button that deleted its record. Proof of life now comes from an
-	// event round-trip, which throttling does not touch.
-	it('reports a dead owner when the challenge goes unanswered', async () => {
-		const dead = rec({ id: 'prev', closed: false, lastBeat: Date.now() });
-		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(dead));
-		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
-		await withNavType('navigate', async () => {
-			bootSentinel();
-			expect(collectCrashReports(Date.now())).toEqual([]); // nothing yet
-			const seen: string[] = [];
-			watchLateCrashReports((late) => seen.push(...late.map((r) => r.id)), 20);
-			await new Promise((r) => setTimeout(r, 60));
-			expect(seen).toEqual(['prev']);
-		});
-	});
-
-	// THE CASE THE FIRST ATTEMPT GOT WRONG. The owner is alive but THROTTLED — it
-	// has not written a heartbeat for ten minutes and will not write one during
-	// the probe. Only the answer distinguishes it from a corpse.
-	it('stays silent for a throttled owner that answers but never beats', async () => {
-		const throttled = rec({ id: 'prev', closed: false, lastBeat: Date.now() - 9 * 60_000 });
-		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(throttled));
-		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
-		await withNavType('navigate', async () => {
-			bootSentinel();
-			const seen: string[] = [];
-			watchLateCrashReports((late) => seen.push(...late.map((r) => r.id)), 20);
-			// Stand in for the owning tab answering. jsdom does not deliver `storage`
-			// events for a write made by the same document, so the challenge cannot
-			// round-trip in here and the answer is dispatched by hand. The REAL
-			// answering half — `onStorage` in a second live tab — is exercised in the
-			// two-tab browser check, which is the only place it can be.
-			dispatchEvent(new StorageEvent('storage', { key: PONG_KEY, newValue: JSON.stringify({ id: 'prev' }) }));
-			await new Promise((r) => setTimeout(r, 60));
-			expect(seen).toEqual([]);
-		});
-	});
-
-	// A pong for someone ELSE's session is not an alibi for this one.
-	it('ignores an answer that names a different session', async () => {
-		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(rec({ id: 'prev', closed: false, lastBeat: Date.now() })));
-		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
-		await withNavType('navigate', async () => {
-			bootSentinel();
-			const seen: string[] = [];
-			watchLateCrashReports((late) => seen.push(...late.map((r) => r.id)), 20);
-			dispatchEvent(new StorageEvent('storage', { key: PONG_KEY, newValue: JSON.stringify({ id: 'somebody-else' }) }));
-			await new Promise((r) => setTimeout(r, 60));
-			expect(seen).toEqual(['prev']);
-		});
-	});
-
-	// A FROZEN tab is alive but forbidden to run, so it cannot answer. Convicting
-	// on silence it was not permitted to break is exactly the error above.
-	it('never convicts a frozen owner, which is not allowed to answer', async () => {
-		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(rec({ id: 'prev', closed: false, frozen: true, lastBeat: Date.now() })));
-		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
-		await withNavType('navigate', async () => {
-			bootSentinel();
-			const seen: string[] = [];
-			watchLateCrashReports((late) => seen.push(...late.map((r) => r.id)), 20);
-			await new Promise((r) => setTimeout(r, 60));
-			expect(seen).toEqual([]);
-		});
-	});
-
-	// A verdict of "dead" is about a MOMENT. If the owner writes again, it stops
-	// being true — a sticky Set kept reporting the live session forever.
-	it('un-convicts an owner that starts beating again', async () => {
-		const dead = rec({ id: 'prev', closed: false, lastBeat: Date.now() });
-		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(dead));
-		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
-		await withNavType('navigate', async () => {
-			bootSentinel();
-			watchLateCrashReports(() => {}, 20);
-			await new Promise((r) => setTimeout(r, 60));
-			expect(collectCrashReports(Date.now()).map((r) => r.id)).toEqual(['prev']);
-			// The owner turns out to be alive after all.
-			localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify({ ...dead, lastBeat: dead.lastBeat + 5_000 }));
-			expect(collectCrashReports(Date.now())).toEqual([]);
-		});
-	});
-
-	// The late report must not say the opposite of why it fired.
-	it('tells the reader the owner was asked, not that this was some other tab', () => {
-		const r = rec({ id: 'prev', closed: false });
-		const { facts } = describeSession(r, { sameTab: false, ownerDead: true });
-		expect(facts.some((f) => f.includes('Nothing answered'))).toBe(true);
-		expect(facts.some((f) => f.includes('a later visit'))).toBe(false);
+	// DEFECT 1 (the automatic reload showing nothing) is NOT fixed — issue #1621.
+	// Three designs were built and withdrawn; what survives is the staleness wait,
+	// which is slow but never accuses a live tab. This pins that property, because
+	// every withdrawn design broke it: a record whose owner might still be running
+	// is not reportable until the wait elapses.
+	it('never reports a recent record from a tab it cannot prove died', () => {
+		const r = rec({ id: 'other', closed: false, lastBeat: Date.now() });
+		expect(isUncleanEnd(r, Date.now(), false)).toBe(false);
+		expect(isUncleanEnd(r, Date.now() + STALE_MS + 1, false)).toBe(true);
 	});
 
 	// DEFECT 2a — six copies of one error read as six faults, and filled the
@@ -923,5 +822,40 @@ describe('the capture-phase resource listener', () => {
 		expect(after.failedLoads).toEqual(['/_astro/missing.png']);
 		expect(after.errorCount).toBe(1);
 		img.remove();
+	});
+});
+
+// The FOURTH field to reach a renderer unguarded, found by a red-team pass that
+// built a record `isSessionRecord` approved and watched the panel die on it.
+// Three had been fixed one at a time; this checks the whole rendered surface.
+describe('every field the panel renders is type-checked', () => {
+	it('rejects a non-string in any field that becomes a React child', () => {
+		const good = (): SessionRecord => rec({ id: 'g' });
+		expect(isSessionRecord({ ...good(), page: { evil: 1 } })).toBe(false);
+		expect(isSessionRecord({ ...good(), ua: 42 })).toBe(false);
+		expect(isSessionRecord({ ...good(), nav: {} })).toBe(false);
+		expect(isSessionRecord({ ...good(), page: '', ua: '' })).toBe(true); // empty is fine, absent-typed is not
+	});
+});
+
+// Two holes a verification pass found in the FIRST round of guard-hardening,
+// both in code written to close exactly this class.
+describe('the guard and the query strip, after a second pass', () => {
+	it('rejects a lastError that would break the panel or the issue body', () => {
+		const good = (): SessionRecord => rec({ id: 'g' });
+		expect(isSessionRecord({ ...good(), lastError: 'a string' })).toBe(false);
+		expect(isSessionRecord({ ...good(), lastError: { message: { evil: 1 }, t: 0 } })).toBe(false);
+		expect(isSessionRecord({ ...good(), lastError: { message: 'boom' } })).toBe(false); // no t → +NaN in the issue
+		expect(isSessionRecord({ ...good(), lastError: { message: 'boom', t: 5, stack: 7 } })).toBe(false);
+		expect(isSessionRecord({ ...good(), lastError: { message: 'boom', t: 5 } })).toBe(true);
+	});
+
+	it('does not restore the query when the URL has no path', () => {
+		startCrashSentinel();
+		// `<img src="?token=…">` is legal HTML. The `|| url` fallback put the whole
+		// string — secret included — back into a PUBLIC issue body.
+		noteFailedLoad('?token=secret');
+		noteFailedLoad('/ok.js?token=secret');
+		expect((liveSession() as SessionRecord).failedLoads).toEqual(['(unnamed resource)', '/ok.js']);
 	});
 });

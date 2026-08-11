@@ -90,13 +90,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
           // exactly this reason.
           toast:
             "rounded-full has-[[data-description]]:!rounded-2xl has-[[data-description]]:!px-4 has-[[data-description]]:!py-3.5 shadow-[0_8px_24px_rgba(10,22,40,.22)]",
-          // NOT a contrast tweak — a fix for text that was INVISIBLE. Sonner
-          // hardcodes its description color per theme rather than deriving it from
-          // the toast: `[data-sonner-theme=light] [data-description] { color:#3f3f3f }`.
-          // We pass `theme={mode}`, so in LIGHT mode that near-black landed on our
-          // deliberately dark `--surface-inverse` pill — a contrast ratio of about
-          // 1.02:1, i.e. unreadable. Dark mode was fine (`#e8e8e8`, ~11:1), which is
-          // why it survived review: the bug only existed in the mode most people use.
+          // NOT a contrast tweak — a fix for text that was INVISIBLE. Sonner sets its
+          // description color to a hardcoded `#3f3f3f` in an unconditional base rule
+          // (`[data-sonner-toast][data-styled='true'] [data-description]`, sonner
+          // 2.0.7), overridden only under its dark theme. We paint the toast the dark
+          // `--surface-inverse` in BOTH modes, so in light mode that near-black landed
+          // on a near-black pill: 1.07:1 on indaco, and 1.6-2.0:1 across the other
+          // palettes — unreadable everywhere. Dark mode was fine (`#e8e8e8`, 9.2:1),
+          // which is why it survived review: the bug existed only in the mode most
+          // people use.
           description: "!text-white/80",
           // The one-tap escape hatch (Undo / Reload), styled like the retired pill's
           // inline button — a translucent white chip on the inverse surface.

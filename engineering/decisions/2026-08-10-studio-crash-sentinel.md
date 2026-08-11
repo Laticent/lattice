@@ -337,59 +337,49 @@ fell through to the 10-minute staleness wait, and the one boot where the user wa
 actually looking said nothing. Pressing reload by hand produced a `reload`
 navigation, which is why the manual refresh "worked" and looked like a fluke.
 
-The fix does not special-case the browser, because the browser cannot be tested
-from here. It stops depending on the navigation type for that decision and
-**asks the other tab directly**.
+**This one is NOT fixed. Three designs were built and all three were withdrawn**,
+which is worth recording in full because the failures rhyme. Tracked as #1621.
 
-The tab mirror already proves the record belongs to this tab's lineage. The only
-competing explanation is a DUPLICATED tab — and a duplicate has an original that
-is *still running*. So the boot writes a challenge to `localStorage`
-(`PING_KEY`), any live tab owning that session id answers on its `storage`
-listener (`PONG_KEY`), and silence for `OWNER_PROBE_MS` (2s) is the verdict.
+1. **Watch the record for 21s; no heartbeat means dead.** Wrong against a comment
+   twenty lines above it in the same file: a throttled tab beats about once every
+   **five minutes**, which is why `STALE_MS` is ten minutes and not the 90s already
+   found to harvest live tabs. It would have accused a duplicated tab's live
+   original and offered a Discard button that deletes its record. A checker
+   reproduced it against a session that had beaten 0 ms ago.
+2. **Ask over `localStorage`; no reply in 2s means dead.** Wrong against
+   `STALL_MS` (2.5s) — this module's own threshold for "the main thread was
+   blocked long enough to write down". A red-team pass reproduced it in two real
+   Chromium tabs: block the live owner for 2.5s and the duplicate announces it
+   crashed. Both attempts picked a deadline against the wrong clock.
+3. **Hold a Web Lock for the life of the document.** The *right* primitive — the
+   browser releases it on crash, OOM kill and discard, and a frozen or blocked tab
+   holds it as well as an idle one, so there is no deadline to pick. It verified
+   6/6 in two real tabs. **Withdrawn anyway:** a held lock makes the page
+   ineligible for the back/forward cache (measured in Chromium 131,
+   `notRestoredReasons: [{reason: "lock"}]`), and the release meant to prevent
+   that can never fire — Chromium decides eligibility *before* `pagehide`, so
+   `persisted` is always false, which is the condition the release is gated on.
+   That silently kills `live.bfcached = !!ev?.persisted` and with it the **entire
+   iOS eviction path** — on the platform the original report came from.
 
-**The first attempt at this got it wrong, and the way it was wrong is the point.**
-It watched the record for 21 seconds and called the owner dead if no *heartbeat*
-landed. That reasoning collapses against the comment sitting twenty lines above
-it in the same file: a hidden tab under Chrome's intensive throttling writes a
-beat roughly once every **five minutes**, which is why `STALE_MS` is ten minutes
-and not the 90 seconds that was empirically found to harvest live background
-tabs. Twenty-one seconds of silence is the *normal state of a healthy backgrounded
-tab*. The bug it would have shipped is the precise one the navigation-type check
-existed to prevent: duplicate a backgrounded Studio tab and the copy announces
-that the tab next door crashed, offering a Discard button that deletes that live
-session's record. An independent checker reproduced it by handing the watch a
-session that had beaten **0 ms ago** — and the accompanying test asserted that
-behavior was correct, which is how it survived being written.
+The trade is real and is not mine to settle silently: **crash-safe liveness and
+bfcache eligibility are mutually exclusive on this page.** Web Locks is the only
+primitive that answers "does that document still exist?" without a timeout, and
+holding one costs the back/forward cache. Choosing means deciding whether instant
+crash reporting is worth more than bfcache on `/studio/` — and on iOS, where
+Safari's own backgrounding is what produces the `bfcached` signal, losing it may
+make crashes *worse* rather than better. That is unverified and unverifiable from
+here.
 
-A `storage` event is not a timer. It is dispatched to other documents as an
-ordinary task, so a throttled tab answers in milliseconds even though it will not
-write a heartbeat for another four minutes. That is why the challenge is sound
-where the timer was not: it measures *whether anyone is home*, not *whether
-anyone happened to tick*.
+What ships instead is the staleness wait, unchanged: slow (up to ten minutes for a
+record this boot cannot attribute to its own tab), and **never a false accusation**.
+Every withdrawn design traded that property away, and none of them was worth it.
 
-Three guards ride along:
-
-- A **frozen** tab (Page Lifecycle) is alive but forbidden to run, so it cannot
-  answer. Silence from it proves nothing and is not convicted — it falls back to
-  the staleness wait.
-- A pong naming a **different session** is not an alibi for this one.
-- The dead verdict is stored as `{id → lastBeat at the moment of proof}`, not as
-  a bare set. Proof of death is a statement about a MOMENT; a set made it
-  permanent, so an owner that came back was reported as a corpse for the rest of
-  the page's life. Keyed by the beat, the entry stops matching the instant the
-  owner writes again, and the record re-validates on every read.
-
-**Verified on the real surface** (`.scratch/two-tab-liveness.mjs`, two live
-Chromium tabs — the only place this CAN be verified, since jsdom does not deliver
-`storage` events between documents, which is exactly how the timing version
-passed its unit test):
-
-```
-PASS  tab A opened a session
-PASS  tab A never wrote a heartbeat during the probe (a throttled tab)
-PASS  tab B did NOT report its live original as a crash
-PASS  tab C DID report the dead owner, without a manual reload
-```
+The pattern is the lesson. Two of the three failures were the same mistake —
+picking a number against a clock that governs something else — and the third was
+a correct mechanism with an invisible cost in a distant subsystem. All three
+passed their unit tests. Only real browsers, and reviewers looking for the
+catastrophic case rather than the happy one, found them.
 
 ### 2. Six identical errors, none of them ours
 
@@ -467,9 +457,7 @@ would have discarded the very report that prompted all of this. Bump only when
 new code would *misread* an old record; adding a field it can ignore is not that.
 
 Real iOS remains **UNVERIFIED** (HARD RULE #23) — none of this was driven on a
-physical iPhone. The fix for defect 1 no longer depends on how a browser labels
-its own recovery load, and its two-tab behavior IS verified in a real browser
-here; what remains unverified there is the original premise (that Firefox for iOS
-does not type its recovery load as `reload`) and whether an iOS tab delivers the
-`storage` event the challenge relies on. The failure mode if it does not is the
-old one — the report waits out the staleness window — not a false accusation.
+physical iPhone, and the premise behind defect 1 (that Firefox for iOS does not
+type its own recovery load as `reload`) is still unconfirmed. What ships here
+touches neither: the errors, the next steps, the guards and the toast are all
+independent of it.

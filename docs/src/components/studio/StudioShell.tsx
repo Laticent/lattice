@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports, watchLateCrashReports } from '@/lib/crash-sentinel';
+import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -423,19 +423,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		markReported(fresh[0].id);
 		announceCrash(fresh[0]);
 	}, [announceCrash]);
-	// THE AUTOMATIC POST-CRASH BOOT. When the browser reloads a dead tab BY ITSELF,
-	// the mount effect above often finds nothing to say: immediate reporting needs
-	// `isSameTab`, which needs a navigation typed `reload`, and at least one real
-	// browser does not type its own recovery load that way. The user therefore saw
-	// silence on the one boot they were actually watching, and only got the report
-	// after reloading by hand. This watches the mirrored record for ~21s instead;
-	// if nothing writes to it, its owner is gone and the report is announced late
-	// rather than never. A live duplicated tab keeps beating and stays unreported.
-	React.useEffect(() => watchLateCrashReports((late) => {
-		setCrashReports(collectCrashReports(Date.now()));
-		markReported(late[0].id);
-		announceCrash(late[0]);
-	}), [announceCrash]);
+	// NOT FIXED HERE, deliberately — see issue #1621. When the browser reloads a
+	// dead tab BY ITSELF, this boot often has nothing to say: immediate reporting
+	// needs `isSameTab`, which needs a navigation typed `reload`, and at least one
+	// real browser does not type its own recovery load that way. Three designs for
+	// closing that gap were built and all three were withdrawn — two guessed a
+	// deadline against the wrong clock, and the third (a Web Lock held for the life
+	// of the document, which is the RIGHT primitive for "is that document still
+	// alive") makes the page ineligible for the back/forward cache, which silently
+	// kills the `bfcached` signal two lines below in `onPageHide` — the iOS
+	// eviction path, on the platform the report came from. Until that trade is
+	// settled the report waits out the staleness window, which is slow but never
+	// accuses a live tab.
 	const dismissCrash = React.useCallback((id: string) => setCrashReports((was) => was.filter((r) => r.id !== id)), []);
 	// Workspace → Crash reports → View. See OPEN_CRASH_REPORT_EVENT for why this is
 	// an event and not a prop.

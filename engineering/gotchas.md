@@ -3597,6 +3597,28 @@ own) is not a builder and needs no entry.
   behind a report showing memory growth, reach for `npm run torture`
   (`tools/perf-torture/`).
 
+### A Web Lock held for the life of a page silently kills its bfcache
+
+- **Symptom:** back-navigation to a page becomes a full reload, and any code
+  reading `pagehide`'s `persisted` flag stops seeing `true` — so a feature that
+  detects "this tab went into the page cache" quietly becomes dead code.
+- **Cause:** Chromium refuses to bfcache a document holding a Web Lock
+  (`notRestoredReasons: [{reason: "lock"}]`, measured on Chromium 131). The trap
+  is that releasing the lock in a `pagehide` handler does **not** fix it:
+  eligibility is decided BEFORE `pagehide` fires, so `persisted` is already
+  `false`, and a release gated on `persisted` can never run. The mitigation and
+  the thing it mitigates are circularly dependent.
+- **Fix:** treat "hold a lock for the document's lifetime" and "stay
+  bfcache-eligible" as mutually exclusive and decide which the page needs. There
+  is no arrangement of release handlers that gets both.
+- **Also check:** whether anything downstream reads `persisted` — that is where
+  the damage shows up, and it will be silent. In the Studio it was the iOS tab
+  eviction signal, three files away from the lock.
+- **Triggered by:** `navigator.locks.request(..., () => new Promise(() => {}))`
+  as a liveness beacon. See
+  `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § "What the first
+  REAL report changed", defect 1, attempt 3.
+
 ### A crash report shows `Script error.` several times and names nothing
 
 - **Symptom:** the crash report lists `window.onerror: Script error.` repeatedly,

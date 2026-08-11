@@ -291,15 +291,6 @@ export type ClassifyContext = {
 	 * the tab, so it can only speak for the record that tab was running.
 	 */
 	tabDiscarded?: boolean;
-	/**
-	 * This boot CHALLENGED the owning tab and it did not answer — see
-	 * `watchLateCrashReports`. Weaker than `sameTab` (which is proof the same tab
-	 * came back) but far stronger than the staleness timer, and it must reach the
-	 * copy: without it the late path printed "a different tab or a later visit…
-	 * may also have ended with a force-quit", which is the OPPOSITE of what was
-	 * established, on the exact path built to serve a tab that died and came back.
-	 */
-	ownerDead?: boolean;
 };
 
 export type CrashReport = {
@@ -385,6 +376,25 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
 	for (const v of Object.values(r.context)) if (typeof v !== 'string') return false;
 	// The counters `classifySession` formats.
 	if (!Number.isFinite(r.errorCount) || !Number.isFinite(r.stallCount) || !Number.isFinite(r.longestStallMs)) return false;
+	// `lastError` is rendered as a React child by the panel and formatted into the
+	// issue body. `lastError: 'a string'` and `{ message: {…} }` both passed —
+	// `.message` on the first is undefined, and the second is an object React
+	// refuses. `t` is arithmetic in `describeSession`, so a missing one printed
+	// `+NaN:NaN` into a public issue.
+	if (r.lastError !== undefined) {
+		const e = r.lastError as Partial<RecordedError>;
+		if (!e || typeof e !== 'object' || typeof e.message !== 'string' || !Number.isFinite(e.t)) return false;
+		if (e.stack !== undefined && typeof e.stack !== 'string') return false;
+		if (e.source !== undefined && typeof e.source !== 'string') return false;
+	}
+	// `page` and `ua` are REQUIRED fields that no version of this guard checked,
+	// and both render straight into the panel's "What gets shared" table as React
+	// children — so a non-string in either throws exactly like `mem: [null]` and
+	// `crumbs[].k` did before it. Found by a red-team pass that built a record the
+	// guard approved and the panel died on. Three fields had been fixed one at a
+	// time; checking the whole rendered surface at once is what finally stopped it.
+	if (typeof r.page !== 'string' || typeof r.ua !== 'string') return false;
+	if (r.nav !== undefined && typeof r.nav !== 'string') return false;
 	// THE NEW OPTIONAL FIELDS GET THE SAME TREATMENT AS THE OLD ONES. They are
 	// optional so an older record still reads (which is why RECORD_VERSION did not
 	// move), but "optional" is about ABSENCE — a field that IS present and the
@@ -430,7 +440,7 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
  * point at a record written by this very tab, so there is no live second tab to
  * mistake for a corpse.
  */
-export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean, ownerDead = false): boolean {
+export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean): boolean {
 	// A record closed INTO the page cache that never resumed was evicted, not
 	// exited — and only the tab it belonged to can tell the difference, because
 	// coming back at all is what would have cleared the flag. This is the iOS
@@ -440,19 +450,14 @@ export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean, 
 	if (rec.closed) return false;
 	// A record from the future (clock change, an edited value) is not evidence.
 	if (rec.lastBeat > now + BEAT_MS) return false;
-	// `ownerDead` is the OBSERVED version of the staleness wait — see
-	// `watchLateCrashReports`. Where the wait guesses from one timestamp that
-	// nobody is home, this watched the record for a stretch and saw that nothing
-	// wrote to it. That is strictly better evidence, and it arrives in seconds
-	// rather than minutes.
-	return sameTab || ownerDead || now - rec.lastBeat > STALE_MS;
+	return sameTab || now - rec.lastBeat > STALE_MS;
 }
 
 
 const mb = (bytes: number): string => `${Math.round(bytes / 1_048_576)} MB`;
 
 export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; confirmed: boolean; facts: string[]; steps: string[] } {
-	const { sameTab, tabDiscarded = false, ownerDead = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false, ownerDead: false } : ctx;
+	const { sameTab, tabDiscarded = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false } : ctx;
 	const facts: string[] = [];
 	const endT = rec.lastBeat - rec.startedAt;
 	const last = rec.mem[rec.mem.length - 1];
@@ -538,9 +543,7 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	facts.push(
 		sameTab
 			? 'The same tab came back, so it was not closed and reopened by hand.'
-			: ownerDead
-				? 'This session belonged to this tab, and the Studio asked whether it was still running before saying anything. Nothing answered, so it was not simply left open somewhere else.'
-				: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
+			: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
 	);
 
 	// ── WHAT TO DO. The first real report was answered with "what am I supposed to
@@ -829,135 +832,6 @@ function isSameTab(rec: SessionRecord): boolean {
 	return bootNavType === 'reload';
 }
 
-/**
- * Sessions this boot PROVED abandoned, mapped to the `lastBeat` they carried at
- * the moment of proof.
- *
- * A bare `Set` was wrong: proof of death is a statement about a MOMENT, and a
- * set makes it permanent. If the owner turns out to be alive after all — it
- * answers late, or its throttled heartbeat finally lands — every later
- * `collectCrashReports` in this page kept returning the live session as a
- * corpse, because nothing ever re-checked. Keyed by the beat we saw, the entry
- * simply stops matching the moment the owner writes again, so the record
- * re-validates itself on every read instead of trusting a one-time verdict.
- */
-const provenDeadOwners = new Map<string, number>();
-
-/** Has this session been proven dead, AND has nothing written to it since? */
-function ownerProvenDead(rec: SessionRecord): boolean {
-	const at = provenDeadOwners.get(rec.id);
-	return at !== undefined && rec.lastBeat === at;
-}
-
-/**
- * How long to wait for a live owner to answer the liveness ping.
- *
- * This is an EVENT round-trip, not a heartbeat interval — see
- * `watchLateCrashReports` for why that distinction is the whole design. A
- * `storage` event is dispatched to other documents as an ordinary task; two
- * seconds is enormous for that even on a loaded phone.
- */
-export const OWNER_PROBE_MS = 2_000;
-
-/**
- * Cross-tab liveness challenge, and the answer to it. Written-then-removed like
- * `WIPE_SIGNAL_KEY`, and deliberately NOT under `SESSION_PREFIX` — `sessionKeys()`
- * scans by that prefix and would read a signal back as a malformed record.
- */
-export const PING_KEY = 'lattice-studio-ping';
-export const PONG_KEY = 'lattice-studio-pong';
-
-/**
- * Report the crash the automatic post-crash reload could not.
- *
- * THE BUG THIS FIXES, from the first real report off a phone: the user's tab
- * died and the browser reloaded it by itself, and the Studio said nothing. They
- * only saw the report after pressing reload BY HAND. The cause is that immediate
- * reporting requires `isSameTab`, which requires the Navigation Timing type to be
- * `reload` — and on that browser the browser's OWN recovery load was not typed
- * `reload`. Everything else fell through to the 10-minute staleness wait, so the
- * one boot where the user was actually looking showed nothing.
- *
- * Rather than special-case a browser I cannot test (HARD RULE #23 — real iOS is
- * out of reach from here), this stops depending on the navigation type at all
- * for that decision. The tab mirror already proves the record belongs to THIS
- * tab's lineage; the only competing explanation is a DUPLICATED tab, whose
- * original is still running — and a running session writes a heartbeat. So:
- * watch the record. If nothing writes to it for `OWNER_PROBE_MS`, nobody owns it
- * and it ended. If it advances, the owner is alive and we stay quiet, exactly as
- * before.
- *
- * The cost is a delay of ~21s instead of ~10 minutes on the path that matters,
- * and the evidence is observed rather than assumed.
- *
- * @returns an unsubscribe function; safe to call before `start`.
- */
-export function watchLateCrashReports(onLate: (reports: CrashReport[]) => void, probeMs = OWNER_PROBE_MS): () => void {
-	if (!priorTabSessionId || bootNavType === 'reload') return () => {};
-	const id = priorTabSessionId;
-	let before: SessionRecord | null = null;
-	try {
-		before = readRecord(SESSION_PREFIX + id);
-	} catch {
-		return () => {};
-	}
-	// Already closed cleanly, already gone, or already reportable by the ordinary
-	// rules — nothing for the watch to add.
-	if (!before || before.id === liveId || (before.closed && !before.bfcached)) return () => {};
-	// A FROZEN tab is alive but forbidden to run: the Page Lifecycle spec suspends
-	// its tasks, so it cannot answer, and silence from it proves nothing at all.
-	// Leave it to the staleness wait rather than convicting on an alibi it was not
-	// permitted to give.
-	if (before.frozen) return () => {};
-
-	const beatBefore = before.lastBeat;
-	let answered = false;
-	const onPong = (ev: StorageEvent) => {
-		if (ev.key !== PONG_KEY || !ev.newValue) return;
-		// Only an answer to THIS challenge counts. A pong naming another session is
-		// some other tab's conversation.
-		try {
-			if ((JSON.parse(ev.newValue) as { id?: string }).id === id) answered = true;
-		} catch {
-			/* a malformed pong is not an answer */
-		}
-	};
-	addEventListener('storage', onPong);
-	// The challenge. Written-then-removed so it cannot accumulate; the write is
-	// what raises the event in every other document on this origin.
-	try {
-		const store = ls();
-		store?.setItem(PING_KEY, JSON.stringify({ id, at: Date.now() }));
-		safeRemove(store, PING_KEY);
-	} catch {
-		/* storage blocked — the timeout below still runs and falls back to the beat check */
-	}
-
-	const timer = setTimeout(() => {
-		removeEventListener('storage', onPong);
-		// SOMEONE ANSWERED. The owning tab is alive and this document merely
-		// inherited its session mirror by being duplicated from it.
-		if (answered) return;
-		try {
-			const after = readRecord(SESSION_PREFIX + id);
-			// Gone (pruned or wiped) — nothing to report.
-			if (!after) return;
-			// Belt to the ping's braces: a heartbeat landing during the window is
-			// also proof of life, and costs nothing to check.
-			if (after.lastBeat !== beatBefore || after.frozen || (after.closed && !after.bfcached)) return;
-			provenDeadOwners.set(id, after.lastBeat);
-			const late = unreportedCrashReports(Date.now()).filter((r) => r.id === id);
-			if (late.length) onLate(late);
-		} catch {
-			// A record that turned unreadable mid-watch is handled by the per-record
-			// guard in `collectCrashReports`; there is nothing to salvage here.
-		}
-	}, probeMs);
-	return () => {
-		removeEventListener('storage', onPong);
-		clearTimeout(timer);
-	};
-}
 
 /**
  * Every past session that ended without a clean unload, newest first. The live
@@ -977,9 +851,8 @@ export function collectCrashReports(now: number): CrashReport[] {
 			const rec = readRecord(k);
 			if (!rec || rec.id === liveId) continue;
 			const sameTab = isSameTab(rec);
-			const ownerDead = ownerProvenDead(rec);
-			if (!isUncleanEnd(rec, now, sameTab, ownerDead)) continue;
-			const { ending, headline, confirmed, facts, steps } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded, ownerDead });
+			if (!isUncleanEnd(rec, now, sameTab)) continue;
+			const { ending, headline, confirmed, facts, steps } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
 			out.push({
 				id: rec.id,
 				record: rec,
@@ -1240,7 +1113,14 @@ export function noteFailedLoad(url: string): void {
 	// `location.search` for this reason (see `startCrashSentinel`); a second field
 	// that posts raw URLs would have quietly reopened the same hole. The path is
 	// what identifies the file; the query never adds anything worth the risk.
-	const u = clip(url.split(/[?#]/)[0] || url, 200);
+	// `|| url` would have UNDONE this for a path-less URL: `<img src="?token=…">`
+	// is legal HTML, its path part is empty, and the fallback restored the whole
+	// string — query included — into a public issue body. An empty path is a fine
+	// thing to record; the fallback is not.
+	// An empty path is possible (`src="?token=…"`) and renders as a blank row, so
+	// it is named rather than dropped — that a resource failed is the signal, and
+	// the query it was carrying is exactly what must not be kept.
+	const u = clip(url.split(/[?#]/)[0], 200) || '(unnamed resource)';
 	const list = (live.failedLoads ??= []);
 	if (list.includes(u)) return;
 	if (list.length >= 8) list.shift();
@@ -1456,29 +1336,6 @@ export function startCrashSentinel(): () => void {
 	// `storage` event fires in every OTHER document on the origin, which is
 	// exactly the reach that was missing.
 	const onStorage = (ev: StorageEvent) => {
-		// ANSWER A LIVENESS CHALLENGE. This is the half of `watchLateCrashReports`
-		// that runs in the tab being asked about, and the reason the whole design
-		// works where a timer could not: a `storage` event is delivered as an
-		// ordinary task, NOT a timer callback, so a hidden tab under Chrome's
-		// intensive throttling — which cuts its heartbeat to roughly one write
-		// every five minutes — still answers in milliseconds. Proof of life
-		// therefore stops depending on when the owner happens to tick.
-		if (ev.key === PING_KEY && ev.newValue) {
-			if (sealed || !live) return;
-			try {
-				if ((JSON.parse(ev.newValue) as { id?: string }).id !== live.id) return;
-			} catch {
-				return; // a malformed challenge is not addressed to anyone
-			}
-			try {
-				const store = ls();
-				store?.setItem(PONG_KEY, JSON.stringify({ id: live.id, at: Date.now() }));
-				safeRemove(store, PONG_KEY);
-			} catch {
-				/* storage blocked; the asker falls back to the heartbeat check */
-			}
-			return;
-		}
 		if (ev.key !== WIPE_SIGNAL_KEY || !ev.newValue) return;
 		sealed = true;
 		if (live) {
@@ -1539,6 +1396,5 @@ export function __resetSentinelForTest(): void {
 	// Module-level and therefore NOT reset by clearing storage: a session proven
 	// dead in one test stayed proven in the next, so a later test could pass or
 	// fail for reasons that had nothing to do with the code under test.
-	provenDeadOwners.clear();
 	bootNavType = '';
 }

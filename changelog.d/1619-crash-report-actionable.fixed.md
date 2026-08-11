@@ -1,13 +1,3 @@
-- **Fixed: the crash report now shows up on its own, and tells you what to do
-  next.** The first real report off a phone found three things wrong. When the
-  browser reloaded a dead tab **by itself** the Studio said nothing — you had to
-  press reload by hand before the report appeared. It does not depend on how the
-  browser labels its own recovery load any more: it asks the other tab. A Studio
-  tab that is still open answers within milliseconds even when the browser has
-  throttled it into near-silence, so a duplicated tab never accuses the original
-  of crashing — and when nothing answers, the report appears on its own a couple
-  of seconds after the page comes back, instead of ten minutes later or not
-  at all.
 - **Fixed: errors in a crash report read as findings instead of noise.** Six
   copies of the same error now appear once with a count and a time span, and the
   report separates errors the browser actually described from ones it refused to
