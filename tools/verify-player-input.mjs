@@ -301,23 +301,35 @@ for (const mode of ['light', 'dark']) {
 check('the sign-off artifacts are genuinely two different modes', ground.light !== ground.dark, `light ${ground.light} vs dark ${ground.dark}`);
 console.log(`wrote ${file} and .scratch/out/player-input-{light,dark}.png`);
 
-// ── a NON-DEFAULT canvas, on a real artifact (#1577) ─────────────────────────
+// ── NON-DEFAULT canvases, on real artifacts (#1577) ─────────────────────────
 //
 // The class of deck that used to export unreadable: laid out by the engine for its declared
 // canvas, then crushed into the player's hardcoded HD box. Asserting the geometry is not
-// enough — the failure was visible as content spilling its own frame, so that is what is
-// measured, plus the frame landing inside the stage rather than overflowing it.
-{
-	const szOut = path.resolve('.scratch/out/player-size');
-	execFileSync(process.execPath, ['lattice-emulator.js', 'examples/gallery-jargon.md', szOut, '--player'], { stdio: 'pipe' });
+// enough — the failure was visible as content spilling its own frame — so that is what is
+// measured, plus the scaled frame landing inside the stage.
+//
+// FOUR ASPECT CLASSES, not one. The first cut of this checked only the 4K deck, which is
+// landscape and merely larger; every genuinely different shape (tall, portrait, extra-tall)
+// went unexercised, and those are the ones the no-JS ladder change actually bites. The
+// no-JS floor is checked with JAVASCRIPT DISABLED, because that ladder is the only part of
+// this fix the scripted path never touches — it had no real-surface coverage of any kind.
+const CANVASES = [
+	['4K', 'examples/gallery-jargon.md', '3840px x 2160px'],
+	['story', 'examples/adaptive-sizing.md', '1080px x 1920px'],
+	['portrait', 'examples/social-portrait.md', '1080px x 1350px'],
+	['mobile', 'examples/social-mobile.md', '1080px x 2340px'],
+];
+for (const [label, deck, expected] of CANVASES) {
+	const szOut = path.resolve(`.scratch/out/player-size-${label}`);
+	execFileSync(process.execPath, ['lattice-emulator.js', deck, szOut, '--player'], { stdio: 'pipe' });
+
 	const szCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const sz = await szCtx.newPage();
 	await sz.goto(`file://${szOut}.html`);
 	await sz.waitForSelector('#lp-stage');
 	await sz.evaluate(() => document.fonts.ready);
 	await sz.keyboard.press('ArrowRight');
-	await sz.keyboard.press('ArrowRight');
-	await sz.waitForTimeout(600);
+	await sz.waitForTimeout(500);
 	const m = await sz.evaluate(() => {
 		const s = document.querySelector('.lp-frame.lp-active section[data-lattice-slide]');
 		const frame = s.closest('.lp-frame').getBoundingClientRect();
@@ -327,12 +339,26 @@ console.log(`wrote ${file} and .scratch/out/player-input-{light,dark}.png`);
 			scroll: s.scrollHeight,
 			clientH: s.clientHeight,
 			fits: frame.width <= stage.width + 1 && frame.height <= stage.height + 1,
+			frame: `${Math.round(frame.width)}x${Math.round(frame.height)}`,
 		};
 	});
-	check('a 4K deck keeps its OWN canvas in the player', m.box === '3840px x 2160px', m.box);
-	check('…its content does not spill that canvas', m.scroll <= m.clientH + 2, `${m.scroll}px in ${m.clientH}px`);
-	check('…and the scaled frame fits the stage', m.fits);
+	check(`${label}: the deck keeps its OWN canvas in the player`, m.box === expected, m.box);
+	check(`${label}: its content does not spill that canvas`, m.scroll <= m.clientH + 2, `${m.scroll}px in ${m.clientH}px`);
+	check(`${label}: and the scaled frame fits the stage`, m.fits, m.frame);
 	await szCtx.close();
+
+	// The no-JS floor, at a PHONE width — where a ladder tuned to 1280 puts an oversized frame
+	// through the side of the viewport on a narrow canvas.
+	const noJs = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false });
+	const nj = await noJs.newPage();
+	await nj.goto(`file://${szOut}.html`);
+	await nj.waitForTimeout(300);
+	const n = await nj.evaluate(() => {
+		const fr = document.querySelector('.lp-frame').getBoundingClientRect();
+		return { w: Math.round(fr.width), doc: document.documentElement.clientWidth };
+	});
+	check(`${label}: the no-JS floor stays inside the viewport`, n.w <= n.doc + 1, `frame ${n.w}px vs viewport ${n.doc}px`);
+	await noJs.close();
 }
 
 await browser.close();
