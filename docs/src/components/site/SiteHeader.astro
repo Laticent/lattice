@@ -59,7 +59,72 @@ const paletteLabels = Object.fromEntries(palettes.map((p) => [p, paletteLabel(p)
 // What PaletteControls falls back to when the attribute names nothing this build ships —
 // declared here so the seed resolves the SAME palette the control's first render will.
 const fallbackPalette = palettes[0] ?? null;
+// ONE RULE PER PALETTE, so the theme control's label is painted from `<html data-palette>`
+// rather than written into the DOM by a script that has to beat the first frame (#1592).
+// PaletteControls renders every label and these show one — the same shape as the mode
+// toggle's three icons, and for the same reason: the server cannot know the answer, but the
+// attribute carrying it is set before anything paints. Handed to the seed below and appended
+// to <head> there; see the note at that line for why it cannot be a <style> in this template.
+// `[\w-]` is belt and braces; the names come from our own generated token file, matched by a
+// regex that already excludes quotes.
+const paletteLabelCss = palettes
+	.filter((p) => /^[\w-]+$/.test(p))
+	.map((p) => `:root[data-palette="${p}"] [data-palette-label="${p}"]{display:inline}`)
+	.join('\n');
 ---
+
+<!-- PRE-PAINT CHROME SEED (#1592). The header's two controls are the last things on the
+     site that still tell the visitor something they will take back a second later: the theme
+     <select> rendered EMPTY and filled in with "Burgundy" whenever the island hydrated, and
+     the mode toggle rendered the Monitor ("System") icon at a visitor who had pinned dark —
+     a control naming the WRONG stop, which is worse than one naming none. Measured at
+     1440x900 with the CPU throttled 6x: empty/Monitor from t≈145ms, correct at t≈1.9s on the
+     component reference, t≈3.8s on the landing, t≈5.1s on the Playground.
+     Both answers are already in localStorage before paint. This publishes them on <html>,
+     and the controls are PAINTED FROM THOSE ATTRIBUTES by the rules at the foot of this file
+     — so nothing has to write into the markup, and the first frame is already right.
+     It runs ABOVE the header markup, which is what makes that true: an earlier draft patched
+     the trigger's text right after the markup instead, and a per-frame sampler caught the
+     un-seeded state ~1 run in 3 ("Indaco"/System at t=114ms, correct at t=177ms). A script
+     that has to beat the first paint of markup it sits below is a race; setting an attribute
+     the markup has not been parsed against yet is not.
+     Deliberately here rather than in a per-route head script: this header is the thing that
+     has the defect, and it is on every page. It is idempotent with the head seeds that
+     already stamp `data-palette` (playground.astro, ComponentsLayout, ThemeProvider) — they
+     agree by construction, both reading `lattice-docs-palette` — and it is the only one on
+     the landing, which has none. -->
+<script is:inline define:vars={{ paletteLabels, fallbackPalette, paletteLabelCss }}>
+	(function () {
+		try {
+			var r = document.documentElement;
+			// A palette this build still ships. Anything else names a theme whose CSS 404s, and
+			// the head seeds drop such a value for the same reason.
+			var shipped = function (n) { return !!n && Object.prototype.hasOwnProperty.call(paletteLabels, n); };
+			var p = null;
+			try { p = localStorage.getItem('lattice-docs-palette'); } catch (e) {}
+			if (!shipped(p)) p = r.getAttribute('data-palette');
+			if (!shipped(p)) p = fallbackPalette;
+			// Publish it even when it did not change: the label rules below resolve from this
+			// attribute, so leaving an unshippable one in place would show no label at all.
+			if (shipped(p)) r.setAttribute('data-palette', p);
+			// THE LABEL RULES, injected here rather than shipped as a <style> in the template.
+			// A dynamic style tag in an .astro component is not bundled into the head — Astro
+			// emits it at the END of the body, i.e. after the header it is supposed to style,
+			// which reopens the very window this seed exists to close (measured: no label at
+			// all from t≈165ms to t≈365ms, ~1 run in 3). Appending it to <head> from a script
+			// that runs before the header is parsed does not have that problem. It is the whole
+			// table, not just the palette in force, so a later pick is styled too.
+			var st = document.createElement('style');
+			st.textContent = paletteLabelCss;
+			(document.head || r).appendChild(st);
+			// The mode PREFERENCE, which `data-mode` cannot express: System-resolved-dark and
+			// pinned-dark are the same resolved mode and a different stop.
+			var m = null;
+			try { m = localStorage.getItem('lattice-docs-mode'); } catch (e) {}
+			r.setAttribute('data-mode-pref', m === 'light' || m === 'dark' ? m : 'system');
+		} catch (e) {}
+	})();
+</script>
 
 <Wrapper class:list={['site-header', { 'is-standalone': standalone }]}>
 	<div class:list={['site-header-inner', { wide }]}>
@@ -118,51 +183,7 @@ const fallbackPalette = palettes[0] ?? null;
 	</div>
 </Wrapper>
 
-<!-- PRE-PAINT CHROME SEED (#1592). The header's two controls are the last things on the
-     site that still tell the visitor something they will take back a second later: the theme
-     <select> rendered EMPTY and filled in with "Burgundy" whenever the island hydrated, and
-     the mode toggle rendered the Monitor ("System") icon at a visitor who had pinned dark —
-     a control naming the WRONG stop, which is worse than one naming none. Measured at
-     1440x900 with the CPU throttled 6x: empty/Monitor from t≈145ms, correct at t≈1.9s on the
-     component reference, t≈3.8s on the landing, t≈5.1s on the Playground.
-     Both answers are already in localStorage before paint. This runs during body parse —
-     after the island's SSR'd markup is on the page and before it is painted — writes them
-     onto <html> and into the trigger's own text, and PaletteControls reads the same
-     attributes during its first render, so hydration is a no-op rather than a swap.
-     Deliberately here rather than in a per-route head script: this header is the thing that
-     has the defect, and it is on every page. It is also idempotent with the head seeds that
-     already stamp `data-palette` (playground.astro, ComponentsLayout, ThemeProvider) — they
-     agree by construction, both reading `lattice-docs-palette`. -->
-<script is:inline define:vars={{ paletteLabels, fallbackPalette }}>
-	(function () {
-		try {
-			var r = document.documentElement;
-			// A palette this build still ships. Anything else names a theme whose CSS 404s, and
-			// the head seeds drop such a value for the same reason.
-			var shipped = function (n) { return !!n && Object.prototype.hasOwnProperty.call(paletteLabels, n); };
-			var p = null;
-			try { p = localStorage.getItem('lattice-docs-palette'); } catch (e) {}
-			if (!shipped(p)) p = r.getAttribute('data-palette');
-			if (!shipped(p)) p = fallbackPalette;
-			if (shipped(p)) {
-				// Publish it even when it did not change: PaletteControls resolves its first
-				// render from this attribute, so leaving an unshippable one in place would put
-				// the control and the text below out of step — the same swap this seed exists to
-				// remove, one step later.
-				r.setAttribute('data-palette', p);
-				// Every trigger in the header — the bar's and, where one is rendered, the mobile
-				// sheet's. Plain textContent: a palette name is inert text, never markup.
-				var vals = document.querySelectorAll('.sh-actions [data-slot="select-trigger"][aria-label="Theme"] [data-slot="select-value"]');
-				for (var i = 0; i < vals.length; i++) vals[i].textContent = paletteLabels[p];
-			}
-			// The mode PREFERENCE, which `data-mode` cannot express: System-resolved-dark and
-			// pinned-dark are the same resolved mode and a different stop.
-			var m = null;
-			try { m = localStorage.getItem('lattice-docs-mode'); } catch (e) {}
-			r.setAttribute('data-mode-pref', m === 'light' || m === 'dark' ? m : 'system');
-		} catch (e) {}
-	})();
-</script>
+
 
 <script>
 	// Close the Libraries disclosure on outside-click / Escape (native <details>
@@ -203,6 +224,14 @@ const fallbackPalette = palettes[0] ?? null;
 	   honest answer for anyone whose choice we cannot read. */
 	:root:not([data-mode-pref]) [data-slot='mode-icon'][data-pref='system'] {
 		display: block;
+	}
+
+	/* THE THEME CONTROL'S LABEL, painted from `<html data-palette>` for the same reason and by
+	   the same means: PaletteControls renders every palette's label and one rule per palette
+	   (generated below) shows the one in force. The server cannot know which; the attribute is
+	   set before the header is parsed. */
+	[data-palette-label] {
+		display: none;
 	}
 </style>
 

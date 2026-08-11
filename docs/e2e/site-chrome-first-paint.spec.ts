@@ -19,32 +19,58 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 type Sample = { t: number; label: string | null; icon: string | null };
 
+/** How many stops the mode toggle renders (System · Light · Dark) — the completeness test
+ *  the sampler uses to tell a half-parsed button from an unlit one. */
+const MODE_STOPS = 3;
+
 /** Record the header's two controls every frame, from document start. A new entry only when
  *  something CHANGES, so the length of the log is the number of states a person could see. */
 async function sampleHeader(page: import('@playwright/test').Page) {
-	await page.addInitScript(() => {
+	// MODE_STOPS travels as an ARGUMENT: the callback is serialized into the page, so a
+	// module-scope constant referenced inside it is a ReferenceError there — the rAF loop dies
+	// on its first tick and the log is empty, which reads as "the header never appeared".
+	await page.addInitScript((stops) => {
 		const log: { t: number; label: string | null; icon: string | null }[] = [];
 		(window as unknown as { __hdr: typeof log }).__hdr = log;
 		const t0 = performance.now();
 		const tick = () => {
 			const value = document.querySelector('.sh-actions [data-slot="select-trigger"][aria-label="Theme"] [data-slot="select-value"]');
 			const button = document.querySelector('.sh-actions button[aria-label^="Color mode"]');
+			// The label that is actually PAINTED. Every palette's label is in the DOM and CSS
+			// shows one, so `textContent` would answer with all eighteen concatenated — an
+			// assertion that could never fail for the right reason. An empty result means the
+			// spans are there and none matched; a MISSING trigger means nothing to report.
+			const spans = value ? [...value.querySelectorAll<HTMLElement>('[data-palette-label]')] : [];
+			const label = spans.length
+				? spans
+						.filter((n) => getComputedStyle(n).display !== 'none')
+						.map((n) => n.textContent)
+						.join(',')
+				: null;
 			// The icon that is actually PAINTED, not the first one in the DOM: all three are
 			// rendered and CSS shows one, so reading `querySelector('svg')` would always answer
 			// "Monitor" and the assertion would be vacuous.
-			const shown = button
-				? [...button.querySelectorAll<HTMLElement>('[data-slot="mode-icon"]')]
-						.filter((s) => getComputedStyle(s).display !== 'none')
-						.map((s) => s.getAttribute('data-pref'))
-						.join(',')
-				: null;
-			const rec = { t: Math.round(performance.now() - t0), label: value ? value.textContent : null, icon: shown };
+			//
+			// A HALF-PARSED BUTTON IS NOT A STATE A PERSON SEES, and it is what a per-frame
+			// sampler catches if it does not say so: the three icons are large inline SVGs, the
+			// parser yields between them, and a frame landing there sees "no icon lit" — which
+			// then reads as a second value for the control. Treated as absence, exactly like a
+			// header that has not been parsed at all.
+			const icons = button ? [...button.querySelectorAll<HTMLElement>('[data-slot="mode-icon"]')] : [];
+			const shown =
+				icons.length === stops
+					? icons
+							.filter((s) => getComputedStyle(s).display !== 'none')
+							.map((s) => s.getAttribute('data-pref'))
+							.join(',')
+					: null;
+			const rec = { t: Math.round(performance.now() - t0), label, icon: shown };
 			const last = log[log.length - 1];
 			if (!last || last.label !== rec.label || last.icon !== rec.icon) log.push(rec);
 			if (performance.now() - t0 < 9000) requestAnimationFrame(tick);
 		};
 		requestAnimationFrame(tick);
-	});
+	}, MODE_STOPS);
 }
 
 async function throttle(page: import('@playwright/test').Page) {
@@ -73,14 +99,30 @@ for (const route of ['/', '/playground/', '/components/']) {
 
 		await sampleHeader(page);
 		await page.goto(route, { waitUntil: 'domcontentloaded' });
-		// Well past hydration: the island is `client:idle`, and under 6x throttle it landed as
-		// late as 5.1s on the Playground before this was fixed.
-		await page.waitForTimeout(7000);
+		// PAST HYDRATION, asked rather than guessed. The island is `client:idle` and under 6x
+		// throttle it landed as late as 5.1s before this was fixed — an interval long enough to
+		// cover that is a bet, and Astro publishes the answer: it server-renders
+		// `<astro-island … ssr>` and its client runtime REMOVES that attribute once the
+		// component is hydrated.
+		await expect
+			.poll(() => page.evaluate(() => !!document.querySelector('astro-island[component-url*="NavActions"]:not([ssr])')), { timeout: 40_000 })
+			.toBe(true);
+		// One dwell after it, and it is the measurement window rather than a settle: the defect
+		// was a correction pass, so the case has to keep watching for a beat AFTER the moment
+		// that pass would have run.
+		await page.waitForTimeout(1500);
 
 		const log = shown((await page.evaluate(() => (window as unknown as { __hdr: Sample[] }).__hdr)) as Sample[]);
 		expect(log.length, 'the sampler never saw the header — the assertions below would be vacuous').toBeGreaterThan(0);
-		const labels = [...new Set(log.map((s) => s.label))];
-		const icons = [...new Set(log.map((s) => s.icon))];
+		// The completeness the sampler assumed while it was running: if the toggle ever stops
+		// rendering all three stops, "one icon" above would be satisfied by a control that
+		// cannot show the other two, and the sampler would have skipped every frame besides.
+		expect(
+			await page.locator('.sh-actions button[aria-label^="Color mode"] [data-slot="mode-icon"]').count(),
+			'the mode toggle does not render all three stops, so the sampler skipped frames it should have judged',
+		).toBe(MODE_STOPS);
+		const labels = [...new Set(log.map((s) => s.label).filter((v) => v !== null))];
+		const icons = [...new Set(log.map((s) => s.icon).filter((v) => v !== null))];
 		expect(labels, `the theme control showed ${labels.length} different values: ${JSON.stringify(log)}`).toEqual(['Burgundy']);
 		expect(icons, `the mode toggle showed ${icons.length} different icons: ${JSON.stringify(log)}`).toEqual(['dark']);
 	});
@@ -97,10 +139,18 @@ test('the seeded controls still drive the site chrome after hydration', async ({
 	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
 
 	const trigger = page.locator('.sh-actions [data-slot="select-trigger"][aria-label="Theme"]');
-	await expect(trigger).toHaveText('Burgundy');
+	// The VISIBLE label — every palette's is in the DOM (see the sampler above).
+	const shownLabel = () =>
+		page.evaluate(() =>
+			[...document.querySelectorAll<HTMLElement>('.sh-actions [data-slot="select-trigger"][aria-label="Theme"] [data-palette-label]')]
+				.filter((n) => getComputedStyle(n).display !== 'none')
+				.map((n) => n.textContent)
+				.join(','),
+		);
+	await expect.poll(shownLabel).toBe('Burgundy');
 	await trigger.click();
 	await page.getByRole('option', { name: 'Laguna', exact: true }).click();
-	await expect(trigger).toHaveText('Laguna');
+	await expect.poll(shownLabel).toBe('Laguna');
 	await expect(page.locator('html')).toHaveAttribute('data-palette', 'laguna');
 	expect(await page.evaluate(() => localStorage.getItem('lattice-docs-palette'))).toBe('laguna');
 

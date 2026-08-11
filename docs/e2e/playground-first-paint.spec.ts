@@ -171,9 +171,14 @@ async function seedRealSession(page: import('@playwright/test').Page) {
 	await page.mouse.up();
 	const dragged = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
 	expect(dragged, 'the drag did not move the divider — the reload below would prove nothing').toBeLessThan(500);
-	// The capture runs shortly after the first render and again on leave; give the
-	// post-drag geometry a chance to be the one that gets stored.
-	await page.waitForTimeout(1500);
+	// What the reload actually needs is the drag PERSISTED, and the hook writes it on the
+	// group's `onLayoutChanged` — so ask for it rather than sleeping on it. (The snapshot is
+	// re-captured at the dragged size by the `pagehide` on the navigation itself.)
+	await expect
+		.poll(() => page.evaluate(([k, b]) => JSON.parse(localStorage.getItem(k) || 'null')?.[b] ?? null, [PG_SPLIT_KEY, PG_SPLIT_BUCKET] as const), {
+			timeout: 15_000,
+		})
+		.not.toBeNull();
 }
 
 // ── The card's acceptance check ───────────────────────────────────────────────────────
@@ -223,8 +228,9 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 test('a share below a pane minimum at a narrower window is clamped BEFORE paint, not after', async ({ page }) => {
 	await page.setViewportSize({ width: 1920, height: 900 });
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
-	await expect(page.locator('#pg-split-preview')).toBeVisible();
-	await page.waitForTimeout(1500);
+	// The engine's first live render — the signal that the group has laid out for real, so a
+	// keyboard resize lands on settled geometry rather than on the pre-hydration one.
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
 
 	// Shrink the preview to roughly a quarter of the pair — comfortably above its 320px
 	// minimum at 1920, and below it at 1194.
@@ -235,15 +241,18 @@ test('a share below a pane minimum at a narrower window is clamped BEFORE paint,
 		if (w <= 500) break;
 		await page.keyboard.press('ArrowRight');
 	}
-	await page.waitForTimeout(1200);
-
-	const share = await page.evaluate(
-		([key, bucket, id]) => {
-			const store = JSON.parse(localStorage.getItem(key) || 'null');
-			return store?.[bucket]?.[id] ?? null;
-		},
-		[PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS[1]] as const,
-	);
+	// Poll for the PERSISTED share rather than sleeping on it: the hook writes on the group's
+	// `onLayoutChanged`, which is the thing this waits for and can be asked about directly.
+	const readShare = () =>
+		page.evaluate(
+			([key, bucket, id]) => {
+				const store = JSON.parse(localStorage.getItem(key) || 'null');
+				return store?.[bucket]?.[id] ?? null;
+			},
+			[PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS[1]] as const,
+		);
+	await expect.poll(readShare, { timeout: 15_000 }).not.toBeNull();
+	const share = await readShare();
 	expect(share, 'the keyboard resize did not persist a share — the reload below would prove nothing').toBeGreaterThan(0);
 	// THE EXPERIMENT'S OWN PRECONDITION. If the saved share still clears the minimum at 1194
 	// there is nothing to clamp and the assertions underneath are vacuous, so fail here
@@ -283,7 +292,7 @@ test('an Explore reload paints one geometry per element too', async ({ page }) =
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
 	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
-	await page.waitForTimeout(1000);
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
 
 	await sampleFrames(page);
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
@@ -322,7 +331,7 @@ test.describe('on a phone', () => {
 		// drag below 820px — the tabs own the layout — so the seed under test is the boot view.
 		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 40_000 });
-		await page.waitForTimeout(1000);
+		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
 
 		await sampleFrames(page);
 		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
@@ -348,7 +357,12 @@ test('a plan fetch that 404s leaves an inert bar, not a dead band', async ({ pag
 	await sampleFrames(page);
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('#pg-walk')).toBeVisible();
-	await page.waitForTimeout(6000);
+	// The 404 path's own signal: `startWalk` raises a sticky "out of date" toast when the plan
+	// fetch fails in Explore. Waiting for it means the failure has been HANDLED, rather than
+	// guessing an interval long enough for it to have been. (`[data-sonner-toast]`, not
+	// `.pg-toast` — the surface's toasts are sonner's and carry no such class.)
+	await expect(page.locator('[data-sonner-toast]')).toContainText(/out of date/i, { timeout: 30_000 });
+	await page.waitForTimeout(1500);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	assertOneGeometry(log, ['previewPane', 'walkBar']);
@@ -371,10 +385,11 @@ test('a plan fetch that 404s leaves an inert bar, not a dead band', async ({ pag
 test('a snapshot survives a COLLAPSED capture and still replays exactly when the pane comes back', async ({ page }) => {
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
-	await page.waitForTimeout(2000);
 	const snapshotTs = () => page.evaluate(() => JSON.parse(localStorage.getItem('lattice-docs-pg-last-slide') || 'null')?.ts ?? null);
+	// The post-first-render capture is on a timer inside the app; poll for its result rather
+	// than betting on the interval.
+	await expect.poll(snapshotTs, { timeout: 30_000 }).not.toBeNull();
 	const good = await snapshotTs();
-	expect(good, 'no snapshot was captured at all — the rest of this case would prove nothing').toBeTruthy();
 
 	// Collapse through the real control, then do everything that would normally produce a
 	// capture: a fresh render, and the leave events a navigation fires.
@@ -387,20 +402,27 @@ test('a snapshot survives a COLLAPSED capture and still replays exactly when the
 		}),
 		'the collapsed wrap is measurable, so a fit COULD be taken in it — the argument this case rests on has changed',
 	).toEqual([0, 0]);
-	await page.locator('.cm-content').click({ force: true });
-	await page.keyboard.type('\n<!-- a render while the preview is collapsed -->\n');
-	await page.waitForTimeout(2000);
+	// The app SAYS it has stopped rendering, which is the state this case needs to be in.
+	await expect(page.locator('.pg-status')).toContainText(/collapsed/i);
+	// Now fire the leave events a navigation fires. `captureFirstSlide` runs for real — the
+	// view is Edit, the frame is there, a render has landed — and gets as far as `measureFit`
+	// before refusing, which is what the sabotage below proves. The capture is synchronous
+	// inside these handlers, so the store is already written when `evaluate` returns.
 	await page.evaluate(() => {
 		document.dispatchEvent(new Event('visibilitychange'));
 		window.dispatchEvent(new Event('pagehide'));
 	});
-	await page.waitForTimeout(500);
 	expect(await snapshotTs(), 'a capture taken with the pane collapsed overwrote the good snapshot').toBe(good);
 
 	// Expand and reload: the cached slide must land on the live one, not 23x oversized.
 	await page.locator('.pg-pane.preview [data-slot="split-rail"]').click({ force: true });
 	await expect(page.locator('#pg-split-preview')).not.toHaveJSProperty('offsetWidth', 28);
-	await page.waitForTimeout(1000);
+	// Rendering resumes with the pane — the status line goes "…collapsed…" → "Rendered N
+	// slide(s)." across the expand, which is a real transition rather than a settle.
+	await expect(page.locator('.pg-status')).toContainText(/rendered/i, { timeout: 30_000 });
+	await expect
+		.poll(() => page.evaluate(() => Math.round(document.querySelector('.pg-preview-wrap')?.getBoundingClientRect().width ?? 0)))
+		.toBeGreaterThan(100);
 
 	await page.addInitScript(() => {
 		const seen: { shell: number[]; wrap: number[] }[] = [];
@@ -420,7 +442,9 @@ test('a snapshot survives a COLLAPSED capture and still replays exactly when the
 	});
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
-	await page.waitForTimeout(1000);
+	// One dwell, and it is the measurement window rather than a settle: the shell hands off to
+	// the live filmstrip over a 0.2s cross-fade, and the comparison below is between the two.
+	await page.waitForTimeout(1500);
 
 	const shell = (await page.evaluate(() => (window as unknown as { __shell: { shell: number[]; wrap: number[] }[] }).__shell))[0];
 	expect(shell, 'the replay never painted, so nothing was checked for the oversize this case is about').toBeTruthy();

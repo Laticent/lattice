@@ -3841,18 +3841,35 @@ own) is not a builder and needs no entry.
   selected item's text is portaled in by `SelectItemText`, which only exists once a layout
   effect has built the closed content's DocumentFragment. So the trigger was empty in the SSR
   markup no matter what the value was.
-- **Fix (shipped, #1592):** the trigger names its own label (`<SelectValue>{label}</SelectValue>`);
-  a pre-paint seed in `SiteHeader.astro` writes the visitor's palette into that text and
-  publishes `<html data-mode-pref>`; `PaletteControls` resolves both from those attributes in
-  its FIRST render, so hydration is a no-op instead of a swap.
+- **Fix (shipped, #1592):** both controls are PAINTED FROM `<html>` ATTRIBUTES. PaletteControls
+  renders every palette's label and all three mode icons; one CSS rule per palette (and three
+  for the stops) shows the one in force. A pre-paint seed in `SiteHeader.astro` publishes
+  `data-palette` and `data-mode-pref`, and `PaletteControls` reads them in its first render so
+  its own state agrees.
+- **The seed sits ABOVE the header markup, and that is the second half of the fix.** A first
+  draft patched the trigger's text right AFTER the markup instead. A per-frame sampler caught
+  the un-seeded state about one run in three ("Indaco"/System at t=114ms, corrected at
+  t=177ms): a script that has to beat the first paint of markup it sits below is a race.
+  Setting an attribute the markup has not been parsed against yet is not.
+- **The per-palette rules are injected by that script, not shipped as a `<style>` in the
+  component.** A `<style set:html>` in an `.astro` file is not bundled into the head — Astro
+  emits it at the END of the body, i.e. after the header it styles, which reopens the same
+  window (measured: no label at all from t≈165ms to t≈365ms). Appending the sheet to `<head>`
+  from a script that runs before the header is parsed does not have that problem.
 - **`data-mode` cannot stand in for `data-mode-pref`.** System-resolved-dark and pinned-dark
   are the same resolved mode and a different STOP, and the icon names the stop.
 - **The mode icon is three icons with CSS picking one, and that is not decoration.** The
   server cannot know the stop, so React choosing would put Monitor in the HTML and Moon in
   the client's first render — a hydration mismatch React 19 does not patch. Rendering the
   same three on both sides moves the choice to an attribute the seed has already written.
-- **If you add a header control that shows persisted state,** it needs the same three pieces:
-  a value in the SSR markup, a pre-paint correction, and an initial state read from the same
-  attribute. `site-chrome-first-paint.spec.ts` samples every frame across three page families
-  and fails on any second value.
+- **If you add a header control that shows persisted state,** give it the same shape: render
+  every possible value, pick one with CSS keyed on an `<html>` attribute, and set that
+  attribute above the markup. `site-chrome-first-paint.spec.ts` samples every frame across
+  three page families and fails on any second value.
+- **A per-frame sampler must know when a control is half-PARSED.** The three mode icons are
+  large inline SVGs and the HTML parser yields between them, so a frame can land on a button
+  holding two of the three — no icon lit, which reads as a second value for the control and
+  fails about one run in eight. That is absence, not a state a person sees: the sampler skips
+  a frame whose button does not hold all three, and the case asserts the settled DOM does hold
+  all three so the skip cannot hide a real regression.
 - **Triggered by:** #1592.

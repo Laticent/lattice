@@ -192,10 +192,20 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 						    portal the selected item's text in — and the items only exist after a
 						    layout effect has built the closed content's DocumentFragment. That is
 						    why the trigger server-rendered EMPTY and filled in whenever the island
-						    got round to hydrating. Naming the label here makes it plain text in the
-						    SSR'd markup, which the pre-paint seed can then correct to the visitor's
-						    own palette before anything is on screen. */}
-						<SelectValue placeholder="Theme">{opts.includes(palette) ? paletteLabel(palette) : null}</SelectValue>
+						    got round to hydrating.
+						    EVERY label is rendered and CSS shows the one `<html data-palette>` names
+						    (rules in SiteHeader.astro), exactly as the mode icons are. Rendering the
+						    ONE label React believes in would be a server/client mismatch for anyone
+						    on a non-default palette; this way the same markup is produced on both
+						    sides and the answer comes from an attribute that is set before the
+						    header is parsed, so the first frame is already right. */}
+						<SelectValue placeholder="Theme">
+							{opts.map((p) => (
+								<span key={p} data-palette-label={p}>
+									{paletteLabel(p)}
+								</span>
+							))}
+						</SelectValue>
 					</SelectTrigger>
 					<SelectContent className="max-h-[60vh]">
 						<PaletteSelectItems palettes={opts} />

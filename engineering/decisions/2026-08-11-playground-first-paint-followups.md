@@ -155,12 +155,35 @@ was — the `value` prop had never been able to reach the screen before hydratio
 label as children (`<SelectValue>{label}</SelectValue>`) is what makes it plain text a seed can
 then correct.
 
-The rest is the boot-state channel the Studio already had, applied here: a pre-paint script in
-`SiteHeader.astro` (body-parse, immediately after the island's SSR'd markup) writes the
-visitor's palette into that text and publishes the mode PREFERENCE as `<html data-mode-pref>`;
-`PaletteControls` resolves both from those attributes during its FIRST render, so hydration is
-a no-op rather than a swap. It lives in the header rather than in a per-route head script
-because the header is the thing with the defect and it is on every page.
+The rest is the boot-state channel the Studio already had, applied here — with one turn the
+first draft did not take. A pre-paint script in `SiteHeader.astro` publishes `data-palette` and
+the mode PREFERENCE (`data-mode-pref`) on `<html>`, and both controls are **painted from those
+attributes**: PaletteControls renders every palette's label and all three mode icons, and CSS
+shows the one in force. `PaletteControls` reads the same attributes in its first render so its
+own state agrees. It lives in the header rather than in a per-route head script because the
+header is the thing with the defect and it is on every page — and it is the only palette seed
+the landing has at all.
+
+**The first draft patched the trigger's text with a script placed just AFTER the markup, and
+it lost the race about one run in three.** A per-frame sampler caught the un-seeded state at
+t=114ms with the corrected one at t=177ms — a ~60ms flash of "Indaco"/System. The lesson is
+sharper than "put the script earlier": *a script that has to beat the first paint of markup it
+sits below is a race; setting an attribute the markup has not been parsed against yet is not.*
+Moving the script above the header only works because the controls now read attributes rather
+than needing their text rewritten.
+
+Two mechanics that cost a round each and are worth writing down:
+
+- **A `<style set:html>` in an `.astro` component is not bundled into the head.** Astro emits
+  it at the END of the body — after the header it styles. That reopened the same window in a
+  different colour (no label at all, t≈165ms → t≈365ms). The per-palette rules are therefore
+  handed to the seed through `define:vars` and appended to `<head>` by it, before the header
+  is parsed.
+- **A per-frame sampler must know when a control is half-PARSED.** The three icons are large
+  inline SVGs, the parser yields between them, and a frame landing there sees a button with
+  two icons and none lit — which reads as a second value and failed about one run in eight.
+  That is absence, not a state a person sees. The sampler skips such a frame, and the case
+  asserts the settled DOM really does hold all three so the skip cannot hide a regression.
 
 Two things this taught that are not obvious:
 
@@ -217,11 +240,16 @@ Ten new e2e cases and five unit cases. The existing Explore case now tracks `pre
 - **`--pg-walk-cap-lines: 2` is a judgment, not a measurement.** Two lines covers every caption
   in the staged plans at 1194px and clips the longest of them at 390px. A plan author who
   writes a longer caption gets less of it shown, and nothing warns them.
-- **The header seed runs at body-parse, not in `<head>`** — it has to, because it writes into
-  the island's SSR'd markup. On the landing the sampler's first frame with a header already
-  shows the corrected value, but the window between the header markup and the script is a
-  window, and a slow enough parse could paint inside it. The `@visual` baseline would not catch
-  it; the per-frame sampler would only catch it intermittently.
+- **The header seed still runs at body-parse rather than in `<head>`.** It no longer needs the
+  markup (it writes `<html>` attributes and appends a stylesheet), so it sits above the header
+  and the measured flash is gone across eight consecutive runs — but it is above the header in
+  ONE component, and a future page that renders header-shaped chrome before `<SiteHeader>`
+  would be outside it. A head-level seed shared by every route would close that properly; the
+  reason it is not done here is that `data-palette`'s head seeds are per-route today and
+  unifying them is its own change.
+- **With scripting off the theme select shows no label**, because the rules that reveal one are
+  injected by the seed. It showed none before this change either — radix needs JS to portal the
+  item text — so it is not a regression, but it is not the fix either.
 - **`docs/e2e/visual.spec.ts` "@visual studio renders at this viewport" fails in this sandbox**,
   identically on a clean rebuild of `origin/main`'s `docs/src` — the whole page is offset, which
   reads as a font/rasterizer environment difference rather than anything in this diff. Stated
