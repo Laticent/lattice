@@ -397,16 +397,45 @@ from the slide edge to the body box, before #1598 closed it:
 Four of the six buckets already kept the rule; two paid twice, and the chart paid
 three times — 192px per side against prose's 64.
 
-**On the INLINE axis.** The clip-margin clause is why: `overflow` cuts at the
-PADDING box, so a body's padding both insets content *and* lets it paint that far
-past the layout box before anything is lost. For chart and diagram the inline half
-was the duplicate; the block half was the slack, and charts rely on it (journey's
-mood legend overshoots its column by 21px, matrix-grid's rows by a few, radar's
-rim labels by design). Removing it clipped nine decks that had never clipped, so
-#1598 is inline-only and the block padding stays on the body, named for its job.
-`overflow-clip-margin` is the property that should carry it and cannot yet —
-Chromium 131 takes only a plain `<length>` there, and every spacing token here is
-a `calc()`.
+**BOTH AXES, and the block half took a second measurement to settle.** #1598
+landed inline-only. The clip-margin clause was why: `overflow` cuts at the PADDING
+box, so a body's padding both insets content *and* lets it paint that far past the
+layout box before anything is lost. The inline half was plainly the duplicate; the
+block half read as slack that charts rely on (journey's mood legend overshoots its
+column by 21px, matrix-grid's rows by a few, radar's rim labels by design), and
+removing it clipped nine decks that had never clipped.
+
+**That experiment MOVED the padding to the stage. Zeroing it is a different change
+with the opposite sign,** and the nine-deck result does not carry over. The body is
+`flex: 1`, so its border box is the stage either way:
+
+| | body border box | body content box | clip boundary |
+|---|---|---|---|
+| padding on the body | stage | stage − 64 | stage |
+| **moved to the stage** | stage − 64 | stage − 64 | **stage − 64** — slack gone |
+| **zeroed** | stage | **stage** — content grows | stage — unmoved |
+
+Re-measured zeroed rather than moved: `overflow:check` over all 268 committed
+decks came back **7 clipped slides across 4 decks, identical to baseline, zero
+newly-clipping pages**, and `check-chart-fit` went from **3 clips to 1** — the
+survivor shrinking 55.5px to 10.9px. The padding was not absorbing overflow on the
+charts that clipped; it was **causing** it. For a body pinned to natural height
+(`flex: 0 0 auto` — progress, kanban, timeline-list, roadmap) the padding *is* part
+of that height, so it pushes the box out of the stage and shoves the content down
+32px on the way: `progress` at square, content 677.8 in a 666.9 stage, overshot
+42.9px with the padding and 10.9px without it. The three named fill-height
+dependents were checked on the render rather than trusted, and all paint complete
+without it.
+
+So the block pair (`--chart-inset-top` / `--chart-inset-bottom`) is retired, and a
+chart body now carries no padding on either axis. **What survives is the clause,
+not the slack**: the one body that still earns a block inset is the one that PAINTS
+A SURFACE — the opt-in `.canvas` glass card, whose vertical berth had been silently
+borrowing the retired pair and now has its own `--chart-panel-y`. No gate caught
+that borrow; a render did, with the chart running flush to the card's edge.
+`overflow-clip-margin` remains the property a genuine clip margin should use and
+still cannot — Chromium 131 takes only a plain `<length>` there, and every spacing
+token here is a `calc()`.
 
 **Every bucket now sits at the frame inset — one inset, 64px at hd (54 at
 portrait and square).** #1598 landed the chart at 128 (frame + one surviving

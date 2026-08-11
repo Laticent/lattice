@@ -56,18 +56,16 @@ section.state-chart {
  * is unchanged to the pixel: the body box, the caption's text box, and the legend
  * band all land exactly where they did. It is the in-tree precedent that the calc
  * was never load-bearing. */
-section.state-chart.chart-frame {
-  /* The inline restatement is GONE with the family default. It existed to hold a
-   * specificity tie: as a padding this tuning sat at (0,3,1) and beat the
-   * tall/strip family rule (0,2,1), so a TALL state-chart kept the wide side
-   * inset; as tokens it declares at (0,2,1) against tall/strip's (0,1,1), so an
-   * omitted `--chart-inset-x` used to fall through to `--sp-sm` and move the body
-   * 158px. Both sides of that tie are now 0 — there is no longer a wide value to
-   * defend, so the token that defended it is noise. Only the block pair, which is
-   * state-chart's real tuning, remains. */
-  --chart-inset-top: var(--sp-md);
-  --chart-inset-bottom: var(--sp-md);
-}
+/* THE WHOLE RULE IS GONE, both axes. The inline restatement went with the family
+ * default (it existed to hold a specificity tie: as a padding this tuning sat at
+ * (0,3,1) and beat the tall/strip family rule (0,2,1), so a TALL state-chart kept
+ * the wide side inset; both sides of that tie are now 0, so the token that defended
+ * it is noise). The block pair — `--sp-md` top and bottom, which was state-chart's
+ * real tuning — went with the family's block-pair retirement, on the measurement
+ * recorded there: a body's block padding is not a clip margin, and zeroing it grows
+ * the content box without moving the clip boundary. Verified on the render at three
+ * sizes; the state diagram is an `<svg>` that letterboxes to its box, so it takes
+ * the reclaimed height as drawing size and clips nothing. */
 
 section.state-chart.chart-frame .chart-body {
   width: 100%;

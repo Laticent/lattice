@@ -1820,11 +1820,25 @@ function checkMarginDiscipline(errors) {
 // unlisted offender fails, and a listed sanction that no longer matches fails too,
 // so the allowlist cannot rot into a silent pass.
 const SANCTIONED_STAGE_INSETS = [
-  // EMPTY, and it stayed empty. The one entry this list briefly carried — the
-  // `padding-bottom` on `.mermaid:has(+ .mermaid-error)` — went STALE the moment
-  // check (b) narrowed to the inline axis, and the gate said so rather than
-  // letting the sanction rot into a silent pass. That is the list working: a
-  // block-axis seam was never an inset, so it never needed sanctioning.
+  // This list was empty while check (b) ran on the inline axis only. Widening it
+  // back to BOTH axes (the block pair's retirement — a body's block padding is not
+  // a clip margin after all) brings back the one entry it briefly carried, and this
+  // time the entry is correct rather than incidental: it is a seam, and a seam that
+  // provably cannot be spelled any other way.
+  {
+    file: 'lib/integrations/highlight-js/highlight-js.css',
+    prop: 'padding-bottom',
+    value: 'var(--sp-sm) (on `.mermaid:has(+ .mermaid-error)`)',
+    why: 'The gap between a failed diagram and the parser-error block beneath it. It '
+      + 'cannot be a `margin-top` on the error block — HARD RULE #20, and that block is '
+      + 'bordered and filled, so a margin there bleeds its fill and cannot be measured. It '
+      + 'cannot be the container\'s `gap` either: the container is the stage, whose gap is '
+      + 'one value shared by every seam in the column, so expressing it there moves other '
+      + 'seams to fix this one. So it lands on the diagram container (which paints no '
+      + 'background) as the previous sibling — spacing between two of the container\'s own '
+      + 'children, which is the half of the rule a box IS allowed to own, wearing a '
+      + 'padding\'s clothes only because the sibling it spaces cannot carry it.',
+  },
 ];
 
 // The body elements the Forms inset rule governs — the boxes that dock in a stage
@@ -1926,11 +1940,22 @@ function offendingBodyPadding(css) {
       for (const d of block.split(';')) {
         const [prop, ...rest] = d.split(':');
         const value = rest.join(':').trim();
-        // INLINE only. A body's BLOCK padding is a CLIP MARGIN, not an inset —
-        // `overflow` cuts at the padding box, so it is the slack a chart paints
-        // into before anything is lost, and removing it clipped nine decks
-        // (#1598 §7). The `padding` SHORTHAND is matched because it sets both.
-        if (/^\s*padding(?:-(?:inline|right|left))?(?:-(?:start|end))?\s*$/.test(prop)
+        // BOTH AXES, as of the block pair's retirement. This used to be INLINE
+        // only, on the reading that a body's BLOCK padding is a CLIP MARGIN — the
+        // slack a chart paints into — because removing it clipped nine decks
+        // (#1598 §7). That experiment MOVED the padding to the stage, which is a
+        // different change with the opposite sign: the body is `flex: 1`, so its
+        // border box is the stage either way, and moving the padding out collapses
+        // the CLIP box onto the layout box while zeroing it grows the CONTENT box
+        // and leaves the clip boundary where it was. Re-measured zeroed rather than
+        // moved: `overflow:check` over all 268 decks came back identical to
+        // baseline, and `check-chart-fit` went 3 clips to 1 — the padding was
+        // CAUSING overflow on the bodies pinned to natural height, not absorbing it.
+        // The exits are unchanged and are the whole of the exception: a body that
+        // PAINTS a surface (`.canvas`) or has no stage to own anything (the
+        // Read·Article `figure` projection) earns its own padding. See the
+        // `--chart-panel-y` note in chart-family.css.
+        if (/^\s*padding(?:-(?:inline|block|top|right|bottom|left))?(?:-(?:start|end))?\s*$/.test(prop)
           && value && !/^0(?:px|em|rem|%)?$/.test(value)) {
           out.push({ prop: prop.trim(), value: `${value} (on \`${selector}\`)` });
         }
