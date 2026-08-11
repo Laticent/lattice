@@ -153,6 +153,7 @@ type NotesCore = {
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
 	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[]) => string;
+	carryCommentsForward: (baked: string, source: string) => string;
 };
 
 /**
@@ -313,6 +314,7 @@ export async function shareHtmlPlayer(
 	// "Bake the player's DOM" step. A bake that can't run falls back to the static
 	// render: the same file we shipped before, never a failed export.
 	onStatus?.('Rendering diagrams…');
+	const rawSections = deck.splitSections(out.html);
 	let baked: string[] | null = null;
 	try {
 		const ex = await exporters();
@@ -328,18 +330,31 @@ export async function shareHtmlPlayer(
 		// Slide-count parity is the correctness gate: notes, narration cues and the
 		// manifest are all indexed by slide, so a bake that lost or gained a section
 		// would silently mis-bind them. Mismatch → use the static render.
-		const staticCount = deck.splitSections(out.html).length;
-		if (result && result.sections.length === staticCount) {
-			baked = result.sections;
+		if (result && result.sections.length === rawSections.length) {
+			// The capture frame SANITIZES (it is a preview builder — HARD RULE #22), and the
+			// sanitizer deletes comment nodes. That is right for a preview and wrong here: the
+			// note / describe / caption channel IS comments, so a bake that did not carry them
+			// forward would drop every speaker note and a11y description from the shipped file
+			// AND — far worse — empty the scrub set `--strip-notes` derives below, leaving the
+			// note text verbatim in the envelope of a file the author explicitly asked to have
+			// it stripped from. Carry them across before anything downstream reads them.
+			baked = result.sections.map((sec, i) => notesCore.carryCommentsForward(sec, rawSections[i]));
 			// Honesty, matching the CLI's own bake warnings: a diagram Mermaid could not
 			// render ships as its source `<pre>`, and the author should hear that once
 			// rather than discover it in the file.
 			if (result.failed) console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
 		}
-	} catch {
-		/* bake unavailable — ship the static render, exactly as before */
+	} catch (err) {
+		// The static render is a SAFE fallback (it is the file we shipped before the bake
+		// existed) but it is not a GOOD one — it is the un-inflated fence this whole step
+		// exists to replace. A bare swallow here is how a stale generated bundle once made
+		// a broken bake look like a working one: the throw fell back to the raw sections,
+		// notes and diagrams both looked plausible, and nothing said the bake never ran.
+		// Say so, loudly enough to be seen in the export UI, not just the console.
+		console.warn('lattice: diagram bake failed; the webpage export ships un-rendered diagram source.', err);
+		onStatus?.('Diagrams could not be rendered — exporting without them…');
 	}
-	const tagged = (baked ?? deck.splitSections(out.html)).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	const tagged = (baked ?? rawSections).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
 	const slides = materializeNotes(tagged, notesCore, stripNotes);
 	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped
 	// file — not the DOM (blanked above) AND not the verbatim envelope source. Scrub

@@ -3124,6 +3124,15 @@ var require_notes_core = __commonJS({
         ""
       );
     }
+    function carryCommentsForward(baked, source) {
+      const target = String(baked == null ? "" : baked);
+      const comments = String(source == null ? "" : source).match(new RegExp(COMMENT_SOURCE, "g")) || [];
+      if (!comments.length) return target;
+      const missing = comments.filter((c) => target.indexOf(c) === -1);
+      if (!missing.length) return target;
+      const close = target.lastIndexOf("</section>");
+      return close === -1 ? target + missing.join("") : target.slice(0, close) + missing.join("") + target.slice(close);
+    }
     function stripNotesFromSource(source, noteBodies) {
       const set = noteBodies instanceof Set ? noteBodies : new Set(noteBodies);
       if (set.size === 0) return String(source == null ? "" : source);
@@ -3200,6 +3209,7 @@ var require_notes_core = __commonJS({
       extractSlideDescriptions,
       captionFromHtml,
       extractSlideCaptions,
+      carryCommentsForward,
       stripCommentNodes,
       stripNotesFromSource,
       stripCaptionsFromSource,

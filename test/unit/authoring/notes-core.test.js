@@ -258,6 +258,56 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /# Slide one/, 'body content untouched');
   });
 
+  // A slide that makes a round trip through a sanitizing DOM comes back with every
+  // comment node deleted — and the note / describe / caption channel IS comments. The
+  // Studio's webpage export does exactly that to bake its diagrams, so without this the
+  // channel empties silently: no notes sheet, no a11y descriptions, and — the reason
+  // this is a privacy test and not a fidelity one — an EMPTY scrub set, which makes
+  // `stripNotesFromSource` a no-op and ships the note text verbatim in the envelope of
+  // a file whose author asked for it stripped.
+  describe('carryCommentsForward — the comment channel survives a DOM round trip', () => {
+    // Exactly what the engine leaves in a rendered section: the note and describe
+    // channels, and NOT the `_class:` directive — measured on the real browser render,
+    // which consumes directives before the section exists. That is what keeps the
+    // carried set free of anything the envelope scrub must not touch.
+    const SOURCE = '<section class="title"><h1>Cover</h1><!-- CONFIDENTIAL board figure. --><!-- describe: A cover slide. --></section>';
+    const BAKED = '<section class="title"><h1>Cover</h1><svg></svg></section>';
+
+    test('re-attaches every comment the round trip dropped', () => {
+      const out = core.carryCommentsForward(BAKED, SOURCE);
+      assert.match(out, /CONFIDENTIAL board figure\./, 'the speaker note is back');
+      assert.match(out, /describe: A cover slide\./, 'the a11y description is back');
+      assert.match(out, /<svg><\/svg>/, 'the baked content is untouched');
+      assert.ok(out.endsWith('</section>'), 'comments land INSIDE the section');
+    });
+
+    test('the strip is not silently inverted into a leak', () => {
+      // The end-to-end shape of the defect, in one assertion: bake, lift the bodies the
+      // way the exporter does, scrub. Against the un-carried section the set is empty and
+      // the secret survives, which is the bug.
+      const secret = 'CONFIDENTIAL board figure.';
+      const deckSource = `# Cover\n\n<!-- _class: title -->\n<!-- ${secret} -->\n`; // the SOURCE still has its directive
+      const leaked = core.stripNotesFromSource(deckSource, new Set(core.noteBodiesFromHtml(BAKED)));
+      assert.match(leaked, /CONFIDENTIAL/, 'guard: an un-carried bake really does leak (this is the bug)');
+      const carried = core.carryCommentsForward(BAKED, SOURCE);
+      const scrubbed = core.stripNotesFromSource(deckSource, new Set(core.noteBodiesFromHtml(carried)));
+      assert.doesNotMatch(scrubbed, /CONFIDENTIAL/, 'carried forward, the envelope scrub works');
+      assert.match(scrubbed, /_class: title/, 'the directive still survives the scrub');
+    });
+
+    test('never duplicates a comment the round trip already preserved', () => {
+      // A host whose bake keeps comments must not end up with the note twice — that would
+      // double it in the notes sheet and in the scrub set.
+      const out = core.carryCommentsForward(SOURCE, SOURCE);
+      assert.equal(out, SOURCE, 'already-present comments are left alone');
+      assert.equal((out.match(/CONFIDENTIAL/g) || []).length, 1);
+    });
+
+    test('is a no-op when the source had no comments', () => {
+      assert.equal(core.carryCommentsForward(BAKED, '<section><h1>x</h1></section>'), BAKED);
+    });
+  });
+
   // The SEPARATE privacy strip for the caption channel (`--strip-captions`), orthogonal
   // to the note strip: captions are structurally identified (the `caption:` prefix), so
   // no rendered-body set is needed.

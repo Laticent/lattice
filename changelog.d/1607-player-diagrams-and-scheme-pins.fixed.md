@@ -20,6 +20,18 @@
   carries the dark values in both player schemes, `.light`/`.color-light` keep light values in
   dark, and `.print` keeps its own band (previously overridden in dark mode, printing `#111111`
   ink on a `#001D33` canvas).
+- **`--strip-notes` strips notes again, and the Studio's webpage export keeps them.** Baking the
+  deck through the capture frame put every slide through `sanitizeSlideHtml`, which deletes comment
+  nodes — and the speaker-note, `describe:` and `caption:` channels ARE comments. So the export lost
+  every note and accessible description, and, worse, the empty set left `stripNotesFromSource` with
+  nothing to remove: a deck exported with **Strip speaker notes** on shipped the note text verbatim
+  in its envelope. The comment channel is now carried across the round trip
+  (`notesCore.carryCommentsForward`). Note that the leaked text is JSON-escaped inside the envelope,
+  so it was invisible to a plain search of the file.
+- **A failed diagram bake says so.** Its `catch` shipped the un-inflated fence in silence, which is
+  the exact defect the bake exists to fix; it now warns and reports through the export's own status
+  line. A stale generated bundle had already turned that silence into a fix that only appeared to
+  work — the fallback made broken and working look identical.
 - **`waitForDiagrams` waits for the fences the runtime has not reached yet.** It counted only
   existing `.mermaid` boxes, and an untagged fence has none — so on the very deck it exists to
   wait for it saw nothing pending and returned at once. It now gates on the runtime's own
