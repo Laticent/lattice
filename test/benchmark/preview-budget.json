@@ -12,6 +12,11 @@
       "renderP50": "3.7-5.3",
       "totalP50": "10.9-19.8",
       "frameP50": "0.4-2.1"
+    },
+    "firstPaint": {
+      "note": "COLD first paint (2026-08-11, headless Chromium, NO throttle, 7 fresh contexts per run). Four runs: three standalone and one through the real nightly selection (`--grep @perf`, after the three throttled render tests). p50 barely moves between them, which is the evidence for keeping all @perf tests in ONE serial file - a second @perf file would run beside this one at workers:2 and both measurements would degrade.",
+      "p50": "1065-1149",
+      "sampleRange": "985-1724"
     }
   },
   "regressionScale": {
@@ -30,6 +35,10 @@
       "renderP50": 30,
       "totalP50": 70,
       "frameP50": 20
+    },
+    "firstPaint": {
+      "note": "COLD BOOT, a different shape from the two above: one elapsed span from navigation to a non-empty slide, so one number. 6000 is ~5x the worst healthy p50 measured (1149ms) and ~3.5x the worst SINGLE sample (1724ms). TWO HONEST LIMITS. (1) It is provisional against the machine that matters: every reading here is a 4-core sandbox, and no GitHub runner has ever run this ceiling, so the headroom is sized for a runner-speed unknown rather than for observed variance - which is unusually tight (985-1724ms across 28 samples in 4 runs). The @perf log prints the p50 every night; tighten this once a few real runs are on record. (2) At 6000 it would NOT catch a return to the ~4s void #1553 describes (the preview pane empty until the engine rendered), which is a real historical bad state. Catching that needs ~4000, which on an unmeasured runner is a false alarm waiting to happen. The conservative number ships first, deliberately.",
+      "p50": 6000
     }
   },
   "emulator": {

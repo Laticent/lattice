@@ -289,10 +289,16 @@ without blocking. Latent triage cost, then, not a broken gate.
   navigation and typing p50s taken *after* the paint; the Lighthouse budget measures
   the parent document, and the engine paints inside a srcdoc iframe that does not
   contribute to its LCP. So this wait was the only de facto bound on boot cost, and
-  it went from 15s to 45s — against a ~1.6s uncontended paint, that is a tripwire
-  moving from ~9× to ~28×. It was a bad oracle either way, and "a setup wait is not
+  it went from 15s to 45s — against a ~1.1s uncontended paint, that is a tripwire
+  moving from ~14× to ~41×. It was a bad oracle either way, and "a setup wait is not
   an assertion" must not be read as *therefore boot cost needs no oracle*. It needs
-  a real one; it does not have one. Carded as #1586.
+  a real one. **CLOSED (#1586, 2026-08-11):** boot now has a `@perf` ceiling that
+  reads the `first-paint` annotation this change added, in
+  `studio-preview-perf.spec.ts` — see `2026-08-03-performance-guard.md` § Slice 4.
+  (The ~1.6s figure this paragraph first carried came from the standalone bench,
+  which launches a browser per concurrent slot; measured through the fixture itself
+  the same paint is ~1.1s. The point is unchanged and the number is now the one the
+  ceiling is actually set against.)
 - **The WebKit projects keep a local copy of this wait.** `back-gesture.spec.ts`
   still inherits the 15s `expect.timeout` on its second half, because those projects
   cannot be run in the sandbox that centralized the fixture and a shared helper

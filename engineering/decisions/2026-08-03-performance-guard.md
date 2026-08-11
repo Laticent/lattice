@@ -329,6 +329,59 @@ If `[perf-nightly-engine]` fires zero true positives and at least one harness-fa
 in six months, the right move is to delete the two bench arms and the comparator and keep the
 preview ceilings — roughly 30% of the surface for most of the value.
 
+## Slice 4 — cold boot gets a ceiling (shipped 2026-08-11, #1586)
+
+Every tier above measures a render that happens **after** the app is up. Nothing measured how long
+it takes to *get* up, and the near-misses each fail for a different reason:
+`studio-instant-shell.spec.ts` waits 45s on the preview iframe but asserts **layout**; Lighthouse
+does load `/studio/` but LCP is per-document and the engine paints inside the `iframe.live`
+srcdoc, which never contributes to the parent's; `script-size` and TBT catch bundle bloat rather
+than a slower render, and both compare against 24h-ago `main`, so a few percent a day trips
+neither.
+
+So the only thing that had ever failed on a slow cold paint was `gotoStudio`'s fixture wait — and
+#1583 raised it from 15s to 45s for reasons about **worker starvation**, not about the app. That
+change did not remove a working guard; it loosened one that barely worked (against a ~1.1s healthy
+paint, the old wait needed a ~14× regression to trip, the new one ~41×). But it is exactly the
+moment to notice that the guard was accidental, because #1583's own rule — *a setup wait is not an
+assertion* — is right and could be misread as *therefore boot cost needs no oracle*. The opposite
+follows: boot cost is a product concern here (the instant shell exists because of it, #1438; #1553
+describes the preview pane sitting "a void for the ~4s until the engine rendered") and it now has
+a real one.
+
+**Built on the measurement #1583 already added**, not a new harness. `waitForStudioPaint`
+annotates every paint as `first-paint` in the Playwright report, so the ceiling reads the fixture's
+own number and the two cannot drift into measuring different milestones. The test asserts the
+annotation exists *before* asserting the ceiling — a fixture that stopped recording would leave the
+sample list empty and the ceiling vacuously green, which is the silently-zero failure mode slice 2
+already had to fix once.
+
+**It lives inside `studio-preview-perf.spec.ts`, and that is load-bearing rather than tidy.**
+`--grep @perf` is how `perf-nightly.yml` selects this tier; a second `@perf` **file** would run
+beside the existing one at `workers: 2`, so boot timings would be taken next to three CPU-throttled
+render tests and cold context launches would inflate their keystroke p50s in return. One file is
+`mode: 'serial'`, and Playwright collapses the selection to a single worker — verified: the p50
+moves ~30ms between a standalone run and a full-tier run. It sits **last** in the file because
+serial mode skips what follows a failure, so a boot breach must not be able to skip the render
+ceilings.
+
+No throttle, unlike the render tiers. They model a mid-range phone because that is where a slow
+keystroke is felt; boot is what a user waits on with the machine they have, and the regressions
+worth catching — a chunk that stops being preloaded, a blocking script on the boot path, an island
+that hydrates later — are multiples, not percentages.
+
+**The ceiling is 6000ms against a 1065–1149ms healthy p50, and it is provisional.** Both limits are
+written into `preview-budget.json` rather than left implicit: every reading is from a 4-core
+sandbox and no GitHub runner has run this yet, so the ~5× headroom is sized for an unknown
+runner speed rather than for observed variance — which is unusually tight (985–1724ms across 28
+samples). And at 6000 it would **not** catch a return to the ~4s void #1553 describes. Catching
+that needs ~4000, which on an unmeasured runner is a false alarm waiting to happen. The @perf log
+prints the p50 every night; tighten it once real runs are on record.
+
+Mutation-checked both ways, because the discrimination is the whole point of the token: a breach
+emits `::perf-ceiling-breach::` and the nightly files a regression; a dead instrument fails
+*without* it and the nightly logs a harness failure instead.
+
 ## What this does not do
 
 - It does not measure time on the PR path, on purpose. A work counter cannot tell you that a render
