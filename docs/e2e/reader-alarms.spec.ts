@@ -1,3 +1,4 @@
+import { paintedMarkers } from './marker-chrome';
 import { expect, test } from './studio-fixture';
 
 /**
@@ -73,9 +74,15 @@ test('@smoke docs: no shipped preview paints an authoring alarm to a reader', as
 		for (const i of await slideFrames(page)) {
 			const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
 			inspected += 1;
-			expect(await frame.locator('section.overflow').count(), `${route} frame ${i}: ringed "Overflows"`).toBe(0);
-			expect(await frame.locator('section.illegible').count(), `${route} frame ${i}: ringed below the type floor`).toBe(0);
-			expect(await frame.locator('.overflow-tab, .illegible-tab').count(), `${route} frame ${i}: carries an authoring tab`).toBe(0);
+			// COUNTED BY WHAT IS PAINTED, not by which elements exist. Every slide
+			// carries all three marker tabs now — empty, hidden, part of the rendered
+			// slide (lib/core/fit-berth.js) — so `querySelectorAll('.overflow-tab')`
+			// answers "does this document have berths", which is true everywhere, and
+			// says nothing about whether a reader sees an alarm. See ./marker-chrome.
+			const m = await frame.locator('body').evaluate(paintedMarkers);
+			expect(m.rings, `${route} frame ${i}: ringed`).toBe(0);
+			expect(m.tabs, `${route} frame ${i}: carries a painted authoring tab`).toBe(0);
+			expect(m.culprits, `${route} frame ${i}: carries a Fix-Me outline`).toBe(0);
 		}
 	}
 
