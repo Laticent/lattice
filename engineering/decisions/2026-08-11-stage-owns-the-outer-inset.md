@@ -565,6 +565,17 @@ written. Two of the three trio lenses caught it independently. The lesson is
 narrow and worth keeping: **a floor is only a floor against zero.** Applied to a
 value that is already the floor, it is a second inset.
 
+**And the same mistake once more, one layer down — `.form` only.** The red team
+named `claim-bleed × no-form` as an intersection it had not stressed; measuring it
+found the floor stacking there too. Every `--frame-x` retune in stage.css is
+scoped `section.form`, so a `no-form` slide never bleeds whatever claim it
+carries — and an unscoped floor there adds 30px on top of the hand-copied frame
+inset instead of flooring anything (a `kanban no-form claim-bleed` at 94 against a
+plain `no-form`'s 64). Scoped, and both paths re-measured: the Form path floors at
+30, `no-form` is back to 64 and identical to a plain `no-form`. Three instances of
+one error in one afternoon is a pattern, so state it as a rule: **before scoping a
+floor, check that the zero it floors is reachable on the path you scoped to.**
+
 Found by the trio's inversion pass. Nothing caught it mechanically: the
 `claim-bleed-unsafe` linter reads a manifest `excludes` list only matrix-grid
 declares, and no committed deck combines a chart with `claim-bleed`, so there was

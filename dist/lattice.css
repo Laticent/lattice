@@ -19939,8 +19939,17 @@ section.chart-frame {
  * red team measured these charts at x=60 under a masthead hairline at x=30 — the
  * exact misalignment this whole change exists to remove, re-created by the fix for
  * a different one. `state-chart` is deliberately absent too: it self-scales and
- * centers, so it is genuinely safe at the trim. */
-section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid, .journey).claim-bleed {
+ * centers, so it is genuinely safe at the trim.
+ *
+ * `.form` ONLY, for the same reason and one layer down. Every `--frame-x` retune
+ * in stage.css is scoped `section.form`, so a `no-form` slide never bleeds no
+ * matter which claim it carries — and an unscoped floor there stacks on the
+ * hand-copied frame inset instead of flooring anything: measured, a
+ * `kanban no-form claim-bleed` sat at 94 against a plain `no-form`'s 64. Same
+ * shape of mistake as the `claim-hero` one, one layer down, caught by measuring
+ * the intersection the red team named as unexplored. A floor is only a floor
+ * against zero — so check the zero is reachable on the path you scope to. */
+section.chart-frame.form:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid, .journey).claim-bleed {
   --chart-inset-x: var(--frame-inset-x);
 }
 
