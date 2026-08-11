@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports } from '@/lib/crash-sentinel';
+import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports, watchLateCrashReports } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -401,6 +401,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// came back from a crash owes the author their work, not a modal.
 	const [crashReports, setCrashReports] = React.useState<CrashReport[]>([]);
 	const [crashOpen, setCrashOpen] = React.useState(false);
+	// One toast shape for both announcement paths (mount, and the late watch below),
+	// so a late report never reads as a different KIND of event than a prompt one.
+	const announceCrash = React.useCallback((report: CrashReport) => {
+		toast(crashReportTitle(report), {
+			duration: 12_000,
+			description: 'Your decks are safe. See what the Studio recorded.',
+			action: { label: 'See report', onClick: () => setCrashOpen(true) },
+		});
+	}, []);
 	React.useEffect(() => {
 		setCrashReports(collectCrashReports(Date.now()));
 		// Interrupt ONCE per report. `markReported` persists that we said it, so a
@@ -412,12 +421,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// budget of reports the user was never actually told about, so a second
 		// accumulated crash could never toast.
 		markReported(fresh[0].id);
-		toast(crashReportTitle(fresh[0]), {
-			duration: 12_000,
-			description: 'Your decks are safe. Open the report to see what the Studio recorded.',
-			action: { label: 'See report', onClick: () => setCrashOpen(true) },
-		});
-	}, []);
+		announceCrash(fresh[0]);
+	}, [announceCrash]);
+	// THE AUTOMATIC POST-CRASH BOOT. When the browser reloads a dead tab BY ITSELF,
+	// the mount effect above often finds nothing to say: immediate reporting needs
+	// `isSameTab`, which needs a navigation typed `reload`, and at least one real
+	// browser does not type its own recovery load that way. The user therefore saw
+	// silence on the one boot they were actually watching, and only got the report
+	// after reloading by hand. This watches the mirrored record for ~21s instead;
+	// if nothing writes to it, its owner is gone and the report is announced late
+	// rather than never. A live duplicated tab keeps beating and stays unreported.
+	React.useEffect(() => watchLateCrashReports((late) => {
+		setCrashReports(collectCrashReports(Date.now()));
+		markReported(late[0].id);
+		announceCrash(late[0]);
+	}), [announceCrash]);
 	const dismissCrash = React.useCallback((id: string) => setCrashReports((was) => was.filter((r) => r.id !== id)), []);
 	// Workspace → Crash reports → View. See OPEN_CRASH_REPORT_EVENT for why this is
 	// an event and not a prop.

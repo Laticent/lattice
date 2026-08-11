@@ -11,12 +11,15 @@ import {
 	dismissCrashReport,
 	elapsedLabel,
 	formatCrashReport,
+	isOpaqueError,
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
 	markReported,
 	newRecord,
 	noteError,
+	noteFailedLoad,
+	OWNER_PROBE_MS,
 	pruneSessions,
 	SESSION_PREFIX,
 	type SessionRecord,
@@ -26,6 +29,7 @@ import {
 	TAB_SESSION_KEY,
 	unreportedCrashReports,
 	WIPE_SIGNAL_KEY,
+	watchLateCrashReports,
 } from './crash-sentinel';
 
 // Anchored an hour behind the real clock, not at a fixed epoch: `startCrashSentinel`
@@ -657,5 +661,149 @@ describe('isSessionRecord — the guard that keeps a bad record from taking the 
 		const found = collectCrashReports(Date.now() + STALE_MS + 1);
 		expect(found.map((r) => r.id)).toEqual(['ok']);
 		expect(() => formatCrashReport(found[0])).not.toThrow();
+	});
+});
+
+// ── The three defects the FIRST REAL REPORT off a phone exposed ──────────────
+// Filed against Firefox on iOS 18.7 with an 18-slide deck: the session died 25s
+// in after six identical `Script error.` entries, the automatic post-crash
+// reload said nothing at all, and the report that finally appeared answered
+// "what am I supposed to do with this?" with facts and no next step.
+describe('what the first real crash report exposed', () => {
+	const withNavType = (type: string, fn: () => void) => {
+		// biome-ignore lint/suspicious/noExplicitAny: a minimal navigation-timing stub; the real type demands ~30 fields the code never reads.
+		const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation(((k: string) => (k === 'navigation' ? [{ type }] : [])) as any);
+		try {
+			fn();
+		} finally {
+			spy.mockRestore();
+		}
+	};
+
+	// DEFECT 1 — the automatic reload showed nothing, and only a MANUAL reload
+	// surfaced the report. Immediate reporting required a navigation typed
+	// `reload`, and the browser's own recovery load was not typed that way.
+	it('reports a dead owner after the probe, on a boot NOT typed reload', () => {
+		vi.useFakeTimers();
+		const dead = rec({ id: 'prev', closed: false, lastBeat: Date.now() });
+		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(dead));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
+		withNavType('navigate', () => {
+			bootSentinel();
+			// Nothing yet: fresh, not same-tab, nowhere near the staleness window.
+			expect(collectCrashReports(Date.now())).toEqual([]);
+			const seen: string[] = [];
+			watchLateCrashReports((late) => seen.push(...late.map((r) => r.id)));
+			vi.advanceTimersByTime(OWNER_PROBE_MS + 1);
+			expect(seen).toEqual(['prev']);
+		});
+		vi.useRealTimers();
+	});
+
+	// The other half of the same rule: a DUPLICATED tab's original is alive and
+	// still writing, and must never be reported as a corpse.
+	it('stays silent when the mirrored session is still beating', () => {
+		vi.useFakeTimers();
+		const alive = rec({ id: 'prev', closed: false, lastBeat: Date.now() });
+		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(alive));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
+		withNavType('navigate', () => {
+			bootSentinel();
+			const seen: string[] = [];
+			watchLateCrashReports((late) => seen.push(...late.map((r) => r.id)));
+			// The owning tab writes a heartbeat during the probe window.
+			localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify({ ...alive, lastBeat: alive.lastBeat + 5_000 }));
+			vi.advanceTimersByTime(OWNER_PROBE_MS + 1);
+			expect(seen).toEqual([]);
+		});
+		vi.useRealTimers();
+	});
+
+	// DEFECT 2a — six copies of one error read as six faults, and filled the
+	// 60-crumb ring with duplicates that evicted the boot/nav context.
+	it('folds a repeating error into one group and one breadcrumb', () => {
+		bootSentinel();
+		for (let i = 0; i < 6; i++) noteError({ message: 'Script error.' }, 'window.onerror');
+		const live = liveSession() as SessionRecord;
+		expect(live.errorCount).toBe(6);
+		expect(live.errorGroups).toHaveLength(1);
+		expect(live.errorGroups?.[0].n).toBe(6);
+		expect(live.crumbs.filter((c) => c.k === 'error')).toHaveLength(1);
+	});
+
+	// DEFECT 2b — an error the browser refused to describe is a fact about
+	// VISIBILITY, not a Studio fault, and the report must not present it as one.
+	it('recognizes the opaque cross-origin signature and says what it means', () => {
+		expect(isOpaqueError('Script error.', undefined, undefined)).toBe(true);
+		expect(isOpaqueError('Script error.', 'app.js', undefined)).toBe(false); // named a file
+		expect(isOpaqueError('TypeError: x is not a function', undefined, undefined)).toBe(false);
+		bootSentinel();
+		for (let i = 0; i < 6; i++) noteError({ message: 'Script error.' }, 'window.onerror');
+		const live = liveSession() as SessionRecord;
+		const { facts } = describeSession({ ...live, closed: false }, true);
+		const line = facts.find((f) => f.includes('would not describe'));
+		expect(line).toBeTruthy();
+		expect(line).toContain('6 error(s)');
+		expect(line).toContain('browser extension');
+		// And it must NOT be presented as a plain Studio error alongside.
+		expect(facts.some((f) => f.startsWith('Error ('))).toBe(false);
+	});
+
+	it('keeps a real, attributable error as a real error — with its file and line', () => {
+		bootSentinel();
+		noteError({ message: 'TypeError: deck is undefined', stack: 'at render' }, 'window.onerror', { file: '/_astro/page.js', line: 42 });
+		const live = liveSession() as SessionRecord;
+		const { facts, steps } = describeSession({ ...live, closed: false }, true);
+		expect(facts.some((f) => f.includes('/_astro/page.js:42'))).toBe(true);
+		expect(steps.some((s) => s.includes('Report this on GitHub'))).toBe(true);
+	});
+
+	// DEFECT 2c — a file that fails to LOAD fires an event that does not bubble
+	// and carries no message, so `window.onerror` never saw it at all.
+	it('records a failed resource load, with the URL', () => {
+		bootSentinel();
+		noteFailedLoad('/_astro/gone.js');
+		noteFailedLoad('/_astro/gone.js'); // deduped
+		const live = liveSession() as SessionRecord;
+		expect(live.failedLoads).toEqual(['/_astro/gone.js']);
+		const { facts, steps } = describeSession({ ...live, closed: false }, true);
+		expect(facts.some((f) => f.includes('/_astro/gone.js'))).toBe(true);
+		expect(steps.some((s) => s.includes('Reload the page once'))).toBe(true);
+	});
+
+	// DEFECT 3 — "what am I supposed to do with this?". A report with no memory
+	// readings (Safari, Firefox) used to end on "no memory readings" and stop.
+	it('always offers a next step, and names the one that fits a memory-blind browser', () => {
+		bootSentinel();
+		const live = liveSession() as SessionRecord;
+		const { steps } = describeSession({ ...live, mem: [], closed: false }, true);
+		expect(steps.length).toBeGreaterThan(0);
+		expect(steps.some((s) => s.includes('Chrome or Edge'))).toBe(true);
+	});
+
+	it('says plainly when there is nothing to act on, rather than inventing a chore', () => {
+		bootSentinel();
+		const live = liveSession() as SessionRecord;
+		const { steps } = describeSession({ ...live, mem: [{ t: 0, used: 5e6, limit: 4e9 }], closed: false }, true);
+		expect(steps).toHaveLength(1);
+		expect(steps[0]).toContain('nothing here to act on yet');
+	});
+
+	// The steps are part of the filed issue, not just the panel — otherwise the
+	// reader and the maintainer are looking at two different reports.
+	it('carries the steps and the failed loads into the GitHub issue body', () => {
+		bootSentinel();
+		noteFailedLoad('/_astro/gone.js');
+		const live = liveSession() as SessionRecord;
+		// Keyed by the record's OWN id — `sessionKeys()` reads the key, `readRecord`
+		// reads the body, and a mismatch simply yields nothing.
+		localStorage.setItem(`${SESSION_PREFIX}past`, JSON.stringify({ ...live, id: 'past', closed: false }));
+		__resetSentinelForTest();
+		bootSentinel();
+		const [report] = collectCrashReports(Date.now() + STALE_MS + 1);
+		const body = formatCrashReport(report);
+		expect(body).toContain('What the reporter was told to try');
+		expect(body).toContain('Files that failed to load');
+		expect(body).toContain('/_astro/gone.js');
 	});
 });

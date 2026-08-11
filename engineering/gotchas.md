@@ -3597,6 +3597,47 @@ own) is not a builder and needs no entry.
   behind a report showing memory growth, reach for `npm run torture`
   (`tools/perf-torture/`).
 
+### A crash report shows `Script error.` several times and names nothing
+
+- **Symptom:** the crash report lists `window.onerror: Script error.` repeatedly,
+  with no file, no line number and no stack, and the trail is mostly those repeats.
+  Nothing in the Studio's own code matches.
+- **Cause:** that exact string with everything else blank is not a Studio error —
+  it is what a browser substitutes when a script it will not let the page read
+  throws. The deployed `/studio/` loads **only same-origin** `/_astro/*.js`, so a
+  fault in our own code always arrives with a real message and a stack. An opaque
+  one therefore points outward: a browser extension, a content blocker, or an
+  injected script (a translation or reader-mode feature counts).
+- **Fix:** nothing to fix in the engine. The report now folds repeats into one
+  line with a count, and states this attribution in calibrated terms
+  (`isOpaqueError` in `docs/src/lib/crash-sentinel.ts`). To confirm on the
+  reporter's side, load the same deck once with extensions disabled.
+- **Also check:** do NOT read a pile of these as the cause of the crash. They are
+  usually background noise from the browser, and the useful evidence in that
+  report is elsewhere — the memory trend if the browser supplies one, the trail,
+  and whether the same tab came back.
+- **Triggered by:** any browser with content-script injection; first seen on
+  Firefox for iOS. See `engineering/decisions/2026-08-10-studio-crash-sentinel.md`
+  § "What the first REAL report changed".
+
+### A multi-line toast renders as a giant lozenge with its last line cut off
+
+- **Symptom:** a toast carrying a title AND a description looks like an oversized
+  black oval, its bottom line of text clipped by the shape's own curve. Reported
+  as "not styled / not on brand".
+- **Cause:** the shared Sonner toast is a **capsule** (`rounded-full`), which is
+  the correct idiom for one short line ("Deck saved"). Stretched around three
+  lines the radius stays 9999px, so the curve eats the corners of its own content.
+- **Fix:** already handled in the primitive — `docs/src/components/ui/sonner.tsx`
+  switches to a 16px card whenever Sonner renders a `[data-description]` element.
+  If you are adding a similar override, note the `!`: Sonner's own
+  `[data-sonner-toast]` rule is **unlayered** and beats a layered Tailwind
+  utility whatever its specificity (HARD RULE #26). Without `!` the class sits in
+  `class`, matches, and silently loses — measure `getComputedStyle`, don't trust
+  the class list.
+- **Triggered by:** any `toast(title, { description })` call. See
+  `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § 5.
+
 ### A control's own icon renders sliced/outside its button, and every overflow guard is green
 
 - **Symptom:** A control in a tight toolbar paints part of itself outside its

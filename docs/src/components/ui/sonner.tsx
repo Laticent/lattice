@@ -67,7 +67,32 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "rounded-full shadow-[0_8px_24px_rgba(10,22,40,.22)]",
+          // THE PILL IS FOR ONE LINE. A capsule is the right shape for "Deck
+          // saved"; stretched around a title + description + action it becomes a
+          // 110px-tall lozenge whose curve CLIPS its own last line of text —
+          // measured on the real Studio at 390px, where the crash toast read as
+          // an unstyled black blob and was reported as exactly that.
+          //
+          // So the radius follows the content: capsule while it stays a single
+          // line, a 16px card the moment a description is present. Keyed on
+          // Sonner's own `[data-description]` element rather than a per-call
+          // opt-in, so any future multi-line toast is correct by default instead
+          // of correct only if its author remembered.
+          //
+          // The `!` is load-bearing, and it is the SAME cascade trap this repo
+          // already documents (HARD RULE #26, and the invisible button label in
+          // #1584): Sonner ships its own UNLAYERED `[data-sonner-toast]` rule
+          // reading `--border-radius`, and an unlayered rule beats a layered
+          // Tailwind utility no matter the specificity. Written without `!`, the
+          // class lands on the element, matches, and silently loses — measured on
+          // the built site, where the radius stayed 9999px with the utility
+          // present in `class`. The `actionButton` line below carries `!` for
+          // exactly this reason.
+          toast:
+            "rounded-full has-[[data-description]]:!rounded-2xl has-[[data-description]]:!px-4 has-[[data-description]]:!py-3.5 shadow-[0_8px_24px_rgba(10,22,40,.22)]",
+          // Sonner's default description is the toast color at low opacity, which
+          // on the inverse surface lands around 2.9:1 — under AA for body text.
+          description: "!text-white/80",
           // The one-tap escape hatch (Undo / Reload), styled like the retired pill's
           // inline button — a translucent white chip on the inverse surface.
           actionButton:

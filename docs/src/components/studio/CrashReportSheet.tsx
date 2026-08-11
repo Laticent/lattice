@@ -142,7 +142,56 @@ export function CrashReportSheet({
 							</p>
 						)}
 
-						{/* SHOW WHAT WE POST. The issue body carries the page, the browser and
+
+						<PanelSection label="What was measured">
+							<ul className="space-y-1.5">
+								{report.facts.map((f: string) => (
+									<li key={f} className="flex gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
+										<span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-[var(--accent)]" />
+										<span className="min-w-0">{f}</span>
+									</li>
+								))}
+							</ul>
+						</PanelSection>
+
+						{/* THE ANSWER TO "what am I supposed to do with this?" — the question the
+						    first real report earned. Facts alone put the work of deciding what
+						    they mean onto the reader, who is the one person in the loop who
+						    cannot know. Every line is derived from THIS record (see
+						    `describeSession`), and when nothing can be narrowed it says that
+						    rather than inventing a chore. Given the accent card so the eye
+						    lands here rather than on the measurement list above it. */}
+						{report.steps.length > 0 && (
+							<PanelSection label="What you can try">
+								<ul className="space-y-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[var(--accent-soft)] p-2.5">
+									{report.steps.map((s: string) => (
+										<li key={s} className="flex gap-2 text-[12.5px] leading-relaxed text-[var(--text-heading)]">
+											<span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-[var(--accent)]" />
+											<span className="min-w-0">{s}</span>
+										</li>
+									))}
+								</ul>
+							</PanelSection>
+						)}
+
+						{report.record.failedLoads && report.record.failedLoads.length > 0 && (
+							<PanelSection label="Files that failed to load">
+								<ul className="max-h-32 space-y-1 overflow-auto rounded-lg border border-border bg-card p-2">
+									{report.record.failedLoads.map((u: string) => (
+										<li key={u} className="break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
+											{u}
+										</li>
+									))}
+								</ul>
+							</PanelSection>
+						)}
+
+						{/* Deliberately BELOW the findings and the next steps. This block is
+						    consent material, not a finding — and on a 390px phone the browser's
+						    user-agent string alone runs four lines, which pushed everything
+						    worth reading off the first screen. What happened, then what to do,
+						    then what gets sent.
+						    SHOW WHAT WE POST. The issue body carries the page, the browser and
 						    every context label, and the panel used to render none of them —
 						    while the footer told the reader to "trim anything you'd rather not
 						    share" about content it never displayed. Anything that goes into the
@@ -159,17 +208,6 @@ export function CrashReportSheet({
 									) : null,
 								)}
 							</dl>
-						</PanelSection>
-
-						<PanelSection label="What was measured">
-							<ul className="space-y-1.5">
-								{report.facts.map((f: string) => (
-									<li key={f} className="flex gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
-										<span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-[var(--accent)]" />
-										<span className="min-w-0">{f}</span>
-									</li>
-								))}
-							</ul>
 						</PanelSection>
 
 						{report.record.lastError && (

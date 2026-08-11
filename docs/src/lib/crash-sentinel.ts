@@ -148,7 +148,61 @@ export type RecordedError = {
 	source?: string;
 	/** ms since the session started. */
 	t: number;
+	/** The script the browser named, when it named one. */
+	file?: string;
+	line?: number;
+	/**
+	 * The browser refused to say what threw: `"Script error."`, no file, no line,
+	 * no stack. See `isOpaqueError` — this is a fact about VISIBILITY, and the
+	 * report must say so rather than present the empty husk as a finding.
+	 */
+	opaque?: boolean;
 };
+
+/**
+ * Identical errors, folded.
+ *
+ * The first real report from a phone listed the same `Script error.` six times
+ * in the trail and summarized it as "6 error(s) recorded", which reads as six
+ * distinct faults. It was one fault repeating. Grouping by message turns a wall
+ * of noise into "×6, from +1.9s to +25.7s", which is the shape a human can
+ * actually act on — and makes a genuinely varied error set visibly different
+ * from a single stuck one.
+ *
+ * Deliberately carries no stack: the stacks live on `lastError`, and a ring of
+ * them would multiply the record's size for a diminishing return.
+ */
+export type ErrorGroup = {
+	message: string;
+	/** How many times this message was seen. */
+	n: number;
+	/** ms since session start, first and last occurrence. */
+	firstT: number;
+	lastT: number;
+	file?: string;
+	line?: number;
+	opaque?: boolean;
+};
+
+/** How many DISTINCT error messages a record keeps. Beyond this, only the count grows. */
+export const MAX_ERROR_GROUPS = 6;
+
+/**
+ * Did the browser sanitize this error into an empty husk?
+ *
+ * When a script from another origin throws, browsers replace the message with
+ * exactly `"Script error."` and blank the filename, line and stack, so the page
+ * cannot read cross-origin source through its own error handler. The signature
+ * is unmistakable, and recognizing it matters more than it looks: this page
+ * loads NO cross-origin scripts (every `<script>` on `/studio/` is same-origin
+ * `/_astro/*.js`, verified against the deployed site), so an opaque error is
+ * almost certainly NOT Studio code — it is an extension, a content blocker or
+ * an injected script. Reporting it as one of "your" errors sends the reader
+ * hunting through code that never ran.
+ */
+export function isOpaqueError(message: string, file?: string, stack?: string): boolean {
+	return !file && !stack && /^script error\.?$/i.test(message.trim());
+}
 
 export type SessionRecord = {
 	v: number;
@@ -181,6 +235,18 @@ export type SessionRecord = {
 	peakUsed?: number;
 	memLimit?: number;
 	lastError?: RecordedError;
+	/**
+	 * Distinct error messages, folded — see `ErrorGroup`. OPTIONAL on purpose:
+	 * records written before this field existed simply lack it, and every reader
+	 * falls back to `lastError`. That is why this change did NOT bump
+	 * `RECORD_VERSION` — a version bump discards every record already sitting in a
+	 * user's browser, which would have thrown away the very report that prompted
+	 * this work. Bump only when new code would MISREAD an old record; adding an
+	 * optional field it can ignore is not that.
+	 */
+	errorGroups?: ErrorGroup[];
+	/** URLs that failed to LOAD (script/style/image), newest last. See `onCapturedError`. */
+	failedLoads?: string[];
 	errorCount: number;
 	stallCount: number;
 	longestStallMs: number;
@@ -232,6 +298,8 @@ export type CrashReport = {
 	confirmed: boolean;
 	/** What was MEASURED, in plain sentences. No conclusions. */
 	facts: string[];
+	/** What the reader can actually DO next — see `describeSession`. */
+	steps: string[];
 	/** True when the SAME tab came back — the "it reloaded itself" case. */
 	sameTab: boolean;
 	startedAt: number;
@@ -327,7 +395,7 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
  * point at a record written by this very tab, so there is no live second tab to
  * mistake for a corpse.
  */
-export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean): boolean {
+export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean, ownerDead = false): boolean {
 	// A record closed INTO the page cache that never resumed was evicted, not
 	// exited — and only the tab it belonged to can tell the difference, because
 	// coming back at all is what would have cleared the flag. This is the iOS
@@ -337,13 +405,18 @@ export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean):
 	if (rec.closed) return false;
 	// A record from the future (clock change, an edited value) is not evidence.
 	if (rec.lastBeat > now + BEAT_MS) return false;
-	return sameTab || now - rec.lastBeat > STALE_MS;
+	// `ownerDead` is the OBSERVED version of the staleness wait — see
+	// `watchLateCrashReports`. Where the wait guesses from one timestamp that
+	// nobody is home, this watched the record for a stretch and saw that nothing
+	// wrote to it. That is strictly better evidence, and it arrives in seconds
+	// rather than minutes.
+	return sameTab || ownerDead || now - rec.lastBeat > STALE_MS;
 }
 
 
 const mb = (bytes: number): string => `${Math.round(bytes / 1_048_576)} MB`;
 
-export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; confirmed: boolean; facts: string[] } {
+export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; confirmed: boolean; facts: string[]; steps: string[] } {
 	const { sameTab, tabDiscarded = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false } : ctx;
 	const facts: string[] = [];
 	const endT = rec.lastBeat - rec.startedAt;
@@ -383,10 +456,35 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	else if (evicted) facts.push('The tab went into the browser\'s page cache when you switched away and was dropped rather than resumed. Browsers do that under memory pressure, but also on cache limits and timeouts — this does not say which.');
 	else if (rec.frozen) facts.push('The browser had frozen this tab in the background, and it never resumed.');
 
-	// ── ERRORS. Report it and when; do not rank it.
-	if (rec.lastError) {
+	// ── ERRORS. Report them and when; do not rank them. Grouped, and split by
+	// whether the browser actually let us SEE the error — six copies of an opaque
+	// `Script error.` presented as "6 error(s) recorded" is a wall of noise that
+	// reads as six Studio faults, which is what the first real report looked like.
+	const groups = Array.isArray(rec.errorGroups) ? rec.errorGroups.filter((g) => g && typeof g.message === 'string' && Number.isFinite(g.n)) : [];
+	const opaqueGroups = groups.filter((g) => g.opaque);
+	const realGroups = groups.filter((g) => !g.opaque);
+	const opaqueCount = opaqueGroups.reduce((n, g) => n + g.n, 0);
+	for (const g of realGroups) {
+		const at = g.n > 1 ? `${g.n}x, from ${stamp(g.firstT)} to ${stamp(g.lastT)} into the session` : `at ${stamp(g.firstT)} into the session`;
+		facts.push(`Error (${at}): ${g.message}${g.file ? ` — ${g.file}${g.line ? `:${g.line}` : ''}` : ''}`);
+	}
+	if (opaqueCount) {
+		// CALIBRATED, not confident. The reasoning is in `isOpaqueError`: this page
+		// serves only same-origin scripts, so a same-origin throw would have carried
+		// a message and a stack. That makes a browser extension the likeliest source
+		// — likeliest, not certain, which is what the wording has to convey.
+		facts.push(
+			`${opaqueCount} error(s) the browser would not describe — reported only as "Script error." with no file, line or stack. That is what a browser shows for a script it will not let the page read, and the Studio's own scripts are not in that category, so these most likely came from a browser extension or an injected script rather than from the Studio.`,
+		);
+	}
+	if (!groups.length && rec.lastError) {
+		// A record written before errors were grouped. Read it the old way rather
+		// than showing nothing.
 		const gap = Math.max(0, Math.round((endT - rec.lastError.t) / 1000));
 		facts.push(`${rec.errorCount} error(s) recorded; the last one ${gap}s before the end: ${rec.lastError.message}`);
+	}
+	if (Array.isArray(rec.failedLoads) && rec.failedLoads.length) {
+		facts.push(`${rec.failedLoads.length} file(s) failed to load — starting with ${rec.failedLoads[0]}. A file the page needs going missing mid-session is usually a deploy landing under an open tab, or a blocked request.`);
 	}
 
 	// ── FREEZES. A gap longer than any credible task is a sleeping device, not a
@@ -408,6 +506,36 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 			: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
 	);
 
+	// ── WHAT TO DO. The first real report was answered with "what am I supposed to
+	// do with this?" — a fair question, and a defect in the report rather than in
+	// the reader. Facts without a next step are a puzzle handed to someone who did
+	// not ask for one. Every line below is tied to something actually observed in
+	// THIS record; there is no generic advice, and when the honest answer is "this
+	// cannot be narrowed from here", it says that instead of inventing a task.
+	const steps: string[] = [];
+	if (realGroups.length) {
+		steps.push('Report this on GitHub — the error above names the code that failed, which is the part we can act on directly.');
+	}
+	if (Array.isArray(rec.failedLoads) && rec.failedLoads.length) {
+		steps.push('Reload the page once. A file that failed to load is usually a stale tab left behind by a deploy, and a reload fetches the current set.');
+	}
+	if (!rec.mem.length) {
+		// The iOS/Firefox case. Saying "no memory readings" and stopping is what
+		// made the report feel inert.
+		steps.push(
+			'If this keeps happening, open the same deck in Chrome or Edge once and let it run. Those browsers report memory to the page and this one does not, so a repeat there would show whether memory was climbing — which is the single thing this report cannot tell you on this browser.',
+		);
+	}
+	if (opaqueCount && !realGroups.length) {
+		steps.push('If you use a content blocker or browser extension here, try once with it off. The errors recorded were ones the browser would not let the page read, which is what an extension\'s own scripts look like from in here.');
+	}
+	if (rec.stallCount && rec.longestStallMs < SLEEP_MS) {
+		steps.push('The freeze above is worth reporting with the deck attached — a reproducible stall is something we can profile.');
+	}
+	if (!steps.length) {
+		steps.push('There is nothing here to act on yet: the session ended without leaving a distinguishing mark. If it happens again, the next report plus this one is a pattern, and two reports are worth filing together.');
+	}
+
 	return {
 		ending: confirmedDiscard || evicted ? 'reclaimed' : 'stopped',
 		// Factual in all three branches. Only the first names a reason, because
@@ -420,6 +548,7 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 		/** True only where the browser itself stated the reason. Drives the caveat. */
 		confirmed: confirmedDiscard,
 		facts,
+		steps,
 	};
 }
 
@@ -472,6 +601,20 @@ export function formatCrashReport(report: CrashReport): string {
 	lines.push('**What was measured**');
 	lines.push('');
 	for (const f of report.facts) lines.push(`- ${f}`);
+	if (report.steps.length) {
+		lines.push('');
+		lines.push('**What the reporter was told to try**');
+		lines.push('');
+		for (const s of report.steps) lines.push(`- ${s}`);
+	}
+	if (Array.isArray(r.failedLoads) && r.failedLoads.length) {
+		lines.push('');
+		lines.push('**Files that failed to load**');
+		lines.push('');
+		lines.push('```');
+		for (const u of r.failedLoads) lines.push(u);
+		lines.push('```');
+	}
 	if (r.mem.length) {
 		lines.push('');
 		lines.push(`**Heap trajectory** (limit ${mb(r.memLimit ?? r.mem[r.mem.length - 1].limit)}, peak ${mb(r.peakUsed ?? 0)})`);
@@ -650,6 +793,78 @@ function isSameTab(rec: SessionRecord): boolean {
 }
 
 /**
+ * Sessions this boot has WATCHED and found abandoned — see `watchLateCrashReports`.
+ */
+const provenDeadOwners = new Set<string>();
+
+/**
+ * How long to watch a mirrored-but-unproven record before calling its owner dead.
+ *
+ * Four missed beats. A live tab writes every 5s even when hidden-but-not-yet
+ * throttled, and a throttled one still writes far sooner than the 10-minute
+ * staleness wait — but crucially, this test does not depend on WHEN it writes,
+ * only on whether it writes AT ALL during the window.
+ */
+export const OWNER_PROBE_MS = 21_000;
+
+/**
+ * Report the crash the automatic post-crash reload could not.
+ *
+ * THE BUG THIS FIXES, from the first real report off a phone: the user's tab
+ * died and the browser reloaded it by itself, and the Studio said nothing. They
+ * only saw the report after pressing reload BY HAND. The cause is that immediate
+ * reporting requires `isSameTab`, which requires the Navigation Timing type to be
+ * `reload` — and on that browser the browser's OWN recovery load was not typed
+ * `reload`. Everything else fell through to the 10-minute staleness wait, so the
+ * one boot where the user was actually looking showed nothing.
+ *
+ * Rather than special-case a browser I cannot test (HARD RULE #23 — real iOS is
+ * out of reach from here), this stops depending on the navigation type at all
+ * for that decision. The tab mirror already proves the record belongs to THIS
+ * tab's lineage; the only competing explanation is a DUPLICATED tab, whose
+ * original is still running — and a running session writes a heartbeat. So:
+ * watch the record. If nothing writes to it for `OWNER_PROBE_MS`, nobody owns it
+ * and it ended. If it advances, the owner is alive and we stay quiet, exactly as
+ * before.
+ *
+ * The cost is a delay of ~21s instead of ~10 minutes on the path that matters,
+ * and the evidence is observed rather than assumed.
+ *
+ * @returns an unsubscribe function; safe to call before `start`.
+ */
+export function watchLateCrashReports(onLate: (reports: CrashReport[]) => void, probeMs = OWNER_PROBE_MS): () => void {
+	if (!priorTabSessionId || bootNavType === 'reload') return () => {};
+	const id = priorTabSessionId;
+	let before: SessionRecord | null = null;
+	try {
+		before = readRecord(SESSION_PREFIX + id);
+	} catch {
+		return () => {};
+	}
+	// Already closed cleanly, already gone, or already reportable by the ordinary
+	// rules — nothing for the watch to add.
+	if (!before || before.id === liveId || (before.closed && !before.bfcached)) return () => {};
+	const beatBefore = before.lastBeat;
+	const timer = setTimeout(() => {
+		try {
+			const after = readRecord(SESSION_PREFIX + id);
+			// Gone (pruned or wiped) — nothing to report.
+			if (!after) return;
+			// Someone is home: the owning tab is alive and merely duplicated into this
+			// one. Staying silent here is the whole reason the watch exists.
+			if (after.lastBeat !== beatBefore || (after.closed && !after.bfcached)) return;
+			provenDeadOwners.add(id);
+			const late = unreportedCrashReports(Date.now());
+			if (late.length) onLate(late);
+		} catch {
+			// A record that turned unreadable mid-watch is handled by the per-record
+			// guard in `collectCrashReports`; there is nothing to salvage here.
+		}
+	}, probeMs);
+	return () => clearTimeout(timer);
+}
+
+/**
  * Every past session that ended without a clean unload, newest first. The live
  * session is excluded by id; a still-running SECOND TAB is excluded by the
  * staleness rule in `isUncleanEnd`.
@@ -667,8 +882,8 @@ export function collectCrashReports(now: number): CrashReport[] {
 			const rec = readRecord(k);
 			if (!rec || rec.id === liveId) continue;
 			const sameTab = isSameTab(rec);
-			if (!isUncleanEnd(rec, now, sameTab)) continue;
-			const { ending, headline, confirmed, facts } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
+			if (!isUncleanEnd(rec, now, sameTab, provenDeadOwners.has(rec.id))) continue;
+			const { ending, headline, confirmed, facts, steps } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
 			out.push({
 				id: rec.id,
 				record: rec,
@@ -676,6 +891,7 @@ export function collectCrashReports(now: number): CrashReport[] {
 				headline,
 				confirmed,
 				facts,
+				steps,
 				sameTab,
 				startedAt: rec.startedAt,
 				endedAt: rec.lastBeat,
@@ -879,18 +1095,55 @@ export function setCrashContext(patch: Record<string, string | number | undefine
  * makes the next report legible — and the ErrorBoundary feeds this too, so a
  * caught React fault is in the record even though it never reached `window`.
  */
-export function noteError(err: unknown, source?: string): void {
+export function noteError(err: unknown, source?: string, where?: { file?: string; line?: number }): void {
 	if (!live || sealed) return;
 	const e = err as { message?: string; stack?: string } | undefined;
 	const message = clip(e?.message || String(err ?? 'unknown error'), 300);
+	const stack = e?.stack ? clip(e.stack, 1200) : undefined;
+	const file = where?.file ? clip(where.file, 200) : undefined;
+	const line = Number.isFinite(where?.line) ? where?.line : undefined;
+	const opaque = isOpaqueError(message, file, stack);
+	const t = Date.now() - live.startedAt;
 	live.errorCount++;
-	live.lastError = {
-		message,
-		stack: e?.stack ? clip(e.stack, 1200) : undefined,
-		source,
-		t: Date.now() - live.startedAt,
-	};
-	breadcrumb('error', source ? `${source}: ${message}` : message);
+	live.lastError = { message, stack, source, t, file, line, opaque: opaque || undefined };
+
+	// FOLD BY MESSAGE. A stuck error fires on a timer and would otherwise fill the
+	// 60-crumb ring with copies of itself, evicting the boot and nav crumbs that
+	// give the trail its context — which is exactly what happened in the first
+	// real report from a phone.
+	const groups = (live.errorGroups ??= []);
+	const hit = groups.find((g) => g.message === message);
+	if (hit) {
+		hit.n++;
+		hit.lastT = t;
+	} else if (groups.length < MAX_ERROR_GROUPS) {
+		groups.push({ message, n: 1, firstT: t, lastT: t, file, line, opaque: opaque || undefined });
+	}
+	// Only the FIRST of a repeating message gets a breadcrumb. The group carries
+	// the repeat count, so the trail keeps its narrative instead of becoming a log.
+	if (!hit) breadcrumb('error', source ? `${source}: ${message}` : message);
+}
+
+/**
+ * A resource failed to LOAD — a script, stylesheet, image or font 404'd, was
+ * blocked, or died mid-flight.
+ *
+ * These never reached the recorder before, because a failed load fires an event
+ * that does not bubble and carries no message: `window.onerror` never sees it,
+ * so the single most diagnosable Studio failure — a code-split chunk that
+ * vanished when the site redeployed under an open tab — recorded nothing at all
+ * while the page fell apart. The capture-phase listener that feeds this is the
+ * only way to observe it, and unlike a sanitized `Script error.` it names the
+ * exact URL.
+ */
+export function noteFailedLoad(url: string): void {
+	if (!live || sealed) return;
+	const u = clip(url, 200);
+	const list = (live.failedLoads ??= []);
+	if (list.includes(u)) return;
+	if (list.length >= 8) list.shift();
+	list.push(u);
+	breadcrumb('error', `failed to load ${u}`);
 }
 
 /** Is the recorder running? (The Astro entry starts it; a second call is a no-op.) */
@@ -1008,7 +1261,27 @@ export function startCrashSentinel(): () => void {
 	const timer = setInterval(tick, TICK_MS);
 
 	const onError = (ev: ErrorEvent) => {
-		noteError(ev.error ?? { message: ev.message }, ev.filename ? `${ev.filename}:${ev.lineno}` : 'window.onerror');
+		noteError(ev.error ?? { message: ev.message }, ev.filename ? `${ev.filename}:${ev.lineno}` : 'window.onerror', {
+			file: ev.filename || undefined,
+			line: ev.lineno || undefined,
+		});
+		persist();
+	};
+	/**
+	 * CAPTURE PHASE, and only for element targets.
+	 *
+	 * A resource that fails to load fires `error` AT THE ELEMENT and does not
+	 * bubble, so the bubble-phase `onError` above never runs for it. Listening in
+	 * the capture phase on `window` is the documented way to see them. Script
+	 * exceptions also pass through here, but their `target` is `window` rather
+	 * than an element — that test is what keeps the two paths from double-counting
+	 * the same fault.
+	 */
+	const onCapturedError = (ev: Event) => {
+		const el = ev.target as Element | null;
+		if (!el || typeof (el as { tagName?: unknown }).tagName !== 'string') return;
+		const url = el.getAttribute?.('src') || el.getAttribute?.('href');
+		if (url) noteFailedLoad(url);
 		persist();
 	};
 	const onRejection = (ev: PromiseRejectionEvent) => {
@@ -1095,6 +1368,7 @@ export function startCrashSentinel(): () => void {
 	addEventListener('storage', onStorage);
 
 	addEventListener('error', onError);
+	addEventListener('error', onCapturedError, true);
 	addEventListener('unhandledrejection', onRejection);
 	document.addEventListener('securitypolicyviolation', onCsp);
 	document.addEventListener('visibilitychange', onVisibility);
@@ -1107,6 +1381,7 @@ export function startCrashSentinel(): () => void {
 		clearInterval(timer);
 		removeEventListener('storage', onStorage);
 		removeEventListener('error', onError);
+		removeEventListener('error', onCapturedError, true);
 		removeEventListener('unhandledrejection', onRejection);
 		document.removeEventListener('securitypolicyviolation', onCsp);
 		document.removeEventListener('visibilitychange', onVisibility);
