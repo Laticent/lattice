@@ -2946,6 +2946,10 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Triggered by:** Any `size: 4K` (or 4:3) slide with a Mermaid
   diagram in marp-vscode preview. HD unaffected because both values
   agreed at 1152px.
+- **Since #1598** the slide-context rule is `width: 100%`, not the inset calc —
+  the frame already insets the stage once, so the diagram just fills it
+  (`design/forms.md` §6.1). The specificity story is unchanged and so is the
+  HD coincidence: `100%` of the stage content box is still 1152px at HD.
 - **Commits:** `d91decc` (px→cqi refactor); fixed in the commit that
   wraps the non-slide fallback in :where().
 

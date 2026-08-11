@@ -1766,6 +1766,96 @@ function checkMarginDiscipline(errors) {
   }
 }
 
+// ─── Stage-inset ownership (Forms inset rule, design/forms.md §6.1, #1598) ──
+// THE RULE: the stage owns the outer inset; a body owns only the spacing between
+// its own elements. HARD RULE #20 already fixes WHAT to space with (`padding` and
+// `gap`, never `margin`); this fixes WHICH BOX the outer inset belongs to.
+//
+// WHAT THIS GATE CATCHES, and why it is a grep and not a render. A body re-derives
+// the frame inset in exactly one recognizable shape: it takes the CONTAINER's own
+// width in container units and subtracts a spacing token —
+// `width: calc(100cqi - 2 * var(--sp-2xl))`. That is not a width, it is an inset
+// wearing a width's clothes, and it is invisible as a defect because the box it
+// produces looks deliberate: the chart is centered, it is inside the frame, and
+// nothing overflows. It cost 128px per side on every chart (frame + calc + the
+// body's own padding = 192 against prose's 64) and 64px on every diagram, for
+// years, and #680 costed the chart's inline debt at HALF the real number because
+// the calc reads as sizing rather than as spacing.
+//
+// It is measurable — a rendered body's border box should equal its stage's content
+// box — and `tools/check-chart-fit.js` DOES assert exactly that on a real render at
+// three sizes. This gate is the cheap half of the pair: it runs browser-free inside
+// `build:check`, on EVERY component (not just the charts a fixture happens to
+// cover), and it fires on the shape the moment it is typed rather than after a
+// 3-render sweep somebody has to remember to run.
+//
+// SCOPE. Engine CSS under lib/. The `figure.*` Read·Article projection is NOT a
+// Form — it re-hosts a chart body with no `.cell-stage` above it — so an inset on
+// the body is correct there and those declarations are plain padding, which this
+// gate does not look at. What it looks at is the container-unit subtraction, which
+// has no legitimate use inside a frame whose inset is already `--frame-x`.
+//
+// Budget 0 + a sanction list, failing BOTH ways like SANCTIONED_MARGINS: an
+// unlisted offender fails, and a listed sanction that no longer matches fails too,
+// so the allowlist cannot rot into a silent pass.
+const SANCTIONED_STAGE_INSETS = [];
+
+/** `calc(… 100cq* … - …)` — a container-width inset masquerading as a width. */
+function offendingStageInsets(css) {
+  const out = [];
+  // Declaration values only (after `:`, up to `;`/`}`), so a selector or an
+  // at-rule preamble can never trip it.
+  const DECL = /(^|[;{])\s*([a-zA-Z-]+)\s*:\s*([^;{}]*)/g;
+  let m = DECL.exec(css);
+  while (m !== null) {
+    const [, , prop, value] = m;
+    // Only SIZING properties: a container-unit subtraction in `padding`/`gap`/
+    // `translate` is spacing that says so, and is the rule's own idiom.
+    if (/^(?:width|height|max-width|max-height|min-width|min-height|inline-size|block-size|flex-basis|flex)$/.test(prop)
+      && /calc\([^;]*\b100cq[iwhb]\b[^;]*-/.test(value)) {
+      out.push({ prop, value: value.trim().replace(/\s+/g, ' ') });
+    }
+    m = DECL.exec(css);
+  }
+  return out;
+}
+
+function checkStageInsetOwnership(errors) {
+  const offences = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const rel = path.relative(ROOT, file);
+    for (const o of offendingStageInsets(css)) offences.push({ file: rel, ...o });
+  }
+  const remaining = [...offences];
+  const stale = [];
+  for (const s of SANCTIONED_STAGE_INSETS) {
+    const i = remaining.findIndex((o) => o.file === s.file && o.value === s.value);
+    if (i === -1) stale.push(s);
+    else remaining.splice(i, 1);
+  }
+  if (remaining.length) {
+    const top = remaining.slice(0, 5).map((o) => `${o.file} (${o.prop}: ${o.value})`).join(', ');
+    errors.push(
+      `${remaining.length} container-width inset(s) in engine CSS (budget 0). ` +
+      '`calc(100cq* − <spacing>)` on a sizing property is an OUTER INSET wearing a width\'s ' +
+      'clothes: the frame already insets the body once via --frame-x, so this re-derives it a ' +
+      'second time and the figure pays twice (design/forms.md §6.1 — the stage owns the outer ' +
+      'inset, a body owns only the spacing between its own elements). Fill the box that already ' +
+      'carries the inset (`width: 100%`) and put any component-specific inset on the STAGE CELL ' +
+      `(\`section.<x> > .cell-stage { padding: … }\`). Offending: ${top}. If a container-width ` +
+      'subtraction is provably the only answer, add it to SANCTIONED_STAGE_INSETS in ' +
+      'tools/check-ownership.js with its justification.',
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `stale stage-inset sanction in tools/check-ownership.js — \`${s.value}\` in ${s.file} is no ` +
+      'longer present. Remove the SANCTIONED_STAGE_INSETS entry so the allowlist stays honest.',
+    );
+  }
+}
+
 // ── Frame chrome stays out of flow under a slide `finish:` ────────────────────────
 // `base.finish.css` lifts slide content above the finish backdrop. The z-index is the
 // intent; the `position: relative` that carries it must NOT reach a child that already
@@ -6689,6 +6779,7 @@ function run() {
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
+  checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
   checkMathRendererParity(errors);
   checkSectionBoxOwnership(errors);

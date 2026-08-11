@@ -27,10 +27,10 @@
  * the tall arrangement is emitted rather than restyled. */
 
 :is(section.gantt, figure.gantt).chart-frame .chart-body {
-  /* Inherit the shared .chart-body width AND padding (sp-lg / sp-2xl) so the
-   * surface panel is the same size and inset as every other chart — don't
-   * re-assert width:100% (it spanned edge-to-edge) or a tighter padding (the
-   * bars then crowded the hairline). gantt-chart still fills via stretch. */
+  /* Inherit the shared inset — the stage cell's, since #1598 — so gantt is inset
+   * exactly like every other chart. Don't re-assert an inset here: a tighter one
+   * crowded the bars against the hairline, and a body-level one is now the thing
+   * the Forms inset rule bans (design/forms.md §6.1). gantt-chart fills via stretch. */
   align-items: stretch;
 }
 

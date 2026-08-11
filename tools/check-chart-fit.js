@@ -19,6 +19,14 @@
  *   content overflows the **viewBox**    the VIEWBOX check (below) — and
  *                                        nothing else in the repo
  *
+ * A THIRD ASSERTION RIDES THE SAME RENDERS, and is the opposite question. The
+ * two above ask whether the chart is too BIG for its box; the INSET check (#1598)
+ * asks whether its box is needlessly too SMALL — whether the body re-derives the
+ * frame inset the stage already carries. That failure is silent in the other
+ * direction: nothing clips, nothing overflows, the chart is simply 64px narrower
+ * per side than it should be, on every chart, forever. It costs no extra render,
+ * so it lives here rather than in a gate of its own. design/forms.md §6.1.
+ *
  * The stage check came first, from two radar small-multiples breakages that the
  * suite could not see. A flex row let the LAST row's minis stretch to fill a
  * four-wide track, dragging their height with them (607.8px into a 449.1px
@@ -132,11 +140,63 @@ async function measure(page, slack, vbSlack) {
   return page.evaluate((SLACK_, VB_SLACK_) => {
     const stages = [];
     const boxes = [];
+    const insets = [];
     let vbSkipped = 0;
 
     for (const sec of document.querySelectorAll('section[data-class]')) {
       const component = sec.dataset.class.trim().split(/\s+/)[0];
       const stage = sec.querySelector('.cell-stage');
+
+      // ── 0. INSET OWNERSHIP — the stage owns the outer inset, the body fills it.
+      // design/forms.md §6.1, #1598. Asserted by MEASUREMENT, not by reading the
+      // CSS, because the shape that breaks it (`width: calc(100cqi − <spacing>)`)
+      // reads as sizing: the box it produces is centered, inside the frame, and
+      // overflows nothing — it is simply 64px narrower on each side than it should
+      // be, on every chart, forever. Two assertions, both on the INLINE axis:
+      //   · the body's BORDER box coincides with the stage's CONTENT box, so the
+      //     inset is not re-derived below the stage;
+      //   · the body carries no padding of its own, UNLESS it PAINTS ITS OWN
+      //     SURFACE — the one case the rule's second clause allows, because text
+      //     must not touch a visible edge. That is tested by measurement too (a
+      //     non-transparent background or a real border), not by a class list: it
+      //     is what earns `code`'s `pre` its padding and what the chart's opt-in
+      //     `canvas` panel earns, and a class list would have to be kept in sync
+      //     with every future body that paints.
+      // Block axis is deliberately NOT asserted: a pinned list body (`flex: 0 0
+      // auto`) is centered at its natural height and legitimately does not fill the
+      // cell, and an overstuffed one MUST spill it so overflow-probe.js can see it.
+      if (stage) {
+        const body = stage.querySelector(':scope > .chart-body, :scope > .mermaid-svg, :scope > .mermaid, :scope > pre, :scope > marp-pre');
+        if (body?.getClientRects().length) {
+          const sr = stage.getBoundingClientRect();
+          const sc = getComputedStyle(stage);
+          const br = body.getBoundingClientRect();
+          const bc = getComputedStyle(body);
+          const num = (v) => Number.parseFloat(v) || 0;
+          const left = sr.left + num(sc.paddingLeft) + num(sc.borderLeftWidth);
+          const right = sr.right - num(sc.paddingRight) - num(sc.borderRightWidth);
+          const pad = [bc.paddingTop, bc.paddingRight, bc.paddingBottom, bc.paddingLeft].map(num);
+          // "Paints its own surface": a background that is not fully transparent,
+          // a background image/gradient, or a real border on any side.
+          const opaque = !/^(?:transparent|rgba\(0,\s*0,\s*0,\s*0\))$/.test(bc.backgroundColor);
+          const painted = opaque || bc.backgroundImage !== 'none'
+            || [bc.borderTopWidth, bc.borderRightWidth, bc.borderBottomWidth, bc.borderLeftWidth]
+              .some((w) => num(w) > 0);
+          insets.push({
+            slide: +sec.id || insets.length + 1,
+            component,
+            // `getAttribute`, not `.className`: on an SVG element that property is an
+            // SVGAnimatedString and stringifies to `[object SVGAnimatedString]`.
+            body: body.getAttribute('class') || body.tagName,
+            insetLeft: +(br.left - left).toFixed(1),
+            insetRight: +(right - br.right).toFixed(1),
+            pad: pad.join('/'),
+            painted,
+            bad: Math.abs(br.left - left) > SLACK_ || Math.abs(right - br.right) > SLACK_
+              || (!painted && pad.some((p) => p > SLACK_)),
+          });
+        }
+      }
 
       // ── 1. STAGE FIT — painted marks vs the stage clip.
       if (stage) {
@@ -198,7 +258,7 @@ async function measure(page, slack, vbSlack) {
         });
       }
     }
-    return { stages, boxes, vbSkipped };
+    return { stages, boxes, insets, vbSkipped };
   }, slack, vbSlack);
 }
 
@@ -238,9 +298,11 @@ async function main() {
   let browser;
   let stageCount = 0;
   let boxCount = 0;
+  let insetCount = 0;
   let skipCount = 0;
   const stageBad = [];
   const boxBad = [];
+  const insetBad = [];
   // Set inside the try, acted on AFTER the finally. `process.exit()` terminates
   // immediately and does NOT run a pending `finally`, so exiting from inside the
   // try would strand the per-size scratch decks in test/fixtures/ on every
@@ -267,14 +329,16 @@ async function main() {
       const page = await browser.newPage();
       await page.setViewport({ width: s.viewport[0], height: s.viewport[1] });
       await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120_000 });
-      const { stages, boxes, vbSkipped } = await measure(page, SLACK, VB_SLACK);
+      const { stages, boxes, insets, vbSkipped } = await measure(page, SLACK, VB_SLACK);
       await page.close();
 
       stageCount += stages.length;
       boxCount += boxes.length;
+      insetCount += insets.length;
       skipCount += vbSkipped;
       for (const r of stages) if (r.clipped) stageBad.push({ ...r, size: s.name });
       for (const r of boxes) if (r.clipped) boxBad.push({ ...r, size: s.name });
+      for (const r of insets) if (r.bad) insetBad.push({ ...r, size: s.name });
       allSizesRun.push(s.name);
 
       if (report) {
@@ -284,6 +348,13 @@ async function main() {
             `  stage   slide ${String(r.slide).padStart(2)} ${r.component.padEnd(15)} ` +
             `over[T ${r.overTop} B ${r.overBottom} L ${r.overLeft} R ${r.overRight}] ` +
             `${r.clipped ? 'CLIPPED' : 'fits'}`,
+          );
+        }
+        for (const r of insets) {
+          console.log(
+            `  inset   slide ${String(r.slide).padStart(2)} ${r.component.padEnd(15)} ` +
+            `${String(r.body).padEnd(20)} inset[L ${r.insetLeft} R ${r.insetRight}] pad[${r.pad}]` +
+            `${r.painted ? ' (paints)' : ''} ${r.bad ? 'RE-INSET' : 'ok'}`,
           );
         }
         for (const r of boxes) {
@@ -332,6 +403,19 @@ async function main() {
       );
     }
 
+    if (insetBad.length) {
+      console.error(`\ncheck-chart-fit: ${insetBad.length} re-derived outer inset(s) across ${sizes.length} size(s):\n`);
+      for (const r of insetBad) {
+        console.error(
+          `  \u2717 [${r.size}] slide ${r.slide} (${r.component}): <${r.body}> does not fill its .cell-stage ` +
+          `content box \u2014 inset[L ${r.insetLeft} R ${r.insetRight}] pad[${r.pad}]. The stage owns the outer ` +
+          'inset (design/forms.md \u00a76.1); a body re-deriving it makes the figure pay twice.',
+        );
+      }
+      console.error('');
+      failed = true;
+    }
+
     if (stageBad.length || boxBad.length) {
       console.error(`\ncheck-chart-fit: ${stageBad.length + boxBad.length} clip(s) across ${sizes.length} size(s):\n`);
       for (const r of stageBad) {
@@ -351,7 +435,8 @@ async function main() {
       failed = true;
     } else {
       console.log(
-        `check-chart-fit: ${stageCount} chart slide(s) fit their stage and ${boxCount} SVG(s) fit their viewBox, ` +
+        `check-chart-fit: ${stageCount} chart slide(s) fit their stage, ${insetCount} body/stage pair(s) inset ` +
+        `once, and ${boxCount} SVG(s) fit their viewBox, ` +
         `across ${sizes.length} size(s) [${sizes.map((s) => s.name).join(', ')}]` +
         `${skipCount ? ` — ${skipCount} overflow:visible SVG(s) not viewBox-checked` : ''}.`,
       );

@@ -44,9 +44,20 @@ section.state-chart {
   --state-label-bg: var(--bg);
 }
 
+/* THE OUTER INSET, state-chart's tuning of it (#1598). Re-homed from `.chart-body`
+ * to the stage cell: a parent's padding cannot be overridden by a child, so a
+ * per-chart tuning of the inset has to live on the box that now owns the inset.
+ * The values are state-chart's own, moved verbatim — and because state-chart never
+ * carried the family's width calc (it already shipped `width: 100%`), its geometry
+ * is unchanged to the pixel: the body box, the caption's text box, and the legend
+ * band all land exactly where they did. It is the in-tree precedent that the calc
+ * was never load-bearing. */
+section.state-chart.chart-frame > .cell-stage {
+  padding: var(--sp-md) var(--sp-2xl);
+}
+
 section.state-chart.chart-frame .chart-body {
   width: 100%;
-  padding: var(--sp-md) var(--sp-2xl);
   display: flex;
   /* The figure is the only in-flow child on the DEFAULT variant; the status legend
    * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody

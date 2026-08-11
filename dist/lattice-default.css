@@ -4756,11 +4756,27 @@ section.form.diagram > .cell-stage > p { align-self:stretch; text-align:var(--he
 section.form.diagram:has(> .cell-stage > p) > .cell-masthead { padding-bottom:var(--sp-xs); }
 section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
 
-/* Explicit pixel width so Mermaid's getBoundingClientRect() always returns a concrete value.
-   Most diagram types (sequence, timeline, gitgraph…) use useMaxWidth:true by default and
-   query the container width before rendering. width:100% on a freshly-inserted flex child
-   can resolve to 0 before the browser commits a layout pass.
-   100cqi (slide width) − 2 × var(--sp-2xl) padding = 90cqi.
+/* THE OUTER INSET IS THE FRAME'S, ONCE (design/forms.md §6.1, #1598). This was
+   `width: calc(100cqi - 2 * var(--sp-2xl))` — a SECOND inset on top of the frame's
+   `--frame-x`, so the diagram sat 128px from the slide edge while its own Key
+   Insight blockquote and the masthead title above it sat at 64. Measured on the
+   real render: the diagram was the only thing on the slide out of line with the
+   title. `width: 100%` fills the box that already carries the inset — the
+   `.cell-stage` content box under the Form, the section content box on the
+   `no-form` path — so the mermaid box now shares one left edge with the title, the
+   dek and the Key Insight. Neither box needs stage padding: unlike a chart, a
+   diagram is a single self-scaling figure with prose siblings, and insetting it
+   further is what put it out of line.
+
+   The calc's stated reason — Mermaid's getBoundingClientRect() needs a concrete
+   value, because `width:100%` on a freshly-inserted flex child can resolve to 0
+   before the browser commits a layout pass — is NOT what a percentage against a
+   definite flex cell does: `.cell-stage` is a definite flex cell on a fixed-size
+   slide, so the percentage has a resolved basis before the child is measured.
+   MEASURED on the real emulator render of diagram.gallery.md (all 26 diagram
+   slides, headless Chromium) at landscape, portrait and square: every box resolves
+   to the full stage content width, none to 0.
+
    `flex:1` (the pre-migration value, kept EXACTLY): the Mermaid SVG SELF-SCALES —
    `mermaid.css` forces `.mermaid-svg svg { height:100% !important }` and the SVG's own
    `preserveAspectRatio` letterboxes it — so it always fits its flex box, at ANY size.
@@ -4773,14 +4789,22 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    task hazard #1 ("risk is LOW … flex fix if any"). */
 section.diagram .mermaid-svg,
 section.diagram > .mermaid,
-section.diagram > .cell-stage > .mermaid { flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); height:auto; max-width:100%; box-sizing:border-box; }
+section.diagram > .cell-stage > .mermaid { flex:1; width:100%; height:auto; max-width:100%; box-sizing:border-box; }
 
 /* Source <pre> in pending/error states occupies the same slot as the rendered
  * diagram so the slide layout does not reflow when the diagram swaps in. */
 section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
-  flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
+  flex:1; width:100%; max-width:100%; height:auto; min-height:0;
 }
+/* The caption's `padding-top` STAYS a padding, called explicitly under the inset
+   rule (#1598) rather than left ambiguous. It is spacing between stage children,
+   which the rule would normally hand to the stage's `gap` — but the stage's gap is
+   ONE value shared by every seam in the column (dek↔diagram↔Key Insight, tuned to
+   `--sp-sm`, and `--sp-xs` when a dek leads), and this seam wants a step MORE air
+   than those. A gap cannot be asymmetric, so expressing it as one would move two
+   seams to fix a third. It is not an outer inset — it adds nothing on the inline
+   axis and nothing at the stage edge — so it is outside what the rule governs. */
 section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
@@ -4997,10 +5021,10 @@ section.funnel .funnel-conv, figure.chart-frame .funnel-conv{
  * the tall arrangement is emitted rather than restyled. */
 
 section.gantt.chart-frame .chart-body, figure.gantt.chart-frame .chart-body{
-  /* Inherit the shared .chart-body width AND padding (sp-lg / sp-2xl) so the
-   * surface panel is the same size and inset as every other chart — don't
-   * re-assert width:100% (it spanned edge-to-edge) or a tighter padding (the
-   * bars then crowded the hairline). gantt-chart still fills via stretch. */
+  /* Inherit the shared inset — the stage cell's, since #1598 — so gantt is inset
+   * exactly like every other chart. Don't re-assert an inset here: a tighter one
+   * crowded the bars against the hairline, and a body-level one is now the thing
+   * the Forms inset rule bans (design/forms.md §6.1). gantt-chart fills via stretch. */
   align-items: stretch;
 }
 
@@ -6749,10 +6773,11 @@ section.journey .journey-vmood .journey-face {
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
 
 section.kanban.chart-frame .chart-body, figure.kanban.chart-frame .chart-body{
-  /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding
-   * (sp-lg / sp-2xl) so the surface panel matches every other chart — the old
-   * width:100% pushed it full-bleed (no side margin) and the sp-xs bottom let
-   * the cards touch the hairline. Columns still stretch + top-align. */
+  /* Inherit the shared inset — the stage cell's, since #1598 — so kanban is inset
+   * exactly like every other chart. Don't re-assert one here: full-bleed left the
+   * board with no side berth and an sp-xs bottom let the cards touch the hairline,
+   * and a body-level inset is now what the Forms inset rule bans (design/forms.md
+   * §6.1). Columns still stretch + top-align. */
   align-items: stretch;
   justify-content: flex-start;
 }
@@ -10533,9 +10558,9 @@ section.obligation-matrix.heat thead tr th:last-child {
 /* ── PIECHART · donut ──
  * SVG wedges emitted at build time; legend rendered to the right.
  * The donut hole (when modifier `donut` is present) is left blank. */
-/* .chart-body inherits the shared width + padding (sp-lg / sp-2xl) so the
- * surface panel matches every other chart's size and inset — no
- * piechart-specific override. */
+/* .chart-body fills the stage cell, which owns the inset since #1598 (was: the
+ * body's own width calc + padding) — so piechart is inset exactly like every
+ * other chart, with no piechart-specific override. design/forms.md §6.1. */
 section.piechart .piechart-figure, figure.chart-frame .piechart-figure{
   /* SVG-native legend (2026-06-13-svg-native-legend.md): the figure holds ONE
      self-contained <svg> (diagram + spine + key in one viewBox). It only needs
@@ -11268,10 +11293,11 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
  * a bar (filled to --pct), a numeric readout, and an optional status pill.
  * The fill colour tints with the status. */
 section.progress.chart-frame .chart-body, figure.progress.chart-frame .chart-body{
-  /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding so
-   * the surface panel matches every other chart — the old width:100% +
-   * max-width:76.5cqi made the progress panel noticeably narrower (big side
-   * margins) than the rest. Bars still stretch + gap within the shared width. */
+  /* Inherit the shared inset — the stage cell's, since #1598 — so progress is
+   * inset exactly like every other chart. Don't re-assert one here: the old
+   * width:100% + max-width:76.5cqi made the progress panel noticeably narrower
+   * (big side margins) than the rest, and a body-level inset is now what the Forms
+   * inset rule bans (design/forms.md §6.1). Bars still stretch + gap. */
   align-items: stretch;
   gap: var(--sp-md);
 }
@@ -11951,7 +11977,7 @@ section.quadrant [data-cell="3"], figure.chart-frame [data-cell="3"]{ --cell-fil
  * skeleton and h2 styling all come from section.chart-frame. The figure
  * just slots into .chart-body as a centred flex row of svg (+ optional
  * legend, for the cohort variant). */
-/* .chart-body inherits the shared width + padding (sp-lg / sp-2xl) so the
+/* .chart-body fills the stage cell, which owns the inset since #1598, so the
  * surface panel matches every other chart's size and inset — no
  * quadrant-specific override. */
 
@@ -12345,7 +12371,7 @@ section.radar, figure.chart-frame{
 /* radar is a chart-family member — section layout, header/body/caption
  * skeleton and h2 styling all come from section.chart-frame. The figure
  * just slots into .chart-body as a centred flex row of svg + legend. */
-/* .chart-body inherits the shared width + padding (sp-lg / sp-2xl) so the
+/* .chart-body fills the stage cell, which owns the inset since #1598, so the
  * surface panel matches every other chart's size and inset — no radar-specific
  * override. */
 
@@ -15084,9 +15110,20 @@ section.state-chart {
   --state-label-bg: var(--bg);
 }
 
+/* THE OUTER INSET, state-chart's tuning of it (#1598). Re-homed from `.chart-body`
+ * to the stage cell: a parent's padding cannot be overridden by a child, so a
+ * per-chart tuning of the inset has to live on the box that now owns the inset.
+ * The values are state-chart's own, moved verbatim — and because state-chart never
+ * carried the family's width calc (it already shipped `width: 100%`), its geometry
+ * is unchanged to the pixel: the body box, the caption's text box, and the legend
+ * band all land exactly where they did. It is the in-tree precedent that the calc
+ * was never load-bearing. */
+section.state-chart.chart-frame > .cell-stage {
+  padding: var(--sp-md) var(--sp-2xl);
+}
+
 section.state-chart.chart-frame .chart-body {
   width: 100%;
-  padding: var(--sp-md) var(--sp-2xl);
   display: flex;
   /* The figure is the only in-flow child on the DEFAULT variant; the status legend
    * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody
@@ -16266,13 +16303,25 @@ section.statute-stack > .cell-stage {
  * Ordered list rendered as a left-to-right spine with dots at each item.
  * Date pill sits above the dot; title + status pill + body sit below.
  * Items distribute evenly along the spine. */
-section.timeline-list.chart-frame .chart-body, figure.timeline-list.chart-frame .chart-body{
-  /* Inherit the shared .chart-body width so the surface panel matches every
-   * other chart's size — don't re-assert width:100% (it spanned edge-to-edge,
-   * wider than the rest). The timeline-spine already caps at max-width. */
+/* THE OUTER INSET, timeline-list's tuning of it (#1598) — re-homed from
+ * `.chart-body` to the stage cell, values moved verbatim (a parent's padding
+ * cannot be overridden by a child, so a per-chart tuning has to travel with the
+ * inset it tunes). The asymmetric block pair is the point of the tuning: the
+ * spine's date pills sit high, so the top seam is a step looser than the bottom.
+ *
+ * The Read·Article PROJECTION keeps its inset on `.chart-body` (below). That path
+ * re-hosts the body inside a `figure`, with no Form and no `.cell-stage` — the
+ * inset rule is a Forms rule about the stage cell, and there is no stage there to
+ * own anything. Byte-identical projection, deliberately. */
+section.timeline-list.chart-frame > .cell-stage {
   padding: var(--sp-xl) var(--sp-2xl) var(--sp-lg);
+}
+section.timeline-list.chart-frame .chart-body, figure.timeline-list.chart-frame .chart-body{
   align-items: center;
   justify-content: center;
+}
+figure.timeline-list.chart-frame .chart-body {
+  padding: var(--sp-xl) var(--sp-2xl) var(--sp-lg);
 }
 section.timeline-list .timeline-spine, figure.timeline-list .timeline-spine{
   position: relative;
@@ -16407,6 +16456,13 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
 :where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
   align-items: stretch;
   justify-content: center;
+}
+/* The tall/strip inset, re-homed to the stage with the landscape one (#1598).
+ * Wins the family's tall/strip stage rule on class count — (0,3,1) vs (0,2,1). */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  padding: var(--sp-lg) var(--sp-xl);
+}
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
   padding: var(--sp-lg) var(--sp-xl);
 }
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine,
@@ -19551,9 +19607,11 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
  * :where() reduces specificity to 0 so the slide-context rule
  * (`section.diagram > .mermaid`, specificity 0,2,1) always wins. Both
  * rules would otherwise be (0,2,1) and source order would let this
- * non-slide rule override the cqi-based slide width. At HD the two
- * values coincide (1152px = calc(100cqi-2*sp-2xl)), hiding the bug; at
- * 4K the container would be stuck at 1152px instead of 3456px. */
+ * non-slide rule override the slide-context width. At HD the two values
+ * coincided (1152px, which is what the slide rule's retired inset calc also
+ * produced), hiding the bug; at 4K the container would be stuck at 1152px
+ * instead of 3456px. The slide rule is `width: 100%` since #1598 — the same
+ * specificity story, and the coincidence at HD is unchanged. */
 :where(:is(pre, marp-pre)[data-mermaid-state="rendered"] + .mermaid) {
   align-items:center; justify-content:center;
   width:1152px; height:480px;
@@ -19592,9 +19650,13 @@ pre[data-mermaid-state="rendered"] + .mermaid > svg, marp-pre[data-mermaid-state
  * source `<pre>`, the runtime `.mermaid` SVG target, and the `.mermaid-error`
  * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
  * The bare `section.diagram >` arm keeps the `no-form` (unwrapped) slide working. */
+/* Full width of the box that already carries the frame inset (#1598) — the error
+ * block replaces the diagram in place, so it must sit on the diagram's own edges;
+ * the retired `calc(100cqi - 2 * var(--sp-2xl))` was a second inset that put it
+ * 64px inside them. design/forms.md §6.1. */
 section.diagram > .mermaid-error,
 section.diagram > .cell-stage > .mermaid-error {
-  width:calc(100cqi - 2 * var(--sp-2xl));
+  width:100%;
 }
 section.diagram > .mermaid-error-label,
 section.diagram > .cell-stage > .mermaid-error-label,
@@ -19691,12 +19753,36 @@ section.diagram > .cell-stage > .mermaid-error-label,
 section.chart-frame {
   /* Reset section base — chart frame manages its own internal layout.
    * The native border-top spectrum is removed; the lucent strip is the
-   * top chrome instead. Bottom padding leaves a clean band for the
-   * footer chrome (absolute, bottom:24px) so chart-caption never
-   * collides with footer/page-number text. */
-  padding: 0 0 calc(4.375 * var(--_sec-1cqi, 1cqi)); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+   * top chrome instead. */
   border-top: none;
   background: var(--bg);
+}
+/* THE OUTER INSET, on the `no-form` path (design/forms.md §6.1, #1598).
+ * Scoped `:not(.form)` deliberately. This block used to carry an UNSCOPED
+ * `padding: 0 0 calc(4.375 * --_sec-1cqi)` and read as if the chart section had
+ * no side inset — on a Form slide it does not: `section.form`'s
+ * `padding: var(--frame-y) var(--frame-x) var(--footer-reserve)` has equal
+ * specificity and lands later in the bundle, so a Form chart measures 64px sides
+ * despite the rule saying 0. A rule that reads as if it were in force and is not
+ * is worse than no rule, so the declaration now names the ONE path it governs.
+ *
+ * It is NOT dead, which is why it is scoped rather than deleted: `no-form` (per
+ * slide) and `form: off` (per deck) are supported opt-outs, and on that path there
+ * is no `.cell-stage` and no `section.form` — the SECTION is the box that holds
+ * the body, so the section owns the inset the stage owns under the Form. Measured:
+ * deleting it outright moves a `no-form` chart's body box and its footer band.
+ *
+ * The INLINE inset is `--sp-2xl` — exactly what the retired `.chart-body` width
+ * calc contributed on this path — so the body box lands where it always did
+ * (1152 @ x=64 at hd), and only the body's OWN duplicate inset is reclaimed. The
+ * BLOCK seam is a `row-gap`, not padding: the section here is a flex column
+ * holding `h2 → .chart-body`, and a `padding-top` would inset the HEADING too
+ * (chrome, not body). A gap is spacing between the container's own children —
+ * the half of the rule a container is allowed to own. */
+section.chart-frame:not(.form) {
+  /* section-OWN cqi: route the footer band through --_sec-1cqi (preview self-reference) */
+  padding: 0 var(--sp-2xl) calc(4.375 * var(--_sec-1cqi, 1cqi));
+  row-gap: var(--sp-lg);
 }
 
 /* ── Categorical chart colour model ───────────────────────────────────────
@@ -19996,13 +20082,23 @@ section.chart-frame .chart-subtitle {
  * the stage cell owns the body. */
 
 section.chart-frame .chart-body {
-  /* Pin to slide-internal width (1280 − 2× horizontal padding), same
-   * technique as the mermaid container in section.diagram. Without the
-   * absolute width, VS Code Marp preview's webview can resolve `100%`
-   * against an indeterminate ancestor and let the chart-body grow
-   * unbounded; the flex parent measures intrinsic content first and
-   * the chart blows past the slide. The calc() pins the box to the
-   * slide's authoritative width regardless of viewport scale. */
+  /* `100%`, NOT the retired `calc(100cqi - 2 * var(--sp-2xl))` (#1598). The calc
+   * was a SECOND outer inset doing the first one's job: the frame already insets
+   * the stage by `--frame-x`, so a chart's figure paid 64 (frame) + 64 (calc) +
+   * 64 (this box's own padding) = 192px per side while prose paid 64. The outer
+   * inset now lives once, on the box that holds this one — `.cell-stage` under the
+   * Form, the section on the `no-form` path (both above/below) — and this box
+   * fills it exactly. design/forms.md §6.1.
+   *
+   * The calc's stated justification was that "VS Code Marp preview's webview can
+   * resolve `100%` against an indeterminate ancestor" and let the body grow
+   * unbounded. It does not apply here: the ancestor is `.cell-stage`, a definite
+   * flex cell (`flex:1; min-height:0; overflow:clip`) on a fixed-size slide, and
+   * `state-chart` has shipped `width:100%` against it all along. Marp is retired
+   * as a render path (HARD RULE #1) — the one surviving surface is export-to-Marp
+   * (`lib/core/marp-bundle.js`), which re-exports the deck rather than rendering
+   * it in that webview. Re-measured on the real render at landscape / portrait /
+   * square: identical body box, no unbounded growth. */
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -20011,12 +20107,35 @@ section.chart-frame .chart-body {
   justify-content: safe center;
   align-items: center;
   box-sizing: border-box;
-  width: calc(100cqi - 2 * var(--sp-2xl));
+  width: 100%;
   max-width: 100%;
-  align-self: center;   /* centre the fixed-width body in the section flex column (was margin:0 auto) */
-  padding: var(--sp-lg) var(--sp-2xl);
+  align-self: center;   /* centre the body in the section flex column (was margin:0 auto) */
+  /* NO padding. This box paints nothing by default (the glass panel is opt-in —
+   * `.canvas`, below — and re-adds its own internal inset there), so under the
+   * Forms inset rule it owns only the `gap` between its own children. */
   min-height: 0;
   overflow: hidden;
+}
+
+/* ── THE OUTER INSET, on the Form path (design/forms.md §6.1, #1598) ──────────
+ * One box, one inset. `.chart-body` used to carry both an outer inset (its width
+ * calc) and its own padding on top of the frame's; the stage cell now owns the
+ * whole thing and the body fills its content box exactly. The values are the ones
+ * `.chart-body` used to carry, moved verbatim, so a chart's berth is unchanged —
+ * what is reclaimed is the duplicate (the retired width calc), which is why every
+ * figure gains 2 × `--sp-2xl` of INLINE room and NOTHING moves on the block axis
+ * (the `cqh` basis — "fill height minus the inset" — is the same number, just
+ * subtracted one box higher).
+ *
+ * `justify-content` centres the body in the cell: a pinned list body
+ * (`flex: 0 0 auto`, natural height) would otherwise sit at the stage top; an SVG
+ * body (`flex: 1`) already fills the stage, so this is a no-op for it. `safe`
+ * (#1299) falls back to start the instant the body overflows, so an overstuffed
+ * chart loses its tail — which the probe can see — instead of its head, which it
+ * cannot. An `align-*` modifier overrides at higher specificity. */
+section.chart-frame > .cell-stage {
+  padding: var(--sp-lg) var(--sp-2xl);
+  justify-content: safe center;
 }
 
 /* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
@@ -20049,21 +20168,21 @@ section.chart-frame .chart-body {
 section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
-/* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
- * height) would otherwise sit at the stage top; an SVG body (flex:1) already fills the
- * stage, so this is a no-op for it. An `align-*` modifier overrides at higher specificity. */
-section.chart-frame > .cell-stage { justify-content: safe center; }
-
 /* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
- * default body reserves --sp-2xl on EACH side in both the width calc and the
- * padding (≈4× --sp-2xl total) — right for a wide slide, but in portrait that eats
- * precious width and shrinks every chart and its labels/numbers. Pull the side
- * inset right in so the figure (and its text) reads as large as possible. Keyed on
- * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
- * 2026-06-19-chart-adaptive-sizing.md. */
-section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
-  width: calc(100cqi - 2 * var(--sp-sm));
+ * default inset reserves --sp-2xl on EACH side — right for a wide slide, but in
+ * portrait that eats precious width and shrinks every chart and its labels/numbers.
+ * Pull the side inset right in so the figure (and its text) reads as large as
+ * possible. Keyed on the deck's `data-family` stamp; landscape untouched.
+ * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md.
+ * Re-homed from `.chart-body` to the stage with #1598 (a parent's padding cannot be
+ * overridden by a child, so the tuning has to move with the inset it tunes); it used
+ * to be spelled twice, once in the width calc and once in the padding. */
+section.chart-frame:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   padding: var(--sp-md) var(--sp-sm);
+}
+section.chart-frame:where([data-family="tall"], [data-family="strip"]):not(.form) {
+  padding-inline: var(--sp-sm);
+  row-gap: var(--sp-md);
 }
 
 
@@ -20085,11 +20204,11 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-bo
  *
  * The decoration goes on .chart-body itself — not the per-member figure — so
  * the panel is the SAME SIZE on every chart. .chart-body is the one container
- * every framed member shares at a fixed width (calc(100cqi - 2*sp-2xl),
- * centered); its existing padding (sp-lg / sp-2xl) becomes the panel's uniform
- * internal inset, so content never touches the edge. Hugging the figure made
- * the surface vary chart-to-chart (narrow under a centered radar, full-width
- * under progress); pinning it to .chart-body makes it consistent.
+ * every framed member shares, and since #1598 it is exactly its stage cell's
+ * content box; the panel's internal inset (sp-lg / sp-2xl) is re-added by the
+ * `.canvas` rule below so content never touches the painted edge. Hugging the
+ * figure made the surface vary chart-to-chart (narrow under a centered radar,
+ * full-width under progress); pinning it to .chart-body makes it consistent.
  *
  * Excluded: state-chart, whose vertical state flow already fills the full
  * chart-body height — the panel inset would push its top/bottom nodes past the
@@ -20106,6 +20225,15 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-bo
    which reads as deliberate breathing room on a bleeding canvas. */
 section.chart-frame.canvas:not(.state-chart) { row-gap: var(--sp-lg); }
 section.chart-frame.canvas:not(.state-chart) .chart-body {
+  /* THE PANEL'S OWN INTERNAL INSET — the one padding the Forms inset rule leaves
+   * on a body (design/forms.md §6.1): this box PAINTS A SURFACE here (the glass
+   * card below), and content must not touch a visible edge. Exactly the case
+   * `code`'s `pre` earns its padding for, and exactly why the default (canvas OFF,
+   * nothing painted) earns none. It is the same `--sp-lg`/`--sp-2xl` this box
+   * carried unconditionally before #1598 — what changed is that it is now
+   * CONDITIONAL on the surface existing, and is the panel's inset rather than a
+   * third copy of the frame's. */
+  padding: var(--sp-lg) var(--sp-2xl);
   /* Float the panel clear of the header divider. The .chart-header::after
    * accent hairline sits at the header's bottom edge; without this gap the
    * lifted glass card's top edge lands right on it and the two separators
@@ -20177,7 +20305,14 @@ section.chart-frame .chart-caption {
   box-sizing: border-box;
   width: 100%;
   margin: 0;
-  padding: var(--sp-sm) var(--sp-2xl);
+  /* BLOCK only (#1598). The caption is a STAGE SIBLING of `.chart-body`, so its
+   * inline `--sp-2xl` was the same duplicated outer inset the body carried — and
+   * now that the stage owns that inset, keeping it here would push the caption's
+   * text 64px inside the chart it captions instead of aligning with it. The block
+   * padding stays: it is the seam between the caption and the chart above it, not
+   * an inset from the slide edge. Measured: the caption's text box is the same
+   * 1024px it was before, at the same x. */
+  padding-block: var(--sp-sm);
   text-align: var(--headline-align, center);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
@@ -24411,7 +24546,17 @@ pre[data-mermaid-state="rendered"]      + .mermaid, marp-pre[data-mermaid-state=
 section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 :is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="rendered"]) {
   margin:0 !important;
-  padding:var(--sp-sm) var(--sp-md) !important;
+  /* ZERO, not `var(--sp-sm) var(--sp-md)` (#1598). This box paints nothing — the
+   * two lines below take the background and the border away deliberately — so
+   * under the Forms inset rule (design/forms.md §6.1) it owns no inset of its own;
+   * the padding was a leftover of the code-block defaults these !importants exist
+   * to undo. It also contradicted this rule's own stated goal, three lines down:
+   * the slot is supposed to MATCH the rendered `.mermaid` container so the layout
+   * does not reflow when the diagram swaps in, and `.mermaid` has no padding — so
+   * the source text sat 24px inside the diagram that replaces it, and 24px inside
+   * the title above it. Measured on diagram.gallery.md: the un-rendered `<pre>`
+   * now shares one left edge with the dek, the title and the Key Insight. */
+  padding:0 !important;
   background:none !important;
   border:none !important;
   border-radius:var(--radius-md) !important;

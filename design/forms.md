@@ -362,6 +362,64 @@ bled.**
 So clip attaches to the Cell; the ring attaches to the slide; Tiles inherit their
 box guarantee from the Cell they fill.
 
+### 6.1 The stage owns the outer inset
+
+The gap contract above says Cells never touch. This says who pays for the space
+they keep:
+
+> **The stage owns the outer inset. A body owns only the spacing between its own
+> elements — `gap` between its children, plus whatever padding is genuinely
+> required by a thing that paints its own surface.**
+
+This is HARD RULE #20's idiom extended by one level. #20 fixes *what* to space
+with (`padding` and `gap`, never `margin`); this fixes *which box* the outer inset
+belongs to. Where there is no stage — a `no-form` slide, a Read·Article `figure`
+re-host — the box that HOLDS the body plays the stage's part; the rule is about
+ownership, not about a class name.
+
+**Why it needs saying.** A body can re-derive the frame inset in a shape that
+reads as sizing rather than as spacing: `width: calc(100cqi - 2 * var(--sp-2xl))`
+takes its container's own width and subtracts a spacing token. Nothing about the
+result looks wrong — the box is centered, inside the frame, and overflows
+nothing — it is simply inset twice. Measured on a 1280×720 indaco render, distance
+from the slide edge to the body box, before #1598 closed it:
+
+| bucket | body element | insets | body box | painted content |
+|---|---|---|---|---|
+| prose (`compare-table`) | `p` | stage only | 64 | 64 ✅ |
+| code | `pre` | stage + the block's own padding | 64 | 88 ✅ |
+| masthead (band) | — | stage inset; `padding-bottom` only | 64 | 64 ✅ |
+| footer (band) | — | positional, no padding | 30 | 30 ✅ |
+| diagram | `.mermaid-svg` | stage **+ a width calc** | 128 | 128 ⚠️ |
+| chart | `.chart-body` | stage **+ a width calc + padding** | 128 | **192** ⚠️⚠️ |
+
+Four of the six buckets already kept the rule; two paid twice, and the chart paid
+three times — 192px per side against prose's 64. The debt was invisible for as
+long as it existed, and was costed at half its real size when someone finally went
+looking (#680 recorded the chart's inline cost as 128px; it was 256).
+
+**Code is the legitimate exception, and shows what the second clause is for.** Its
+`pre` sits at the plain stage inset at full stage width and carries `padding`
+because the block **paints its own surface** — text must not touch a visible edge.
+The chart's opt-in `canvas` panel earns its inset the same way, and owns it in the
+`.canvas` rule rather than unconditionally: a body that paints nothing owes
+nothing.
+
+**How it is kept.** Two gates, deliberately paired, because each is blind to the
+other's failures:
+
+- `checkStageInsetOwnership` (`tools/check-ownership.js`, via `build:check`) —
+  browser-free, budget 0 + `SANCTIONED_STAGE_INSETS`, fires on the container-unit
+  subtraction the moment it is typed, across every component.
+- the **inset assertion** in `tools/check-chart-fit.js` — a real render at
+  landscape/portrait/square asserting the body's border box coincides with the
+  stage's content box on the inline axis and that the body carries no padding of
+  its own unless the slide is `canvas`. The block axis is deliberately unasserted:
+  a pinned list body is centered at its natural height, and an overstuffed one
+  MUST spill so `overflow-probe.js` can see it.
+
+Record: `engineering/decisions/2026-08-11-stage-owns-the-outer-inset.md`.
+
 This is the contract the open chrome-over-content defect
 (`engineering/decisions/2026-06-13-islands-sketch-density-collisions.md`)
 violates — chrome painted over content is a Cell failing to reserve its box and

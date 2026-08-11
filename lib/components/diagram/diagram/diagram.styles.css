@@ -63,11 +63,27 @@ section.form.diagram > .cell-stage > p { align-self:stretch; text-align:var(--he
 section.form.diagram:has(> .cell-stage > p) > .cell-masthead { padding-bottom:var(--sp-xs); }
 section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
 
-/* Explicit pixel width so Mermaid's getBoundingClientRect() always returns a concrete value.
-   Most diagram types (sequence, timeline, gitgraph…) use useMaxWidth:true by default and
-   query the container width before rendering. width:100% on a freshly-inserted flex child
-   can resolve to 0 before the browser commits a layout pass.
-   100cqi (slide width) − 2 × var(--sp-2xl) padding = 90cqi.
+/* THE OUTER INSET IS THE FRAME'S, ONCE (design/forms.md §6.1, #1598). This was
+   `width: calc(100cqi - 2 * var(--sp-2xl))` — a SECOND inset on top of the frame's
+   `--frame-x`, so the diagram sat 128px from the slide edge while its own Key
+   Insight blockquote and the masthead title above it sat at 64. Measured on the
+   real render: the diagram was the only thing on the slide out of line with the
+   title. `width: 100%` fills the box that already carries the inset — the
+   `.cell-stage` content box under the Form, the section content box on the
+   `no-form` path — so the mermaid box now shares one left edge with the title, the
+   dek and the Key Insight. Neither box needs stage padding: unlike a chart, a
+   diagram is a single self-scaling figure with prose siblings, and insetting it
+   further is what put it out of line.
+
+   The calc's stated reason — Mermaid's getBoundingClientRect() needs a concrete
+   value, because `width:100%` on a freshly-inserted flex child can resolve to 0
+   before the browser commits a layout pass — is NOT what a percentage against a
+   definite flex cell does: `.cell-stage` is a definite flex cell on a fixed-size
+   slide, so the percentage has a resolved basis before the child is measured.
+   MEASURED on the real emulator render of diagram.gallery.md (all 26 diagram
+   slides, headless Chromium) at landscape, portrait and square: every box resolves
+   to the full stage content width, none to 0.
+
    `flex:1` (the pre-migration value, kept EXACTLY): the Mermaid SVG SELF-SCALES —
    `mermaid.css` forces `.mermaid-svg svg { height:100% !important }` and the SVG's own
    `preserveAspectRatio` letterboxes it — so it always fits its flex box, at ANY size.
@@ -80,14 +96,22 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    task hazard #1 ("risk is LOW … flex fix if any"). */
 section.diagram .mermaid-svg,
 section.diagram > .mermaid,
-section.diagram > .cell-stage > .mermaid { flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); height:auto; max-width:100%; box-sizing:border-box; }
+section.diagram > .cell-stage > .mermaid { flex:1; width:100%; height:auto; max-width:100%; box-sizing:border-box; }
 
 /* Source <pre> in pending/error states occupies the same slot as the rendered
  * diagram so the slide layout does not reflow when the diagram swaps in. */
 section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
-  flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
+  flex:1; width:100%; max-width:100%; height:auto; min-height:0;
 }
+/* The caption's `padding-top` STAYS a padding, called explicitly under the inset
+   rule (#1598) rather than left ambiguous. It is spacing between stage children,
+   which the rule would normally hand to the stage's `gap` — but the stage's gap is
+   ONE value shared by every seam in the column (dek↔diagram↔Key Insight, tuned to
+   `--sp-sm`, and `--sp-xs` when a dek leads), and this seam wants a step MORE air
+   than those. A gap cannot be asymmetric, so expressing it as one would move two
+   seams to fix a third. It is not an outer inset — it adds nothing on the inline
+   axis and nothing at the stage edge — so it is outside what the rule governs. */
 section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage

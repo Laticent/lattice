@@ -71,7 +71,17 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
 section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 :is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="rendered"]) {
   margin:0 !important;
-  padding:var(--sp-sm) var(--sp-md) !important;
+  /* ZERO, not `var(--sp-sm) var(--sp-md)` (#1598). This box paints nothing — the
+   * two lines below take the background and the border away deliberately — so
+   * under the Forms inset rule (design/forms.md §6.1) it owns no inset of its own;
+   * the padding was a leftover of the code-block defaults these !importants exist
+   * to undo. It also contradicted this rule's own stated goal, three lines down:
+   * the slot is supposed to MATCH the rendered `.mermaid` container so the layout
+   * does not reflow when the diagram swaps in, and `.mermaid` has no padding — so
+   * the source text sat 24px inside the diagram that replaces it, and 24px inside
+   * the title above it. Measured on diagram.gallery.md: the un-rendered `<pre>`
+   * now shares one left edge with the dek, the title and the Key Insight. */
+  padding:0 !important;
   background:none !important;
   border:none !important;
   border-radius:var(--radius-md) !important;
