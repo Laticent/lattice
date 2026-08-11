@@ -950,15 +950,18 @@ var require_lint_core = __commonJS({
     }
     function findUnterminatedComment(source) {
       const findings = [];
-      splitTopLevel(String(source == null ? "" : source)).forEach((chunk, idx) => {
+      const text = String(source == null ? "" : source);
+      const fm = fmChunks(text);
+      splitTopLevel(text).forEach((chunk, idx) => {
         const body = withoutCodeCommentMarkers(chunk);
         const m = body.match(UNTERMINATED_COMMENT_RE);
         if (!m) return;
         const line = (body.slice(m.index).split("\n")[0] || "<!--").trim();
         findings.push({
-          slide: idx + 1,
+          slide: Math.max(1, idx - fm + 1),
           rule: "unterminated-comment",
           severity: "error",
+          classToken: "comment",
           line: line.slice(0, 80),
           message: "This HTML comment is never closed, so everything after it is swallowed \u2014 and on export it is WORSE than invisible: `--strip-notes` cannot find an unterminated comment, so the text ships in the shared file's embedded source even when you asked for notes to be stripped.",
           fix: "Close the comment with `-->`."
@@ -3120,7 +3123,7 @@ var require_notes_core = __commonJS({
     ];
     var FLAG_DIRECTIVE_NAMES = ["build", "debug", "lens"];
     var DIRECTIVE_LINE = new RegExp(
-      `^_?(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^_?(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
+      `^_(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^_(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
     );
     function isDirectiveComment(body) {
       const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
@@ -3204,6 +3207,17 @@ var require_notes_core = __commonJS({
         (full, body) => set.has(norm(body)) ? "" : full
       );
     }
+    function auditStrippedSource(strippedSource) {
+      const survivors = [];
+      for (const m of String(strippedSource == null ? "" : strippedSource).matchAll(new RegExp(COMMENT_SOURCE, "g"))) {
+        const body = m[1].trim();
+        if (!body) continue;
+        if (isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
+        if (isDirectiveComment(body)) continue;
+        survivors.push(body);
+      }
+      return survivors;
+    }
     var FRONT_MATTER_BLOCK = /^(﻿?---[ \t]*\r?\n)([\s\S]*?)(\r?\n---[ \t]*(?:\r?\n|$))/;
     function splitKeepEnds(str) {
       const out = [];
@@ -3277,6 +3291,7 @@ var require_notes_core = __commonJS({
       slideNoteRecord,
       stripCommentNodes,
       stripNotesFromSource,
+      auditStrippedSource,
       stripCaptionsFromSource,
       stripCaptionsFrontMatter
     };

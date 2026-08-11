@@ -495,11 +495,25 @@ describe('notes-core: a directive is never a note', () => {
     assert.doesNotMatch(out, /A real note\./, 'and the note is still scrubbed');
   });
 
-  test('multi-line and bare-flag directive forms are recognized', () => {
+  test('multi-line and bare-flag SPOT directive forms are recognized', () => {
     assert.ok(core.isDirectiveComment('_class: title'));
     assert.ok(core.isDirectiveComment('_class: title\n_paginate: true'), 'every line a directive');
     assert.ok(core.isDirectiveComment('_build'), 'a bare FLAG directive');
-    assert.ok(core.isDirectiveComment('backgroundColor: #fff'));
+    assert.ok(core.isDirectiveComment('_backgroundColor: #fff'));
+  });
+
+  test('the DECK-SCOPE form is not treated as a directive — it is ambiguous with prose', () => {
+    // The bare form is real directive syntax, but it is indistinguishable from a speaker
+    // note that happens to open with the word: `<!-- color: we should discuss the palette -->`.
+    // Classifying it as a directive holds it OUT of the scrub set, so --strip-notes never
+    // removes it and it ships in the exported file. Leaking is the worse direction, so only
+    // the unambiguous `_`-prefixed spot form gets the protection.
+    assert.ok(!core.isDirectiveComment('color: we should discuss the palette'));
+    assert.ok(!core.isDirectiveComment('class: title'));
+    assert.ok(!core.isDirectiveComment('footer: ask about the discount'));
+
+    const html = '<section data-lattice-slide><!-- color: SECRET discuss the palette --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['color: SECRET discuss the palette'], 'it stays scrubbable');
   });
 
   test('prose is still a note — the classifier does not open a leak', () => {
@@ -514,5 +528,42 @@ describe('notes-core: a directive is never a note', () => {
 
     const html = '<section data-lattice-slide><!-- Note: mention the caveat --></section>';
     assert.deepEqual(core.noteBodiesFromHtml(html), ['Note: mention the caveat'], 'still scrubbable');
+  });
+});
+
+// The FAIL-CLOSED backstop. Every --strip-notes leak this codebase has had was a new way for
+// the two sides of the scrub to disagree — bodies lifted from RENDERED html vs. comments
+// present in SOURCE. Matching is open-ended, so this checks the OUTPUT instead: it is
+// independent of the matcher and therefore catches a failure OF the matcher.
+describe('notes-core: auditStrippedSource', () => {
+  test('a surviving speaker comment is reported', () => {
+    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- The CFO thinks the deal is dead -->\n';
+    assert.deepEqual(core.auditStrippedSource(src), ['The CFO thinks the deal is dead']);
+  });
+
+  test('the four consumed channels are not reported', () => {
+    const src = [
+      '<!-- _class: title -->',            // spot directive
+      '<!-- markdownlint-disable MD033 -->', // tooling pragma
+      '<!-- describe: A cover slide. -->',  // a11y description
+      '<!-- caption: Read this aloud. -->', // read-as caption
+      '<!--   -->',                          // empty
+    ].join('\n');
+    assert.deepEqual(core.auditStrippedSource(src), []);
+  });
+
+  test('an AMBIGUOUS deck-scope directive IS reported — the point is not to assume innocence', () => {
+    // `color: …` is real directive syntax and also exactly how a note might open. The scrub
+    // treats it as a note (so it gets removed); if one ever survives, the author hears about
+    // it rather than discovering it in a file they already sent.
+    assert.deepEqual(core.auditStrippedSource('<!-- color: we should discuss the palette -->'), [
+      'color: we should discuss the palette',
+    ]);
+  });
+
+  test('a fully scrubbed source audits clean — no false alarm on the happy path', () => {
+    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n';
+    const bodies = core.noteBodiesFromHtml('<section><!-- A real note. --></section>');
+    assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src, new Set(bodies))), []);
   });
 });

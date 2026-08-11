@@ -433,7 +433,23 @@ const STRIP_CAPTIONS = !!flags['strip-captions'];
 // `note:` body is never a `caption:` body). `noteBodies` is the set lifted from the render.
 function stripSharedSource(src, noteBodies) {
   let out = src;
-  if (STRIP_NOTES) out = notesCore.stripNotesFromSource(out, noteBodies);
+  if (STRIP_NOTES) {
+    out = notesCore.stripNotesFromSource(out, noteBodies);
+    // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
+    // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
+    // So check the OUTPUT rather than trusting the matcher: a comment still standing that is
+    // not a directive, pragma, `describe:` or `caption:` is suspected speaker text that got
+    // through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
+    // the one failure the author cannot take back once the file is sent.
+    const survivors = notesCore.auditStrippedSource(out);
+    if (survivors.length) {
+      console.warn(
+        `  WARNING: --strip-notes left ${survivors.length} comment(s) in the embedded source that look like speaker text.\n` +
+          survivors.slice(0, 3).map((s) => `    · ${s.replace(/\s+/g, ' ').slice(0, 70)}`).join('\n') +
+          (survivors.length > 3 ? `\n    · …and ${survivors.length - 3} more` : '')
+      );
+    }
+  }
   if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out);
   return out;
 }

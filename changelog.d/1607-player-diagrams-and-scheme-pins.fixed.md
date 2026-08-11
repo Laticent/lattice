@@ -154,11 +154,31 @@
   line to be a directive line, which keeps the two failure modes apart: looser matching would
   hold a genuine note like `Note: mention the caveat` OUT of the scrub set, which is a leak — the
   worse direction.
+- **`--strip-notes` now audits its own output, fail-closed.** Every leak this contract has had
+  was a new way for the two sides of the scrub to disagree — bodies lifted from the RENDER
+  against comments present in SOURCE. An empty set, a joined-then-split body, a `--!>`
+  terminator, a flat splitter, a directive-shaped note: five mechanisms, one shape, and
+  matching is open-ended by nature. So the export now checks the OUTPUT instead of trusting
+  the matcher: `auditStrippedSource` re-scans the scrubbed envelope and reports any comment
+  still standing that is not a directive, a tooling pragma, a `describe:` or a `caption:`. It
+  is independent of the matcher, so it catches a failure OF the matcher rather than sharing
+  its assumptions, and it can only report — never delete. Wired into both hosts: the CLI
+  warns with the offending text, the Studio puts it in the completion toast.
+- **The directive classifier no longer swallows a note that opens like a directive.** It
+  matched the deck-scope form too (`color:`, `class:`, `footer:`), which is real directive
+  syntax AND exactly how a speaker note might start — so `<!-- color: we should discuss the
+  palette -->` was classified as a directive, held out of the scrub set, and shipped. Only the
+  unambiguous `_`-prefixed SPOT form is protected now; the deck-scope form is treated as a
+  note, which is what the engine's own model says an unconsumed comment is. Leaking is the
+  worse direction: a scrubbed directive costs the author a class on re-import, a leaked note
+  costs them the room.
 - **An unterminated `<!--` is now an authoring error instead of a silent leak.** The comment
   matcher requires a terminator, so an unclosed comment yields no note body at all,
   `--strip-notes` finds nothing to remove, and the text ships verbatim in the shared file's
   embedded source — the exact opposite of what the author asked for. New lint rule
-  `unterminated-comment` (error). Deliberately a lint finding rather than a scrub: making the
+  `unterminated-comment` (error), reported against the right slide (it used the raw chunk
+  index, which counts the two front-matter chunks and so named every slide two too high on
+  every deck that has front matter — i.e. all of them). Deliberately a lint finding rather than a scrub: making the
   strip match to EOF would delete the rest of the deck from the author's own source, which is
   worse than the leak it fixes. The rule neutralizes comment markers inside fenced blocks and
   inline spans rather than deleting indented lines — the first cut ran against a helper that

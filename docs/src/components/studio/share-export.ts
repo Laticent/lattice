@@ -153,6 +153,7 @@ type NotesCore = {
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
 	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[]) => string;
+	auditStrippedSource: (strippedSource: string) => string[];
 	slideNoteRecord: (sections: string[]) => SlideNoteRecord[];
 };
 
@@ -419,6 +420,19 @@ export async function shareHtmlPlayer(
 	const envelopeSource = stripNotes
 		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => r.noteBodies || [])))
 		: source;
+	// FAIL-CLOSED, mirroring the CLI. The scrub matches bodies lifted from the RENDER against
+	// comments in the SOURCE, and every leak this has had was a new way for those two sides to
+	// disagree. So check the OUTPUT rather than trusting the matcher: a comment still standing
+	// that is not a directive, pragma, `describe:` or `caption:` is suspected speaker text. It
+	// reaches the completion toast, because a strip-notes export that quietly keeps a note is
+	// the one failure the author cannot take back once the file has been sent.
+	if (stripNotes) {
+		const survivors = notesCore.auditStrippedSource(envelopeSource);
+		if (survivors.length) {
+			console.warn(`lattice: --strip-notes left ${survivors.length} comment(s) that look like speaker text.`, survivors.slice(0, 5));
+			bakeWarning = `${survivors.length} comment(s) that look like speaker text are still in the embedded source`;
+		}
+	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
 	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
