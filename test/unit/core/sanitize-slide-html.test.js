@@ -49,3 +49,27 @@ test('FORBID_TAGS covers the never-legitimate tags (regression pin)', () => {
 		assert.ok(mod.FORBID_TAGS.includes(t), `FORBID_TAGS must include ${t}`);
 	}
 });
+
+// ADD_ATTR — two SVG presentation attributes DOMPurify's default profile drops and the
+// engine emits. Both were shipping stripped in every Studio artifact and exported player:
+// `vector-effect` carries `non-scaling-stroke` on journey's sentiment curve, which without
+// it scales ~77x under a non-uniform viewBox and paints the chart area as a solid slab;
+// `dominant-baseline` is attribute-only on quadrant/radar/gantt/state-chart, and stripping
+// it drops a centered label ~35% of its font-size. Reverting `ADD_ATTR` to `[]` previously
+// left the whole unit suite green, so these pin it.
+test('ADD_ATTR keeps the two presentation attributes the engine emits', () => {
+	assert.match(sani('<svg><text dominant-baseline="central">x</text></svg>'), /dominant-baseline="central"/);
+	assert.match(sani('<svg><path d="M0 0" vector-effect="non-scaling-stroke"/></svg>'), /vector-effect="non-scaling-stroke"/);
+	for (const a of ['dominant-baseline', 'vector-effect']) assert.ok(mod.ADD_ATTR.includes(a), `ADD_ATTR must include ${a}`);
+});
+
+test('widening ADD_ATTR did not open a script vector', () => {
+	// URI validation still applies to an ADD_ATTR attribute — a bare `javascript:` is caught.
+	// (A `url(javascript:…)` wrapper is NOT caught, which is why the allowlist is restricted
+	// to enumerated-keyword properties whose grammar never fetches — see the module comment.)
+	assert.doesNotMatch(sani('<svg><text dominant-baseline="javascript:alert(1)">x</text></svg>'), /javascript:/);
+	// The things that must stay shut, regardless of this widening.
+	assert.doesNotMatch(sani('<svg><foreignObject><body>x</body></foreignObject></svg>'), /foreignObject/i);
+	assert.doesNotMatch(sani('<svg><script>alert(1)</script></svg>'), /<script/i);
+	assert.doesNotMatch(sani('<p onclick="alert(1)">x</p>'), /onclick/i);
+});

@@ -126,10 +126,15 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// The blanket dark rule skips every pinned section, so a pin is never overridden…
 	assert.match(darkBlock, /section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.print\)/, 'the blanket dark rule applies only to UNPINNED sections');
 	// …and a light-pinned section is restored to the LIGHT literals when the player is dark.
+	// These carry `:not(.print)` for the same reason the `.dark` rule above does: a slide can
+	// hold BOTH classes (a `color-mode: print` deck with a `_class: … light` slide renders
+	// `class="light print …"`, which the engine allows because print is non-droppable), and at
+	// (0,4,1) this rule outranks `section.print` (0,1,1) — so without the exclusion a toggle to
+	// dark silently replaced the B&W-safe print band with the theme's light colors.
 	assert.match(
 		darkBlock,
-		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light,:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light\{--bg:#FFFFFF;\}/,
-		'a light-pinned slide keeps light values while the player is dark',
+		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:not\(\.print\)\{--bg:#FFFFFF;\}/,
+		'a light-pinned slide keeps light values while the player is dark, without overriding the print band',
 	);
 	// `.print` gets no restore rule of its own: `section.print` already remaps the whole band
 	// to `--print-*` literals, so being left out of the blanket rule is all it needs.
@@ -876,7 +881,21 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// only other movement is conditional and absent here: `data-lp-deck-mode` is stamped on
 	// <html> ONLY when the deck declares a pinning `color-mode:`, and this fixture's source
 	// declares none, so the golden's markup is unchanged and the delta is script bytes alone.
-	assert.equal(sha, '34d8b9bb0af07f38084de64508cc7965946a6870028bd0bf3c068bb112b61433', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for three review fixes, all script-or-CSS, no markup change here.
+	// (1) `applyDeckMode` now SKIPS a slide pinned to the opposite scheme. Stamping the
+	//     deck-wide `dark` class onto a `_class: … light` slide left the token rules to
+	//     restore the light values correctly while every CLASS-keyed engine rule still fired —
+	//     and `section.dark …{color:var(--on-dark-secondary)}` uses a constant with no
+	//     light/dark pair, so nothing could undo it: white on white, 1.0:1, in the exported
+	//     file's DEFAULT state, on examples/mermaid-diagram-surface.md slide 4.
+	// (2) The two `pinned()` restore rules gained `:not(.print)`, matching the `.dark` rule
+	//     beside them. A slide can hold both classes, and at (0,4,1) these outranked
+	//     `section.print` (0,1,1), so a toggle to dark replaced the B&W-safe print band.
+	// (3) Diagram paint that equals a scheme-varying token now rides as that TOKEN, so a baked
+	//     diagram follows the viewer's toggle instead of freezing at export.
+	// This fixture declares no pinning `color-mode:` and carries no diagram, so (1) and (3)
+	// contribute script bytes only and (2) contributes two selector fragments.
+	assert.equal(sha, '4cc0e74c898a12b3ca913f00172b0ba4f2c808c0c4430e0d8ad5d67bb65e4a39', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

@@ -212,10 +212,17 @@ var require_standalone_svg = __commonJS({
             let decl = "text-anchor:middle;dominant-baseline:central;";
             decl += `font-family:${pcs.fontFamily};font-size:${pcs.fontSize};font-weight:${pcs.fontWeight};`;
             if (pcs.fontStyle && pcs.fontStyle !== "normal") decl += `font-style:${pcs.fontStyle};`;
-            const themedInk = resolveColor("var(--text-heading)");
-            const ownInk = !!pcs.color && !!themedInk && pcs.color !== themedInk;
+            const LABEL_INK_TOKENS = ["--text-heading", "--c-on-container", "--c-on-subcontainer", "--cat-on-fill", "--cat-on-mark"];
+            let inkToken = "";
+            for (let t = 0; t < LABEL_INK_TOKENS.length; t++) {
+              if (pcs.color && resolveColor("var(" + LABEL_INK_TOKENS[t] + ")") === pcs.color) {
+                inkToken = LABEL_INK_TOKENS[t];
+                break;
+              }
+            }
+            const ownInk = !!pcs.color && !inkToken;
             const ownWeight = (Number.parseInt(pcs.fontWeight, 10) || 400) >= 600;
-            decl += ownInk ? `fill:${pcs.color};` : "fill:var(--text-heading);";
+            decl += ownInk ? `fill:${pcs.color};` : `fill:var(${inkToken || "--text-heading"});`;
             span.setAttribute("style", decl);
             if (ownInk || ownWeight) span.setAttribute("class", "lp-own-ink");
             span.textContent = run.text.replace(/\s+/g, " ");

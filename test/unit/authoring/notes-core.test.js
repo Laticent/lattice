@@ -567,3 +567,26 @@ describe('notes-core: auditStrippedSource', () => {
     assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src, new Set(bodies))), []);
   });
 });
+
+// COMMENT_SOURCE terminates on `--!>` as well as `-->`, because the HTML parser does: `--!>`
+// closes a comment (as a parse error, but it closes). Reverting the pattern to `--+>` left
+// the whole unit suite green, so this pins it directly.
+describe('notes-core: the comment matcher reads `--!>` as a terminator', () => {
+  test('a `--!>` typo does not merge two comments into one body', () => {
+    // With `-->`-only, the lazy match ran from the first `<!--` past the typo to the NEXT
+    // `-->`, swallowing the following comment — and that merged body then entered the
+    // --strip-notes scrub set, so the whole span was deleted from the envelope source,
+    // taking the directive with it.
+    const html = '<section data-lattice-slide><!-- First note. --!><!-- Second note. --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['First note.', 'Second note.']);
+  });
+
+  test('a `--!>`-terminated note still scrubs, and the directive beside it survives', () => {
+    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- Board only. --!>\n';
+    const bodies = core.noteBodiesFromHtml('<section><!-- Board only. --!></section>');
+    assert.deepEqual(bodies, ['Board only.'], 'the body is lifted despite the typo');
+    const out = core.stripNotesFromSource(source, new Set(bodies));
+    assert.doesNotMatch(out, /Board only/, 'the note is scrubbed');
+    assert.match(out, /_class: title/, 'the directive is untouched');
+  });
+});

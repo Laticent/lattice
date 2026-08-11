@@ -1984,7 +1984,7 @@ function themeDualMode(css) {
   const PIN_LIGHT = [".light", ".color-light"];
   const PIN_EXCLUDE = ":not(.dark):not(.light):not(.color-light):not(.print)";
   const sel = (scope) => `${scope},${scope} section[data-lattice-slide]${PIN_EXCLUDE}`;
-  const pinned = (scope) => PIN_LIGHT.map((c) => `${scope} section[data-lattice-slide]${c}`).join(",");
+  const pinned = (scope) => PIN_LIGHT.map((c) => `${scope} section[data-lattice-slide]${c}:not(.print)`).join(",");
   const darkBlock = (
     // An author-pinned dark section is dark in EVERY player scheme, so this one is
     // unconditional — outside both the attribute rule and the media query.
@@ -2880,9 +2880,26 @@ var isDark=baked==='dark'||(following&&sysDark());
 // color mode, and keeps its class in both schemes - the token pins in the dark block hold
 // it.
 var deckMode=root.getAttribute('data-lp-deck-mode')||'';
+// A slide that PINS THE OPPOSITE scheme is never restamped. The deck-wide class is a
+// default, and a per-slide pin outranks it by design - stamping the dark class onto a slide
+// the author marked light contradicts the very thing the pin is for.
+//
+// The damage is not theoretical and does not need the toggle: the token rules restore the
+// light VALUES on such a slide (canvas goes white, correctly), but every CLASS-keyed engine
+// rule still fires, and section.dark ... {color:var(--on-dark-secondary)} paints an eyebrow
+// with a constant that has no light/dark pair - so nothing in the dual-mode block can undo
+// it. Measured on examples/mermaid-diagram-surface.md slide 4, whose own headline is "A
+// slide that pins light still renders light": white on white, 1.0:1, in the file's DEFAULT
+// state. That is the same white-on-white this whole change exists to remove, reintroduced
+// through a class instead of a token.
+function pinsOpposite(el){
+ if(deckMode==='dark')return el.classList.contains('light')||el.classList.contains('color-light');
+ return el.classList.contains('dark');}
 function applyDeckMode(){if(!deckMode)return;
  var want=(deckMode==='dark')===isDark;
- for(var i=0;i<slides.length;i++)slides[i].classList[want?'add':'remove'](deckMode);}
+ for(var i=0;i<slides.length;i++){
+  if(pinsOpposite(slides[i]))continue;
+  slides[i].classList[want?'add':'remove'](deckMode);}}
 function applyScheme(){root.setAttribute('data-lp-scheme',isDark?'dark':'light');
  root.style.setProperty('color-scheme',isDark?'dark':'light');
  applyDeckMode();

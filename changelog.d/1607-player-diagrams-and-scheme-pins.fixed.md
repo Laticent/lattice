@@ -125,6 +125,30 @@
   730,767 (+21.5%). The first is the dual-mode block (the scheme-pin fix); the second is mostly
   the baked diagram text, which IS the feature. Scoping the derived closure to `:root` took the
   dual-mode block from ~68.6 KB to ~38.6 KB.
+- **The deck-wide toggle no longer stamps over a slide that pins the opposite scheme.** The
+  deck-wide color mode is a default and a per-slide pin outranks it — but `applyDeckMode`
+  added the class to every section, including one the author marked `light`. The token rules
+  restored the light VALUES correctly (the canvas went white), and every CLASS-keyed engine
+  rule still fired: `section.dark …{color:var(--on-dark-secondary)}` paints from a constant
+  with no light/dark pair, so nothing in the dual-mode block could undo it. Measured on
+  `examples/mermaid-diagram-surface.md` slide 4 — whose own headline is "A slide that pins
+  `light` still renders light" — the eyebrow was **1.0:1, white on white, in the exported
+  file's DEFAULT state**, no toggle required. The same white-on-white this change exists to
+  remove, reintroduced through a class instead of a token.
+- **A light-pinned slide inside a `color-mode: print` deck keeps the print band.** The two
+  pin-restore rules were missing the `:not(.print)` their `.dark` sibling carries and calls
+  load-bearing. A slide can hold both classes (the engine allows it — print is non-droppable),
+  and at (0,4,1) these outranked `section.print` (0,1,1), so a toggle to dark silently swapped
+  the B&W-safe band for the theme's light colors. A contract break rather than a legibility
+  one, which is the kind that ships unnoticed.
+- **A themed diagram label is no longer mistaken for an author's own color.** The "did the
+  author choose this ink?" test compared against `--text-heading` alone, but a container or
+  subgraph label is painted from `--c-on-container` and a categorical chip from the
+  `--cat-on-*` pair. So 18 labels on the gallery deck — which contains no `classDef` anywhere
+  — were judged author-owned, frozen to their dark-mode literal and opted out of re-theming,
+  putting `#E4EDF5` ink on a light card at 1.12:1 after a toggle. The check now covers the
+  whole set of label inks and emits whichever token matches; only a color matching none of
+  them is the author's, and that case still keeps its literal and its opt-out marker.
 - **A baked diagram follows the player's toggle instead of freezing at export.** Inlining each
   diagram's computed paint is right for a scheme-PINNED slide and wrong for an unpinned one in
   a file whose viewer owns a light/dark switch: the paint stayed at its export-time value while
