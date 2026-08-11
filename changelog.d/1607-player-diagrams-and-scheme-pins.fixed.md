@@ -26,8 +26,8 @@
   every note and accessible description, and, worse, the empty set left `stripNotesFromSource` with
   nothing to remove: a deck exported with **Strip speaker notes** on shipped the note text verbatim
   in its envelope. The comment channel is now carried across the round trip
-  (`notesCore.carryCommentsForward`). Note that the leaked text is JSON-escaped inside the envelope,
-  so it was invisible to a plain search of the file.
+  (`notesCore.carryCommentsForward`). Note that the envelope manifest is base64-encoded, so the
+  leaked note was invisible to a plain search of the exported file — only `parseEnvelope` sees it.
 - **A failed diagram bake says so.** Its `catch` shipped the un-inflated fence in silence, which is
   the exact defect the bake exists to fix; it now warns and reports through the export's own status
   line. A stale generated bundle had already turned that silence into a fix that only appeared to
