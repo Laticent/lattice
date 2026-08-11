@@ -464,19 +464,30 @@ test('a snapshot survives a COLLAPSED capture and still replays exactly when the
 	// capture: a fresh render, and the leave events a navigation fires.
 	await page.locator('.pg-pane.preview .pg-pane-collapse').click();
 	await expect(page.locator('#pg-split-preview')).toHaveJSProperty('offsetWidth', 28);
+	// One of the two guards, recorded rather than relied on (see the note below the dispatch).
 	expect(
 		await page.evaluate(() => {
 			const r = document.querySelector('.pg-preview-wrap')?.getBoundingClientRect();
 			return [r?.width ?? -1, r?.height ?? -1];
 		}),
-		'the collapsed wrap is measurable, so a fit COULD be taken in it — the argument this case rests on has changed',
+		'the collapsed wrap is measurable, so a fit COULD be taken in it — one of the two guards this case rests on has changed',
 	).toEqual([0, 0]);
 	// The app SAYS it has stopped rendering, which is the state this case needs to be in.
 	await expect(page.locator('.pg-status')).toContainText(/collapsed/i);
-	// Now fire the leave events a navigation fires. `captureFirstSlide` runs for real — the
-	// view is Edit, the frame is there, a render has landed — and gets as far as `measureFit`
-	// before refusing, which is what the sabotage below proves. The capture is synchronous
-	// inside these handlers, so the store is already written when `evaluate` returns.
+	// Now fire the leave events a navigation fires. `captureFirstSlide` runs for real — the view
+	// is Edit, the frame is there, a render has landed — and refuses inside `measureFit`. The
+	// capture is synchronous in these handlers, so the store is already written when `evaluate`
+	// returns.
+	//
+	// WHAT THIS CASE DOES AND DOES NOT PROVE, because the two are easy to conflate and an
+	// earlier version of this comment did. It proves the OUTCOME: remove `measureFit`'s zero
+	// guard entirely and the assertion below fails, so a collapsed capture really cannot
+	// overwrite the good snapshot. It does NOT isolate WHICH half of that guard earns it —
+	// remove only the `br` (box) half and the case still passes, because the preview iframe has
+	// no layout under a `display:none` ancestor, so the SECTION rect is 0x0 and short-circuits
+	// first. The `[0, 0]` assertion above is therefore a statement about the box, not a proof
+	// that the box is what refuses. Two guards, either sufficient; this case is sensitive to
+	// losing both.
 	await page.evaluate(() => {
 		document.dispatchEvent(new Event('visibilitychange'));
 		window.dispatchEvent(new Event('pagehide'));
@@ -680,15 +691,29 @@ for (const c of [
 			for (const [k, v] of Object.entries(entries ?? {})) localStorage.setItem(k, v);
 		}, c.setup);
 
-		// Read the seed BEFORE hydration can drop it: the app removes the root attribute in the
-		// same effect that sets the body one, so poll for the pair rather than for either alone.
-		await page.goto(c.url, { waitUntil: 'commit' });
-		const seeded = await page.evaluate(() => {
-			// documentElement exists by `commit` for a document that has begun parsing; the head
-			// script has already run by then, since it is inline and synchronous.
-			return document.documentElement.getAttribute('data-pg-view');
+		// LATCH the seed from inside the page rather than reading it once from out here. The
+		// value has a window: the head script writes it, and `adoptBootSeed` removes it at mount.
+		// Reading at `waitUntil: 'commit'` was a bet on landing inside that window from the other
+		// side of the wire — the navigation can commit BEFORE the inline head script has run, and
+		// under load in this sandbox it did, about one run in eight, reporting `null` as "the
+		// pre-paint script published no boot view". A sampler that records the first non-null
+		// value cannot be early or late. (`document.documentElement?` because `addInitScript`
+		// runs before it exists — the trap this file's header opens with.)
+		await page.addInitScript(() => {
+			const tick = () => {
+				const v = document.documentElement?.getAttribute('data-pg-view');
+				if (v) {
+					(window as unknown as { __seededView: string }).__seededView = v;
+					return;
+				}
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
 		});
-		expect(seeded, `the pre-paint script published no boot view for ${c.name}`).toBe(c.expected);
+		await page.goto(c.url, { waitUntil: 'commit' });
+		await expect
+			.poll(() => page.evaluate(() => (window as unknown as { __seededView?: string }).__seededView ?? null), { timeout: 15_000 })
+			.toBe(c.expected);
 		await expect(page.locator('body')).toHaveAttribute('data-view', c.expected);
 	});
 }

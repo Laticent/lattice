@@ -3837,7 +3837,8 @@ own) is not a builder and needs no entry.
   to the minimum. Modeling the clamp alone painted a 320px preview where the app then handed
   off to a 28px rail — 292px wrong, held ~1.3s, WORSE than the defect it fixed. `PG_SPLIT_RAIL`
   and `PG_SPLIT_SNAP_MIDPOINT` exist so the seed can express both branches; below the midpoint
-  it emits nothing and the raw share paints. The Studio's `preview-rect.ts` has carried this
+  it emits nothing and the raw share paints. `Z()` is the RESTORE path — a drag goes through
+  `le()`'s own half-delta arithmetic, so don't reuse the midpoint to predict a drag. The Studio's `preview-rect.ts` has carried this
   rule since #1553 ("clamping alone painted a 300px preview where the app handed off to a 46px
   rail") — read it before writing a pre-paint side for any splitter here.
 - **Do NOT reach for the sessionStorage collapse marker to detect this.** It was tried: the

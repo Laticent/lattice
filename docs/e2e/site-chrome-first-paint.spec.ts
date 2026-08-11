@@ -128,9 +128,16 @@ for (const route of ['/', '/playground/', '/components/']) {
 	});
 }
 
-// The seed is only worth having if the controls still WORK afterwards — a frozen-but-correct
-// control would pass everything above.
-test('the seeded controls still drive the site chrome after hydration', async ({ page }) => {
+// A frozen-but-correct control would pass everything above, so this drives both controls after
+// hydration and requires them to still change the chrome.
+//
+// IT SAYS NOTHING ABOUT THE SEED, and it used to imply otherwise. Neuter the pre-paint seed's
+// two `setAttribute` calls — the entire pre-paint value of #1592 — and the three cases above
+// fail while this one passes, because everything it asserts is satisfied by React writing the
+// attributes after hydration. That is the correct division of work (this is the not-frozen
+// guard; those three are the seed's), but the name and the first assertion previously read as
+// evidence about the seeded stop, which they are not.
+test('the palette and mode controls still drive the site chrome after hydration', async ({ page }) => {
 	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => {
 		localStorage.setItem('lattice-docs-palette', 'burgundy');
@@ -165,6 +172,8 @@ test('the seeded controls still drive the site chrome after hydration', async ({
 				.map((s) => s.getAttribute('data-pref'))
 				.join(',');
 		});
+	// The starting stop, established here only so the click below can be shown to CHANGE it —
+	// not as evidence that the seed produced it. By this point React owns the attribute.
 	expect(await stop()).toBe('dark');
 	await modeButton.click();
 	// Whatever stop it lands on, exactly one icon is lit and it matches the published

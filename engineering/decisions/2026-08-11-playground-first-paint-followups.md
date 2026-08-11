@@ -61,7 +61,8 @@ The first draft said this, in three places:
 > two-panel group is exactly what the library computes.
 
 **That is false, and this repo already knew it was false.** `react-resizable-panels` resolves
-an under-minimum size in TWO branches — `Z()` in its bundle:
+an under-minimum size in TWO branches — `Z()`, which is what a `setLayout` RESTORE validates
+through (a drag takes a different function, `le()`, with its own half-delta arithmetic):
 
 ```js
 if (size < minSize)
@@ -343,10 +344,17 @@ changed the diff materially — which is the only evidence a verification pass w
   the verification that had cleared it was run with a label too short to trip it.
 - **The inversion pass found the walk bar's default-visible window**, and the red team found
   the palette-normalize-without-clearing flip and the command-palette dead control.
-- **The independent checker died mid-run** on an API error and produced no report, so lens 3
-  is a gap, honestly stated: the claim-by-claim audit of this note has not been done by fresh
-  eyes. Everything above was re-derived and re-measured here before being written down, but
-  that is the author checking the author.
+- **The independent checker took three attempts** — the first two died mid-run (an API error,
+  then a session resume that killed the agent) — and the third earned the wait. It ran the
+  vacuity audit properly: neuter the MECHANISM, rebuild, run the one case, revert. Eight of
+  the ten new e2e cases fail under a targeted neutering of the thing they name, and cases 1
+  and 2 each survive the OTHER's sabotage, so neither is riding on the other's branch. It
+  found two cases whose comments claimed more than they proved (below), and confirmed all
+  three of the load-bearing numbers it was pointed at: the threshold formula is exact at its
+  boundary at two widths 870px apart (at `G=871` the pane is exactly 174.000 and the library
+  clamps, matching `Z()`'s strict comparison); the group equals the viewport with a 1px
+  separator at 900/1194/1440/1920; and the 174px midpoint is width-independent because both
+  constraints convert against the same denominator.
 - **Something the trio cleared, and it is the one I was least sure of:** the a11y of eighteen
   palette labels of which seventeen are `display:none`. The accessible name is `"Theme"` (from
   `aria-label`) and the value is the single visible label; the hidden seventeen are absent
@@ -354,6 +362,37 @@ changed the diff materially — which is the only evidence a verification pass w
   hydration mismatch appears on any of five routes. Also cleared: `280 + 320` never overflows
   down to 821px, and #1590's refusal held against mobile single-pane, un-fitted-slide windows,
   resize, two tabs and zoom.
+
+**Two cases said more than they proved, and both are now written down honestly.**
+
+- **The collapsed-capture case named the wrong guard.** Its comment said the sabotage proved
+  `measureFit` refusing on the BOX, and the `[0, 0]` wrap assertion was sold as the operative
+  cause. Remove only the box half of that guard and the case still passes: the preview iframe
+  has no layout under a `display:none` ancestor, so the SECTION rect is 0x0 and short-circuits
+  first. Remove both and it fails. The outcome it asserts is real; the mechanism it credited
+  was not the one doing the work. (It also pointed at "the sabotage below" — there is no
+  sabotage in the committed spec; the sabotages are a verification step, not an artifact.)
+- **"The seeded controls still drive the site chrome" says nothing about the seed.** Neuter the
+  pre-paint seed's two `setAttribute` calls — the entire pre-paint value of #1592 — and the
+  three header cases fail while that one passes, because everything it asserts is satisfied by
+  React writing the attributes after hydration. It is the right guard (a frozen-but-correct
+  control would pass the other three), but its name and its first assertion read as evidence
+  about the seeded stop. Renamed, and the assertion now says what it is for.
+
+Both are the same failure of writing rather than of code, and both are the kind that decays
+into a false claim of coverage the moment someone trusts the comment over the test.
+
+**And one flake the checker's repeat runs exposed, in a case inherited from #1581.** The
+boot-view parity table read `<html data-pg-view>` once, from outside the page, at
+`waitUntil: 'commit'` — on the reasoning that "the head script has already run by then, since
+it is inline and synchronous". A navigation can commit BEFORE the inline head script has run,
+and under load in this sandbox it did, about one run in eight, reporting `null` as "the
+pre-paint script published no boot view". The value has a window at both ends (the head script
+opens it, `adoptBootSeed` closes it at mount), so reading it from across the wire is a bet on
+landing inside that window. It now LATCHES the first non-null value from a `requestAnimationFrame`
+sampler inside the page, which cannot be early or late — the same idiom the rest of this file
+uses, for the same reason. Confirmed still non-vacuous: with the seed's `setAttribute` removed,
+all nine cases fail.
 
 **A note on the oracle, because it is why the worst of these got through.**
 `assertOneGeometry` counts DISTINCT rects. A first paint that is wrong by 292px and held for
@@ -409,6 +448,22 @@ were. If you add a case to this file, ask what it counts and what it would let t
   identically on a clean rebuild of `origin/main`'s `docs/src` — the whole page is offset, which
   reads as a font/rasterizer environment difference rather than anything in this diff. Stated
   because "CI green" is not verification and neither is "it was already red".
+- **A classic-scrollbar browser is UNVERIFIED for the media-query threshold.** The seed emits a
+  VIEWPORT query for a GROUP constraint; a classic vertical scrollbar would make `innerWidth`
+  exceed the layout box by ~15px and fire the clamp early inside that band. It cannot arise on
+  this route — `/playground/` is `body { overflow: hidden }` and never scrolls — but this
+  headless Chromium uses overlay scrollbars, so that conclusion rests on the non-scrolling page
+  rather than on a measurement.
+- **A ~1-frame third geometry exists on the snap branch** and the case cannot see it: the pane
+  paints 174 → 320 → 28, with the 320 lasting ~18ms. It is the library's own
+  mount-clamp-then-restore two-step (the seed's attribute is already gone by then), and the
+  below-midpoint case asserts only the first and last entries, so it does not use
+  `assertOneGeometry` and would not catch a fourth. Almost certainly pre-existing; recorded
+  because it is the same blind-spot shape as the one above.
+- **The fractional band `820 < w < 821`** has the split active (`@media not (max-width: 820px)`)
+  while the seed's floor (`min-width: 821px`) is off. Reachable only by zoom or a fractional
+  DPR, and only when the computed threshold was already below 821 — i.e. a large pane — so the
+  residual error is a few pixels rather than 292.
 - **iPadOS Safari is UNVERIFIED**, as in the predecessor note. Every measurement here is desktop
   Chromium at iPad dimensions. #1591 — the `(pointer: coarse)` editor metrics — is untouched for
   exactly that reason: it needs a physical device, and the honest outcome from here is a

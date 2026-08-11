@@ -81,7 +81,14 @@ export const PG_SPLIT_RAIL = 28;
  * it snaps to the rail — the midpoint the two branches turn on.
  *
  * Derived, never restated: the seed's threshold and the panel's own constraints then cannot
- * disagree about where the behavior changes.
+ * disagree about where the behavior changes. It is width-INDEPENDENT even though the library
+ * works in percentages, because both constraints convert against the same denominator —
+ * confirmed empirically at two widths 870px apart.
+ *
+ * THIS IS THE RESTORE PATH ONLY. A drag does not reach `Z()` the same way: it goes through
+ * `le()`'s trigger switch, which carries its own half-delta snap arithmetic. The seed models
+ * a restore and nothing else, so that scoping is correct — but do not reach for this constant
+ * to predict what a drag will do.
  */
 export const PG_SPLIT_SNAP_MIDPOINT = {
 	editor: (PG_SPLIT_RAIL + PG_SPLIT_MIN.editor) / 2,
