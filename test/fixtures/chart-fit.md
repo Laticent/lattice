@@ -241,6 +241,39 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 ---
 
+<!-- _class: matrix-grid -->
+
+## The rubric puts a position in a cell.
+
+Your title is the diagonal — the same verb at a wider reach is a different level.
+
+<!-- The one chart this fixture never carried, and the gap cost what a gap costs
+(#1620): matrix-grid's `table-layout: auto` table cannot render below its
+min-content width, so `width: 100%` was a request the browser was free to ignore.
+At portrait it ran 225.6px past its box with the Verb column cut; at story it was
+cut SILENTLY, because that overflow lands inside `.chart-body`'s clip and never
+reaches the slide edge for the corpus probe to see.
+
+KEEP THE DEK TO ONE LINE. A six-row grid is height-tight, and an eight-line dek
+clips it 169px at landscape and 555px at portrait — measured while writing this
+slide. That is capacity, not a layout defect (the same class as #1600), and it is
+not what this slide is here to watch. The table below is the committed gallery
+matrix VERBATIM, so the gate measures the real reference content rather than a
+reduced one that would fit either way. -->
+
+`Wider reach`  `Deeper cognition`
+
+| Verb | Self | Team | Org | Field |
+| ---------- | :--: | :--: | :--: | :---: |
+| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |
+| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |
+| Analyze    | [ ]  | [-]  | [x] Staff | [-] |
+| Apply      | [-]  | [x] Senior | [-] | [ ] |
+| Understand | [x] Mid | [-] | [ ] | [ ] |
+| Remember   | [x] Junior | [-] | [ ] | [ ] |
+
+---
+
 <!-- _class: piechart -->
 
 `H1 2026 · 1,840 person-hours`

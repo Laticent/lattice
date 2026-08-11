@@ -10430,6 +10430,46 @@ section.matrix-grid .chart-caption em::before, figure.matrix-grid .chart-caption
   border: 2px solid var(--text-muted);
 }
 
+/* ── Box-local tall/strip: the TYPE has to step down with the box (#1620) ────
+ * matrix-grid was the one chart-family member with NO adaptive arm at all, and
+ * a table is the shape that can least afford to go without one. The `--fs-*`
+ * scale multiplies by `--canvas-scale` so text stays readable on a narrow deck,
+ * so `--fs-body-compact` renders 17.9px at landscape and **39.96px** at portrait
+ * — 2.2x the type inside a box that got 200px NARROWER. A `table-layout: auto`
+ * table cannot render below its min-content width, so `width: 100%` becomes a
+ * request the browser is free to ignore, and it did: measured on the committed
+ * gallery slide, the table ran 1145px inside a 919px box at portrait (225.6px
+ * over, the Verb column cut) and 1172.6 inside 912.9 at story. Portrait warned;
+ * story was cut SILENTLY, because the overflow lands inside `.chart-body`'s clip
+ * and never reaches the slide edge for the probe to see.
+ *
+ * The step is the one `roadmap` — the other table in this bucket — already
+ * reasoned out for the identical failure ("at portrait `--fs-body-compact`
+ * renders ~39px, which takes four status chips past the 877px row"): a cell's
+ * text is a CHIP LABEL, which is `--fs-meta`'s stated role, so the smaller token
+ * is the more correct one here as well as the shorter one. The row label steps
+ * `--fs-body` → `--fs-body-compact` for the same reason, and the paddings tighten
+ * to `--sp-2xs` because a 5-column grid spends its width on gutters it does not
+ * have. Landscape and square are untouched — they fit, and they read better wide.
+ *
+ * Placed at the END of the file deliberately: these selectors tie the base rules
+ * above on specificity (`:where()` contributes 0), so SOURCE ORDER is what makes
+ * them win — the same construction, and the same reason, as roadmap's portrait
+ * arm. Moving this block up silently disables it. */
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td .cell,
+:where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td .cell {
+  font-size: var(--fs-meta);
+  padding: 0.390625cqi var(--sp-2xs);
+}
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td:first-child,
+:where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td:first-child {
+  font-size: var(--fs-body-compact);
+}
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td,
+:where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td {
+  padding: 0.15625cqi var(--sp-2xs);
+}
+
 /* === lib/components/legal/obligation-matrix/obligation-matrix.styles.css === */
 /* obligation-matrix — comparison.matrix.structure
  *
