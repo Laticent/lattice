@@ -289,6 +289,52 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 ---
 
+<!-- _class: matrix-grid -->
+
+## A rubric grid, where the table has to give ground.
+
+`Wider reach`  `Deeper cognition`
+
+| Verb | Self | Team | Org | Field |
+| ---------- | :--: | :--: | :--: | :---: |
+| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |
+| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |
+| Analyze    | [ ]  | [-]  | [x] Staff | [-] |
+| Apply      | [-]  | [x] Senior | [-] | [ ] |
+| Understand | [x] Mid | [-] | [ ] | [ ] |
+
+---
+
+<!-- _class: progress -->
+
+`Phase 1 readiness`
+
+## Bars keep their labels when the box narrows.
+
+- Signal Intake `92%` `on-track`
+- Scoring policy `68%` `at-risk`
+- Decision Log `81%` `on-track`
+- Adoption `12%` `blocked`
+
+---
+
+<!-- _class: quadrant -->
+
+`Effort 0-10 -> Reach 0-100`
+
+## A height-bound chart letterboxes instead of shrinking its labels.
+
+- Quick Wins
+  - Weekly digest `2, 82`
+- Strategic Bets
+  - Scoring model v2 `8, 88`
+- Defer
+  - Weighting UI `2, 28`
+- Time Sinks
+  - Board exports `8, 18`
+
+---
+
 <!-- _class: title silent -->
 
 ## One contract, every frame.
