@@ -123,16 +123,21 @@ export function CrashReportSheet({
 							</p>
 						</div>
 
-						{/* No "likely cause" line. The browser will not tell a page why a tab
+						{/* The caveat is suppressed ONLY where the browser itself stated the
+						    reason (`confirmed`). It used to key off `ending`, which meant the
+						    page-cache branch — an INFERENCE — shipped the strongest sentence with
+						    no hedge at all. Weakest evidence, loudest claim: exactly the failure
+						    this rewrite existed to remove.
+						    No "likely cause" line. The browser will not tell a page why a tab
 						    died — verified: after a real renderer crash, the next load sees no
 						    crash report at all; that answer only goes to a server endpoint,
 						    which this site deliberately does not have. The earlier design
 						    guessed anyway and guessed badly, printing "no clear cause" directly
 						    above its own evidence of a 9x memory rise. So the panel reports what
 						    was MEASURED and lets the reader draw the conclusion. */}
-						{report.ending === 'stopped' && (
+						{!report.confirmed && (
 							<p className="rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[11.5px] leading-relaxed text-[var(--text-heading)]">
-								The Studio can tell that this session stopped without closing cleanly. It cannot tell you why — no browser will tell a page that.
+								The Studio can tell you that this session ended, and what it was doing. It cannot tell you why — no browser will tell a page that.
 								{report.sameTab ? ' The tab did come back on its own, so it was not closed by hand.' : ' It also cannot tell a crash apart from a force-quit or a shutdown.'} What it recorded is below.
 							</p>
 						)}

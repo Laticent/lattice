@@ -100,5 +100,11 @@ export function buildFeedbackIssueUrl(opts: {
 		else hi = mid - 1;
 	}
 	url = build(opts.details.slice(0, lo) + NOTE);
+	// `lo === 0` is not automatically safe: if the FIXED overhead (title, labels,
+	// diagnostics, the note itself) already exceeds the budget, even an empty body
+	// overshoots. Shipped callers cap their summary and diagnostics so this is not
+	// reachable today, but a function whose contract is "never over budget" has to
+	// hold it on its own rather than borrow its callers' discipline.
+	if (url.length > URL_BUDGET) return build(NOTE.trim());
 	return url;
 }

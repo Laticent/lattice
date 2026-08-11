@@ -52,7 +52,7 @@
  * (engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md).
  */
 
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2; // bumped: `bfcached`/`reported` added, and `closed` changed meaning
 
 /** `localStorage` key prefix — one record per session. Prefixed `lattice-studio-` like every other Studio key. */
 export const SESSION_PREFIX = 'lattice-studio-session-';
@@ -226,8 +226,10 @@ export type CrashReport = {
 	id: string;
 	record: SessionRecord;
 	ending: CrashEnding;
-	/** A factual headline — what happened, never why. */
+	/** A factual headline — it names a reason only where the browser stated one. */
 	headline: string;
+	/** The browser itself stated the reason. Everything else is an observation. */
+	confirmed: boolean;
 	/** What was MEASURED, in plain sentences. No conclusions. */
 	facts: string[];
 	/** True when the SAME tab came back — the "it reloaded itself" case. */
@@ -296,6 +298,9 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
 	// Every collection a reader walks unguarded must actually be walkable.
 	if (!Array.isArray(r.crumbs) || !Array.isArray(r.mem)) return false;
 	if (!r.context || typeof r.context !== 'object' || Array.isArray(r.context)) return false;
+	// Context VALUES are rendered as React children — a non-string is "Objects are
+	// not valid as a React child", i.e. the whole island down.
+	for (const v of Object.values(r.context)) if (typeof v !== 'string') return false;
 	// The counters `classifySession` formats.
 	if (!Number.isFinite(r.errorCount) || !Number.isFinite(r.stallCount) || !Number.isFinite(r.longestStallMs)) return false;
 	// A timestamp that `new Date().toISOString()` would throw on is not evidence.
@@ -303,6 +308,14 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
 	// Crumb shape — `formatCrashReport` calls `c.k.padEnd`, which a numeric `k` fails.
 	for (const c of r.crumbs) {
 		if (!c || typeof c !== 'object' || typeof c.k !== 'string' || typeof c.m !== 'string' || !Number.isFinite(c.t)) return false;
+	}
+	// MEM ELEMENTS TOO. The first hardening pass validated crumbs and stopped —
+	// and `mem: [null]` still sailed through to `formatCrashReport`, which
+	// dereferences `.limit` on the last sample. That throw renders from the sheet's
+	// useMemo, so it took the whole Studio down exactly like the bug this guard was
+	// written to close, one field over.
+	for (const m of r.mem) {
+		if (!m || typeof m !== 'object' || !Number.isFinite(m.t) || !Number.isFinite(m.used) || !Number.isFinite(m.limit)) return false;
 	}
 	return true;
 }
@@ -330,7 +343,7 @@ export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean):
 
 const mb = (bytes: number): string => `${Math.round(bytes / 1_048_576)} MB`;
 
-export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; facts: string[] } {
+export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; confirmed: boolean; facts: string[] } {
 	const { sameTab, tabDiscarded = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false } : ctx;
 	const facts: string[] = [];
 	const endT = rec.lastBeat - rec.startedAt;
@@ -357,10 +370,17 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 
 	// ── HOW IT ENDED. `wasDiscarded` is the browser answering; everything else
 	// is us observing that it stopped.
-	const evicted = !!rec.bfcached && sameTab;
-	const reclaimed = (sameTab && tabDiscarded) || evicted;
-	if (sameTab && tabDiscarded) facts.push('The browser reports that it reclaimed this tab to free memory (`document.wasDiscarded`).');
-	else if (evicted) facts.push('The tab was put in the browser\'s page cache when you switched away, and was dropped from it rather than resumed — how an evicted tab presents (the usual cause on iPhone/iPad).');
+	// TWO DIFFERENT STRENGTHS OF EVIDENCE, and they must not share a sentence.
+	// `wasDiscarded` is the browser stating it reclaimed the tab. `bfcached` is
+	// only "the page went into the back/forward cache and never came back" — and a
+	// page leaves that cache for several reasons that are not memory at all (entry
+	// limits, timeouts, `no-store`, a held lock). Printing "closed this tab to free
+	// memory" for the second one re-committed the exact overclaim this rewrite
+	// removed, so the two now say what each actually knows.
+	const confirmedDiscard = sameTab && tabDiscarded;
+	const evicted = !!rec.bfcached && sameTab && !confirmedDiscard;
+	if (confirmedDiscard) facts.push('The browser reports that it reclaimed this tab to free memory (`document.wasDiscarded` was set on the next load).');
+	else if (evicted) facts.push('The tab went into the browser\'s page cache when you switched away and was dropped rather than resumed. Browsers do that under memory pressure, but also on cache limits and timeouts — this does not say which.');
 	else if (rec.frozen) facts.push('The browser had frozen this tab in the background, and it never resumed.');
 
 	// ── ERRORS. Report it and when; do not rank it.
@@ -389,8 +409,16 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	);
 
 	return {
-		ending: reclaimed ? 'reclaimed' : 'stopped',
-		headline: reclaimed ? 'The browser closed this tab to free memory' : 'The Studio stopped unexpectedly',
+		ending: confirmedDiscard || evicted ? 'reclaimed' : 'stopped',
+		// Factual in all three branches. Only the first names a reason, because
+		// only the first has the browser's word for it.
+		headline: confirmedDiscard
+			? 'The browser reclaimed this tab to free memory'
+			: evicted
+				? 'The browser dropped this tab from its page cache'
+				: 'The Studio stopped unexpectedly',
+		/** True only where the browser itself stated the reason. Drives the caveat. */
+		confirmed: confirmedDiscard,
 		facts,
 	};
 }
@@ -564,7 +592,16 @@ export function pruneSessions(now: number, keepId?: string): void {
 		}
 		records.push(rec);
 	}
-	records.sort((a, b) => b.startedAt - a.startedAt);
+	// KEEP THE EVIDENCE, NOT MERELY THE NEWEST. Sorting by recency alone deleted
+	// crash records preferentially in a crash loop — every reload mints a fresh
+	// (clean) record, so the one that mattered fell past the cap within five
+	// loads. Worse since STALE_MS became 10 minutes: a non-same-tab crash is not
+	// even ELIGIBLE to be reported for ten minutes, and six ordinary boots inside
+	// that window used to erase it before the user could ever see it. Rank by
+	// worth first — un-announced unclean records outlive announced ones, which
+	// outlive clean ones — and only then by recency.
+	const worth = (r: SessionRecord) => (r.closed && !r.bfcached ? 0 : r.reported ? 1 : 2);
+	records.sort((a, b) => worth(b) - worth(a) || b.startedAt - a.startedAt);
 	for (const rec of records.slice(KEEP_RECORDS)) safeRemove(ls(), SESSION_PREFIX + rec.id);
 }
 
@@ -631,12 +668,13 @@ export function collectCrashReports(now: number): CrashReport[] {
 			if (!rec || rec.id === liveId) continue;
 			const sameTab = isSameTab(rec);
 			if (!isUncleanEnd(rec, now, sameTab)) continue;
-			const { ending, headline, facts } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
+			const { ending, headline, confirmed, facts } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
 			out.push({
 				id: rec.id,
 				record: rec,
 				ending,
 				headline,
+				confirmed,
 				facts,
 				sameTab,
 				startedAt: rec.startedAt,
@@ -664,6 +702,12 @@ export function markReported(id: string): void {
 	const rec = readRecord(SESSION_PREFIX + id);
 	if (!rec) return;
 	rec.reported = true;
+	if (safeSet(ls(), SESSION_PREFIX + id, JSON.stringify(rec))) return;
+	// A full store used to swallow this, so the toast fired again on every boot —
+	// the exact alarm fatigue the marker exists to prevent. Shed the trail (the
+	// part that grows) and retry, mirroring `persist`.
+	rec.crumbs = rec.crumbs.slice(-12);
+	rec.mem = rec.mem.slice(-6);
 	safeSet(ls(), SESSION_PREFIX + id, JSON.stringify(rec));
 }
 

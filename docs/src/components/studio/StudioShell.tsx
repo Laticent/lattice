@@ -408,7 +408,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// until they explicitly discard it — it stays listed in Workspace instead.
 		const fresh = unreportedCrashReports(Date.now());
 		if (!fresh.length) return;
-		for (const r of fresh) markReported(r.id);
+		// Mark ONLY the one we announce. Marking them all spent the interruption
+		// budget of reports the user was never actually told about, so a second
+		// accumulated crash could never toast.
+		markReported(fresh[0].id);
 		toast(crashReportTitle(fresh[0]), {
 			duration: 12_000,
 			description: 'Your decks are safe. Open the report to see what the Studio recorded.',

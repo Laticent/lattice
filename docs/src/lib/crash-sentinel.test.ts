@@ -56,8 +56,13 @@ afterEach(() => {
 });
 
 describe('isUncleanEnd', () => {
-	it('a closed record is never a crash', () => {
+	it('a cleanly closed record is never a crash, for either tab', () => {
 		expect(isUncleanEnd(rec({ closed: true }), T0 + 60_000 + STALE_MS + 1, false)).toBe(false);
+		expect(isUncleanEnd(rec({ closed: true }), T0 + 60_000 + STALE_MS + 1, true)).toBe(false);
+		// The ONE exception, stated where the rule is: a record closed into the page
+		// cache that never resumed, for the tab that owned it.
+		expect(isUncleanEnd(rec({ closed: true, bfcached: true }), T0 + 61_000, true)).toBe(true);
+		expect(isUncleanEnd(rec({ closed: true, bfcached: true }), T0 + 61_000, false)).toBe(false);
 	});
 
 	it('holds off on another tab until it has gone stale — a live background tab beats slowly', () => {
@@ -102,7 +107,9 @@ describe('describeSession — reports what was measured, never a cause', () => {
 
 	it('says the browser reclaimed the tab ONLY when the browser said so', () => {
 		expect(describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true }).ending).toBe('reclaimed');
-		expect(describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true }).headline).toMatch(/browser closed this tab/i);
+		const confirmed = describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true });
+		expect(confirmed.headline).toMatch(/browser reclaimed this tab to free memory/i);
+		expect(confirmed.confirmed).toBe(true); // the browser said it, so the panel may drop its caveat
 		// A frozen tab is NOT a confirmed reclaim — it is reported as an observation.
 		const frozen = describeSession(withMem(0.2, { frozen: true }), { sameTab: true });
 		expect(frozen.ending).toBe('stopped');
@@ -557,7 +564,12 @@ describe('the reachability fixes', () => {
 			startCrashSentinel(); // latches the tab mirror + navigation type
 			const [report] = collectCrashReports(Date.now() + 1000);
 			expect(report?.ending).toBe('reclaimed');
-			expect(report?.facts.join(' ')).toMatch(/dropped from it rather than resumed/i);
+			expect(report?.facts.join(' ')).toMatch(/dropped rather than resumed/i);
+			// An INFERENCE, so the headline must not name a reason and the panel must
+			// keep its caveat — the page cache is also emptied on limits and timeouts.
+			expect(report?.headline).toMatch(/dropped this tab from its page cache/i);
+			expect(report?.confirmed).toBe(false);
+			expect(report?.facts.join(' ')).toMatch(/does not say which/i);
 		});
 		// A plain clean exit is still silent.
 		__resetSentinelForTest();
@@ -600,11 +612,50 @@ describe('the reachability fixes', () => {
 	});
 });
 
-describe('isSessionRecord', () => {
-	it('accepts our shape and rejects anything else', () => {
-		expect(isSessionRecord(rec())).toBe(true);
-		expect(isSessionRecord({ id: 'x' })).toBe(false);
+describe('isSessionRecord — the guard that keeps a bad record from taking the Studio down', () => {
+	const good = () => JSON.parse(JSON.stringify(newRecord('x', Date.now())));
+
+	it('accepts a record the recorder itself just wrote', () => {
+		startCrashSentinel();
+		breadcrumb('action', 'something');
+		setCrashContext({ Deck: 'A deck' });
+		noteError(new Error('boom'), 'test');
+		const live = JSON.parse(localStorage.getItem(SESSION_PREFIX + (liveSession() as SessionRecord).id) as string);
+		expect(isSessionRecord(live)).toBe(true);
+	});
+
+	it('rejects a foreign or older shape by version', () => {
+		expect(isSessionRecord({ ...good(), v: 1 })).toBe(false);
+		expect(isSessionRecord({ ...good(), v: undefined })).toBe(false);
+	});
+
+	// Each of these reached a reader that dereferenced it, and the throw landed in
+	// StudioShell's mount effect — replacing the whole Studio with an error card.
+	it('rejects every shape that used to throw inside the island', () => {
+		expect(isSessionRecord({ ...good(), mem: undefined })).toBe(false);
+		expect(isSessionRecord({ ...good(), mem: [null] })).toBe(false); // formatCrashReport reads .limit
+		expect(isSessionRecord({ ...good(), mem: [{}] })).toBe(false); // NaN MB in the issue body
+		expect(isSessionRecord({ ...good(), context: undefined })).toBe(false);
+		expect(isSessionRecord({ ...good(), context: [] })).toBe(false);
+		expect(isSessionRecord({ ...good(), context: { Deck: {} } })).toBe(false); // not a valid React child
+		expect(isSessionRecord({ ...good(), crumbs: [{ t: 0, k: 7, m: 'x' }] })).toBe(false); // k.padEnd
+		expect(isSessionRecord({ ...good(), startedAt: 1e20 })).toBe(false); // toISOString throws
+	});
+
+	it('rejects anything that is not a record at all', () => {
 		expect(isSessionRecord(null)).toBe(false);
 		expect(isSessionRecord('string')).toBe(false);
+		expect(isSessionRecord({ id: 'x' })).toBe(false);
+	});
+
+	// The end-to-end version of the above: a poisoned record must cost that record,
+	// never the collect.
+	it('a malformed record is dropped, and the rest still report', () => {
+		localStorage.setItem(`${SESSION_PREFIX}bad`, JSON.stringify({ ...good(), id: 'bad', mem: [null] }));
+		localStorage.setItem(`${SESSION_PREFIX}ok`, JSON.stringify(rec({ id: 'ok' })));
+		startCrashSentinel();
+		const found = collectCrashReports(Date.now() + STALE_MS + 1);
+		expect(found.map((r) => r.id)).toEqual(['ok']);
+		expect(() => formatCrashReport(found[0])).not.toThrow();
 	});
 });

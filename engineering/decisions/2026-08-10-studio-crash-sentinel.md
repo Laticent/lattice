@@ -107,40 +107,16 @@ throttled to roughly one callback a minute, so a live hidden tab looks dead. The
 rule is therefore split:
 
 - record matched by the **tab mirror** → report immediately (no other tab can own it);
-- any other record → only once `now - lastBeat > 90s`.
+- any other record → only once `now - lastBeat > 10 minutes` (see `STALE_MS`; the original 90s reasoned from the TICK cadence while `lastBeat` only advances every fifth tick).
 
 This is why detection is instant for the case the user is reporting (a
 crash-reload lands within seconds) without ever harvesting a live sibling tab.
 
-### The verdict, and its honesty
+### What it says, and what it refuses to say
 
-`classifySession` ranks by **actionability**, not by severity:
-
-1. `discarded`, CONFIRMED — `document.wasDiscarded` on a tab-continuous load. It
-   outranks even heap pressure, and not because it is worse: the two are not
-   rivals (the browser discards a background tab precisely *because* memory is
-   tight), but they point at different fixes. Telling an author "you ran out of
-   memory" — go split your deck — when the browser has said it reclaimed a tab they
-   left in the background sends them the wrong way.
-2. `memory` — heap ≥85% of the limit at the last reading. The one cause an author
-   can act on, and the one that explains a silent process death.
-3. `discarded`, INFERRED — the tab was frozen and never resumed. The signal line
-   says "not confirmed", because that is the weaker claim.
-4. `error` — an uncaught error within 15s of the end.
-5. `stall` — a main-thread block within 15s of the end.
-6. `unknown`.
-
-A verdict changing never discards evidence: the heap reading, the error and the
-stall count all stay in `signals[]` whichever one leads.
-
-**`unknown` is a real answer here, not a failure.** An unclosed record with a
-quiet trail is exactly what a force-quit or a flat battery looks like, and
-dressing that up as a bug would be the confident falsehood this module exists to
-avoid — the same discipline `ChunkLoadFallback` follows in `ErrorBoundary.tsx`
-("a 404, a 403, a 500 and being offline are byte-identical at this layer"). Every
-report carries a `signals[]` list of what was actually observed, and the panel
-prints an explicit caveat whenever the verdict is `unknown` or the tab did not
-match.
+See §"What the adversarial trio changed" below — the ranked-verdict design described
+here previously was removed on 2026-08-11. The module now reports measured facts
+and names a cause only where the browser stated one.
 
 ## The surface
 

@@ -3577,18 +3577,20 @@ own) is not a builder and needs no entry.
   (`docs/src/lib/crash-sentinel.ts`) and, on the boot after an unclean end, shows a
   toast → a report with the heap trajectory, main-thread stalls, the last error and
   the breadcrumb trail. It is also reachable at any time from **Workspace → Crash
-  reports**. A verdict of `memory` means the heap was ≥85% of the browser's limit at
-  the last reading; `discarded` means the browser reclaimed a backgrounded tab.
-- **Also check:** a verdict of `unknown` is a real answer, not a broken recorder —
+  reports**. The report states what was MEASURED — how memory trended, any errors, any
+  freezes, the trail — and never guesses a cause, because no browser will tell a
+  page why a tab died. The one exception is a browser-CONFIRMED reclaim
+  (`document.wasDiscarded`), which is stated outright because the browser said it.
+- **Also check:** "no cause given" is the normal, honest answer, not a broken recorder —
   a force-quit, a shutdown and a flat battery are indistinguishable from a crash
   from inside the page. Check whether the report says the SAME tab came back; only
   that line separates "it reloaded itself" from "you closed it". And on Safari and
-  Firefox there is no memory verdict at all: `performance.memory` is Chromium-only,
-  and the report says so rather than implying a healthy heap.
+  Firefox there are no memory readings at all: `performance.memory` is
+  Chromium-only, and the report says so rather than implying a healthy heap.
 - **Triggered by:** long Studio sessions, decks with many chart/diagram slides,
   leaving Present or the presenter window open, or a phone backgrounding the tab.
   See `engineering/decisions/2026-08-10-studio-crash-sentinel.md`; to hunt the leak
-  behind a repeating `memory` verdict, reach for `npm run torture`
+  behind a report showing memory growth, reach for `npm run torture`
   (`tools/perf-torture/`).
 
 ### A control's own icon renders sliced/outside its button, and every overflow guard is green
