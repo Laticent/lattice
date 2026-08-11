@@ -160,16 +160,37 @@ verdict, and by nothing else:
 | Trigger | Opens a generation? | Why |
 |---|---|---|
 | the debounced content pass (`scheduleRun`, 150ms) | yes | the transforms moved DOM |
+| a `characterData` mutation outside marker chrome | yes | a text node grew in place; no element was added |
 | fonts settling | yes | every measurement was against fallback metrics |
 | `resize` (debounced) | yes | every box changed |
 | `scroll` (debounced) | **no** | no verdict changed; new slides merely entered the band |
 | `window.latticeSweep.sweep()` | yes | the host says its render landed |
 | the watcher's own class / attribute writes | **no** | this is the cycle, cut at the root |
 
-That last row is the structural fix. The sweep now rides the **existing**
+That last row is the structural fix. The sweep rides the **existing**
 `scheduleRun` observer, which watches `childList` and `subtree` **only** — no
 `attributes`. Same document, same mutations, one crucial difference in what is
 observed, and it is what makes the feedback edge unreachable rather than guarded.
+
+**`characterData` needed its own observer, and the first cut of this change lost
+it.** Riding `scheduleRun` meant inheriting exactly what `scheduleRun` observes,
+and it does not observe `characterData` — so a text node growing in place
+(`node.nodeValue = …`, no element added or removed) triggered nothing.
+Reproduced in Chromium on a real engine-rendered deck: one slide grown to 4000
+words overflowed by 1613px and stayed unringed indefinitely, until an unrelated
+`childList` mutation elsewhere happened to schedule a sweep. This note's own §6
+originally described the cost as *"a layout change caused by neither a mutation
+nor a resize can be missed"* — which was wrong twice over, because a
+`characterData` mutation **is** a DOM mutation and this one was being missed.
+
+So the sweep installs a second observer for that category alone, with a filter:
+**a record whose target sits inside marker chrome is dropped.** That is what
+keeps it from being a reinstatement of the old cycle — filling a berth writes
+text, which is precisely the mutation class being observed. The filter is also a
+narrower and more checkable rule than "don't observe the category": the watcher's
+own writes are confined to three named elements, and nothing else in the document
+is filtered. Verified in Chromium — the generation counter is stable for seconds
+after boot on a deck with two overflowing slides.
 
 ### 4b. A sweep probes the band, not the deck
 
@@ -194,6 +215,30 @@ rects at `over: false` because one selector was missing from a hand-kept list).
 **Skipped work is counted, not silent** (HARD RULE #25): `planFitSweep` returns
 `{ measure, skipped: { offBand, current }, total }`, so a caller can say "3
 probed, 55 off-band" rather than implying it covered the deck.
+
+**The cache records MEASUREMENT, never intent** — and the first cut got this
+wrong in the one direction that silences a slide. It wrote `fitState` from the
+PLAN, before `check()` had probed anything. `check()` is a single loop over the
+batch, so a throw on slide *k* left slides *k+1…N* unprobed but stamped `current`
+at that generation — and because the scroll path deliberately does not open a new
+generation, they were then skipped as already-done on every subsequent scroll
+sweep. Reproduced on the real bundle: two slides overflowing by 1300px carrying
+no ring and no tab, which scrolling them back into view did **not** recover,
+contradicting the recovery this change's own gotchas entry promises. Only a fresh
+generation cleared it.
+
+Now `check()` guards each slide individually, returns the ones it actually
+probed, and the caller records only those. A bad slide costs its own verdict and
+nothing else, and the next sweep retries it. The failure is also reported once
+per document, because a probe that throws throws on every sweep and a console the
+author cannot read past is its own outage.
+
+The **boot** sweep is guarded for a different reason: everything after it is
+registration (the font re-measure, the content hook, both listeners,
+`window.latticeSweep`). Letting a throw escape there would disable the watcher
+for the document's whole life over one bad frame — where the old shape lost only
+three registrations to the same throw. That is a pre-existing fragility this
+change would otherwise have made materially worse (HARD RULE #18).
 
 ### 4c. The marker's chrome belongs to the markup
 
@@ -220,6 +265,18 @@ composition sweeps everything from the masthead band to the end of the slide int
 `.cell-stage` (`masthead-lift`), while `applyImageStructure` folds loose children
 into `.image-text`. A berth emitted by the markdown pipeline would be buried
 inside the very box it reports on.
+
+**The berths had to be named in `IMAGE_TEXT_KEEP_OUT`** (`lib/core/bg-image.js`),
+and the first cut named only the one that was already there. That list kept
+injected chrome out of the `.image-text` panel and named `overflow-tab` alone —
+correctly, for as long as a watcher created that tab *late*, after the panel had
+already been built. Emitting all three as markup made the gap reachable: measured
+on a real `image` slide, `.illegible-tab` and `.fixme-tab` were folded into the
+panel and duplicated, leaving `section.image .image-text > :last-child` resolving
+to an empty marker div instead of the author's last block. Nothing moved — a
+composition rule ties that selector on specificity and wins on source order — but
+an invariant this file's own docstring calls load-bearing was being violated
+invisibly, one specificity tie away from displacing author content.
 
 `berth()` **mints on a miss** rather than returning null. The miss should be
 unreachable — every render path berths — but the alternative is the marker going
@@ -310,11 +367,15 @@ change than it sounds: the render is already debounced, and the Studio already
 sampled `section.overflow` at load and again at 600ms (`single-slide-render.ts`)
 rather than reading it live.
 
-**A layout change caused by neither a mutation nor a resize can be missed.** The
-known ones are handled explicitly (fonts, the content pass, the diagram queue via
-the same pass). A late `<img>` decode that resizes one slide is covered by the
-box being in the cache key. Something outside all of those would wait for the
-next trigger.
+**A layout change caused by neither a DOM mutation nor a resize can be missed.**
+Mutations are covered — `childList` via the content pass, `characterData` via the
+observer above — as are fonts and the diagram queue. A late `<img>` decode that
+resizes one slide is covered by the box being in the cache key. A layout shift
+with no mutation, no resize and no box change behind it would wait for the next
+trigger. (An earlier draft of this section made a broader claim, that only a
+non-mutation change could be missed. That was false when written: `characterData`
+was uncovered. Corrected rather than deleted — a cost stated too favorably in a
+decision record is what the next reader budgets against.)
 
 **Exported artifact bytes changed.** Every slide now carries three empty hidden
 divs. No ink moves — they are `display: none` until a class reveals them, and the

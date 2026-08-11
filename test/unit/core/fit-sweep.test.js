@@ -183,3 +183,53 @@ describe('planFitSweep — the plan a triggered sweep acts on', () => {
     assert.equal(out.total, 0);
   });
 });
+
+describe('planFitSweep — the cache is a record of MEASUREMENT, not of intent', () => {
+  // This suite exists because the first cut recorded state from the PLAN, before
+  // `check()` had probed anything. A throw partway through the batch then left
+  // every later slide stamped `current` at that generation while unprobed — and
+  // the scroll path deliberately does NOT open a new generation, so those slides
+  // were skipped as already-done on every subsequent scroll sweep. Reproduced on
+  // the real bundle: two slides overflowing by 1300px, no ring, no tab, and
+  // scrolling them back into view did not recover them.
+  //
+  // The kernel's half of the fix is that it RECORDS NOTHING — the caller writes
+  // the cache from what `check()` returns. That is asserted directly, because a
+  // future refactor that "helpfully" moved the write in here would restore the
+  // bug with every test still green.
+  test('records nothing itself — two identical calls give the identical plan', () => {
+    const secs = [{ id: 0 }, { id: 1 }, { id: 2 }];
+    const state = new Map();
+    const call = () => planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 900,
+      rectOf: () => ({ top: 0, bottom: 720 }),
+      boxOf: () => ({ w: 1280, h: 720 }),
+      stateOf: (s) => state.get(s),
+    });
+    assert.equal(call().measure.length, 3);
+    assert.equal(call().measure.length, 3, 'a second call must still plan all three — nothing was recorded');
+  });
+
+  test('a section the caller did NOT record stays stale at the same generation', () => {
+    // The scroll path's exact shape: same generation, same boxes, and only the
+    // sections the previous sweep actually measured are skipped.
+    const secs = [{ id: 0 }, { id: 1 }, { id: 2 }];
+    const state = new Map();
+    const call = () => planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 900,
+      rectOf: () => ({ top: 0, bottom: 720 }),
+      boxOf: () => ({ w: 1280, h: 720 }),
+      stateOf: (s) => state.get(s),
+    });
+    // Slide 0 probed successfully; 1 and 2 threw, so the caller records only 0.
+    state.set(secs[0], { gen: 1, w: 1280, h: 720 });
+    const out = call();
+    assert.deepEqual(out.measure.map((m) => m.section.id), [1, 2],
+      'the unrecorded slides must be re-planned WITHOUT needing a new generation');
+    assert.equal(out.skipped.current, 1);
+  });
+});
