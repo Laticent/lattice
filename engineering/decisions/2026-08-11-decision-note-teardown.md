@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   232 of 391 notes are `shipped` — the index calls that group "pending teardown" — and none has
   ever been torn down. The issue frames this as a backlog to drain; one evening of work against
@@ -13,14 +13,16 @@ summary: >
   harness, the corrections, and the caveats that become the next session's work. The real defect
   is narrower than 102,554 lines: the index heading asserts a process that has never once run,
   which is a stale claim in a generated file — the exact thing this repo treats as a defect
-  everywhere else. NOT BUILT — this is a direction decision and the direction is the owner's.
+  everywhere else. ANSWERED 2026-08-11 (§7): the owner picked the archive. The README convention is
+  inverted, the index heading stops saying "pending teardown", and the corpus total is
+  surfaced in the post-merge standup rather than in the generated index.
 ---
 
 # 232 notes "pending teardown", and whether that is the right thing to want
 
 **#1597.** Raised by the Munger-inversion lens as its lead objection to the
-#1547/#1546/#1528/#1545/#1527 batch. This note is analysis and a recommendation.
-**Nothing is built and nothing is deleted.**
+#1547/#1546/#1528/#1545/#1527 batch. Written as analysis and a recommendation; **§7 records the owner’s answer and what
+landed because of it.** Nothing was ever deleted.
 
 ## 1. Measured on `main` today
 
@@ -150,3 +152,29 @@ ritual adds work to every merge. Neither is something to pick unilaterally at th
 end of a batch that itself added five notes to the pile.
 
 The question, in one line: **is `engineering/decisions/` an archive, or a queue?**
+
+## 7. Answered — archive (2026-08-11)
+
+The owner picked the archive. What landed, in this change:
+
+- `README.md`'s convention bullet is inverted: the folder **is** a dated archive,
+  notes are corrected in place and marked `superseded` when replaced, and nothing
+  is deleted. The retired rule is quoted in place with the reason, so a reader who
+  remembers the old one finds out what happened to it rather than assuming drift.
+- The status table's `shipped` row drops *"absorb into canon, then delete"*, and
+  the paragraph that called `shipped`/`superseded` notes "candidates for the
+  absorb-then-delete rule" now describes the grouping as a **reading aid** — which
+  is the only thing it has ever actually been.
+- `tools/build-decisions-index.js`'s group heading stops saying **"pending
+  teardown"**. That was §3's whole finding: a generated file asserting a process
+  that has never run is a stale claim, and this repo treats those as defects.
+- The rider from §5 landed too: the corpus total is surfaced in the **post-merge
+  standup** (`workflow.md`), not in the generated index. Spoken in chat, it is not
+  a committed byte, so it cannot be the line two concurrent PRs disagree about —
+  the #1547 failure this note was careful not to recreate.
+
+**Unchanged, deliberately:** CLAUDE.md's guidance to leave a durable note (§2 is
+the argument *for* it); the `superseded` status and its eight current users; and
+the open question §5 flagged — whether 391 notes is too many to *find* things in.
+That is discoverability, not deletion, and the surfaces to improve if it ever bites
+are the index and the front-matter summaries. It still has not bitten.

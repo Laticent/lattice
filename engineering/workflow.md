@@ -893,6 +893,14 @@ separate swimlane/card tracker to maintain:
   pulled from the decision doc's remaining steps, branch TODOs, or the obvious
   follow-on. If nothing remains, say so: "thread complete — awaiting direction."
   Scope is deliberately *this thread*, not a cross-session sweep.
+- **Notes** — the size of the decision corpus, when the merge added or superseded
+  a note: `N notes (+X this merge)`, from `ls engineering/decisions/*.md`. Omit the
+  line otherwise. This is the one place the corpus total is allowed to appear. It
+  deliberately does **not** go in the generated index: a tally over every note is
+  precisely the line two concurrent decision-doc PRs cannot both be right about,
+  which is what ejected #1535 from the merge queue (#1547). Here it is a spoken
+  number in chat, not a committed byte, so it cannot conflict — and it keeps the
+  corpus visible now that notes are archived rather than torn down (#1597).
 
 Template:
 
@@ -902,6 +910,7 @@ Template:
 • Card:      <what the PR did> · <branch>
 • Completed: #N <one line> (+ #M, #K earlier this thread)
 • On deck:   <next step for this thread, or "thread complete — awaiting direction">
+• Notes:     <N notes (+X this merge) — omit the line if the merge touched none>
 ```
 
 ## Work queue — the kanban board (cards, swimlanes, the mirror)
