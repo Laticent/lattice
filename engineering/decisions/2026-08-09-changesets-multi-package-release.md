@@ -187,6 +187,14 @@ branch and one PR each, never stacked.
    rewrite `release.yml` / `release-publish.yml` around `changeset version` /
    `changeset publish` while keeping the zip, the GitHub Release, the body cap
    and the queue shape. Rewrite `RELEASE.md`. Rewrite HARD RULE #10.
+   **Also convert the pending `changelog.d/` pile.** #1593 (2026-08-11) moved
+   per-PR entries out of `## Unreleased` into `changelog.d/<slug>.<category>.md`
+   to stop the merge queue ejecting PRs on a shared-region conflict — an interim
+   whose successor is `.changeset/`. Every fragment then in the directory has to be
+   converted (or folded into the dated `## 1.0.0`) as part of this slice, or the
+   entries are silently lost: nothing else reads that directory.
+   See `2026-08-11-changelog-fragments.md` §7, which also records where the two
+   designs disagree.
 2. **Bootstrap publish (manual, human).** First publish of all five with a
    temporary token; attach trusted publishers in npm's UI; revoke the token.
    *Nothing after this point works until this is done.*

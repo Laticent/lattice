@@ -86,13 +86,15 @@ dist/docs/grammar.json       git merge: CLEAN   vs fresh regeneration: STALE
     1 line(s) differ in total
 ```
 
-**A sixth of the same shape, with a trigger that is essentially never.**
+**Two more of the same shape, with a trigger that is essentially never.**
 `dist/marp-kit/README.md` carried `fonts/ | 37 files` and `NOTICE.md` carried
 `fonts/KaTeX_*.woff2 (20 files)`, both totals over `dist/fonts/`. Two PRs each
 adding a font is not a scenario this repo has, but the line is the same line, the
 fix is two characters of work, and keeping one known-hazardous aggregate while
 deleting five others is not a defensible place to stop. Both are gone; the license
 table still names the files by glob, which is what the attribution actually needs.
+(Counted as LINES rather than call sites the removals are **seven**: the five above
+plus these two.)
 
 ## 3. What is safe, and why the reasons differ
 

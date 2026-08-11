@@ -114,7 +114,7 @@ values, and both faces must keep the **same layer count**.
    paints no monogram/numeral until the author personalizes it per slide.
 5. **Add Studio metadata** in `finish-catalog.ts` (label, blurb, group, nature,
    zone, swatch) so the rot-guard passes.
-6. **Ship a demo deck** in `examples/` + committed PDF; update CHANGELOG + the
+6. **Ship a demo deck** in `examples/` + committed PDF; add a `changelog.d/` fragment + the
    canonical doc.
 7. **Export sign-off** through **both** engines (CLI vector PDF *and* Studio
    html-to-image raster), in **dark and light**. A finish alters exported bytes, so
@@ -194,7 +194,7 @@ with `<!-- _class: finish-none -->`.
       `url()`, `mask-image`, or `margin`.
 - [ ] Glyph mark defaults to empty.
 - [ ] `finish-catalog.ts` metadata added (rot-guard green).
-- [ ] Demo deck + PDF; CHANGELOG + canonical doc updated.
+- [ ] Demo deck + PDF; `changelog.d/` fragment + canonical doc updated.
 - [ ] **Export sign-off**: rendered in both export engines, dark + light, and shown
       for human approval.
 

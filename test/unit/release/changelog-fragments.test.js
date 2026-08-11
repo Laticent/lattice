@@ -121,6 +121,25 @@ describe('changelog fragments — the gate', () => {
     assert.match(clean({ 'PR1593.added.md': '- x\n' }).join('\n'), /does not parse/);
   });
 
+  test('a MIS-TYPED EXTENSION is rejected, not silently skipped', () => {
+    // The scheme's central promise is "a typo is a loud gate failure, never a
+    // fragment silently dropped". A first cut filtered on `.endsWith('.md')`
+    // BEFORE the pattern, which put a whole class of typo one character to the
+    // left of that promise: these were skipped, never assembled, AND never deleted
+    // by the release (it only removes fragments it read), so the entry would sit
+    // in the directory across every future release, invisible.
+    for (const name of ['1699-x.changed.mdx', '1700-x.changed.md.bak', '1701-x.changed.markdown', 'notes.txt']) {
+      assert.match(clean({ [name]: '- x\n' }).join('\n'), /does not parse/, `${name} must be rejected`);
+    }
+  });
+
+  test('a subdirectory is ignored rather than read as a fragment', () => {
+    const dir = fixture({ 'x.added.md': '- x\n' });
+    fs.mkdirSync(path.join(dir, 'drafts'));
+    assert.deepEqual(fragmentProblems(dir), []);
+    assert.deepEqual(readFragments(dir).map((f) => f.name), ['x.added.md']);
+  });
+
   test('a heading inside a fragment is rejected — the assembler owns headings', () => {
     assert.match(clean({ 'x.added.md': '### Added\n\n- x\n' }).join('\n'), /markdown heading/);
   });

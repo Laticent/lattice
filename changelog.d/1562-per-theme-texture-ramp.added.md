@@ -9,10 +9,14 @@
   −0.557 for a documented reason (a color-vision-deficient palette has no color channel and wants
   the texture loud), so the light arm targets the whisper band and a11y stays hand-authored. The
   ink carries the theme's own hue at low chroma, taken from the ramp's most chromatic chip — which
-  is the point of a per-theme set, and what concrete's hand-tuned warm gray already does. All 32
-  shipped themes derive a usable set with both arms inside the band the hand-tuned sets occupy,
-  and the derivation reproduces onyx's and concrete's hand-picked inks to within 0.10–0.12
-  lightness, which is the evidence that the constants are derived rather than fitted. **No
+  is the point of a per-theme set, a shared gray reading as a foreign set bolted on. All 32
+  shipped themes derive a usable set whose every arm lands inside the band the hand-tuned sets
+  occupy, and the derivation reproduces onyx's and concrete's hand-picked inks in lightness *and*
+  chroma, which is the evidence that the constants are derived rather than fitted. An achromatic
+  ramp gets a true neutral rather than a hue: steering by the most chromatic chip made concrete
+  come out mauve, 140° from the warm gray it was meant to reproduce, and one hex digit flipped it
+  to green. And the arm follows the chips rather than the `light-dark()` slot, so `carbone` — one
+  dark ramp, no pair — gets a light ink on its deep chips instead of a near-black one. **No
   patterns are emitted and no bytes change**: `texturePatternDefs()` is byte-locked against its
   golden SVG, so wiring this in is a separate step that re-blesses the golden, measures whether
   export bytes actually move, adds the polarity pins, and only then lets `--cat-N-texture` join

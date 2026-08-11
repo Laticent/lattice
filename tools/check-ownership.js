@@ -2133,8 +2133,8 @@ function checkCascadeLayers(errors) {
   }
 }
 
-// HARD RULE #3 — NO hex colour literals in the engine's LAYOUT CSS; always `var(--token)`.
-// A hardcoded hex can't follow the palette (it's the same colour in every theme + colour
+// HARD RULE #3 — NO hex color literals in the engine's LAYOUT CSS; always `var(--token)`.
+// A hardcoded hex can't follow the palette (it's the same color in every theme + color
 // mode) and dodges the WCAG-AA contract the tokens carry. The hex gate (`lib/layout/gate.js`
 // `findHexLiterals`) already runs on the Layout-Studio authoring path; this extends it to the
 // SHIPPED layout CSS (lib/), the surface checkMarginDiscipline walks. Budget 0 + an enumerated
@@ -2148,13 +2148,13 @@ function checkCascadeLayers(errors) {
 // palettes themselves (the hex source) and are out of scope entirely (lib/ only, like #20).
 const LAYOUT_HEX_BUDGET = 0;
 
-// The enumerated allowlist — each a FIXED colour that is provably not theme-able. `{file, hex,
+// The enumerated allowlist — each a FIXED color that is provably not theme-able. `{file, hex,
 // count, why}`; the gate consumes `count` matching occurrences (case-insensitive) per entry.
 const SANCTIONED_HEX = [
   {
     file: 'lib/base/base.modifiers.css', hex: '#d4351c', count: 2,
     why: 'overflow-warning ring + tab fill — a FIXED danger red, deliberately NOT a theme token '
-       + 'so the authoring alarm reads identically loud in every palette and colour mode '
+       + 'so the authoring alarm reads identically loud in every palette and color mode '
        + '(documented at the declaration, base.modifiers.css "OVERFLOW WARNING").',
   },
   {
@@ -2224,9 +2224,9 @@ function checkHexLiterals(errors) {
     const top = Object.entries(byFile).sort((a, b) => b[1] - a[1]).slice(0, 5)
       .map(([f, n]) => `${f} (${n})`).join(', ');
     errors.push(
-      `${remaining.length} unsanctioned hex colour literal(s) in engine layout CSS ` +
-      `(HARD RULE #3: always \`var(--token)\` so colour follows the palette + keeps WCAG AA). ` +
-      `Replace with the matching token, or — if the colour is provably fixed (not theme-able) — ` +
+      `${remaining.length} unsanctioned hex color literal(s) in engine layout CSS ` +
+      `(HARD RULE #3: always \`var(--token)\` so color follows the palette + keeps WCAG AA). ` +
+      `Replace with the matching token, or — if the color is provably fixed (not theme-able) — ` +
       `add it to SANCTIONED_HEX in tools/check-ownership.js with a justification. Offending: ${top}.`,
     );
   }
@@ -6390,7 +6390,8 @@ function checkCommittedPdfs(errors) {
 //
 //   1. THE LEDGER, budget 0. Every sanctioned fallback-only token must land on a
 //      target with a floor at least as high. This is the issue's actual ask and it
-//      is satisfiable TODAY — both entries are same-floor hops.
+//      is satisfiable TODAY — all 13 rows (twelve --cat-N-texture plus
+//      --spectrum-solid) are same-role area hops.
 //   2. THE REPO-WIDE BACKLOG, a PINNED SET. 23 distinct chains in lib/ drop a
 //      floor: 8 are the `--cat-N-ink → --cat-N-mark` the repo itself MANDATES
 //      (`checkCatInkFallback`), the rest an unaudited `→ --accent` family. They are
@@ -6457,6 +6458,14 @@ const KNOWN_CONTRACT_DROPS = [
   // swatch's own background, which is the one value guaranteed NOT to contrast
   // with it. Distinct from (b) and the sharpest single row in the list.
   '--mood-ink → --mood-bg',
+  // (c) THREE-LINK CHAINS, where the read lands two hops away on --accent:
+  // `var(--cat-N-ink, var(--cat-N-mark, var(--accent)))` in math.styles.css. The
+  // pairwise view shows only ink→mark (4.5→3, family (a) above); the read-to-final
+  // comparison shows where it ACTUALLY lands on a theme with neither tier, which
+  // is 4.5 → no floor at all. Strictly worse than the two-link form and invisible
+  // until the end-to-end arm was added.
+  '--cat-4-ink → --accent',
+  '--cat-7-ink → --accent',
 ];
 
 /**
@@ -6491,6 +6500,15 @@ function fallbackHops(libDir = LIB_DIR) {
       if (!r.chain?.length) continue;
       let from = token;
       for (const target of r.chain) { hops.push({ token: from, target, where: r.where }); from = target; }
+      // THE READ AGAINST THE FINAL TARGET, not only adjacent pairs. A comparison
+      // that steps pair-by-pair is defeated by laundering a NON-COLOR token
+      // through the middle: `var(--cat-2-ink, var(--anchor-x, var(--cat-2-fill)))`
+      // is two hops, ink→metric and metric→area, and `contractDrop` returns null
+      // for both because a floor cannot be compared against a length. At runtime
+      // `--anchor-x` need not even exist, so the read resolves to `--cat-2-fill`
+      // exactly as the two-link version does — the one the gate catches. Comparing
+      // the read to where it actually lands closes that.
+      if (r.chain.length > 1) hops.push({ token, target: r.chain[r.chain.length - 1], where: r.where });
     }
   }
   return hops;
@@ -6534,7 +6552,7 @@ function ledgerContractProblems(rows = SANCTIONED_FALLBACK_READS) {
     if (verdict) {
       problems.push(
         `SANCTIONED_FALLBACK_READS: --${row.token} (${verdict.fromRole}, ${verdict.from}:1) falls back to ` +
-        `--${row.target} (${verdict.toRole}, ${verdict.to}:1) — the target is held to a WEAKER contract than ` +
+        `--${row.fallback} (${verdict.toRole}, ${verdict.to}:1) — the target is held to a WEAKER contract than ` +
         'the read needs. That is the --cat-N-ink defect exactly: a value repaired to the graphical floor, ' +
         'then painted as label text. Point the fallback at a same-role token, or derive the token ' +
         '(REQUIRED_TOKENS + lib/theme/derive.js).',
@@ -6606,6 +6624,26 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
       'did not introduce.',
     );
   }
+  // SANCTIONED_TOKEN_CONTRACTS needs the same staleness arm, and the first cut did
+  // not give it one — while `lib/tokens/contracts.js` claimed in a comment that it
+  // "cannot rot". A per-token escape hatch with no rot guard is exactly the artifact
+  // the classifier's own design argument disqualifies, so the claim was false in the
+  // one place it mattered. A token that no longer appears in any fallback chain has
+  // no contract left to declare.
+  const namesInHops = new Set(hops.flatMap((h) => [h.token, h.target]));
+  const staleContracts = SANCTIONED_TOKEN_CONTRACTS
+    .filter((s) => !namesInHops.has(s.token))
+    .map((s) => `--${s.token}`);
+  if (staleContracts.length) {
+    errors.push(
+      `${staleContracts.length} SANCTIONED_TOKEN_CONTRACTS entr(ies) name a token that appears in no ` +
+      `var() fallback chain in lib/: ${staleContracts.join(', ')}. Each row exists to give a token whose ` +
+      'NAME cannot carry its role a declared floor; a token the gate never looks at has no contract to ' +
+      'declare. Delete the row — most likely it was renamed into the role vocabulary (HARD RULE #11), ' +
+      'which is the outcome the row is waiting for.',
+    );
+  }
+
   const seen = new Set([...drops.keys()].map((k) => k.replace(/ \(.*\)$/, '')));
   const stale = KNOWN_CONTRACT_DROPS.filter((k) => !seen.has(k));
   if (stale.length) {

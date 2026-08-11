@@ -147,6 +147,13 @@ describe('checkFallbackContracts — the gate, and that it can fail', () => {
       const p = problems([{ token: 'cat-1-ink', fallback: 'cat-1-mark', why: 'x' }]);
       assert.equal(p.length, 1);
       assert.match(p[0], /WEAKER contract/);
+      // The message must NAME BOTH TOKENS. The first cut read `row.target`, which
+      // does not exist on a ledger row (they are {token, fallback, why}), so the one
+      // message a maintainer ever sees from this arm said `--undefined`. Untestable
+      // by accident: every live row is a same-floor hop, so the branch never ran.
+      assert.match(p[0], /--cat-1-ink/);
+      assert.match(p[0], /--cat-1-mark/);
+      assert.doesNotMatch(p[0], /undefined/);
     });
 
     test('CANARY — a ROLE CHANGE is named even when the floor goes UP', () => {
@@ -170,6 +177,17 @@ describe('checkFallbackContracts — the gate, and that it can fail', () => {
   });
 
   describe('arm 2 — the pinned backlog', () => {
+    test('a floor drop laundered through a NON-COLOR token is still caught', () => {
+      // Pairwise hops alone are defeated by putting a metric token in the middle:
+      // ink -> metric and metric -> area are both incomparable, so both return null,
+      // while at runtime the read lands on the area exactly as the two-link form
+      // does. `fallbackHops` therefore also emits read -> FINAL target.
+      const { contractDrop: drop } = require('../../../lib/tokens/contracts.js');
+      assert.equal(drop('cat-2-ink', 'anchor-x'), null, 'the laundering hop is incomparable, as expected');
+      assert.equal(drop('anchor-x', 'cat-2-fill'), null);
+      assert.ok(drop('cat-2-ink', 'cat-2-fill'), 'but the end-to-end pair is a drop');
+    });
+
     test('the live tree matches KNOWN_CONTRACT_DROPS exactly, both ways', () => {
       const errors = [];
       checkFallbackContracts(errors);

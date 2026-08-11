@@ -3,8 +3,11 @@ status: proposed
 summary: >
   The sign-off package #1527 asked for, and it changes the recommendation. THE FLIP IS STILL NOT
   SHIPPED. Three things are now measured that were not. (1) The full sweep: all 32 themes in both
-  modes, before and after, 576 slides per side — 202 slides change and every one of the 64 states
-  changes at least one, so "four themes, light only" was a wide underestimate of the blast radius.
+  modes, before and after, 576 slides per side — every one of the 64 grid states changes at least
+  one slide, and 36 of those states are distinct (16 of the 32 theme files are -dark wrappers that
+  render identically at a fixed color-mode), so the honest figures are 36 of 36 states and 99
+  distinct changed renderings rather than the grid's 64 and 202. Either way "four themes, light
+  only" was a wide underestimate of the blast radius.
   (2) THE PREVIEW AND THE EXPORT ALREADY DISAGREE. lib/engine's composeCss inlines the base at the
   theme's own `@import 'lattice'` position, so the Studio, the docs site and the browser playground
   render the PALETTE's value — measured on the real engine, 932 of 932 disputed tokens resolve
@@ -36,13 +39,24 @@ after** — 576 slides per side, 1,152 renders, compared by SHA-256.
 
 | | |
 |---|---|
-| theme-modes rendered | **64** |
-| theme-modes with at least one changed slide | **64 of 64** |
-| slides that change | **202 of 576** |
+| theme-modes in the grid | **64** (32 theme files × 2 `color-mode:`) |
+| …with at least one changed slide | **64 of 64** |
+| changed slide instances | **202 of 576** |
+| **DISTINCT** states in that grid | **36** |
+| **DISTINCT** changed renderings | **99** |
 
-The prior sample was four themes, light only. The worst is `cuoio` in dark mode
-(8 of 9 slides); the mildest is `indaco` dark, which still changes one. **There is
-no theme this is invisible on**, in either mode.
+**The 64 and the 202 double-count, and the distinct figures are the honest ones.**
+Sixteen of the 32 theme files are `-dark` wrappers of the other sixteen, and at a
+*fixed* `color-mode:` a wrapper renders byte-identically to its parent — verified:
+`cuoio-dark` at `color-mode: dark` and `cuoio` at `color-mode: dark` are the same
+bytes. So the grid contains 36 distinct states, not 64, and 99 distinct changed
+renderings, not 202. The prior draft of this table published only the grid
+figures, which overstate the corpus by roughly 2×.
+
+**The conclusion is unchanged and does not depend on the inflation:** all 36
+distinct states change. The prior sample was four themes, light only. The worst is
+`cuoio` in dark mode (8 of 9 slides); the mildest is `indaco` dark, which still
+changes one. **There is no theme this is invisible on**, in either mode.
 
 Which slides change tracks the token families exactly: `code` (the twelve
 `--hljs-*`) and `checklist` (`--pass`/`--warn`/`--fail`) change nearly everywhere;

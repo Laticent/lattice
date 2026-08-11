@@ -1,8 +1,11 @@
 - **Investigated (no behavior change, and the flip is still NOT shipped): the palette/base concat
   sign-off sweep, and it changes the recommendation.** Three things are now measured that were
   not. **The blast radius** — all 32 themes in both modes, before and after, 576 slides a side:
-  202 slides change and every one of the 64 theme-modes changes at least one, so the earlier
-  four-themes-light-only sample was a wide underestimate. **The preview already renders the
+  every one of the 64 grid states changes at least one slide. Sixteen of the 32 theme files are
+  `-dark` wrappers that render identically to their parent at a fixed `color-mode`, so the honest
+  distinct figures are 36 of 36 states and 99 changed renderings rather than 64 and 202 — the
+  conclusion is unchanged and the earlier four-themes-light-only sample was still a wide
+  underestimate. **The preview already renders the
   flipped order** — `lib/engine`'s `composeCss` inlines the base at the theme's own
   `@import 'lattice'` position, so the Studio, the docs site and the browser playground show the
   palette's value; driven on the real engine, 932 of 932 disputed tokens resolve exactly as the

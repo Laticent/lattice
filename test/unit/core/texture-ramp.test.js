@@ -98,10 +98,37 @@ describe('texture-ramp — the pieces', () => {
     assert.equal(Math.round(h), Math.round(hexToOklch('#c81e5a').h));
   });
 
-  test('a fully neutral ramp yields a neutral-ish hue, which at INK_CHROMA reads as gray', () => {
+  test('an achromatic ramp yields a TRUE neutral, not a hue at INK_CHROMA', () => {
+    // The earlier version of this test asserted `C < 0.03`, which INK_CHROMA = 0.012
+    // guarantees for EVERY hue — it could not fail for the reason its name gave, and
+    // it passed while onyx was getting an olive ink and concrete a mauve one.
     const ink = deriveTextureInk(['#e8e8e8', '#cccccc', '#868686'], 'light');
-    const { C } = hexToOklch(ink);
-    assert.ok(C < 0.03, `expected a near-neutral ink, got chroma ${C}`);
+    // sRGB gray round-trips through OKLab at C ~ 2e-8, not exactly 0 — that residue
+    // IS the noise dominantHue used to steer by, so the bar is "imperceptible",
+    // three orders of magnitude below INK_CHROMA.
+    assert.ok(hexToOklch(ink).C < 1e-6, `expected an exactly neutral ink, got ${ink}`);
+    assert.equal(dominantHue(['#e8e8e8', '#cccccc', '#868686']), null);
+  });
+
+  test('a chromatic ramp DOES carry its hue', () => {
+    const fills = ['#BCD5EC', '#EBE2B8', '#C8E6C9'];
+    const ink = deriveTextureInk(fills, 'light');
+    const { C, h } = hexToOklch(ink);
+    assert.ok(C > 0.005, `expected a hued ink, got chroma ${C}`);
+    // 5 deg, not 1: at C = 0.012 the hex round-trip moves the hue a couple of
+    // degrees. The claim under test is "the ink takes the ramp's hue family", and
+    // the failure it must catch is the 140 deg swing the first cut produced.
+    assert.ok(Math.abs(h - dominantHue(fills)) < 5, `the ink takes the ramp's dominant hue (got ${h}, want ~${dominantHue(fills)})`);
+  });
+
+  test('the hue is stable against 8-bit rounding — a one-digit edit cannot flip it', () => {
+    // concrete's light ramp is neutral to within quantization; the first cut picked
+    // between two slots differing by 0.00001 chroma, so one hex digit swung the ink
+    // from mauve to green.
+    const base = SHIPPED.concreteLight.fills;
+    const nudged = [...base];
+    nudged[9] = '#DFDDDE';
+    assert.equal(deriveTextureInk(base, 'light'), deriveTextureInk(nudged, 'light'));
   });
 
   test('the light arm whispers BELOW the chips; the dark arm reads ABOVE them', () => {
@@ -169,9 +196,15 @@ describe('texture-ramp — it reproduces the hand tuning it generalizes', () => 
   // The load-bearing claim. If the derived ink did not land near the values a human
   // chose for onyx and concrete, these constants would be invented rather than
   // derived and the feasibility result below would mean nothing.
+  // Compares LIGHTNESS *and* CHROMA. The first cut compared only L, which is
+  // `meanL + DELTA` by construction — so the suite restated the constants instead
+  // of checking them, and it passed while both concrete arms came out mauve.
   const near = (a, b, tol, what) => {
-    const d = Math.abs(hexToOklch(a).L - hexToOklch(b).L);
-    assert.ok(d <= tol, `${what}: derived ${a} vs hand-tuned ${b} — lightness gap ${d.toFixed(3)} > ${tol}`);
+    const [x, y] = [hexToOklch(a), hexToOklch(b)];
+    const dL = Math.abs(x.L - y.L);
+    assert.ok(dL <= tol, `${what}: derived ${a} vs hand-tuned ${b} — lightness gap ${dL.toFixed(3)} > ${tol}`);
+    const dC = Math.abs(x.C - y.C);
+    assert.ok(dC <= 0.012, `${what}: derived ${a} (C=${x.C.toFixed(4)}) vs hand-tuned ${b} (C=${y.C.toFixed(4)}) — chroma gap ${dC.toFixed(4)}`);
   };
 
   test('onyx light — derived ink lands near the hand-picked #8a8a8a', () => {
@@ -203,8 +236,11 @@ describe('texture-ramp — every shipped theme derives a usable set', () => {
   // already occupy: light 1.05–2.82, dark 2.85–12.46. Texture is redundant encoding
   // painted at 0.40/0.45 opacity over a fill that already carries the category, so
   // there is no WCAG floor here — the band IS the specification.
-  const LIGHT_BAND = [1.0, 4.0];
-  const DARK_BAND = [2.5, 13.0];
+  // Banded BY ARM, not by slot: `carbone` has no light-dark() on its fills and its
+  // single ramp is dark, so its `lightInk` is a dark-ARM ink and belongs in the dark
+  // band. Checking the slot instead reported a light-arm range of 1.20-8.03 and hid
+  // the fact that carbone had been given the wrong arm entirely.
+  const BAND = { light: [1.0, 4.0], dark: [2.5, 13.0] };
 
   const derived = THEME_FILES.map((f) => {
     const ramp = fillRamp(path.join(THEMES, f));
@@ -221,11 +257,12 @@ describe('texture-ramp — every shipped theme derives a usable set', () => {
     for (const { name, ramp } of derived) {
       const set = textureSetFrom({ lightFills: ramp.light, darkFills: ramp.dark });
       const r = inkContrastRange(set);
-      if (r.light.min < LIGHT_BAND[0] || r.light.max > LIGHT_BAND[1]) {
-        out.push(`${name} light ${r.light.min.toFixed(2)}–${r.light.max.toFixed(2)} outside ${LIGHT_BAND.join('–')}`);
-      }
-      if (r.dark && (r.dark.min < DARK_BAND[0] || r.dark.max > DARK_BAND[1])) {
-        out.push(`${name} dark ${r.dark.min.toFixed(2)}–${r.dark.max.toFixed(2)} outside ${DARK_BAND.join('–')}`);
+      for (const [slot, arm] of [['light', set.lightArm], ['dark', set.darkArm]]) {
+        if (!r[slot]) continue;
+        const [lo, hi] = BAND[arm];
+        if (r[slot].min < lo || r[slot].max > hi) {
+          out.push(`${name} ${slot}-slot (${arm} arm) ${r[slot].min.toFixed(2)}–${r[slot].max.toFixed(2)} outside ${lo}–${hi}`);
+        }
       }
     }
     assert.deepEqual(out, []);
@@ -236,9 +273,22 @@ describe('texture-ramp — every shipped theme derives a usable set', () => {
     assert.ok(derived.every((d) => d.ramp && d.ramp.light.length === 12));
   });
 
-  test('a scheme-flipping theme gets two arms; a mode-invariant one gets a static set', () => {
+  test('a scheme-flipping theme gets two ramps; a single-ramp theme gets a static set', () => {
     const byName = Object.fromEntries(derived.map((d) => [d.name, d.ramp]));
-    assert.ok(byName.onyx.dark, 'onyx flips with the scheme');
-    assert.equal(byName['a11y-base'].dark, null, 'the a11y family is mode-invariant by design');
+    assert.ok(byName.onyx.dark, 'onyx declares its cat fills as light-dark() pairs');
+    assert.equal(byName['a11y-base'].dark, null, 'the a11y family declares one literal ramp');
+  });
+
+  test('the arm follows the CHIPS — carbone\'s single ramp is dark and gets the dark arm', () => {
+    // carbone is NOT mode-invariant (its file carries 39 light-dark() declarations);
+    // it simply has no light-dark() on --cat-N-fill, which is a different thing. Its
+    // one ramp is dark (mean L 0.367), and slot-based arm selection gave it a
+    // near-black #121116 for deep chips — inverted from every hand-tuned set, and
+    // held off pure black only by INK_L_MIN.
+    const ramp = derived.find((d) => d.name === 'carbone').ramp;
+    const set = textureSetFrom({ lightFills: ramp.light, darkFills: ramp.dark });
+    assert.equal(set.darkFills, null, 'one ramp');
+    assert.equal(set.lightArm, 'dark', 'a dark ramp takes the dark arm whichever slot it sits in');
+    assert.ok(hexToOklch(set.lightInk).L > 0.7, `expected a light ink on dark chips, got ${set.lightInk}`);
   });
 });

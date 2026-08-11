@@ -9,11 +9,11 @@ summary: >
   floor is read off the name by a dozen PATTERNS, not a per-token list that goes stale the first
   time someone adds a token (the shape #1560's first cut shipped and had to undo). An unmatched
   name returns null and is counted, never defaulted to "no floor". Measured over the real tree:
-  547 tokens scanned, 297 token-hop fallbacks, 78 distinct chains, of which 23 hops DROP a floor and,
-  after three explicitly-declared exceptions, ZERO fail to classify. Three arms: the ledger at
+  547 tokens scanned, 297 token-hop fallbacks, 79 distinct hop pairs, of which 25 DROP a floor and,
+  after six explicitly-declared exceptions, ZERO fail to classify. Three arms: the ledger at
   budget 0 (satisfiable today, and role-STRICT because the rows claim "same role" and a floor
-  comparison alone would accept re-pointing a texture at a mark), the repo-wide 23 as a PINNED
-  SET rather than a count ratchet, and unclassified names at budget 0. The 23 are LOGGED, not
+  comparison alone would accept re-pointing a texture at a mark), the repo-wide 25 as a PINNED
+  SET rather than a count ratchet, and unclassified names at budget 0. The 25 are LOGGED, not
   blessed: 8 are the `--cat-N-ink → --cat-N-mark` the repo itself mandates, and #1527's concat
   flip would remove the reason those have to exist. The other 15 are an unaudited `→ --accent`
   family that nothing has measured — the second `--cat-N-ink`, and the reason this gate is worth
@@ -73,9 +73,10 @@ stale that way.
 `contractOf()` returns `null`, and the gate counts it. A classifier that quietly
 defaulted an unmatched name to "no floor" would let the next `--cat-N-ink`
 straight through — so the unmatched bucket is, in effect, a HARD RULE #11
-conformance report. Three tokens are in it today and each is declared explicitly
-with its floor in `SANCTIONED_TOKEN_CONTRACTS`, because the honest fix for all
-three is a rename that is off this change's path.
+conformance report. **Six** tokens are in it today, each declared explicitly with
+its floor in `SANCTIONED_TOKEN_CONTRACTS`: the three `--marp-slide-*-color`, whose
+names belong to Marp Core and are not ours to change, and `--state-color`,
+`--lane-color`, `--lane-jur`, whose honest fix is a rename off this change's path.
 
 **Three roles, not five.** Surface, hue and decorative paint are deliberately one
 role. A finer taxonomy reads tidier and makes role equality useless: the ledger's
@@ -97,12 +98,12 @@ cannot disagree about what a fallback chain is:
 | | |
 |---|---|
 | tokens scanned | **547** |
-| token-hop `var(--a, var(--b))` reads | **297** (300 hops — a three-link chain is one read, two hops) |
-| distinct chains | **78** |
-| distinct hops that DROP a floor | **23** |
-| tokens that fail to classify | **0**, after three declared exceptions |
+| token-hop `var(--a, var(--b))` reads | **297** (303 hops — a three-link chain is one read, two adjacent hops, plus one read→final pair) |
+| distinct hop pairs | **79** |
+| distinct hops that DROP a floor | **25** |
+| tokens that fail to classify | **0**, after **six** declared exceptions |
 
-*An earlier draft of this table published 555 / 299 / 79.* Those are the pre-strip
+*Two earlier drafts of this table were wrong, and both are recorded rather than swapped.* The first published **555 / 299 / 79**. Those are the pre-strip
 figures: the first probe was written before the gate learned to strip `//` line
 comments from `.js`, so it counted a JSDoc line in `lib/theme/derive.js`
 documenting this very pattern (`var(--cat-N-ink, var(--cat-N-mark))`) as a real
@@ -110,8 +111,15 @@ read of a token named `--cat-N-ink`. Recorded rather than silently swapped:
 `2026-08-10-fallback-exit-ledger.md` §2 makes exactly this point about exactly
 this line of work — *"the numbers a record cannot reproduce are the numbers not
 to print"* — and it would be a poor note that repeated the mistake it cites.
+The second published **547 / 297 / 78 / 23**, correct at the time and stale within
+the hour: the adversarial trio found two evasions (a floor drop laundered through a
+non-color token mid-chain, and `-alt`/`-soft` un-flooring a whole ink family), and
+closing them added the read→final hop, which surfaced two more real drops
+(`--cat-4-ink` and `--cat-7-ink` landing on `--accent` two hops out). Twice in one
+change is the argument for deriving a number at read time rather than printing it —
+which is exactly what §4's pinned set does and this table does not.
 
-The 23, in two families that are **not equally defensible**:
+The 25, in two families that are **not equally defensible**:
 
 **(a) `--cat-N-ink → --cat-N-mark`, eight slots — the repo MANDATES this one.**
 `checkCatInkFallback` requires exactly this fallback at every read. The tier has
@@ -125,20 +133,24 @@ them — but a theme generated outside this repo lands on it, which is the
 176-of-200 `brand-mono` measurement. **#1527's concat flip would remove the reason
 this drop has to exist**, and is the cheapest way to drain eight of these rows.
 
-**(b) `→ --accent`, fifteen chains — unaudited, and this is the finding.**
+**(b) `→ --accent`, seventeen chains — unaudited, and this is the finding.**
 `--code-inline-fg`, `--ink`, `--jur-ink`, `--lane-ink`, `--on-dark-watermark`,
 `--panel-label-ink`, `--phase-ink`, `--row-ink`, `--tier-ink` (4.5:1 → nothing);
 `--cat-4-mark`, `--cat-7-mark`, `--lane-jur`, `--panel-mark`, `--pill-border`
-(3:1 → nothing); and `--mood-ink → --mood-bg`, the sharpest single row, a label
-falling back to its own background.
+(3:1 → nothing); `--mood-ink → --mood-bg`, the sharpest single row, a label
+falling back to its own background; and two that only the read→final comparison
+sees — `--cat-4-ink` and `--cat-7-ink` land on `--accent` two hops out via
+`var(--cat-N-ink, var(--cat-N-mark, var(--accent)))` in `math.styles.css`, so the
+pairwise view shows a 4.5→3 drop where the read actually resolves to no floor at
+all.
 
 `--accent` carries **no floor against anything.** It is the theme's brand hue —
 near-black in onyx and concrete. A `*-ink` read that degrades onto it is a 4.5:1
 text requirement resolving to a value nothing holds to any contrast at all. That
-is the same construction as `--cat-N-ink`, in fifteen more places, and nothing
+is the same construction as `--cat-N-ink`, in seventeen more places, and nothing
 had looked at it.
 
-**No claim is made here that any of the fifteen is AA-clean.** They are
+**No claim is made here that any of the seventeen is AA-clean.** They are
 pre-existing and off this change's path, so HARD RULE #18 says log them rather
 than sweep them in.
 
@@ -147,24 +159,26 @@ than sweep them in.
 Three arms, because the three populations have different standing:
 
 1. **The ledger, budget 0.** Every `SANCTIONED_FALLBACK_READS` row is checked for
-   a floor drop *and* a role change. It is satisfiable **today** — both live rows
-   are same-role area hops. This is the issue's literal ask, enforced at zero.
+   a floor drop *and* a role change. It is satisfiable **today** — all 13 live
+   rows (twelve `--cat-N-texture` plus `--spectrum-solid`) are same-role area hops,
+   so none can produce a floor verdict under the current population; the arm is live
+   against a future re-point. This is the issue's literal ask, enforced at zero.
 2. **The repo-wide backlog, a PINNED SET** (`KNOWN_CONTRACT_DROPS`), not a count
-   ratchet. A count lets one drop be swapped for another silently; with 23
+   ratchet. A count lets one drop be swapped for another silently; with 25
    entries the set costs nothing more and names exactly which chain is new. It
    fails both ways — an unlisted drop errors, and an entry that no longer occurs
    errors as stale, so **draining shows up as a diff**. Named `KNOWN_` rather
    than `SANCTIONED_` on purpose: these are logged, not blessed.
 3. **Unclassified names, budget 0**, with `SANCTIONED_TOKEN_CONTRACTS` for the
-   three whose names are not ours to change (`--marp-slide-*-color`) or whose
-   rename is off-path (`--state-color`, `--lane-color`, `--lane-jur`).
+   six whose names are not ours to change (the three `--marp-slide-*-color`) or
+   whose rename is off-path (`--state-color`, `--lane-color`, `--lane-jur`).
 
 Plus an empty-scan guard: if the walk finds no token-hop fallbacks at all, that
 is a broken scan and not a clean tree.
 
 ## 5. Verification
 
-44 unit tests. The four arms are each driven by a CANARY that must fail:
+45 unit tests. Each arm is driven by a CANARY that must fail:
 
 | mutation | result |
 |---|---|
@@ -184,7 +198,7 @@ integration tier pass.
 
 ## 6. What this does not fix
 
-- **The fifteen `→ --accent` drops are logged, not measured.** Nothing here says
+- **The seventeen `→ --accent` drops are logged, not measured.** Nothing here says
   they are AA-clean; the pinned set exists so they cannot multiply while someone
   audits them. That audit needs a real contrast pass across 32 themes and is its
   own card.
@@ -202,3 +216,22 @@ integration tier pass.
 - **Nothing checks a `why` string.** It never could. What changed is that the
   *mechanical* half of the claim — same contract, same role — is no longer taken
   on trust.
+- **A FALLBACK WRAPPED IN A FUNCTION IS OUTSIDE THE POPULATION, and that is
+  inherited, not new.** `parseVarChain` builds a chain only when the fallback
+  begins `var(`, so `var(--a, color-mix(… var(--b) …))` and
+  `var(--a, light-dark(var(--b), var(--c)))` produce no hop at all. #1566 argued
+  the case deliberately: the hop is what can silently drift, whereas an inline
+  expression *is* the value, written at the read — and requiring a ledger row for
+  the safe inline form taxed #1573 with eight rows for a pattern carrying none of
+  the risk. That reasoning still holds, and this gate inherits the scope.
+  **What it means concretely:** the eight `--chart-cat-N-ink` reads in
+  `lib/components/chart/_chart-family/chart-family.css:168-175`, whose fallback
+  mixes an unfloored `--chart-cat-N-hue` 65% with `--text-heading`, are invisible
+  to this gate. Nothing here says whether they are AA-clean; measuring them across
+  32 themes is its own card.
+  **And the argument has a hole the red team found:** a DEGENERATE mix —
+  `color-mix(in oklab, var(--cat-1-fill) 100%, transparent)` — is a re-point
+  wearing a function, with all of the drift risk and none of the visibility.
+  Closing it means teaching `parseVarChain` to look inside function arguments,
+  which is #1566's shared scanner and is read by three gates, so it is a change to
+  make deliberately rather than at the end of a batch.

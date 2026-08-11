@@ -61,6 +61,15 @@ build-time assembly would make `CHANGELOG.md` a generated-from-*everything*
 committed artifact byte-gated by `build:check`, which is the *other* merge-queue
 hazard (#1594 / #1547) — trading a visible conflict for a silent ejection.
 
+## This is an interim
+
+Its successor is `.changeset/`. `engineering/decisions/2026-08-09-changesets-multi-package-release.md`
+plans to adopt Changesets across the five workspace packages and retire
+`tools/changelog.js`'s versioning role; that is gated behind a manual first npm
+publish which has not happened. When it does, slice 1 of that record converts
+whatever is pending here. Until then this directory is where entries go.
+Reasoning: `engineering/decisions/2026-08-11-changelog-fragments.md` §7.
+
 ## Gates
 
 `checkChangelogFragments` (in `tools/check-ownership.js`, via `build:check`)

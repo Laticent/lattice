@@ -70,15 +70,25 @@ const FRAGMENT_NAME_RE = new RegExp(`^([a-z0-9][a-z0-9._-]*?)\\.(${FRAGMENT_CATE
 const FRAGMENT_DIR = path.join(__dirname, '..', FRAGMENT_DIRNAME);
 
 /**
- * Every `.md` in `changelog.d/` except its own README, sorted by filename so
- * assembly is deterministic. `category` is null for a file whose name doesn't
- * parse — `fragmentProblems` is what rejects those; readers never guess.
+ * EVERY file in `changelog.d/` except its own README, sorted by filename so
+ * assembly is deterministic. `category` is null for a name that doesn't parse —
+ * `fragmentProblems` is what rejects those; readers never guess.
+ *
+ * "Every file", not "every `.md`". A first cut filtered on `.endsWith('.md')`
+ * BEFORE the pattern, which put a whole class of typo one character to the left
+ * of the loud failure the README promises: `1699-x.changed.mdx` and
+ * `1700-x.changed.md.bak` were skipped silently, never assembled, AND never
+ * deleted by the release (it only removes fragments it read) — so an entry would
+ * sit in the directory across every future release, invisible. Scanning
+ * everything and rejecting what doesn't parse is the only shape where "a typo is
+ * a gate failure" is true.
  */
 function readFragments(dir = FRAGMENT_DIR) {
   if (!fs.existsSync(dir)) return [];
   return fs
-    .readdirSync(dir)
-    .filter((n) => n.endsWith('.md') && n !== 'README.md')
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name !== 'README.md')
+    .map((e) => e.name)
     .sort()
     .map((name) => {
       const m = FRAGMENT_NAME_RE.exec(name);
@@ -381,7 +391,12 @@ function main(argv) {
     catch (e) { console.error(e.message); return 1; }
   }
   if (argv.includes('--bump')) {
-    process.stdout.write(computeBump(section.body) + '\n');
+    // `--check` has always caught this; --bump and --next threw a raw stack trace at
+    // whoever ran them on an empty changelog. Now that adding an entry means adding a
+    // FILE rather than editing one, "nothing to release" is a state a human reaches by
+    // ordinary means, and it deserves the same one-line answer.
+    try { process.stdout.write(`${computeBump(section.body)}\n`); }
+    catch (e) { console.error(`error: ${e.message}`); return 1; }
     return 0;
   }
   if (argv.includes('--notes')) {
@@ -392,7 +407,8 @@ function main(argv) {
   if (nextIdx !== -1) {
     const cur = argv[nextIdx + 1];
     if (!cur) { console.error('error: --next requires a current version'); return 1; }
-    process.stdout.write(nextVersion(cur, computeBump(section.body)) + '\n');
+    try { process.stdout.write(`${nextVersion(cur, computeBump(section.body))}\n`); }
+    catch (e) { console.error(`error: ${e.message}`); return 1; }
     return 0;
   }
   console.error('usage: changelog.js [--bump | --notes | --check | --fragments | --next <version>]');

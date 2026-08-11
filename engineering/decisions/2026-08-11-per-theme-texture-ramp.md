@@ -11,8 +11,12 @@ summary: >
   and wants the texture loud). So the light arm targets the whisper band and a11y stays hand
   authored. Result: all 32 shipped themes derive a usable set, both arms inside the band the
   hand-tuned sets occupy, and the derivation REPRODUCES onyx's and concrete's hand-picked inks
-  within 0.10–0.12 lightness — which is the evidence that the constants are derived rather than
-  fitted. DELIBERATELY DOES NOT emit patterns: texturePatternDefs() is byte-locked against
+  in lightness AND chroma — which is the evidence that the constants are derived rather than
+  fitted. Two defects the adversarial trio found are fixed rather than documented: an achromatic
+  ramp was steering by 8-bit quantization noise (concrete came out MAUVE, 140 degrees from the
+  warm gray the module claimed to reproduce, and one hex digit flipped it to green), and the arm
+  was chosen by which light-dark() SLOT a ramp came from rather than by the chips, so carbone's
+  single dark ramp got a near-black ink for deep chips. DELIBERATELY DOES NOT emit patterns: texturePatternDefs() is byte-locked against
   texture-defs.golden.svg, so wiring this in is a separate step that re-blesses the golden, checks
   whether export bytes move, and only then lets --cat-N-texture join REQUIRED_TOKENS.
 ---
@@ -96,11 +100,26 @@ inherit their parent's ramp through `@import`, and measuring the file standalone
 is the mistake that produced two wrong published counts in #1527:
 
 - **32 of 32 themes** expose a full twelve-slot `--cat-N-fill` ramp;
-- **32 of 32** derive a set with both arms inside the band the hand-tuned sets
-  occupy — light 1.20–3.56 at the widest (onyx), dark 4.20–10.39;
-- the six mode-invariant palettes (the a11y family, carbone) come out `static`,
-  the rest `schemeAware` — which is exactly the builder split
+- **32 of 32** derive a set whose every arm lands inside the band the hand-tuned
+  sets occupy — whisper arm 1.20–3.55 at the widest (onyx), read arm 4.20–10.38;
+- the six palettes that declare ONE ramp (the a11y family, carbone) come out
+  `static`, the rest `schemeAware` — which is exactly the builder split
   `texturePatternDefs()` already has.
+
+**`carbone` is not "mode-invariant", and calling it that hid a real defect.** An
+earlier draft grouped it with the a11y family under that word. It is wrong:
+`themes/carbone.css` carries **39** `light-dark()` declarations. What it lacks is a
+`light-dark()` pair on `--cat-N-fill` specifically — a different thing, and the
+reason its set is `static` is that, not mode-invariance.
+
+The defect underneath: carbone's single ramp is **dark** (mean L 0.367), and the
+first cut chose the arm by which SLOT the ramp came from rather than by the chips.
+So carbone got the light — whisper — arm and derived `#121116`, a near-black ink
+for deep chips, inverted from every hand-tuned set and held off pure black only by
+`INK_L_MIN` firing. The arm now follows the chips (`armFor`, split at L 0.5, which
+is unambiguous: every light ramp in the corpus sits at 0.77–0.90 and every dark one
+at 0.37–0.48), and carbone derives `#d4d2db` at 5.98–8.03 — squarely in the band
+the shipped dark arms occupy. Found by the independent checker (HARD RULE #25).
 
 Pinned as a test over the real corpus, not a fixture, with a guard that the walk
 is non-empty.
@@ -148,6 +167,7 @@ answer, not one it answers.
   alphas, so the *effective* contrast on the chip is lower than the raw ratio
   reported here. That is equally true of the shipped sets the band is drawn from,
   so the comparison holds — but the absolute numbers are not what a viewer sees.
-- **`carbone` derives a light arm at 1.56–2.10**, the tightest of the 32, because
-  its ramp is already dark and it has no second arm. Inside the band, at the
-  quiet end; worth a look when it is rendered.
+- **The band is a range, not a floor.** The test admits whisper-arm ratios down to
+  1.0, wider than the 1.05 the shipped sets bottom out at, and a ratio near 1.0 is
+  an ink invisible on its chip. Nothing currently derives one — the observed
+  minimum is 1.20 — but the band would not catch it if something did.

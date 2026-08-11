@@ -17,9 +17,27 @@
  *
  * This gate is the PROPERTY, not a list of banned field names. It builds the four
  * states the queue actually constructs, merges two of them, and asserts the result
- * equals a fresh regeneration. Any future aggregate — a total, a checksum, an index
- * size, whatever shape it takes — fails here without anyone having to predict it.
- * Reintroducing `count: components.length` fails all three arms.
+ * equals a fresh regeneration. Reintroducing `count: components.length` fails all
+ * three arms without anyone having named the field.
+ *
+ * ITS REACH IS BOUNDED BY THE REMOVAL PAIR, and saying so is more useful than
+ * claiming it catches "any future aggregate". It catches an aggregate SENSITIVE to
+ * removing the pair. Two pairs run:
+ *
+ *   · `big-number` + `compare-code` — two well-populated buckets. Merges CLEAN, so
+ *     all three artifacts are compared against a fresh regeneration. This is the
+ *     silent-ejection case and the one that matters.
+ *   · `diagram` + `math` — the ONLY members of their buckets, so removing them moves
+ *     the BUCKET count too. It merges CONFLICTED (dropping a bucket takes its
+ *     heading, its section and its ToC line, and the two land adjacently), which
+ *     exercises the loud path and proves the arms skip it deliberately.
+ *
+ * SO A `${buckets.length}` AGGREGATE IS NOT COVERED, and it is the other half of the
+ * line #1594 removed. Catching it needs a pair that changes the bucket count AND
+ * merges cleanly, and this corpus has exactly two single-member buckets whose
+ * entries sort adjacently — so no such pair exists today. Stated rather than
+ * papered over; if a third single-member bucket appears, add the pair. (Red team,
+ * HARD RULE #25.)
  *
  * It runs entirely IN PROCESS, over a filtered copy of the real manifest array.
  * The first cut renamed two manifests on disk to simulate "before this PR", which
@@ -42,11 +60,19 @@ const {
   renderPortalMd, renderPortalJson, renderGrammarJson,
 } = require('../../../tools/build-docs-portal.js');
 
-// Two components in DIFFERENT buckets, so their entries insert at different
-// positions and the merge comes out clean — the dangerous case. Two insertions at
-// the SAME position conflict, which is loud and therefore already safe.
-const X = 'big-number';
-const Y = 'compare-code';
+// Each pair is two components in DIFFERENT buckets, so their entries insert at
+// different positions and the merge comes out clean — the dangerous case. Two
+// insertions at the SAME position conflict, which is loud and already safe.
+//
+// The second pair takes `diagram` and `math`, the ONLY members of their buckets, so
+// removing them moves the BUCKET count as well as the component count. Without it a
+// `${buckets.length}` aggregate — the other half of the line #1594 deleted — passes
+// every arm, because a pair from two populated buckets leaves the bucket count
+// unchanged. Found by the red team (HARD RULE #25).
+const PAIRS = [
+  ['big-number', 'compare-code'],
+  ['diagram', 'math'],
+];
 
 const RENDERERS = [
   ['dist/docs/components.md', renderPortalMd],
@@ -54,7 +80,8 @@ const RENDERERS = [
   ['dist/docs/grammar.json', renderGrammarJson],
 ];
 
-describe('docs-portal artifacts survive a concurrent-PR three-way merge (#1594)', () => {
+for (const [X, Y] of PAIRS) {
+describe(`docs-portal artifacts survive a concurrent-PR three-way merge — removing ${X} + ${Y} (#1594)`, () => {
   let states, tmp;
 
   before(() => {
@@ -102,10 +129,15 @@ describe('docs-portal artifacts survive a concurrent-PR three-way merge (#1594)'
     // containing X and Y, or a renderer stops reading its argument.
     for (const s of states) {
       assert.notEqual(s.base, s.fresh, `${s.label}: removing two components changed nothing`);
-      assert.ok(!s.merged.includes('<<<<<<<'), `${s.label}: the merge under test is the CLEAN one`);
     }
+    // At least one artifact must reach the CLEAN branch, or this pair tests only the
+    // loud path. The `diagram` + `math` pair conflicts on components.md by design
+    // (see the header) and still merges its JSON siblings cleanly.
+    assert.ok(states.some((s) => !s.merged.includes('<<<<<<<')),
+      'every artifact conflicted — this pair exercises none of the silent case');
     const json = states.find((s) => s.label === 'dist/docs/components.json').fresh;
     assert.ok(json.includes(`"name": "${X}"`), `${X} is in the full catalog`);
     assert.ok(json.includes(`"name": "${Y}"`), `${Y} is in the full catalog`);
   });
 });
+}
