@@ -26011,7 +26011,15 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
   --hljs-keyword:    #D4A04A;  /* warm amber-gold, italic                */
   --hljs-built_in:   #8EBA6A;  /* warm lime-green — built-ins            */
   --hljs-number:     #D48A6A;  /* warm orange-rust                       */
-  --hljs-literal:    #C05A6A;  /* warm rose-pink — booleans/null         */
+  /* Was #C05A6A, which is 4.05:1 on this theme's own --code-bg (#1e1a15) — under
+   * the AA floor for code text. Lifted in OKLCH holding hue (12.2 -> 12.4) and
+   * chroma, +0.036 lightness, the same move derive-cat-ink makes for the ink tier:
+   * 4.68:1, clearing AA + the 0.15 margin cat-ink.js uses so an 8-bit round-trip
+   * cannot drop it back under. Found by #1527's sign-off sweep; the miss was
+   * invisible because the export loads the base AFTER the theme, so the base's
+   * #ff5874 has been painting instead. This changes nothing rendered TODAY and is
+   * a prerequisite for the concat flip. */
+  --hljs-literal:    #CC6574;  /* warm rose-pink — booleans/null         */
   --hljs-string:     #C8885A;  /* warm terracotta                        */
   --hljs-title:      #D4B868;  /* warm amber-yellow, italic              */
   --hljs-type:       #7ABAB0;  /* muted teal — cool contrast on warm bg  */

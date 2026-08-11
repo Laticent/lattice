@@ -195,7 +195,13 @@
   --hljs-keyword:    #c792ea;  /* Night Owl: soft purple, italic         */
   --hljs-built_in:   #addb67;  /* Night Owl: yellow-green — functions    */
   --hljs-number:     #F78C6C;  /* Night Owl: warm orange                 */
-  --hljs-literal:    #ff5874;  /* Night Owl: pink-red — booleans/null    */
+  /* NOT verbatim Night Owl, and deliberately so. Night Owl's own #ff5874 is tuned
+   * for Night Owl's panel (#011627); indaco's --code-bg is the lighter #003d66,
+   * and the borrowed value lands at 3.71:1 there — under AA, and rendering that
+   * way TODAY (this is the one hljs miss that does not depend on #1527's concat
+   * order). Lifted in OKLCH holding hue (14.4 -> 14.3), +0.054 lightness: 4.67:1.
+   * Chroma drops 0.202 -> 0.156 because the hue runs out of gamut that light. */
+  --hljs-literal:    #ff7f8e;  /* Night Owl pink-red, lifted for this panel */
   --hljs-string:     #ecc48d;  /* Night Owl: warm gold/tan               */
   --hljs-title:      #DCDCAA;  /* Night Owl: pale yellow, italic         */
   --hljs-type:       #82aaff;  /* Night Owl: periwinkle — type names     */

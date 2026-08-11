@@ -5482,9 +5482,108 @@ function catInkCollapsePairs(inks, marks) {
   return out;
 }
 
+/**
+ * The twelve `--hljs-*` syntax colors, against the code panel they are painted on.
+ *
+ * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
+ * the one large token family the categorical gate above does not reach. That gap
+ * hid a real defect: `cuoio`'s `--hljs-literal` sits at 4.05:1 on its own
+ * `--code-bg`, under the AA floor for code text. Nobody saw it because the export
+ * bundle concatenates the theme BEFORE the base, so the base's `#ff5874` has been
+ * painting instead of the theme's value — which is exactly why #1527's concat flip
+ * needs this gate to land with it. A curated value nobody has ever rendered is a
+ * value nobody has ever checked.
+ *
+ * FLOOR: `CAT_TEXT_FLOOR` (4.5). Syntax highlighting is small text on a panel;
+ * there is no "graphical" reading of it. Held to the bare AA floor rather than
+ * AA + margin, so the gate reports a real WCAG failure and not a house preference
+ * — the extra margin belongs in the repair, and `derive-cat-ink`'s solver applies
+ * it there.
+ *
+ * SURFACE: `--code-bg`, resolved per theme per mode through `catResolve` — the
+ * same resolver the categorical arms use, so the two cannot disagree about what a
+ * token resolves to (HARD RULE #15).
+ */
+const HLJS_TOKENS = Object.freeze([
+  'built_in', 'comment', 'keyword', 'literal', 'number', 'params',
+  'punctuation', 'string', 'tag', 'title', 'type', 'variable',
+].map((t) => `--hljs-${t}`));
+
+/**
+ * The two that are DELIBERATELY quiet, and are therefore not held to the text floor.
+ *
+ * This exemption is a real WCAG tension, not an oversight, so it is written down
+ * rather than left as a gap. A code comment and a semicolon are de-emphasized on
+ * purpose by every syntax theme that exists — that de-emphasis IS the design, and
+ * it is how a reader's eye finds the code. Holding them to 4.5:1 would make a
+ * comment as prominent as the statement it annotates.
+ *
+ * Measured before choosing: across the shipped palettes, 64 `--hljs-comment` and
+ * 46 `--hljs-punctuation` values sit under 4.5:1, against **4** for every other
+ * token combined. A gate demanding 110 palette edits to enforce a reading no
+ * syntax theme follows would be damage done to make a number zero. The other ten
+ * tokens are the actual code, and they are gated at budget 0.
+ *
+ * WCAG's own position is that this text needs 4.5:1 and these values do not meet
+ * it. That is a product decision about a real accessibility trade-off, and it
+ * belongs to the owner — it is flagged here, not settled here.
+ */
+const HLJS_QUIET_TOKENS = Object.freeze(['--hljs-comment', '--hljs-punctuation']);
+
+function checkHljsContrast(errors, themesDir = THEMES_DIR) {
+  const failures = [];
+  let evaluated = 0;
+  let themesScanned = 0;
+  for (const file of fs.readdirSync(themesDir).sort()) {
+    if (!file.endsWith('.css')) continue;
+    const name = file.replace(/\.css$/, '');
+    const map = catParseTokens(catPaletteSource(name));
+    // A palette that declares no syntax colors of its own inherits the base's,
+    // which the base is responsible for — nothing here to check.
+    if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
+    themesScanned += 1;
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--code-bg', mode);
+      if (!bg) continue;   // unresolvable surface — the token-parity gate owns that
+      for (const token of HLJS_TOKENS) {
+        if (HLJS_QUIET_TOKENS.includes(token)) continue;   // see the note above
+        if (!map.has(token)) continue;
+        const fg = catResolve(map, token, mode);
+        if (!fg) continue;
+        evaluated += 1;
+        const ratio = catContrast(fg, bg);   // the same helper the categorical arms use
+        if (ratio < CAT_TEXT_FLOOR) {
+          failures.push(`${name}/${mode} ${token} ${fg} on --code-bg ${bg} = ${ratio.toFixed(2)}:1`);
+        }
+      }
+    }
+  }
+  // A gate that cannot fail is also a claim (#1535). Twelve tokens across the
+  // curated palettes is hundreds of pairs; a near-zero count means the scan broke.
+  if (evaluated < 100) {
+    errors.push(
+      `checkHljsContrast evaluated only ${evaluated} token-mode pairs across ${themesScanned} theme(s) — ` +
+      'the curated palettes declare twelve syntax colors each, so this is a broken scan, not a clean tree.',
+    );
+    return;
+  }
+  if (failures.length) {
+    errors.push(
+      `${failures.length} \`--hljs-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
+      `--code-bg: ${failures.slice(0, 8).join('; ')}${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. ` +
+      'Lift the value in OKLCH holding hue and chroma (the move derive-cat-ink makes for the ink tier) rather ' +
+      'than picking a new colour by eye — the palette author chose the hue. NOTE these values may not be ' +
+      'rendering today: the export loads the base AFTER the theme, so a theme\'s syntax colors are dead on ' +
+      'the export path until #1527\'s concat flip lands. A value nobody has rendered is a value nobody has ' +
+      'checked, which is why this gate exists before the flip rather than after it.',
+    );
+  }
+}
+
 function checkCatContrast(errors) {
   checkCatInkDeclared(errors);
   checkCatInkFallback(errors);
+  checkHljsContrast(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
@@ -7146,6 +7245,9 @@ module.exports = {
   CAT_INK_COLLAPSE_DIST,
   catInkCollapsePairs,
   checkCatInkFallback,
+  checkHljsContrast,
+  HLJS_TOKENS,
+  HLJS_QUIET_TOKENS,
   checkNoSafeDefaultTokens,
   noSafeDefaultTokens,
   fallbackOnlyTokens,

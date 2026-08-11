@@ -142,8 +142,23 @@ Numbers are not the sign-off; the QUALITY BAR asks for someone to look. Renderin
 the checklist slide before and after for the affected themes splits the eleven into
 two genuinely different things.
 
-**`a11y-achromatopsia` dark is a real regression, and it is at source.** The
-palette declares flat grays with no light-dark() pair:
+**CORRECTION (2026-08-11, after the sweep): seven of the eleven crossings are in
+a mode those themes declare they do not have.** All five a11y palettes carry
+`modes: ["light"]` in their manifests, `a11y-base.css` pins
+`:root:root { color-scheme: light }` specifically to beat the global dark toggle,
+and `checkThemeModes` is green — so the CSS genuinely provides one face. The sweep
+rendered every theme at `color-mode: light` AND `dark`, which for those five is a
+configuration the palette does not claim to support. **They are not a flip
+blocker**, and the recommendation in §5 is corrected accordingly. What the sweep
+did surface is a different, real gap: **nothing prevents `color-mode: dark` on a
+light-only theme.** The `:root:root` pin beats the global toggle but not a per-deck
+mode, which lands on the section — a11y-base's own comment says the pin cannot
+reach there. Nothing warns and no gate covers it. The paragraph below stands as a
+description of what that unsupported state looks like; it is no longer a
+prerequisite.
+
+**`a11y-achromatopsia` in that unsupported dark mode.** The palette declares flat
+grays with no light-dark() pair:
 
 ```css
 --pass: #4d4d4d;  --warn: #6E6E6E;  --fail: #2e2e2e;
@@ -182,16 +197,21 @@ accessibility deck.
 
 The order that follows from the measurement:
 
-1. **Repair the masked defects first, as their own change** — `a11y-achromatopsia`
-   (and check its three siblings' dark-mode status grays) needs `light-dark()`
-   pairs; `cuoio` needs `--hljs-literal` lifted over 4.5:1. Both are palette edits
-   with no engine change, and both are correct on their own merits whether or not
-   the flip ever lands.
-2. **Land an `--hljs-* × --code-bg` AA gate with the flip**, as the issue asks.
-   The harness in §3 is that gate's prototype and it already finds one violation;
-   twelve tokens × 32 themes × 2 modes have no contrast test anywhere today.
-   The status trio wants the same treatment against the surface it is actually
-   painted on, which §4 shows is not always `--bg`.
+1. **~~Repair the a11y status grays first.~~ DONE, and it was the wrong list.**
+   The a11y crossings are in an unsupported mode (§4's correction). The repairs
+   that were actually owed, both landed:
+   - **`indaco` `--hljs-literal` 3.71:1 → 4.67:1.** Not a flip prerequisite at all
+     — a **live** AA failure in shipped output, in both concat orders, found by
+     the new gate rather than by this sweep (the sweep compares orders, so a value
+     under the floor in *both* never registers as a crossing).
+   - **`cuoio` `--hljs-literal` 4.05:1 → 4.68:1.** A genuine flip prerequisite:
+     today the base's `#ff5874` paints at 5.68:1 on cuoio's panel, so cuoio's own
+     value has never rendered.
+2. **~~Land an `--hljs-* × --code-bg` AA gate with the flip.~~ LANDED, ahead of
+   it** — see §7. It is what found the indaco defect, which is the argument for
+   gating before the flip rather than with it. The status trio still wants the same
+   treatment against the surface it is actually painted on, which §4 shows is not
+   always `--bg`.
 3. **Then flip `lattice-emulator.js:691`**, with the sweep re-run as the proof.
 
 **This is still a human gate.** The artifacts are the four contact sheets and the
@@ -213,3 +233,31 @@ a11y comparison in the PR; the decision is the owner's.
 - **The other 22 token families.** Only `--hljs-*` and the status trio were
   contrast-measured. The `--diagram-*` family visibly changes the gantt and kanban
   slides and nothing here says whether those changes clear any floor.
+
+## 7. The `--hljs-*` gate (landed 2026-08-11)
+
+`checkHljsContrast` resolves each `--hljs-*` token against its own theme's
+`--code-bg`, per mode, through `catResolve` — the same resolver the categorical
+arms use, so the two cannot disagree about what a token resolves to.
+
+**It earned itself immediately.** `indaco` declares Night Owl's `#ff5874`
+verbatim, and the comment above the block says so — but Night Owl tuned that
+against Night Owl's panel (`#011627`), and indaco's `--code-bg` is the lighter
+`#003d66`. 3.71:1, **rendering that way today**, in both concat orders. Verified
+in Chromium on a real `section.code pre`, not just in the token map. That is a
+borrowed palette meeting a panel it was not chosen for, and no sweep comparing
+*orders* could ever have found it.
+
+**`--hljs-comment` and `--hljs-punctuation` are exempt, and the reason is a real
+trade-off rather than an oversight.** Measured before deciding: 64 comment values
+and 46 punctuation values sit under 4.5:1 across the shipped palettes, against
+**4** for every other token combined. De-emphasizing a comment is what makes code
+findable — it is the design, and every syntax theme in existence does it. A gate
+demanding 110 palette edits to enforce a reading nobody follows would be damage
+done to make a number zero. WCAG's own position is that this text needs 4.5:1 and
+these values do not meet it; that is the owner's call, flagged here rather than
+settled by a gate. The other ten tokens are the actual code and are at budget 0.
+
+Mutation-tested three ways: reverting indaco's literal fails and names it,
+a quiet token driven to 1.4:1 does **not** fail (the exemption is real, not
+accidental), and a non-quiet token driven to 1.4:1 does.
