@@ -604,7 +604,7 @@ two of them shipped *because* their unit tests passed.
 
 | Spec | Project | What it pins |
 |---|---|---|
-| the report surfaces and says what to try | `desktop` | toast radius asserted as the value it must BE; contrast measured from composited pixels for EVERY text layer (title, description, action); not clipped, by rect AND overflow; the steps section; opaque-error attribution; no sideways overflow |
+| the report surfaces and says what to try | `desktop` | toast radius asserted as the value it must BE; contrast measured from composited pixels for EVERY text layer (title, description, action) **against the surface each is painted on**; not clipped, by rect, container overflow AND per-layer overflow; the steps section; opaque-error attribution; no sideways overflow. Skips, saying so, if the toast auto-dismissed before the assertion could run. |
 | the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
 | a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
 | a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **skips** unless the environment honors the freeze, which this one does not (see the correction above). It asserts on the frozen page's OWN records, so the wiping tab can no longer be the oracle. |
@@ -656,3 +656,36 @@ The through-line across both passes is worth keeping: **every one of these was a
 test that passed while proving nothing**, and none was visible from reading the
 code — each took a mutation and a rebuild to expose. The verification claims in
 this document are only as good as the last adversarial pass over them.
+
+
+## Third pass: a regression introduced while fixing the second (2026-08-11)
+
+The commit answering the second review introduced one defect worse than three of
+the five it closed, which is worth recording as a pattern and not just an entry.
+
+**Fixing "the counters were read while frozen" by moving the THAW above the wipe
+made the test vacuous everywhere.** The page was then awake when the other tab
+wiped, took the broadcast live through the pre-existing listener, and passed
+against a build containing no `catchUpOnWipe` at all. That converts *unverifiable
+here* into *unfalsifiable anywhere* — strictly worse, and it was the third
+consecutive commit in which this one test failed to test its subject. The fix was
+to keep the freeze across the wipe and move only the READ after the thaw:
+`page.waitForTimeout` is runner-side and safe against a stopped document,
+`page.evaluate` is not, and that distinction is the whole constraint.
+
+Two narrower ones, both the same shape as the defects they sat beside:
+
+- **The restored clipping checks were both properties of the TOAST**, so clipping
+  the description element itself evaded both — measured, a toast reading "Your
+  decks are safe. See what the" with the suite green. Clipping is now checked on
+  every text layer.
+- **Every layer's contrast was measured against the TOAST's background**, which
+  flatters any layer painting its own. The action chip is `bg-white/15`: scored
+  5.78:1 against the toast, 3.67:1 against the pixels it is actually drawn on —
+  under AA, and passing. Each layer is now composited over its own backdrop.
+
+**Known residual, stated rather than fixed:** above roughly 20s of first paint the
+visual contract skips, and a skip reports as green. The nightly alarm greps for
+failures, so a permanently-skipping visual contract would be invisible. Measured
+thresholds: runs at every rate up to ~20s paint, skips at ~28s and ~36s. Worth a
+guard before this rides a heavily loaded runner.

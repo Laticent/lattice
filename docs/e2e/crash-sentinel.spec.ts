@@ -151,13 +151,23 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 	const geometry = await toast.evaluate((el) => {
 		const d = el.querySelector('[data-description]');
 		const box = el.getBoundingClientRect();
+		// THREE TESTS, because each misses what the others catch. The rect test misses
+		// overflow; the toast-overflow test misses a clipped CHILD — measured, a
+		// `max-h` on the description alone left both green over a toast reading
+		// "Your decks are safe. See what the", second line gone. Clipping is checked
+		// on every text layer, not only on the box around them.
+		const clippedLayers = [...el.querySelectorAll('[data-title],[data-description],button')]
+			.filter((n) => n.scrollHeight > n.clientHeight + 1)
+			.map((n) => n.getAttribute('data-title') !== null ? 'title' : n.getAttribute('data-description') !== null ? 'description' : 'action');
 		return {
 			descOutside: d ? d.getBoundingClientRect().bottom > box.bottom + 0.5 : true,
 			overflowing: el.scrollHeight > el.clientHeight + 1,
+			clippedLayers,
 		};
 	});
 	expect(geometry.descOutside).toBe(false);
 	expect(geometry.overflowing).toBe(false);
+	expect(geometry.clippedLayers, 'text layers with their content cut off').toEqual([]);
 
 	const contrast = await toast.evaluate((el) => {
 		const d = el.querySelector('[data-description]');
@@ -190,9 +200,16 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 		};
 		const bg = getComputedStyle(el).backgroundColor;
-		const b = lum(px(bg));
 		const ratio = (node: Element) => {
-			const a = lum(px(getComputedStyle(node).color, bg)); // text composited over the toast
+			// EACH LAYER OVER ITS OWN BACKDROP. Measuring everything against the toast's
+			// background flatters any layer that paints its own: the action chip is
+			// `bg-white/15`, so its text was scored 5.78:1 against the toast while the
+			// pixels it is actually drawn on give 3.67:1 — under AA, and passing.
+			const own = getComputedStyle(node).backgroundColor;
+			const backdrop = px(own, bg); // the layer's own fill composited onto the toast
+			const rgb = `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`;
+			const a = lum(px(getComputedStyle(node).color, rgb));
+			const b = lum(backdrop);
 			return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 		};
 		// EVERY TEXT LAYER, not just the description. Measuring one element left the
@@ -208,7 +225,7 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 		return layers;
 	});
 	for (const [layer, ratio] of Object.entries(contrast)) {
-		expect(ratio, `${layer} contrast against the toast surface`).toBeGreaterThanOrEqual(4.5);
+		expect(ratio, `${layer} contrast against the surface it is painted on`).toBeGreaterThanOrEqual(4.5);
 	}
 
 	await toast.getByRole('button', { name: /see report/i }).click();
@@ -323,32 +340,20 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	const ticksBefore = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
 	await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
 	await page.waitForTimeout(3_000);
-	// THAW BEFORE READING. `page.evaluate` has no timeout of its own and a genuinely
-	// stopped document never answers it — so reading the counters while frozen would
-	// HANG until the test's own slot expired, in exactly the environment this test
-	// exists for. The honest-skip would have failed closed. Measured on a
-	// JS-suspended document as a proxy: evaluate still hung after 8s.
-	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
-	const frozeForReal = await page.evaluate(() => {
-		const w = window as unknown as { __froze: boolean; __ticks: number; __ticksAtFreeze?: number };
-		return { froze: w.__froze, ticks: w.__ticksAtFreeze ?? w.__ticks };
-	});
-	// 3s of a 250ms interval is ~12 ticks if the document kept running. A genuinely
-	// frozen document fires `freeze` and stops ticking.
-	const reallyFrozen = frozeForReal.froze && frozeForReal.ticks - ticksBefore < 4;
-	test.skip(
-		!reallyFrozen,
-		`this browser did not honor the freeze (freeze event: ${frozeForReal.froze}, ticks during: ${frozeForReal.ticks - ticksBefore}) — ` +
-			'the catch-up path cannot be exercised here, and passing would assert nothing',
-	);
 
-	// The storage effects of "Delete everything", from another tab. This is a
-	// SIMULATION of `clearAllSessions`, not a call to it — the module is not
-	// reachable from a built page — so it does not seal the wiping tab the way the
-	// real path does. That difference used to matter: the old assertion read
-	// origin-wide storage, so the unsealed wiping tab re-persisting its own record
-	// produced a red that looked like the bug under test. It cannot now, because
-	// the assertion below is scoped to the frozen page's OWN keys.
+	// THE WIPE HAPPENS WHILE THE PAGE IS STILL FROZEN. That is the entire premise:
+	// a document that is not running cannot receive the `storage` broadcast, so the
+	// only thing that can inform it is what it READS on waking.
+	//
+	// A previous revision moved the thaw above this, while fixing a different
+	// defect, and thereby made the test vacuous EVERYWHERE rather than merely
+	// untestable here — the page was awake for the wipe, took the broadcast live
+	// through the pre-existing listener, and passed against a build with no
+	// `catchUpOnWipe` in it at all. Unfalsifiable is worse than unverifiable.
+	//
+	// `page.waitForTimeout` above is runner-side and safe against a stopped
+	// document; `page.evaluate` is NOT, which is why every read of the page's own
+	// counters waits until after the thaw below.
 	const other = await context.newPage();
 	await gotoStudio(other);
 	await other.evaluate(() => {
@@ -358,6 +363,21 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 		localStorage.removeItem('lattice-studio-wipe-signal');
 		localStorage.setItem('lattice-studio-wiped-at', at);
 	});
+
+	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+	const frozeForReal = await page.evaluate(() => {
+		const w = window as unknown as { __froze: boolean; __ticks: number; __ticksAtFreeze?: number };
+		return { froze: w.__froze, ticks: w.__ticksAtFreeze ?? w.__ticks };
+	});
+	// 3s of a 250ms interval is ~12 ticks if the document kept running. A genuinely
+	// frozen document fires `freeze` and stops ticking. Read only now, after the
+	// thaw — see above.
+	const reallyFrozen = frozeForReal.froze && frozeForReal.ticks - ticksBefore < 4;
+	test.skip(
+		!reallyFrozen,
+		`this browser did not honor the freeze (freeze event: ${frozeForReal.froze}, ticks during: ${frozeForReal.ticks - ticksBefore}) — ` +
+			'the catch-up path cannot be exercised here, and passing would assert nothing',
+	);
 
 	await page.bringToFront();
 	// Poll the woken page's OWN tick counter rather than sleeping: the settle
