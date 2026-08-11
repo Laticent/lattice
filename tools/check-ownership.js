@@ -5545,12 +5545,26 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   const failures = [];
   let evaluated = 0;
   let themesScanned = 0;
-  for (const file of fs.readdirSync(themesDir).sort()) {
-    if (!file.endsWith('.css')) continue;
-    const name = file.replace(/\.css$/, '');
+  // THE BASE IS SCANNED FIRST, and it is not optional. `lattice` is the palette
+  // `dist/lattice.css` ships — what a deck renders with before any theme is picked,
+  // and what `regression-gate.mjs` itself renders every golden with — so it is the
+  // most-read palette in the repo, not an edge case.
+  //
+  // The first cut of this gate skipped it, on the reasoning quoted in the loop
+  // below: a theme with no syntax colors of its own "inherits the base's, which the
+  // base is responsible for". Nothing made the base responsible. It shipped
+  // `--hljs-comment: #637777` — Night Owl's value, tuned for Night Owl's #011627 —
+  // at 3.63:1 on the base's darker #001d33, and no gate could say so. It was found
+  // by asking why a full 340-render regression sweep showed no drift after fourteen
+  // themes changed color: the sweep renders with `dist/lattice.css`, whose comment
+  // color the theme edits never touched.
+  const scan = ['lattice', ...fs.readdirSync(themesDir).sort()
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => f.replace(/\.css$/, ''))];
+  for (const name of scan) {
     const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
-    // A palette that declares no syntax colors of its own inherits the base's,
-    // which the base is responsible for — nothing here to check.
+    // A theme that declares no syntax colors of its own inherits the base's, which
+    // is now checked above rather than assumed — nothing further here.
     if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
     themesScanned += 1;
     for (const mode of ['light', 'dark']) {

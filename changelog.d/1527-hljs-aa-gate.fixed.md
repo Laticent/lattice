@@ -15,4 +15,9 @@
   at 4.5–4.7:1 rather than at body-text contrast. **Comments still recede** — verified across all 64
   theme-modes that no content token sits below a repaired comment, and confirmed by looking at real
   renders. `--hljs-*` is now gated at budget 0 with **no exemptions**, mutation-tested per token.
+- **Fixed: the DEFAULT code comment color — the most-read one in the engine — was at 3.63:1.**
+  `lib/base/base.tokens.css` shipped Night Owl's `#637777` on a darker panel (`#001d33`) than Night
+  Owl's own, and that is the palette `dist/lattice.css` ships: what a deck renders with before any
+  theme is picked. Lifted to `#748989`, 4.64:1. The gate had been scanning `themes/` only and
+  excusing the base as "responsible for itself"; it now scans the base first, and not optionally.
   (`engineering/decisions/2026-08-11-palette-concat-signoff.md` §7)

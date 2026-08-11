@@ -295,3 +295,37 @@ recursion, defaulted so every other caller is unchanged.
 Mutation-tested per token, all twelve: each driven to its own theme's `--code-bg`
 (1.00:1 — guaranteed to fail whatever the panel's lightness, which a fixed hex
 cannot be) must fail the gate *and name the token*.
+
+### 7c. The base palette — the biggest miss, found by distrusting a clean result
+
+After the fourteen themes were repaired, a full **340-render** regression sweep
+(75 galleries × 2 moods + 190 deck goldens) reported **zero drift**. That could not
+be true of a change that moved colors in fourteen palettes, so it got traced
+instead of accepted.
+
+The sweep was not broken. `regression-gate.mjs` renders every golden with
+`dist/lattice.css`, and **that bundle's comment color is not any theme's** — it is
+`lib/base/base.tokens.css`'s own `--hljs-comment`, which the theme edits never
+touched. The sweep was correctly reporting that fourteen theme edits did not reach
+the bundle everything actually renders with.
+
+And that value was **`#637777` at 3.63:1** on the base's `--code-bg` (`#001d33`) —
+Night Owl's value a third time, tuned for Night Owl's `#011627`. This is the
+palette `dist/lattice.css` ships: what a deck renders with before any theme is
+chosen, and what the regression gate itself renders every golden with. **It was the
+most-read sub-AA value in the repo.**
+
+`checkHljsContrast` could not see it. The gate scanned `themes/` and its own
+comment excused the omission — *"a palette that declares no syntax colors of its
+own inherits the base's, which the base is responsible for"* — but nothing made the
+base responsible. The gate now scans `lattice` first and not optionally. Verified
+by running the widened gate against the un-repaired value: it fails and names it
+(`lattice/light --hljs-comment #637777 on --code-bg #001d33 = 3.63:1`).
+
+Lifted to `#748989`, 4.64:1, hue and chroma held.
+
+**The transferable lesson is the second one this section has produced, and it is
+the sharper of the two: a gate that reports clean after a change it should have
+seen is making a claim, and the claim is checkable.** Three defects in this
+section — the exemption, the `themesDir` lie, and the base blind spot — were all
+found by asking a green result to justify itself.
