@@ -693,8 +693,11 @@ The contract, and its limits — be precise about what it does and doesn't cover
   The decision index was refitted that way in #1547
   (`decisions/2026-08-10-decisions-index-merge-queue-race.md`); `CHANGELOG.md`
   was taken out of the shared-region business entirely in #1593
-  (`decisions/2026-08-11-changelog-fragments.md`). The same question is worth
-  asking of the next artifact that ejects a PR.
+  (`decisions/2026-08-11-changelog-fragments.md`); the rest of the build was swept
+  in #1594, which found five more aggregates and removed them
+  (`decisions/2026-08-11-generated-artifact-sweep.md` — its §1 has the method:
+  replay the merge, don't read the code). Ask the same question of the next
+  committed artifact that joins the build.
 - **Bind a closing keyword to *every* issue the PR resolves.** GitHub
   auto-closes only the issues whose number carries its own keyword, so
   `Closes #1, #2, #3` closes **only #1** and silently leaves the rest open.
