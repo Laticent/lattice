@@ -27,6 +27,18 @@ export const STARLIGHT_THEME_KEY = 'starlight-theme';
 export const DEFAULT_PALETTE = 'cuoio';
 
 /**
+ * Where the stored PREFERENCE is published on `<html>`, beside the resolved `data-mode`.
+ *
+ * `data-mode` cannot answer "which stop is this control on": System-resolved-dark and
+ * pinned-dark are the same resolved mode and a different stop, which is the whole point of
+ * the third one (#1285). The mode toggle's icon names the stop, so it needs the preference —
+ * and it needs it BEFORE paint, or it renders "System" for a second on a page whose visitor
+ * pinned dark (#1592). Publishing it as an attribute is what lets the pre-paint seed answer
+ * that question without React.
+ */
+export const MODE_PREF_ATTR = 'data-mode-pref';
+
+/**
  * The RESOLVED color mode — the only two values `data-mode` ever carries, because
  * the generated palette tokens and every deck `srcdoc` iframe read that attribute
  * and switch on exactly these. Unchanged contract.
@@ -110,6 +122,9 @@ function stampMode(mode: Mode): void {
 export function setModePref(pref: ModePref): Mode {
 	const mode = resolveMode(pref);
 	stampMode(mode);
+	// The PREFERENCE on <html> beside the resolved mode, so the next load's pre-paint seed
+	// can name the stop this control is on without waiting for the island (#1592).
+	root().setAttribute(MODE_PREF_ATTR, pref);
 	try {
 		localStorage.setItem(MODE_KEY, pref);
 	} catch {

@@ -1,20 +1,12 @@
 import { SelectGroup, SelectItem, SelectLabel } from '@/components/ui/select';
+// The label derivation moved to a React-free module so `SiteHeader.astro`'s pre-paint seed
+// can import it without dragging this file's radix/React graph onto every page (#1592).
+// Re-exported here because a dozen call sites already reach for it through this module, and
+// splitting the import surface would be churn for its own sake.
+import { A11Y_GROUP_LABEL, paletteLabel } from '@/lib/palette-label';
 import { isA11yPalette } from '@/lib/theme-catalog.generated';
 
-// Clean display label: strip the `a11y-` prefix for a CURATED a11y palette (the group
-// header already says "Accessibility"), then title-case. "indaco" → "Indaco";
-// "a11y-achromatopsia" → "Achromatopsia".
-//
-// The strip is keyed on the palette's declared family, not on the string. A user's own
-// theme called `a11y-mine` is not one of the curated color-vision palettes, so it keeps
-// its name and sits with the brand themes — the two decisions now agree, where a raw
-// prefix test made them disagree.
-export const paletteLabel = (name: string) =>
-	(isA11yPalette(name) ? name.replace(/^a11y-/, '') : name).replace(/(^|-)(\w)/g, (_m, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
-
-// US English is the house dialect (HARD RULE #21). This used to read "colour-blindness",
-// which is why ThemePicker carries its own US-spelled A11Y_LABEL; the two now agree.
-export const A11Y_GROUP_LABEL = 'Accessibility · color-blindness';
+export { A11Y_GROUP_LABEL, paletteLabel };
 
 /**
  * The ONE shared rendering of palette `<SelectItem>`s, so every picker (the

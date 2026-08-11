@@ -3829,3 +3829,30 @@ own) is not a builder and needs no entry.
   ever reaching its 28px rail — the grow vars are safe to leave only because the library's
   inline `flex-grow` outranks them, and `min-width` has no such counterpart.
 - **Triggered by:** #1589, from the red-team pass on #1563/#1581.
+
+### A header control shows nothing (or the wrong thing) for a second after every page load
+
+- **Symptom:** the theme `<select>` in the site header is empty on load and fills in with the
+  persisted palette a second or more later; the light/dark button shows the Monitor
+  ("System") icon at someone who pinned dark, then swaps. Every page of the site.
+- **Why (two causes, and the second is the surprising one):** the control read its state in a
+  mount effect, so it had nothing to say until the `client:idle` island hydrated — under load
+  that was 1.9s to 5.1s. And radix's `SelectValue` with no children renders NOTHING: the
+  selected item's text is portaled in by `SelectItemText`, which only exists once a layout
+  effect has built the closed content's DocumentFragment. So the trigger was empty in the SSR
+  markup no matter what the value was.
+- **Fix (shipped, #1592):** the trigger names its own label (`<SelectValue>{label}</SelectValue>`);
+  a pre-paint seed in `SiteHeader.astro` writes the visitor's palette into that text and
+  publishes `<html data-mode-pref>`; `PaletteControls` resolves both from those attributes in
+  its FIRST render, so hydration is a no-op instead of a swap.
+- **`data-mode` cannot stand in for `data-mode-pref`.** System-resolved-dark and pinned-dark
+  are the same resolved mode and a different STOP, and the icon names the stop.
+- **The mode icon is three icons with CSS picking one, and that is not decoration.** The
+  server cannot know the stop, so React choosing would put Monitor in the HTML and Moon in
+  the client's first render — a hydration mismatch React 19 does not patch. Rendering the
+  same three on both sides moves the choice to an attribute the seed has already written.
+- **If you add a header control that shows persisted state,** it needs the same three pieces:
+  a value in the SSR markup, a pre-paint correction, and an initial state read from the same
+  attribute. `site-chrome-first-paint.spec.ts` samples every frame across three page families
+  and fails on any second value.
+- **Triggered by:** #1592.

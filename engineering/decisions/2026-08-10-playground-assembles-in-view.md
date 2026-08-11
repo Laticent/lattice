@@ -229,6 +229,9 @@ is the same case that exposes it.
   `docs/src/components/site/`, on every page of the site, and fixing it there is a change
   to shared chrome rather than to this surface. Genuinely pre-existing and off this
   change's path (#18), logged here rather than pulled into the diff.
+  **Closed in #1592**, along with the sibling defect nobody had noticed: the mode toggle
+  rendered the "System" icon at anyone who had pinned dark — a control naming the WRONG stop
+  rather than none. See `2026-08-11-playground-first-paint-followups.md`.
 - **Explore has no instant shell.** The replay is deliberately Edit-only — a gallery or
   plan deck has no stable draft-source identity, so replaying one could flash the wrong
   deck. Explore's preview is therefore the pane's solid brand fill until the engine

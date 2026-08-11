@@ -29,6 +29,10 @@
 //                           docs zone, where Starlight owns the mobile menu (it
 //                           also carries the page TOC).
 import NavActions from './NavActions.tsx';
+// The React-free label derivation (#1592). `palette-label.ts` imports only the generated
+// theme catalog, so pulling it in here costs this page's module graph nothing — the point of
+// splitting it out of `PaletteSelectItems.tsx`, which drags radix + React behind it.
+import { paletteLabel } from '../../lib/palette-label';
 import { joinBase } from '../../lib/base-url.mjs';
 import { appsNav, contentNav, librariesNav, primaryNav, GITHUB_URL, isCurrent, librariesActive } from '../../lib/nav.mjs';
 
@@ -48,6 +52,13 @@ const pagefindUrl = url('pagefind/pagefind.js');
 const homeHref = url('');
 
 const Wrapper = standalone ? 'header' : 'div';
+
+// palette → the label the theme <select> shows, resolved at BUILD time so the pre-paint
+// seed below is a lookup rather than a second copy of the derivation (#1592).
+const paletteLabels = Object.fromEntries(palettes.map((p) => [p, paletteLabel(p)]));
+// What PaletteControls falls back to when the attribute names nothing this build ships —
+// declared here so the seed resolves the SAME palette the control's first render will.
+const fallbackPalette = palettes[0] ?? null;
 ---
 
 <Wrapper class:list={['site-header', { 'is-standalone': standalone }]}>
@@ -107,6 +118,52 @@ const Wrapper = standalone ? 'header' : 'div';
 	</div>
 </Wrapper>
 
+<!-- PRE-PAINT CHROME SEED (#1592). The header's two controls are the last things on the
+     site that still tell the visitor something they will take back a second later: the theme
+     <select> rendered EMPTY and filled in with "Burgundy" whenever the island hydrated, and
+     the mode toggle rendered the Monitor ("System") icon at a visitor who had pinned dark —
+     a control naming the WRONG stop, which is worse than one naming none. Measured at
+     1440x900 with the CPU throttled 6x: empty/Monitor from t≈145ms, correct at t≈1.9s on the
+     component reference, t≈3.8s on the landing, t≈5.1s on the Playground.
+     Both answers are already in localStorage before paint. This runs during body parse —
+     after the island's SSR'd markup is on the page and before it is painted — writes them
+     onto <html> and into the trigger's own text, and PaletteControls reads the same
+     attributes during its first render, so hydration is a no-op rather than a swap.
+     Deliberately here rather than in a per-route head script: this header is the thing that
+     has the defect, and it is on every page. It is also idempotent with the head seeds that
+     already stamp `data-palette` (playground.astro, ComponentsLayout, ThemeProvider) — they
+     agree by construction, both reading `lattice-docs-palette`. -->
+<script is:inline define:vars={{ paletteLabels, fallbackPalette }}>
+	(function () {
+		try {
+			var r = document.documentElement;
+			// A palette this build still ships. Anything else names a theme whose CSS 404s, and
+			// the head seeds drop such a value for the same reason.
+			var shipped = function (n) { return !!n && Object.prototype.hasOwnProperty.call(paletteLabels, n); };
+			var p = null;
+			try { p = localStorage.getItem('lattice-docs-palette'); } catch (e) {}
+			if (!shipped(p)) p = r.getAttribute('data-palette');
+			if (!shipped(p)) p = fallbackPalette;
+			if (shipped(p)) {
+				// Publish it even when it did not change: PaletteControls resolves its first
+				// render from this attribute, so leaving an unshippable one in place would put
+				// the control and the text below out of step — the same swap this seed exists to
+				// remove, one step later.
+				r.setAttribute('data-palette', p);
+				// Every trigger in the header — the bar's and, where one is rendered, the mobile
+				// sheet's. Plain textContent: a palette name is inert text, never markup.
+				var vals = document.querySelectorAll('.sh-actions [data-slot="select-trigger"][aria-label="Theme"] [data-slot="select-value"]');
+				for (var i = 0; i < vals.length; i++) vals[i].textContent = paletteLabels[p];
+			}
+			// The mode PREFERENCE, which `data-mode` cannot express: System-resolved-dark and
+			// pinned-dark are the same resolved mode and a different stop.
+			var m = null;
+			try { m = localStorage.getItem('lattice-docs-mode'); } catch (e) {}
+			r.setAttribute('data-mode-pref', m === 'light' || m === 'dark' ? m : 'system');
+		} catch (e) {}
+	})();
+</script>
+
 <script>
 	// Close the Libraries disclosure on outside-click / Escape (native <details>
 	// doesn't). One listener for every <details.sh-tools> on the page; runs once
@@ -122,6 +179,32 @@ const Wrapper = standalone ? 'header' : 'div';
 		if (e.key === 'Escape') closeTools();
 	});
 </script>
+
+<style is:global>
+	/* THE MODE TOGGLE'S ICON, chosen by the seeded preference rather than by React (#1592).
+	   PaletteControls renders all three (Monitor · Sun · Moon) and these rules show one.
+	   It has to work this way round: the server cannot know which stop the visitor is on, so
+	   React choosing would put Monitor in the HTML and Moon in the client's first render for
+	   anyone who pinned dark — a hydration mismatch React 19 does not patch. Rendering the
+	   same three on both sides moves the choice to an attribute the pre-paint seed above has
+	   already written, so the button names the right stop from the first frame.
+	   `is:global` because the icons live inside the React island, which Astro's scoping
+	   attribute never reaches. */
+	[data-slot='mode-icon'] {
+		display: none;
+	}
+	:root[data-mode-pref='system'] [data-slot='mode-icon'][data-pref='system'],
+	:root[data-mode-pref='light'] [data-slot='mode-icon'][data-pref='light'],
+	:root[data-mode-pref='dark'] [data-slot='mode-icon'][data-pref='dark'] {
+		display: block;
+	}
+	/* No seed (scripting off, or a surface that never runs the header's): show the System
+	   stop rather than an empty button. It is also the default preference, so it is the
+	   honest answer for anyone whose choice we cannot read. */
+	:root:not([data-mode-pref]) [data-slot='mode-icon'][data-pref='system'] {
+		display: block;
+	}
+</style>
 
 <style>
 	/* The component owns its styles, so Astro bundles them into BOTH worlds —

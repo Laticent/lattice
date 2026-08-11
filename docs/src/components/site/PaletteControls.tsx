@@ -3,7 +3,8 @@ import * as React from 'react';
 import { PaletteSelectItems } from '@/components/site/PaletteSelectItems';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cycleModePref, DEFAULT_PALETTE, MODE_KEY, type Mode, type ModePref, PALETTE_KEY, setPalette, syncFromStorage, watchSystemMode } from '@/lib/site-chrome';
+import { paletteLabel } from '@/lib/palette-label';
+import { cycleModePref, DEFAULT_PALETTE, MODE_KEY, MODE_PREF_ATTR, type Mode, type ModePref, PALETTE_KEY, setPalette, syncFromStorage, watchSystemMode } from '@/lib/site-chrome';
 
 // The Drawing Board's deck-theme-writing chrome bus (present ONLY on that route).
 // When it exists, a pick WRITES the deck's `theme:` front matter (authoring) and
@@ -21,6 +22,19 @@ declare global {
 	interface Window {
 		__dbChrome?: ChromeBus;
 	}
+}
+
+/**
+ * A pre-paint answer already stamped on `<html>`, if it is one this control recognizes.
+ *
+ * On the server there is no document and the fallback stands, which is exactly what the SSR
+ * markup should say — and what the seed in `SiteHeader.astro` corrects in the DOM before
+ * first paint, so the client's first render matches whatever is on screen by then.
+ */
+function seeded(attr: string, allowed: readonly string[], fallback: string): string {
+	if (typeof document === 'undefined') return fallback;
+	const v = document.documentElement.getAttribute(attr);
+	return v && allowed.includes(v) ? v : fallback;
 }
 
 /**
@@ -42,11 +56,22 @@ declare global {
  * picking there moves to the command palette and the mobile menu.
  */
 export default function PaletteControls({ palettes, compact = false }: { palettes: string[]; compact?: boolean }) {
-	const [palette, setPaletteState] = React.useState(palettes[0] ?? DEFAULT_PALETTE);
-	const [mode, setModeState] = React.useState<Mode>('light');
+	// READ THE SEEDED ANSWER DURING RENDER, not in the mount effect below (#1592). The
+	// palette is already resolved before paint — the head scripts stamp `<html data-palette>`
+	// from localStorage — so a control that waited for its effect to say which one was in
+	// force showed nothing for the first second and a bit of every page on the site (measured
+	// at 1440x900, CPU 6x: empty at 145ms, "Burgundy" at 1.9–5.1s depending on the route).
+	// Reading the attribute during render makes the client's first render agree with the DOM
+	// the pre-paint seed in SiteHeader.astro has already written, so hydration is a no-op
+	// rather than a swap. `syncFromStorage` in the effect still owns everything afterwards.
+	const [palette, setPaletteState] = React.useState(() => seeded('data-palette', palettes, palettes[0] ?? DEFAULT_PALETTE));
+	const [mode, setModeState] = React.useState<Mode>(() => seeded('data-mode', ['light', 'dark'], 'light') as Mode);
 	// The PREFERENCE, tracked beside the resolved mode: 'system' and a pin that happens
 	// to match the OS render identically, and the control has to tell them apart (#1285).
-	const [pref, setPrefState] = React.useState<ModePref>('system');
+	// Same seed, same reason: the icon used to render Monitor ("System") for a second and a
+	// bit on a page whose visitor had pinned dark — a control showing the WRONG stop, which is
+	// worse than the select showing none.
+	const [pref, setPrefState] = React.useState<ModePref>(() => seeded(MODE_PREF_ATTR, ['system', 'light', 'dark'], 'system') as ModePref);
 	// The Drawing Board bus can push a richer list (e.g. saved Workbench library
 	// themes) after mount; start from the SSR set and let the bus widen it.
 	const [opts, setOpts] = React.useState(palettes);
@@ -138,6 +163,15 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 	// hardcoded "click for dark" would be wrong half the time.
 	const modeLabel = `Color mode: ${pref === 'system' ? `System (${mode})` : pref === 'light' ? 'Light' : 'Dark'} — click to change`;
 
+	// Keep `<html data-mode-pref>` in step with the stop this control is on, so the pre-paint
+	// seed on the NEXT load has a value to read — and so the Drawing Board's bus path, which
+	// reports a pin rather than a preference, publishes the same answer this control renders.
+	// `site-chrome`'s own writers cover the ordinary click; this covers every other path into
+	// the state in one place rather than three.
+	React.useEffect(() => {
+		document.documentElement.setAttribute(MODE_PREF_ATTR, pref);
+	}, [pref]);
+
 	return (
 		<div className="flex items-center gap-2">
 			{hasPaletteSelect && (
@@ -153,7 +187,15 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 						// command palette + mobile menu carry theme-picking there.
 						className={`w-[8.5rem] sm:w-40 [&_[data-slot=select-value]]:!block [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate${compact ? ' hidden lg:flex' : ''}`}
 					>
-						<SelectValue placeholder="Theme" />
+						{/* EXPLICIT CHILDREN, not radix's own value resolution (#1592). Left to
+						    itself, `SelectValue` renders nothing and waits for `SelectItemText` to
+						    portal the selected item's text in — and the items only exist after a
+						    layout effect has built the closed content's DocumentFragment. That is
+						    why the trigger server-rendered EMPTY and filled in whenever the island
+						    got round to hydrating. Naming the label here makes it plain text in the
+						    SSR'd markup, which the pre-paint seed can then correct to the visitor's
+						    own palette before anything is on screen. */}
+						<SelectValue placeholder="Theme">{opts.includes(palette) ? paletteLabel(palette) : null}</SelectValue>
 					</SelectTrigger>
 					<SelectContent className="max-h-[60vh]">
 						<PaletteSelectItems palettes={opts} />
@@ -169,8 +211,17 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 			>
 				{/* The icon names the CURRENT stop, not the next one — System has no
 				    opposite to point at, so "what happens if I click" stops being
-				    expressible the moment there are three stops. */}
-				{pref === 'system' ? <Monitor /> : pref === 'dark' ? <Moon /> : <Sun />}
+				    expressible the moment there are three stops.
+				    ALL THREE ARE RENDERED AND CSS PICKS ONE (#1592, rules in SiteHeader.astro),
+				    which is not a flourish: React choosing here would mean the server rendering
+				    Monitor and the client's first render producing Moon for a visitor who pinned
+				    dark, and React 19 treats that as a hydration mismatch rather than patching
+				    it. Rendering the same three on both sides keys the choice to
+				    `<html data-mode-pref>` — which the pre-paint seed has right before anything
+				    paints, and which the effect above keeps in step afterwards. */}
+				<Monitor data-slot="mode-icon" data-pref="system" aria-hidden="true" />
+				<Sun data-slot="mode-icon" data-pref="light" aria-hidden="true" />
+				<Moon data-slot="mode-icon" data-pref="dark" aria-hidden="true" />
 			</Button>
 		</div>
 	);
