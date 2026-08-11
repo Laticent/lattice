@@ -471,7 +471,7 @@ describe('WorkspaceSheet — General tab starting mode', () => {
 		expect(sheet.getByText('Starting mode')).toBeInTheDocument();
 		expect(sheet.getByRole('radio', { name: /Write/ })).toBeChecked();
 		expect(sheet.getByRole('radio', { name: /Read/ })).not.toBeChecked();
-		expect(sheet.getByRole('radio', { name: /Build/ })).not.toBeChecked();
+		expect(sheet.getByRole('radio', { name: /Craft/ })).not.toBeChecked();
 	});
 
 	it('picking a stop persists it, so the Studio opens there next time', async () => {

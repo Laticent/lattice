@@ -515,7 +515,7 @@ it never runs on the PR path — invoke it deliberately with the command above. 
 claim about preview cost: `scripts/frame-bench.mjs` drives an edit by focusing `.cm-content` and
 typing, which does **nothing** in the shipped default posture where the editor is off-screen, so
 it silently reports no warm samples at all. This spec reuses `studio-fixture`, which already
-handles that (`gotoStudio` seeds `posture: 'build'`; `getByLabel('Deck source')` fails loudly on a
+handles that (`gotoStudio` seeds `posture: 'craft'`; `getByLabel('Deck source')` fails loudly on a
 hidden element; `setEditorContent` uses `insertText` so a multi-line deck's `---` separators
 survive the editor's markdown auto-continuation). It also asserts that typing produced renders,
 because a caret outside the shown slide records **zero** samples on a preview that renders only

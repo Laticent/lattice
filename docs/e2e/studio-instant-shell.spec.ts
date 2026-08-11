@@ -71,7 +71,7 @@ const splitLayout = (previewPct: number) =>
 type Case = {
 	w: number;
 	h: number;
-	stop: 'read' | 'write' | 'build';
+	stop: 'read' | 'write' | 'craft';
 	why: string;
 	/** Persisted editor|preview split, as the preview pane's percentage. */
 	split?: number;
@@ -89,7 +89,7 @@ type Case = {
 //
 // Be precise about what those two DO cover, because an earlier version of this note over-claimed
 // it: both are at the WRITE stop, so they cover every band the shell draws at Write and nothing
-// that is Build-only or Read-only — the activity rail, the Build header's tail, the Read dial and
+// that is Craft-only or Read-only — the activity rail, the Craft header's tail, the Read dial and
 // the chromeless preview are all nightly. Promotion of the whole matrix follows the repo's
 // escalation rule — an observed nightly green streak first (#800).
 
@@ -104,11 +104,11 @@ const CASES: Case[] = [
 	// One case per TIER x STOP, so no tier is verified only at the stop that happens to be the
 	// default. The three tiers render three different headers and three different pane
 	// arrangements, and every band the shell draws differs across them.
-	{ w: 390, h: 844, stop: 'build', why: 'phone at Build — no rail, no docked panels, the bar stays' },
+	{ w: 390, h: 844, stop: 'craft', why: 'phone at Craft — no rail, no docked panels, the bar stays' },
 	{ w: 820, h: 1180, stop: 'read', why: 'tablet at Read — chromeless preview, no editor column' },
-	{ w: 820, h: 1180, stop: 'build', why: 'tablet at Build — full header, NO activity rail (desktop-only)' },
+	{ w: 820, h: 1180, stop: 'craft', why: 'tablet at Craft — full header, NO activity rail (desktop-only)' },
 	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, full-bleed preview' },
-	{ w: 1440, h: 900, stop: 'build', why: 'desktop at Build — the activity rail sits outside the split' },
+	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — the activity rail sits outside the split' },
 	// A dragged splitter is PERSISTED, so it is the state a returning visitor reloads into.
 	// The shell drew the 54% default regardless, which put the split line up to 288px off.
 	{ w: 1440, h: 900, stop: 'write', split: 75, why: 'splitter dragged toward the editor' },
@@ -204,7 +204,7 @@ const READ_APP = (want: string) => {
 		// Null where the app draws none — the shell must then draw none either.
 		panehdr: holderIdx > 0 ? r(kids[holderIdx - 1]) : null,
 		rail: r(below[0]),
-		// Write/Build stack the navigator and the deck status strip; Read has a single
+		// Write/Craft stack the navigator and the deck status strip; Read has a single
 		// affordance and no status strip of its own.
 		status: below.length > 1 ? r(below[below.length - 1]) : null,
 		// The deck title, found by TEXT rather than by class: the app puts it inside the
@@ -329,14 +329,14 @@ for (const c of CASES) {
 // sharp one: `activeAssistant` / `activeSettings` are plain `useState(null)`, never persisted,
 // so the app ALWAYS boots with the Settings/assistant columns closed. A rect captured with the
 // Coach open therefore describes a layout that cannot recur, and the shell replayed it: 601px
-// box on a 1440 Build reload, which the app re-drew at 708px the moment it mounted.
+// box on a 1440 Craft reload, which the app re-drew at 708px the moment it mounted.
 //
 // This is a TIER-ASYMMETRIC failure — docked panels exist only on tablet and desktop, so a
 // phone was structurally immune and no phone test could have found it.
 test('a rect measured with a docked panel open is not replayed', async ({ page }) => {
 	await page.addInitScript(() => {
 		try {
-			localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'build' }));
+			localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
 		} catch {
 			/* storage blocked — the app falls back to its default stop and the shell to the same */
 		}

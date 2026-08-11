@@ -237,7 +237,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
 	// Persisted, and written ONLY by an explicit dial move (never by engagement), so a
 	// user boots where they left off and the surface never drifts. `'write'` is the
-	// calm editor|preview surface (the old Focus body, promoted to a home); `'build'`
+	// calm editor|preview surface (the old Focus body, promoted to a home); `'craft'`
 	// is the full desktop. `'read'` is the full-bleed newcomer home (a beautiful deck
 	// + one "Edit this slide" button); it renders inside the SAME spine with the editor
 	// track at 0px but MOUNTED, so a newcomer's first edit (Read→Write) never remounts.
@@ -269,39 +269,39 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [quietened, setQuietened] = React.useState(false);
 	const quietenedRef = React.useRef(quietened);
 	quietenedRef.current = quietened;
-	// `revealBuild` — the transient step-UP, symmetric to `quietened`'s step-down. A
-	// Build-only faculty summoned from Read/Write (Reshape today; the Inspector when
-	// it's wired) docks its panel by transiently raising the rendered stop to 'build'
-	// WITHOUT writing the saved `posture` — so reaching a Build tool never persists
-	// Build (the decision doc's "reachability ≠ arrangement" rule). It recedes when the
+	// `revealCraft` — the transient step-UP, symmetric to `quietened`'s step-down. A
+	// Craft-only faculty summoned from Read/Write (Reshape today; the Inspector when
+	// it's wired) docks its panel by transiently raising the rendered stop to 'craft'
+	// WITHOUT writing the saved `posture` — so reaching a Craft tool never persists
+	// Craft (the decision doc's "reachability ≠ arrangement" rule). It recedes when the
 	// summoned panels all close, on Esc, on a dial move, and suspend/restores across
 	// Fabricate — exactly like `quietened`. The two are opposite directions, so arming
-	// one clears the other; hence revealBuild wins the `effectiveStop` precedence.
-	const [revealBuild, setRevealBuild] = React.useState(false);
-	const revealBuildRef = React.useRef(revealBuild);
-	revealBuildRef.current = revealBuild;
-	const effectiveStop: Posture = revealBuild ? 'build' : quietened ? 'write' : posture;
+	// one clears the other; hence revealCraft wins the `effectiveStop` precedence.
+	const [revealCraft, setRevealCraft] = React.useState(false);
+	const revealCraftRef = React.useRef(revealCraft);
+	revealCraftRef.current = revealCraft;
+	const effectiveStop: Posture = revealCraft ? 'craft' : quietened ? 'write' : posture;
 	// Move the dial: clear any transient quiet and persist the stop. Panel open/close is
-	// ORTHOGONAL to posture (T2 §4.5) — the dial changes the chrome CEILING (Build shows
+	// ORTHOGONAL to posture (T2 §4.5) — the dial changes the chrome CEILING (Craft shows
 	// the activity-bar launcher; Write hides the docked columns), never forcing a panel
 	// open or shut. Your open/closed panels are preserved across moves — they simply
-	// aren't rendered on the calmer Write surface — so a Build↔Write dip never thrashes
+	// aren't rendered on the calmer Write surface — so a Craft↔Write dip never thrashes
 	// the coach. (The mount + breakpoint-flip defaults still seed the arrangement.)
 	const changePosture = React.useCallback((p: Posture) => {
 		setQuietened(false);
-		setRevealBuild(false);
+		setRevealCraft(false);
 		setPosture(p);
 	}, [setPosture]);
-	// Summon a Build-only faculty (Reshape, Inspector) from a calmer stop: transiently
-	// reveal Build so the panel can dock, WITHOUT persisting the saved posture. Clears
-	// any quiet (opposite direction). At Build already, it's just the quiet-clear — the
+	// Summon a Craft-only faculty (Reshape, Inspector) from a calmer stop: transiently
+	// reveal Craft so the panel can dock, WITHOUT persisting the saved posture. Clears
+	// any quiet (opposite direction). At Craft already, it's just the quiet-clear — the
 	// reveal is what steps up from Read/Write, and receding it returns you there.
 	// CALLER CONTRACT: pair this with a panel-open in the SAME handler (e.g. reshape
 	// opens the coach). A bare call self-recedes next commit (harmless, never stuck-on),
 	// because the reveal only holds while a summoned panel is docked.
-	const revealBuildDock = React.useCallback(() => {
+	const revealCraftDock = React.useCallback(() => {
 		setQuietened(false);
-		if (postureRef.current !== 'build') setRevealBuild(true);
+		if (postureRef.current !== 'craft') setRevealCraft(true);
 	}, []);
 	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
 	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
@@ -314,7 +314,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// group), sharing one grid track — the layout can't fit three docked columns
 	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
 	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
+	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Craft shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
@@ -329,21 +329,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const libraryOpen = activeAssistant === 'library';
 	const inspectorOpen = activeSettings !== null;
 	const inspectorScope: 'slide' | 'deck' = activeSettings ?? 'slide';
-	// Whether any Build-only panel is docked — read by the `[view]`-only Fabricate
-	// restore (which can't list panel state as a dep) to avoid re-revealing Build with
+	// Whether any Craft-only panel is docked — read by the `[view]`-only Fabricate
+	// restore (which can't list panel state as a dep) to avoid re-revealing Craft with
 	// nothing open.
 	const panelsOpenRef = React.useRef(false);
 	panelsOpenRef.current = architectOpen || lensesOpen || libraryOpen || inspectorOpen;
-	// A transient Build reveal recedes once the faculties it was summoned for all
-	// close — mirroring `quietened`'s auto-clear. The summon batches revealBuild + the
+	// A transient Craft reveal recedes once the faculties it was summoned for all
+	// close — mirroring `quietened`'s auto-clear. The summon batches revealCraft + the
 	// panel-open in one commit, so on the opening render a panel is already open and
 	// this never fires prematurely; it clears only after the last docked panel closes.
 	// useLayoutEffect (not useEffect): the recede must run BEFORE paint, or closing the
-	// coach paints one frame of empty Build chrome (activity bar, no panel) + a 52px
+	// coach paints one frame of empty Craft chrome (activity bar, no panel) + a 52px
 	// layout jump before the passive effect clears it (red-team/checker finding).
 	React.useLayoutEffect(() => {
-		if (revealBuild && !architectOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealBuild(false);
-	}, [revealBuild, architectOpen, lensesOpen, libraryOpen, inspectorOpen]);
+		if (revealCraft && !architectOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealCraft(false);
+	}, [revealCraft, architectOpen, lensesOpen, libraryOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
 	// call sites still speak the old open/scope API; these adapt it onto the enums.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
@@ -500,18 +500,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// pieces of layout state are transient in a way the rect cannot express:
 	//   · DOCKED PANELS are not persisted at all (`activeAssistant`/`activeSettings` start
 	//     null at every stop) — the app always boots with the Settings/assistant columns
-	//     closed. A rect captured with the Coach open painted a 601px box on a 1440 Build
+	//     closed. A rect captured with the Coach open painted a 601px box on a 1440 Craft
 	//     reload that the app immediately re-drew at 708px.
 	//   · A COLLAPSED pane lives in sessionStorage while the rect lives in localStorage, so
 	//     the two disagree in a NEW TAB by construction.
-	//   · A TRANSIENT STOP (`quietened` / `revealBuild`) changes what is rendered without
+	//   · A TRANSIENT STOP (`quietened` / `revealCraft`) changes what is rendered without
 	//     changing what is persisted, so the measured stop is not the stop that will boot.
 	// `splitPanelIds` already names the docked set (just the editor|preview pair means nothing
 	// is docked), so it is the honest test for the first — the same list the layout store
 	// buckets by.
 	// When the layout is not boot-shaped, DROP the stored rect rather than leave a stale one
 	// to be replayed: the shell's compute path models every boot layout there is (stop,
-	// breakpoint, cinema, the Build activity rail, the persisted split AND the collapsed
+	// breakpoint, cinema, the Craft activity rail, the persisted split AND the collapsed
 	// side), so falling back to it is correct, not a degradation.
 	//
 	// Through a REF (the `splitApiRef` idiom below) because the split hook is declared ~1200
@@ -922,7 +922,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// their open state to the right default whenever the breakpoint flips so a
 	// compact load never auto-pops a sheet and a return to desktop re-docks them.
 	// Panels close on a breakpoint flip and open on demand — posture never
-	// force-opens the coach (T2 §4.5 orthogonality); Build's signal is the visible
+	// force-opens the coach (T2 §4.5 orthogonality); Craft's signal is the visible
 	// activity-bar launcher, not an auto-docked panel.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the breakpoint flip itself — the body reads no reactive value, but the RESET must fire whenever `compact` changes (a stranded sheet on resize is the bug this closes).
 	React.useEffect(() => {
@@ -1786,10 +1786,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// path but not in `getPanelStyles`). Every reachable combination was enumerated and agrees
 	// today; keep them in step by hand, and treat this note as the reason to.
 	const splitPanelIds = [
-		...(desktop && effectiveStop === 'build' && inspectorOpen ? ['studio-settings'] : []),
-		...(desktop && effectiveStop === 'build' && assistantOpen ? [libraryOpen ? 'studio-library' : 'studio-assistant'] : []),
+		...(desktop && effectiveStop === 'craft' && inspectorOpen ? ['studio-settings'] : []),
+		...(desktop && effectiveStop === 'craft' && assistantOpen ? [libraryOpen ? 'studio-library' : 'studio-assistant'] : []),
 		...STUDIO_SPLIT_PANEL_IDS,
-		...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['studio-tablet-inspector'] : []),
+		...(bp === 'tablet' && effectiveStop === 'craft' && inspectorOpen ? ['studio-tablet-inspector'] : []),
 	];
 	const splitConfigKey = splitPanelIds.join(',');
 	const split = useResizableSplit({
@@ -1814,9 +1814,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// persistence above at `pagehide` time. See the note there for why a docked panel or a
 	// collapsed pane disqualifies the rect.
 	// `effectiveStop === posture` is the third clause, and it is not optional: `quietened` (⌘.)
-	// and `revealBuild` change the RENDERED stop without persisting it, so a session that ends
-	// with either armed measures one stop and boots into another. Ending a Build session with
-	// quiet armed stored a Write-shaped rect that the next load replayed against Build — the box
+	// and `revealCraft` change the RENDERED stop without persisting it, so a session that ends
+	// with either armed measures one stop and boots into another. Ending a Craft session with
+	// quiet armed stored a Write-shaped rect that the next load replayed against Craft — the box
 	// 29px off, through the replay path the shell trusts over compute.
 	rectBootShapedRef.current = splitPanelIds.length === STUDIO_SPLIT_PANEL_IDS.length && effectiveStop === posture && !(splitUsable && split.collapsed);
 	// Collapse via a header glyph (or a ⌘K command): if focus was inside the
@@ -2207,23 +2207,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// Not while Fabricate is up — a full-screen surface with no compose body
 				// behind it. Toggling quiet there would silently arm a state you never see
 				// and desync the suspend/restore (M4 red-team finding 2).
-				// ⌘. quiets to Write — the opposite of a Build reveal, so drop any reveal first.
+				// ⌘. quiets to Write — the opposite of a Craft reveal, so drop any reveal first.
 				// If we're dismissing a TRANSIENT reveal, close its summoned panel(s) too (see Esc).
-				if (viewRef.current !== 'fabricate') { if (revealBuildRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealBuild(false); setQuietened((v) => !v); }
+				if (viewRef.current !== 'fabricate') { if (revealCraftRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealCraft(false); setQuietened((v) => !v); }
 			} else if (e.key === 'Escape') {
 				// Esc clears either transient overlay (whichever is armed) back to the saved stop.
-				// Dismissing a transient Build REVEAL also closes the panel(s) it was summoned for:
+				// Dismissing a transient Craft REVEAL also closes the panel(s) it was summoned for:
 				// a summon + Esc is one "never mind" episode, so the panel must not linger open-but-
-				// hidden and pop back on the next Build visit (adversarial-trio R4). A panel opened at
-				// a PERSISTENT Build stop (revealBuild already false) is untouched — its orthogonal
-				// preservation across a Build↔Write dip is the documented, intended behavior.
-				if (viewRef.current !== 'fabricate') { if (revealBuildRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealBuild((v) => (v ? false : v)); setQuietened((v) => (v ? false : v)); }
+				// hidden and pop back on the next Craft visit (adversarial-trio R4). A panel opened at
+				// a PERSISTENT Craft stop (revealCraft already false) is untouched — its orthogonal
+				// preservation across a Craft↔Write dip is the documented, intended behavior.
+				if (viewRef.current !== 'fabricate') { if (revealCraftRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealCraft((v) => (v ? false : v)); setQuietened((v) => (v ? false : v)); }
 			}
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, []);
-	// Fabricate is its own full-screen surface; never sit quietened OR build-revealed
+	// Fabricate is its own full-screen surface; never sit quietened OR craft-revealed
 	// behind it, but SUSPEND-and-RESTORE either transient so exiting Fabricate returns
 	// you to the exact surface you left — not a posture you didn't choose (R5). Present
 	// is an overlay (it doesn't swap the compose body), so it needs no such dance. A
@@ -2234,15 +2234,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	React.useEffect(() => {
 		if (view === 'fabricate') {
 			suspendedQuietRef.current = quietenedRef.current;
-			suspendedRevealRef.current = revealBuildRef.current;
+			suspendedRevealRef.current = revealCraftRef.current;
 			if (quietenedRef.current) setQuietened(false);
-			if (revealBuildRef.current) setRevealBuild(false);
+			if (revealCraftRef.current) setRevealCraft(false);
 		} else {
 			if (suspendedQuietRef.current) { suspendedQuietRef.current = false; setQuietened(true); }
-			// Only re-reveal Build if the summoned panel actually survived Fabricate — a
+			// Only re-reveal Craft if the summoned panel actually survived Fabricate — a
 			// breakpoint flip mid-Fabricate can reset the panels, and restoring a reveal
-			// with nothing open would flash Build for one frame before the recede clears it.
-			if (suspendedRevealRef.current) { suspendedRevealRef.current = false; if (panelsOpenRef.current) setRevealBuild(true); }
+			// with nothing open would flash Craft for one frame before the recede clears it.
+			if (suspendedRevealRef.current) { suspendedRevealRef.current = false; if (panelsOpenRef.current) setRevealCraft(true); }
 		}
 	}, [view]);
 	// Assistive-tech stop announcement. Held in state that starts EMPTY and updates
@@ -2466,7 +2466,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	}, [slideNo]);
 	// Arrow keys (and PageUp/PageDown, what a presentation clicker emits) turn the
 	// deck from anywhere in the shell that isn't a typing target — so Read, where
-	// there is no editor at all, arrows straight through, and Write/Build arrow
+	// there is no editor at all, arrows straight through, and Write/Craft arrow
 	// through whenever the caret isn't in the text. `shellKeyAction` returns null
 	// for a modified chord, for a focused input/contenteditable, and for a focused
 	// item inside an open menu or dialog.
@@ -3282,7 +3282,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    the PREVIEW; the source stays whole. `dense` collapses its label to an icon
 				    when the PANE is narrow (the pane is a size container above), so a tight
 				    preview keeps a usable header instead of overflowing. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} dense onAddView={() => { revealBuildDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} dense onAddView={() => { revealCraftDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -3389,7 +3389,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					const on = i === slideNo - 1;
 					// Read is the newcomer's stop — label each slide by its TITLE (its first
 					// heading), not its component class (`big-number`/`split-compare` is jargon
-					// they can't read). Write/Build keep the class label — the author wants it.
+					// they can't read). Write/Craft keep the class label — the author wants it.
 					const readTitle = slideTitle(s);
 					const label = effectiveStop === 'read' ? readTitle || `Slide ${i + 1}` : slideClass(s);
 					return (
@@ -3497,9 +3497,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Feedback — a persistent, one-tap entry point (not gated on onboarded — first
 	// impressions matter too). Opens a pre-filled GitHub issue; no token, no backend.
 	// ONE definition, rendered by BOTH headers (the slim Read/Write header and the
-	// full Build/compact one) at the SAME tail slot, so stepping the dial never moves
+	// full Craft/compact one) at the SAME tail slot, so stepping the dial never moves
 	// it — nor anything beside it. Before this it lived only in the full header, which
-	// made the desktop right cluster jump 70px on every Write↔Build step and left Read
+	// made the desktop right cluster jump 70px on every Write↔Craft step and left Read
 	// and Write with no feedback affordance at all.
 	const feedbackButton = (
 		<Tip label="Send feedback">
@@ -3508,7 +3508,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	);
 
 	// The deck switcher — deck identity + CRUD (Switch / Rename / New). SHARED by the
-	// full header (Build / compact) AND the slim Write header: deck-switching and
+	// full header (Craft / compact) AND the slim Write header: deck-switching and
 	// New deck are the Write persona's most basic navigation, not strippable chrome,
 	// so Write gets the real switcher, not a dead title label. Read stays a calm label
 	// (one sample deck; managing decks is a Write-and-up concern — dial up to reach it).
@@ -3617,7 +3617,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    since a slim header would strand those; the dial rides the full header. */}
 			{/* The cinema morph (iPhone landscape) shows NO header — the slide is the whole
 			    screen. Every other width/stop keeps its header. */}
-			{!landscapePhone && (effectiveStop !== 'build' && !compact ? (
+			{!landscapePhone && (effectiveStop !== 'craft' && !compact ? (
 			<header className="flex h-[54px] shrink-0 items-center gap-3 overflow-x-auto overscroll-x-contain border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
@@ -3642,10 +3642,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{/* The tail — separator · dial · feedback — mirrors the full header's tail
 				    exactly, and that is the point: Present, Share, the dial and feedback all
-				    sit at the SAME x at Read, Write and Build. Drop either the divider or the
+				    sit at the SAME x at Read, Write and Craft. Drop either the divider or the
 				    feedback button here and the whole cluster slides on every dial step. */}
 				<Separator orientation="vertical" className="h-5" />
-				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
+				<PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />
 				{feedbackButton}
 			</header>
 			) : (
@@ -3815,13 +3815,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    below 1100 for one release and that was the wrong trade (#1401): on a touch
 				    tablet the words became UNREACHABLE, not merely hidden — Radix's tooltip
 				    returns early on `pointerType === 'touch'` and the tablet ⋯ menu has no
-				    Read/Write/Build rows — and unlike ▶ Present or the share glyph, a three-way
+				    Read/Write/Craft rows — and unlike ▶ Present or the share glyph, a three-way
 				    MODE control whose icons are book / pencil / layers has no conventional
 				    reading. The width it costs is bought elsewhere in this row instead: the
 				    tours moved into ⋯ and the row runs at the phone's density below desktop.
 				    Below 700 the dial is not in the header at all (`!mobile`) — the phone
 				    carries the density on its own pane bar. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -4030,7 +4030,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				</main>
 			) : (
 				/* Unified compose spine (M2 spine hoist + M3 Read, 2026-07-17-studio-persona-dial.md).
-				   Read, Write and Build share ONE structure so editor + preview mount ONCE and
+				   Read, Write and Craft share ONE structure so editor + preview mount ONCE and
 				   never remount across a dial move — the srcdoc iframe never reloads and the
 				   visible slide never jumps. The editor/preview/rails sit at FIXED child indices;
 				   only the surrounding chrome + the split track weights change. BUILD gates the
@@ -4041,7 +4041,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   never a remount. The split always contributes FIVE children so track lists can't
 				   drift (#721 zero-void invariant). */
 				<div className={cn('relative flex min-h-0 flex-1', desktop && 'flex-row')}>
-					{desktop && effectiveStop === 'build' && activityBar}
+					{desktop && effectiveStop === 'craft' && activityBar}
 					{/* The skip-link target and the ONE `main` landmark of this document (ADR
 					    §5). It wraps the split rather than retagging it — `ResizablePanelGroup`
 					    renders react-resizable-panels' own `div` and exposes no tag prop, so a
@@ -4065,10 +4065,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						data-split-collapsed={splitUsable && split.collapsed ? split.collapsed : undefined}
 						data-split-dragging={split.dragging ? '' : undefined}
 					>
-						{/* Settings — docks next to the bar (desktop-Build) as a resizable Panel.
+						{/* Settings — docks next to the bar (desktop-Craft) as a resizable Panel.
 						    react-resizable-panels enforces the px min itself; close = the Panel is
 						    simply not rendered (the activity-bar icon reopens it). */}
-						{desktop && effectiveStop === 'build' && inspectorOpen && (
+						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
 								<ResizablePanel id="studio-settings" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={SET_DEFAULT} className="overflow-hidden border-r border-border bg-background">
 									{inspectorScopeContent}
@@ -4077,10 +4077,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							</>
 						)}
 						{/* The assistant slot — ONE of Coach / Chat / Lenses / Library, docked next
-						    to the editor (desktop-Build) as a resizable Panel. Mutually exclusive;
+						    to the editor (desktop-Craft) as a resizable Panel. Mutually exclusive;
 						    close = the launcher toggle. This is the Coach/Library/Chat resize the
 						    2026-07-19 migration adds. */}
-						{desktop && effectiveStop === 'build' && assistantOpen && (
+						{desktop && effectiveStop === 'craft' && assistantOpen && (
 							<>
 								{/* Library gets its own panel id (+ wider default) so switching the
 								    assistant slot Coach→Library is a fresh panel identity — the library
@@ -4124,9 +4124,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							{splitRailB}
 						</ResizablePanel>
 
-						{/* Tablet-Build: the Inspector docks on the RIGHT as a resizable Panel (no
+						{/* Tablet-Craft: the Inspector docks on the RIGHT as a resizable Panel (no
 						    activity bar below desktop; the in-panel Slide/Deck segment is its scope). */}
-						{bp === 'tablet' && effectiveStop === 'build' && inspectorOpen && (
+						{bp === 'tablet' && effectiveStop === 'craft' && inspectorOpen && (
 							<>
 								<ResizableHandle aria-label="Resize inspector panel" />
 								<ResizablePanel id="studio-tablet-inspector" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={296} className="overflow-hidden border-l border-border bg-background">
@@ -4277,7 +4277,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</PanelBody>
 				)}
 			</PanelSheet>
-			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Build renders it
+			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Craft renders it
 			    docked in the assistant slot instead (above), so the sheet is compact-only.
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
 			    floats over the full-screen Fabricate surface. */}
@@ -4313,12 +4313,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onShare={() => setShareOpen(true)}
 				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}
-				onLibrary={() => { revealBuildDock(); setLibraryOpen(true); }}
+				onLibrary={() => { revealCraftDock(); setLibraryOpen(true); }}
 				onWorkspace={() => setWorkspaceOpen(true)}
-				onReshape={() => { revealBuildDock(); setLensesOpen(true); }}
+				onReshape={() => { revealCraftDock(); setLensesOpen(true); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
-				onFocus={posture === 'build' ? () => setQuietened(true) : undefined}
+				onFocus={posture === 'craft' ? () => setQuietened(true) : undefined}
 				onCollapseEditor={splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined}
 				onCollapsePreview={splitUsable && split.collapsed !== 'b' ? () => collapseFromHeader('b') : undefined}
 				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
@@ -4348,7 +4348,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 const POSTURE_ANNOUNCE: Record<Posture, string> = {
 	read: 'Read — just the slides',
 	write: 'Write — editor and preview',
-	build: 'Build — every panel',
+	craft: 'Craft — every panel',
 };
 
 // The one whisper of chrome over the iPhone-landscape "cinema" morph (the slide fills

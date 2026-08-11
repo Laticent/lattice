@@ -25,13 +25,13 @@ import type { Posture } from './studio-store';
 export const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.ReactNode }[] = [
 	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-4" /> },
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
-	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
+	{ id: 'craft', label: 'Craft', hint: 'Craft — every panel', icon: <Layers className="size-4" /> },
 ];
-export function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void }) {
-	// Light the EFFECTIVE stop — a transient reveal shows Build, a quiet shows Write —
+export function PostureDial({ posture, quietened, revealCraft, onChange }: { posture: Posture; quietened: boolean; revealCraft: boolean; onChange: (p: Posture) => void }) {
+	// Light the EFFECTIVE stop — a transient reveal shows Craft, a quiet shows Write —
 	// so the dial always matches the surface you're looking at, then re-lights your
 	// saved stop when the transient recedes.
-	const shown: Posture = revealBuild ? 'build' : quietened ? 'write' : posture;
+	const shown: Posture = revealCraft ? 'craft' : quietened ? 'write' : posture;
 	// When the lit stop is TRANSIENT (not your saved home), mark it with a dashed
 	// outline instead of the solid selected shadow — so it reads as "showing now,"
 	// and clicking it to make it your saved home is a deliberate act, never a silent
@@ -49,7 +49,7 @@ export function PostureDial({ posture, quietened, revealBuild, onChange }: { pos
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700
 							    and 1099px had NO route to these words, since the tooltip carrying them is
-							    hover-only and the tablet ⋯ menu has no Read/Write/Build rows. The 87px now
+							    hover-only and the tablet ⋯ menu has no Read/Write/Craft rows. The 87px now
 							    comes out of the row's own slack instead (#1401): the guided tours moved into
 							    ⋯ below desktop, and the whole row runs at the phone's density there. */}
 						{s.icon}<span>{s.label}</span>

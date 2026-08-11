@@ -581,7 +581,9 @@ async function confirmRealm(browser, base, opts, scenario, cycleName) {
 		await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
 		await settle(page, surf.ready, 30000);
 		await wait(page, surf.settle ?? 1500);
-		if (surf.setup) { try { await surf.setup(page, opts); } catch (e) { console.error(`    confirm setup(${surfKey}) failed: ${e.message}`); } }
+		// NOT caught — see the note on the measure path below. A surface whose setup did
+		// not run is not the surface the floors describe.
+		if (surf.setup) await surf.setup(page, opts);
 		const cyc = scenario.cycles[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
 		if (scenario.prep?.[cycleName]) { try { await scenario.prep[cycleName](page, opts); } catch (e) { console.error(`    confirm prep(${cycleName}) failed: ${e.message}`); } }
 		// The whole method depends on crossOriginIsolated (COOP/COEP) exposing the API. If the serve or the
@@ -619,9 +621,20 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
 	await settle(page, surf.ready, 30000); // dispose the readiness handle (surf.ready can be replaced later — don't pin it)
 	await wait(page, surf.settle ?? 1500);
-	// Per-surface one-time setup (e.g. dial the Studio to its Build posture so every cycle shares
+	// Per-surface one-time setup (e.g. dial the Studio to its Craft posture so every cycle shares
 	// one layout → matched noise floors). App-specific → lives in the scenario's surface.setup.
-	if (surf.setup) { try { await surf.setup(page, opts); } catch (e) { console.error(`    setup(${surfKey}) failed: ${e.message}`); } }
+	//
+	// DELIBERATELY UNCAUGHT, unlike `prep` below. `setup` establishes the SURFACE the run is
+	// about; if it fails, every cycle after it measures a different layout than the floors were
+	// calibrated against and the run reports a confident wrong number. A console.error inside a
+	// long benchmark log is not a failure — it is a footnote nobody reads, which is how the
+	// Build → Craft rename left this scenario silently benchmarking the Write surface (the
+	// selector was renamed, the swallow was not; the adversarial red-team pass caught that the
+	// inner `.catch` removal in studio.mjs did nothing while THIS line still ate the throw).
+	// `prep` stays caught: it arranges state WITHIN a surface, so a failed prep degrades one
+	// cycle rather than invalidating the comparison. Today `studio` is the only surface with a
+	// setup, so this is not a behavior change for any other scenario.
+	if (surf.setup) await surf.setup(page, opts);
 	const inst = await makeInstrument(page);
 	const cyc = scenario.cycles[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
 	const extraProbes = scenario.probes ? () => scenario.probes(page) : undefined;

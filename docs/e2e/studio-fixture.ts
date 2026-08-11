@@ -47,7 +47,7 @@ export const CHROME = {
 	/**
 	 * "Send feedback" — a 1-tap header button on tablet AND desktop, at the same tail
 	 * slot in both headers (directly above Settings in the right-hand run), so it holds
-	 * position across the Read/Write/Build dial. On MOBILE there is no header button:
+	 * position across the Read/Write/Craft dial. On MOBILE there is no header button:
 	 * it is a `role="button"` row inside the StudioDrawer, behind `moreControls`.
 	 */
 	feedback: 'Send feedback',
@@ -59,6 +59,17 @@ export const CHROME = {
 	 * A spec asserting a row inside it must pick the role for the tier it's testing.
 	 */
 	moreControls: 'Menu',
+	/**
+	 * The three posture-dial segments, in dial order. Desktop + tablet only — the
+	 * phone header gates the dial on `!mobile`, so there is no posture control there.
+	 *
+	 * Listed here because the third stop's accessible name CHANGED on 2026-08-11
+	 * ("Build — every panel" → "Craft — every panel", the Craft rename), and the
+	 * spec that steps the dial had it hardcoded — the exact #780 shape this map
+	 * exists to prevent, on a suite that only runs nightly. The transient variant a
+	 * summoned panel produces is `<hint>, showing temporarily`.
+	 */
+	postureStops: ['Read — just the slides', 'Write — editor + preview', 'Craft — every panel'],
 } as const;
 
 // ── Share-dialog export contract ───────────────────────────────────────────
@@ -242,7 +253,7 @@ export const appToast = toastText;
  * here.
  */
 export async function gotoStudio(page: Page): Promise<void> {
-	// Seed the Build posture BEFORE the island hydrates, so the full surface (the
+	// Seed the Craft posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
 	// without this the 'Toggle Coach' / 'Toggle Chat' / 'Deck scope' launchers wouldn't exist.
@@ -252,7 +263,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 		try {
 			const k = 'lattice-studio-settings';
 			const cur = JSON.parse(localStorage.getItem(k) || '{}');
-			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'build' }));
+			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'craft' }));
 		} catch {
 			/* storage unavailable — the app falls back to its default */
 		}

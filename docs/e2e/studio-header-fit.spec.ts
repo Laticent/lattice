@@ -23,7 +23,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 // It asserts four things at once, because they are one contract:
 //   1. the header fits inside itself (`scrollWidth <= clientWidth`);
 //   2. the ⋯ Menu — the control the overflow eats first — is fully on-screen;
-//   3. Read / Write / Build render as WORDS at every width the dial appears at
+//   3. Read / Write / Craft render as WORDS at every width the dial appears at
 //      (#1401: below 1100 the words were not merely hidden but unreachable on a
 //      touch tablet, where the tooltip carrying them never fires);
 //   4. the deck pill's own content fits inside the deck pill (#1417) — the one
@@ -65,7 +65,7 @@ const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bou
 // pre-fix row measures **-11px** — it did not fit at 700px at all, and never had. So the
 // old 25 was not headroom that this change consumed; it was headroom that was never there.
 //
-// Measured today, on the floored row: **19px** (700px, Build stop, fonts loaded), agreeing
+// Measured today, on the floored row: **19px** (700px, Craft stop, fonts loaded), agreeing
 // to the pixel between `spareAt` here and an independent puppeteer rig. The floor stays at
 // **16** — unchanged, and now met HONESTLY for the first time. Note the tolerance is
 // thinner than it was (3px, not 9): the fonts are self-hosted woff2 and this spec waits on
@@ -93,11 +93,11 @@ const MIN_SPARE_AT_FLOOR = 16;
 // textContent lookup would match nothing, the click would be a no-op, and every
 // control would report "stable" for the emptiest possible reason. `aria-pressed`
 // flipping is what proves the step actually happened.
-const STOPS = [
-	{ name: 'Read — just the slides', word: 'Read' },
-	{ name: 'Write — editor + preview', word: 'Write' },
-	{ name: 'Build — every panel', word: 'Build' },
-] as const;
+// Names come from CHROME.postureStops, not hardcoded here: the third stop was
+// renamed Build → Craft on 2026-08-11, and this list is nightly-only, so a private
+// copy is the #780 drift waiting to happen. The visible WORD is the last space-
+// separated token before the em dash — the dial renders exactly that.
+const STOPS = CHROME.postureStops.map((name) => ({ name, word: name.split(' —')[0] }));
 
 /** The tail controls whose x must not move when the dial steps (#1371). Present and
  *  Share are in both headers; the rest exist per tier, and a missing one is skipped
@@ -401,7 +401,7 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		//
 		// Read from SETTLED geometry (above), so this compares finished layouts. The 1px
 		// of allowance left is for genuine sub-pixel rounding between two DIFFERENT rows:
-		// at ≥1100 Read and Write render the slim header and Build the full one.
+		// at ≥1100 Read and Write render the slim header and Craft the full one.
 		//
 		// Below 1100 the assertion is structurally satisfied — all three stops render the
 		// same full header, so nothing CAN move — and it is kept anyway: it costs nothing
@@ -409,7 +409,7 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		// below desktop. The load-bearing widths for it are 1100 and 1440.
 		//
 		// Be exact about what settling gives up: at ≥1100 the tail DOES slide briefly on
-		// Write→Build (Present travels ~15px over ~75ms at 1440 as the deck pill reflows
+		// Write→Craft (Present travels ~15px over ~75ms at 1440 as the deck pill reflows
 		// into the full header), so what is asserted here is "lands in the same place",
 		// not "never moves at all". That transient predates this branch — it belongs to
 		// the slim↔full header swap, which #1371 did not touch — so it is logged rather

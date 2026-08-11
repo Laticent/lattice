@@ -27,7 +27,7 @@ import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from '../components/studio/preview-rect';
-import { BOOT_POSTURE } from '../components/studio/studio-store';
+import { BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURE_ALIASES, POSTURES } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -333,27 +333,27 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    54px band the app is about to delete. No chrome vars are published in this mode, so the
    bands are already absent — this only has to take the topbar with them. */
 :root[data-ssr-cinema] #studio-ssr-shell .ssr-chrome{display:none;}
-/* The activity rail — DESKTOP (>=1100) at Build only. The seed publishes data-ssr-rail when
+/* The activity rail — DESKTOP (>=1100) at Craft only. The seed publishes data-ssr-rail when
    it actually reserves the 52px, so this gate can't drift from the tier test that produced it
-   (it used to re-derive "not mobile", which put a rail into every tablet Build layout). */
+   (it used to re-derive "not mobile", which put a rail into every tablet Craft layout). */
 #studio-ssr-shell .ssr-activityrail{left:0;top:var(--sh-pane-t,54px);width:var(--sh-rail,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
 :root:not([data-ssr-rail]) #studio-ssr-shell .ssr-activityrail{display:none;}
-/* At Build the app swaps the SLIM header for the FULL one: the launcher regains its wordmark
+/* At Craft the app swaps the SLIM header for the FULL one: the launcher regains its wordmark
    and the tail regains Theme, the mode toggle and the tours launcher. Two tails, one shown. */
-:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-desktop-tail{display:none;}
-:root:not([data-ssr-stop="build"]) #studio-ssr-shell .ssr-build-tail{display:none;}
+:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-desktop-tail{display:none;}
+:root:not([data-ssr-stop="craft"]) #studio-ssr-shell .ssr-craft-tail{display:none;}
 /* Guided tours are a PERSISTED PREFERENCE, not a width or a stop — the one chrome gate of that
    kind. The seed publishes it so the shell can honor it; see the rule in the header note above. */
 :root[data-ssr-no-tours] #studio-ssr-shell .ssr-tours{display:none;}
 /* The dial lights the stop the visitor lands on — one dial per stop, CSS picks. Hardcoding
    Write meant a Read visitor watched the highlight chip jump at hand-off. */
 #studio-ssr-shell .ssr-dial{display:none;}
-:root[data-ssr-stop="read"] #studio-ssr-shell .ssr-dial-read,:root[data-ssr-stop="write"] #studio-ssr-shell .ssr-dial-write,:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-dial-build{display:contents;}
+:root[data-ssr-stop="read"] #studio-ssr-shell .ssr-dial-read,:root[data-ssr-stop="write"] #studio-ssr-shell .ssr-dial-write,:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-dial-craft{display:contents;}
 /* …and the header's LEFT run swaps with it: the full header leads with the launcher and a
    rule, the slim one with a bare mark. Not expressible in a width class — it turns on the
-   STOP — so the three spans are re-gated here. Drawing the slim mark at Build put the deck
+   STOP — so the three spans are re-gated here. Drawing the slim mark at Craft put the deck
    pill 27px right of where the app puts it, which is a visible slide at hand-off. */
-@media (min-width:1100px){:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-slim-mark{display:none;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-build-lead{display:contents;}}
+@media (min-width:1100px){:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-slim-mark{display:none;}:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-craft-lead{display:contents;}}
 /* READ on a DESKTOP viewport shows the deck title as plain text, not the bordered switcher —
    the app's slim header drops deck navigation there entirely. Two elements, one shown, like the
    header's left run above; the shell used to keep the pill and merely blank its border, which
@@ -434,7 +434,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > [data-pane-role="editor"] { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURES, POSTURE_ALIASES, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -549,8 +549,8 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// The app has THREE tiers (use-breakpoint.ts), not two: mobile <= 699,
 						// tablet 700-1099, desktop >= 1100. The shell needs both boundaries — the
 						// action bar and the single-pane layout key off the mobile one, and the
-						// Build stop's activity rail is DESKTOP-only. Deriving the rail from
-						// "not mobile" put a 52px rail into the tablet Build layout, which moved
+						// Craft stop's activity rail is DESKTOP-only. Deriving the rail from
+						// "not mobile" put a 52px rail into the tablet Craft layout, which moved
 						// every band right of it 28px.
 						var bpMobile = vw2 <= 699;
 						var bpDesktop = vw2 >= 1100;
@@ -561,16 +561,41 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// render makes the first load compute a full-bleed box against a split (or
 						// the reverse), and the hand-off shows as a jump — which is exactly what
 						// shipped when this line carried its own private copy of the answer.
-						// The full mirror is studio-store's `isPosture(saved.posture) ? saved.posture :
-						// derivePosture(saved.onboarded)` — and derivePosture returns BUILD for a
-						// legacy `onboarded: true`. Dropping that branch gave those visitors the Write
-						// shell and the Build app: a swapped header run, a 52px rail sliding in, and
-						// the box 29px off. Harmless while the stop only moved the box; not harmless
+						// The full mirror is studio-store's `asPosture(saved.posture) ?? derivePosture(
+						// saved.onboarded)` — and derivePosture returns LEGACY_ONBOARDED_POSTURE (Craft)
+						// for a legacy `onboarded: true`. Dropping that branch gave those visitors the
+						// Write shell and the Craft app: a swapped header run, a 52px rail sliding in,
+						// and the box 29px off. Harmless while the stop only moved the box; not harmless
 						// now that it selects the header variant and the rail.
+						//
+						// The stop LIST and the legacy-name ALIASES arrive through define:vars too, for
+						// the same reason the constants do: the Craft stop was called 'build' before
+						// 2026-08-11, so a returning power user still has that value in storage, and a
+						// seed that dropped the alias would paint the Write skeleton under the Craft app.
 						var posture = null, settings = null;
 						try { settings = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); } catch (e7) {}
-						if (settings && (settings.posture === 'read' || settings.posture === 'write' || settings.posture === 'build')) posture = settings.posture;
-						if (!posture) posture = (settings && settings.onboarded === true) ? 'build' : BOOT_POSTURE;
+						var storedStop = settings && settings.posture;
+						// The next two lines are `asPosture` (studio-store), transliterated. Both halves
+						// of this mirror must run the SAME ALGORITHM, not merely reach the same answer
+						// for today's inputs — this seed and that function have already drifted twice
+						// (#1286), and each drift was a line that was right when it was written.
+						//
+						//   · VALIDATE, THEN ALIAS — the order matters. It only coincides with
+						//     alias-then-validate while no alias KEY is also a current stop; the day
+						//     the map gains one (a plausible "merge two stops" edit, e.g.
+						//     `{ write: 'craft' }`) the two orders resolve differently and the
+						//     skeleton paints a stop the app is not about to render.
+						//   · hasOwnProperty.call, not a bare truthiness test on the map, or
+						//     'constructor' / 'toString' are INHERITED hits that resolve to a
+						//     function. (The store says `Object.hasOwn`; this is an `is:inline`
+						//     script, which Astro passes through VERBATIM — no transpile, no
+						//     polyfill — so it takes the form with no browser floor.)
+						//
+						// Neither diverges today; the adversarial pass proved it over 135 storage
+						// populations plus 16 driven through the real built page. Both were armed.
+						if (POSTURES.indexOf(storedStop) !== -1) posture = storedStop;
+						else if (typeof storedStop === 'string' && Object.prototype.hasOwnProperty.call(POSTURE_ALIASES, storedStop)) posture = POSTURE_ALIASES[storedStop];
+						if (!posture) posture = (settings && settings.onboarded === true) ? LEGACY_ONBOARDED_POSTURE : BOOT_POSTURE;
 						// THE ONE CHROME GATE THAT IS NEITHER WIDTH NOR STOP. The header's tours
 						// button is gated on `toursEnabled()` (playground/tour-prefs.js, key
 						// `lattice-tour-enabled`), a global preference a visitor can flip from any
@@ -618,10 +643,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 								if (tot > 0) frac = saved[pvId] / tot;
 							}
 						} catch (e9) {}
-						// The Build stop on a wide viewport puts a fixed activity rail down the left,
+						// The Craft stop on a wide viewport puts a fixed activity rail down the left,
 						// OUTSIDE the split — so the editor|preview ratio divides what is left of the
 						// viewport, not the viewport.
-						var railW = (bpDesktop && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
+						var railW = (bpDesktop && !chromeless && posture === 'craft') ? C.railCraftDesktop : 0;
 						var paneX, paneW;
 						if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else {
 							var avail = vw2 - railW - C.splitSeparatorW;
@@ -768,7 +793,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// pane rect, per-stop chrome) comes from `G` above rather than being re-derived
 					// — the second copy of that derivation is exactly the kind of drift the shell
 					// keeps paying for — so this is only the letterbox fit of the deck ratio (`rr`)
-					// into `G`'s pane. Still not modeled: the Build stop's docked side panels
+					// into `G`'s pane. Still not modeled: the Craft stop's docked side panels
 					// (rect-replay covers a returning visitor there).
 					try {
 						if (G && !hasRect) {

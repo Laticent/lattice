@@ -6,7 +6,7 @@ import { TOURS } from './tours';
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
-// deck index without the newcomer welcome deck, plus the Build posture — which is
+// deck index without the newcomer welcome deck, plus the Craft posture — which is
 // the real shape for anyone who works with every panel docked. The fresh first-run
 // state (welcome deck, calm Write surface, no banner) is covered separately below.
 function seedReturningUser() {
@@ -16,7 +16,7 @@ function seedReturningUser() {
 	]));
 	// lensDefaults:false so these manual-add / approval flows (written before workspace inheritance) start
 	// from an EMPTY reader-view slate — the inherited-starters behavior gets its own block below.
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'build', lensDefaults: false }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'craft', lensDefaults: false }));
 }
 
 // The live preview loads the real engine by polling `window.LatticePlayground`
@@ -88,7 +88,7 @@ function setup() {
 describe('StudioShell — smoke', () => {
 	it('renders the lean bar, the active deck, and the three Compose panes', () => {
 		setup();
-		// Panels start closed at every stop (Build shows the activity-bar launcher; panels
+		// Panels start closed at every stop (Craft shows the activity-bar launcher; panels
 		// open on demand — posture never force-opens one). Dock the Coach to assert its cards.
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' }));
 		expect(screen.getByText('Lattice')).toBeInTheDocument();
@@ -111,7 +111,7 @@ describe('StudioShell — smoke', () => {
 // explicit stored preference (the Workspace "Starting mode" row writes it). These
 // tests therefore SEED the stop instead of relying on the fresh-visitor default —
 // the surface and the Read→Write step they cover are unchanged.
-const seedPosture = (posture: 'read' | 'write' | 'build') => {
+const seedPosture = (posture: 'read' | 'write' | 'craft') => {
 	localStorage.clear();
 	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture }));
 };
@@ -123,7 +123,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		// Write, not Read: no "Edit this slide" overlay to dismiss before you can work.
 		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
 		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
-		// Still the calm middle — Build's activity-bar launcher stays hidden.
+		// Still the calm middle — Craft's activity-bar launcher stays hidden.
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		// The boot stop is persisted once (R1).
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
@@ -159,26 +159,26 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(saved.readHintSeen).toBe(true);
 	});
 
-	it('moving the dial to Build raises the chrome ceiling (activity-bar launcher) and persists the stop', async () => {
+	it('moving the dial to Craft raises the chrome ceiling (activity-bar launcher) and persists the stop', async () => {
 		localStorage.clear();
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// Write hides the activity-bar launcher (its globals render only in Build).
+		// Write hides the activity-bar launcher (its globals render only in Craft).
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
-		// Build reveals the launcher — every panel is now reachable (panels open on demand;
+		await user.click(screen.getByRole('button', { name: 'Craft — every panel' }));
+		// Craft reveals the launcher — every panel is now reachable (panels open on demand;
 		// the dial raises the ceiling, it doesn't force a panel open — T2 §4.5 orthogonality).
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
 		// The choice is persisted (written only by the explicit dial move).
-		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('build');
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('craft');
 	});
 
-	it('the move is reversible — Build back to Write returns to the calm surface, no ceremony', async () => {
+	it('the move is reversible — Craft back to Write returns to the calm surface, no ceremony', async () => {
 		localStorage.clear();
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		await user.click(screen.getByRole('button', { name: 'Craft — every panel' }));
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
@@ -221,8 +221,8 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(previewWrap?.className).toContain('invisible'); // preview pane swapped out
 	});
 
-	it('a returning user boots straight into Build — the full surface, no cue', () => {
-		// beforeEach seeds the Build posture (the migration target for a legacy engaged
+	it('a returning user boots straight into Craft — the full surface, no cue', () => {
+		// beforeEach seeds the Craft posture (the migration target for a legacy engaged
 		// user; the onboarded→posture migration itself is covered in studio-store.test.ts).
 		render(<StudioShell options={options} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' }));
@@ -232,40 +232,40 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
 	});
 
-	it('a Build faculty summoned from Write reveals Build transiently — docks the panel, never persists Build, recedes on close', async () => {
+	it('a Craft faculty summoned from Write reveals Craft transiently — docks the panel, never persists Craft, recedes on close', async () => {
 		localStorage.clear();
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' }));
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// At Write there's no activity-bar launcher (a Build-only faculty isn't docked).
+		// At Write there's no activity-bar launcher (a Craft-only faculty isn't docked).
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
-		// Summon "Reshape for a reader" (a Build faculty) from ⌘K.
+		// Summon "Reshape for a reader" (a Craft faculty) from ⌘K.
 		await user.keyboard('{Meta>}k{/Meta}');
 		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
 		await user.click(within(dialog).getByText(/Reshape for a reader/));
-		// The surface transiently REVEALS Build — the launcher appears and the Lenses
+		// The surface transiently REVEALS Craft — the launcher appears and the Lenses
 		// panel (its own first-class panel now) opens, since "Reshape for a reader"
 		// targets reader views directly.
 		expect(await screen.findByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'true');
-		// …but the SAVED posture is untouched: reaching a Build tool never persists Build.
+		// …but the SAVED posture is untouched: reaching a Craft tool never persists Craft.
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
-		// The dial marks the lit Build as TRANSIENT ("showing temporarily") so clicking it
+		// The dial marks the lit Craft as TRANSIENT ("showing temporarily") so clicking it
 		// to persist is deliberate, never a silent no-op on a seemingly-selected segment.
-		expect(screen.getAllByRole('button', { name: /Build — every panel, showing temporarily/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('button', { name: /Craft — every panel, showing temporarily/ }).length).toBeGreaterThan(0);
 		// Closing the summoned Lenses panel recedes to Write — launcher gone, posture still Write.
 		await user.click(screen.getByRole('button', { name: 'Toggle Reader views' }));
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument());
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
-		// …and the dial no longer marks any stop transient (Build is no longer even shown).
+		// …and the dial no longer marks any stop transient (Craft is no longer even shown).
 		expect(screen.queryByRole('button', { name: /showing temporarily/ })).not.toBeInTheDocument();
 	});
 
-	it('Esc dismisses a transiently-summoned panel — it does NOT resurrect on the next Build visit (trio R4)', async () => {
+	it('Esc dismisses a transiently-summoned panel — it does NOT resurrect on the next Craft visit (trio R4)', async () => {
 		// A summon (⌘K → Reshape) + Esc is one "never mind" episode: the transiently-revealed
 		// Lenses panel must CLOSE, not linger open-but-hidden and pop back when the user later
-		// dials up to Build. (Contrast: a panel opened at a PERSISTENT Build stop is preserved
-		// across a Build↔Write dip — that orthogonality is intentional and untouched here.)
+		// dials up to Craft. (Contrast: a panel opened at a PERSISTENT Craft stop is preserved
+		// across a Craft↔Write dip — that orthogonality is intentional and untouched here.)
 		localStorage.clear();
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' }));
 		const user = userEvent.setup();
@@ -278,14 +278,14 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		await user.keyboard('{Escape}');
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'Toggle Reader views' })).not.toBeInTheDocument());
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
-		// Dial UP to a persistent Build: the summoned-then-dismissed panel stays CLOSED (no orphan).
-		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		// Dial UP to a persistent Craft: the summoned-then-dismissed panel stays CLOSED (no orphan).
+		await user.click(screen.getByRole('button', { name: 'Craft — every panel' }));
 		expect(await screen.findByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'false');
 	});
 
-	it('the ⌘K "Library" command reveals Build and opens the Library from Write — never a dead click', async () => {
-		// Regression: Library is a Build-only docked panel now, so opening it from ⌘K at a
-		// non-Build stop must transiently reveal Build (like "Reshape"), or the command fires
+	it('the ⌘K "Library" command reveals Craft and opens the Library from Write — never a dead click', async () => {
+		// Regression: Library is a Craft-only docked panel now, so opening it from ⌘K at a
+		// non-Craft stop must transiently reveal Craft (like "Reshape"), or the command fires
 		// into a panel that never renders. (maker-checker F1.)
 		localStorage.clear();
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' }));
@@ -295,9 +295,9 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		await user.keyboard('{Meta>}k{/Meta}');
 		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
 		await user.click(within(dialog).getByText(/Library — saved themes/));
-		// Build is revealed (launcher present) and the Library slot is open (its launcher lit).
+		// Craft is revealed (launcher present) and the Library slot is open (its launcher lit).
 		expect(await screen.findByRole('button', { name: 'Open Library' })).toHaveAttribute('aria-pressed', 'true');
-		// …with the saved posture still Write (revealing Build never persists it).
+		// …with the saved posture still Write (revealing Craft never persists it).
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 });
@@ -1062,26 +1062,26 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 });
 
 describe('StudioShell — Send feedback has ONE fixed address', () => {
-	// It used to render only in the FULL header, which is the Build/compact one. So on
+	// It used to render only in the FULL header, which is the Craft/compact one. So on
 	// desktop it appeared and vanished with the dial, and the 44px it took (plus a
 	// trailing separator that separated nothing) shoved Present, Share and the dial
-	// 70px sideways on every Read↔Build step. Read and Write, the two stops a newcomer
+	// 70px sideways on every Read↔Craft step. Read and Write, the two stops a newcomer
 	// actually lands on, offered no way to send feedback at all.
 	//
 	// Where it lands is geometry, and geometry is measured on the real surface — the
 	// PR carries the puppeteer numbers at 1440 / 1100 / 820. What jsdom can hold is
 	// the invariant that MAKES that geometry possible: one button, present at every
 	// stop on both pointer tiers, and never offered from two places at once.
-	const seedPosture = (posture: 'read' | 'write' | 'build') =>
+	const seedPosture = (posture: 'read' | 'write' | 'craft') =>
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture, lensDefaults: false }));
 
 	it.each([
 		['desktop', 'read'],
 		['desktop', 'write'],
-		['desktop', 'build'],
+		['desktop', 'craft'],
 		['tablet', 'read'],
 		['tablet', 'write'],
-		['tablet', 'build'],
+		['tablet', 'craft'],
 	] as const)('%s at the %s stop carries it in the header', (bp, posture) => {
 		seedPosture(posture);
 		setViewport(bp);
@@ -1090,7 +1090,7 @@ describe('StudioShell — Send feedback has ONE fixed address', () => {
 		// Pin WHICH header rendered, so this can't pass by accident. Desktop Read and
 		// Write get the slim header (a brand mark, not a launcher button); every other
 		// stop/width combination gets the full one.
-		const slim = bp === 'desktop' && posture !== 'build';
+		const slim = bp === 'desktop' && posture !== 'craft';
 		expect(screen.queryByRole('button', { name: 'Workspace launcher' }) === null).toBe(slim);
 	});
 
@@ -1168,7 +1168,7 @@ describe('StudioShell — the posture dial keeps its words at every width it ren
 	// labeled vs 116px), but it took it from the one control in the row that could not
 	// survive it — on a touch tablet the words became unreachable, not merely hidden
 	// (Radix's tooltip returns early on `pointerType === 'touch'`, and the tablet ⋯ menu
-	// has no Read/Write/Build rows). The 87px comes out of the row's own slack now.
+	// has no Read/Write/Craft rows). The 87px comes out of the row's own slack now.
 	//
 	// The geometry — does the row actually FIT with the words back — is not something
 	// jsdom can answer: it has no layout. Two browser oracles measure it on the PR path
@@ -1181,7 +1181,7 @@ describe('StudioShell — the posture dial keeps its words at every width it ren
 	const STOPS = [
 		['Read — just the slides', 'Read'],
 		['Write — editor + preview', 'Write'],
-		['Build — every panel', 'Build'],
+		['Craft — every panel', 'Craft'],
 	] as const;
 
 	it('desktop renders the words', () => {
@@ -1236,12 +1236,12 @@ describe('StudioShell — the posture dial keeps its words at every width it ren
 // surfaces are driven in a browser (see the #1294 verification run); these pin
 // the wiring so a refactor cannot quietly drop a verb.
 describe('StudioShell — slide navigation parity', () => {
-	const seedStop = (posture: 'read' | 'write' | 'build') => {
+	const seedStop = (posture: 'read' | 'write' | 'craft') => {
 		localStorage.clear();
 		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'q3-board', title: 'Q3 Board Review', builtin: true }]));
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture, lensDefaults: false }));
 	};
-	// The viewed slide, read the way each stop shows it: Write/Build carry the
+	// The viewed slide, read the way each stop shows it: Write/Craft carry the
 	// "Slide N / M" counter in the preview header; Read strips that chrome, so the
 	// filmstrip's aria-current row is the oracle there.
 	const viewedSlide = () => {
@@ -1256,7 +1256,7 @@ describe('StudioShell — slide navigation parity', () => {
 	// the path a real finger or wheel takes.
 	const previewSurface = () => screen.getAllByTestId('deck-preview')[0];
 
-	for (const stop of ['read', 'write', 'build'] as const) {
+	for (const stop of ['read', 'write', 'craft'] as const) {
 		it(`arrow keys turn the deck at the ${stop} stop`, () => {
 			seedStop(stop);
 			render(<StudioShell options={options} />);
