@@ -5024,6 +5024,17 @@ section.gantt.chart-frame .chart-body, figure.gantt.chart-frame .chart-body{
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* DEFINITE height, so the `max-height: 100%` below actually binds. It did not:
+   * a percentage max-height resolves to `none` against an auto-height parent, and
+   * this box was auto-height, so the SVG's only real constraint was its width and
+   * it grew as tall as its aspect said. Latent until #1598 widened the body by
+   * 2 x --sp-2xl — at which point the stress slide's SVG went 306 -> 350px against
+   * a 315px stage and the page came back stamped "Content clipped". `100%` of
+   * `.chart-body`, which fills the stage by flex, so it is definite here.
+   * (HARD RULE #18: a pre-existing fragility that MY change tipped into failure is
+   * mine to fix, not to file.) */
+  height: 100%;
+  min-height: 0;
 }
 
 /* The diagram fills its box and keeps its aspect (the kernel grows the viewBox
