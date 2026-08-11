@@ -359,7 +359,12 @@ describe('the marker berths survive a split, one set per page', () => {
   // as a direct child, none buried in a content cell.
   const { applyToDocHtml } = require('../../../lib/core/fit-berth');
   const BERTHS = ['overflow-tab', 'illegible-tab', 'fixme-tab'];
-  const berthed = (inner) => inner + BERTHS.map((c) => `<div class="${c}" aria-hidden="true"></div>`).join('');
+  // WITH the identity attribute, exactly as fit-berth emits it — otherwise the
+  // berth pass does not recognize the fixture's own tabs and appends a second set,
+  // which is the correct behavior (an unmarked div is author content) reported as
+  // a test failure.
+  const { BERTH_HTML } = require('../../../lib/core/fit-berth');
+  const berthed = (inner) => inner + BERTH_HTML;
   const pagesOf = (html) => html.split(/(?=<section\b)/).filter((p) => p.startsWith('<section'));
 
   test('after the split and the berth pass, every page carries exactly one of each', () => {

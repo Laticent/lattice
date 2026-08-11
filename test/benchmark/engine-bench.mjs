@@ -333,7 +333,14 @@ async function sweepTier() {
   const browser = await puppeteer.launch({ executablePath: chrome || undefined, args: ['--no-sandbox'] });
   const out = [];
   for (const d of sweepDatasets) {
-    const rendered = api.render(d.src, { theme: d.theme });
+    // `api.render(src, THEME_STRING)` — the signature is `render(markdown, theme,
+    // opts)`, and every other call site in this file passes the string. The first
+    // cut of this tier passed `{ theme: d.theme }`, which resolves to no theme at
+    // all and returns EMPTY css: every slide measured here was unstyled, with no
+    // clip cells, no container queries and a fraction of the real element count.
+    // Both arms saw the same DOM so the ratio survived, but the absolute numbers
+    // described a deck nobody renders.
+    const rendered = api.render(d.src, d.theme);
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     await page.setContent(srcdoc(rendered.html, rendered.css), { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
@@ -371,17 +378,40 @@ async function sweepTier() {
         window.latticeSweep.sweep();
         return performance.now() - t;
       };
-      // Warm both (first touch pays for layout neither shape is responsible for),
-      // then take the BEST of three — the floor is the reproducible number here;
-      // the mean is dominated by whatever else the box is doing.
-      unscoped(); scoped();
+      // The COMPLETENESS BACKSTOP's steady-state cost: a whole-document sweep at
+      // the CURRENT generation, which is what runs 800ms after the deck goes
+      // quiet. The design rests on this being nearly free — it plans every
+      // section but the cache skips the ones already measured, so it should cost
+      // a rect read per section and no probes. Measured rather than asserted,
+      // because if it is NOT free then the band is buying nothing: the deck would
+      // pay the whole-document price on every settle anyway.
+      // `complete()`, NOT `sweep({ all: true })` — the two differ in exactly the
+      // way this measurement exists to expose. `sweep()` invalidates first, so it
+      // re-probes every slide and costs the full whole-document price; the idle
+      // backstop does not, so the cache skips everything already measured. The
+      // first cut of this bench measured the wrong one and reported the backstop
+      // at 15.8/11.8/36.9ms — as expensive as the whole-document sweep, which
+      // would have meant the band was buying nothing.
+      const backstop = () => {
+        const t = performance.now();
+        window.latticeSweep.complete();
+        return performance.now() - t;
+      };
+      // Warm all three (first touch pays for layout none of them is responsible
+      // for), then take the BEST of three — the floor is the reproducible number
+      // here; the mean is dominated by whatever else the box is doing.
+      unscoped(); scoped(); backstop();
       const best = (fn) => Math.min(fn(), fn(), fn());
+      // Ordered so the backstop is measured with every slide already current,
+      // which is the steady state it actually runs in.
+      const backstopMs = best(backstop);
       const plan = window.latticeSweep.sweep();
       return {
         slides: all.length,
         overflowing,
         unscopedMs: best(unscoped),
         scopedMs: best(scoped),
+        backstopMs,
         measured: plan.measure.length,
         offBand: plan.skipped.offBand,
       };
@@ -404,6 +434,7 @@ async function sweepTier() {
     'whole-doc ms': round2(r.unscopedMs),
     'scoped ms': round2(r.scopedMs),
     'x cheaper': Number.isFinite(r.ratio) ? round2(r.ratio) : '∞',
+    'backstop ms': round2(r.backstopMs),
     'probed/skipped': `${r.measured}/${r.offBand}`,
   })));
   return { summary: out };
@@ -601,6 +632,10 @@ function blessBaseline(summary, printSummary, render, sweepSummary) {
         scopedMs: round2(s.scopedMs),
         unscopedMs: round2(s.unscopedMs),
         ratio: round2(s.ratio),
+        // The completeness backstop in its steady state. Blessed so a change that
+        // makes it expensive — the one thing that would invalidate keeping the
+        // band at all — shows up in this file's diff.
+        backstopMs: round2(s.backstopMs),
       };
     }
   } else if (existsSync(BASELINE)) {
@@ -615,6 +650,26 @@ function blessBaseline(summary, printSummary, render, sweepSummary) {
   } else if (existsSync(BASELINE)) {
     try { printOut = JSON.parse(readFileSync(BASELINE, 'utf8')).printDatasets; } catch { /* none */ }
   }
+  // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
+  //
+  // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
+  // matching is what makes the render/print bands GATE rather than merely report.
+  // A `bench:bless -- --sweep` run rewrote them to whichever box happened to run
+  // the sweep tier, which silently demoted the render gate to "reported, not
+  // gated" for everyone on the machine class that had blessed it — and left
+  // `printDatasets`, preserved byte-identical from the previous bless, filed under
+  // a fingerprint they were never measured on. A future run on THAT box would then
+  // gate an 11-minute tier against numbers taken on different silicon: a
+  // manufactured regression. Caught by the HARD RULE #25 checker.
+  //
+  // So the fingerprint follows the tier that actually ran. A render-tier bless
+  // always runs (it is unconditional in main()), so it owns the stamp; a
+  // sweep-only or print-only bless carries the previous one forward with the rows
+  // it did not re-measure.
+  const measuredRenderTier = !!summary?.length;
+  const prior = existsSync(BASELINE)
+    ? (() => { try { return JSON.parse(readFileSync(BASELINE, 'utf8')); } catch { return null; } })()
+    : null;
   const payload = {
     version: 2,
     note: 'Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; '
@@ -627,15 +682,15 @@ function blessBaseline(summary, printSummary, render, sweepSummary) {
     // What the indices are relative to. Recorded so a reader can convert an index
     // back to this machine's milliseconds, and so a wildly different probe reading
     // on the checking machine is visible rather than silently folded in.
-    calibration: {
+    calibration: measuredRenderTier || !prior?.calibration ? {
       probe: CALIBRATION,
       ms: round2(render?.calibration ?? 0),
       rmePct: round2(render?.calibrationRmePct ?? 0),
-    },
+    } : prior.calibration,
     // WHO BLESSED IT — not decoration. `checkBaseline` asserts on wall-clock only
     // when this matches the machine doing the checking, because that is the only
     // case where a millisecond delta is a statement about the CODE.
-    blessedOn: machineFingerprint(),
+    blessedOn: measuredRenderTier || !prior?.blessedOn ? machineFingerprint() : prior.blessedOn,
     datasets: out,
     // Print drawer rasterize→assemble split: full-rebuild vs cached-image re-place, per
     // deck. The re-place row being a fraction of full IS the durable record of the paper-

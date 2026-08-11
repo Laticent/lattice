@@ -19209,6 +19209,48 @@ section[data-lattice-overflow-marker="off"] > .fixme-tab { display: none !import
 section[data-lattice-overflow-marker="reader"] .fit-culprit,
 section[data-lattice-overflow-marker="off"] .fit-culprit { outline: none; }
 
+/* …and NEVER in a rasterized artifact, whatever the level says.
+ *
+ * `.lattice-exporting` is the export-safe face the Studio's raster capture stamps
+ * on the section (base.finish.css uses it the same way). It has to be honored HERE
+ * because of how that capture works: html-to-image clones the SECTION AND ITS
+ * DESCENDANTS ONLY, not its ancestors — which is exactly why the Fix-Me signal
+ * used to be safe by accident. It was a `position: fixed` overlay parked in
+ * `document.body`, an ancestor-level layer the clone never saw, so it could not
+ * reach a PNG / PPTX / PDF no matter what level the capture ran at.
+ *
+ * Moving it INTO the slide — an outline on the culprit plus a berth in the section
+ * — is what this change did, and it silently moved this signal inside the clone
+ * boundary. The Studio's raster host builds its srcdoc with no export-settings
+ * block, so it resolves to `author`: without these two rules a delivered raster
+ * would gain a yellow FIX ME chip and a yellow outline on any slide that happens
+ * to overflow. Restoring the old property explicitly is the point — it was never
+ * a decision, just a side effect of where the overlay lived, and a side effect is
+ * not something the next change can rely on. (HARD RULE #18: a pre-existing hole
+ * this change would otherwise have widened.)
+ *
+ * NOT extended to the ring or the "Overflows" tab. Those are section descendants
+ * already and have always ridden into a raster capture at `author` — a real
+ * question, but a PRE-EXISTING one this change neither caused nor worsens, so it
+ * stays out of this diff rather than being smuggled in.
+ *
+ * BOTH PLACEMENTS, AND BOTH LED BY `section` — the same two-form idiom
+ * base.finish.css uses for this class, and not a stylistic echo of it. The engine
+ * PACKS a rule whose selector does not lead with `section` onto
+ * `article.lattice > section `, so the first cut of this block — written as
+ * `.lattice-exporting > .fixme-tab` — came out of the packer as
+ * `article.lattice > section .lattice-exporting > .fixme-tab`: a rule requiring
+ * the class to be a DESCENDANT of a slide, when the Studio's capture puts it ON
+ * the slide (`section.classList.add('lattice-exporting')`). It matched nothing,
+ * and the suppression silently did not happen — caught by measuring the computed
+ * style during a simulated capture rather than by reading the selector. This is
+ * the same leading-compound trap `lib/core/leading-is.js` exists for and that the
+ * `data-lattice-overflow-marker` gate above rides on the section to avoid. */
+section.lattice-exporting > .fixme-tab,
+:where(.lattice-exporting) section > .fixme-tab { display: none !important; }
+section.lattice-exporting .fit-culprit,
+:where(.lattice-exporting) section .fit-culprit { outline: none !important; }
+
 /* ════════════════════════════════════════════════════════════════════════
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.

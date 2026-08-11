@@ -688,12 +688,27 @@ describe('probeContentClipped — did the clip actually CUT anything?', () => {
   });
 
   test('the marker its own tab draws is never the evidence', () => {
+    // `data-lattice-berth` is what makes it the MARKER'S tab. The class alone is
+    // not enough any more: `html: true` lets an author type
+    // `<div class="overflow-tab">` into a slide, and excluding that from the probes
+    // would hand them a way to hide their own content from the register — the
+    // author-reachable kill switch the two-list split in overflow-probe.js exists
+    // to prevent. Only what fit-berth EMITTED is chrome.
     const r = run(
-      '<section><div class="overflow-tab" id="a">Content clipped</div></section>',
+      '<section><div class="overflow-tab" data-lattice-berth id="a">Content clipped</div></section>',
       { section: rect(0, 1000), '#a': rect(980, 1040) },
       { clipBoxes: ['section'] },
     );
     assert.equal(r.cut, false, 'counting the tab would make the marker self-justifying');
+  });
+
+  test("…but an AUTHOR's div wearing the same class is content, and IS the evidence", () => {
+    const r = run(
+      '<section><div class="overflow-tab" id="a">CONFIDENTIAL — internal only</div></section>',
+      { section: rect(0, 1000), '#a': rect(980, 1040) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, true, 'an unmarked div is author content and must stay measurable');
   });
 
   test('a bounded content CELL is probed, not just the section', () => {

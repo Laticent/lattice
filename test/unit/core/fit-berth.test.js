@@ -16,8 +16,12 @@ const { BERTHS, applyToHtml, applyToDocHtml, applyToDom, berth, BERTH_SRC } = re
 
 const SLIDE = '<article class="lattice"><section class="content" data-lattice-slide><h2>A</h2></section></article>';
 const docOf = (html) => new JSDOM(html).window.document;
+// Qualified on the ATTRIBUTE, like every other consumer. Filtering on the class
+// alone would count an author's own `<div class="overflow-tab">` as a berth —
+// exactly the conflation `data-lattice-berth` exists to end, so a helper that made
+// it would quietly weaken every assertion built on it.
 const berthsIn = (section) => [...section.children]
-  .filter((el) => BERTHS.includes(el.className))
+  .filter((el) => BERTHS.includes(el.className) && el.hasAttribute('data-lattice-berth'))
   .map((el) => el.className);
 
 describe('applyToHtml — the engine path', () => {
@@ -167,5 +171,53 @@ describe('applyToDocHtml — an assembled document, not a run of slides', () => 
     assert.equal(applyToDocHtml('<html><body><p>nothing</p></body></html>'),
       '<html><body><p>nothing</p></body></html>');
     assert.equal(applyToDocHtml(null), null);
+  });
+});
+
+describe('an author cannot collide with the berth, in either direction', () => {
+  // `lib/engine/index.js` sets `html: true`, so an author can type
+  // `<div class="overflow-tab">CONFIDENTIAL</div>` straight into their markdown.
+  // These three class names became engine-emitted contract markup in this change,
+  // which turned that from a curiosity into two live defects — both found by the
+  // HARD RULE #25 red team on real engine renders. `data-lattice-berth` is what
+  // tells the two apart.
+  const AUTHOR = '<div class="overflow-tab">CONFIDENTIAL — internal only</div>';
+
+  test('an author div carrying the class does not suppress the slide\'s berths', () => {
+    // The idempotency test used to be `inner.includes('class="overflow-tab"')` —
+    // a substring search over the whole slide — so ONE author div anywhere meant
+    // the slide got NO berths at all: every register silent there, and the string
+    // path out of sync with the DOM path (HARD RULE #1).
+    const out = applyToHtml(`<article><section data-lattice-slide><h2>A</h2>${AUTHOR}</section></article>`);
+    const s = docOf(out).querySelector('section');
+    assert.deepEqual(berthsIn(s), BERTHS, 'all three berths still emitted');
+  });
+
+  test('berth() does not adopt the author element, and never writes over its text', () => {
+    const doc = docOf(`<article><section data-lattice-slide><h2>A</h2>${AUTHOR}</section></article>`);
+    const s = doc.querySelector('section');
+    const mine = berth(s, 'overflow-tab');
+    assert.ok(mine.hasAttribute('data-lattice-berth'), 'minted its own, attribute-marked');
+    assert.notEqual(mine, s.querySelector('.overflow-tab:not([data-lattice-berth])'));
+    assert.equal(
+      s.querySelector('.overflow-tab:not([data-lattice-berth])').textContent,
+      'CONFIDENTIAL — internal only',
+      "the author's own content is untouched",
+    );
+  });
+
+  test('every emitted berth carries the attribute — it is what makes it identifiable', () => {
+    const s = docOf(applyToHtml(SLIDE)).querySelector('section');
+    for (const cls of BERTHS) {
+      assert.ok(s.querySelector(`:scope > .${cls}`).hasAttribute('data-lattice-berth'), cls);
+    }
+  });
+
+  test('the idempotency test is anchored to the END, not a substring anywhere', () => {
+    // Author content that merely LOOKS like a berth must not read as "already ran".
+    const withDecoy = `<article><section data-lattice-slide><h2>A</h2>${AUTHOR}</section></article>`;
+    const once = applyToHtml(withDecoy);
+    assert.equal(applyToHtml(once), once, 'still idempotent on its own output');
+    assert.notEqual(once, withDecoy, 'and the decoy did not stop the first pass');
   });
 });

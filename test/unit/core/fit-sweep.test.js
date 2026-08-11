@@ -24,6 +24,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   SWEEP_BAND_RATIO,
+  COMPLETE,
   inSweepBand,
   fitStateIsCurrent,
   planFitSweep,
@@ -231,5 +232,86 @@ describe('planFitSweep — the cache is a record of MEASUREMENT, not of intent',
     assert.deepEqual(out.measure.map((m) => m.section.id), [1, 2],
       'the unrecorded slides must be re-planned WITHOUT needing a new generation');
     assert.equal(out.skipped.current, 1);
+  });
+});
+
+describe('COMPLETE — the band that covers everything', () => {
+  // The band alone is not a coverage policy, and shipping it as one was the
+  // defect this constant exists to close. Measured on the real bundle, a 12-slide
+  // all-overflowing deck at 1200x800:
+  //
+  //   loaded, never scrolled             3 / 12 marked
+  //   after page.pdf() (print, marp-cli) 3 / 12 marked
+  //   during a continuous scroll         no new coverage at all
+  //   after it all settled              11 / 12 — one slide fell between two
+  //                                      sampled bands and was never measured
+  //
+  // A printed document and an Export-to-Marp bundle are never scrolled by anyone,
+  // so a band-scoped sweep measures the first viewport and stops — the silent clip
+  // the whole marker register exists to prevent. The runtime now runs an idle
+  // backstop sweep at this width; these pin the kernel half.
+
+  test('a slide far outside the viewport is in band at COMPLETE', () => {
+    const far = { top: 999999, bottom: 1000539 };
+    assert.equal(inSweepBand(far, 800), false, 'out of the interactive band');
+    assert.equal(inSweepBand(far, 800, COMPLETE), true, 'in band at COMPLETE');
+  });
+
+  test('planFitSweep at COMPLETE plans every unmeasured slide, however far away', () => {
+    const secs = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+    const opts = (bandRatio) => ({
+      sections: secs,
+      generation: 1,
+      viewportH: 800,
+      rectOf: (s) => ({ top: s.id * 540, bottom: s.id * 540 + 540 }),
+      boxOf: () => ({ w: 960, h: 540 }),
+      stateOf: () => undefined,
+      ...(bandRatio === undefined ? {} : { bandRatio }),
+    });
+    assert.equal(planFitSweep(opts()).measure.length, 3, 'the interactive band reaches 3 of 12');
+    const all = planFitSweep(opts(COMPLETE));
+    assert.equal(all.measure.length, 12, 'COMPLETE reaches every one');
+    assert.equal(all.skipped.offBand, 0);
+  });
+
+  test('COMPLETE is CHEAP on a settled deck — it re-probes nothing', () => {
+    // The load-bearing property of the backstop, and the reason it can just always
+    // run: at the CURRENT generation the cache skips every slide already measured,
+    // so a complete sweep costs a plan and no probes. Measured through the bench
+    // tier at 0.1-0.4ms across these decks, against 11.8-36.9ms for the same
+    // coverage WITH a generation bump. If this ever stops holding, the band is
+    // buying nothing — the deck would pay whole-document price on every settle.
+    const secs = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+    const state = new Map(secs.map((s) => [s, { gen: 1, w: 960, h: 540 }]));
+    const out = planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 800,
+      rectOf: (s) => ({ top: s.id * 540, bottom: s.id * 540 + 540 }),
+      boxOf: () => ({ w: 960, h: 540 }),
+      stateOf: (s) => state.get(s),
+      bandRatio: COMPLETE,
+    });
+    assert.equal(out.measure.length, 0, 'nothing re-probed');
+    assert.equal(out.skipped.current, 12, 'all 12 answered from the cache');
+  });
+
+  test('a NEW generation makes COMPLETE re-probe everything — the two are different asks', () => {
+    // `latticeSweep.complete()` vs `latticeSweep.sweep({ all: true })`: same
+    // coverage, an order of magnitude apart, because the second invalidates first.
+    // The bench measured the wrong one and reported the backstop as expensive as a
+    // whole-document sweep, which is how this distinction earned a test.
+    const secs = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+    const state = new Map(secs.map((s) => [s, { gen: 1, w: 960, h: 540 }]));
+    const out = planFitSweep({
+      sections: secs,
+      generation: 2,
+      viewportH: 800,
+      rectOf: (s) => ({ top: s.id * 540, bottom: s.id * 540 + 540 }),
+      boxOf: () => ({ w: 960, h: 540 }),
+      stateOf: (s) => state.get(s),
+      bandRatio: COMPLETE,
+    });
+    assert.equal(out.measure.length, 12);
   });
 });

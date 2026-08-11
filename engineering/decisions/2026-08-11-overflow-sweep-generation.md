@@ -192,7 +192,54 @@ own writes are confined to three named elements, and nothing else in the documen
 is filtered. Verified in Chromium — the generation counter is stable for seconds
 after boot on a deck with two overflowing slides.
 
-### 4b. A sweep probes the band, not the deck
+### 4b. A sweep probes the band — and a backstop probes the deck
+
+**The band alone was silent, and shipping it alone would have been the defect
+this whole register exists to prevent.** Found by the Munger inversion and
+reproduced on the real bundle: 12 stacked slides, every one over-stuffed,
+viewport 1200×800.
+
+| | marked |
+|---|---|
+| loaded, never scrolled | **3 / 12** |
+| after `page.pdf()` — the print / marp-cli shape | **3 / 12** |
+| during a continuous scroll | **no new coverage at all** |
+| after everything settled | **11 / 12** — one slide fell between two sampled bands and was never measured |
+
+Two whole classes of render target, not corner cases. A printed document and an
+**Export-to-Marp bundle** are never scrolled by anyone — and that bundle renders
+*through this runtime* inside marp-cli, where it is the only marker producer
+(`tools/export-marp.js` ships `lattice-runtime.min.js`; the emulator's
+full-document watcher is not on that path). A band-scoped sweep measures the
+first viewport and stops. That is the silent clip `2026-07-30` made `reader` the
+export default to prevent, reintroduced one layer down. The third row is its own
+bug: the scroll trigger was a *trailing* debounce, and scroll events arrive every
+~16ms, so each one reset the timer and none ever fired.
+
+**The fix is not to drop the band** — it is what makes an edit cheap — but to
+stop it being the last word:
+
+- **A completeness backstop.** Every sweep re-arms an 800ms idle timer; when the
+  deck goes quiet it sweeps the WHOLE document at the **current generation**. The
+  cache then skips every slide already measured, so only the never-measured ones
+  cost a probe. Measured through the bench at **0.1–0.4 ms** across these decks —
+  against 4.4–23.6 ms for the same coverage *with* a generation bump. That gap is
+  the whole reason the shape works, and it is now a blessed bench column so it
+  cannot quietly stop holding.
+- **A max wait on the interactive debounce.** A trailing debounce is right for an
+  edit burst and wrong for a continuous gesture; 250ms of pending work now runs
+  rather than being pushed out again.
+- **`window.latticeSweep.complete()`**, for a host that wants every slide to have
+  a verdict *now* without waiting out the idle timer. It is deliberately a
+  different entry point from `sweep({ all: true })`: same coverage, an order of
+  magnitude apart, because `sweep()` invalidates first. The bench measured the
+  wrong one and reported the backstop as expensive as a whole-document sweep —
+  which is how that distinction earned both a test and this paragraph.
+
+Re-verified after the fix, same harness: **12 / 12 in all four scenarios**,
+including after `page.pdf()`.
+
+### 4b (continued). What the band still decides
 
 Within a generation each section is probed at most once, and only while it sits
 in the **sweep band** — the viewport plus one viewport either side. The cache key
@@ -329,11 +376,23 @@ containing block the other two tabs use.
 **same page in the same run**, so the "before" is the old *shape* re-measured
 rather than a number from an older commit on different hardware:
 
-| Deck | slides | overflowing | whole-document | scoped | × cheaper |
-|---|---|---|---|---|---|
-| normal (jargon) | 58 | 6 | 9.4 ms | 0.4 ms | **23.5×** |
-| charts | 15 | 6 | 6.1 ms | 0.7 ms | **8.7×** |
-| overflowing (×40) | 40 | 40 | 20.7 ms | 1.9 ms | **10.9×** |
+| Deck | slides | overflowing | whole-document | scoped | × cheaper | backstop |
+|---|---|---|---|---|---|---|
+| normal (jargon) | 58 | 1 | 10.4 ms | 0.5 ms | **20.8×** | 0.4 ms |
+| charts | 15 | 0 | 4.4 ms | 0.7 ms | **6.3×** | 0.1 ms |
+| overflowing (×40) | 40 | 40 | 23.6 ms | 2.3 ms | **10.3×** | 0.2 ms |
+
+**An earlier revision of this table was measured on slides with NO ENGINE CSS,
+and the numbers above replace it.** The tier called
+`api.render(src, { theme })` where the signature is `render(markdown, theme)` —
+an object where a string belongs, which resolves to no theme and returns empty
+CSS. Every slide it measured was unstyled: no clip cells, no container queries,
+a fraction of the real element count. Both arms saw the same DOM so the *ratio*
+survived roughly intact, but the absolute costs described a deck nobody renders,
+and the `overflowing` column was pure artifact — the shipped decks mostly FIT
+once they are actually styled (6 → 1 and 6 → 0), while the synthetic
+all-overflowing deck stays at 40/40 and goes on carrying the expensive path.
+Found by following the inversion's export finding into the same harness.
 
 **A browser tier had to be built for this**, and its absence is part of the
 story: the probes run over laid-out DOM, so the in-process render tier cannot see
@@ -360,8 +419,12 @@ catches every version of that and cannot be tripped by jitter.
 
 ## 6. What this costs
 
-**The ring no longer updates mid-keystroke.** It updates when the render settles
-— within the same 150ms window the content transforms already use. This was put
+**The ring no longer updates mid-keystroke.** It updates when the render settles,
+**about 320ms after an edit** — measured on the shipped bundle, not the 150ms an
+earlier draft of this section claimed. The path is two stacked trailing-edge
+debounces: `scheduleRun` (150ms) → the content pass → `onContentSettled` →
+`scheduleSweep` (another 150ms). Understating an accepted trade by 2× in the
+record the next reader budgets against is its own defect, so: ~320ms. This was put
 to the maintainer as the one genuine behavior trade and accepted. It is a smaller
 change than it sounds: the render is already debounced, and the Studio already
 sampled `section.overflow` at load and again at 600ms (`single-slide-render.ts`)
@@ -398,6 +461,36 @@ on "it looks the same".
   marker-chrome selector following the Fix-Me rename. What each probe measures,
   and the long list of false positives it was tuned against, is not what was
   wrong here.
+- **The Fix-Me signal in a rasterized artifact.** The old overlay was
+  `position: fixed` in `document.body`, and the Studio's raster capture
+  (`html-to-image`) clones **the section and its descendants only, not its
+  ancestors** — so the overlay could never reach a PNG / PPTX / PDF. That safety
+  was an accident of where the layer lived, and moving the signal INTO the slide
+  silently moved it inside the clone boundary; the capture host builds its srcdoc
+  with no export-settings block, so it resolves to `author`. Without a rule, a
+  delivered raster would have gained a yellow FIX ME chip and a yellow outline on
+  any overflowing slide. `.lattice-exporting` (the export-safe face the capture
+  already stamps) now suppresses both — verified by reading computed styles
+  through a simulated capture: shown on screen, hidden during capture, restored
+  after. The ring and the "Overflows" tab are NOT included: they are section
+  descendants already and have always ridden into a raster at `author`, which is
+  a real question but a pre-existing one this change neither caused nor worsens.
+
+  The first cut of that rule did not match anything, and how it failed is worth
+  keeping: written as `.lattice-exporting > .fixme-tab`, it came out of the
+  packer as `article.lattice > section .lattice-exporting > .fixme-tab` — a rule
+  requiring the class to be a DESCENDANT of a slide, when the capture puts it ON
+  the slide. Same leading-compound trap `lib/core/leading-is.js` exists for, and
+  the same one the `data-lattice-overflow-marker` gate rides on the section to
+  avoid. It was caught by measuring the computed style, not by reading the
+  selector — which is the only way it *could* have been caught.
+- **The berth list is now DERIVED, not re-typed.** The inversion counted five
+  hand-copied places (`fit-berth.js` `BERTHS`, the runtime's `MARKER_CHROME`
+  filter, `overflow-probe.js` `MARKER_CHROME_SELECTOR`, `fluid-view-policy.js`'s
+  `off` sweep, `bg-image.js` `IMAGE_TEXT_KEEP_OUT`) and pointed out that this
+  change indicts forgettable guards while adding four more. Fair. Four of the
+  five now derive from `BERTHS`; a fourth register is covered by all of them the
+  day it is added rather than the day someone remembers.
 - **Auto-split**, which was the last open question and is now closed. The
   splitter re-emits one slide as a cover plus N body pages, so there were two
   silent ways to be wrong: the berths counted as items to paginate (moving where

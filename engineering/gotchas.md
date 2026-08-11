@@ -561,8 +561,9 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   longer re-measures every slide on every animation frame. It measures once per
   SETTLED render — the same 150ms debounce the content transforms use — over the
   slides in the viewport band whose verdict is stale.
-  - **The lag** is that settle window. It is the same one your edit already waits
-    on for Mermaid and the Form composition.
+  - **The lag** is that settle window — **about 320ms**, measured, not the 150ms
+    you might infer from one debounce. It is two stacked trailing edges: the
+    content pass waits 150ms, then the sweep waits 150ms after that.
   - **The stale off-screen mark** is deliberate: a slide that was not measured
     keeps whatever it had, because the only honest thing to say about an
     unmeasured slide is nothing. Clearing it would make a scroll look like a fix.

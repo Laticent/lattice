@@ -114,10 +114,28 @@ test('@smoke docs: EVERY inspected preview frame is really watched', async ({ pa
 	}
 	// One shared settle: the watcher is debounced, and 3s per frame would blow the smoke budget.
 	await page.waitForTimeout(3000);
+	// …AND the helper the sibling test's assertions run through must SEE it.
+	//
+	// This half is the control on the CONTROL. Every `paintedMarkers()` assertion in
+	// this suite (and in gallery-preview-budget and consultant-rebrand) is `toBe(0)`,
+	// so a helper that always reported "no alarms" would leave all three specs green
+	// — demonstrated by stubbing it to return zeros and watching the suite pass. A
+	// gate keyed on something nothing proves is live is the exact hollow shape this
+	// file's own header warns about, one level up. So the same injected 4px figure
+	// that proves the watcher runs also has to make the helper's own count non-zero.
+	const blind: number[] = [];
 	for (const i of frames) {
 		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
 		if ((await frame.locator('section.illegible').count().catch(() => 0)) === 0) silent.push(i);
+		const m = await frame.locator('body').evaluate(paintedMarkers).catch(() => null);
+		if (!m || m.total === 0) blind.push(i);
 	}
+
+	expect(
+		blind,
+		`paintedMarkers() reported NO alarm in frame(s) ${blind.join(', ')} that the watcher demonstrably marked — `
+			+ 'the helper cannot see what it is asked to assert the absence of, so every `toBe(0)` built on it is vacuous',
+	).toEqual([]);
 
 	expect(
 		silent,
