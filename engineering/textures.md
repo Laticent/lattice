@@ -121,6 +121,24 @@ color — byte-identical for non-texture themes. The print band declares the sam
 under `section.print`. No per-selector wiring; a theme that hand-rolls texture geometry
 instead of declaring tokens is a review smell.
 
+## Deriving a set for a theme that has none (#1562)
+
+The four sets above are hand-authored, and that is why `--cat-N-texture` is not in
+`REQUIRED_TOKENS`: a generated theme could only point at colors baked for a
+*different* palette. **`lib/core/texture-ramp.js` closes the supply half** —
+`textureSetFrom({ lightFills, darkFills })` derives the fills and both overlay inks
+from a theme's own `--cat-N-fill` ramp, with the ink deltas measured off the four
+shipped sets rather than invented, and the ink carrying the theme's own hue at low
+chroma. All 32 shipped themes derive a set inside the band the hand-tuned sets
+occupy, and the derivation reproduces onyx's and concrete's hand-picked inks.
+
+**It emits no patterns.** Wiring it into `texturePatternDefs()` is a separate step
+that must re-bless the golden, measure whether export bytes actually move, emit the
+polarity pins, and decide whether to emit only the referenced theme's set (32 sets
+is roughly eight times today's defs markup on every page). Only then can
+`--cat-N-texture` join `REQUIRED_TOKENS`. See
+`engineering/decisions/2026-08-11-per-theme-texture-ramp.md`.
+
 ## Adding a tile or a family
 
 - **A tile** → append `{ mode: 'stroke' | 'fill', svg: '<…8×8…>' }` to the family array.

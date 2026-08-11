@@ -53,8 +53,9 @@ Reserve questions for genuine forks.
    `npm run build:check`, the integration tier — *before* declaring done. Hooks
    enforce these at commit/push as a backstop, not a substitute.
 6. **Keep docs + changelog in sync in the SAME change.** Any behavior change
-   updates the matching `engineering/`/`design/` doc AND `CHANGELOG.md`
-   `## Unreleased`. Never return a behavior change with stale docs.
+   updates the matching `engineering/`/`design/` doc AND adds a `changelog.d/`
+   fragment (HARD RULE #10 — **not** `CHANGELOG.md` `## Unreleased`). Never
+   return a behavior change with stale docs.
 7. **Open the PR when review-ready, then drive it green — then ASK to merge.**
    Use `.github/pull_request_template.md`. Never a draft PR up front (it spams
    CI). Once open, subscribe and drive CI green / address review — never ask
@@ -233,8 +234,14 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   layouts graduate in a separate post-review commit. See `engineering/workflow.md`.
 - **#9 — Ship a per-feature demo deck** `examples/<slug>.md` (+ committed `.pdf`),
   6–10 slides. Contract in `engineering/workflow.md`.
-- **#10 — Record every user-visible change in `CHANGELOG.md` `## Unreleased`** as
-  it lands; lead with `**Breaking:**` for anything that breaks a deck/consumer.
+- **#10 — Record every user-visible change in a `changelog.d/` fragment** as it
+  lands — one file per PR, `changelog.d/<slug>.<category>.md`, bullets only; lead
+  with `**Breaking:**` for anything that breaks a deck/consumer. **Do NOT append
+  to `CHANGELOG.md` `## Unreleased`** — that shared region is what ejected seven
+  PRs from the merge queue in one evening (#1593); the release folds fragments in
+  and deletes them. *(gated — `checkChangelogFragments` in
+  `tools/check-ownership.js`, via `build:check`; contract in
+  `changelog.d/README.md`.)*
 - **#13 — Commit messages are `area(scope): short summary`**; PRs follow
   `.github/pull_request_template.md`, and the issue(s) they close must read true
   before merge. See `engineering/workflow.md` § Merging.
@@ -252,9 +259,10 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   `git fetch origin main`, rebase if behind/conflicted, push. *The merge queue is
   live (`workflow.md` §Merging): it performs the final pre-merge rebase + retest,
   so there's no manual re-rebase right before an authorized merge — approve, enable
-  auto-merge, and the queue owns the rest.* Resolve recurring `CHANGELOG`/`dist`
-  conflicts mechanically and `--force-with-lease` silently. Never let an open PR
-  **merge** conflicted, stale, or CI-red.
+  auto-merge, and the queue owns the rest.* Resolve recurring `dist` conflicts
+  mechanically and `--force-with-lease` silently. Never let an open PR **merge**
+  conflicted, stale, or CI-red. *(The recurring `CHANGELOG.md` conflict is gone —
+  entries are per-PR `changelog.d/` fragments as of #1593.)*
 - **#17 — One feature = one branch → one PR; never a stacked PR chain.** Increment
   in place (many commits, one PR). A slice that builds/tests with only `main` is
   independent → its own branch; one that needs another open PR's branch is not.
@@ -342,8 +350,10 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   catches whole + hyphenated words; a British spelling buried in a `camelCase`/
   `snake_case` identifier rides on review, so name those US too. *(gated —
   `checkUsEnglish` ratchet in `tools/check-ownership.js`, via `build:check`;
-  exceed-only, target zero; dated `engineering/decisions/` records, the `CHANGELOG`
-  ledger, and generated bundles are exempt.)*
+  exceed-only, target zero; dated `engineering/decisions/` records, the frozen
+  `CHANGELOG` ledger, and generated bundles are exempt — but a **`changelog.d/`
+  fragment is in scope**, so a new entry is gate-visible where the old one was not
+  (#1366's new-entry half).)*
 - **#22 — Untrusted slide HTML reaches a preview frame ONLY through
   `sanitizeSlideHtml`.** The docs-site Studio renders untrusted markdown (shared /
   AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed `srcdoc`

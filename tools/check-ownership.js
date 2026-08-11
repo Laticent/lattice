@@ -65,6 +65,11 @@ const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex m
 const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-contrast: the engine's own custom-property evaluator (reused, not reinvented)
 const { oklabDistance } = require('../lib/theme/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
+// changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
+const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+// #1595: the contrast floor a token's value must meet, read off its role-based name.
+// One source — the floors live there, not here (reused, not reinvented).
+const { contractDrop, contractOf, SANCTIONED_TOKEN_CONTRACTS } = require('../lib/tokens/contracts');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -2128,8 +2133,8 @@ function checkCascadeLayers(errors) {
   }
 }
 
-// HARD RULE #3 — NO hex colour literals in the engine's LAYOUT CSS; always `var(--token)`.
-// A hardcoded hex can't follow the palette (it's the same colour in every theme + colour
+// HARD RULE #3 — NO hex color literals in the engine's LAYOUT CSS; always `var(--token)`.
+// A hardcoded hex can't follow the palette (it's the same color in every theme + color
 // mode) and dodges the WCAG-AA contract the tokens carry. The hex gate (`lib/layout/gate.js`
 // `findHexLiterals`) already runs on the Layout-Studio authoring path; this extends it to the
 // SHIPPED layout CSS (lib/), the surface checkMarginDiscipline walks. Budget 0 + an enumerated
@@ -2143,13 +2148,13 @@ function checkCascadeLayers(errors) {
 // palettes themselves (the hex source) and are out of scope entirely (lib/ only, like #20).
 const LAYOUT_HEX_BUDGET = 0;
 
-// The enumerated allowlist — each a FIXED colour that is provably not theme-able. `{file, hex,
+// The enumerated allowlist — each a FIXED color that is provably not theme-able. `{file, hex,
 // count, why}`; the gate consumes `count` matching occurrences (case-insensitive) per entry.
 const SANCTIONED_HEX = [
   {
     file: 'lib/base/base.modifiers.css', hex: '#d4351c', count: 2,
     why: 'overflow-warning ring + tab fill — a FIXED danger red, deliberately NOT a theme token '
-       + 'so the authoring alarm reads identically loud in every palette and colour mode '
+       + 'so the authoring alarm reads identically loud in every palette and color mode '
        + '(documented at the declaration, base.modifiers.css "OVERFLOW WARNING").',
   },
   {
@@ -2219,9 +2224,9 @@ function checkHexLiterals(errors) {
     const top = Object.entries(byFile).sort((a, b) => b[1] - a[1]).slice(0, 5)
       .map(([f, n]) => `${f} (${n})`).join(', ');
     errors.push(
-      `${remaining.length} unsanctioned hex colour literal(s) in engine layout CSS ` +
-      `(HARD RULE #3: always \`var(--token)\` so colour follows the palette + keeps WCAG AA). ` +
-      `Replace with the matching token, or — if the colour is provably fixed (not theme-able) — ` +
+      `${remaining.length} unsanctioned hex color literal(s) in engine layout CSS ` +
+      `(HARD RULE #3: always \`var(--token)\` so color follows the palette + keeps WCAG AA). ` +
+      `Replace with the matching token, or — if the color is provably fixed (not theme-able) — ` +
       `add it to SANCTIONED_HEX in tools/check-ownership.js with a justification. Offending: ${top}.`,
     );
   }
@@ -6367,6 +6372,307 @@ function checkCommittedPdfs(errors) {
   }
 }
 
+// ── #1595: is a fallback's TARGET held to the same contract as the read? ─────
+//
+// #1566 shipped the ledger: `SANCTIONED_FALLBACK_READS` records what a `var()`
+// fallback lands on and enforces the target mechanically. What it cannot check is
+// whether that target carries the SAME CONTRACT — the judgment that would have
+// caught `--cat-N-ink` on its merits rather than on its paperwork.
+//
+// The contract lives in ONE place and it is the token's own NAME: HARD RULE #11
+// already makes role-based names canonical and gates them, so `-ink` is text at
+// 4.5:1, `-mark` is a shape at 3:1, `-fill` is a surface with no floor.
+// `lib/tokens/contracts.js` reads the floor off the name — a dozen patterns, not
+// a per-token list that goes stale the first time someone adds a token and
+// forgets it (the shape #1560's first cut shipped and had to undo).
+//
+// Three arms, because the three populations have genuinely different standing:
+//
+//   1. THE LEDGER, budget 0. Every sanctioned fallback-only token must land on a
+//      target with a floor at least as high. This is the issue's actual ask and it
+//      is satisfiable TODAY — all 13 rows (twelve --cat-N-texture plus
+//      --spectrum-solid) are same-role area hops.
+//   2. THE REPO-WIDE BACKLOG, a PINNED SET. 23 distinct chains in lib/ drop a
+//      floor: 8 are the `--cat-N-ink → --cat-N-mark` the repo itself MANDATES
+//      (`checkCatInkFallback`), the rest an unaudited `→ --accent` family. They are
+//      pre-existing and off this change's path, so HARD RULE #18 says LOG them
+//      rather than sweep them in. A pinned set, not a count ratchet: a count lets
+//      one drop be swapped for another silently, and with a population this small
+//      the set costs nothing more and names exactly which chain is new.
+//   3. UNCLASSIFIED NAMES, budget 0. A name that declares no role is not a silent
+//      pass; it is a HARD RULE #11 conformance failure, listed in
+//      SANCTIONED_TOKEN_CONTRACTS with an explicit floor until it is renamed.
+//
+// engineering/decisions/2026-08-11-fallback-contract-floors.md
+//
+/**
+ * The floor-dropping fallbacks that exist TODAY. Deliberately named `KNOWN_`
+ * rather than `SANCTIONED_` — these are LOGGED, not blessed. Nothing here has been
+ * measured AA-clean; the list exists so the population cannot grow while it drains,
+ * and so removing one shows up as a diff.
+ *
+ * Fails both ways: an unlisted drop errors, AND an entry that no longer occurs
+ * errors as stale — a fixed chain must be deleted from this list, which is what
+ * makes draining visible.
+ *
+ * Two families, and they are not equally defensible:
+ *
+ *  (a) `--cat-N-ink → --cat-N-mark` — REQUIRED by `checkCatInkFallback`, and a
+ *      known 4.5→3.0 drop. The tier has no `:root` default on purpose: the export
+ *      bundle concatenates the theme BEFORE the base, so a default there would win
+ *      and revert every curated ink to its mark (#1527). The fallback therefore
+ *      lives at each consumer, and `--cat-N-mark` is the only same-slot value that
+ *      exists. In practice the drop is off the path — `derive-cat-ink.js` emits the
+ *      tier for every shipped palette — but a theme generated outside this repo
+ *      lands on it, which is exactly the 176-of-200 measurement. **#1527's concat
+ *      flip would remove the reason this drop has to exist**, and that is the
+ *      cheapest way to drain eight of these rows.
+ *
+ *  (b) `→ --accent` — the second `--cat-N-ink`, and NOT audited. `--accent` carries
+ *      no floor against anything: it is the theme's brand hue, near-black in onyx
+ *      and concrete. A `*-ink` read that degrades onto it is a 4.5:1 text
+ *      requirement resolving to a value nothing holds to any contrast at all. No
+ *      claim is made here that these are AA-clean; they are pre-existing, off this
+ *      change's path (HARD RULE #18), and tracked for their own pass.
+ */
+const KNOWN_CONTRACT_DROPS = [
+  // (a) mandated by checkCatInkFallback — 4.5:1 → 3:1, same slot.
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `--cat-${n}-ink → --cat-${n}-mark`),
+  // (b) → --accent, unaudited. Text tier.
+  '--code-inline-fg → --accent',
+  '--ink → --accent',
+  '--jur-ink → --accent',
+  '--lane-ink → --accent',
+  '--on-dark-watermark → --accent',
+  '--panel-label-ink → --accent',
+  '--phase-ink → --accent',
+  '--row-ink → --accent',
+  '--tier-ink → --accent',
+  // (b) → --accent, unaudited. Graphical tier — a 3:1 shape onto an unfloored hue.
+  '--cat-4-mark → --accent',
+  '--cat-7-mark → --accent',
+  '--lane-jur → --accent',
+  '--panel-mark → --accent',
+  '--pill-border → --accent',
+  // A text token onto a SURFACE. journey's mood swatch label falls back to the
+  // swatch's own background, which is the one value guaranteed NOT to contrast
+  // with it. Distinct from (b) and the sharpest single row in the list.
+  '--mood-ink → --mood-bg',
+  // (c) THREE-LINK CHAINS, where the read lands two hops away on --accent:
+  // `var(--cat-N-ink, var(--cat-N-mark, var(--accent)))` in math.styles.css. The
+  // pairwise view shows only ink→mark (4.5→3, family (a) above); the read-to-final
+  // comparison shows where it ACTUALLY lands on a theme with neither tier, which
+  // is 4.5 → no floor at all. Strictly worse than the two-link form and invisible
+  // until the end-to-end arm was added.
+  '--cat-4-ink → --accent',
+  '--cat-7-ink → --accent',
+];
+
+/**
+ * Every token-hop `var(--a, var(--b))` in lib/, as `{ token, target, where }`.
+ * Reuses `bareVarReads` (HARD RULE #15) — the same scanner the ledger and the
+ * no-safe-default gate read from, so the three cannot disagree about what a
+ * fallback chain is.
+ *
+ * `//` line comments are stripped from .js/.mjs first. Without that, a JSDoc line
+ * in `lib/theme/derive.js` documenting the very pattern this gate polices
+ * (`var(--cat-N-ink, var(--cat-N-mark))`) is scanned as a real read, and the gate
+ * reports a token named `--cat-N-ink` that does not exist. `bareVarReads` strips
+ * only `/* … *​/`, which is right for CSS and short for JS.
+ */
+function fallbackHops(libDir = LIB_DIR) {
+  const stripLineComments = (s) => s.split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n');
+  const into = new Map();
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!/\.(css|js|mjs)$/.test(e.name)) continue;
+      let src = fs.readFileSync(p, 'utf8');
+      if (/\.(js|mjs)$/.test(e.name)) src = stripLineComments(src);
+      bareVarReads(src, path.relative(ROOT, p), into);
+    }
+  };
+  walk(libDir);
+  const hops = [];
+  for (const [token, reads] of into) {
+    for (const r of reads) {
+      if (!r.chain?.length) continue;
+      let from = token;
+      for (const target of r.chain) { hops.push({ token: from, target, where: r.where }); from = target; }
+      // THE READ AGAINST THE FINAL TARGET, not only adjacent pairs. A comparison
+      // that steps pair-by-pair is defeated by laundering a NON-COLOR token
+      // through the middle: `var(--cat-2-ink, var(--anchor-x, var(--cat-2-fill)))`
+      // is two hops, ink→metric and metric→area, and `contractDrop` returns null
+      // for both because a floor cannot be compared against a length. At runtime
+      // `--anchor-x` need not even exist, so the read resolves to `--cat-2-fill`
+      // exactly as the two-link version does — the one the gate catches. Comparing
+      // the read to where it actually lands closes that.
+      if (r.chain.length > 1) hops.push({ token, target: r.chain[r.chain.length - 1], where: r.where });
+    }
+  }
+  return hops;
+}
+
+/**
+ * Arm 1 + 3 over the ledger's own rows: the recorded claim, checked.
+ *
+ * Role-STRICT, not merely floor-non-dropping. The ledger's `--cat-N-texture` row
+ * justifies itself in as many words as landing "on a CONTRACT token with the same
+ * role", and that is the claim to check. A floor comparison alone would accept
+ * re-pointing it at `--cat-N-mark` — the floor goes UP, which is safe for
+ * contrast and wrong for the chip, which would paint in the deep mark hue instead
+ * of the pale fill. Role equality is only meaningful because the three tiers are
+ * coarse (ink · graphical · area); see the NO_FLOOR note in lib/tokens/contracts.js.
+ */
+function ledgerContractProblems(rows = SANCTIONED_FALLBACK_READS) {
+  const problems = [];
+  for (const row of rows) {
+    const verdict = contractDrop(row.token, row.fallback);
+    const [a, b] = [contractOf(row.token), contractOf(row.fallback)];
+    if (a && b && a.role !== b.role && !verdict) {
+      problems.push(
+        `SANCTIONED_FALLBACK_READS: --${row.token} is ${a.role} and its fallback --${row.fallback} is ` +
+        `${b.role} — a ROLE CHANGE. The floor does not drop, so this is not a contrast defect, but the row's ` +
+        'justification claims the same role and it no longer does: an area token falling back to a graphical ' +
+        'one paints the deep hue where the pale one belongs. Point it at a same-role token, or rewrite the ' +
+        'justification to say what changed and why it is still right.',
+      );
+      continue;
+    }
+    if (verdict?.unclassified) {
+      problems.push(
+        `SANCTIONED_FALLBACK_READS: --${row.token} → --${row.fallback} — no declared role for ` +
+        `${verdict.unclassified.map((t) => `--${t}`).join(' and ')}. A token with no role has no contract to ` +
+        'compare, so the ledger\'s justification cannot be checked. Rename it to the role vocabulary ' +
+        '(HARD RULE #11), or declare its floor in SANCTIONED_TOKEN_CONTRACTS (lib/tokens/contracts.js).',
+      );
+      continue;
+    }
+    if (verdict) {
+      problems.push(
+        `SANCTIONED_FALLBACK_READS: --${row.token} (${verdict.fromRole}, ${verdict.from}:1) falls back to ` +
+        `--${row.fallback} (${verdict.toRole}, ${verdict.to}:1) — the target is held to a WEAKER contract than ` +
+        'the read needs. That is the --cat-N-ink defect exactly: a value repaired to the graphical floor, ' +
+        'then painted as label text. Point the fallback at a same-role token, or derive the token ' +
+        '(REQUIRED_TOKENS + lib/theme/derive.js).',
+      );
+    }
+  }
+  return problems;
+}
+
+function checkFallbackContracts(errors, libDir = LIB_DIR) {
+  for (const p of ledgerContractProblems()) errors.push(p);
+
+  // ONE walk. `fallbackHops` re-reads every .css/.js/.mjs under lib/ (~260ms), and
+  // the first cut called it twice — once for the scan and once for the empty-scan
+  // guard — which put a quarter-second of pure waste into every `build:check`.
+  const hops = fallbackHops(libDir);
+
+  // A gate that cannot fail is also a claim (#1535). Every arm below is an
+  // assertion about a scan; if the scan found nothing at all, it found nothing
+  // because it is broken — lib/ carries hundreds of token-hop fallbacks.
+  if (!hops.length) {
+    errors.push(
+      'checkFallbackContracts scanned lib/ and found NO token-hop var() fallbacks at all. ' +
+      'There are hundreds — this is a broken scan, not a clean tree.',
+    );
+    return;
+  }
+
+  const drops = new Map();
+  const unclassified = new Map();
+  for (const hop of hops) {
+    const verdict = contractDrop(hop.token, hop.target);
+    if (verdict?.unclassified) {
+      for (const t of verdict.unclassified) {
+        if (!unclassified.has(t)) unclassified.set(t, hop.where);
+      }
+      continue;
+    }
+    if (!verdict) continue;
+    const key = `--${verdict.token} → --${verdict.target} (${verdict.from}:1 → ${verdict.to}:1)`;
+    if (!drops.has(key)) drops.set(key, hop.where);
+  }
+
+  if (unclassified.size) {
+    const shown = [...unclassified.entries()].slice(0, 8).map(([t, w]) => `--${t} (${w})`).join(', ');
+    errors.push(
+      `${unclassified.size} token(s) in a var() fallback chain declare NO ROLE in their name, so their ` +
+      `contract cannot be compared: ${shown}${unclassified.size > 8 ? `, +${unclassified.size - 8} more` : ''}. ` +
+      'HARD RULE #11 makes role-based names canonical — rename to the vocabulary (`-ink` text, `-mark` ' +
+      'graphical, `-fill`/`-bg` surface), or, when the name is not ours to change, declare the floor in ' +
+      'SANCTIONED_TOKEN_CONTRACTS (lib/tokens/contracts.js) with the reason.',
+    );
+  }
+
+  const known = new Set(KNOWN_CONTRACT_DROPS);
+  if (known.size !== KNOWN_CONTRACT_DROPS.length) {
+    errors.push('duplicate KNOWN_CONTRACT_DROPS entries in tools/check-ownership.js — one row per chain.');
+  }
+  const fresh = [...drops.keys()].filter((k) => !known.has(k.replace(/ \(.*\)$/, '')));
+  if (fresh.length) {
+    const shown = fresh.slice(0, 6).map((k) => `${k} at ${drops.get(k)}`).join('; ');
+    errors.push(
+      `${fresh.length} var() fallback(s) DROP a contrast floor and are not in KNOWN_CONTRACT_DROPS: ${shown}` +
+      `${fresh.length > 6 ? `, +${fresh.length - 6} more` : ''}. A read of a 4.5:1 text token that degrades onto ` +
+      'a 3:1 shape — or onto --accent, which carries no floor at all — is the --cat-N-ink defect: 176 of 200 ' +
+      'sampled brand-mono themes shipped a sub-AA label that way (#1595). Point the fallback at a same-role ' +
+      'token, derive the token, or write the value inline at the read (an inline color-mix has no second token ' +
+      'to drift onto). Adding a row here is logging a defect, not fixing one — do it only for something you ' +
+      'did not introduce.',
+    );
+  }
+  // SANCTIONED_TOKEN_CONTRACTS needs the same staleness arm, and the first cut did
+  // not give it one — while `lib/tokens/contracts.js` claimed in a comment that it
+  // "cannot rot". A per-token escape hatch with no rot guard is exactly the artifact
+  // the classifier's own design argument disqualifies, so the claim was false in the
+  // one place it mattered. A token that no longer appears in any fallback chain has
+  // no contract left to declare.
+  const namesInHops = new Set(hops.flatMap((h) => [h.token, h.target]));
+  const staleContracts = SANCTIONED_TOKEN_CONTRACTS
+    .filter((s) => !namesInHops.has(s.token))
+    .map((s) => `--${s.token}`);
+  if (staleContracts.length) {
+    errors.push(
+      `${staleContracts.length} SANCTIONED_TOKEN_CONTRACTS entr(ies) name a token that appears in no ` +
+      `var() fallback chain in lib/: ${staleContracts.join(', ')}. Each row exists to give a token whose ` +
+      'NAME cannot carry its role a declared floor; a token the gate never looks at has no contract to ' +
+      'declare. Delete the row — most likely it was renamed into the role vocabulary (HARD RULE #11), ' +
+      'which is the outcome the row is waiting for.',
+    );
+  }
+
+  const seen = new Set([...drops.keys()].map((k) => k.replace(/ \(.*\)$/, '')));
+  const stale = KNOWN_CONTRACT_DROPS.filter((k) => !seen.has(k));
+  if (stale.length) {
+    errors.push(
+      `${stale.length} KNOWN_CONTRACT_DROPS entr(ies) no longer occur in lib/: ${stale.join(', ')}. ` +
+      'The drop was fixed — delete the row. A stale entry is how a list stops covering what it was written for, ' +
+      'and here it would also hide the fact that the backlog is draining.',
+    );
+  }
+}
+
+/**
+ * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
+ * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
+ * seven ejections in one evening before this).
+ *
+ * The FORMAT IS DEFINED ONCE, in tools/changelog.js — the module that assembles
+ * a fragment at release time is the module that says what a valid one looks
+ * like. This gate only surfaces what it reports, so the two cannot drift into
+ * disagreeing (the same `rowFor` discipline #1547 used for the decision index).
+ *
+ * Fails both ways: a malformed fragment errors, and a MISSING `changelog.d/`
+ * errors too — a gate that scans nothing is also a claim.
+ */
+function checkChangelogFragments(errors) {
+  for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -6419,6 +6725,8 @@ function run() {
   checkAgentModelPinning(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
+  checkChangelogFragments(errors);
+  checkFallbackContracts(errors);
   return {
     errors,
     counts: {
@@ -6471,6 +6779,12 @@ module.exports = {
   parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
   checkCommittedPdfs,
+  checkChangelogFragments,
+  checkFallbackContracts,
+  ledgerContractProblems,
+  fallbackHops,
+  KNOWN_CONTRACT_DROPS,
+  SANCTIONED_TOKEN_CONTRACTS,
   auditPdfOwnership,
   PDF_OWNERSHIP,
   checkUniversalTableGuard,

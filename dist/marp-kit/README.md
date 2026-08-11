@@ -41,7 +41,7 @@ nothing on our side had ever rendered it. The reference render was made with
 | `cuoio-dark.min.css` | A second palette. Select it with `theme: cuoio-dark`. |
 | `lattice-runtime.min.js` | Builds charts and diagrams in the browser. |
 | `mermaid-v11.min.js` | Third party. Diagram slides need it. |
-| `fonts/` | 37 files. **Do not drop these** — without them type falls back to system serif, silently. |
+| `fonts/` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | `marp.config.cjs` | Registers the stylesheets for marp-cli. |
 | `.vscode/settings.json` | Registers them for the VS Code extension. |
 | `NOTICE.md` · `LICENSE` | The terms these files come under. Worth two minutes. |

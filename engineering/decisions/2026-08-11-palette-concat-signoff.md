@@ -1,0 +1,215 @@
+---
+status: proposed
+summary: >
+  The sign-off package #1527 asked for, and it changes the recommendation. THE FLIP IS STILL NOT
+  SHIPPED. Three things are now measured that were not. (1) The full sweep: all 32 themes in both
+  modes, before and after, 576 slides per side — every one of the 64 grid states changes at least
+  one slide, and 36 of those states are distinct (16 of the 32 theme files are -dark wrappers that
+  render identically at a fixed color-mode), so the honest figures are 36 of 36 states and 99
+  distinct changed renderings rather than the grid's 64 and 202. Either way "four themes, light
+  only" was a wide underestimate of the blast radius.
+  (2) THE PREVIEW AND THE EXPORT ALREADY DISAGREE. lib/engine's composeCss inlines the base at the
+  theme's own `@import 'lattice'` position, so the Studio, the docs site and the browser playground
+  render the PALETTE's value — measured on the real engine, 932 of 932 disputed tokens resolve
+  exactly as the flip would and none as the export does. The export is the odd one out of four
+  sites, not one of two models; the flip makes preview and export agree rather than swapping which
+  is wrong. (3) The flip is NOT purely an activation of better values. Measuring the twelve
+  --hljs-* against --code-bg and --pass/--warn/--fail against --bg across 64 theme-modes: 684 of
+  960 pairs change ratio, 411 get worse, 11 cross BELOW their floor and 3 cross above. Looking at
+  those 11 rather than trusting them corrected the reading — a11y-achromatopsia's dark checklist
+  genuinely loses its rails and its icons, while a11y-deuteranopia's "regression" is the palette's
+  intended blue encoding finally rendering and staying legible, which says the reference surface
+  was wrong for that use, not the palette. What survives is a short, well-scoped repair list that
+  must land BEFORE the flip: the four a11y palettes' dark-mode status grays, and cuoio's
+  --hljs-literal at 4.05:1.
+---
+
+# The concat flip: what a full sign-off sweep says
+
+**#1527.** `2026-08-10-palette-concat-order.md` measured the mechanism and stopped
+at the QUALITY BAR gate, listing what a sign-off would need. This is that package.
+**The flip is still not in this change.**
+
+## 1. The full sweep — the blast radius is bigger than the sample suggested
+
+A nine-slide deck built from live gallery slides (`divider`, `code`, `roadmap`,
+`list takeaway`, `gantt`, `kanban`, `piechart`, `checklist`, `closing accent`),
+rendered PNG-per-slide across **all 32 selectable themes × both modes × before and
+after** — 576 slides per side, 1,152 renders, compared by SHA-256.
+
+| | |
+|---|---|
+| theme-modes in the grid | **64** (32 theme files × 2 `color-mode:`) |
+| …with at least one changed slide | **64 of 64** |
+| changed slide instances | **202 of 576** |
+| **DISTINCT** states in that grid | **36** |
+| **DISTINCT** changed renderings | **99** |
+
+**The 64 and the 202 double-count, and the distinct figures are the honest ones.**
+Sixteen of the 32 theme files are `-dark` wrappers of the other sixteen, and at a
+*fixed* `color-mode:` a wrapper renders byte-identically to its parent — verified:
+`cuoio-dark` at `color-mode: dark` and `cuoio` at `color-mode: dark` are the same
+bytes. So the grid contains 36 distinct states, not 64, and 99 distinct changed
+renderings, not 202. The prior draft of this table published only the grid
+figures, which overstate the corpus by roughly 2×.
+
+**The conclusion is unchanged and does not depend on the inflation:** all 36
+distinct states change. The prior sample was four themes, light only. The worst is
+`cuoio` in dark mode (8 of 9 slides); the mildest is `indaco` dark, which still
+changes one. **There is no theme this is invisible on**, in either mode.
+
+Which slides change tracks the token families exactly: `code` (the twelve
+`--hljs-*`) and `checklist` (`--pass`/`--warn`/`--fail`) change nearly everywhere;
+`gantt` and `kanban` (the `--diagram-*` state family) change on the themes that
+declare those tokens; `divider`, `takeaway`, `piechart` and `closing` change only
+on `cuoio`, the theme with the most dead declarations.
+
+## 2. The preview already renders the flipped order — measured on the real engine
+
+The prior note left this open and said it decides whether the flip makes preview
+and export *agree* or merely swaps which one is wrong. **It makes them agree.**
+
+`lib/engine/css.js` `composeCss` builds the preview sheet as
+
+```js
+const resolvedTheme = packTheme(stripComments(themeCss).replace(THEME_IMPORT_RE, () => base));
+```
+
+— the base is inlined **at the position of the theme's own `@import 'lattice';`**,
+which is to say FIRST, with the theme's rules after it. That is the declared
+cascade, and it is what the Studio, the docs-site preview and the browser
+playground all run on (`lib/playground/index.js` → `engine.render` →
+`themes.cssFor`).
+
+Driven on the real engine rather than read off the source: register the base and
+every palette, render a slide per theme, and read the disputed tokens off the
+rendered `<section>` in Chromium.
+
+| | |
+|---|---|
+| disputed (dead) tokens across 32 themes | **932** |
+| resolving in the preview as the **export** does (base wins) | **0** |
+| resolving in the preview as the **flip** would (palette wins) | **932** |
+
+So of the four places that order these two stylesheets, **three already agree with
+what the themes declare** — the Mermaid token reader, `engine.addThemes`, and now
+the engine's own composed sheet, which is the one users look at — and the export's
+injected `${css}` is the only holdout. A `cuoio` deck looks one way in the
+Playground and another way in the PDF it exports, today, on all 32 themes.
+
+*Two harness errors are recorded rather than deleted, because both produced a
+confident wrong answer first.* Comparing **all** declared tokens rather than only
+the disputed ones measured `composeCss`'s scaffold, geometry vars and `:root`→
+`section` packing instead of the cascade, and reported ~127 differences per theme.
+Then registering only `[base, palette]` left a `-dark` wrapper's `@import 'parent'`
+unresolved against an empty store, so all 522 wrapper tokens read as "neither".
+Both are the same mistake the prior note names: **measure the way the code loads,
+not the way the files sit.**
+
+## 3. The flip is not purely an activation of better values
+
+The prior note's reading — "very likely the right outcome, the palettes were
+authored to be seen" — is too generous, and its own §6 said why: *"a palette could
+carry a stale declaration that was written against an older base and never
+re-checked BECAUSE it was dead."* That is exactly what the measurement finds.
+
+Resolving the twelve `--hljs-*` against `--code-bg` (floor 4.5:1) and
+`--pass`/`--warn`/`--fail` against `--bg` (floor 3:1) in real Chromium under each
+order, across 64 theme-modes:
+
+| | |
+|---|---|
+| pairs measured | **960** |
+| contrast ratio changes | **684** |
+| ratio gets worse (any amount) | **411** |
+| crosses **below** its floor after the flip | **11** |
+| crosses **above** its floor after the flip | **3** |
+
+The three fixes are `carbone`'s `--pass` (2.69 → 3.26) and `concrete`'s `--warn`
+(2.53 → 4.73, both variants). The eleven crossings:
+
+```
+a11y-achromatopsia/dark  --pass  12.05 → 2.48      a11y-protanopia/dark  --pass  12.05 → 2.28
+a11y-achromatopsia/dark  --fail   7.59 → 1.55      a11y-protanopia/dark  --fail   7.59 → 1.95
+a11y-deuteranopia/dark   --pass  12.05 → 2.28      a11y-tritanopia/dark  --fail   7.59 → 1.94
+a11y-deuteranopia/dark   --fail   7.59 → 1.95      cuoio · cuoio-dark, both modes
+                                                     --hljs-literal 5.68 → 4.05
+```
+
+## 4. Looking at the eleven corrected the reading — twice
+
+Numbers are not the sign-off; the QUALITY BAR asks for someone to look. Rendering
+the checklist slide before and after for the affected themes splits the eleven into
+two genuinely different things.
+
+**`a11y-achromatopsia` dark is a real regression, and it is at source.** The
+palette declares flat grays with no light-dark() pair:
+
+```css
+--pass: #4d4d4d;  --warn: #6E6E6E;  --fail: #2e2e2e;
+```
+
+Authored for a light canvas. On the dark canvas they are 2.48:1 and 1.55:1, and the
+rendered slide shows it: the green/amber row rails vanish and the state icons go
+to near-invisible gray on near-black. The base's `light-dark(#2D6A3F, #4ADE80)` has
+been masking that defect on the export path for the whole life of the palette.
+
+**`a11y-deuteranopia` dark is NOT a regression, and the measurement's reference
+surface is what is wrong.** Its "after" swaps the green check for a **blue** one —
+which is the entire point of a deuteranopia palette, and the encoding its author
+wrote — and the icon stays perfectly legible in the render. The measured drop is
+against `--bg`, but the icon is not painted on the bare canvas at that use site. So
+for the deuteranopia/protanopia/tritanopia rows the number is measuring the wrong
+pair. **Their row tints do disappear, which is a smaller and separate question.**
+
+That correction only came from opening the image. A sign-off that had stopped at
+"11 regressions" would have blocked the flip for the wrong reason, and one that had
+stopped at "the palettes were authored to be seen" would have shipped an unreadable
+achromatopsia deck.
+
+**`cuoio`'s `--hljs-literal` at 4.05:1 is a plain AA miss** and the reference is
+right: it is code text on `--code-bg`. It is a defect in cuoio, revealed rather
+than caused.
+
+## 5. Where this leaves the decision
+
+**The flip is the right direction and it is not ready to ship as one line.** It
+restores the cascade the themes declare, it makes the export agree with the three
+other sites including the one users look at, and it turns on curated work nobody
+has seen. It also reveals two authoring defects that the dead declarations have
+been hiding, and shipping it without repairing them exports an unreadable
+accessibility deck.
+
+The order that follows from the measurement:
+
+1. **Repair the masked defects first, as their own change** — `a11y-achromatopsia`
+   (and check its three siblings' dark-mode status grays) needs `light-dark()`
+   pairs; `cuoio` needs `--hljs-literal` lifted over 4.5:1. Both are palette edits
+   with no engine change, and both are correct on their own merits whether or not
+   the flip ever lands.
+2. **Land an `--hljs-* × --code-bg` AA gate with the flip**, as the issue asks.
+   The harness in §3 is that gate's prototype and it already finds one violation;
+   twelve tokens × 32 themes × 2 modes have no contrast test anywhere today.
+   The status trio wants the same treatment against the surface it is actually
+   painted on, which §4 shows is not always `--bg`.
+3. **Then flip `lattice-emulator.js:691`**, with the sweep re-run as the proof.
+
+**This is still a human gate.** The artifacts are the four contact sheets and the
+a11y comparison in the PR; the decision is the owner's.
+
+## 6. Not verified
+
+- **Nine slides, not the whole gallery.** The deck exercises the families the
+  measurement identified; a component reading a dead token this deck does not use
+  would not show up. The token-level measurement in §2 is exhaustive over the 932;
+  the render sweep is not exhaustive over components.
+- **PPTX and the HTML player were not swept.** They consume the same bundle, and
+  #1596 established that path is inert for a *different* change; nothing here
+  measures them under the flip.
+- **The status trio's real reference surface.** §4 shows `--bg` is the wrong pair
+  for at least the a11y icon use. Which surface each status token is actually
+  painted on, per component, is unmeasured — and it is what a status contrast gate
+  would need.
+- **The other 22 token families.** Only `--hljs-*` and the status trio were
+  contrast-measured. The `--diagram-*` family visibly changes the gantt and kanban
+  slides and nothing here says whether those changes clear any floor.

@@ -7,21 +7,29 @@ changes to either are major version bumps. New layouts and new themes are
 additive minor versions. Mermaid CSS overrides are internal and may change
 in patch versions.
 
-> **This file drives the release.** `## Unreleased` is the source of truth
-> for the next version. `tools/changelog.js` reads its Keep-a-Changelog
-> categories to pick the bump deterministically, and the release workflow
-> rolls `## Unreleased` into a dated `## <version> - <date>` section:
+> ## Do not add entries to this file
 >
-> | Category in `## Unreleased` | Bump |
+> **A new entry goes in `changelog.d/<slug>.<category>.md` — one file per PR.**
+> See `changelog.d/README.md`. Appending here is what ejected seven PRs from the
+> merge queue in one evening (#1593); the release folds the fragments into
+> `## Unreleased` and deletes them, so this file stays the frozen ledger.
+>
+> **This file still drives the release.** `## Unreleased` **plus every pending
+> fragment** is the source of truth for the next version. `tools/changelog.js`
+> reads the Keep-a-Changelog categories — a heading here, the filename there —
+> to pick the bump deterministically, and the release rolls the assembled
+> `## Unreleased` into a dated `## <version> - <date>` section:
+>
+> | Category (a `###` heading here, or a fragment's filename) | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Added`, `### Changed`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
-> Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
-> `## Unreleased` means there is nothing to release. Flag a breaking change
-> by leading the bullet with `**Breaking:**` so it counts as major even
-> under `### Changed`.
+> Write the entry **as the change lands** (see `CLAUDE.md` HARD RULE #10) — no
+> entries anywhere means there is nothing to release. Flag a breaking change by
+> leading the bullet with `**Breaking:**` so it counts as major even under
+> `### Changed`.
 
 ## Unreleased
 

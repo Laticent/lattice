@@ -333,7 +333,7 @@ one: the map in `split-facts.js` is the source, and
 | **Code → code-cards** (by line / block — PROPOSED) | `code` |
 | **Needs an opt-in call** | `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic"; list-heavy if enrolled, else whole-slide)* |
 
-_61 components, all placed. **Generated** by `npm run split:treatments` from `TREATMENTS` in `lib/core/split-facts.js` — edit that map, not this table; `build:check` fails on drift. A `°` marks a component whose treatment describes a split it has **not opted into** — no `capacity` axis and no `split` recipe, so it rings on overflow today (the "opt-in backfill" follow-on below). 6 carry it now._
+_Every component is placed. **Generated** by `npm run split:treatments` from `TREATMENTS` in `lib/core/split-facts.js` — edit that map, not this table; `build:check` fails on drift. A `°` marks a component whose treatment describes a split it has **not opted into** — no `capacity` axis and no `split` recipe, so it rings on overflow today (the "opt-in backfill" follow-on below)._
 
 <!-- split-treatments:end -->
 

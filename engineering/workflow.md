@@ -267,6 +267,44 @@ graduates from "new" to "documented". Treat them like
 - Gallery edits: rebuild the PDF (`npm run preview -- <deck>` during dev; include the rebuilt PDF in the PR's final commit).
 - Feature decks: rebuild `examples/<slug>.pdf` and include it in the same commit as the `.md` change.
 
+## Changelog entries — one file per PR (`changelog.d/`)
+
+**Write the entry in `changelog.d/<slug>.<category>.md`. Do not append to
+`CHANGELOG.md` `## Unreleased`.** This is HARD RULE #10; the full contract —
+naming, the six categories, what the body may contain — is in
+`changelog.d/README.md`, and the reasoning is
+`decisions/2026-08-11-changelog-fragments.md`.
+
+**Why, in one measurement.** `## Unreleased` is one shared region every PR
+appends to at the top, so two PRs in flight always edit the same lines. Under a
+merge queue that is not a conflict you resolve once — it is an **ejection**, and
+an ejection **silently clears auto-merge**, so the PR goes green again and
+merges nothing. Shipping five PRs in one evening produced **seven ejections,
+every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
+
+| PR | ejections | what landed in the gap |
+|---|---|---|
+| #1566 | 6 | 3 sibling PRs, 3 unrelated (#1568, #1573, #1561/#1580) |
+| #1560 | 1 | a sibling |
+
+Every resolution was the same mechanical "keep both entries"; #1566 needed six
+cycles across about four hours for a change whose content stopped moving after
+the second. Two PRs never write the same fragment file, so the conflict cannot
+occur.
+
+**The release consumes them.** `tools/release.js` folds every pending fragment
+into `## Unreleased` under its `### Category` heading, rolls that into the dated
+version section, and deletes the fragment files — one commit, serialized behind
+the `release` concurrency group. Until then `node tools/changelog.js --bump`,
+`--notes` and `--check` read `## Unreleased` **plus** the fragments as one body,
+so the bump is correct while the entries are still loose files.
+
+**Nothing regenerates `CHANGELOG.md` per PR, on purpose.** Assembling at build
+time would make it a generated-from-*everything* committed artifact byte-gated
+by `build:check` — which is the *other* merge-queue hazard (#1594, and #1547
+before it). That trades a visible conflict for a silent ejection, which is
+strictly worse.
+
 ## Before opening a PR
 
 1. `npm test` — full unit suite must be green.
@@ -290,8 +328,11 @@ graduates from "new" to "documented". Treat them like
      The build is deterministic, so `npm run build:check` on a **clean** tree
      is the real proof HEAD is fresh (uncommitted-but-rebuilt files mask a
      stale HEAD).
-   - **`CHANGELOG.md` `## Unreleased`** conflicts every time (everyone
-     appends) — resolve by **keeping both** entries, never picking a side.
+   - **`CHANGELOG.md` `## Unreleased`** used to conflict on every rebase.
+     It no longer should: entries are per-PR `changelog.d/` fragments (see
+     § Changelog entries below). If you still hit one — an older branch, or a
+     `changelog.d/` file two branches genuinely named the same — resolve by
+     **keeping both** entries, never picking a side.
    - Binary `examples/*.pdf` conflicts: resolve the `.md` first, re-render
      with the owned engine (`node dist/lattice-emulator.js <deck> <out.pdf>`,
      with `CHROME_PATH` set), `git add` both, continue.
@@ -361,7 +402,7 @@ The loop for any perf-intent change:
    numbers with machine noise. The baseline is a ratchet for *real* deltas, not a
    per-machine scratchpad.
 6. **Record it.** Fill the PR's `## Performance` section with the before/after table;
-   add a `CHANGELOG.md` line for user-visible wins; for a *large* perf effort, also
+   add a `changelog.d/` fragment for user-visible wins; for a *large* perf effort, also
    write an `engineering/decisions/YYYY-MM-DD-*.md` note.
 
 `bench:check` is **on-demand, not a blocking CI gate** — a wall-clock threshold in
@@ -550,8 +591,8 @@ Fold the mergeability check into the two moments you act on the PR anyway:
 
 ```bash
 git fetch origin main
-git rebase origin/main          # resolve the recurring CHANGELOG / dist /
-                                # examples-*.pdf conflicts mechanically — see
+git rebase origin/main          # resolve the recurring dist / examples-*.pdf
+                                # conflicts mechanically — see
                                 # the rebase step above, never hand-merge them
 git push --force-with-lease
 ```
@@ -644,14 +685,19 @@ The contract, and its limits — be precise about what it does and doesn't cover
   PR *can* merge, never that it *is* queued.
 - **What ejects a green PR is usually a COMMITTED GENERATED FILE, not a code
   conflict.** `build:check` byte-diffs every generated artifact, and any artifact
-  generated from *all* of something (the decision index, `CHANGELOG.md`, `dist/`)
-  is stale the moment another PR touching the same input merges ahead of you —
+  generated from *all* of something (the decision index, `dist/`) is stale the
+  moment another PR touching the same input merges ahead of you —
   which is exactly the state the queue constructs. That is why HARD RULE #16 says
   resolve those mechanically and force-with-lease silently, and why a generated
   file's freshness check should assert only what one PR can be responsible for.
   The decision index was refitted that way in #1547
-  (`decisions/2026-08-10-decisions-index-merge-queue-race.md`); the same question
-  is worth asking of the next artifact that ejects a PR.
+  (`decisions/2026-08-10-decisions-index-merge-queue-race.md`); `CHANGELOG.md`
+  was taken out of the shared-region business entirely in #1593
+  (`decisions/2026-08-11-changelog-fragments.md`); the rest of the build was swept
+  in #1594, which found five more aggregates and removed them
+  (`decisions/2026-08-11-generated-artifact-sweep.md` — its §1 has the method:
+  replay the merge, don't read the code). Ask the same question of the next
+  committed artifact that joins the build.
 - **Bind a closing keyword to *every* issue the PR resolves.** GitHub
   auto-closes only the issues whose number carries its own keyword, so
   `Closes #1, #2, #3` closes **only #1** and silently leaves the rest open.

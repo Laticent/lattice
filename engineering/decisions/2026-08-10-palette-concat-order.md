@@ -216,16 +216,24 @@ declare an ink default — but the exemption itself should not be removed in the
 
 ## 6. Not verified
 
-- **No render sweep across the affected themes.** Four were rendered (ardesia, cuoio, onyx,
-  carta) out of 32. A full before/after sweep, in both modes, is part of the sign-off package and
-  is not in hand.
+**Most of this section is now measured — see `2026-08-11-palette-concat-signoff.md` (#1527's
+sign-off package), which also CORRECTS §3's reading: the flip is not purely an activation of
+better values. It reveals two masked authoring defects, one of which (a11y-achromatopsia's
+dark-mode status greys) makes an accessibility deck unreadable.**
+
+- **~~No render sweep across the affected themes.~~ DONE.** Four were rendered (ardesia, cuoio,
+  onyx, carta) out of 32. The full sweep — all 32 themes, both modes, 576 slides a side — found
+  202 changed slides and **no theme where the flip is invisible**, in either mode.
 - **PPTX and HTML export paths.** Only the PDF/PNG path was exercised. Both consume the same
   bundle, so the same inversion should apply, but it was not measured. **UNVERIFIED.**
-- **The Studio / docs-site preview paths** load CSS their own way and were not measured. They
-  may already be correct, which would make the preview and the export disagree — worth
-  checking before (1) lands, since it decides whether this fix makes those two *agree* or
-  merely swaps which one is wrong.
-- **Whether every activation is desirable.** The four sampled palettes looked
-  better afterwards. Nobody has looked at the other 14, and a palette could carry a stale
-  declaration that was written against an older base and never re-checked *because* it was
-  dead.
+- **~~The Studio / docs-site preview paths were not measured.~~ MEASURED — they are already
+  correct.** `lib/engine`'s `composeCss` inlines the base at the theme's own `@import 'lattice'`
+  position, so the palette wins: 932 of 932 disputed tokens resolve in the preview exactly as the
+  flip would, and none as the export does. **Preview and export disagree today, on all 32 themes**,
+  and the flip makes them agree rather than swapping which one is wrong.
+- **~~Whether every activation is desirable.~~ NO — and this paragraph called it.** The four
+  sampled palettes looked better afterwards; the other 28 theme-modes did not all. A palette
+  carrying "a stale declaration written against an older base and never re-checked *because* it
+  was dead" is exactly what the sweep found: `a11y-achromatopsia` declares flat status greys with
+  no `light-dark()` pair, unreadable on the dark canvas, masked all this time by the base's
+  colored value winning.

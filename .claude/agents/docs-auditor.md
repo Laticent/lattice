@@ -28,7 +28,9 @@ Derive these dynamically every run; never trust a number you remember.
 
 - **Components** — `lib/components/<bucket>/<name>/<name>.manifest.json`
   (one per component) and the generated catalog `dist/docs/components.json`
-  (`.count`, `.components[]`, `.vocabularies`). The 12 buckets live under
+  (`.components[]`, `.vocabularies` — there is deliberately NO `.count`; an
+  aggregate over every manifest is the line two concurrent PRs cannot both be
+  right about, #1594). The 13 buckets live under
   `lib/components/`.
 - **Themes / palettes** — `themes/*.css` (each base palette + its `-dark`
   pair; note standalone palettes like `carbone`). Registration in
@@ -78,7 +80,7 @@ counts the docs most often drift from.
 ```bash
 # Components: actual vs catalog vs what prose claims
 find lib/components -name "*.manifest.json" -not -path "*schema*" | wc -l
-node -e "console.log(require('./dist/docs/components.json').count)"
+node -e "console.log(require('./dist/docs/components.json').components.length)"
 grep -rnoE "[0-9]+ ?(components?|layouts?)" CLAUDE.md README.md AGENTS.md design/ engineering/ docs/src
 
 # Themes / palettes

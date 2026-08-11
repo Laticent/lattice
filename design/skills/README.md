@@ -78,5 +78,5 @@ all of them:
   is invisible to the height math the overflow probe depends on. (HARD RULE #20.)
 - **One source of truth across render paths.** Transforms land in the shared
   kernel, never one path. (HARD RULE #1.)
-- **Record user-visible changes** in `CHANGELOG.md` `## Unreleased` as they land.
-  (HARD RULE #10.)
+- **Record user-visible changes** in a `changelog.d/<slug>.<category>.md` fragment
+  as they land — one file per PR, NOT `CHANGELOG.md` `## Unreleased`. (HARD RULE #10.)

@@ -96,7 +96,6 @@ const ringsAgainstPlacement = (r) => !r.enrolled && PAGINATING.includes(r.treatm
 
 function render(rows) {
   const lines = [BEGIN, '', '| Treatment | Components |', '|---|---|'];
-  let ringing = 0;
   for (const [treatment, label] of Object.entries(TREATMENT_LABELS)) {
     const members = rows
       .filter((r) => r.treatment === treatment)
@@ -105,18 +104,26 @@ function render(rows) {
         const marks = [];
         if (TREATMENT_NOTES[r.name]) marks.push(TREATMENT_NOTES[r.name]);
         const ring = ringsAgainstPlacement(r);
-        if (ring) ringing++;
         return `\`${r.name}\`${ring ? '°' : ''}${marks.length ? ` *(${marks.join('; ')})*` : ''}`;
       });
     lines.push(`| ${label} | ${members.join(' · ')} |`);
   }
+  // NO TOTALS IN THE FOOTER (#1594). This line used to open `_N components, all
+  // placed._` and close `_… M carry it now._` — two aggregates over every manifest,
+  // in a COMMITTED, byte-gated file. Two PRs each adding a component both write the
+  // same N+1, git's three-way merge takes the identical line from both sides without
+  // a conflict, and the committed number lands one short — which `build:check` then
+  // rejects inside the merge queue, ejecting a PR that was green on its own head.
+  // Same shape and same fix as the decision index's tally (#1547) and the docs
+  // portal's `count` (#1594). The rows above ARE the record; the placement claim
+  // survives as a claim, and `checkSplitOracle` is what actually enforces it.
   lines.push(
     '',
-    `_${rows.length} components, all placed. **Generated** by \`npm run split:treatments\` from `
+    '_Every component is placed. **Generated** by `npm run split:treatments` from '
     + '`TREATMENTS` in `lib/core/split-facts.js` — edit that map, not this table; `build:check` '
     + 'fails on drift. A `°` marks a component whose treatment describes a split it has **not '
     + 'opted into** — no `capacity` axis and no `split` recipe, so it rings on overflow today '
-    + `(the "opt-in backfill" follow-on below). ${ringing} carry it now._`,
+    + '(the "opt-in backfill" follow-on below)._',
     '',
     END,
   );

@@ -41,7 +41,7 @@ AGPL above.
 | Component | Files | License |
 |---|---|---|
 | Mermaid | `mermaid-v11.min.js` | MIT — Copyright (c) 2014-2022 Knut Sveidqvist |
-| KaTeX fonts | `fonts/KaTeX_*.woff2` (20 files) | MIT — Copyright (c) 2013-2020 Khan Academy and contributors |
+| KaTeX fonts | `fonts/KaTeX_*.woff2` | MIT — Copyright (c) 2013-2020 Khan Academy and contributors |
 | Outfit | `fonts/outfit-*.woff2` | SIL Open Font License 1.1 |
 | Playfair Display | `fonts/playfair-*.woff2` | SIL Open Font License 1.1 |
 | JetBrains Mono | `fonts/jetbrains-*.woff2` | SIL Open Font License 1.1 |

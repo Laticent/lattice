@@ -179,7 +179,19 @@ function main() {
 
   const pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'));
   const current = pkg.version;
-  const md = fs.readFileSync(CHANGELOG, 'utf8');
+
+  // Per-PR entries live in changelog.d/ (#1593) — fold them in before anything
+  // reads the section, so the bump AND the notes see them. Refuse on a
+  // malformed fragment rather than silently dropping the entry from a release
+  // that cannot be re-cut.
+  const problems = cl.fragmentProblems();
+  if (problems.length) {
+    console.error(`error: ${cl.FRAGMENT_DIRNAME}/ has ${problems.length} problem(s) — fix before releasing:`);
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
+  const fragments = cl.readFragments();
+  const md = cl.assembleUnreleased(fs.readFileSync(CHANGELOG, 'utf8'), fragments);
   const section = cl.extractUnreleased(md);
   if (!section) { console.error('error: no ## Unreleased section in CHANGELOG.md'); process.exit(1); }
 
@@ -206,7 +218,10 @@ function main() {
   console.log(`  bump:    ${level}${BUMP_ARG === 'auto' ? ' (from CHANGELOG ## Unreleased)' : ' (override)'}`);
   console.log(`  version: ${current} → ${next}`);
   console.log(`  date:    ${date}`);
-  console.log(`  notes:   ${notes.split('\n').length} lines from ## Unreleased\n`);
+  console.log(
+    `  notes:   ${notes.split('\n').length} lines from ## Unreleased` +
+    `${fragments.length ? ` + ${fragments.length} ${cl.FRAGMENT_DIRNAME}/ fragment(s)` : ''}\n`,
+  );
 
   if (DRY) {
     console.log('--- release notes preview ---');
@@ -221,13 +236,21 @@ function main() {
 
   // Bump version, roll changelog, rebuild dist.
   run('npm', ['version', next, '--no-git-tag-version']);
-  fs.writeFileSync(CHANGELOG, cl.rollUnreleased(fs.readFileSync(CHANGELOG, 'utf8'), next, date));
+  // Assemble from the file on disk (not the in-memory `md` above, which predates
+  // `npm version`), then consume the fragments: a fragment that survived the roll
+  // would be re-released in the next cut.
+  fs.writeFileSync(
+    CHANGELOG,
+    cl.rollUnreleased(cl.assembleUnreleased(fs.readFileSync(CHANGELOG, 'utf8'), fragments), next, date),
+  );
+  for (const f of fragments) fs.rmSync(f.file);
   run('npm', ['run', 'build']);
 
   // Commit only (hooks run; dist is fresh so freshness gates pass). No tag and
   // no zip: the queue squashes this commit into a NEW sha on main, so anything
   // cut here would name a commit that never lands. Phase 2 does both.
-  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', 'dist']);
+  // `changelog.d` stages the fragment DELETIONS the roll just made.
+  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', 'dist', cl.FRAGMENT_DIRNAME]);
 
   // `npm run build` regenerates 36 artifacts; only those four are the release
   // surface. If it touched anything else the tree was stale before the release

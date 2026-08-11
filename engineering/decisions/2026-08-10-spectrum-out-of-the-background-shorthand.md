@@ -212,9 +212,15 @@ integration tier all pass.
   behavior it *would* need to show requires a deliberately broken theme, which does not
   belong in `examples/`. Stating the exception rather than leaving it silent, since #9 is
   written without one.
-- **PPTX and HTML export paths are UNVERIFIED.** Only the PDF/PNG path was rendered. Both
-  others consume the same `dist/lattice.css` and the equivalence is at the computed-style
-  level, so it should carry — but it was not exercised.
+- **~~PPTX and HTML export paths are UNVERIFIED.~~ CLOSED (#1596, 2026-08-11.)** Only the
+  PDF/PNG path was rendered here. Both were subsequently measured before and after this
+  commit across all six hoisted sites: 14 PPTX slide rasters and 14 HTML-player slide
+  screenshots byte-identical, the player's DOM outside its inlined `<style>` byte-identical,
+  and its file bytes larger by exactly 5,060 — the inlined CSS, nothing it paints. That work
+  also sharpens the sweep's phrasing above: the computed background is **not** identical, it
+  is two layers to one, because the shorthand's final layer carries the canvas color with
+  `background-image: none`. Nothing that paints differs, which is what "zero *substantive*
+  computed differences" was carrying. See `2026-08-11-hoist-pptx-html-player.md`.
 - **The Studio's own generator path is UNVERIFIED.** A short theme was simulated by
   stripping declarations from a shipped palette, not by driving the Studio in a browser. The
   mechanism is CSS-level and palette-independent, so the simulation is faithful to it.

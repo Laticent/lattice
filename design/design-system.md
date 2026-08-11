@@ -956,8 +956,9 @@ discovery story that markdown alone can't provide.
 **Shipped on the bucketed-layout branch (2026-05-18):**
 
 > *Historical snapshot — the counts below (9 buckets, 58 components, 89 gallery
-> pages) are as of that branch. The catalog ships **53 components across 12
-> buckets** today; the live count is `dist/docs/components.json` `.count`.*
+> pages) are as of that branch. For the live catalog read
+> `dist/docs/components.json` `.components` — its length is the count, and there
+> is deliberately no `.count` field (#1594).*
 
 - **Disk reorg into 9 buckets** (anchor, statement, inventory,
   comparison, progression, evidence, imagery + chart, diagram).

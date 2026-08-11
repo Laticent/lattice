@@ -58,7 +58,9 @@ describe('LFM grammar.json projection', () => {
   });
 
   test('one entry per manifest; classToken === name', () => {
-    assert.equal(doc.count, manifests.length);
+    // No `count` field — an aggregate over every manifest is the one value two
+    // concurrent PRs cannot both be right about (#1594). The array's own length is.
+    assert.equal('count' in doc, false, 'grammar.json must carry no aggregate `count` — see #1594');
     assert.equal(doc.components.length, manifests.length);
     for (const c of doc.components) {
       assert.equal(c.classToken, c.name, `${c.name} classToken matches its name`);
