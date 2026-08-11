@@ -3348,6 +3348,362 @@ function listSourceFiles(dir, out = []) {
   return out;
 }
 
+// ── Fixed e2e sleeps are sanctioned, one entry per (file, duration) ─────────────
+// A fixed `page.waitForTimeout(n)` in the e2e suite is a bet that a loaded CI box finishes
+// inside an interval somebody guessed. On a NIGHTLY suite, losing that bet produces a red
+// indistinguishable from a real failure (#1526). Some are still correct — an assertion whose
+// pass condition is "and then nothing else happened" cannot be polled, and the tick of a
+// hand-rolled polling loop is not a settle at all — so this is an ALLOWLIST, not a ban.
+//
+// WHY A GATE AND NOT A SWEEP. #1564 judged 21 of them, one at a time, and that judgment cost
+// a measurement pass, a checker and an inversion. Nothing protected it: new sleeps land from
+// unrelated feature PRs at about the rate a sweep removes them — `gallery-preview-budget`
+// added 11 the same week #1526 was filed and was never counted in it. Left ungated, the count
+// returns and, worse, the ABSENCE of a justification stays ambiguous between "judged and
+// kept" and "nobody ever looked". This list makes that difference explicit and checkable.
+//
+// COUNTS ARE OF WAITS, NOT OF `waitForTimeout(` MATCHES. #1526 recorded back-gesture as "14"
+// because that is the grep. Its `settle` is ONE declaration called 23 times, so the file's
+// real figure is 24. A gate that counted text would certify that file as nearly clean while
+// 23 fixed waits sat behind one helper — so a sleep that is the whole body of a named
+// single-expression helper is counted at its CALL SITES, recorded here as `via`.
+//
+// Three ways to fail, and the last two are the point:
+//   · an UNLISTED (file, duration) — a new sleep nobody justified;
+//   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
+//   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
+const SANCTIONED_E2E_SLEEPS = [
+  // ── judged in #1564 ──────────────────────────────────────────────────────────
+  {
+    file: 'docs/e2e/back-gesture.spec.ts', ms: 650, count: 23, via: 'settle',
+    why: 'PARTLY JUDGED (#1564). Spans drawer-paints -> drawer-REGISTERS the history entry a '
+       + 'following goBack() pops. Genuinely unpollable at a door transition (Menu -> Themes '
+       + 'pushes nothing: history.length holds and __latticeOverlayBack is already true) and at '
+       + 'the post-reload adopt. The remaining call sites are NOT individually judged — most look '
+       + 'like dead time before an auto-retrying assertion; a few precede a synchronous '
+       + 'history.length read or an absence assertion and are load-bearing. See the comment at '
+       + 'the declaration. Reducing this count is the next slice in that file.',
+  },
+  {
+    file: 'docs/e2e/back-gesture.spec.ts', ms: 1200, count: 1,
+    why: 'JUDGED KEEP (#1564). The regression is the MENU COMING BACK after the child closes, so '
+       + 'the pass is "and then nothing else happened" — a poll for count===0 fires at the first '
+       + 'zero (~410-460ms measured) and never sees a later re-open. Two known limits, recorded '
+       + 'at the call site: it samples ONCE at t=1200ms, and the interval was calibrated on a '
+       + 'build where the bug does not exist. A MutationObserver record-then-assert-empty would '
+       + 'be strictly stronger and is the intended fix.',
+  },
+  {
+    file: 'docs/e2e/present-beat.spec.ts', ms: 60, count: 3,
+    why: 'NOT A SETTLE (#1564). These are the poll INTERVALS of hand-rolled sampling loops that '
+       + 'read a value at the instant a slide advances. An auto-retrying matcher would wait out '
+       + 'the 4s hold under test, which is exactly how the first version of that spec passed '
+       + 'against the unfixed build. Removing them removes the loop.',
+  },
+  {
+    file: 'docs/e2e/present-beat.spec.ts', ms: 1500, count: 1,
+    why: 'MEASUREMENT WINDOW (#1564), not a settle. "The fill advances with the clock" is a RATE, '
+       + 'and for a rate the SAMPLE POINT carries the power, not the bound. Sampling the baseline '
+       + 'at the first non-zero value (0.047px at ~110ms) let one sub-pixel tick satisfy the '
+       + 'assertion, so a fill that started then STALLED passed. Shortening this dwell is what '
+       + 'breaks the test.',
+  },
+  {
+    file: 'docs/e2e/present-beat.spec.ts', ms: 4500, count: 1,
+    why: 'JUDGED KEEP (#1564). Asserts no surviving timer resumed playback across the beat the '
+       + 'tap interrupted — an absence, which no poll expresses. A BUDGET derived from a '
+       + 'configured constant (lattice-present-slide-beat = 4000, set in the beforeEach), not a '
+       + 'guess.',
+  },
+
+  // ── INHERITED, NOT JUDGED — the backlog #1526 still owes ─────────────────────
+  // Seeded when this gate landed so the tree is honest about what nobody has examined.
+  // Each is a claim only that the sleep EXISTS, never that it is correct. Replacing one
+  // with a named signal, or judging it and rewriting this `why`, is the work.
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 180, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 400, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 600, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 1200, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 2500, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 4000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 4500, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/present-guide.spec.ts', ms: 120, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/present-guide.spec.ts', ms: 5000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/preview-nav.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  { file: 'docs/e2e/pwa.spec.ts', ms: 600, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/reader-alarms.spec.ts', ms: 3000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/reader-alarms.spec.ts', ms: 4500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  {
+    file: 'docs/e2e/studio-header-fit.spec.ts', ms: 'SETTLE_STEP_MS', count: 1,
+    why: 'UNJUDGED — inherited at gate introduction (#1575), and INVISIBLE to every count '
+       + 'before it: the argument is a constant, not a literal, so #1526\'s census and this '
+       + 'gate\'s own first regex both missed it. Shape is a bounded read-until-two-identical '
+       + 'poll (SETTLE_TRIES = 40), so it is probably a poll interval rather than a settle — '
+       + 'but nobody has judged it.',
+  },
+  {
+    file: 'docs/e2e/studio-jargon-alignment.spec.ts', ms: 50, count: 1,
+    why: 'JUDGED KEEP (#1523). Deliberate after that PR: the rail click preceding it has already '
+       + 'put the preview on the slide under test, so the assertion is true BEFORE the click '
+       + 'being tested does anything. A poll passes instantly against that stale-but-correct '
+       + 'state and never observes the click.',
+  },
+  {
+    file: 'docs/e2e/studio-jargon-alignment.spec.ts', ms: 100, count: 1,
+    why: 'JUDGED KEEP (#1523). Same class as the 50ms above — "no change" is the pass, which a '
+       + 'poll cannot distinguish from "not yet changed".',
+  },
+  { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 700, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 800, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  { file: 'docs/e2e/webpage-export.spec.ts', ms: 500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  // Arrived from main while this PR was open — the ratchet caught them, which is the point.
+  { file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — landed in #1561 after this gate was written; the gate flagged it on rebase.' },
+  { file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1000, count: 1, why: 'UNJUDGED — landed in #1581 after this gate was written; the gate flagged it on rebase.' },
+  { file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 3, why: 'UNJUDGED — landed in #1581 after this gate was written; the gate flagged it on rebase.' },
+  { file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1, why: 'UNJUDGED — landed after this gate was written; the gate flagged it on rebase.' },
+];
+
+// Extensions Playwright's default testMatch admits. NOT `listSourceFiles`, which omits
+// `.mts`/`.cts`/`.jsx` — widening that shared walker would change what other gates scan.
+const E2E_EXTS = /\.(?:[cm]?[jt]sx?)$/;
+
+function listE2EFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules') continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listE2EFiles(p, out);
+    else if (E2E_EXTS.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Census of FIXED WAITS under an e2e directory, grouped by (file, argument).
+ *
+ * PARSED, not grepped, and deliberately so. Two hand-rolled attempts got this wrong in ways
+ * that mattered: a `\d+`-only regex silently missed `waitForTimeout(SETTLE_STEP_MS)`, and a
+ * hand-written comment/string blanker read the three backticks inside the regex literal
+ * `/^\s*(```|~~~)/` (studio-preview-perf.spec.ts:72) as a template literal and swallowed the
+ * rest of that file — hiding four real sleeps with the build green. A JS lexer written in
+ * regex is a false-pass generator; the compiler already has one.
+ *
+ * THE CONTRACT:
+ *  · comments and string/template literals cannot be miscounted — the parser never sees them
+ *    as code, and a sleep quoted in prose is not a call expression;
+ *  · the argument may be any expression; a non-numeric one is keyed by its TEXT
+ *    (`SETTLE_STEP_MS`), so renaming a literal to a constant does not escape the ledger;
+ *  · a sleep that is the ENTIRE body of a named function — `const f = … =>`, `function f()`,
+ *    async or not, concise body or a single-statement block — counts once per REFERENCE to
+ *    that name, recorded as `via`. Bodies that merely CONTAIN a sleep among other work are
+ *    not helpers and count once, which is why `readHeaderSettled` counts 1;
+ *  · an EXPORTED sleep helper is counted across every file in the directory;
+ *  · NOT modelled, and therefore counted as one: runtime multiplicity (a sleep inside a
+ *    loop). Tests pin that as a known limit.
+ */
+function e2eSleepCensus(dir) {
+  let ts;
+  try {
+    ts = require('typescript');
+  } catch {
+    throw new Error('checkE2ESleeps needs the `typescript` devDependency to parse the e2e suite');
+  }
+  const files = listE2EFiles(dir);
+  const parsed = files.map((f) => ({
+    file: f,
+    rel: path.relative(ROOT, f).replace(/\\/g, '/'),
+    sf: ts.createSourceFile(f, fs.readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true),
+  }));
+
+  // FAIL LOUD ON A FILE WE COULD NOT PARSE. `createSourceFile` is error-TOLERANT: it recovers
+  // from a syntax error and hands back a partial tree without throwing, so a malformed spec
+  // silently contributes zero sleeps and the ledger shrinks with the build green. That is the
+  // third time this census has been able to miss a real sleep quietly (a `\d+`-only regex, a
+  // hand-rolled string blanker, and this), so the parse result is now checked rather than
+  // trusted. A gate that cannot see a file must say so, not certify it.
+  const unparsable = parsed.filter((x) => (x.sf.parseDiagnostics || []).length > 0);
+  if (unparsable.length) {
+    const names = unparsable.map((x) => x.rel).join(', ');
+    throw new Error(
+      `checkE2ESleeps could not parse ${unparsable.length} e2e file(s): ${names}. ` +
+      'A parse failure makes the sleep census silently incomplete, so it is an error rather ' +
+      'than a smaller inventory. Fix the syntax (or narrow E2E_EXTS if the file is not a spec).',
+    );
+  }
+
+  const eachNode = (node, fn) => { fn(node); node.forEachChild((c) => eachNode(c, fn)); };
+
+  /**
+   * References to `name`, excluding its own declaration and import/export specifiers.
+   *
+   * `member` flips which side counts. A free helper is referenced bare (`settle(p)`), so a
+   * `.settle` property access is somebody else's symbol and must NOT count. An object-property
+   * or class-method helper is the opposite: every call site IS `h.settle(p)`, so excluding
+   * property accesses reported 1 for a helper called N times — a `via` that implied call-site
+   * counting which never happened.
+   *
+   * KNOWN LIMIT, shared by both modes: this is textual identifier matching with no scope or
+   * import resolution, so a shadowed local of the same name, or a same-named symbol in a file
+   * that never imports the helper, inflates the count. That direction fails LOUD (a drifted
+   * count), which is why it is tolerated rather than solved with a type checker.
+   */
+  const refCount = (name, sf, member = false) => {
+    let n = 0;
+    eachNode(sf, (node) => {
+      if (!ts.isIdentifier(node) || node.text !== name) return;
+      const p = node.parent;
+      if (!p) return;
+      if ((ts.isVariableDeclaration(p) || ts.isFunctionDeclaration(p) || ts.isParameter(p)
+        || ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p)) && p.name === node) return;
+      if (ts.isImportSpecifier(p) || ts.isExportSpecifier(p) || ts.isImportClause(p)) return;
+      const isMemberRef = ts.isPropertyAccessExpression(p) && p.name === node;
+      if (member ? !isMemberRef : isMemberRef) return;
+      n++;
+    });
+    return n;
+  };
+
+  /** The named function whose ENTIRE body is this call, if any. */
+  const sleepHelperFor = (call) => {
+    let body = call.parent && ts.isAwaitExpression(call.parent) ? call.parent : call;
+    // `(p) => (p.waitForTimeout(650))` is a concise body too; the ParenthesizedExpression broke
+    // the identity check and silently reported 1 where the truth was N.
+    while (body.parent && ts.isParenthesizedExpression(body.parent)) body = body.parent;
+    const outer = body.parent;
+    if (!outer) return null;
+    let fnNode = null;
+    if (ts.isArrowFunction(outer) && outer.body === body) fnNode = outer; // concise body
+    else if ((ts.isExpressionStatement(outer) || ts.isReturnStatement(outer)) && outer.parent
+      && ts.isBlock(outer.parent) && outer.parent.statements.length === 1) {
+      const fn = outer.parent.parent;
+      if (fn && (ts.isArrowFunction(fn) || ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn)
+        || ts.isMethodDeclaration(fn))) fnNode = fn;
+    }
+    if (!fnNode) return null;
+    if (ts.isMethodDeclaration(fnNode) && ts.isIdentifier(fnNode.name)) {
+      return { name: fnNode.name.text, exported: false, member: true };
+    }
+    if (ts.isFunctionDeclaration(fnNode) && fnNode.name) {
+      return { name: fnNode.name.text, exported: !!fnNode.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) };
+    }
+    const decl = fnNode.parent;
+    if (decl && ts.isPropertyAssignment(decl) && ts.isIdentifier(decl.name)) {
+      return { name: decl.name.text, exported: false, member: true }; // `{ settle: (p) => … }`
+    }
+    if (decl && ts.isVariableDeclaration(decl) && ts.isIdentifier(decl.name)) {
+      const stmt = decl.parent?.parent;
+      return { name: decl.name.text, exported: !!(stmt && ts.canHaveModifiers(stmt) && ts.getModifiers(stmt)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) };
+    }
+    return null;
+  };
+
+  const rows = new Map();
+  for (const { rel, sf } of parsed) {
+    eachNode(sf, (node) => {
+      if (!ts.isCallExpression(node)) return;
+      const callee = node.expression;
+      // `page['waitForTimeout'](500)` is an ElementAccessExpression: neither a property access
+      // nor a bare identifier. Omitting it was a TOTAL bypass — the call produced no row at all
+      // and needed no sanction.
+      const name = ts.isPropertyAccessExpression(callee) ? callee.name.text
+        : ts.isIdentifier(callee) ? callee.text
+        : ts.isElementAccessExpression(callee) && ts.isStringLiteralLike(callee.argumentExpression)
+          ? callee.argumentExpression.text
+          : null;
+      if (name !== 'waitForTimeout') return;
+
+      const arg = node.arguments[0];
+      const numeric = arg && ts.isNumericLiteral(arg);
+      const key = arg ? (numeric ? String(Number(arg.text.replace(/_/g, ''))) : arg.getText(sf).trim()) : '(none)';
+
+      const helper = sleepHelperFor(node);
+      let count = 1;
+      let via;
+      if (helper) {
+        const scope = helper.exported ? parsed : parsed.filter((x) => x.sf === sf);
+        // No -1: refCount already excludes the declaration's own name node.
+        const refs = scope.reduce((a, x) => a + refCount(helper.name, x.sf, helper.member), 0);
+        if (refs > 0) { count = refs; via = helper.name; }
+      }
+
+      const rowKey = `${rel}|${key}`;
+      const cur = rows.get(rowKey) || { file: rel, ms: numeric ? Number(key) : key, count: 0, via: undefined };
+      cur.count += count;
+      if (via) cur.via = via;
+      rows.set(rowKey, cur);
+    });
+  }
+  return [...rows.values()].sort((a, b) => a.file.localeCompare(b.file) || String(a.ms).localeCompare(String(b.ms)));
+}
+
+/** `1200` reads as `1200ms`; a non-numeric argument reads as the expression it actually is. */
+function fmtSleep(ms) {
+  return typeof ms === 'number' ? `${ms}ms` : `\`${ms}\``;
+}
+
+function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctions = SANCTIONED_E2E_SLEEPS) {
+  const census = e2eSleepCensus(e2eDir);
+  // NUL as the separator, not `|`: a sleep argument is arbitrary expression TEXT, so
+  // `waitForTimeout(a || b)` puts pipes inside the key and a printable separator could both
+  // collide and mangle the message on the way out.
+  const keyOf = (file, ms) => `${file}\u0000${ms}`;
+
+  // A duplicate (file, ms) pair would be last-wins in the lookup below AND both entries would
+  // be marked seen — so the loser is neither enforced nor reported stale. Name it, building the
+  // message from the entry's own fields rather than by unpicking the key.
+  const firstSeen = new Map();
+  for (const s of sanctions) {
+    const k = keyOf(s.file, s.ms);
+    if (firstSeen.has(k)) {
+      errors.push(
+        `duplicate SANCTIONED_E2E_SLEEPS entries for ${s.file} @ ${fmtSleep(s.ms)} — ` +
+        'one silently shadows the other; merge them.',
+      );
+    } else {
+      firstSeen.set(k, s);
+    }
+  }
+  const listed = firstSeen;
+  const seen = new Set();
+
+  for (const row of census) {
+    const key = keyOf(row.file, row.ms);
+    const s = listed.get(key);
+    if (!s) {
+      seen.add(key);
+      errors.push(
+        `${row.file} has ${row.count} unsanctioned fixed wait(s) of ${fmtSleep(row.ms)} ` +
+        `(the #1526 sweep, gated by #1575). A fixed sleep on the nightly suite is a bet a loaded box ` +
+        `finishes inside a guessed interval — name the signal it waits for and poll it bounded, or ` +
+        `if the expected outcome is "nothing changes" keep it and add an entry to ` +
+        `SANCTIONED_E2E_SLEEPS in tools/check-ownership.js saying why.`,
+      );
+      continue;
+    }
+    seen.add(key);
+    if (s.count !== row.count) {
+      errors.push(
+        `${row.file} now has ${row.count} fixed wait(s) of ${fmtSleep(row.ms)}, but SANCTIONED_E2E_SLEEPS ` +
+        `records ${s.count}` + (row.via ? ` (counted at the call sites of \`${row.via}\`)` : '') +
+        `. Judge the new one and update the entry — a drifting count is how 23 waits hid behind ` +
+        `one helper while #1526 recorded the file as "14".`,
+      );
+    }
+  }
+
+  for (const s of sanctions) {
+    if (!seen.has(keyOf(s.file, s.ms))) {
+      errors.push(
+        `stale e2e-sleep sanction in tools/check-ownership.js — ${s.file} no longer has a ` +
+        `${fmtSleep(s.ms)} fixed wait (#1575). Remove the SANCTIONED_E2E_SLEEPS entry so the allowlist ` +
+        `stays honest.`,
+      );
+    }
+  }
+}
+
 // ── The preview's diagram SCOPE KEY invariant (#1332 step 3) ────────────────────
 //
 // `lib/core/diagram-scope.js` keys the preview's Mermaid palette on a section's CLASS
@@ -6045,6 +6401,7 @@ function run() {
   checkPreviewHtmlSinks(errors);
   checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);
+  checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
@@ -6095,6 +6452,9 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
   run,
+  checkE2ESleeps,
+  e2eSleepCensus,
+  SANCTIONED_E2E_SLEEPS,
   // Theme-manifest gates + their pure helpers, exported so the suite can drive them
   // against synthetic fixtures rather than only asserting the shipped tree is clean —
   // a gate only proves something if you can watch it fail.

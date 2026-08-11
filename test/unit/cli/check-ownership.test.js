@@ -2676,3 +2676,261 @@ describe('no-safe-default token gate (#1457)', () => {
     assert.deepEqual(errors, []);
   });
 });
+
+// ── e2e fixed-sleep ratchet (#1575) ───────────────────────────────────────────────
+// A gate only proves something if you can watch it fail, so every direction is driven
+// against a synthetic tree rather than only asserting the shipped one is clean.
+describe('check-ownership: checkE2ESleeps (#1575)', () => {
+  const { checkE2ESleeps, e2eSleepCensus, SANCTIONED_E2E_SLEEPS } = require('../../../tools/check-ownership.js');
+  const mkTree = (files) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-sleeps-'));
+    for (const [name, body] of Object.entries(files)) {
+      const full = path.join(dir, name);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, body);
+    }
+    return dir;
+  };
+
+  test('the live tree is fully sanctioned', () => {
+    const errors = [];
+    checkE2ESleeps(errors);
+    assert.deepEqual(errors, [], 'every fixed e2e sleep must carry a SANCTIONED_E2E_SLEEPS entry');
+  });
+
+  test('counts a helper sleep at its CALL SITES, not once textually', () => {
+    // The whole reason this gate exists rather than a grep: #1526 recorded back-gesture as
+    // "14" while 23 fixed waits sat behind one `settle`.
+    const dir = mkTree({
+      'a.spec.ts': [
+        'const settle = (page) => page.waitForTimeout(650);',
+        'test("x", async ({ page }) => {',
+        '  await settle(page);',
+        '  await settle(page);',
+        '  await settle(page);',
+        '});',
+      ].join('\n'),
+    });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census.length, 1, 'one (file, duration) row');
+    assert.equal(census[0].count, 3, 'weighted by call sites, not by the single declaration');
+    assert.equal(census[0].via, 'settle', 'and it names the helper it counted through');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('CANARY — an UNLISTED sleep fails the gate', () => {
+    const dir = mkTree({ 'new.spec.ts': 'await page.waitForTimeout(1234);' });
+    const errors = [];
+    checkE2ESleeps(errors, dir, []);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /unsanctioned fixed wait/);
+    assert.match(errors[0], /1234ms/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('CANARY — a STALE entry whose sleep is gone fails the gate', () => {
+    const dir = mkTree({ 'a.spec.ts': 'const x = 1;' });
+    const errors = [];
+    checkE2ESleeps(errors, dir, [{ file: 'gone.spec.ts', ms: 500, count: 1, why: 'x' }]);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /stale e2e-sleep sanction/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('CANARY — a DRIFTED count fails, which is the case a text grep cannot see', () => {
+    // Same file, same duration, one extra call of the helper. Nothing textual changed about
+    // the `waitForTimeout(` line itself.
+    const body = (n) => [
+      'const settle = (page) => page.waitForTimeout(650);',
+      ...Array.from({ length: n }, () => '  await settle(page);'),
+    ].join('\n');
+    const dir = mkTree({ 'a.spec.ts': body(4) });
+    const rel = path.relative(process.cwd(), path.join(dir, 'a.spec.ts')).replace(/\\/g, '/');
+    const errors = [];
+    checkE2ESleeps(errors, dir, [{ file: rel, ms: 650, count: 3, why: 'x' }]);
+    assert.equal(errors.length, 1, 'the extra call site must be reported');
+    assert.match(errors[0], /now has 4 fixed wait\(s\) of 650ms, but SANCTIONED_E2E_SLEEPS records 3/);
+    assert.match(errors[0], /settle/, 'and it names the helper so the reader can find them');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('run() actually invokes the gate — it is wired into build:check', () => {
+    // The repo has been bitten by a gate that existed and was never called (noted at the
+    // checkAgentModelPinning wiring test, found by the maker-checker pass on #1187). Assert
+    // the wiring, not just the function.
+    const src = fs.readFileSync(path.join(__dirname, '../../../tools/check-ownership.js'), 'utf8');
+    assert.match(src, /^\s*checkE2ESleeps\(errors\);$/m, 'checkE2ESleeps must be called from run()');
+  });
+
+  test('a NON-LITERAL duration is still counted — the one-token bypass is closed', () => {
+    // `waitForTimeout(SETTLE_STEP_MS)` in studio-header-fit escaped both #1526's census and
+    // this gate's own first regex. Renaming a literal to a constant must not leave the ledger.
+    const dir = mkTree({ 'a.spec.ts': 'const MS = 500;\nawait page.waitForTimeout(MS);' });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census.length, 1);
+    assert.equal(census[0].ms, 'MS', 'keyed by the expression text, not dropped');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('a `function` helper counts at its call sites too, not just an arrow', () => {
+    // studio-fixture.ts writes most shared helpers as `export function` (20 of them, vs 5
+    // `export const`), so an arrow-only rule would count the house style as 1.
+    const dir = mkTree({
+      'a.spec.ts': [
+        'async function settle(page) { await page.waitForTimeout(650); }',
+        'await settle(p); await settle(p); await settle(p);',
+      ].join('\n'),
+    });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census[0].count, 3);
+    assert.equal(census[0].via, 'settle');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('a body that merely CONTAINS a sleep is not a helper — no false multiplication', () => {
+    // The regex version attributed a sleep to any nearby declaration, inflating unrelated
+    // counts. Only a function whose ENTIRE body is the sleep is a sleep helper.
+    const dir = mkTree({
+      'a.spec.ts': [
+        'async function readSettled(page) {',
+        '  await page.waitForTimeout(100);',
+        '  return read(page);',
+        '}',
+        'await readSettled(p); await readSettled(p);',
+      ].join('\n'),
+    });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census[0].count, 1, 'counted once — the function does more than sleep');
+    assert.equal(census[0].via, undefined);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('comments and strings are not code — and a regex literal does not swallow the file', () => {
+    // Both directions of a hand-rolled lexer's failure. The backtick-bearing regex is the
+    // real shape from studio-preview-perf.spec.ts:72 that hid four sleeps behind a
+    // blanker that read it as a template literal.
+    const dir = mkTree({
+      'a.spec.ts': [
+        '// await page.waitForTimeout(9999);',
+        "const s = 'page.waitForTimeout(8888)';",
+        'if (/^\\s*(```|~~~)/.test(line)) fence = !fence;',
+        'await page.waitForTimeout(700);',
+      ].join('\n'),
+    });
+    const census = e2eSleepCensus(dir);
+    assert.deepEqual(census.map((r) => r.ms), [700], 'only the real call counts, and it is still seen');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('an EXPORTED sleep helper is counted across the whole directory', () => {
+    const dir = mkTree({
+      'fixture.ts': 'export const settle = (page) => page.waitForTimeout(650);',
+      'a.spec.ts': "import { settle } from './fixture';\nawait settle(p); await settle(p);",
+      'b.spec.ts': "import { settle } from './fixture';\nawait settle(p);",
+    });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census.length, 1);
+    assert.equal(census[0].count, 3, 'three call sites across two importing specs');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('.mts / .cts / .jsx specs are walked — Playwright testMatch admits them', () => {
+    const dir = mkTree({
+      'a.spec.mts': 'await page.waitForTimeout(111);',
+      'b.spec.cts': 'await page.waitForTimeout(222);',
+      'c.spec.jsx': 'await page.waitForTimeout(333);',
+    });
+    assert.deepEqual(e2eSleepCensus(dir).map((r) => r.ms).sort((x, y) => x - y), [111, 222, 333]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('CANARY — an UNPARSABLE file fails loudly instead of shrinking the census', () => {
+    // `ts.createSourceFile` is error-TOLERANT: it recovers and returns a partial tree without
+    // throwing, so before the sentinel a malformed spec contributed zero sleeps and the ledger
+    // quietly got smaller. Third time this census could miss a sleep silently — hence a test.
+    const dir = mkTree({
+      'valid.spec.ts': 'await page.waitForTimeout(1234);',
+      'broken.spec.ts': 'export function oops( {\nawait page.waitForTimeout(4321);',
+    });
+    assert.throws(() => e2eSleepCensus(dir), /could not parse 1 e2e file\(s\)/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('helper shapes that used to under-count now count at their call sites', () => {
+    // Each of these reported 1 where the truth is N — a `count: 1` that never drifts is
+    // exactly the hole this gate exists to close, so they are pinned rather than trusted.
+    const cases = [
+      ['parenthesized concise body', 'const s = (p) => (p.waitForTimeout(650));\ns(p);s(p);s(p);', 3],
+      ['object-property arrow', 'const h = { settle: (p) => p.waitForTimeout(1) };\nh.settle(p);h.settle(p);', 2],
+      ['class method', 'class F { settle(p) { return p.waitForTimeout(2); } }\nf.settle(p);f.settle(p);', 2],
+    ];
+    for (const [label, body, expected] of cases) {
+      const dir = mkTree({ 'a.spec.ts': body });
+      assert.equal(e2eSleepCensus(dir)[0].count, expected, label);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("CANARY — page['waitForTimeout'](500) is seen; it used to be a total bypass", () => {
+    // An ElementAccessExpression is neither a property access nor an identifier, so the call
+    // produced NO row at all and needed no sanction.
+    const dir = mkTree({ 'a.spec.ts': "await page['waitForTimeout'](500);" });
+    const census = e2eSleepCensus(dir);
+    assert.equal(census.length, 1, 'the call must be visible');
+    assert.equal(census[0].ms, 500);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('CANARY — duplicate sanction entries are named, not silently shadowed', () => {
+    const dir = mkTree({ 'a.spec.ts': 'await page.waitForTimeout(700);' });
+    const rel = path.relative(process.cwd(), path.join(dir, 'a.spec.ts')).replace(/\\/g, '/');
+    const errors = [];
+    checkE2ESleeps(errors, dir, [
+      { file: rel, ms: 700, count: 1, why: 'first' },
+      { file: rel, ms: 700, count: 99, why: 'shadowed — never enforced, never reported stale' },
+    ]);
+    assert.ok(errors.some((e) => /duplicate SANCTIONED_E2E_SLEEPS entries/.test(e)));
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('KNOWN LIMIT — indirection and wrappers defeat the call-site count', () => {
+    // A helper reached through another helper, or wrapped in test.step, counts 1. Pinned so
+    // the limit is recorded rather than discovered later and mistaken for a bug.
+    const dir = mkTree({
+      'a.spec.ts': 'const s = (p) => p.waitForTimeout(650);\nconst twice = (p) => s(p);\ntwice(p);twice(p);twice(p);',
+    });
+    assert.equal(e2eSleepCensus(dir)[0].count, 1, 'one level of indirection is not resolved');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('KNOWN LIMIT — refCount is textual, so a shadowed same-name symbol inflates', () => {
+    // Fails LOUD (a drifted count), never silent — which is why it is tolerated rather than
+    // solved with a full type checker.
+    const dir = mkTree({
+      'a.spec.ts': 'const s = (p) => p.waitForTimeout(650);\ns(p);\nfunction other() { const s = 5; return s + s; }',
+    });
+    assert.ok(e2eSleepCensus(dir)[0].count > 1, 'over-counts, in the direction that fails loudly');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('KNOWN LIMIT — runtime multiplicity is not modelled', () => {
+    // A sleep in a loop executes N times and counts once. Pinned so the limit is recorded
+    // rather than discovered later and mistaken for a bug.
+    const dir = mkTree({ 'a.spec.ts': 'for (let i = 0; i < 40; i++) await page.waitForTimeout(100);' });
+    assert.equal(e2eSleepCensus(dir)[0].count, 1);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('every sanction carries a justification, and UNJUDGED ones say so', () => {
+    for (const s of SANCTIONED_E2E_SLEEPS) {
+      assert.ok(s.why && s.why.length > 20, `${s.file} ${s.ms}ms needs a real justification`);
+      assert.ok(typeof s.count === 'number' && s.count > 0, `${s.file} ${s.ms}ms needs a count`);
+    }
+    // The seeding is honest about what nobody has examined — that ambiguity is the thing
+    // this gate exists to remove, so it must be visible rather than implied by silence.
+    assert.ok(
+      SANCTIONED_E2E_SLEEPS.some((s) => s.why.startsWith('UNJUDGED')),
+      'inherited-but-unexamined sleeps must be labelled, not quietly blessed',
+    );
+  });
+});
