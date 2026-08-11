@@ -341,13 +341,21 @@ neither.
 
 So the only thing that had ever failed on a slow cold paint was `gotoStudio`'s fixture wait — and
 #1583 raised it from 15s to 45s for reasons about **worker starvation**, not about the app. That
-change did not remove a working guard; it loosened one that barely worked (against a ~1.1s healthy
-paint, the old wait needed a ~14× regression to trip, the new one ~41×). But it is exactly the
+change did not remove a working guard; it loosened one that barely worked (against a ~1.3s healthy
+paint, the old wait needed a ~12× regression to trip, the new one ~35×). But it is exactly the
 moment to notice that the guard was accidental, because #1583's own rule — *a setup wait is not an
 assertion* — is right and could be misread as *therefore boot cost needs no oracle*. The opposite
-follows: boot cost is a product concern here (the instant shell exists because of it, #1438; #1553
-describes the preview pane sitting "a void for the ~4s until the engine rendered") and it now has
-a real one.
+follows: boot cost is a product concern here — the instant shell exists because of it (#1438) — and
+it now has a real one.
+
+**A correction worth keeping, because the wrong version was load-bearing.** The first cut of this
+slice justified the ceiling against "the ~4s void #1553 describes". #1553's void is the
+**Playground's** preview pane (*"empty until ~4.3s"* in its results table); the Studio's row in that
+same table is a 302px divider jump at ~400ms, and the issue separates the two surfaces explicitly
+because the Studio is `client:only` behind an opaque shell while the Playground hydrates on screen.
+This ceiling only ever loads `/studio/`. So the argument that the "right" number was ~4000 reasoned
+about a regression on a route this guard does not visit — and a maintainer tightening 6000 → 4000
+"to catch the #1553 state" would buy false alarms for nothing. Caught by a checker, not by a gate.
 
 **Built on the measurement #1583 already added**, not a new harness. `waitForStudioPaint`
 annotates every paint as `first-paint` in the Playwright report, so the ceiling reads the fixture's
@@ -356,12 +364,24 @@ annotation exists *before* asserting the ceiling — a fixture that stopped reco
 sample list empty and the ceiling vacuously green, which is the silently-zero failure mode slice 2
 already had to fix once.
 
+**The span is the page's own `performance.now()` at paint — from NAVIGATION START — and the first
+cut got this wrong.** It timed wall-clock around the two waits inside `waitForStudioPaint`, which
+begin only after `page.goto(…, 'domcontentloaded')` has resolved. That excludes connect, HTML,
+parse and every blocking or deferred script: a checker injected a 2s render-blocking script, took
+real boot from 1.1s to 3.2s — precisely "a blocking script on the boot path", one of the three
+regressions this ceiling names — and the measured number did not move (982 → 1059ms, inside noise).
+Green forever, at any ceiling value. Reading the page's clock instead closes it, demonstrated with
+the same injected delay: 1293 → 3150ms. The lesson generalizes past this test — *an instrument
+inherits the blind spots of wherever it starts counting*, and a wall clock in the test process
+starts at a moment the browser chose, not the one the user experiences.
+
 **It lives inside `studio-preview-perf.spec.ts`, and that is load-bearing rather than tidy.**
 `--grep @perf` is how `perf-nightly.yml` selects this tier; a second `@perf` **file** would run
 beside the existing one at `workers: 2`, so boot timings would be taken next to three CPU-throttled
 render tests and cold context launches would inflate their keystroke p50s in return. One file is
-`mode: 'serial'`, and Playwright collapses the selection to a single worker — verified: the p50
-moves ~30ms between a standalone run and a full-tier run. It sits **last** in the file because
+`mode: 'serial'`, and Playwright collapses the selection to a single worker — verified: the
+full-tier p50 (1322ms) lands INSIDE the standalone spread (1286–1345ms), so co-location costs
+nothing measurable. It sits **last** in the file because
 serial mode skips what follows a failure, so a boot breach must not be able to skip the render
 ceilings.
 
@@ -370,12 +390,18 @@ keystroke is felt; boot is what a user waits on with the machine they have, and 
 worth catching — a chunk that stops being preloaded, a blocking script on the boot path, an island
 that hydrates later — are multiples, not percentages.
 
-**The ceiling is 6000ms against a 1065–1149ms healthy p50, and it is provisional.** Both limits are
-written into `preview-budget.json` rather than left implicit: every reading is from a 4-core
-sandbox and no GitHub runner has run this yet, so the ~5× headroom is sized for an unknown
-runner speed rather than for observed variance — which is unusually tight (985–1724ms across 28
-samples). And at 6000 it would **not** catch a return to the ~4s void #1553 describes. Catching
-that needs ~4000, which on an unmeasured runner is a false alarm waiting to happen. The @perf log
+**The ceiling is 6000ms against a 1286–1345ms healthy p50, and it is provisional.** All three limits
+are written into `preview-budget.json` rather than left implicit. (1) Every reading is from a
+4-core sandbox and no GitHub runner has run this yet, so the ~4.5× headroom is sized for an unknown
+runner speed rather than for observed variance — which is tight (1154–1789ms across 28 samples).
+(2) A single paint slower than `FIRST_PAINT_TIMEOUT` (45s) fails inside the fixture with its own
+**tokenless** error, so a regression past ~33× is filed as a harness failure rather than a breach —
+the alarm inverting exactly where it has most to say, which is the same trap slice 2's breach token
+was introduced to escape. The TEST SLOT is no longer part of that: an earlier cut set 180s against
+7 samples of up to 45s each, so a regression past ~26× died on the slot before reaching the
+assertion; it is now sized at `SAMPLES × FIRST_PAINT_TIMEOUT`. (3) It guards the **desktop** project
+only, because the `@perf` step runs `--project=desktop` — boot on a phone, where it is felt most,
+is still unguarded. The @perf log
 prints the p50 every night; tighten it once real runs are on record.
 
 Mutation-checked both ways, because the discrimination is the whole point of the token: a breach

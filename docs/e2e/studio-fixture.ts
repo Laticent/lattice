@@ -343,12 +343,28 @@ export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIM
 		// Record what the paint actually cost, on the real suite at real concurrency.
 		// The budget above is only re-derivable from a harness someone has to
 		// remember to run; this makes every nightly report carry the distribution it
-		// was sized against. Never allowed to fail a test — `test.info()` throws
-		// outside a running test, and an instrument must not become a failure mode.
+		// was sized against.
+		//
+		// MEASURED FROM THE PAGE'S NAVIGATION START, not from this function's entry.
+		// `performance.now()` inside the document is relative to that document's own
+		// navigation, so the span covers connect + HTML + parse + every blocking and
+		// deferred script, then hydrate, chunk load and render. Wall time around these
+		// two waits would begin AFTER `page.goto(…, 'domcontentloaded')` had already
+		// resolved — which excludes the entire pre-DCL slice, so a 2s render-blocking
+		// script on the boot path (one of the regressions the @perf ceiling in
+		// `studio-preview-perf.spec.ts` exists to catch) took real boot from 1.1s to
+		// 3.2s and moved this number by nothing. A checker demonstrated exactly that.
+		// A reload re-origins `performance.now()`, so the post-reload path measures
+		// the reload rather than the original visit.
+		//
+		// Never allowed to fail a test — `test.info()` throws outside a running test,
+		// and `evaluate` can lose the page to a teardown race. An instrument must not
+		// become a failure mode.
 		try {
-			base.info().annotations.push({ type: 'first-paint', description: `${Date.now() - started}ms` });
+			const sinceNavigation = await page.evaluate(() => Math.round(performance.now()));
+			base.info().annotations.push({ type: 'first-paint', description: `${sinceNavigation}ms` });
 		} catch {
-			/* not inside a test (a bench script, a helper run standalone) — nothing to annotate */
+			/* not inside a test, or the page went away — nothing to annotate */
 		}
 	} catch (cause) {
 		// ONLY a timeout gets re-labeled. Anything else — a closed page, a bug in

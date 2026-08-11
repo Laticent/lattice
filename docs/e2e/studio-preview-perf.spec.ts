@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
+import { expect, FIRST_PAINT_TIMEOUT, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
 
 // Preview RENDER-PATH perf, measured on the real built Studio — the instrument HARD RULE #19
 // wants for any claim about the preview's cost, and the one HARD RULE #23 accepts (a real
@@ -265,10 +265,21 @@ test(`@perf preview render path — navigation vs typing (${kind} deck)`, async 
 //
 // MEASURED THROUGH THE FIXTURE'S OWN ANNOTATION rather than a stopwatch in this spec:
 // `waitForStudioPaint` records every paint it performs, so the spec and the fixture cannot
-// drift into measuring two different milestones.
+// drift into measuring two different milestones. That annotation is the page's own
+// `performance.now()` at paint — i.e. FROM NAVIGATION START, covering the pre-DOMContentLoaded
+// slice. A stopwatch here (or in the fixture) would start after `page.goto` resolved and be
+// blind to a render-blocking script, which is one of the three regressions named above; a
+// checker demonstrated that hole against an earlier cut of this test.
 test('@perf studio cold first paint stays under its ceiling', async ({ browser }) => {
-	test.setTimeout(180_000);
 	const SAMPLES = 7;
+	// THE SLOT MUST NOT BE THE BINDING CONSTRAINT. Each sample is internally bounded by the
+	// fixture's FIRST_PAINT_TIMEOUT, so the worst legal run is SAMPLES x that. An earlier cut
+	// set 180s, which is ~25.7s per sample — so a boot regression past ~26x died on the TEST
+	// timeout before reaching the ceiling assertion, emitted no breach token, and
+	// perf-nightly.yml filed it as a harness failure instead of a regression. That inverts the
+	// alarm precisely when it has the most to say, which is the failure this file's header
+	// warns about one level down.
+	test.setTimeout(SAMPLES * FIRST_PAINT_TIMEOUT + 60_000);
 
 	for (let i = 0; i < SAMPLES; i++) {
 		// A FRESH CONTEXT per sample — this measures a COLD visit, and a reused context
