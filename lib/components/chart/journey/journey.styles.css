@@ -857,12 +857,32 @@ section.journey .journey-vmood::before {
     transparent 1px calc(100% / 4));
   opacity: 0.5;
 }
-/* Dashed reach from the pain (left) edge to the face. */
+/* The plotted range is inset by HALF A FACE at each end, so a marker at either
+ * extreme sits fully inside the track instead of hanging half-off it. The face is
+ * centered on its value and is 6.5cqi across, so plotting mood 5 at a bare `100%`
+ * put its center ON the track's right edge and 3.25cqi of it outside — always,
+ * at every deck size. Nothing showed while `.chart-body` carried 64px of inline
+ * padding: the overhang landed in that padding and the clip was further out. When
+ * that padding retired (charts now sit at the frame inset, like prose and the
+ * diagram) the overhang became a real cut — `check:chart-fit` caught a mood-5 face
+ * 5.3px past the portrait stage. A marker centered on the end of its own scale is
+ * wrong at any inset; this is the fix, not a wider berth.
+ *
+ * The 1..5 scale therefore maps across `100% - 6.5cqi`, offset by `3.25cqi`. The
+ * gridlines above still divide the FULL width into four segments — they mark the
+ * rail, not the marker range — so do not "correct" them to match. */
+section.journey .journey-vmood {
+  --journey-vface: 6.5cqi;
+  --journey-vmood-x: calc(
+    var(--journey-vface) / 2
+    + (var(--mood) - 1) / 4 * (100% - var(--journey-vface)));
+}
+/* Dashed reach from the pain (left) edge to the face's center. */
 section.journey .journey-vmood-line {
   position: absolute;
   top: 50%;
   left: 0;
-  width: calc((var(--mood) - 1) / 4 * 100%);
+  width: var(--journey-vmood-x);
   height: 0;
   border-top: 2px dashed color-mix(in oklab, var(--journey-timeline) 55%, transparent);
   transform: translateY(-50%);
@@ -871,9 +891,9 @@ section.journey .journey-vmood-line {
 section.journey .journey-vmood .journey-face {
   position: absolute;
   top: 50%;
-  left: calc((var(--mood) - 1) / 4 * 100%);
-  width: 6.5cqi;
-  height: 6.5cqi;
+  left: var(--journey-vmood-x);
+  width: var(--journey-vface);
+  height: var(--journey-vface);
   transform: translate(-50%, -50%);
   background: var(--bg);
   border-radius: 50%;

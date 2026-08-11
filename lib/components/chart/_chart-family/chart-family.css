@@ -80,7 +80,26 @@ section.chart-frame {
    * inset `.chart-body` used to carry; the per-chart tunings restate only the
    * token they change (see the tall/strip arm below, state-chart.styles.css and
    * timeline-list.styles.css). */
-  --chart-inset-x: var(--sp-2xl);
+  /* ZERO on the inline axis. A chart sits at the FRAME inset — the same 64px
+   * safe margin prose, code, the masthead and the diagram sit at — and nothing
+   * further. #1598 removed one of the chart's three inline insets and left the
+   * second in place on the theory that it was a deliberate margin somebody had
+   * chosen; going back through the history, nobody had. The width calc's own
+   * comment justified it as a SIZING workaround for the marp-vscode webview, the
+   * padding line carried no comment at all, and the only defense anywhere was the
+   * glass panel adopting "its EXISTING padding" — a value already there for an
+   * unrecorded reason. The per-chart notes that argued for it argued for charts
+   * matching EACH OTHER, never for charts wanting more room than prose.
+   *
+   * Two measurements settled it. (1) For the eight SVG-bodied charts the inset
+   * bought nothing at all: they letterbox to their box, so a quadrant renders
+   * pixel-identical at 64 and at 128 — the extra was dead space on each side.
+   * (2) It was an ALIGNMENT defect: the masthead's hairline spans the full frame,
+   * so a chart at 128 sat visibly narrower than the rule directly above it — the
+   * same misalignment #1598 had just fixed on the diagram. At 64 the bars, lanes,
+   * table columns and status pills share edges with the rule and the title.
+   * `overflow:check` over all 268 committed decks: zero newly-clipping pages. */
+  --chart-inset-x: 0px;
   --chart-inset-top: var(--sp-lg);
   --chart-inset-bottom: var(--sp-lg);
 }
@@ -540,7 +559,12 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
  * tunes); it used to be spelled twice, once in the width calc and once in the
  * padding, and it is now spelled once for both holders. */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
-  --chart-inset-x: var(--sp-sm);
+  /* NO inline override any more. This tuning existed to pull the side inset IN
+   * from `--sp-2xl` on a narrow box, where 64px per side ate width a portrait
+   * chart cannot spare. With the default at 0 there is nothing left to reclaim —
+   * restating `--sp-sm` here would PUSH the chart out, inverting the tuning's
+   * whole purpose. The block pair still tightens, which is the half that was
+   * always about the narrow box's height. */
   --chart-inset-top: var(--sp-md);
   --chart-inset-bottom: var(--sp-md);
 }

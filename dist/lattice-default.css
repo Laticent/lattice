@@ -6748,12 +6748,32 @@ section.journey .journey-vmood::before {
     transparent 1px calc(100% / 4));
   opacity: 0.5;
 }
-/* Dashed reach from the pain (left) edge to the face. */
+/* The plotted range is inset by HALF A FACE at each end, so a marker at either
+ * extreme sits fully inside the track instead of hanging half-off it. The face is
+ * centered on its value and is 6.5cqi across, so plotting mood 5 at a bare `100%`
+ * put its center ON the track's right edge and 3.25cqi of it outside — always,
+ * at every deck size. Nothing showed while `.chart-body` carried 64px of inline
+ * padding: the overhang landed in that padding and the clip was further out. When
+ * that padding retired (charts now sit at the frame inset, like prose and the
+ * diagram) the overhang became a real cut — `check:chart-fit` caught a mood-5 face
+ * 5.3px past the portrait stage. A marker centered on the end of its own scale is
+ * wrong at any inset; this is the fix, not a wider berth.
+ *
+ * The 1..5 scale therefore maps across `100% - 6.5cqi`, offset by `3.25cqi`. The
+ * gridlines above still divide the FULL width into four segments — they mark the
+ * rail, not the marker range — so do not "correct" them to match. */
+section.journey .journey-vmood {
+  --journey-vface: 6.5cqi;
+  --journey-vmood-x: calc(
+    var(--journey-vface) / 2
+    + (var(--mood) - 1) / 4 * (100% - var(--journey-vface)));
+}
+/* Dashed reach from the pain (left) edge to the face's center. */
 section.journey .journey-vmood-line {
   position: absolute;
   top: 50%;
   left: 0;
-  width: calc((var(--mood) - 1) / 4 * 100%);
+  width: var(--journey-vmood-x);
   height: 0;
   border-top: 2px dashed color-mix(in oklab, var(--journey-timeline) 55%, transparent);
   transform: translateY(-50%);
@@ -6762,9 +6782,9 @@ section.journey .journey-vmood-line {
 section.journey .journey-vmood .journey-face {
   position: absolute;
   top: 50%;
-  left: calc((var(--mood) - 1) / 4 * 100%);
-  width: 6.5cqi;
-  height: 6.5cqi;
+  left: var(--journey-vmood-x);
+  width: var(--journey-vface);
+  height: var(--journey-vface);
   transform: translate(-50%, -50%);
   background: var(--bg);
   border-radius: 50%;
@@ -15152,14 +15172,14 @@ section.state-chart {
  * band all land exactly where they did. It is the in-tree precedent that the calc
  * was never load-bearing. */
 section.state-chart.chart-frame {
-  /* The INLINE token is restated at the family default deliberately, not omitted.
-   * As a padding on `.chart-body` this tuning sat at (0,3,1) and beat the tall/strip
-   * family rule (0,2,1), so a TALL state-chart kept the wide `--sp-2xl` side inset.
-   * As tokens, state-chart declares at (0,2,1) and tall/strip at (0,1,1) — so an
-   * omitted `--chart-inset-x` would fall through to tall/strip's `--sp-sm` and the
-   * body would gain 158px (+20.7%) at portrait. Measured by the trio's red team;
-   * naming the token is how state-chart stays in the tie it used to win. */
-  --chart-inset-x: var(--sp-2xl);
+  /* The inline restatement is GONE with the family default. It existed to hold a
+   * specificity tie: as a padding this tuning sat at (0,3,1) and beat the
+   * tall/strip family rule (0,2,1), so a TALL state-chart kept the wide side
+   * inset; as tokens it declares at (0,2,1) against tall/strip's (0,1,1), so an
+   * omitted `--chart-inset-x` used to fall through to `--sp-sm` and move the body
+   * 158px. Both sides of that tie are now 0 — there is no longer a wide value to
+   * defend, so the token that defended it is noise. Only the block pair, which is
+   * state-chart's real tuning, remains. */
   --chart-inset-top: var(--sp-md);
   --chart-inset-bottom: var(--sp-md);
 }
@@ -16502,11 +16522,12 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
   align-items: stretch;
   justify-content: center;
 }
-/* The tall/strip inset, re-homed to the same tokens as the landscape one (#1598).
+/* The tall/strip block inset, on the same tokens as the landscape one (#1598).
  * Out-specifies the family's tall/strip token block on class count — (0,2,1) vs
- * (0,1,1) — and its own landscape block above by source order at equal weight. */
+ * (0,1,1) — and its own landscape block above by source order at equal weight.
+ * The INLINE half is gone with the family default: it pulled in from `--sp-2xl`,
+ * and against a 0 default it would only push back out. */
 section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
-  --chart-inset-x: var(--sp-xl);
   --chart-inset-top: var(--sp-lg);
   --chart-inset-bottom: var(--sp-lg);
 }
@@ -19820,7 +19841,26 @@ section.chart-frame {
    * inset `.chart-body` used to carry; the per-chart tunings restate only the
    * token they change (see the tall/strip arm below, state-chart.styles.css and
    * timeline-list.styles.css). */
-  --chart-inset-x: var(--sp-2xl);
+  /* ZERO on the inline axis. A chart sits at the FRAME inset — the same 64px
+   * safe margin prose, code, the masthead and the diagram sit at — and nothing
+   * further. #1598 removed one of the chart's three inline insets and left the
+   * second in place on the theory that it was a deliberate margin somebody had
+   * chosen; going back through the history, nobody had. The width calc's own
+   * comment justified it as a SIZING workaround for the marp-vscode webview, the
+   * padding line carried no comment at all, and the only defense anywhere was the
+   * glass panel adopting "its EXISTING padding" — a value already there for an
+   * unrecorded reason. The per-chart notes that argued for it argued for charts
+   * matching EACH OTHER, never for charts wanting more room than prose.
+   *
+   * Two measurements settled it. (1) For the eight SVG-bodied charts the inset
+   * bought nothing at all: they letterbox to their box, so a quadrant renders
+   * pixel-identical at 64 and at 128 — the extra was dead space on each side.
+   * (2) It was an ALIGNMENT defect: the masthead's hairline spans the full frame,
+   * so a chart at 128 sat visibly narrower than the rule directly above it — the
+   * same misalignment #1598 had just fixed on the diagram. At 64 the bars, lanes,
+   * table columns and status pills share edges with the rule and the title.
+   * `overflow:check` over all 268 committed decks: zero newly-clipping pages. */
+  --chart-inset-x: 0px;
   --chart-inset-top: var(--sp-lg);
   --chart-inset-bottom: var(--sp-lg);
 }
@@ -20280,7 +20320,12 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
  * tunes); it used to be spelled twice, once in the width calc and once in the
  * padding, and it is now spelled once for both holders. */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
-  --chart-inset-x: var(--sp-sm);
+  /* NO inline override any more. This tuning existed to pull the side inset IN
+   * from `--sp-2xl` on a narrow box, where 64px per side ate width a portrait
+   * chart cannot spare. With the default at 0 there is nothing left to reclaim —
+   * restating `--sp-sm` here would PUSH the chart out, inverting the tuning's
+   * whole purpose. The block pair still tightens, which is the half that was
+   * always about the narrow box's height. */
   --chart-inset-top: var(--sp-md);
   --chart-inset-bottom: var(--sp-md);
 }

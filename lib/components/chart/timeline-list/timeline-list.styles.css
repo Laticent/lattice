@@ -163,11 +163,12 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
   align-items: stretch;
   justify-content: center;
 }
-/* The tall/strip inset, re-homed to the same tokens as the landscape one (#1598).
+/* The tall/strip block inset, on the same tokens as the landscape one (#1598).
  * Out-specifies the family's tall/strip token block on class count — (0,2,1) vs
- * (0,1,1) — and its own landscape block above by source order at equal weight. */
+ * (0,1,1) — and its own landscape block above by source order at equal weight.
+ * The INLINE half is gone with the family default: it pulled in from `--sp-2xl`,
+ * and against a 0 default it would only push back out. */
 section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
-  --chart-inset-x: var(--sp-xl);
   --chart-inset-top: var(--sp-lg);
   --chart-inset-bottom: var(--sp-lg);
 }
