@@ -24,6 +24,9 @@
   ],
   "description": "Horizontal progress bars — one row per item, percentage filled.",
   "purpose": "Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).",
+  "excludes": [
+    "claim-bleed"
+  ],
   "slots": {
     "title": {
       "selector": "h2",

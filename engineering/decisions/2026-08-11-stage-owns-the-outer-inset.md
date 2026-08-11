@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: States "the stage owns the outer inset; a body owns only the spacing between its own elements, a CLIP MARGIN, and whatever padding a box that paints its own surface needs" as a named Forms invariant (design/forms.md §6.1), and brings the two buckets that broke it — chart and diagram — into line with the four that already kept it. Both re-derived the frame inset with the same `calc(100cqi - 2 * var(--sp-2xl))` expression and the chart stacked its own padding on top, so a chart's figure paid 192px per side against prose's 64 and a diagram paid 128; #680 costed that debt at half the real number because the calc reads as sizing. Both calc copies retire and the bodies fill their container. THE CHANGE IS INLINE-ONLY, and that is the finding: a body's BLOCK padding is a clip margin, not an inset — `overflow` cuts at the padding box, so it is the slack a chart paints into, and removing it made NINE decks clip pages that had never clipped (`overflow:check`). `overflow-clip-margin` is the property that should carry it and cannot yet (Chromium 131 takes only a plain length, and every spacing token here is a calc), so it stays as `padding-block`, renamed. The inset is a TOKEN on the section rather than padding on a box, because a chart has TWO holders (`.cell-stage` under the Form, the section on `no-form`) and a tuning spelled per-holder is a pairing invariant nothing enforces — the first cut proved it by silently dropping state-chart's and timeline-list's. The `section.chart-frame` padding block is SCOPED to `:not(.form)` rather than deleted (it is live there; the card's "dead rule" reading was measured only under the Form). The adversarial trio found four override paths that had to re-win their tie on the token (`no-form`, `canvas`, `claim-hero`/`claim-bleed`, tall/strip `state-chart`), each re-measured byte-identical against a worktree at the base commit; the inline reclaim then exposed two boxes that were bigger than their container by construction — gantt's SVG (a `max-height: 100%` that never bound) and matrix-grid's figure (`width: 100%` plus a `padding-left` under content-box sizing) — both fixed here rather than filed. Kept by two paired gates: `checkStageInsetOwnership` (browser-free, in build:check, verified against a 24-spelling matrix) and a measured inset assertion in check-chart-fit.js at three sizes.
+summary: States "the stage owns the outer inset; a body owns only the spacing between its own elements, a CLIP MARGIN, and whatever padding a box that paints its own surface needs" as a named Forms invariant (design/forms.md §6.1), and brings the two buckets that broke it — chart and diagram — into line with the four that already kept it. Both re-derived the frame inset with the same `calc(100cqi - 2 * var(--sp-2xl))` expression and the chart stacked its own padding on top, so a chart's figure paid 192px per side against prose's 64 and a diagram paid 128; #680 costed that debt at half the real number because the calc reads as sizing. Both calc copies retire and the bodies fill their container. THE CHANGE IS INLINE-ONLY, and that is the finding: a body's BLOCK padding is a clip margin, not an inset — `overflow` cuts at the padding box, so it is the slack a chart paints into, and removing it made NINE decks clip pages that had never clipped (`overflow:check`). `overflow-clip-margin` is the property that should carry it and cannot yet (Chromium 131 takes only a plain length, and every spacing token here is a calc), so it stays as `padding-block`, renamed. The inset is a TOKEN on the section rather than padding on a box, because a chart has TWO holders (`.cell-stage` under the Form, the section on `no-form`) and a tuning spelled per-holder is a pairing invariant nothing enforces — the first cut proved it by silently dropping state-chart's and timeline-list's. The `section.chart-frame` padding block is SCOPED to `:not(.form)` rather than deleted (it is live there; the card's "dead rule" reading was measured only under the Form). The adversarial trio found four override paths that had to re-win their tie on the token (`no-form`, `canvas`, `claim-hero`/`claim-bleed`, tall/strip `state-chart`), each re-measured byte-identical against a worktree at the base commit; the inline reclaim then exposed two boxes that were bigger than their container by construction — gantt's SVG (a `max-height: 100%` that never bound) and matrix-grid's figure (`width: 100%` plus a `padding-left` under content-box sizing) — both fixed here rather than filed. Kept by two paired gates: `checkStageInsetOwnership` (browser-free, in build:check, verified against a 24-spelling matrix) and a measured inset assertion in check-chart-fit.js at three sizes. §8.1 then went further on the owner's challenge: the SURVIVING inset was not a design choice either — no comment, no record, and two measurements against it (a height-bound SVG chart letterboxes so the inset was dead space; a width-bound one, gantt/map/word-cloud, was LOSING drawing size to it) plus the same masthead-alignment defect the diagram had. `--chart-inset-x` goes to 0 and a chart sits at the frame inset like prose, code and diagrams. The trio run against that follow-up found four more: `claim-bleed` on a card- or table-bodied chart ran to the trim edge (the old 64px had been silently FLOORING a bleed nothing ever tested), the first fix for it re-created the misalignment at `claim-hero` by flooring a value that was already the floor, deleting timeline-list's inline token silently retuned the `canvas` panel 3× tighter because both read one token, and insetting only the journey markers left a face 31.6px off the gridline it names. All four fixed here; the panel token is now gated by measurement and the fixture gained `claim-bleed`, `canvas` and `timeline-list canvas` slides, which had zero coverage anywhere in the repo. Logged not fixed: matrix-grid's table exceeds its box at portrait on `main` too (#1620).
 ---
 
 # The stage owns the outer inset
@@ -447,44 +447,202 @@ Two gates, paired deliberately, because each is blind to the other's failures.
 Shipped the same day, on the owner's challenge — *"you said diagram has two
 layers and chart has 3; explain why it needs 3."* It does not, and §6's claim that
 the survivor was "a deliberate margin somebody had chosen" was an assumption I had
-not checked. Going back through the history:
+not checked.
+
+**How it was checked, precisely** — because "going back through the history"
+would overstate it. This repo is 62 commits deep and `chart-family.css` shows as
+*added* at the oldest commit in the tree, so there is no archaeology to do. The
+evidence is the in-file comments and the decision corpus, read end to end:
 
 - the width calc's own comment justified it as a **sizing** workaround for the
   marp-vscode webview; pushing the chart in 64px was an unrecorded side effect;
 - the `padding` line carried **no comment at all**;
-- the only defense anywhere is the glass panel adopting *"its **existing**
+- the nearest thing to a defense is the glass panel adopting *"its **existing**
   padding"* — a value already there for a reason nobody wrote down, on a panel
   that is opt-in with zero decks opting in;
 - the per-chart notes that argue for it argue for charts matching **each other**
   (the panel's uniform size), never for charts wanting more room than prose.
 
-Two measurements retired it. **(1)** For the eight SVG-bodied charts the inset
-bought nothing: they letterbox to their box, so a quadrant renders
-pixel-identical at 64 and at 128 — dead space on each side, and only the five
-HTML-bodied charts ever spent the width. **(2)** It was an **alignment defect**:
-the masthead's hairline spans the full frame, so a chart at 128 read visibly
-narrower than the rule directly above it — precisely the misalignment §6 had just
-fixed on the diagram, left in place on the chart.
+Two places *did* consider this inset and leave it alone — the checker found both,
+and calling the panel "the only defense" was wrong. Neither is a positive
+justification, but both are deliberate: the same file's tall/strip header called
+the wide inset *"right for a wide slide"* while pulling it in at portrait, and
+`2026-06-19-chart-adaptive-sizing.md` §8 analysed this exact `--sp-2xl` in both
+the calc and the padding and chose a fix that was *"box-local, not systemic
+(chosen after rendering both)"*, explicitly leaving landscape untouched. So the
+inset had been *looked at twice and kept at landscape* — on the strength of how it
+looked, never against the masthead rule it fails to align with.
+
+**Two measurements retired it, and they cut in opposite directions — which is the
+point.** Sort the fourteen charts by what binds their drawing:
+
+- **Height-bound SVG** (quadrant, funnel, piechart, radar): the figure letterboxes
+  to its box, so a wider box is the same ink in a wider frame — a quadrant renders
+  **byte-identical** at 64 and at 128 (md5-equal screenshots). The inset was pure
+  dead space.
+- **Width-bound SVG** (gantt, map, word-cloud): the drawing itself grows. Measured
+  at hd, gantt's SVG goes 1024×238.9 → 1152×268.8 and **10.3% of the slide's
+  pixels change**; map 9.0%, word-cloud 5.1%. The inset was not dead space here —
+  it was *costing drawing size*.
+- **HTML-bodied** (the remaining five, plus `radar small-multiples`, whose grid
+  re-flows): the content genuinely widens, and it now shares an edge with the
+  masthead rule.
+
+Either the inset bought nothing or it cost something; no chart was better off with
+it. **Do not compress this into "SVG charts don't care"** — an earlier draft of
+this section did, and both the checker and §7 of this very document contradict it.
+(§7 already recorded gantt's drawing growing 209.1 → 238.9 tall. The generalization
+was written anyway.) The two arguments also apply to *disjoint* sets: "bought
+nothing" is the height-bound four, and the alignment argument below is everyone
+else — a quadrant's ink is byte-identical, so it gains no alignment either. Each
+measurement settles its own half; neither settles both.
+
+**(2)** It was an **alignment defect**: the masthead's hairline spans the full
+frame, so a chart at 128 read visibly narrower than the rule directly above it —
+precisely the misalignment §6 had just fixed on the diagram, left in place on the
+chart.
+
+One more thing grew that no one asked to grow: the opt-in **`canvas`** panel is
+painted on `.chart-body`, so it follows the frame (landscape 1024→1152, portrait
+864→972). Its own internal berth is unchanged and now has its own token.
 
 `--chart-inset-x: 0px`, and **three per-chart overrides deleted rather than
-added**: tall/strip's pulled IN from `--sp-2xl` and against a 0 default would only
-push back out, inverting its purpose; state-chart's and timeline-list-tall's
-existed solely to hold a specificity tie whose both sides are now 0. The follow-up
-is *smaller* than the change it corrects.
+added**: the family's tall/strip value pulled IN from the `--sp-2xl` landscape
+default and against a 0 default would only push back out, inverting its purpose;
+state-chart's inline restatement existed solely to hold a specificity tie whose
+both sides are now 0; timeline-list-tall's did the opposite of what its neighbours
+did — `--sp-xl` against the family's tall/strip `--sp-sm`, three times the berth,
+pushing OUT — which is exactly the extra room this change retires.
+
+**But one of those three had a second consumer, and deleting it moved something
+else.** Before this change the `canvas` glass panel's *internal* inset also read
+`--chart-inset-x`, so timeline-list-tall's `--sp-xl` was the panel's berth here
+too: a `timeline-list canvas` at portrait went 78.975 → 26.325px, 3× tighter,
+while all thirteen other charts' panels stayed put. The red team and the checker
+found it independently, which is the sharpest thing either said about this diff:
+the whole reason `--chart-panel-x` was split out of `--chart-inset-x` is that one
+token must not silently move the other, and the split's very first outing missed
+the one per-chart override feeding both. The panel half is restated on
+`--chart-panel-x` — frame inset gone, berth kept — and `check-chart-fit` now
+asserts that a painted body's inline padding IS that token, with a
+`timeline-list canvas` fixture slide behind it (the `quadrant canvas` slide cannot
+see this: it is a height-bound SVG on the family default).
+
+**One override ADDED, not deleted, and it is the part to look at hardest.**
+`claim-bleed` takes `--frame-x` to 0 and names `.chart-frame` wholesale; the old
+64px inset silently floored that to 64, so no chart ever actually bled. Taking the
+token to 0 removed the floor and a `kanban claim-bleed` put its first card at
+x=0 — corner and shadow sliced at the trim edge; a `journey claim-bleed` sliced
+its end task cards and put an actor badge 4px from the paper. The floor is now
+explicit, `--frame-inset-x`, on the six card- or table-bodied charts (progress,
+kanban, timeline-list, roadmap, matrix-grid, journey) — stage.css's own answer for
+a non-media bleed. `state-chart` is deliberately out: it self-scales and centers,
+so it is genuinely safe at the trim.
+
+**The CSS floor is the second half of the fix, not the whole of it — the first
+half already existed and had never been wired up.** The house answer to "this
+layout must not bleed" is authoring-level: a prose-dense component declares
+`"excludes": ["claim-bleed"]` in its manifest and `lint-core`'s
+`claim-bleed-unsafe` warns the author off to `claim-hero` (2026-07-03 claim
+decision §8, and `base.docs.md` states it plainly — *"`claim-bleed` is a
+semi-universal opt-out (prose-dense layouts exclude it)"*). **matrix-grid was the
+only chart that had declared it.** progress, kanban, timeline-list, roadmap and
+journey now do too, and that is why the linter was silent when the inversion pass
+found the regression by rendering: there was nothing for it to read. Verified
+non-vacuous — the fixture's `kanban claim-bleed` slide now warns.
+
+Both halves are needed and neither substitutes for the other. `claim-bleed-unsafe`
+is a **warning**, so the deck still renders; before this change it rendered
+sliced. The manifest tells an author not to; the floor makes it safe when they do
+anyway.
+
+**`claim-bleed` only — NOT `claim-hero`, and the first cut of this fix got that
+wrong.** At hero `--frame-x` is already `--frame-inset-x`, so a floor there does
+not floor, it stacks: the red team measured those charts at x=60 under a masthead
+hairline at x=30 — *the exact misalignment this whole change exists to remove*,
+re-created inside the fix for a different one, twenty minutes after it was
+written. Two of the three trio lenses caught it independently. The lesson is
+narrow and worth keeping: **a floor is only a floor against zero.** Applied to a
+value that is already the floor, it is a second inset.
+
+Found by the trio's inversion pass. Nothing caught it mechanically: the
+`claim-bleed-unsafe` linter reads a manifest `excludes` list only matrix-grid
+declares, and no committed deck combines a chart with `claim-bleed`, so there was
+no golden to drift and no overflow-corpus page to clip. **That is the structural
+lesson of this follow-up, and it is not a small one**: a default that is *silently
+floored* by a value you are removing has no test standing between it and a
+regression.
+
+The follow-up is a smaller *diff* than the change it corrects and a **larger blast
+radius** — it moves every chart on every deck, where the parent change moved a
+duplicate nobody could see.
 
 **And a third box bigger than its container.** `check:chart-fit` caught a journey
 mood-5 face 5.3px past the portrait stage. Not tight spacing — the portrait
 variant plots its marker at `left: ((mood − 1) / 4) × 100%`, so a mood-5 face was
 centered ON the track's right edge with half of it outside, **always, at every
 deck size**; the old padding was merely wider than the overhang. The 1..5 scale
-now maps across `100% − 6.5cqi` offset by half a face. After gantt and
-matrix-grid, that is three for three: **reclaiming an inset is how you find the
-boxes that were never inside their container.**
+now maps across `100% − 6.5cqi` offset by half a face — **and the gridlines are
+inset by the same half-face**, so gridline N still sits exactly under a mood-N
+face. That second half came from the red team: insetting only the markers left a
+face up to 31.6px off the line it names, on the one chart whose entire contract is
+that position IS the value. A readout that lies is worse than a readout that
+overhangs.
 
-`check:chart-fit` 5 → 4 → **3** across this line of work (square roadmap fixed by
-the reclaim, portrait journey by the marker fix); `overflow:check` clean across
-268 decks. Logged, not fixed: journey's portrait rows overlap each other —
-identical on `main`, different mechanism, off this change's path (#1600).
+That is journey, after gantt and matrix-grid, and the `claim-bleed` floor above
+is a fourth of the same shape: **an inset is slack, and slack hides boxes that
+were never inside their container.** Removing one doesn't create those defects —
+it stops paying for them. Be precise about the shape, though, because the checker
+was right to push on it: matrix-grid and journey were *always* oversize by
+construction, while **gantt's drawing genuinely was inside its box until the box
+widened** — its defect was a `max-height: 100%` that never bound. Two of the three
+were pre-existing overflows; the third was a latent constraint that had never been
+tested. The corollary is the same either way, and it is the uncomfortable half:
+they surface as *your* regression, on *your* PR, and HARD RULE #18 says they are
+yours to fix. All four were.
+
+`check:chart-fit` 5 → 4 → **3** across this line of work; `overflow:check` clean
+across 268 decks. **The attribution needs care** — journey appears in *none* of
+those three counts. `main`'s four are progress×2, timeline-list-portrait and
+roadmap-square; the reclaim fixes roadmap-square, and the marker fix cancels a
+clip the reclaim would otherwise have *introduced*. Net zero on the gate, which is
+the more interesting fact: the gate's number moved by one while two things
+changed under it.
+
+Logged, not fixed — off this change's path, per HARD RULE #18's find-vs-cause
+split:
+
+- journey's portrait rows overlap each other — identical on `main`, different
+  mechanism (#1600);
+- **matrix-grid's table exceeds its box at portrait (#1620).** `table-layout: auto` plus
+  `width: 100%` means the table cannot go below its min-content width, so a
+  realistic gallery-sized matrix overflows the slide at portrait — measured on
+  `origin/main`, on **both** the Form and `no-form` paths, with the same content.
+  It is pre-existing and matrix-grid has no adaptive arm to tune; a real fix is
+  explicit column tracks, which is a component redesign, not this diff. **What
+  this change does do is move the threshold**: `no-form` at portrait went from a
+  26.325px margin to the frame's 54px (see below), so content sitting between the
+  two now clips where it did not. That is the "latent fragility your change tipped
+  into failure" case, and it is recorded here rather than hidden — the honest note
+  is that the piece that moved the threshold is the piece that gave `no-form` a
+  safe margin at all, so reverting it is worse than the defect.
+
+**And the `no-form` inset moved at two sizes, which the first draft did not say.**
+The record cited hd only, where the body lands exactly where it always did (1152 @
+x=64). At the others it is a retune, not a restoration:
+
+| `no-form` body | `origin/main` | here |
+|---|---|---|
+| portrait | 26.31 .. 1053.69 | **54 .. 1026** |
+| square | 89.09 .. 990.91 | **54 .. 1026** |
+
+Both are improvements — a portrait `no-form` chart previously sat 26px from the
+edge of a 1080px slide, which is no safe margin at all — but "restored" was the
+wrong word for it. One related edge, pre-existing and not caused here: the
+hand-copied `5 × --_sec-1cqi` is `--frame-x`'s *default*, and every modifier that
+retunes `--frame-x` (`claim-quiet`, `claim-hero`, `claim-bleed`) is scoped
+`section.form`, so a `no-form claim-hero` chart sits at 64 where its absent frame
+would want 30.
 
 ## 9. Relation to #680
 

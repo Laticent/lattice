@@ -51,6 +51,9 @@
     "swimlane",
     "milestones"
   ],
+  "excludes": [
+    "claim-bleed"
+  ],
   "slots": {
     "title": {
       "selector": "h2",

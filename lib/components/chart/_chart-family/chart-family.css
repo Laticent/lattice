@@ -140,6 +140,42 @@ section.chart-frame {
  * the half of the rule a container is allowed to own. Only the TOP inset has a
  * seam to sit in; the section's own `padding-bottom` (the footer band, well over
  * any `--chart-inset-bottom`) is the bottom clearance. */
+/* BLEED HAS A FLOOR on a chart whose body is CARDS OR A TABLE — the SECOND half
+ * of a two-layer answer, and the safety net rather than the rule.
+ *
+ * The RULE already existed and is authoring-level: a prose-dense component
+ * declares `"excludes": ["claim-bleed"]` in its manifest, and `lint-core`'s
+ * `claim-bleed-unsafe` warns the author off to `claim-hero` ("content run to the
+ * true edge gets cropped by a projector/printer" — 2026-07-03 claim decision §8).
+ * matrix-grid declared it; progress, kanban, timeline-list, roadmap and journey
+ * did not, so the warning could never fire for them. They now do, and that is the
+ * primary fix.
+ *
+ * But `claim-bleed-unsafe` is a WARNING, not an error: the deck still renders, and
+ * until now it rendered SLICED. A chart is not one kind of thing — an SVG
+ * letterboxes and bleeding it is the point, while cards, tables and timeline items
+ * lose a corner at the trim — so the floor here makes the render safe for the
+ * author who bleeds one anyway.
+ *
+ * These charts never bled before, and not by design: the chart's own
+ * `--chart-inset-x` was 64px and silently floored `--frame-x: 0`. Taking that
+ * token to 0 removed the floor — measured, a `kanban claim-bleed` put its first
+ * card at x=0 with its rounded corner and shadow sliced, and a `journey
+ * claim-bleed` sliced its end task cards and put the actor badge 4px from the
+ * paper. The explicit floor is `--frame-inset-x`, stage.css's OWN answer for "as
+ * close to the edge as it SAFELY can" on a non-media bleed, and the same berth the
+ * header and footer bands use. Found by the trio's inversion pass.
+ *
+ * `claim-bleed` ONLY — NOT `claim-hero`. At hero `--frame-x` is ALREADY
+ * `--frame-inset-x` (stage.css), so a floor there does not floor, it STACKS: the
+ * red team measured these charts at x=60 under a masthead hairline at x=30 — the
+ * exact misalignment this whole change exists to remove, re-created by the fix for
+ * a different one. `state-chart` is deliberately absent too: it self-scales and
+ * centers, so it is genuinely safe at the trim. */
+section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid, .journey).claim-bleed {
+  --chart-inset-x: var(--frame-inset-x);
+}
+
 section.chart-frame:not(.form) {
   /* THE FRAME INSET IS SPELLED OUT HERE, because on this path nothing else
    * supplies it. Under the Form, `section.form`'s own `padding: … var(--frame-x) …`
@@ -573,16 +609,21 @@ section.chart-frame > .cell-stage {
 section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
-/* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
- * default inset reserves --sp-2xl on EACH side — right for a wide slide, but in
- * portrait that eats precious width and shrinks every chart and its labels/numbers.
- * Pull the side inset right in so the figure (and its text) reads as large as
- * possible. Keyed on the deck's `data-family` stamp; landscape untouched.
- * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md.
- * Re-homed from `.chart-body` to the inset TOKENS with #1598 (a parent's padding
- * cannot be overridden by a child, so the tuning has to move with the inset it
- * tunes); it used to be spelled twice, once in the width calc and once in the
- * padding, and it is now spelled once for both holders. */
+/* ── Box-local: give the figure room on a tall/narrow box, where every pixel of
+ * width is width a chart's labels and numbers cannot spare. Keyed on the deck's
+ * `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
+ * 2026-06-19-chart-adaptive-sizing.md.
+ *
+ * WHAT THIS BLOCK TUNES CHANGED WITH #1598, and the block below says so
+ * declaration by declaration. It used to pull the FRAME inset in from `--sp-2xl`;
+ * that default is now 0 (charts sit at the frame inset like prose), so there is
+ * nothing left to reclaim on that axis and the inline tuning is GONE. What
+ * remains is the two things a narrow box still needs: the block pair, and the
+ * glass panel's own internal berth, which is a different quantity on a different
+ * box and now has its own token. Re-homed from `.chart-body` to TOKENS because a
+ * parent's padding cannot be overridden by a child, so a tuning has to move with
+ * the inset it tunes — and spelled once for both holders (stage and, on
+ * `no-form`, the section). */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
   /* The PANEL's inset still tightens on a narrow box — that half of the tuning is
    * about the glass card's internal berth and is unaffected by the frame inset
@@ -641,11 +682,17 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
  * below as its own internal one; leaving the stage's in place too insets that axis
  * TWICE — measured by the trio's checker at 64px of lost drawing height on a
  * `quadrant canvas`, with the glass card dropped 32px. The INLINE inset stays on
- * the stage: that one is the frame's, it is what puts the panel at 1024 as it
- * always was, and the panel's own inline inset is the padding below — the same
- * two-inset chain a canvas chart had before, in the two boxes that own them.
- * Result: a `canvas` chart is byte-identical to its pre-#1598 render, at every
- * deck shape. */
+ * the stage: that one is the frame's, and the panel's own inline inset is the
+ * padding below — the same two-inset chain a canvas chart had before, in the two
+ * boxes that own them.
+ *
+ * THE PANEL DID CHANGE SIZE, and that is the point of #1598, not a side effect:
+ * it now spans the frame like every other bucket instead of sitting a second
+ * 64px in. Measured on `piechart canvas` at indaco: landscape 1152 wide at x=64
+ * (was 1024 at x=128), portrait 972 at x=54 (was 864 at x=108). What is
+ * unchanged is the CHAIN — outer inset from the frame, internal inset from the
+ * panel — and the panel's own internal inset, which still tracks the tall/strip
+ * tuning through `--chart-panel-x`. */
 section.chart-frame.canvas:not(.state-chart) { row-gap: var(--sp-lg); }
 section.chart-frame.canvas:not(.state-chart) .chart-body {
   /* THE PANEL'S OWN INTERNAL INSET — the one padding the Forms inset rule leaves
@@ -740,8 +787,9 @@ section.chart-frame .chart-caption {
    * now that the stage owns that inset, keeping it here would push the caption's
    * text 64px inside the chart it captions instead of aligning with it. The block
    * padding stays: it is the seam between the caption and the chart above it, not
-   * an inset from the slide edge. Measured: the caption's text box is the same
-   * 1024px it was before, at the same x. */
+   * an inset from the slide edge. Measured: the caption's text box now spans 1152
+   * at x=64 (was 1024 at x=128) — the same box the chart it captions occupies,
+   * which is the point; it moved WITH the chart, not away from it. */
   padding-block: var(--sp-sm);
   text-align: var(--headline-align, center);
   font-family: var(--font-mono);

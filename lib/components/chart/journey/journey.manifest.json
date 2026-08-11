@@ -32,6 +32,9 @@
     "swimlane",
     "weighted"
   ],
+  "excludes": [
+    "claim-bleed"
+  ],
   "slots": {
     "heading": {
       "selector": "h1, h2",

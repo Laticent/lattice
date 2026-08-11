@@ -166,9 +166,22 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
 /* The tall/strip block inset, on the same tokens as the landscape one (#1598).
  * Out-specifies the family's tall/strip token block on class count — (0,2,1) vs
  * (0,1,1) — and its own landscape block above by source order at equal weight.
- * The INLINE half is gone with the family default: it pulled in from `--sp-2xl`,
- * and against a 0 default it would only push back out. */
+ * The INLINE half is gone with the family default. It did NOT pull in — it beat
+ * the family's tall/strip `--sp-sm` (1.25) with `--sp-xl` (3.75) and pushed OUT,
+ * three times the berth the family gives a narrow shape. That was extra room ON
+ * TOP of a default this change retires; keeping it would leave timeline-list the
+ * one chart still not at the frame inset on tall and strip.
+ *
+ * But that token had a SECOND consumer, and dropping it silently retuned the
+ * other one. Before #1598 the `.canvas` glass panel's internal inset read
+ * `--chart-inset-x` too, so this line was ALSO the panel's berth here — measured,
+ * a `timeline-list canvas` at portrait went 78.975px → 26.325px, 3× tighter,
+ * while every other chart's panel stayed put. Both the red team and the checker
+ * caught it independently. `--chart-panel-x` is exactly the token that exists so
+ * one of these can never move the other again, so the panel half is restated on
+ * it: the frame inset goes, the panel's berth stays where it was. */
 section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
+  --chart-panel-x: var(--sp-xl);
   --chart-inset-top: var(--sp-lg);
   --chart-inset-bottom: var(--sp-lg);
 }
