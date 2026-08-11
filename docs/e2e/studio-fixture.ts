@@ -271,7 +271,7 @@ export async function gotoStudio(page: Page): Promise<void> {
  * A first paint is not an assertion about behavior — it is setup, getting the app
  * to the state a spec starts from, and it costs an island hydrate, a lazy engine
  * chunk load and a full render inside a srcdoc iframe. Under CPU oversubscription
- * that legitimately exceeds 15s, and 49 of 61 spec files reach the Studio through
+ * that legitimately exceeds 15s, and 51 of 64 spec files reach the Studio through
  * `gotoStudio` (14 of them from a `beforeEach`), so inheriting those defaults made
  * this one wait the suite-wide flake surface: the timeout was reported against
  * whichever spec drew the slow worker, so it looked like a different bug every
@@ -340,15 +340,44 @@ export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIM
 		// `Math.max(1, …)`: a 0 timeout means "no timeout" to Playwright, so a
 		// deadline already spent must ask for the smallest budget, not an endless one.
 		await expect(slide).not.toBeEmpty({ timeout: Math.max(1, deadline - Date.now()) });
-		// Record what the paint actually cost, on the real suite at real concurrency.
-		// The budget above is only re-derivable from a harness someone has to
-		// remember to run; this makes every nightly report carry the distribution it
-		// was sized against. Never allowed to fail a test — `test.info()` throws
-		// outside a running test, and an instrument must not become a failure mode.
+		// Record what the paint cost, on the real suite at real concurrency, as a
+		// `first-paint` annotation in the Playwright report. This is an OBSERVATION,
+		// not a budget: nothing asserts on it. A ceiling was written against this
+		// number and withdrawn — `engineering/decisions/2026-08-03-performance-guard.md`
+		// § Slice 4 has the three reproduced results that killed it, and the four
+		// constraints a future guard has to satisfy (#1586). Its value meanwhile is
+		// that every nightly run accumulates real-runner boot data, which is exactly
+		// what nobody had when trying to pick that number.
+		//
+		// MEASURED FROM THE PAGE'S NAVIGATION START, not from this function's entry.
+		// `performance.now()` inside the document is relative to that document's own
+		// navigation, so the span covers connect + HTML + parse + every blocking and
+		// deferred script, then hydrate, chunk load and render. Wall time around these
+		// two waits would begin AFTER `page.goto(…, 'domcontentloaded')` had already
+		// resolved — which excludes the entire pre-DCL slice, so a 2s render-blocking
+		// script on the boot path took real boot from 1.1s to 3.2s and moved the
+		// number by nothing. A checker demonstrated exactly that, and an independent
+		// red-team run reproduced the fixed span against an 18s document stall.
+		// A reload re-origins `performance.now()`, so the post-reload path measures
+		// the reload rather than the original visit — and a call that does NOT follow
+		// a navigation would report time-since-navigation, not time-to-paint. Today
+		// every caller follows one.
+		//
+		// NEVER ALLOWED TO FAIL OR STALL A TEST. `test.info()` throws outside a running
+		// test and `evaluate` can lose the page to a teardown race — hence the catch.
+		// The RACE matters as much: `page.evaluate` takes no timeout of its own and
+		// resolves only when the page's main thread runs the expression, so under the
+		// worker starvation this whole module exists to survive (#1572) a wedged main
+		// thread would hang here — in 51 spec files — and no catch would see it. An
+		// instrument that can hang the suite it measures is worse than no instrument.
 		try {
-			base.info().annotations.push({ type: 'first-paint', description: `${Date.now() - started}ms` });
+			const sinceNavigation = await Promise.race([
+				page.evaluate(() => Math.round(performance.now())),
+				new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_000)),
+			]);
+			if (sinceNavigation !== null) base.info().annotations.push({ type: 'first-paint', description: `${sinceNavigation}ms` });
 		} catch {
-			/* not inside a test (a bench script, a helper run standalone) — nothing to annotate */
+			/* not inside a test, or the page went away — nothing to annotate */
 		}
 	} catch (cause) {
 		// ONLY a timeout gets re-labeled. Anything else — a closed page, a bug in

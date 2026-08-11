@@ -281,7 +281,7 @@ every docs-touching PR with `--retries=0`, several of them through `gotoStudio` 
 **advisory**, deliberately absent from `ci`'s `needs`, so a red there reports
 without blocking. Latent triage cost, then, not a broken gate.
 
-**Two gaps this leaves open, recorded rather than fixed.**
+**Two gaps this left open**, both still open — see each bullet for where they stand.
 
 - **Nothing bounds the Studio's cold first paint.** `studio-instant-shell.spec.ts`
   and `studio-shell-parity.spec.ts` wait 45s on the iframe element but assert
@@ -289,10 +289,15 @@ without blocking. Latent triage cost, then, not a broken gate.
   navigation and typing p50s taken *after* the paint; the Lighthouse budget measures
   the parent document, and the engine paints inside a srcdoc iframe that does not
   contribute to its LCP. So this wait was the only de facto bound on boot cost, and
-  it went from 15s to 45s — against a ~1.6s uncontended paint, that is a tripwire
-  moving from ~9× to ~28×. It was a bad oracle either way, and "a setup wait is not
-  an assertion" must not be read as *therefore boot cost needs no oracle*. It needs
-  a real one; it does not have one. Carded as #1586.
+  it went from 15s to 45s. It was a bad oracle either way, and "a setup wait is not
+  an assertion" must not be read as *therefore boot cost needs no oracle*.
+  **STILL OPEN (#1586).** A ceiling was attempted and withdrawn: the adversarial trio
+  showed a p50 of 7 boots passes a 13x catastrophe, that its headroom on a
+  runner-like box was ~1.3x rather than the 4.5x recorded, and that the test
+  destabilized the tier it lived in. What DID ship is the measurement — every paint
+  is annotated `first-paint` in the report, from navigation start — so the data a
+  defensible guard needs now accumulates nightly. Full reasoning:
+  `2026-08-03-performance-guard.md` § Slice 4.
 - **The WebKit projects keep a local copy of this wait.** `back-gesture.spec.ts`
   still inherits the 15s `expect.timeout` on its second half, because those projects
   cannot be run in the sandbox that centralized the fixture and a shared helper

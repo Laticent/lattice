@@ -329,6 +329,63 @@ If `[perf-nightly-engine]` fires zero true positives and at least one harness-fa
 in six months, the right move is to delete the two bench arms and the comparator and keep the
 preview ceilings — roughly 30% of the surface for most of the value.
 
+## Slice 4 — cold boot gets a MEASUREMENT, and the ceiling that was going to come with it did not survive review (2026-08-11, #1586)
+
+Every tier above measures a render that happens **after** the app is up. Nothing measures how long
+it takes to *get* up, and the near-misses each fail for a different reason:
+`studio-instant-shell.spec.ts` waits 45s on the preview iframe but asserts **layout**; Lighthouse
+does load `/studio/` but LCP is per-document and the engine paints inside the `iframe.live` srcdoc,
+which never contributes to the parent's; `script-size` and TBT catch bundle bloat rather than a
+slower render, and both compare against 24h-ago `main`, so a few percent a day trips neither.
+
+So the only thing that had ever failed on a slow cold paint was `gotoStudio`'s fixture wait — and
+#1583 raised it from 15s to 45s for reasons about **worker starvation**, not about the app.
+
+**What shipped: an observation, not a guard.** `waitForStudioPaint` annotates every paint it
+performs as `first-paint` in the Playwright report, measured from the page's own navigation start.
+Nothing asserts on it. The value is that the nightly now accumulates real-runner boot data
+continuously, across the 51 spec files that reach it, which is precisely what nobody had when this slice tried to
+set a number.
+
+**What did not ship, and why — because the reasoning is the useful part.** A `@perf` ceiling of
+6000ms was written, measured, mutation-checked, and withdrawn after the adversarial trio
+(HARD RULE #25) put it on the real surface. Three independent, reproduced results killed it:
+
+- **The statistic could not see the regression shape that matters.** A p50 of 7 cold boots passes
+  a catastrophe. Demonstrated by stalling 3 of 7 documents by 18s: samples
+  `19423, 19561, 19423, 1509, 1579, 1559, 1356` → **p50 1579ms, green**. Nearly half of cold visits
+  taking 19.5s is exactly what a boot guard exists for. p50 is right for 20 keystrokes with one GC
+  pause; for 7 boots a bimodal tail *is* the regression, and no assertion looked at the tail.
+- **The number had ~1.3x real headroom, not the 4.5x recorded.** Pinned to 2 cores with two
+  competing processes — the closest available analogue to a hosted runner also hosting the preview
+  server — a **healthy** tree read p50 4.1–4.5s against the 6000ms cap, and a healthy single sample
+  reached 5906ms. The recorded 1286–1345ms band never reproduced; independent runs put the minimum
+  p50 at 1405ms and one full-tier p50 at 3044ms. "Observed variance is tight" was an artifact of a
+  28-sample window taken on a quiet box.
+- **The test destabilized the tier it lived in.** Creating and closing 7 browser contexts inside
+  one test, under the config's `trace: 'on'`, failed **9 of 24 runs** with `ENOENT` on trace
+  artifacts at `ctx.close()` (`--trace=off`: 9/9 green). That failure is *tokenless*, so on those
+  nights `perf-nightly.yml` reports a harness failure, files nothing, **and the three working
+  render ceilings above stop reporting too**.
+
+**And a fourth, which is about the surface rather than the number.** The `@perf` tier is served by
+`build:e2e`, which — unlike the deployed `build` — never runs `inject-modulepreload.mjs`:
+`grep -o 'rel="modulepreload"' dist/studio/index.html | wc -l` reads **0** after `build:e2e` and
+**50** after the inject. (`grep -c` counts matching *lines*, and all 50 hints land on one — so it
+reads 0 then 1, which is what an earlier draft of this paragraph quoted.) So "a chunk stopped being preloaded" was unobservable by construction. Injecting
+the hints and re-measuring showed why fixing that would not have helped either — p50 1766/2008/1995
+with 50 preloads vs 1968/2012/1984 without, within noise, because the origin is `localhost` with
+~0 RTT and round trips are the whole point of a preload. **A localhost cold-boot timing cannot see
+network-shaped boot regressions at all.** The sibling `perf-collect.mjs` avoids this by injecting
+before Lighthouse runs; a future boot guard belongs where that machinery already lives.
+
+**The generalizable lesson, which is the reason this section exists at all.** Every gate in this
+document was justified by *what regression it catches*. This one was justified by *what number a
+healthy run produces* — and those are different questions. A budget sized from healthy readings
+tells you nothing about whether the failure you care about would cross it, and here it did not:
+the guard would have passed a 13x catastrophe while false-alarming a healthy runner. Size the next
+one against a reproduced bad state, on a surface that can express it.
+
 ## What this does not do
 
 - It does not measure time on the PR path, on purpose. A work counter cannot tell you that a render
