@@ -151,7 +151,7 @@
   --hljs-variable:   #48B8C0;  /* teal — variables                           */
   --hljs-params:     #C0E0D0;  /* pale teal-white — parameters               */
   --hljs-tag:        #E8A888;  /* coral — HTML tags                          */
-  --hljs-punctuation:#648595;  /* dark teal — operators                      */
+  --hljs-punctuation:#6b8d9d;  /* dark teal — operators                      */
 }
 
 :root {

@@ -656,8 +656,8 @@ var require_derive = __commonJS({
       t["spectrum-vertical"] = ribbon(180);
       t["spectrum-end"] = spectrumStops[2];
       const onCode = darkBg;
-      const synth = (rot, L = 0.72, C = 0.11) => ensureContrast2(oklchToHex2({ L, C, h: ((accentHue + rot) % 360 + 360) % 360 }), onCode, 3, "lighten");
-      t["hljs-comment"] = ensureContrast2(mix2(e.textMuted, onCode, 0.2), onCode, 3, "lighten");
+      const synth = (rot, L = 0.72, C = 0.11) => ensureContrast2(oklchToHex2({ L, C, h: ((accentHue + rot) % 360 + 360) % 360 }), onCode, 4.5, "lighten");
+      t["hljs-comment"] = ensureContrast2(mix2(e.textMuted, onCode, 0.2), onCode, 4.5, "lighten");
       t["hljs-keyword"] = synth(0);
       t["hljs-built_in"] = synth(120);
       t["hljs-number"] = synth(60);

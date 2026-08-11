@@ -5533,9 +5533,12 @@ const HLJS_TOKENS = Object.freeze([
  * `ensureContrast` (OKLCH, hue and chroma held, first step that clears) — the
  * MINIMUM movement that reaches the floor, which lands them at 4.5–4.7:1. The
  * hierarchy was verified afterwards rather than assumed: across all 64
- * theme-modes, no content token sits below the repaired comment, so a comment is
- * still the quietest thing in the panel — it is now quiet AND legible instead of
- * quiet and, for 110 shipped values, unreadable.
+ * theme-modes, no token that carries CODE sits below the repaired comment. Say it
+ * that way and not "the comment is the quietest thing in the panel" — the looser
+ * sentence shipped in the first cut and was false in 26 of 66 theme-modes, because
+ * `--hljs-punctuation` is lifted to the same floor and lands a few hundredths
+ * either side. Comment and punctuation are peers at the bottom by design; what
+ * must never invert is comment against the code.
  *
  * The lesson is worth keeping: an exemption that comes with a big number attached
  * is the shape of a defect being counted rather than fixed.
@@ -5545,6 +5548,7 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   const failures = [];
   let evaluated = 0;
   let themesScanned = 0;
+  const unreadable = [];
   // THE BASE IS SCANNED FIRST, and it is not optional. `lattice` is the palette
   // `dist/lattice.css` ships — what a deck renders with before any theme is picked,
   // and what `regression-gate.mjs` itself renders every golden with — so it is the
@@ -5561,26 +5565,81 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
   const scan = ['lattice', ...fs.readdirSync(themesDir).sort()
     .filter((f) => f.endsWith('.css'))
     .map((f) => f.replace(/\.css$/, ''))];
+  const maps = new Map(scan.map((n) => [n, catParseTokens(catPaletteSource(n, new Set(), themesDir))]));
+
+  // EVERY panel a token can land on. The base's tokens do not only paint on the
+  // base's own --code-bg: `lattice-emulator.js` concatenates `paletteCSS +
+  // layoutCSS`, so on the EXPORT path the base is loaded AFTER the theme and its
+  // --hljs-* WIN over the theme's. Pairing base-with-base and theme-with-theme
+  // models the post-flip world (#1527) and leaves the shipping one unmeasured:
+  // that hole hid indaco rendering --hljs-literal at 3.71:1 and --hljs-comment at
+  // 3.06:1 while this gate reported clean and a "Fixed" changelog entry shipped.
+  // Until the flip lands, a base value must clear the floor on EVERY panel.
+  const panels = new Map();   // bg -> the palette/mode that owns it, for the message
+  for (const [name, map] of maps) {
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--code-bg', mode);
+      if (bg && !panels.has(bg)) panels.set(bg, `${name}/${mode}`);
+    }
+  }
+
   for (const name of scan) {
-    const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
+    const map = maps.get(name);
     // A theme that declares no syntax colors of its own inherits the base's, which
     // is now checked above rather than assumed — nothing further here.
     if (!HLJS_TOKENS.some((t) => map.has(t))) continue;
     themesScanned += 1;
     for (const mode of ['light', 'dark']) {
-      const bg = catResolve(map, '--code-bg', mode);
-      if (!bg) continue;   // unresolvable surface — the token-parity gate owns that
+      const own = catResolve(map, '--code-bg', mode);
+      if (!own) continue;   // unresolvable surface — the token-parity gate owns that
+      // The base is judged against the whole corpus of panels; a theme only against
+      // its own, because a theme's value can never paint on another theme's panel.
+      const against = name === 'lattice' ? [...panels.keys()] : [own];
       for (const token of HLJS_TOKENS) {
         if (!map.has(token)) continue;
         const fg = catResolve(map, token, mode);
-        if (!fg) continue;
-        evaluated += 1;
-        const ratio = catContrast(fg, bg);   // the same helper the categorical arms use
-        if (ratio < CAT_TEXT_FLOOR) {
-          failures.push(`${name}/${mode} ${token} ${fg} on --code-bg ${bg} = ${ratio.toFixed(2)}:1`);
+        if (!fg) {
+          // NOT a silent skip. `catResolve` returns null for any notation it cannot
+          // read — rgb()/hsl()/oklch()/a named color/8-digit hex — and skipping
+          // those quietly makes the gate evadable by changing notation alone, which
+          // contradicts the resolver's own documented contract above.
+          unreadable.push(`${name} ${token} = ${String(map.get(token)).trim()}`);
+          continue;
+        }
+        for (const bg of against) {
+          evaluated += 1;
+          const ratio = catContrast(fg, bg);   // the same helper the categorical arms use
+          if (ratio < CAT_TEXT_FLOOR) {
+            const where = bg === own ? '--code-bg' : `--code-bg of ${panels.get(bg)}`;
+            failures.push(`${name}/${mode} ${token} ${fg} on ${where} ${bg} = ${ratio.toFixed(2)}:1`);
+          }
+        }
+      }
+      // De-emphasis is a RELATIVE property no contrast number can see. Lifting
+      // comment and punctuation to the same floor collapsed them into one gray in
+      // eight palettes (concrete reached OKLab dE 0.0030, 1.01:1 against each
+      // other) — legible, and indistinguishable, which is a different defect from
+      // the one the lift fixed. Judged against the repo's own collapse floor.
+      const cmt = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
+      const pun = map.has('--hljs-punctuation') && catResolve(map, '--hljs-punctuation', mode);
+      if (cmt && pun) {
+        const dist = oklabDistance(cmt, pun);
+        if (dist < CAT_INK_COLLAPSE_DIST) {
+          failures.push(
+            `${name}/${mode} --hljs-comment ${cmt} and --hljs-punctuation ${pun} collapse — ` +
+            `OKLab dE ${dist.toFixed(4)} < ${CAT_INK_COLLAPSE_DIST}`,
+          );
         }
       }
     }
+  }
+  if (unreadable.length) {
+    errors.push(
+      `${unreadable.length} \`--hljs-*\` value(s) are in a notation catResolve cannot read, so they were never ` +
+      `measured: ${unreadable.slice(0, 6).join('; ')}${unreadable.length > 6 ? `, +${unreadable.length - 6} more` : ''}. ` +
+      'Write the value as a hex literal (or a light-dark()/var()/color-mix() of hex literals) so the floor applies. ' +
+      'An unreadable value is an UNCHECKED value, not a passing one.',
+    );
   }
   // A gate that cannot fail is also a claim (#1535). Twelve tokens across the
   // curated palettes is hundreds of pairs; a near-zero count means the scan broke.

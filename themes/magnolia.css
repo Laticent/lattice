@@ -153,7 +153,7 @@
   --hljs-variable:   #80C0B8;  /* teal — variables                           */
   --hljs-params:     #C8A8B0;  /* dusty rose — parameters                    */
   --hljs-tag:        #E0A090;  /* warm rose — HTML tags                      */
-  --hljs-punctuation:#ad6a7a;  /* dark rose — operators                      */
+  --hljs-punctuation:#b37080;  /* dark rose — operators                      */
 }
 
 :root {

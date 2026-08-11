@@ -1070,18 +1070,28 @@
   --on-dark-ghost:     color-mix(in srgb, white 32%, transparent);
   --on-dark-watermark: color-mix(in srgb, white 12%, transparent);
 
-  /* hljs fallbacks — Night Owl palette, overridden by each theme.
-   * `--hljs-comment` is NOT Night Owl's #637777: that value is tuned for Night
-   * Owl's panel (#011627) and reads 3.63:1 on this base's darker --code-bg
-   * (#001d33), under the AA floor. Lifted in OKLCH holding hue and chroma to
-   * 4.64:1. This is the palette dist/lattice.css ships, so it was the most-read
-   * sub-AA value in the repo — and the one checkHljsContrast originally could not
-   * see, because it scanned themes/ and left the base to "own" itself. */
-  --hljs-comment:    #748989;
+  /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
+   *
+   * These are not only a fallback. `lattice-emulator.js` concatenates
+   * `paletteCSS + layoutCSS`, so on the EXPORT path the base is loaded AFTER the
+   * theme and these values WIN — a theme's own `--hljs-*` never paints there
+   * (that inversion is #1527, and the flip is not shipped yet). So each of these
+   * must clear AA on every panel it can land on: this base's `--code-bg`
+   * (#001d33) AND all 15 distinct `--code-bg` values across the theme corpus.
+   *
+   * `--hljs-comment` and `--hljs-literal` are solved for that whole set rather
+   * than for Night Owl's own #011627 panel. Night Owl's #637777 read 3.63:1 here
+   * and 2.39:1 on indaco; #ff5874 read 3.71:1 on indaco. Both were repaired first
+   * against this base's panel alone, which fixed the docs/Studio path and left the
+   * export still painting sub-AA — the gate could not see it, because it paired
+   * base tokens only with the base's own panel. Worst case now: comment 4.51:1,
+   * literal 4.58:1, both on indaco's #003d66. `checkHljsContrast` measures the
+   * base against every theme panel so this cannot regress. */
+  --hljs-comment:    #92a8a8;
   --hljs-keyword:    #c792ea;
   --hljs-built_in:   #addb67;
   --hljs-number:     #F78C6C;
-  --hljs-literal:    #ff5874;
+  --hljs-literal:    #ff7c8c;
   --hljs-string:     #ecc48d;
   --hljs-title:      #DCDCAA;
   --hljs-type:       #82aaff;

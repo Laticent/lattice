@@ -272,14 +272,41 @@ body-text contrast. That collapsed to **23 declaration sites across 14 files**,
 because `onyx.css` alone supplies the values 28 theme-modes inherit.
 
 **The hierarchy was verified afterwards, not assumed.** Across all 64 theme-modes,
-no content token sits below a repaired comment — a comment is still the quietest
-thing in the panel. Rendered `indaco` and `crepuscolo` (the largest lift, 1.96 →
-4.57:1) and looked at them: the comments read comfortably and still visibly
-recede behind the keywords and strings.
+no token that carries CODE sits below a repaired comment.
+
+> **Correction (same day, from the independent checker).** This paragraph first
+> said "a comment is still the quietest thing in the panel", and that is **false in
+> 26 of 66 theme-modes** — `--hljs-punctuation` is lifted to the same floor and
+> lands a few hundredths either side of the comment. The test passed only because
+> it skips punctuation. Comment and punctuation are peers at the bottom by design;
+> the claim that holds is the narrower one now stated above.
+>
+> **And the visual sign-off cited an artifact that refutes it.** This paragraph
+> originally read *"Rendered `indaco` and `crepuscolo` (the largest lift, 1.96 →
+> 4.57:1) and looked at them: the comments read comfortably."* Probed in Chromium,
+> all four of those `.scratch/after-*.html` files paint `#637777` — the
+> **unrepaired base** value — because the emulator loads the base last (§7d). The
+> repaired theme values were never on screen, and on that path they cannot be. The
+> renders were real; they were renders of the old value. That is exactly the HARD
+> RULE #23 failure the rule exists for, committed while quoting the rule.
+>
+> The claim is now carried by artifacts that do show it: the CI golden montages on
+> `code · light · slide 2` (default palette) and `code · dark · slide 3` (the
+> comment-dense stress slide), where the before/after differ and the overlay marks
+> only comment lines.
 
 The lesson is the transferable part: **an exemption that arrives with a big number
 attached is usually a defect being counted rather than fixed.** 110 was presented
 as the reason not to act; it was the size of the problem.
+
+**A second defect the lift itself introduced.** Pushing comment and punctuation to
+the same floor collapsed them: `concrete` ended 2/255 apart in one channel — OKLab
+ΔE 0.0030 against the repo's own `CAT_INK_COLLAPSE_DIST` of 0.010, having been
+0.1378 before. Same in laguna, crepuscolo, atelier, mustard, onyx, brina, magnolia.
+Legible and indistinguishable is a different defect from illegible, and no contrast
+number can see it. Punctuation is now separated to ΔE ≥ 0.030 across 8 declaration
+sites, moved toward the code (it *is* code — braces, semicolons) so the comment
+stays the quietest. The gate and a test both enforce it now.
 
 ### 7b. A defect in the gate, found by the test that replaced the exemption
 
@@ -329,3 +356,65 @@ the sharper of the two: a gate that reports clean after a change it should have
 seen is making a claim, and the claim is checkable.** Three defects in this
 section — the exemption, the `themesDir` lie, and the base blind spot — were all
 found by asking a green result to justify itself.
+
+### 7d. The export path — where the "Fixed" claim did not reach
+
+An independent checker was run on the finished branch, and its lead finding was
+that **the headline repair did not reach the surface the changelog named.**
+
+`lattice-emulator.js:690` is `const css = paletteCSS + '\n' + layoutCSS;` — the
+base is concatenated **after** the theme, so on the export path the base's
+`--hljs-*` win and a theme's own values never paint. That inversion *is* #1527, and
+the flip is deliberately not shipped here. It was written into this branch's own
+commit message to explain why cuoio's repair "has never rendered" — and then the
+opposite was asserted for indaco, which requires the theme to win. Both numbers
+read 3.71:1 only because indaco and the base declare the same Night Owl hex, so the
+measurement was right and the conclusion about the *fix* was wrong.
+
+Verified independently before acting, in real Chromium on real emulator output:
+
+```
+panel                      rgb(0,61,102)      #003d66
+--hljs-literal resolves to #ff5874            (the BASE's value)
+painted                    rgb(255,88,116)  = 3.71:1
+```
+
+`lib/engine/css.js:389` inlines the base at the theme's `@import` position, so the
+engine/docs/Studio path *did* get the repair. The export — the CLI, all 45
+exemplars — did not.
+
+**The gate had the matching blind spot.** It paired base tokens with the *base's*
+panel and theme tokens with the *theme's*, which models the post-flip world. The
+combination the export actually paints — base token on theme panel — was measured
+by nothing. Sixteen such pairs were under the floor: `--hljs-comment` on 12 panels
+(worst 3.06 on indaco) and `--hljs-literal` on 4 (worst 3.71).
+
+**The repair.** The base's two offenders are now solved against *every* panel they
+can land on — its own plus all 15 distinct `--code-bg` values in the corpus —
+rather than against Night Owl's or the base's alone: comment `#92a8a8` (worst
+4.51:1), literal `#ff7c8c` (worst 4.58:1). `checkHljsContrast` now judges the base
+against the whole panel set, so both concat orders are safe and the flip's
+prerequisite is genuinely met rather than asserted.
+
+**Two more things the checker caught, both real:**
+
+- `lib/theme/derive.js` still held generated `--hljs-*` to **3:1**, with a comment
+  calling syntax highlighting "decorative" — the exact argument §7a spends forty
+  lines refuting. Every theme the Studio generated shipped comments at ~3.1:1: the
+  defect being *manufactured downstream* while the committed palettes were repaired.
+  Now 4.5; two seeds that produced 3.10 and 3.12 now produce 4.91 and 4.71.
+- The gate **silently skipped any value it could not parse** — `rgb()`, `hsl()`,
+  `oklch()`, a named color, 8-digit hex — contradicting the resolver's own
+  documented contract ("never a silent skip") and making the gate evadable by
+  changing notation alone. An unreadable value is now a loud error. Note the
+  disclosed caveat had this backwards: it named `color-mix()`, which was always
+  handled, and missed the notations that actually escaped.
+
+**The lesson §7c drew was right but too narrow.** It said a gate reporting clean
+after a change it should have seen is making a checkable claim. The sharper version:
+**a gate encodes a model of where the value lands, and that model is the thing most
+likely to be wrong.** Every defect in this section — the exemption, the `themesDir`
+lie, the base blind spot, and this one — was the gate measuring the wrong pair, not
+measuring the right pair badly. Four of them, in one swimlane, found by three
+different means: a red team, a distrusted green result, and an independent checker.
+The checker was the only one that caught this one, and it was nearly not run.

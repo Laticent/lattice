@@ -11,9 +11,20 @@
  *
  * ALL TWELVE TOKENS ARE GATED. The first cut exempted `--hljs-comment` and
  * `--hljs-punctuation` as deliberately quiet; the 110 sub-floor values behind that
- * exemption were repaired instead. The tests below pin BOTH halves of what makes
- * that repair correct: every token is really gated (no exemption crept back), and
- * a comment is still the quietest thing in the panel (legible did not become loud).
+ * exemption were repaired instead.
+ *
+ * Four things have to hold at once, and each has its own test below, because three
+ * of them were broken at some point in getting here:
+ *   1. every token is really gated — no exemption crept back;
+ *   2. nothing ships under the floor;
+ *   3. a comment sits below every token that carries CODE — legible did not become
+ *      loud (say it that way: comment vs PUNCTUATION is a tie at the floor by
+ *      design, and the looser "quietest thing in the panel" was false in 26 of 66);
+ *   4. comment and punctuation do not COLLAPSE into one gray — the second defect
+ *      the lift introduced, invisible to any contrast number.
+ *
+ * Plus the axis that hid the worst of it: the EXPORT path loads the base AFTER the
+ * theme, so base tokens paint on theme panels. See the export-path test.
  */
 
 const { test, describe } = require('node:test');
@@ -119,7 +130,7 @@ describe('--hljs-* contrast against --code-bg', () => {
     assert.deepEqual(under, [], `sub-AA syntax colors: ${under.join('; ')}`);
   });
 
-  test('DESIGN — a comment is still the quietest thing in the panel', () => {
+  test('DESIGN — a comment sits below every token that carries code', () => {
     // The repair had to satisfy two things at once: clear the floor, and stay
     // de-emphasized. Lifting a comment ABOVE the code it annotates would be a
     // different defect from the one that was fixed, and a contrast gate cannot
@@ -145,15 +156,76 @@ describe('--hljs-* contrast against --code-bg', () => {
         }
       }
     }
-    assert.deepEqual(louder, [], `comment is no longer the quietest: ${louder.join('; ')}`);
+    assert.deepEqual(louder, [], `a code token is quieter than the comment: ${louder.join('; ')}`);
+  });
+
+  test('DESIGN — comment and punctuation do not collapse into one gray', () => {
+    // Lifting both to the same floor made them 2/255 apart in `concrete` (OKLab
+    // dE 0.0030, 1.01:1 against each other). Legible, indistinguishable, and a
+    // different defect from the one the lift fixed — `.hljs-operator` and
+    // `.hljs-comment` co-occur in SQL and Java, `.hljs-punctuation` in JSON.
+    // Judged against the repo's own collapse floor rather than a new number.
+    const { oklabDistance } = require('../../../lib/theme/color.js');
+    const FLOOR_DE = 0.010;
+    const collapsed = [];
+    for (const f of fs.readdirSync(THEMES).sort()) {
+      if (!f.endsWith('.css')) continue;
+      const map = tokens(flatten(f.replace(/\.css$/, '')));
+      for (const mode of ['light', 'dark']) {
+        const c = map.has('--hljs-comment') && catResolve(map, '--hljs-comment', mode);
+        const p = map.has('--hljs-punctuation') && catResolve(map, '--hljs-punctuation', mode);
+        if (!c || !p) continue;
+        const d = oklabDistance(c, p);
+        if (d < FLOOR_DE) collapsed.push(`${f}/${mode} ${c} vs ${p} dE ${d.toFixed(4)}`);
+      }
+    }
+    assert.deepEqual(collapsed, [], `comment/punctuation collapsed: ${collapsed.join('; ')}`);
+  });
+
+  test('EXPORT PATH — base tokens clear the floor on every theme panel', () => {
+    // `lattice-emulator.js` concatenates `paletteCSS + layoutCSS`, so the base is
+    // loaded AFTER the theme and its --hljs-* WIN there — a theme's own value never
+    // paints on the export. Pairing base-with-base and theme-with-theme models the
+    // post-flip world (#1527) and left indaco rendering --hljs-literal at 3.71:1
+    // and --hljs-comment at 3.06:1 while the gate reported clean and a "Fixed"
+    // changelog entry shipped. Until the flip lands, this is the real surface.
+    const base = tokens(flatten('lattice'));
+    const panels = new Map();
+    for (const f of fs.readdirSync(THEMES).sort()) {
+      if (!f.endsWith('.css')) continue;
+      const map = tokens(flatten(f.replace(/\.css$/, '')));
+      for (const mode of ['light', 'dark']) {
+        const bg = catResolve(map, '--code-bg', mode);
+        if (bg && !panels.has(bg)) panels.set(bg, `${f}/${mode}`);
+      }
+    }
+    assert.ok(panels.size >= 10, `expected the corpus to span many panels, found ${panels.size}`);
+    const under = [];
+    for (const t of HLJS_TOKENS) {
+      if (!base.has(t)) continue;
+      const fg = catResolve(base, t, 'light');
+      if (!fg) continue;
+      for (const [bg, who] of panels) {
+        if (catContrast(fg, bg) < FLOOR) {
+          under.push(`base ${t} ${fg} on ${who} ${bg} = ${catContrast(fg, bg).toFixed(2)}`);
+        }
+      }
+    }
+    assert.deepEqual(under, [], `base syntax colors sub-AA on a theme panel: ${under.join('; ')}`);
   });
 
   test('indaco specifically — the live defect this gate was written by', () => {
+    // Both halves, because fixing only the theme's value is what shipped a "Fixed"
+    // claim that never reached the export: the theme value for the engine/docs
+    // path, the BASE value for the export path, both on indaco's own panel.
     const map = tokens(flatten('indaco'));
+    const base = tokens(flatten('lattice'));
     const bg = catResolve(map, '--code-bg', 'light');
-    const fg = catResolve(map, '--hljs-literal', 'light');
     assert.equal(bg, '#003d66');
-    assert.ok(catContrast(fg, bg) >= FLOOR,
-      `indaco --hljs-literal ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
+    for (const [label, src] of [['theme', map], ['base (what the export paints)', base]]) {
+      const fg = catResolve(src, '--hljs-literal', 'light');
+      assert.ok(catContrast(fg, bg) >= FLOOR,
+        `${label} --hljs-literal ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
+    }
   });
 });
