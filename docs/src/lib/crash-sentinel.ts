@@ -74,12 +74,24 @@ const TICK_MS = 1_000;
 const STALL_MS = 2_500;
 /**
  * How stale another tab's record must be before this boot may call it ended.
- * Background tabs are timer-throttled to roughly one callback a minute, so a
- * live-but-hidden second tab beats slowly — anything under ~90s would harvest it
- * as a crash. Records from THIS tab skip the wait (tab continuity already proves
- * the tab reloaded).
+ *
+ * This was 90s, and 90s was wrong — the comment justifying it contained the
+ * error. Chrome's intensive throttling gives a hidden tab roughly one timer
+ * callback per MINUTE, and the original reasoning stopped there. But a callback
+ * is a TICK, and `tick()` only writes a beat every fifth tick, so a healthy
+ * hidden tab refreshes `lastBeat` about once every FIVE minutes. At 90s a
+ * perfectly alive background tab was harvested as a crash — reproduced on the
+ * real Studio, and it is the most ordinary way anyone uses this app (leave the
+ * Studio open, work elsewhere, come back).
+ *
+ * The floor is therefore the throttled beat interval, not the throttled tick
+ * interval: 60s × (BEAT_MS / TICK_MS) = 5 minutes. Doubled for headroom against
+ * a machine that was briefly suspended or is simply slow. Records from THIS tab
+ * skip the wait entirely (see `isSameTab`), so the case the user actually
+ * reports — a tab that died and reloaded — is still detected in seconds; only
+ * the cannot-prove-it-was-this-tab path waits.
  */
-export const STALE_MS = 90_000;
+export const STALE_MS = 10 * 60_000;
 
 const MAX_CRUMBS = 60;
 const MAX_MEM_SAMPLES = 24;
@@ -212,11 +224,45 @@ export function newRecord(id: string, now: number, seed: Partial<SessionRecord> 
 	};
 }
 
-/** Is this record shaped like one of ours? Guards a hand-edited or foreign value. */
+/**
+ * Is this record shaped like one of ours, and written by a version whose shape
+ * we still understand?
+ *
+ * The first cut checked four fields and called itself a guard against "a
+ * hand-edited or foreign value". It was not one, and the gap was severe rather
+ * than academic: a record missing `mem` sailed through, `classifySession` then
+ * dereferenced `rec.mem[rec.mem.length - 1]`, and the throw landed inside
+ * StudioShell's MOUNT effect — where the island boundary replaced the entire
+ * Studio with an error card, on every load, until the record aged out seven days
+ * later. A diagnostic that bricks the app it diagnoses is the worst possible
+ * failure, and it was reachable without touching devtools: this site is a PWA,
+ * so a service-worker-cached older bundle can read records a newer one wrote
+ * (and vice versa).
+ *
+ * So: check the VERSION — `RECORD_VERSION` existed from the start and was
+ * written but never read, which is the whole reason a shape change could go
+ * undetected — and check every field the readers actually dereference. Anything
+ * else is discarded as unreadable rather than trusted; `readRecord` drops it.
+ */
 export function isSessionRecord(v: unknown): v is SessionRecord {
 	if (!v || typeof v !== 'object') return false;
 	const r = v as Partial<SessionRecord>;
-	return typeof r.id === 'string' && typeof r.startedAt === 'number' && typeof r.lastBeat === 'number' && Array.isArray(r.crumbs);
+	// A record from a future/older shape is not ours to interpret.
+	if (r.v !== RECORD_VERSION) return false;
+	if (typeof r.id !== 'string' || !r.id) return false;
+	if (!Number.isFinite(r.startedAt) || !Number.isFinite(r.lastBeat)) return false;
+	// Every collection a reader walks unguarded must actually be walkable.
+	if (!Array.isArray(r.crumbs) || !Array.isArray(r.mem)) return false;
+	if (!r.context || typeof r.context !== 'object' || Array.isArray(r.context)) return false;
+	// The counters `classifySession` formats.
+	if (!Number.isFinite(r.errorCount) || !Number.isFinite(r.stallCount) || !Number.isFinite(r.longestStallMs)) return false;
+	// A timestamp that `new Date().toISOString()` would throw on is not evidence.
+	if (Math.abs(r.startedAt as number) > 8.64e15 || Math.abs(r.lastBeat as number) > 8.64e15) return false;
+	// Crumb shape — `formatCrashReport` calls `c.k.padEnd`, which a numeric `k` fails.
+	for (const c of r.crumbs) {
+		if (!c || typeof c !== 'object' || typeof c.k !== 'string' || typeof c.m !== 'string' || !Number.isFinite(c.t)) return false;
+	}
+	return true;
 }
 
 /**
@@ -541,6 +587,39 @@ let liveId: string | null = null;
  * describes the LOAD, and everything downstream runs later.
  */
 let priorTabDiscarded = false;
+/**
+ * How THIS document was entered, latched at start-up. Load-bearing for tab
+ * continuity — see `isSameTab`.
+ */
+let bootNavType = '';
+
+/**
+ * Did the SAME tab come back, or is this a COPY of another tab's session?
+ *
+ * The mirror alone is not proof, and the original code said it was: per spec, a
+ * browsing context created BY another one inherits a COPY of its session
+ * storage. Verified in this repo's own Chromium — `window.open` (and Chrome's
+ * "Duplicate tab") carries the mirror across, while an independently-opened tab
+ * does not. So duplicating a Studio tab produced a confident crash report about
+ * a session still running in the window next door, and offered a Discard button
+ * that deleted the LIVE tab's record.
+ *
+ * The navigation type separates them. A tab that died and came back — the case
+ * this signal exists to catch — is entered by `reload`; Chromium reloads the
+ * page after a renderer kill, and a user recovering a dead tab reloads it too. A
+ * duplicate or a `window.open` is entered by `navigate`, and inherits the mirror
+ * without ever having owned the session.
+ *
+ * Residual, stated rather than hidden: a browser "restore previous session" can
+ * replay both the mirror and a reload-shaped navigation, so a force-quit
+ * followed by session restore can still read as same-tab. That is why the
+ * same-tab copy no longer claims a crash outright — it reports that the tab came
+ * back, and leaves the cause to the trail.
+ */
+function isSameTab(rec: SessionRecord): boolean {
+	if (!priorTabSessionId || rec.id !== priorTabSessionId) return false;
+	return bootNavType === 'reload';
+}
 
 /**
  * Every past session that ended without a clean unload, newest first. The live
@@ -549,23 +628,35 @@ let priorTabDiscarded = false;
  */
 export function collectCrashReports(now: number): CrashReport[] {
 	const out: CrashReport[] = [];
+	// PER-RECORD try/catch, plus the guard in `isSessionRecord`. Belt and braces
+	// on purpose: this runs inside StudioShell's mount effect, so ANY throw here
+	// unmounts the whole island into the boundary's error card — measured, on the
+	// real Studio, from a single malformed record. A crash reporter that can take
+	// down the app it reports on is worse than no crash reporter, so one
+	// unreadable record must cost exactly that record, never the Studio.
 	for (const k of sessionKeys()) {
-		const rec = readRecord(k);
-		if (!rec || rec.id === liveId) continue;
-		const sameTab = !!priorTabSessionId && rec.id === priorTabSessionId;
-		if (!isUncleanEnd(rec, now, sameTab)) continue;
-		const { verdict, reason, signals } = classifySession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
-		out.push({
-			id: rec.id,
-			record: rec,
-			verdict,
-			reason,
-			signals,
-			sameTab,
-			startedAt: rec.startedAt,
-			endedAt: rec.lastBeat,
-			durationMs: Math.max(0, rec.lastBeat - rec.startedAt),
-		});
+		try {
+			const rec = readRecord(k);
+			if (!rec || rec.id === liveId) continue;
+			const sameTab = isSameTab(rec);
+			if (!isUncleanEnd(rec, now, sameTab)) continue;
+			const { verdict, reason, signals } = classifySession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
+			out.push({
+				id: rec.id,
+				record: rec,
+				verdict,
+				reason,
+				signals,
+				sameTab,
+				startedAt: rec.startedAt,
+				endedAt: rec.lastBeat,
+				durationMs: Math.max(0, rec.lastBeat - rec.startedAt),
+			});
+		} catch {
+			// Unreadable in a way the guard did not anticipate — drop the record so
+			// it cannot poison every future boot too.
+			safeRemove(ls(), k);
+		}
 	}
 	return out.sort((a, b) => b.endedAt - a.endedAt);
 }
@@ -772,13 +863,25 @@ export function startCrashSentinel(): () => void {
 	// load that follows the discard (Chromium; absent elsewhere, which reads as
 	// false and falls back to the `frozen` inference).
 	priorTabDiscarded = document.wasDiscarded === true;
+	bootNavType = navigationType();
 
 	const id = newId(now);
 	liveId = id;
 	live = newRecord(id, now, {
-		page: `${location.pathname}${location.search}`,
+		// PATHNAME ONLY — never `location.search`. The report is built to be pasted
+		// into a PUBLIC GitHub issue, and this module runs from a HOISTED page
+		// script: it captures and persists before the island hydrates, which is
+		// before `resumePendingAuth` scrubs the OpenRouter OAuth callback's
+		// `?code=` off the URL. Verified end to end on the real Studio — the
+		// authorization code reached the "Report on GitHub" href, and sat in
+		// localStorage for up to seven days readable by any same-origin script.
+		// docs/public/sw.js refuses to cache query-stringed navigations for exactly
+		// this reason; this is the equivalent guard. A query string is recorded as
+		// a bare PRESENCE flag, which keeps the one diagnostic bit ("this load had
+		// params") without carrying a single one of their values.
+		page: `${location.pathname}${location.search ? ' (with query params)' : ''}`,
 		ua: navigator.userAgent,
-		nav: navigationType(),
+		nav: bootNavType,
 	});
 	for (const c of preStart) live.crumbs.push(c);
 	preStart.length = 0;

@@ -219,12 +219,41 @@ describe('collectCrashReports', () => {
 		expect(collectCrashReports(Date.now() + STALE_MS * 10).some((r) => r.id === id)).toBe(false);
 	});
 
-	it('marks the report sameTab when the tab mirror still points at it', () => {
+	/** Force the navigation type this boot reports — the tab-continuity discriminator. */
+	const withNavType = (type: string, fn: () => void) => {
+		// biome-ignore lint/suspicious/noExplicitAny: a minimal navigation-timing stub; the real type demands ~30 fields the code never reads.
+		const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation(((k: string) => (k === 'navigation' ? [{ type }] : [])) as any);
+		try {
+			fn();
+		} finally {
+			spy.mockRestore();
+		}
+	};
+
+	it('marks the report sameTab when the mirror matches AND the tab reloaded', () => {
 		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(rec({ id: 'prev', lastBeat: Date.now() })));
 		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
-		bootSentinel();
-		const [report] = collectCrashReports(Date.now() + 1_000);
-		expect(report?.sameTab).toBe(true);
+		withNavType('reload', () => {
+			bootSentinel();
+			const [report] = collectCrashReports(Date.now() + 1_000);
+			expect(report?.sameTab).toBe(true);
+		});
+	});
+
+	// `sessionStorage` is COPIED into a context opened from another one — verified
+	// in real Chrome for `window.open` and Chrome's "Duplicate tab". The mirror
+	// alone therefore proves nothing, and trusting it produced a confident crash
+	// report about a session still running in the window next door.
+	it('does NOT claim sameTab for a duplicated tab that merely inherited the mirror', () => {
+		const live = rec({ id: 'prev', lastBeat: Date.now() }); // still beating
+		localStorage.setItem(SESSION_PREFIX + 'prev', JSON.stringify(live));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'prev');
+		withNavType('navigate', () => {
+			bootSentinel();
+			// Not same-tab, so the staleness rule applies — and a 1s-old record is
+			// nowhere near stale, so the live sibling is not reported at all.
+			expect(collectCrashReports(Date.now() + 1_000)).toEqual([]);
+		});
 	});
 
 	it('ignores an unparseable or foreign value under the prefix', () => {
@@ -401,12 +430,59 @@ describe('storage never accumulates', () => {
 		expect(sessionBytes()).toBeLessThan(120_000);
 	});
 
-	it('caps the breadcrumb ring and the heap trajectory inside one record', () => {
+	it('caps the breadcrumb ring inside one record', () => {
 		startCrashSentinel();
 		for (let i = 0; i < 500; i++) breadcrumb('action', `step ${i}`);
-		const rec = liveSession() as SessionRecord;
-		expect(rec.crumbs.length).toBeLessThanOrEqual(60);
-		expect(rec.mem.length).toBeLessThanOrEqual(24);
+		expect((liveSession() as SessionRecord).crumbs.length).toBeLessThanOrEqual(60);
+	});
+
+	// This assertion used to ride along in the test above, claiming to cap "the
+	// heap trajectory" — and it was VACUOUS. jsdom exposes no `performance.memory`,
+	// `mem` is only ever pushed from `readMemory()`, so `mem.length` was always 0
+	// and the assertion passed with MAX_MEM_SAMPLES deleted entirely. Drive the
+	// real watchdog with fake timers and a stubbed heap instead, so the cap is
+	// actually exercised — including the off-cadence push above MEM_PRESSURE,
+	// which is the branch that can overflow the ring.
+	it('caps the heap trajectory while sampling BOTH on cadence and under pressure', () => {
+		vi.useFakeTimers();
+		let used = 10_000_000;
+		const limit = 1_000_000_000;
+		Object.defineProperty(performance, 'memory', { configurable: true, get: () => ({ usedJSHeapSize: used, jsHeapSizeLimit: limit }) });
+		try {
+			startCrashSentinel();
+			// 40 minutes of ticks, climbing into pressure so the off-cadence branch fires.
+			for (let s = 0; s < 2400; s++) {
+				used = Math.min(limit * 0.99, used + 400_000);
+				vi.advanceTimersByTime(1000);
+			}
+			const rec = liveSession() as SessionRecord;
+			expect(rec.mem.length).toBeGreaterThan(1); // it really sampled
+			expect(rec.mem.length).toBeLessThanOrEqual(24); // and stayed capped
+			// The BASELINE is never evicted — the leak comparison depends on mem[0].
+			expect(rec.mem[0].t).toBe(0);
+			expect(rec.peakUsed).toBeGreaterThan(rec.mem[0].used);
+		} finally {
+			delete (performance as unknown as { memory?: unknown }).memory;
+			vi.useRealTimers();
+		}
+	});
+
+	// The stall watchdog had zero coverage — no fake timers anywhere in this file.
+	it('records a main-thread stall when a tick arrives late while visible', () => {
+		vi.useFakeTimers();
+		try {
+			startCrashSentinel();
+			vi.advanceTimersByTime(1000);
+			// Jump the wall clock without running timers: the next tick arrives "late".
+			vi.setSystemTime(Date.now() + 6000);
+			vi.advanceTimersByTime(1000);
+			const rec = liveSession() as SessionRecord;
+			expect(rec.stallCount).toBeGreaterThan(0);
+			expect(rec.longestStallMs).toBeGreaterThanOrEqual(2500);
+			expect(rec.crumbs.some((c) => c.k === 'stall')).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	// The one field whose SHAPE a caller controls. Values were always clipped;
