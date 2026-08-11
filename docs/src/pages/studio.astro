@@ -12,6 +12,7 @@
 import '../styles/landing.css';
 import StudioIsland from '../components/studio/StudioIsland.tsx';
 import { StudioChromeSkeleton, StudioEditorPaneSkeleton, StudioPreviewBarSkeleton, StudioPreviewFooterSkeleton } from '../components/studio/StudioChromeSkeleton.tsx';
+import CrashSentinel from '../components/studio/CrashSentinel.astro';
 import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
 import ViewportDebugOverlay from '../components/studio/ViewportDebugOverlay.astro';
 import PreviewFidelityOverlay from '../components/studio/PreviewFidelityOverlay.astro';
@@ -401,6 +402,11 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
+		{/* The crash sentinel, started as early as a bundled module can run — before
+		    the client:only island hydrates, so a fault during boot is still recorded.
+		    It writes only to this browser; see the module header for why an in-page
+		    error handler cannot see the failure this exists to catch. */}
+		<CrashSentinel />
 		{/* Prefetch the preview runtime at parse time so the first live render's
 		    iframe finds it warm instead of cold-fetching it on the critical path
 		    (the FRAME REBUILD cost). Overlaps island hydration + the engine load. */}

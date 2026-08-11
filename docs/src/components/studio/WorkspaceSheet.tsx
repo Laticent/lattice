@@ -1,4 +1,4 @@
-import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/architect-model.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -9,6 +9,7 @@ import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { clearCrashReports, collectCrashReports, OPEN_CRASH_REPORT_EVENT } from '@/lib/crash-sentinel';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
 import { DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
@@ -214,6 +215,19 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		setFidelityOverlay(fidelityOverlayEnabled());
 		return onFidelityOverlayEnabledChange(setFidelityOverlay);
 	}, []);
+	// Crash reports — NOT a pref, and deliberately not a switch. The sentinel records
+	// unconditionally (a crash you have to opt into recording is a crash you never
+	// catch; see lib/crash-sentinel.ts), so what belongs here is the standing way back
+	// into a report after the boot toast has gone, plus the way to forget them.
+	// Recounted each time the panel opens, because the shell can discard one while it
+	// is closed.
+	const [crashCount, setCrashCount] = React.useState(0);
+	const [crashArmed, setCrashArmed] = React.useState(false);
+	React.useEffect(() => {
+		if (!open) return;
+		setCrashCount(collectCrashReports(Date.now()).length);
+		setCrashArmed(false); // never re-open mid-confirmation
+	}, [open]);
 	// Viewport-debug overlay — same shared-pref pattern; the `?vvdebug` URL param and
 	// the overlay's own × write the same flag.
 	const [viewportDebug, setViewportDebug] = React.useState(false);
@@ -758,6 +772,72 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									)}
 								</div>
 							)}
+							{/* Crash reports — its OWN group, not a row inside Diagnostics above,
+							    because that whole block sits behind PERF_OVERLAY_AVAILABLE (a GA
+							    gate that is expected to go false one day). A crash report is not a
+							    developer overlay; it is how an author finds out why their work
+							    vanished, and it has to outlive that gate.
+							    A row rather than a switch: the sentinel records unconditionally (a
+							    crash you must opt into recording is a crash you never catch — see
+							    lib/crash-sentinel.ts), so what belongs here is the standing way back
+							    in after the boot toast has gone, plus the way to forget them.
+							    ALWAYS PRESENT, including at zero. The first cut hid the whole group
+							    when there was nothing to report — "don't show a permanently-empty
+							    row" — and that was wrong for a DIAGNOSTIC. It was reported from a real
+							    phone as "I don't see it": a hidden row is indistinguishable from a
+							    feature that never shipped, or one that has silently broken. The empty
+							    state is the USEFUL state — it says the recorder is armed, so a later
+							    silence reads as "nothing crashed" rather than "nothing is watching".
+							    The destructive control still appears only when there is something to
+							    destroy. */}
+							<div className="mt-6">
+								<GroupLabel icon={<ShieldAlert className="size-3.5" />}>Crash reports</GroupLabel>
+								<div className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<span className="min-w-0 flex-1">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">
+											{crashCount === 0 ? 'Nothing to report' : crashCount === 1 ? '1 session ended unexpectedly' : `${crashCount} sessions ended unexpectedly`}
+										</span>
+										<span className="block text-[11px] text-muted-foreground">
+											{crashCount === 0
+												? 'The Studio is watching. If a session ever ends without closing cleanly — a crash, or the browser reclaiming the tab — the report lands here, and nothing leaves this device.'
+												: 'What the Studio was doing, how memory was trending, and the last error it saw — recorded on this device. Nothing is sent anywhere; reporting one opens a pre-filled GitHub issue you look over and submit yourself.'}
+										</span>
+									</span>
+									{crashCount > 0 && (
+										<span className="flex shrink-0 items-center gap-1.5">
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => {
+													// The report sheet lives in StudioShell (it owns the collected
+													// reports and their dismissal state); this panel is a sibling, so
+													// the hand-off is an event rather than a prop drilled through the
+													// whole shell. Close this one first — two stacked bottom sheets on
+													// a phone is exactly the pile-up panel.tsx exists to prevent.
+													onOpenChange(false);
+													dispatchEvent(new CustomEvent(OPEN_CRASH_REPORT_EVENT));
+												}}
+											>
+												View
+											</Button>
+											{/* The SAME two-tap delete the Library and the Data tab use — HARD
+											    RULE #15: one delete affordance, not a bespoke one per surface. */}
+											<DeleteBtn
+												armed={crashArmed}
+												onArm={() => setCrashArmed(true)}
+												onCancel={() => setCrashArmed(false)}
+												onConfirm={() => {
+													clearCrashReports();
+													setCrashArmed(false);
+													setCrashCount(0);
+													notify('Crash reports cleared.');
+												}}
+												label="crash reports"
+											/>
+										</span>
+									)}
+								</div>
+							</div>
 						</div>
 					)}
 

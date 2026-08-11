@@ -1,0 +1,21 @@
+---
+// Starts the crash sentinel (src/lib/crash-sentinel.ts) — the local flight
+// recorder that makes "the Studio crashed and the page refreshed" diagnosable.
+//
+// It lives in a HOISTED page script rather than inside the React island for one
+// reason: a renderer death during boot is the one crash the island can never
+// record, because the island isn't there yet. Astro's hoisted scripts are
+// bundled `type="module"` and run before `client:only` islands hydrate, so the
+// recorder is up while the ~505KB engine is still fetching. Vite dedupes the
+// module across the page's chunks, so the island's own imports of
+// `crash-sentinel` get the SAME instance and the same live record — one session,
+// two callers, no coordination.
+//
+// `startCrashSentinel()` is idempotent, and it degrades to a no-op in a
+// storage-blocked context rather than throwing on the Studio's boot path.
+---
+
+<script>
+	import { startCrashSentinel } from '../../lib/crash-sentinel.ts';
+	startCrashSentinel();
+</script>

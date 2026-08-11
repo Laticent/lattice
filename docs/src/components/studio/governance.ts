@@ -22,6 +22,7 @@
 // deliberately NOT part of any Privacy & Data action — this clears data, not prefs.
 
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
+import { clearAllSessions, crashReportStats } from '@/lib/crash-sentinel';
 import { clearClips, clipStats } from '@/playground/narration-store.js';
 import { disconnectOpenRouter } from './architect';
 import { formatBytes } from './reference-doc';
@@ -111,10 +112,17 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const modelNames = names.filter((n) => !n.startsWith(SITE_CACHE_PREFIX));
 	const siteCacheNames = names.filter((n) => n.startsWith(SITE_CACHE_PREFIX));
 	const [modelBytes, siteCacheBytesTotal] = await Promise.all([cacheBytes(modelNames), cacheBytes(siteCacheNames)]);
+	// Crash records ride in the DECKS line rather than earning a category of their
+	// own: they live in the same store, under the same `lattice-studio-` prefix,
+	// and "Delete Everything" already takes them. A sixth row for a few KB would
+	// be noise; being uncounted would not — an unaccounted writer is how storage
+	// accumulation hides from the very panel built to show it.
+	const crash = crashReportStats();
+	const deckWithCrash = { count: deck.count, bytes: deck.bytes + crash.bytes };
 	const library = { count: assets.length, bytes: libraryBytes };
 	const models = { count: modelNames.length, bytes: modelBytes };
 	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
-	return { decks: deck, library, models, siteCache, narration, totalBytes: deck.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
+	return { decks: deckWithCrash, library, models, siteCache, narration, totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
 }
 
 export async function clearLibraryAssets(): Promise<void> {
@@ -186,6 +194,12 @@ export async function clearRetiredDrawingBoardData(): Promise<void> {
 
 export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllDecks();
+	// Crash records carry deck titles, page URLs, the user agent and error stacks
+	// — "your data" by any reading, so the sweep has to reach them or the promise
+	// in this file's header ("must not leave that behind, or the privacy promise
+	// is false") is false. Synchronous and local, so it rides with clearAllDecks
+	// rather than joining the async task list below.
+	clearAllSessions();
 	const tasks: [string, () => Promise<void>][] = [
 		['library', clearLibraryAssets],
 		['openrouter', disconnectOpenRouter],
