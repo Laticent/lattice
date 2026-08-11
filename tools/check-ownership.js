@@ -1820,19 +1820,11 @@ function checkMarginDiscipline(errors) {
 // unlisted offender fails, and a listed sanction that no longer matches fails too,
 // so the allowlist cannot rot into a silent pass.
 const SANCTIONED_STAGE_INSETS = [
-  {
-    file: 'lib/integrations/highlight-js/highlight-js.css',
-    prop: 'padding-bottom',
-    value: 'var(--sp-sm) (on `.mermaid:has(+ .mermaid-error)`)',
-    why: 'not an outer inset: this box paints nothing, and the declaration adds NO inline '
-       + 'space and nothing at the stage edge. It is the seam to a SIBLING the runtime '
-       + 'inserts `afterend` in the error state only, and the diagram stage\'s `gap` is one '
-       + 'value shared by every seam in its column — so expressing it as a gap would move '
-       + 'the dek and Key Insight seams to widen this one. Same call, and the same reason, '
-       + 'as `section.diagram .diagram-caption { padding-top }`. It sits on the `.mermaid` '
-       + 'slot rather than as a `margin-top` on the bordered error block deliberately '
-       + '(HARD RULE #20) — see the comment at the declaration.',
-  },
+  // EMPTY, and it stayed empty. The one entry this list briefly carried — the
+  // `padding-bottom` on `.mermaid:has(+ .mermaid-error)` — went STALE the moment
+  // check (b) narrowed to the inline axis, and the gate said so rather than
+  // letting the sanction rot into a silent pass. That is the list working: a
+  // block-axis seam was never an inset, so it never needed sanctioning.
 ];
 
 // The body elements the Forms inset rule governs — the boxes that dock in a stage
@@ -1934,7 +1926,11 @@ function offendingBodyPadding(css) {
       for (const d of block.split(';')) {
         const [prop, ...rest] = d.split(':');
         const value = rest.join(':').trim();
-        if (/^\s*padding(?:-(?:block|inline|top|right|bottom|left))?(?:-(?:start|end))?\s*$/.test(prop)
+        // INLINE only. A body's BLOCK padding is a CLIP MARGIN, not an inset —
+        // `overflow` cuts at the padding box, so it is the slack a chart paints
+        // into before anything is lost, and removing it clipped nine decks
+        // (#1598 §7). The `padding` SHORTHAND is matched because it sets both.
+        if (/^\s*padding(?:-(?:inline|right|left))?(?:-(?:start|end))?\s*$/.test(prop)
           && value && !/^0(?:px|em|rem|%)?$/.test(value)) {
           out.push({ prop: prop.trim(), value: `${value} (on \`${selector}\`)` });
         }

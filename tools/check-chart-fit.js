@@ -155,13 +155,19 @@ async function measure(page, slack, vbSlack) {
       // be, on every chart, forever. Two assertions, both on the INLINE axis:
       //   · the body's BORDER box coincides with the stage's CONTENT box, so the
       //     inset is not re-derived below the stage;
-      //   · the body carries no padding of its own, UNLESS it PAINTS ITS OWN
-      //     SURFACE — the one case the rule's second clause allows, because text
-      //     must not touch a visible edge. That is tested by measurement too (a
-      //     non-transparent background or a real border), not by a class list: it
-      //     is what earns `code`'s `pre` its padding and what the chart's opt-in
-      //     `canvas` panel earns, and a class list would have to be kept in sync
-      //     with every future body that paints.
+      //   · the body carries no INLINE padding of its own, UNLESS it PAINTS ITS
+      //     OWN SURFACE — the one case the rule's second clause allows, because
+      //     text must not touch a visible edge. That is tested by measurement too
+      //     (a non-transparent background or a real border), not by a class list:
+      //     it is what earns `code`'s `pre` its padding and what the chart's
+      //     opt-in `canvas` panel earns, and a class list would have to be kept in
+      //     sync with every future body that paints.
+      // BLOCK padding is NOT asserted, and that is a finding rather than an
+      // omission: `overflow` cuts at the PADDING box, so a body's block padding is
+      // a CLIP MARGIN — the slack a chart paints into before anything is lost —
+      // not an inset. Removing it clipped nine decks that had never clipped. The
+      // inline half was the genuine duplicate (frame + width calc + the body's own
+      // = 192px per side against prose's 64); this gate asserts that half.
       // Block axis is deliberately NOT asserted: a pinned list body (`flex: 0 0
       // auto`) is centered at its natural height and legitimately does not fill the
       // cell, and an overstuffed one MUST spill it so overflow-probe.js can see it.
@@ -199,7 +205,7 @@ async function measure(page, slack, vbSlack) {
             pad: pad.join('/'),
             painted,
             bad: Math.abs(br.left - left) > SLACK_ || Math.abs(right - br.right) > SLACK_
-              || (!painted && pad.some((p) => p > SLACK_)),
+              || (!painted && (pad[1] > SLACK_ || pad[3] > SLACK_)),
           });
         }
       }
