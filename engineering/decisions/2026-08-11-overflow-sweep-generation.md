@@ -385,7 +385,7 @@ on "it looks the same".
 
 ---
 
-## 7. What was deliberately left alone
+## 7. What was checked, and what was deliberately left alone
 
 - **`patchSectionGeometry`** stays on the per-frame dispatcher. Measured at 0.1ms
   for 117 sections (§1c), and its `--_sec-1cqi` stamp is load-bearing for layout
@@ -398,6 +398,24 @@ on "it looks the same".
   marker-chrome selector following the Fix-Me rename. What each probe measures,
   and the long list of false positives it was tuned against, is not what was
   wrong here.
+- **Auto-split**, which was the last open question and is now closed. The
+  splitter re-emits one slide as a cover plus N body pages, so there were two
+  silent ways to be wrong: the berths counted as items to paginate (moving where
+  the cut falls), or a page emerging with nowhere to draw its marker. Verified end
+  to end — a 26-row portrait checklist split into **10 real pages** through the
+  emulator, every page carrying exactly one of each berth as a direct child, none
+  buried in a content cell, page count matching the PDF.
+
+  One repair fell out of it. The splitter builds each **cover** fresh, so a cover
+  carried no berth and the only thing drawing its marker was `berth()`'s
+  mint-on-miss — a net documented as a branch that should never be taken, which a
+  split deck would have taken on every cover. The export now re-berths after the
+  split converges, folded into the re-render `applyRails` already does
+  (`fitBerth.applyToDocHtml`). That form exists because the plain adapter cannot
+  be pointed at an assembled document: embedded chrome mentions `<section …>` in
+  prose, which derails the depth-aware walker into returning nothing — measured on
+  a real sidecar. It slices the head prefix off at the first real slide, which is
+  exactly what `resplitDoc` already does for the identical hazard.
 - **The docs-site call sites.** `window.latticeSweep` is exposed and documented;
   `deck-preview.js` and `single-slide-render.ts` are not yet wired to it, because
   the observer path already covers the same ground within one settle window and

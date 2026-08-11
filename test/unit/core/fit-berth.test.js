@@ -12,7 +12,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { BERTHS, applyToHtml, applyToDom, berth, BERTH_SRC } = require('../../../lib/core/fit-berth');
+const { BERTHS, applyToHtml, applyToDocHtml, applyToDom, berth, BERTH_SRC } = require('../../../lib/core/fit-berth');
 
 const SLIDE = '<article class="lattice"><section class="content" data-lattice-slide><h2>A</h2></section></article>';
 const docOf = (html) => new JSDOM(html).window.document;
@@ -131,5 +131,41 @@ describe('berth() — reaching a berth the watcher no longer owns', () => {
     const a = docOf(SLIDE).querySelector('section');
     const b = docOf(SLIDE).querySelector('section');
     assert.equal(injected(a, 'overflow-tab').outerHTML, berth(b, 'overflow-tab').outerHTML);
+  });
+});
+
+describe('applyToDocHtml — an assembled document, not a run of slides', () => {
+  // The export calls this after auto-split converges. An assembled document
+  // carries embedded chrome whose comments mention `<section …>` as PROSE, and
+  // those substrings derail the depth-aware walker — it never balances a close and
+  // bails, returning nothing. That is not hypothetical: `splitSections` on a real
+  // exported sidecar found zero sections. So the head prefix is sliced off first,
+  // mirroring what `resplitDoc` already does for the identical hazard.
+  const DOC = '<!doctype html><html><head><style>/* a <section …> mentioned in prose */</style>'
+    + '<script>/* and again: <section class="x"> */</script></head><body>'
+    + '<section data-lattice-slide="1" class="content"><h2>A</h2></section>'
+    + '<section data-lattice-slide="2" class="content"><h2>B</h2></section>'
+    + '</body></html>';
+
+  test('berths every slide of a document whose head mentions <section> in prose', () => {
+    const out = applyToDocHtml(DOC);
+    const doc = docOf(out);
+    const slides = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    assert.equal(slides.length, 2);
+    for (const s of slides) assert.deepEqual(berthsIn(s), BERTHS);
+  });
+
+  test('leaves the head prefix byte-identical', () => {
+    const out = applyToDocHtml(DOC);
+    const head = DOC.slice(0, DOC.indexOf('<section data-lattice-slide'));
+    assert.ok(out.startsWith(head), 'the sliced prefix must be re-emitted unchanged');
+  });
+
+  test('is idempotent, and a no-op on a document with no slides', () => {
+    const once = applyToDocHtml(DOC);
+    assert.equal(applyToDocHtml(once), once);
+    assert.equal(applyToDocHtml('<html><body><p>nothing</p></body></html>'),
+      '<html><body><p>nothing</p></body></html>');
+    assert.equal(applyToDocHtml(null), null);
   });
 });

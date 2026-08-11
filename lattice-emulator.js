@@ -627,7 +627,8 @@ const {
   OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
 } = require('./lib/runtime/fluid-view-policy');
-const { BERTH_SRC } = require('./lib/core/fit-berth');
+const fitBerth = require('./lib/core/fit-berth');
+const { BERTH_SRC } = fitBerth;
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
 // (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
 // on top of the normal precedence chain. `inherit`/`print` leave the resolved name alone
@@ -2524,7 +2525,16 @@ async function renderBody(browser, g, closeBrowser) {
     // membership): the k-of-N progress rail, and the §0b relationship signal a connected
     // component's atomized members carry ("→ next: …" / "↻ back to …" / "governs ↓ …" /
     // "Option N of M"). One re-render so both land in the exported DOM.
-    const railed = applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP));
+    // …and RE-BERTH, in the same re-render. The splitter builds each cover page
+    // fresh, so a cover carries none of the marker chrome the engine emitted onto
+    // the slide it came from — leaving `berth()`'s mint-on-miss as the only thing
+    // that would draw its ring. That net works, and it is documented as a branch
+    // that should never be taken; a split deck taking it on every cover would make
+    // that false. Idempotent, so every page the split preserved is untouched, and
+    // it runs AFTER the split rather than before so the pages it berths are the
+    // final ones. (lib/core/fit-berth.js applyToDocHtml — the assembled-document
+    // form, which slices the head prefix off for the same reason resplitDoc does.)
+    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP)));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);

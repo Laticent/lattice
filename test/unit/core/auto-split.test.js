@@ -339,3 +339,52 @@ describe('core: resplitDoc cuts the verdict it is given, not the count it can se
     assert.equal(resplitDoc(html, [{ slide: 1, ratio: 2 }], cap).changed, 1);
   });
 });
+
+describe('the marker berths survive a split, one set per page', () => {
+  // `lib/core/fit-berth.js` emits three empty marker tabs as the LAST children of
+  // every slide, and the split re-emits one slide as a cover plus N body pages.
+  // Two ways to be wrong, both silent:
+  //
+  //   · the berths are counted by the partitioner as items to paginate, moving
+  //     where the cut falls;
+  //   · a page comes out of the split with no berth, so it has nowhere to draw a
+  //     marker and an overflowing split page rings nothing.
+  //
+  // The SPLIT is not what berths a page — the export re-berths after it converges
+  // (`lattice-emulator.js`, `fitBerth.applyToDocHtml`), which is what covers the
+  // freshly-built cover. So the contract pinned here is the pair: the split must
+  // not disturb the berths it was handed, and the berth pass must complete the
+  // result. Verified end to end first — a 26-row portrait checklist split into 10
+  // real pages through the emulator, every page carrying exactly one of each berth
+  // as a direct child, none buried in a content cell.
+  const { applyToDocHtml } = require('../../../lib/core/fit-berth');
+  const BERTHS = ['overflow-tab', 'illegible-tab', 'fixme-tab'];
+  const berthed = (inner) => inner + BERTHS.map((c) => `<div class="${c}" aria-hidden="true"></div>`).join('');
+  const pagesOf = (html) => html.split(/(?=<section\b)/).filter((p) => p.startsWith('<section'));
+
+  test('after the split and the berth pass, every page carries exactly one of each', () => {
+    const html = sec('cards', berthed(`<h2>T</h2>${list(9)}`));
+    const { html: split, splits } = measuredSplit(docify(html), cap);
+    assert.equal(splits, 1, 'the fixture must actually split, or this asserts nothing');
+    const pages = pagesOf(applyToDocHtml(split));
+    assert.ok(pages.length > 1, `expected a multi-page split, got ${pages.length}`);
+    for (const [i, page] of pages.entries()) {
+      for (const c of BERTHS) {
+        assert.equal((page.match(new RegExp(`class="${c}"`, 'g')) || []).length, 1,
+          `page ${i + 1} must carry exactly one ${c}`);
+      }
+    }
+  });
+
+  test('the berths are not counted as items to paginate', () => {
+    // The partitioner walks the slide's own children. Three trailing divs must not
+    // read as three more list items — that would change where the cut falls.
+    const bare = measuredSplit(docify(sec('cards', `<h2>T</h2>${list(9)}`)), cap);
+    const withBerths = measuredSplit(docify(sec('cards', berthed(`<h2>T</h2>${list(9)}`))), cap);
+    assert.equal(
+      pagesOf(withBerths.html).length,
+      pagesOf(bare.html).length,
+      'the same content must split into the same number of pages with or without berths',
+    );
+  });
+});
