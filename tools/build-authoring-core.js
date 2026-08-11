@@ -53,8 +53,14 @@ import reviewCore from './review-core.js';
 import scorecard from './scorecard.js';
 import notesCore from './notes-core.js';
 import deckCanon from './deck-canon.js';
+// The DEPTH-AWARE section splitter, carried here because it is what the note channel
+// needs to be extracted correctly: notesCore reads per-slide HTML, and deriving those
+// slides with the docs site's flat "next </section>" scan truncates any slide holding a
+// hand-authored <section>, silently emptying its notes. Bundled beside the channel that
+// depends on it rather than left to a second, wrong splitter on the browser side.
+import splitSectionsCore from '../core/split-sections.js';
 
-export { lintCore, reviewCore, scorecard, notesCore, deckCanon };
+export { lintCore, reviewCore, scorecard, notesCore, deckCanon, splitSectionsCore };
 `;
 
 const BUILD_OPTIONS = {

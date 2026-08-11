@@ -3124,6 +3124,13 @@ var require_notes_core = __commonJS({
         ""
       );
     }
+    function slideNoteRecord(sections) {
+      return (Array.isArray(sections) ? sections : []).map((html) => ({
+        note: notesFromHtml(html),
+        description: descriptionFromHtml(html),
+        caption: captionFromHtml(html)
+      }));
+    }
     function carryCommentsForward(baked, source) {
       const target = String(baked == null ? "" : baked);
       const comments = String(source == null ? "" : source).match(new RegExp(COMMENT_SOURCE, "g")) || [];
@@ -3209,6 +3216,7 @@ var require_notes_core = __commonJS({
       extractSlideDescriptions,
       captionFromHtml,
       extractSlideCaptions,
+      slideNoteRecord,
       carryCommentsForward,
       stripCommentNodes,
       stripNotesFromSource,
@@ -3256,21 +3264,73 @@ var require_deck_canon = __commonJS({
   }
 });
 
+// lib/core/split-sections.js
+var require_split_sections = __commonJS({
+  "lib/core/split-sections.js"(exports, module) {
+    function splitSections(html) {
+      const pieces = [];
+      let i = 0;
+      while (i < html.length) {
+        const open = html.indexOf("<section", i);
+        if (open < 0) {
+          pieces.push({ type: "gap", text: html.slice(i) });
+          break;
+        }
+        if (open > i) pieces.push({ type: "gap", text: html.slice(i, open) });
+        const tagEnd = html.indexOf(">", open);
+        if (tagEnd < 0) {
+          pieces.push({ type: "gap", text: html.slice(open) });
+          break;
+        }
+        const openTag = html.slice(open, tagEnd + 1);
+        const cm = openTag.match(/\sclass="([^"]*)"/);
+        let depth = 1, pos = tagEnd + 1, closeEnd = -1;
+        while (pos < html.length) {
+          if (html.startsWith("<section", pos)) {
+            const e = html.indexOf(">", pos);
+            if (e < 0) break;
+            depth++;
+            pos = e + 1;
+          } else if (html.startsWith("</section>", pos)) {
+            depth--;
+            if (depth === 0) {
+              closeEnd = pos + 10;
+              break;
+            }
+            pos += 10;
+          } else pos++;
+        }
+        if (closeEnd < 0) {
+          pieces.push({ type: "gap", text: html.slice(open) });
+          break;
+        }
+        pieces.push({ type: "section", openTag, inner: html.slice(tagEnd + 1, closeEnd - 10), cls: cm ? cm[1] : "" });
+        i = closeEnd;
+      }
+      return pieces;
+    }
+    module.exports = { splitSections };
+  }
+});
+
 // lib/authoring/authoring-core.entry.js
 var import_lint_core = __toESM(require_lint_core());
 var import_review_core = __toESM(require_review_core());
 var import_scorecard = __toESM(require_scorecard());
 var import_notes_core = __toESM(require_notes_core());
 var import_deck_canon = __toESM(require_deck_canon());
+var import_split_sections = __toESM(require_split_sections());
 var export_deckCanon = import_deck_canon.default;
 var export_lintCore = import_lint_core.default;
 var export_notesCore = import_notes_core.default;
 var export_reviewCore = import_review_core.default;
 var export_scorecard = import_scorecard.default;
+var export_splitSectionsCore = import_split_sections.default;
 export {
   export_deckCanon as deckCanon,
   export_lintCore as lintCore,
   export_notesCore as notesCore,
   export_reviewCore as reviewCore,
-  export_scorecard as scorecard
+  export_scorecard as scorecard,
+  export_splitSectionsCore as splitSectionsCore
 };

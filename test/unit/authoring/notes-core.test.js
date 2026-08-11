@@ -13,6 +13,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/notes-core');
+const { splitSections: splitSectionsCore } = require('../../../lib/core/split-sections.js');
 
 const sec = (inner) => `<section data-lattice-slide="1">${inner}</section>`;
 
@@ -256,6 +257,52 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /_class: title/, 'a directive comment is preserved');
     assert.match(out, /prettier-ignore/, 'a tooling pragma is preserved');
     assert.match(out, /# Slide one/, 'body content untouched');
+  });
+
+  // The whole comment channel, extracted ONCE from already-split sections — the shape
+  // that removes the DOM round trip from the problem instead of repairing it afterwards.
+  describe('slideNoteRecord — extract the channel once, from a depth-aware split', () => {
+    // The deck shape that defeats the docs site's flat splitter: a slide containing a
+    // hand-authored <section>. The flat scan ends slide 1 at the NESTED close tag, so the
+    // note after it is lost — while the slide COUNT still matches, which is exactly why a
+    // count-parity check waves it through. `lib/core/split-sections.js` is depth-aware.
+    const NESTED =
+      '<section id="1" class="title"><h1>One</h1><section class="inner"><p>n</p></section><p>tail</p><!-- SECRETNEST --></section>' +
+      '<section id="2" class="content"><h2>Two</h2><!-- NOTETWO --></section>';
+    const flatSplit = (h) => {
+      const out = [];
+      const open = /<section\b[^>]*>/gi;
+      let m;
+      while ((m = open.exec(h))) {
+        const c = h.indexOf('</section>', m.index);
+        if (c === -1) break;
+        out.push(h.slice(m.index, c + 10));
+        open.lastIndex = c + 10;
+      }
+      return out;
+    };
+
+    test('reads note, description and caption per slide', () => {
+      const rec = core.slideNoteRecord([
+        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- caption: Read aloud. --></section>',
+        '<section><h1>B</h1></section>',
+      ]);
+      assert.deepEqual(rec[0], { note: 'A note.', description: 'A chart.', caption: 'Read aloud.' });
+      assert.deepEqual(rec[1], { note: null, description: null, caption: null });
+    });
+
+    test('a depth-aware split keeps the note a flat split loses — with the COUNT identical', () => {
+      const flat = flatSplit(NESTED);
+      const deep = splitSectionsCore(NESTED).filter((p) => p.type === 'section').map((p) => `${p.openTag}${p.inner}</section>`);
+      assert.equal(flat.length, deep.length, 'both splitters agree on the slide COUNT — which is why a parity check cannot catch this');
+      assert.equal(core.slideNoteRecord(flat)[0].note, null, 'guard: the flat split really does lose it (this is the bug)');
+      assert.equal(core.slideNoteRecord(deep)[0].note, 'SECRETNEST', 'the depth-aware split keeps it');
+      assert.equal(core.slideNoteRecord(deep)[1].note, 'NOTETWO', 'and does not disturb an ordinary slide');
+    });
+
+    test('tolerates a non-array', () => {
+      assert.deepEqual(core.slideNoteRecord(undefined), []);
+    });
   });
 
   // A slide that makes a round trip through a sanitizing DOM comes back with every
