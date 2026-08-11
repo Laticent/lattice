@@ -84,7 +84,7 @@ var require_standalone_svg = __commonJS({
       "mix-blend-mode": "normal"
     };
     var SVG_NS2 = "http://www.w3.org/2000/svg";
-    function flattenSvgStyles2(srcSvg, win) {
+    function flattenSvgStyles2(srcSvg, win, opts) {
       const w = win || (typeof window !== "undefined" ? window : null);
       if (!w) throw new Error("flattenSvgStyles requires a browser window");
       const PROPS = [
@@ -150,7 +150,105 @@ var require_standalone_svg = __commonJS({
         probe.style.color = expr;
         return w.getComputedStyle(probe).color || expr;
       }
+      const FO_TO_TEXT = !!(opts && opts.foreignObjectLabels === "text");
+      function lineRuns(node) {
+        const range = doc.createRange();
+        range.selectNodeContents(node);
+        const rects = range.getClientRects();
+        const raw = node.nodeValue || "";
+        if (rects.length <= 1) return raw.trim() ? [{ text: raw, rect: rects[0] || range.getBoundingClientRect() }] : [];
+        const runs = [];
+        for (let i = 0; i < raw.length; i++) {
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const r = range.getBoundingClientRect();
+          const key = Math.round(r.top);
+          const last = runs[runs.length - 1];
+          if (last && last.key === key) {
+            last.text += raw[i];
+            last.rect = { top: Math.min(last.rect.top, r.top), bottom: Math.max(last.rect.bottom, r.bottom), left: Math.min(last.rect.left, r.left), right: Math.max(last.rect.right, r.right) };
+          } else if (r.width || r.height) {
+            runs.push({ key, text: raw[i], rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right } });
+          }
+        }
+        return runs.filter((run) => run.text.trim());
+      }
+      function foreignObjectToText(fo) {
+        const box = fo.getBoundingClientRect();
+        const foW = parseFloat(fo.getAttribute("width"));
+        const foH = parseFloat(fo.getAttribute("height"));
+        if (!box.width || !box.height || !(foW > 0) || !(foH > 0)) return null;
+        const sx = foW / box.width;
+        const sy = foH / box.height;
+        const ox = parseFloat(fo.getAttribute("x")) || 0;
+        const oy = parseFloat(fo.getAttribute("y")) || 0;
+        const out2 = doc.createElementNS("http://www.w3.org/2000/svg", "text");
+        let any = false;
+        const walker = doc.createTreeWalker(
+          fo,
+          4
+          /* NodeFilter.SHOW_TEXT */
+        );
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (!(n.nodeValue || "").trim()) continue;
+          const parent = n.parentElement;
+          if (!parent) continue;
+          const pcs = w.getComputedStyle(parent);
+          for (const run of lineRuns(n)) {
+            const r = run.rect;
+            if (!r) continue;
+            const span = doc.createElementNS("http://www.w3.org/2000/svg", "tspan");
+            span.setAttribute("x", String(ox + ((r.left + r.right) / 2 - box.left) * sx));
+            span.setAttribute("y", String(oy + ((r.top + r.bottom) / 2 - box.top) * sy));
+            let decl = "text-anchor:middle;dominant-baseline:central;";
+            decl += `font-family:${pcs.fontFamily};font-size:${pcs.fontSize};font-weight:${pcs.fontWeight};`;
+            if (pcs.fontStyle && pcs.fontStyle !== "normal") decl += `font-style:${pcs.fontStyle};`;
+            if (pcs.color) decl += `fill:${pcs.color};`;
+            span.setAttribute("style", decl);
+            span.textContent = run.text.replace(/\s+/g, " ");
+            out2.appendChild(span);
+            any = true;
+          }
+        }
+        if (!any) return null;
+        const byBox = /* @__PURE__ */ new Map();
+        for (const el of fo.querySelectorAll("*")) {
+          const bg = w.getComputedStyle(el).backgroundColor;
+          if (!bg || bg === "transparent" || /^rgba\(0, *0, *0, *0\)$/.test(bg)) continue;
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height) continue;
+          const geom = {
+            x: ox + (r.left - box.left) * sx,
+            y: oy + (r.top - box.top) * sy,
+            w: r.width * sx,
+            h: r.height * sy
+          };
+          const key = `${geom.x.toFixed(2)}|${geom.y.toFixed(2)}|${geom.w.toFixed(2)}|${geom.h.toFixed(2)}`;
+          const prior = byBox.get(key);
+          if (prior && !/^rgb\(/.test(bg)) continue;
+          byBox.set(key, { geom, bg });
+        }
+        const bgs = [];
+        for (const { geom, bg } of byBox.values()) {
+          const rect = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", String(geom.x));
+          rect.setAttribute("y", String(geom.y));
+          rect.setAttribute("width", String(geom.w));
+          rect.setAttribute("height", String(geom.h));
+          rect.setAttribute("style", `fill:${bg};`);
+          bgs.push(rect);
+        }
+        if (!bgs.length) return out2;
+        const group = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+        for (const rect of bgs) group.appendChild(rect);
+        group.appendChild(out2);
+        return group;
+      }
       function walk(src) {
+        if (FO_TO_TEXT && src.nodeType === 1 && src.tagName && src.tagName.toLowerCase() === "foreignobject") {
+          const replaced = foreignObjectToText(src);
+          if (replaced) return replaced;
+        }
         const clone = src.cloneNode(false);
         if (src.nodeType === 1) {
           const cs = w.getComputedStyle(src);

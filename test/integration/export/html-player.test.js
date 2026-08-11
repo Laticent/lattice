@@ -120,6 +120,50 @@ describe('html-player export — honors sketch fonts', () => {
 	});
 });
 
+// Mermaid reaches the shipped file as a SELF-STYLED svg with native <text> labels.
+// The player sanitizes its slide DOM, and that sanitizer bars the two things a Mermaid
+// svg leans on: the `<style>` mermaid injects into it, and `<foreignObject>` — which is
+// where EVERY node/edge/cluster label lives. Unbaked, the diagram shipped as shapes and
+// arrows with no words at all, on every deck, on both export hosts. So the assertion
+// that matters is not "an svg is present" but "the label TEXT is present, and no
+// foreignObject is left for the sanitizer to take."
+describe('html-player export — Mermaid labels survive the sanitizer', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'mermaid-diagram-surface.md');
+	const TIMEOUT = 180000;
+	let doc;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mermaid-player-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		doc = new JSDOM(fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8')).window.document;
+	}, { timeout: TIMEOUT });
+
+	test('every diagram label is native SVG text, not a stripped foreignObject', () => {
+		const svgs = [...doc.querySelectorAll('.mermaid-svg svg, .mermaid svg')];
+		assert.ok(svgs.length >= 1, 'the deck ships rendered diagram SVGs');
+		for (const svg of svgs) {
+			assert.equal(svg.querySelectorAll('foreignObject').length, 0, 'no foreignObject survives into the player');
+			assert.ok(svg.querySelectorAll('text').length > 0, 'the diagram carries <text> labels');
+		}
+		// The deck's own words, not just "some text node exists".
+		const text = svgs.map((s) => s.textContent.replace(/\s+/g, ' ')).join(' ');
+		assert.match(text, /Read the deck/, 'a node label from the deck source is readable in the shipped svg');
+		assert.match(text, /Resolve the band/);
+	});
+
+	test('the diagram is self-styled — it does not depend on the <style> the sanitizer removes', () => {
+		const svg = doc.querySelector('.mermaid-svg svg, .mermaid svg');
+		assert.equal(svg.querySelectorAll('style').length, 0, "mermaid's own <style> does not survive (it never could)");
+		const painted = [...svg.querySelectorAll('path, rect, polygon')].filter((el) => /(?:^|;)\s*(?:fill|stroke):/.test(el.getAttribute('style') || ''));
+		assert.ok(painted.length > 0, 'paint is inlined on the shapes, so losing the <style> costs nothing');
+	});
+});
+
 // P3c — Present geometry on the REAL surface. String-presence tests can't catch a
 // clipped/off-screen slide (the box-sizing regression + the pre-existing mobile
 // horizontal off-screen both hid behind "the CSS shipped"). Drive the actual player

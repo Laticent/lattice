@@ -22,6 +22,29 @@ flowchart LR
 | PDF / export (`lattice-emulator.js`) | `mmdc` (Mermaid's CLI, one process per diagram) | build time, pre-rendered to inline SVG |
 | Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
 
+**The `.html` player takes a third step past either path: it BAKES the diagram.**
+The player sanitizes its slide DOM (`sanitizeSlideHtml`), and that sanitizer bars
+the two things a Mermaid SVG leans on — the `<style>` mermaid injects into it, and
+`<foreignObject>`, which is where *every* node/edge/cluster label lives (HTML
+smuggled into the SVG namespace: the mXSS shape we keep shut, HARD RULE #22). So
+before assembly each diagram is flattened into a self-styled SVG whose labels are
+native `<text>` (`flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' })`,
+`lib/components/chart/_chart-family/standalone-svg.js`), driven by the CLI's own
+player capture and by the Studio's `bakeDeckSections`. Charts are deliberately NOT
+flattened — they are token-driven and the player ships the CSS that drives them, so
+freezing their computed colors would pin them to the export-time scheme and kill both
+the player's light/dark toggle and Read·Article's `figure.chart-frame` recolor.
+Mermaid has no such dependency: it bakes its colors at render time either way.
+
+The Studio's webpage export has one extra beat the CLI does not need. `mmdc` has
+already substituted an SVG for the fence by the time the CLI serializes, but the
+browser render is still a raw `<pre><code class="language-mermaid">` — the runtime
+inflates it, and the player ships no runtime. So the Studio mounts the deck in the
+shared capture frame, waits for the runtime's own `data-mermaid-state` to settle, and
+reads the settled sections back out. Skip that and the exported file freezes the
+un-rendered form: raw Mermaid source on the slide, and a wall of it where Read·Article
+should show the diagram.
+
 Component contract, slots, and the anti-patterns:
 `lib/components/diagram/diagram/diagram.docs.md`.
 

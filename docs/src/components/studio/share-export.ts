@@ -301,7 +301,45 @@ export async function shareHtmlPlayer(
 	// concerns handled the same way the Studio preview does — i.e. not here.) Then
 	// materialize speaker notes + a11y descriptions the same way the emulator does, so
 	// the Studio player carries them exactly like the CLI player (notes: true is honest).
-	const tagged = deck.splitSections(out.html).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	//
+	// BAKE FIRST. The engine's render is static: a ```mermaid fence is still a
+	// `<pre><code class="language-mermaid">`, and state-chart / function-plot are still
+	// inert scripts — all three are inflated by the RUNTIME in the preview iframe, and
+	// the player ships no runtime (it strips every script). So an un-baked export froze
+	// the un-rendered form: raw Mermaid source on the slide and, worse, a wall of it
+	// where Read·Article should have shown the diagram. `bakeDeckSections` runs the deck
+	// through the shared capture frame (runtime + our vendored Mermaid, fonts settled)
+	// and hands back the settled markup — the browser-side twin of the CLI's own
+	// "Bake the player's DOM" step. A bake that can't run falls back to the static
+	// render: the same file we shipped before, never a failed export.
+	onStatus?.('Rendering diagrams…');
+	let baked: string[] | null = null;
+	try {
+		const ex = await exporters();
+		const result = await ex.bakeDeckSections({
+			html: out.html,
+			css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
+			mode,
+			geom: { w: out.width || 1280, h: out.height || 720 },
+			runtimeUrl: options.runtimeUrl,
+			fontCss,
+			...(options.mermaidUrl ? { mermaidUrl: options.mermaidUrl } : {}),
+		});
+		// Slide-count parity is the correctness gate: notes, narration cues and the
+		// manifest are all indexed by slide, so a bake that lost or gained a section
+		// would silently mis-bind them. Mismatch → use the static render.
+		const staticCount = deck.splitSections(out.html).length;
+		if (result && result.sections.length === staticCount) {
+			baked = result.sections;
+			// Honesty, matching the CLI's own bake warnings: a diagram Mermaid could not
+			// render ships as its source `<pre>`, and the author should hear that once
+			// rather than discover it in the file.
+			if (result.failed) console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
+		}
+	} catch {
+		/* bake unavailable — ship the static render, exactly as before */
+	}
+	const tagged = (baked ?? deck.splitSections(out.html)).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
 	const slides = materializeNotes(tagged, notesCore, stripNotes);
 	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped
 	// file — not the DOM (blanked above) AND not the verbatim envelope source. Scrub

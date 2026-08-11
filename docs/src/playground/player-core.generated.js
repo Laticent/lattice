@@ -1787,6 +1787,7 @@ function themeDualMode(css) {
   const baseLight = resolveLightDark(noComments, 0);
   while (lm = litRe.exec(baseLight)) baseVals[lm[1]] = lm[2].trim();
   const darkDecls = [];
+  const lightDecls = [];
   const darkKeys = /* @__PURE__ */ new Set();
   const declRe = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]*light-dark[^;{}]*?)\s*(?=[;}])/g;
   let m;
@@ -1799,11 +1800,20 @@ function themeDualMode(css) {
   });
   while (m = declRe.exec(noComments)) {
     darkDecls.push(`${m[1]}:${deepFlatten(resolveLightDark(m[2], 1).trim(), /* @__PURE__ */ new Set())}`);
+    lightDecls.push(`${m[1]}:${deepFlatten(resolveLightDark(m[2], 0).trim(), /* @__PURE__ */ new Set())}`);
   }
   if (!darkDecls.length) return { base, darkBlock: "" };
   const body = `${darkDecls.join(";")};`;
-  const sel = (scope) => `${scope},${scope} section[data-lattice-slide]`;
-  const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}}`;
+  const lightBody = `${lightDecls.join(";")};`;
+  const PIN_LIGHT = [".light", ".color-light"];
+  const PIN_EXCLUDE = ":not(.dark):not(.light):not(.color-light):not(.print)";
+  const sel = (scope) => `${scope},${scope} section[data-lattice-slide]${PIN_EXCLUDE}`;
+  const pinned = (scope) => PIN_LIGHT.map((c) => `${scope} section[data-lattice-slide]${c}`).join(",");
+  const darkBlock = (
+    // An author-pinned dark section is dark in EVERY player scheme, so this one is
+    // unconditional — outside both the attribute rule and the media query.
+    `section[data-lattice-slide].dark{${body}}${sel(":root[data-lp-scheme=dark]")}{${body}}${pinned(":root[data-lp-scheme=dark]")}{${lightBody}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}${pinned(":root[data-lp-scheme=system]")}{${lightBody}}}`
+  );
   return { base, darkBlock };
 }
 var PLAYER_CANVAS = { w: 1280, h: 720 };

@@ -3234,6 +3234,34 @@ means "no gap logged for the runtime route", never "the preview is complete.
   (`lib/export/player-core.mjs`, `const paceName = frontMatterPace(source)`), or
   put it in the envelope, which does survive.
 
+### A slide-level color-scheme pin has to be re-emitted for the exported player
+
+- **Symptom:** A deck authored dark (`color-mode: dark`, or any `_class: dark`
+  slide) opens correctly in the exported `.html` player — and goes blank the moment
+  the viewer flips the player's light toggle. Title / divider / closing lose their
+  words entirely; body slides just look "wrong but readable." Dark mode looks fine,
+  which is what makes it easy to misread as a light-mode styling bug.
+- **Cause:** the player cannot ship `light-dark()` (it does not exist before
+  WebKit 17.5), so `themeDualMode` collapses every pair to its light arm and
+  re-emits the dark values as a flat `:root[data-lp-scheme=dark]` block. That is a
+  faithful emulation of a *document-level* scheme only. Lattice also pins the scheme
+  per SLIDE — `section.dark`, `.light`, `.color-light`, `.print` set `color-scheme`
+  on the section, which is what `light-dark()` actually resolves against — and
+  collapsing the function away erased those pins. A `.dark` slide then took the
+  viewer's light tokens while still painting `--text-display`, a constant `#FFFFFF`
+  with no light-dark() pair for anything to rewrite: white ink on a white canvas.
+  It read fine in dark only by luck — the page behind it was dark too.
+- **Fix:** the dark block re-states each pin — `.dark` sections carry the dark
+  literals in *both* player schemes, `.light`/`.color-light` are restored to the
+  light literals when the player is dark, and `.print` is excluded from the blanket
+  rule so its own `--print-*` band survives (it was previously overridden in dark
+  mode too, printing `#111111` ink on a `#001D33` canvas). `.color-system` /
+  `.color-inherited` are deliberately left unpinned: both defer, which in a
+  standalone player IS the toggle. `lib/export/player-core.mjs` › `themeDualMode`.
+- **The general shape:** anything that replaces `light-dark()` with static CSS has
+  to answer *which element's* `color-scheme` each token was resolving against, not
+  just "light or dark".
+
 ### A destructuring default in a plain-JS export erases the rest of its parameter type
 
 - **Symptom:** A `.js` module a TypeScript file imports suddenly fails to
