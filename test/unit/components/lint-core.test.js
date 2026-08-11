@@ -822,7 +822,11 @@ describe('lint-core: unterminated comment', () => {
 		assert.ok(f, 'the unclosed comment is named');
 		assert.equal(f.severity, 'error');
 		assert.match(f.message, /strip-notes/, 'and says why it matters on export, not just on screen');
-		assert.match(f.fix, /-->/);
+		// A plain containment check, not a regex: this asserts the fix TEXT names the
+		// terminator, and a `/-->/` literal here reads to a scanner (correctly) as an
+		// HTML-comment matcher that forgets `--!>` — the very bug fixed elsewhere on this
+		// branch. Nothing here parses HTML, so nothing here should look like it does.
+		assert.ok(f.fix.includes('-->'), 'the fix names the terminator to add');
 	});
 
 	test('a well-formed comment is not flagged', () => {
