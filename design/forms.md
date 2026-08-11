@@ -409,14 +409,21 @@ nothing.
 other's failures:
 
 - `checkStageInsetOwnership` (`tools/check-ownership.js`, via `build:check`) —
-  browser-free, budget 0 + `SANCTIONED_STAGE_INSETS`, fires on the container-unit
-  subtraction the moment it is typed, across every component.
+  browser-free, budget 0 + `SANCTIONED_STAGE_INSETS`, across every component. Two
+  checks: a full-container basis less a spacing token on an inline sizing property
+  (the calc), and `padding` on a body element's own rule (the easiest wrong move),
+  the latter exempting a selector that names `.canvas` or `figure`. Its holes are
+  stated at the gate rather than implied.
 - the **inset assertion** in `tools/check-chart-fit.js` — a real render at
-  landscape/portrait/square asserting the body's border box coincides with the
-  stage's content box on the inline axis and that the body carries no padding of
-  its own unless the slide is `canvas`. The block axis is deliberately unasserted:
-  a pinned list body is centered at its natural height, and an overstuffed one
-  MUST spill so `overflow-probe.js` can see it.
+  landscape/portrait/square asserting the body's border box coincides with its
+  HOLDER's content box on the inline axis (the stage under the Form, the section on
+  the `no-form` path), and that the body carries no padding of its own unless it
+  **paints its own surface**. That exemption is measured too — a non-transparent
+  background, a background image, or a real border — rather than keyed on a class
+  list, which would have to be kept in sync with every future body that paints. The
+  block axis is deliberately unasserted: a pinned list body is centered at its
+  natural height, and an overstuffed one MUST spill so `overflow-probe.js` can
+  see it.
 
 Record: `engineering/decisions/2026-08-11-stage-owns-the-outer-inset.md`.
 

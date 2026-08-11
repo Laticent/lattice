@@ -80,7 +80,15 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
    * does not reflow when the diagram swaps in, and `.mermaid` has no padding — so
    * the source text sat 24px inside the diagram that replaces it, and 24px inside
    * the title above it. Measured on diagram.gallery.md: the un-rendered `<pre>`
-   * now shares one left edge with the dek, the title and the Key Insight. */
+   * now shares one left edge with the dek, the title and the Key Insight.
+   *
+   * BOTH ARMS of this selector are zeroed, including the unscoped
+   * `[data-mermaid-state]` one that reaches a non-slide host (a plain markdown
+   * preview, the Studio's preview frame). That is deliberate and rests on the same
+   * ground, not on the slide context: the two lines below strip the background and
+   * the border on both arms, so the box paints nothing on any host and owes no
+   * inset anywhere. The non-slide arm's own sizing (width/height, below) is
+   * untouched. */
   padding:0 !important;
   background:none !important;
   border:none !important;

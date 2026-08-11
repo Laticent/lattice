@@ -84,6 +84,13 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    slides, headless Chromium) at landscape, portrait and square: every box resolves
    to the full stage content width, none to 0.
 
+   The MARP-VSCODE WEBVIEW, which the same note was written for, is **UNVERIFIED**
+   (HARD RULE #23) — it cannot be driven from this sandbox, and it is NOT a retired
+   surface: the export-to-Marp bundle is rendered by that extension and ships this
+   CSS plus the browser runtime to it (lib/core/marp-bundle.js). Retest it there
+   and record the result rather than assuming either way; `max-width: 100%` below
+   is the wall if the ancestor ever is indeterminate.
+
    `flex:1` (the pre-migration value, kept EXACTLY): the Mermaid SVG SELF-SCALES —
    `mermaid.css` forces `.mermaid-svg svg { height:100% !important }` and the SVG's own
    `preserveAspectRatio` letterboxes it — so it always fits its flex box, at ANY size.

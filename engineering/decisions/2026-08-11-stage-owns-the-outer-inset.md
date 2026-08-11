@@ -72,9 +72,9 @@ separate inset doing the first one's job, and it was not counted.
   the clip, and its named contract in `check-chart-fit.js`, `overflow-probe.js`,
   `carousel.js`, `split-envelope.js`, `prose-projection.mjs`,
   `masthead.transform.js`, `player-core.mjs`, `manifest.schema.json`.
-- **Five per-chart inset tunings re-homed** to the stage cell verbatim — a
-  parent's padding cannot be overridden by a child, so a tuning of the inset has
-  to travel with the inset it tunes:
+- **Five per-chart inset tunings re-homed** — a parent's padding cannot be
+  overridden by a child, so a tuning of the inset has to travel with the inset it
+  tunes. Values moved verbatim:
 
   | | block | inline |
   |---|---|---|
@@ -83,6 +83,9 @@ separate inset doing the first one's job, and it was not counted.
   | state-chart | `--sp-md` | `--sp-2xl` |
   | timeline-list | `--sp-xl` / `--sp-lg` | `--sp-2xl` |
   | timeline-list tall/strip | `--sp-lg` | `--sp-xl` |
+
+  They re-home to **tokens on the section**, not to padding on the stage — see §5,
+  which is the correction the trio forced.
 
 - **The glass panel keeps its inset and now OWNS it.** `.canvas` re-adds
   `padding: var(--sp-lg) var(--sp-2xl)` to `.chart-body`, conditional on the
@@ -129,7 +132,51 @@ A rule that reads as if it were in force and is not is worse than no rule. That
 was the card's real complaint, and scoping answers it without breaking the path
 the card had not measured.
 
-## 5. Calls made explicitly, so they are not discovered later
+## 5. The tuning is a TOKEN, because a chart has two holders
+
+This is the one place the first cut of this change was wrong, and the adversarial
+trio's inversion pass caught it with a measurement.
+
+A chart body has **two possible holders**: `.cell-stage` under the Form, and the
+SECTION itself on the `no-form` path (§4). The first cut spelled the inset as
+`padding` on each holder — which means every per-chart tuning needs a PAIR of
+rules, and nothing checks that a pair stayed a pair. It shipped the family default
+and the tall/strip arm on both paths and **silently dropped state-chart's and
+timeline-list's on the `no-form` path**: measured on a real render, a `no-form`
+timeline-list lost the asymmetric block pair its own stylesheet calls the point of
+the tuning ("the spine's date pills sit high, so the top seam is a step looser than
+the bottom") and fell back to the family's symmetric 32px.
+
+The failure was not the missing rules — those are three lines. It was the *shape*:
+a rule per tuning per holder is a pairing invariant with no enforcement, and the
+next tuning would have broken it again.
+
+So the tuning is now a **token on the section**, and the two holders are its only
+consumers:
+
+```css
+section.chart-frame            { --chart-inset-x: var(--sp-2xl);
+                                 --chart-inset-top: var(--sp-lg);
+                                 --chart-inset-bottom: var(--sp-lg); }
+section.chart-frame > .cell-stage { padding: var(--chart-inset-top)
+                                            var(--chart-inset-x)
+                                            var(--chart-inset-bottom); }
+section.chart-frame:not(.form)   { padding: 0 var(--chart-inset-x) <footer band>;
+                                   row-gap: var(--chart-inset-top); }
+```
+
+A per-chart tuning restates only the token it changes. Overriding an inset can no
+longer reach one path and miss the other, because there is only one declaration to
+override. Verified on a real `no-form` render: timeline-list's seam is `--sp-xl`
+(48px), state-chart's is `--sp-md` (24px), the family default is `--sp-lg` (32px) —
+each the value that chart carried before. The Form path is byte-identical to the
+padding-on-the-stage cut it replaces (re-measured, all 18 chart-fit slides).
+
+Only the TOP token has a seam to sit in on the `no-form` path; that section's own
+`padding-bottom` is the footer band, comfortably larger than any
+`--chart-inset-bottom`, so it is the bottom clearance there.
+
+## 6. Calls made explicitly, so they are not discovered later
 
 - **Diagram takes no stage padding, chart does.** A chart is a figure among
   chrome; its stage inset is a real design tuning, and the values are the ones
@@ -149,6 +196,20 @@ the card had not measured.
   cannot be asymmetric, so expressing it as one would move two seams to fix a
   third. It adds nothing on the inline axis and nothing at the stage edge, so it
   is outside what the rule governs.
+- **The marp-vscode webview is UNVERIFIED, not cleared.** Both retired calcs cited
+  it ("the webview can resolve `100%` against an indeterminate ancestor"). The
+  first cut of this change argued the surface away — that export-to-Marp
+  "re-exports the deck rather than rendering it in that webview" — and that is
+  **false**: `lib/core/marp-bundle.js` says in its own header that the bundle "is
+  rendered with Marp (the VS Code extension or marp-cli)", it writes a
+  `.vscode/settings.json` pointing that extension at these stylesheets, and it
+  ships the browser runtime, so the webview does build `.cell-stage` and does see
+  these rules. The surface cannot be driven from this sandbox, so under HARD RULE
+  #23 it is marked UNVERIFIED at both declarations. What is known: `state-chart`
+  has carried `width: 100%` through every bundle shipped to it without a report,
+  and `max-width: 100%` still walls the box if an ancestor ever is indeterminate.
+  HARD RULE #12's retirement is the precedent for how such a claim gets settled —
+  retest it on a real one and record the result, rather than arguing either way.
 - **The Read·Article projection (`figure.chart-frame`) is out of scope.** It
   re-hosts a chart body inside a `figure` with no Form and no `.cell-stage`, so
   an inset on the body is correct there. `timeline-list`'s figure arms keep their
@@ -159,7 +220,7 @@ the card had not measured.
   `hidden` (no layout), `state-legend` is a centered flex band (narrowing it
   moves nothing), and `chart-caption` is handled above — measured identical.
 
-## 6. What it cost, measured
+## 7. What it cost, measured
 
 `test/fixtures/chart-fit.md`, landscape, before → after:
 
@@ -174,6 +235,25 @@ the card had not measured.
   timeline-list, roadmap) the content genuinely widens.
 - **state-chart: byte-identical**, as predicted — it never carried the width
   calc, and is the in-tree precedent that the calc was never load-bearing.
+- **A `canvas` chart is byte-identical too, after a fix the trio's checker
+  forced.** The first cut left the stage's block inset in place AND had `.canvas`
+  re-add the panel's, insetting the block axis twice: measured, a `quadrant canvas`
+  lost 64px of drawing height and its glass card dropped 32px. No committed deck
+  opts into `canvas`, which under HARD RULE #18 is exactly the "low-visibility is
+  not an exit" case, not a reason to ship it. The fix is one line and only the
+  token design makes it one: `.canvas` zeroes `--chart-inset-top`/`-bottom`, so the
+  stage yields the block inset to the box that paints, on BOTH holder paths at
+  once. Re-measured: panel 1024 x 407.7 @ x=128 filling the stage with its own
+  32/64 inset — its pre-#1598 geometry exactly.
+- **Two moves that are NOT neutral, disclosed rather than discovered later.** The
+  chart CAPTION, a stage sibling, moves 32px UP the block axis (its border box
+  narrows to the stage content box; its text box is unchanged at 1024 @ x=128, which
+  is the claim §3 makes and all it claims). And on the `no-form` path the section's
+  new `padding-inline` insets the HEADING as well as the body — the `h2` goes from
+  1280 @ x=0 to 1152 @ x=64. That one is an improvement (the heading used to bleed
+  to the literal slide edge while the chart sat at x=128), but it is a change on a
+  path the card never asked to touch, so it is stated here rather than left to be
+  found.
 - **`check:chart-fit` improved, and was already red.** Before: 5 clips
   (landscape roadmap +10.5, portrait progress +15, portrait timeline-list +12.3,
   square progress +55.5, square roadmap +203). After: 4 — landscape roadmap
@@ -182,20 +262,58 @@ the card had not measured.
   portrait/square even with autosplit), not an inset one, and are **off the path**
   of this change: tracked as **#1600** rather than pulled into this diff or left
   unrecorded (HARD RULE #18). `SANCTIONED_CLIPS` stays empty.
-- **`chart-overflow-preserved.test.js`: 7/7 green.** The spill threshold is
-  unchanged by construction — the body's natural height no longer includes its
-  own 2 × `--sp-lg`, and the stage's content height is smaller by exactly that.
+- **The overflow probe's reading got MORE accurate, and this is the one claim in
+  the first cut that was simply wrong.** It said the spill threshold was
+  "unchanged by construction". It is not: Chromium does **not** add a
+  non-scrolling flex column's `padding-bottom` to `scrollHeight`, and
+  `flowedSpill` compares child rects against the stage's BORDER box, so moving the
+  inset up one box drops the reported spill by one `--sp-lg` (32px at hd).
+  Measured directly — 200px of content, a 200px clip box, the only difference
+  being which box carries the 24px block padding:
 
-## 7. How the rule is kept
+  | inset on | `scrollHeight` | `clientHeight` | reported spill |
+  |---|---|---|---|
+  | the body | 248 | 200 | 48 |
+  | the stage | 224 | 200 | 24 |
+
+  The 24 that stopped being counted was the body's own **blank** padding, not
+  content — the phantom `overflow-probe.js`'s own comments complain about
+  ("steadily reports ~43 hidden px on a page that plainly fits … fed
+  `resplitDoc`, cutting a fitting slide into half-empty pages"). Real content is
+  clipped at exactly the same point before and after (`C > clientH − padTop` both
+  ways); what changed is that the probe used to fire one `padding-bottom` EARLY,
+  on slides where nothing was actually cut, and now fires exactly on the loss. So
+  this removes false positives rather than hiding true ones — but it does mean a
+  chart in that narrow band no longer autosplits, and **#680 must budget for the
+  threshold moving again, in the strict direction, when it zeroes that
+  `--chart-inset-*`.** `chart-overflow-preserved.test.js` is 7/7 green.
+
+## 8. How the rule is kept
 
 Two gates, paired deliberately, because each is blind to the other's failures.
 
 - **`checkStageInsetOwnership`** (`tools/check-ownership.js`, via `build:check`).
   Browser-free, budget 0 + `SANCTIONED_STAGE_INSETS`, failing both ways like
-  `SANCTIONED_MARGINS`. It fires on a container-unit subtraction on a SIZING
-  property — the shape the defect actually takes — across every component, the
-  moment it is typed. A container-unit subtraction in `padding`/`gap` is spacing
-  that says so, and is the rule's own idiom, so it is not matched.
+  `SANCTIONED_MARGINS`. Two checks, because the defect has two natural spellings:
+  **(a)** repo-wide, a container-unit SUBTRACTION on a sizing property, in
+  `calc()`/`min()`/`max()`/`clamp()` alike; **(b)** `padding` on a rule whose
+  SUBJECT is a body element (`.chart-body`, `.mermaid-svg`, `.mermaid`), which is
+  the easiest wrong move of all and which (a) structurally cannot see. (b) exits
+  on a selector naming `.canvas` (the panel paints, so it earns an inset) or
+  `figure` (the projection has no stage). Both exits come from the rule's second
+  clause rather than being bolted on.
+
+  Its **known holes are stated in the gate, not implied**: (a) cannot see a
+  pre-evaluated fraction (`width: 90cqi` is the same defect with the arithmetic
+  already done — and the comment this change deleted literally taught that
+  spelling) or a `100%` subtraction, and (b) only knows the three body classes it
+  names. The render assertion covers both.
+
+  Verified against 16 spellings, including the two false positives the trio found
+  in the first cut: `calc(100cqi * var(--canvas-scale))` and
+  `calc(100cqh * var(--zoom-factor, 1))` used to fail the gate, because a token
+  NAME contains hyphens and the operator test could not tell one from a
+  subtraction. `var(--…)` references are blanked before the test now.
 - **The inset assertion in `tools/check-chart-fit.js`.** A real render at
   landscape / portrait / square asserting the body's border box coincides with
   the stage's content box on the inline axis, and that the body carries no
@@ -208,9 +326,16 @@ Two gates, paired deliberately, because each is blind to the other's failures.
   cell, and an overstuffed one MUST spill it so `overflow-probe.js` can see it.
 
   Not vacuous, verified: run against the pre-change tree it reports all 18 chart
-  slides and all 26 diagram slides; against the shipped tree, none.
+  slides and all 26 diagram slides; against the shipped tree, none. And not dead
+  code in the shipped gate either — `test/fixtures/chart-fit.md` gained a diagram
+  slide (with a `<blockquote>` sibling, the case that made diagram's second inset
+  visible), so the `.mermaid-svg` arm of the body selector is exercised by
+  `npm run check:chart-fit` rather than only by hand-pointing the tool at
+  `diagram.gallery.md`. Still uncovered by the fixture: `matrix-grid`, one of the
+  five `flex: 0 0 auto` pinned charts — a pre-existing coverage gap, noted in
+  #1600 rather than closed here.
 
-## 8. Relation to #680
+## 9. Relation to #680
 
 #680 is the *outcome* card — quadrant point labels sit below the house's smallest
 type tier. This was the *structural precondition*. Its "lever 2 — reclaim height"

@@ -165,11 +165,17 @@ async function measure(page, slack, vbSlack) {
       // Block axis is deliberately NOT asserted: a pinned list body (`flex: 0 0
       // auto`) is centered at its natural height and legitimately does not fill the
       // cell, and an overstuffed one MUST spill it so overflow-probe.js can see it.
-      if (stage) {
-        const body = stage.querySelector(':scope > .chart-body, :scope > .mermaid-svg, :scope > .mermaid, :scope > pre, :scope > marp-pre');
+      // The HOLDER is the stage under the Form and the SECTION on the `no-form`
+      // path — the rule is about which box owns the inset, not about a class name,
+      // and `no-form` / `form: off` are supported opt-outs. Keying on `.cell-stage`
+      // alone left this assertion silent on exactly the path where the first cut of
+      // #1598 regressed, so it falls back to the section instead of skipping.
+      const holder = stage || sec;
+      {
+        const body = holder.querySelector(':scope > .chart-body, :scope > .mermaid-svg, :scope > .mermaid, :scope > pre, :scope > marp-pre');
         if (body?.getClientRects().length) {
-          const sr = stage.getBoundingClientRect();
-          const sc = getComputedStyle(stage);
+          const sr = holder.getBoundingClientRect();
+          const sc = getComputedStyle(holder);
           const br = body.getBoundingClientRect();
           const bc = getComputedStyle(body);
           const num = (v) => Number.parseFloat(v) || 0;
@@ -184,7 +190,7 @@ async function measure(page, slack, vbSlack) {
               .some((w) => num(w) > 0);
           insets.push({
             slide: +sec.id || insets.length + 1,
-            component,
+            component: stage ? component : `${component} (no-form)`,
             // `getAttribute`, not `.className`: on an SVG element that property is an
             // SVGAnimatedString and stringifies to `[object SVGAnimatedString]`.
             body: body.getAttribute('class') || body.tagName,
@@ -407,7 +413,7 @@ async function main() {
       console.error(`\ncheck-chart-fit: ${insetBad.length} re-derived outer inset(s) across ${sizes.length} size(s):\n`);
       for (const r of insetBad) {
         console.error(
-          `  \u2717 [${r.size}] slide ${r.slide} (${r.component}): <${r.body}> does not fill its .cell-stage ` +
+          `  \u2717 [${r.size}] slide ${r.slide} (${r.component}): <${r.body}> does not fill its holder's ` +
           `content box \u2014 inset[L ${r.insetLeft} R ${r.insetRight}] pad[${r.pad}]. The stage owns the outer ` +
           'inset (design/forms.md \u00a76.1); a body re-deriving it makes the figure pay twice.',
         );
@@ -433,7 +439,10 @@ async function main() {
       }
       console.error('');
       failed = true;
-    } else {
+    } else if (!insetBad.length) {
+      // `!insetBad.length` is load-bearing: this `else` used to be guarded only by
+      // the CLIP arrays, so a run that reported every inset failure then printed the
+      // all-clear sentence underneath them. A log tail would have read green.
       console.log(
         `check-chart-fit: ${stageCount} chart slide(s) fit their stage, ${insetCount} body/stage pair(s) inset ` +
         `once, and ${boxCount} SVG(s) fit their viewBox, ` +

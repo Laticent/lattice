@@ -7,17 +7,20 @@
  * Date pill sits above the dot; title + status pill + body sit below.
  * Items distribute evenly along the spine. */
 /* THE OUTER INSET, timeline-list's tuning of it (#1598) — re-homed from
- * `.chart-body` to the stage cell, values moved verbatim (a parent's padding
- * cannot be overridden by a child, so a per-chart tuning has to travel with the
- * inset it tunes). The asymmetric block pair is the point of the tuning: the
- * spine's date pills sit high, so the top seam is a step looser than the bottom.
+ * `.chart-body` to the family's inset TOKENS (chart-family.css), values moved
+ * verbatim. A parent's padding cannot be overridden by a child, so the tuning has
+ * to travel with the inset it tunes; as a token it reaches BOTH holders
+ * (`.cell-stage` under the Form, the section on the `no-form` path) from one
+ * declaration. The asymmetric block pair is the point of the tuning: the spine's
+ * date pills sit high, so the top seam is a step looser than the bottom.
  *
  * The Read·Article PROJECTION keeps its inset on `.chart-body` (below). That path
  * re-hosts the body inside a `figure`, with no Form and no `.cell-stage` — the
  * inset rule is a Forms rule about the stage cell, and there is no stage there to
  * own anything. Byte-identical projection, deliberately. */
-section.timeline-list.chart-frame > .cell-stage {
-  padding: var(--sp-xl) var(--sp-2xl) var(--sp-lg);
+section.timeline-list.chart-frame {
+  --chart-inset-top: var(--sp-xl);
+  --chart-inset-bottom: var(--sp-lg);
 }
 :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
   align-items: center;
@@ -160,10 +163,13 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
   align-items: stretch;
   justify-content: center;
 }
-/* The tall/strip inset, re-homed to the stage with the landscape one (#1598).
- * Wins the family's tall/strip stage rule on class count — (0,3,1) vs (0,2,1). */
-section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
-  padding: var(--sp-lg) var(--sp-xl);
+/* The tall/strip inset, re-homed to the same tokens as the landscape one (#1598).
+ * Out-specifies the family's tall/strip token block on class count — (0,2,1) vs
+ * (0,1,1) — and its own landscape block above by source order at equal weight. */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
+  --chart-inset-x: var(--sp-xl);
+  --chart-inset-top: var(--sp-lg);
+  --chart-inset-bottom: var(--sp-lg);
 }
 :where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
   padding: var(--sp-lg) var(--sp-xl);

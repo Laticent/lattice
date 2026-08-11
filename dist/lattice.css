@@ -4762,6 +4762,13 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    slides, headless Chromium) at landscape, portrait and square: every box resolves
    to the full stage content width, none to 0.
 
+   The MARP-VSCODE WEBVIEW, which the same note was written for, is **UNVERIFIED**
+   (HARD RULE #23) — it cannot be driven from this sandbox, and it is NOT a retired
+   surface: the export-to-Marp bundle is rendered by that extension and ships this
+   CSS plus the browser runtime to it (lib/core/marp-bundle.js). Retest it there
+   and record the result rather than assuming either way; `max-width: 100%` below
+   is the wall if the ancestor ever is indeterminate.
+
    `flex:1` (the pre-migration value, kept EXACTLY): the Mermaid SVG SELF-SCALES —
    `mermaid.css` forces `.mermaid-svg svg { height:100% !important }` and the SVG's own
    `preserveAspectRatio` letterboxes it — so it always fits its flex box, at ANY size.
@@ -15096,15 +15103,20 @@ section.state-chart {
 }
 
 /* THE OUTER INSET, state-chart's tuning of it (#1598). Re-homed from `.chart-body`
- * to the stage cell: a parent's padding cannot be overridden by a child, so a
- * per-chart tuning of the inset has to live on the box that now owns the inset.
+ * to the family's inset TOKENS (chart-family.css): a parent's padding cannot be
+ * overridden by a child, so the tuning has to live where the inset now does — and
+ * as a token it reaches BOTH holders (`.cell-stage` under the Form, the section on
+ * the `no-form` path) from one declaration. Only the block token differs from the
+ * family default, so only that one is restated.
+ *
  * The values are state-chart's own, moved verbatim — and because state-chart never
  * carried the family's width calc (it already shipped `width: 100%`), its geometry
  * is unchanged to the pixel: the body box, the caption's text box, and the legend
  * band all land exactly where they did. It is the in-tree precedent that the calc
  * was never load-bearing. */
-section.state-chart.chart-frame > .cell-stage {
-  padding: var(--sp-md) var(--sp-2xl);
+section.state-chart.chart-frame {
+  --chart-inset-top: var(--sp-md);
+  --chart-inset-bottom: var(--sp-md);
 }
 
 section.state-chart.chart-frame .chart-body {
@@ -16289,17 +16301,20 @@ section.statute-stack > .cell-stage {
  * Date pill sits above the dot; title + status pill + body sit below.
  * Items distribute evenly along the spine. */
 /* THE OUTER INSET, timeline-list's tuning of it (#1598) — re-homed from
- * `.chart-body` to the stage cell, values moved verbatim (a parent's padding
- * cannot be overridden by a child, so a per-chart tuning has to travel with the
- * inset it tunes). The asymmetric block pair is the point of the tuning: the
- * spine's date pills sit high, so the top seam is a step looser than the bottom.
+ * `.chart-body` to the family's inset TOKENS (chart-family.css), values moved
+ * verbatim. A parent's padding cannot be overridden by a child, so the tuning has
+ * to travel with the inset it tunes; as a token it reaches BOTH holders
+ * (`.cell-stage` under the Form, the section on the `no-form` path) from one
+ * declaration. The asymmetric block pair is the point of the tuning: the spine's
+ * date pills sit high, so the top seam is a step looser than the bottom.
  *
  * The Read·Article PROJECTION keeps its inset on `.chart-body` (below). That path
  * re-hosts the body inside a `figure`, with no Form and no `.cell-stage` — the
  * inset rule is a Forms rule about the stage cell, and there is no stage there to
  * own anything. Byte-identical projection, deliberately. */
-section.timeline-list.chart-frame > .cell-stage {
-  padding: var(--sp-xl) var(--sp-2xl) var(--sp-lg);
+section.timeline-list.chart-frame {
+  --chart-inset-top: var(--sp-xl);
+  --chart-inset-bottom: var(--sp-lg);
 }
 section.timeline-list.chart-frame .chart-body, figure.timeline-list.chart-frame .chart-body{
   align-items: center;
@@ -16442,10 +16457,13 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
   align-items: stretch;
   justify-content: center;
 }
-/* The tall/strip inset, re-homed to the stage with the landscape one (#1598).
- * Wins the family's tall/strip stage rule on class count — (0,3,1) vs (0,2,1). */
-section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
-  padding: var(--sp-lg) var(--sp-xl);
+/* The tall/strip inset, re-homed to the same tokens as the landscape one (#1598).
+ * Out-specifies the family's tall/strip token block on class count — (0,2,1) vs
+ * (0,1,1) — and its own landscape block above by source order at equal weight. */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
+  --chart-inset-x: var(--sp-xl);
+  --chart-inset-top: var(--sp-lg);
+  --chart-inset-bottom: var(--sp-lg);
 }
 :where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
   padding: var(--sp-lg) var(--sp-xl);
@@ -19741,8 +19759,27 @@ section.chart-frame {
    * top chrome instead. */
   border-top: none;
   background: var(--bg);
+
+  /* ── THE CHART'S OUTER INSET, declared ONCE as tokens (design/forms.md §6.1,
+   * #1598). The stage owns the inset; a body owns only the spacing between its
+   * own elements. But a chart has TWO possible holders — `.cell-stage` under the
+   * Form, the SECTION on the `no-form` path — and a per-chart tuning has to reach
+   * both. Spelled as PADDING on each holder that would be two rules per tuning,
+   * ten rules for five tunings, with nothing checking that a pair stayed a pair;
+   * the first cut of this change proved the hazard by shipping the family arms and
+   * silently dropping timeline-list's and state-chart's on the no-form path.
+   *
+   * So the TUNING is a token on the section (one declaration, inherited), and the
+   * two holders are its only CONSUMERS. Overriding an inset now means overriding
+   * a token, which cannot reach one path and miss the other. The default is the
+   * inset `.chart-body` used to carry; the per-chart tunings restate only the
+   * token they change (see the tall/strip arm below, state-chart.styles.css and
+   * timeline-list.styles.css). */
+  --chart-inset-x: var(--sp-2xl);
+  --chart-inset-top: var(--sp-lg);
+  --chart-inset-bottom: var(--sp-lg);
 }
-/* THE OUTER INSET, on the `no-form` path (design/forms.md §6.1, #1598).
+/* CONSUMER 2 of the inset tokens — the `no-form` path.
  * Scoped `:not(.form)` deliberately. This block used to carry an UNSCOPED
  * `padding: 0 0 calc(4.375 * --_sec-1cqi)` and read as if the chart section had
  * no side inset — on a Form slide it does not: `section.form`'s
@@ -19757,17 +19794,19 @@ section.chart-frame {
  * the body, so the section owns the inset the stage owns under the Form. Measured:
  * deleting it outright moves a `no-form` chart's body box and its footer band.
  *
- * The INLINE inset is `--sp-2xl` — exactly what the retired `.chart-body` width
- * calc contributed on this path — so the body box lands where it always did
- * (1152 @ x=64 at hd), and only the body's OWN duplicate inset is reclaimed. The
+ * The INLINE inset lands as padding — exactly what the retired `.chart-body` width
+ * calc contributed on this path, so the body box lands where it always did
+ * (1152 @ x=64 at hd) and only the body's OWN duplicate inset is reclaimed. The
  * BLOCK seam is a `row-gap`, not padding: the section here is a flex column
  * holding `h2 → .chart-body`, and a `padding-top` would inset the HEADING too
  * (chrome, not body). A gap is spacing between the container's own children —
- * the half of the rule a container is allowed to own. */
+ * the half of the rule a container is allowed to own. Only the TOP inset has a
+ * seam to sit in; the section's own `padding-bottom` (the footer band, well over
+ * any `--chart-inset-bottom`) is the bottom clearance. */
 section.chart-frame:not(.form) {
   /* section-OWN cqi: route the footer band through --_sec-1cqi (preview self-reference) */
-  padding: 0 var(--sp-2xl) calc(4.375 * var(--_sec-1cqi, 1cqi));
-  row-gap: var(--sp-lg);
+  padding: 0 var(--chart-inset-x) calc(4.375 * var(--_sec-1cqi, 1cqi));
+  row-gap: var(--chart-inset-top);
 }
 
 /* ── Categorical chart colour model ───────────────────────────────────────
@@ -20077,13 +20116,24 @@ section.chart-frame .chart-body {
    *
    * The calc's stated justification was that "VS Code Marp preview's webview can
    * resolve `100%` against an indeterminate ancestor" and let the body grow
-   * unbounded. It does not apply here: the ancestor is `.cell-stage`, a definite
-   * flex cell (`flex:1; min-height:0; overflow:clip`) on a fixed-size slide, and
-   * `state-chart` has shipped `width:100%` against it all along. Marp is retired
-   * as a render path (HARD RULE #1) — the one surviving surface is export-to-Marp
-   * (`lib/core/marp-bundle.js`), which re-exports the deck rather than rendering
-   * it in that webview. Re-measured on the real render at landscape / portrait /
-   * square: identical body box, no unbounded growth. */
+   * unbounded. On THIS render path it does not apply: the ancestor is
+   * `.cell-stage`, a definite flex cell (`flex:1; min-height:0; overflow:clip`) on
+   * a fixed-size slide, `state-chart` has shipped `width:100%` against it all
+   * along, and the box was re-measured on the real render at landscape / portrait
+   * / square — identical, no unbounded growth.
+   *
+   * THE MARP-VSCODE WEBVIEW ITSELF IS **UNVERIFIED** (HARD RULE #23), and do not
+   * read the paragraph above as clearing it. Marp is retired as a RENDER path
+   * (#1), but the export-to-Marp bundle is not a re-export that ends here: its own
+   * spec says it "is rendered with Marp (the VS Code extension or marp-cli)", it
+   * writes a `.vscode/settings.json` pointing that extension at these stylesheets,
+   * and it ships the browser runtime — so the webview does build `.cell-stage` and
+   * does see this rule. That surface cannot be driven from this sandbox, so it was
+   * NOT tested. What is known: `state-chart` has carried `width: 100%` through
+   * every bundle shipped to it without a report, and if the ancestor ever were
+   * indeterminate there, `max-width: 100%` below still walls the box at the slide.
+   * (HARD RULE #12's retirement is the precedent for how these webview claims get
+   * settled: retest it there, on a real one, and record the result.) */
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -20102,12 +20152,12 @@ section.chart-frame .chart-body {
   overflow: hidden;
 }
 
-/* ── THE OUTER INSET, on the Form path (design/forms.md §6.1, #1598) ──────────
+/* ── CONSUMER 1 of the inset tokens — the Form path (design/forms.md §6.1, #1598)
  * One box, one inset. `.chart-body` used to carry both an outer inset (its width
  * calc) and its own padding on top of the frame's; the stage cell now owns the
- * whole thing and the body fills its content box exactly. The values are the ones
- * `.chart-body` used to carry, moved verbatim, so a chart's berth is unchanged —
- * what is reclaimed is the duplicate (the retired width calc), which is why every
+ * whole thing and the body fills its content box exactly. The token defaults are
+ * the values `.chart-body` used to carry, so a chart's berth is unchanged — what
+ * is reclaimed is the duplicate (the retired width calc), which is why every
  * figure gains 2 × `--sp-2xl` of INLINE room and NOTHING moves on the block axis
  * (the `cqh` basis — "fill height minus the inset" — is the same number, just
  * subtracted one box higher).
@@ -20119,7 +20169,7 @@ section.chart-frame .chart-body {
  * chart loses its tail — which the probe can see — instead of its head, which it
  * cannot. An `align-*` modifier overrides at higher specificity. */
 section.chart-frame > .cell-stage {
-  padding: var(--sp-lg) var(--sp-2xl);
+  padding: var(--chart-inset-top) var(--chart-inset-x) var(--chart-inset-bottom);
   justify-content: safe center;
 }
 
@@ -20159,15 +20209,14 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
  * Pull the side inset right in so the figure (and its text) reads as large as
  * possible. Keyed on the deck's `data-family` stamp; landscape untouched.
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md.
- * Re-homed from `.chart-body` to the stage with #1598 (a parent's padding cannot be
- * overridden by a child, so the tuning has to move with the inset it tunes); it used
- * to be spelled twice, once in the width calc and once in the padding. */
-section.chart-frame:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
-  padding: var(--sp-md) var(--sp-sm);
-}
-section.chart-frame:where([data-family="tall"], [data-family="strip"]):not(.form) {
-  padding-inline: var(--sp-sm);
-  row-gap: var(--sp-md);
+ * Re-homed from `.chart-body` to the inset TOKENS with #1598 (a parent's padding
+ * cannot be overridden by a child, so the tuning has to move with the inset it
+ * tunes); it used to be spelled twice, once in the width calc and once in the
+ * padding, and it is now spelled once for both holders. */
+section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
+  --chart-inset-x: var(--sp-sm);
+  --chart-inset-top: var(--sp-md);
+  --chart-inset-bottom: var(--sp-md);
 }
 
 
@@ -20208,6 +20257,20 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]):not(.form
    drops the glass card clear of the header hairline without a margin. The frame is
    header → body (→ optional caption); the body→caption seam keeps the same lift,
    which reads as deliberate breathing room on a bleeding canvas. */
+/* THE PANEL IS THE HOLDER when the canvas is on, so the STAGE yields the block
+ * inset to it (#1598). The panel paints on `.chart-body` and re-adds the block
+ * inset below as its own; leaving the stage's in place too would inset the block
+ * axis TWICE and shorten the glass card by 2 x --sp-lg — a self-inflicted
+ * regression the trio's checker measured at 64px of lost drawing height on a
+ * `quadrant canvas`. Zeroing the token here (rather than the stage's padding)
+ * keeps the no-form path in step for free, which is the whole reason the inset is
+ * a token. The INLINE token stays: the frame inset is still the frame's, the panel
+ * sits at 1024 as it always did, and the panel's own inline inset is the padding
+ * below. Result: a `canvas` chart is byte-identical to its pre-#1598 render. */
+section.chart-frame.canvas:not(.state-chart) {
+  --chart-inset-top: 0px;
+  --chart-inset-bottom: 0px;
+}
 section.chart-frame.canvas:not(.state-chart) { row-gap: var(--sp-lg); }
 section.chart-frame.canvas:not(.state-chart) .chart-body {
   /* THE PANEL'S OWN INTERNAL INSET — the one padding the Forms inset rule leaves
@@ -24540,7 +24603,15 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
    * does not reflow when the diagram swaps in, and `.mermaid` has no padding — so
    * the source text sat 24px inside the diagram that replaces it, and 24px inside
    * the title above it. Measured on diagram.gallery.md: the un-rendered `<pre>`
-   * now shares one left edge with the dek, the title and the Key Insight. */
+   * now shares one left edge with the dek, the title and the Key Insight.
+   *
+   * BOTH ARMS of this selector are zeroed, including the unscoped
+   * `[data-mermaid-state]` one that reaches a non-slide host (a plain markdown
+   * preview, the Studio's preview frame). That is deliberate and rests on the same
+   * ground, not on the slide context: the two lines below strip the background and
+   * the border on both arms, so the box paints nothing on any host and owes no
+   * inset anywhere. The non-slide arm's own sizing (width/height, below) is
+   * untouched. */
   padding:0 !important;
   background:none !important;
   border:none !important;
