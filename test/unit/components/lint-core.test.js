@@ -839,6 +839,23 @@ describe('lint-core: unterminated comment', () => {
 		assert.ok(!rules(src).includes('unterminated-comment'));
 	});
 
+	test('a hanging-indent comment is NOT flagged — its terminator line is indented', () => {
+		// The rule originally ran against `withoutCodeBlocks`, which deletes every line
+		// indented four spaces or more as an indented code block — taking the terminator of
+		// an ordinary hanging-indent note with it. A well-formed comment then reported as
+		// unterminated, at ERROR severity, claiming the author's notes would ship when they
+		// asked to strip them. A false alarm about a privacy failure teaches authors to
+		// distrust the strip, which is worse than the miss it was guarding against.
+		const src = [
+			'---', 'marp: true', '---', '', '# Q3', '',
+			'<!-- Talk track:',
+			'     open with the number, then the ask.',
+			'     Keep it under two minutes. -->',
+			'',
+		].join('\n');
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
 	test('a `<!--` inside a code fence is sample text, not a comment', () => {
 		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!-- sample, deliberately unclosed', '```', ''].join('\n');
 		assert.ok(!rules(src).includes('unterminated-comment'));

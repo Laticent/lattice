@@ -138,6 +138,15 @@ var require_standalone_svg = __commonJS({
         "paint-order": "normal",
         "mix-blend-mode": "normal"
       };
+      const SCHEME_TOKENS = [
+        "--diagram-line",
+        "--diagram-active",
+        "--diagram-done",
+        "--diagram-critical",
+        "--diagram-today",
+        "--diagram-note"
+      ];
+      const PAINT_PROPS = { fill: 1, stroke: 1 };
       const doc = srcSvg.ownerDocument;
       const SVGNS = "http://www.w3.org/2000/svg";
       const probe = doc.createElementNS(SVGNS, "rect");
@@ -271,7 +280,16 @@ var require_standalone_svg = __commonJS({
               const v = cs.getPropertyValue(p);
               if (!v) continue;
               if (Object.hasOwn(INIT, p) && v === INIT[p]) continue;
-              decl += p + ":" + v + ";";
+              let out2 = v;
+              if (Object.hasOwn(PAINT_PROPS, p)) {
+                for (let t = 0; t < SCHEME_TOKENS.length; t++) {
+                  if (resolveColor("var(" + SCHEME_TOKENS[t] + ")") === v) {
+                    out2 = "var(" + SCHEME_TOKENS[t] + ")";
+                    break;
+                  }
+                }
+              }
+              decl += p + ":" + out2 + ";";
             }
           }
           const keepPrev = tag === "stop" ? "" : prev || "";

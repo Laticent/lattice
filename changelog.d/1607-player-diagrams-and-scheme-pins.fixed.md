@@ -125,6 +125,18 @@
   730,767 (+21.5%). The first is the dual-mode block (the scheme-pin fix); the second is mostly
   the baked diagram text, which IS the feature. Scoping the derived closure to `:root` took the
   dual-mode block from ~68.6 KB to ~38.6 KB.
+- **A baked diagram follows the player's toggle instead of freezing at export.** Inlining each
+  diagram's computed paint is right for a scheme-PINNED slide and wrong for an unpinned one in
+  a file whose viewer owns a light/dark switch: the paint stayed at its export-time value while
+  the surface under it flipped. Measured on an ordinary unpinned `_class: diagram` slide, the
+  connector strokes stayed `#1A1A1A` on a `#001D33` canvas — **1.09:1** — while their
+  arrowheads re-themed through a `!important` rule in `mermaid.css`, so the diagram read as
+  floating arrowheads with no lines between them. This is the same shape as the bug that opened
+  this whole change: correct to the sender, broken for the recipient. A paint whose value equals
+  a scheme-varying token's current resolution now rides as that TOKEN — the same trick the label
+  ink already used for `--text-heading`, generalized to `fill`/`stroke` over the `--diagram-*`
+  family. Verified across the toggle: `#1A1A1A` → `#CBD9E8`, edges matching their arrowheads.
+  Pinned decks are unaffected in either direction.
 - **The note boundary reads a comment the way the browser does.** `--!>` closes an HTML comment
   (as a parse error, but it closes) and the kernel regex only knew `-->`, so a one-character typo
   merged a note with whatever followed it into a single body — which then entered the
@@ -148,4 +160,8 @@
   embedded source — the exact opposite of what the author asked for. New lint rule
   `unterminated-comment` (error). Deliberately a lint finding rather than a scrub: making the
   strip match to EOF would delete the rest of the deck from the author's own source, which is
-  worse than the leak it fixes.
+  worse than the leak it fixes. The rule neutralizes comment markers inside fenced blocks and
+  inline spans rather than deleting indented lines — the first cut ran against a helper that
+  strips any line indented four spaces or more, which ate the terminator of an ordinary
+  hanging-indent note and reported a well-formed comment as unterminated, at error severity,
+  claiming the author's notes would ship. Swept: 898 markdown files in the repo, zero findings.

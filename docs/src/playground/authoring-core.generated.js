@@ -944,10 +944,14 @@ var require_lint_core = __commonJS({
       return out;
     }
     var UNTERMINATED_COMMENT_RE = /<!--(?![\s\S]*?--!?>)/;
+    function withoutCodeCommentMarkers(text) {
+      const blank = (m) => m.replace(/<!--|--!?>/g, "");
+      return String(text).replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, blank).replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, blank).replace(/`[^`\n]*`/g, blank);
+    }
     function findUnterminatedComment(source) {
       const findings = [];
       splitTopLevel(String(source == null ? "" : source)).forEach((chunk, idx) => {
-        const body = withoutCodeBlocks(chunk);
+        const body = withoutCodeCommentMarkers(chunk);
         const m = body.match(UNTERMINATED_COMMENT_RE);
         if (!m) return;
         const line = (body.slice(m.index).split("\n")[0] || "<!--").trim();
