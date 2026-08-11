@@ -3617,20 +3617,29 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   // ── judged in #1618 ──────────────────────────────────────────────────────────
+  // The 12000ms entry is RETIRED. Its justification claimed a poll "would go green
+  // without ever waking the frozen tab" and that 12s "outlasts several 5s
+  // heartbeats" — the first was a rationalization (the DRIVE signal, how many ticks
+  // the woken page has run, is perfectly pollable even though the ASSERTION is an
+  // absence) and the second was wrong arithmetic (12s is two beats, not several).
+  // The spec now polls the page's own tick counter and then asserts.
   {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 12000, count: 1,
-    why: 'JUDGED KEEP (#1618). The pass condition is "and then the data did NOT come back". '
-       + 'A poll for zero records fires at the first zero — which is the state the moment the '
-       + 'wipe lands — and would go green without ever waking the frozen tab, i.e. it would pass '
-       + 'against the bug. The interval has to outlast several 5s heartbeats, because the '
-       + 'regression IS a heartbeat writing the record back. Verified to fail against the '
-       + 'pre-fix build, which a poll here could not do.',
+    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 3000, count: 1,
+    why: 'JUDGED KEEP (#1618, review follow-up). This IS the measurement, not a wait for one: it '
+       + 'is the window over which the test counts how many ticks a supposedly-frozen document '
+       + 'ran. The expected outcome is "almost none", so there is nothing to poll for — polling '
+       + 'would return at the first sample and could not distinguish a frozen page from a running '
+       + 'one. Its length sets the sensitivity (3s of a 250ms interval is ~12 ticks if the freeze '
+       + 'was a no-op, which is exactly what CDP setWebLifecycleState turned out to be here).',
   },
   {
     file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 1,
-    why: 'JUDGED KEEP (#1618). Absence assertion: an ordinary visit must NOT raise a crash toast. '
-       + 'There is no signal to poll for a thing that should never appear, and the toast is '
-       + 'raised from a mount effect that has long since run at 2s.',
+    why: 'JUDGED KEEP (#1618, re-judged after review). Absence assertion: an ordinary visit must '
+       + 'NOT raise a crash report. Nothing can be polled for a thing that should never appear. '
+       + 'The SUBJECT was corrected though — it now reads the persisted `reported` flag rather '
+       + 'than the toast, which self-dismisses after 12s and so went vacuously green on a loaded '
+       + 'box (measured: at 20x CPU throttle the crash toast rendered and was gone before the '
+       + 'assertion ran). A durable flag has no such window.',
   },
   // ── judged in #1564 ──────────────────────────────────────────────────────────
   {

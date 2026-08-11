@@ -532,7 +532,34 @@ evidence could not defend against the next sleeping tab. It holds one epoch
 millisecond — no deck content, no identifiers, nothing about what was deleted —
 and that is a considered exception to "erase everything", not an oversight.
 
-### Verified with a real browser freeze
+### CORRECTION: that freeze was never real (2026-08-11)
+
+**The claim below is false and is left standing so the mistake is legible.** A
+checker instrumented the page and found that CDP
+`Page.setWebLifecycleState('frozen')` is a **no-op** in this environment: the
+command resolves without error, no `freeze` event fires, and the document's own
+interval never misses a beat. Independently reproduced — 6 ticks of a 500ms timer
+during a 3s "frozen" window, `events: []`.
+
+So the check below exercised the pre-existing live `storage` listener, not
+`catchUpOnWipe`. Removing `catchUpOnWipe()` from `onResume` — the dedicated wake
+path #1625 added — left it green. And its red against the un-fixed build came
+from the wrong tab: the assertion read origin-wide storage, and the record that
+returned belonged to the WIPING tab, which the hand-rolled wipe left unsealed;
+the real `clearAllSessions` seals it, so that failure mode does not exist in the
+product.
+
+**#1616's fix therefore stands on reasoning, not on evidence.** The reasoning is
+sound and spec-level — a frozen document is not running tasks, so it cannot
+receive a `storage` event, and only something it can READ on waking can inform it
+— but the empirical claim was wrong and I made it three times (PR body, commit
+message, and the paragraph below). Marked **UNVERIFIED** until a browser that
+honors the freeze, or a real device, is available.
+
+The e2e spec now verifies the freeze happened and SKIPS with a reason when the
+environment will not honor it. A skip is a true statement; a silent pass is not.
+
+### The check as originally described (see the correction above)
 
 `.scratch/wipe-frozen-tab.mjs` freezes tab A through CDP
 `Page.setWebLifecycleState('frozen')` — the browser genuinely stops running its
@@ -580,7 +607,7 @@ two of them shipped *because* their unit tests passed.
 | the report surfaces and says what to try | `desktop` | toast shape, description legibility + not clipped, the steps section, opaque-error attribution, no sideways overflow |
 | the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
 | a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
-| a wipe survives a frozen tab | `desktop` (Chromium) | #1625, via CDP `Page.setWebLifecycleState` — a real freeze, since a dispatched `resume` never stops the document and so cannot reproduce it |
+| a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **skips** unless the environment honors the freeze, which this one does not (see the correction above). It asserts on the frozen page's OWN records, so the wiping tab can no longer be the oracle. |
 
 The contract is shared by two `test()` calls rather than one tagged spec, because
 the project tags are exclusive: a `@webkit-phone` test does **not** run on

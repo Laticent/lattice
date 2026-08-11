@@ -1,3 +1,4 @@
+import { RECORD_VERSION } from '../src/lib/crash-sentinel';
 import { expect, gotoStudio, test } from './studio-fixture';
 
 /**
@@ -21,7 +22,7 @@ import { expect, gotoStudio, test } from './studio-fixture';
 function staleCrashRecord(id: string, ageMs: number) {
 	const started = Date.now() - ageMs;
 	return {
-		v: 2,
+		v: RECORD_VERSION,
 		id,
 		startedAt: started,
 		lastBeat: started + 25_700,
@@ -50,11 +51,46 @@ function staleCrashRecord(id: string, ageMs: number) {
 async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash') {
 	await page.addInitScript((rec) => {
 		try {
-			localStorage.setItem(`lattice-studio-session-${rec.id}`, JSON.stringify(rec));
+			// SEED ONCE. `addInitScript` runs on EVERY navigation in the context, so an
+			// unconditional write re-seeds a pristine record after the app has already
+			// marked it reported — erasing the `reported` flag and making the report
+			// look as though it was never surfaced. That cost an afternoon: the toast
+			// appeared on screen while the durable evidence of it kept vanishing.
+			if (!localStorage.getItem(`lattice-studio-session-${rec.id}`)) {
+				localStorage.setItem(`lattice-studio-session-${rec.id}`, JSON.stringify(rec));
+			}
 		} catch {
 			/* storage unavailable — the assertions below will say so */
 		}
 	}, staleCrashRecord(id, 20 * 60_000));
+}
+
+/**
+ * The report was RAISED — a fact that outlives the toast.
+ *
+ * Separated from the visual contract because the two fail for different reasons:
+ * this one reds when the report did not happen at all, the visual one when it
+ * happened and looked wrong. Reading only the toast conflates them, and on a slow
+ * machine turns "the toast already dismissed" into "the feature is broken".
+ */
+async function expectReportWasRaised(page: Parameters<typeof gotoStudio>[0]) {
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() =>
+					Object.keys(localStorage)
+						.filter((k) => k.startsWith('lattice-studio-session-'))
+						.some((k) => {
+							try {
+								return JSON.parse(localStorage.getItem(k) || '{}').reported === true;
+							} catch {
+								return false;
+							}
+						}),
+				),
+			{ timeout: 30_000 },
+		)
+		.toBe(true);
 }
 
 /**
@@ -74,22 +110,55 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 	await expect(toast).toBeVisible({ timeout: 15_000 });
 	await expect(toast).toContainText(/stopped unexpectedly/i);
 
-	// THE SHAPE. A capsule is right for one line; stretched around a title, a
-	// description and an action it clipped its own last line of text at 390px.
-	expect(await toast.evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe('9999px');
+	// THE SHAPE — asserted as the value it must BE, not as the one value it must
+	// not be. `.not.toBe('9999px')` rejected exactly one literal and nothing else:
+	// a checker reproduced the defect faithfully at `64px` with 1.67:1 text and
+	// every assertion here stayed green. A test that only knows the old bad value
+	// cannot catch the next one.
+	expect(await toast.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('16px');
 
-	// THE DESCRIPTION MUST BE LEGIBLE. Sonner hardcodes #3f3f3f for descriptions,
-	// which on this deliberately dark toast was ~1.07:1 — invisible, and only in
-	// light mode, which is why review never caught it.
+	// THE DESCRIPTION MUST BE LEGIBLE — measured, not compared against the one
+	// color that was wrong. Sonner hardcodes #3f3f3f, which on this deliberately
+	// dark toast was ~1.07:1; the palettes ranged 1.6-2.0:1. Anything under AA is
+	// the bug, whatever its hex.
 	const desc = toast.locator('[data-description]');
 	await expect(desc).toBeVisible();
-	expect(await desc.evaluate((el) => getComputedStyle(el).color)).not.toBe('rgb(63, 63, 63)');
-	// …and inside its own box, rather than eaten by the corner curve.
-	const clipped = await toast.evaluate((el) => {
+	const contrast = await toast.evaluate((el) => {
 		const d = el.querySelector('[data-description]');
-		return d ? d.getBoundingClientRect().bottom > el.getBoundingClientRect().bottom : true;
+		if (!d) return 0;
+		// PAINT THE COLORS, don't parse them. A regex over `getComputedStyle().color`
+		// looked right and was wrong: Tailwind emits `oklab(1 0 0 / 0.8)` for an
+		// opacity-modified color, which a naive `[\d.]+` match reads as rgb(1,0,0) —
+		// near-black — and reported 1.21:1 for text that is actually white. Compositing
+		// through a canvas asks the browser what the pixel really is, in sRGB, and
+		// folds the alpha in the same way the eye sees it.
+		const px = (color: string, over?: string) => {
+			const c = document.createElement('canvas');
+			c.width = c.height = 1;
+			const g = c.getContext('2d');
+			if (!g) return [0, 0, 0];
+			if (over) {
+				g.fillStyle = over;
+				g.fillRect(0, 0, 1, 1);
+			}
+			g.fillStyle = color;
+			g.fillRect(0, 0, 1, 1);
+			const [r, gg, b] = g.getImageData(0, 0, 1, 1).data;
+			return [r, gg, b];
+		};
+		const lum = ([r, g, b]: number[]) => {
+			const f = (v: number) => {
+				const x = v / 255;
+				return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+			};
+			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+		};
+		const bg = getComputedStyle(el).backgroundColor;
+		const a = lum(px(getComputedStyle(d).color, bg)); // text composited over the toast
+		const b = lum(px(bg));
+		return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 	});
-	expect(clipped).toBe(false);
+	expect(contrast).toBeGreaterThanOrEqual(4.5);
 
 	await toast.getByRole('button', { name: /see report/i }).click();
 
@@ -115,47 +184,110 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 test('a crash report surfaces on the next boot and says what to try', async ({ page }) => {
 	await seedCrash(page);
 	await gotoStudio(page);
+	await expectReportWasRaised(page);
 	await expectReportReadsWell(page);
 });
 
 test('the crash report reads correctly on WebKit at phone size @webkit-phone', async ({ page }) => {
 	await seedCrash(page);
 	await gotoStudio(page);
+	await expectReportWasRaised(page);
 	await expectReportReadsWell(page);
 });
 
 test('a clean session is never reported as a crash', async ({ page }) => {
 	await gotoStudio(page);
+	// ASSERT DURABLE STATE, NOT THE TRANSIENT TOAST. The toast self-dismisses after
+	// 12s, while the fixture deliberately allows up to 45s for first paint — so on a
+	// loaded box the toast can be raised AND gone before the assertion runs, and a
+	// `toHaveCount(0)` then passes on a boot that DID report a crash. A checker
+	// measured exactly that at CPU throttle 20x: `toastsEverRendered` held the crash
+	// headline while the count at assert time was 0. `markReported` persists into the
+	// record instead, and outlives any paint delay.
 	await page.waitForTimeout(2_000);
-	// The whole feature rests on "an unclosed record is the signal". If an ordinary
-	// visit produced one, every boot would cry crash.
-	await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+	const reported = await page.evaluate(() =>
+		Object.keys(localStorage)
+			.filter((k) => k.startsWith('lattice-studio-session-'))
+			.map((k) => {
+				try {
+					return JSON.parse(localStorage.getItem(k) || '{}').reported === true;
+				} catch {
+					return false;
+				}
+			})
+			.filter(Boolean).length,
+	);
+	expect(reported).toBe(0);
+	// The toast is checked too, but as a second signal rather than the only one.
+	await expect(page.getByText(/stopped unexpectedly/i)).toHaveCount(0);
 });
 
 /**
  * #1616 — "Delete everything" undone by a tab that slept through it.
  *
- * Chromium only, and not for convenience: the freeze comes from the DevTools
- * protocol, and WebKit exposes no equivalent. Dispatching a `resume` event by
- * hand does NOT reproduce this — the document was never actually stopped, which
- * is the entire reason it misses the broadcast.
+ * THIS TEST PREVIOUSLY ASSERTED NOTHING, and the way it failed is worth keeping.
+ * It called CDP `Page.setWebLifecycleState('frozen')` and described that as "a
+ * real freeze". The call succeeds and does nothing: instrumented, no `freeze`
+ * event fires, the page's own interval never misses a beat, and the wipe
+ * broadcast is delivered LIVE. So the test exercised the pre-existing `storage`
+ * listener, not the catch-up path #1625 added — removing `catchUpOnWipe()` from
+ * `onResume` left it green.
+ *
+ * It also went red against the un-fixed build for the wrong reason: the
+ * assertion read origin-wide `localStorage`, and the record that came back
+ * belonged to the WIPING tab, which the hand-rolled wipe left unsealed. The real
+ * `clearAllSessions` seals it, so that failure mode does not exist in the product.
+ *
+ * Two changes make it honest: it verifies the freeze actually happened and SKIPS
+ * with a reason when the environment will not honor it — a skip is a true
+ * statement, a silent pass is not — and it asserts on the frozen page's OWN
+ * record rather than on whatever else the origin holds.
  */
 test('a wipe survives a tab that was frozen through it', async ({ page, context, browserName }) => {
 	test.skip(browserName !== 'chromium', 'needs CDP Page.setWebLifecycleState — no WebKit equivalent');
 
+	// Observe the lifecycle from inside the page, so "was it really frozen?" is a
+	// measurement rather than an assumption.
+	await page.addInitScript(() => {
+		const w = window as unknown as { __froze?: boolean; __ticks?: number };
+		w.__froze = false;
+		w.__ticks = 0;
+		document.addEventListener('freeze', () => {
+			w.__froze = true;
+		});
+		setInterval(() => {
+			w.__ticks = (w.__ticks ?? 0) + 1;
+		}, 250);
+	});
 	await gotoStudio(page);
-	await expect
-		.poll(async () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length), {
-			timeout: 20_000,
-		})
-		.toBeGreaterThan(0);
 
-	// FREEZE: the browser stops running this document's tasks, exactly as a phone
-	// suspends a backgrounded tab.
+	const ownKeys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
+	expect(ownKeys.length).toBeGreaterThan(0);
+
 	const cdp = await context.newCDPSession(page);
+	const ticksBefore = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
 	await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+	await page.waitForTimeout(3_000);
+	const frozeForReal = await page.evaluate(() => {
+		const w = window as unknown as { __froze: boolean; __ticks: number };
+		return { froze: w.__froze, ticks: w.__ticks };
+	});
+	// 3s of a 250ms interval is ~12 ticks if the document kept running. A genuinely
+	// frozen document fires `freeze` and stops ticking.
+	const reallyFrozen = frozeForReal.froze && frozeForReal.ticks - ticksBefore < 4;
+	test.skip(
+		!reallyFrozen,
+		`this browser did not honor the freeze (freeze event: ${frozeForReal.froze}, ticks during: ${frozeForReal.ticks - ticksBefore}) — ` +
+			'the catch-up path cannot be exercised here, and passing would assert nothing',
+	);
 
-	// Another tab wipes, the way Workspace → Privacy & Data does.
+	// The storage effects of "Delete everything", from another tab. This is a
+	// SIMULATION of `clearAllSessions`, not a call to it — the module is not
+	// reachable from a built page — so it does not seal the wiping tab the way the
+	// real path does. That difference used to matter: the old assertion read
+	// origin-wide storage, so the unsealed wiping tab re-persisting its own record
+	// produced a red that looked like the bug under test. It cannot now, because
+	// the assertion below is scoped to the frozen page's OWN keys.
 	const other = await context.newPage();
 	await gotoStudio(other);
 	await other.evaluate(() => {
@@ -166,13 +298,18 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 		localStorage.setItem('lattice-studio-wiped-at', at);
 	});
 
-	// Wake it and let several heartbeats pass. THIS is where the data used to
-	// come back: the sleeper still held its session and simply wrote it out again.
 	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
 	await page.bringToFront();
-	await page.waitForTimeout(12_000);
+	// Poll the woken page's OWN tick counter rather than sleeping: the settle
+	// condition is "this document has run enough heartbeats to have rewritten its
+	// record", which is drivable, unlike the absence being asserted after it.
+	const wokeAt = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
+	await expect
+		.poll(async () => page.evaluate(() => (window as unknown as { __ticks: number }).__ticks), { timeout: 60_000 })
+		.toBeGreaterThan(wokeAt + 3 * (5_000 / 250));
 
-	const resurrected = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
-	expect(resurrected).toEqual([]);
+	const back = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
+	// Only THIS page's records — the ones it could have resurrected.
+	expect(back.filter((k) => ownKeys.includes(k))).toEqual([]);
 	await other.close();
 });
