@@ -13,4 +13,8 @@
   ABOVE the header markup, publishes `data-palette` and `data-mode-pref` and appends the
   per-palette rules to `<head>`; `PaletteControls` reads the same attributes in its first
   render. `paletteLabel` moved to a React-free `lib/palette-label.ts` so the Astro seed shares
-  the derivation instead of restating it. (#1592)
+  the derivation instead of restating it. Two defects that surfaced with the truthful trigger
+  are fixed with it: a stored palette this build no longer ships is now **cleared** rather than
+  merely ignored (leaving it made the page paint the fallback and then flip to a theme whose
+  CSS 404s), and a palette picked through the command palette no longer leaves the select's
+  list ticking — and unable to return to — the previous one. (#1592)

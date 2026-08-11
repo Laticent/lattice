@@ -5,9 +5,12 @@
   **Explore chrome rather than walk state**, present in the server-rendered markup from the
   first paint with only its CONTENTS waiting for the network (disabled steppers, no position —
   the `pending` shape). Its height is a constant by construction: the row no longer wraps
-  (the cross-component label truncates instead), the position holds a fixed slot so the
-  steppers do not slide when the numbers arrive, and the caption box is exactly two lines
-  whatever it holds. **The caption is clamped to those two lines**, which also reclaims the
+  and every item in it except the next button is rigid (a shrinkable Prev wrapped to two lines
+  under a long cross-component label, growing the bar 20.8px at ≤390px), the position holds a
+  fixed slot so the steppers do not slide when the numbers arrive, and the caption box is
+  exactly two lines whatever it holds. The bar is hidden by default and Explore reveals it, so
+  a boot where the pre-paint seed cannot run (storage denied) shows nothing rather than a 93px
+  dead nav in Edit. **The caption is clamped to those two lines**, which also reclaims the
   worst case: the `math` plan's 289-character caption made the bar 184px on a phone — 22% of
   the viewport, for prose already printed on the slide above it — and is now 101px, with the
   full text on the element's `title`. A notice shares the caption's line-box rather than

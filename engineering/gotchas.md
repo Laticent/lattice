@@ -3794,14 +3794,28 @@ own) is not a builder and needs no entry.
   the walk bar is CHROME, not walk state, so it is rendered unconditionally — in the SSR'd
   markup, before any plan exists — with only its contents waiting for the network (steppers
   disabled, position empty). Then nothing is allowed to change its height: the row is
-  `nowrap` (the "Next component: x →" label truncates), the position holds a fixed slot, and
-  the caption box is exactly `--pg-walk-cap-lines` lines whatever it holds. A notice shares
-  that line-box rather than adding one. One preview-pane geometry at 1194x834 and 390x844,
-  and on a 404 an inert bar instead of a dead band.
+  `nowrap`, EVERY item in it except `.next` is rigid, the position holds a fixed slot, and the
+  caption box is exactly `--pg-walk-cap-lines` lines whatever it holds. A notice shares that
+  line-box rather than adding one.
+- **`flex-wrap: nowrap` is not enough on its own, and the near-miss is worth knowing.** It
+  stops the ROW wrapping; it does nothing about text wrapping INSIDE a shrinkable item. With
+  only `.next` hardened, a long cross-component label squeezed Prev until "‹ Prev" broke onto
+  two lines and the bar grew 20.8px — at ≤390px, mid-read, at exactly the moment the bar is
+  supposed to be still. A SHORT label does not trip it (the threshold is ≈220px), which is how
+  the first verification cleared it.
+- **The bar is hidden by DEFAULT and Explore reveals it — not hidden in Edit.** Its visibility
+  hangs on the pre-paint seed, and the seed's outer `try` opens with a `localStorage` read, so
+  storage denied means no boot view at all. Defaulting to shown put a 93px dead nav in EDIT
+  for ~1.5s on that path.
 - **If you touch the walk bar, its height is the invariant.** Anything content-shaped you add
-  — a second notice line, a wrapping row, an un-clamped caption — puts the jump back, and the
-  e2e case that catches it is the Explore one in `playground-first-paint.spec.ts` (which
-  tracks `previewPane` and `walkBar` again precisely because of this).
+  — a second notice line, a wrapping row, an un-clamped caption, a button that can shrink —
+  puts the jump back, and the e2e case that catches it is the Explore one in
+  `playground-first-paint.spec.ts` (which tracks `previewPane` and `walkBar` again precisely
+  because of this). Test it with the LONGEST cross-component label, not the first one you hit.
+- **`aria-live` has to arrive WITH its value.** `.pg-walk-pos` is SSR'd empty; a live region
+  already in the tree that goes from nothing to "1 / 8" is a change, and assistive tech
+  announces it. The attribute is set only once there is a position, so the region reads as
+  arriving populated. A pending state has to be pending to AT too.
 - **Triggered by:** #1563, #1588.
 
 ### The Playground's divider is in one place before hydration and another after
@@ -3815,10 +3829,21 @@ own) is not a builder and needs no entry.
   pre-paint seed spent the raw share. Measured: a real drag to a 25% preview at 1920, reloaded
   at 1194, painted **298.3px** and settled at **320px**. The missing shell is downstream — the
   cached slide's rect was measured in a box that changed size, so the box-match gate declined.
-- **Fix (shipped, #1589):** the seed publishes the same minimums as `--pg-split-min-a/b` and
-  `playground.css` applies them as `min-width` while `data-pg-split-seed` is up. For a
-  two-panel flex row that IS the library's clamp: the violated item freezes at its minimum and
-  the remainder goes to its sibling.
+- **Fix (shipped, #1589):** the seed emits `min-width` rules into `<head>`, scoped to the
+  viewport band where the library actually clamps, and `data-pg-split-seed` gates them.
+- **RESTORING IS NOT CLAMPING, and this is the trap.** `react-resizable-panels` resolves an
+  under-minimum size in TWO branches (`Z()` in its bundle): a `collapsible` pane restored below
+  the MIDPOINT of `collapsedSize` and `minSize` snaps to the rail; only above it does it clamp
+  to the minimum. Modeling the clamp alone painted a 320px preview where the app then handed
+  off to a 28px rail — 292px wrong, held ~1.3s, WORSE than the defect it fixed. `PG_SPLIT_RAIL`
+  and `PG_SPLIT_SNAP_MIDPOINT` exist so the seed can express both branches; below the midpoint
+  it emits nothing and the raw share paints. The Studio's `preview-rect.ts` has carried this
+  rule since #1553 ("clamping alone painted a 300px preview where the app handed off to a 46px
+  rail") — read it before writing a pre-paint side for any splitter here.
+- **Do NOT reach for the sessionStorage collapse marker to detect this.** It was tried: the
+  marker is per-tab, the sub-minimum SHARE is in `localStorage` and permanent, so a new tab
+  takes the clamp branch and breaks. *A guard is only as good as the shortest-lived thing it
+  reads.*
 - **`!important` is load-bearing there, and setting the style on the element is not the
   shortcut it looks like.** The SSR'd panel wrapper carries `min-width:0` INLINE, so a plain
   stylesheet rule loses. Writing `el.style.minWidth` instead would win the cascade and then
@@ -3862,6 +3887,17 @@ own) is not a builder and needs no entry.
   server cannot know the stop, so React choosing would put Monitor in the HTML and Moon in
   the client's first render — a hydration mismatch React 19 does not patch. Rendering the
   same three on both sides moves the choice to an attribute the seed has already written.
+- **A seed that NORMALIZES a bad stored value must also CLEAR it.** The first version rewrote
+  `<html data-palette>` to a shipped palette and left the key alone; `syncFromStorage` re-reads
+  the key at mount with no validation and stamped it straight back, so the page painted the
+  fallback and then flipped to a theme whose CSS 404s — a flash the seed itself introduced.
+  `playground.astro` has always removed the key; the site-wide surfaces had nothing that did.
+- **Making one control truthful can make the one beside it a liar.** The command palette sets the
+  palette directly and `storage` only fires cross-tab, so `PaletteControls`' state never moved:
+  once the trigger read correctly, the select's LIST still ticked the old palette — and
+  re-picking the item radix believes is selected fires no `onValueChange`, so it was a dead
+  control. `site-chrome` dispatches `CHROME_CHANGE_EVENT` on a same-tab set and the control
+  listens. If you add another writer of palette/mode, go through `site-chrome`.
 - **If you add a header control that shows persisted state,** give it the same shape: render
   every possible value, pick one with CSS keyed on an `<html>` attribute, and set that
   attribute above the markup. `site-chrome-first-paint.spec.ts` samples every frame across

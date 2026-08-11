@@ -44,34 +44,87 @@ slide at a rect measured in a specific box, and refuses when the box differs —
 changes size between the replay and hydration meant **no shell at all**. `data-pg-shell` was
 never set on any of these loads.
 
-**The fix is to stop predicting the clamp and apply it.** `PG_SPLIT_MIN` is declared once in
-`pg-split.ts` and read by both sides — the `<ResizablePanel minSize>` that enforces it and the
-seed that has to anticipate it, the shape #1495 established for the bucket string. The seed
-publishes it as `--pg-split-min-a/b` and `playground.css` spends it as `min-width` while
-`data-pg-split-seed` is up. That is not an approximation of the library's clamp: a flex item
-whose min-width is violated freezes at the minimum and the remainder goes to its sibling,
-which for a two-panel group is exactly what the library computes.
+**The fix is to stop predicting the clamp and apply it** — publish `PG_SPLIT_MIN` once in
+`pg-split.ts`, read by the `<ResizablePanel minSize>` that enforces it and by the seed that
+has to anticipate it (the shape #1495 established for the bucket string), and let a
+`min-width` do the arithmetic while `data-pg-split-seed` is up.
 
 After: **one geometry**, 873/320 from t=375ms, and the shell fires at t=623ms where it used
 to be missing entirely.
 
-Three details that cost time and are worth keeping:
+### The claim that was wrong, and cost the most
+
+The first draft said this, in three places:
+
+> `min-width` is not an approximation of that clamp, it IS it: a flex item whose min-width is
+> violated is frozen at the minimum and the remainder goes to its sibling, which for a
+> two-panel group is exactly what the library computes.
+
+**That is false, and this repo already knew it was false.** `react-resizable-panels` resolves
+an under-minimum size in TWO branches — `Z()` in its bundle:
+
+```js
+if (size < minSize)
+  if (collapsible) { const mid = (collapsedSize + minSize) / 2;
+                     size = size < mid ? collapsedSize : minSize; }
+  else size = minSize;
+```
+
+Both Playground panes are `collapsible` with `collapsedSize={28}`, so the midpoint for the
+preview is 174px. Below it the library snaps to the **rail**, not to the minimum. Measured on
+the real page: a saved share resolving to 167px settles at 28; 179px settles at 320. Exactly
+the midpoint.
+
+So the clamp-only model painted a **320px preview where the app was about to show 28** — 292px
+wrong, held ~1.3 seconds, on a share the divider leaves behind the moment it is dragged past
+its minimum, which is a gesture the collapse button's own tooltip advertises. That is worse
+than the defect it was written to fix, and `components/studio/preview-rect.ts` had the rule
+written down since #1553, in the same words: *"clamping alone painted a 300px preview where
+the app handed off to a 46px rail."*
+
+**The `sessionStorage` guard the first draft added did not cover it, and could not.** It
+skipped the clamp when a collapse marker was present — but the marker is per-tab while the
+sub-minimum SHARE is in `localStorage` and permanent, so a **new tab** takes the clamp branch
+and breaks. The transferable line: **a guard is only as good as the shortest-lived thing it
+reads.** The predecessor's walk reserve failed because it was keyed on an absence with no time
+bound; this failed because it was keyed on a presence with too short a one.
+
+### What ships instead
+
+`PG_SPLIT_RAIL` and a derived `PG_SPLIT_SNAP_MIDPOINT` join `PG_SPLIT_MIN` in `pg-split.ts`,
+and the seed emits the clamp inside a **viewport media query** covering only the band where
+the library actually clamps:
+
+    T_pane = max(821, ceil(midpoint_pane × (a + b) / share_pane) + 1)
+
+A media query rather than an `innerWidth` read on purpose: it needs no measurement and stays
+right if the window is resized before hydration. The group spans the viewport on this surface
+(873 + 320 + a 1px separator at a 1194 viewport), which is what makes the two interchangeable.
+Below the threshold nothing applies and the raw share paints — what shipped before any of
+this. Reproducing the *rail* pre-paint would mean modeling the snap too, and a mis-modeled
+snap fails in the same expensive direction, so the seed declines instead.
+
+Measured, both branches, against `origin/main` on the same experiment:
+
+| | `main` | this change |
+|---|---|---|
+| above the midpoint (25% saved at 1920, reloaded at 1194) | 298 → 320, **2 geometries** | **320, one** |
+| below it (dragged past the minimum, reopened in a new tab) | 17 → 320 → 28, 3 | 17 → 320 → 28, **3 — identical** |
+
+The rules are generated from `PG_SPLIT_PANEL_IDS` and injected into `<head>`, which retires
+the static CSS as well: it had restated both panel ids *and* the `a → editor` mapping that
+only the seed established, with no gate — the same silent-drift surface #1495 exists to close.
+
+Three mechanics that cost a round each:
 
 - **`!important` is load-bearing.** The SSR'd panel wrapper carries `min-width:0` INLINE, so a
   plain stylesheet rule loses. The first attempt did nothing at all for this reason.
 - **Setting the style on the ELEMENT instead would be worse than losing.** It would win the
   cascade and then never be undone: React's prop record would still read `0`, so the library
   would never write over it, and the clamp would outlive the seed for the life of the page.
-  This is the same React-19 inline-style trap the predecessor note is half about, from the
-  other direction.
-- **The clamp must die with the seed, and it is skipped over a collapsed pane.**
-  `adoptBootSeed` drops the attribute alongside the view/pane ones. And when a collapse is
-  stored, the seed does not apply the clamp at all: that pane is heading for its 28px rail,
-  not its minimum, and the saved share in that state can itself be below the minimum
-  (measured 2.347%, i.e. the rail's own width) — clamping it would paint 320px and snap to 28,
-  turning a load that happens to be right today into two geometries. **That is a regression
-  this change would have created, caught by driving the collapse before shipping** (#18); the
-  collapsed pane's own late jump is a separate pre-existing gap the boot-state note records.
+  The same React-19 inline-style trap the predecessor note is half about, from the other side.
+- **The clamp must die with the seed.** `adoptBootSeed` drops the attribute alongside the
+  view/pane ones, or a collapsed pane could never reach its rail.
 
 ## #1588 — the walk bar, by removing the thing that had to be reserved
 
@@ -91,11 +144,38 @@ exists, and only its CONTENTS wait for the network: the steppers are disabled an
 reads nothing, which is the `pending` shape #1581 gave the component picker, applied to a box
 rather than to a value.
 
-That only works if the height cannot then change, so nothing is allowed to change it:
+Two things had to be true for that to work, and the first draft got both of them only
+half-right. **Recorded here rather than tidied away, because a per-frame sampler and a hostile
+reader found them and the first verification did not.**
 
-- the row is `nowrap` — a wrapped row is a second height, and the label that would wrap it
-  ("Next component: kpi →") appears exactly when the visitor reaches the end of a plan,
-  mid-read. The next button truncates; its `aria-label` still carries the whole string.
+**The bar must be hidden by DEFAULT, not hidden in Edit.** The first draft kept the existing
+`:is(:root[data-pg-view='edit'], body[data-view='edit']) .pg-walk { display: none }` and made
+the bar always mounted — so whatever the CSS says with no boot view resolved is what a visitor
+gets. It can be unresolved: the pre-paint seed's outer `try` opens with a `localStorage` read,
+which THROWS where storage is denied (Safari's "block all cookies", a partitioned context, a
+privacy extension), and `<body>` carries no `data-view` until the island mounts. Measured with
+storage denied at `?view=edit`: a **93px dead nav bar in Edit for ~1.5s**, then a 93px jump
+when it left — the same band this change exists to remove, on an error path that could not
+produce it before the bar was always mounted. It is now `display: none` by default and Explore
+reveals it; the same experiment now records the bar at 0px throughout and one pane geometry.
+
+**And the height was still not invariant.** `flex-wrap: nowrap` stops the ROW wrapping; it
+does nothing about text wrapping INSIDE a shrinkable item, and only `.next` had been hardened.
+A long cross-component label squeezed Prev — which kept the default `flex-shrink: 1` — until
+"‹ Prev" broke onto two lines: measured at 390x844 on the `matrix-grid` plan's last slide
+("Next component: obligation-matrix →", 237px), the bar **101.48 → 122.28px** and the preview
+pane 578.52 → 557.72, mid-read, at the exact moment the CSS comment names. The whole ≤390px
+band was affected. **The first verification cleared this case with a shorter label** (`agenda`,
+213.9px, below the ≈220px threshold) and reported "no height change when the cross-component
+label appears at 390px" — a claim that was false when written. Prev and the position are rigid
+now; re-measured Δ0 at 320 · 360 · 375 · 390 · 414 · 428 · 480 · 560 · 600 · 768 · 820.
+
+So nothing is allowed to change the height:
+
+- the row is `nowrap` AND every item in it except `.next` is rigid (`flex: 0 0 auto;
+  white-space: nowrap`) — a wrapped row is a second height, and a wrapped BUTTON is too. The
+  next button is the one elastic item and it truncates; its `aria-label` carries the whole
+  string.
 - the position holds a fixed 4em slot, so the steppers do not slide sideways when the numbers
   arrive — nor again on the step from "9 / 12" to "10 / 12".
 - the caption box is exactly two lines whatever it holds, including nothing.
@@ -109,9 +189,15 @@ longest caption in the 61 staged plans (`math`, 289 characters) rendered five li
 phone: a 184px bar, 22% of an 844px viewport, for prose *already printed on the title slide
 above it*. It is 101px now, with the full text on the element's `title`.
 
+One more thing the bar owes, found by reading its a11y rather than its pixels: `.pg-walk-pos`
+carries `aria-live="polite"` and is now SSR'd EMPTY, so a region already in the tree went from
+nothing to "1 / 8" — a change, which assistive tech announces. The bar never did that when it
+mounted whole. The attribute now arrives WITH the value, so it reads as a region that arrived
+populated. *A pending state has to be pending to assistive tech too, not just to the eye.*
+
 Verified: one preview-pane geometry for the whole load at both reference conditions, one on a
-plan fetch that 404s (an inert bar, honestly empty, instead of a dead band), and no height
-change when the cross-component label appears at 390px.
+plan fetch that 404s (an inert bar, honestly empty, instead of a dead band), one with storage
+denied, and Δ0 bar height across eleven widths when the cross-component label appears.
 
 ## #1590 — the case that needed running, not fixing
 
@@ -161,8 +247,10 @@ the mode PREFERENCE (`data-mode-pref`) on `<html>`, and both controls are **pain
 attributes**: PaletteControls renders every palette's label and all three mode icons, and CSS
 shows the one in force. `PaletteControls` reads the same attributes in its first render so its
 own state agrees. It lives in the header rather than in a per-route head script because the
-header is the thing with the defect and it is on every page — and it is the only palette seed
-the landing has at all.
+header is the thing with the defect and it is on every page. (An earlier draft of this note
+said it was "the only one on the landing, which has none" — false: `index.astro`,
+`features.astro`, `comparison.astro` and `ComponentsLayout.astro` all carry a head palette
+seed. What is true, and is the point, is that none of them VALIDATES what it stamps.)
 
 **The first draft patched the trigger's text with a script placed just AFTER the markup, and
 it lost the race about one run in three.** A per-frame sampler caught the un-seeded state at
@@ -171,6 +259,23 @@ sharper than "put the script earlier": *a script that has to beat the first pain
 sits below is a race; setting an attribute the markup has not been parsed against yet is not.*
 Moving the script above the header only works because the controls now read attributes rather
 than needing their text rewritten.
+
+Two more defects the trio found on this surface, both created by making the trigger truthful:
+
+- **The seed normalized an unshippable palette without CLEARING it.** `syncFromStorage`
+  re-reads the key at mount with no validation of its own and stamps it straight back, so a
+  retired palette made the page paint the fallback and then flip to a theme whose CSS 404s — a
+  flash that did not exist before, on every route except the Playground (whose head seed has
+  always cleared the key, for the "blank in my browser, fine in private browsing" report). The
+  seed clears it now.
+- **The select's LIST kept ticking the old palette after a command-palette pick** — and
+  re-picking the item radix already believes is selected fires no `onValueChange`, so the
+  visitor could not get back to it at all. The desync is pre-existing (`storage` only fires
+  cross-tab), but while the trigger was equally stale the control was at least *consistently*
+  wrong; making the trigger truthful turned it into a contradictory one. `site-chrome` now
+  announces a same-tab change and `PaletteControls` listens. **By this section's own standard
+  — a control naming the wrong stop is worse than one naming none — that was this change's
+  defect to fix, not to log.**
 
 Two mechanics that cost a round each and are worth writing down:
 
@@ -225,21 +330,62 @@ an absent one, and two reviewers found that independently:
 Ten new e2e cases and five unit cases. The existing Explore case now tracks `previewPane` and
 `walkBar` again — they were excluded with a stated reason, and the reason is gone.
 
+## What the adversarial trio changed (HARD RULE #25)
+
+Run against the pushed commit with CI green and the PR open, as the predecessor's was. It
+changed the diff materially — which is the only evidence a verification pass was worth running
+— and this time it did so on the piece the author was most confident about.
+
+- **The Munger inversion pass refuted the central claim** (§#1589) by reading the library
+  rather than the diff, and measured the 292px consequence in both directions. It also named
+  the shape: a guard is only as good as the shortest-lived thing it reads.
+- **The red team broke #1588's headline invariant** on its own reference viewport, and found
+  the verification that had cleared it was run with a label too short to trip it.
+- **The inversion pass found the walk bar's default-visible window**, and the red team found
+  the palette-normalize-without-clearing flip and the command-palette dead control.
+- **The independent checker died mid-run** on an API error and produced no report, so lens 3
+  is a gap, honestly stated: the claim-by-claim audit of this note has not been done by fresh
+  eyes. Everything above was re-derived and re-measured here before being written down, but
+  that is the author checking the author.
+- **Something the trio cleared, and it is the one I was least sure of:** the a11y of eighteen
+  palette labels of which seventeen are `display:none`. The accessible name is `"Theme"` (from
+  `aria-label`) and the value is the single visible label; the hidden seventeen are absent
+  from the a11y tree, the mobile Sheet's second instance does not double-label, and no
+  hydration mismatch appears on any of five routes. Also cleared: `280 + 320` never overflows
+  down to 821px, and #1590's refusal held against mobile single-pane, un-fitted-slide windows,
+  resize, two tabs and zoom.
+
+**A note on the oracle, because it is why the worst of these got through.**
+`assertOneGeometry` counts DISTINCT rects. A first paint that is wrong by 292px and held for
+1.3s scores *better* than a right one with an 86ms blip — so a metric built to enforce "one
+paint, never corrected in view" rewarded a change that made the single paint wrong. The
+below-midpoint case added here asserts the VALUE of the first paint, not just how many there
+were. If you add a case to this file, ask what it counts and what it would let through.
+
 ## Residues, again rather than averaged away
 
-- **A COLLAPSED pane still jumps on reload**, and this change deliberately does not fix it: the
-  measured sequence is 28 → 320 → 28, where the middle value is the library clamping the saved
-  share before the collapse restore (its own effect, `ready` + a double rAF) lands. The seed
-  now declines to make it worse rather than making it better. It is the same pre-existing gap
-  the boot-state note records for the Studio, in the same hook, and it is the obvious next
-  slice.
+- **A pane heading for the rail still shows the minimum for a beat**, and this change
+  deliberately does not fix it: the measured sequence is 17 → 320 → 28, where the middle value
+  is the LIBRARY clamping — `collapsible` is `split.ready`, which is false during the
+  backstop's first `setLayout`, so `Z()` takes the non-collapsible branch and clamps; the snap
+  only happens once `ready` flips. Byte-identical on `origin/main`, so pre-existing and not
+  this change's to carry, but it is the reason the below-midpoint band has three geometries
+  rather than one. Gating `collapsible` on something earlier than a post-mount state flip is
+  the next slice.
 - **A caption longer than two lines is truncated on the phone.** The full text is on `title`,
   which a touch device cannot show. It is a net improvement over 22% of the viewport spent on
   prose that is already on the slide, but "read the rest" has no affordance; a tap-to-expand
   would cost a height change on user action, which is acceptable where a boot-time one is not.
-- **`--pg-walk-cap-lines: 2` is a judgment, not a measurement.** Two lines covers every caption
-  in the staged plans at 1194px and clips the longest of them at 390px. A plan author who
-  writes a longer caption gets less of it shown, and nothing warns them.
+- **`--pg-walk-cap-lines: 2` is a judgment, not a measurement, and the inversion pass priced
+  it.** Across all 643 captions in the 61 staged plans: **632 need only one line at 1194px**,
+  so the reserved second line is blank on 98% of desktop loads and costs ~19px (20% of the
+  bar) permanently — to serve eleven slides. At 390px, 549 fit in one line and **32 are
+  truncated by the two-line clamp, median 33% of the text lost**. One line would reclaim the
+  19px and truncate eleven desktop captions that today lose nothing; two lines is the side of
+  that trade this change picked, and it is a pick rather than a finding. The inversion pass
+  argued for deleting the caption outright — 521 of 643 open with text that appears verbatim
+  in the slide's own markdown — which is a product call, not this change's to make, and is
+  logged rather than taken.
 - **The header seed still runs at body-parse rather than in `<head>`.** It no longer needs the
   markup (it writes `<html>` attributes and appends a stylesheet), so it sits above the header
   and the measured flash is gone across eight consecutive runs — but it is above the header in
@@ -250,6 +396,15 @@ Ten new e2e cases and five unit cases. The existing Explore case now tracks `pre
 - **With scripting off the theme select shows no label**, because the rules that reveal one are
   injected by the seed. It showed none before this change either — radix needs JS to portal the
   item text — so it is not a regression, but it is not the fix either.
+- **A palette added to `PaletteControls`' `opts` at RUNTIME would render a blank trigger**, as
+  the reveal rules are baked from the build-time list. Only the `__dbChrome` bus can widen
+  `opts`, and nothing sets it any more (the Drawing Board is removed), so this is a trap in
+  dormant code rather than a live defect — but it is the kind of "a new call site must
+  remember X" that this repo normally gates, and does not here.
+- **The pre-paint seeds are now load-bearing for correctness, not polish.** Three inline
+  scripts on the Playground and one on every page of the site decide what is on screen. A
+  future CSP that drops `unsafe-inline` would silently revert all of it. Nothing records that
+  dependency but this line.
 - **`docs/e2e/visual.spec.ts` "@visual studio renders at this viewport" fails in this sandbox**,
   identically on a clean rebuild of `origin/main`'s `docs/src` — the whole page is offset, which
   reads as a font/rasterizer environment difference rather than anything in this diff. Stated

@@ -8,7 +8,10 @@
   measured in a box that no longer existed, so it declined outright and the visitor got no
   shell at all. The minimum is now declared once (`PG_SPLIT_MIN` in `pg-split.ts`, read by
   both the `<ResizablePanel minSize>` that enforces it and the seed that has to predict it)
-  and applied pre-paint as a `min-width`, which for a two-panel flex row *is* the library's
-  clamp rather than an approximation of it. One geometry from t=375ms, and the instant shell
-  now fires where it used to be missing. Skipped over a collapsed pane, which is heading for
-  its 28px rail rather than its minimum. (#1589)
+  and applied pre-paint as a `min-width` — but only in the viewport band where the library
+  actually clamps. **Restoring a saved layout is not a clamp:** a `collapsible` pane restored
+  below the midpoint of `collapsedSize` and `minSize` snaps to the 28px rail instead, so a
+  seed that models the clamp alone paints 320px where the app is about to show 28. Below that
+  midpoint the seed now emits nothing and the raw share paints. One geometry from t=375ms in
+  the clamp band, unchanged from `main` in the snap band, and the instant shell fires where it
+  used to be missing. (#1589)
