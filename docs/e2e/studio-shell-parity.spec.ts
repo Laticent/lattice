@@ -7,10 +7,10 @@ import { expect, test } from './studio-fixture';
 // list, which is exactly the wrong shape for this problem — the adversarial trio found five
 // divergences it passed green over, every one of them in a control nobody had listed:
 //
-//   · the Build stop adds a 52px activity rail and swaps the header — bands 29-52px off
+//   · the Craft stop adds a 52px activity rail and swaps the header — bands 29-52px off
 //   · a splitter dragged toward the editor puts the split line 288px off
 //   · the launcher's `sm:` (640) was hand-copied as `min-[700px]:` — 6px across 640-699
-//   · the posture dial was hardcoded to Write — wrong segment lit at Read and Build
+//   · the posture dial was hardcoded to Write — wrong segment lit at Read and Craft
 //   · Present/Share lost their labels across 1024-1099, moving them ~100px
 //
 // The generator behind all five is the same: the shell mirrors the app's chrome, the mirror
@@ -46,7 +46,7 @@ const ENGINE_HOLD_MS = 2500;
 const CASES: {
 	w: number;
 	h: number;
-	stop: 'read' | 'write' | 'build';
+	stop: 'read' | 'write' | 'craft';
 	why: string;
 	smoke?: boolean;
 	/** Persisted global preference that removes a header control (`lattice-tour-enabled`). */
@@ -58,19 +58,19 @@ const CASES: {
 	{ w: 639, h: 844, stop: 'write', why: 'just below Tailwind sm' },
 	{ w: 660, h: 844, stop: 'write', why: 'inside sm..app-tablet, where the launcher drifted' },
 	{ w: 820, h: 1180, stop: 'write', why: 'tablet' },
-	{ w: 390, h: 844, stop: 'build', why: 'phone at Build — the tier with no rail and no docked panels' },
+	{ w: 390, h: 844, stop: 'craft', why: 'phone at Craft — the tier with no rail and no docked panels' },
 	{ w: 820, h: 1180, stop: 'read', why: 'tablet at Read' },
-	{ w: 820, h: 1180, stop: 'build', why: 'tablet at Build' },
+	{ w: 820, h: 1180, stop: 'craft', why: 'tablet at Craft' },
 	{ w: 1024, h: 900, stop: 'write', why: 'Tailwind lg — Present/Share gain labels' },
 	{ w: 1099, h: 900, stop: 'write', why: 'top of the app tablet tier' },
 	{ w: 1100, h: 900, stop: 'write', why: 'bottom of the app desktop tier' },
 	{ w: 1440, h: 900, stop: 'write', smoke: true, why: 'desktop' },
 	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, plain title' },
-	{ w: 1440, h: 900, stop: 'build', why: 'desktop at Build — activity rail + full header' },
+	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — activity rail + full header' },
 	// The one chrome gate that is NEITHER width nor stop: the tours button reads a persisted
 	// global preference. A width x stop matrix is structurally blind to that axis, which is why
 	// the shell drew a phantom control and slid the three after it 44px.
-	{ w: 1440, h: 900, stop: 'build', toursOff: true, why: 'desktop at Build with guided tours turned OFF' },
+	{ w: 1440, h: 900, stop: 'craft', toursOff: true, why: 'desktop at Craft with guided tours turned OFF' },
 ];
 
 /**

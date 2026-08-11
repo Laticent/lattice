@@ -10,6 +10,7 @@ import {
 	deckLabels,
 	deleteDeck,
 	exportStudioState,
+	hasStoredPosture,
 	headingText,
 	importStudioState,
 	loadActiveDeck,
@@ -483,9 +484,9 @@ describe('studio-store — settings', () => {
 	});
 
 	it('derives the boot posture, and drops the legacy flag', () => {
-		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Build.
+		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Craft.
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));
-		expect(loadSettings().posture).toBe('build');
+		expect(loadSettings().posture).toBe('craft');
 		// The retired flag is not re-persisted — no stale second source of truth beside posture.
 		saveSettings({ pageNumbers: false });
 		expect('onboarded' in JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}')).toBe(false);
@@ -504,11 +505,32 @@ describe('studio-store — settings', () => {
 	it('an explicitly stored posture always wins over the derived default', () => {
 		// The Workspace "Starting mode" row writes this, so a deliberate Read choice
 		// must survive — the derived default only applies when nothing is stored.
-		for (const p of ['read', 'write', 'build'] as const) {
+		for (const p of ['read', 'write', 'craft'] as const) {
 			localStorage.clear();
 			saveSettings({ posture: p });
 			expect(loadSettings().posture).toBe(p);
 		}
+	});
+
+	it("resolves the Craft stop's pre-rename name ('build') instead of demoting it", () => {
+		// The full stop was called 'build' until 2026-08-11. Every returning power user still
+		// has that literal in localStorage, and without POSTURE_ALIASES the value reads as
+		// corruption → derivePosture → Write. That is a silent demotion, not a rename.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'build' }));
+		expect(loadSettings().posture).toBe('craft');
+		// It counts as EXPLICITLY stored, so the mount effect never re-derives over it.
+		expect(hasStoredPosture()).toBe(true);
+		// …and the next save normalizes storage to the current name, so the alias is a
+		// read-side shim with a finite life rather than a second persisted spelling.
+		saveSettings({ pageNumbers: false });
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('craft');
+	});
+
+	it('still rejects a genuinely unknown stored stop', () => {
+		// The alias widens what is ACCEPTED; it must not widen it to anything.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'sculpt' }));
+		expect(loadSettings().posture).toBe('write');
+		expect(hasStoredPosture()).toBe(false);
 	});
 
 	it('seeds language from the browser the first time, then honors the saved pick', () => {

@@ -113,7 +113,7 @@ function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm,
 const POSTURE_CHOICES: { value: Posture; title: string; blurb: string; icon: React.ReactNode }[] = [
 	{ value: 'read', title: 'Read', icon: <BookOpen className="size-4" />, blurb: 'The deck, full-bleed — no editor. For reviewing and presenting.' },
 	{ value: 'write', title: 'Write', icon: <PencilLine className="size-4" />, blurb: 'Editor beside the preview. The default — enough to work, none of the extra chrome.' },
-	{ value: 'build', title: 'Build', icon: <PencilRuler className="size-4" />, blurb: 'The full surface — panels, activity bar, every tool docked.' },
+	{ value: 'craft', title: 'Craft', icon: <PencilRuler className="size-4" />, blurb: 'The full surface — panels, activity bar, every tool docked.' },
 ];
 
 const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [

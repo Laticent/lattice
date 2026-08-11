@@ -47,7 +47,7 @@ export const CHROME = {
 	/**
 	 * "Send feedback" — a 1-tap header button on tablet AND desktop, at the same tail
 	 * slot in both headers (directly above Settings in the right-hand run), so it holds
-	 * position across the Read/Write/Build dial. On MOBILE there is no header button:
+	 * position across the Read/Write/Craft dial. On MOBILE there is no header button:
 	 * it is a `role="button"` row inside the StudioDrawer, behind `moreControls`.
 	 */
 	feedback: 'Send feedback',
@@ -242,7 +242,7 @@ export const appToast = toastText;
  * here.
  */
 export async function gotoStudio(page: Page): Promise<void> {
-	// Seed the Build posture BEFORE the island hydrates, so the full surface (the
+	// Seed the Craft posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
 	// without this the 'Toggle Coach' / 'Toggle Chat' / 'Deck scope' launchers wouldn't exist.
@@ -252,7 +252,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 		try {
 			const k = 'lattice-studio-settings';
 			const cur = JSON.parse(localStorage.getItem(k) || '{}');
-			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'build' }));
+			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'craft' }));
 		} catch {
 			/* storage unavailable — the app falls back to its default */
 		}

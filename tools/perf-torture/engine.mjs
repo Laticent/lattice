@@ -619,7 +619,7 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
 	await settle(page, surf.ready, 30000); // dispose the readiness handle (surf.ready can be replaced later — don't pin it)
 	await wait(page, surf.settle ?? 1500);
-	// Per-surface one-time setup (e.g. dial the Studio to its Build posture so every cycle shares
+	// Per-surface one-time setup (e.g. dial the Studio to its Craft posture so every cycle shares
 	// one layout → matched noise floors). App-specific → lives in the scenario's surface.setup.
 	if (surf.setup) { try { await surf.setup(page, opts); } catch (e) { console.error(`    setup(${surfKey}) failed: ${e.message}`); } }
 	const inst = await makeInstrument(page);

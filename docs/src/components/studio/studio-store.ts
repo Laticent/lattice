@@ -632,7 +632,7 @@ export function saveChatDraft(deckId: string, draft: string): void {
 // that replaced the one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
 // It is written ONLY by an explicit dial interaction (never by engagement), so a
 // user boots where they left off and the surface never drifts. `'write'` = today's
-// Focus body (editor + preview), `'build'` = the full desktop. (The `'read'`
+// Focus body (editor + preview), `'craft'` = the full desktop. (The `'read'`
 // newcomer home lands in a later milestone; the union widens then.)
 // `handleStyle` — how the Fabricate finish designer draws its on-canvas placement
 // handles (wash hotspot / mark / spotlight). 'knob' is the familiar slider-thumb (the
@@ -672,8 +672,31 @@ export type StandingOverflowMarker = Exclude<OverflowMarker, 'off'>;
 // drops the inherited starters from every deck that never materialized (approved/edited/dropped) one.
 // The persisted density stop. (`'read'` — the full-bleed newcomer home — widens
 // this union in a later milestone; today's two stops map to the existing surfaces.)
-export type Posture = 'read' | 'write' | 'build';
-const POSTURES: readonly Posture[] = ['read', 'write', 'build'];
+export type Posture = 'read' | 'write' | 'craft';
+export const POSTURES: readonly Posture[] = ['read', 'write', 'craft'];
+/**
+ * Stored posture values that a PREVIOUS build wrote under a different name, mapped
+ * to the stop they are today. Read on every load, written by nothing.
+ *
+ * The full stop used to be called `'build'` (2026-07-17-studio-persona-dial.md); it
+ * is `'craft'` as of 2026-08-11-studio-craft-stop-rename.md. Without this map the
+ * rename would be a silent DEMOTION rather than a rename: `isPosture('build')` goes
+ * false, the stored value is discarded as corruption, and every returning power user
+ * boots into Write with their saved home gone. An alias is the whole migration —
+ * there is no rewrite pass over storage, because `saveSettings` re-persists the
+ * normalized value the next time anything is saved, and until then the alias answers.
+ *
+ * Exported because the pre-paint seed in `studio.astro` reads the same key from the
+ * same storage and MUST resolve it the same way (it receives this through
+ * `define:vars`). A seed that resolved a different stop than the store paints the
+ * wrong skeleton and the hand-off shows as a jump — see BOOT_POSTURE below.
+ */
+export const POSTURE_ALIASES: Readonly<Record<string, Posture>> = { build: 'craft' };
+/** Resolve a stored value (current name or legacy alias) to a stop, else null. */
+const asPosture = (v: unknown): Posture | null => {
+	if (POSTURES.includes(v as Posture)) return v as Posture;
+	return (typeof v === 'string' && POSTURE_ALIASES[v]) || null;
+};
 /**
  * The stop a browser with no explicitly-stored posture boots on — the ONE
  * declaration of that answer.
@@ -688,7 +711,13 @@ const POSTURES: readonly Posture[] = ['read', 'write', 'build'];
  * during #1286/#1283, once per constant that was written down more than once.
  */
 export const BOOT_POSTURE: Posture = 'write';
-const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
+/**
+ * The stop a LEGACY `onboarded: true` visitor keeps — they had already reached the
+ * full surface, so the migration must not demote them. Named for the same reason
+ * BOOT_POSTURE is: the pre-paint seed needs the identical answer, and a second
+ * hand-written copy of it is how #1286 shipped twice.
+ */
+export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // `readHintSeen` — the one-time "this sample deck is yours → Edit this slide"
 // orientation hint on the Read stop is shown until the newcomer edits or dismisses
 // it, then never again. (It is content attached to the Edit button, not a banner —
@@ -703,7 +732,7 @@ const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
 // user is never demoted): an explicit legacy `onboarded:true` (they reached the
-// full surface) → keep it → 'build'; everyone else → 'write'. Once derived for a
+// full surface) → keep it → 'craft'; everyone else → 'write'. Once derived for a
 // fresh visitor, the boot stop is persisted ONCE (see hasStoredPosture + the
 // mount effect in StudioShell) so a first-session action like creating a deck
 // can never silently re-derive it upward.
@@ -712,18 +741,20 @@ const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, 
 // wrong default for what the Studio IS: people arrive to make a deck, and Read
 // hides the editor, so the first act of every newcomer was to work out how to
 // leave the stop they were put on (#1286). Write is the calm middle — editor
-// plus preview, no Build chrome — so it orients without hiding the point. Read
+// plus preview, no Craft chrome — so it orients without hiding the point. Read
 // remains one click away on the posture dial, and is still what an explicitly
 // stored 'read' restores.
 function derivePosture(legacyOnboarded: boolean | undefined): Posture {
-	if (legacyOnboarded === true) return 'build';
+	if (legacyOnboarded === true) return LEGACY_ONBOARDED_POSTURE;
 	return BOOT_POSTURE;
 }
 // True only when a posture was EXPLICITLY written to storage (not merely derived).
 // The mount effect uses this to persist a fresh visitor's derived stop exactly once.
+// A legacy `'build'` counts as stored — it IS an explicit choice, just under the old
+// name — so the rename never re-derives over a stop the user picked.
 export function hasStoredPosture(): boolean {
 	try {
-		return isPosture(read<Partial<StudioSettings>>(SETTINGS_LS)?.posture);
+		return asPosture(read<Partial<StudioSettings>>(SETTINGS_LS)?.posture) !== null;
 	} catch {
 		return false;
 	}
@@ -739,8 +770,10 @@ export function loadSettings(): StudioSettings {
 	const language = saved.language ?? detectLanguage();
 	// Validate rather than trust: an unknown stored value (corruption, or a `'read'`
 	// written by a later build then rolled back) must fall back to the derived stop,
-	// never flow through to leave the dial lighting no segment.
-	const posture = isPosture(saved.posture) ? saved.posture : derivePosture(legacyOnboarded);
+	// never flow through to leave the dial lighting no segment. `asPosture` also folds
+	// in POSTURE_ALIASES, so a pre-rename `'build'` resolves to Craft instead of being
+	// read as corruption and demoted to Write.
+	const posture = asPosture(saved.posture) ?? derivePosture(legacyOnboarded);
 	// Same "validate rather than trust" as `posture`. The search core tests `intent !== false`,
 	// so any non-boolean falsy value (0, null, "", an explicit undefined from a hand-edited or
 	// third-party workspace backup) would render the Switch OFF while the feature kept running.

@@ -169,10 +169,10 @@ export default {
 			// exactly what fooled #1139 into "confirming" a compose leak. The torture engine reads all metrics
 			// over CDP, never through the overlay, so `?perf` bought nothing but contamination. The overlay is
 			// gated on the `lattice-perf-overlay` pref (default off), so a bare `/studio` never loads
-			// web-vitals. Selector determinism comes from the BUILD-posture `setup` below, not from `?perf`.
+			// web-vitals. Selector determinism comes from the CRAFT-posture `setup` below, not from `?perf`.
 			// Confirm the honest surface with: `npm run torture -- --scenario studio --cycle idle,compose --listeners`.
 			url: '/studio', ready: '.cm-content', settle: 1500,
-			// dial to the BUILD posture so the full UI (activity bar, op rail, both editor toggles)
+			// dial to the CRAFT posture so the full UI (activity bar, op rail, both editor toggles)
 			// is present + selectors deterministic; every studio cycle shares this → matched floors.
 			setup: async (page) => { await page.click('button[aria-label="Build — every panel"]').catch(() => {}); await wait(page, 700); },
 		},

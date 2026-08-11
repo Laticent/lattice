@@ -165,7 +165,7 @@ for (const [kind, deck] of [
 	});
 }
 
-// THE SHIPPED POSTURE. Every test above runs through `gotoStudio`, which seeds `posture: 'build'`
+// THE SHIPPED POSTURE. Every test above runs through `gotoStudio`, which seeds `posture: 'craft'`
 // before hydration so the full surface exists. A human opens the Studio in the calmer default, and
 // `editorSlotVisible` (StudioShell) can PARK the editor preview — iframe kept warm, per-keystroke
 // renders deferred — which is indistinguishable from "the preview is out of sync while typing". So

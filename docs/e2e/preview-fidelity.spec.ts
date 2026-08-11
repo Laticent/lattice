@@ -84,7 +84,7 @@ function row(page: Page, label: string) {
 
 async function openWithDeck(page: Page, deck: string): Promise<void> {
 	// Seed the shared pref BEFORE hydration rather than navigating with `?fidelity`: the param
-	// path would need its own `page.goto`, and this suite's Studio setup (the Build posture, which
+	// path would need its own `page.goto`, and this suite's Studio setup (the Craft posture, which
 	// is what puts the editor on screen at all) lives in `gotoStudio`. One init script composes
 	// with the fixture's instead of forking it.
 	await page.addInitScript(() => {

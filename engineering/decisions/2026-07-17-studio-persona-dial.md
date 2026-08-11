@@ -26,6 +26,14 @@ summary: >
 
 *2026-07-17*
 
+> **Naming note (2026-08-11): the third stop is now called Craft, not Build.**
+> Everything in this note still describes the shipped dial — the same three stops,
+> the same rules — but `'build'` reads `'craft'` in today's code, storage, CSS hooks
+> and labels (`revealBuild` → `revealCraft`, `data-ssr-stop="build"` → `"craft"`).
+> This note is left in its original wording as the dated record of what shipped
+> then; the rename and its storage migration are
+> `2026-08-11-studio-craft-stop-rename.md`.
+
 ## The problem this closes
 
 The Studio already sorts people — badly. A newcomer gets a reduced surface

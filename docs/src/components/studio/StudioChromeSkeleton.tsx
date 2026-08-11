@@ -73,7 +73,7 @@ function ActionBar() {
  * The deck pill — content-sized exactly as the app's is (min-w-0 + truncating title).
  *
  * The app has TWO of these, and which one it renders is a tier AND stop question. The FULL
- * header (phone, tablet, and desktop at Build) carries the bordered switcher below. The
+ * header (phone, tablet, and desktop at Craft) carries the bordered switcher below. The
  * DESKTOP SLIM header at Read carries no switcher at all — deck navigation is a Write-and-up
  * concern there — just a plain title and a mono slide count. `ReadTitle` is that second one;
  * the CSS gate picks between them. Flattening the pill's borders and calling it a title, which
@@ -137,9 +137,9 @@ function ReadTitle({ title }: { title: string }) {
 function StopDial() {
 	return (
 		<>
-			<span className="ssr-dial ssr-dial-read contents"><PostureDial posture="read" quietened={false} revealBuild={false} onChange={NOOP} /></span>
-			<span className="ssr-dial ssr-dial-write contents"><PostureDial posture="write" quietened={false} revealBuild={false} onChange={NOOP} /></span>
-			<span className="ssr-dial ssr-dial-build contents"><PostureDial posture="build" quietened={false} revealBuild={false} onChange={NOOP} /></span>
+			<span className="ssr-dial ssr-dial-read contents"><PostureDial posture="read" quietened={false} revealCraft={false} onChange={NOOP} /></span>
+			<span className="ssr-dial ssr-dial-write contents"><PostureDial posture="write" quietened={false} revealCraft={false} onChange={NOOP} /></span>
+			<span className="ssr-dial ssr-dial-craft contents"><PostureDial posture="craft" quietened={false} revealCraft={false} onChange={NOOP} /></span>
 		</>
 	);
 }
@@ -176,15 +176,15 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 			    Both are rendered and CSS-gated, since the breakpoint hook can't run here. */}
 			<div className="ssr-topbar flex h-[54px] shrink-0 items-center gap-1.5 overflow-hidden border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 min-[1100px]:gap-3 min-[1100px]:px-3.5">
 				{/* FULL-header left: the launcher (mark + chevron). Phone + tablet — and desktop at
-				    BUILD, where the app swaps the slim header for this one. That last case is not
+				    CRAFT, where the app swaps the slim header for this one. That last case is not
 				    expressible in a Tailwind width class (it depends on the STOP), so the shell CSS
-				    re-gates these three spans under `:root[data-ssr-stop="build"]`; drawing the slim
+				    re-gates these three spans under `:root[data-ssr-stop="craft"]`; drawing the slim
 				    header's bare mark there instead pushed the deck pill 27px right. */}
 				<span className="ssr-launcher-wrap contents min-[1100px]:hidden">
 					<button type="button" aria-label="Workspace launcher" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 sm:gap-2 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
 						{/* The wordmark rides the launcher only at !compact — the desktop FULL header, which
-							    is what the app renders at Build. */}
+							    is what the app renders at Craft. */}
 							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
 							<ChevronDown className="size-4 text-muted-foreground" />
 					</button>
@@ -194,8 +194,8 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<LatticeMark mode="light" className="size-7 shrink-0 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 shrink-0 ssr-mark-dark" />
 				</span>
 				{/* The rule between the launcher and the deck pill — `!compact` in the app, so it
-				    exists ONLY in the desktop full header, which is the Build stop. */}
-				<span className="ssr-build-lead hidden">
+				    exists ONLY in the desktop full header, which is the Craft stop. */}
+				<span className="ssr-craft-lead hidden">
 					<Separator orientation="vertical" className="h-5" />
 				</span>
 
@@ -236,11 +236,11 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<StopDial />
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 				</span>
-					{/* DESKTOP at BUILD: the app swaps its slim header for the FULL one, which regains
+					{/* DESKTOP at CRAFT: the app swaps its slim header for the FULL one, which regains
 					    Theme, the mode toggle and the tours launcher (the panel toggles move into the
 					    52px activity rail instead). Mirrored control-for-control — the parity spec
 					    compares the two SETS, so an omission here fails rather than ships. */}
-					<span className="ssr-build-tail hidden min-[1100px]:contents">
+					<span className="ssr-craft-tail hidden min-[1100px]:contents">
 						<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>

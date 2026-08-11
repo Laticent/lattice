@@ -10,7 +10,7 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 // WHY IT LIVES HERE rather than in a scratch script: `docs/scripts/frame-bench.mjs` reports
 // LCP + the patch/write FRAME regimes, but it drives an edit by focusing `.cm-content` and
 // typing — which silently does NOTHING in the shipped default posture, where the editor is not
-// on screen. This suite's fixture already solves that (`gotoStudio` seeds `posture: 'build'`
+// on screen. This suite's fixture already solves that (`gotoStudio` seeds `posture: 'craft'`
 // before hydration; `focusEditor` targets the "Deck source" label and FAILS LOUDLY on a hidden
 // element; `setEditorContent` uses insertText so a multi-line deck's `---` separators survive
 // the editor's markdown auto-continuation). Reusing it is the difference between a measurement

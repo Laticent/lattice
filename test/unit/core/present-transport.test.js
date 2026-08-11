@@ -111,7 +111,7 @@ test('swipeAction turns only on a decisive horizontal gesture', () => {
 // ── createWheelGate — the third input verb (#1294) ────────────────────────────
 // The rule the Studio shell, Present, and the presenter screen each used to
 // hand-roll with different constants (the shell's horizontal-only test is what
-// made a plain wheel mouse a no-op in Read/Write/Build).
+// made a plain wheel mouse a no-op in Read/Write/Craft).
 
 test('createWheelGate reads the DOMINANT axis, so a mouse and a trackpad both work', () => {
 	const { createWheelGate } = K;
