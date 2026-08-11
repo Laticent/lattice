@@ -576,6 +576,34 @@ plain `no-form`'s 64). Scoped, and both paths re-measured: the Form path floors 
 one error in one afternoon is a pattern, so state it as a rule: **before scoping a
 floor, check that the zero it floors is reachable on the path you scoped to.**
 
+### 8.1.1 The modifier cross, swept
+
+Three instances of one mistake, the last found only because an agent's closing
+paragraph happened to name the intersection, is evidence the search was not
+systematic. So it was made systematic: **8 modifier arms × 14 charts × 3 deck
+sizes = 336 measured cases** (`.scratch/cross/`), each asserting the three things
+this change is actually about.
+
+| invariant | violations |
+|---|---|
+| body border box == holder content box, inline axis | **0 / 336** |
+| nothing paints outside the slide box | **0 / 336** |
+| a card- or table-bodied chart never reaches the trim edge | **0 / 336** |
+
+Arms: plain, `no-form`, `canvas`, `claim-quiet`, `claim-hero`, `claim-bleed`,
+`compact`, `align-top`. Holders: 294 stage, 42 section — so the `no-form` path is
+measured at every chart and every size, not spot-checked.
+
+**One deliberate misalignment survives, and it is the floor's price.** Of 294
+masthead comparisons, 18 differ: the six prose-dense charts under `claim-bleed`,
+at all three sizes, where the masthead bleeds to 0 and the body floors at 30
+(25.3 at portrait/square). A hairline runs edge to edge above cards that do not.
+That is the very defect §8.1 exists to remove, accepted here because the
+alternative is slicing a card at the trim — and because the *primary* answer is
+the manifest opt-out, which tells the author not to write this slide. **Alignment
+loses to not-cropping-content; everywhere the two do not conflict, alignment
+wins.** No other arm misaligns anywhere.
+
 Found by the trio's inversion pass. Nothing caught it mechanically: the
 `claim-bleed-unsafe` linter reads a manifest `excludes` list only matrix-grid
 declares, and no committed deck combines a chart with `claim-bleed`, so there was

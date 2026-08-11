@@ -19956,6 +19956,16 @@ section.chart-frame {
  * a different one. `state-chart` is deliberately absent too: it self-scales and
  * centers, so it is genuinely safe at the trim.
  *
+ * WHAT THE FLOOR COSTS, stated plainly because it is the same currency this
+ * change spends everywhere else: on these six the masthead still bleeds to 0
+ * while the body stops at 30, so a `kanban claim-bleed` shows a hairline running
+ * edge to edge above cards that do not. That IS a misalignment — measured across
+ * the modifier cross, it is the only one left in 294 masthead comparisons. It is
+ * accepted rather than overlooked: the alternative is slicing a card at the trim,
+ * and the primary answer is the manifest opt-out above, which tells the author
+ * not to author this combination at all. Alignment loses to not-cropping-content;
+ * everywhere the two do not conflict, alignment wins.
+ *
  * `.form` ONLY, for the same reason and one layer down. Every `--frame-x` retune
  * in stage.css is scoped `section.form`, so a `no-form` slide never bleeds no
  * matter which claim it carries — and an unscoped floor there stacks on the
