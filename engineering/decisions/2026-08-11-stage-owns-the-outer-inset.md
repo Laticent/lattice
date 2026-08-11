@@ -8,6 +8,8 @@ summary: States "the stage owns the outer inset; a body owns only the spacing be
 **Date:** 2026-08-11
 **Area:** forms / charts / diagrams / gates
 **Issue:** #1598 (the structural precondition for #680, which stays open)
+**Shipped in two passes:** the de-duplication (§1–8), then §8.1 — the correction
+the owner's challenge forced, taking charts to the frame inset like everything else.
 **Governing docs:** `design/forms.md` §5/§6 (the Cell ownership line, the gap +
 clip contract), `engineering/decisions/2026-06-26-frames-as-flex-cell-trees.md`
 §6/§7 (the record that revived `.cell-stage` as a real element)
@@ -439,6 +441,50 @@ Two gates, paired deliberately, because each is blind to the other's failures.
   `diagram.gallery.md`. Still uncovered by the fixture: `matrix-grid`, one of the
   five `flex: 0 0 auto` pinned charts — a pre-existing coverage gap, noted in
   #1600 rather than closed here.
+
+## 8.1 Follow-up: the chart's remaining inset was not a design choice either
+
+Shipped the same day, on the owner's challenge — *"you said diagram has two
+layers and chart has 3; explain why it needs 3."* It does not, and §6's claim that
+the survivor was "a deliberate margin somebody had chosen" was an assumption I had
+not checked. Going back through the history:
+
+- the width calc's own comment justified it as a **sizing** workaround for the
+  marp-vscode webview; pushing the chart in 64px was an unrecorded side effect;
+- the `padding` line carried **no comment at all**;
+- the only defense anywhere is the glass panel adopting *"its **existing**
+  padding"* — a value already there for a reason nobody wrote down, on a panel
+  that is opt-in with zero decks opting in;
+- the per-chart notes that argue for it argue for charts matching **each other**
+  (the panel's uniform size), never for charts wanting more room than prose.
+
+Two measurements retired it. **(1)** For the eight SVG-bodied charts the inset
+bought nothing: they letterbox to their box, so a quadrant renders
+pixel-identical at 64 and at 128 — dead space on each side, and only the five
+HTML-bodied charts ever spent the width. **(2)** It was an **alignment defect**:
+the masthead's hairline spans the full frame, so a chart at 128 read visibly
+narrower than the rule directly above it — precisely the misalignment §6 had just
+fixed on the diagram, left in place on the chart.
+
+`--chart-inset-x: 0px`, and **three per-chart overrides deleted rather than
+added**: tall/strip's pulled IN from `--sp-2xl` and against a 0 default would only
+push back out, inverting its purpose; state-chart's and timeline-list-tall's
+existed solely to hold a specificity tie whose both sides are now 0. The follow-up
+is *smaller* than the change it corrects.
+
+**And a third box bigger than its container.** `check:chart-fit` caught a journey
+mood-5 face 5.3px past the portrait stage. Not tight spacing — the portrait
+variant plots its marker at `left: ((mood − 1) / 4) × 100%`, so a mood-5 face was
+centered ON the track's right edge with half of it outside, **always, at every
+deck size**; the old padding was merely wider than the overhang. The 1..5 scale
+now maps across `100% − 6.5cqi` offset by half a face. After gantt and
+matrix-grid, that is three for three: **reclaiming an inset is how you find the
+boxes that were never inside their container.**
+
+`check:chart-fit` 5 → 4 → **3** across this line of work (square roadmap fixed by
+the reclaim, portrait journey by the marker fix); `overflow:check` clean across
+268 decks. Logged, not fixed: journey's portrait rows overlap each other —
+identical on `main`, different mechanism, off this change's path (#1600).
 
 ## 9. Relation to #680
 

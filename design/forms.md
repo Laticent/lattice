@@ -406,7 +406,20 @@ rim labels by design). Removing it clipped nine decks that had never clipped, so
 #1598 is inline-only and the block padding stays on the body, named for its job.
 `overflow-clip-margin` is the property that should carry it and cannot yet —
 Chromium 131 takes only a plain `<length>` there, and every spacing token here is
-a `calc()`. The debt was invisible for as
+a `calc()`.
+
+**Every bucket now sits at the frame inset — 64px, once.** #1598 landed the chart
+at 128 (frame + one surviving inset) on the belief that a chart's wider berth was
+a deliberate design choice; it was not. The width calc's own comment justified it
+as a *sizing* workaround, the padding line had no comment, and the only defense
+anywhere was the opt-in glass panel adopting "its **existing** padding". Two
+measurements retired it: for the eight SVG-bodied charts the inset bought nothing
+(they letterbox, so a quadrant renders pixel-identical at 64 and 128), and it was
+an **alignment defect** — the masthead's hairline spans the full frame, so a chart
+at 128 read visibly narrower than the rule directly above it, exactly the
+misalignment the diagram had. A chart's berth is now the frame's, like everything
+else, and `--chart-inset-x` exists only so a future component can say otherwise
+with a reason. The debt was invisible for as
 long as it existed, and was costed at half its real size when someone finally went
 looking (#680 recorded the chart's inline cost as 128px; it was 256).
 
