@@ -3688,7 +3688,7 @@ const SANCTIONED_E2E_SLEEPS = [
   // Arrived from main while this PR was open — the ratchet caught them, which is the point.
   { file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — landed in #1561 after this gate was written; the gate flagged it on rebase.' },
   {
-    file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 6,
+    file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 7,
     why: 'MEASUREMENT WINDOW (#1589/#1588/#1590), not a settle. Every one of these follows a '
        + 'signal that has ALREADY been awaited (`.pg-preview-wrap.is-live`, the walk position, '
        + 'the 404 toast) and then keeps the per-frame sampler running for a beat, because what '
@@ -3697,7 +3697,7 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'second geometry arriving after. The bound is the 0.2s shell-to-filmstrip cross-fade '
        + 'plus room for a late correction pass; shortening it is what stops these cases '
        + 'catching the defect they were written for. Three were inherited from #1581 and were '
-       + 'UNJUDGED; they are judged now and the three added here are the same shape.',
+       + 'UNJUDGED; they are judged now and the four added here are the same shape.',
   },
   { file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1, why: 'UNJUDGED — landed after this gate was written; the gate flagged it on rebase.' },
   {

@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, P
 import * as React from 'react';
 import { toast } from 'sonner';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
-import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS } from '@/components/playground/pg-split';
+import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -671,7 +671,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		mql.addEventListener('change', sync);
 		return () => mql.removeEventListener('change', sync);
 	}, []);
-	const RAIL_W = 28; // px collapsed-pane rail width (the always-visible restore edge)
+	// px collapsed-pane rail width (the always-visible restore edge). Declared in pg-split.ts
+	// because the pre-paint seed needs it too: the library snaps a restored pane to THIS rather
+	// than to `minSize` below the midpoint of the two, and a seed that models only the clamp
+	// paints 320px where the app is about to show 28.
+	const RAIL_W = PG_SPLIT_RAIL;
 	// Preview reveal choreography (was useSplit.onExpand): a deck change deferred
 	// while collapsed needs a full fresh render; otherwise one re-fit + patch heals
 	// the view. Double-rAF so the iframe is laid out + measurable first.

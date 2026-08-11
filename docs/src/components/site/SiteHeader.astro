@@ -55,20 +55,22 @@ const Wrapper = standalone ? 'header' : 'div';
 
 // palette → the label the theme <select> shows, resolved at BUILD time so the pre-paint
 // seed below is a lookup rather than a second copy of the derivation (#1592).
-const paletteLabels = Object.fromEntries(palettes.map((p) => [p, paletteLabel(p)]));
+// `[\w-]` is belt and braces before these names reach a CSS selector below; they come from
+// our own generated token file, matched by a regex that already excludes quotes. ONE filtered
+// list feeds both the label map and the rules, so the seed can never call a palette shipped
+// that has no rule to reveal it.
+const seedablePalettes = palettes.filter((p) => /^[\w-]+$/.test(p));
+const paletteLabels = Object.fromEntries(seedablePalettes.map((p) => [p, paletteLabel(p)]));
 // What PaletteControls falls back to when the attribute names nothing this build ships —
 // declared here so the seed resolves the SAME palette the control's first render will.
-const fallbackPalette = palettes[0] ?? null;
+const fallbackPalette = seedablePalettes[0] ?? null;
 // ONE RULE PER PALETTE, so the theme control's label is painted from `<html data-palette>`
 // rather than written into the DOM by a script that has to beat the first frame (#1592).
 // PaletteControls renders every label and these show one — the same shape as the mode
 // toggle's three icons, and for the same reason: the server cannot know the answer, but the
 // attribute carrying it is set before anything paints. Handed to the seed below and appended
 // to <head> there; see the note at that line for why it cannot be a <style> in this template.
-// `[\w-]` is belt and braces; the names come from our own generated token file, matched by a
-// regex that already excludes quotes.
-const paletteLabelCss = palettes
-	.filter((p) => /^[\w-]+$/.test(p))
+const paletteLabelCss = seedablePalettes
 	.map((p) => `:root[data-palette="${p}"] [data-palette-label="${p}"]{display:inline}`)
 	.join('\n');
 ---
@@ -102,6 +104,17 @@ const paletteLabelCss = palettes
 			var shipped = function (n) { return !!n && Object.prototype.hasOwnProperty.call(paletteLabels, n); };
 			var p = null;
 			try { p = localStorage.getItem('lattice-docs-palette'); } catch (e) {}
+			// DROP a stored palette this build no longer ships, rather than merely declining to
+			// spend it. Normalizing the attribute alone was not enough: `syncFromStorage` re-reads
+			// the KEY at mount with no validation of its own and stamps it straight back, so the
+			// page painted the fallback and then flipped to a theme whose CSS 404s — a palette
+			// flash this seed introduced. `playground.astro`'s head seed has always cleared it for
+			// exactly this reason ("blank in my browser, fine in private browsing"); the site-wide
+			// surfaces had nothing that did, so they never recovered.
+			if (p && !shipped(p)) {
+				try { localStorage.removeItem('lattice-docs-palette'); } catch (e) {}
+				p = null;
+			}
 			if (!shipped(p)) p = r.getAttribute('data-palette');
 			if (!shipped(p)) p = fallbackPalette;
 			// Publish it even when it did not change: the label rules below resolve from this
@@ -183,8 +196,6 @@ const paletteLabelCss = palettes
 	</div>
 </Wrapper>
 
-
-
 <script>
 	// Close the Libraries disclosure on outside-click / Escape (native <details>
 	// doesn't). One listener for every <details.sh-tools> on the page; runs once
@@ -228,8 +239,9 @@ const paletteLabelCss = palettes
 
 	/* THE THEME CONTROL'S LABEL, painted from `<html data-palette>` for the same reason and by
 	   the same means: PaletteControls renders every palette's label and one rule per palette
-	   (generated below) shows the one in force. The server cannot know which; the attribute is
-	   set before the header is parsed. */
+	   shows the one in force. Only the base rule can live here — the per-palette ones are
+	   injected into <head> by the seed above, because a dynamic <style> in this template is
+	   emitted after the header it styles. */
 	[data-palette-label] {
 		display: none;
 	}

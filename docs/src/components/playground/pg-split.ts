@@ -15,18 +15,10 @@
  * fallen back to the default, and drawn the split line up to ~300px from where the app was about
  * to put it.
  */
-import { bucketFor, collapseKeyFor } from '../ui/split-storage';
+import { bucketFor } from '../ui/split-storage';
 
 /** `useResizableSplit`'s `storageKey` on the Playground surface. */
 export const PG_SPLIT_KEY = 'lattice-docs-split-playground';
-
-/**
- * Where the collapsed side is persisted (sessionStorage), DERIVED — never restated.
- *
- * The pre-paint seed needs it to know when NOT to spend the pixel clamp below: a collapsed
- * pane is on its way to a 28px rail, and a 320px minimum is the wrong prediction of it.
- */
-export const PG_SPLIT_COLLAPSE_KEY = collapseKeyFor(PG_SPLIT_KEY);
 
 /**
  * The split's panel ids — ONE declaration, used for the Panels themselves, for the storage
@@ -65,3 +57,33 @@ export const PG_SPLIT_DEFAULTS = { editor: 45, preview: 55 } as const;
  * that enforces it and by the seed that has to predict it, so they cannot drift.
  */
 export const PG_SPLIT_MIN = { editor: 280, preview: 320 } as const;
+
+/**
+ * A collapsed pane's width in pixels — the `<ResizablePanel collapsedSize>` rail.
+ *
+ * WHY THE SEED NEEDS IT, AND WHY GETTING THIS WRONG COST A ROUND: restoring a saved layout is
+ * not a clamp. `react-resizable-panels` resolves an under-minimum size in TWO branches
+ * (`Z()` in its dist bundle): a `collapsible` panel restored below the MIDPOINT of
+ * `collapsedSize` and `minSize` snaps to `collapsedSize`, and only above that midpoint does
+ * it clamp to `minSize`. A pre-paint side that models the clamp alone paints `minSize` where
+ * the app is about to hand off to a 28px rail — measured 320px against 28px, a 292px error
+ * held for ~1.3s, on a saved share the divider produces the moment it is dragged past its
+ * minimum.
+ *
+ * The Studio's shell learned this first and wrote it down (`components/studio/preview-rect.ts`,
+ * "clamping alone painted a 300px preview where the app handed off to a 46px rail"). It is
+ * here so the Playground's seed can express the same rule instead of rediscovering it.
+ */
+export const PG_SPLIT_RAIL = 28;
+
+/**
+ * The pane size, in px, at or above which the library CLAMPS to the minimum and below which
+ * it snaps to the rail — the midpoint the two branches turn on.
+ *
+ * Derived, never restated: the seed's threshold and the panel's own constraints then cannot
+ * disagree about where the behavior changes.
+ */
+export const PG_SPLIT_SNAP_MIDPOINT = {
+	editor: (PG_SPLIT_RAIL + PG_SPLIT_MIN.editor) / 2,
+	preview: (PG_SPLIT_RAIL + PG_SPLIT_MIN.preview) / 2,
+} as const;

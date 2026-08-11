@@ -124,33 +124,19 @@
 	flex-basis: 0;
 	flex-grow: var(--pg-split-b, 55);
 }
-/* THE SAME CLAMP THE LIBRARY APPLIES, one moment earlier (#1589). The seed above spends a
-   pair of PERCENTAGES; each pane also has a minimum in PIXELS (`PG_SPLIT_MIN`, the
-   <ResizablePanel minSize> values), and a share that clears its minimum at the window it was
-   saved in can fall below it at a narrower one. The library clamps on hydration; the seed did
-   not, so the pane painted one width and settled at another — measured by dragging the real
-   divider to a 25% preview at 1920 and reloading at 1194: 298.3px, then 320px.
-   `min-width` is not an approximation of that clamp, it IS it: a flex item whose min-width is
-   violated is frozen at the minimum and the remainder goes to its sibling, which for a
-   two-panel group is exactly what the library computes.
-   Scoped to `data-pg-split-seed`, which `adoptBootSeed` removes when the app takes the layout
-   back — unlike the grow vars (which the library's inline `flex-grow` simply outranks), a
-   surviving min-width would fight the collapse-to-rail and pin a collapsed pane at 320px.
-   `!important` because the SSR'd panel wrapper carries `min-width:0` INLINE — the same reason
-   the ≤820px block below spells its overrides that way. Setting the pixel minimum on the
-   element instead would be worse than losing: React's prop record would still read `0`, so the
-   library would never write over it and the clamp would outlive the seed forever.
-   Confined to the band where the split is a split at all: below 820px the group is disabled
-   and the panes are stacked full-width tabs, where a pixel minimum means nothing and could
-   only overflow a narrow phone. */
-@media not (max-width: 820px) {
-	:root[data-pg-split-seed] .pg-split > #pg-split-editor {
-		min-width: var(--pg-split-min-a) !important;
-	}
-	:root[data-pg-split-seed] .pg-split > #pg-split-preview {
-		min-width: var(--pg-split-min-b) !important;
-	}
-}
+/* THE PANES' PIXEL MINIMUMS are NOT applied here (#1589) — the seed in playground.astro
+   appends them to <head> as a media-query-scoped stylesheet, because which of them applies
+   depends on the viewport and only the seed knows the saved share. Two reasons this is not
+   a static rule:
+   · Restoring a saved layout is not a clamp. The library resolves an under-minimum size in
+     TWO branches: below the MIDPOINT of `collapsedSize` and `minSize` it snaps a collapsible
+     pane to the 28px rail; only above it does it clamp to the minimum. A static
+     `min-width: 320px` paints 320 where the app is about to show 28 — measured 292px wrong,
+     held ~1.3s, on the share a divider dragged past its minimum leaves behind.
+   · The rules have to name the panel ids and the a→editor / b→preview mapping, which
+     `PG_SPLIT_PANEL_IDS` and the seed own. Generating them there keeps that in one place;
+     restating them here was a silent-drift surface with no gate.
+   What stays here is only what is true at every width: nothing. See playground.astro. */
 /* The pane's real content (label + editor/preview). Kept mounted + inert while
    collapsed so CodeMirror history and the preview iframe survive the interlude;
    hidden by the collapsed rule below so only the rail shows in the 28px strip. */
@@ -722,7 +708,15 @@
    chars) made the bar 184px on a phone — 22% of the viewport, for prose already printed on
    the slide above it. */
 .pg-walk {
-	display: flex;
+	/* HIDDEN BY DEFAULT, revealed in Explore — not the other way round (#1588). The bar is
+	   always mounted now, so whatever the CSS says with no boot view resolved is what a
+	   visitor gets when the pre-paint seed does not run. It can fail to run: its outer `try`
+	   opens with a `localStorage` read, which THROWS where storage is denied (Safari's "block
+	   all cookies", a partitioned context, a privacy extension), and `<body>` carries no
+	   `data-view` until the island mounts. Defaulting to shown put a 93px dead nav in EDIT
+	   view for ~1.5s on that path — the same band this change exists to remove, on an error
+	   path that could not produce it before the bar was always mounted (HARD RULE #18). */
+	display: none;
 	flex-direction: column;
 	gap: 6px;
 	padding: 8px 16px 10px;
@@ -748,6 +742,17 @@
 	background: transparent;
 	color: inherit;
 	cursor: pointer;
+	/* NEITHER OF THESE IS COSMETIC (#1588). `flex-wrap: nowrap` on the row stops the ROW
+	   wrapping; it does nothing about text wrapping INSIDE a shrinkable item. A first draft
+	   hardened only `.next`, so a long cross-component label squeezed Prev — which keeps the
+	   default `flex-shrink: 1` — until "‹ Prev" broke onto two lines and the bar grew 20.8px
+	   mid-read. Measured at 390x844 on the `matrix-grid` plan's last slide ("Next component:
+	   obligation-matrix →", 237px): the bar 101.48 → 122.28px, the preview pane 578.52 →
+	   557.72. The whole ≤390px band was affected and a SHORTER label does not trip it, which
+	   is how the first verification missed it. Prev and the position are now rigid; `.next`
+	   is the only elastic item in the row, and it truncates. */
+	flex: 0 0 auto;
+	white-space: nowrap;
 }
 .pg-walk-step:hover:not(:disabled),
 .pg-walk-step:focus-visible {
@@ -819,11 +824,6 @@
 	}
 }
 
-/* The Walk bar mounts in both modes (the tour's reveal hook needs it findable);
-   only Explore SHOWS it. */
-:is(:root[data-pg-view='edit'], body[data-view='edit']) .pg-walk {
-	display: none;
-}
 
 /* ── Mode toggle (2026-07-06 simplification) ─────────────────────────────────
    Explore / Edit as a compact two-icon segmented control, replacing the pills.
@@ -892,6 +892,10 @@
    walk bar is always last. A top border reads it as a footer separator now that
    the deck sits above it rather than below. */
 :is(:root[data-pg-view='read'], body[data-view='read']) .pg-walk {
+	/* The bar mounts in both modes — the tour's reveal hook needs it findable in Edit too —
+	   and this is the ONE rule that shows it. Stated as a reveal rather than as a hide in
+	   Edit, so a boot with no resolved view shows nothing rather than a dead nav bar. */
+	display: flex;
 	order: 10;
 	border-block-start: 1px solid var(--border);
 	border-block-end: 0;

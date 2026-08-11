@@ -4,7 +4,7 @@ import { PaletteSelectItems } from '@/components/site/PaletteSelectItems';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { paletteLabel } from '@/lib/palette-label';
-import { cycleModePref, DEFAULT_PALETTE, MODE_KEY, MODE_PREF_ATTR, type Mode, type ModePref, PALETTE_KEY, setPalette, syncFromStorage, watchSystemMode } from '@/lib/site-chrome';
+import { CHROME_CHANGE_EVENT, cycleModePref, DEFAULT_PALETTE, MODE_KEY, MODE_PREF_ATTR, type Mode, type ModePref, PALETTE_KEY, setPalette, syncFromStorage, watchSystemMode } from '@/lib/site-chrome';
 
 // The Drawing Board's deck-theme-writing chrome bus (present ONLY on that route).
 // When it exists, a pick WRITES the deck's `theme:` front matter (authoring) and
@@ -119,12 +119,18 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 		// resolved to at mount — otherwise System means only "the OS's answer when this
 		// tab loaded", which is the frozen behavior the stop exists to fix.
 		const unwatch = watchSystemMode(setModeState);
+		// A pick made by a SIBLING control in this tab — the command palette sets the palette
+		// directly through site-chrome, and `storage` only fires cross-tab. Without this the
+		// select's list kept ticking the old palette while the trigger showed the new one, and
+		// re-picking the ticked item fired no `onValueChange`, so it was a dead control (#1592).
+		window.addEventListener(CHROME_CHANGE_EVENT, syncChrome);
 		window.addEventListener('db-chrome-ready', pullBus);
 		window.addEventListener('db-chrome-sync', onSync as EventListener);
 		window.addEventListener('pageshow', onShow);
 		window.addEventListener('storage', onStorage);
 		return () => {
 			unwatch();
+			window.removeEventListener(CHROME_CHANGE_EVENT, syncChrome);
 			window.removeEventListener('db-chrome-ready', pullBus);
 			window.removeEventListener('db-chrome-sync', onSync as EventListener);
 			window.removeEventListener('pageshow', onShow);

@@ -25,7 +25,7 @@ import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
-import { PG_SPLIT_BUCKET, PG_SPLIT_COLLAPSE_KEY, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS } from '../components/playground/pg-split';
+import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_SNAP_MIDPOINT } from '../components/playground/pg-split';
 // The storage keys the pre-paint seed reads, from the module that DECLARES them rather
 // than restated as literals in the inline script. `playground-controller.ts` has no
 // imports of its own, so an Astro page can pull five strings out of it without dragging
@@ -172,7 +172,7 @@ const pgData = {
 				PG_SPLIT_BUCKET,
 				PG_SPLIT_PANEL_IDS,
 				PG_SPLIT_MIN,
-				PG_SPLIT_COLLAPSE_KEY,
+				PG_SPLIT_SNAP_MIDPOINT,
 				SOURCE_KEY,
 				VIEW_KEY,
 				HANDOFF_KEY,
@@ -219,41 +219,65 @@ const pgData = {
 						var pgSaved = pgStore && pgStore[PG_SPLIT_BUCKET];
 						if (pgSaved) {
 							var pgA = pgSaved[PG_SPLIT_PANEL_IDS[0]], pgB = pgSaved[PG_SPLIT_PANEL_IDS[1]];
-							// Both must be real positive numbers: a half-written or corrupt entry
-							// falls through to the CSS fallbacks, which are the panels' own defaults.
-							if (typeof pgA === 'number' && typeof pgB === 'number' && pgA > 0 && pgB > 0) {
+							// Both must be real, FINITE, positive numbers: a half-written or corrupt entry falls
+							// through to the CSS fallbacks, which are the panels' own defaults. `Number.isFinite`
+							// and not `> 0` alone — `JSON.parse('1e400')` is `Infinity`, which is a number, is
+							// positive, and is not a valid `flex-grow` token, so the parser drops the declaration
+							// and the pane sizes to its content.
+							if (isFinite(pgA) && isFinite(pgB) && typeof pgA === 'number' && typeof pgB === 'number' && pgA > 0 && pgB > 0) {
 								r.style.setProperty('--pg-split-a', String(pgA));
 								r.style.setProperty('--pg-split-b', String(pgB));
-								// …AND THE PANES' PIXEL MINIMUMS (#1589). The saved value is a pair of
-								// PERCENTAGES; the library enforces a per-pane minimum in PIXELS. A share that
-								// clears the minimum at the window it was saved in can fall below it at a
-								// narrower one, and then the seed and the hydrated app disagree — measured by
-								// dragging the real divider to a 25% preview at 1920 and reloading at 1194:
-								// 298.3px pre-paint against 320px after, the divider moving 22px in view, and
-								// the instant shell declining outright because its slide had been measured in a
-								// box that no longer existed. Publishing the minimums lets the stylesheet apply
-								// the same clamp flexbox already knows how to apply (min-width beats flex-grow),
-								// so the pre-paint pane IS the hydrated pane. The numbers come from pg-split.ts,
-								// which is also where <ResizablePanel minSize> reads them, so the two sides
-								// cannot drift.
-
-								// …EXCEPT over a collapsed pane, which is not heading for its minimum at all: it is
-								// heading for the 28px rail, restored from sessionStorage a beat after mount. The saved
-								// share in that state is the last one before the collapse latched, which can itself be
-								// below the minimum (measured 2.347%, i.e. the rail's own width), so clamping it would
-								// paint 320px and snap to 28 — turning a load that happens to be right today into two
-								// geometries. The collapsed pane's own late jump is a separate, pre-existing gap (the
-								// 2026-08-10 boot-state note records it); this only declines to make it worse.
-								var pgCollapsed = null;
-								try { pgCollapsed = sessionStorage.getItem(PG_SPLIT_COLLAPSE_KEY); } catch (e3) {}
-								if (pgCollapsed !== 'a' && pgCollapsed !== 'b') {
-									r.style.setProperty('--pg-split-min-a', PG_SPLIT_MIN.editor + 'px');
-									r.style.setProperty('--pg-split-min-b', PG_SPLIT_MIN.preview + 'px');
-									// The clamp rules key on this attribute and DIE with it: `adoptBootSeed` drops it
-									// when the app takes the layout back, because a min-width that outlived the seed
-									// would fight the library's own collapse-to-rail (28px).
-									r.setAttribute('data-pg-split-seed', '');
+								// …AND THE PANES' PIXEL MINIMUMS (#1589). The saved value is a pair of PERCENTAGES;
+								// the library bounds each pane by a minimum in PIXELS. A share that clears its minimum
+								// at the window it was saved in can fall below it at a narrower one, and then the seed
+								// and the hydrated app disagree — measured by dragging the real divider to a 25%
+								// preview at 1920 and reloading at 1194: 298.3px pre-paint against 320px after, the
+								// divider moving 22px in view, and the instant shell declining outright because its
+								// slide had been measured in a box that no longer existed.
+								//
+								// BUT RESTORING IS NOT A CLAMP, and a first draft of this seed got that wrong in a way
+								// that was WORSE than the defect it fixed. `react-resizable-panels` resolves an
+								// under-minimum size in two branches (`Z()` in its bundle): a collapsible pane restored
+								// below the MIDPOINT of `collapsedSize` and `minSize` snaps to the 28px rail; only above
+								// that midpoint does it clamp to the minimum. Modeling the clamp alone painted a 320px
+								// preview where the app then handed off to a 28px rail — 292px wrong, held ~1.3 seconds,
+								// on the share the divider leaves behind the moment it is dragged past its minimum (the
+								// collapse button's own tooltip advertises that gesture). The Studio's shell learned
+								// this first and wrote it down in `preview-rect.ts`; this missed it.
+								//
+								// So the clamp is scoped to the width band where the library actually clamps. The
+								// threshold is a GROUP width, and the group spans the viewport on this surface (the
+								// page column has no horizontal padding — measured 873 + 320 + a 1px separator at a
+								// 1194 viewport), so a media query expresses it exactly and — unlike reading
+								// `innerWidth` here — stays right if the window is resized before hydration.
+								//
+								// Below the threshold no rule applies and the raw share paints, which is what shipped
+								// before any of this: the pane is a little wrong for a beat rather than 292px wrong.
+								// Reproducing the rail here would need the seed to model the snap as well, and a
+								// mis-modeled snap fails in the same expensive direction — so it declines instead.
+								var pgTotal = pgA + pgB;
+								var pgRules = '';
+								for (var pgI = 0; pgI < 2; pgI++) {
+									var pgKey = pgI === 0 ? 'editor' : 'preview';
+									var pgShare = pgI === 0 ? pgA : pgB;
+									// The narrowest GROUP at which this pane still lands on the clamp branch. `+ 1` for the
+									// separator the group's width excludes; 821 because below the tab breakpoint the split
+									// is disabled and the panes are stacked full-width, where a pixel minimum means nothing.
+									var pgAt = Math.max(821, Math.ceil(PG_SPLIT_SNAP_MIDPOINT[pgKey] * pgTotal / pgShare) + 1);
+									pgRules += '@media (min-width:' + pgAt + 'px){:root[data-pg-split-seed] .pg-split>#' +
+										PG_SPLIT_PANEL_IDS[pgI] + '{min-width:' + PG_SPLIT_MIN[pgKey] + 'px!important}}';
 								}
+								// `!important` because the SSR'd panel wrapper carries `min-width:0` INLINE. Setting the
+								// pixel minimum on the ELEMENT instead would win the cascade and then never be undone:
+								// React's prop record would still read `0`, so the library would never write over it and
+								// the clamp would outlive the seed for the life of the page.
+								var pgStyle = document.createElement('style');
+								pgStyle.textContent = pgRules;
+								(document.head || r).appendChild(pgStyle);
+								// The rules key on this attribute and DIE with it: `adoptBootSeed` drops it when the app
+								// takes the layout back, because a min-width that outlived the seed would stop a pane the
+								// visitor collapses from ever reaching its 28px rail.
+								r.setAttribute('data-pg-split-seed', '');
 							}
 						}
 					} catch (e2) {}

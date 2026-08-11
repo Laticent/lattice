@@ -44,8 +44,13 @@ export function WalkBar(props: {
 				</button>
 				{/* Nothing rather than "1 / 0" while the plan is still in flight — a position the
 				    page cannot know is not a position. The slot keeps its width either way, so the
-				    steppers do not slide sideways when the real numbers arrive. */}
-				<span className="pg-walk-pos" aria-live="polite">
+				    steppers do not slide sideways when the real numbers arrive.
+				    `aria-live` ARRIVES WITH THE VALUE, and that is not incidental: a live region
+				    already in the tree that goes from empty to "1 / 8" is a change, so assistive
+				    tech announces it — a spurious announcement on every Explore boot, which the
+				    bar never made when it mounted whole. Adding the attribute together with the
+				    text makes it a region that arrives populated, which is not announced. */}
+				<span className="pg-walk-pos" aria-live={count > 0 ? 'polite' : undefined}>
 					{count > 0 ? `${index + 1} / ${count}` : ''}
 				</span>
 				<button

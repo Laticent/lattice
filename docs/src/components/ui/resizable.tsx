@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils"
 //
 // Why v4 fits where v2 was rejected (PR #717): v4's min/max/collapsedSize accept
 // PIXELS natively (a bare number is px, a unitless string is a percentage), so
-// the px pane minimums (editor 240, preview 280, panel mins) are expressed
-// directly — retiring the fr-pair "void" math (#721) that made the CSS-Grid
-// approach fragile. `collapsible` + `collapsedSize` + the panelRef imperative
+// the px pane minimums (`PG_SPLIT_MIN` — editor 280, preview 320 — and the
+// Studio's) are expressed directly, retiring the fr-pair "void" math (#721)
+// that made the CSS-Grid approach fragile. `collapsible` + `collapsedSize` + the panelRef imperative
 // `collapse()`/`expand()` give the collapse-to-rail affordance. The library owns
 // pointer capture, keyboard/ARIA (role="separator" + arrow keys), and the
 // coarse-pointer hit target — the parts the custom primitive hand-rolled and the

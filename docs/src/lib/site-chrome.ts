@@ -90,6 +90,27 @@ export function getPalette(): string {
 	return root().getAttribute('data-palette') || DEFAULT_PALETTE;
 }
 
+/**
+ * Fired on `window` when a palette or mode is set THROUGH THIS MODULE, in the same tab.
+ *
+ * The `storage` event only crosses tabs, so a control that renders the current palette had no
+ * way to learn about a pick made by a sibling control — the command palette sets the palette
+ * directly, and `PaletteControls`' own state never moved. That was survivable while the
+ * trigger showed a stale value too (wrong, but internally consistent); once the trigger became
+ * truthful (#1592) the select's LIST was left ticking the old palette, and re-picking the item
+ * radix already believes is selected fires no `onValueChange` — so the visitor could not get
+ * back to it at all.
+ */
+export const CHROME_CHANGE_EVENT = 'lattice-chrome-change';
+
+function announceChromeChange(): void {
+	try {
+		window.dispatchEvent(new CustomEvent(CHROME_CHANGE_EVENT));
+	} catch {
+		/* no window (SSR) — nothing is listening anyway */
+	}
+}
+
 export function setPalette(palette: string): void {
 	root().setAttribute('data-palette', palette);
 	try {
@@ -97,6 +118,7 @@ export function setPalette(palette: string): void {
 	} catch {
 		/* private mode / storage disabled — attribute is still set */
 	}
+	announceChromeChange();
 }
 
 export function getMode(): Mode {
@@ -130,6 +152,7 @@ export function setModePref(pref: ModePref): Mode {
 	} catch {
 		/* storage disabled */
 	}
+	announceChromeChange();
 	return mode;
 }
 

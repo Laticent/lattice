@@ -1,4 +1,4 @@
-import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS } from '../src/components/playground/pg-split';
+import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL, PG_SPLIT_SNAP_MIDPOINT } from '../src/components/playground/pg-split';
 import { expect, test } from './studio-fixture';
 
 // ── The Playground must not ASSEMBLE IN VIEW (#1563) ──────────────────────────────────
@@ -278,6 +278,75 @@ test('a share below a pane minimum at a narrower window is clamped BEFORE paint,
 	expect(settled?.[2], `the preview pane settled at ${settled?.[2]}px, not the ${PG_SPLIT_MIN.preview}px minimum`).toBeGreaterThanOrEqual(
 		PG_SPLIT_MIN.preview - 2,
 	);
+});
+
+// …and the OTHER branch, which the first version of the clamp got wrong in a way that was
+// worse than the defect it fixed. Restoring a saved layout is not a clamp: `react-resizable-
+// panels` snaps a COLLAPSIBLE pane restored below the midpoint of `collapsedSize` and
+// `minSize` to the rail, and only above that midpoint does it clamp to the minimum. A seed
+// that models the clamp alone paints 320px where the app is about to show 28 — measured 292px
+// wrong, held ~1.3s, on the share the divider leaves behind the moment it is dragged past its
+// minimum (a gesture the collapse button's own tooltip advertises).
+//
+// The tab boundary is part of the experiment, not a shortcut: the SHARE is in localStorage and
+// permanent, the collapse marker is in sessionStorage and per-tab, so a new tab is where a
+// guard built on the marker fails. Clearing sessionStorage is what opening one does.
+test('a share below the snap midpoint is NOT clamped — the seed lets the rail happen', async ({ page }) => {
+	await page.setViewportSize({ width: 1920, height: 900 });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
+
+	// Drive the real separator PAST the preview's minimum, which is how a visitor reaches this
+	// state and what leaves the sub-minimum share behind.
+	const separator = page.locator('#pg-split [data-slot="resizable-handle"]').first();
+	await separator.focus();
+	for (let i = 0; i < 24; i++) {
+		const w = await page.locator('#pg-split-preview').evaluate((el) => el.getBoundingClientRect().width);
+		if (w <= PG_SPLIT_RAIL + 1) break;
+		await page.keyboard.press('ArrowRight');
+	}
+	const readShare = () =>
+		page.evaluate(
+			([key, bucket, id]) => JSON.parse(localStorage.getItem(key) || 'null')?.[bucket]?.[id] ?? null,
+			[PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS[1]] as const,
+		);
+	await expect.poll(readShare, { timeout: 15_000 }).not.toBeNull();
+	const share = (await readShare()) as number;
+
+	await page.setViewportSize({ width: 1194, height: 834 });
+	const pane = (1194 - 1) * (share / 100);
+	// THE PRECONDITION. If the saved share does not land below the midpoint there is no snap
+	// branch to exercise and everything under this is vacuous — fail here, with the number.
+	expect(
+		pane,
+		`the saved share resolves to ${pane.toFixed(1)}px at 1194, which is above the ${PG_SPLIT_SNAP_MIDPOINT.preview}px snap midpoint — the library will clamp, not snap`,
+	).toBeLessThan(PG_SPLIT_SNAP_MIDPOINT.preview);
+
+	// A new tab: the share survives, the per-tab collapse marker does not.
+	await page.evaluate(() => sessionStorage.clear());
+	await throttle(page);
+	await sampleFrames(page);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	// NOT `.pg-preview-wrap.is-live` — a collapsed pane hides `.pg-pane-inner`, so the wrap this
+	// file usually waits on never becomes visible. The pane reaching its rail IS the settle.
+	await expect(page.locator('#pg-split-preview')).toHaveJSProperty('offsetWidth', PG_SPLIT_RAIL, { timeout: 30_000 });
+	await page.waitForTimeout(1500);
+
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	const seen = distinct(log.previewPane ?? []);
+	expect(seen.length, 'the sampler never saw the preview pane').toBeGreaterThan(0);
+	// THE FIRST PAINT must be the share the seed was given, not the minimum. This is the whole
+	// case: the minimum here is a 292px lie about a pane that is on its way to a 28px rail.
+	expect(
+		seen[0].rect?.[2],
+		`the pre-paint pane is ${seen[0].rect?.[2]}px — the seed spent the ${PG_SPLIT_MIN.preview}px minimum on a share that snaps to the ${PG_SPLIT_RAIL}px rail: ${JSON.stringify(seen)}`,
+	).toBeLessThan(PG_SPLIT_SNAP_MIDPOINT.preview);
+	// ANTI-VACUITY: the library really did take the SNAP branch. Were it clamping instead, the
+	// assertion above would be guarding a branch this case never entered.
+	expect(
+		seen[seen.length - 1].rect?.[2],
+		`the pane settled at ${seen[seen.length - 1].rect?.[2]}px rather than the ${PG_SPLIT_RAIL}px rail — the library clamped, so this case tested the wrong branch`,
+	).toBeLessThanOrEqual(PG_SPLIT_RAIL + 2);
 });
 
 // Explore is the surface a PRISTINE visitor lands on, so its first paint is the one most
