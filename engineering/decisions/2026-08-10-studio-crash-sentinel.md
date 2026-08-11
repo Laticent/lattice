@@ -604,7 +604,7 @@ two of them shipped *because* their unit tests passed.
 
 | Spec | Project | What it pins |
 |---|---|---|
-| the report surfaces and says what to try | `desktop` | toast shape, description legibility + not clipped, the steps section, opaque-error attribution, no sideways overflow |
+| the report surfaces and says what to try | `desktop` | toast radius asserted as the value it must BE; contrast measured from composited pixels for EVERY text layer (title, description, action); not clipped, by rect AND overflow; the steps section; opaque-error attribution; no sideways overflow |
 | the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
 | a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
 | a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **skips** unless the environment honors the freeze, which this one does not (see the correction above). It asserts on the frozen page's OWN records, so the wiping tab can no longer be the oracle. |
@@ -619,3 +619,40 @@ pass after it. Re-breaking the toast to its shipped state (`rounded-full`, Sonne
 own description color) fails the spec on the radius assertion. That check is the
 whole point: a passing test that cannot fail is exactly what let two bad liveness
 designs through this month.
+
+
+## What a second checker pass found (2026-08-11)
+
+The commit that answered the first review introduced three defects of its own, and
+one of them is the same mistake the correction above was written about:
+
+- **It deleted the clipping assertion and left the doc claiming it.** Reproduced by
+  clipping the toast (`max-h` + `overflow-hidden`) with the radius left correct:
+  every assertion green over text cut off mid-word. A coverage claim without
+  coverage, three lines below a section about exactly that.
+- **Only the description's contrast was measured.** Painting the TITLE `#2a2a2a` on
+  the near-black pill made the line that says the Studio crashed invisible, with
+  the suite green — #1622's defect relocated one element over. Every text layer is
+  measured now, and the failure names which one.
+- **The false RED survived.** Moving the "did it report" oracle onto the persisted
+  flag fixed the false green; the visual half still demanded a toast that lives 12s
+  inside a budget of 45s for first paint. It now skips, with a reason, when the
+  toast has already gone — the report itself is proven separately.
+
+Two more, quieter:
+
+- **The freeze counters were read while the page was still frozen.** `page.evaluate`
+  has no timeout of its own and a stopped document never answers, so on a browser
+  that HONORS the freeze the honest-skip would have hung until the slot expired —
+  failing closed in the one environment it was built for. The page latches its own
+  count in the `freeze` handler now, and everything is read after the thaw.
+- **The seed guard's recorded reason was wrong.** It blamed repeated navigation;
+  `gotoStudio` navigates once. The real cause is that `addInitScript` runs in every
+  FRAME, and the live preview is a same-origin iframe sharing this `localStorage` —
+  3 init-script runs for 1 navigation. The guard was right, the explanation next to
+  it would have sent the next reader to the wrong file.
+
+The through-line across both passes is worth keeping: **every one of these was a
+test that passed while proving nothing**, and none was visible from reading the
+code — each took a mutation and a rebuild to expose. The verification claims in
+this document are only as good as the last adversarial pass over them.

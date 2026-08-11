@@ -51,11 +51,17 @@ function staleCrashRecord(id: string, ageMs: number) {
 async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash') {
 	await page.addInitScript((rec) => {
 		try {
-			// SEED ONCE. `addInitScript` runs on EVERY navigation in the context, so an
-			// unconditional write re-seeds a pristine record after the app has already
-			// marked it reported — erasing the `reported` flag and making the report
-			// look as though it was never surfaced. That cost an afternoon: the toast
-			// appeared on screen while the durable evidence of it kept vanishing.
+			// SEED ONCE. An unconditional write re-seeds a pristine record after the app
+			// has already marked it reported, erasing the `reported` flag and making the
+			// report look as though it never happened — the toast plainly on screen
+			// while the durable evidence of it kept vanishing.
+			//
+			// The cause is NOT repeated navigation, which is what a first pass at this
+			// comment claimed: `gotoStudio` issues exactly one `page.goto`. It is that
+			// `addInitScript` runs in EVERY FRAME, and the Studio's live preview is a
+			// same-origin iframe — so it shares this `localStorage` and re-runs the seed.
+			// Measured: 3 init-script runs for 1 navigation, across the top document,
+			// `about:blank` and the preview's `about:srcdoc`.
 			if (!localStorage.getItem(`lattice-studio-session-${rec.id}`)) {
 				localStorage.setItem(`lattice-studio-session-${rec.id}`, JSON.stringify(rec));
 			}
@@ -107,7 +113,20 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 	// One non-blocking toast, not a modal: a page back from a crash owes the
 	// author their work first.
 	const toast = page.locator('[data-sonner-toast]');
-	await expect(toast).toBeVisible({ timeout: 15_000 });
+	// THE TOAST HAS A 12-SECOND LIFE AND THE FIXTURE ALLOWS 45 FOR FIRST PAINT.
+	// Moving the "did it report" oracle onto the persisted flag fixed the false
+	// GREEN; it did not fix this half. Measured on this build at 16x/20x CPU
+	// throttle: `reportedFlag=1` (the report happened) but `toastStillVisible=false`
+	// (paint took 26-33s), so demanding the toast reds a healthy app inside the
+	// budget the fixture deliberately grants. Skip rather than fail — the report was
+	// already proven to have been raised, and a skip that says why is a true
+	// statement where a red is a false one.
+	const stillUp = await toast.isVisible().catch(() => false);
+	test.skip(
+		!stillUp,
+		'the crash toast had already auto-dismissed before this assertion could run (first paint outran its 12s life) — ' +
+			'the report itself is verified separately by expectReportWasRaised',
+	);
 	await expect(toast).toContainText(/stopped unexpectedly/i);
 
 	// THE SHAPE — asserted as the value it must BE, not as the one value it must
@@ -123,6 +142,23 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 	// the bug, whatever its hex.
 	const desc = toast.locator('[data-description]');
 	await expect(desc).toBeVisible();
+	// NOT CLIPPED — restored. The previous revision deleted this check while the
+	// decision doc kept claiming it, which is a coverage claim without coverage:
+	// clip the box (`max-h` + `overflow-hidden`) with the radius left correct and
+	// every other assertion here stayed green over a toast whose last line was cut
+	// off mid-word. Two tests, because they catch different clippings — the rect
+	// test misses overflow, and the overflow test misses a child escaping the box.
+	const geometry = await toast.evaluate((el) => {
+		const d = el.querySelector('[data-description]');
+		const box = el.getBoundingClientRect();
+		return {
+			descOutside: d ? d.getBoundingClientRect().bottom > box.bottom + 0.5 : true,
+			overflowing: el.scrollHeight > el.clientHeight + 1,
+		};
+	});
+	expect(geometry.descOutside).toBe(false);
+	expect(geometry.overflowing).toBe(false);
+
 	const contrast = await toast.evaluate((el) => {
 		const d = el.querySelector('[data-description]');
 		if (!d) return 0;
@@ -154,11 +190,26 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 		};
 		const bg = getComputedStyle(el).backgroundColor;
-		const a = lum(px(getComputedStyle(d).color, bg)); // text composited over the toast
 		const b = lum(px(bg));
-		return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+		const ratio = (node: Element) => {
+			const a = lum(px(getComputedStyle(node).color, bg)); // text composited over the toast
+			return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+		};
+		// EVERY TEXT LAYER, not just the description. Measuring one element left the
+		// same defect available one element over: painting the TITLE `#2a2a2a` on the
+		// near-black pill made it essentially invisible with every assertion green —
+		// #1622's exact bug, relocated. The title is the line that says the Studio
+		// crashed, so it is the last thing that should be unreadable.
+		const layers: Record<string, number> = { description: ratio(d) };
+		const title = el.querySelector('[data-title]');
+		if (title) layers.title = ratio(title);
+		const action = el.querySelector('button');
+		if (action) layers.action = ratio(action);
+		return layers;
 	});
-	expect(contrast).toBeGreaterThanOrEqual(4.5);
+	for (const [layer, ratio] of Object.entries(contrast)) {
+		expect(ratio, `${layer} contrast against the toast surface`).toBeGreaterThanOrEqual(4.5);
+	}
 
 	await toast.getByRole('button', { name: /see report/i }).click();
 
@@ -249,11 +300,15 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	// Observe the lifecycle from inside the page, so "was it really frozen?" is a
 	// measurement rather than an assumption.
 	await page.addInitScript(() => {
-		const w = window as unknown as { __froze?: boolean; __ticks?: number };
+		const w = window as unknown as { __froze?: boolean; __ticks?: number; __ticksAtFreeze?: number };
 		w.__froze = false;
 		w.__ticks = 0;
 		document.addEventListener('freeze', () => {
 			w.__froze = true;
+			// LATCH THE COUNT FROM INSIDE THE PAGE. Everything is read after the thaw
+			// (see below), so the page has to record its own state at the moment it
+			// stopped — the runner cannot ask it while it is stopped.
+			w.__ticksAtFreeze = w.__ticks;
 		});
 		setInterval(() => {
 			w.__ticks = (w.__ticks ?? 0) + 1;
@@ -268,9 +323,15 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	const ticksBefore = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
 	await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
 	await page.waitForTimeout(3_000);
+	// THAW BEFORE READING. `page.evaluate` has no timeout of its own and a genuinely
+	// stopped document never answers it — so reading the counters while frozen would
+	// HANG until the test's own slot expired, in exactly the environment this test
+	// exists for. The honest-skip would have failed closed. Measured on a
+	// JS-suspended document as a proxy: evaluate still hung after 8s.
+	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
 	const frozeForReal = await page.evaluate(() => {
-		const w = window as unknown as { __froze: boolean; __ticks: number };
-		return { froze: w.__froze, ticks: w.__ticks };
+		const w = window as unknown as { __froze: boolean; __ticks: number; __ticksAtFreeze?: number };
+		return { froze: w.__froze, ticks: w.__ticksAtFreeze ?? w.__ticks };
 	});
 	// 3s of a 250ms interval is ~12 ticks if the document kept running. A genuinely
 	// frozen document fires `freeze` and stops ticking.
@@ -298,7 +359,6 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 		localStorage.setItem('lattice-studio-wiped-at', at);
 	});
 
-	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
 	await page.bringToFront();
 	// Poll the woken page's OWN tick counter rather than sleeping: the settle
 	// condition is "this document has run enough heartbeats to have rewritten its
