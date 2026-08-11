@@ -194,8 +194,13 @@ export const MAX_ERROR_GROUPS = 6;
  * exactly `"Script error."` and blank the filename, line and stack, so the page
  * cannot read cross-origin source through its own error handler. The signature
  * is unmistakable, and recognizing it matters more than it looks: this page
- * loads NO cross-origin scripts (every `<script>` on `/studio/` is same-origin
- * `/_astro/*.js`, verified against the deployed site), so an opaque error is
+ * loads NO cross-origin scripts — the static markup carries only same-origin
+ * `/_astro/*.js` (checked against the deployed site), and the two scripts added
+ * at RUNTIME are same-origin too: the engine bundle `ensureEngine` injects
+ * (`load-engine.ts`) and the inline page scripts. The CDN URLs for Mermaid and
+ * KaTeX go into the preview IFRAME's `srcdoc`, and an error inside an iframe
+ * never reaches the parent's `window.onerror` — so they cannot be the source
+ * either. With every path checked, an opaque error is
  * almost certainly NOT Studio code — it is an extension, a content blocker or
  * an injected script. Reporting it as one of "your" errors sends the reader
  * hunting through code that never ran.
@@ -286,6 +291,15 @@ export type ClassifyContext = {
 	 * the tab, so it can only speak for the record that tab was running.
 	 */
 	tabDiscarded?: boolean;
+	/**
+	 * This boot CHALLENGED the owning tab and it did not answer — see
+	 * `watchLateCrashReports`. Weaker than `sameTab` (which is proof the same tab
+	 * came back) but far stronger than the staleness timer, and it must reach the
+	 * copy: without it the late path printed "a different tab or a later visit…
+	 * may also have ended with a force-quit", which is the OPPOSITE of what was
+	 * established, on the exact path built to serve a tab that died and came back.
+	 */
+	ownerDead?: boolean;
 };
 
 export type CrashReport = {
@@ -371,6 +385,27 @@ export function isSessionRecord(v: unknown): v is SessionRecord {
 	for (const v of Object.values(r.context)) if (typeof v !== 'string') return false;
 	// The counters `classifySession` formats.
 	if (!Number.isFinite(r.errorCount) || !Number.isFinite(r.stallCount) || !Number.isFinite(r.longestStallMs)) return false;
+	// THE NEW OPTIONAL FIELDS GET THE SAME TREATMENT AS THE OLD ONES. They are
+	// optional so an older record still reads (which is why RECORD_VERSION did not
+	// move), but "optional" is about ABSENCE — a field that IS present and the
+	// wrong shape is the exact failure this guard exists for, and both of these
+	// reach a reader that dereferences them: `failedLoads` is rendered straight as
+	// React children by the report sheet, and a non-string there throws inside
+	// StudioShell's island and replaces the whole Studio with an error card. That
+	// has now shipped twice, one field over each time; this is the third field and
+	// it is not going to be the third time.
+	if (r.failedLoads !== undefined) {
+		if (!Array.isArray(r.failedLoads) || r.failedLoads.some((u) => typeof u !== 'string')) return false;
+	}
+	if (r.errorGroups !== undefined) {
+		if (!Array.isArray(r.errorGroups)) return false;
+		for (const g of r.errorGroups) {
+			if (!g || typeof g !== 'object' || typeof g.message !== 'string') return false;
+			// `firstT`/`lastT` are formatted by `stamp()`, which turns a missing value
+			// into "NaNh NaNm" — printed, unnoticed, into a PUBLIC GitHub issue.
+			if (!Number.isFinite(g.n) || !Number.isFinite(g.firstT) || !Number.isFinite(g.lastT)) return false;
+		}
+	}
 	// A timestamp that `new Date().toISOString()` would throw on is not evidence.
 	if (Math.abs(r.startedAt as number) > 8.64e15 || Math.abs(r.lastBeat as number) > 8.64e15) return false;
 	// Crumb shape — `formatCrashReport` calls `c.k.padEnd`, which a numeric `k` fails.
@@ -417,7 +452,7 @@ export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean, 
 const mb = (bytes: number): string => `${Math.round(bytes / 1_048_576)} MB`;
 
 export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; confirmed: boolean; facts: string[]; steps: string[] } {
-	const { sameTab, tabDiscarded = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false } : ctx;
+	const { sameTab, tabDiscarded = false, ownerDead = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false, ownerDead: false } : ctx;
 	const facts: string[] = [];
 	const endT = rec.lastBeat - rec.startedAt;
 	const last = rec.mem[rec.mem.length - 1];
@@ -503,7 +538,9 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	facts.push(
 		sameTab
 			? 'The same tab came back, so it was not closed and reopened by hand.'
-			: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
+			: ownerDead
+				? 'This session belonged to this tab, and the Studio asked whether it was still running before saying anything. Nothing answered, so it was not simply left open somewhere else.'
+				: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
 	);
 
 	// ── WHAT TO DO. The first real report was answered with "what am I supposed to
@@ -793,19 +830,42 @@ function isSameTab(rec: SessionRecord): boolean {
 }
 
 /**
- * Sessions this boot has WATCHED and found abandoned — see `watchLateCrashReports`.
+ * Sessions this boot PROVED abandoned, mapped to the `lastBeat` they carried at
+ * the moment of proof.
+ *
+ * A bare `Set` was wrong: proof of death is a statement about a MOMENT, and a
+ * set makes it permanent. If the owner turns out to be alive after all — it
+ * answers late, or its throttled heartbeat finally lands — every later
+ * `collectCrashReports` in this page kept returning the live session as a
+ * corpse, because nothing ever re-checked. Keyed by the beat we saw, the entry
+ * simply stops matching the moment the owner writes again, so the record
+ * re-validates itself on every read instead of trusting a one-time verdict.
  */
-const provenDeadOwners = new Set<string>();
+const provenDeadOwners = new Map<string, number>();
+
+/** Has this session been proven dead, AND has nothing written to it since? */
+function ownerProvenDead(rec: SessionRecord): boolean {
+	const at = provenDeadOwners.get(rec.id);
+	return at !== undefined && rec.lastBeat === at;
+}
 
 /**
- * How long to watch a mirrored-but-unproven record before calling its owner dead.
+ * How long to wait for a live owner to answer the liveness ping.
  *
- * Four missed beats. A live tab writes every 5s even when hidden-but-not-yet
- * throttled, and a throttled one still writes far sooner than the 10-minute
- * staleness wait — but crucially, this test does not depend on WHEN it writes,
- * only on whether it writes AT ALL during the window.
+ * This is an EVENT round-trip, not a heartbeat interval — see
+ * `watchLateCrashReports` for why that distinction is the whole design. A
+ * `storage` event is dispatched to other documents as an ordinary task; two
+ * seconds is enormous for that even on a loaded phone.
  */
-export const OWNER_PROBE_MS = 21_000;
+export const OWNER_PROBE_MS = 2_000;
+
+/**
+ * Cross-tab liveness challenge, and the answer to it. Written-then-removed like
+ * `WIPE_SIGNAL_KEY`, and deliberately NOT under `SESSION_PREFIX` — `sessionKeys()`
+ * scans by that prefix and would read a signal back as a malformed record.
+ */
+export const PING_KEY = 'lattice-studio-ping';
+export const PONG_KEY = 'lattice-studio-pong';
 
 /**
  * Report the crash the automatic post-crash reload could not.
@@ -844,24 +904,59 @@ export function watchLateCrashReports(onLate: (reports: CrashReport[]) => void, 
 	// Already closed cleanly, already gone, or already reportable by the ordinary
 	// rules — nothing for the watch to add.
 	if (!before || before.id === liveId || (before.closed && !before.bfcached)) return () => {};
+	// A FROZEN tab is alive but forbidden to run: the Page Lifecycle spec suspends
+	// its tasks, so it cannot answer, and silence from it proves nothing at all.
+	// Leave it to the staleness wait rather than convicting on an alibi it was not
+	// permitted to give.
+	if (before.frozen) return () => {};
+
 	const beatBefore = before.lastBeat;
+	let answered = false;
+	const onPong = (ev: StorageEvent) => {
+		if (ev.key !== PONG_KEY || !ev.newValue) return;
+		// Only an answer to THIS challenge counts. A pong naming another session is
+		// some other tab's conversation.
+		try {
+			if ((JSON.parse(ev.newValue) as { id?: string }).id === id) answered = true;
+		} catch {
+			/* a malformed pong is not an answer */
+		}
+	};
+	addEventListener('storage', onPong);
+	// The challenge. Written-then-removed so it cannot accumulate; the write is
+	// what raises the event in every other document on this origin.
+	try {
+		const store = ls();
+		store?.setItem(PING_KEY, JSON.stringify({ id, at: Date.now() }));
+		safeRemove(store, PING_KEY);
+	} catch {
+		/* storage blocked — the timeout below still runs and falls back to the beat check */
+	}
+
 	const timer = setTimeout(() => {
+		removeEventListener('storage', onPong);
+		// SOMEONE ANSWERED. The owning tab is alive and this document merely
+		// inherited its session mirror by being duplicated from it.
+		if (answered) return;
 		try {
 			const after = readRecord(SESSION_PREFIX + id);
 			// Gone (pruned or wiped) — nothing to report.
 			if (!after) return;
-			// Someone is home: the owning tab is alive and merely duplicated into this
-			// one. Staying silent here is the whole reason the watch exists.
-			if (after.lastBeat !== beatBefore || (after.closed && !after.bfcached)) return;
-			provenDeadOwners.add(id);
-			const late = unreportedCrashReports(Date.now());
+			// Belt to the ping's braces: a heartbeat landing during the window is
+			// also proof of life, and costs nothing to check.
+			if (after.lastBeat !== beatBefore || after.frozen || (after.closed && !after.bfcached)) return;
+			provenDeadOwners.set(id, after.lastBeat);
+			const late = unreportedCrashReports(Date.now()).filter((r) => r.id === id);
 			if (late.length) onLate(late);
 		} catch {
 			// A record that turned unreadable mid-watch is handled by the per-record
 			// guard in `collectCrashReports`; there is nothing to salvage here.
 		}
 	}, probeMs);
-	return () => clearTimeout(timer);
+	return () => {
+		removeEventListener('storage', onPong);
+		clearTimeout(timer);
+	};
 }
 
 /**
@@ -882,8 +977,9 @@ export function collectCrashReports(now: number): CrashReport[] {
 			const rec = readRecord(k);
 			if (!rec || rec.id === liveId) continue;
 			const sameTab = isSameTab(rec);
-			if (!isUncleanEnd(rec, now, sameTab, provenDeadOwners.has(rec.id))) continue;
-			const { ending, headline, confirmed, facts, steps } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
+			const ownerDead = ownerProvenDead(rec);
+			if (!isUncleanEnd(rec, now, sameTab, ownerDead)) continue;
+			const { ending, headline, confirmed, facts, steps } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded, ownerDead });
 			out.push({
 				id: rec.id,
 				record: rec,
@@ -1138,7 +1234,13 @@ export function noteError(err: unknown, source?: string, where?: { file?: string
  */
 export function noteFailedLoad(url: string): void {
 	if (!live || sealed) return;
-	const u = clip(url, 200);
+	// STRIP THE QUERY, like `page` does. This string goes into a PUBLIC GitHub
+	// issue body, and a resource URL is exactly the kind that carries a signed
+	// token or a one-time key in its query. The module already refuses to record
+	// `location.search` for this reason (see `startCrashSentinel`); a second field
+	// that posts raw URLs would have quietly reopened the same hole. The path is
+	// what identifies the file; the query never adds anything worth the risk.
+	const u = clip(url.split(/[?#]/)[0] || url, 200);
 	const list = (live.failedLoads ??= []);
 	if (list.includes(u)) return;
 	if (list.length >= 8) list.shift();
@@ -1354,6 +1456,29 @@ export function startCrashSentinel(): () => void {
 	// `storage` event fires in every OTHER document on the origin, which is
 	// exactly the reach that was missing.
 	const onStorage = (ev: StorageEvent) => {
+		// ANSWER A LIVENESS CHALLENGE. This is the half of `watchLateCrashReports`
+		// that runs in the tab being asked about, and the reason the whole design
+		// works where a timer could not: a `storage` event is delivered as an
+		// ordinary task, NOT a timer callback, so a hidden tab under Chrome's
+		// intensive throttling — which cuts its heartbeat to roughly one write
+		// every five minutes — still answers in milliseconds. Proof of life
+		// therefore stops depending on when the owner happens to tick.
+		if (ev.key === PING_KEY && ev.newValue) {
+			if (sealed || !live) return;
+			try {
+				if ((JSON.parse(ev.newValue) as { id?: string }).id !== live.id) return;
+			} catch {
+				return; // a malformed challenge is not addressed to anyone
+			}
+			try {
+				const store = ls();
+				store?.setItem(PONG_KEY, JSON.stringify({ id: live.id, at: Date.now() }));
+				safeRemove(store, PONG_KEY);
+			} catch {
+				/* storage blocked; the asker falls back to the heartbeat check */
+			}
+			return;
+		}
 		if (ev.key !== WIPE_SIGNAL_KEY || !ev.newValue) return;
 		sealed = true;
 		if (live) {
@@ -1411,4 +1536,9 @@ export function __resetSentinelForTest(): void {
 	priorTabDiscarded = false;
 	sealed = false;
 	preStart.length = 0;
+	// Module-level and therefore NOT reset by clearing storage: a session proven
+	// dead in one test stayed proven in the next, so a later test could pass or
+	// fail for reasons that had nothing to do with the code under test.
+	provenDeadOwners.clear();
+	bootNavType = '';
 }
