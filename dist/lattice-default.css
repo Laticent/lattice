@@ -25452,7 +25452,14 @@ section .venn-set-2, figure .venn-set-2, section g.venn-set-2 path, figure g.ven
   stroke-width: 2 !important;
   stroke-opacity: 1 !important;
 }
-section .venn-area text, figure .venn-area text, section text.label, figure text.label, section text.label tspan, figure text.label tspan, section .label tspan, figure .label tspan{
+/* `:not(.lp-own-ink)` on the tspan arms. The player bakes a Mermaid label into native
+ * `<text>/<tspan>` (the sanitizer bars the `<foreignObject>` it is authored in), which
+ * brings every diagram label under this rule for the first time. That is RIGHT for an
+ * ordinary label — the chips re-theme from tokens and the ink must follow — and wrong for
+ * one the AUTHOR colored via `classDef … color:`, which the live render honors and this
+ * rule silently took back: white-on-black authored, dark-on-black shipped, 1.04:1. The
+ * bake marks only those spans, so the theme keeps every label it should own. */
+section .venn-area text, figure .venn-area text, section text.label, figure text.label, section text.label tspan:not(.lp-own-ink), figure text.label tspan:not(.lp-own-ink), section .label tspan:not(.lp-own-ink), figure .label tspan:not(.lp-own-ink){
   fill: var(--text-heading) !important;
   fill-opacity: 1 !important;
   paint-order: normal !important;

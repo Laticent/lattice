@@ -203,8 +203,12 @@ var require_standalone_svg = __commonJS({
             let decl = "text-anchor:middle;dominant-baseline:central;";
             decl += `font-family:${pcs.fontFamily};font-size:${pcs.fontSize};font-weight:${pcs.fontWeight};`;
             if (pcs.fontStyle && pcs.fontStyle !== "normal") decl += `font-style:${pcs.fontStyle};`;
-            if (pcs.color) decl += `fill:${pcs.color};`;
+            const themedInk = resolveColor("var(--text-heading)");
+            const ownInk = !!pcs.color && !!themedInk && pcs.color !== themedInk;
+            const ownWeight = (Number.parseInt(pcs.fontWeight, 10) || 400) >= 600;
+            decl += ownInk ? `fill:${pcs.color};` : "fill:var(--text-heading);";
             span.setAttribute("style", decl);
+            if (ownInk || ownWeight) span.setAttribute("class", "lp-own-ink");
             span.textContent = run.text.replace(/\s+/g, " ");
             out2.appendChild(span);
             any = true;

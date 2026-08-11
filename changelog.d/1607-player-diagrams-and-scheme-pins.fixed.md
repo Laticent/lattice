@@ -66,3 +66,22 @@
   existing `.mermaid` boxes, and an untagged fence has none — so on the very deck it exists to
   wait for it saw nothing pending and returned at once. It now gates on the runtime's own
   `data-mermaid-state`, which also makes the PPTX/PDF raster of a diagram-heavy deck less racy.
+- **An author-colored Mermaid label keeps its color in the player.** Rewriting labels into
+  native `<text>` brought them under `mermaid.css`'s theme rule — `.label tspan { fill:
+  var(--text-heading) !important }` — for the first time. That rule is RIGHT for an ordinary
+  label (the chips re-theme from tokens and the ink has to follow) and wrong for one an author
+  set via `classDef … color:`, which the live render honors and the rule silently took back:
+  white-on-black authored, dark-on-black shipped, 1.04:1, while the PDF beside it was legible.
+  The bake now emits the theme TOKEN for a default label — so it keeps following — and the
+  literal plus an opt-out marker only where the author actually chose a color.
+- **`vector-effect` and `dominant-baseline` survive the sanitizer.** DOMPurify's default profile
+  drops both, the engine emits both, and no CSS backstops either. `journey`'s sentiment curve
+  rides a `preserveAspectRatio="none"` viewBox with a 2.5-unit `non-scaling-stroke`, so stripping
+  it scaled the stroke ~77x and painted the whole chart area as one solid slab — in every Studio
+  artifact and in the exported player, while the CLI PDF of the same deck was correct.
+  `dominant-baseline` is attribute-only on quadrant, radar, gantt and state-chart; stripping it
+  drops a centered label ~35% of its font-size and reintroduces the phantom-box overlap
+  `quadrant`'s placement pass exists to avoid. Both are enumerated-keyword presentation
+  attributes with no URL or script grammar, so the allowlist widening costs the threat model
+  nothing; `<script>` and `<foreignObject>` remain barred. Measured across the 75 gallery decks:
+  543 and 66 dropped respectively.
