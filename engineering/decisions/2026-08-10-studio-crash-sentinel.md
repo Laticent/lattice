@@ -463,7 +463,10 @@ written off as unreachable. It is not iOS (no device, no Safari chrome, no real
 touch stack), but it IS the engine underneath both Safari and the Firefox for iOS
 build the original report came from, and every visual claim here had been measured
 on Chromium only. Re-run against it, at 390px, on a record shaped like the
-reported one:
+reported one — against the local build AND against the **deployed Cloudflare
+preview**, which is the artifact a user actually loads (Playwright accepts proxy
+config directly, which is what made the preview reachable from the sandbox after
+a raw Chromium launch could not get through):
 
 ```
 PASS  the crash toast appears on WebKit at all       358x87, radius 16px
