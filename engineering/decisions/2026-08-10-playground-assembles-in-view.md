@@ -127,6 +127,13 @@ takes its band when it does. Reserving it correctly needs the first slide's capt
 for the deck about to boot, which is per-deck-per-slide state — a much larger mechanism than
 the jump is worth.
 
+**Closed in #1588, and not by reserving anything.** The follow-up dropped the question the
+reserve was an answer to: in Explore the walk bar is *chrome*, not walk state, so it is
+rendered unconditionally — in the server-rendered markup, before any plan exists — and only
+its contents wait for the network. Its height is then made a constant by construction rather
+than predicted from a measurement. See
+`2026-08-11-playground-first-paint-followups.md`.
+
 ## Verification
 
 Per HARD RULE #23, on the real built surface, at the card's conditions

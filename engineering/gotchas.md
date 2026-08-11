@@ -3775,16 +3775,25 @@ own) is not a builder and needs no entry.
   beside a different body value hides OPPOSITE panes on the phone and leaves the surface
   blank. Setting the body attribute and removing the seed is therefore one function, not two
   effects.
-- **The walk bar still arrives late and takes its band, and a reserve for it was BUILT AND
-  WITHDRAWN.** Don't rebuild it the same way. The only height available to reserve from is the
-  one the last session measured — the caption of the slide it ended on — while the band belongs
-  to the next boot's FIRST slide. Measured on an ordinary flow (open a component, step three
-  slides, come back): 127px reserved against a 184px bar, so the deck still shrank, just
-  differently; on a stale deep link it pushed the deck 71px the other way. Worse, the reserve
-  was keyed on the bar's absence with no time bound, so a plan fetch that 404s (a designed
-  path) left a permanent dead band — 109px on a phone, 13% of the viewport, for the session.
-  Reserving it correctly needs the first slide's caption height for the deck about to boot.
-- **Triggered by:** #1563.
+- **The walk bar used to arrive late and take its band, and a RESERVE for it was built and
+  withdrawn — don't rebuild that.** The only height available to reserve from is the one the
+  last session measured (the caption of the slide it ended on) while the band belongs to the
+  next boot's FIRST slide: 127px reserved against a 184px bar on an ordinary flow, 71px the
+  other way on a stale deep link, and — keyed on the bar's absence with no time bound — a
+  permanent dead band whenever the plan fetch 404s.
+- **What fixed it instead (#1588): stop reserving a box and just have the box.** In Explore
+  the walk bar is CHROME, not walk state, so it is rendered unconditionally — in the SSR'd
+  markup, before any plan exists — with only its contents waiting for the network (steppers
+  disabled, position empty). Then nothing is allowed to change its height: the row is
+  `nowrap` (the "Next component: x →" label truncates), the position holds a fixed slot, and
+  the caption box is exactly `--pg-walk-cap-lines` lines whatever it holds. A notice shares
+  that line-box rather than adding one. One preview-pane geometry at 1194x834 and 390x844,
+  and on a 404 an inert bar instead of a dead band.
+- **If you touch the walk bar, its height is the invariant.** Anything content-shaped you add
+  — a second notice line, a wrapping row, an un-clamped caption — puts the jump back, and the
+  e2e case that catches it is the Explore one in `playground-first-paint.spec.ts` (which
+  tracks `previewPane` and `walkBar` again precisely because of this).
+- **Triggered by:** #1563, #1588.
 
 ### The Playground's divider is in one place before hydration and another after
 

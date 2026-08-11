@@ -1588,23 +1588,25 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</button>
 			)}
 
-			{/* The Walk bar — Explore's stepping (Prev · N / M · Next + caption).
-			    Mounted whenever a walk exists (CSS hides it in Edit) so the tour's
-			    reveal hook can find it. Stepping jumps; the step dropdown above jumps
-			    directly. Edit-this-slide and the transcript are gone — flip to Edit. */}
-			{walk && (
-				<WalkBar
-					index={walk.index}
-					count={walkCount}
-					caption={walkSlide?.caption || ''}
-					onPrev={() => stepWalk(-1)}
-					onNext={() => stepWalk(1)}
-					nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
-					prevDisabled={walk.index === 0 && !walkPrevComp}
-					nextDisabled={walkAtEnd && !walkNextComp}
-					notice={walkNotice}
-				/>
-			)}
+			{/* The Walk bar — Explore's stepping (Prev · N / M · Next + caption). ALWAYS
+			    mounted, including on the server and before any plan has been fetched (#1588):
+			    in Explore it is chrome, not walk state, and mounting it with the walk meant a
+			    ~100px band arriving a second after the deck and shoving it up mid-read. Its
+			    height cannot vary (see WalkBar + playground.css), so the pane it shares the
+			    column with has one geometry for the whole load. CSS hides it in Edit — where the
+			    tour's reveal hook still needs it findable. Stepping jumps; the step dropdown
+			    above jumps directly. Edit-this-slide and the transcript are gone — flip to Edit. */}
+			<WalkBar
+				index={walk?.index ?? 0}
+				count={walkCount}
+				caption={walkSlide?.caption || ''}
+				onPrev={() => stepWalk(-1)}
+				onNext={() => stepWalk(1)}
+				nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
+				prevDisabled={!walk || (walk.index === 0 && !walkPrevComp)}
+				nextDisabled={!walk || (walkAtEnd && !walkNextComp)}
+				notice={walkNotice}
+			/>
 
 			{/* Parked handoff: an external "Open in Playground" arrived over a dirty
 			    draft. Apply consumes the key; Not now keeps it parked (nothing lost). */}

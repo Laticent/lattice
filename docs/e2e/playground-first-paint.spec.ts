@@ -92,6 +92,10 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				bar: rectOf(document.querySelector('.pg-bar')),
 				editorPane: rectOf(document.querySelector('#pg-split-editor')),
 				previewPane: rectOf(document.querySelector('#pg-split-preview')),
+				// Explore's walk bar. `display:none` in Edit, so it reads null there and records
+				// nothing; in Explore it shares the page column with the preview pane, which is why
+				// it moving is the same event as the pane shrinking (#1588).
+				walkBar: rectOf(document.querySelector('#pg-walk')),
 				slide: visibleSlide(),
 			};
 			// Did the replay actually fire? Recorded as a sample so the assertions can tell a
@@ -275,36 +279,83 @@ test('a share below a pane minimum at a narrower window is clamped BEFORE paint,
 test('an Explore reload paints one geometry per element too', async ({ page }) => {
 	await throttle(page);
 	await seedRealSession(page);
-	// One full Explore visit first, so the reload under test is a RETURNING one: the walk
-	// bar's height is measured and published by the session that shows it, and the reserve
-	// on the next load spends that measurement.
+	// One full Explore visit first, so the reload under test is a RETURNING one.
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
-	await expect(page.locator('#pg-walk')).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
 	await page.waitForTimeout(1000);
 
 	await sampleFrames(page);
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
 	await page.waitForTimeout(1500);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	// The editor pane does not exist in Explore (the layout removes it), so it is not tracked.
-	//
-	// The preview pane is NOT tracked either, and that is a stated limit rather than an
-	// oversight: the walk bar mounts only once the component's plan has been fetched and takes
-	// ~100px off the bottom when it does. A draft of this change reserved that band from a
-	// stored measurement; it was withdrawn because the stored height is the PREVIOUS slide's
-	// caption while the bar it reserves for belongs to the NEXT boot's first slide, so on an
-	// ordinary step-then-return it produced two geometries anyway — and on a failed plan fetch
-	// the reserve never came off at all. What this case DOES guarantee is that the Explore
-	// layout itself no longer assembles: no phantom editor pane, no full-bleed transition, no
-	// pane labels appearing and vanishing.
-	assertOneGeometry(log, ['bar', 'slide']);
+	// EVERYTHING ELSE IS, including the preview pane and the walk bar — which used to be
+	// excluded, because the bar mounted only once the component's plan had been fetched and took
+	// ~100px off the bottom when it did (#1588). The bar is now Explore chrome rather than walk
+	// state: mounted from the SSR'd markup with a height its contents cannot change.
+	assertOneGeometry(log, ['bar', 'previewPane', 'walkBar', 'slide']);
 	expect(
 		(log.editorPane ?? []).length,
 		'the editor pane was laid out during an Explore boot — the Edit layout painted first and was dismantled in view',
 	).toBe(0);
+	// ANTI-VACUITY. Every assertion above is satisfied by a walk bar that never appeared at
+	// all — a plan fetch that silently failed would give one pane geometry and one (absent)
+	// bar. So require the walk to have actually arrived, in the same log.
+	expect(
+		(log.walkBar ?? []).length,
+		'the walk bar never laid out, so "one geometry" above is the absence of a bar rather than a bar that did not move',
+	).toBeGreaterThan(0);
+});
+
+// …and again on the phone, which is the other reference condition in the card and the one
+// where the band is worth the most: 109px of an 844px viewport, 13%.
+test.describe('on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+	test('the Explore walk bar is there from the first paint, not a second in', async ({ page }) => {
+		await throttle(page);
+		// A warm-up visit, so the reload under test is a returning one. There is no split to
+		// drag below 820px — the tabs own the layout — so the seed under test is the boot view.
+		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 40_000 });
+		await page.waitForTimeout(1000);
+
+		await sampleFrames(page);
+		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
+		await page.waitForTimeout(1500);
+
+		const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+		assertOneGeometry(log, ['previewPane', 'walkBar']);
+		expect((log.walkBar ?? []).length, 'the walk bar never laid out — nothing was measured').toBeGreaterThan(0);
+	});
+});
+
+// The bar's height has to be a constant even when the walk NEVER ARRIVES. A plan fetch that
+// 404s is a designed path (the staged tree is rewritten by a deploy while a tab sits open, and
+// it is the path a flaky mobile connection takes); the reserve withdrawn in #1581 failed
+// exactly here, leaving a permanent 109px dead band because it was keyed on the bar's absence
+// with no time bound. There is no reserve now — the bar IS the chrome — so the same experiment
+// should show one geometry and an honestly inert bar.
+test('a plan fetch that 404s leaves an inert bar, not a dead band', async ({ page }) => {
+	await page.route(/\/plans\/.*\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	await throttle(page);
+	await sampleFrames(page);
+	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-walk')).toBeVisible();
+	await page.waitForTimeout(6000);
+
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	assertOneGeometry(log, ['previewPane', 'walkBar']);
+	// Inert AND honest: no invented position, and no stepper that does nothing when pressed.
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText('');
+	await expect(page.locator('#pg-walk .pg-walk-step').first()).toBeDisabled();
+	await expect(page.locator('#pg-walk .pg-walk-step.next')).toBeDisabled();
 });
 
 // A toolbar control that lights the WRONG option and corrects itself is the same defect as

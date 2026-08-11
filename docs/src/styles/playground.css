@@ -711,7 +711,16 @@
 
 /* Walk bar: Prev · N/M · Next + the slide's caption. Explore-only; pins to the
    bottom of the page column at every width (the `body[data-view='read']` rule
-   below), so the deck fills the band above it and only the deck iframe scrolls. */
+   below), so the deck fills the band above it and only the deck iframe scrolls.
+   ITS HEIGHT IS A CONSTANT, AND EVERY RULE BELOW THAT LOOKS FUSSY IS WHY (#1588). The bar
+   is mounted from the first paint (WalkBar is no longer gated on the walk), so if its
+   height still depended on its contents the preview pane would simply move later instead
+   of sooner: the plan arrives ~1.2s in and brings a caption with it. So the row never
+   wraps, the position holds a fixed slot, and the caption box is exactly
+   `--pg-walk-cap-lines` lines tall whatever it holds. Measured before: the pane 720 → 619
+   at 1194x834 and 680 → 571 at 390x844; the worst caption in the staged plans (`math`, 289
+   chars) made the bar 184px on a phone — 22% of the viewport, for prose already printed on
+   the slide above it. */
 .pg-walk {
 	display: flex;
 	flex-direction: column;
@@ -724,7 +733,11 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	flex-wrap: wrap;
+	/* NOT `wrap`. A wrapped row is a second height for the same bar, and the label that
+	   would wrap it — "Next component: kpi →" — appears exactly when the visitor reaches the
+	   end of a plan, mid-read. The next button truncates instead (below); its aria-label
+	   still carries the whole thing. */
+	flex-wrap: nowrap;
 }
 .pg-walk-step {
 	border: 1px solid var(--border);
@@ -749,18 +762,48 @@
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* The only elastic item in a no-wrap row: the cross-component label ("Next component:
+   kpi →") truncates rather than wrapping the row onto a second line. Prev and the position
+   keep their intrinsic width, so nothing in the row moves as the label appears. */
+.pg-walk-step.next {
+	flex: 0 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 .pg-walk-pos {
 	font-size: 12.5px;
 	color: var(--muted-foreground, inherit);
 	font-variant-numeric: tabular-nums;
+	/* A fixed slot, wide enough for "16 / 16", so the steppers do not slide sideways when
+	   the plan lands and turns an empty span into a position — nor again on the step from
+	   "9 / 12" to "10 / 12". Tabular figures make the reservation exact. */
+	min-width: 4em;
+	text-align: center;
 }
+/* The caption slot — ALSO the notice's (WalkBar renders one element for both). Exactly
+   `--pg-walk-cap-lines` lines tall whatever it holds, including nothing: that is what makes
+   the bar's height a constant the SSR'd markup already has right.
+   `margin: 0` is load-bearing, not tidiness — this is a <p>, and the UA's 1em block margin
+   was adding 26px to every bar and quietly making the parent's `gap: 6px` a fiction. */
 .pg-walk-caption {
+	--pg-walk-cap-lines: 2;
+	--pg-walk-cap-line-height: 1.45;
+	margin: 0;
 	font-size: 13px;
-	line-height: 1.45;
+	line-height: var(--pg-walk-cap-line-height);
 	color: var(--muted-foreground, inherit);
+	/* `1em` is this element's own font-size, so the box is `lines × line-height` exactly —
+	   the same arithmetic the browser does, without depending on the `lh` unit. */
+	block-size: calc(var(--pg-walk-cap-lines) * var(--pg-walk-cap-line-height) * 1em);
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: var(--pg-walk-cap-lines);
+	line-clamp: var(--pg-walk-cap-lines);
+	overflow: hidden;
 }
-.pg-walk-notice {
-	font-size: 12.5px;
+.pg-walk-caption.is-notice {
 	color: var(--accent);
 }
 @media (max-width: 560px) {
