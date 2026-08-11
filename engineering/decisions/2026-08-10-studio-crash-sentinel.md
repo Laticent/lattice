@@ -312,3 +312,195 @@ Honest boundaries, per HARD RULE #23:
   recorder was driven in a real browser — but deliberately inducing an OOM kill on
   a physical phone was not done here. Per HARD RULE #23 that is stated, not
   papered over: the first real crash report a user sends is the verification.
+
+## What the first REAL report changed (2026-08-11)
+
+The line above — "the first real crash report a user sends is the verification" —
+came due within hours of the merge. A user crashed the Studio on **Firefox for
+iOS 18.7** (`FxiOS/153.2`, WebKit underneath), on an 18-slide / 8 KB deck, at the
+`build` stop. The session died 25.7s in. Their verdict on the report they got:
+
+> "when the page refreshes itself the crash report is not visible. i had to hit
+> refresh to see the message… also, the report is not actionable and tells me
+> nothing about the errors. what am i supposed to do with this?"
+
+Three defects, all real, none visible from inside the test suite.
+
+### 1. The automatic post-crash reload showed nothing
+
+Immediate reporting required `isSameTab()`, which required
+`performance.getEntriesByType('navigation')[0].type === 'reload'`. That
+cross-check was added for a good reason — `sessionStorage` is *copied* into a
+duplicated tab, so the mirror alone is not proof of continuity. But on this
+browser the **browser's own recovery load was not typed `reload`**, so the record
+fell through to the 10-minute staleness wait, and the one boot where the user was
+actually looking said nothing. Pressing reload by hand produced a `reload`
+navigation, which is why the manual refresh "worked" and looked like a fluke.
+
+**This one is NOT fixed. Three designs were built and all three were withdrawn**,
+which is worth recording in full because the failures rhyme. Tracked as #1621.
+
+1. **Watch the record for 21s; no heartbeat means dead.** Wrong against a comment
+   twenty lines above it in the same file: a throttled tab beats about once every
+   **five minutes**, which is why `STALE_MS` is ten minutes and not the 90s already
+   found to harvest live tabs. It would have accused a duplicated tab's live
+   original and offered a Discard button that deletes its record. A checker
+   reproduced it against a session that had beaten 0 ms ago.
+2. **Ask over `localStorage`; no reply in 2s means dead.** Wrong against
+   `STALL_MS` (2.5s) — this module's own threshold for "the main thread was
+   blocked long enough to write down". A red-team pass reproduced it in two real
+   Chromium tabs: block the live owner for 2.5s and the duplicate announces it
+   crashed. Both attempts picked a deadline against the wrong clock.
+3. **Hold a Web Lock for the life of the document.** The *right* primitive — the
+   browser releases it on crash, OOM kill and discard, and a frozen or blocked tab
+   holds it as well as an idle one, so there is no deadline to pick. It verified
+   6/6 in two real tabs. **Withdrawn anyway:** a held lock makes the page
+   ineligible for the back/forward cache (measured in Chromium 131,
+   `notRestoredReasons: [{reason: "lock"}]`), and the release meant to prevent
+   that can never fire — Chromium decides eligibility *before* `pagehide`, so
+   `persisted` is always false, which is the condition the release is gated on.
+   That silently kills `live.bfcached = !!ev?.persisted` and with it the **entire
+   iOS eviction path** — on the platform the original report came from.
+
+The trade is real and is not mine to settle silently: **crash-safe liveness and
+bfcache eligibility are mutually exclusive on this page.** Web Locks is the only
+primitive that answers "does that document still exist?" without a timeout, and
+holding one costs the back/forward cache. Choosing means deciding whether instant
+crash reporting is worth more than bfcache on `/studio/` — and on iOS, where
+Safari's own backgrounding is what produces the `bfcached` signal, losing it may
+make crashes *worse* rather than better. That is unverified and unverifiable from
+here.
+
+What ships instead is the staleness wait, unchanged: slow (up to ten minutes for a
+record this boot cannot attribute to its own tab), and **never a false accusation**.
+Every withdrawn design traded that property away, and none of them was worth it.
+
+The pattern is the lesson. Two of the three failures were the same mistake —
+picking a number against a clock that governs something else — and the third was
+a correct mechanism with an invisible cost in a distant subsystem. All three
+passed their unit tests. Only real browsers, and reviewers looking for the
+catastrophic case rather than the happy one, found them.
+
+### 2. Six identical errors, none of them ours
+
+The trail showed `window.onerror: Script error.` six times and summarized it as
+"6 error(s) recorded", which reads as six distinct Studio faults. It was one
+message repeating — and, more importantly, **an empty husk**. `"Script error."`
+with no filename, no line and no stack is the exact signature a browser produces
+when it refuses to let a page read a cross-origin script's exception.
+
+That signature is diagnostic, and checking it was worth the five minutes:
+`curl`ing the deployed `/studio/` shows every `<script>` on the page is
+same-origin `/_astro/*.js`. A same-origin throw would have carried a real message
+and a stack. So an opaque error there is *almost certainly not Studio code* — an
+extension, a content blocker, an injected script. Reporting it as one of "your"
+errors sends the reader hunting through code that never ran, which is precisely
+what happened.
+
+So errors are now:
+- **folded by message** (`ErrorGroup`), with the repeat count and the span, and
+  only the first of a repeating message spends a breadcrumb — six copies used to
+  evict the boot and nav crumbs that give the trail its context;
+- **split by whether the browser let us see them**, with the opaque ones reported
+  as a visibility fact and a calibrated (*"most likely"*, not *"is"*) attribution;
+- **captured with `filename`/`lineno`** where the browser supplies them.
+
+### 3. Resource load failures were invisible
+
+While fixing the above: a script/style/image that fails to **load** fires an
+`error` event *at the element*, which does not bubble, so `window.onerror` never
+saw it. The single most diagnosable Studio failure — a code-split chunk that
+vanished when the site redeployed under an open tab — recorded nothing at all
+while the page fell apart. A capture-phase listener now records the failing URL
+(`noteFailedLoad`), and unlike a sanitized `Script error.` it names the file.
+
+### 4. "What am I supposed to do with this?"
+
+A fair question, and a defect in the report rather than in the reader. Facts
+without a next step hand the work of interpretation to the one person in the loop
+who cannot do it. `describeSession` now also returns `steps`, every line derived
+from *this* record: report it when an error is attributable, reload when a file
+failed to load, try Chrome once when the browser reports no memory at all (the
+iOS case — the single thing the report cannot know there), try without extensions
+when every error was opaque. When nothing can be narrowed, it says exactly that
+rather than inventing a chore.
+
+The panel was also reordered. "What gets shared" — consent material, not a
+finding — used to sit above the findings, and on a 390px phone the user-agent
+string alone runs four lines, pushing everything worth reading off the first
+screen. Now: what happened, what to try, then what gets sent.
+
+### 5. The toast was a stretched lozenge
+
+Reported as "not styled and on brand". Measured on the built site at 390px: a
+358×110 box with `border-radius: 9999px` — the pill idiom, which is right for
+"Deck saved", wrapped around a title, a description and an action until its own
+curve **clipped the last line of its text**.
+
+Fixed in the shared primitive rather than at the call site
+(`components/ui/sonner.tsx`): the radius follows the content, keyed on Sonner's
+own `[data-description]`, so any future multi-line toast is correct by default.
+
+The `!` on those utilities is load-bearing and is **the same cascade trap this
+repo already documents** (HARD RULE #26; it also produced the invisible button
+label in #1584): Sonner ships an unlayered `[data-sonner-toast]` rule, and an
+unlayered rule beats a layered Tailwind utility regardless of specificity. Without
+`!` the class lands on the element, matches, and silently loses — confirmed by
+measuring `border-radius: 9999px` on an element whose `class` contained
+`rounded-2xl`.
+
+### What is still true, and what it cost
+
+The record version was **not** bumped. Every new field is optional and every
+reader falls back, so records already sitting in users' browsers survive — a bump
+would have discarded the very report that prompted all of this. Bump only when
+new code would *misread* an old record; adding a field it can ignore is not that.
+
+### Verified on WebKit (2026-08-11)
+
+Playwright ships **WebKit**, Safari's engine — which this session had wrongly
+written off as unreachable. It is not iOS (no device, no Safari chrome, no real
+touch stack), but it IS the engine underneath both Safari and the Firefox for iOS
+build the original report came from, and every visual claim here had been measured
+on Chromium only. Re-run against it, at 390px, on a record shaped like the
+reported one — against the local build AND against the **deployed Cloudflare
+preview**, which is the artifact a user actually loads (Playwright accepts proxy
+config directly, which is what made the preview reachable from the sandbox after
+a raw Chromium launch could not get through):
+
+```
+PASS  the crash toast appears on WebKit at all       358x87, radius 16px
+PASS  it is a card, not a stretched pill
+PASS  its description sits inside the box            (the reported clipping)
+PASS  its description is not near-black on near-black
+PASS  the panel opens and renders the steps
+PASS  it names the memory-blind next step
+PASS  it attributes the opaque errors instead of listing blanks
+PASS  it says there are no memory readings on this engine
+PASS  no horizontal page overflow at 390px
+```
+
+Two facts previously listed here as unverified are now measured rather than
+assumed:
+
+- **`performance.memory` does not exist on WebKit** (`hasMemory: false`), which is
+  what the report's "No memory readings — this browser does not expose them"
+  line asserts, and what makes the "open it once in Chrome" step the right
+  advice on this engine.
+- **`navigator.locks` DOES exist on WebKit** (`hasLocks: true`). That removes one
+  unknown from #1621: the primitive is available on Safari's engine, so the open
+  question there is narrowed to its bfcache cost.
+
+**Still not answered: whether WebKit refuses to bfcache a page holding a Web
+Lock.** Three harness attempts failed to produce a working CONTROL — bfcache never
+engaged for the no-lock case either, in WebKit or Chromium — so the measurement is
+vacuous in both directions and is reported as such rather than dressed up. The
+Chromium half of that question was answered by a review pass with a working
+control (`notRestoredReasons: [{reason: "lock"}]`); the WebKit half is open, and
+it is the measurement #1621 turns on.
+
+Real iOS remains **UNVERIFIED** (HARD RULE #23) — none of this was driven on a
+physical iPhone, and the premise behind defect 1 (that Firefox for iOS does not
+type its own recovery load as `reload`) is still unconfirmed. What ships here
+touches neither: the errors, the next steps, the guards and the toast are all
+independent of it.

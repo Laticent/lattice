@@ -11,12 +11,14 @@ import {
 	dismissCrashReport,
 	elapsedLabel,
 	formatCrashReport,
+	isOpaqueError,
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
 	markReported,
 	newRecord,
 	noteError,
+	noteFailedLoad,
 	pruneSessions,
 	SESSION_PREFIX,
 	type SessionRecord,
@@ -657,5 +659,203 @@ describe('isSessionRecord — the guard that keeps a bad record from taking the 
 		const found = collectCrashReports(Date.now() + STALE_MS + 1);
 		expect(found.map((r) => r.id)).toEqual(['ok']);
 		expect(() => formatCrashReport(found[0])).not.toThrow();
+	});
+});
+
+// ── The three defects the FIRST REAL REPORT off a phone exposed ──────────────
+// Filed against Firefox on iOS 18.7 with an 18-slide deck: the session died 25s
+// in after six identical `Script error.` entries, the automatic post-crash
+// reload said nothing at all, and the report that finally appeared answered
+// "what am I supposed to do with this?" with facts and no next step.
+describe('what the first real crash report exposed', () => {
+
+	// DEFECT 1 (the automatic reload showing nothing) is NOT fixed — issue #1621.
+	// Three designs were built and withdrawn; what survives is the staleness wait,
+	// which is slow but never accuses a live tab. This pins that property, because
+	// every withdrawn design broke it: a record whose owner might still be running
+	// is not reportable until the wait elapses.
+	it('never reports a recent record from a tab it cannot prove died', () => {
+		const r = rec({ id: 'other', closed: false, lastBeat: Date.now() });
+		expect(isUncleanEnd(r, Date.now(), false)).toBe(false);
+		expect(isUncleanEnd(r, Date.now() + STALE_MS + 1, false)).toBe(true);
+	});
+
+	// DEFECT 2a — six copies of one error read as six faults, and filled the
+	// 60-crumb ring with duplicates that evicted the boot/nav context.
+	it('folds a repeating error into one group and one breadcrumb', () => {
+		bootSentinel();
+		for (let i = 0; i < 6; i++) noteError({ message: 'Script error.' }, 'window.onerror');
+		const live = liveSession() as SessionRecord;
+		expect(live.errorCount).toBe(6);
+		expect(live.errorGroups).toHaveLength(1);
+		expect(live.errorGroups?.[0].n).toBe(6);
+		expect(live.crumbs.filter((c) => c.k === 'error')).toHaveLength(1);
+	});
+
+	// DEFECT 2b — an error the browser refused to describe is a fact about
+	// VISIBILITY, not a Studio fault, and the report must not present it as one.
+	it('recognizes the opaque cross-origin signature and says what it means', () => {
+		expect(isOpaqueError('Script error.', undefined, undefined)).toBe(true);
+		expect(isOpaqueError('Script error.', 'app.js', undefined)).toBe(false); // named a file
+		expect(isOpaqueError('TypeError: x is not a function', undefined, undefined)).toBe(false);
+		bootSentinel();
+		for (let i = 0; i < 6; i++) noteError({ message: 'Script error.' }, 'window.onerror');
+		const live = liveSession() as SessionRecord;
+		const { facts } = describeSession({ ...live, closed: false }, true);
+		const line = facts.find((f) => f.includes('would not describe'));
+		expect(line).toBeTruthy();
+		expect(line).toContain('6 error(s)');
+		expect(line).toContain('browser extension');
+		// And it must NOT be presented as a plain Studio error alongside.
+		expect(facts.some((f) => f.startsWith('Error ('))).toBe(false);
+	});
+
+	it('keeps a real, attributable error as a real error — with its file and line', () => {
+		bootSentinel();
+		noteError({ message: 'TypeError: deck is undefined', stack: 'at render' }, 'window.onerror', { file: '/_astro/page.js', line: 42 });
+		const live = liveSession() as SessionRecord;
+		const { facts, steps } = describeSession({ ...live, closed: false }, true);
+		expect(facts.some((f) => f.includes('/_astro/page.js:42'))).toBe(true);
+		expect(steps.some((s) => s.includes('Report this on GitHub'))).toBe(true);
+	});
+
+	// DEFECT 2c — a file that fails to LOAD fires an event that does not bubble
+	// and carries no message, so `window.onerror` never saw it at all.
+	it('records a failed resource load, with the URL', () => {
+		bootSentinel();
+		noteFailedLoad('/_astro/gone.js');
+		noteFailedLoad('/_astro/gone.js'); // deduped
+		const live = liveSession() as SessionRecord;
+		expect(live.failedLoads).toEqual(['/_astro/gone.js']);
+		const { facts, steps } = describeSession({ ...live, closed: false }, true);
+		expect(facts.some((f) => f.includes('/_astro/gone.js'))).toBe(true);
+		expect(steps.some((s) => s.includes('Reload the page once'))).toBe(true);
+	});
+
+	// DEFECT 3 — "what am I supposed to do with this?". A report with no memory
+	// readings (Safari, Firefox) used to end on "no memory readings" and stop.
+	it('always offers a next step, and names the one that fits a memory-blind browser', () => {
+		bootSentinel();
+		const live = liveSession() as SessionRecord;
+		const { steps } = describeSession({ ...live, mem: [], closed: false }, true);
+		expect(steps.length).toBeGreaterThan(0);
+		expect(steps.some((s) => s.includes('Chrome or Edge'))).toBe(true);
+	});
+
+	it('says plainly when there is nothing to act on, rather than inventing a chore', () => {
+		bootSentinel();
+		const live = liveSession() as SessionRecord;
+		const { steps } = describeSession({ ...live, mem: [{ t: 0, used: 5e6, limit: 4e9 }], closed: false }, true);
+		expect(steps).toHaveLength(1);
+		expect(steps[0]).toContain('nothing here to act on yet');
+	});
+
+	// The steps are part of the filed issue, not just the panel — otherwise the
+	// reader and the maintainer are looking at two different reports.
+	it('carries the steps and the failed loads into the GitHub issue body', () => {
+		bootSentinel();
+		noteFailedLoad('/_astro/gone.js');
+		const live = liveSession() as SessionRecord;
+		// Keyed by the record's OWN id — `sessionKeys()` reads the key, `readRecord`
+		// reads the body, and a mismatch simply yields nothing.
+		localStorage.setItem(`${SESSION_PREFIX}past`, JSON.stringify({ ...live, id: 'past', closed: false }));
+		__resetSentinelForTest();
+		bootSentinel();
+		const [report] = collectCrashReports(Date.now() + STALE_MS + 1);
+		const body = formatCrashReport(report);
+		expect(body).toContain('What the reporter was told to try');
+		expect(body).toContain('Files that failed to load');
+		expect(body).toContain('/_astro/gone.js');
+	});
+});
+
+// The guard's third field. `failedLoads` is rendered STRAIGHT as React children
+// by the report sheet, so a non-string there throws inside StudioShell's mount
+// path and swaps the whole Studio for an error card — on every load, until the
+// record ages out. That has now shipped twice, one field over each time.
+describe('the new optional fields cannot brick the Studio', () => {
+	const good = (): SessionRecord => rec({ id: 'g' });
+
+	it('rejects a failedLoads that would not survive being rendered', () => {
+		expect(isSessionRecord({ ...good(), failedLoads: [{ url: '/a.js', status: 404 }] })).toBe(false);
+		expect(isSessionRecord({ ...good(), failedLoads: 'nope' })).toBe(false);
+		expect(isSessionRecord({ ...good(), failedLoads: [null] })).toBe(false);
+		// Absent and well-formed both stay valid — the field is optional so records
+		// written before it existed still read.
+		expect(isSessionRecord(good())).toBe(true);
+		expect(isSessionRecord({ ...good(), failedLoads: ['/a.js'] })).toBe(true);
+	});
+
+	it('rejects an errorGroups that would print NaN into a public issue', () => {
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 2 }] })).toBe(false); // no firstT/lastT
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 7, n: 1, firstT: 0, lastT: 0 }] })).toBe(false);
+		expect(isSessionRecord({ ...good(), errorGroups: 'boom' })).toBe(false);
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 2, firstT: 0, lastT: 10 }] })).toBe(true);
+	});
+
+	it('drops such a record instead of letting it reach a reader', () => {
+		localStorage.setItem(`${SESSION_PREFIX}bad`, JSON.stringify({ ...good(), id: 'bad', closed: false, failedLoads: [{}] }));
+		startCrashSentinel();
+		expect(collectCrashReports(Date.now() + STALE_MS + 1).map((r) => r.id)).toEqual([]);
+	});
+});
+
+// A resource that fails to LOAD fires `error` AT THE ELEMENT and does not bubble,
+// so the bubble-phase handler never sees it. The capture-phase wiring is where
+// the subtlety lives, and it was previously untested.
+describe('the capture-phase resource listener', () => {
+	it('records a failed element load, and does not double-count a script throw', () => {
+		startCrashSentinel();
+		const img = document.createElement('img');
+		img.setAttribute('src', '/_astro/missing.png?token=secret');
+		document.body.appendChild(img);
+		img.dispatchEvent(new Event('error', { bubbles: false }));
+		const live = liveSession() as SessionRecord;
+		// The URL is recorded WITHOUT its query — this string goes into a public
+		// GitHub issue, and a resource URL is exactly the kind that carries a token.
+		expect(live.failedLoads).toEqual(['/_astro/missing.png']);
+		expect(live.errorCount).toBe(0); // a load failure is not a thrown error
+		// A script exception targets `window`, which has no string tagName, so the
+		// capture listener must ignore it and leave it to the bubble-phase handler.
+		dispatchEvent(new ErrorEvent('error', { message: 'TypeError: x', filename: '/_astro/p.js', lineno: 3 }));
+		const after = liveSession() as SessionRecord;
+		expect(after.failedLoads).toEqual(['/_astro/missing.png']);
+		expect(after.errorCount).toBe(1);
+		img.remove();
+	});
+});
+
+// The FOURTH field to reach a renderer unguarded, found by a red-team pass that
+// built a record `isSessionRecord` approved and watched the panel die on it.
+// Three had been fixed one at a time; this checks the whole rendered surface.
+describe('every field the panel renders is type-checked', () => {
+	it('rejects a non-string in any field that becomes a React child', () => {
+		const good = (): SessionRecord => rec({ id: 'g' });
+		expect(isSessionRecord({ ...good(), page: { evil: 1 } })).toBe(false);
+		expect(isSessionRecord({ ...good(), ua: 42 })).toBe(false);
+		expect(isSessionRecord({ ...good(), nav: {} })).toBe(false);
+		expect(isSessionRecord({ ...good(), page: '', ua: '' })).toBe(true); // empty is fine, absent-typed is not
+	});
+});
+
+// Two holes a verification pass found in the FIRST round of guard-hardening,
+// both in code written to close exactly this class.
+describe('the guard and the query strip, after a second pass', () => {
+	it('rejects a lastError that would break the panel or the issue body', () => {
+		const good = (): SessionRecord => rec({ id: 'g' });
+		expect(isSessionRecord({ ...good(), lastError: 'a string' })).toBe(false);
+		expect(isSessionRecord({ ...good(), lastError: { message: { evil: 1 }, t: 0 } })).toBe(false);
+		expect(isSessionRecord({ ...good(), lastError: { message: 'boom' } })).toBe(false); // no t → +NaN in the issue
+		expect(isSessionRecord({ ...good(), lastError: { message: 'boom', t: 5, stack: 7 } })).toBe(false);
+		expect(isSessionRecord({ ...good(), lastError: { message: 'boom', t: 5 } })).toBe(true);
+	});
+
+	it('does not restore the query when the URL has no path', () => {
+		startCrashSentinel();
+		// `<img src="?token=…">` is legal HTML. The `|| url` fallback put the whole
+		// string — secret included — back into a PUBLIC issue body.
+		noteFailedLoad('?token=secret');
+		noteFailedLoad('/ok.js?token=secret');
+		expect((liveSession() as SessionRecord).failedLoads).toEqual(['(unnamed resource)', '/ok.js']);
 	});
 });
