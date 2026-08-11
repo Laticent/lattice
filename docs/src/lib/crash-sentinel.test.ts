@@ -27,6 +27,7 @@ import {
 	startCrashSentinel,
 	TAB_SESSION_KEY,
 	unreportedCrashReports,
+	WIPE_MARK_KEY,
 	WIPE_SIGNAL_KEY,
 } from './crash-sentinel';
 
@@ -857,5 +858,73 @@ describe('the guard and the query strip, after a second pass', () => {
 		noteFailedLoad('?token=secret');
 		noteFailedLoad('/ok.js?token=secret');
 		expect((liveSession() as SessionRecord).failedLoads).toEqual(['(unnamed resource)', '/ok.js']);
+	});
+});
+
+// #1616 — a tab that was ASLEEP during "Delete everything" woke up and wrote its
+// session straight back, so data the user deleted reappeared. The wipe broadcast
+// is a live event and a frozen tab is by definition not running to hear it.
+describe('a wipe survives a tab that slept through it', () => {
+	const sessionCount = () => Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX)).length;
+	/** What another tab's `clearAllSessions()` leaves behind in shared storage. */
+	const anotherTabWipes = () => {
+		for (const k of Object.keys(localStorage)) if (k.startsWith(SESSION_PREFIX)) localStorage.removeItem(k);
+		localStorage.setItem(WIPE_MARK_KEY, String(Date.now() + 1));
+	};
+
+	it('seals on resume, so the next heartbeat cannot write the record back', () => {
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential Q3' });
+		breadcrumb('action', 'something private');
+		expect(sessionCount()).toBe(1);
+
+		anotherTabWipes(); // this tab is frozen and hears nothing
+		document.dispatchEvent(new Event('resume'));
+
+		breadcrumb('action', 'after waking'); // the write that used to resurrect it
+		expect(sessionCount()).toBe(0);
+		const rec = liveSession() as SessionRecord;
+		expect(rec.context).toEqual({});
+		expect(rec.crumbs).toEqual([]);
+	});
+
+	it('seals on a page-cache restore too — the other way a tab falls asleep', () => {
+		startCrashSentinel();
+		breadcrumb('action', 'something private');
+		anotherTabWipes();
+		dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+		breadcrumb('action', 'after waking');
+		expect(sessionCount()).toBe(0);
+	});
+
+	// The belt to those braces: whatever path a document wakes by — including one
+	// nobody has thought of — the heartbeat is what would resurrect the data.
+	it('seals on the next heartbeat even if no wake-up event fires at all', () => {
+		vi.useFakeTimers();
+		startCrashSentinel();
+		breadcrumb('action', 'something private');
+		anotherTabWipes();
+		vi.advanceTimersByTime(BEAT_MS + 1_000);
+		expect(sessionCount()).toBe(0);
+		vi.useRealTimers();
+	});
+
+	it('does not seal a tab that simply woke with no wipe in the interval', () => {
+		startCrashSentinel();
+		breadcrumb('action', 'ordinary work');
+		document.dispatchEvent(new Event('resume'));
+		breadcrumb('action', 'still working');
+		expect(sessionCount()).toBe(1);
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'still working')).toBe(true);
+	});
+
+	// The tab that DID the wipe must not later "discover" it and re-scrub — and,
+	// more importantly, the mark must not make the wiping tab look wiped-by-others.
+	it('the wiping tab does not re-detect its own wipe', () => {
+		startCrashSentinel();
+		clearAllSessions();
+		document.dispatchEvent(new Event('resume'));
+		expect(localStorage.getItem(WIPE_MARK_KEY)).toBeTruthy(); // durable on purpose
+		expect(sessionCount()).toBe(0);
 	});
 });

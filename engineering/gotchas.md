@@ -3597,6 +3597,32 @@ own) is not a builder and needs no entry.
   behind a report showing memory growth, reach for `npm run torture`
   (`tools/perf-torture/`).
 
+### Data a user deleted comes back when a parked tab wakes up
+
+- **Symptom:** the user clears their data in one tab; later, a record or file
+  they deleted is back. No error, no warning — it simply reappears some seconds
+  after they return to a tab they had navigated away from.
+- **Cause:** the "we've been wiped" broadcast is a `storage` event, and a tab
+  that is FROZEN — in the back/forward cache, or Page-Lifecycle-suspended as a
+  phone does to a backgrounded tab — is not running tasks and never receives it.
+  It thaws with its in-memory state intact and the next timer-driven write
+  restores what was deleted. A live event cannot solve this; the failure mode IS
+  "the recipient was not running".
+- **Fix:** leave DURABLE evidence a waking tab can read, and check it on every
+  wake path — `resume`, `pageshow` with `persisted`, AND the periodic write
+  itself, which is the belt to those braces (see `catchUpOnWipe` in
+  `docs/src/lib/crash-sentinel.ts`). The marker has to survive the wipe, or it
+  cannot defend against the next sleeping tab; keep it contentless so that
+  exception stays defensible.
+- **Also check:** anything that writes on an unconditional timer. Stores that
+  write only in response to user action (the deck autosave's 400ms debounce) are
+  not exposed — a frozen tab does nothing, so it rewrites nothing.
+- **Triggered by:** two tabs, one navigated away from, and any "delete my data"
+  action. Reproduce with CDP `Page.setWebLifecycleState('frozen')` — dispatching
+  a `resume` event by hand does NOT reproduce it, because the document was never
+  actually stopped. See `engineering/decisions/2026-08-10-studio-crash-sentinel.md`
+  § "The wipe a sleeping tab slept through".
+
 ### A Web Lock held for the life of a page silently kills its bfcache
 
 - **Symptom:** back-navigation to a page becomes a full reload, and any code
