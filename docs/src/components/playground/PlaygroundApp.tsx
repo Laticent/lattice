@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, P
 import * as React from 'react';
 import { toast } from 'sonner';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
-import { PG_SPLIT_KEY, PG_SPLIT_PANEL_IDS } from '@/components/playground/pg-split';
+import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -168,6 +168,11 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
 	const root = document.documentElement;
 	root.removeAttribute('data-pg-view');
 	root.removeAttribute('data-pg-pane');
+	// The split seed's PIXEL CLAMP goes with them (#1589). The grow vars can stay — the
+	// library's inline `flex-grow` outranks a stylesheet — but the `min-width` the clamp
+	// rules apply has no inline counterpart to lose to, so left up it would pin a pane the
+	// visitor collapses at its 320px minimum instead of letting it reach the 28px rail.
+	root.removeAttribute('data-pg-split-seed');
 }
 
 /**
@@ -1650,7 +1655,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					id={PG_SPLIT_PANEL_IDS[0]}
 					className="pg-pane editor"
 					panelRef={split.editorRef}
-					minSize={280}
+					minSize={PG_SPLIT_MIN.editor}
 					defaultSize="45"
 					collapsible={split.ready}
 					collapsedSize={RAIL_W}
@@ -1693,7 +1698,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					id={PG_SPLIT_PANEL_IDS[1]}
 					className="pg-pane preview"
 					panelRef={split.previewRef}
-					minSize={320}
+					minSize={PG_SPLIT_MIN.preview}
 					defaultSize="55"
 					collapsible={split.ready}
 					collapsedSize={RAIL_W}

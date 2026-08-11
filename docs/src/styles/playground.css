@@ -124,6 +124,33 @@
 	flex-basis: 0;
 	flex-grow: var(--pg-split-b, 55);
 }
+/* THE SAME CLAMP THE LIBRARY APPLIES, one moment earlier (#1589). The seed above spends a
+   pair of PERCENTAGES; each pane also has a minimum in PIXELS (`PG_SPLIT_MIN`, the
+   <ResizablePanel minSize> values), and a share that clears its minimum at the window it was
+   saved in can fall below it at a narrower one. The library clamps on hydration; the seed did
+   not, so the pane painted one width and settled at another — measured by dragging the real
+   divider to a 25% preview at 1920 and reloading at 1194: 298.3px, then 320px.
+   `min-width` is not an approximation of that clamp, it IS it: a flex item whose min-width is
+   violated is frozen at the minimum and the remainder goes to its sibling, which for a
+   two-panel group is exactly what the library computes.
+   Scoped to `data-pg-split-seed`, which `adoptBootSeed` removes when the app takes the layout
+   back — unlike the grow vars (which the library's inline `flex-grow` simply outranks), a
+   surviving min-width would fight the collapse-to-rail and pin a collapsed pane at 320px.
+   `!important` because the SSR'd panel wrapper carries `min-width:0` INLINE — the same reason
+   the ≤820px block below spells its overrides that way. Setting the pixel minimum on the
+   element instead would be worse than losing: React's prop record would still read `0`, so the
+   library would never write over it and the clamp would outlive the seed forever.
+   Confined to the band where the split is a split at all: below 820px the group is disabled
+   and the panes are stacked full-width tabs, where a pixel minimum means nothing and could
+   only overflow a narrow phone. */
+@media not (max-width: 820px) {
+	:root[data-pg-split-seed] .pg-split > #pg-split-editor {
+		min-width: var(--pg-split-min-a) !important;
+	}
+	:root[data-pg-split-seed] .pg-split > #pg-split-preview {
+		min-width: var(--pg-split-min-b) !important;
+	}
+}
 /* The pane's real content (label + editor/preview). Kept mounted + inert while
    collapsed so CodeMirror history and the preview iframe survive the interlude;
    hidden by the collapsed rule below so only the rail shows in the 28px strip. */

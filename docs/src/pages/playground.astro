@@ -25,7 +25,7 @@ import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
-import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_PANEL_IDS } from '../components/playground/pg-split';
+import { PG_SPLIT_BUCKET, PG_SPLIT_COLLAPSE_KEY, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS } from '../components/playground/pg-split';
 // The storage keys the pre-paint seed reads, from the module that DECLARES them rather
 // than restated as literals in the inline script. `playground-controller.ts` has no
 // imports of its own, so an Astro page can pull five strings out of it without dragging
@@ -171,6 +171,8 @@ const pgData = {
 				PG_SPLIT_KEY,
 				PG_SPLIT_BUCKET,
 				PG_SPLIT_PANEL_IDS,
+				PG_SPLIT_MIN,
+				PG_SPLIT_COLLAPSE_KEY,
 				SOURCE_KEY,
 				VIEW_KEY,
 				HANDOFF_KEY,
@@ -222,6 +224,36 @@ const pgData = {
 							if (typeof pgA === 'number' && typeof pgB === 'number' && pgA > 0 && pgB > 0) {
 								r.style.setProperty('--pg-split-a', String(pgA));
 								r.style.setProperty('--pg-split-b', String(pgB));
+								// …AND THE PANES' PIXEL MINIMUMS (#1589). The saved value is a pair of
+								// PERCENTAGES; the library enforces a per-pane minimum in PIXELS. A share that
+								// clears the minimum at the window it was saved in can fall below it at a
+								// narrower one, and then the seed and the hydrated app disagree — measured by
+								// dragging the real divider to a 25% preview at 1920 and reloading at 1194:
+								// 298.3px pre-paint against 320px after, the divider moving 22px in view, and
+								// the instant shell declining outright because its slide had been measured in a
+								// box that no longer existed. Publishing the minimums lets the stylesheet apply
+								// the same clamp flexbox already knows how to apply (min-width beats flex-grow),
+								// so the pre-paint pane IS the hydrated pane. The numbers come from pg-split.ts,
+								// which is also where <ResizablePanel minSize> reads them, so the two sides
+								// cannot drift.
+
+								// …EXCEPT over a collapsed pane, which is not heading for its minimum at all: it is
+								// heading for the 28px rail, restored from sessionStorage a beat after mount. The saved
+								// share in that state is the last one before the collapse latched, which can itself be
+								// below the minimum (measured 2.347%, i.e. the rail's own width), so clamping it would
+								// paint 320px and snap to 28 — turning a load that happens to be right today into two
+								// geometries. The collapsed pane's own late jump is a separate, pre-existing gap (the
+								// 2026-08-10 boot-state note records it); this only declines to make it worse.
+								var pgCollapsed = null;
+								try { pgCollapsed = sessionStorage.getItem(PG_SPLIT_COLLAPSE_KEY); } catch (e3) {}
+								if (pgCollapsed !== 'a' && pgCollapsed !== 'b') {
+									r.style.setProperty('--pg-split-min-a', PG_SPLIT_MIN.editor + 'px');
+									r.style.setProperty('--pg-split-min-b', PG_SPLIT_MIN.preview + 'px');
+									// The clamp rules key on this attribute and DIE with it: `adoptBootSeed` drops it
+									// when the app takes the layout back, because a min-width that outlived the seed
+									// would fight the library's own collapse-to-rail (28px).
+									r.setAttribute('data-pg-split-seed', '');
+								}
 							}
 						}
 					} catch (e2) {}
@@ -348,10 +380,6 @@ const pgData = {
 						willRender && snap.srcHash === willRender &&
 						fit && fit.boxW > 0 && fit.boxH > 0 && fit.w > 0 && fit.h > 0
 					) {
-						var st = document.createElement('style');
-						st.id = 'pg-ssr-snap-css';
-						st.textContent = snap.css;
-						document.head.appendChild(st);
 						// PLACE THE CACHED SLIDE WHERE THE LIVE ONE IS ABOUT TO LAND (#1563).
 						//
 						// This used to derive its own geometry — center the slide in the pane, less a

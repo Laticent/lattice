@@ -3785,3 +3785,29 @@ own) is not a builder and needs no entry.
   path) left a permanent dead band — 109px on a phone, 13% of the viewport, for the session.
   Reserving it correctly needs the first slide's caption height for the deck about to boot.
 - **Triggered by:** #1563.
+
+### The Playground's divider is in one place before hydration and another after
+
+- **Symptom:** reload the Playground on a window narrower than the one you last sized it in
+  and the editor|preview divider paints in one place, then jumps a few tens of pixels as the
+  island hydrates. Often accompanied by the instant shell simply not appearing.
+- **Why:** the saved layout is a pair of PERCENTAGES; the panes' minimums are PIXELS
+  (`PG_SPLIT_MIN` — editor 280, preview 320). A share that clears its minimum at the window it
+  was saved in can fall below it at a narrower one. The library clamps at hydration; the
+  pre-paint seed spent the raw share. Measured: a real drag to a 25% preview at 1920, reloaded
+  at 1194, painted **298.3px** and settled at **320px**. The missing shell is downstream — the
+  cached slide's rect was measured in a box that changed size, so the box-match gate declined.
+- **Fix (shipped, #1589):** the seed publishes the same minimums as `--pg-split-min-a/b` and
+  `playground.css` applies them as `min-width` while `data-pg-split-seed` is up. For a
+  two-panel flex row that IS the library's clamp: the violated item freezes at its minimum and
+  the remainder goes to its sibling.
+- **`!important` is load-bearing there, and setting the style on the element is not the
+  shortcut it looks like.** The SSR'd panel wrapper carries `min-width:0` INLINE, so a plain
+  stylesheet rule loses. Writing `el.style.minWidth` instead would win the cascade and then
+  never be undone: React's prop record would still read `0`, so the library would never write
+  over it, and the clamp would outlive the seed for the life of the page.
+- **The clamp must die with the seed.** `adoptBootSeed` drops `data-pg-split-seed` alongside
+  the view/pane attributes. A surviving `min-width:320px` would stop a collapsed preview from
+  ever reaching its 28px rail — the grow vars are safe to leave only because the library's
+  inline `flex-grow` outranks them, and `min-width` has no such counterpart.
+- **Triggered by:** #1589, from the red-team pass on #1563/#1581.

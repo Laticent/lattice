@@ -1,3 +1,4 @@
+import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS } from '../src/components/playground/pg-split';
 import { expect, test } from './studio-fixture';
 
 // ── The Playground must not ASSEMBLE IN VIEW (#1563) ──────────────────────────────────
@@ -202,6 +203,68 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 		'the pre-paint replay never ran, so the single geometry below is the live filmstrip alone — the assertion is vacuous',
 	).toBeGreaterThan(0);
 	assertOneGeometry(log, TRACKED);
+});
+
+// A saved split is a pair of PERCENTAGES; the panes' minimums are PIXELS. A share that clears
+// its minimum at the window it was saved in can fall below it at a narrower one — the library
+// clamps at hydration, and the pre-paint seed used to spend the raw share, so the two disagreed
+// and the divider moved (#1589). The instant shell is collateral: its slide is placed at a rect
+// measured in a box that no longer exists, so it declines outright.
+//
+// The experiment has to cross two window sizes, which is why it sets its own viewports rather
+// than taking the file's. The divider is driven with the KEYBOARD rather than a mouse drag:
+// the separator's arrow-key resize is as real a control as a drag (it is the ARIA one), and a
+// synthetic drag on this splitter is documented as not re-engaging after a reload
+// (2026-08-10-shell-app-boot-state-sharing.md § Known gaps).
+test('a share below a pane minimum at a narrower window is clamped BEFORE paint, not after', async ({ page }) => {
+	await page.setViewportSize({ width: 1920, height: 900 });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-split-preview')).toBeVisible();
+	await page.waitForTimeout(1500);
+
+	// Shrink the preview to roughly a quarter of the pair — comfortably above its 320px
+	// minimum at 1920, and below it at 1194.
+	const separator = page.locator('#pg-split [data-slot="resizable-handle"]').first();
+	await separator.focus();
+	for (let i = 0; i < 60; i++) {
+		const w = await page.locator('#pg-split-preview').evaluate((el) => el.getBoundingClientRect().width);
+		if (w <= 500) break;
+		await page.keyboard.press('ArrowRight');
+	}
+	await page.waitForTimeout(1200);
+
+	const share = await page.evaluate(
+		([key, bucket, id]) => {
+			const store = JSON.parse(localStorage.getItem(key) || 'null');
+			return store?.[bucket]?.[id] ?? null;
+		},
+		[PG_SPLIT_KEY, PG_SPLIT_BUCKET, PG_SPLIT_PANEL_IDS[1]] as const,
+	);
+	expect(share, 'the keyboard resize did not persist a share — the reload below would prove nothing').toBeGreaterThan(0);
+	// THE EXPERIMENT'S OWN PRECONDITION. If the saved share still clears the minimum at 1194
+	// there is nothing to clamp and the assertions underneath are vacuous, so fail here
+	// instead — with the number, so a future change of `minSize` says why it stopped applying.
+	const rawAt1194 = (1194 - 1) * ((share as number) / 100);
+	expect(
+		rawAt1194,
+		`the saved share resolves to ${rawAt1194.toFixed(1)}px at 1194, which is already above the ${PG_SPLIT_MIN.preview}px minimum — nothing is being clamped`,
+	).toBeLessThan(PG_SPLIT_MIN.preview);
+
+	await page.setViewportSize({ width: 1194, height: 834 });
+	await throttle(page);
+	await sampleFrames(page);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await page.waitForTimeout(1500);
+
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	assertOneGeometry(log, ['editorPane', 'previewPane']);
+	// …and the one geometry is the CLAMPED one, not the raw share that happens to be stable
+	// because nothing ever corrected it.
+	const settled = distinct(log.previewPane ?? [])[0]?.rect;
+	expect(settled?.[2], `the preview pane settled at ${settled?.[2]}px, not the ${PG_SPLIT_MIN.preview}px minimum`).toBeGreaterThanOrEqual(
+		PG_SPLIT_MIN.preview - 2,
+	);
 });
 
 // Explore is the surface a PRISTINE visitor lands on, so its first paint is the one most
