@@ -194,6 +194,30 @@ async function measure(page, slack, vbSlack) {
           const painted = opaque || bc.backgroundImage !== 'none'
             || [bc.borderTopWidth, bc.borderRightWidth, bc.borderBottomWidth, bc.borderLeftWidth]
               .some((w) => num(w) > 0);
+          // A PAINTED body's inline padding must BE `--chart-panel-x`, not merely
+          // be allowed. The clause above says a box that paints its own surface
+          // earns an inset; this says the inset it earns is the one token that
+          // governs it. The token was split out of `--chart-inset-x` precisely so
+          // a move of one could not silently move the other — and the split's
+          // first outing missed a per-chart override that fed BOTH, retuning a
+          // `timeline-list canvas` panel 3× tighter with nothing to catch it
+          // (found twice over by the trio, gated here). Two ways to fail: a
+          // painted body with NO inline padding (content on a visible edge), and
+          // one whose padding has drifted off the token.
+          // Resolved by PROBE, not by reading the property: a custom property's
+          // computed value is a token sequence, so `getPropertyValue` hands back
+          // `calc(1.25 * var(--_sec-1cqi) * …)` and `parseFloat` gives NaN. A
+          // throwaway element sized `width: var(--chart-panel-x)` inside the body
+          // makes the browser do the arithmetic, in the same container context the
+          // padding resolves in.
+          const probe = document.createElement('div');
+          probe.style.cssText = 'position:absolute;visibility:hidden;height:0;width:var(--chart-panel-x)';
+          body.appendChild(probe);
+          const panelX = probe.getBoundingClientRect().width;
+          probe.remove();
+          const panelBad = painted && (
+            pad[1] <= SLACK_ || pad[3] <= SLACK_
+            || Math.abs(pad[1] - panelX) > SLACK_ || Math.abs(pad[3] - panelX) > SLACK_);
           insets.push({
             slide: +sec.id || insets.length + 1,
             component: stage ? component : `${component} (no-form)`,
@@ -204,8 +228,11 @@ async function measure(page, slack, vbSlack) {
             insetRight: +(right - br.right).toFixed(1),
             pad: pad.join('/'),
             painted,
+            panelX: +panelX.toFixed(1),
+            panelBad,
             bad: Math.abs(br.left - left) > SLACK_ || Math.abs(right - br.right) > SLACK_
-              || (!painted && (pad[1] > SLACK_ || pad[3] > SLACK_)),
+              || (!painted && (pad[1] > SLACK_ || pad[3] > SLACK_))
+              || panelBad,
           });
         }
       }
@@ -418,6 +445,15 @@ async function main() {
     if (insetBad.length) {
       console.error(`\ncheck-chart-fit: ${insetBad.length} re-derived outer inset(s) across ${sizes.length} size(s):\n`);
       for (const r of insetBad) {
+        if (r.panelBad) {
+          console.error(
+            `  \u2717 [${r.size}] slide ${r.slide} (${r.component}): <${r.body}> PAINTS a surface, so its inline ` +
+            `padding must be \`--chart-panel-x\` \u2014 pad[${r.pad}] against a resolved ${r.panelX}px. A painted box ` +
+            'owes its content an inset (design/forms.md \u00a76.1) and that inset is the panel token, so a change to ' +
+            'the frame inset can never silently move it.',
+          );
+          continue;
+        }
         console.error(
           `  \u2717 [${r.size}] slide ${r.slide} (${r.component}): <${r.body}> does not fill its holder's ` +
           `content box \u2014 inset[L ${r.insetLeft} R ${r.insetRight}] pad[${r.pad}]. The stage owns the outer ` +

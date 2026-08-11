@@ -57,14 +57,14 @@ section.state-chart {
  * band all land exactly where they did. It is the in-tree precedent that the calc
  * was never load-bearing. */
 section.state-chart.chart-frame {
-  /* The INLINE token is restated at the family default deliberately, not omitted.
-   * As a padding on `.chart-body` this tuning sat at (0,3,1) and beat the tall/strip
-   * family rule (0,2,1), so a TALL state-chart kept the wide `--sp-2xl` side inset.
-   * As tokens, state-chart declares at (0,2,1) and tall/strip at (0,1,1) — so an
-   * omitted `--chart-inset-x` would fall through to tall/strip's `--sp-sm` and the
-   * body would gain 158px (+20.7%) at portrait. Measured by the trio's red team;
-   * naming the token is how state-chart stays in the tie it used to win. */
-  --chart-inset-x: var(--sp-2xl);
+  /* The inline restatement is GONE with the family default. It existed to hold a
+   * specificity tie: as a padding this tuning sat at (0,3,1) and beat the
+   * tall/strip family rule (0,2,1), so a TALL state-chart kept the wide side
+   * inset; as tokens it declares at (0,2,1) against tall/strip's (0,1,1), so an
+   * omitted `--chart-inset-x` used to fall through to `--sp-sm` and move the body
+   * 158px. Both sides of that tie are now 0 — there is no longer a wide value to
+   * defend, so the token that defended it is noise. Only the block pair, which is
+   * state-chart's real tuning, remains. */
   --chart-inset-top: var(--sp-md);
   --chart-inset-bottom: var(--sp-md);
 }

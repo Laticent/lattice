@@ -439,3 +439,70 @@ regressed on.
    - A tag names the milestone's kind.
 3. `Q3` The third milestone
    - Sixteen words is each entry's budget.
+
+---
+
+<!-- _class: kanban claim-bleed -->
+
+## A bleeding chart still has a floor.
+
+**This slide lints as a warning ON PURPOSE — `claim-bleed-unsafe` — and that is
+the point of it.** kanban now declares `"excludes": ["claim-bleed"]`, so an author
+is warned off to `claim-hero`. But a warning is not an error: the deck still
+renders, and until #1598 it rendered SLICED, because the chart's own 64px inset
+had been silently flooring a bleed nothing ever tested. The floor is now explicit,
+and this slide is what proves it holds for the author who bleeds one anyway. No
+committed deck combines a chart with `claim-bleed`, which is exactly why nothing
+caught the regression.
+
+- Backlog
+  - Waiting cards `S`
+- In progress
+  - The active limit `M`
+- Review
+  - Almost done `S`
+- Done
+  - Shipped work `L`
+
+---
+
+<!-- _class: quadrant canvas -->
+
+`Effort 0–10 → Reach 0–100`
+
+## A painted panel is the one body that earns an inset.
+
+The opt-in glass canvas paints a surface on `.chart-body`, so §6.1's second
+clause applies and its inline padding is legitimate — the gate proves that by
+MEASUREMENT (a non-transparent background) rather than by a class list. This
+slide is the only committed coverage of the `canvas` modifier; without it the
+panel's inset chain had no gate at all.
+
+- Quick Wins
+  - Weekly signal digest `2, 82`
+  - Slack intake bot `3, 72`
+- Strategic Bets
+  - Scoring model v2 `8, 88`
+  - Decision-log API `7, 74`
+- Defer
+  - Per-team weighting UI `2, 28`
+- Time Sinks
+  - Bespoke board exports `8, 18`
+
+---
+
+<!-- _class: timeline-list canvas -->
+
+## The one per-chart panel tuning.
+
+1. `Q1` The first milestone
+2. `Q2` The second, marked `decision`
+3. `Q3` The third milestone
+
+<!-- The `quadrant canvas` slide above is a height-bound SVG on the FAMILY panel
+default, so it cannot see a PER-CHART one. timeline-list is the only chart that
+has one (`--chart-panel-x` at tall/strip), and deleting an inline token silently
+retuned it 3x tighter until the trio caught it — twice, independently. This slide
+is what watches it now. Kept deliberately short: `timeline-list canvas` at
+portrait is height-tight on `main` too, and this fixture is here to exercise the
+panel token, not to re-litigate that. -->

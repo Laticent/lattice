@@ -846,23 +846,52 @@ section.journey .journey-vmood {
 }
 /* Faint gridlines frame the pain→delight rail. The mood scale is 1–5, so the
  * track has FOUR equal segments (`100% / 4`) → five gridlines, one per mood
- * level — do not "correct" the divisor to /5. */
+ * level — do not "correct" the divisor to /5.
+ *
+ * The gridlines span the MARKER RANGE, not the full track: `inset` pulls each end
+ * in by half a face, the same half-face the marker scale below is inset by, so
+ * gridline N is exactly where a mood-N face is centered. They have to move
+ * together — a face is a value readout, and a face sitting half its own width off
+ * the line it names is a misread on the one chart whose contract is that position
+ * IS the value. (The red team measured 31.6px of error at mood 1 and 5 when only
+ * the markers were inset.) */
 section.journey .journey-vmood::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 calc(var(--journey-vface) / 2);
   background-image: repeating-linear-gradient(
     to right,
     color-mix(in oklab, var(--border) 50%, transparent) 0 1px,
     transparent 1px calc(100% / 4));
   opacity: 0.5;
 }
-/* Dashed reach from the pain (left) edge to the face. */
+/* The plotted range is inset by HALF A FACE at each end, so a marker at either
+ * extreme sits fully inside the track instead of hanging half-off it. The face is
+ * centered on its value and is 6.5cqi across, so plotting mood 5 at a bare `100%`
+ * put its center ON the track's right edge and 3.25cqi of it outside — always,
+ * at every deck size. Nothing showed while `.chart-body` carried 64px of inline
+ * padding: the overhang landed in that padding and the clip was further out. When
+ * that padding retired (charts now sit at the frame inset, like prose and the
+ * diagram) the overhang became a real cut — `check:chart-fit` caught a mood-5 face
+ * 5.3px past the portrait stage. A marker centered on the end of its own scale is
+ * wrong at any inset; this is the fix, not a wider berth.
+ *
+ * The 1..5 scale therefore maps across `100% - 6.5cqi`, offset by `3.25cqi`, and
+ * the gridlines above are inset by the SAME half-face so each one still sits
+ * exactly under the face for its value. Keep the two in step: inset one without
+ * the other and the readout lies. */
+section.journey .journey-vmood {
+  --journey-vface: 6.5cqi;
+  --journey-vmood-x: calc(
+    var(--journey-vface) / 2
+    + (var(--mood) - 1) / 4 * (100% - var(--journey-vface)));
+}
+/* Dashed reach from the pain (left) edge to the face's center. */
 section.journey .journey-vmood-line {
   position: absolute;
   top: 50%;
   left: 0;
-  width: calc((var(--mood) - 1) / 4 * 100%);
+  width: var(--journey-vmood-x);
   height: 0;
   border-top: 2px dashed color-mix(in oklab, var(--journey-timeline) 55%, transparent);
   transform: translateY(-50%);
@@ -871,9 +900,9 @@ section.journey .journey-vmood-line {
 section.journey .journey-vmood .journey-face {
   position: absolute;
   top: 50%;
-  left: calc((var(--mood) - 1) / 4 * 100%);
-  width: 6.5cqi;
-  height: 6.5cqi;
+  left: var(--journey-vmood-x);
+  width: var(--journey-vface);
+  height: var(--journey-vface);
   transform: translate(-50%, -50%);
   background: var(--bg);
   border-radius: 50%;

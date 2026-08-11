@@ -406,9 +406,27 @@ rim labels by design). Removing it clipped nine decks that had never clipped, so
 #1598 is inline-only and the block padding stays on the body, named for its job.
 `overflow-clip-margin` is the property that should carry it and cannot yet —
 Chromium 131 takes only a plain `<length>` there, and every spacing token here is
-a `calc()`. The debt was invisible for as
-long as it existed, and was costed at half its real size when someone finally went
-looking (#680 recorded the chart's inline cost as 128px; it was 256).
+a `calc()`.
+
+**Every bucket now sits at the frame inset — one inset, 64px at hd (54 at
+portrait and square).** #1598 landed the chart at 128 (frame + one surviving
+inset) on the belief that a chart's wider berth was a deliberate design choice; it
+was not. The width calc's own comment justified it as a *sizing* workaround, the
+padding line had no comment, and the nearest thing to a defense was the opt-in
+glass panel adopting "its **existing** padding". Two measurements retired it, and
+they cut in opposite directions: a **height-bound** SVG chart letterboxes, so the
+inset was dead space (a quadrant renders pixel-identical at 64 and 128), while a
+**width-bound** one — gantt, map, word-cloud — was actually *losing drawing size*
+to it (gantt's SVG grows 1024×238.9 → 1152×268.8). Don't shorten this to "SVG
+charts don't care": three of the seven do. And it was an **alignment defect** —
+the masthead's hairline spans the full frame, so a chart at 128 read visibly
+narrower than the rule directly above it, exactly the misalignment the diagram
+had. A chart's berth is now the frame's, like everything else, and
+`--chart-inset-x` exists only so a component can say otherwise with a reason —
+today that is the bleed floor, which keeps a card- or table-bodied chart off the
+trim edge under `claim-bleed`. The debt was invisible for as long as it existed,
+and was costed at half its real size when someone finally went looking (#680
+recorded the chart's inline cost as 128px; it was 256).
 
 **Code is the legitimate exception, and shows what the second clause is for.** Its
 `pre` sits at the plain stage inset at full stage width and carries `padding`

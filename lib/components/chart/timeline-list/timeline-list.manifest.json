@@ -30,6 +30,9 @@
   ],
   "description": "Date-stamped event list rendered as a horizontal spine — a dot per event with its date pill above and title, status pill, and body stacked below.",
   "purpose": "Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.",
+  "excludes": [
+    "claim-bleed"
+  ],
   "slots": {
     "title": {
       "selector": "h2",
