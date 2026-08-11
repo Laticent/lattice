@@ -40,14 +40,74 @@ about the word.
   order"), which is a real user-facing vocabulary word in the SAME app;
 - `buildVocab`, `TourBuild`, `tour.build`, "build a ComponentCatalog".
 
-So `posture === 'build'` was one meaning among five, in files that carried three
-of the others within twenty lines. Reading `data-ssr-stop="build"` in the shell
-CSS, next to a comment about what renders "at build time", is a small tax paid on
-every visit. **Craft names nothing else in the code** — before this change no
-identifier, class, stored value, directive or CSS hook was called `craft`; the
-word appears only as ordinary English in prose ("taste/craft moves", "a crafted
-recipe can't inject"), which is not a namespace collision. And it says the same
-thing about the surface: this is where you have every tool out.
+**Only the third of those five actually justifies a rename, and it is worth being
+precise about that.** `npm run build`, `astro build`, "at build time" and
+`buildVocab`/`TourBuild` are build-system nouns in a different namespace and a
+different type position; nobody has ever mistaken `posture === 'build'` for an npm
+script, and an honest reading is that they are noise, not ambiguity. The one real
+collision is `motion-catalog.ts:18` — `label: 'Build'`, a **visible option in the
+Studio's own Style dropdown**. A person can see "Build" on the motion picker and
+"Build" on the posture dial in one session, on one screen. That is same-app,
+same-user vocabulary ambiguity, it is the only one on the list a person could trip
+over, and it alone carries the decision. (This paragraph replaces an earlier draft
+that leaned on all five; the Munger-inversion lens was right that four of them are
+padding, and a record that argues from padding is a record that gets over-applied
+later.)
+
+**Craft names nothing else in the code** — before this change no identifier, class,
+stored value, directive or CSS hook was called `craft`; the word appears only as
+ordinary English in prose ("taste/craft moves", "a crafted recipe can't inject"),
+which is not a namespace collision. And it says the same thing about the surface:
+this is where you have every tool out.
+
+### The five names considered, and why Craft
+
+Scored against six axes. Collision carries the most weight because it is the whole
+reason to rename, split into *code* and *user-facing* because a collision a USER
+sees is far worse than one only a maintainer sees. Accuracy weighs the same: a stop
+name that misdescribes the stop is a permanent tax. Then series fit (the three stops
+are a set, not three independent labels), the dial's own rule from
+`2026-07-17-studio-persona-dial.md` (*a verb for what you DO; no stop reads as a
+rank*), and whether it fights the product's pitch.
+
+| axis (weight) | **Craft** | Build | Create | Design | Style |
+|---|---|---|---|---|---|
+| code collision (2) | **5** | 0 | 1 | 1 | 0 |
+| user-facing collision (3) | **5** | 2 | 5 | 3 | 0 |
+| accuracy to the stop (3) | 4 | 4 | 1 | 2 | 1 |
+| series fit (2) | **5** | 5 | 2 | 2 | 2 |
+| the dial's rule (2) | 4 | 4 | 4 | 2 | 1 |
+| doesn't fight the pitch (1) | 4 | 4 | 4 | **0** | 3 |
+| **weighted /5** | **4.5** | 3.1 | 2.8 | 1.9 | 0.9 |
+
+Distinct identifier forms across `docs/src` + `lib` + `tools`: craft **10** (all
+prose, zero identifiers), design 22, create 93, style 132, build 160.
+
+- **Style — disqualified, worst of the five.** `<Field label="Style">` already
+  renders **4× as a visible control label in the Studio's own panels**; the dial
+  would put a second "Style" on the same screen. It is also a noun beside two
+  verbs, and wrong on substance — theming is reachable at *every* stop.
+- **Design — disqualified, and the most instructive rejection.** Smallest code
+  footprint of the four losers, but it **contradicts the product's core sentence**:
+  the built-in sample deck reads *"boxes to drag — you write Markdown, the engine
+  designs the slide"* (`decks.ts:30`). A stop named Design tells the user they do
+  the one thing the pitch promises they don't have to. It also collides with
+  `design/`, the top-level directory that IS this project's vocabulary home.
+- **Create — the runner-up, and it fails on substance, not taste.** Zero
+  user-facing collisions, genuinely its strength. But **you create a deck at every
+  stop** — Write is *for* creating, and Read keeps "Edit this slide" one button
+  away. "Create" names the APP, not the STOP, and implies the other two are not for
+  creating. Secondarily it breaks the meter (two syllables, Latinate).
+- **Build vs Craft** is the only real contest, and they tie where Build is
+  strongest: both are monosyllabic Germanic verbs, so `Read · Write · Build` and
+  `Read · Write · Craft` scan identically (*craft* is Old English *cræft*); both
+  describe "every tool out"; both are rank-neutral. Craft wins on collision alone.
+- **The honest objection to Craft**, recorded rather than argued away: it is
+  slightly more precious than Build and can read as *for the skilled*, which the
+  dial's own rule forbids. The judgment is that it survives — the rank lives in the
+  surface (the persona-dial doc itself calls this "the power user" stop), not in the
+  word, and *craft* as a plain verb is neutral enough. If it ever does read as a
+  rank in use, that is the finding that reopens this.
 
 ## What "all the way down" means, and why not just the label
 
