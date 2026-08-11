@@ -5,8 +5,8 @@
   shape at 3:1, and `-fill`/`-bg`/`-texture`/`-accent` an area with no floor. `lib/tokens/contracts.js`
   reads the floor off the name with about a dozen patterns rather than a 383-row token list that
   would go stale the first time someone adds a token — and a name that declares no role returns
-  null and is counted, never defaulted to "no floor". Measured over the live tree: 299 token-hop
-  fallbacks, 79 distinct chains, 23 of which drop a floor and, after three declared exceptions,
+  null and is counted, never defaulted to "no floor". Measured over the live tree: 297 token-hop
+  fallbacks, 78 distinct chains, 23 distinct hops that drop a floor and, after three declared exceptions,
   none that fails to classify. The ledger arm is enforced at zero (and is role-strict, because
   the rows claim "same role" and a floor comparison alone would accept re-pointing a texture at a
   mark). The 23 repo-wide drops are a pinned set that fails both ways, so the population cannot

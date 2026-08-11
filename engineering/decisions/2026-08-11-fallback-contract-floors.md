@@ -9,7 +9,7 @@ summary: >
   floor is read off the name by a dozen PATTERNS, not a per-token list that goes stale the first
   time someone adds a token (the shape #1560's first cut shipped and had to undo). An unmatched
   name returns null and is counted, never defaulted to "no floor". Measured over the real tree:
-  555 tokens scanned, 299 token-hop fallbacks, 79 distinct chains, of which 23 DROP a floor and,
+  547 tokens scanned, 297 token-hop fallbacks, 78 distinct chains, of which 23 hops DROP a floor and,
   after three explicitly-declared exceptions, ZERO fail to classify. Three arms: the ledger at
   budget 0 (satisfiable today, and role-STRICT because the rows claim "same role" and a floor
   comparison alone would accept re-pointing a texture at a mark), the repo-wide 23 as a PINNED
@@ -96,11 +96,20 @@ cannot disagree about what a fallback chain is:
 
 | | |
 |---|---|
-| tokens scanned | **555** |
-| token-hop `var(--a, var(--b))` reads | **299** |
-| distinct chains | **79** |
-| chains that DROP a floor | **23** (93 reads) |
+| tokens scanned | **547** |
+| token-hop `var(--a, var(--b))` reads | **297** (300 hops — a three-link chain is one read, two hops) |
+| distinct chains | **78** |
+| distinct hops that DROP a floor | **23** |
 | tokens that fail to classify | **0**, after three declared exceptions |
+
+*An earlier draft of this table published 555 / 299 / 79.* Those are the pre-strip
+figures: the first probe was written before the gate learned to strip `//` line
+comments from `.js`, so it counted a JSDoc line in `lib/theme/derive.js`
+documenting this very pattern (`var(--cat-N-ink, var(--cat-N-mark))`) as a real
+read of a token named `--cat-N-ink`. Recorded rather than silently swapped:
+`2026-08-10-fallback-exit-ledger.md` §2 makes exactly this point about exactly
+this line of work — *"the numbers a record cannot reproduce are the numbers not
+to print"* — and it would be a poor note that repeated the mistake it cites.
 
 The 23, in two families that are **not equally defensible**:
 

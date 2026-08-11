@@ -6547,9 +6547,25 @@ function ledgerContractProblems(rows = SANCTIONED_FALLBACK_READS) {
 function checkFallbackContracts(errors, libDir = LIB_DIR) {
   for (const p of ledgerContractProblems()) errors.push(p);
 
+  // ONE walk. `fallbackHops` re-reads every .css/.js/.mjs under lib/ (~260ms), and
+  // the first cut called it twice — once for the scan and once for the empty-scan
+  // guard — which put a quarter-second of pure waste into every `build:check`.
+  const hops = fallbackHops(libDir);
+
+  // A gate that cannot fail is also a claim (#1535). Every arm below is an
+  // assertion about a scan; if the scan found nothing at all, it found nothing
+  // because it is broken — lib/ carries hundreds of token-hop fallbacks.
+  if (!hops.length) {
+    errors.push(
+      'checkFallbackContracts scanned lib/ and found NO token-hop var() fallbacks at all. ' +
+      'There are hundreds — this is a broken scan, not a clean tree.',
+    );
+    return;
+  }
+
   const drops = new Map();
   const unclassified = new Map();
-  for (const hop of fallbackHops(libDir)) {
+  for (const hop of hops) {
     const verdict = contractDrop(hop.token, hop.target);
     if (verdict?.unclassified) {
       for (const t of verdict.unclassified) {
@@ -6560,17 +6576,6 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
     if (!verdict) continue;
     const key = `--${verdict.token} → --${verdict.target} (${verdict.from}:1 → ${verdict.to}:1)`;
     if (!drops.has(key)) drops.set(key, hop.where);
-  }
-
-  // A gate that cannot fail is also a claim (#1535). Every arm below is an
-  // assertion about a scan; if the scan found nothing at all, it found nothing
-  // because it is broken — lib/ carries hundreds of token-hop fallbacks.
-  if (!fallbackHops(libDir).length) {
-    errors.push(
-      'checkFallbackContracts scanned lib/ and found NO token-hop var() fallbacks at all. ' +
-      'There are hundreds — this is a broken scan, not a clean tree.',
-    );
-    return;
   }
 
   if (unclassified.size) {
