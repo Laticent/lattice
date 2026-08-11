@@ -61,10 +61,16 @@ mechanism, near-free) → build the edge cap + honest overflow ring → **then**
 ## 1. The problem — the strip, made visible
 
 A slide is authored at a fixed shape; that shape is baked into a fixed px box
-(`lib/engine/css.js` `scaffold()` emits `div.lattice > section { width:1280px; height:720px }`).
+(`lib/engine/css.js` `scaffold()` emits `div.lattice > section { width:1280px; height:720px }`
+for a deck that declares no `size:`; a declared one changes those numbers — **CORRECTION
+2026-08-11 (#1599/#1604):** this note originally said the exported player "pins 1280×720", which
+was true when written and is not now. The player takes the deck's canvas from the host, derives
+it from the document when absent, and falls back to 1280×720 only then. The scale-as-a-unit
+argument below is unaffected — only the constant was ever the point.).
 Present mode and the player keep that box and **scale it as a unit** to fit the viewport
-(`lib/export/player-core.mjs:341` pins `1280×720` + `transform:scale(var(--lp-fit-present))`,
-centered in a `place-items:center` stage; factor from `fitScale`). The leftover is bars — the
+(`lib/export/player-core.mjs` sizes the section to the deck's canvas +
+`transform:scale(var(--lp-fit-present))`, centered in a `place-items:center` stage; factor from
+`fitScale`). The leftover is bars — the
 *"widescreen movie on an HD screen"* strip.
 
 A throwaway prototype (`.scratch/adaptive-proto/`, 2026-07-20) drove the **real engine** —
