@@ -410,6 +410,41 @@ prerequisite is genuinely met rather than asserted.
   disclosed caveat had this backwards: it named `color-mix()`, which was always
   handled, and missed the notations that actually escaped.
 
+### 7e. `kit/Sample-Deck.pdf`, and a null result read as proof
+
+The checker raised the marp kit's sample deck as a likely fourth stale artifact. It
+was dismissed in a commit message with: *"it is not a tracked file (`git ls-files`
+finds nothing), only a `.scratch` export artifact."*
+
+**Every clause of that was false.** `kit/Sample-Deck.pdf` is tracked, is in `HEAD`,
+and has its own entry in `checkCommittedPdfs` — a registry that by construction
+lists only tracked artifacts. The cause is worth recording because it is a general
+trap: the check ran immediately after a `cd docs`, so `git ls-files | grep -i
+sample-deck` was scoped to `docs/` and returned nothing. **A null result is only as
+strong as the scope of the search, and the scope was never checked.** The dismissal
+then rested on that null.
+
+Re-done properly, with marp-cli — the artifact's real producer, which turned out to
+be installable here after all (`npx @marp-team/marp-cli@^4.3.1` against the kit's
+own config, exactly as `dist/marp-kit/README.md` instructs):
+
+| comparison | pages differing (of 13) |
+|---|---|
+| committed vs render from **this branch** | 5 |
+| committed vs render from **`origin/main`** | 4 |
+| render from `main` vs render from **this branch** | **1 — p-05** |
+
+So four of the five are environmental — this container's font rasterization, not
+anyone's change — and **exactly one page is this branch's**: p-05, the front-matter
+slide, whose yaml `#` comments and `true` literals are the two tokens repaired here.
+Confirmed by looking at it.
+
+The refreshed PDF is committed. That bakes in the four environmental pages, which is
+an accepted cost: the artifact is `watcher: null` precisely because it is
+*"what a recipient's marp-cli produces"* and cannot be reproduced deterministically
+from here, so it is environment-flavored by design — while a stale code panel in the
+deck that demonstrates the kit is a real defect.
+
 **The lesson §7c drew was right but too narrow.** It said a gate reporting clean
 after a change it should have seen is making a checkable claim. The sharper version:
 **a gate encodes a model of where the value lands, and that model is the thing most
