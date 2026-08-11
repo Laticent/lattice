@@ -154,8 +154,12 @@ all.
 - **The ledger records; it does not judge.** Nothing checks that a `why` is *true*. A wrong
   justification passes, exactly as a wrong `SANCTIONED_MARGINS` reason would. What it buys is
   that a human wrote one and a reviewer can read it.
-- **The second half of the issue's suggestion is not built.** It also proposed a *semantic*
-  gate per family — the way `checkCatInkFallback` covers the ink tier — for any family whose
-  fallback lands on a value with a different contract. That is the check that would have
-  caught `--cat-N-ink` on its merits rather than on its paperwork, and it is not here.
+- **~~The second half of the issue's suggestion is not built.~~ BUILT (#1595, 2026-08-11.)**
+  It also proposed a *semantic* gate per family — for any family whose fallback lands on a value
+  with a different contract. That is the check that would have caught `--cat-N-ink` on its merits
+  rather than on its paperwork, and it is now `checkFallbackContracts`. The contract turned out
+  not to need a new home: HARD RULE #11 already makes role-based names canonical, so the floor is
+  read off the name (`lib/tokens/contracts.js`). It found 23 floor-dropping chains in `lib/` —
+  eight of them the `--cat-N-ink → --cat-N-mark` this repo mandates, and fifteen an unaudited
+  `→ --accent` family. See `2026-08-11-fallback-contract-floors.md`.
 - **A generated theme still has no texture channel** (§4) — tracked in #1562.
