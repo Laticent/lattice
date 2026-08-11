@@ -23,19 +23,11 @@ import { buildFeedbackIssueUrl } from '@/lib/feedback-issue';
  *
  * The copy is careful about what it can prove. An unclosed record means the
  * session ended without a clean unload; it does NOT prove a crash, and the panel
- * says so where the verdict is weak rather than dressing a force-quit up as a
- * bug. That is the same discipline the chunk-load fallback follows in
+ * reports only what it MEASURED and never names a cause — no browser will tell
+ * a page why a tab died. That is the same discipline the chunk-load fallback follows in
  * ErrorBoundary.tsx — state what is observable, infer only what the evidence
  * carries.
  */
-
-const VERDICT_LEDE: Record<CrashReport['verdict'], string> = {
-	memory: 'This looks like the tab running out of memory.',
-	discarded: 'The browser reclaimed this tab rather than crashing.',
-	error: 'An error fired just before the end.',
-	stall: 'The page was frozen just before the end.',
-	unknown: 'There is no clear cause in the trail.',
-};
 
 function when(ms: number): string {
 	const d = new Date(ms);
@@ -125,40 +117,51 @@ export function CrashReportSheet({
 				) : (
 					<>
 						<div className="rounded-xl border border-border bg-background p-3">
-							<p className="text-[13px] font-semibold text-[var(--text-heading)]">{crashReportTitle(report)}</p>
-							<p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{VERDICT_LEDE[report.verdict]} {report.reason}</p>
+							<p className="text-[13px] font-semibold text-[var(--text-heading)]">{report.headline}</p>
 							<p className="mt-2 text-[11px] text-muted-foreground">
 								{when(report.startedAt)} · ran {ran(report.durationMs)} · last sign of life {when(report.endedAt)}
 							</p>
 						</div>
 
-						{/* The honesty note, shown wherever the evidence is thin — a report that
-						    always sounds certain teaches the reader to discount all of them.
-						    TWO notes, not one, because tab continuity changes what is unknown.
-						    Verified on a real renderer crash: with the same tab back, a single
-						    combined note told the reader "this could be a force-quit" one line
-						    under a signal saying the tab had reloaded ITSELF, which a force-quit
-						    cannot do. A caveat that contradicts the evidence above it is worse
-						    than no caveat. */}
-						{!report.sameTab && (
+						{/* No "likely cause" line. The browser will not tell a page why a tab
+						    died — verified: after a real renderer crash, the next load sees no
+						    crash report at all; that answer only goes to a server endpoint,
+						    which this site deliberately does not have. The earlier design
+						    guessed anyway and guessed badly, printing "no clear cause" directly
+						    above its own evidence of a 9x memory rise. So the panel reports what
+						    was MEASURED and lets the reader draw the conclusion. */}
+						{report.ending === 'stopped' && (
 							<p className="rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[11.5px] leading-relaxed text-[var(--text-heading)]">
-								The Studio can tell that this session never closed cleanly. It cannot tell a crash apart from a force-quit, a shutdown or a
-								flat battery — those look identical from inside the page. Read the trail before treating it as a bug.
-							</p>
-						)}
-						{report.sameTab && report.verdict === 'unknown' && (
-							<p className="rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[11.5px] leading-relaxed text-[var(--text-heading)]">
-								The tab came back on its own, so this was not a force-quit — but nothing in the trail says what ended it. The page stopped
-								between one heartbeat and the next, which is what a renderer crash looks like from in here.
+								The Studio can tell that this session stopped without closing cleanly. It cannot tell you why — no browser will tell a page that.
+								{report.sameTab ? ' The tab did come back on its own, so it was not closed by hand.' : ' It also cannot tell a crash apart from a force-quit or a shutdown.'} What it recorded is below.
 							</p>
 						)}
 
-						<PanelSection label="What was observed">
+						{/* SHOW WHAT WE POST. The issue body carries the page, the browser and
+						    every context label, and the panel used to render none of them —
+						    while the footer told the reader to "trim anything you'd rather not
+						    share" about content it never displayed. Anything that goes into the
+						    issue is visible here first, or the invitation to review it is a
+						    fiction. */}
+						<PanelSection label="What gets shared">
+							<dl className="space-y-1 rounded-lg border border-border bg-card p-2 text-[11.5px]">
+								{[['Page', report.record.page], ['Browser', report.record.ua], ...Object.entries(report.record.context)].map(([k, v]) =>
+									v ? (
+										<div key={k} className="flex gap-2">
+											<dt className="w-20 shrink-0 text-muted-foreground">{k}</dt>
+											<dd className="min-w-0 break-words text-[var(--text-heading)]">{v}</dd>
+										</div>
+									) : null,
+								)}
+							</dl>
+						</PanelSection>
+
+						<PanelSection label="What was measured">
 							<ul className="space-y-1.5">
-								{report.signals.map((s) => (
-									<li key={s} className="flex gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
+								{report.facts.map((f: string) => (
+									<li key={f} className="flex gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
 										<span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-[var(--accent)]" />
-										<span className="min-w-0">{s}</span>
+										<span className="min-w-0">{f}</span>
 									</li>
 								))}
 							</ul>

@@ -129,9 +129,10 @@ in patch versions.
   record of what you were doing, how memory was trending, any main-thread freezes
   and the last error it saw, and stamps it closed on a clean exit. A record that was
   never closed is a session that ended unexpectedly, and the next time you open the
-  Studio it says so — one toast, then a report naming the likeliest cause (out of
-  memory, a browser discard, an error, a freeze, or plainly "no idea" when the trail
-  is quiet), with the trail behind it. **Report on GitHub** hands you a pre-filled
+  Studio it says so — one toast, then a report of what it actually measured — how memory
+  trended, any errors, any freezes, and what you were doing. It does not guess at a
+  cause: no browser will tell a page why a tab died, so it states what it saw and
+  leaves the conclusion to you. **Report on GitHub** hands you a pre-filled
   issue under your own account; nothing is sent anywhere on its own, and nothing but
   labels — deck title, slide count, deck size — ever enters the record. Reports are
   reachable afterwards from Workspace → General → Crash reports — which is always

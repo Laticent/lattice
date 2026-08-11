@@ -3,18 +3,17 @@ import {
 	__resetSentinelForTest,
 	BEAT_MS,
 	breadcrumb,
-	classifySession,
 	clearAllSessions,
 	clearCrashReports,
 	collectCrashReports,
 	crashReportStats,
+	describeSession,
 	dismissCrashReport,
 	elapsedLabel,
 	formatCrashReport,
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
-	MEM_PRESSURE,
 	newRecord,
 	noteError,
 	pruneSessions,
@@ -76,7 +75,7 @@ describe('isUncleanEnd', () => {
 	});
 });
 
-describe('classifySession', () => {
+describe('describeSession — reports what was measured, never a cause', () => {
 	const withMem = (usedFrac: number, over: Partial<SessionRecord> = {}) =>
 		rec({
 			mem: [
@@ -86,77 +85,55 @@ describe('classifySession', () => {
 			...over,
 		});
 
-	it('calls heap pressure first — it is the actionable cause and it explains a silent death', () => {
-		const { verdict } = classifySession(withMem(MEM_PRESSURE + 0.05), true);
-		expect(verdict).toBe('memory');
+	// The whole point of the rewrite: a leak used to print "no clear cause" as its
+	// HEADLINE, directly above its own evidence of a large rise.
+	it('leads with memory GROWTH, which is the informative number', () => {
+		const leak = rec({ mem: [{ t: 0, used: 114_000_000, limit: 4_294_967_296 }, { t: 2_400_000, used: 992_000_000, limit: 4_294_967_296 }] });
+		const { facts, headline } = describeSession(leak, { sameTab: true });
+		expect(facts[0]).toMatch(/109 MB to 946 MB/);
+		expect(facts[0]).toMatch(/8\.7x rise/);
+		// And it does NOT dress that up as a cause.
+		expect(headline).toBe('The Studio stopped unexpectedly');
+		expect(facts.join(' ')).not.toMatch(/ran out of memory|likely cause/i);
 	});
 
-	it('does not call memory when the heap was comfortable', () => {
-		const { verdict } = classifySession(withMem(0.2), true);
-		expect(verdict).toBe('unknown');
+	it('says the browser reclaimed the tab ONLY when the browser said so', () => {
+		expect(describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true }).ending).toBe('reclaimed');
+		expect(describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true }).headline).toMatch(/browser closed this tab/i);
+		// A frozen tab is NOT a confirmed reclaim — it is reported as an observation.
+		const frozen = describeSession(withMem(0.2, { frozen: true }), { sameTab: true });
+		expect(frozen.ending).toBe('stopped');
+		expect(frozen.facts.join(' ')).toMatch(/frozen this tab in the background/i);
 	});
 
-	it('names a browser discard when the tab was frozen and never resumed', () => {
-		const { verdict, reason } = classifySession(withMem(0.2, { frozen: true }), false);
-		expect(verdict).toBe('discarded');
-		expect(reason).toMatch(/discard/i);
-		// The frozen path is an INFERENCE and must not read like the browser said so.
-		expect(classifySession(withMem(0.2, { frozen: true }), false).signals.join(' ')).toMatch(/not confirmed/i);
-	});
-
-	// `document.wasDiscarded` is the browser answering rather than us inferring.
-	it('prefers a CONFIRMED discard over heap pressure — different cause, different fix', () => {
-		const pressured = withMem(MEM_PRESSURE + 0.05);
-		expect(classifySession(pressured, { sameTab: true }).verdict).toBe('memory');
-		const { verdict, signals } = classifySession(pressured, { sameTab: true, tabDiscarded: true });
-		expect(verdict).toBe('discarded');
-		expect(signals.join(' ')).toMatch(/wasDiscarded/);
-		// The heap reading is not thrown away just because the verdict changed.
-		expect(signals.join(' ')).toMatch(/JavaScript heap at/);
-	});
-
+	// The flag describes the TAB, so it cannot speak for a record this tab never ran.
 	it('ignores wasDiscarded for a record this tab was never running', () => {
-		// The flag describes the TAB, so it can only speak for the tab's own record.
-		expect(classifySession(withMem(0.2), { sameTab: false, tabDiscarded: true }).verdict).toBe('unknown');
+		expect(describeSession(withMem(0.2), { sameTab: false, tabDiscarded: true }).ending).toBe('stopped');
 	});
 
-	it('blames an error only when it fired NEAR the end', () => {
-		const near = rec({ lastError: { message: 'boom', t: 58_000 }, errorCount: 1 });
-		expect(classifySession(near, true).verdict).toBe('error');
-		const early = rec({ lastError: { message: 'boom', t: 1_000 }, errorCount: 1 });
-		expect(classifySession(early, true).verdict).toBe('unknown');
+	it('reports an error as an observation, with when — not as a verdict', () => {
+		const withErr = rec({ lastError: { message: 'boom', t: 58_000 }, errorCount: 2 });
+		const { facts, headline } = describeSession(withErr, { sameTab: true });
+		expect(facts.join(' ')).toMatch(/2 error\(s\) recorded; the last one 2s before the end: boom/);
+		expect(headline).toBe('The Studio stopped unexpectedly');
 	});
 
-	it('blames a stall only when it happened NEAR the end', () => {
-		const near = rec({ stallCount: 1, longestStallMs: 4_000, crumbs: [{ t: 57_000, k: 'stall', m: 'main thread blocked 4.0s' }] });
-		expect(classifySession(near, true).verdict).toBe('stall');
-		const early = rec({ stallCount: 1, longestStallMs: 4_000, crumbs: [{ t: 2_000, k: 'stall', m: 'main thread blocked 4.0s' }] });
-		expect(classifySession(early, true).verdict).toBe('unknown');
+	// A closed laptop lid used to be reported as "the main thread froze for 28800.0s"
+	// and could become the headline. A gap that long is a sleeping device.
+	it('calls a very long gap a sleeping device, not a freeze', () => {
+		const slept = rec({ stallCount: 1, longestStallMs: 8 * 60 * 60 * 1000 });
+		expect(describeSession(slept, { sameTab: true }).facts.join(' ')).toMatch(/device sleeping, not a freeze/i);
+		const real = rec({ stallCount: 1, longestStallMs: 4_000 });
+		expect(describeSession(real, { sameTab: true }).facts.join(' ')).toMatch(/froze for up to 4\.0s/);
 	});
 
-	it('stays honest about a quiet trail rather than inventing a cause', () => {
-		const { verdict, reason } = classifySession(rec(), false);
-		expect(verdict).toBe('unknown');
-		expect(reason).toMatch(/force-quit|shutdown/i);
+	it('states plainly when the browser exposes no memory readings', () => {
+		expect(describeSession(rec({ mem: [] }), { sameTab: true }).facts.join(' ')).toMatch(/does not expose them/i);
 	});
 
-	it('says out loud that a different tab could also mean a force-quit', () => {
-		expect(classifySession(rec(), false).signals.join(' ')).toMatch(/force-quit/i);
-		expect(classifySession(rec(), true).signals.join(' ')).toMatch(/reloaded itself/i);
-	});
-
-	it('records the absence of heap readings instead of implying a healthy heap', () => {
-		expect(classifySession(rec({ mem: [] }), true).signals.join(' ')).toMatch(/does not expose/i);
-	});
-
-	// Measured on the real Studio: an idle session sits at ~6 MB of a ~4 GB limit,
-	// and a rounded percentage printed "heap at 0% of the limit" — a healthy reading
-	// that reads as a broken one.
-	it('prints a tiny heap fraction as <1%, never a rounded 0%', () => {
-		const tiny = rec({ mem: [{ t: 0, used: 6_000_000, limit: 4_000_000_000 }] });
-		const line = classifySession(tiny, true).signals[0];
-		expect(line).toContain('<1%');
-		expect(line).not.toContain(' 0% ');
+	it('still says a different tab could mean a force-quit', () => {
+		expect(describeSession(rec(), { sameTab: false }).facts.join(' ')).toMatch(/force-quit/i);
+		expect(describeSession(rec(), { sameTab: true }).facts.join(' ')).toMatch(/same tab came back/i);
 	});
 });
 

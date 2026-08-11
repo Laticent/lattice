@@ -103,8 +103,14 @@ const KEEP_RECORDS = 5;
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** Heap fraction at or above which memory pressure is the leading explanation. */
 export const MEM_PRESSURE = 0.85;
-/** How close to the end an error/stall must be to be treated as the thing that ended it. */
-const SIGNAL_WINDOW_MS = 15_000;
+
+/**
+ * A recording gap longer than this is a sleeping device, not a blocked thread.
+ * Closing a laptop lid does not reliably fire `visibilitychange`, so on wake the
+ * first tick sees the whole sleep as one late callback — and that used to be
+ * reported as "the main thread froze for 28800.0s", and could become the verdict.
+ */
+const SLEEP_MS = 120_000;
 
 const CRUMB_MAX_CHARS = 180;
 /** Context labels a report may carry. Caps the one field a caller controls the SHAPE of. */
@@ -163,7 +169,26 @@ export type SessionRecord = {
 	longestStallMs: number;
 };
 
-export type CrashVerdict = 'memory' | 'discarded' | 'error' | 'stall' | 'unknown';
+/**
+ * What the session ENDED AS — not what we think killed it.
+ *
+ * Two values, because only two things are actually knowable from inside a page:
+ * the browser TOLD us it reclaimed the tab (`document.wasDiscarded`), or the
+ * session simply stopped without closing cleanly. Everything else this module
+ * observes — heap growth, an error, a freeze — is reported as a measured FACT
+ * alongside, never promoted into a cause.
+ *
+ * The earlier design had five verdicts and named a cause. It was wrong in the
+ * way that matters: `memory` tested the JS heap against `jsHeapSizeLimit`
+ * (~4 GB on desktop), while a Studio tab dies from renderer memory that number
+ * cannot see — so the canonical case, a slow leak, printed "no clear cause"
+ * directly above its own "heap grew 9x" evidence. The browser does know the
+ * real answer, and will only send it to a SERVER endpoint (verified: after a
+ * real renderer crash, a page observing `ReportingObserver` type 'crash' on the
+ * next load sees nothing). This site has no server by design, so the honest
+ * move is to report what was measured and let the reader conclude.
+ */
+export type CrashEnding = 'reclaimed' | 'stopped';
 
 /**
  * What THIS boot knows about the session it is judging. Both facts are readable
@@ -183,11 +208,11 @@ export type ClassifyContext = {
 export type CrashReport = {
 	id: string;
 	record: SessionRecord;
-	verdict: CrashVerdict;
-	/** One plain sentence naming the leading explanation. */
-	reason: string;
-	/** Every signal actually observed, most telling first. Displayed as a list. */
-	signals: string[];
+	ending: CrashEnding;
+	/** A factual headline — what happened, never why. */
+	headline: string;
+	/** What was MEASURED, in plain sentences. No conclusions. */
+	facts: string[];
 	/** True when the SAME tab came back — the "it reloaded itself" case. */
 	sameTab: boolean;
 	startedAt: number;
@@ -279,134 +304,75 @@ export function isUncleanEnd(rec: SessionRecord, now: number, sameTab: boolean):
 	return sameTab || now - rec.lastBeat > STALE_MS;
 }
 
-const lastMemFraction = (rec: SessionRecord): number => {
-	const last = rec.mem[rec.mem.length - 1];
-	if (!last?.limit) return 0;
-	return last.used / last.limit;
-};
 
 const mb = (bytes: number): string => `${Math.round(bytes / 1_048_576)} MB`;
 
-/**
- * Name the leading explanation, and list everything observed.
- *
- * Order is deliberate and it is about ACTIONABILITY, not confidence: heap
- * pressure leads whenever it is present, because it is the one cause the author
- * can do something about (split the deck, close the presenter window) and the
- * one that explains a silent renderer death. A discard comes next — it also
- * presents as "the page reloaded", but it is the browser reclaiming memory from
- * a BACKGROUND tab, which is a different story to tell. Errors and stalls follow.
- * `unknown` is a real answer here, not a failure: an unclosed record with a quiet
- * trail is exactly what a force-quit or a flat battery looks like, and dressing
- * that up as a crash would be the confident falsehood this module is built to avoid.
- */
-export function classifySession(rec: SessionRecord, ctx: boolean | ClassifyContext): { verdict: CrashVerdict; reason: string; signals: string[] } {
+export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyContext): { ending: CrashEnding; headline: string; facts: string[] } {
 	const { sameTab, tabDiscarded = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false } : ctx;
-	const signals: string[] = [];
+	const facts: string[] = [];
 	const endT = rec.lastBeat - rec.startedAt;
-	const frac = lastMemFraction(rec);
 	const last = rec.mem[rec.mem.length - 1];
 	const first = rec.mem[0];
 
-	const memPressure = frac >= MEM_PRESSURE;
-	if (last) {
-		// `<1%` rather than a rounded `0%`: measured on the real Studio, an idle
-		// session sat at 6 MB of a ~4 GB limit and the panel printed "heap at 0% of
-		// the limit", which reads as a broken readout rather than a healthy one.
-		const pct = frac > 0 && frac < 0.01 ? '<1' : Math.round(frac * 100);
-		signals.push(
-			memPressure
-				? `JavaScript heap at ${pct}% of this browser's limit (${mb(last.used)} of ${mb(last.limit)}) at the last reading.`
-				: `JavaScript heap at ${pct}% of the limit (${mb(last.used)}) at the last reading — not obviously pressured.`,
-		);
-		if (first && last.used > first.used * 1.5) signals.push(`Heap grew from ${mb(first.used)} to ${mb(last.used)} over the session — consistent with a leak.`);
+	// ── MEMORY: lead with GROWTH, which is the informative number, not the
+	// fraction of a limit the tab never reaches. A tab dies from renderer memory
+	// (DOM, the preview iframe, workers, export buffers) that `usedJSHeapSize`
+	// does not count, so "92% of the limit" essentially never happens while
+	// "grew 9x in 40 minutes" happens every time there is a leak.
+	if (last && first && last.t > first.t) {
+		const growth = first.used > 0 ? last.used / first.used : 1;
+		const line = `Memory went from ${mb(first.used)} to ${mb(last.used)} over ${stamp(last.t - first.t)}`;
+		facts.push(growth >= 1.5 ? `${line} — a ${growth.toFixed(1)}x rise.` : `${line}.`);
+	} else if (last) {
+		facts.push(`Memory was ${mb(last.used)} at the last reading.`);
 	} else {
-		signals.push('No heap readings — this browser does not expose `performance.memory` (Safari and Firefox do not).');
+		facts.push('No memory readings — this browser does not expose them (Safari and Firefox do not).');
+	}
+	if (last?.limit && last.used / last.limit >= MEM_PRESSURE) {
+		facts.push(`The JavaScript heap was near this browser's own ceiling (${mb(last.used)} of ${mb(last.limit)}).`);
 	}
 
-	// `document.wasDiscarded` is the browser ANSWERING the question rather than us
-	// inferring it: on the load after a discard, Chromium sets it on the restored
-	// tab. `frozen` is only "was eligible", which is the weaker claim — so when the
-	// native flag is present it supersedes, and the copy says which one we have.
-	const confirmedDiscard = sameTab && tabDiscarded;
-	if (confirmedDiscard) signals.push('The browser reports this tab as DISCARDED — `document.wasDiscarded` was set on the load that followed.');
-	else if (rec.frozen) signals.push('The tab was FROZEN by the browser (backgrounded and discard-eligible) and never resumed — a discard is likely but not confirmed.');
-	const errNearEnd = rec.lastError && endT - rec.lastError.t <= SIGNAL_WINDOW_MS;
+	// ── HOW IT ENDED. `wasDiscarded` is the browser answering; everything else
+	// is us observing that it stopped.
+	const reclaimed = sameTab && tabDiscarded;
+	if (reclaimed) facts.push('The browser reports that it reclaimed this tab to free memory (`document.wasDiscarded`).');
+	else if (rec.frozen) facts.push('The browser had frozen this tab in the background, and it never resumed.');
+
+	// ── ERRORS. Report it and when; do not rank it.
 	if (rec.lastError) {
-		signals.push(
-			errNearEnd
-				? `An uncaught error fired ${Math.max(0, Math.round((endT - rec.lastError.t) / 1000))}s before the end: ${rec.lastError.message}`
-				: `${rec.errorCount} error(s) during the session, the last one well before the end: ${rec.lastError.message}`,
-		);
+		const gap = Math.max(0, Math.round((endT - rec.lastError.t) / 1000));
+		facts.push(`${rec.errorCount} error(s) recorded; the last one ${gap}s before the end: ${rec.lastError.message}`);
 	}
-	const lastStall = [...rec.crumbs].reverse().find((c) => c.k === 'stall');
-	const stallNearEnd = !!lastStall && endT - lastStall.t <= SIGNAL_WINDOW_MS;
+
+	// ── FREEZES. A gap longer than any credible task is a sleeping device, not a
+	// blocked thread — saying "the main thread froze for 8 hours" of a closed
+	// laptop lid is simply false, and it used to be able to become the verdict.
 	if (rec.stallCount) {
-		signals.push(
-			stallNearEnd
-				? `The main thread froze for ${(rec.longestStallMs / 1000).toFixed(1)}s just before the end (${rec.stallCount} stall(s) in all).`
-				: `${rec.stallCount} main-thread stall(s), longest ${(rec.longestStallMs / 1000).toFixed(1)}s — none right at the end.`,
+		const longest = rec.longestStallMs;
+		facts.push(
+			longest >= SLEEP_MS
+				? `A ${stamp(longest)} gap in recording — almost certainly the device sleeping, not a freeze.`
+				: `The page froze for up to ${(longest / 1000).toFixed(1)}s (${rec.stallCount} time(s)).`,
 		);
 	}
-	signals.push(
+
+	// ── WHOSE TAB. Stated as what it is: a signal about identity, not a cause.
+	facts.push(
 		sameTab
-			? 'The same browser tab came back — the tab reloaded itself rather than being reopened.'
+			? 'The same tab came back, so it was not closed and reopened by hand.'
 			: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
 	);
 
-	// A CONFIRMED discard outranks even heap pressure. The two are not rivals — the
-	// browser discards a background tab precisely BECAUSE memory is tight — but when
-	// `wasDiscarded` is set we are no longer guessing at the mechanism, and telling
-	// an author "you ran out of memory" (go split your deck) when the real answer is
-	// "the browser reclaimed a tab you had left in the background" points them at the
-	// wrong fix. Confirmation beats inference; the heap reading stays in `signals`.
-	if (confirmedDiscard) {
-		return {
-			verdict: 'discarded',
-			reason: 'The browser discarded this tab to reclaim memory while it was in the background — it says so itself on the reload. Returning to a discarded tab reloads the page, which is why it looked like a crash.',
-			signals,
-		};
-	}
-	if (memPressure) {
-		return {
-			verdict: 'memory',
-			reason: 'The heap was close to this browser’s limit when the session ended — the likeliest cause is the tab running out of memory, which kills the page outright and reloads it.',
-			signals,
-		};
-	}
-	if (rec.frozen) {
-		return {
-			verdict: 'discarded',
-			reason: 'The browser froze this tab in the background, and it never came back — the likeliest explanation is a discard to reclaim memory. Returning to a discarded tab reloads the page, which is why it looked like a crash.',
-			signals,
-		};
-	}
-	if (errNearEnd) {
-		return { verdict: 'error', reason: 'An uncaught error fired moments before the session ended — see the trail below for what ran next.', signals };
-	}
-	if (stallNearEnd) {
-		return { verdict: 'stall', reason: 'The main thread was blocked right before the end — a long-running task, and the tab may have been killed as unresponsive.', signals };
-	}
 	return {
-		verdict: 'unknown',
-		reason: sameTab
-			? 'The tab reloaded itself with no error, no stall and no heap pressure recorded — the page stopped between one heartbeat and the next.'
-			: 'This session ended without closing cleanly, and nothing in the trail says why. A force-quit, a shutdown or a lost device look the same from in here.',
-		signals,
+		ending: reclaimed ? 'reclaimed' : 'stopped',
+		headline: reclaimed ? 'The browser closed this tab to free memory' : 'The Studio stopped unexpectedly',
+		facts,
 	};
 }
 
-const VERDICT_TITLE: Record<CrashVerdict, string> = {
-	memory: 'Ran out of memory',
-	discarded: 'Discarded by the browser',
-	error: 'Ended after an error',
-	stall: 'Ended while frozen',
-	unknown: 'Ended unexpectedly',
-};
-
-/** The short headline for a toast or a list row. */
+/** The headline for a toast or a list row — already factual, computed by `describeSession`. */
 export function crashReportTitle(report: CrashReport): string {
-	return VERDICT_TITLE[report.verdict];
+	return report.headline;
 }
 
 const stamp = (ms: number): string => {
@@ -442,7 +408,7 @@ export function formatCrashReport(report: CrashReport): string {
 	const lines: string[] = [];
 	lines.push(`### Studio session ended unexpectedly — ${crashReportTitle(report)}`);
 	lines.push('');
-	lines.push(`- **Verdict:** ${report.verdict} — ${report.reason}`);
+	lines.push(`- **Ended as:** ${report.ending === 'reclaimed' ? 'the browser reclaimed the tab' : 'stopped without closing cleanly'}`);
 	lines.push(`- **Started:** ${new Date(report.startedAt).toISOString()}`);
 	lines.push(`- **Last heartbeat:** ${new Date(report.endedAt).toISOString()} (ran ${stamp(report.durationMs)})`);
 	lines.push(`- **Page:** ${r.page || '(unknown)'}`);
@@ -450,9 +416,9 @@ export function formatCrashReport(report: CrashReport): string {
 	lines.push(`- **Browser:** ${r.ua || '(unknown)'}`);
 	for (const [k, v] of Object.entries(r.context)) if (v) lines.push(`- **${k}:** ${v}`);
 	lines.push('');
-	lines.push('**What was observed**');
+	lines.push('**What was measured**');
 	lines.push('');
-	for (const s of report.signals) lines.push(`- ${s}`);
+	for (const f of report.facts) lines.push(`- ${f}`);
 	if (r.mem.length) {
 		lines.push('');
 		lines.push(`**Heap trajectory** (limit ${mb(r.memLimit ?? r.mem[r.mem.length - 1].limit)}, peak ${mb(r.peakUsed ?? 0)})`);
@@ -640,13 +606,13 @@ export function collectCrashReports(now: number): CrashReport[] {
 			if (!rec || rec.id === liveId) continue;
 			const sameTab = isSameTab(rec);
 			if (!isUncleanEnd(rec, now, sameTab)) continue;
-			const { verdict, reason, signals } = classifySession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
+			const { ending, headline, facts } = describeSession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
 			out.push({
 				id: rec.id,
 				record: rec,
-				verdict,
-				reason,
-				signals,
+				ending,
+				headline,
+				facts,
 				sameTab,
 				startedAt: rec.startedAt,
 				endedAt: rec.lastBeat,
