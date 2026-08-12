@@ -145,12 +145,19 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
 describe('sweepOverflowMarkers — what `off` clears', () => {
   const { JSDOM } = require('jsdom');
   const { sweepOverflowMarkers } = require('../../../lib/runtime/fluid-view-policy');
-  // The Fix-Me half of this fixture is transcribed from what `drawFixMeTags`
-  // actually builds in lib/runtime/index.js (an overlay host holding one `.lattice-
-  // fixme-box` per culprit plus a `.lattice-fixme-tab` label) rather than from the
-  // selector list the implementation sweeps. Built the other way round the test
-  // could not fail for anything the sweep forgot — and an earlier cut DID forget the
-  // boxes and the overlay while its docstring promised "every marker".
+  // The Fix-Me half of this fixture is transcribed from what the watcher actually
+  // leaves on the DOM (lib/runtime/index.js `markFitCulprits` / `drawFitLabel`: a
+  // `.fit-culprit` class carrying `data-fit-label` on the responsible box, plus the
+  // section's own `.fixme-tab` berth) rather than from the selector list the
+  // implementation sweeps. Built the other way round the test could not fail for
+  // anything the sweep forgot — and an earlier cut DID forget the boxes and the
+  // overlay while its docstring promised "every marker".
+  //
+  // The three tabs are BERTHS the markup carries (lib/core/fit-berth.js), so what
+  // the sweep owes them is EMPTINESS, not removal: deleting one would take a piece
+  // of the slide the engine emitted, and the next `berth()` call would mint it
+  // straight back. The assertion below is written as "no marker TEXT and no marker
+  // CLASS survives", which is the property a reader can actually check.
   //
   // The SECTION half is now derived the same way, and that is a repair. It used to be a
   // hand-written `class="content overflow illegible"` fixture asserted against a
@@ -171,14 +178,12 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
   const marked = () => new JSDOM(`<article>
     <section class="content ${SECTION_CLASSES.join(' ')}" data-lattice-slide>
       <h2>A</h2>
+      <div class="cell-stage fit-culprit" data-fit-label="Fix Me"></div>
       <div class="overflow-tab">Overflows</div>
       <div class="illegible-tab">Type 3px · floor 8.4px</div>
+      <div class="fixme-tab" title="Likely cause — 90 words, over budget">Fix Me</div>
     </section>
     <section class="content" data-lattice-slide><h2>B</h2></section>
-    <div class="lattice-fixme-overlay">
-      <div class="lattice-fixme-box"></div>
-      <div class="lattice-fixme-tab">Fix Me</div>
-    </div>
   </article>`).window.document;
 
   test('the fixture actually carries every class the watcher stamps', () => {
@@ -186,7 +191,7 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
     // every assertion below vacuous, which is the failure mode being repaired.
     assert.ok(SECTION_CLASSES.length >= 3,
       `expected the watcher to stamp at least 3 section classes, found ${SECTION_CLASSES.join(', ') || '(none)'}`);
-    for (const c of ['overflow', 'clip-marked', 'illegible']) {
+    for (const c of ['overflow', 'clip-marked', 'illegible', 'fit-marked']) {
       assert.ok(SECTION_CLASSES.includes(c), `${c} must be among the watcher's section classes`);
     }
   });
@@ -197,10 +202,16 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
     sweepOverflowMarkers(doc);
     const left = SECTION_CLASSES.filter((c) => doc.querySelectorAll(`.${c}`).length > 0);
     assert.deepEqual(left, [], `section classes survived the sweep: ${left.join(', ')}`);
-    const chrome = [...doc.querySelectorAll('*')]
-      .filter((el) => /overflow-tab|illegible-tab|lattice-fixme/.test(el.className || ''))
+    // The berths SURVIVE (they are the engine's markup); their text must not.
+    const speaking = [...doc.querySelectorAll('.overflow-tab, .illegible-tab, .fixme-tab')]
+      .filter((el) => (el.textContent || '').trim() !== '' || el.hasAttribute('title'))
+      .map((el) => `${el.className}="${el.textContent}"`);
+    assert.deepEqual(speaking, [], `marker chrome still speaks after the sweep: ${speaking.join(', ')}`);
+    assert.equal(doc.querySelectorAll('.overflow-tab, .illegible-tab, .fixme-tab').length, 3,
+      'the berths themselves are markup and must survive — the sweep empties, it does not delete');
+    const culprits = [...doc.querySelectorAll('.fit-culprit, [data-fit-label], [data-fit-hint]')]
       .map((el) => el.className);
-    assert.deepEqual(chrome, [], `marker chrome survived the sweep: ${chrome.join(', ')}`);
+    assert.deepEqual(culprits, [], `Fix-Me culprit marks survived the sweep: ${culprits.join(', ')}`);
   });
 
   test('leaves the slide content alone — it removes chrome, not content', () => {

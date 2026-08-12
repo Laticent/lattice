@@ -1,0 +1,317 @@
+/**
+ * Unit: lib/core/fit-sweep.js — WHEN the overflow probes run and over WHICH
+ * slides.
+ *
+ * This is the policy that replaced `schedulePostMutation(check)`, and it is
+ * pinned here rather than only in the runtime because the runtime's own watcher
+ * needs a live browser: the previous scheduling decision lived inside the
+ * bootstrap IIFE, was one line long, and had no test at all — which is how a
+ * whole-document per-frame scan survived long enough to defeat the preview's
+ * virtualization.
+ *
+ * The suite is written against the two failure directions that actually matter,
+ * because they are not symmetrical:
+ *
+ *   · MEASURING TOO MUCH is a performance defect — the one being fixed.
+ *   · MEASURING TOO LITTLE is a CORRECTNESS defect, and a silent one: an
+ *     unmeasured slide has no ring, which is indistinguishable from a slide
+ *     that fits. Every "skip" path below therefore gets a test proving it
+ *     cannot fire on a slide whose geometry is unknown (#1299 is what that
+ *     costs).
+ */
+
+const { describe, test } = require('node:test');
+const assert = require('node:assert/strict');
+const {
+  SWEEP_BAND_RATIO,
+  COMPLETE,
+  inSweepBand,
+  fitStateIsCurrent,
+  planFitSweep,
+} = require('../../../lib/core/fit-sweep');
+
+const rect = (top, height = 720) => ({ top, bottom: top + height });
+
+describe('inSweepBand — what counts as "in play"', () => {
+  test('a slide on screen is in band', () => {
+    assert.equal(inSweepBand(rect(0), 900), true);
+    assert.equal(inSweepBand(rect(400), 900), true);
+  });
+
+  test('a slide within one viewport either side is in band', () => {
+    // The margin exists so the verdict lands BEFORE the slide is looked at.
+    assert.equal(inSweepBand(rect(-1000), 900), true, 'just above');
+    assert.equal(inSweepBand(rect(1500), 900), true, 'just below');
+  });
+
+  test('a slide beyond the band is out', () => {
+    assert.equal(inSweepBand(rect(-2000), 900), false, 'well above');
+    assert.equal(inSweepBand(rect(2000), 900), false, 'well below');
+  });
+
+  test('the band is one viewport either side', () => {
+    assert.equal(SWEEP_BAND_RATIO, 1);
+    // A tighter band is a legitimate change; a band of zero is not, because the
+    // measurement would then race the paint of the slide that triggered it.
+    assert.ok(SWEEP_BAND_RATIO > 0, 'a zero band measures a slide only once it is already visible');
+  });
+
+  // ── The "cannot tell" cases. All must FAIL TOWARD MEASURING. ──────────────
+  test('an unmeasurable rect is in band, never out', () => {
+    assert.equal(inSweepBand(null, 900), true, 'no rect at all');
+  });
+
+  test('a degenerate all-zero rect is in band', () => {
+    // What a section reports in jsdom, in a display:none host, and before first
+    // layout. "I cannot see it" must not be reported as "it fits".
+    assert.equal(inSweepBand({ top: 0, bottom: 0 }, 900), true);
+  });
+
+  test('no viewport height means measure everything', () => {
+    assert.equal(inSweepBand(rect(9999), 0), true);
+    assert.equal(inSweepBand(rect(9999), undefined), true);
+  });
+});
+
+describe('fitStateIsCurrent — the per-slide cache key', () => {
+  test('same generation and same box → already measured', () => {
+    assert.equal(fitStateIsCurrent({ gen: 3, w: 1280, h: 720 }, 3, 1280, 720), true);
+  });
+
+  test('a new generation invalidates', () => {
+    assert.equal(fitStateIsCurrent({ gen: 3, w: 1280, h: 720 }, 4, 1280, 720), false);
+  });
+
+  test('a changed box invalidates INSIDE a generation', () => {
+    // The reason the box is part of the key at all: a lazily-decoded image or a
+    // late chart can resize one slide with nothing bumping the generation, and
+    // that slide's verdict is then stale while every other slide's is fine.
+    assert.equal(fitStateIsCurrent({ gen: 3, w: 1280, h: 720 }, 3, 1280, 900), false, 'height moved');
+    assert.equal(fitStateIsCurrent({ gen: 3, w: 1280, h: 720 }, 3, 1000, 720), false, 'width moved');
+  });
+
+  test('a slide never measured is not current', () => {
+    assert.equal(fitStateIsCurrent(undefined, 0, 1280, 720), false);
+    assert.equal(fitStateIsCurrent(null, 0, 1280, 720), false);
+  });
+});
+
+describe('planFitSweep — the plan a triggered sweep acts on', () => {
+  // A filmstrip: 10 stacked 720px slides, a 900px viewport scrolled to the top.
+  const deck = (n = 10) => Array.from({ length: n }, (_, i) => ({ id: i }));
+  const plan = (sections, { generation = 1, state = new Map(), boxes = new Map() } = {}) =>
+    planFitSweep({
+      sections,
+      generation,
+      viewportH: 900,
+      rectOf: (s) => rect(s.id * 720),
+      boxOf: (s) => boxes.get(s) || { w: 1280, h: 720 },
+      stateOf: (s) => state.get(s),
+    });
+
+  test('measures only the slides in the band', () => {
+    const secs = deck();
+    const out = plan(secs);
+    // Band is -900…1800 against 720px slides at 0, 720, 1440, 2160, …
+    assert.deepEqual(out.measure.map((m) => m.section.id), [0, 1, 2]);
+    assert.equal(out.skipped.offBand, 7);
+    assert.equal(out.total, 10);
+  });
+
+  test('skips slides already measured this generation', () => {
+    const secs = deck();
+    const state = new Map([[secs[0], { gen: 1, w: 1280, h: 720 }]]);
+    const out = plan(secs, { state });
+    assert.deepEqual(out.measure.map((m) => m.section.id), [1, 2]);
+    assert.equal(out.skipped.current, 1);
+  });
+
+  test('a new generation re-measures everything in band', () => {
+    const secs = deck();
+    const state = new Map(secs.map((s) => [s, { gen: 1, w: 1280, h: 720 }]));
+    const out = plan(secs, { generation: 2, state });
+    assert.deepEqual(out.measure.map((m) => m.section.id), [0, 1, 2]);
+    assert.equal(out.skipped.current, 0);
+  });
+
+  test('reports the box it measured at, so the caller can record the key', () => {
+    const secs = deck(1);
+    const out = plan(secs);
+    assert.deepEqual(out.measure[0], { section: secs[0], w: 1280, h: 720 });
+  });
+
+  test('a box that changed is re-measured even inside one generation', () => {
+    const secs = deck(1);
+    const state = new Map([[secs[0], { gen: 1, w: 1280, h: 720 }]]);
+    const boxes = new Map([[secs[0], { w: 1280, h: 900 }]]);
+    const out = plan(secs, { state, boxes });
+    assert.equal(out.measure.length, 1, 'a resized slide is stale even at the same generation');
+  });
+
+  test('is PURE — calling twice gives the same plan', () => {
+    // The caller records the state, not this function; that is what makes the
+    // plan inspectable by a bench or a debug overlay without side effects.
+    const secs = deck();
+    assert.deepEqual(plan(secs).measure.map((m) => m.section.id),
+      plan(secs).measure.map((m) => m.section.id));
+  });
+
+  test('an unmeasurable deck is measured WHOLE, not skipped', () => {
+    // jsdom, a hidden host, pre-layout. The skip paths must never be the reason
+    // a slide goes unringed.
+    const secs = deck();
+    const out = planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 0,
+      rectOf: () => null,
+      boxOf: () => ({ w: 0, h: 0 }),
+      stateOf: () => undefined,
+    });
+    assert.equal(out.measure.length, 10);
+    assert.equal(out.skipped.offBand, 0);
+  });
+
+  test('counts what it passed over rather than silently truncating', () => {
+    // HARD RULE #25: a sweep that covers 3 of 117 must be able to say so.
+    const out = plan(deck(117));
+    assert.equal(out.measure.length + out.skipped.offBand + out.skipped.current, out.total);
+  });
+
+  test('an empty deck plans nothing and reports nothing', () => {
+    const out = plan([]);
+    assert.deepEqual(out.measure, []);
+    assert.equal(out.total, 0);
+  });
+});
+
+describe('planFitSweep — the cache is a record of MEASUREMENT, not of intent', () => {
+  // This suite exists because the first cut recorded state from the PLAN, before
+  // `check()` had probed anything. A throw partway through the batch then left
+  // every later slide stamped `current` at that generation while unprobed — and
+  // the scroll path deliberately does NOT open a new generation, so those slides
+  // were skipped as already-done on every subsequent scroll sweep. Reproduced on
+  // the real bundle: two slides overflowing by 1300px, no ring, no tab, and
+  // scrolling them back into view did not recover them.
+  //
+  // The kernel's half of the fix is that it RECORDS NOTHING — the caller writes
+  // the cache from what `check()` returns. That is asserted directly, because a
+  // future refactor that "helpfully" moved the write in here would restore the
+  // bug with every test still green.
+  test('records nothing itself — two identical calls give the identical plan', () => {
+    const secs = [{ id: 0 }, { id: 1 }, { id: 2 }];
+    const state = new Map();
+    const call = () => planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 900,
+      rectOf: () => ({ top: 0, bottom: 720 }),
+      boxOf: () => ({ w: 1280, h: 720 }),
+      stateOf: (s) => state.get(s),
+    });
+    assert.equal(call().measure.length, 3);
+    assert.equal(call().measure.length, 3, 'a second call must still plan all three — nothing was recorded');
+  });
+
+  test('a section the caller did NOT record stays stale at the same generation', () => {
+    // The scroll path's exact shape: same generation, same boxes, and only the
+    // sections the previous sweep actually measured are skipped.
+    const secs = [{ id: 0 }, { id: 1 }, { id: 2 }];
+    const state = new Map();
+    const call = () => planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 900,
+      rectOf: () => ({ top: 0, bottom: 720 }),
+      boxOf: () => ({ w: 1280, h: 720 }),
+      stateOf: (s) => state.get(s),
+    });
+    // Slide 0 probed successfully; 1 and 2 threw, so the caller records only 0.
+    state.set(secs[0], { gen: 1, w: 1280, h: 720 });
+    const out = call();
+    assert.deepEqual(out.measure.map((m) => m.section.id), [1, 2],
+      'the unrecorded slides must be re-planned WITHOUT needing a new generation');
+    assert.equal(out.skipped.current, 1);
+  });
+});
+
+describe('COMPLETE — the band that covers everything', () => {
+  // The band alone is not a coverage policy, and shipping it as one was the
+  // defect this constant exists to close. Measured on the real bundle, a 12-slide
+  // all-overflowing deck at 1200x800:
+  //
+  //   loaded, never scrolled             3 / 12 marked
+  //   after page.pdf() (print, marp-cli) 3 / 12 marked
+  //   during a continuous scroll         no new coverage at all
+  //   after it all settled              11 / 12 — one slide fell between two
+  //                                      sampled bands and was never measured
+  //
+  // A printed document and an Export-to-Marp bundle are never scrolled by anyone,
+  // so a band-scoped sweep measures the first viewport and stops — the silent clip
+  // the whole marker register exists to prevent. The runtime now runs an idle
+  // backstop sweep at this width; these pin the kernel half.
+
+  test('a slide far outside the viewport is in band at COMPLETE', () => {
+    const far = { top: 999999, bottom: 1000539 };
+    assert.equal(inSweepBand(far, 800), false, 'out of the interactive band');
+    assert.equal(inSweepBand(far, 800, COMPLETE), true, 'in band at COMPLETE');
+  });
+
+  test('planFitSweep at COMPLETE plans every unmeasured slide, however far away', () => {
+    const secs = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+    const opts = (bandRatio) => ({
+      sections: secs,
+      generation: 1,
+      viewportH: 800,
+      rectOf: (s) => ({ top: s.id * 540, bottom: s.id * 540 + 540 }),
+      boxOf: () => ({ w: 960, h: 540 }),
+      stateOf: () => undefined,
+      ...(bandRatio === undefined ? {} : { bandRatio }),
+    });
+    assert.equal(planFitSweep(opts()).measure.length, 3, 'the interactive band reaches 3 of 12');
+    const all = planFitSweep(opts(COMPLETE));
+    assert.equal(all.measure.length, 12, 'COMPLETE reaches every one');
+    assert.equal(all.skipped.offBand, 0);
+  });
+
+  test('COMPLETE is CHEAP on a settled deck — it re-probes nothing', () => {
+    // The load-bearing property of the backstop, and the reason it can just always
+    // run: at the CURRENT generation the cache skips every slide already measured,
+    // so a complete sweep costs a plan and no probes. Measured through the bench
+    // tier at 0.1-0.4ms across these decks, against 11.8-36.9ms for the same
+    // coverage WITH a generation bump. If this ever stops holding, the band is
+    // buying nothing — the deck would pay whole-document price on every settle.
+    const secs = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+    const state = new Map(secs.map((s) => [s, { gen: 1, w: 960, h: 540 }]));
+    const out = planFitSweep({
+      sections: secs,
+      generation: 1,
+      viewportH: 800,
+      rectOf: (s) => ({ top: s.id * 540, bottom: s.id * 540 + 540 }),
+      boxOf: () => ({ w: 960, h: 540 }),
+      stateOf: (s) => state.get(s),
+      bandRatio: COMPLETE,
+    });
+    assert.equal(out.measure.length, 0, 'nothing re-probed');
+    assert.equal(out.skipped.current, 12, 'all 12 answered from the cache');
+  });
+
+  test('a NEW generation makes COMPLETE re-probe everything — the two are different asks', () => {
+    // `latticeSweep.complete()` vs `latticeSweep.sweep({ all: true })`: same
+    // coverage, an order of magnitude apart, because the second invalidates first.
+    // The bench measured the wrong one and reported the backstop as expensive as a
+    // whole-document sweep, which is how this distinction earned a test.
+    const secs = Array.from({ length: 12 }, (_, i) => ({ id: i }));
+    const state = new Map(secs.map((s) => [s, { gen: 1, w: 960, h: 540 }]));
+    const out = planFitSweep({
+      sections: secs,
+      generation: 2,
+      viewportH: 800,
+      rectOf: (s) => ({ top: s.id * 540, bottom: s.id * 540 + 540 }),
+      boxOf: () => ({ w: 960, h: 540 }),
+      stateOf: (s) => state.get(s),
+      bandRatio: COMPLETE,
+    });
+    assert.equal(out.measure.length, 12);
+  });
+});

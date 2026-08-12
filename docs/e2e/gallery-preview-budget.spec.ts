@@ -1,3 +1,4 @@
+import { paintedMarkers } from './marker-chrome';
 import { expect, gotoStudio, test } from './studio-fixture';
 
 // #1463 — scrolling the add-slide gallery used to accumulate one live engine iframe per
@@ -141,15 +142,14 @@ test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({
 		const found = await scroller
 			.frameLocator('iframe.live >> nth=' + i)
 			.locator('body')
-			.evaluate(() => {
-				const secs = document.querySelectorAll('section[data-lattice-slide]');
-				if (!secs.length) return null;
-				return {
-					level: secs[0].getAttribute('data-lattice-overflow-marker'),
-					name: secs[0].getAttribute('data-class') ?? '?',
-					chrome: document.querySelectorAll('section.overflow, section.illegible, .overflow-tab, .illegible-tab').length,
-				};
-			})
+			// `chrome` counts PAINTED markers, not marker ELEMENTS. The three tabs are
+			// part of every rendered slide now (lib/core/fit-berth.js), so the old
+			// element count would report chrome on every tile of a perfectly clean
+			// gallery — and this assertion reads "no tile is watched or marked", so it
+			// would have failed loudly rather than silently. ./marker-chrome states the
+			// property once for the three specs that ask it.
+			.evaluate(paintedMarkers)
+			.then((m) => (m.slides ? { level: m.level, name: m.name, chrome: m.total } : null))
 			.catch(() => null);
 		if (!found) continue;
 		inspected += 1;

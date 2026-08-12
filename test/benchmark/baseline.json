@@ -57,5 +57,31 @@
       "ms": 2936.28,
       "rmePct": 1.05
     }
+  },
+  "sweepDatasets": {
+    "normal (jargon)": {
+      "slides": 58,
+      "overflowing": 1,
+      "scopedMs": 0.5,
+      "unscopedMs": 10.4,
+      "ratio": 20.8,
+      "backstopMs": 0.4
+    },
+    "charts": {
+      "slides": 15,
+      "overflowing": 0,
+      "scopedMs": 0.7,
+      "unscopedMs": 4.4,
+      "ratio": 6.29,
+      "backstopMs": 0.1
+    },
+    "overflowing (x40)": {
+      "slides": 40,
+      "overflowing": 40,
+      "scopedMs": 2.3,
+      "unscopedMs": 23.6,
+      "ratio": 10.26,
+      "backstopMs": 0.2
+    }
   }
 }

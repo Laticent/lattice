@@ -127,6 +127,18 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
   });
 });
 
+// A marker tab that SPEAKS — the property that replaced "a tab exists".
+//
+// The three tabs are BERTHS the markup carries now (lib/core/fit-berth.js), so
+// counting elements no longer answers "is a marker drawn": every slide has three
+// of them, always, empty. What a reader can see is the TEXT, so that is what
+// these assertions read. The distinction is the whole change — a watcher that
+// creates and destroys chrome is a watcher whose DOM writes feed the observer
+// that scheduled it.
+const speakingTabs = (doc) => [...doc.querySelectorAll('.overflow-tab, .illegible-tab, .fixme-tab')]
+  .filter((el) => (el.textContent || '').trim() !== '')
+  .map((el) => `${el.className}="${el.textContent}"`);
+
 describe('overflow-marker — `off` clears what is already there and stays stamped', () => {
   // `off` returns before installing the probe, so the stamp has to happen on the
   // way out. It is the half that survives lattice-emulator.js's own inline watcher,
@@ -140,7 +152,7 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off'], 'stamped, so the CSS suppression can key on it');
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'the rings are gone');
-    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'the tabs are gone');
+    assert.deepEqual(speakingTabs(document), [], 'the tabs say nothing');
     dom.window.close();
   });
 });
@@ -167,7 +179,14 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['author']);
     assert.equal(document.querySelectorAll('section.overflow').length, 1, 'the harness must make the probe fire');
-    assert.equal(document.querySelectorAll('.overflow-tab').length, 1, 'author level draws the tab');
+    // BOTH author registers, which is what `author` means: the geometry tab names the
+    // defect, and the Fix-Me label names the box to fix (the Form default wraps this
+    // slide's body in a `.cell-stage`, so it is Case A — a clip cell that is genuinely
+    // over, not the hedged density guess).
+    assert.deepEqual(speakingTabs(document),
+      ['overflow-tab="Overflows"', 'fixme-tab="Fix Me"'], 'author level fills the tabs');
+    assert.equal(document.querySelectorAll('.fit-culprit').length, 1,
+      'and outlines the culprit cell in place — no overlay layer');
     dom.window.close();
   });
 
@@ -178,7 +197,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);
     assert.equal(document.querySelectorAll('section.overflow, section.illegible').length, 0, 'a ring was drawn');
-    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'a tab was drawn');
+    assert.deepEqual(speakingTabs(document), [], 'a tab was drawn');
     dom.window.close();
   });
 
@@ -193,7 +212,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     s.insertAdjacentHTML('beforeend', '<p>more content, arriving after boot</p>');
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'no ring was drawn');
-    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'no tab was drawn');
+    assert.deepEqual(speakingTabs(document), [], 'no tab was drawn');
     dom.window.close();
   });
 
@@ -207,7 +226,8 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const dom = await boot({ markup: marked, specimen: true });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);
-    assert.equal(document.querySelectorAll('.overflow, .illegible, .overflow-tab, .illegible-tab').length, 0);
+    assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0);
+    assert.deepEqual(speakingTabs(document), []);
     dom.window.close();
   });
 
@@ -228,5 +248,87 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }), specimen: true });
     assert.deepEqual(levelsOn(dom.window.document), ['off']);
     dom.window.close();
+  });
+});
+
+describe('the CALLER-level guarantees, which no kernel test can reach', () => {
+  // Three fixes landed in this subsystem whose bugs lived in the WATCHER, not in
+  // the pure kernels — and the HARD RULE #25 checker demonstrated that reverting
+  // each one left the whole suite green. `git show` on the fix commit's kernel
+  // diff is empty; the kernels never had the bugs. So these drive the real bundle
+  // and assert the caller's behavior directly.
+
+  // ── the fit cache must record MEASUREMENT, not intent ────────────────────
+  //
+  // `sweep()` used to stamp every PLANNED section as measured before `check()` had
+  // probed any. `check()` is one loop, so a throw on slide k left k+1..N unprobed
+  // but marked current at that generation — and the scroll path deliberately does
+  // NOT open a new generation, so they were skipped as already-done forever.
+  test('a probe that throws does not mark the slides it never reached as measured', async () => {
+    const three = ['a', 'b', 'c']
+      .map((id) => `<section class="content" id="${id}"><h2>${id}</h2><p>Body.</p></section>`)
+      .join('');
+    const dom = await boot({ markup: three, overflowing: true });
+    const { document, window } = dom.window;
+    // Break the content probe for EVERY slide, clear the verdicts, and force a
+    // fresh sweep. Nothing may be recorded as measured.
+    window.Range.prototype.getClientRects = function boom() { throw new Error('probe boom'); };
+    for (const s of document.querySelectorAll('section')) s.classList.remove('overflow');
+    window.latticeSweep.sweep();
+    // Repair, then sweep at the SAME generation — the scroll path's exact shape.
+    window.Range.prototype.getClientRects = function ok() { return []; };
+    const plan = window.latticeSweep.complete();
+    assert.equal(plan.measure.length, 3,
+      'all three must be re-planned without a new generation — recording them from the PLAN is what made them unrecoverable');
+    assert.equal(document.querySelectorAll('section.overflow').length, 3, 'and marked');
+    dom.window.close();
+  });
+
+  // ── a characterData-only edit must be noticed ────────────────────────────
+  //
+  // The sweep rides an observer that watches childList + subtree only, so a text
+  // node grown in place triggered nothing: measured at 1613px of overflow, silent
+  // indefinitely. No file under test/ or docs/e2e/ mentioned `characterData`
+  // before this.
+  test('growing a text node IN PLACE is noticed — characterData is observed', async () => {
+    const dom = await boot();
+    const { document, window } = dom.window;
+    assert.equal(document.querySelectorAll('section.overflow').length, 0, 'clean to start');
+    // Make the geometry overflowing only NOW, so the sweep this edit triggers is
+    // the only thing that can produce the mark.
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 2000; } });
+    Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { configurable: true, get() { return 700; } });
+    if (!window.Range.prototype.getClientRects) {
+      window.Range.prototype.getClientRects = function getClientRects() { return []; };
+    }
+    const walker = document.createTreeWalker(document.querySelector('section'), 4);
+    let node = null;
+    let n;
+    while ((n = walker.nextNode())) if (n.nodeValue.trim()) node = n;
+    node.nodeValue = 'word '.repeat(400); // characterData ONLY — no element added or removed
+    await new Promise((r) => setTimeout(r, 900));
+    assert.equal(document.querySelectorAll('section.overflow').length, 1,
+      'a characterData mutation is a DOM mutation and must schedule a sweep');
+    dom.window.close();
+  });
+
+  // ── the watcher's own writes must not schedule the pass that made them ───
+  //
+  // "Filling a berth is not a childList mutation" was FALSE — `textContent = x`
+  // emits one childList record and zero characterData records, so the berth fill
+  // fed the very observer that drove it. It settled only because every write is
+  // inequality-guarded. The content observer now drops a burst that is entirely
+  // marker chrome, so an overflowing deck settles in the same number of passes as
+  // a clean one.
+  test('filling a marker tab costs no extra pass — an overflowing deck settles like a clean one', async () => {
+    const clean = await boot();
+    const dirty = await boot({ overflowing: true });
+    const gen = (d) => d.window.latticeSweep.generation();
+    assert.equal(dirty.window.document.querySelectorAll('section.overflow').length, 1,
+      'the dirty fixture must actually mark, or this compares two clean decks');
+    assert.equal(gen(dirty), gen(clean),
+      'drawing a marker must not schedule another content pass');
+    clean.window.close();
+    dirty.window.close();
   });
 });

@@ -1,3 +1,4 @@
+import { paintedMarkers } from './marker-chrome';
 import { expect, test } from './studio-fixture';
 
 /**
@@ -73,9 +74,15 @@ test('@smoke docs: no shipped preview paints an authoring alarm to a reader', as
 		for (const i of await slideFrames(page)) {
 			const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
 			inspected += 1;
-			expect(await frame.locator('section.overflow').count(), `${route} frame ${i}: ringed "Overflows"`).toBe(0);
-			expect(await frame.locator('section.illegible').count(), `${route} frame ${i}: ringed below the type floor`).toBe(0);
-			expect(await frame.locator('.overflow-tab, .illegible-tab').count(), `${route} frame ${i}: carries an authoring tab`).toBe(0);
+			// COUNTED BY WHAT IS PAINTED, not by which elements exist. Every slide
+			// carries all three marker tabs now — empty, hidden, part of the rendered
+			// slide (lib/core/fit-berth.js) — so `querySelectorAll('.overflow-tab')`
+			// answers "does this document have berths", which is true everywhere, and
+			// says nothing about whether a reader sees an alarm. See ./marker-chrome.
+			const m = await frame.locator('body').evaluate(paintedMarkers);
+			expect(m.rings, `${route} frame ${i}: ringed`).toBe(0);
+			expect(m.tabs, `${route} frame ${i}: carries a painted authoring tab`).toBe(0);
+			expect(m.culprits, `${route} frame ${i}: carries a Fix-Me outline`).toBe(0);
 		}
 	}
 
@@ -107,10 +114,28 @@ test('@smoke docs: EVERY inspected preview frame is really watched', async ({ pa
 	}
 	// One shared settle: the watcher is debounced, and 3s per frame would blow the smoke budget.
 	await page.waitForTimeout(3000);
+	// …AND the helper the sibling test's assertions run through must SEE it.
+	//
+	// This half is the control on the CONTROL. Every `paintedMarkers()` assertion in
+	// this suite (and in gallery-preview-budget and consultant-rebrand) is `toBe(0)`,
+	// so a helper that always reported "no alarms" would leave all three specs green
+	// — demonstrated by stubbing it to return zeros and watching the suite pass. A
+	// gate keyed on something nothing proves is live is the exact hollow shape this
+	// file's own header warns about, one level up. So the same injected 4px figure
+	// that proves the watcher runs also has to make the helper's own count non-zero.
+	const blind: number[] = [];
 	for (const i of frames) {
 		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
 		if ((await frame.locator('section.illegible').count().catch(() => 0)) === 0) silent.push(i);
+		const m = await frame.locator('body').evaluate(paintedMarkers).catch(() => null);
+		if (!m || m.total === 0) blind.push(i);
 	}
+
+	expect(
+		blind,
+		`paintedMarkers() reported NO alarm in frame(s) ${blind.join(', ')} that the watcher demonstrably marked — `
+			+ 'the helper cannot see what it is asked to assert the absence of, so every `toBe(0)` built on it is vacuous',
+	).toEqual([]);
 
 	expect(
 		silent,

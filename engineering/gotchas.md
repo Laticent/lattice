@@ -551,6 +551,32 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **If you are adding a component:** any clipping box you center or end-align
   is this bug waiting to happen. `safe` costs nothing when the content fits.
 
+### The overflow ring lags an edit, or a slide scrolled past keeps a ring it should have lost
+
+- **Symptom:** you fix an overflowing slide and the red ring stays for a beat
+  before clearing; or you scroll a long filmstrip and a slide well off-screen is
+  still carrying the mark it had before you edited it.
+- **Cause: both are the sweep model working as designed** (2026-08-11, see
+  `engineering/decisions/2026-08-11-overflow-sweep-generation.md`). The watcher no
+  longer re-measures every slide on every animation frame. It measures once per
+  SETTLED render — the same 150ms debounce the content transforms use — over the
+  slides in the viewport band whose verdict is stale.
+  - **The lag** is that settle window — **about 320ms**, measured, not the 150ms
+    you might infer from one debounce. It is two stacked trailing edges: the
+    content pass waits 150ms, then the sweep waits 150ms after that.
+  - **The stale off-screen mark** is deliberate: a slide that was not measured
+    keeps whatever it had, because the only honest thing to say about an
+    unmeasured slide is nothing. Clearing it would make a scroll look like a fix.
+    Scroll it back into the band and it is re-measured within one settle window.
+- **What is NOT this:** a ring that never appears at all on a slide you can see,
+  or one that never clears after the slide re-enters view. Those are real. Check
+  `window.latticeSweep.sweep()` in the preview frame's console — it returns
+  `{ measure, skipped: { offBand, current }, total }`, so it will tell you whether
+  the slide was probed, judged already-current, or ruled out of band.
+- **If you are adding a surface that shows slides:** if it can change a slide's
+  BOX without a DOM mutation or a window resize (its own zoom control, a pane
+  drag), call `window.latticeSweep.schedule()` — nothing else will know.
+
 ### A false "Overflows" ring appears on the exported `.html` sidecar for a slide that actually fits
 
 - **Symptom:** a deck's exported `.pdf` renders fine and `lattice-emulator.js`'s

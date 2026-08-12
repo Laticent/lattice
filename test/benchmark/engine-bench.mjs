@@ -47,6 +47,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 // Each flag lazily sets up its own puppeteer, so either may be passed alone.
 const wantExport = process.argv.includes('--export');
 const wantPrint = process.argv.includes('--print');
+// --sweep  fit-sweep tier (browser). The overflow/legibility probes run over laid-out
+//          DOM, so neither the in-process render tier nor the whole-cycle export tier
+//          can see them; this is the only thing that measures them. ~30s.
+const wantSweep = process.argv.includes('--sweep');
 const asJson = process.argv.includes('--json');
 const wantBless = process.argv.includes('--bless');
 const wantCheck = process.argv.includes('--check');
@@ -89,6 +93,37 @@ for (const d of datasets) {
   registerTheme(d.theme);
   d.slides = (rawEngine.render(d.src, d.theme).html.match(/<\/section>/g) || []).length;
 }
+
+// ── the fit-sweep tier's own datasets ────────────────────────────────────────
+//
+// The sweep's cost is driven by ONE thing above all: whether the content probe
+// runs. `probeContentClipped` is a text-node walk with a Range rect per node,
+// an order of magnitude dearer than the geometry probe, and it fires only on a
+// slide where something clips. So a corpus of well-fitting decks measures the
+// cheap half and reports a healthy number for a path that is only expensive when
+// a deck is in trouble — which is exactly when an author is editing it, watching
+// the ring, and generating the mutation bursts that used to re-run this scan
+// every frame.
+//
+// `overflowing` is therefore a first-class dataset, not a curiosity: 40 slides
+// deliberately over-stuffed so every one of them clips and every content walk
+// runs. It is generated rather than committed because its only job is to be
+// over-full — there is nothing to review in it, and a committed deck that must
+// STAY broken is a deck someone eventually fixes.
+function overflowingDeck(slides) {
+  const body = Array.from({ length: 14 }, (_, j) =>
+    `- Item ${j} title\n  - ${'A reasonably long body sentence that will push this slide well past its frame. '.repeat(3)}`).join('\n');
+  const one = (i) => `<!-- _class: checklist -->\n\n# Slide ${i} with a fairly long headline that keeps going\n\n${body}`;
+  return `---\nmarp: true\ntheme: indaco\nform: on\n---\n\n`
+    + Array.from({ length: slides }, (_, i) => one(i)).join('\n\n---\n\n') + '\n';
+}
+
+const sweepDatasets = [
+  { name: 'normal (jargon)', src: jargon, theme: 'crepuscolo' },
+  { name: 'charts', src: readFileSync(join(ROOT, 'lib/components/chart/chart.gallery.md'), 'utf8'), theme: 'indaco' },
+  { name: 'overflowing (x40)', src: overflowingDeck(40), theme: 'indaco' },
+];
+for (const d of sweepDatasets) registerTheme(d.theme);
 
 const mean = (task) => task.result.latency.mean; // ms
 
@@ -242,6 +277,167 @@ async function exportTier() {
     .filter((x) => !x.name.startsWith('stress'))
     .map((d) => ({ dataset: d.name, slides: d.slides, ms: mean(bench.getTask(d.name)), rmePct: bench.getTask(d.name).result.latency.rme }));
   return { main: bench.table(), summary };
+}
+
+// ── fit-sweep tier (HARD RULE #19 evidence for the overflow-sweep rework) ─────
+//
+// The overflow/legibility probes are the one hot path in this repo that NOTHING
+// else here measures: they run in a browser, over laid-out DOM, so neither the
+// render tier (in-process, no layout) nor the export tier (whole rasterize
+// cycles, where a few ms of probing vanishes) can see them. That gap is how a
+// whole-document per-frame scan shipped and stayed.
+//
+// TWO NUMBERS PER DECK, and the PAIR is the point:
+//
+//   · `scopedMs`   — what a sweep costs now: `lib/core/fit-sweep.js` plans it,
+//                    so only the slides in the viewport band that are not
+//                    already current this generation get probed.
+//   · `unscopedMs` — the same probes over EVERY slide in the document, which is
+//                    what the watcher did on every animation frame in which
+//                    anything in the document changed.
+//
+// The ratio between them is the durable before→after record; committing both
+// means a future change that quietly re-widens the scope shows up as the two
+// converging, not merely as a slower absolute number on a faster machine.
+//
+// THE DECK IS STACKED AND VIRTUALIZED like the real filmstrip
+// (docs/src/playground/deck-preview.js: `content-visibility: auto` +
+// `contain-intrinsic-size`), because that is where the cost lived — probing an
+// off-screen section reads its descendants and forces exactly the layout the
+// virtualization exists to skip. Measured flat, the two numbers converge and the
+// bench would report a win that the real surface does not get.
+async function sweepTier() {
+  const { default: puppeteer } = await import('puppeteer');
+  const { execSync } = await import('node:child_process');
+  let chrome = process.env.CHROME_PATH;
+  if (!chrome || !existsSync(chrome)) {
+    try {
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+    } catch {
+      /* default */
+    }
+  }
+  const RUNTIME = readFileSync(join(ROOT, 'dist/lattice-runtime.js'), 'utf8');
+  const probes = await import('../../lib/core/overflow-probe.js');
+  const {
+    CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC,
+  } = probes.default ?? probes;
+
+  // Stacked + virtualized, mirroring the filmstrip's own styling.
+  const FILMSTRIP = '.lattice>section{width:1280px;height:720px;display:block;'
+    + 'content-visibility:auto;contain-intrinsic-size:1280px 720px}';
+  const srcdoc = (html, css) =>
+    `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0}${css}${FILMSTRIP}</style></head>`
+    + `<body>${html}<script>${RUNTIME}</script></body></html>`;
+
+  const browser = await puppeteer.launch({ executablePath: chrome || undefined, args: ['--no-sandbox'] });
+  const out = [];
+  for (const d of sweepDatasets) {
+    // `api.render(src, THEME_STRING)` — the signature is `render(markdown, theme,
+    // opts)`, and every other call site in this file passes the string. The first
+    // cut of this tier passed `{ theme: d.theme }`, which resolves to no theme at
+    // all and returns EMPTY css: every slide measured here was unstyled, with no
+    // clip cells, no container queries and a fraction of the real element count.
+    // Both arms saw the same DOM so the ratio survived, but the absolute numbers
+    // described a deck nobody renders.
+    const rendered = api.render(d.src, d.theme);
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1440, height: 900 });
+    await page.setContent(srcdoc(rendered.html, rendered.css), { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
+    // The runtime's own boot sweep, fonts, and content transforms have to land
+    // first — measuring through them would time the boot, not the sweep.
+    await new Promise((r) => setTimeout(r, 3000));
+    const row = await page.evaluate((args) => {
+      // `new Function`, not `eval` — same rehydration of a `.toString()`-injected
+      // kernel that overflow-probe.js's PROBE_SRC exists for, without tripping the
+      // no-eval lint. The sources come from this repo's own module, not the page.
+      const probeSectionOverflow = new Function(`return (${args.probeSrc})`)();
+      const probeContentClipped = new Function(`return (${args.clipSrc})`)();
+      const TOL = 12;
+      const all = [...document.querySelectorAll('section[data-lattice-slide]')];
+      // The shape the watcher used to run on every frame: every slide, both probes.
+      const unscoped = () => {
+        const t = performance.now();
+        for (const s of all) {
+          const r = probeSectionOverflow(s, args.clipSel, TOL, args.ignoreSel);
+          if (r.over || r.clipSuspect) probeContentClipped(s, args.ignoreSel, TOL, args.bearerSel);
+        }
+        return performance.now() - t;
+      };
+      // How many slides in the deck actually overflow — counted from the UNSCOPED
+      // probe, never from `section.overflow`. The scoped sweep only marks what it
+      // measured, so reading the class would report "3 overflowing" for a deck
+      // where all 40 do, and a bench column that quietly means "…of the ones we
+      // looked at" is worse than no column: it is the number a reader would use to
+      // judge whether the workload exercises the expensive path at all.
+      const overflowing = all.filter((s) => probeSectionOverflow(s, args.clipSel, TOL, args.ignoreSel).over).length;
+      // The shape it runs on now. Each call opens a fresh generation, so this
+      // measures a real sweep rather than the cache answering instantly.
+      const scoped = () => {
+        const t = performance.now();
+        window.latticeSweep.sweep();
+        return performance.now() - t;
+      };
+      // The COMPLETENESS BACKSTOP's steady-state cost: a whole-document sweep at
+      // the CURRENT generation, which is what runs 800ms after the deck goes
+      // quiet. The design rests on this being nearly free — it plans every
+      // section but the cache skips the ones already measured, so it should cost
+      // a rect read per section and no probes. Measured rather than asserted,
+      // because if it is NOT free then the band is buying nothing: the deck would
+      // pay the whole-document price on every settle anyway.
+      // `complete()`, NOT `sweep({ all: true })` — the two differ in exactly the
+      // way this measurement exists to expose. `sweep()` invalidates first, so it
+      // re-probes every slide and costs the full whole-document price; the idle
+      // backstop does not, so the cache skips everything already measured. The
+      // first cut of this bench measured the wrong one and reported the backstop
+      // at 15.8/11.8/36.9ms — as expensive as the whole-document sweep, which
+      // would have meant the band was buying nothing.
+      const backstop = () => {
+        const t = performance.now();
+        window.latticeSweep.complete();
+        return performance.now() - t;
+      };
+      // Warm all three (first touch pays for layout none of them is responsible
+      // for), then take the BEST of three — the floor is the reproducible number
+      // here; the mean is dominated by whatever else the box is doing.
+      unscoped(); scoped(); backstop();
+      const best = (fn) => Math.min(fn(), fn(), fn());
+      // Ordered so the backstop is measured with every slide already current,
+      // which is the steady state it actually runs in.
+      const backstopMs = best(backstop);
+      const plan = window.latticeSweep.sweep();
+      return {
+        slides: all.length,
+        overflowing,
+        unscopedMs: best(unscoped),
+        scopedMs: best(scoped),
+        backstopMs,
+        measured: plan.measure.length,
+        offBand: plan.skipped.offBand,
+      };
+    }, {
+      probeSrc: PROBE_SRC,
+      clipSrc: CONTENT_CLIPPED_SRC,
+      clipSel: CLIP_CELL_SELECTOR,
+      ignoreSel: IGNORED_CLIP_SELECTOR,
+      bearerSel: IGNORED_BEARER_SELECTOR,
+    });
+    await page.close();
+    out.push({ dataset: d.name, ...row, ratio: row.scopedMs > 0 ? row.unscopedMs / row.scopedMs : Infinity });
+  }
+  await browser.close();
+  console.log('\n=== FIT SWEEP · scoped (now) vs whole-document (before), filmstrip-virtualized ===');
+  console.table(out.map((r) => ({
+    dataset: r.dataset,
+    slides: r.slides,
+    overflowing: r.overflowing,
+    'whole-doc ms': round2(r.unscopedMs),
+    'scoped ms': round2(r.scopedMs),
+    'x cheaper': Number.isFinite(r.ratio) ? round2(r.ratio) : '∞',
+    'backstop ms': round2(r.backstopMs),
+    'probed/skipped': `${r.measured}/${r.offBand}`,
+  })));
+  return { summary: out };
 }
 
 // ── print re-place tier (item 1 of 2026-06-14-deck-print-styling.md) ──────────
@@ -398,7 +594,7 @@ function comparableMachine(base, here, probeNow) {
   return { ok: true, why: '' };
 }
 
-function blessBaseline(summary, printSummary, render) {
+function blessBaseline(summary, printSummary, render, sweepSummary) {
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -420,6 +616,31 @@ function blessBaseline(summary, printSummary, render) {
       rmePct: round2(s.rmePct),
     };
   }
+  // The fit-sweep tier (puppeteer) only runs under --sweep, so a plain
+  // `bench:bless` PRESERVES any existing sweepDatasets — same rule as print below.
+  let sweepOut;
+  if (sweepSummary?.length) {
+    sweepOut = {};
+    for (const s of sweepSummary) {
+      sweepOut[s.dataset] = {
+        slides: s.slides,
+        overflowing: s.overflowing,
+        // BOTH numbers, deliberately. `scopedMs` alone would ratchet the current
+        // cost; the pair records the SHAPE of the win, so a future change that
+        // re-widens the scope shows up as the two converging rather than as a
+        // slightly slower absolute number someone attributes to the machine.
+        scopedMs: round2(s.scopedMs),
+        unscopedMs: round2(s.unscopedMs),
+        ratio: round2(s.ratio),
+        // The completeness backstop in its steady state. Blessed so a change that
+        // makes it expensive — the one thing that would invalidate keeping the
+        // band at all — shows up in this file's diff.
+        backstopMs: round2(s.backstopMs),
+      };
+    }
+  } else if (existsSync(BASELINE)) {
+    try { sweepOut = JSON.parse(readFileSync(BASELINE, 'utf8')).sweepDatasets; } catch { /* none */ }
+  }
   // The print re-place tier (puppeteer) only runs under --print, so a plain
   // `bench:bless` PRESERVES any existing printDatasets rather than dropping them.
   let printOut;
@@ -429,6 +650,26 @@ function blessBaseline(summary, printSummary, render) {
   } else if (existsSync(BASELINE)) {
     try { printOut = JSON.parse(readFileSync(BASELINE, 'utf8')).printDatasets; } catch { /* none */ }
   }
+  // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
+  //
+  // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
+  // matching is what makes the render/print bands GATE rather than merely report.
+  // A `bench:bless -- --sweep` run rewrote them to whichever box happened to run
+  // the sweep tier, which silently demoted the render gate to "reported, not
+  // gated" for everyone on the machine class that had blessed it — and left
+  // `printDatasets`, preserved byte-identical from the previous bless, filed under
+  // a fingerprint they were never measured on. A future run on THAT box would then
+  // gate an 11-minute tier against numbers taken on different silicon: a
+  // manufactured regression. Caught by the HARD RULE #25 checker.
+  //
+  // So the fingerprint follows the tier that actually ran. A render-tier bless
+  // always runs (it is unconditional in main()), so it owns the stamp; a
+  // sweep-only or print-only bless carries the previous one forward with the rows
+  // it did not re-measure.
+  const measuredRenderTier = !!summary?.length;
+  const prior = existsSync(BASELINE)
+    ? (() => { try { return JSON.parse(readFileSync(BASELINE, 'utf8')); } catch { return null; } })()
+    : null;
   const payload = {
     version: 2,
     note: 'Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; '
@@ -441,20 +682,26 @@ function blessBaseline(summary, printSummary, render) {
     // What the indices are relative to. Recorded so a reader can convert an index
     // back to this machine's milliseconds, and so a wildly different probe reading
     // on the checking machine is visible rather than silently folded in.
-    calibration: {
+    calibration: measuredRenderTier || !prior?.calibration ? {
       probe: CALIBRATION,
       ms: round2(render?.calibration ?? 0),
       rmePct: round2(render?.calibrationRmePct ?? 0),
-    },
+    } : prior.calibration,
     // WHO BLESSED IT — not decoration. `checkBaseline` asserts on wall-clock only
     // when this matches the machine doing the checking, because that is the only
     // case where a millisecond delta is a statement about the CODE.
-    blessedOn: machineFingerprint(),
+    blessedOn: measuredRenderTier || !prior?.blessedOn ? machineFingerprint() : prior.blessedOn,
     datasets: out,
     // Print drawer rasterize→assemble split: full-rebuild vs cached-image re-place, per
     // deck. The re-place row being a fraction of full IS the durable record of the paper-
     // change optimization (HARD RULE #19). Blessed via `bench:bless -- --print`.
     ...(printOut ? { printDatasets: printOut } : {}),
+    // The overflow/legibility sweep, scoped vs whole-document. The gap between
+    // the two rows IS the before→after record for the sweep rework (HARD RULE
+    // #19) — the "before" is not a number from an older commit, it is the old
+    // SHAPE re-measured on the same page in the same run, so it stays comparable
+    // on any machine. Blessed via `bench:bless -- --sweep`.
+    ...(sweepOut ? { sweepDatasets: sweepOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${summary.length} render${printSummary?.length ? ` + ${printSummary.length} print` : ''} datasets).`);
@@ -467,6 +714,7 @@ function blessBaseline(summary, printSummary, render) {
  *   sets an exit code — `main()` owns the verdict. See the two-pass note in main().
  */
 function checkBaseline(summary, printSummary, render, opts = {}) {
+  const sweepSummary = opts.sweepSummary ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -629,6 +877,59 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
       }
     }
   }
+  // THE FIT-SWEEP TIER. Only compared when THIS run produced it (`--sweep`), so a
+  // plain `bench:check` is unchanged.
+  //
+  // WHAT GATES HERE IS THE RATIO, NOT THE MILLISECONDS. Absolute browser-probe
+  // timings move with the machine like any other wall-clock number, but
+  // `unscopedMs / scopedMs` is two measurements of the same page in the same run,
+  // so the hardware divides out.
+  //
+  // AND IT GATES ON A FLOOR, NOT ON A PERCENTAGE OF THE BLESSED VALUE — which the
+  // first cut got wrong, in the direction that produces a gate nobody can trust. A
+  // ±40% band read `normal (jargon)` at 23.5× when blessed and 13.6× on the very
+  // next run of the identical tree, and called it a REGRESSION. Nothing had
+  // changed: `scopedMs` there is ~0.4ms, close enough to timer granularity that
+  // 0.1ms of jitter is 25% of the reading, and the ratio inherits all of it.
+  //
+  // The failure actually worth catching is not "the ratio moved". It is "the sweep
+  // stopped being scoped" — someone reinstates a whole-document scan, or widens
+  // the band until it swallows the deck — and that collapses the ratio toward 1×
+  // from anywhere in the 8–24× range these decks blessed at. A floor of 3× catches
+  // every version of that and cannot be tripped by jitter on a sub-millisecond
+  // measurement. The blessed ratio is still printed beside it, so a genuine drift
+  // downward is visible to a reader before it reaches the floor; it just does not
+  // fail the run on noise.
+  const SWEEP_RATIO_FLOOR = 3;
+  if (sweepSummary?.length) {
+    console.log('\n=== FIT-SWEEP CHECK · scoped-vs-whole-document ratio ===');
+    for (const s of sweepSummary) {
+      const b = base.sweepDatasets?.[s.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s.dataset.padEnd(24)}${'—'.padStart(10)}${round2(s.ratio).toString().padStart(10)}×  NEW (re-bless)`);
+        continue;
+      }
+      if (b.slides !== s.slides || b.overflowing !== s.overflowing) {
+        drift = true;
+        console.log(`${s.dataset.padEnd(24)}${`${b.slides}/${b.overflowing}`.padStart(10)}${`${s.slides}/${s.overflowing}`.padStart(10)}   WORKLOAD CHANGED (re-bless)`);
+        continue;
+      }
+      const d = ((s.ratio - b.ratio) / b.ratio) * 100;
+      const verdict = s.ratio < SWEEP_RATIO_FLOOR ? 'REGRESSION (scope widened)' : 'ok';
+      if (verdict.startsWith('REGRESSION')) regressedDatasets.push(`${s.dataset} (sweep)`);
+      console.log(
+        `${s.dataset.padEnd(24)}${round2(b.ratio).toString().padStart(9)}×${round2(s.ratio).toString().padStart(9)}×`
+        + `${((d >= 0 ? '+' : '') + d.toFixed(1)).padStart(8)}${(`floor ${SWEEP_RATIO_FLOOR}×`).padStart(10)}  ${verdict}`,
+      );
+    }
+    for (const name of Object.keys(base.sweepDatasets ?? {})) {
+      if (!sweepSummary.some((s) => s.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(24)}${'—'.padStart(10)}${'absent'.padStart(10)}   MISSING (re-bless)`);
+      }
+    }
+  }
   // DRIFT FAILS ON ANY MACHINE, and that is the second half of #1382. A slide count
   // is machine-independent, so a moved one is unambiguous staleness — and the row it
   // invalidates has recorded nothing since it moved. It used to exit 0 with a note,
@@ -653,8 +954,9 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
 async function main() {
   const render = await renderTier();
   const exp = wantExport ? await exportTier() : null;
+  const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
-  if (wantBless) blessBaseline(render.summary, print?.summary, render);
+  if (wantBless) blessBaseline(render.summary, print?.summary, render, sweep?.summary);
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
   } else if (wantCheck) {
@@ -675,7 +977,7 @@ async function main() {
     //
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
-    const pass1 = checkBaseline(render.summary, print?.summary, render);
+    const pass1 = checkBaseline(render.summary, print?.summary, render, { sweepSummary: sweep?.summary });
     if (pass1.regressedDatasets.length) {
       console.log(`\nRe-measuring ${pass1.regressedDatasets.length} regressed dataset(s) to separate a real slowdown from machine load…`);
       const second = await renderTier();

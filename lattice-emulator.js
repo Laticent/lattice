@@ -626,8 +626,9 @@ const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
   OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
-  LEGIBILITY_TAB_ACTION_SRC,
 } = require('./lib/runtime/fluid-view-policy');
+const fitBerth = require('./lib/core/fit-berth');
+const { BERTH_SRC } = fitBerth;
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
 // (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
 // on top of the normal precedence chain. `inherit`/`print` leave the resolved name alone
@@ -2008,7 +2009,12 @@ ${stateChartScript}
   // re-typed here — the two watchers stamp the same class and must not drift in what they
   // call the same measurement (HARD RULE #15).
   var legibilityTabText = ${LEGIBILITY_TAB_TEXT_SRC};
-  var legibilityTabAction = ${LEGIBILITY_TAB_ACTION_SRC};
+  // The marker's chrome is emitted WITH the slide, so this watcher only ever fills
+  // it -- same element the browser runtime fills, injected from the same kernel so
+  // the two cannot drift (HARD RULE #1). It mints on a miss rather than returning
+  // nothing, so a document that predates the berth still gets its marker.
+  // (No backticks in this comment -- it is injected into a template literal.)
+  var berth = ${BERTH_SRC};
   var settleFonts = ${SETTLE_FONTS_SRC};
   function check(){
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
@@ -2062,20 +2068,16 @@ ${stateChartScript}
       // label has over:false, so the author got a red OVERFLOWS flag with no ring beside
       // it and went hunting for a spill that was correctly absent.
       // The "off" level draws none; the strip pass below clears the class too.
-      if (MARKER_LEVEL !== 'off') {
-        var oTab = s.querySelector(':scope > .overflow-tab');
-        var tabWord = overflowTabText(isAuthor, isAuthor && !over);
-        if (tell && !oTab) {
-          oTab = document.createElement('div');
-          oTab.className = 'overflow-tab';
-          oTab.textContent = tabWord;
-          s.appendChild(oTab);
-        } else if (!tell && oTab) {
-          oTab.remove();
-        } else if (oTab && oTab.textContent !== tabWord) {
-          oTab.textContent = tabWord;
-        }
-      }
+      // FILLS a berth the markup already carries (lib/core/fit-berth.js); it does
+      // not create or remove one. That is what makes this watcher and the browser
+      // runtime's produce the same DOM for the same level -- a --fluid export runs
+      // BOTH, and while they each minted their own tab the two could disagree about
+      // wording, about whether one existed at "off", and about which of them won.
+      // Empty text is the "no marker" state; the CSS already hides an unmarked tab.
+      // (No backticks in this comment -- it is injected into a template literal.)
+      var oTab = berth(s, 'overflow-tab');
+      var tabWord = (MARKER_LEVEL !== 'off' && tell) ? overflowTabText(isAuthor, isAuthor && !over) : '';
+      if (oTab && oTab.textContent !== tabWord) oTab.textContent = tabWord;
       // ONE class, orthogonal to the geometric .overflow: clip-marked IS tell. It
       // replaced two conjunction classes that between them left a slide which BOTH
       // overflows and cuts carrying neither, and let CSS un-hide a population by one
@@ -2098,18 +2100,9 @@ ${stateChartScript}
       // The labelled tab — the ring is colour-only (WCAG 1.4.1), so name the condition in text,
       // and name it with the NUMBERS, since "too small" is only actionable next to the floor it
       // missed. Presence-guarded; position:absolute, so it never changes the measured height.
-      var tab = s.querySelector(':scope > .illegible-tab');
-      var legAction = legibilityTabAction({ under: under, hasTab: !!tab });
-      if (legAction === 'add') {
-        tab = document.createElement('div');
-        tab.className = 'illegible-tab';
-        tab.textContent = legibilityTabText(leg);
-        s.appendChild(tab);
-      } else if (legAction === 'update') {
-        tab.textContent = legibilityTabText(leg);
-      } else if (legAction === 'remove') {
-        tab.remove();
-      }
+      var tab = berth(s, 'illegible-tab');
+      var legWord = under ? legibilityTabText(leg) : '';
+      if (tab && tab.textContent !== legWord) tab.textContent = legWord;
     });
   }
   // Force every declared @font-face to load before the FIRST measurement —
@@ -2532,7 +2525,16 @@ async function renderBody(browser, g, closeBrowser) {
     // membership): the k-of-N progress rail, and the §0b relationship signal a connected
     // component's atomized members carry ("→ next: …" / "↻ back to …" / "governs ↓ …" /
     // "Option N of M"). One re-render so both land in the exported DOM.
-    const railed = applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP));
+    // …and RE-BERTH, in the same re-render. The splitter builds each cover page
+    // fresh, so a cover carries none of the marker chrome the engine emitted onto
+    // the slide it came from — leaving `berth()`'s mint-on-miss as the only thing
+    // that would draw its ring. That net works, and it is documented as a branch
+    // that should never be taken; a split deck taking it on every cover would make
+    // that false. Idempotent, so every page the split preserved is untouched, and
+    // it runs AFTER the split rather than before so the pages it berths are the
+    // final ones. (lib/core/fit-berth.js applyToDocHtml — the assembled-document
+    // form, which slices the head prefix off for the same reason resplitDoc does.)
+    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP)));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);

@@ -1,3 +1,4 @@
+import { paintedMarkers } from '../marker-chrome';
 import { currentSlide, expect, gotoStudio, livePreview, railButtons, readStorage, slideCount, test } from '../studio-fixture';
 
 // Persona: a consultant re-branding a client deck. Goal: switch the palette and
@@ -24,12 +25,14 @@ function slideToken(page: import('@playwright/test').Page, token: string): Promi
 // chance to speak; returns -1 when the frame re-rendered mid-read (srcdoc swap
 // destroys the context), which a polling caller simply retries.
 function settledOverflowFlags(page: import('@playwright/test').Page): Promise<number> {
+	// PAINTED markers, not marker ELEMENTS: the three tabs are part of every rendered
+	// slide now (lib/core/fit-berth.js), so counting them would return a positive
+	// number on a perfectly clean deck. The two-frame settle moved inside the helper
+	// (../marker-chrome), so this is one evaluate rather than a settle plus a read.
 	return livePreview(page)
 		.locator('body')
-		.evaluate(async (body) => {
-			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-			return body.querySelectorAll('section.overflow, .overflow-tab').length;
-		})
+		.evaluate(paintedMarkers)
+		.then((m) => m.total)
 		.catch(() => -1);
 }
 
