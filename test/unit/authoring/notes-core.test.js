@@ -459,6 +459,104 @@ describe('notes-core: caption channel (caption:)', () => {
     // Empty set → identity (nothing to strip).
     assert.equal(core.stripNotesFromSource(source, new Set()), source);
   });
+
+  test('stripNotesFromSource is POSITION-aware — a note body inside a code sample survives (#1636)', () => {
+    // A deck that DOCUMENTS the note syntax shows the comment inside a fence, where it is
+    // visible slide content. Matching whole-body set membership with no notion of where a
+    // comment sits deleted that sample from the source the recipient re-imports, while the
+    // slide they can see still showed it. Source destruction, not a leak: the audience is
+    // already reading it off the slide, so a comment in a code region cannot be the secret
+    // this strip exists to protect.
+    const source = [
+      '# How to author a note',
+      '',
+      '```markdown',
+      '<!-- Remember to pause here. -->',
+      '```',
+      '',
+      'Inline too: `<!-- Remember to pause here. -->`',
+      '',
+      '---',
+      '',
+      '# The real slide',
+      '',
+      '<!-- Remember to pause here. -->',
+      '',
+    ].join('\n');
+    const out = core.stripNotesFromSource(source, new Set(['Remember to pause here.']));
+    assert.equal((out.match(/Remember to pause here/g) || []).length, 2, 'the fenced and inline samples both survive');
+    assert.match(out, /```markdown\n<!-- Remember to pause here\. -->\n```/, 'the fenced sample is byte-intact');
+    assert.doesNotMatch(out.split('# The real slide')[1], /Remember to pause here/, 'the real note is still scrubbed');
+  });
+
+  test('maskCodeRegions reads fences the way CommonMark does', () => {
+    const mask = core.maskCodeRegions;
+    const keepsOffsets = (s) => assert.equal(mask(s).length, s.length, 'offsets must not move — callers index the ORIGINAL string against this');
+    // A ````-fence that DEMONSTRATES ``` fences is ONE region. Pairing the nearest two
+    // markers reads the middle as live prose, and the scrub would then delete a comment out
+    // of a code sample (or the audit report one as a leak).
+    const nested = '````markdown\n```js\n<!-- Board only -->\n```\n````\n';
+    keepsOffsets(nested);
+    assert.equal(mask(nested).trim(), '', 'the whole nested block is code');
+    // `~~~`, and up to three spaces of indentation.
+    assert.equal(mask('~~~\n<!-- x -->\n~~~\n').trim(), '');
+    assert.equal(mask('   ```\n   <!-- x -->\n   ```\n').trim(), '');
+    // An info string may not repeat the marker, so ```` ```js ```` opens and a bare fence closes.
+    const closed = '```js\ncode\n```\n\n<!-- A real note. -->\n';
+    assert.match(mask(closed), /<!-- A real note\. -->/, 'prose AFTER a closed fence stays visible');
+    // An UNCLOSED fence runs to the end of the document — markdown-it renders everything
+    // after it as code, so nothing in there is a note.
+    assert.equal(mask('```\n<!-- x -->\n\nmore\n').trim(), '');
+    // An inline span cannot cross a line, so a stray backtick cannot swallow a later note.
+    assert.match(mask('a ` stray tick\n\n<!-- A real note. -->\n'), /<!-- A real note\. -->/);
+  });
+
+  test('a fence-shaped line that is NOT a fence cannot hide a note from the scrub', () => {
+    // The position model's one dangerous direction: a phantom code region hides a real note
+    // and it ships in the shared file. Both vectors below leaked before the scan learned that
+    // markdown-it does not read a fence line inside an HTML block or inside a comment.
+    const set = new Set(['SECRET: do not say the layoffs number', 'Wrap up in two minutes.']);
+    const htmlBlock = [
+      '# Quarterly review',
+      '',
+      '<details>',
+      '<summary>Detail</summary>',
+      '```', // inside the HTML block — not a fence
+      '',
+      '<!-- SECRET: do not say the layoffs number -->',
+      '',
+      '```js',
+      'const revenue = 42;',
+      '```',
+      '',
+      '<!-- Wrap up in two minutes. -->',
+      '',
+    ].join('\n');
+    const out = core.stripNotesFromSource(htmlBlock, set);
+    assert.doesNotMatch(out, /SECRET/, 'the note after a phantom fence is still scrubbed');
+    assert.doesNotMatch(out, /Wrap up/, 'and so is every note after it');
+    // A note that QUOTES an unclosed fence used to blank the rest of the document.
+    const quoted = '<!--\nShow them this:\n```js\nchart(1)\n-->\n\n---\n\n<!-- SECRET: do not say the layoffs number -->\n';
+    assert.doesNotMatch(
+      core.stripNotesFromSource(quoted, new Set(['Show them this:\n```js\nchart(1)', 'SECRET: do not say the layoffs number'])),
+      /SECRET/,
+      'a fence inside a comment body opens nothing',
+    );
+  });
+
+  test('a note-shaped comment inside a NESTED fence survives the scrub', () => {
+    const source = '````markdown\n```js\n<!-- Board only -->\n```\n````\n\n<!-- Board only -->\n';
+    const out = core.stripNotesFromSource(source, new Set(['Board only']));
+    assert.equal((out.match(/Board only/g) || []).length, 1, 'the sample survives, the real note goes');
+    assert.match(out, /```js\n<!-- Board only -->\n```/);
+  });
+
+  test('stripCaptionsFromSource is POSITION-aware for the same reason', () => {
+    const source = '```markdown\n<!-- caption: Read this aloud. -->\n```\n\n<!-- caption: Read this aloud. -->\n';
+    const out = core.stripCaptionsFromSource(source);
+    assert.equal((out.match(/Read this aloud/g) || []).length, 1, 'the documented sample survives, the real caption goes');
+    assert.match(out, /```markdown\n<!-- caption: Read this aloud\. -->\n```/);
+  });
 });
 
 // ── Directive classification ────────────────────────────────────────────────
@@ -483,6 +581,11 @@ describe('notes-core: a directive is never a note', () => {
       [...engine.FLAG_DIRECTIVES].sort(),
       'FLAG_DIRECTIVE_NAMES mirrors the engine FLAG_DIRECTIVES',
     );
+    // The value-shape table keys on directive NAMES too, so a rename in the engine must not
+    // leave a dead entry here — a dead entry silently stops reporting that directive.
+    for (const name of Object.keys(core.DIRECTIVE_VALUE_SHAPES)) {
+      assert.ok(engine.KNOWN_DIRECTIVES.has(name), `DIRECTIVE_VALUE_SHAPES key "${name}" is a real directive`);
+    }
   });
 
   test('a directive surviving into rendered HTML is not lifted as a note, so the scrub cannot eat it', () => {
@@ -552,19 +655,53 @@ describe('notes-core: auditStrippedSource', () => {
     assert.deepEqual(core.auditStrippedSource(src), []);
   });
 
-  test('a deck-scope directive that SURVIVED is not reported — the engine owns it', () => {
-    // `color: …` is real directive syntax and also exactly how a note might open, and the two
-    // sides of this answer that differently ON PURPOSE. The SCRUB treats it as a note, so a
-    // note shaped like a directive is still removed. The AUDIT does not report it: a comment
-    // in directive syntax that survived the scrub is one the engine consumed as a directive,
-    // and flagging it fired on two decks this repo ships — a false privacy alarm, which is
-    // the worst kind, because the rational response is to stop trusting the strip.
-    assert.deepEqual(core.auditStrippedSource('<!-- color: we should discuss the palette -->'), []);
-    // The scrub half of that contract, unchanged: it still reaches the note set.
+  test('a deck-scope directive with a REAL value is not reported — the engine owns it', () => {
+    // A comment in directive syntax that survived the scrub is normally one the engine
+    // consumed as a directive, and flagging those wholesale fired on two decks this repo
+    // ships — a false privacy alarm, which is the worst kind, because the rational response
+    // is to stop trusting the strip. Anything whose value fits the directive stays silent.
+    assert.deepEqual(core.auditStrippedSource('<!-- color: crimson -->'), []);
+    assert.deepEqual(core.auditStrippedSource('<!-- color: color-mix(in srgb, red 40%, blue) -->'), []);
+    assert.deepEqual(core.auditStrippedSource('<!-- paginate: true -->\n<!-- theme: cuoio -->'), []);
+    // Free-text directives can never be told from prose, so they are never reported.
+    assert.deepEqual(core.auditStrippedSource('<!-- header: the quarter everyone is waiting for -->'), []);
+  });
+
+  test('a directive whose VALUE reads as prose IS reported — the engine consumed a note (#1636)', () => {
+    // `color: …` is real directive syntax and also exactly how a note might open. The engine's
+    // directive test accepts ANY value, so this is consumed as a directive: it never reaches
+    // rendered HTML, never enters the note set, and the scrub has nothing to match — the text
+    // ships. Reporting is the whole fix available here: removing it from the source would
+    // corrupt every deck using the ordinary `<!-- paginate: true -->` idiom, and would not
+    // close the leak anyway, since the engine also bakes the value onto the section as
+    // `data-color` / `--color`. Only the author can fix it, by rewriting the note.
+    const found = core.auditStrippedSource('<!-- color: we should discuss the palette -->');
+    assert.equal(found.length, 1);
+    assert.match(found[0], /we should discuss the palette/);
+    assert.match(found[0], /"color" directive/, 'and it names what the engine did with it');
+    // The scrub half of that contract, unchanged: reaching rendered HTML still makes it a note.
     assert.deepEqual(
       core.noteBodiesFromHtml('<section><!-- color: we should discuss the palette --></section>'),
       ['color: we should discuss the palette'],
     );
+  });
+
+  test('directiveShapedProse fires only on a TIGHT value domain that the value misses', () => {
+    assert.equal(core.directiveShapedProse('color: we should discuss the palette'), 'color');
+    assert.equal(core.directiveShapedProse('paginate: only after the break'), 'paginate');
+    assert.equal(core.directiveShapedProse('color: crimson'), null);
+    assert.equal(core.directiveShapedProse('color: #FF0044'), null);
+    assert.equal(core.directiveShapedProse('paginate: skip'), null);
+    assert.equal(core.directiveShapedProse('size: 4K'), null);
+    assert.equal(core.directiveShapedProse('_color: we should discuss the palette'), 'color', 'spot form too');
+    assert.equal(core.directiveShapedProse('color: "a quoted literal"'), null, 'a quoted value is an author, not prose');
+    // The engine cuts an unquoted value at the first whitespace-preceded `#`, so these are
+    // values it applies perfectly — reporting them would be the false alarm to end all.
+    assert.equal(core.directiveShapedProse('theme: cuoio  # brand'), null);
+    assert.equal(core.directiveShapedProse('paginate: true # only after the break'), null);
+    assert.equal(core.directiveShapedProse('color: #A1B2C3 # brand blue'), null);
+    assert.equal(core.directiveShapedProse('footer: three whole words'), null, 'free-text directive');
+    assert.equal(core.directiveShapedProse('Remember: mention the pricing caveat'), null, 'not a directive at all');
   });
 
   test('code regions are masked — a documented `<!-- class: … -->` is not a survivor', () => {

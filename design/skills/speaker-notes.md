@@ -65,6 +65,22 @@ Present-mode teleprompter. `--strip-notes` removes them for a clean export.
 mirror); putting a private/reviewer remark in a note (that's a review comment — a
 different register that must never hit the teleprompter).
 
+**Never open a note with a directive keyword and a colon.**
+`<!-- color: discuss the palette -->` is not a note — the engine reads it as the
+deck-scope `color` directive and consumes it, so it never becomes a note and **`--strip-notes` cannot
+remove it**: the text stays in the shared file's source *and* gets baked onto the slide
+as `data-color`. The export warns when a directive's value reads as prose, but only you
+can fix it — reword the opening (`<!-- Palette: we should discuss it -->`) and it is an
+ordinary, strippable note again. The directive names are `theme`, `paginate`, `header`,
+`footer`, `class`, `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
+`backgroundRepeat`, `backgroundSize`, `size`, `style`, `lang`, `marp`, `logo`, `focus`,
+`focusStyle`, `focusSteps`, `build`, `debug`, `lens`.
+
+**A note comment shown inside a code fence is safe.** A deck that documents this syntax
+keeps its sample: `--strip-notes` matches a note body *in a position where a note can
+live*, so a `<!-- … -->` inside a fenced block or an inline code span is left alone even
+when the same words are a real note elsewhere in the deck.
+
 ---
 
 ## 2. Captions

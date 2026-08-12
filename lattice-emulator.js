@@ -445,7 +445,11 @@ function stripSharedSource(src, noteBodies) {
     if (survivors.length) {
       console.warn(
         `  WARNING: --strip-notes left ${survivors.length} comment(s) in the embedded source that look like speaker text.\n` +
-          survivors.slice(0, 3).map((s) => `    · ${s.replace(/\s+/g, ' ').slice(0, 70)}`).join('\n') +
+          // Wide enough for the whole line a survivor carries. A survivor is not always just
+          // a body: the audit appends WHY it is reported (a directive the engine consumed, an
+          // unterminated comment), and a 70-column cut landed mid-explanation — leaving the
+          // author the alarm without the half that says what to do about it.
+          survivors.slice(0, 3).map((s) => `    · ${s.replace(/\s+/g, ' ').slice(0, 160)}`).join('\n') +
           (survivors.length > 3 ? `\n    · …and ${survivors.length - 3} more` : '')
       );
     }

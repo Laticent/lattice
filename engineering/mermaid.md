@@ -45,6 +45,26 @@ reads the settled sections back out. Skip that and the exported file freezes the
 un-rendered form: raw Mermaid source on the slide, and a wall of it where Read·Article
 should show the diagram.
 
+**The bake's one invariant: ink and surface move together, or neither does.** The player
+has a light/dark toggle, so every paint the bake writes is either *frozen* at the export
+scheme or *following* (emitted as `var(--token)` when it equals that token's current
+value). Mixing the two on one label is what makes a diagram illegible rather than merely
+stale: `mermaid.css` re-themes label ink through
+`.label tspan:not(.lp-own-ink){fill:var(--text-heading)!important}`, so a label's INK
+follows the toggle whether or not the bake emits a token for it — only the SURFACE under
+it can be frozen. Freezing a surface while its ink follows therefore *guarantees* the
+divergence. Two corollaries, both learned by measuring:
+
+- Every paint goes through one matcher (`followToken`). The label HALO — the `<rect>`
+  `foreignObjectToText` writes under the words — was the one paint that bypassed it, and
+  mermaid paints an edge label's halo from the slide canvas, so it froze at the export
+  scheme while the ink above it followed: 1.09:1 on `seven-steps-problem-to-code`, 1.06:1
+  on `deck-class-register`, after a toggle (#1635).
+- When a paint under a label genuinely cannot follow (an author's own background matches
+  no token), the label's ink is frozen to its bake-time literal and marked `lp-own-ink`,
+  which takes the theme rule off it. Frozen-together is legible-but-stale; frozen-apart is
+  invisible.
+
 Component contract, slots, and the anti-patterns:
 `lib/components/diagram/diagram/diagram.docs.md`.
 

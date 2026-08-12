@@ -26,8 +26,9 @@ let themeDualMode;
 let playerCss;
 let playerJs;
 let resolveCanvas;
+let hoistInlineLightDark;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas } = await import('../../../lib/export/player-core.mjs'));
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark } = await import('../../../lib/export/player-core.mjs'));
 });
 
 // ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
@@ -99,6 +100,74 @@ test('themeDualMode flattens a MULTI-HOP var chain to a literal (no residual cro
 	assert.match(attr, /--on-accent:#0A1628/, 'the two-hop chain resolves to the final literal');
 	assert.doesNotMatch(attr, /var\(--surface-inverse|var\(--brand-canvas/, 'no intermediate var indirection remains');
 	assert.match(attr, /--code:var\(--accent\)/, 'a same-block dark token ref is still kept (cycle-safe, block-local)');
+});
+
+test('themeDualMode flattens against `:root` ONLY — a component-scoped decl never wins (#1637)', () => {
+	// The bug this pins: the flatten map was built by scanning the whole sheet, last
+	// declaration wins, and the last `--surface-inverse` in the real bundle is
+	// `section.print`'s. `--on-accent` then flattened its dark arm to the print band's ink
+	// and `examples/accent-on-accent.md` shipped its headline at 1.24:1 on the accent rail.
+	// The component declaration is LAST here on purpose — that is what made it win.
+	const css =
+		':root{--brand-canvas:#0A1628;--surface-inverse:var(--brand-canvas);' +
+		'--on-accent:light-dark(#FFF, var(--surface-inverse,#000))}' +
+		'section.print{--surface-inverse:#ECECEC}';
+	const attr = themeDualMode(css).darkBlock.split('@media')[0];
+	assert.match(attr, /--on-accent:#0A1628/, "the theme's :root value wins, not the print band's");
+	assert.doesNotMatch(attr, /#ECECEC/, 'the component-scoped declaration is not in the flatten map at all');
+	// And the light BASE is untouched either way — only the dark arm was ever at risk.
+	assert.match(themeDualMode(css).base, /section\.print\{--surface-inverse:#ECECEC\}/);
+});
+
+// The hole `themeDualMode` could not see: it only ever read <style> BLOCKS, and two chart
+// components write their gradient stops as an inline `style` ATTRIBUTE. Those shipped with
+// `light-dark()` intact, so the fill was decided by the element's `color-scheme` while the
+// page was decided by `data-lp-scheme` — the same two signals agreeing only because the
+// player's script writes an inline color-scheme onto <html>. Reported from a real iPad:
+// gantt bars and state-chart nodes dark on a light page.
+test('hoistInlineLightDark collapses an inline style to its light arm and re-applies the dark one', () => {
+	const { JSDOM } = require('jsdom');
+	const dom = new JSDOM(
+		'<svg><defs><linearGradient><stop style="stop-color:light-dark(color-mix(in oklab, var(--h) var(--top-l), var(--bg)),color-mix(in oklab, var(--h) var(--top-d), black))"/></linearGradient></defs></svg>',
+	);
+	const css = hoistInlineLightDark(dom.window.document);
+	const stop = dom.window.document.querySelector('stop');
+	// The BASE is now scheme-free — the light arm, inline, where its own tokens still resolve.
+	assert.equal(stop.getAttribute('style'), 'stop-color:color-mix(in oklab, var(--h) var(--top-l), var(--bg))');
+	assert.match(stop.getAttribute('class'), /lp-sd-0/);
+	// The dark arm comes back as scoped rules, `!important` because it competes with the
+	// element's own inline style, which nothing else can outrank.
+	assert.match(css, /:root\[data-lp-scheme=dark\] \.lp-sd-0\{stop-color:color-mix\(in oklab, var\(--h\) var\(--top-d\), black\)!important\}/);
+	// Every scope the token block carries: the viewer's choice, a pinned-dark slide in ANY
+	// scheme, the no-JS system fallback, and the restore for a slide pinned light or to print.
+	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.print\) \.lp-sd-0\{/);
+	assert.match(css, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\] \.lp-sd-0\{/);
+	for (const pin of ['.light', '.color-light', '.print']) {
+		assert.ok(
+			css.includes(`:root[data-lp-scheme=dark] section[data-lattice-slide]${pin} .lp-sd-0{stop-color:color-mix(in oklab, var(--h) var(--top-l), var(--bg))!important}`),
+			`a slide pinned ${pin} keeps the light arm while the player is dark`,
+		);
+	}
+});
+
+test('hoistInlineLightDark leaves a document with no inline light-dark() untouched', () => {
+	const { JSDOM } = require('jsdom');
+	const dom = new JSDOM('<p style="color:red">x</p><div>y</div>');
+	assert.equal(hoistInlineLightDark(dom.window.document), '');
+	assert.equal(dom.window.document.querySelector('p').getAttribute('style'), 'color:red');
+	assert.equal(dom.window.document.querySelector('p').getAttribute('class'), null, 'and marks nothing');
+});
+
+test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
+	const { JSDOM } = require('jsdom');
+	const dom = new JSDOM(
+		'<i style="fill:light-dark(#fff,#000)"></i><b style="fill:light-dark(#fff,#000)"></b><u style="fill:light-dark(#eee,#111)"></u>',
+	);
+	const css = hoistInlineLightDark(dom.window.document);
+	const doc = dom.window.document;
+	assert.equal(doc.querySelector('i').getAttribute('class'), doc.querySelector('b').getAttribute('class'));
+	assert.notEqual(doc.querySelector('i').getAttribute('class'), doc.querySelector('u').getAttribute('class'));
+	assert.equal((css.match(/:root\[data-lp-scheme=dark\] \.lp-sd-\d\{/g) || []).length, 2, 'one rule per distinct pair');
 });
 
 test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark()', () => {
