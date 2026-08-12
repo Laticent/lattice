@@ -688,7 +688,45 @@ function loadPaletteWithImports(filePath, seen = new Set(), label = null) {
 
 const paletteCSS = loadPaletteWithImports(palettePath);
 const layoutCSS  = loadPaletteWithImports(cssFile, new Set(), 'layout CSS');
-const css = paletteCSS + '\n' + layoutCSS;
+/* LAYOUT FIRST, PALETTE SECOND — the cascade order a palette is written against.
+ *
+ * This was `paletteCSS + layoutCSS`, which inverts it. Both files declare tokens at
+ * plain `:root` (equal specificity, 0-0-1), so source order alone decides, and the
+ * palette landing FIRST meant `lib/base/base.tokens.css`'s universal defaults
+ * overrode every value the palette curated. Silently, and only in this path: the
+ * engine's own `composeCss` (lib/engine/css.js) inlines the base AT the theme's
+ * `@import 'lattice'` site, which puts the theme's own block after it — the correct
+ * order, and the one `base.tokens.css`'s comment describes ("a palette's own :root
+ * override … loads AFTER this base block … so source order resolves it"). So the two
+ * render paths disagreed about the cascade, which is exactly what HARD RULE #1 exists
+ * to prevent; this file was the one that was wrong.
+ *
+ * MEASURED before fixing, in Chromium, by composing the real sheet both ways and
+ * diffing every custom property's computed value on a slide — 36 tokens on indaco,
+ * 48 on onyx, 52 on cuoio, identical in light and dark. Not an edge: every palette's
+ * curated --diagram-active/-done/-critical/-note/-today AND their -mark strokes,
+ * --chart-state-*, --status-*, --pass/--warn/--fail with their -bg mixes, the whole
+ * nine-stop --seq-* ramp, --code-text, --code-inline-fg, --journey-stage-fg, all
+ * twelve --hljs-* and the four --on-dark-* rungs. Every exported PDF in the repo was
+ * rendered with the engine's generic fallbacks standing in for the palette's work.
+ *
+ * And the gates never saw it, because tools/contrast-audit.js and the palette tests
+ * read theme SOURCE: they assert on indaco's `--pass: #2F6B12` while the render used
+ * base's `#2D6A3F`. This does not merely restore intent — it makes the rendered deck
+ * match what every palette gate already claims about it.
+ *
+ * Only `:root` token declarations move. The three palettes that carry real RULES
+ * (a11y-base's chart-status pseudos, onyx's and concrete's `section.dark:not(.print)`
+ * texture blocks) sit at selectors with no equal-specificity competitor in the layout
+ * CSS, so they won before and win now — verified. Nothing in either file uses a
+ * `url()` @import, so the position-sensitivity of @import does not apply. The
+ * geometry / orientation / marp-system blocks are appended AFTER `${css}` in the
+ * document and keep winning, which is what composeCss also intends.
+ *
+ * The scratch document at the svg-look path already composed `layoutCSS` then palette
+ * — this brings the main shell in line with it.
+ * See engineering/decisions/2026-08-12-theme-wins-the-cascade.md. */
+const css = layoutCSS + '\n' + paletteCSS;
 
 // ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
 // This file used to carry four hand-written copies of "match the front matter" and three of
