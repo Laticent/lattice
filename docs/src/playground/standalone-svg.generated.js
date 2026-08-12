@@ -138,14 +138,6 @@ var require_standalone_svg = __commonJS({
         "paint-order": "normal",
         "mix-blend-mode": "normal"
       };
-      const SCHEME_TOKENS = [
-        "--diagram-line",
-        "--diagram-active",
-        "--diagram-done",
-        "--diagram-critical",
-        "--diagram-today",
-        "--diagram-note"
-      ];
       const PAINT_PROPS = { fill: 1, stroke: 1 };
       const doc = srcSvg.ownerDocument;
       const SVGNS = "http://www.w3.org/2000/svg";
@@ -159,6 +151,34 @@ var require_standalone_svg = __commonJS({
         probe.style.color = expr;
         return w.getComputedStyle(probe).color || expr;
       }
+      const SCHEME_TOKENS = [];
+      {
+        const names = {};
+        const sheets = doc.querySelectorAll("style");
+        const nameRe = /(--[a-zA-Z0-9-]+)\s*:/g;
+        for (let i = 0; i < sheets.length; i++) {
+          const text = sheets[i].textContent || "";
+          let nm;
+          nameRe.lastIndex = 0;
+          while (nm = nameRe.exec(text)) names[nm[1]] = 1;
+        }
+        const keys = Object.keys(names);
+        for (let i = 0; i < keys.length; i++) {
+          probe.style.colorScheme = "light";
+          const lightVal = resolveColor("var(" + keys[i] + ")");
+          probe.style.colorScheme = "dark";
+          const darkVal = resolveColor("var(" + keys[i] + ")");
+          if (lightVal && darkVal && lightVal !== darkVal) SCHEME_TOKENS.push(keys[i]);
+        }
+        probe.style.colorScheme = "";
+      }
+      const LABEL_INK_TOKENS = [
+        "--text-heading",
+        "--c-on-container",
+        "--c-on-subcontainer",
+        "--cat-on-fill",
+        "--cat-on-mark"
+      ];
       const FO_TO_TEXT = !!(opts && opts.foreignObjectLabels === "text");
       function lineRuns(node) {
         const range = doc.createRange();
@@ -212,7 +232,6 @@ var require_standalone_svg = __commonJS({
             let decl = "text-anchor:middle;dominant-baseline:central;";
             decl += `font-family:${pcs.fontFamily};font-size:${pcs.fontSize};font-weight:${pcs.fontWeight};`;
             if (pcs.fontStyle && pcs.fontStyle !== "normal") decl += `font-style:${pcs.fontStyle};`;
-            const LABEL_INK_TOKENS = ["--text-heading", "--c-on-container", "--c-on-subcontainer", "--cat-on-fill", "--cat-on-mark"];
             let inkToken = "";
             for (let t = 0; t < LABEL_INK_TOKENS.length; t++) {
               if (pcs.color && resolveColor("var(" + LABEL_INK_TOKENS[t] + ")") === pcs.color) {
