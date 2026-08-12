@@ -72,6 +72,38 @@ async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash
 }
 
 /**
+ * Latch whether a crash toast was EVER on screen — a fact the toast's own
+ * 12-second life destroys.
+ *
+ * This exists because the skip below cannot otherwise tell "it auto-dismissed"
+ * (benign, on a slow box) from "it never rendered" (a total regression in the
+ * component this spec is about). A checker made `Toaster` return `null` — the
+ * crash toast gone entirely — and the suite reported `2 passed, 2 skipped`,
+ * exit 0. `studio-e2e-nightly.yml` only files its tracking issue when a spec
+ * FAILS, so a contract that skips forever raises nothing, ever.
+ *
+ * Installed as an init script so it is watching before the app's first paint,
+ * and latched rather than sampled so no poll can miss the window.
+ */
+async function watchForCrashToast(page: Parameters<typeof gotoStudio>[0]) {
+	await page.addInitScript(() => {
+		const w = window as unknown as { __crashToastEverRendered?: boolean };
+		w.__crashToastEverRendered = false;
+		const look = () => {
+			for (const t of document.querySelectorAll('[data-sonner-toast]')) {
+				if (/stopped unexpectedly/i.test(t.textContent || '')) w.__crashToastEverRendered = true;
+			}
+		};
+		const start = () => {
+			look();
+			new MutationObserver(look).observe(document.body, { childList: true, subtree: true, characterData: true });
+		};
+		if (document.body) start();
+		else addEventListener('DOMContentLoaded', start, { once: true });
+	});
+}
+
+/**
  * The report was RAISED — a fact that outlives the toast.
  *
  * Separated from the visual contract because the two fail for different reasons:
@@ -121,12 +153,30 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 	// budget the fixture deliberately grants. Skip rather than fail — the report was
 	// already proven to have been raised, and a skip that says why is a true
 	// statement where a red is a false one.
-	const stillUp = await toast.isVisible().catch(() => false);
+	// `.first()` so a second toast on screen cannot turn a strict-mode violation
+	// into a silent skip; the count assertion below reds on it instead.
+	const stillUp = await toast.first().isVisible().catch(() => false);
+	if (!stillUp) {
+		// THE SKIP MUST EARN ITSELF. Absent this, the predicate reads any missing
+		// toast as "it dismissed in time" — including a toast that never existed.
+		// The latch distinguishes them, so the only thing that can be excused here
+		// is the thing the message actually claims.
+		const everRendered = await page.evaluate(
+			() => (window as unknown as { __crashToastEverRendered?: boolean }).__crashToastEverRendered === true,
+		);
+		expect(
+			everRendered,
+			'the crash toast NEVER rendered — this is a presentation regression, not a slow first paint, and it must not be skipped',
+		).toBe(true);
+	}
 	test.skip(
 		!stillUp,
 		'the crash toast had already auto-dismissed before this assertion could run (first paint outran its 12s life) — ' +
-			'the report itself is verified separately by expectReportWasRaised',
+			'it was observed on screen by the latch, and the report itself is verified separately by expectReportWasRaised',
 	);
+	// Exactly one, so two stacked toasts red here rather than tripping strict mode
+	// somewhere less legible.
+	await expect(toast).toHaveCount(1);
 	await expect(toast).toContainText(/stopped unexpectedly/i);
 	// AND IT MUST ACTUALLY RENDER. `toContainText` reads `textContent`, which
 	// includes `display:none` text — hiding the title passed every assertion here
@@ -162,12 +212,21 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 		// `max-h` on the description alone left both green over a toast reading
 		// "Your decks are safe. See what the", second line gone. Clipping is checked
 		// on every text layer, not only on the box around them.
+		// BOTH AXES. Every oracle here read HEIGHT only, and a checker walked
+		// straight through the gap: a title held to 120px with `nowrap` +
+		// `overflow:hidden` at 390px renders "The Studio stoppe" — cut off
+		// mid-word — with `descOutside`, `overflowing`, `clippedLayers`, the
+		// radius, the contrast and `toBeVisible` ALL green. `scrollWidth` was the
+		// one signal never read, on the surface whose original bug report was an
+		// unstyled black blob.
+		const cut = (n: Element) => n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1;
 		const clippedLayers = [...el.querySelectorAll('[data-title],[data-description],button')]
-			.filter((n) => n.scrollHeight > n.clientHeight + 1)
+			.filter(cut)
 			.map((n) => n.getAttribute('data-title') !== null ? 'title' : n.getAttribute('data-description') !== null ? 'description' : 'action');
+		const dRect = d?.getBoundingClientRect();
 		return {
-			descOutside: d ? d.getBoundingClientRect().bottom > box.bottom + 0.5 : true,
-			overflowing: el.scrollHeight > el.clientHeight + 1,
+			descOutside: dRect ? dRect.bottom > box.bottom + 0.5 || dRect.right > box.right + 0.5 : true,
+			overflowing: el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
 			clippedLayers,
 		};
 	});
@@ -206,16 +265,25 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 		};
 		const ratio = (node: Element) => {
-			// COMPOSITE THE WHOLE CHAIN. Measuring against the toast's background
-			// flatters any layer that paints its own — the action chip is `bg-white/15`
-			// and scored 5.78:1 against the toast where the pixels it is drawn on give
-			// 3.67:1. Compositing only ONE level over the toast has the same flaw one
-			// generation up: `[data-content]` wraps the title and description, and a
-			// background there was scored 17.3:1 and 11.4:1 against a true 3.9 and 3.1.
-			// Walk from the toast down to the node, painting each ancestor in turn.
+			// COMPOSITE THE WHOLE CHAIN, FROM THE PAGE UP. Measuring against the
+			// toast's background flatters any layer that paints its own — the action
+			// chip is `bg-white/15` and scored 5.78:1 against the toast where the
+			// pixels it is drawn on give 3.67:1. Compositing only ONE level had the
+			// same flaw one generation up: `[data-content]` wraps the title and
+			// description, and a background there scored 17.3:1 / 11.4:1 against a
+			// true 3.9 / 3.1.
+			//
+			// STARTING at the toast had the flaw one generation the OTHER way, and it
+			// was the same bug a third time: painting an opaque canvas from the
+			// toast's own declared color throws away the toast's ALPHA. A checker set
+			// `--normal-bg: rgba(0,0,0,0.12)` — white text on a near-white pill,
+			// rasterized at 1.147:1, WORSE than #1622 — and this scored it 21.000 and
+			// passed. So the walk starts at the document, over the white the browser
+			// paints under everything, and every layer down to the node composites in
+			// turn — the toast included, alpha and all.
 			const chain: Element[] = [];
-			for (let cur: Element | null = node; cur && cur !== el; cur = cur.parentElement) chain.unshift(cur);
-			let backdrop = px(getComputedStyle(el).backgroundColor);
+			for (let cur: Element | null = node; cur; cur = cur.parentElement) chain.unshift(cur);
+			let backdrop = [255, 255, 255];
 			for (const layer of chain) {
 				backdrop = px(getComputedStyle(layer).backgroundColor, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`);
 			}
@@ -262,6 +330,7 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 
 test('a crash report surfaces on the next boot and says what to try', async ({ page }) => {
 	await seedCrash(page);
+	await watchForCrashToast(page);
 	await gotoStudio(page);
 	await expectReportWasRaised(page);
 	await expectReportReadsWell(page);
@@ -269,6 +338,7 @@ test('a crash report surfaces on the next boot and says what to try', async ({ p
 
 test('the crash report reads correctly on WebKit at phone size @webkit-phone', async ({ page }) => {
 	await seedCrash(page);
+	await watchForCrashToast(page);
 	await gotoStudio(page);
 	await expectReportWasRaised(page);
 	await expectReportReadsWell(page);
@@ -323,10 +393,18 @@ test('a clean session is never reported as a crash', async ({ page }) => {
  * record rather than on whatever else the origin holds.
  */
 test('a wipe survives a tab that was frozen through it', async ({ page, context, browserName }) => {
-	test.skip(browserName !== 'chromium', 'needs CDP Page.setWebLifecycleState — no WebKit equivalent');
+	test.skip(browserName !== 'chromium', 'needs CDP Emulation.setScriptExecutionDisabled — no WebKit equivalent');
+	// TWO FULL STUDIO BOOTS, each budgeted 45s by the fixture's FIRST_PAINT_TIMEOUT,
+	// plus a stop window and a tick poll — against a 60s default that cannot cover
+	// even one slow boot. Unlike the visual contract, this test has no skip escape,
+	// so the failure mode is a hard RED on a healthy app whenever the runner is
+	// loaded. Measured 23-26s here; the doc's own throttled figures are 26-33s for a
+	// SINGLE boot.
+	test.setTimeout(180_000);
 
-	// Observe the lifecycle from inside the page, so "was it really frozen?" is a
-	// measurement rather than an assumption.
+	// Record whether the page heard the wipe — the one precondition the fix depends
+	// on. (It does NOT observe Page Lifecycle events: the stop primitive below
+	// fires no `freeze`/`resume`, so there is no lifecycle here to measure.)
 	await page.addInitScript(() => {
 		const w = window as unknown as { __heardWipe?: boolean; __ticks?: number };
 		w.__heardWipe = false;
