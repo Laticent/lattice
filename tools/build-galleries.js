@@ -23,7 +23,7 @@
  *   node tools/build-galleries.js                  # all components, both themes
  *   node tools/build-galleries.js --only kpi       # one component, both themes
  *   node tools/build-galleries.js --theme light    # all components, one theme
- *   node tools/build-galleries.js --check          # verify staleness vs sources
+ *   node tools/build-galleries.js --check          # has any render input changed since HEAD?
  *
  * Exit codes:
  *   0  every requested PDF built (or up-to-date in --check mode)
@@ -36,6 +36,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { loadAll } = require('../lib/components');
 const { targetPaths, isEnriched } = require('./build-component-docs');
+const { stalenessAgainstInputs } = require('./lib/render-inputs');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
@@ -127,18 +128,18 @@ function buildOne(m, theme) {
   };
 }
 
+// Staleness against ALL of this PDF's inputs, not just its own markdown — the layout
+// bundle, the palettes and the transform kernel all shape the render, and a CSS-only
+// change (which is most of them) leaves the deck untouched. Comparing that one mtime is
+// what made this gate report "up to date" across 122 galleries that had visibly moved.
+// tools/lib/render-inputs.js explains why it asks git rather than the filesystem clock,
+// and what it still cannot see; golden-diff.mjs is the pixel-accurate gate.
 function checkOne(m, theme) {
   const outPdf = pdfPathForTheme(m, theme);
   const galleryMd = targetPaths(m).gallery;
   if (!fs.existsSync(outPdf)) return { name: m.name, theme, stale: true, reason: 'missing' };
   if (!fs.existsSync(galleryMd)) return { name: m.name, theme, stale: false };
-  // Coarse staleness check: PDF older than source markdown.
-  const pdfStat = fs.statSync(outPdf);
-  const mdStat = fs.statSync(galleryMd);
-  if (mdStat.mtimeMs > pdfStat.mtimeMs) {
-    return { name: m.name, theme, stale: true, reason: 'source newer than PDF' };
-  }
-  return { name: m.name, theme, stale: false };
+  return { name: m.name, theme, ...stalenessAgainstInputs(outPdf, galleryMd) };
 }
 
 function main(argv) {
@@ -196,7 +197,13 @@ function main(argv) {
 
   if (checkMode) {
     if (stale.length === 0) {
-      process.stdout.write(`✓ all ${upToDate} gallery PDFs up to date\n`);
+      // Deliberately NOT "up to date". All this establishes is that no render input
+      // differs from HEAD; a change COMMITTED without rebuilding still looks sound here.
+      // tools/golden-diff.mjs rasterizes and diffs, and is the freshness gate.
+      process.stdout.write(
+        `✓ ${upToDate} gallery PDFs: no render input changed since HEAD ` +
+        '(golden-diff is the pixel gate)\n',
+      );
       return 0;
     }
     process.stderr.write(`✗ ${stale.length} gallery PDFs are stale:\n`);

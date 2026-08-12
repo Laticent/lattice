@@ -86,10 +86,19 @@ pre-commit:
 pre-push-disabled:
   # The per-component / bucket-gallery PDF freshness checks live here
   # rather than pre-commit because rebuilding all 58 + 18 PDFs takes
-  # ~30 minutes and would block every component-CSS commit. They run
-  # in CI instead. Lefthook keys this stage with `-disabled` so it
-  # never fires automatically; documented here as the migration path
-  # if the team wants the gate on push.
+  # ~30 minutes and would block every component-CSS commit. Lefthook
+  # keys this stage with `-disabled` so it never fires automatically;
+  # documented here as the migration path if the team wants the gate
+  # on push.
+  #
+  # CORRECTION (#1640): this used to say "they run in CI instead". They do
+  # not — `build:galleries:check` and `build:bucket-galleries:check` are
+  # invoked by no workflow, no hook and no build step; they are on-demand
+  # scripts only. The CI gate that actually watches these artifacts is
+  # `golden-diff`, which rasterizes this PR's committed goldens against the
+  # base branch and posts what moved. Keep it that way deliberately: a
+  # blocking freshness gate here would force the 30-minute rebuild on every
+  # component-CSS commit, which is what this stage was disabled to avoid.
 
 pre-push:
   # The "nothing unverified reaches the remote" boundary. Everything that

@@ -141,9 +141,9 @@ const SCRIPT_META = {
 
   // Galleries & preview (rendered PDFs)
   'build:galleries':          ['Galleries & preview', 'Rebuild per-component gallery PDFs (light + dark).'],
-  'build:galleries:check':    ['Galleries & preview', 'Freshness gate for the per-component galleries.'],
+  'build:galleries:check':    ['Galleries & preview', 'On-demand: flags per-component gallery PDFs whose render inputs changed but were not rebuilt. Not wired to CI or a hook — golden-diff is the CI gate.'],
   'build:bucket-galleries':   ['Galleries & preview', 'Rebuild per-bucket survey gallery PDFs (light + dark).'],
-  'build:bucket-galleries:check':['Galleries & preview', 'Freshness gate for the bucket survey galleries.'],
+  'build:bucket-galleries:check':['Galleries & preview', 'On-demand: flags bucket survey PDFs whose render inputs changed but were not rebuilt. Not wired to CI or a hook — golden-diff is the CI gate.'],
   'build:showcase-galleries': ['Galleries & preview', 'Rebuild the consolidated cross-bucket showcase decks (data-viz = chart + math) from the live manifest set, light + dark.'],
   'build:showcase-galleries:check':['Galleries & preview', 'Freshness gate for the consolidated showcase decks (content drift vs the manifests).'],
   'build:gallery-jargon':     ['Galleries & preview', 'Rebuild the jargon showcase gallery PDF.'],
