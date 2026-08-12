@@ -72,8 +72,8 @@ async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash
 }
 
 /**
- * Latch whether a crash toast was EVER on screen — a fact the toast's own
- * 12-second life destroys.
+ * Latch whether a crash toast ever OCCUPIED SPACE ON SCREEN — a fact the toast's
+ * own 12-second life destroys.
  *
  * This exists because the skip below cannot otherwise tell "it auto-dismissed"
  * (benign, on a slow box) from "it never rendered" (a total regression in the
@@ -82,8 +82,22 @@ async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash
  * exit 0. `studio-e2e-nightly.yml` only files its tracking issue when a spec
  * FAILS, so a contract that skips forever raises nothing, ever.
  *
+ * IT MUST TEST LAYOUT, NOT `textContent`. The first version of this latch read
+ * the text, i.e. presence in the DOM — and a sixth pass walked straight through
+ * it: `display:none` on the toast root gives the user nothing at all, satisfies
+ * a text-only latch, and reproduces that same `2 passed, 2 skipped`, exit 0. A
+ * rendered box is the weakest thing that is still a claim about the screen.
+ *
+ * Opacity is deliberately NOT in this predicate. Sonner fades each toast in, and
+ * a `MutationObserver` does not fire for a CSS transition — so latching on
+ * opacity would sample mid-fade, stay false for a healthy toast, and turn the
+ * benign auto-dismiss case into a hard red. Opacity is checked live instead, in
+ * the contract below, where the toast is known to be on screen.
+ *
  * Installed as an init script so it is watching before the app's first paint,
- * and latched rather than sampled so no poll can miss the window.
+ * and latched rather than sampled so no poll can miss the window. The interval
+ * backs the observer up for the same reason opacity is excluded: style changes
+ * that alter nothing in the DOM are invisible to it.
  */
 async function watchForCrashToast(page: Parameters<typeof gotoStudio>[0]) {
 	await page.addInitScript(() => {
@@ -91,12 +105,18 @@ async function watchForCrashToast(page: Parameters<typeof gotoStudio>[0]) {
 		w.__crashToastEverRendered = false;
 		const look = () => {
 			for (const t of document.querySelectorAll('[data-sonner-toast]')) {
-				if (/stopped unexpectedly/i.test(t.textContent || '')) w.__crashToastEverRendered = true;
+				if (!/stopped unexpectedly/i.test(t.textContent || '')) continue;
+				const r = t.getBoundingClientRect();
+				const cs = getComputedStyle(t);
+				if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none') {
+					w.__crashToastEverRendered = true;
+				}
 			}
 		};
 		const start = () => {
 			look();
 			new MutationObserver(look).observe(document.body, { childList: true, subtree: true, characterData: true });
+			setInterval(look, 100);
 		};
 		if (document.body) start();
 		else addEventListener('DOMContentLoaded', start, { once: true });
@@ -166,18 +186,40 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 		);
 		expect(
 			everRendered,
-			'the crash toast NEVER rendered — this is a presentation regression, not a slow first paint, and it must not be skipped',
+			'the crash toast never rendered a box on screen — this is a presentation regression, not a slow first paint, and it must not be skipped',
 		).toBe(true);
 	}
 	test.skip(
 		!stillUp,
 		'the crash toast had already auto-dismissed before this assertion could run (first paint outran its 12s life) — ' +
-			'it was observed on screen by the latch, and the report itself is verified separately by expectReportWasRaised',
+			'the latch saw it render a box on screen, and the report itself is verified separately by expectReportWasRaised',
 	);
 	// Exactly one, so two stacked toasts red here rather than tripping strict mode
 	// somewhere less legible.
 	await expect(toast).toHaveCount(1);
 	await expect(toast).toContainText(/stopped unexpectedly/i);
+
+	// OPACITY IS NOT VISIBILITY — not to Playwright, and not to a contrast walk.
+	// `toBeVisible()` passes on `opacity: 0`, and the compositing below reads
+	// `backgroundColor` only, so a crash toast faded to nothing passed this ENTIRE
+	// contract: the title check, all three contrast ratios, the clipping tests and
+	// the `See report` click. Measured `4 passed` on a toast no human could see.
+	//
+	// Multiplied through the ancestors, because opacity on any of them fades the
+	// toast just as completely. Polled because Sonner fades each toast IN: a
+	// single read can land mid-animation, where a healthy toast is legitimately
+	// part-way. A permanent zero never settles.
+	await expect
+		.poll(
+			async () =>
+				toast.evaluate((el) => {
+					let o = 1;
+					for (let n: Element | null = el; n; n = n.parentElement) o *= Number(getComputedStyle(n).opacity || '1');
+					return o;
+				}),
+			{ timeout: 5_000, message: 'the crash toast is faded out — visible to Playwright, invisible to a human' },
+		)
+		.toBeGreaterThan(0.99);
 	// AND IT MUST ACTUALLY RENDER. `toContainText` reads `textContent`, which
 	// includes `display:none` text — hiding the title passed every assertion here
 	// and produced a crash toast with no headline at all. A zero-height box also
@@ -278,13 +320,38 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 			// toast's own declared color throws away the toast's ALPHA. A checker set
 			// `--normal-bg: rgba(0,0,0,0.12)` — white text on a near-white pill,
 			// rasterized at 1.147:1, WORSE than #1622 — and this scored it 21.000 and
-			// passed. So the walk starts at the document, over the white the browser
-			// paints under everything, and every layer down to the node composites in
-			// turn — the toast included, alpha and all.
+			// passed. So the walk runs the whole chain down to the node — the toast
+			// included, alpha and all.
+			//
+			// AND IT DOES NOT GUESS WHAT IS UNDER THE PAGE. The version before this one
+			// started the walk at an assumed white canvas, "the white the browser paints
+			// under everything" — which is false the moment `color-scheme: dark` applies:
+			// measured, that walk returned [224,224,224] where the real pixel was [15,15,15].
+			// It was masked only because `body` is opaque in both modes here, and it is the
+			// same shape of bug as the alpha one above — an assumption about a surface,
+			// one CSS change from being wrong, and wrong in BOTH directions (dark text
+			// would score high and pass, light text would score low and red).
+			//
+			// So the walk starts at the DEEPEST layer that is actually opaque — nothing
+			// above it can affect a pixel — and if no such layer exists the measurement
+			// says so instead of inventing a backdrop.
 			const chain: Element[] = [];
 			for (let cur: Element | null = node; cur; cur = cur.parentElement) chain.unshift(cur);
-			let backdrop = [255, 255, 255];
-			for (const layer of chain) {
+			// Format-agnostic: composite the color over black and over white, and see
+			// whether the result moved. Only a fully opaque color is unaffected — no
+			// parsing, so `oklab(… / .5)` and `color-mix()` are read correctly too.
+			const opaque = (color: string) => {
+				const a = px(color, 'rgb(0,0,0)');
+				const b = px(color, 'rgb(255,255,255)');
+				return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+			};
+			let base = -1;
+			for (let i = 0; i < chain.length; i++) {
+				if (opaque(getComputedStyle(chain[i]).backgroundColor)) base = i;
+			}
+			if (base < 0) return null; // nothing opaque anywhere — refuse to guess
+			let backdrop = px(getComputedStyle(chain[base]).backgroundColor);
+			for (const layer of chain.slice(base + 1)) {
 				backdrop = px(getComputedStyle(layer).backgroundColor, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`);
 			}
 			const a = lum(px(getComputedStyle(node).color, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`));
@@ -296,7 +363,7 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 		// near-black pill made it essentially invisible with every assertion green —
 		// #1622's exact bug, relocated. The title is the line that says the Studio
 		// crashed, so it is the last thing that should be unreadable.
-		const layers: Record<string, number> = { description: ratio(d) };
+		const layers: Record<string, number | null> = { description: ratio(d) };
 		const title = el.querySelector('[data-title]');
 		if (title) layers.title = ratio(title);
 		const action = el.querySelector('button');
@@ -304,6 +371,14 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 		return layers;
 	});
 	for (const [layer, ratio] of Object.entries(contrast)) {
+		// `null` means the walk found nothing opaque to stand on, so the ratio is
+		// unknowable rather than bad. It fails — an unmeasurable contrast is not a
+		// passing one, and this is the branch that would otherwise quietly return to
+		// guessing a backdrop.
+		expect(
+			ratio,
+			`${layer} contrast against the surface it is painted on (null = no opaque layer beneath it, so this could not be measured)`,
+		).not.toBeNull();
 		expect(ratio, `${layer} contrast against the surface it is painted on`).toBeGreaterThanOrEqual(4.5);
 	}
 

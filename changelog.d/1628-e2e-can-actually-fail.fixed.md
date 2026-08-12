@@ -9,5 +9,6 @@
   reason if the page turns out to have kept running. And the checks that read a
   toast which disappears after twelve seconds no longer report a healthy app as
   broken on a slow machine, nor a crashed one as healthy — a missing toast is
-  excused only when the test watched it appear and time out, never when it never
-  appeared at all.
+  excused only when the test watched it take up space on screen first, never when
+  it was hidden, collapsed, or absent. A report faded to invisible fails too,
+  which it did not before.

@@ -773,7 +773,8 @@ them — an oracle that cannot fail for the reason it names.
   into the same silent skip. A latch (`MutationObserver`, installed before first
   paint) now records whether a crash toast was ever on screen, and the skip
   asserts that latch before excusing itself. Absence is now only forgivable if the
-  test watched it arrive.
+  test watched it arrive. *(The first version of this latch read `textContent`,
+  i.e. DOM presence — see the sixth pass below, which walked through it.)*
 - **Clipping was checked on one axis.** Every oracle read `scrollHeight`. A title
   held to 120px with `nowrap` + `overflow:hidden` at 390px renders **"The Studio
   stoppe"** — cut off mid-word — with the rect test, the container test, the
@@ -795,6 +796,53 @@ timeout** — two Studio boots, each budgeted 45s by the fixture, against a 60s
 default, with no skip escape, so a loaded runner reds a healthy app (now
 `setTimeout(180_000)`); and its non-Chromium skip still named
 `Page.setWebLifecycleState`, the primitive the fourth pass removed.
+
+
+## Sixth pass: the latch tested the DOM, not the screen
+
+The fifth pass's headline fix was half a fix, and the missing half had the same
+exit code as the bug it closed.
+
+- **The latch read `textContent`** — presence in the DOM. `display:none` on the
+  toast root gives the user *nothing at all*, satisfies a text-only latch, and
+  reproduces the exact `2 passed, 2 skipped, exit 0` that the fifth pass cites as
+  the hole it closed. The class is broad: anything that leaves the text in the DOM
+  while making the box unrenderable. It now requires a laid-out box —
+  `getBoundingClientRect()` non-zero, `visibility` and `display` honest. **Opacity
+  is deliberately excluded from the latch**: Sonner fades toasts in, a
+  `MutationObserver` never fires for a CSS transition, and latching on opacity
+  would read mid-fade and turn the benign auto-dismiss case into a hard red. A
+  100ms interval backs the observer up for the same reason.
+- **`opacity: 0` passed the ENTIRE contract** — `toBeVisible()` (Playwright counts
+  a fully transparent element as visible), all three contrast ratios, the clipping
+  tests, and the `See report` click. A crash toast no human could see: `4 passed`.
+  Now checked live, multiplied through the ancestors, and polled so the fade-in
+  does not red it.
+- **The walk assumed the browser paints white under the page.** Under
+  `color-scheme: dark` it does not: measured, the walk returned `[224,224,224]`
+  where the real pixel was `[15,15,15]`. Masked only because `body` is opaque in
+  both modes here — and the same shape as the alpha bug one pass earlier: an
+  assumption about a surface, one CSS change from being wrong, and wrong in *both*
+  directions. The walk now starts at the deepest genuinely-opaque layer, decided by
+  compositing over black and over white and checking whether the result moved
+  (format-agnostic, so `oklab(… / .5)` and `color-mix()` read correctly). With no
+  opaque layer anywhere it returns `null` and the assertion fails, rather than
+  inventing a backdrop.
+
+**What held, and it is worth recording**, because this is the first pass where the
+central claim survived: the contrast rebase agrees with rasterized ground truth
+*exactly* — computed backdrop equals the sampled screenshot pixel in light and
+dark, opaque and translucent (`[219,217,212]` and `[18,14,11]`), where the old
+formula returned `[0,0,0]` — and **no shipping measurement changed value**
+(description 11.346, title 17.301, action 10.978). `--repeat-each=4` on both
+projects: 16/16, no flake from the new `toHaveCount(1)`, right-edge or
+`scrollWidth` assertions. Geometry headroom is wide, not knife-edge: every text
+layer measures `scrollWidth == clientWidth` exactly at devicePixelRatio 1 and 3.
+
+**Known and accepted:** `toHaveCount(1)` couples this spec to "nothing else toasts
+at boot". The only other call site needs a user settings write, so it is
+unreachable here — but a future boot-time toast would red this spec for an
+unrelated reason.
 
 **Logged as #1634, not fixed** (pre-existing, off this diff's path, HARD RULE #18):
 `onVisibility` calls `persist()` with no `catchUpOnWipe()` guard, unlike `tick`,
