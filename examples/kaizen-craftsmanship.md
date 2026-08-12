@@ -73,7 +73,7 @@ Most of what decides whether a thing is good is hidden from the person who buys 
 
 ## The part that decides its lifespan is a ridge you will never see.
 
-On the good pair a rib — the holdfast — is carved from the insole itself, and the sole is stitched through it. On the other, glued canvas imitates that rib. From every angle a buyer reaches, they are identical. One resoles a dozen times. The other lets go when the glue tires.
+One maker carved a rib — the holdfast — out of the insole itself and stitched the sole through it. The other glued on a strip of canvas to imitate it. From every angle a buyer reaches, the two are identical. One resoles a dozen times. The other lets go when the glue tires.
 
 > Every craft has a holdfast — the part nobody inspects, that decides everything.
 
@@ -121,8 +121,8 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
   - Deming put 94% of trouble in the system, 6% in people.
 - A quota buys the number you named
   - Pay by the pair and you specified pairs, not shoes.
-- Fear hides defects, never removes them
-  - Punish the messenger and reports stop. The defects continue.
+- Fear buys silence, and silence looks like quality
+  - Punish the messenger and reports stop. Defects continue.
 
 <!-- This is the slide that changes how they manage people, so slow down.
 
@@ -150,7 +150,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ## The same defect costs ten times more at every handoff it survives.
 
-`A rule of thumb: the multiplier is approximate, the direction is not.`
+`A rule of thumb. Trust the escalation; hold the exact ratio loosely.`
 
 1. $1
    - caught at design
@@ -186,14 +186,14 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 `Kaizen · The loop`
 
-## Improvement is a loop you run, not a project you finish.
+## Improvement is a loop you never stop running.
 
 - Plan
-  - State what you expect, and why. A prediction, not a task.
+  - State what you expect to happen, and why you expect it.
 - Do
   - Try it small. One bench, one batch, one week.
 - Study
-  - Compare what happened against what you predicted, not against hope.
+  - Hold what happened against what you predicted, and name the gap.
 - Act
   - Make it the new standard, or drop it and plan again.
 
@@ -213,11 +213,11 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 ## Four habits turn improvement from an event into a rhythm.
 
 - Go and see
-  - Decisions belong at the bench, not in a summary of the bench. Walk to where the work happens.
+  - Walk to the bench and watch. Every summary of the bench has already thrown away what you came for.
 - Standard first
-  - You cannot improve what was never written down. An unwritten process that changes has not improved — it has drifted.
+  - You cannot improve what was never written down. An unwritten process that changes has simply drifted.
 - Mistake-proof it
-  - Change the tool so the error becomes impossible. Asking people to be more careful is not a countermeasure.
+  - Change the tool so the error becomes impossible. A reminder to take care wears off by Thursday.
 - Stop the line
   - Anyone may halt work on a defect. Passing it downstream turns a cheap problem into an expensive one.
 
@@ -272,7 +272,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 - Three carries
   - Neck lanyard, belt clip, key ring. Each terminates the same way, so any carry takes any body.
 - One interface
-  - A snapped leather tab and a solid brass clip. That single agreement is what the system is built on.
+  - A snapped leather tab and a solid brass clip. Everything else in the system depends on that one agreement.
 
 > Five pieces, six configurations. Without the shared tab, that is six separate products.
 
