@@ -1,9 +1,14 @@
 ---
-status: shipped
-summary: The export path composed `palette + lattice`, so `base.tokens.css`'s universal defaults overrode every value a palette curated — both declare tokens at plain `:root`, equal specificity, and source order alone decides. Measured in Chromium by composing the real sheet both ways and diffing every computed custom property: 36 tokens on indaco, 48 on onyx, 52 on cuoio, identical in light and dark. The engine's own `composeCss` inlines the base AT the theme's `@import` site and has always been correct, so the two render paths disagreed about the cascade (HARD RULE #1) and this one was wrong. One line in `lattice-emulator.js`. The visible half is narrower than the token count implies and that distinction is the interesting part: mermaid reads its tokens through `parsePaletteVars(layoutCSS + paletteCSS)`, already the correct order, so every palette's curated `--diagram-*` semantics were ALREADY rendering — a claim made and then retracted during this investigation. What actually changed on screen is the code panel on every palette, the status inks and inline-code chips where a palette diverged from base, and cuoio's title slide, whose own on-dark ramp had never applied.
+status: blocked
+summary: BLOCKED — do not merge as written. The diagnosis holds but the one-line fix introduces TWO P1 dark-mode regressions, found by adversarial review: base's defaults are light-dark() PAIRS while some palette tokens override them with FLAT hexes, so "base wins" was accidentally protecting dark mode. `--seq-500` is `var(--accent)` (a pair) in base but a flat `var(--brand-accent)` in 12 palettes, and the word-cloud `spectrum` variant paints `--seq-700/500/400` as word fills: atelier 13.13:1 -> 1.11:1, ardesia 14.50 -> 1.16, six of eight words gone. `--pass`/`--warn`/`--fail` are pairs in base and flat light-tuned hexes in 4 of the 5 a11y palettes, so `redline`'s struck clause text lands at 1.50:1 on a11y-achromatopsia where main renders AA. The prerequisite is enumerated in this note and must land first. The original diagnosis: the export path composed `palette + lattice`, so `base.tokens.css`'s universal defaults overrode every value a palette curated — both declare tokens at plain `:root`, equal specificity, and source order alone decides. Measured in Chromium by composing the real sheet both ways and diffing every computed custom property: 36 tokens on indaco, 48 on onyx, 52 on cuoio, identical in light and dark. The engine's own `composeCss` inlines the base AT the theme's `@import` site and has always been correct, so the two render paths disagreed about the cascade (HARD RULE #1) and this one was wrong. One line in `lattice-emulator.js`. The visible half is narrower than the token count implies and that distinction is the interesting part: mermaid reads its tokens through `parsePaletteVars(layoutCSS + paletteCSS)`, already the correct order, so every palette's curated `--diagram-*` semantics were ALREADY rendering — a claim made and then retracted during this investigation. What actually changed on screen is the code panel on every palette, the status inks and inline-code chips where a palette diverged from base, and cuoio's title slide, whose own on-dark ramp had never applied.
 ---
 
 # The palette wins the cascade
+
+> **BLOCKED — 2026-08-12.** This must not merge as written. Adversarial review found two
+> P1 dark-mode regressions caused by the flip itself, plus corrections to this note's
+> claims. Details and the prerequisite are at the bottom under **What has to land first**.
+
 
 **2026-08-12 · branch `claude/cascade-theme-wins`**
 
@@ -125,3 +130,53 @@ palettes and notes that the 76 values are inert in the export path. This is the 
 activates them. The two changes are deliberately separate branches (HARD RULE #17): this
 one is a one-line cascade correction with a measured, palette-wide blast radius, and it
 deserves review on its own terms rather than inside an ink change.
+
+
+## What has to land first — the flat-token prerequisite
+
+The flip is correct in principle and wrong in effect today, for a reason nobody
+anticipated: **`base.tokens.css` declares many defaults as `light-dark()` PAIRS, while
+some palettes override them with FLAT values.** While base won, those flat overrides
+were inert and dark mode was quietly getting base's adaptive pair. Making the palette
+win exposes every one of them at once.
+
+Enumerated by resolving BOTH sides through the merged variable map (testing the literal
+text misses the family that caused the worst regression, because base's value is often
+an indirection like `--seq-500: var(--accent)`):
+
+| token | palette files | what it breaks |
+|---|---|---|
+| `--seq-500` | **22** (12 base palettes + their `-dark` wrappers) | the whole 10-stop sequential ramp anchors on a light-mode value. `word-cloud spectrum` paints `--seq-700/500/400` as word fills: **atelier 13.13:1 → 1.11:1**, ardesia 14.50 → 1.16 |
+| `--pass` · `--warn` · `--fail` | **4** (the a11y CVD palettes) | `redline`'s struck clause text → **1.50:1** on `a11y-achromatopsia`, where `main` renders it at AA |
+| `--on-accent` | 1 (carbone) | **not** a regression — verified an improvement (white on carbone's bright lime → its curated near-black at 10.95:1) |
+
+So the sequence is: give those tokens dark companions in their palettes (its own change,
+its own review), **then** flip the order. Flipping first ships the regressions.
+
+## Corrections to this note
+
+Adversarial review also found claims here that do not hold as written, recorded so the
+next reader does not build on them:
+
+- **`:root` is `(0,1,0)`, not `(0,0,1)`** — it is a pseudo-class. Harmless to the
+  conclusion (the selectors are identical), but it is the sentence doing the work.
+- **The token counts are method-dependent and should not be quoted precisely.** Three
+  independent measurements gave 36 / 38 / 33 for indaco. The *families* are right; the
+  integers are not reliable.
+- **"Only `:root` token declarations change precedence" is correct in outcome, but the
+  stated reason is wrong for 24 rules.** `a11y-base` also carries `piechart` wedge,
+  `funnel` band and `radar` poly rules that are byte-identical to the layout's, saved
+  only by `!important` — not by having no competitor. Anyone doing an `!important`
+  hygiene sweep on that file would silently flip them.
+- **HARD RULE #1 agreement is achieved in light and dark, NOT in print.** `composeCss`
+  runs `packTheme`, which rewrites `:root` onto the section; the emulator does not, so
+  base tokens computed on `html` stay unreachable by `section.print`'s remaps. ~49
+  tokens per palette remain divergent in print, unchanged by this fix. The four
+  `--on-dark-*` rungs are *not* among them (verified both paths), but `--status-*` and
+  the `-bg` mixes are. Pre-existing and off-path — logged, not fixed here.
+- **`cuoio` was framed as a pure win.** On its own panel the flip *lowers* its on-dark
+  ink (primary 14.77 → 14.15, secondary 8.54 → 7.89, ghost 2.90 → 2.72). The ghost value
+  is below the 3:1 rule floor, which is why the ink branch lifts cuoio's own ghost to 40%.
+- **`build:galleries:check` is not freshness evidence.** It compares the deck's mtime to
+  the PDF's and never re-renders, so it is blind to CSS, theme and engine changes. Its
+  green was cited here as if it proved the committed PDFs matched the render.
