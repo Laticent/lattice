@@ -56,13 +56,16 @@ section.regulatory-update > .cell-stage { display:flex; flex-direction:column; }
 section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child) {
   margin:0;
   padding-bottom:var(--sp-md);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   letter-spacing:0.06em;
   color:var(--accent);
 }
+/* font-family:inherit — see the note in redline.styles.css: the eyebrow font is named
+ * on the parent `<p>`, but `section code` fonts this `<code>` in --font-mono, so the
+ * update eyebrow never wore the label voice. Only visible under `sketch`. */
 section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child) > code {
-  background:none; border:none; padding:0; color:inherit;
+  background:none; border:none; padding:0; color:inherit; font-family:inherit;
 }
 section.regulatory-update.regulatory-update > .cell-stage > ol,
 section.regulatory-update.regulatory-update > .cell-stage > ul {
@@ -93,7 +96,7 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li::ma
 section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li::before {
   content:counter(upd, decimal-leading-zero);
   grid-column:1; grid-row:1;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-body);
   font-weight:700;
   color:var(--accent);
@@ -123,7 +126,7 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :
   grid-column:3; grid-row:1;
 }
 section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   color:var(--text-secondary);
@@ -220,7 +223,7 @@ section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3 {
    * the documented set could not render — the rhythm was tuned when every box was
    * 11% smaller (2026-07-30-slide-geometry-emitted-not-measured.md). */
   padding-top:var(--sp-sm);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.16em;

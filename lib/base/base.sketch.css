@@ -76,11 +76,22 @@ section.sketch {
   --font-display: var(--sketch-font-display);
   --font-body: var(--sketch-font-body);
   /* The "label voice" — eyebrows, table column headers, stat sub-labels,
-   * KEY INSIGHT, the running header/footer — defaults to the mono face
-   * (shared with code). Re-point it at the legible hand SANS (not the
-   * felt-tip script: small uppercase tracked labels must stay readable) so
-   * the structural labels read hand-drawn instead of "computer" beside the
-   * hand content. Real `code`/`pre`/math stay on --font-mono (untouched). */
+   * KEY INSIGHT, the running header/footer, counters, chips, chart legend
+   * labels AND values — defaults to the mono face (shared with code).
+   * Re-point it at the legible hand SANS (not the felt-tip script: small
+   * uppercase tracked labels must stay readable) so the structural labels read
+   * hand-drawn instead of "computer" beside the hand content. Real
+   * `code`/`pre`/math stay on --font-mono (untouched).
+   *
+   * This token is the WHOLE reach of the finish into label voice. It only works
+   * because every label-voice site in the engine pulls --font-label rather than
+   * --font-mono: 95 sites that pinned --font-mono directly were unreachable
+   * from here and stayed machine-faced under sketch (the running header/footer
+   * on every slide, the title/closing eyebrow, every card number badge, every
+   * chart legend value). That is now a gated invariant — `checkLabelVoiceFont`
+   * in tools/check-ownership.js holds --font-mono to the sanctioned code-voice
+   * allowlist, so a new label cannot silently re-open the hole.
+   * See engineering/decisions/2026-08-12-sketch-label-voice.md. */
   --font-label: var(--sketch-font-body);
   /* Component label pills / badges (state-marker chips, pricing tags,
    * etc.) ride the hand body face too, so every glyph of prose on the
@@ -110,13 +121,12 @@ section.sketch :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 700;
   letter-spacing: 0.005em;
 }
-/* Pagination (Marp's section::after) is set in mono by the scaffold tier.
- * `section.sketch::after` (0,1,1) outranks the scaffold `section::after`
- * (0,0,1) on specificity and the engine scaffold never sets font-family, so
- * no !important is needed to ride the hand label voice. */
-section.sketch::after {
-  font-family: var(--font-label);
-}
+/* Pagination (Marp's section::after) used to be set in mono by the scaffold
+ * tier, so this rule existed to pull it back onto the label voice. The scaffold
+ * now names --font-label itself (integrations/markdown-it/scaffold.css), which
+ * is the same token the block above re-points — so the override is redundant
+ * and is gone. The running header/footer moved with it, which is why they no
+ * longer read machine-faced on a sketch slide. */
 
 /* Plain bullet / number lists take a hand-jotted mark in the felt-tip face.
  * Scoped to `content` + `split-compare` — the ONLY layouts that re-enable
@@ -274,17 +284,15 @@ section.sketch.cards-stack > .cell-stage > :is(ul, ol) > li::before {
   font-family: var(--sketch-font-display);
   border-radius: 15px 2px 12px 3px / 3px 12px 2px 15px;
 }
-/* These two !important are load-bearing (verified by pixel-diff): the
-   decision / compare-prose lifted-label rules use a `:has(> strong:first-child)`
-   selector (0,3,4) that outranks this sketch override (0,3,3) on element count,
-   so without !important the chip reverts to the mono face + clean corners. */
-section.sketch.decision > :is(ul, ol) > li > strong:first-child,
-section.sketch.decision > .cell-stage > :is(ul, ol) > li > strong:first-child,
-section.sketch.compare-prose > :is(ul, ol) > li > strong:first-child,
-section.sketch.compare-prose > .cell-stage > :is(ul, ol) > li > strong:first-child,
-section.sketch.compare-prose .compare-prose-inner .card > strong:first-child {
-  font-family: var(--font-label) !important;
-}
+/* The font-family half of this override is GONE. It carried an !important
+   because the decision / compare-prose lifted-label rules use a
+   `:has(> strong:first-child)` selector (0,3,4) that outranks this sketch
+   override (0,3,3) on element count — so the chip reverted to the mono face.
+   Those component rules now name --font-label themselves, and re-pointing a
+   token beats any selector contest: custom-property inheritance decides the
+   VALUE the winning rule resolves, so specificity never enters into it. The
+   radius !important below stays load-bearing (geometry is not a token, so it
+   still loses the specificity contest without it). */
 section.sketch.decision:not(.banner-tag) > :is(ul, ol) > li > strong:first-child,
 section.sketch.decision:not(.banner-tag) > .cell-stage > :is(ul, ol) > li > strong:first-child,
 section.sketch.compare-prose:not(.banner-tag) > :is(ul, ol) > li > strong:first-child,

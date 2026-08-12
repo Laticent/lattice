@@ -27,7 +27,7 @@ section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); 
  * Overrides the general subtitle rule (italic, body font) for section.title only. */
 section.title h1 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; }
 section.title h1 + p:has(> code:only-child) > code {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-style: normal;
   font-weight: 600;

@@ -88,7 +88,7 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tie
 section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); --tier-ink:var(--cat-3-ink, var(--cat-3-mark)); }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   flex:0 0 14cqi;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-body);
   font-weight:700;
   letter-spacing:0.14em;
@@ -102,7 +102,7 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::marker { content:''; }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   color:var(--text-heading);
@@ -207,7 +207,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > l
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   content:counter(auth, decimal-leading-zero);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-h2);
   font-weight:700;
   color:var(--tier-ink, var(--accent));

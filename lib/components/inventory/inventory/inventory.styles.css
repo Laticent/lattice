@@ -52,7 +52,7 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li::before {
   content: counter(r, decimal-leading-zero); position: absolute; left: 0; top: var(--sp-2xs);
   width: var(--inv-ord-w);
-  font-family: var(--font-mono); font-size: var(--fs-h3); font-weight: 600; color: var(--accent);
+  font-family: var(--font-label); font-size: var(--fs-h3); font-weight: 600; color: var(--accent);
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
@@ -111,7 +111,7 @@ section.inventory.timeline > .cell-stage > ul > li {
 section.inventory.timeline > .cell-stage > ul > li::before {
   content: counter(t); position: absolute; top: 0; left: 0; width: 3cqi; height: 3cqi;
   border-radius: 50%; background: var(--accent); color: var(--on-accent);
-  display: grid; place-items: center; font-family: var(--font-mono);
+  display: grid; place-items: center; font-family: var(--font-label);
   font-weight: 600; font-size: var(--fs-body-compact); z-index: 2;
 }
 section.inventory.timeline > .cell-stage > ul > li::after {

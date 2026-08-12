@@ -44,7 +44,7 @@
 section.split-panel { padding:0; flex-direction:row; }
 section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 section.split-panel .panel-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
-section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
+section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
 section.split-panel .panel-left h2 { font-size:var(--fs-h1); color:var(--on-dark-primary); line-height:var(--lh-tight); padding:0 0 var(--sp-sm); margin:0; font-weight:800; }
 section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-dark-secondary); line-height:var(--lh-snug); margin:0; }
 /* min-height:0 + overflow:clip complete the flex cell-tree contract (2026-06-26):
@@ -52,7 +52,7 @@ section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-
  * an over-stuffed right zone bleeds past the panel wall. The left panel already
  * clips (overflow:hidden, line above); this walls the supporting zone to match. */
 section.split-panel .panel-right { flex:1; min-height:0; overflow:clip; background:var(--bg); display:flex; flex-direction:column; padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
-section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:1px solid var(--border); }
+section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:1px solid var(--border); }
 section.split-panel .panel-right > ul { display:flex; flex-direction:column; flex:1; justify-content:space-evenly; list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; }
 section.split-panel .panel-right > ul > li { padding-left:var(--sp-md); border-left:3px solid var(--accent); }
 section.split-panel .panel-right > ul > li > strong { display:block; font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-heading); font-weight:700; line-height:var(--lh-snug); padding-bottom:0.390625cqi; }
@@ -103,7 +103,7 @@ section.split-panel.steps .panel-right > :is(ul,ol) > li { display:grid; grid-te
 section.split-panel.steps .panel-right > ol > li { counter-increment:step-counter; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li:last-child { padding-bottom:0; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li:not(:last-child)::after { content:''; position:absolute; left:1.484375cqi; top:3.125cqi; bottom:0; width:2px; background:var(--border); }
-section.split-panel.steps .panel-right > ol > li::before { content:counter(step-counter); grid-column:1; grid-row:1 / span 2; align-self:start; width:3.125cqi; height:3.125cqi; border-radius:50%; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700; position:relative; z-index:1; }
+section.split-panel.steps .panel-right > ol > li::before { content:counter(step-counter); grid-column:1; grid-row:1 / span 2; align-self:start; width:3.125cqi; height:3.125cqi; border-radius:50%; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; position:relative; z-index:1; }
 section.split-panel.steps .panel-right > ul > li::before { content:''; grid-column:1; grid-row:1 / span 2; align-self:start; width:3.125cqi; height:3.125cqi; border-radius:50%; background:var(--accent); position:relative; z-index:1; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li > strong { grid-column:2; grid-row:1; display:block; margin:0; font-size:var(--fs-body); font-family:var(--font-body); font-weight:700; color:var(--text-heading); line-height:3.125cqi; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) { grid-column:2; grid-row:2; list-style:none; padding:2px 0 0; margin:0; }
@@ -147,7 +147,7 @@ section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child { grid-colu
 section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:safe center; }
 /* `--panel-label-ink` is the category's contrast-safe ink, set only by `cat-N`
  * (see the cat block below) — falls back to `--accent` on a bare `proof` slide. */
-section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--panel-label-ink, var(--accent)); font-weight:600; padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.08em; color:var(--panel-label-ink, var(--accent)); font-weight:600; padding-bottom:var(--sp-xs); }
 section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
 section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
 /* The signal row carries the slide's scenario — it reads at body scale, not the
@@ -241,7 +241,7 @@ section.split-panel.watermark .panel-right > :is(ul,ol) { display:flex; flex-dir
 section.split-panel.watermark .panel-right > ol { counter-reset:panel-counter; }
 section.split-panel.watermark .panel-right > :is(ul,ol) > li { display:grid; align-content:start; justify-items:start; background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:1.09375cqi 1.40625cqi; font-size:var(--fs-body); color:var(--text-heading); font-weight:700; line-height:var(--lh-snug); }
 section.split-panel.watermark .panel-right > ol > li { counter-increment:panel-counter; grid-template-columns:3.59375cqi 1fr; grid-auto-rows:auto; column-gap:0.78125cqi; justify-items:stretch; padding:0; overflow:hidden; border:none; }
-section.split-panel.watermark .panel-right > ol > li::before { content:counter(panel-counter); grid-column:1; grid-row:1 / span 10; align-self:stretch; display:flex; align-items:center; justify-content:center; background:var(--accent); color:var(--on-accent, var(--on-dark-primary)); font-family:var(--font-mono); font-size:1.875cqi /* cqi-ok: counter numeral inside a fixed accent disc */; font-weight:800; }
+section.split-panel.watermark .panel-right > ol > li::before { content:counter(panel-counter); grid-column:1; grid-row:1 / span 10; align-self:stretch; display:flex; align-items:center; justify-content:center; background:var(--accent); color:var(--on-accent, var(--on-dark-primary)); font-family:var(--font-label); font-size:1.875cqi /* cqi-ok: counter numeral inside a fixed accent disc */; font-weight:800; }
 section.split-panel.watermark .panel-right > ol > li > :is(strong,span,p,em) { grid-column:2; padding:0.703125cqi 1.25cqi 0.234375cqi; margin:0; font-size:var(--fs-body); color:var(--text-heading); font-weight:700; line-height:var(--lh-snug); }
 section.split-panel.watermark .panel-right > ol > li > :is(strong,span,p,em):last-child { padding-bottom:0.703125cqi; }
 section.split-panel.watermark .panel-right > :is(ul,ol) > li > strong { display:block; }

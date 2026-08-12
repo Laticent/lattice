@@ -132,7 +132,7 @@ figure.timeline-list.chart-frame .chart-body {
   background: var(--bg);
   border: var(--chart-hairline) solid color-mix(in oklab, var(--accent) 40%, var(--border));
   color: var(--accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.04em;

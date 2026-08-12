@@ -202,7 +202,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-tick {
   fill: var(--text-muted);
-  font-family: var(--font-mono, var(--font-body));
+  font-family: var(--font-label, var(--font-body));
   font-size: var(--quadrant-tick-size);
   font-weight: 500;
 }
@@ -334,7 +334,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 /* ── Threshold variant: target badges at the axis crossings ───────────── */
 :is(section.quadrant, figure.chart-frame) .quadrant-target-badge {
   fill: var(--quadrant-target);
-  font-family: var(--font-mono, var(--font-body));
+  font-family: var(--font-label, var(--font-body));
   font-size: 10px;
   font-weight: 700;
 }

@@ -163,7 +163,7 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:first-chil
   line-height: var(--lh-snug);
 }
 section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li + li {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
   padding-top: var(--sp-xs);
@@ -411,7 +411,7 @@ section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --pill-fg: var(--warn);
 }
 section.kpi.compliance > .cell-stage > p:last-of-type {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
   letter-spacing: 0.18em;

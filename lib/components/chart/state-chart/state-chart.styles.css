@@ -436,7 +436,7 @@ section.state-chart .state-edge-label {
    * applied in `draw()`, where k is known, or by bounding k. Tracked on #1213;
    * not silently claimed here. */
   font-size: max(var(--chart-text-min), 0.859375cqi);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   paint-order: stroke;
   stroke: var(--state-label-bg);
   stroke-width: 0.46875cqi;
@@ -613,7 +613,7 @@ section.state-chart.horizontal .state-chip[data-dir="back"] {
 
 section.state-chart.inline .state-chip-event,
 section.state-chart.horizontal .state-chip-event {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   /* Same author-written transition string as .state-edge-label above — `approve ->
    * ship`, `>= 3 days` — so ligatures off for the same reason. It does not ligate
    * TODAY only because the chip carries letter-spacing, which suppresses ligature

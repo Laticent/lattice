@@ -64,7 +64,7 @@
 /* ── Axis ─────────────────────────────────────────────────────────────────── */
 :is(section.gantt, figure.gantt) .gantt-tick {
   fill: var(--text-label);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-weight: 600;
   letter-spacing: 0.12em;
 }

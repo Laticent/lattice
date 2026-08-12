@@ -38,13 +38,19 @@ section.redline > .cell-stage { display:flex; flex-direction:column; gap:var(--s
  * only matches a SECOND one left in the stage). */
 section.redline > .cell-stage > p:has(> code:only-child) {
   margin:0;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   letter-spacing:0.04em;
   color:var(--accent);
 }
+/* font-family:inherit is load-bearing, not tidy-up: the kicker font is named on the
+ * PARENT `<p>` above, but `section code` (base.elements.css) fonts this `<code>`
+ * itself in --font-mono, so without the inherit the kicker never actually wore the
+ * label voice. Invisible on a normal theme (--font-label defaults to var(--font-mono)),
+ * plainly wrong under `sketch`, where it left a machine-faced kicker over a
+ * hand-drawn clause box. Same fix in citation-card + regulatory-update. */
 section.redline > .cell-stage > p:has(> code:only-child) > code {
-  background:none; border:none; padding:0; color:inherit;
+  background:none; border:none; padding:0; color:inherit; font-family:inherit;
 }
 section.redline > .cell-stage > blockquote {
   padding:var(--sp-md) var(--sp-lg);
@@ -99,7 +105,7 @@ section.redline > .cell-stage > :is(ol, ul) > li {
 section.redline > .cell-stage > :is(ol, ul) > li::marker { content:''; }
 section.redline > .cell-stage > :is(ol, ul) > li > strong {
   display:inline-block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.10em;
@@ -127,7 +133,7 @@ section.redline.split.split > .cell-stage > blockquote:nth-of-type(1) {
 section.redline.split.split > .cell-stage > blockquote:nth-of-type(1)::before {
   content:'OLD';
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -142,7 +148,7 @@ section.redline.split.split > .cell-stage > blockquote:nth-of-type(2) {
 section.redline.split.split > .cell-stage > blockquote:nth-of-type(2)::before {
   content:'NEW';
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -203,7 +209,7 @@ section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1) {
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1)::before {
   content:'OLD — prior text';
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -218,7 +224,7 @@ section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(2) {
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(2)::before {
   content:'NEW · current';
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -250,7 +256,7 @@ section.redline.three-col.three-col > .cell-stage > blockquote:nth-of-type(1) {
 }
 section.redline.three-col.three-col > .cell-stage > blockquote:nth-of-type(1)::before {
   content:'OLD'; display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -265,7 +271,7 @@ section.redline.three-col.three-col > .cell-stage > blockquote:nth-of-type(2) {
 }
 section.redline.three-col.three-col > .cell-stage > blockquote:nth-of-type(2)::before {
   content:'NEW'; display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -279,7 +285,7 @@ section.redline.three-col > .cell-stage > :is(ol, ul) {
 section.redline.three-col > .cell-stage > :is(ol, ul)::before {
   content:'WHY';
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;
@@ -345,7 +351,7 @@ section.redline > .cell-stage > blockquote.rl-old {
 }
 section.redline > .cell-stage > blockquote.rl-old::before {
   content:'OLD — prior text'; display:block;
-  font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700;
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700;
   letter-spacing:0.12em; color:var(--fail); padding-bottom:var(--sp-xs);
 }
 section.redline > .cell-stage > blockquote.rl-new {
@@ -354,7 +360,7 @@ section.redline > .cell-stage > blockquote.rl-new {
 }
 section.redline > .cell-stage > blockquote.rl-new::before {
   content:'NEW · current'; display:block;
-  font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700;
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700;
   letter-spacing:0.12em; color:var(--pass); padding-bottom:var(--sp-xs);
 }
 

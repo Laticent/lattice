@@ -116,7 +116,7 @@
 :is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
 :is(section.progress, figure.progress) .progress-pct {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 700;
   color: var(--text-heading);

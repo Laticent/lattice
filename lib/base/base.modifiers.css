@@ -1151,7 +1151,7 @@ section.obligation-matrix.lanes tbody tr > td:first-child {
   color:var(--lane-ink, var(--text-heading));
 }
 section.obligation-matrix.lanes tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
-section.obligation-matrix.lanes td:not(:first-child) { font-family:var(--font-mono); font-size:var(--fs-meta); }
+section.obligation-matrix.lanes td:not(:first-child) { font-family:var(--font-label); font-size:var(--fs-meta); }
 
 /* .asymmetric — sticky reg column + cards. The markdown is still a
  * table; we re-style the cells as card-feel boxes. */
@@ -1176,7 +1176,7 @@ section.obligation-matrix.asymmetric td:first-child {
   background:var(--accent-soft);
   border-color:var(--accent);
   color:var(--accent);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   letter-spacing:0.06em;
   text-transform:uppercase;
   align-self:stretch;

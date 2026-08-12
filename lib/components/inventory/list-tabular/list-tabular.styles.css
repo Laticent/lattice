@@ -63,7 +63,7 @@ section.list-tabular ol > li {
 section.list-tabular ol > li:first-child { border-top:1px solid var(--border); }
 section.list-tabular ol > li::before {
   content:counter(tabular-counter, decimal-leading-zero);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-body-compact);
   font-weight:700;
   color:var(--accent);
@@ -86,7 +86,7 @@ section.list-tabular ol > li > ul > li:first-child {
  * nested li. */
 section.list-tabular ol > li > ul > li:nth-child(2) {
   grid-column:4; grid-row:1;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   color:var(--text-label);
@@ -102,7 +102,7 @@ section.list-tabular ol > li > code {
   border:none;
   padding:0;
   border-radius:0;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   color:var(--text-label);
@@ -151,7 +151,7 @@ section.list-tabular.def ol > li > code {
   background:none;
   border:none;
   border-radius:0;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   color:var(--text-secondary);
@@ -193,7 +193,7 @@ section.list-tabular.metric ol > li > code {
   border:1px solid var(--border);
   border-radius:var(--radius-md);
   padding:0.46875cqi 1.09375cqi;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-body-compact);
   font-weight:700;
   color:var(--accent);
@@ -219,7 +219,7 @@ section.list-tabular.metric.solid ol > li > code {
  * trailing glyphs). overflow-wrap on the code makes the wrap point clean. */
 section.list-tabular.spec ol > li {
   grid-template-columns:3.4375cqi minmax(0, 20.3125cqi) minmax(0, 1fr) minmax(0, 15.625cqi);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-body-compact);
   font-weight:600;
   color:var(--text-heading);

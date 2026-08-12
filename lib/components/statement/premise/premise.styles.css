@@ -114,7 +114,7 @@ section.premise > ol > li {
  * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
 section.premise > ol > li::before {
   content: counter(list-item, decimal-leading-zero);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
 }

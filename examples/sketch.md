@@ -86,13 +86,38 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 ## The frame is drawn; the data is exact.
 
-Because the finish is CSS and fonts, it reskins the heading and the HTML legend — but a chart's SVG wedges keep their own precise geometry, so the numbers never wobble.
+Because the finish is CSS and fonts, it reskins the heading, the legend labels and their values — but a chart's SVG wedges keep their own precise geometry, so the numbers never wobble.
 
 - Deck production `46%`
 - Meetings about meetings `22%`
 - Realigning on priorities `18%`
 - Stakeholder management `9%`
 - Actually deciding `5%`
+
+---
+
+<!-- _class: list-tabular -->
+<!-- _footer: "Counters, column values and row labels all ride the --font-label seam" -->
+
+`Nothing is left machine-faced`
+
+## Every label wears the hand, not just the prose.
+
+1. Counters
+   - Row numbers and card badges, drawn not typeset
+   - _font-label_
+2. Column heads
+   - Table headers matching the rows beneath
+   - _font-label_
+3. Chips
+   - Status pills, redline tags, corner stamps
+   - _pill-font_
+4. Chart figures
+   - Legend values and ticks, still column-aligned
+   - _font-label_
+5. Real code
+   - Inline `code`, fenced blocks, math — mono on purpose
+   - _font-mono_
 
 ---
 

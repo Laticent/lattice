@@ -24,7 +24,7 @@
    stomps our chrome alignment. */
 section header > p,
 section footer > p {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 500;
   line-height: 1;
@@ -46,7 +46,7 @@ section::after {
   right: var(--frame-inset-x);
   padding: 0;
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 500;
   line-height: 1;

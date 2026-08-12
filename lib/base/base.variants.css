@@ -338,7 +338,7 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   position: absolute;
   z-index: 100;
   pointer-events: none;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;

@@ -1084,6 +1084,145 @@ function checkTypographyTokens(errors) {
   }
 }
 
+// ─── Label-voice font gate ────────────────────────────────────────────────
+// `--font-mono` is the CODE voice, and it is the ONE type token the `sketch`
+// finish deliberately does not re-point (real `code`/`pre`/math must stay
+// unambiguous — lib/base/base.sketch.css). `--font-label` is the LABEL voice,
+// and it DEFAULTS to `var(--font-mono)` (lib/base/base.tokens.css) — so the two
+// render identically on every theme, and reaching for the wrong one is
+// invisible until someone turns the finish on.
+//
+// That is exactly what happened: 95 label-voice sites pinned `--font-mono`
+// directly, so the sketch finish could not reach them and they stayed
+// machine-faced on a hand-drawn slide — the running header and footer on EVERY
+// slide, the title/closing eyebrow, every card number badge, every BEFORE/AFTER
+// chip, every chart legend value. The finish re-points a token; a site that
+// names the other token is simply out of its reach, and no test could see it
+// because the default render is byte-identical.
+//
+// So `font-family: var(--font-mono)` in engine CSS is now an enumerated
+// privilege, not a default. Budget 0 + the allowlist below. A new, unlisted
+// `--font-mono` font-family fails the build; a sanction that no longer matches
+// any declaration ALSO fails, so the list can't rot. If a label needs the mono
+// FEEL rather than code semantics, re-point `--font-label` in the theme — do
+// not pin `--font-mono` at the call site.
+//
+// Scope note: this gate reads `font-family` declarations only. The token seam
+// itself (`--font-label: var(--font-mono)` in base.tokens.css) is a custom-
+// property declaration, not a font-family, so it needs no sanction.
+// See engineering/decisions/2026-08-12-sketch-label-voice.md.
+const LABEL_VOICE_MONO_BUDGET = 0;
+
+// Every `font-family` that may name --font-mono, and why it is code voice and
+// not label voice. `file` is repo-relative; `count` is how many declarations in
+// that file are sanctioned (several files carry more than one).
+const SANCTIONED_MONO_FONTS = [
+  {
+    file: 'lib/base/base.elements.css',
+    count: 1,
+    why: 'the inline `code` chip — literal source the reader may retype. The eyebrow '
+       + 'modifier overrides it back to --font-label, so an eyebrow authored as backtick '
+       + 'inline-code still rides the label voice.',
+  },
+  {
+    file: 'lib/components/code/code/code.styles.css',
+    count: 1,
+    why: 'fenced code block.',
+  },
+  {
+    file: 'lib/components/code/compare-code/compare-code.styles.css',
+    count: 2,
+    why: 'the two fenced code blocks (split + block variants). The COLUMN LABELS above '
+       + 'them are label voice and route through --font-label.',
+  },
+  {
+    file: 'lib/integrations/highlight-js/highlight-js.css',
+    count: 4,
+    why: 'the highlighted code block, plus the three mermaid-error parts. An error surface '
+       + 'quotes the author\'s own source back at them, so it must stay literal and '
+       + 'unambiguous — and it must never read as deck content.',
+  },
+  {
+    file: 'lib/integrations/mermaid/mermaid.css',
+    count: 1,
+    why: 'mermaid source that has not rendered yet — still source, briefly visible.',
+  },
+  {
+    file: 'lib/components/math/math/math.styles.css',
+    count: 4,
+    why: 'math notation, not prose: the matrix variable column (a 4em mono grid whose '
+       + 'alignment IS the layout), the function-plot axis/tick notation, and the two error '
+       + 'surfaces that quote the author\'s TeX verbatim.',
+  },
+  {
+    file: 'lib/components/connect/wifi/wifi.styles.css',
+    count: 1,
+    why: 'the wifi SSID / password literal. A password must be transcribable without '
+       + 'ambiguity (0 vs O, l vs 1), which is a code-voice requirement even though the '
+       + 'surrounding slide is prose.',
+  },
+  {
+    file: 'lib/base/base.modifiers.css',
+    count: 3,
+    why: 'the three engine diagnostic tabs (overflow-tab / illegible-tab / fixme-tab). '
+       + 'These are authoring-time instrument chrome, not deck content — they must read as '
+       + 'the engine talking, and must NOT pick up a deck finish.',
+  },
+];
+
+// Pure core: every `font-family` declaration in a stylesheet whose value names
+// --font-mono. Strip comments first (the prose above and in base.sketch.css
+// discusses the token by name).
+const FONT_FAMILY_PROP = /font-family\s*:\s*([^;}{]+)/g;
+
+function monoFontFamilies(css) {
+  const out = [];
+  for (const m of css.matchAll(FONT_FAMILY_PROP)) {
+    const value = m[1].replace(/!important/g, '').trim();
+    if (/--font-mono\b/.test(value)) out.push(value);
+  }
+  return out;
+}
+
+function checkLabelVoiceFont(errors) {
+  const offences = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const rel = path.relative(ROOT, file);
+    for (const value of monoFontFamilies(css)) offences.push({ file: rel, value });
+  }
+  // Consume `count` offences per sanctioned file; track sanctions that over-claim.
+  const remaining = [...offences];
+  for (const s of SANCTIONED_MONO_FONTS) {
+    let consumed = 0;
+    for (let i = remaining.length - 1; i >= 0 && consumed < s.count; i--) {
+      if (remaining[i].file === s.file) { remaining.splice(i, 1); consumed++; }
+    }
+    if (consumed < s.count) {
+      errors.push(
+        `stale --font-mono sanction in tools/check-ownership.js — ${s.file} is sanctioned for ` +
+        `${s.count} \`font-family: var(--font-mono)\` declaration(s) but only ${consumed} remain. ` +
+        `Lower the \`count\` (or drop the entry) so the allowlist stays honest.`,
+      );
+    }
+  }
+  if (remaining.length > LABEL_VOICE_MONO_BUDGET) {
+    const byFile = {};
+    for (const o of remaining) byFile[o.file] = (byFile[o.file] || 0) + 1;
+    const top = Object.entries(byFile).sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([f, n]) => `${f} (${n})`).join(', ');
+    errors.push(
+      `${remaining.length} unsanctioned \`font-family: var(--font-mono)\` declaration(s) in engine ` +
+      `CSS (budget is ${LABEL_VOICE_MONO_BUDGET}). --font-mono is the CODE voice and is the one type ` +
+      `token the \`sketch\` finish does not re-point, so a label that names it renders machine-faced ` +
+      `on a hand-drawn slide — and is invisible on every other theme, because --font-label defaults ` +
+      `to var(--font-mono). Use \`var(--font-label)\` for eyebrows, column heads, chips, counters, ` +
+      `captions and chart values. If the text is genuinely code, data-to-transcribe, or engine ` +
+      `diagnostic chrome, add it to SANCTIONED_MONO_FONTS with a justification. Offending: ${top}.`,
+    );
+  }
+}
+
 // HARD RULE #20 — ZERO nonzero `margin` declarations in the engine layout CSS (lib/).
 // margin sits outside the box, so it is invisible to getBoundingClientRect()/offsetHeight
 // and it margin-collapses — both corrupt the height math a measuring layout (the overflow
@@ -7171,6 +7310,7 @@ function run() {
   checkNoSafeDefaultTokens(errors);
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
+  checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
   checkStageInsetOwnership(errors);
   checkBackgroundLayerVars(errors);
@@ -7309,6 +7449,7 @@ module.exports = {
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,
   SANCTIONED_SECTION_BOXES,
+  checkLabelVoiceFont,
   checkMarginDiscipline,
   checkBackgroundLayerVars,
   varInMultiLayerBackground,

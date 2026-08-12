@@ -82,7 +82,7 @@ The CSS pattern is `p:has(> code:only-child) + h1/h2/…`. Eyebrows are
 **markdown-lint compliant**: a `<p>` containing code is not a heading,
 so the eyebrow pattern can never violate heading-order rules.
 
-Styling: `--font-mono`, 13px (`--fs-label`), 600 weight, 0.18em
+Styling: `--font-label`, 13px (`--fs-label`), 600 weight, 0.18em
 letter-spacing, uppercase, `--text-secondary` (the AA-tuned secondary
 content tier — a `light-dark()` pair, so it resolves correctly on `.dark`
 slides and dark themes). All three dark bookend slides (title, divider,
@@ -633,11 +633,26 @@ spine) the finish wobbles the corners but never recolours the border.
 Every glyph of prose takes a hand face. The display numerals (`stats`,
 `big-number`, `quote`, KPI heroes) ride the felt-tip via the `--font-display`
 token; the label voice — eyebrows, table column headers, stat sub-labels,
-KEY INSIGHT, the running header/footer, and pagination — rides the hand sans
-via the `--font-label` seam; the slide's default font goes hand too, so
-emphasis, links, and any stray prose follow without enumeration; and label
-pills/badges ride the `--pill-font` seam. Only real inline `code`, `pre`, and
-the `math` component stay monospace, so data can't be misread.
+KEY INSIGHT, the running header/footer, pagination, counters and card number
+badges, BEFORE/AFTER and status chips, stamps, captions, chart legend values
+and axis ticks — rides the hand sans via the `--font-label` seam; the slide's
+default font goes hand too, so emphasis, links, and any stray prose follow
+without enumeration; and label pills/badges ride the `--pill-font` seam.
+
+What stays monospace is a closed, gated list: real inline `code` and `pre`,
+math notation, error surfaces that quote your own source back at you, the
+engine's authoring-diagnostic tabs, and the wifi password (which has to be
+transcribable without ambiguity). A component may not simply *reach for*
+`--font-mono` — `checkLabelVoiceFont` (`tools/check-ownership.js`) holds it to
+that allowlist, because the wrong choice is invisible on every other theme:
+`--font-label` **defaults to** `var(--font-mono)`, so the two render
+identically until the finish is switched on. See
+`engineering/decisions/2026-08-12-sketch-label-voice.md`.
+
+One face is deliberately NOT reached: text inside a rendered **Mermaid**
+diagram stays mono, a pre-existing divergence in the diagram theme-variable
+path (`engineering/mermaid.md` §5.3), not something the finish can reach from
+CSS.
 
 It is the **`mode:` axis** — the deck's rendering *mode* (its typographic
 hand), a sibling of the `finish:` backdrop within the Function · Form · Substance

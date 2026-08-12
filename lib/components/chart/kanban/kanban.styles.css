@@ -69,7 +69,7 @@
  * visual weight as eyebrows and axis ticks: identifiable but not competing
  * with card titles. 5.47:1 on light bg (AA), 6.95:1 on dark bg (AA). */
 .kanban-column-header {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -222,7 +222,7 @@
   border: none;
   background: none;
   border-radius: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
   color: var(--text-muted);
@@ -239,7 +239,7 @@
   gap: 0.39cqi;
   background: none;
   color: var(--text-secondary);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.03em;
