@@ -114,13 +114,35 @@ function contrastRatio(fg, bg) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-// Universal on-dark opacity ramp (base.tokens.css; not loaded by this tool
-// because it skips the `lattice` import). White ink at these alphas, themes
-// may override via their own --on-dark-* color-mix declarations.
-const ON_DARK_DEFAULTS = {
-  'on-dark-primary': 0.92, 'on-dark-secondary': 0.68,
-  'on-dark-ghost': 0.32, 'on-dark-watermark': 0.12,
-};
+// Universal on-dark opacity ramp — READ from base.tokens.css, not copied from it.
+// This tool skips the `lattice` @import (it audits theme-owned tokens), so it needs
+// the base ramp's alphas; it used to hardcode them. That copy silently went stale
+// the moment the ramp moved, and a stale alpha here does not fail loudly — it makes
+// the gate score an ink the engine no longer paints, which is how a rung sat at
+// 2.49:1 under a passing audit. Parsed from the one declaration site instead, so
+// the two cannot disagree. A theme may still override any rung in its own :root
+// (cuoio does), which `resolveTranslucent` already prefers over these defaults.
+const ON_DARK_DEFAULTS = (() => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'lib', 'base', 'base.tokens.css'), 'utf8',
+  ).replace(/\/\*[\s\S]*?\*\//g, '');
+  const out = {};
+  for (const m of src.matchAll(
+    /--(on-dark-(?:primary|secondary|ghost|watermark))\s*:\s*color-mix\(\s*in srgb,\s*white\s+(\d+(?:\.\d+)?)%/g,
+  )) out[m[1]] = parseFloat(m[2]) / 100;
+  const want = ['on-dark-primary', 'on-dark-secondary', 'on-dark-ghost', 'on-dark-watermark'];
+  const missing = want.filter((k) => out[k] == null);
+  // Refuse to run half-blind: a rung this can't read is a rung it would skip, and a
+  // skipped pair reads as a pass. Fail with the reason instead.
+  if (missing.length) {
+    throw new Error(
+      `contrast-audit: could not read ${missing.join(', ')} from lib/base/base.tokens.css — ` +
+      'the on-dark ramp moved off the `color-mix(in srgb, white N%, transparent)` form. ' +
+      'Update this reader; do not re-hardcode the alphas.',
+    );
+  }
+  return out;
+})();
 
 function rgbToHex({ r, g, b }) {
   return '#' + [r, g, b].map(n => Math.round(n).toString(16).padStart(2, '0')).join('');
@@ -172,7 +194,18 @@ const PAIRS = [
   // ── Dark bookends (title/closing/divider) — translucent on-dark ink ───
   // on-dark-* are color-mix(white N%, transparent); composited over surface-inverse.
   ['on-dark-primary',   'surface-inverse', 'bookend: heading on dark panel'],
-  ['on-dark-secondary', 'surface-inverse', 'bookend: subtitle on dark panel'],
+  ['on-dark-secondary', 'surface-inverse', 'bookend: subtitle / eyebrow / dek on dark panel'],
+  // The RULE/DIVIDER rung on the same panel, at WCAG 1.4.11's 3:1 rather than AA:
+  // the metric panel's row accent and heading hairline (split-panel.styles.css).
+  // Uncovered until now, and it showed — the rung sat at 2.49–2.90:1 on all 14
+  // palettes while this table reported "all checks pass". Ghost carries no text;
+  // if it ever does again, it owes 4.5 and this row must move up with it.
+  ['on-dark-ghost',     'surface-inverse', 'panel: rule / hairline on dark panel', 3.0],
+  // (The bold accent rail's text rung is --on-accent vs --accent, already covered
+  // further down this table. split-panel.watermark's eyebrow + h5 now name that
+  // curated rung directly instead of a 70% derivation of it, which measured
+  // 3.34–4.41:1 on 4 of 5 sampled palettes — so what the gate scores is now what
+  // the slide renders.)
   ['text-heading', 'bg-alt',     'slide: heading on card'],
   ['text-heading', 'accent-soft','slide: heading on accent-soft'],
   // Foreground inks that actually render ON the accent-soft panel (key-insight
@@ -277,7 +310,7 @@ function auditTheme(theme) {
   const missing = [];
   let checks = 0;
 
-  for (const [fg, bg, ctx] of PAIRS) {
+  for (const [fg, bg, ctx, minRatio = 4.5] of PAIRS) {
     // Every PAIRS backdrop (bg) is theme-owned (or resolved via its @import chain
     // — the on-dark-* ink foregrounds resolve via ON_DARK_DEFAULTS), so a bg we
     // can't reduce to hex is a real coverage hole — record it in `missing` (the
@@ -295,7 +328,13 @@ function auditTheme(theme) {
     }
     checks++;
     const ratio = contrastRatio(fgHex, bgHex);
-    if (ratio < 4.5) fails.push({ ctx, fgHex, bgHex, ratio });
+    // `minRatio` (the 4th PAIRS element) was documented at the head of the table
+    // from the start but never read — every pair was scored at 4.5 regardless.
+    // That is why no non-text pair could be listed here: a 3:1 rule or hairline
+    // would have reported a false failure on all 14 palettes, so the whole
+    // graphical-contrast class stayed out of the table and out of the gate. Now
+    // honored, defaulting to AA body text.
+    if (ratio < minRatio) fails.push({ ctx, fgHex, bgHex, ratio, minRatio });
   }
 
   const isDark = /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/
@@ -342,7 +381,7 @@ if (require.main === module) {
       console.log('     ✓ all checks pass');
     } else {
       for (const f of fails) {
-        console.log(`     ✗ ${f.ratio.toFixed(2).padStart(5)}:1  ${f.fgHex} on ${f.bgHex}`);
+        console.log(`     ✗ ${f.ratio.toFixed(2).padStart(5)}:1 (need ${f.minRatio})  ${f.fgHex} on ${f.bgHex}`);
         console.log(`          ${f.ctx}`);
       }
       for (const u of missing) {

@@ -659,10 +659,26 @@
    * value) do not inherit a white-on-bright-pastel collision.
    *
    * Tier semantics mirror `--on-dark-*`:
-   *   primary   — body text, headings, labels (full opacity)
-   *   secondary — eyebrows / muted captions on the accent rail
-   *   ghost     — very muted decorative chrome
+   *   primary   — ALL text on the rail: body, headings, labels, eyebrows (full
+   *               opacity). Size and weight carry the hierarchy here, not alpha —
+   *               see the next paragraph for why nothing muted can hold text.
+   *   secondary — muted CHROME only (the running header/footer over the rail),
+   *               WCAG-exempt by palette contract
+   *   ghost     — divider / rule chrome
    *   watermark — large-glyph backdrop, near-invisible
+   *
+   * NOTHING DERIVED CARRIES TEXT ON THIS RAIL, and unlike `--on-dark-*` that is
+   * not a rung-by-rung judgment — it is forced. `--on-accent` is curated per
+   * theme against THAT theme's --accent, and on some palettes it clears AA by very
+   * little (indaco: 5.47:1), so a derivation has nowhere to descend to: measured on
+   * all 14, the 70% `secondary` tier is sub-AA on SEVEN — mustard 3.34, indaco 3.51,
+   * magnolia 3.74, brina 3.80, laguna 3.82, cuoio 4.06, carta 4.40. The seven that
+   * pass do so on their own accent's headroom, not on anything about the tier, and
+   * it is NOT simply "the dark accents survive": carbone clears at 5.85:1 on a bright
+   * lime. `split-panel.watermark`'s eyebrow and h5 shipped on this tier and were
+   * sub-AA on half the palettes; they name --on-accent now. If you need a quieter
+   * label here, spend size or weight, not alpha.
+   * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md.
    *
    * --on-accent (primary) is the single curated source of truth: each theme
    * tunes it for AAA contrast against ITS --accent in both modes (see the
@@ -1043,7 +1059,11 @@
  * engineering/typography.md §1. Do NOT re-add a hand-written --fs-* block here. */
 
 /* ── Universal theme defaults (any palette :root override wins via source order) ─
- * on-dark-* : opacity ramp for text on dark panel surfaces.
+ * on-dark-* : opacity ramp for INK on dark panel surfaces — text in the top two
+ *             rungs, lines in the third, decoration in the fourth. See the tier
+ *             block below; the rungs are not interchangeable and binding an
+ *             element to the wrong one is what
+ *             engineering/decisions/2026-08-11-on-dark-ink-tiers.md is about.
  * hljs-*    : fallback syntax palette; themes supply curated overrides.
  *
  * MUST be a plain `:root` block — NOT `:where(:root)`. Marp/Marpit only does
@@ -1065,9 +1085,49 @@
  * first), so source order resolves it — the mitigation engineering/gotchas.md
  * prescribes for Marp's broken `:where`/`:has` handling. */
 :root {
+  /* GHOST IS THE RULE/DIVIDER RUNG, and 32% could not do that job. It is the
+   * hairline-and-row-accent tier on a dark panel, so it owes WCAG 1.4.11's 3:1
+   * — and at 32% it measured 2.49:1 (indaco) through 2.90:1 (concrete): under
+   * the floor on all 14 palettes, i.e. a rule nobody could see. 42% is the
+   * lowest step that clears 3:1 with margin on every panel; the binding
+   * constraint is indaco, whose --surface-inverse is the lightest in the repo
+   * (#003D66, L* 24.6) and lands at 3.25:1. The spread is NOT monotonic in panel
+   * darkness — the range tops out at brina 4.10:1 and pure-black onyx sits at
+   * 3.94:1, second-lowest, because a chromatic panel and a neutral one of the
+   * same luminance take white differently. Verified across all 14 palettes.
+   * (40% clears at 3.11 and 41% at 3.20; 42% is the lowest step that clears
+   * with margin, which is what "lowest" means here.)
+   *
+   * Ghost carries NO text. It used to ink exactly one label — the `closing`
+   * eyebrow, at 2.49:1 — which was a wrong-rung binding, not a wrong value:
+   * this tier is documented chrome and the sibling bookends already used
+   * `secondary` for the same element. That binding moved to `secondary`
+   * (base.modifiers.css), so lifting the alpha here cannot over-brighten a
+   * label. Text on a dark panel uses primary or secondary; ghost draws lines.
+   *
+   * SECONDARY IS 76%, NOT 68%, and that one number is the whole fix for the
+   * reported defect. At 68% the eyebrow/subtitle/dek tier measured 6.08:1 on
+   * indaco — the only palette in the repo below AAA on this tier, because
+   * indaco's --surface-inverse (#003D66) is the lightest panel here and a
+   * palette-blind white alpha lands wherever the panel puts it. At 76% the
+   * WORST case across all 19 palettes is 7.17:1, so every one clears AAA.
+   *
+   * This replaced a per-palette solver that wrote 76 curated hexes across the
+   * 19 palettes. It was dropped after measurement, not taste: the solver's own
+   * worst case was 7.13:1 — LOWER than this single alpha — and its second
+   * justification (that a solved hex carries the palette's hue where an alpha
+   * desaturates) came to an OKLCH chroma gain of 0.000 on 8 of 19 palettes and
+   * at-or-below the ~0.02-0.03 just-noticeable threshold on the rest. The
+   * ladder had been anchored to the median of what this ramp already produced,
+   * which guaranteed the output would be indistinguishable from the input.
+   * An alpha also self-normalizes against whatever it lands on, which matters:
+   * `--on-dark-watermark` is painted on the dark CANVAS by
+   * lib/forms/tile/watermark/watermark.css, not just on the panel, and a hex
+   * solved against the panel breached its own decorative ceiling there.
+   * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
   --on-dark-primary:   color-mix(in srgb, white 92%, transparent);
-  --on-dark-secondary: color-mix(in srgb, white 68%, transparent);
-  --on-dark-ghost:     color-mix(in srgb, white 32%, transparent);
+  --on-dark-secondary: color-mix(in srgb, white 76%, transparent);
+  --on-dark-ghost:     color-mix(in srgb, white 42%, transparent);
   --on-dark-watermark: color-mix(in srgb, white 12%, transparent);
 
   /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
@@ -14805,8 +14865,17 @@ section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-famil
 section.split-panel.metric .panel-left h2 em { font-size:var(--fs-h1); font-weight:700; font-style:normal; color:var(--text-secondary); }
 section.split-panel.metric .panel-left p { font-size:var(--fs-meta); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-snug); max-width:26ch; margin:0; padding-top:var(--sp-sm); border-top:1px solid var(--border); }
 section.split-panel.metric .panel-right { background:var(--surface-inverse); }
-section.split-panel.metric .panel-right h3 { color:var(--on-dark-secondary); border-bottom-color:var(--on-dark-watermark); }
-section.split-panel.metric .panel-right > ul > li { border-left:2px solid var(--on-dark-watermark); }
+/* Both rules take --on-dark-ghost, the rule/divider rung. They used to name
+ * --on-dark-watermark — 12% white, documented as the "large-glyph backdrop,
+ * near-invisible" tier — for a 2px row accent and a heading hairline: measured
+ * 1.40:1 on indaco and 1.27–1.46:1 across every other palette, against WCAG
+ * 1.4.11's 3:1. Invisible, on all 14. The mirror rule on the LIGHT half of this
+ * same component sits at 5.47:1 (--accent on white), so the dark half was the
+ * outlier, not the target. Watermark keeps its correct consumer — the oversized
+ * decorative open-quote glyph below.
+ * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
+section.split-panel.metric .panel-right h3 { color:var(--on-dark-secondary); border-bottom-color:var(--on-dark-ghost); }
+section.split-panel.metric .panel-right > ul > li { border-left:2px solid var(--on-dark-ghost); }
 section.split-panel.metric .panel-right > ul > li > strong { color:var(--on-dark-primary); }
 section.split-panel.metric .panel-right > ul > li > :is(ul,ol) > li { color:var(--on-dark-secondary); }
 
@@ -14946,9 +15015,23 @@ section.split-panel.watermark .panel-left { width:34%; background:var(--accent);
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
 section.split-panel.watermark .panel-left h2 { font-size:var(--fs-emphasis); color:var(--on-accent); margin:0; font-weight:800; }
 section.split-panel.watermark .panel-left .watermark { position:absolute; font-family:var(--font-display); font-size:calc(11.46cqi * var(--fs-scale)) /* cqi-ok: decorative watermark numeral */; font-weight:700; color:var(--on-accent-watermark); top:3.125cqi; left:1.5625cqi; line-height:1; pointer-events:none; }
-section.split-panel.watermark .panel-left > p:has(> code:only-child) { position:absolute; top:50%; transform:translateY(-50%); padding:0; margin:0; color:var(--on-accent-secondary); }
-section.split-panel.watermark .panel-left > p:has(> code:only-child) > code { color:var(--on-accent-secondary); background:none; border:none; padding:0; border-radius:0; }
-section.split-panel.watermark .panel-left > h5 { position:absolute; top:var(--sp-xl); margin:0; color:var(--on-accent-secondary); }
+/* The eyebrow and the h5 watermark label take --on-accent, the CURATED rung, not
+ * the 70%-derived --on-accent-secondary. Each palette tunes --on-accent for AA
+ * against ITS OWN --accent (base.tokens.css, gated by contrast-audit.js's
+ * on-accent/accent pair), and a 70% derivation spends exactly the margin that
+ * curation bought: measured on all 14, sub-AA on SEVEN — mustard 3.34, indaco 3.51,
+ * magnolia 3.74, brina 3.80, laguna 3.82, cuoio 4.06, carta 4.40. The other seven
+ * pass on their own accent's headroom, and not because their accent is dark
+ * (carbone clears 5.85:1 on a bright lime). No derived alpha can be safe here in
+ * general, because on some palettes --on-accent clears 4.5 by very little (indaco:
+ * 5.47:1) and the tier has nowhere to descend to. So TEXT on this rail names the
+ * curated rung and lets size + weight carry the hierarchy — the h2 above already
+ * does exactly that. The running header/footer keep --on-accent-secondary
+ * (line ~247): muted chrome, WCAG-exempt by palette contract.
+ * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
+section.split-panel.watermark .panel-left > p:has(> code:only-child) { position:absolute; top:50%; transform:translateY(-50%); padding:0; margin:0; color:var(--on-accent); }
+section.split-panel.watermark .panel-left > p:has(> code:only-child) > code { color:var(--on-accent); background:none; border:none; padding:0; border-radius:0; }
+section.split-panel.watermark .panel-left > h5 { position:absolute; top:var(--sp-xl); margin:0; color:var(--on-accent); }
 section.split-panel.watermark .panel-right { padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
 section.split-panel.watermark .panel-right h3 { font-family:inherit; text-transform:none; letter-spacing:normal; border-bottom:none; padding-bottom:0.3125cqi; color:var(--text-heading); }
 section.split-panel.watermark .panel-right p { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-md); }
@@ -17738,8 +17821,21 @@ section.divider p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark
 /* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas colour. */
 section.divider.light p:has(> code:only-child):has(+ h1) > code,
 section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--text-secondary); }
+/* `closing` takes --on-dark-secondary, exactly like `title` and `divider` above.
+ * It used to name --on-dark-ghost, the documented "very muted decorative chrome"
+ * rung, for a real content label: measured 2.49:1 on indaco and 2.67–2.91:1 on
+ * every other palette — a sub-AA eyebrow in all 14, and the dimmest text on the
+ * slide. A wrong rung, not a wrong value; the sibling bookends already inked the
+ * identical element with `secondary`, and ghost is now the rule/divider tier
+ * (base.tokens.css). After the move: **7.17:1 computed** on indaco — the worst case
+ * across all 19 palettes, since `secondary` is now 76% white (base.tokens.css) and
+ * indaco has the lightest panel — and **7.19:1 as rendered**, the 0.02 being 8-bit
+ * rounding of the composite (76% white over #003D66 quantizes to #C2D0DA). Quoting
+ * either is fine; quoting 7.19 as the *computed* worst case is not, which an earlier
+ * draft did.
+ * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
 section.closing p:has(> code:only-child):has(+ h1) > code,
-section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-ghost); }
+section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
 /* Dark modifier (any layout + dark class) */
 section.dark p:has(> code:only-child):has(+ h1) > code,
 section.dark p:has(> code:only-child):has(+ h2) > code,
@@ -26114,10 +26210,22 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
   );
   --spectrum-end: #B8A032; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
-  /* ── Derived on-dark tints ────────────────────────────────────────── */
+  /* ── Derived on-dark tints ──────────────────────────────────────────
+   * Cuoio is the only palette that overrides this ramp, sitting slightly under
+   * the base default (a warmer panel takes a little less white). The offsets are
+   * NOT uniform — primary −2, secondary −11, ghost −2, watermark 0 — so if the
+   * base ramp moves, re-derive the rung that moved against THIS panel rather
+   * than applying one offset.
+   *
+   * Ghost tracked the base lift from 30% → 40%. It is the rule/divider rung, so
+   * it owes WCAG 1.4.11's 3:1, and 30% gave only 2.72:1 on this panel (#1E1A15)
+   * — a rule nobody could see. 40% gives 3.82:1. That mattered because these
+   * values apply on the ENGINE render path even while the export path's
+   * composition order lets the base ramp win; both paths now clear the floor.
+   * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
   --on-dark-primary:   color-mix(in srgb, white 90%, transparent);
   --on-dark-secondary: color-mix(in srgb, white 65%, transparent);
-  --on-dark-ghost:     color-mix(in srgb, white 30%, transparent);
+  --on-dark-ghost:     color-mix(in srgb, white 40%, transparent);
   --on-dark-watermark: color-mix(in srgb, white 12%, transparent);
 
   /* Marp chrome mappings */

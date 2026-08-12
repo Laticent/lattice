@@ -79,10 +79,10 @@ Both paths are viable. The difference is where we spend the next 18 months.
 
 ### Where the pairing shows
 
-The left rail fills with the raw accent. Its eyebrow rides `--on-accent-secondary` and the letterform watermark rides `--on-accent-watermark` — both derived from the same curated ink, so the rail stays legible on a pale canvas.
+The left rail fills with the raw accent. Its eyebrow rides `--on-accent` at full strength and the letterform watermark rides `--on-accent-watermark`, so the rail stays legible on a pale canvas.
 
 1. Eyebrow
-   - Reads at `--on-accent-secondary` — 70% of the curated ink.
+   - Reads at `--on-accent` — the curated ink itself. A muted derivation would spend the AA margin that curation buys, so size and weight carry the step down instead.
 1. Watermark
    - The oversized glyph sits at 12% and never fights the content.
 1. Numerals

@@ -84,13 +84,21 @@ else: a fill never carries text in a fixed color — it carries text in its
 
 | Container | Fill | Ink / border | Use |
 |---|---|---|---|
-| **Bold** | `--accent` | `--on-accent` (primary), `--on-accent-secondary` (eyebrow/caption), `--on-accent-ghost` (chrome / divider), `--on-accent-watermark` (backdrop glyph) | Loud, attention-pulling — verdict bar, corner tags, timeline nodes, the split-panel rail |
+| **Bold** | `--accent` | `--on-accent` (**all text**, including eyebrows and labels), `--on-accent-secondary` (muted chrome only — running header/footer), `--on-accent-ghost` (chrome / divider), `--on-accent-watermark` (backdrop glyph) | Loud, attention-pulling — verdict bar, corner tags, timeline nodes, the split-panel rail |
 | **Soft** | `--accent-soft` | `--on-accent-soft` (emphasis + border); `--accent-soft-body` (body prose, = canvas `--text-body`) | Quiet, recommended-option surfaces — verdict-grid winner, compare-prose transition & matrix outcome cells |
 
 The **bold** ink is the single curated value `--on-accent`: each theme tunes it
 for AAA contrast against *its* `--accent` in both modes, and the three muted
 tiers derive from it by opacity (so overriding `--on-accent` alone re-tunes the
-whole rail). The **soft** ink `--on-accent-soft` is `--accent` itself — it reads
+whole rail).
+
+> **No derived tier carries text on the bold container.** The derivation spends the
+> very margin the curation buys, and on several palettes `--on-accent` clears AA by
+> little enough that there is nowhere to descend to: measured across all 14, the 70%
+> `--on-accent-secondary` is **sub-AA on seven** (mustard 3.34:1 … carta 4.40:1). Text
+> — eyebrows and captions included — names `--on-accent`, and hierarchy comes from
+> size and weight. See
+> [`engineering/decisions/2026-08-11-on-dark-ink-tiers.md`](../engineering/decisions/2026-08-11-on-dark-ink-tiers.md). The **soft** ink `--on-accent-soft` is `--accent` itself — it reads
 AAA on the pale tint and is exactly what soft cards already used; naming it gives
 consumers a first-class pair and one override seam, with no new curated color.
 

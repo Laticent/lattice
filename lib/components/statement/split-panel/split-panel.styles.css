@@ -67,8 +67,17 @@ section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-famil
 section.split-panel.metric .panel-left h2 em { font-size:var(--fs-h1); font-weight:700; font-style:normal; color:var(--text-secondary); }
 section.split-panel.metric .panel-left p { font-size:var(--fs-meta); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-snug); max-width:26ch; margin:0; padding-top:var(--sp-sm); border-top:1px solid var(--border); }
 section.split-panel.metric .panel-right { background:var(--surface-inverse); }
-section.split-panel.metric .panel-right h3 { color:var(--on-dark-secondary); border-bottom-color:var(--on-dark-watermark); }
-section.split-panel.metric .panel-right > ul > li { border-left:2px solid var(--on-dark-watermark); }
+/* Both rules take --on-dark-ghost, the rule/divider rung. They used to name
+ * --on-dark-watermark — 12% white, documented as the "large-glyph backdrop,
+ * near-invisible" tier — for a 2px row accent and a heading hairline: measured
+ * 1.40:1 on indaco and 1.27–1.46:1 across every other palette, against WCAG
+ * 1.4.11's 3:1. Invisible, on all 14. The mirror rule on the LIGHT half of this
+ * same component sits at 5.47:1 (--accent on white), so the dark half was the
+ * outlier, not the target. Watermark keeps its correct consumer — the oversized
+ * decorative open-quote glyph below.
+ * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
+section.split-panel.metric .panel-right h3 { color:var(--on-dark-secondary); border-bottom-color:var(--on-dark-ghost); }
+section.split-panel.metric .panel-right > ul > li { border-left:2px solid var(--on-dark-ghost); }
 section.split-panel.metric .panel-right > ul > li > strong { color:var(--on-dark-primary); }
 section.split-panel.metric .panel-right > ul > li > :is(ul,ol) > li { color:var(--on-dark-secondary); }
 
@@ -208,9 +217,23 @@ section.split-panel.watermark .panel-left { width:34%; background:var(--accent);
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
 section.split-panel.watermark .panel-left h2 { font-size:var(--fs-emphasis); color:var(--on-accent); margin:0; font-weight:800; }
 section.split-panel.watermark .panel-left .watermark { position:absolute; font-family:var(--font-display); font-size:calc(11.46cqi * var(--fs-scale)) /* cqi-ok: decorative watermark numeral */; font-weight:700; color:var(--on-accent-watermark); top:3.125cqi; left:1.5625cqi; line-height:1; pointer-events:none; }
-section.split-panel.watermark .panel-left > p:has(> code:only-child) { position:absolute; top:50%; transform:translateY(-50%); padding:0; margin:0; color:var(--on-accent-secondary); }
-section.split-panel.watermark .panel-left > p:has(> code:only-child) > code { color:var(--on-accent-secondary); background:none; border:none; padding:0; border-radius:0; }
-section.split-panel.watermark .panel-left > h5 { position:absolute; top:var(--sp-xl); margin:0; color:var(--on-accent-secondary); }
+/* The eyebrow and the h5 watermark label take --on-accent, the CURATED rung, not
+ * the 70%-derived --on-accent-secondary. Each palette tunes --on-accent for AA
+ * against ITS OWN --accent (base.tokens.css, gated by contrast-audit.js's
+ * on-accent/accent pair), and a 70% derivation spends exactly the margin that
+ * curation bought: measured on all 14, sub-AA on SEVEN — mustard 3.34, indaco 3.51,
+ * magnolia 3.74, brina 3.80, laguna 3.82, cuoio 4.06, carta 4.40. The other seven
+ * pass on their own accent's headroom, and not because their accent is dark
+ * (carbone clears 5.85:1 on a bright lime). No derived alpha can be safe here in
+ * general, because on some palettes --on-accent clears 4.5 by very little (indaco:
+ * 5.47:1) and the tier has nowhere to descend to. So TEXT on this rail names the
+ * curated rung and lets size + weight carry the hierarchy — the h2 above already
+ * does exactly that. The running header/footer keep --on-accent-secondary
+ * (line ~247): muted chrome, WCAG-exempt by palette contract.
+ * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
+section.split-panel.watermark .panel-left > p:has(> code:only-child) { position:absolute; top:50%; transform:translateY(-50%); padding:0; margin:0; color:var(--on-accent); }
+section.split-panel.watermark .panel-left > p:has(> code:only-child) > code { color:var(--on-accent); background:none; border:none; padding:0; border-radius:0; }
+section.split-panel.watermark .panel-left > h5 { position:absolute; top:var(--sp-xl); margin:0; color:var(--on-accent); }
 section.split-panel.watermark .panel-right { padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
 section.split-panel.watermark .panel-right h3 { font-family:inherit; text-transform:none; letter-spacing:normal; border-bottom:none; padding-bottom:0.3125cqi; color:var(--text-heading); }
 section.split-panel.watermark .panel-right p { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-md); }

@@ -21,9 +21,13 @@
  * as the PRIMARY `color:` value trips the guard (a `var(--on-accent,
  * var(--on-dark-primary))` chain reads --on-accent first and passes).
  *
- * If this fails: swap the offending color for --on-accent (primary text/headings),
- * --on-accent-secondary (eyebrows/captions), or --on-accent-ghost (chrome). Do
- * NOT paper over it by darkening the accent — the whole point is palette-blind.
+ * If this fails: swap the offending color for --on-accent — for ALL text on the rail,
+ * eyebrows and captions included — or --on-accent-ghost for chrome. Do NOT reach for
+ * --on-accent-secondary to quiet a label: it is a 70% derivation of a rung already
+ * curated tight, so it is sub-AA on seven of the 14 palettes (that binding is exactly
+ * what engineering/decisions/2026-08-11-on-dark-ink-tiers.md removed from
+ * split-panel.watermark). Step a label down with size or weight instead. And do NOT
+ * paper over it by darkening the accent — the whole point is palette-blind.
  */
 
 const { test, describe } = require('node:test');
