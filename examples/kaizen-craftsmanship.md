@@ -3,6 +3,8 @@ marp: true
 size: 4k
 theme: ardesia
 paginate: true
+acronyms:
+  PDSA: plan, do, study, act
 header: "The Invisible Half · Craft, quality, kaizen"
 ---
 
@@ -12,7 +14,7 @@ header: "The Invisible Half · Craft, quality, kaizen"
 
 `Craft · Quality · Kaizen`
 
-Most of what decides whether a thing is good is hidden from the person who buys it. Today we go looking for it.
+Most of what makes a thing good is hidden from the person who buys it. Today we go looking for it.
 
 <!-- Open cold. The two pairs are on the table, face down, and nobody touches them
      until the next slide. Do not name the brands, the prices, or which is which.
@@ -29,9 +31,9 @@ Most of what decides whether a thing is good is hidden from the person who buys 
 1. Handle, don't judge
    - Pick each one up. Flex the sole. Look inside. Say nothing to anyone yet.
 2. Write ten differences
-   - In your own words. No technical vocabulary is required, and none of it would help you here.
-3. Circle the buyer's three
-   - Which would someone catch in ninety seconds, in a shop, with no tools and nobody to ask?
+   - Use your own words. You don't have the technical vocabulary yet, and it wouldn't help.
+3. Mark the three a buyer would spot
+   - Ninety seconds in a shop, no tools, and nobody to ask.
 4. Name what you can't check
    - One difference you suspect but cannot prove by looking. This is the one that matters.
 
@@ -53,7 +55,7 @@ Most of what decides whether a thing is good is hidden from the person who buys 
 
 - What the eye catches
   - Stitch spacing, edge finish, how the leather creases at the vamp. Real signals, every one of them cheap to imitate.
-- What the eye cannot
+- What the eye misses
   - How the upper was tensioned over the last. What the sole is actually attached to. Whether it can ever be repaired.
 
 > The visible half sells the object. The invisible half decides how long you keep it.
@@ -73,9 +75,9 @@ Most of what decides whether a thing is good is hidden from the person who buys 
 
 ## The part that decides its lifespan is a ridge you will never see.
 
-One maker carved a rib — the holdfast — out of the insole itself and stitched the sole through it. The other glued on a strip of canvas to imitate it. From every angle a buyer reaches, the two are identical. One resoles a dozen times. The other lets go when the glue tires.
+One maker carved a rib — the holdfast — out of the insole itself and stitched the sole through it. The other glued on a strip of canvas to imitate it. From every angle a buyer can reach, the two are identical. One resoles a dozen times. The other lets go when the glue tires.
 
-> Every craft has a holdfast — the part nobody inspects, that decides everything.
+> Every craft has a holdfast — the part nobody inspects, which decides everything.
 
 <!-- If you have a cutaway or a failed pair, this is the moment to pass it around.
 
@@ -150,7 +152,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ## The same defect costs ten times more at every handoff it survives.
 
-`A rule of thumb. Trust the escalation; hold the exact ratio loosely.`
+`A rule of thumb. Trust the climb, hold the numbers loosely.`
 
 1. $1
    - caught at design
@@ -307,7 +309,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ## Modularity is what makes continuous improvement affordable.
 
-Improvement costs whatever it costs to change one thing. In a glued shoe the sole *is* the shoe, so a better sole means a whole new shoe and nothing improves. Put a standard joint between them and the sole improves every year while the rest stays untouched. The same holds for your code, your process, your handoffs.
+Improvement costs what it costs to change one thing. In a glued shoe the sole *is* the shoe, so a better sole means a whole new shoe and nothing improves. Put a standard joint between them and the sole improves every year while the rest stays untouched. The same holds for your code, your process, your handoffs.
 
 > Kaizen without modularity is good intentions with a large bill attached.
 
@@ -327,8 +329,8 @@ Improvement costs whatever it costs to change one thing. In a glued shoe the sol
 
 ## Two things you can start on Monday without asking permission.
 
-1. Find the holdfast in your work — the part nobody inspects, that decides how long it lasts.
-2. When something goes wrong, fix the system that made it rational before you talk to the person.
+1. Find the holdfast in your work — the part nobody inspects, which decides how long it lasts.
+2. When something goes wrong, fix whatever made it the easy choice before you blame a person.
 
 <!-- Two, not a list of ten, because a list of ten is a list of none. Make them
      write one down and say it aloud before they leave — a commitment nobody heard
