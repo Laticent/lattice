@@ -85,11 +85,15 @@ so the eyebrow pattern can never violate heading-order rules.
 Styling: `--font-mono`, 13px (`--fs-label`), 600 weight, 0.18em
 letter-spacing, uppercase, `--text-secondary` (the AA-tuned secondary
 content tier — a `light-dark()` pair, so it resolves correctly on `.dark`
-slides and dark themes). Dark bookend slides (title, divider, closing)
-override the color to `--on-dark-secondary` / `--on-dark-ghost`
-automatically. (Before the 2026-06-05 token-structure audit the eyebrow
-rode the decorative `--text-muted`, which dropped below AA in several
-themes — see `engineering/decisions/2026-06-05-token-structure-audit.md`.)
+slides and dark themes). All three dark bookend slides (title, divider,
+closing) override the color to `--on-dark-secondary` automatically.
+(Before the 2026-06-05 token-structure audit the eyebrow rode the
+decorative `--text-muted`, which dropped below AA in several themes —
+see `engineering/decisions/2026-06-05-token-structure-audit.md`. And
+until 2026-08-11 `closing` alone rode `--on-dark-ghost`, the decorative
+chrome rung, at 2.49–2.91:1 in every palette; ghost carries **no text**
+and is now the rule/divider tier — see
+`engineering/decisions/2026-08-11-on-dark-ink-tiers.md`.)
 
 **Exception — `title` layout.** Placing an inline-code paragraph
 before `h1` triggers markdownlint MD041 (_first-heading-h1_) because

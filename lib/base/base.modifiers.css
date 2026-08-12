@@ -175,8 +175,21 @@ section.divider p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark
 /* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas colour. */
 section.divider.light p:has(> code:only-child):has(+ h1) > code,
 section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--text-secondary); }
+/* `closing` takes --on-dark-secondary, exactly like `title` and `divider` above.
+ * It used to name --on-dark-ghost, the documented "very muted decorative chrome"
+ * rung, for a real content label: measured 2.49:1 on indaco and 2.67–2.91:1 on
+ * every other palette — a sub-AA eyebrow in all 14, and the dimmest text on the
+ * slide. A wrong rung, not a wrong value; the sibling bookends already inked the
+ * identical element with `secondary`, and ghost is now the rule/divider tier
+ * (base.tokens.css). After the move: **7.17:1 computed** on indaco — the worst case
+ * across all 19 palettes, since `secondary` is now 76% white (base.tokens.css) and
+ * indaco has the lightest panel — and **7.19:1 as rendered**, the 0.02 being 8-bit
+ * rounding of the composite (76% white over #003D66 quantizes to #C2D0DA). Quoting
+ * either is fine; quoting 7.19 as the *computed* worst case is not, which an earlier
+ * draft did.
+ * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
 section.closing p:has(> code:only-child):has(+ h1) > code,
-section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-ghost); }
+section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
 /* Dark modifier (any layout + dark class) */
 section.dark p:has(> code:only-child):has(+ h1) > code,
 section.dark p:has(> code:only-child):has(+ h2) > code,
