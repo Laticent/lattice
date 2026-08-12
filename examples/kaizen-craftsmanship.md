@@ -366,31 +366,48 @@ Bring one improvement you made where nobody would have noticed.
 ## Glossary
 
 - Holdfast
-  - A rib carved from the insole itself. The welt is stitched to it.
+  - The maker cuts this rib from the insole itself, then stitches the welt through it. Without one, no cobbler can resole the shoe.
 - Insole
-  - The layer of leather directly under your foot, inside the shoe.
+  - The leather layer under your foot. Everything holding the shoe together starts here. Cheap shoes economize here first, where nobody looks.
 - Kaizen
-  - Japanese: continuous improvement. Small changes, by everyone, every day.
+  - Japanese for continuous improvement. Everyone changes something small every day, because steady gains compound and survive the budgets that kill big projects.
 - Last
-  - The foot-shaped form a shoe is built around, then pulled off.
+  - The foot-shaped form the maker builds a shoe around, then pulls out. It explains why two shoes in one size can fit differently.
 - Outsole
-  - The bottom layer that meets the ground and wears out first.
+  - The bottom layer meeting the ground. It dies first. How the maker attached it decides whether the shoe dies with it.
+
+<!-- Reference, not a slide to present. Both pages sit after the close on purpose,
+     so the deck they keep can answer "what was a holdfast again?" a week later.
+
+     Every entry says what the word means AND why anyone should care, because a
+     junior who learns only the definition cannot use it. Where one entry leans on
+     another word — holdfast on insole and welt, welt on upper and outsole — that
+     word is itself in the glossary, so nobody gets sent outside these two pages.
+
+     If you want the vocabulary live instead, say the four shoe words once while
+     the pairs are still in their hands during the observation block — upper,
+     insole, outsole, welt — and let the rest arrive in context. Vocabulary handed
+     out before anyone needs it slides straight off. -->
+
+---
+
+<!-- _class: glossary -->
+
+## Glossary, continued
+
 - PDSA
-  - Plan, Do, Study, Act. Deming's improvement loop, run as an experiment.
+  - Plan, Do, Study, Act. Deming's loop. Predict the result before you change anything, or the change teaches you nothing.
 - Poka-yoke
-  - Japanese: mistake-proofing. Changing a tool so the error becomes impossible.
+  - Japanese for mistake-proofing. Redesign the tool so the error stops being possible, since attention is the least reliable part you can specify.
 - Upper
-  - Everything above the sole — the leather your foot sits inside.
+  - Everything above the sole, the leather your foot sits inside. A good one outlives four outsoles. That gap is why repair pays.
 - Vamp
-  - The front of the upper, over the toes, where the leather creases.
+  - The front of the upper, over your toes. Leather creases hardest here, so it shows first whether the maker cut the pattern well.
 - Welt
-  - A strip of leather joining upper to outsole, so the outsole can be replaced.
+  - A strip of leather joining upper to outsole. It turns the sole into a part a cobbler can swap without touching the rest.
 
-<!-- Reference, not a slide to present. It sits after the close on purpose, so
-     the deck they keep can answer "what was a holdfast again?" a week later.
-
-     If you want it live instead, say the four shoe words once while the pairs
-     are still in their hands during the observation block — upper, insole,
-     outsole, welt — and let the rest arrive in context. Vocabulary given before
-     anyone needs it does not stick. -->
+<!-- Second page, same job. If someone asks why a deck about craftsmanship
+     bothers defining PDSA and poka-yoke: because they will meet both words in
+     any workplace that has ever run an improvement program, usually from someone
+     who assumes they already know them. -->
 
