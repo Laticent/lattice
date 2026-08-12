@@ -1662,7 +1662,16 @@ const slidesWithNotes = slides.map((sec, i) => {
     sectionAttr = ` aria-describedby="${id}"`;
   }
   // Inject just inside the opening <section>, adding aria-describedby to the tag.
-  return stripped.replace(/^(\s*<section\b)([^>]*>)/i, `$1${sectionAttr}$2${inject}`);
+  // A REPLACER FUNCTION, not a replacement string: `inject` carries author prose,
+  // and in a replacement string `$1`-`$9` / `$&` / `` $` `` / `$'` are backreferences.
+  // A note reading "$100" therefore expanded to the first capture group ("<section")
+  // plus "00" — unbalancing the HTML, so the depth-aware section walker under-counted
+  // slides and every note annotation was dropped from the PDF. A replacer's return
+  // value is taken literally, so author prose stays author prose.
+  return stripped.replace(
+    /^(\s*<section\b)([^>]*>)/i,
+    (_m, open, rest) => `${open}${sectionAttr}${rest}${inject}`,
+  );
 });
 
 // ── Marp-equivalent CSS for pagination and header/footer ────────────────────

@@ -48,11 +48,33 @@ describe('speaker notes (emulator)', () => {
   test('PDF annotations: index-aligned, hidden by default, pragma slide excluded', { timeout: 60000 }, async () => {
     const pdf = render();
     const annots = await pageAnnotations(pdf);
-    assert.equal(annots.length, 3, 'expected 3 pages');
+    assert.equal(annots.length, 4, 'expected 4 pages');
     assert.equal(annots[0].contents, 'First note, on slide one.');
     assert.equal(annots[1], null, 'slide 2 carries only a tooling pragma — no note');
     assert.equal(annots[2].contents, 'Note A on slide three.\n\nNote B on slide three.');
     assert.ok(annots[0].hidden && annots[2].hidden, 'annotations are hidden (F=2) by default');
+  });
+
+  // Regression: the aside is spliced in with String.replace, where `$1`-`$9`,
+  // `$&`, `` $` `` and `$'` are BACKREFERENCES, not literals. A note reading
+  // "$100" used to expand to the first capture group ("<section") plus "00",
+  // which unbalanced the HTML — the depth-aware section walker then under-counted
+  // slides, and the page/note length mismatch silently dropped EVERY annotation
+  // from the PDF. Prose about money is the ordinary way to hit this.
+  test('a note carrying $-replacement tokens survives verbatim', { timeout: 60000 }, async () => {
+    const NOTE = "Fixing it at design costs $1; at the customer, $100. Also $& and $` and $'.";
+    const pdf = render();
+    const annots = await pageAnnotations(pdf);
+    assert.equal(annots[3].contents, NOTE, 'the note round-trips with no backreference expansion');
+
+    const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
+    // The `$`-carrying aside must not have injected a stray, unbalanced <section.
+    const slideSections = (html.match(/<section\b[^>]*\bdata-lattice-slide=/g) || []).length;
+    assert.equal(slideSections, 4, 'four slide sections in the sidecar');
+    const { splitSections } = require('../../../lib/core/split-sections');
+    const at = html.search(/<section\b[^>]*\bdata-lattice-slide=/);
+    const walked = splitSections(html.slice(at)).filter((p) => p.type === 'section');
+    assert.equal(walked.length, 4, 'the section walker agrees — no unbalanced <section leaked in');
   });
 
   test('HTML sidecar: hidden aside per noted slide; raw note comment stripped', { timeout: 60000 }, () => {
@@ -60,8 +82,8 @@ describe('speaker notes (emulator)', () => {
     const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
     const asides = [...html.matchAll(/<aside class="lattice-notes" hidden data-slide="(\d+)">([\s\S]*?)<\/aside>/g)]
       .map((m) => ({ slide: m[1], text: m[2] }));
-    assert.equal(asides.length, 2, 'two slides have notes');
-    assert.deepEqual(asides.map((a) => a.slide), ['1', '3']);
+    assert.equal(asides.length, 3, 'three slides have notes');
+    assert.deepEqual(asides.map((a) => a.slide), ['1', '3', '4']);
     assert.match(asides[0].text, /First note, on slide one\./);
     // The raw <!-- … --> note comment must be gone (lifted, not duplicated).
     assert.equal(/<!--\s*First note/.test(html), false, 'raw note comment should be stripped');

@@ -26,3 +26,11 @@ Body of the second slide — a tooling pragma, so no note here.
 <!-- Note B on slide three. -->
 
 Body of the third slide.
+
+---
+
+# Slide four
+
+<!-- Fixing it at design costs $1; at the customer, $100. Also $& and $` and $'. -->
+
+Body of the fourth slide — the note carries regex replacement-string tokens.
