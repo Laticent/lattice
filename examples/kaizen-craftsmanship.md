@@ -239,24 +239,30 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 `Modularity · A second specimen`
 
-## The badge I carry makes the same argument in your pocket.
+## This badge is hand-stitched, and designed to come apart.
 
-- One core
-  - The badge itself — designed once, and unchanged when the carry changes. Stability is what makes it worth designing well.
+- Two bodies
+  - A card holder with a window, and a flap pouch that shuts with a snap. Either one, same attachment.
 - Three carries
-  - Belt hanger, key ring, lanyard. Each is an adapter, not a new badge. A fourth costs nothing to add.
+  - Neck lanyard, belt clip, key ring. Each terminates the same way, so any carry takes any body.
 - One interface
-  - One attachment point all three agree on. Get it wrong and every carry inherits the mistake, forever.
+  - A snapped leather tab and a nickel clip. That single agreement is what the system is built on.
 
-> Modularity is not more parts. It is fewer decisions that everything else depends on.
+> Five pieces, six configurations. Without the shared tab, that is six separate products.
 
-<!-- Pass the badge around in all three configurations, and let them swap the carry
-     themselves — the swap is the argument, not a description of it.
+<!-- Take it apart in front of them, then hand the pieces round and make them
+     rebuild it a different way. The swap is the argument; describing it is not.
 
-     The point to make while it's in their hands: the hard work was not the three
-     carries. It was deciding the attachment once, correctly, so that all three
-     carries could each be easy. Getting the interface wrong is expensive forever;
-     getting a carry wrong costs one carry. -->
+     Two things to point at, in this order. First the saddle stitch — the same
+     stitch, in the same veg-tan, by the same hand as the outsole they were
+     holding an hour ago. This is not an analogy for the shoe. It is the same
+     craft. Second, the leather has darkened where it gets handled: quality that
+     only shows itself after you own it, which is the holdfast argument again.
+
+     Then the design point: the hard work was never the carries. It was settling
+     the tab once, correctly, so that every carry after it could be easy. Get a
+     carry wrong and you have lost one carry. Get the tab wrong and you have lost
+     all six configurations, permanently. -->
 
 ---
 
@@ -284,17 +290,20 @@ Improvement costs whatever it costs to change one thing. In a glued shoe the sol
 
 `Your practice · This week`
 
-## Four things you can start on Monday without asking permission.
+## Two things you can start on Monday without asking permission.
 
-1. Find the holdfast in your work — the part nobody inspects that decides everything.
-2. Write the standard down before you try to improve it.
-3. Make one change small enough to study, and predict the result first.
-4. Fix the system before you talk to the person.
+1. Find the holdfast in your work — the part nobody inspects, that decides how long it lasts.
+2. When something goes wrong, fix the system that made it rational before you talk to the person.
 
-<!-- Make them write one down and say it aloud before they leave. A commitment
-     nobody heard is a commitment nobody made.
+<!-- Two, not a list of ten, because a list of ten is a list of none. Make them
+     write one down and say it aloud before they leave — a commitment nobody heard
+     is a commitment nobody made.
 
-     Number 4 is the one that will cost them something socially, and it is the one
+     If they want more: write the standard down before improving it, and make each
+     change small enough to study with the result predicted first. Those are the
+     mechanics. The two on the slide are the ones that change behavior.
+
+     Number 2 is the one that costs them something socially, and it is the one
      that separates a manager from a supervisor. -->
 
 ---
