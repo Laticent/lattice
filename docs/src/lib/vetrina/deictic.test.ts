@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ANIMATION_TEST_TIMEOUT_MS } from '../../../test-budgets.js';
 import { createStage, gestureRest, type RectSource, type Stage } from './stage';
 import { resolveTheme } from './theme';
 
@@ -292,7 +293,7 @@ describe('the stroke is always stroked, then withdrawn', () => {
 	// stroke's own ending is past the line's right edge); with a host rest to the LEFT — which is
 	// what a whitespace search returns most of the time — the hand approached the line's START and
 	// then moved backwards over the words while the ink drew itself. The gesture did not happen.
-	it('underline still sweeps its line before withdrawing to a rest behind it', { timeout: 25_000 }, async () => {
+	it('underline still sweeps its line before withdrawing to a rest behind it', { timeout: ANIMATION_TEST_TIMEOUT_MS }, async () => {
 		const stage = mount('full');
 		const box = { left: 600, top: 200, width: 300, height: 24 };
 		const t = target(box, [box]);
@@ -337,7 +338,7 @@ describe('an explicit `rest` is where the stroke ENDS, not somewhere it withdraw
 	const DEFAULT_X = { underline: BOX.left + BOX.width + CLEAR, wash: BOX.left + BOX.width + CLEAR, tap: BOX.left + BOX.width + CLEAR, bracket: BOX.left - 6 - CLEAR } as const;
 
 	for (const kind of ['underline', 'wash', 'bracket', 'tap'] as const) {
-		it(`${kind} goes straight there`, { timeout: 25_000 }, async () => {
+		it(`${kind} goes straight there`, { timeout: ANIMATION_TEST_TIMEOUT_MS }, async () => {
 			const stage = mount('full');
 			const t = target(BOX, [BOX]);
 			// PAST the default, on the same side, for `bracket`: its default is already to the left,
@@ -461,7 +462,7 @@ describe('teardown and the reduced tier — the two ways `circle` used to leak',
 		const p = cursorAt();
 		expect(Number.isFinite(p.x), 'the cursor coordinates are NaN — every later gesture is a no-op').toBe(true);
 		expect(p.x).toBeGreaterThan(800);
-	}, 30_000);
+	}, ANIMATION_TEST_TIMEOUT_MS);
 });
 
 describe('the shapes of "gone", and the shapes of "no"', () => {
@@ -529,7 +530,7 @@ describe('the motion policy', () => {
 		const after = new Set(path.slice(turn + 1));
 		expect(after.size, `no motion along the stroke itself — only the approach to it (path ${JSON.stringify(path)})`).toBeGreaterThan(3);
 		expect(cursorAt().x).toBeGreaterThan(700);
-	}, 20_000);
+	}, ANIMATION_TEST_TIMEOUT_MS);
 
 	it('draws heavier ink for a notable target than for a quiet one', () => {
 		// `strength` is public surface and nothing else asserts it does anything: a mutation making

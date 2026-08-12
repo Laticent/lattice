@@ -1,0 +1,137 @@
+name: Docs suite flake nightly
+
+# NIGHTLY nondeterminism hunt for the docs Vitest suite — the third half of
+# #1324, after the two budget fixes in docs/test-budgets.js.
+#
+# WHY A NIGHTLY AND NOT A GATE. `docs-build` runs the suite ONCE per PR, and a
+# nondeterministic failure is invisible to a single run by definition: the whole
+# diagnostic difficulty of #1324 was that every implicated test passed in
+# isolation and a DIFFERENT one died on each full run. One green run proves
+# nothing, so the only way to see this class is to run the suite repeatedly and
+# look at the distribution. That is too slow for the PR path (~4 min a run) and
+# it belongs off the critical path anyway — its output is a trend, not a verdict
+# on the diff in front of it.
+#
+# WHAT IT CATCHES that docs-build cannot: a test that has crept back toward its
+# timeout, or a genuine ordering dependency. Either shows up here as "run 2 of 3
+# failed" days or weeks before it starts ejecting unrelated PRs from the merge
+# queue — which is the actual cost this issue was filed about (#1317 was ejected
+# while touching zero files under docs/).
+#
+# Same shape as modulepreload-coverage-nightly.yml — a single rolling tracking
+# issue, found by a title marker, appended to rather than re-opened.
+
+on:
+  schedule:
+    - cron: '11 6 * * *' # daily 06:11 UTC — after perf (05:37), before the backlog sync (06:17)
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: 'How many full suite runs to make'
+        type: string
+        default: '3'
+
+permissions:
+  contents: read
+  issues: write # open / append the flake tracking issue
+
+concurrency:
+  group: docs-flake-nightly
+  cancel-in-progress: false
+
+jobs:
+  repeat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      # The docs suite exercises root CJS that `require('@workwel/cadenza')` —
+      # the workspace symlink lives in ROOT node_modules. Same reason as
+      # ci.yml's docs-build job.
+      - name: Install root deps (for the @workwel/cadenza workspace link)
+        run: npm ci
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+
+      - name: Run the docs suite repeatedly
+        id: repeat
+        working-directory: docs
+        env:
+          RUNS: ${{ inputs.runs || '3' }}
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/flake-report.md"
+          FAILED=0
+          {
+            echo "## Docs suite — ${RUNS} consecutive full runs"
+            echo ""
+          } > "$REPORT"
+          for i in $(seq 1 "$RUNS"); do
+            echo "::group::Suite run $i of $RUNS"
+            # `test:report` is `vitest run` plus a JSON reporter, so the margin
+            # table below is a free by-product of the last run rather than a
+            # second suite execution.
+            if npm run test:report > "run-$i.log" 2>&1; then
+              echo "- run $i: **passed**" >> "$REPORT"
+            else
+              FAILED=1
+              echo "- run $i: **FAILED**" >> "$REPORT"
+              {
+                echo ""
+                echo "<details><summary>run $i — failing tests</summary>"
+                echo ""
+                echo '```'
+                # The default reporter's failure block, not the whole log.
+                grep -E "FAIL|Test timed out|Unable to find|✕|×" "run-$i.log" | head -40 || true
+                echo '```'
+                echo ""
+                echo "</details>"
+              } >> "$REPORT"
+            fi
+            tail -5 "run-$i.log" || true
+            echo "::endgroup::"
+          done
+          {
+            echo ""
+            echo "Every failure above is nondeterministic by construction — the same tree passed on the other runs. Reproduce with repeated full runs, NOT by running the named file alone (it will pass). See docs/test-budgets.js."
+            echo ""
+          } >> "$REPORT"
+          # The margin table from the final run — how close the suite is to its
+          # own budgets, which is the leading indicator for the next one of these.
+          npm run check:test-margin >> "$REPORT" || true
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/flake-report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Open / append flake issue
+        if: steps.repeat.outputs.failed == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[docs-flake]'
+          BODY="$GITHUB_WORKSPACE/flake-report.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · commit \`${{ github.sha }}\`._"
+          } >> "$BODY"
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create \
+              --title "$MARKER the docs suite failed a repeat run — nondeterminism is back" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi

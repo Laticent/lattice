@@ -483,6 +483,62 @@ locally from `docs/`:
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.
 
+### The docs Vitest suite — and its two timeout budgets
+
+`cd docs && npm test` (the `docs-build` job's `npm test` step) runs the React
+islands under Vitest + Testing Library. **Run it from `docs/`, never the repo
+root** — the root has its own suite and gives ~245 unrelated failures.
+
+Two wall-clock budgets govern it, and they live together in
+**`docs/test-budgets.js`**, imported by `vitest.config.ts`, `vitest.setup.ts`
+and the margin report so they cannot drift apart:
+
+| Budget | Value | What it bounds |
+| --- | --- | --- |
+| `TEST_TIMEOUT_MS` / `HOOK_TIMEOUT_MS` | 20 s | one `it()` / one hook |
+| `ASYNC_UTIL_TIMEOUT_MS` | 5 s | one `findBy*` / `waitFor` poll |
+| `ANIMATION_TEST_TIMEOUT_MS` | 60 s | opt-in, for a test that waits out real `requestAnimationFrame` motion (the vetrina gestures) |
+
+Neither is a library default any more, and that is the fix for **#1324**. The
+defaults (5 s and 1 s) are sized for a test that does almost nothing on an idle
+machine; a Studio component test renders the whole `StudioShell` and waits out a
+400 ms assessment debounce, costing 1–2 s **idle**, while Vitest runs the
+suite's files in parallel. So contention killed whichever test drew the worst
+scheduling — a different one every run, all of them passing in isolation. Since
+`docs-build` is a *required* check, each of those ejected whatever PR was in the
+queue, including ones touching zero files under `docs/`.
+
+Two consequences worth knowing before you debug a red run:
+
+- **A failure here is not reproducible by running the named file alone.** It
+  will pass. Reproduce with repeated *full* runs.
+- **Cross-file state is not the explanation.** Vitest runs `pool: 'forks'` with
+  `isolate: true`, so every file gets its own process and its own jsdom. There
+  is no shared module state to leak.
+
+Two tools come with it, both from `docs/`:
+
+- **`npm run test:report`** — the suite plus a JSON reporter
+  (`.vitest-report.json`, git-ignored).
+- **`npm run check:test-margin`** (`docs/scripts/check-test-margin.mjs`) — reads
+  that report and tables how much of its budget each test is spending. A test
+  creeping toward its timeout is the leading indicator for the next #1324.
+  **Report-only, always exits 0**: durations are measured while the suite
+  competes with itself, so gating on them would reintroduce the very
+  nondeterminism this fixed.
+- **`.github/workflows/docs-flake-nightly.yml`** runs the suite three times over
+  and opens a rolling `[docs-flake]` issue if the runs disagree — the only way
+  to see this class, since one green run cannot disprove nondeterminism.
+
+If a test genuinely needs longer than the shared budget (a fast-check property
+run, say), give it its own `}, 60_000)` third argument — and size it against the
+test's **own worst case**, not against what it happens to cost today. The
+deictic gestures are the cautionary tale: a 1200-frame rAF poll is ~19 s of
+frames by construction, and the hand-written budgets around it were 20–25 s, so
+they died the first time a run got busy. If you find yourself adding a *third*
+such override, the shared budget is probably wrong — change it in
+`test-budgets.js` rather than at the call site.
+
 ### Studio e2e suite (Playwright) — and running it in the sandbox
 
 The Studio's real-browser e2e suite (`docs/e2e/*.spec.ts`, driven by

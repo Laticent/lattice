@@ -1,5 +1,16 @@
+import { configure } from '@testing-library/dom';
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
+import { ASYNC_UTIL_TIMEOUT_MS } from './test-budgets.js';
+
+// Testing Library polls `findBy*` / `waitFor` for 1 s by default — sized for a
+// query against an idle DOM, not for one that has to wait out a StudioShell
+// render plus a 400 ms assessment debounce while three sibling test files
+// compete for the same cores. That default is the inner half of #1324: the
+// failure it produced ("Unable to find an element with the placeholder text
+// of: /Describe a look/i") reads like a missing element and is really a missed
+// deadline. Rationale + measurements: ./test-budgets.js.
+configure({ asyncUtilTimeout: ASYNC_UTIL_TIMEOUT_MS });
 
 // The Studio persists decks + settings to localStorage; without a reset between
 // tests, created/renamed decks bleed across cases and break "starts on deck 0"

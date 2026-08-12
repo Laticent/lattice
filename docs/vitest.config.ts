@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { HOOK_TIMEOUT_MS, TEST_TIMEOUT_MS } from './test-budgets.js';
 
 // Vitest + React Testing Library harness for the docs site's React islands
 // (Phase 1+ of the shadcn migration). jsdom environment; `@` resolves to src/
@@ -22,5 +23,11 @@ export default defineConfig({
 		globals: true,
 		setupFiles: ['./vitest.setup.ts'],
 		include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
+		// Not vitest's 5 s default — the Studio tests cost 1–2 s of real wall-clock
+		// each and the suite runs its files in parallel, so the default left ~26
+		// tests close enough to the wall that contention pushed a different one
+		// over it every run (#1324). Rationale + measurements: ./test-budgets.js.
+		testTimeout: TEST_TIMEOUT_MS,
+		hookTimeout: HOOK_TIMEOUT_MS,
 	},
 });
