@@ -607,7 +607,7 @@ two of them shipped *because* their unit tests passed.
 | the report surfaces and says what to try | `desktop` | toast radius asserted as the value it must BE; contrast measured from composited pixels for EVERY text layer (title, description, action) **against the surface each is painted on**; not clipped, by rect, container overflow AND per-layer overflow; the steps section; opaque-error attribution; no sideways overflow. Skips, saying so, if the toast auto-dismissed before the assertion could run. |
 | the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
 | a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
-| a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **skips** unless the environment honors the freeze, which this one does not (see the correction above). It asserts on the frozen page's OWN records, so the wiping tab can no longer be the oracle. |
+| a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **runs**, and is falsifiable: verified RED against a build with `catchUpOnWipe` removed entirely. Stops the page with `Emulation.setScriptExecutionDisabled` (the Page Lifecycle call is a silent no-op here) and skips only if the page turns out to have heard the wipe. Covers the heartbeat catch-up path; `onResume`'s is still uncovered. |
 
 The contract is shared by two `test()` calls rather than one tagged spec, because
 the project tags are exclusive: a `@webkit-phone` test does **not** run on
@@ -689,3 +689,59 @@ visual contract skips, and a skip reports as green. The nightly alarm greps for
 failures, so a permanently-skipping visual contract would be invisible. Measured
 thresholds: runs at every rate up to ~20s paint, skips at ~28s and ~36s. Worth a
 guard before this rides a heavily loaded runner.
+
+
+## Fourth pass: the test finally works, and what made the difference
+
+`Page.setWebLifecycleState('frozen')` is inert here, and four consecutive commits
+tried to work around that without noticing it was the problem. The checker found
+the primitive that does stop a page in this environment —
+**`Emulation.setScriptExecutionDisabled`** — and, with it, demonstrated the test's
+own logic discriminating correctly with no change to its ordering, scoping or
+assertion. What had been failing was never the reasoning; it was one CDP call that
+silently did nothing.
+
+Two changes made it real:
+
+- **The stop primitive.** `setScriptExecutionDisabled` genuinely stops the
+  document, and the `storage` broadcast is demonstrably DROPPED rather than
+  queued — which is the precondition #1616 depends on.
+- **The skip predicate now tests that precondition instead of a proxy for it.**
+  It used to ask "did a `freeze` event fire and did ticks stop"; it now asks *did
+  the page hear the wipe?* — recorded by the page itself. A predicate about the
+  thing the fix depends on cannot drift away from it the way a proxy did.
+
+**Verified falsifiable:** against `9b1f45b~1` (`grep -c catchUpOnWipe` → **0**) the
+test goes RED; against `HEAD` it passes. That is the first time in five commits
+this test has been shown able to fail for its actual subject.
+
+One trap worth recording, hit while making the swap: the first attempt polled the
+live record's own `lastBeat` as the drive signal. The wipe deletes that record, so
+the poll waited forever for exactly the write the test asserts must never
+happen — **the drive signal and the assertion cannot be the same observable.** A
+tick counter in the page, independent of the record, is the right signal.
+
+Two evasions closed alongside:
+
+- **A title that does not render passed everything.** `toContainText` reads
+  `textContent`, which includes `display:none`; a zero-height box overflows
+  nothing and keeps its color. The toast rendered with no headline at all, suite
+  green. Now `toBeVisible()`.
+- **Contrast composited only ONE level.** A background on `[data-content]` — the
+  wrapper around title and description — was scored 17.3:1 and 11.4:1 against a
+  true 3.9 and 3.1. The measurement now walks the whole ancestor chain, and agrees
+  with rasterized ground truth to four decimals.
+
+### Still open
+
+- **`onResume`'s catch-up is uncovered.** `setScriptExecutionDisabled` fires no
+  `resume` event, so only the heartbeat path is exercised; deleting
+  `catchUpOnWipe()` from `onResume` would still go unnoticed. A real
+  Page-Lifecycle freeze is what covers it.
+- **Whether a genuine freeze DROPS or QUEUES the `storage` event.** If it queues
+  and delivers on resume, the live listener seals the tab and the test would prove
+  nothing on a freeze-honoring runner. Two stop-proxies disagree here, and neither
+  is a real freeze.
+- **Above ~20s of first paint the visual contract skips, and a skip reports as
+  green.** The nightly alarm greps for failures, so a permanently-skipping contract
+  would be invisible.

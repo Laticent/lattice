@@ -3624,22 +3624,16 @@ const SANCTIONED_E2E_SLEEPS = [
   // absence) and the second was wrong arithmetic (12s is two beats, not several).
   // The spec now polls the page's own tick counter and then asserts.
   {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 3000, count: 1,
-    why: 'JUDGED KEEP (#1618, review follow-up). This IS the measurement, not a wait for one: it '
-       + 'is the window over which the test counts how many ticks a supposedly-frozen document '
-       + 'ran. The expected outcome is "almost none", so there is nothing to poll for — polling '
-       + 'would return at the first sample and could not distinguish a frozen page from a running '
-       + 'one. Its length sets the sensitivity (3s of a 250ms interval is ~12 ticks if the freeze '
-       + 'was a no-op, which is exactly what CDP setWebLifecycleState turned out to be here).',
-  },
-  {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 1,
-    why: 'JUDGED KEEP (#1618, re-judged after review). Absence assertion: an ordinary visit must '
-       + 'NOT raise a crash report. Nothing can be polled for a thing that should never appear. '
-       + 'The SUBJECT was corrected though — it now reads the persisted `reported` flag rather '
-       + 'than the toast, which self-dismisses after 12s and so went vacuously green on a loaded '
-       + 'box (measured: at 20x CPU throttle the crash toast rendered and was gone before the '
-       + 'assertion ran). A durable flag has no such window.',
+    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 2,
+    why: 'JUDGED KEEP (#1618, re-judged in the fourth review pass). BOTH are absence assertions '
+       + 'with nothing to poll. (1) An ordinary visit must NOT raise a crash report — nothing can '
+       + 'be polled for a thing that should never appear; its subject was corrected from the '
+       + 'transient toast to the persisted `reported` flag, which has no 12s window to fall '
+       + 'through. (2) The window during which the page is STOPPED and the other tab wipes: the '
+       + 'stopped page by definition runs nothing to poll, and the length only has to exceed the '
+       + 'wipe, which is a single synchronous storage write. The 3000ms entry that stood here is '
+       + 'retired with the freeze-observation window it measured — the skip predicate now reads '
+       + 'whether the page HEARD the wipe rather than counting ticks over an interval.',
   },
   // ── judged in #1564 ──────────────────────────────────────────────────────────
   {

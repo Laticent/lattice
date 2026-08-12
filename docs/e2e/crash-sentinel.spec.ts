@@ -128,6 +128,12 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 			'the report itself is verified separately by expectReportWasRaised',
 	);
 	await expect(toast).toContainText(/stopped unexpectedly/i);
+	// AND IT MUST ACTUALLY RENDER. `toContainText` reads `textContent`, which
+	// includes `display:none` text — hiding the title passed every assertion here
+	// and produced a crash toast with no headline at all. A zero-height box also
+	// overflows nothing and keeps its color, so neither the clipping nor the
+	// contrast check notices.
+	await expect(toast.locator('[data-title]')).toBeVisible();
 
 	// THE SHAPE — asserted as the value it must BE, not as the one value it must
 	// not be. `.not.toBe('9999px')` rejected exactly one literal and nothing else:
@@ -199,16 +205,21 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 			};
 			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 		};
-		const bg = getComputedStyle(el).backgroundColor;
 		const ratio = (node: Element) => {
-			// EACH LAYER OVER ITS OWN BACKDROP. Measuring everything against the toast's
-			// background flatters any layer that paints its own: the action chip is
-			// `bg-white/15`, so its text was scored 5.78:1 against the toast while the
-			// pixels it is actually drawn on give 3.67:1 — under AA, and passing.
-			const own = getComputedStyle(node).backgroundColor;
-			const backdrop = px(own, bg); // the layer's own fill composited onto the toast
-			const rgb = `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`;
-			const a = lum(px(getComputedStyle(node).color, rgb));
+			// COMPOSITE THE WHOLE CHAIN. Measuring against the toast's background
+			// flatters any layer that paints its own — the action chip is `bg-white/15`
+			// and scored 5.78:1 against the toast where the pixels it is drawn on give
+			// 3.67:1. Compositing only ONE level over the toast has the same flaw one
+			// generation up: `[data-content]` wraps the title and description, and a
+			// background there was scored 17.3:1 and 11.4:1 against a true 3.9 and 3.1.
+			// Walk from the toast down to the node, painting each ancestor in turn.
+			const chain: Element[] = [];
+			for (let cur: Element | null = node; cur && cur !== el; cur = cur.parentElement) chain.unshift(cur);
+			let backdrop = px(getComputedStyle(el).backgroundColor);
+			for (const layer of chain) {
+				backdrop = px(getComputedStyle(layer).backgroundColor, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`);
+			}
+			const a = lum(px(getComputedStyle(node).color, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`));
 			const b = lum(backdrop);
 			return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 		};
@@ -317,19 +328,23 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	// Observe the lifecycle from inside the page, so "was it really frozen?" is a
 	// measurement rather than an assumption.
 	await page.addInitScript(() => {
-		const w = window as unknown as { __froze?: boolean; __ticks?: number; __ticksAtFreeze?: number };
-		w.__froze = false;
+		const w = window as unknown as { __heardWipe?: boolean; __ticks?: number };
+		w.__heardWipe = false;
+		// A drive signal that advances whether or not the record is rewritten. The
+		// record's own heartbeat cannot serve: the wipe deletes it, so polling its
+		// `lastBeat` waits forever for exactly the write this test asserts must never
+		// happen — the drive signal and the assertion cannot be the same observable.
 		w.__ticks = 0;
-		document.addEventListener('freeze', () => {
-			w.__froze = true;
-			// LATCH THE COUNT FROM INSIDE THE PAGE. Everything is read after the thaw
-			// (see below), so the page has to record its own state at the moment it
-			// stopped — the runner cannot ask it while it is stopped.
-			w.__ticksAtFreeze = w.__ticks;
-		});
 		setInterval(() => {
 			w.__ticks = (w.__ticks ?? 0) + 1;
 		}, 250);
+		// RECORD THE ONE THING THE FIX DEPENDS ON. #1616 exists because a stopped
+		// document never receives this event; if the page hears it, the pre-existing
+		// live listener seals the tab and `catchUpOnWipe` is never the thing under
+		// test. So the page writes down whether it heard, and the skip below reads it.
+		addEventListener('storage', (e) => {
+			if (e.key === 'lattice-studio-wipe-signal' || e.key === 'lattice-studio-wiped-at') w.__heardWipe = true;
+		});
 	});
 	await gotoStudio(page);
 
@@ -337,23 +352,22 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	expect(ownKeys.length).toBeGreaterThan(0);
 
 	const cdp = await context.newCDPSession(page);
-	const ticksBefore = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
-	await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
-	await page.waitForTimeout(3_000);
+	// STOP THE PAGE FOR REAL. `Page.setWebLifecycleState('frozen')` is a silent
+	// no-op in this environment — measured: it resolves, no `freeze` fires, and the
+	// document's own interval never misses a beat — which is why this test spent
+	// four commits asserting nothing. `Emulation.setScriptExecutionDisabled` does
+	// stop it, and the storage broadcast is demonstrably dropped rather than
+	// delivered, which is the precondition the fix exists for.
+	//
+	// It is NOT a Page Lifecycle freeze: no `freeze`/`resume` fires, so this
+	// exercises the heartbeat catch-up path and leaves `onResume`'s uncovered.
+	// Stated in the decision doc rather than implied away.
+	await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+	await page.waitForTimeout(2_000);
 
-	// THE WIPE HAPPENS WHILE THE PAGE IS STILL FROZEN. That is the entire premise:
-	// a document that is not running cannot receive the `storage` broadcast, so the
-	// only thing that can inform it is what it READS on waking.
-	//
-	// A previous revision moved the thaw above this, while fixing a different
-	// defect, and thereby made the test vacuous EVERYWHERE rather than merely
-	// untestable here — the page was awake for the wipe, took the broadcast live
-	// through the pre-existing listener, and passed against a build with no
-	// `catchUpOnWipe` in it at all. Unfalsifiable is worse than unverifiable.
-	//
-	// `page.waitForTimeout` above is runner-side and safe against a stopped
-	// document; `page.evaluate` is NOT, which is why every read of the page's own
-	// counters waits until after the thaw below.
+	// The wipe lands while the page is stopped. `page.waitForTimeout` above is
+	// runner-side and safe against a stopped document; `page.evaluate` is not, so
+	// every read of the page's own state waits until after the resume below.
 	const other = await context.newPage();
 	await gotoStudio(other);
 	await other.evaluate(() => {
@@ -364,25 +378,26 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 		localStorage.setItem('lattice-studio-wiped-at', at);
 	});
 
-	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
-	const frozeForReal = await page.evaluate(() => {
-		const w = window as unknown as { __froze: boolean; __ticks: number; __ticksAtFreeze?: number };
-		return { froze: w.__froze, ticks: w.__ticksAtFreeze ?? w.__ticks };
-	});
-	// 3s of a 250ms interval is ~12 ticks if the document kept running. A genuinely
-	// frozen document fires `freeze` and stops ticking. Read only now, after the
-	// thaw — see above.
-	const reallyFrozen = frozeForReal.froze && frozeForReal.ticks - ticksBefore < 4;
+	await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+	const heardWipe = await page.evaluate(() => (window as unknown as { __heardWipe: boolean }).__heardWipe);
+	// SKIP ON THE PRECONDITION, not on a proxy for it. If the page heard the
+	// broadcast, it was never stopped in the way that matters and the live listener
+	// — not the code under test — is what seals it. Passing then would assert
+	// nothing, which is what four earlier revisions of this test did.
 	test.skip(
-		!reallyFrozen,
-		`this browser did not honor the freeze (freeze event: ${frozeForReal.froze}, ticks during: ${frozeForReal.ticks - ticksBefore}) — ` +
-			'the catch-up path cannot be exercised here, and passing would assert nothing',
+		heardWipe,
+		'this environment did not stop the page: it received the wipe broadcast live, so the pre-existing ' +
+			'storage listener seals it and the catch-up path cannot be exercised here',
 	);
 
 	await page.bringToFront();
 	// Poll the woken page's OWN tick counter rather than sleeping: the settle
 	// condition is "this document has run enough heartbeats to have rewritten its
 	// record", which is drivable, unlike the absence being asserted after it.
+	// Let the resumed page run several of its own heartbeats — that write is what
+	// would resurrect the record, so it must have had ample opportunity before an
+	// absence means anything. Polled on the page's own tick counter, which advances
+	// independently of the record.
 	const wokeAt = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
 	await expect
 		.poll(async () => page.evaluate(() => (window as unknown as { __ticks: number }).__ticks), { timeout: 60_000 })
