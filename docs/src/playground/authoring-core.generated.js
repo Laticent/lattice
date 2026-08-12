@@ -3132,6 +3132,70 @@ var require_notes_core = __commonJS({
       const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
       return lines.length > 0 && lines.every((l) => DECK_SCOPE_DIRECTIVE_LINE.test(l) || DIRECTIVE_LINE.test(l));
     }
+    var COLOR_VALUE = /^(#[0-9A-Fa-f]{3,8}|[A-Za-z][A-Za-z0-9-]*|[A-Za-z-]+\([\s\S]*\))$/;
+    var DIRECTIVE_VALUE_SHAPES = {
+      theme: /^[A-Za-z0-9_-]+$/,
+      size: /^[A-Za-z0-9_:.-]+$/,
+      lang: /^[A-Za-z0-9-]+$/,
+      marp: /^(true|false)$/i,
+      paginate: /^(true|false|skip|hold)$/i,
+      color: COLOR_VALUE,
+      backgroundColor: COLOR_VALUE
+    };
+    var DIRECTIVE_BODY = /^(_?)([A-Za-z][\w]*)\s*(?::\s*([\s\S]*))?$/;
+    function directiveShapedProse(body) {
+      const m = DIRECTIVE_BODY.exec(String(body == null ? "" : body).trim());
+      if (!m) return null;
+      const [, , key, value] = m;
+      const shape = Object.hasOwn(DIRECTIVE_VALUE_SHAPES, key) && DIRECTIVE_VALUE_SHAPES[key];
+      if (!shape) return null;
+      const raw = String(value ?? "").trim();
+      if (/^(['"])[\s\S]*\1$/.test(raw)) return null;
+      const cut = raw.search(/[ \t]#/);
+      const v = (cut === -1 ? raw : raw.slice(0, cut)).trim();
+      return v && !shape.test(v) ? key : null;
+    }
+    function maskCodeRegions(source) {
+      const src = String(source == null ? "" : source);
+      const chars = src.split("");
+      const blank = (from, to) => {
+        for (let i = from; i < to; i++) if (chars[i] !== "\n" && chars[i] !== "\r") chars[i] = " ";
+      };
+      const comments = [];
+      for (const m of src.matchAll(new RegExp(COMMENT_SOURCE, "g"))) comments.push([m.index, m.index + m[0].length]);
+      let ci = 0;
+      const inComment = (i) => {
+        while (ci < comments.length && comments[ci][1] <= i) ci++;
+        return ci < comments.length && i >= comments[ci][0];
+      };
+      const OPEN = /^ {0,3}(`{3,}|~{3,})/;
+      let at = 0;
+      let fence = null;
+      let html = false;
+      for (const line of splitKeepEnds(src)) {
+        const text = line.replace(/[\r\n]+$/, "");
+        if (fence) {
+          const close = OPEN.exec(text);
+          if (close && close[1][0] === fence.marker && close[1].length >= fence.len && !text.slice(close[0].length).trim()) {
+            blank(fence.start, at + line.length);
+            fence = null;
+          }
+        } else if (html) {
+          if (!text.trim()) html = false;
+        } else {
+          const open = OPEN.exec(text);
+          if (open && !text.slice(open[0].length).includes(open[1][0]) && !inComment(at)) {
+            fence = { marker: open[1][0], len: open[1].length, start: at };
+          } else if (/^ {0,3}</.test(text)) {
+            html = true;
+          }
+        }
+        at += line.length;
+      }
+      if (fence) blank(fence.start, chars.length);
+      for (const m of chars.join("").matchAll(/`[^`\n]*`/g)) blank(m.index, m.index + m[0].length);
+      return chars.join("");
+    }
     function isDirectiveComment(body) {
       const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
       return lines.length > 0 && lines.every((l) => DIRECTIVE_LINE.test(l));
@@ -3207,21 +3271,28 @@ var require_notes_core = __commonJS({
     }
     function stripNotesFromSource(source, noteBodies) {
       const set = noteBodies instanceof Set ? noteBodies : new Set(noteBodies);
-      if (set.size === 0) return String(source == null ? "" : source);
+      const src = String(source == null ? "" : source);
+      if (set.size === 0) return src;
       const norm = (s) => String(s).replace(/\r\n?/g, "\n").trim();
-      return String(source == null ? "" : source).replace(
+      const masked = maskCodeRegions(src);
+      return src.replace(
         new RegExp(COMMENT_SOURCE, "g"),
-        (full, body) => set.has(norm(body)) ? "" : full
+        (full, body, offset) => masked[offset] === "<" && set.has(norm(body)) ? "" : full
       );
     }
     function auditStrippedSource(strippedSource) {
       const survivors = [];
       const src = String(strippedSource == null ? "" : strippedSource);
-      const masked = src.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, (m) => m.replace(/[^\n]/g, " ")).replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, (m) => m.replace(/[^\n]/g, " ")).replace(/`[^`\n]*`/g, (m) => m.replace(/[^\n]/g, " "));
+      const masked = maskCodeRegions(src);
       for (const m of masked.matchAll(new RegExp(COMMENT_SOURCE, "g"))) {
         const body = m[1].trim();
         if (!body) continue;
         if (isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
+        const prose = directiveShapedProse(body);
+        if (prose) {
+          survivors.push(`${body} \u2026 (the engine read this as a "${prose}" directive, so its text ships in the source and on the slide)`);
+          continue;
+        }
         if (isDirectiveComment(body) || isDeckScopeDirectiveComment(body)) continue;
         survivors.push(body);
       }
@@ -3263,9 +3334,11 @@ var require_notes_core = __commonJS({
       return s.slice(0, m.index) + open + out.join("") + close + s.slice(m.index + m[0].length);
     }
     function stripCaptionsFromSource(source) {
-      const commentsStripped = String(source == null ? "" : source).replace(
+      const src = String(source == null ? "" : source);
+      const masked = maskCodeRegions(src);
+      const commentsStripped = src.replace(
         new RegExp(COMMENT_SOURCE, "g"),
-        (full, body) => isCaptionComment(body) ? "" : full
+        (full, body, offset) => masked[offset] === "<" && isCaptionComment(body) ? "" : full
       );
       return stripCaptionsFrontMatter(commentsStripped);
     }
@@ -3294,6 +3367,9 @@ var require_notes_core = __commonJS({
       isCaptionComment,
       isDirectiveComment,
       isDeckScopeDirectiveComment,
+      DIRECTIVE_VALUE_SHAPES,
+      directiveShapedProse,
+      maskCodeRegions,
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,

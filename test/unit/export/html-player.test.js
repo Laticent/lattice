@@ -101,6 +101,23 @@ test('themeDualMode flattens a MULTI-HOP var chain to a literal (no residual cro
 	assert.match(attr, /--code:var\(--accent\)/, 'a same-block dark token ref is still kept (cycle-safe, block-local)');
 });
 
+test('themeDualMode flattens against `:root` ONLY — a component-scoped decl never wins (#1637)', () => {
+	// The bug this pins: the flatten map was built by scanning the whole sheet, last
+	// declaration wins, and the last `--surface-inverse` in the real bundle is
+	// `section.print`'s. `--on-accent` then flattened its dark arm to the print band's ink
+	// and `examples/accent-on-accent.md` shipped its headline at 1.24:1 on the accent rail.
+	// The component declaration is LAST here on purpose — that is what made it win.
+	const css =
+		':root{--brand-canvas:#0A1628;--surface-inverse:var(--brand-canvas);' +
+		'--on-accent:light-dark(#FFF, var(--surface-inverse,#000))}' +
+		'section.print{--surface-inverse:#ECECEC}';
+	const attr = themeDualMode(css).darkBlock.split('@media')[0];
+	assert.match(attr, /--on-accent:#0A1628/, "the theme's :root value wins, not the print band's");
+	assert.doesNotMatch(attr, /#ECECEC/, 'the component-scoped declaration is not in the flatten map at all');
+	// And the light BASE is untouched either way — only the dark arm was ever at risk.
+	assert.match(themeDualMode(css).base, /section\.print\{--surface-inverse:#ECECEC\}/);
+});
+
 test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark()', () => {
 	const { base, darkBlock } = themeDualMode('section{color:red}');
 	assert.equal(base, 'section{color:red}');

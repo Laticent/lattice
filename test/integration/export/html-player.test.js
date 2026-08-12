@@ -449,3 +449,77 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 		assert.equal(marked, 0, 'no label is frozen out of the theme on a deck that chose no colors');
 	});
 });
+
+// The label HALO — the rect `foreignObjectToText` writes under the words — is the one paint
+// that used to leave the bake as a raw literal, and it is the one directly beneath the ink.
+// Mermaid paints an edge label's halo from the slide canvas, so an exported player froze it
+// at the export scheme while the ink above kept following the theme rule: 1.09:1 measured on
+// `seven-steps-problem-to-code` and 1.06:1 on `deck-class-register` after a toggle (#1635).
+//
+// Driven as a SYNTHETIC page rather than a deck render: both branches have to be pinned —
+// including the author-background one, which no deck this repo ships produces — and the pair
+// is the whole contract (ink and surface move together, or neither does). `flattenSvgStyles`
+// is browser-only, so this injects it exactly as the CLI does, via `toString()`.
+describe('html-player export — a baked label halo follows, or its ink freezes with it', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const TIMEOUT = 120000;
+	let out;
+	test.before(async () => {
+		const { flattenSvgStyles } = require(path.join(ROOT, 'lib/components/chart/_chart-family/standalone-svg.js'));
+		const puppeteer = require('puppeteer');
+		const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+		try {
+			const page = await browser.newPage();
+			// `--bg` and `--text-heading` VARY by scheme, so they enter the derived follow-set;
+			// `--frozen-brand` does not, so a paint equal to it must ship as a literal.
+			await page.setContent(`<!doctype html><html><head><style>
+				:root { color-scheme: light dark;
+					--bg: light-dark(#FFFFFF, #101014);
+					--text-heading: light-dark(#101014, #FFFFFF);
+					--frozen-brand: #123456; }
+				body { margin: 0; background: var(--bg); color: var(--text-heading); }
+				.lbl { font: 14px/1.2 sans-serif; color: var(--text-heading); }
+			</style></head><body>
+			<svg id="s" width="400" height="200" viewBox="0 0 400 200">
+				<g class="label"><foreignObject x="0" y="0" width="200" height="40">
+					<div class="lbl" style="background:var(--bg)">themed halo</div>
+				</foreignObject></g>
+				<g class="label"><foreignObject x="0" y="60" width="200" height="40">
+					<div class="lbl" style="background:var(--frozen-brand)">author halo</div>
+				</foreignObject></g>
+			</svg></body></html>`);
+			await page.evaluate(`window.__flatten = ${flattenSvgStyles.toString()};`);
+			out = await page.evaluate(() => {
+				const svg = document.getElementById('s');
+				const baked = window.__flatten(svg, window, { foreignObjectLabels: 'text' });
+				return [...baked.querySelectorAll('g.label')].map((g) => ({
+					rect: g.querySelector('rect')?.getAttribute('style') || '',
+					span: g.querySelector('tspan')?.getAttribute('style') || '',
+					marked: !!g.querySelector('tspan.lp-own-ink'),
+					text: g.textContent.trim(),
+				}));
+			});
+		} finally {
+			await browser.close();
+		}
+	}, { timeout: TIMEOUT });
+
+	test('a halo painted from a scheme token rides as that token, and its ink keeps following', () => {
+		const themed = out.find((l) => l.text === 'themed halo');
+		assert.ok(themed, 'guard: the themed label was baked at all');
+		assert.match(themed.rect, /fill:var\(--bg\)/, 'the halo follows the toggle');
+		assert.match(themed.span, /fill:var\(--text-heading\)/, 'and so does the ink on it');
+		assert.equal(themed.marked, false, 'nothing is opted out of the theme');
+	});
+
+	test("a halo the author painted freezes — and takes its ink with it", () => {
+		// The failure mode this pairing exists to prevent: a frozen surface under an ink that
+		// still follows `.label tspan{fill:var(--text-heading)!important}` GUARANTEES divergence
+		// on the toggle. Freezing the surface alone was measured as strictly worse than the bug.
+		const own = out.find((l) => l.text === 'author halo');
+		assert.ok(own, 'guard: the author-halo label was baked at all');
+		assert.match(own.rect, /fill:rgb\(18, ?52, ?86\)/, 'the halo keeps the color the author chose');
+		assert.doesNotMatch(own.span, /var\(/, 'so the ink is frozen to its bake-time literal');
+		assert.equal(own.marked, true, 'and marked lp-own-ink, which takes the theme rule off it');
+	});
+});

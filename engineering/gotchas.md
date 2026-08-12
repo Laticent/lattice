@@ -3262,6 +3262,80 @@ means "no gap logged for the runtime route", never "the preview is complete.
   to answer *which element's* `color-scheme` each token was resolving against, not
   just "light or dark".
 
+### A token flattened for the player took the print band's value
+
+- **Symptom:** In an exported `.html` player, one token family is wrong in dark
+  mode — and wrong in a specific direction: near-white or near-gray where the theme
+  says a color. `examples/accent-on-accent.md` slide 5 shipped its headline, eyebrow,
+  watermark and counter chip as `#ECECEC` on the cream accent rail — **1.24:1**, on the
+  deck whose subject is on-accent contrast (13.0:1 in the reference render). On a
+  chart deck the whole categorical ramp went gray in dark mode.
+- **Cause:** `themeDualMode` flattens each dark value's `var()` chain to a literal, so
+  the player never depends on a custom property resolving to another custom property
+  (fatal on an older in-app WebKit). The map it flattened against was built by scanning
+  the WHOLE stylesheet, last declaration wins — but the last declaration of a token is
+  often a COMPONENT-scoped one. `section.print{--surface-inverse: var(--print-surface-inverse)}`
+  is the last `--surface-inverse` in the bundle, so `--on-accent: light-dark(#F0EDE6,
+  var(--surface-inverse))` flattened its dark arm to the print band's `#ECECEC`, and the
+  whole `--on-accent-*` family followed. Same mechanism gave `--state-pass-hue` the print
+  band's gray and every `--chart-cat-N-hue` a grayscale value in dark mode.
+- **Fix:** the map is scoped to `:root`-subject blocks (`rootScopedDecls`), the same
+  scoping the derived-token closure beside it already had, and both now read ONE map.
+  A component-scoped declaration is simply absent, so the chain stops and the `var()`
+  ships intact — a missed flatten, never a wrong color. `lib/export/player-core.mjs`.
+- **The general shape:** a flattener answers "what does this resolve to ON THE ELEMENT
+  I am writing to". Scanning a whole sheet for the last declaration answers a different
+  question, and the two agree only until some component declares the same token.
+
+### A baked diagram label went dark-on-dark after the player's toggle
+
+- **Symptom:** In an exported `.html` player, an EDGE label ("a case fails", "yes"/"no")
+  is fine as exported and near-invisible after the viewer taps the light/dark toggle —
+  around **1.1:1**. Node and container labels on the same diagram are fine.
+- **Cause:** the label's halo. `foreignObjectToText` rewrites a Mermaid label into native
+  `<text>` plus a `<rect>` carrying the label's HTML background, and that rect was written
+  as a raw literal — the ONE paint in the bake that skipped the scheme-token matcher every
+  other paint goes through. Mermaid paints an edge label's halo from the slide canvas, so
+  it froze at the export scheme while the ink above it kept following
+  `.label tspan:not(.lp-own-ink){fill:var(--text-heading)!important}`. Dark ink, dark halo.
+- **Fix:** the halo is matched against the same follow-set (`followToken`), so it ships as
+  `fill:var(--bg)` and moves with the toggle. When a halo matches NO token (an author's own
+  background) the ink above it is frozen to its bake-time literal and marked `lp-own-ink`
+  instead — frozen together. `lib/components/chart/_chart-family/standalone-svg.js`.
+- **The general shape:** in a document with a runtime theme toggle, "frozen" and
+  "following" are both fine; a frozen surface under a following ink is not. Freezing on
+  ambiguity is not the safe default here — it was measured as strictly worse than the bug.
+
+### `--strip-notes` deleted a comment out of a code fence
+
+- **Symptom:** A deck that DOCUMENTS the note syntax exports with `--strip-notes` and the
+  recipient re-imports a deck whose ```markdown sample has lost a line — while the slide
+  they can see still shows it. Source destruction, not a leak.
+- **Cause:** `stripNotesFromSource` matched whole-body set membership with no notion of
+  where a comment sits, so any `<!-- X -->` ANYWHERE in the source was removed when `X`
+  was a note body somewhere else — including inside a fenced block or an inline span.
+- **Fix:** the scrub is position-aware. It shares `maskCodeRegions` with the envelope
+  audit (which already had to skip the same regions to avoid a false privacy alarm), and
+  removes a comment only where a note can actually live. A comment inside a code region
+  can never be the secret the strip exists to protect: the audience is reading it off the
+  slide. `lib/authoring/notes-core.js`.
+
+### `--strip-notes` could not remove a note that opens with a directive keyword
+
+- **Symptom:** `<!-- color: we should discuss the palette -->` survives a `--strip-notes`
+  export verbatim — in the envelope source AND on the section as `data-color` / `--color`.
+- **Cause:** the engine's directive test accepts ANY value after `key:`, so this is
+  consumed as the deck-scope `color` directive. It never reaches rendered HTML, so it
+  never enters the note set, so the source scrub has nothing to match.
+- **Fix (a report, not a scrub):** the envelope audit now reports a directive whose value
+  reads as prose — checked only for the directives whose value domain is tight enough to
+  tell (`color`, `backgroundColor`, `theme`, `size`, `lang`, `marp`, `paginate`); free-text
+  ones like `header:` are indistinguishable from prose and are never reported. Scrubbing it
+  instead would corrupt every deck using the ordinary `<!-- paginate: true -->` idiom, and
+  would not close the leak anyway, because the engine bakes the value onto the section. Only
+  the author can fix it, by rewording the note — which is what the warning asks for.
+  `lib/authoring/notes-core.js` › `directiveShapedProse`; `design/skills/speaker-notes.md`.
+
 ### A destructuring default in a plain-JS export erases the rest of its parameter type
 
 - **Symptom:** A `.js` module a TypeScript file imports suddenly fails to

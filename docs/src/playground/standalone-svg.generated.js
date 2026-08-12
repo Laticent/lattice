@@ -179,6 +179,20 @@ var require_standalone_svg = __commonJS({
         "--cat-on-fill",
         "--cat-on-mark"
       ];
+      const tokenByPaint = /* @__PURE__ */ new Map();
+      function followToken(value) {
+        if (!value) return "";
+        if (tokenByPaint.has(value)) return tokenByPaint.get(value);
+        let found = "";
+        for (let t = 0; t < SCHEME_TOKENS.length; t++) {
+          if (resolveColor("var(" + SCHEME_TOKENS[t] + ")") === value) {
+            found = SCHEME_TOKENS[t];
+            break;
+          }
+        }
+        tokenByPaint.set(value, found);
+        return found;
+      }
       const FO_TO_TEXT = !!(opts && opts.foreignObjectLabels === "text");
       function lineRuns(node) {
         const range = doc.createRange();
@@ -213,6 +227,7 @@ var require_standalone_svg = __commonJS({
         const oy = parseFloat(fo.getAttribute("y")) || 0;
         const out2 = doc.createElementNS("http://www.w3.org/2000/svg", "text");
         let any = false;
+        const following = [];
         const walker = doc.createTreeWalker(
           fo,
           4
@@ -244,6 +259,7 @@ var require_standalone_svg = __commonJS({
             decl += ownInk ? `fill:${pcs.color};` : `fill:var(${inkToken || "--text-heading"});`;
             span.setAttribute("style", decl);
             if (ownInk || ownWeight) span.setAttribute("class", "lp-own-ink");
+            if (!ownInk) following.push({ span, literal: pcs.color });
             span.textContent = run.text.replace(/\s+/g, " ");
             out2.appendChild(span);
             any = true;
@@ -267,14 +283,26 @@ var require_standalone_svg = __commonJS({
           if (prior && !/^rgb\(/.test(bg)) continue;
           byBox.set(key, { geom, bg });
         }
+        let frozenHalo = false;
+        for (const entry of byBox.values()) {
+          entry.token = followToken(entry.bg);
+          if (!entry.token) frozenHalo = true;
+        }
+        if (frozenHalo) {
+          for (let i = 0; i < following.length; i++) {
+            const { span, literal } = following[i];
+            span.setAttribute("style", (span.getAttribute("style") || "").replace(/fill:[^;]*;/, `fill:${literal};`));
+            span.setAttribute("class", "lp-own-ink");
+          }
+        }
         const bgs = [];
-        for (const { geom, bg } of byBox.values()) {
+        for (const { geom, bg, token } of byBox.values()) {
           const rect = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
           rect.setAttribute("x", String(geom.x));
           rect.setAttribute("y", String(geom.y));
           rect.setAttribute("width", String(geom.w));
           rect.setAttribute("height", String(geom.h));
-          rect.setAttribute("style", `fill:${bg};`);
+          rect.setAttribute("style", `fill:${token ? `var(${token})` : bg};`);
           bgs.push(rect);
         }
         if (!bgs.length) return out2;
@@ -308,12 +336,8 @@ var require_standalone_svg = __commonJS({
               if (Object.hasOwn(INIT, p) && v === INIT[p]) continue;
               let out2 = v;
               if (Object.hasOwn(PAINT_PROPS, p)) {
-                for (let t = 0; t < SCHEME_TOKENS.length; t++) {
-                  if (resolveColor("var(" + SCHEME_TOKENS[t] + ")") === v) {
-                    out2 = "var(" + SCHEME_TOKENS[t] + ")";
-                    break;
-                  }
-                }
+                const token = followToken(v);
+                if (token) out2 = "var(" + token + ")";
               }
               decl += p + ":" + out2 + ";";
             }

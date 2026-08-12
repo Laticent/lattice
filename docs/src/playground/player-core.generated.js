@@ -1922,14 +1922,25 @@ function resolveMasked(css, pick) {
   }
   return out;
 }
+function rootScopedDecls(noComments) {
+  const isRootScope = (selectorList) => selectorList.split(",").some((s) => /^:root(?:\[[^\]]*\]|:[a-z-]+(?:\([^()]*\))?)*$/.test(s.trim()));
+  const vals = /* @__PURE__ */ new Map();
+  const declAny = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g;
+  const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+  let rule;
+  let d;
+  while (rule = ruleRe.exec(noComments)) {
+    if (!isRootScope(rule[1])) continue;
+    declAny.lastIndex = 0;
+    const block = `${rule[2]}}`;
+    while (d = declAny.exec(block)) vals.set(d[1], resolveLightDark(d[2], 0).trim());
+  }
+  return vals;
+}
 function themeDualMode(css) {
   const noComments = String(css).replace(/\/\*[\s\S]*?\*\//g, "");
   const base = resolveLightDark(css, 0);
-  const baseVals = {};
-  const litRe = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g;
-  let lm;
-  const baseLight = resolveLightDark(noComments, 0);
-  while (lm = litRe.exec(baseLight)) baseVals[lm[1]] = lm[2].trim();
+  const baseVals = rootScopedDecls(noComments);
   const darkDecls = [];
   const lightDecls = [];
   const darkKeys = /* @__PURE__ */ new Set();
@@ -1938,8 +1949,8 @@ function themeDualMode(css) {
   while (m = declRe.exec(noComments)) darkKeys.add(m[1]);
   declRe.lastIndex = 0;
   const deepFlatten = (value, seen) => value.replace(/var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,[^()]*)?\)/g, (full, name) => {
-    if (darkKeys.has(name) || seen.has(name) || baseVals[name] === void 0) return full;
-    const resolved = deepFlatten(baseVals[name], new Set(seen).add(name)).trim();
+    if (darkKeys.has(name) || seen.has(name) || baseVals.get(name) === void 0) return full;
+    const resolved = deepFlatten(baseVals.get(name), new Set(seen).add(name)).trim();
     return /var\(|light-dark\(/.test(resolved) ? full : resolved;
   });
   while (m = declRe.exec(noComments)) {
@@ -1949,21 +1960,7 @@ function themeDualMode(css) {
   if (!darkDecls.length) return { base, darkBlock: "" };
   const derivedDecls = [];
   {
-    const isRootScope = (selectorList) => selectorList.split(",").some((s) => /^:root(?:\[[^\]]*\]|:[a-z-]+(?:\([^()]*\))?)*$/.test(s.trim()));
-    const pool = /* @__PURE__ */ new Map();
-    const declAny = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g;
-    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
-    let rule;
-    let d;
-    while (rule = ruleRe.exec(noComments)) {
-      if (!isRootScope(rule[1])) continue;
-      declAny.lastIndex = 0;
-      const block = `${rule[2]}}`;
-      while (d = declAny.exec(block)) {
-        if (darkKeys.has(d[1])) continue;
-        pool.set(d[1], resolveLightDark(d[2], 0).trim());
-      }
-    }
+    const pool = baseVals;
     const known = new Set(darkKeys);
     for (let pass = 0; pass < pool.size; pass++) {
       let grew = false;
