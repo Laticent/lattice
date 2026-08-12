@@ -15379,11 +15379,34 @@ section.state-chart .state-chart-scale {
  * generous horizontal padding is the bow gutter: forward skips bow into
  * the right gutter, back-edges into the left, so they stay inside the
  * figure and never clip. Vertical padding hosts the start/terminal
- * markers. Sits above the edge layer. */
+ * markers. Sits above the edge layer.
+ *
+ * THE BLOCK PADDING HAS A FLOOR, and the floor is the marker geometry. This
+ * padding is what the markers are drawn INTO, but the two were expressed in
+ * different unit systems and nothing tied them: the padding is container-relative
+ * (`cqi`) while `draw()` places the markers at FIXED px offsets from the node edge
+ * — `markerGap 40 + startR 6 = 46` above the first node, `markerGap 40 + termOuter
+ * 10 = 50` below the last (state-chart.transform.js `G_BASE`). Whenever `cqi`
+ * resolves below that, the marker paints outside the scale box and is cut by
+ * whatever clips next.
+ *
+ * Measured on the gallery: the `curved` variant padded 39.6px against a 46px
+ * requirement and its start marker ran 6.4 units past the top, while the default
+ * variant padded 50.4px and sat inside — the same rule, passing or failing on a
+ * container size. It was invisible while `.chart-body` carried 32px of block
+ * padding for the paint to land in; retiring that (#1629) exposed it, and both the
+ * initial `●` and the terminal `◎` rendered sliced in half. A pre-existing
+ * fragility this change tipped into failure, so it is fixed here rather than
+ * filed — HARD RULE #18.
+ *
+ * `max()` keeps the container-relative value as the DEFAULT (it is the right
+ * behavior on a big canvas, and the generous side gutters still scale) and only
+ * holds the floor where the box gets small. Update the floor if `G_BASE.markerGap`,
+ * `startR` or `termOuter` move. */
 section.state-chart .state-nodes {
   list-style: none;
   margin: 0;
-  padding: 4.375cqi 10cqi;
+  padding: max(4.375cqi, 50px) 10cqi;  /* sanctioned: the 50px is a FLOOR, not a layout length — it matches draw()'s fixed marker geometry (G_BASE markerGap 40 + termOuter 10), which is px because the browser pass draws in px. The cqi term is still what scales; below the floor the marker paints outside its own box and is cut. */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15410,9 +15433,14 @@ section.state-chart .state-chart-figure[data-sc-dir="lr"] .state-nodes {
  * markers overran the slide height and clipped the terminal ◉ at the bottom.
  * Tighten the vertical rhythm (the wide horizontal padding stays — it hosts
  * the bowed back-edge). */
+/* The SAME marker floor as the base rule, and this variant is where its absence
+ * showed: `3.4375cqi` resolved to 39.6px against a 46px start-marker requirement,
+ * so `curved` was the one gallery slide whose `●` and `◎` painted outside the box.
+ * The tightening is real and stays — it is the `cqi` term that shrinks — but it
+ * cannot tighten past the geometry it is reserving room for. */
 section.state-chart .state-chart-figure[data-sc-style="curved"] .state-nodes {
-  padding-top: 3.4375cqi;
-  padding-bottom: 3.4375cqi;
+  padding-top: max(3.4375cqi, 50px);  /* sanctioned: same marker floor as the base rule — see there. This variant is the one that measured 39.6px against a 46px requirement. */
+  padding-bottom: max(3.4375cqi, 50px);  /* sanctioned: same marker floor as the base rule — see there. */
   gap: 2.03125cqi;
 }
 
@@ -20688,30 +20716,27 @@ section.chart-frame .chart-body {
    * own; both are the exits `checkStageInsetOwnership` keys on. */
   padding: 0;
   min-height: 0;
-  /* THE SLACK SURVIVES THE PADDING, as a PAINT allowance rather than a layout box.
-   * Retiring the block padding took the paint slack with it and cut two things that
-   * legitimately paint past this box: state-chart's initial dot and terminal `◎`
-   * (both ends of the machine, sliced in half) and kanban's card elevation shadow
-   * (the bottom row, board-wide). Both were caught by rasterizing the COMMITTED
-   * gallery PDFs against `origin/main` — no gate sees them, because neither is a
-   * clip at the stage or the viewBox.
+  /* NO PAINT ALLOWANCE ON THIS BOX, deliberately, and a gate is why.
+   * Retiring the block padding took the paint slack with it, and the first fix put
+   * an `overflow-clip-margin` here as well as on the stage — paint must escape two
+   * nested clips, so one allowance alone fixed only one of the two regressions.
+   * `chart-overflow-preserved.test.js` refuted that: *an overstuffed state-chart
+   * does NOT overflow — it self-scales to fit* went from pass to FAIL. An allowance
+   * here is INDISCRIMINATE: it lets any chart's content escape this box, and that
+   * test exists precisely to catch a chart that has stopped self-scaling. Blinding
+   * it to buy one component's markers is the wrong trade.
    *
-   * `overflow-clip-margin` is the property whose actual job this is, and the note
-   * this replaces was right that a TOKEN cannot carry it — Chromium 131 accepts only
-   * a plain `<length>`, and every spacing token here is a `calc()` over
-   * `--_sec-1cqi` (measured: `overflow-clip-margin: var(--sp-lg)` computes to `0px`).
-   * A LITERAL length is accepted, which is what this is: 32px, the value the block
-   * padding used to supply at hd, spelled as the paint allowance it always was.
-   * It needs `overflow: clip` — the property does not apply to `hidden` — which is
-   * the stronger box anyway (no scroll container) and is what `.cell-stage` already
-   * uses.
+   * The allowance lives on `.cell-stage` alone (below) — the edge a stage-filling
+   * SVG chart actually meets, and what kanban's card shadow needs. The one thing
+   * that genuinely painted outside THIS box was state-chart's start / terminal
+   * markers, and that was a defect in its OWN geometry (its node column reserves
+   * their room in `cqi` while `draw()` places them at fixed px offsets), fixed at
+   * the root in state-chart.styles.css rather than absorbed here.
    *
-   * The distinction the padding conflated: this buys PAINT room and costs NO layout
-   * height, so a body pinned to natural height is not pushed out of the stage by it.
-   * That is why the layout win survives (check-chart-fit stays at 1 clip, down from
-   * 3) while the paint comes back. */
+   * `overflow: clip` rather than the historical `hidden`: it is the stronger box
+   * (no scroll container), it is what `.cell-stage` already uses, and it is the only
+   * one `overflow-clip-margin` applies to should this box ever need one. */
   overflow: clip;
-  overflow-clip-margin: 32px;
 }
 
 /* ── CONSUMER 1 of the inset tokens — the Form path (design/forms.md §6.1, #1598)

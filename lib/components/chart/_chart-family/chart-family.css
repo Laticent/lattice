@@ -619,30 +619,27 @@ section.chart-frame .chart-body {
    * own; both are the exits `checkStageInsetOwnership` keys on. */
   padding: 0;
   min-height: 0;
-  /* THE SLACK SURVIVES THE PADDING, as a PAINT allowance rather than a layout box.
-   * Retiring the block padding took the paint slack with it and cut two things that
-   * legitimately paint past this box: state-chart's initial dot and terminal `◎`
-   * (both ends of the machine, sliced in half) and kanban's card elevation shadow
-   * (the bottom row, board-wide). Both were caught by rasterizing the COMMITTED
-   * gallery PDFs against `origin/main` — no gate sees them, because neither is a
-   * clip at the stage or the viewBox.
+  /* NO PAINT ALLOWANCE ON THIS BOX, deliberately, and a gate is why.
+   * Retiring the block padding took the paint slack with it, and the first fix put
+   * an `overflow-clip-margin` here as well as on the stage — paint must escape two
+   * nested clips, so one allowance alone fixed only one of the two regressions.
+   * `chart-overflow-preserved.test.js` refuted that: *an overstuffed state-chart
+   * does NOT overflow — it self-scales to fit* went from pass to FAIL. An allowance
+   * here is INDISCRIMINATE: it lets any chart's content escape this box, and that
+   * test exists precisely to catch a chart that has stopped self-scaling. Blinding
+   * it to buy one component's markers is the wrong trade.
    *
-   * `overflow-clip-margin` is the property whose actual job this is, and the note
-   * this replaces was right that a TOKEN cannot carry it — Chromium 131 accepts only
-   * a plain `<length>`, and every spacing token here is a `calc()` over
-   * `--_sec-1cqi` (measured: `overflow-clip-margin: var(--sp-lg)` computes to `0px`).
-   * A LITERAL length is accepted, which is what this is: 32px, the value the block
-   * padding used to supply at hd, spelled as the paint allowance it always was.
-   * It needs `overflow: clip` — the property does not apply to `hidden` — which is
-   * the stronger box anyway (no scroll container) and is what `.cell-stage` already
-   * uses.
+   * The allowance lives on `.cell-stage` alone (below) — the edge a stage-filling
+   * SVG chart actually meets, and what kanban's card shadow needs. The one thing
+   * that genuinely painted outside THIS box was state-chart's start / terminal
+   * markers, and that was a defect in its OWN geometry (its node column reserves
+   * their room in `cqi` while `draw()` places them at fixed px offsets), fixed at
+   * the root in state-chart.styles.css rather than absorbed here.
    *
-   * The distinction the padding conflated: this buys PAINT room and costs NO layout
-   * height, so a body pinned to natural height is not pushed out of the stage by it.
-   * That is why the layout win survives (check-chart-fit stays at 1 clip, down from
-   * 3) while the paint comes back. */
+   * `overflow: clip` rather than the historical `hidden`: it is the stronger box
+   * (no scroll container), it is what `.cell-stage` already uses, and it is the only
+   * one `overflow-clip-margin` applies to should this box ever need one. */
   overflow: clip;
-  overflow-clip-margin: 32px;
 }
 
 /* ── CONSUMER 1 of the inset tokens — the Form path (design/forms.md §6.1, #1598)

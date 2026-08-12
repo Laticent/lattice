@@ -140,13 +140,13 @@ them is a clip at a boundary the gates measure.
 |---|---|---|
 | `.canvas` glass panel — chart flush to the card edge | (not a clip at all — a lost inset) | rasterizing the `chart-fit` fixture |
 | `state-chart` initial dot **and** terminal `◎`, both sliced | past its own border box, cut at **`.cell-stage`** | rasterizing the committed gallery PDF vs `origin/main` |
-| `kanban` card elevation shadow, bottom row, board-wide | past the card's border box, cut at **`.chart-body`** | same |
+| `kanban` card elevation shadow, bottom row, board-wide | past the card's border box, cut at **`.cell-stage`** | same |
 
-**The two clip edges are different boxes, and that matters.** Restoring a paint
-allowance on `.chart-body` fixed kanban and did nothing for state-chart — a
-deliberately absurd `overflow-clip-margin: 200px` on the body left the dot sliced.
-Measurement located why: an SVG chart fills the stage exactly, so its paint meets
-`.cell-stage`'s clip edge first.
+**Paint has to escape two nested clips**, `.chart-body`'s and `.cell-stage`'s, which
+is why a single allowance on either box fixed only one of them. A deliberately
+absurd `overflow-clip-margin: 200px` on the body still left state-chart's dot
+sliced: an SVG chart fills the stage exactly, so its paint reaches `.cell-stage`'s
+edge with nothing in between.
 
 ```
 stage  overflow=clip            ← the edge state-chart's paint actually met
@@ -155,12 +155,44 @@ svg    overflow=visible, top flush to the stage (0.0px)
 getBBox y −6.40 units → paints 5.0px above its own border box
 ```
 
-So the allowance is spelled on **both** boxes: `overflow-clip-margin` on
-`.chart-body` and on `section.chart-frame > .cell-stage`. Both are literal lengths,
-because Chromium 131 rejects a `calc()` there and every spacing token here is one —
-the constraint #1598 recorded, which is why it kept the slack as padding instead.
-The difference now is that `overflow-clip-margin` buys the paint room **without**
-the layout height, which is exactly the conflation the padding was guilty of.
+The first fix spelled the allowance on **both** boxes, since paint must escape two
+nested clips. **The integration tier refuted that**, and the refutation is the more
+useful half of this section.
+
+`chart-overflow-preserved.test.js` failed on *an overstuffed state-chart does NOT
+overflow — it self-scales to fit*: expected `false`, actual `true`. The body's
+allowance is indiscriminate — it lets **any** chart's content escape `.chart-body`,
+so the overflow probe correctly reported an overstuffed chart as overflowing. That
+test exists precisely to catch a chart that stops self-scaling, and the allowance
+blinded it. Isolated by toggling each margin independently:
+
+| `.chart-body` | `.cell-stage` | overflow test | kanban shadow | state-chart markers |
+|---|---|---|---|---|
+| 32px | 32px | **fail** | ok | ok |
+| off | 32px | pass | **ok — 0 px lost** | cut |
+| 32px | off | fail | ok | cut |
+
+Two things fall out. The body allowance was buying **only** state-chart, and kanban
+needs only the stage's. And "state-chart needs to paint outside its box" was the
+wrong frame: **the box was wrong.** `.state-nodes` reserves the marker room with
+`padding: 4.375cqi`, container-relative, while `draw()` places the markers at FIXED
+px offsets from the node edge — `markerGap 40 + startR 6 = 46` above the first node,
+`+ termOuter 10 = 50` below the last (`G_BASE`, state-chart.transform.js). Nothing
+tied the two. Measured on the gallery: the `curved` variant (whose own arm tightens
+to `3.4375cqi`) resolved to **39.6px against a 46px requirement** and painted
+outside; the default resolved to **50.4px** and sat inside. The same rule, passing
+or failing on a container size — and invisible for as long as `.chart-body` carried
+32px for the overshoot to land in.
+
+So the allowance is spelled on **one** box, `section.chart-frame > .cell-stage`, and
+state-chart's geometry is fixed at its root: both padding rules take a
+`max(<cqi>, 50px)` floor, so the container-relative term still scales but cannot
+shrink past the geometry it is reserving room for. A pre-existing fragility this
+change tipped into failure, fixed rather than filed — HARD RULE #18. The stage's
+allowance is a literal length because Chromium 131 rejects a `calc()` there and
+every spacing token here is one — the constraint #1598 recorded, which is why it
+kept the slack as padding instead. What it buys is paint room **without** layout
+height, which is exactly the conflation the padding was guilty of.
 
 ### 6.1 How the first two were missed, and what replaced the method
 

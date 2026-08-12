@@ -131,11 +131,34 @@ section.state-chart .state-chart-scale {
  * generous horizontal padding is the bow gutter: forward skips bow into
  * the right gutter, back-edges into the left, so they stay inside the
  * figure and never clip. Vertical padding hosts the start/terminal
- * markers. Sits above the edge layer. */
+ * markers. Sits above the edge layer.
+ *
+ * THE BLOCK PADDING HAS A FLOOR, and the floor is the marker geometry. This
+ * padding is what the markers are drawn INTO, but the two were expressed in
+ * different unit systems and nothing tied them: the padding is container-relative
+ * (`cqi`) while `draw()` places the markers at FIXED px offsets from the node edge
+ * — `markerGap 40 + startR 6 = 46` above the first node, `markerGap 40 + termOuter
+ * 10 = 50` below the last (state-chart.transform.js `G_BASE`). Whenever `cqi`
+ * resolves below that, the marker paints outside the scale box and is cut by
+ * whatever clips next.
+ *
+ * Measured on the gallery: the `curved` variant padded 39.6px against a 46px
+ * requirement and its start marker ran 6.4 units past the top, while the default
+ * variant padded 50.4px and sat inside — the same rule, passing or failing on a
+ * container size. It was invisible while `.chart-body` carried 32px of block
+ * padding for the paint to land in; retiring that (#1629) exposed it, and both the
+ * initial `●` and the terminal `◎` rendered sliced in half. A pre-existing
+ * fragility this change tipped into failure, so it is fixed here rather than
+ * filed — HARD RULE #18.
+ *
+ * `max()` keeps the container-relative value as the DEFAULT (it is the right
+ * behavior on a big canvas, and the generous side gutters still scale) and only
+ * holds the floor where the box gets small. Update the floor if `G_BASE.markerGap`,
+ * `startR` or `termOuter` move. */
 section.state-chart .state-nodes {
   list-style: none;
   margin: 0;
-  padding: 4.375cqi 10cqi;
+  padding: max(4.375cqi, 50px) 10cqi;  /* sanctioned: the 50px is a FLOOR, not a layout length — it matches draw()'s fixed marker geometry (G_BASE markerGap 40 + termOuter 10), which is px because the browser pass draws in px. The cqi term is still what scales; below the floor the marker paints outside its own box and is cut. */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -162,9 +185,14 @@ section.state-chart .state-chart-figure[data-sc-dir="lr"] .state-nodes {
  * markers overran the slide height and clipped the terminal ◉ at the bottom.
  * Tighten the vertical rhythm (the wide horizontal padding stays — it hosts
  * the bowed back-edge). */
+/* The SAME marker floor as the base rule, and this variant is where its absence
+ * showed: `3.4375cqi` resolved to 39.6px against a 46px start-marker requirement,
+ * so `curved` was the one gallery slide whose `●` and `◎` painted outside the box.
+ * The tightening is real and stays — it is the `cqi` term that shrinks — but it
+ * cannot tighten past the geometry it is reserving room for. */
 section.state-chart .state-chart-figure[data-sc-style="curved"] .state-nodes {
-  padding-top: 3.4375cqi;
-  padding-bottom: 3.4375cqi;
+  padding-top: max(3.4375cqi, 50px);  /* sanctioned: same marker floor as the base rule — see there. This variant is the one that measured 39.6px against a 46px requirement. */
+  padding-bottom: max(3.4375cqi, 50px);  /* sanctioned: same marker floor as the base rule — see there. */
   gap: 2.03125cqi;
 }
 
