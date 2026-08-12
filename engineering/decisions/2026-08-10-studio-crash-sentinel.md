@@ -532,7 +532,43 @@ evidence could not defend against the next sleeping tab. It holds one epoch
 millisecond — no deck content, no identifiers, nothing about what was deleted —
 and that is a considered exception to "erase everything", not an oversight.
 
-### Verified with a real browser freeze
+### CORRECTION: that freeze was never real (2026-08-11)
+
+**The claim below is false and is left standing so the mistake is legible.** A
+checker instrumented the page and found that CDP
+`Page.setWebLifecycleState('frozen')` is a **no-op** in this environment: the
+command resolves without error, no `freeze` event fires, and the document's own
+interval never misses a beat. Independently reproduced — 6 ticks of a 500ms timer
+during a 3s "frozen" window, `events: []`.
+
+So the check below exercised the pre-existing live `storage` listener, not
+`catchUpOnWipe`. Removing `catchUpOnWipe()` from `onResume` — the dedicated wake
+path #1625 added — left it green. And its red against the un-fixed build came
+from the wrong tab: the assertion read origin-wide storage, and the record that
+returned belonged to the WIPING tab, which the hand-rolled wipe left unsealed;
+the real `clearAllSessions` seals it, so that failure mode does not exist in the
+product.
+
+**#1616's fix therefore stands on reasoning, not on evidence.** The reasoning is
+sound and spec-level — a frozen document is not running tasks, so it cannot
+receive a `storage` event, and only something it can READ on waking can inform it
+— but the empirical claim was wrong and I made it three times (PR body, commit
+message, and the paragraph below). Marked **UNVERIFIED** until a browser that
+honors the freeze, or a real device, is available.
+
+The e2e spec now stops the page with a primitive that actually works —
+`Emulation.setScriptExecutionDisabled` — and SKIPS with a reason if the page turns
+out to have kept running (measured directly: did it receive the wipe broadcast?).
+A skip is a true statement; a silent pass is not.
+
+**A correction to the paragraph above, which stood here for one commit.** It said
+the spec "verifies the freeze happened". It does not, and cannot: the stop
+primitive fires no Page Lifecycle `freeze`/`resume` at all, so there is no freeze
+to verify — the spec measures the *precondition* (the broadcast was dropped)
+rather than the lifecycle transition. What it exercises is the heartbeat catch-up
+path; `onResume`'s remains uncovered.
+
+### The check as originally described (see the correction above)
 
 `.scratch/wipe-frozen-tab.mjs` freezes tab A through CDP
 `Page.setWebLifecycleState('frozen')` — the browser genuinely stops running its
@@ -577,10 +613,10 @@ two of them shipped *because* their unit tests passed.
 
 | Spec | Project | What it pins |
 |---|---|---|
-| the report surfaces and says what to try | `desktop` | toast shape, description legibility + not clipped, the steps section, opaque-error attribution, no sideways overflow |
+| the report surfaces and says what to try | `desktop` | toast radius asserted as the value it must BE; contrast measured from composited pixels for EVERY text layer (title, description, action), each **composited from the page canvas up** so the toast's own alpha counts; not clipped, by rect, container overflow AND per-layer overflow, **on both axes**; the title actually visible; exactly one toast; the steps section; opaque-error attribution; no sideways overflow. Skips, saying so, if the toast auto-dismissed — but only when a latch observed it on screen first. |
 | the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
 | a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
-| a wipe survives a frozen tab | `desktop` (Chromium) | #1625, via CDP `Page.setWebLifecycleState` — a real freeze, since a dispatched `resume` never stops the document and so cannot reproduce it |
+| a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **runs**, and is falsifiable: verified RED against a build with `catchUpOnWipe` removed entirely. Stops the page with `Emulation.setScriptExecutionDisabled` (the Page Lifecycle call is a silent no-op here) and skips only if the page turns out to have heard the wipe. Covers the heartbeat catch-up path; `onResume`'s is still uncovered. |
 
 The contract is shared by two `test()` calls rather than one tagged spec, because
 the project tags are exclusive: a `@webkit-phone` test does **not** run on
@@ -592,3 +628,228 @@ pass after it. Re-breaking the toast to its shipped state (`rounded-full`, Sonne
 own description color) fails the spec on the radius assertion. That check is the
 whole point: a passing test that cannot fail is exactly what let two bad liveness
 designs through this month.
+
+
+## What a second checker pass found (2026-08-11)
+
+The commit that answered the first review introduced three defects of its own, and
+one of them is the same mistake the correction above was written about:
+
+- **It deleted the clipping assertion and left the doc claiming it.** Reproduced by
+  clipping the toast (`max-h` + `overflow-hidden`) with the radius left correct:
+  every assertion green over text cut off mid-word. A coverage claim without
+  coverage, three lines below a section about exactly that.
+- **Only the description's contrast was measured.** Painting the TITLE `#2a2a2a` on
+  the near-black pill made the line that says the Studio crashed invisible, with
+  the suite green — #1622's defect relocated one element over. Every text layer is
+  measured now, and the failure names which one.
+- **The false RED survived.** Moving the "did it report" oracle onto the persisted
+  flag fixed the false green; the visual half still demanded a toast that lives 12s
+  inside a budget of 45s for first paint. It now skips, with a reason, when the
+  toast has already gone — the report itself is proven separately.
+
+Two more, quieter:
+
+- **The freeze counters were read while the page was still frozen.** `page.evaluate`
+  has no timeout of its own and a stopped document never answers, so on a browser
+  that HONORS the freeze the honest-skip would have hung until the slot expired —
+  failing closed in the one environment it was built for. The page latches its own
+  count in the `freeze` handler now, and everything is read after the thaw.
+- **The seed guard's recorded reason was wrong.** It blamed repeated navigation;
+  `gotoStudio` navigates once. The real cause is that `addInitScript` runs in every
+  FRAME, and the live preview is a same-origin iframe sharing this `localStorage` —
+  3 init-script runs for 1 navigation. The guard was right, the explanation next to
+  it would have sent the next reader to the wrong file.
+
+The through-line across both passes is worth keeping: **every one of these was a
+test that passed while proving nothing**, and none was visible from reading the
+code — each took a mutation and a rebuild to expose. The verification claims in
+this document are only as good as the last adversarial pass over them.
+
+
+## Third pass: a regression introduced while fixing the second (2026-08-11)
+
+The commit answering the second review introduced one defect worse than three of
+the five it closed, which is worth recording as a pattern and not just an entry.
+
+**Fixing "the counters were read while frozen" by moving the THAW above the wipe
+made the test vacuous everywhere.** The page was then awake when the other tab
+wiped, took the broadcast live through the pre-existing listener, and passed
+against a build containing no `catchUpOnWipe` at all. That converts *unverifiable
+here* into *unfalsifiable anywhere* — strictly worse, and it was the third
+consecutive commit in which this one test failed to test its subject. The fix was
+to keep the freeze across the wipe and move only the READ after the thaw:
+`page.waitForTimeout` is runner-side and safe against a stopped document,
+`page.evaluate` is not, and that distinction is the whole constraint.
+
+Two narrower ones, both the same shape as the defects they sat beside:
+
+- **The restored clipping checks were both properties of the TOAST**, so clipping
+  the description element itself evaded both — measured, a toast reading "Your
+  decks are safe. See what the" with the suite green. Clipping is now checked on
+  every text layer.
+- **Every layer's contrast was measured against the TOAST's background**, which
+  flatters any layer painting its own. The action chip is `bg-white/15`: scored
+  5.78:1 against the toast, 3.67:1 against the pixels it is actually drawn on —
+  under AA, and passing. Each layer is now composited over its own backdrop.
+
+**Known residual, stated rather than fixed:** above roughly 20s of first paint the
+visual contract skips, and a skip reports as green. The nightly alarm greps for
+failures, so a permanently-skipping visual contract would be invisible. Measured
+thresholds: runs at every rate up to ~20s paint, skips at ~28s and ~36s. Worth a
+guard before this rides a heavily loaded runner.
+
+
+## Fourth pass: the test finally works, and what made the difference
+
+`Page.setWebLifecycleState('frozen')` is inert here, and four consecutive commits
+tried to work around that without noticing it was the problem. The checker found
+the primitive that does stop a page in this environment —
+**`Emulation.setScriptExecutionDisabled`** — and, with it, demonstrated the test's
+own logic discriminating correctly with no change to its ordering, scoping or
+assertion. What had been failing was never the reasoning; it was one CDP call that
+silently did nothing.
+
+Two changes made it real:
+
+- **The stop primitive.** `setScriptExecutionDisabled` genuinely stops the
+  document, and the `storage` broadcast is demonstrably DROPPED rather than
+  queued — which is the precondition #1616 depends on.
+- **The skip predicate now tests that precondition instead of a proxy for it.**
+  It used to ask "did a `freeze` event fire and did ticks stop"; it now asks *did
+  the page hear the wipe?* — recorded by the page itself. A predicate about the
+  thing the fix depends on cannot drift away from it the way a proxy did.
+
+**Verified falsifiable:** against `9b1f45b~1` (`grep -c catchUpOnWipe` → **0**) the
+test goes RED; against `HEAD` it passes. That is the first time in five commits
+this test has been shown able to fail for its actual subject.
+
+One trap worth recording, hit while making the swap: the first attempt polled the
+live record's own `lastBeat` as the drive signal. The wipe deletes that record, so
+the poll waited forever for exactly the write the test asserts must never
+happen — **the drive signal and the assertion cannot be the same observable.** A
+tick counter in the page, independent of the record, is the right signal.
+
+Two evasions closed alongside:
+
+- **A title that does not render passed everything.** `toContainText` reads
+  `textContent`, which includes `display:none`; a zero-height box overflows
+  nothing and keeps its color. The toast rendered with no headline at all, suite
+  green. Now `toBeVisible()`.
+- **Contrast composited only ONE level.** A background on `[data-content]` — the
+  wrapper around title and description — was scored 17.3:1 and 11.4:1 against a
+  true 3.9 and 3.1. The measurement now walks the whole ancestor chain, and agrees
+  with rasterized ground truth to four decimals.
+
+### Still open
+
+- **`onResume`'s catch-up is uncovered.** `setScriptExecutionDisabled` fires no
+  `resume` event, so only the heartbeat path is exercised; deleting
+  `catchUpOnWipe()` from `onResume` would still go unnoticed. A real
+  Page-Lifecycle freeze is what covers it.
+- **Whether a genuine freeze DROPS or QUEUES the `storage` event.** If it queues
+  and delivers on resume, the live listener seals the tab and the test would prove
+  nothing on a freeze-honoring runner. Two stop-proxies disagree here, and neither
+  is a real freeze.
+- **Above ~20s of first paint the visual contract skips, and a skip reports as
+  green.** The nightly alarm greps for failures, so a permanently-skipping contract
+  would be invisible. *(Scoped too narrowly — see the fifth pass below: it was
+  every presentation regression, not only a slow paint. Closed.)*
+
+
+## Fifth pass: the skip was the hole, and clipping had a second axis
+
+Three findings that would have shipped, all of the same family as the ones before
+them — an oracle that cannot fail for the reason it names.
+
+- **The skip excused a toast that never existed.** The predicate was "is the toast
+  on screen now?", and everything absent read as *auto-dismissed*. A checker made
+  `Toaster` return `null` — no crash toast at all, a total regression in the
+  component this spec is about — and the suite reported **2 passed, 2 skipped,
+  exit 0**. The nightly files its tracking issue only on a FAILURE, so this would
+  have raised nothing, ever. The residual recorded above scoped this to ">20s of
+  first paint"; the real scope was any presentation regression whatsoever, plus a
+  strict-mode violation from a second toast, which the probe's `catch` swallowed
+  into the same silent skip. A latch (`MutationObserver`, installed before first
+  paint) now records whether a crash toast was ever on screen, and the skip
+  asserts that latch before excusing itself. Absence is now only forgivable if the
+  test watched it arrive. *(The first version of this latch read `textContent`,
+  i.e. DOM presence — see the sixth pass below, which walked through it.)*
+- **Clipping was checked on one axis.** Every oracle read `scrollHeight`. A title
+  held to 120px with `nowrap` + `overflow:hidden` at 390px renders **"The Studio
+  stoppe"** — cut off mid-word — with the rect test, the container test, the
+  per-layer test, the radius, the contrast and `toBeVisible` all green. This is the
+  same evasion closed three times already, on the axis nobody had checked, on the
+  surface whose original bug report was "an unstyled black blob". Both axes now.
+- **Contrast painted the toast's declared color onto an opaque canvas**, throwing
+  away the toast's own alpha. `--normal-bg: rgba(0,0,0,0.12)` gives white text on a
+  near-white pill — rasterized at **1.147:1**, worse than #1622 — and the
+  measurement scored it **21.000** and passed. Latent, not live (`--surface-inverse`
+  is opaque today), but it is the exact door #1622 came through. The walk now starts
+  at the document over the white the browser paints under everything, so every
+  layer *including the toast* composites with its alpha intact. This also retires
+  the "agrees with rasterized ground truth to four decimals" claim above as
+  conditional: it was true only while the toast root was opaque.
+
+Two smaller corrections: the frozen-tab test had **no headroom against its own
+timeout** — two Studio boots, each budgeted 45s by the fixture, against a 60s
+default, with no skip escape, so a loaded runner reds a healthy app (now
+`setTimeout(180_000)`); and its non-Chromium skip still named
+`Page.setWebLifecycleState`, the primitive the fourth pass removed.
+
+
+## Sixth pass: the latch tested the DOM, not the screen
+
+The fifth pass's headline fix was half a fix, and the missing half had the same
+exit code as the bug it closed.
+
+- **The latch read `textContent`** — presence in the DOM. `display:none` on the
+  toast root gives the user *nothing at all*, satisfies a text-only latch, and
+  reproduces the exact `2 passed, 2 skipped, exit 0` that the fifth pass cites as
+  the hole it closed. The class is broad: anything that leaves the text in the DOM
+  while making the box unrenderable. It now requires a laid-out box —
+  `getBoundingClientRect()` non-zero, `visibility` and `display` honest. **Opacity
+  is deliberately excluded from the latch**: Sonner fades toasts in, a
+  `MutationObserver` never fires for a CSS transition, and latching on opacity
+  would read mid-fade and turn the benign auto-dismiss case into a hard red. A
+  100ms interval backs the observer up for the same reason.
+- **`opacity: 0` passed the ENTIRE contract** — `toBeVisible()` (Playwright counts
+  a fully transparent element as visible), all three contrast ratios, the clipping
+  tests, and the `See report` click. A crash toast no human could see: `4 passed`.
+  Now checked live, multiplied through the ancestors, and polled so the fade-in
+  does not red it.
+- **The walk assumed the browser paints white under the page.** Under
+  `color-scheme: dark` it does not: measured, the walk returned `[224,224,224]`
+  where the real pixel was `[15,15,15]`. Masked only because `body` is opaque in
+  both modes here — and the same shape as the alpha bug one pass earlier: an
+  assumption about a surface, one CSS change from being wrong, and wrong in *both*
+  directions. The walk now starts at the deepest genuinely-opaque layer, decided by
+  compositing over black and over white and checking whether the result moved
+  (format-agnostic, so `oklab(… / .5)` and `color-mix()` read correctly). With no
+  opaque layer anywhere it returns `null` and the assertion fails, rather than
+  inventing a backdrop.
+
+**What held, and it is worth recording**, because this is the first pass where the
+central claim survived: the contrast rebase agrees with rasterized ground truth
+*exactly* — computed backdrop equals the sampled screenshot pixel in light and
+dark, opaque and translucent (`[219,217,212]` and `[18,14,11]`), where the old
+formula returned `[0,0,0]` — and **no shipping measurement changed value**
+(description 11.346, title 17.301, action 10.978). `--repeat-each=4` on both
+projects: 16/16, no flake from the new `toHaveCount(1)`, right-edge or
+`scrollWidth` assertions. Geometry headroom is wide, not knife-edge: every text
+layer measures `scrollWidth == clientWidth` exactly at devicePixelRatio 1 and 3.
+
+**Known and accepted:** `toHaveCount(1)` couples this spec to "nothing else toasts
+at boot". The only other call site needs a user settings write, so it is
+unreachable here — but a future boot-time toast would red this spec for an
+unrelated reason.
+
+**Logged as #1634, not fixed** (pre-existing, off this diff's path, HARD RULE #18):
+`onVisibility` calls `persist()` with no `catchUpOnWipe()` guard, unlike `tick`,
+`onResume` and `onPageShow` — so a tab returning to visibility after a wipe could
+rewrite the deleted record. It is self-healing: `catchUpOnWipe()` both seals the
+tab and removes its own record, and the heartbeat runs every second, so the window
+is about a tick rather than a durable resurrection — which is exactly the backstop
+#1616's changelog fragment describes, so the shipped claim stands. Driving the real
+path produced no resurrection, most likely because headless Chromium never marked
+the tab hidden, so this is a reading of the source rather than a reproduction.

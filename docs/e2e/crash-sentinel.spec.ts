@@ -1,3 +1,4 @@
+import { RECORD_VERSION } from '../src/lib/crash-sentinel';
 import { expect, gotoStudio, test } from './studio-fixture';
 
 /**
@@ -21,7 +22,7 @@ import { expect, gotoStudio, test } from './studio-fixture';
 function staleCrashRecord(id: string, ageMs: number) {
 	const started = Date.now() - ageMs;
 	return {
-		v: 2,
+		v: RECORD_VERSION,
 		id,
 		startedAt: started,
 		lastBeat: started + 25_700,
@@ -50,11 +51,104 @@ function staleCrashRecord(id: string, ageMs: number) {
 async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash') {
 	await page.addInitScript((rec) => {
 		try {
-			localStorage.setItem(`lattice-studio-session-${rec.id}`, JSON.stringify(rec));
+			// SEED ONCE. An unconditional write re-seeds a pristine record after the app
+			// has already marked it reported, erasing the `reported` flag and making the
+			// report look as though it never happened — the toast plainly on screen
+			// while the durable evidence of it kept vanishing.
+			//
+			// The cause is NOT repeated navigation, which is what a first pass at this
+			// comment claimed: `gotoStudio` issues exactly one `page.goto`. It is that
+			// `addInitScript` runs in EVERY FRAME, and the Studio's live preview is a
+			// same-origin iframe — so it shares this `localStorage` and re-runs the seed.
+			// Measured: 3 init-script runs for 1 navigation, across the top document,
+			// `about:blank` and the preview's `about:srcdoc`.
+			if (!localStorage.getItem(`lattice-studio-session-${rec.id}`)) {
+				localStorage.setItem(`lattice-studio-session-${rec.id}`, JSON.stringify(rec));
+			}
 		} catch {
 			/* storage unavailable — the assertions below will say so */
 		}
 	}, staleCrashRecord(id, 20 * 60_000));
+}
+
+/**
+ * Latch whether a crash toast ever OCCUPIED SPACE ON SCREEN — a fact the toast's
+ * own 12-second life destroys.
+ *
+ * This exists because the skip below cannot otherwise tell "it auto-dismissed"
+ * (benign, on a slow box) from "it never rendered" (a total regression in the
+ * component this spec is about). A checker made `Toaster` return `null` — the
+ * crash toast gone entirely — and the suite reported `2 passed, 2 skipped`,
+ * exit 0. `studio-e2e-nightly.yml` only files its tracking issue when a spec
+ * FAILS, so a contract that skips forever raises nothing, ever.
+ *
+ * IT MUST TEST LAYOUT, NOT `textContent`. The first version of this latch read
+ * the text, i.e. presence in the DOM — and a sixth pass walked straight through
+ * it: `display:none` on the toast root gives the user nothing at all, satisfies
+ * a text-only latch, and reproduces that same `2 passed, 2 skipped`, exit 0. A
+ * rendered box is the weakest thing that is still a claim about the screen.
+ *
+ * Opacity is deliberately NOT in this predicate. Sonner fades each toast in, and
+ * a `MutationObserver` does not fire for a CSS transition — so latching on
+ * opacity would sample mid-fade, stay false for a healthy toast, and turn the
+ * benign auto-dismiss case into a hard red. Opacity is checked live instead, in
+ * the contract below, where the toast is known to be on screen.
+ *
+ * Installed as an init script so it is watching before the app's first paint,
+ * and latched rather than sampled so no poll can miss the window. The interval
+ * backs the observer up for the same reason opacity is excluded: style changes
+ * that alter nothing in the DOM are invisible to it.
+ */
+async function watchForCrashToast(page: Parameters<typeof gotoStudio>[0]) {
+	await page.addInitScript(() => {
+		const w = window as unknown as { __crashToastEverRendered?: boolean };
+		w.__crashToastEverRendered = false;
+		const look = () => {
+			for (const t of document.querySelectorAll('[data-sonner-toast]')) {
+				if (!/stopped unexpectedly/i.test(t.textContent || '')) continue;
+				const r = t.getBoundingClientRect();
+				const cs = getComputedStyle(t);
+				if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none') {
+					w.__crashToastEverRendered = true;
+				}
+			}
+		};
+		const start = () => {
+			look();
+			new MutationObserver(look).observe(document.body, { childList: true, subtree: true, characterData: true });
+			setInterval(look, 100);
+		};
+		if (document.body) start();
+		else addEventListener('DOMContentLoaded', start, { once: true });
+	});
+}
+
+/**
+ * The report was RAISED — a fact that outlives the toast.
+ *
+ * Separated from the visual contract because the two fail for different reasons:
+ * this one reds when the report did not happen at all, the visual one when it
+ * happened and looked wrong. Reading only the toast conflates them, and on a slow
+ * machine turns "the toast already dismissed" into "the feature is broken".
+ */
+async function expectReportWasRaised(page: Parameters<typeof gotoStudio>[0]) {
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() =>
+					Object.keys(localStorage)
+						.filter((k) => k.startsWith('lattice-studio-session-'))
+						.some((k) => {
+							try {
+								return JSON.parse(localStorage.getItem(k) || '{}').reported === true;
+							} catch {
+								return false;
+							}
+						}),
+				),
+			{ timeout: 30_000 },
+		)
+		.toBe(true);
 }
 
 /**
@@ -71,25 +165,222 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 	// One non-blocking toast, not a modal: a page back from a crash owes the
 	// author their work first.
 	const toast = page.locator('[data-sonner-toast]');
-	await expect(toast).toBeVisible({ timeout: 15_000 });
+	// THE TOAST HAS A 12-SECOND LIFE AND THE FIXTURE ALLOWS 45 FOR FIRST PAINT.
+	// Moving the "did it report" oracle onto the persisted flag fixed the false
+	// GREEN; it did not fix this half. Measured on this build at 16x/20x CPU
+	// throttle: `reportedFlag=1` (the report happened) but `toastStillVisible=false`
+	// (paint took 26-33s), so demanding the toast reds a healthy app inside the
+	// budget the fixture deliberately grants. Skip rather than fail — the report was
+	// already proven to have been raised, and a skip that says why is a true
+	// statement where a red is a false one.
+	// `.first()` so a second toast on screen cannot turn a strict-mode violation
+	// into a silent skip; the count assertion below reds on it instead.
+	const stillUp = await toast.first().isVisible().catch(() => false);
+	if (!stillUp) {
+		// THE SKIP MUST EARN ITSELF. Absent this, the predicate reads any missing
+		// toast as "it dismissed in time" — including a toast that never existed.
+		// The latch distinguishes them, so the only thing that can be excused here
+		// is the thing the message actually claims.
+		const everRendered = await page.evaluate(
+			() => (window as unknown as { __crashToastEverRendered?: boolean }).__crashToastEverRendered === true,
+		);
+		expect(
+			everRendered,
+			'the crash toast never rendered a box on screen — this is a presentation regression, not a slow first paint, and it must not be skipped',
+		).toBe(true);
+	}
+	test.skip(
+		!stillUp,
+		'the crash toast had already auto-dismissed before this assertion could run (first paint outran its 12s life) — ' +
+			'the latch saw it render a box on screen, and the report itself is verified separately by expectReportWasRaised',
+	);
+	// Exactly one, so two stacked toasts red here rather than tripping strict mode
+	// somewhere less legible.
+	await expect(toast).toHaveCount(1);
 	await expect(toast).toContainText(/stopped unexpectedly/i);
 
-	// THE SHAPE. A capsule is right for one line; stretched around a title, a
-	// description and an action it clipped its own last line of text at 390px.
-	expect(await toast.evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe('9999px');
+	// OPACITY IS NOT VISIBILITY — not to Playwright, and not to a contrast walk.
+	// `toBeVisible()` passes on `opacity: 0`, and the compositing below reads
+	// `backgroundColor` only, so a crash toast faded to nothing passed this ENTIRE
+	// contract: the title check, all three contrast ratios, the clipping tests and
+	// the `See report` click. Measured `4 passed` on a toast no human could see.
+	//
+	// Multiplied through the ancestors, because opacity on any of them fades the
+	// toast just as completely. Polled because Sonner fades each toast IN: a
+	// single read can land mid-animation, where a healthy toast is legitimately
+	// part-way. A permanent zero never settles.
+	await expect
+		.poll(
+			async () =>
+				toast.evaluate((el) => {
+					let o = 1;
+					for (let n: Element | null = el; n; n = n.parentElement) o *= Number(getComputedStyle(n).opacity || '1');
+					return o;
+				}),
+			{ timeout: 5_000, message: 'the crash toast is faded out — visible to Playwright, invisible to a human' },
+		)
+		.toBeGreaterThan(0.99);
+	// AND IT MUST ACTUALLY RENDER. `toContainText` reads `textContent`, which
+	// includes `display:none` text — hiding the title passed every assertion here
+	// and produced a crash toast with no headline at all. A zero-height box also
+	// overflows nothing and keeps its color, so neither the clipping nor the
+	// contrast check notices.
+	await expect(toast.locator('[data-title]')).toBeVisible();
 
-	// THE DESCRIPTION MUST BE LEGIBLE. Sonner hardcodes #3f3f3f for descriptions,
-	// which on this deliberately dark toast was ~1.07:1 — invisible, and only in
-	// light mode, which is why review never caught it.
+	// THE SHAPE — asserted as the value it must BE, not as the one value it must
+	// not be. `.not.toBe('9999px')` rejected exactly one literal and nothing else:
+	// a checker reproduced the defect faithfully at `64px` with 1.67:1 text and
+	// every assertion here stayed green. A test that only knows the old bad value
+	// cannot catch the next one.
+	expect(await toast.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('16px');
+
+	// THE DESCRIPTION MUST BE LEGIBLE — measured, not compared against the one
+	// color that was wrong. Sonner hardcodes #3f3f3f, which on this deliberately
+	// dark toast was ~1.07:1; the palettes ranged 1.6-2.0:1. Anything under AA is
+	// the bug, whatever its hex.
 	const desc = toast.locator('[data-description]');
 	await expect(desc).toBeVisible();
-	expect(await desc.evaluate((el) => getComputedStyle(el).color)).not.toBe('rgb(63, 63, 63)');
-	// …and inside its own box, rather than eaten by the corner curve.
-	const clipped = await toast.evaluate((el) => {
+	// NOT CLIPPED — restored. The previous revision deleted this check while the
+	// decision doc kept claiming it, which is a coverage claim without coverage:
+	// clip the box (`max-h` + `overflow-hidden`) with the radius left correct and
+	// every other assertion here stayed green over a toast whose last line was cut
+	// off mid-word. Two tests, because they catch different clippings — the rect
+	// test misses overflow, and the overflow test misses a child escaping the box.
+	const geometry = await toast.evaluate((el) => {
 		const d = el.querySelector('[data-description]');
-		return d ? d.getBoundingClientRect().bottom > el.getBoundingClientRect().bottom : true;
+		const box = el.getBoundingClientRect();
+		// THREE TESTS, because each misses what the others catch. The rect test misses
+		// overflow; the toast-overflow test misses a clipped CHILD — measured, a
+		// `max-h` on the description alone left both green over a toast reading
+		// "Your decks are safe. See what the", second line gone. Clipping is checked
+		// on every text layer, not only on the box around them.
+		// BOTH AXES. Every oracle here read HEIGHT only, and a checker walked
+		// straight through the gap: a title held to 120px with `nowrap` +
+		// `overflow:hidden` at 390px renders "The Studio stoppe" — cut off
+		// mid-word — with `descOutside`, `overflowing`, `clippedLayers`, the
+		// radius, the contrast and `toBeVisible` ALL green. `scrollWidth` was the
+		// one signal never read, on the surface whose original bug report was an
+		// unstyled black blob.
+		const cut = (n: Element) => n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1;
+		const clippedLayers = [...el.querySelectorAll('[data-title],[data-description],button')]
+			.filter(cut)
+			.map((n) => n.getAttribute('data-title') !== null ? 'title' : n.getAttribute('data-description') !== null ? 'description' : 'action');
+		const dRect = d?.getBoundingClientRect();
+		return {
+			descOutside: dRect ? dRect.bottom > box.bottom + 0.5 || dRect.right > box.right + 0.5 : true,
+			overflowing: el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
+			clippedLayers,
+		};
 	});
-	expect(clipped).toBe(false);
+	expect(geometry.descOutside).toBe(false);
+	expect(geometry.overflowing).toBe(false);
+	expect(geometry.clippedLayers, 'text layers with their content cut off').toEqual([]);
+
+	const contrast = await toast.evaluate((el) => {
+		const d = el.querySelector('[data-description]');
+		if (!d) return 0;
+		// PAINT THE COLORS, don't parse them. A regex over `getComputedStyle().color`
+		// looked right and was wrong: Tailwind emits `oklab(1 0 0 / 0.8)` for an
+		// opacity-modified color, which a naive `[\d.]+` match reads as rgb(1,0,0) —
+		// near-black — and reported 1.21:1 for text that is actually white. Compositing
+		// through a canvas asks the browser what the pixel really is, in sRGB, and
+		// folds the alpha in the same way the eye sees it.
+		const px = (color: string, over?: string) => {
+			const c = document.createElement('canvas');
+			c.width = c.height = 1;
+			const g = c.getContext('2d');
+			if (!g) return [0, 0, 0];
+			if (over) {
+				g.fillStyle = over;
+				g.fillRect(0, 0, 1, 1);
+			}
+			g.fillStyle = color;
+			g.fillRect(0, 0, 1, 1);
+			const [r, gg, b] = g.getImageData(0, 0, 1, 1).data;
+			return [r, gg, b];
+		};
+		const lum = ([r, g, b]: number[]) => {
+			const f = (v: number) => {
+				const x = v / 255;
+				return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+			};
+			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+		};
+		const ratio = (node: Element) => {
+			// COMPOSITE THE WHOLE CHAIN, FROM THE PAGE UP. Measuring against the
+			// toast's background flatters any layer that paints its own — the action
+			// chip is `bg-white/15` and scored 5.78:1 against the toast where the
+			// pixels it is drawn on give 3.67:1. Compositing only ONE level had the
+			// same flaw one generation up: `[data-content]` wraps the title and
+			// description, and a background there scored 17.3:1 / 11.4:1 against a
+			// true 3.9 / 3.1.
+			//
+			// STARTING at the toast had the flaw one generation the OTHER way, and it
+			// was the same bug a third time: painting an opaque canvas from the
+			// toast's own declared color throws away the toast's ALPHA. A checker set
+			// `--normal-bg: rgba(0,0,0,0.12)` — white text on a near-white pill,
+			// rasterized at 1.147:1, WORSE than #1622 — and this scored it 21.000 and
+			// passed. So the walk runs the whole chain down to the node — the toast
+			// included, alpha and all.
+			//
+			// AND IT DOES NOT GUESS WHAT IS UNDER THE PAGE. The version before this one
+			// started the walk at an assumed white canvas, "the white the browser paints
+			// under everything" — which is false the moment `color-scheme: dark` applies:
+			// measured, that walk returned [224,224,224] where the real pixel was [15,15,15].
+			// It was masked only because `body` is opaque in both modes here, and it is the
+			// same shape of bug as the alpha one above — an assumption about a surface,
+			// one CSS change from being wrong, and wrong in BOTH directions (dark text
+			// would score high and pass, light text would score low and red).
+			//
+			// So the walk starts at the DEEPEST layer that is actually opaque — nothing
+			// above it can affect a pixel — and if no such layer exists the measurement
+			// says so instead of inventing a backdrop.
+			const chain: Element[] = [];
+			for (let cur: Element | null = node; cur; cur = cur.parentElement) chain.unshift(cur);
+			// Format-agnostic: composite the color over black and over white, and see
+			// whether the result moved. Only a fully opaque color is unaffected — no
+			// parsing, so `oklab(… / .5)` and `color-mix()` are read correctly too.
+			const opaque = (color: string) => {
+				const a = px(color, 'rgb(0,0,0)');
+				const b = px(color, 'rgb(255,255,255)');
+				return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+			};
+			let base = -1;
+			for (let i = 0; i < chain.length; i++) {
+				if (opaque(getComputedStyle(chain[i]).backgroundColor)) base = i;
+			}
+			if (base < 0) return null; // nothing opaque anywhere — refuse to guess
+			let backdrop = px(getComputedStyle(chain[base]).backgroundColor);
+			for (const layer of chain.slice(base + 1)) {
+				backdrop = px(getComputedStyle(layer).backgroundColor, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`);
+			}
+			const a = lum(px(getComputedStyle(node).color, `rgb(${backdrop[0]},${backdrop[1]},${backdrop[2]})`));
+			const b = lum(backdrop);
+			return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+		};
+		// EVERY TEXT LAYER, not just the description. Measuring one element left the
+		// same defect available one element over: painting the TITLE `#2a2a2a` on the
+		// near-black pill made it essentially invisible with every assertion green —
+		// #1622's exact bug, relocated. The title is the line that says the Studio
+		// crashed, so it is the last thing that should be unreadable.
+		const layers: Record<string, number | null> = { description: ratio(d) };
+		const title = el.querySelector('[data-title]');
+		if (title) layers.title = ratio(title);
+		const action = el.querySelector('button');
+		if (action) layers.action = ratio(action);
+		return layers;
+	});
+	for (const [layer, ratio] of Object.entries(contrast)) {
+		// `null` means the walk found nothing opaque to stand on, so the ratio is
+		// unknowable rather than bad. It fails — an unmeasurable contrast is not a
+		// passing one, and this is the branch that would otherwise quietly return to
+		// guessing a backdrop.
+		expect(
+			ratio,
+			`${layer} contrast against the surface it is painted on (null = no opaque layer beneath it, so this could not be measured)`,
+		).not.toBeNull();
+		expect(ratio, `${layer} contrast against the surface it is painted on`).toBeGreaterThanOrEqual(4.5);
+	}
 
 	await toast.getByRole('button', { name: /see report/i }).click();
 
@@ -114,48 +405,122 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 
 test('a crash report surfaces on the next boot and says what to try', async ({ page }) => {
 	await seedCrash(page);
+	await watchForCrashToast(page);
 	await gotoStudio(page);
+	await expectReportWasRaised(page);
 	await expectReportReadsWell(page);
 });
 
 test('the crash report reads correctly on WebKit at phone size @webkit-phone', async ({ page }) => {
 	await seedCrash(page);
+	await watchForCrashToast(page);
 	await gotoStudio(page);
+	await expectReportWasRaised(page);
 	await expectReportReadsWell(page);
 });
 
 test('a clean session is never reported as a crash', async ({ page }) => {
 	await gotoStudio(page);
+	// ASSERT DURABLE STATE, NOT THE TRANSIENT TOAST. The toast self-dismisses after
+	// 12s, while the fixture deliberately allows up to 45s for first paint — so on a
+	// loaded box the toast can be raised AND gone before the assertion runs, and a
+	// `toHaveCount(0)` then passes on a boot that DID report a crash. A checker
+	// measured exactly that at CPU throttle 20x: `toastsEverRendered` held the crash
+	// headline while the count at assert time was 0. `markReported` persists into the
+	// record instead, and outlives any paint delay.
 	await page.waitForTimeout(2_000);
-	// The whole feature rests on "an unclosed record is the signal". If an ordinary
-	// visit produced one, every boot would cry crash.
-	await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+	const reported = await page.evaluate(() =>
+		Object.keys(localStorage)
+			.filter((k) => k.startsWith('lattice-studio-session-'))
+			.map((k) => {
+				try {
+					return JSON.parse(localStorage.getItem(k) || '{}').reported === true;
+				} catch {
+					return false;
+				}
+			})
+			.filter(Boolean).length,
+	);
+	expect(reported).toBe(0);
+	// The toast is checked too, but as a second signal rather than the only one.
+	await expect(page.getByText(/stopped unexpectedly/i)).toHaveCount(0);
 });
 
 /**
  * #1616 — "Delete everything" undone by a tab that slept through it.
  *
- * Chromium only, and not for convenience: the freeze comes from the DevTools
- * protocol, and WebKit exposes no equivalent. Dispatching a `resume` event by
- * hand does NOT reproduce this — the document was never actually stopped, which
- * is the entire reason it misses the broadcast.
+ * THIS TEST PREVIOUSLY ASSERTED NOTHING, and the way it failed is worth keeping.
+ * It called CDP `Page.setWebLifecycleState('frozen')` and described that as "a
+ * real freeze". The call succeeds and does nothing: instrumented, no `freeze`
+ * event fires, the page's own interval never misses a beat, and the wipe
+ * broadcast is delivered LIVE. So the test exercised the pre-existing `storage`
+ * listener, not the catch-up path #1625 added — removing `catchUpOnWipe()` from
+ * `onResume` left it green.
+ *
+ * It also went red against the un-fixed build for the wrong reason: the
+ * assertion read origin-wide `localStorage`, and the record that came back
+ * belonged to the WIPING tab, which the hand-rolled wipe left unsealed. The real
+ * `clearAllSessions` seals it, so that failure mode does not exist in the product.
+ *
+ * Two changes make it honest: it verifies the freeze actually happened and SKIPS
+ * with a reason when the environment will not honor it — a skip is a true
+ * statement, a silent pass is not — and it asserts on the frozen page's OWN
+ * record rather than on whatever else the origin holds.
  */
 test('a wipe survives a tab that was frozen through it', async ({ page, context, browserName }) => {
-	test.skip(browserName !== 'chromium', 'needs CDP Page.setWebLifecycleState — no WebKit equivalent');
+	test.skip(browserName !== 'chromium', 'needs CDP Emulation.setScriptExecutionDisabled — no WebKit equivalent');
+	// TWO FULL STUDIO BOOTS, each budgeted 45s by the fixture's FIRST_PAINT_TIMEOUT,
+	// plus a stop window and a tick poll — against a 60s default that cannot cover
+	// even one slow boot. Unlike the visual contract, this test has no skip escape,
+	// so the failure mode is a hard RED on a healthy app whenever the runner is
+	// loaded. Measured 23-26s here; the doc's own throttled figures are 26-33s for a
+	// SINGLE boot.
+	test.setTimeout(180_000);
 
+	// Record whether the page heard the wipe — the one precondition the fix depends
+	// on. (It does NOT observe Page Lifecycle events: the stop primitive below
+	// fires no `freeze`/`resume`, so there is no lifecycle here to measure.)
+	await page.addInitScript(() => {
+		const w = window as unknown as { __heardWipe?: boolean; __ticks?: number };
+		w.__heardWipe = false;
+		// A drive signal that advances whether or not the record is rewritten. The
+		// record's own heartbeat cannot serve: the wipe deletes it, so polling its
+		// `lastBeat` waits forever for exactly the write this test asserts must never
+		// happen — the drive signal and the assertion cannot be the same observable.
+		w.__ticks = 0;
+		setInterval(() => {
+			w.__ticks = (w.__ticks ?? 0) + 1;
+		}, 250);
+		// RECORD THE ONE THING THE FIX DEPENDS ON. #1616 exists because a stopped
+		// document never receives this event; if the page hears it, the pre-existing
+		// live listener seals the tab and `catchUpOnWipe` is never the thing under
+		// test. So the page writes down whether it heard, and the skip below reads it.
+		addEventListener('storage', (e) => {
+			if (e.key === 'lattice-studio-wipe-signal' || e.key === 'lattice-studio-wiped-at') w.__heardWipe = true;
+		});
+	});
 	await gotoStudio(page);
-	await expect
-		.poll(async () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length), {
-			timeout: 20_000,
-		})
-		.toBeGreaterThan(0);
 
-	// FREEZE: the browser stops running this document's tasks, exactly as a phone
-	// suspends a backgrounded tab.
+	const ownKeys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
+	expect(ownKeys.length).toBeGreaterThan(0);
+
 	const cdp = await context.newCDPSession(page);
-	await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+	// STOP THE PAGE FOR REAL. `Page.setWebLifecycleState('frozen')` is a silent
+	// no-op in this environment — measured: it resolves, no `freeze` fires, and the
+	// document's own interval never misses a beat — which is why this test spent
+	// four commits asserting nothing. `Emulation.setScriptExecutionDisabled` does
+	// stop it, and the storage broadcast is demonstrably dropped rather than
+	// delivered, which is the precondition the fix exists for.
+	//
+	// It is NOT a Page Lifecycle freeze: no `freeze`/`resume` fires, so this
+	// exercises the heartbeat catch-up path and leaves `onResume`'s uncovered.
+	// Stated in the decision doc rather than implied away.
+	await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+	await page.waitForTimeout(2_000);
 
-	// Another tab wipes, the way Workspace → Privacy & Data does.
+	// The wipe lands while the page is stopped. `page.waitForTimeout` above is
+	// runner-side and safe against a stopped document; `page.evaluate` is not, so
+	// every read of the page's own state waits until after the resume below.
 	const other = await context.newPage();
 	await gotoStudio(other);
 	await other.evaluate(() => {
@@ -166,13 +531,33 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 		localStorage.setItem('lattice-studio-wiped-at', at);
 	});
 
-	// Wake it and let several heartbeats pass. THIS is where the data used to
-	// come back: the sleeper still held its session and simply wrote it out again.
-	await cdp.send('Page.setWebLifecycleState', { state: 'active' });
-	await page.bringToFront();
-	await page.waitForTimeout(12_000);
+	await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
+	const heardWipe = await page.evaluate(() => (window as unknown as { __heardWipe: boolean }).__heardWipe);
+	// SKIP ON THE PRECONDITION, not on a proxy for it. If the page heard the
+	// broadcast, it was never stopped in the way that matters and the live listener
+	// — not the code under test — is what seals it. Passing then would assert
+	// nothing, which is what four earlier revisions of this test did.
+	test.skip(
+		heardWipe,
+		'this environment did not stop the page: it received the wipe broadcast live, so the pre-existing ' +
+			'storage listener seals it and the catch-up path cannot be exercised here',
+	);
 
-	const resurrected = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
-	expect(resurrected).toEqual([]);
+	await page.bringToFront();
+	// Poll the woken page's OWN tick counter rather than sleeping: the settle
+	// condition is "this document has run enough heartbeats to have rewritten its
+	// record", which is drivable, unlike the absence being asserted after it.
+	// Let the resumed page run several of its own heartbeats — that write is what
+	// would resurrect the record, so it must have had ample opportunity before an
+	// absence means anything. Polled on the page's own tick counter, which advances
+	// independently of the record.
+	const wokeAt = await page.evaluate(() => (window as unknown as { __ticks: number }).__ticks);
+	await expect
+		.poll(async () => page.evaluate(() => (window as unknown as { __ticks: number }).__ticks), { timeout: 60_000 })
+		.toBeGreaterThan(wokeAt + 3 * (5_000 / 250));
+
+	const back = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
+	// Only THIS page's records — the ones it could have resurrected.
+	expect(back.filter((k) => ownKeys.includes(k))).toEqual([]);
 	await other.close();
 });
