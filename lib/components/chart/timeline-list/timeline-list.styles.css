@@ -11,16 +11,30 @@
  * verbatim. A parent's padding cannot be overridden by a child, so the tuning has
  * to travel with the inset it tunes; as a token it reaches BOTH holders
  * (`.cell-stage` under the Form, the section on the `no-form` path) from one
- * declaration. The asymmetric block pair is the point of the tuning: the spine's
- * date pills sit high, so the top seam is a step looser than the bottom.
+ * declaration.
+ *
+ * THE FRAME INSET IS NOW 0 ON BOTH AXES and this component's tuning of it is
+ * retired. The inline half went with #1598; the asymmetric BLOCK pair went with the
+ * family's block-pair retirement. As a FRAME inset the seam is not lost — this body
+ * is pinned to natural height and the stage centers it, so the clearance comes from
+ * the stage rather than from padding inside the body. Measured at landscape,
+ * portrait and square: the pills keep their air, and `check-chart-fit` LOST a
+ * portrait timeline-list clip (+12.3px) that this padding had been causing.
+ *
+ * But that pair was ALSO the panel's berth, exactly as the inline half was (see the
+ * tall/strip note below, where dropping the inline token retuned a `timeline-list
+ * canvas` panel 3× tighter). So the asymmetry is restated on `--chart-panel-y`
+ * rather than deleted: `--sp-xl` top / `--sp-lg` bottom, a looser top seam because
+ * the spine's date pills sit high. Dropping it took 16px off the top berth of a
+ * default `timeline-list canvas` and 22.3px at square — the same silent tightening
+ * the inline half was caught doing, one axis and one release later.
  *
  * The Read·Article PROJECTION keeps its inset on `.chart-body` (below). That path
  * re-hosts the body inside a `figure`, with no Form and no `.cell-stage` — the
  * inset rule is a Forms rule about the stage cell, and there is no stage there to
  * own anything. Byte-identical projection, deliberately. */
 section.timeline-list.chart-frame {
-  --chart-inset-top: var(--sp-xl);
-  --chart-inset-bottom: var(--sp-lg);
+  --chart-panel-y: var(--sp-xl) var(--sp-lg);
 }
 :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
   align-items: center;
@@ -182,8 +196,12 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
  * it: the frame inset goes, the panel's berth stays where it was. */
 section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
   --chart-panel-x: var(--sp-xl);
-  --chart-inset-top: var(--sp-lg);
-  --chart-inset-bottom: var(--sp-lg);
+  /* The same second-consumer story on the BLOCK axis, one retirement later: this
+   * pair was the frame inset here, and the family's `--chart-panel-y` (which the
+   * tall/strip arm tightens to `--sp-sm`) is now what the panel reads. Restated at
+   * this component's own step so the narrow-box panel keeps the berth it had rather
+   * than inheriting the family's tightening — the inline half's exact argument. */
+  --chart-panel-y: var(--sp-lg);
 }
 :where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
   padding: var(--sp-lg) var(--sp-xl);

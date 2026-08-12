@@ -100,8 +100,32 @@ section.chart-frame {
    * table columns and status pills share edges with the rule and the title.
    * `overflow:check` over all 268 committed decks: zero newly-clipping pages. */
   --chart-inset-x: 0px;
-  --chart-inset-top: var(--sp-lg);
-  --chart-inset-bottom: var(--sp-lg);
+  /* THE BLOCK PAIR IS RETIRED (#1598 §7 revisited). It was kept as a CLIP MARGIN —
+   * `overflow` cuts at the padding box, so it read as the slack a chart paints into
+   * — on the evidence that removing it clipped nine decks. That experiment MOVED the
+   * padding to the stage, which is a different change with the opposite sign: the
+   * body is `flex: 1`, so its border box is the stage either way, and moving the
+   * padding out collapses the CLIP box onto the layout box while zeroing it grows
+   * the CONTENT box and leaves the clip boundary exactly where it was.
+   *
+   * Re-measured, zeroed rather than moved: `overflow:check` over all 268 committed
+   * decks came back 7 clipped slides across 4 decks — IDENTICAL to baseline, zero
+   * newly-clipping pages — and `check-chart-fit` went from 3 clips to 1, the
+   * survivor shrinking 55.5px to 10.9px. The padding was not absorbing overflow, it
+   * was CAUSING it: for a body pinned to natural height (`flex: 0 0 auto` — progress,
+   * kanban, timeline-list, roadmap) the padding is part of that height, so it pushes
+   * the box out of the stage and shoves the content down 32px on the way. Measured
+   * on `progress` at square: content 677.8 in a 666.9 stage overshot 42.9px with the
+   * padding and 10.9px without it.
+   *
+   * For the fill-height SVG bodies it WAS real slack, and the three named dependents
+   * were checked on the render rather than trusted: radar's rim labels, journey's
+   * mood legend and matrix-grid's rows all paint complete without it.
+   *
+   * The one body that still needs a block inset is the one that PAINTS A SURFACE —
+   * see `--chart-panel-y` below. That is the same clause §6.1 already grants on the
+   * inline axis, so the rule is now symmetric: a body owns only the spacing between
+   * its own elements and whatever padding a box that paints its own surface needs. */
 
   /* The PANEL's internal inset — a DIFFERENT quantity from the frame inset above,
    * and they must not share a token. The opt-in `.canvas` glass card paints a
@@ -115,6 +139,20 @@ section.chart-frame {
    * comment says it exists to prevent exactly that. Separate tokens, so a future
    * move of one cannot silently move the other. */
   --chart-panel-x: var(--sp-2xl);
+  /* The panel's BLOCK berth. It used to be borrowed from the frame inset's block
+   * pair — `.canvas` set only `padding-inline`, and the vertical half of its card
+   * came from the body's own padding. That coupling was invisible until the block
+   * pair retired: measured on the `quadrant canvas` fixture, the chart ran flush to
+   * the glass card's top and bottom edges, against that rule's own stated contract
+   * ("content must not touch a visible edge"). No gate saw it — it is not a clip —
+   * it was caught by looking at the render. Its own token, for the same reason
+   * `--chart-panel-x` has one.
+   *
+   * It takes ONE or TWO lengths, because it feeds `padding-block` directly and the
+   * berth it replaces was asymmetric on at least one component (timeline-list ran a
+   * looser top than bottom, for the spine's high-sitting date pills). A single value
+   * means both seams; a pair means top then bottom. */
+  --chart-panel-y: var(--sp-lg);
 }
 /* CONSUMER 2 of the inset tokens — the `no-form` path.
  * Scoped `:not(.form)` deliberately. This block used to carry an UNSCOPED
@@ -137,9 +175,10 @@ section.chart-frame {
  * BLOCK seam is a `row-gap`, not padding: the section here is a flex column
  * holding `h2 → .chart-body`, and a `padding-top` would inset the HEADING too
  * (chrome, not body). A gap is spacing between the container's own children —
- * the half of the rule a container is allowed to own. Only the TOP inset has a
- * seam to sit in; the section's own `padding-bottom` (the footer band, well over
- * any `--chart-inset-bottom`) is the bottom clearance. */
+ * the half of the rule a container is allowed to own. With the block pair retired
+ * there is no block inset left to place on either seam: the section's own
+ * `padding-bottom` (the footer band) is the bottom clearance, and the top is the
+ * heading's own seam. */
 /* BLEED HAS A FLOOR on a chart whose body is CARDS OR A TABLE — the SECOND half
  * of a two-layer answer, and the safety net rather than the rule.
  *
@@ -572,9 +611,35 @@ section.chart-frame .chart-body {
    * inset three times (frame + width calc + this box's padding = 192px against
    * prose's 64); the block axis derived it once and used the second copy for
    * something else. */
-  padding-block: var(--chart-inset-top) var(--chart-inset-bottom);
+  /* NO PADDING, ON EITHER AXIS. The inline half was the duplicate #1598 reclaimed;
+   * the block half retired on the re-measurement recorded at the token above. The
+   * stage owns the outer inset, and this box fills it exactly — design/forms.md
+   * §6.1. A body that PAINTS a surface (`.canvas`) or has no stage to own anything
+   * (the Read·Article `figure` projection) is the stated exception and carries its
+   * own; both are the exits `checkStageInsetOwnership` keys on. */
+  padding: 0;
   min-height: 0;
-  overflow: hidden;
+  /* NO PAINT ALLOWANCE ON THIS BOX, deliberately, and a gate is why.
+   * Retiring the block padding took the paint slack with it, and the first fix put
+   * an `overflow-clip-margin` here as well as on the stage — paint must escape two
+   * nested clips, so one allowance alone fixed only one of the two regressions.
+   * `chart-overflow-preserved.test.js` refuted that: *an overstuffed state-chart
+   * does NOT overflow — it self-scales to fit* went from pass to FAIL. An allowance
+   * here is INDISCRIMINATE: it lets any chart's content escape this box, and that
+   * test exists precisely to catch a chart that has stopped self-scaling. Blinding
+   * it to buy one component's markers is the wrong trade.
+   *
+   * The allowance lives on `.cell-stage` alone (below) — the edge a stage-filling
+   * SVG chart actually meets, and what kanban's card shadow needs. The one thing
+   * that genuinely painted outside THIS box was state-chart's start / terminal
+   * markers, and that was a defect in its OWN geometry (its node column reserves
+   * their room in `cqi` while `draw()` places them at fixed px offsets), fixed at
+   * the root in state-chart.styles.css rather than absorbed here.
+   *
+   * `overflow: clip` rather than the historical `hidden`: it is the stronger box
+   * (no scroll container), it is what `.cell-stage` already uses, and it is the only
+   * one `overflow-clip-margin` applies to should this box ever need one. */
+  overflow: clip;
 }
 
 /* ── CONSUMER 1 of the inset tokens — the Form path (design/forms.md §6.1, #1598)
@@ -596,6 +661,23 @@ section.chart-frame .chart-body {
 section.chart-frame > .cell-stage {
   padding-inline: var(--chart-inset-x);
   justify-content: safe center;
+  /* THE PAINT ALLOWANCE, on the box that actually clips. The body's own
+   * `overflow-clip-margin` is not enough: an SVG chart fills the stage exactly, so
+   * `.cell-stage` (`overflow: clip`, Forms) is the edge its paint meets first.
+   * Measured on `state-chart curved`, gallery slide 5: the diagram's `getBBox` runs
+   * to y = −6.4 viewBox units, i.e. it paints 5.0px ABOVE its own border box, and
+   * with the SVG top flush to the stage top (0.0px) the stage cut it — the initial
+   * state dot and the terminal `◎` both sliced in half, in a committed gallery PDF.
+   * The retired block padding had been doing this third job silently: it pushed the
+   * chart 32px clear of the STAGE's clip edge, not just the body's.
+   *
+   * Scoped to `.chart-frame` deliberately: this is a chart-family fact (SVG charts
+   * paint marker glyphs, strokes and shadows past their own box), not a Forms-wide
+   * one, and widening the stage clip for every bucket would mask real overflow that
+   * `check-chart-fit` and the overflow probe are supposed to see. A literal length
+   * for the same reason as the body's — Chromium 131 rejects a `calc()` here, and
+   * every spacing token in this repo is one. */
+  overflow-clip-margin: 32px;
 }
 
 /* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
@@ -648,14 +730,18 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
    * about the glass card's internal berth and is unaffected by the frame inset
    * going to 0. */
   --chart-panel-x: var(--sp-sm);
-  /* NO frame-inset override any more. This tuning existed to pull the side inset IN
-   * from `--sp-2xl` on a narrow box, where 64px per side ate width a portrait
-   * chart cannot spare. With the default at 0 there is nothing left to reclaim —
-   * restating `--sp-sm` here would PUSH the chart out, inverting the tuning's
-   * whole purpose. The block pair still tightens, which is the half that was
-   * always about the narrow box's height. */
-  --chart-inset-top: var(--sp-md);
-  --chart-inset-bottom: var(--sp-md);
+  /* The panel's BLOCK berth tightens with it — but NOT by the inline step, and an
+   * earlier cut of this rule got that wrong. The two axes tightened by different
+   * amounts before the block pair retired: inline went `--sp-2xl` → `--sp-sm`, block
+   * went `--sp-lg` → `--sp-md`. Restating the INLINE step here took a portrait
+   * `quadrant canvas` panel from 39.5px of block berth to 26.3px, a silent 33%
+   * tightening of a card this rule exists to keep content off the edge of. The block
+   * value is the one main actually carried on this arm. */
+  --chart-panel-y: var(--sp-md);
+  /* NO frame-inset override any more, on EITHER axis. The inline half went with
+   * #1598 (with the default at 0 there is nothing left to reclaim — restating
+   * `--sp-sm` would PUSH the chart out, inverting the tuning's whole purpose); the
+   * block half went with the block pair's retirement, for the same reason. */
 }
 
 
@@ -730,6 +816,9 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * width inside a panel whose outer box had not moved. A token cannot drift from
    * its tuning that way. */
   padding-inline: var(--chart-panel-x);
+  /* The block half of the same berth, on its own token since the frame inset's
+   * block pair retired and stopped supplying it. See `--chart-panel-y`. */
+  padding-block: var(--chart-panel-y);
   /* Float the panel clear of the header divider. The .chart-header::after
    * accent hairline sits at the header's bottom edge; without this gap the
    * lifted glass card's top edge lands right on it and the two separators
@@ -1064,15 +1153,16 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) {
   /* NO outer inset — that is what "bleed" means (#1598). `padding: 0` below zeroes
    * the SECTION's, and this zeroes the STAGE's, because the two are one inset in
    * two boxes and the body cannot override a parent's padding. Without it the stage
-   * silently put 32/64 back and the full-bleed chart was inset 64px per side with a
-   * 64px-shorter body — its `<svg>` then overflowing the `overflow:hidden` box by
-   * ~20px. Found by the trio's red team; the fixture carries no `claim-*` slide, so
-   * the render gate was green through it. The body keeps its OWN inset (below): at
-   * bleed it is the only box between the chart and the slide edge, and a chart
-   * touching the true edge is not what this preset is for. */
+   * silently put 64 back and the full-bleed chart was inset 64px per side — its
+   * `<svg>` then overflowing the `overflow:hidden` box by ~20px. Found by the trio's
+   * red team; the fixture carries no `claim-*` slide, so the render gate was green
+   * through it. The body keeps its OWN inset (below): at bleed it is the only box
+   * between the chart and the slide edge, and a chart touching the true edge is not
+   * what this preset is for.
+   *
+   * The block pair that used to be zeroed alongside is GONE, not moved: the family
+   * default retired, so there is no longer a block inset here to zero. */
   --chart-inset-x: 0px;
-  --chart-inset-top: 0px;
-  --chart-inset-bottom: 0px;
   position: relative;
   padding: 0;
   border: none;
