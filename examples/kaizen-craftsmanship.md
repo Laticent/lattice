@@ -99,7 +99,13 @@ On the good pair a rib — the holdfast — is carved from the insole itself, an
 
      Then the turn: this is why the review at the end never saves the work. By the
      time anyone inspects, the quality is already decided — you are only sorting
-     good from bad, and paying for the bad twice. -->
+     good from bad, and paying for the bad twice.
+
+     Verbatim from Out of the Crisis, chapter 1 (p. 29 in the 1982 MIT CAES
+     printing; p. 26 in the 2000 MIT Press second edition — cite the edition, not
+     a bare page). Deming continues: "As Harold F. Dodge said, 'You cannot inspect
+     quality into a product.'" Trimmed from the slide to keep it inside one
+     breath, but it is the sharper line if you want to close on it. -->
 
 ---
 
@@ -125,9 +131,16 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
      pairs, will find the fastest invisible saving available. That is not a
      character flaw, it is arithmetic.
 
-     94/6 is Deming's own revision of his earlier 85/15 estimate. Don't defend the
-     exact figure — defend the direction. Then ask the room: what does your team
-     get paid and measured on, and what invisible saving does that make rational? -->
+     94/6 is Deming's own revision of his earlier 85/15 estimate, and his exact
+     words are worth having: "I should estimate that in my experience most
+     troubles and most possibilities for improvement add up to the proportions
+     something like this: 94% belongs to the system (responsibility of
+     management), 6% special." Out of the Crisis, p. 315. Note "I should
+     estimate" — he is offering judgment, not a measurement, so don't defend the
+     figure. Defend the direction.
+
+     Then ask the room: what does your team get paid and measured on, and what
+     invisible saving does that make rational? -->
 
 ---
 
@@ -146,13 +159,26 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 3. $100
    - caught by the customer
 
-<!-- The number nobody budgets for: Juran estimated the cost of poor quality at
-     15–25% of revenue in a typical company. Almost none of it appears on a line
-     item, because rework is done by people already on payroll. It shows up as
-     "we're busy," never as a cost.
+— None of it appears on a budget line. Rework is done by people already on payroll.
 
-     Ask them to price their own last defect in each of the three columns. Most
-     will find they only ever paid attention at $100. -->
+<!-- Land the note aloud, because it is the whole slide: the cost is real, it is
+     large, and it is invisible. It never shows up as a cost. It shows up as
+     "we're busy." That is the hidden factory — a second production line running
+     inside the first, staffed by people already on payroll, making nothing.
+
+     Then make it theirs. Ask them to take their own last defect and price it in
+     all three columns. Most will find they only ever paid attention at $100, and
+     that the $1 fix was available and boring.
+
+     ON THE NUMBERS, if anyone presses — and let them press, this is a quality
+     session. The 1-10-100 ratio is a rule of thumb, not a measurement, which is
+     why the slide says so. The often-quoted "cost of poor quality is 15-25% of
+     revenue" is attributed to Juran everywhere and sourced to a primary text
+     almost nowhere; Crosby claimed 20-25% of revenue, but that was his own
+     estimate about his own consulting market. Do not lend those figures more
+     authority than they have. The escalation is well evidenced and the direction
+     is not in dispute; the exact multiplier is a teaching device. Saying that out
+     loud is not a weakness in the argument. It is the argument. -->
 
 ---
 
