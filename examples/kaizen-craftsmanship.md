@@ -246,18 +246,27 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 - Three carries
   - Neck lanyard, belt clip, key ring. Each terminates the same way, so any carry takes any body.
 - One interface
-  - A snapped leather tab and a nickel clip. That single agreement is what the system is built on.
+  - A snapped leather tab and a solid brass clip. That single agreement is what the system is built on.
 
 > Five pieces, six configurations. Without the shared tab, that is six separate products.
 
 <!-- Take it apart in front of them, then hand the pieces round and make them
      rebuild it a different way. The swap is the argument; describing it is not.
 
-     Two things to point at, in this order. First the saddle stitch — the same
+     Three things to point at, in this order. First the saddle stitch — the same
      stitch, in the same veg-tan, by the same hand as the outsole they were
      holding an hour ago. This is not an analogy for the shoe. It is the same
      craft. Second, the leather has darkened where it gets handled: quality that
      only shows itself after you own it, which is the holdfast argument again.
+
+     Third, the hardware is SOLID BRASS, not plated. Say it and then ask how they
+     would tell. They can't — plated hardware is identical on day one, and gives
+     itself away years later when the plating wears through at the wear point and
+     the base metal underneath starts to rust. Solid brass has no layer to lose;
+     it just goes darker. That is a holdfast: invisible at purchase, decisive at
+     year five. Worth admitting I got this wrong myself from a photograph — I
+     called it nickel, off the surface, at a glance, which is the exact error
+     slide three is about.
 
      Then the design point: the hard work was never the carries. It was settling
      the tab once, correctly, so that every carry after it could be easy. Get a
