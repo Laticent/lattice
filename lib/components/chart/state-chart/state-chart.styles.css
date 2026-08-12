@@ -61,11 +61,22 @@ section.state-chart {
  * (0,3,1) and beat the tall/strip family rule (0,2,1), so a TALL state-chart kept
  * the wide side inset; both sides of that tie are now 0, so the token that defended
  * it is noise). The block pair — `--sp-md` top and bottom, which was state-chart's
- * real tuning — went with the family's block-pair retirement, on the measurement
- * recorded there: a body's block padding is not a clip margin, and zeroing it grows
- * the content box without moving the clip boundary. Verified on the render at three
- * sizes; the state diagram is an `<svg>` that letterboxes to its box, so it takes
- * the reclaimed height as drawing size and clips nothing. */
+ * real tuning — went with the family's block-pair retirement.
+ *
+ * AN EARLIER VERSION OF THIS NOTE CLAIMED THE DIAGRAM "clips nothing" HERE, on the
+ * theory that an `<svg>` letterboxes to its box and simply takes the reclaimed
+ * height as drawing size. That was WRONG, and the artifact refuted it: this diagram
+ * paints PAST its own box — `getBBox` runs to y = −6.4 viewBox units, 5.0px above
+ * the border box at gallery scale — for the initial-state dot and the terminal `◎`.
+ * The retired padding had been holding the chart clear of `.cell-stage`'s clip edge,
+ * and without it BOTH ends of the machine came back sliced in half in the committed
+ * gallery PDF. Caught by rasterizing that PDF against `origin/main`, which is the
+ * only thing that could see it: it is a clip at the STAGE, so `check-chart-fit`'s
+ * stage and viewBox arms and the overflow probe are all blind to it.
+ *
+ * The clearance now comes from `overflow-clip-margin` on `section.chart-frame >
+ * .cell-stage` (chart-family.css), which buys the paint room without the layout
+ * height — see the note there. Re-verified on the render: both markers whole. */
 
 section.state-chart.chart-frame .chart-body {
   width: 100%;

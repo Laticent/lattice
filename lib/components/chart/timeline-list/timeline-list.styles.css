@@ -13,20 +13,29 @@
  * (`.cell-stage` under the Form, the section on the `no-form` path) from one
  * declaration.
  *
- * BOTH AXES ARE NOW 0 and this component's tuning of them is retired. The inline
- * half went with #1598; the asymmetric BLOCK pair (`--sp-xl` top / `--sp-lg`
- * bottom, a looser top seam because the spine's date pills sit high) went with the
- * family's block-pair retirement. The seam it bought is not lost — this body is
- * pinned to natural height and the stage centers it, so the clearance now comes
- * from the stage rather than from padding inside the body. Verified on the render
- * at landscape, portrait and square: the pills keep their air and nothing clips,
- * and `check-chart-fit` LOST a portrait timeline-list clip (+12.3px) that this
- * padding had been causing.
+ * THE FRAME INSET IS NOW 0 ON BOTH AXES and this component's tuning of it is
+ * retired. The inline half went with #1598; the asymmetric BLOCK pair went with the
+ * family's block-pair retirement. As a FRAME inset the seam is not lost — this body
+ * is pinned to natural height and the stage centers it, so the clearance comes from
+ * the stage rather than from padding inside the body. Measured at landscape,
+ * portrait and square: the pills keep their air, and `check-chart-fit` LOST a
+ * portrait timeline-list clip (+12.3px) that this padding had been causing.
+ *
+ * But that pair was ALSO the panel's berth, exactly as the inline half was (see the
+ * tall/strip note below, where dropping the inline token retuned a `timeline-list
+ * canvas` panel 3× tighter). So the asymmetry is restated on `--chart-panel-y`
+ * rather than deleted: `--sp-xl` top / `--sp-lg` bottom, a looser top seam because
+ * the spine's date pills sit high. Dropping it took 16px off the top berth of a
+ * default `timeline-list canvas` and 22.3px at square — the same silent tightening
+ * the inline half was caught doing, one axis and one release later.
  *
  * The Read·Article PROJECTION keeps its inset on `.chart-body` (below). That path
  * re-hosts the body inside a `figure`, with no Form and no `.cell-stage` — the
  * inset rule is a Forms rule about the stage cell, and there is no stage there to
  * own anything. Byte-identical projection, deliberately. */
+section.timeline-list.chart-frame {
+  --chart-panel-y: var(--sp-xl) var(--sp-lg);
+}
 :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
   align-items: center;
   justify-content: center;

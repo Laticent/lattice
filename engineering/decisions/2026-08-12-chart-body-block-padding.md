@@ -46,21 +46,33 @@ labels "by design". That reading was carried into `check-ownership.js`, whose
 body-padding check ran on the inline axis and cited the nine decks in a comment,
 and into `design/forms.md` §6.1.
 
-## 2. Why the evidence did not apply
+## 2. Where the evidence does and does not carry over
 
 **Moving the padding to the stage and setting it to zero are different changes
 with opposite signs on available height.** `.chart-body` is `flex: 1` inside
 `.cell-stage`, so its border box is the stage height regardless of its own padding,
 and `overflow` cuts at the padding box — which, with no padding, *is* the border box.
 
-| | body border box | body content box | clip boundary |
+| | body content box | clip boundary | **paint slack** |
 |---|---|---|---|
-| as shipped | stage | stage − 64 | stage |
-| moved to the stage (#1598's cut) | stage − 64 | stage − 64 | **stage − 64** — slack gone |
-| **zeroed (this change)** | stage | **stage** — content grows | stage — unmoved |
+| as shipped | stage − 64 | stage | **32 per side** |
+| moved to the stage (#1598's cut) | stage − 64 | stage − 64 | **0** |
+| **zeroed (this change)** | **stage** — content grows | stage — unmoved | **0** |
 
-The nine-deck experiment removed slack. This one adds content room and does not
-move the clip boundary at all.
+**Read the last column, not the middle one.** An earlier version of this record
+stopped at "the clip boundary does not move" and concluded the nine-deck evidence
+did not carry over. That is true and beside the point: the quantity that decides
+whether painted overshoot survives is *clip boundary − content-box edge*, and it
+goes to **0 in both cuts**. Zeroing the padding removes the paint slack just as
+surely as moving it does; it only differs in what happens to layout height.
+
+So the two mechanisms have to be separated, and §7 is where the correction lands:
+
+- **layout height** — genuinely reverses sign. A body pinned to natural height was
+  being pushed *out* of the stage by its own padding; removing it is a strict
+  improvement, and §4's `progress` numbers hold.
+- **paint slack** — does *not* reverse. It is removed either way, and two committed
+  artifacts broke because of it (§7).
 
 ## 3. Re-measured, zeroed rather than moved
 
@@ -118,7 +130,51 @@ A height-bound SVG chart is uniformly scaled by its box, so this is a gain on
 did nothing for these charts: at landscape and square the quadrant binds on height,
 and it had ~750px of unused width already.
 
-## 6. The regression a gate could not see
+## 6. Three regressions, none of which a gate could see
+
+The slack was real for three things, and all three broke before this record was
+correct. Each was caught by **looking at an artifact**, never by a gate — none of
+them is a clip at a boundary the gates measure.
+
+| what broke | where it paints past | caught by |
+|---|---|---|
+| `.canvas` glass panel — chart flush to the card edge | (not a clip at all — a lost inset) | rasterizing the `chart-fit` fixture |
+| `state-chart` initial dot **and** terminal `◎`, both sliced | past its own border box, cut at **`.cell-stage`** | rasterizing the committed gallery PDF vs `origin/main` |
+| `kanban` card elevation shadow, bottom row, board-wide | past the card's border box, cut at **`.chart-body`** | same |
+
+**The two clip edges are different boxes, and that matters.** Restoring a paint
+allowance on `.chart-body` fixed kanban and did nothing for state-chart — a
+deliberately absurd `overflow-clip-margin: 200px` on the body left the dot sliced.
+Measurement located why: an SVG chart fills the stage exactly, so its paint meets
+`.cell-stage`'s clip edge first.
+
+```
+stage  overflow=clip            ← the edge state-chart's paint actually met
+body   overflow=clip  margin=200px
+svg    overflow=visible, top flush to the stage (0.0px)
+getBBox y −6.40 units → paints 5.0px above its own border box
+```
+
+So the allowance is spelled on **both** boxes: `overflow-clip-margin` on
+`.chart-body` and on `section.chart-frame > .cell-stage`. Both are literal lengths,
+because Chromium 131 rejects a `calc()` there and every spacing token here is one —
+the constraint #1598 recorded, which is why it kept the slack as padding instead.
+The difference now is that `overflow-clip-margin` buys the paint room **without**
+the layout height, which is exactly the conflation the padding was guilty of.
+
+### 6.1 How the first two were missed, and what replaced the method
+
+§4 checked three fill-height dependents — radar's rim labels, journey's mood legend,
+matrix-grid's rows. All three held. But that list was **inherited from #1598's
+prose**, and both real breakages were outside it. A hand-kept list of things that
+paint past their box is not a mechanism; it is a guess that ages.
+
+The replacement asks the question directly, and needs no names: rasterize every
+committed chart gallery at HEAD against `origin/main` and flag any page where a
+pixel that carried ink now carries background. That is precisely the signal both
+defects produced, and it would have caught them on the first run.
+
+## 7. The regression a gate could not see
 
 `.canvas`, the opt-in glass panel, sets only `padding-inline: var(--chart-panel-x)`.
 Its **vertical** berth had been borrowing the body's block padding. Zeroing that

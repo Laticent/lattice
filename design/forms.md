@@ -406,14 +406,20 @@ column by 21px, matrix-grid's rows by a few, radar's rim labels by design), and
 removing it clipped nine decks that had never clipped.
 
 **That experiment MOVED the padding to the stage. Zeroing it is a different change
-with the opposite sign,** and the nine-deck result does not carry over. The body is
-`flex: 1`, so its border box is the stage either way:
+— but only on the LAYOUT axis, and the difference is narrower than it first looks.**
+The body is `flex: 1`, so its border box is the stage either way:
 
-| | body border box | body content box | clip boundary |
+| | body content box | clip boundary | **paint slack** |
 |---|---|---|---|
-| padding on the body | stage | stage − 64 | stage |
-| **moved to the stage** | stage − 64 | stage − 64 | **stage − 64** — slack gone |
-| **zeroed** | stage | **stage** — content grows | stage — unmoved |
+| padding on the body | stage − 64 | stage | **32 per side** |
+| **moved to the stage** | stage − 64 | stage − 64 | **0** |
+| **zeroed** | **stage** — content grows | stage — unmoved | **0** |
+
+**The last column is the one that matters for the nine decks.** "The clip boundary
+does not move" is true and insufficient: what decides whether painted overshoot
+survives is *clip boundary − content-box edge*, and that goes to zero in **both**
+cuts. Zeroing removes the paint slack exactly as moving does. What it does *not*
+remove is layout height, and that is the half that genuinely reverses sign.
 
 Re-measured zeroed rather than moved: `overflow:check` over all 268 committed
 decks came back **7 clipped slides across 4 decks, identical to baseline, zero
@@ -428,14 +434,27 @@ dependents were checked on the render rather than trusted, and all paint complet
 without it.
 
 So the block pair (`--chart-inset-top` / `--chart-inset-bottom`) is retired, and a
-chart body now carries no padding on either axis. **What survives is the clause,
-not the slack**: the one body that still earns a block inset is the one that PAINTS
-A SURFACE — the opt-in `.canvas` glass card, whose vertical berth had been silently
-borrowing the retired pair and now has its own `--chart-panel-y`. No gate caught
-that borrow; a render did, with the chart running flush to the card's edge.
-`overflow-clip-margin` remains the property a genuine clip margin should use and
-still cannot — Chromium 131 takes only a plain `<length>` there, and every spacing
-token here is a `calc()`.
+chart body carries no padding on either axis — but **the slack it was conflating
+with an inset survives on its own terms.** Three things legitimately paint past
+their box, and all three broke when it went: the `.canvas` glass card ran flush to
+its edge, `state-chart`'s initial dot and terminal `◎` were sliced in half, and
+`kanban`'s card elevation shadow vanished from the bottom row, board-wide. None is a
+clip at a boundary any gate measures; all three were caught by rasterizing artifacts
+and looking.
+
+**`overflow-clip-margin` is now what carries it** — on `.chart-body` AND on
+`section.chart-frame > .cell-stage`. Two boxes, because an SVG chart fills the stage
+exactly and meets the *stage's* clip edge first: a deliberately absurd 200px
+allowance on the body alone left state-chart's dot still sliced. The constraint
+#1598 recorded is real, and is why it kept the slack as padding — Chromium 131
+rejects a `calc()` there and every spacing token here is one. A **literal** length is
+accepted, which is what these are. The property buys paint room and costs no layout
+height, which is exactly the conflation the padding was guilty of, and the reason a
+body pinned to natural height was being pushed out of its own stage.
+
+The clause itself stands, and the `.canvas` card is what it names: a body that PAINTS
+A SURFACE earns real padding, and its vertical berth — silently borrowed from the
+retired pair — now has its own `--chart-panel-y`.
 
 **Every bucket now sits at the frame inset — one inset, 64px at hd (54 at
 portrait and square).** #1598 landed the chart at 128 (frame + one surviving

@@ -146,7 +146,12 @@ section.chart-frame {
    * the glass card's top and bottom edges, against that rule's own stated contract
    * ("content must not touch a visible edge"). No gate saw it — it is not a clip —
    * it was caught by looking at the render. Its own token, for the same reason
-   * `--chart-panel-x` has one. */
+   * `--chart-panel-x` has one.
+   *
+   * It takes ONE or TWO lengths, because it feeds `padding-block` directly and the
+   * berth it replaces was asymmetric on at least one component (timeline-list ran a
+   * looser top than bottom, for the spine's high-sitting date pills). A single value
+   * means both seams; a pair means top then bottom. */
   --chart-panel-y: var(--sp-lg);
 }
 /* CONSUMER 2 of the inset tokens — the `no-form` path.
@@ -614,7 +619,30 @@ section.chart-frame .chart-body {
    * own; both are the exits `checkStageInsetOwnership` keys on. */
   padding: 0;
   min-height: 0;
-  overflow: hidden;
+  /* THE SLACK SURVIVES THE PADDING, as a PAINT allowance rather than a layout box.
+   * Retiring the block padding took the paint slack with it and cut two things that
+   * legitimately paint past this box: state-chart's initial dot and terminal `◎`
+   * (both ends of the machine, sliced in half) and kanban's card elevation shadow
+   * (the bottom row, board-wide). Both were caught by rasterizing the COMMITTED
+   * gallery PDFs against `origin/main` — no gate sees them, because neither is a
+   * clip at the stage or the viewBox.
+   *
+   * `overflow-clip-margin` is the property whose actual job this is, and the note
+   * this replaces was right that a TOKEN cannot carry it — Chromium 131 accepts only
+   * a plain `<length>`, and every spacing token here is a `calc()` over
+   * `--_sec-1cqi` (measured: `overflow-clip-margin: var(--sp-lg)` computes to `0px`).
+   * A LITERAL length is accepted, which is what this is: 32px, the value the block
+   * padding used to supply at hd, spelled as the paint allowance it always was.
+   * It needs `overflow: clip` — the property does not apply to `hidden` — which is
+   * the stronger box anyway (no scroll container) and is what `.cell-stage` already
+   * uses.
+   *
+   * The distinction the padding conflated: this buys PAINT room and costs NO layout
+   * height, so a body pinned to natural height is not pushed out of the stage by it.
+   * That is why the layout win survives (check-chart-fit stays at 1 clip, down from
+   * 3) while the paint comes back. */
+  overflow: clip;
+  overflow-clip-margin: 32px;
 }
 
 /* ── CONSUMER 1 of the inset tokens — the Form path (design/forms.md §6.1, #1598)
@@ -636,6 +664,23 @@ section.chart-frame .chart-body {
 section.chart-frame > .cell-stage {
   padding-inline: var(--chart-inset-x);
   justify-content: safe center;
+  /* THE PAINT ALLOWANCE, on the box that actually clips. The body's own
+   * `overflow-clip-margin` is not enough: an SVG chart fills the stage exactly, so
+   * `.cell-stage` (`overflow: clip`, Forms) is the edge its paint meets first.
+   * Measured on `state-chart curved`, gallery slide 5: the diagram's `getBBox` runs
+   * to y = −6.4 viewBox units, i.e. it paints 5.0px ABOVE its own border box, and
+   * with the SVG top flush to the stage top (0.0px) the stage cut it — the initial
+   * state dot and the terminal `◎` both sliced in half, in a committed gallery PDF.
+   * The retired block padding had been doing this third job silently: it pushed the
+   * chart 32px clear of the STAGE's clip edge, not just the body's.
+   *
+   * Scoped to `.chart-frame` deliberately: this is a chart-family fact (SVG charts
+   * paint marker glyphs, strokes and shadows past their own box), not a Forms-wide
+   * one, and widening the stage clip for every bucket would mask real overflow that
+   * `check-chart-fit` and the overflow probe are supposed to see. A literal length
+   * for the same reason as the body's — Chromium 131 rejects a `calc()` here, and
+   * every spacing token in this repo is one. */
+  overflow-clip-margin: 32px;
 }
 
 /* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
@@ -688,11 +733,14 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
    * about the glass card's internal berth and is unaffected by the frame inset
    * going to 0. */
   --chart-panel-x: var(--sp-sm);
-  /* The panel's BLOCK berth tightens with it, for the same reason and by the same
-   * step. This is what is left of the old block pair here: that pair tuned the FRAME
-   * inset, which is now 0 on every box, so there is nothing left for it to tighten —
-   * but the glass card's internal berth is still a real quantity on a narrow box. */
-  --chart-panel-y: var(--sp-sm);
+  /* The panel's BLOCK berth tightens with it — but NOT by the inline step, and an
+   * earlier cut of this rule got that wrong. The two axes tightened by different
+   * amounts before the block pair retired: inline went `--sp-2xl` → `--sp-sm`, block
+   * went `--sp-lg` → `--sp-md`. Restating the INLINE step here took a portrait
+   * `quadrant canvas` panel from 39.5px of block berth to 26.3px, a silent 33%
+   * tightening of a card this rule exists to keep content off the edge of. The block
+   * value is the one main actually carried on this arm. */
+  --chart-panel-y: var(--sp-md);
   /* NO frame-inset override any more, on EITHER axis. The inline half went with
    * #1598 (with the default at 0 there is nothing left to reclaim — restating
    * `--sp-sm` would PUSH the chart out, inverting the tuning's whole purpose); the
