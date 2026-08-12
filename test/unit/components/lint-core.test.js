@@ -856,6 +856,16 @@ describe('lint-core: unterminated comment', () => {
 		assert.ok(!rules(src).includes('unterminated-comment'));
 	});
 
+	test('a fence whose markers OVERLAP cannot reconstitute one — the reason blanking replaced deleting', () => {
+		// Deleting a multi-character marker in one pass can rebuild it from the text either
+		// side: `<!<!----` loses the inner `<!--` and the halves close up into a fresh one, so
+		// the detector sees a marker the masking believed it had removed and reports a
+		// well-formed deck as leaking its notes. Blanking to spaces cannot do that. Reverting
+		// `blank` to a deletion previously left all 117 tests in this file green.
+		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!<!---- overlapping sample', '```', ''].join('\n');
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
 	test('a `<!--` inside a code fence is sample text, not a comment', () => {
 		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!-- sample, deliberately unclosed', '```', ''].join('\n');
 		assert.ok(!rules(src).includes('unterminated-comment'));

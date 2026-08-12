@@ -403,3 +403,49 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 		}
 	});
 });
+
+// The baked diagram must FOLLOW the player's light/dark toggle rather than freeze at its
+// export scheme. This is the only gate on `flattenSvgStyles`'s scheme handling: the function
+// is browser-only, so a unit test cannot reach it, and reverting the whole feature previously
+// left all 5995 unit tests green. It renders the real deck through the real emulator and
+// inspects the shipped bytes.
+describe('html-player export — a baked diagram follows the toggle', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'mermaid-diagram-surface.md');
+	const TIMEOUT = 180000;
+	let html;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-diagram-follow-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	}, { timeout: TIMEOUT });
+
+	test('the diagram is baked at all — labels as native text, no foreignObject', () => {
+		// The guard for everything below: if the bake silently fell back, the assertions about
+		// token emission would pass vacuously on markup that has no labels in it.
+		assert.ok((html.match(/<text/g) || []).length > 20, 'the diagram ships its labels as SVG text');
+		assert.equal((html.match(/<foreignObject/g) || []).length, 0, 'and no foreignObject survives the sanitizer');
+	});
+
+	test('scheme-varying paint rides as a TOKEN, so it re-themes with the viewer', () => {
+		// Frozen literals here are what produced connector strokes at 1.09:1 on a dark canvas
+		// (arrowheads re-themed through an !important rule, the lines did not) and container
+		// labels at 1.34:1 (ink followed, the slab under it did not).
+		assert.ok(html.includes('stroke:var(--diagram-line)'), 'connector strokes follow the scheme');
+		assert.ok(html.includes('fill:var(--c-container)'), 'container surfaces follow the scheme');
+		assert.ok(html.includes('fill:var(--c-on-container)'), 'and so does the ink sitting on them');
+	});
+
+	test('a label the author did NOT color is not marked as author-owned', () => {
+		// This deck contains no `classDef … color:` anywhere, so every `lp-own-ink` marker on it
+		// is a false positive — and a marked span opts out of re-theming permanently.
+		assert.equal(fs.readFileSync(DECK, 'utf8').includes('classDef'), false, 'guard: the deck really does set no author color');
+		const marked = (html.match(/<tspan[^>]*lp-own-ink/g) || []).length;
+		assert.equal(marked, 0, 'no label is frozen out of the theme on a deck that chose no colors');
+	});
+});

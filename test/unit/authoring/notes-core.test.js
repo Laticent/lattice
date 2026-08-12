@@ -552,13 +552,47 @@ describe('notes-core: auditStrippedSource', () => {
     assert.deepEqual(core.auditStrippedSource(src), []);
   });
 
-  test('an AMBIGUOUS deck-scope directive IS reported — the point is not to assume innocence', () => {
-    // `color: …` is real directive syntax and also exactly how a note might open. The scrub
-    // treats it as a note (so it gets removed); if one ever survives, the author hears about
-    // it rather than discovering it in a file they already sent.
-    assert.deepEqual(core.auditStrippedSource('<!-- color: we should discuss the palette -->'), [
-      'color: we should discuss the palette',
-    ]);
+  test('a deck-scope directive that SURVIVED is not reported — the engine owns it', () => {
+    // `color: …` is real directive syntax and also exactly how a note might open, and the two
+    // sides of this answer that differently ON PURPOSE. The SCRUB treats it as a note, so a
+    // note shaped like a directive is still removed. The AUDIT does not report it: a comment
+    // in directive syntax that survived the scrub is one the engine consumed as a directive,
+    // and flagging it fired on two decks this repo ships — a false privacy alarm, which is
+    // the worst kind, because the rational response is to stop trusting the strip.
+    assert.deepEqual(core.auditStrippedSource('<!-- color: we should discuss the palette -->'), []);
+    // The scrub half of that contract, unchanged: it still reaches the note set.
+    assert.deepEqual(
+      core.noteBodiesFromHtml('<section><!-- color: we should discuss the palette --></section>'),
+      ['color: we should discuss the palette'],
+    );
+  });
+
+  test('code regions are masked — a documented `<!-- class: … -->` is not a survivor', () => {
+    // A false PRIVACY alarm is the worst kind: the rational response is to stop trusting the
+    // strip. Two decks this repo ships (`deck-class-register`, `slide-class-forms`) document
+    // directive syntax in fences and inline spans and raised 4 and 2 alarms every export.
+    assert.deepEqual(core.auditStrippedSource('text\n\n```\n<!-- class: kpi -->\n```\n'), []);
+    assert.deepEqual(core.auditStrippedSource('run it with `<!-- class: kpi -->` on the slide'), []);
+    // …but the same body OUTSIDE a code region, as real prose, is still reported.
+    assert.deepEqual(core.auditStrippedSource('<!-- Board only, do not share -->'), ['Board only, do not share']);
+  });
+
+  test('directive syntax in EITHER form is not suspicious residue', () => {
+    // Wider than the scrub's own test, deliberately: the scrub asks "is this scrubbable?" and
+    // must say yes to the bare form so a note shaped like a directive is removed; the audit
+    // asks "is this unexpected?", and a comment in directive syntax that survived is one the
+    // engine consumed as a directive.
+    assert.deepEqual(core.auditStrippedSource('<!-- _class: title -->\n<!-- class: diagram -->'), []);
+  });
+
+  test('an UNTERMINATED comment is reported, not silently shipped', () => {
+    // It never matches the comment pattern, so neither the scrub nor the survivor loop can
+    // see it — and its text ships verbatim in the envelope. "Reported, never silent" has to
+    // cover the shape most likely to be an accident.
+    const found = core.auditStrippedSource('# Q3\n\n<!-- Speaker note GOLF: never closed\n');
+    assert.equal(found.length, 1);
+    assert.match(found[0], /never closed/);
+    assert.match(found[0], /GOLF/, 'and it quotes enough for the author to find it');
   });
 
   test('a fully scrubbed source audits clean — no false alarm on the happy path', () => {

@@ -3125,6 +3125,13 @@ var require_notes_core = __commonJS({
     var DIRECTIVE_LINE = new RegExp(
       `^_(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^_(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
     );
+    var DECK_SCOPE_DIRECTIVE_LINE = new RegExp(
+      `^(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
+    );
+    function isDeckScopeDirectiveComment(body) {
+      const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
+      return lines.length > 0 && lines.every((l) => DECK_SCOPE_DIRECTIVE_LINE.test(l) || DIRECTIVE_LINE.test(l));
+    }
     function isDirectiveComment(body) {
       const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
       return lines.length > 0 && lines.every((l) => DIRECTIVE_LINE.test(l));
@@ -3209,12 +3216,18 @@ var require_notes_core = __commonJS({
     }
     function auditStrippedSource(strippedSource) {
       const survivors = [];
-      for (const m of String(strippedSource == null ? "" : strippedSource).matchAll(new RegExp(COMMENT_SOURCE, "g"))) {
+      const src = String(strippedSource == null ? "" : strippedSource);
+      const masked = src.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, (m) => m.replace(/[^\n]/g, " ")).replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, (m) => m.replace(/[^\n]/g, " ")).replace(/`[^`\n]*`/g, (m) => m.replace(/[^\n]/g, " "));
+      for (const m of masked.matchAll(new RegExp(COMMENT_SOURCE, "g"))) {
         const body = m[1].trim();
         if (!body) continue;
         if (isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
-        if (isDirectiveComment(body)) continue;
+        if (isDirectiveComment(body) || isDeckScopeDirectiveComment(body)) continue;
         survivors.push(body);
+      }
+      if (/<!--(?![\s\S]*?--!?>)/.test(masked)) {
+        const at = masked.search(/<!--(?![\s\S]*?--!?>)/);
+        survivors.push(`${src.slice(at, at + 60).split("\n")[0].trim()} \u2026 (comment never closed)`);
       }
       return survivors;
     }
@@ -3280,6 +3293,7 @@ var require_notes_core = __commonJS({
       isDescriptionComment,
       isCaptionComment,
       isDirectiveComment,
+      isDeckScopeDirectiveComment,
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,

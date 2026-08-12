@@ -379,7 +379,14 @@ export async function shareHtmlPlayer(
 			// Honesty, matching the CLI's own bake warnings: a diagram Mermaid could not
 			// render ships as its source `<pre>`, and the author should hear that once
 			// rather than discover it in the file.
-			if (result.failed) console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
+			if (result.failed) {
+				console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
+				// This is the LIKELIER degradation (some diagrams rendered, some did not) and it
+				// reached only the console, so an export shipping N diagrams as raw source still
+				// said "Webpage ready." The rare total failure surfaced and the common partial one
+				// did not.
+				bakeWarning = `${result.failed} diagram(s) ship as source, not as drawings`;
+			}
 		} else if (result) {
 			// Count mismatch. It used to fall through with no `else`, silently shipping the
 			// un-inflated fence — one of the two most likely bake failures, and the one the
@@ -430,7 +437,13 @@ export async function shareHtmlPlayer(
 		const survivors = notesCore.auditStrippedSource(envelopeSource);
 		if (survivors.length) {
 			console.warn(`lattice: --strip-notes left ${survivors.length} comment(s) that look like speaker text.`, survivors.slice(0, 5));
-			bakeWarning = `${survivors.length} comment(s) that look like speaker text are still in the embedded source`;
+			// APPEND, never overwrite. These are two INDEPENDENT degradations and both can hold on
+			// one deck; assigning here dropped a bake failure that had already been recorded, so
+			// the toast reported the audit and the diagrams-as-source problem fell back to the
+			// transient status line — the exact failure the bake block three screens up exists to
+			// prevent.
+			const privacy = `${survivors.length} comment(s) that look like speaker text are still in the embedded source`;
+			bakeWarning = bakeWarning ? `${bakeWarning}; ${privacy}` : privacy;
 		}
 	}
 
