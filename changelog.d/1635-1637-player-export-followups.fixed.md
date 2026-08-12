@@ -1,3 +1,17 @@
+- **An exported player's chart fills followed the device instead of the deck.** The player
+  ships no `light-dark()` by contract — every pair is resolved at export into a light base
+  plus a block keyed on the `data-lp-scheme` attribute — but that rewrite only ever read
+  `<style>` blocks, and the chart family writes its gradient stops as an inline `style`
+  attribute (22 of them in `examples/data-viz-gallery.md`). Those shipped with the function
+  intact, so a gantt bar or state-chart node was themed by the element's `color-scheme` while
+  the page was themed by the player's toggle. The two agree only because the player's script
+  writes an inline `color-scheme` onto `<html>`; where that coupling does not hold the chart
+  takes one scheme and the page the other — reported from a real iPad as dark chart fills on
+  a light page, and on a pre-17.5 WebKit (the engine this whole machine exists for) the
+  declaration is invalid and the fills go black. Inline attributes are now collapsed to their
+  light arm at export, with the dark arms re-applied as scoped `!important` rules under the
+  same scheme scopes — including the per-slide pins. An integration test fails on any inline
+  `light-dark()` in a shipped player. (#1643)
 - **An exported player baked the print band's ink into the theme's dark tokens.** The map
   `themeDualMode` flattens each dark `var()` chain against was built by scanning the whole
   stylesheet, last declaration wins — so a COMPONENT-scoped declaration won. The last

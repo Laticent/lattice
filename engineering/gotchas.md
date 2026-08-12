@@ -3287,6 +3287,39 @@ means "no gap logged for the runtime route", never "the preview is complete.
   I am writing to". Scanning a whole sheet for the last declaration answers a different
   question, and the two agree only until some component declares the same token.
 
+### Chart fills took one scheme while the page took the other
+
+- **Symptom:** In an exported `.html` player, gantt bars / state-chart nodes / kanban cards
+  paint with the DARK fills while the slide canvas, labels, axes, badges and legend dots
+  beside them are all correctly light. Reported from a real iPad; not reproducible in a
+  headless browser with default settings, which is what made it look like a theme bug.
+- **Cause:** the player's contract is that nothing it ships depends on the `light-dark()`
+  CSS function — `themeDualMode` collapses every pair to a light base plus a block keyed on
+  the `data-lp-scheme` attribute. That contract had a hole the width of an attribute:
+  `themeDualMode` only ever read `<style>` BLOCKS, and two chart components write their
+  gradient stops as an inline `style` ATTRIBUTE
+  (`lib/components/chart/_chart-family/chart-family.js`,
+  `lib/components/chart/state-chart/state-chart.transform.js`). Those shipped verbatim — 22
+  of them in `examples/data-viz-gallery.md` — so the fill was decided by the element's
+  `color-scheme` and the page by `data-lp-scheme`. The two agree only because the player's
+  script writes an inline `color-scheme` onto `<html>`; wherever that coupling does not hold
+  (a script that never ran, a host that re-parents the SVG, an engine that resolves
+  `light-dark()` inside a never-rendered `<defs>` subtree against the OS) they diverge. And
+  on a pre-17.5 WebKit the declaration is invalid outright, so the fills fall back to black.
+- **Reproduce it anywhere:** load the player, `data-lp-scheme=light`, OS dark, then
+  `document.documentElement.style.removeProperty('color-scheme')` — the page stays light and
+  the gradient stops resolve dark. That is the whole bug, without an iPad.
+- **Fix:** `hoistInlineLightDark` (`lib/export/player-core.mjs`) collapses each inline
+  attribute to its LIGHT arm and returns the dark arms as scoped rules marked `!important`
+  (nothing else outranks an inline style), under the same scheme scopes the token block uses.
+  The arms stay ON the element deliberately — their inner `var()`s (`--chart-fill-top-l`,
+  `--fill-hue`) are declared on `.chart-frame`, so lifting the whole expression to a `:root`
+  token makes it invalid at computed-value time and every gradient renders BLACK. An
+  integration test now fails on any inline `light-dark()` in a shipped player.
+- **The general shape:** an export that rewrites CSS has to answer for every place CSS can
+  hide. A `<style>` sweep misses attributes, and the miss is invisible until the one signal
+  that was silently holding it together stops holding.
+
 ### A baked diagram label went dark-on-dark after the player's toggle
 
 - **Symptom:** In an exported `.html` player, an EDGE label ("a case fails", "yes"/"no")

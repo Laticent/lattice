@@ -450,6 +450,48 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 	});
 });
 
+// The player's whole scheme contract in one assertion: NOTHING it ships may depend on the
+// `light-dark()` CSS function. `themeDualMode` guarantees that for <style> blocks, but the
+// chart family writes its gradient stops as an inline `style` ATTRIBUTE, which that function
+// never saw — so those shipped with `light-dark()` intact, and the fill was decided by the
+// element's `color-scheme` while the page was decided by `data-lp-scheme`. The two agree only
+// because the player's script writes an inline color-scheme onto <html>; where that coupling
+// does not hold the chart takes one scheme and the page the other. Reported from a real iPad
+// as dark gantt/state-chart fills on a light page, and on a pre-17.5 WebKit — the engine the
+// whole dual-mode machine exists for — the declaration is simply invalid and the fills go
+// black. `portrait-gantt-statechart` is the guard because it emits BOTH families' gradients.
+describe('html-player export — no shipped attribute depends on light-dark()', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'portrait-gantt-statechart.md');
+	const TIMEOUT = 180000;
+	let html;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-inline-scheme-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	}, { timeout: TIMEOUT });
+
+	test('every inline style is scheme-free, and the dark arms ride the attribute-keyed block', () => {
+		const doc = new JSDOM(html).window.document;
+		// Guard the guard FIRST: without gradients the assertion below passes on a document
+		// that never had anything to fix. (`examples/state-chart.md` is exactly that document —
+		// it ships no gradient stops at all, which is how this test found its right deck.)
+		// Counted on the raw markup, not with a selector: jsdom matches a camelCase SVG type
+		// selector (`linearGradient`) against nothing, so the DOM route reports zero on a
+		// document full of them — a guard that lies is worse than no guard.
+		assert.ok((html.match(/<stop\b/g) || []).length > 0, 'the deck really does ship gradient stops');
+		const inline = [...doc.querySelectorAll('[style]')].filter((el) => (el.getAttribute('style') || '').includes('light-dark('));
+		assert.equal(inline.length, 0, `${inline.length} inline style attribute(s) still carry light-dark()`);
+		assert.match(html, /:root\[data-lp-scheme=dark\] \.lp-sd-\d+\{/, 'the dark arms are re-applied, not dropped');
+		assert.match(html, /section\[data-lattice-slide\]\.dark:not\(\.print\) \.lp-sd-\d+\{/, 'including on an author-pinned dark slide');
+	});
+});
+
 // The label HALO — the rect `foreignObjectToText` writes under the words — is the one paint
 // that used to leave the bake as a raw literal, and it is the one directly beneath the ink.
 // Mermaid paints an edge label's halo from the slide canvas, so an exported player froze it
