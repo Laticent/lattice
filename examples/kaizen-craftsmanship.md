@@ -3,7 +3,7 @@ marp: true
 size: 4k
 theme: ardesia
 paginate: true
-header: "Craft, quality, kaizen · Mentoring session"
+header: "The Invisible Half · Craft, quality, kaizen"
 ---
 
 <!-- _class: title silent -->
@@ -351,8 +351,46 @@ Improvement costs whatever it costs to change one thing. In a glued shoe the sol
 
 Bring one improvement you made where nobody would have noticed.
 
-<!-- Stop here. No summary slide, no recap of the fourteen slides.
+<!-- Stop here. This is where you stop presenting — the glossary after it is an
+     appendix for the deck they take away, not a slide to click into. Nothing
+     follows the close out loud.
 
      The last line is the assignment and it doubles as the test of whether the
      session landed: they have to pick something unobserved, which means they have
      to have found their own holdfast. -->
+
+---
+
+<!-- _class: glossary -->
+
+## Glossary
+
+- Holdfast
+  - A rib carved from the insole itself. The welt is stitched to it.
+- Insole
+  - The layer of leather directly under your foot, inside the shoe.
+- Kaizen
+  - Japanese: continuous improvement. Small changes, by everyone, every day.
+- Last
+  - The foot-shaped form a shoe is built around, then pulled off.
+- Outsole
+  - The bottom layer that meets the ground and wears out first.
+- PDSA
+  - Plan, Do, Study, Act. Deming's improvement loop, run as an experiment.
+- Poka-yoke
+  - Japanese: mistake-proofing. Changing a tool so the error becomes impossible.
+- Upper
+  - Everything above the sole — the leather your foot sits inside.
+- Vamp
+  - The front of the upper, over the toes, where the leather creases.
+- Welt
+  - A strip of leather joining upper to outsole, so the outsole can be replaced.
+
+<!-- Reference, not a slide to present. It sits after the close on purpose, so
+     the deck they keep can answer "what was a holdfast again?" a week later.
+
+     If you want it live instead, say the four shoe words once while the pairs
+     are still in their hands during the observation block — upper, insole,
+     outsole, welt — and let the rest arrive in context. Vocabulary given before
+     anyone needs it does not stick. -->
+
