@@ -62,12 +62,12 @@
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "ac6189c268b54e0b049147a9307cc04ab1498e79cc2b467604c92f3ec31d8658"
+		"srcSha256": "da8530a561239eda76b565c9d2f283579af4341c7b457efcf825fc6746aa7918"
 	},
 	"funnel.dark": {
 		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "d00d85e627eaaee1fc9240b2bb8c2689bea756f191edd37152ed960799d2731f"
+		"srcSha256": "b8f7a4529b6c065cc24a4e6b5bb2d07b6a59d6ac22065415fd4927eb44136ae6"
 	},
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
@@ -122,22 +122,22 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "ef9bc49463f394227ba1b9caa92c5666e9e184122c07c79462f961e0bf4c09ca"
+		"srcSha256": "04f40da49c227126defc9160e53f82db85ab64c78d159817c88bc4949ec99fa6"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "6b52d8c80efbef645f5e9b3947a34a978afbd20cbb919343f031b725cb263cd4"
+		"srcSha256": "3874c17f0af8f0de56617dba1eb949754798f3564ec4cfdd5bd5716390d5eff4"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "5b37b9e88d49127bcff8924655fd198b1ba36b3d4a2376ce096b9e38c5eae485"
+		"srcSha256": "7497261660c5e505fd490fb20cd7fd8baf084a7c61fa5ac7ac878b8ed83b9fa4"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "67cbceb701ecc28d0db411b9fbf7b64901d28099e221c5a93e872268ec779f17"
+		"srcSha256": "f345eb9e4aa7b137b1181025a823ca7257890e4d0979a08f1aea72e8dffaabdb"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
