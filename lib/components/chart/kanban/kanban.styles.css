@@ -35,6 +35,22 @@
   width: 100%;
   align-items: flex-start;
   min-height: 0;
+  /* ROOM FOR THE CARD'S FLOAT SHADOW, which paints BELOW the card's border box and
+   * so below this board's content edge. The deepest layer is
+   * `0 0.4cqi 0 -0.16cqi` (offset less negative spread), so the shadow reaches
+   * 0.24cqi past the last row; this reserves it inside the board.
+   *
+   * It used to be absorbed by `.chart-body`'s 32px block padding. Retiring that
+   * (#1629) cut the bottom row's shadow board-wide, at every size — a flat
+   * `255,255,255` where main rendered the `223/235/252` gradient. No gate saw it:
+   * it is not a clip at the stage or the viewBox, and it is too FAINT for a
+   * lost-ink sweep thresholded at hard ink to notice, which is how it survived one
+   * round of exactly that check.
+   *
+   * In `cqi`, deliberately: the shadow it reserves for is specified in `cqi`, so
+   * the two scale together. (state-chart's sibling defect was the opposite — a
+   * `cqi` padding reserving room for FIXED px geometry — and needed a px floor.) */
+  padding-bottom: 0.25cqi;
 }
 
 .kanban-column {
