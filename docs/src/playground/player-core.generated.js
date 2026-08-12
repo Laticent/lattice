@@ -187,6 +187,149 @@ var require_lattice_doc = __commonJS({
   }
 });
 
+// lib/core/front-matter-key.js
+var require_front_matter_key = __commonJS({
+  "lib/core/front-matter-key.js"(exports, module) {
+    function escapeKey(key) {
+      return String(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    function frontMatterScalar(raw) {
+      const t = String(raw ?? "").trim();
+      if (!t) return "";
+      const quote = t[0];
+      if (quote === '"' || quote === "'") {
+        let end = -1;
+        for (let i = 1; i < t.length; i++) {
+          if (quote === '"' && t[i] === "\\") {
+            i++;
+            continue;
+          }
+          if (t[i] === quote) {
+            end = i;
+            break;
+          }
+        }
+        if (end !== -1) return t.slice(1, end);
+        return t.slice(1);
+      }
+      const cut = t.search(/[ \t]#/);
+      const body = (cut === -1 ? t : t.slice(0, cut)).trim();
+      return body.replace(/^['"]/, "").replace(/['"]$/, "");
+    }
+    function frontMatterValue(fm, key) {
+      const m = String(fm ?? "").match(new RegExp(`^[ \\t]*${escapeKey(key)}:[ \\t]*(.*)$`, "m"));
+      if (!m) return null;
+      return frontMatterScalar(m[1]);
+    }
+    function topLevelFrontMatterValue(fm, key) {
+      const m = String(fm ?? "").match(new RegExp(`^${escapeKey(key)}:[ \\t]*(.*)$`, "m"));
+      if (!m) return null;
+      return frontMatterScalar(m[1]);
+    }
+    function frontMatterName(fm, key) {
+      const value = frontMatterValue(fm, key);
+      if (value === null) return null;
+      return BARE_NAME.test(value) ? value : null;
+    }
+    var BARE_NAME = /^[A-Za-z0-9_-]+$/;
+    module.exports = { frontMatterValue, topLevelFrontMatterValue, frontMatterScalar, frontMatterName };
+  }
+});
+
+// lib/core/resolve-color-mode.js
+var require_resolve_color_mode = __commonJS({
+  "lib/core/resolve-color-mode.js"(exports, module) {
+    var { frontMatterValue, topLevelFrontMatterValue } = require_front_matter_key();
+    var COLOR_MODE_REGISTER = Object.freeze({
+      light: "color-light",
+      dark: "dark",
+      system: "color-system",
+      inherited: "color-inherited",
+      // PRINT is a fifth, medium-not-scheme value: it renders the whole deck in the
+      // B&W-safe ink-on-white print band (section.print; base.modifiers.css), for
+      // paper handouts. Mutually exclusive with the scheme values (a printed deck is
+      // ink, not light/dark) — that exclusivity rides COLOR_MODE_TOKENS for free. It
+      // maps to the bare `print` class (no component collision), and is the authoring
+      // sibling of the engine `--print` export flag.
+      print: "print"
+    });
+    var COLOR_MODE_NAMES = Object.freeze(Object.keys(COLOR_MODE_REGISTER));
+    function readFrontMatterColorMode(md) {
+      const fm = frontMatterBody(md);
+      if (!fm) return null;
+      return topLevelFrontMatterValue(fm, "color-mode");
+    }
+    function classTokens2(value) {
+      return String(value ?? "").split(/\s+/).filter(Boolean);
+    }
+    function deckColorModeToken(fmBody) {
+      return colorModeClass(topLevelFrontMatterValue(fmBody, "color-mode") || "");
+    }
+    function isKnownColorMode(value) {
+      return typeof value === "string" && Object.hasOwn(COLOR_MODE_REGISTER, value.trim().toLowerCase());
+    }
+    function colorModeClass(value) {
+      if (typeof value !== "string") return "";
+      const key = value.trim().toLowerCase();
+      return Object.hasOwn(COLOR_MODE_REGISTER, key) ? COLOR_MODE_REGISTER[key] : "";
+    }
+    function colorModeClassFromSource(md) {
+      return colorModeClass(readFrontMatterColorMode(md) || "");
+    }
+    var FRONT_MATTER_FENCE = /^﻿?---\r?\n[\s\S]*?\r?\n---/;
+    function frontMatterFence(md) {
+      const m = String(md ?? "").match(FRONT_MATTER_FENCE);
+      return m ? m[0] : "";
+    }
+    function frontMatterBody(md) {
+      const fence = frontMatterFence(md);
+      return fence ? fence.replace(/^﻿?---\r?\n/, "").replace(/\r?\n---$/, "") : "";
+    }
+    function deckPrintBand(md, flagPrint = false) {
+      if (flagPrint) return true;
+      const fm = frontMatterBody(md);
+      if (!fm) return false;
+      const token = deckColorModeToken(fm);
+      if (token) return token === "print";
+      return classTokens2(frontMatterValue(fm, "class")).includes("print");
+    }
+    function withPrintColorMode(source) {
+      const src = String(source ?? "");
+      const fm = src.match(/^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$))/);
+      if (!fm) return `---
+color-mode: print
+---
+
+${src}`;
+      const [full, open, body, close] = fm;
+      let seen = false;
+      const lines = body.split("\n").flatMap((line) => {
+        if (!/^color-mode:/.test(line)) return [line];
+        if (seen) return [];
+        seen = true;
+        return [line.replace(/^color-mode:[^\r\n]*(\r?)$/, "color-mode: print$1")];
+      });
+      const merged = seen ? lines.join("\n") : `${body}
+color-mode: print`;
+      return src.slice(0, fm.index) + open + merged + close + src.slice(fm.index + full.length);
+    }
+    module.exports = {
+      COLOR_MODE_REGISTER,
+      COLOR_MODE_NAMES,
+      readFrontMatterColorMode,
+      isKnownColorMode,
+      colorModeClass,
+      colorModeClassFromSource,
+      classTokens: classTokens2,
+      deckColorModeToken,
+      withPrintColorMode,
+      frontMatterFence,
+      frontMatterBody,
+      deckPrintBand
+    };
+  }
+});
+
 // lib/core/present-transport.mjs
 var present_transport_exports = {};
 __export(present_transport_exports, {
@@ -1664,6 +1807,7 @@ var init_prose_projection = __esm({
 
 // lib/export/player-core.mjs
 var import_lattice_doc = __toESM(require_lattice_doc(), 1);
+var import_resolve_color_mode = __toESM(require_resolve_color_mode(), 1);
 
 // lib/core/resolve-pace.mjs
 var PACE_NAMES = ["brisk", "natural", "deliberate"];
@@ -1787,6 +1931,7 @@ function themeDualMode(css) {
   const baseLight = resolveLightDark(noComments, 0);
   while (lm = litRe.exec(baseLight)) baseVals[lm[1]] = lm[2].trim();
   const darkDecls = [];
+  const lightDecls = [];
   const darkKeys = /* @__PURE__ */ new Set();
   const declRe = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]*light-dark[^;{}]*?)\s*(?=[;}])/g;
   let m;
@@ -1799,11 +1944,64 @@ function themeDualMode(css) {
   });
   while (m = declRe.exec(noComments)) {
     darkDecls.push(`${m[1]}:${deepFlatten(resolveLightDark(m[2], 1).trim(), /* @__PURE__ */ new Set())}`);
+    lightDecls.push(`${m[1]}:${deepFlatten(resolveLightDark(m[2], 0).trim(), /* @__PURE__ */ new Set())}`);
   }
   if (!darkDecls.length) return { base, darkBlock: "" };
-  const body = `${darkDecls.join(";")};`;
-  const sel = (scope) => `${scope},${scope} section[data-lattice-slide]`;
-  const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}}`;
+  const derivedDecls = [];
+  {
+    const isRootScope = (selectorList) => selectorList.split(",").some((s) => /^:root(?:\[[^\]]*\]|:[a-z-]+(?:\([^()]*\))?)*$/.test(s.trim()));
+    const pool = /* @__PURE__ */ new Map();
+    const declAny = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+?)\s*(?=[;}])/g;
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let rule;
+    let d;
+    while (rule = ruleRe.exec(noComments)) {
+      if (!isRootScope(rule[1])) continue;
+      declAny.lastIndex = 0;
+      const block = `${rule[2]}}`;
+      while (d = declAny.exec(block)) {
+        if (darkKeys.has(d[1])) continue;
+        pool.set(d[1], resolveLightDark(d[2], 0).trim());
+      }
+    }
+    const known = new Set(darkKeys);
+    for (let pass = 0; pass < pool.size; pass++) {
+      let grew = false;
+      for (const [name, value] of pool) {
+        if (known.has(name)) continue;
+        const refs = [...value.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map((r) => r[1]);
+        if (!refs.some((r) => known.has(r))) continue;
+        known.add(name);
+        derivedDecls.push(`${name}:${value}`);
+        grew = true;
+      }
+      if (!grew) break;
+    }
+  }
+  const derived = derivedDecls.length ? `${derivedDecls.join(";")};` : "";
+  const body = `${darkDecls.join(";")};${derived}`;
+  const lightBody = `${lightDecls.join(";")};${derived}`;
+  const PIN_LIGHT = [".light", ".color-light"];
+  const PIN_EXCLUDE = ":not(.dark):not(.light):not(.color-light):not(.print)";
+  const sel = (scope) => `${scope},${scope} section[data-lattice-slide]${PIN_EXCLUDE}`;
+  const pinned = (scope) => PIN_LIGHT.map((c) => `${scope} section[data-lattice-slide]${c}:not(.print)`).join(",");
+  const darkBlock = (
+    // An author-pinned dark section is dark in EVERY player scheme, so this one is
+    // unconditional — outside both the attribute rule and the media query.
+    //
+    // `:not(.print)` is load-bearing. Without it this (0,2,1) rule outranks
+    // `section.print` (0,1,1), so a `_class: dark` slide inside a `color-mode: print`
+    // deck — a combination `lib/core/color-mode.js` deliberately allows, since print is
+    // non-droppable — got the dark canvas under the print band's `#111111` ink: 1.10:1,
+    // measured, on a slide that read 18.88:1 before. That is the same white-on-white
+    // shape this block exists to fix, reintroduced on a different class pair.
+    //
+    // A DECK-WIDE dark deck no longer relies on this rule at all: the player's toggle
+    // adds and removes the `dark` class itself, so in light scheme the class is gone and
+    // nothing here matches. What is left for this rule is exactly what should keep it —
+    // a one-off `<!-- _class: dark -->` accent slide inside an unpinned deck.
+    `section[data-lattice-slide].dark:not(.print){${body}}${sel(":root[data-lp-scheme=dark]")}{${body}}${pinned(":root[data-lp-scheme=dark]")}{${lightBody}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}${pinned(":root[data-lp-scheme=system]")}{${lightBody}}}`
+  );
   return { base, darkBlock };
 }
 var PLAYER_CANVAS = { w: 1280, h: 720 };
@@ -2668,8 +2866,43 @@ var baked=root.getAttribute('data-lp-scheme');
 // light/dark export never follows. Effective dark = pinned dark, OR (following AND OS-dark).
 var following=baked==='system';
 var isDark=baked==='dark'||(following&&sysDark());
+// The deck-wide color mode, as a CLASS the toggle owns. A deck-wide dark mode is not a
+// token swap: the engine stamps the class dark on every section, and section.dark is what
+// pins the slide's scheme AND paints its canvas. So re-theming a pinned deck is not a
+// matter of re-resolving 500 tokens; it is adding and removing one class. Take it off and
+// the deck renders exactly as if it had never been authored dark - bookends back to the
+// inverse panel, content slides light, the spectrum ribbon back - a design that already
+// exists. Leaving it on while the chrome went light is what produced the dark-slide-on-a-
+// white-page state that reads as a broken download.
+//
+// Only a DECK-WIDE mode is managed here (stamped by the export from the deck's own front
+// matter). A one-off per-slide dark accent inside a light deck is a design choice, not a
+// color mode, and keeps its class in both schemes - the token pins in the dark block hold
+// it.
+var deckMode=root.getAttribute('data-lp-deck-mode')||'';
+// A slide that PINS THE OPPOSITE scheme is never restamped. The deck-wide class is a
+// default, and a per-slide pin outranks it by design - stamping the dark class onto a slide
+// the author marked light contradicts the very thing the pin is for.
+//
+// The damage is not theoretical and does not need the toggle: the token rules restore the
+// light VALUES on such a slide (canvas goes white, correctly), but every CLASS-keyed engine
+// rule still fires, and section.dark ... {color:var(--on-dark-secondary)} paints an eyebrow
+// with a constant that has no light/dark pair - so nothing in the dual-mode block can undo
+// it. Measured on examples/mermaid-diagram-surface.md slide 4, whose own headline is "A
+// slide that pins light still renders light": white on white, 1.0:1, in the file's DEFAULT
+// state. That is the same white-on-white this whole change exists to remove, reintroduced
+// through a class instead of a token.
+function pinsOpposite(el){
+ if(deckMode==='dark')return el.classList.contains('light')||el.classList.contains('color-light');
+ return el.classList.contains('dark');}
+function applyDeckMode(){if(!deckMode)return;
+ var want=(deckMode==='dark')===isDark;
+ for(var i=0;i<slides.length;i++){
+  if(pinsOpposite(slides[i]))continue;
+  slides[i].classList[want?'add':'remove'](deckMode);}}
 function applyScheme(){root.setAttribute('data-lp-scheme',isDark?'dark':'light');
  root.style.setProperty('color-scheme',isDark?'dark':'light');
+ applyDeckMode();
  if(mode)mode.innerHTML=isDark?SUN_ICON:MOON_ICON;}
 // ALWAYS stamp a CONCRETE data-lp-scheme (dark|light) at load \u2014 even for 'system' \u2014 so the
 // dark tokens ride the reliable ATTRIBUTE selector, never the CSS media query. This is the
@@ -2771,11 +3004,13 @@ async function assemblePlayer(data, caps) {
     }
     return out2;
   }).join("\n");
-  const darkStyle = darkOverrides ? `<style>${minifyCss(darkOverrides)}</style>` : "";
+  const darkStyle = darkOverrides ? `<style id="lattice-dual-mode">${minifyCss(darkOverrides)}</style>` : "";
   const lang = doc.documentElement.getAttribute("lang") || "en";
   const title = data.title || doc.querySelector("title")?.textContent || "Lattice deck";
   const rawScheme = data.theme?.mode || data.mode;
   const exportedScheme = rawScheme === "dark" ? "dark" : rawScheme === "system" || rawScheme === "inherited" ? "system" : "light";
+  const deckToken = import_resolve_color_mode.default.colorModeClassFromSource(data.source || "");
+  const deckModeClass = deckToken === "dark" || deckToken === "color-light" ? deckToken : "";
   const hasScene = /<section\b[^>]*\sdata-scene-spec=/.test(docHtml);
   const narration2 = narrationBlocks(data.narration);
   const hasNarration = narration2.length > 0;
@@ -2792,7 +3027,7 @@ async function assemblePlayer(data, caps) {
     { now: data.now, build: data.build, playerVersion: data.playerVersion }
   );
   const out = `<!DOCTYPE html>
-<html lang="${escapeAttr(lang)}" data-lp-scheme="${exportedScheme}"><head><meta charset="utf-8">
+<html lang="${escapeAttr(lang)}" data-lp-scheme="${exportedScheme}"${deckModeClass ? ` data-lp-deck-mode="${deckModeClass}"` : ""}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${escapeAttr(csp)}">
 <title>${escapeText(title)}</title>

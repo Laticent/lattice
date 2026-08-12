@@ -943,6 +943,32 @@ var require_lint_core = __commonJS({
       });
       return out;
     }
+    var UNTERMINATED_COMMENT_RE = /<!--(?![\s\S]*?--!?>)/;
+    function withoutCodeCommentMarkers(text) {
+      const blank = (m) => m.replace(/<!--|--!?>/g, (s) => " ".repeat(s.length));
+      return String(text).replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, blank).replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, blank).replace(/`[^`\n]*`/g, blank);
+    }
+    function findUnterminatedComment(source) {
+      const findings = [];
+      const text = String(source == null ? "" : source);
+      const fm = fmChunks(text);
+      splitTopLevel(text).forEach((chunk, idx) => {
+        const body = withoutCodeCommentMarkers(chunk);
+        const m = body.match(UNTERMINATED_COMMENT_RE);
+        if (!m) return;
+        const line = (body.slice(m.index).split("\n")[0] || "<!--").trim();
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: "unterminated-comment",
+          severity: "error",
+          classToken: "comment",
+          line: line.slice(0, 80),
+          message: "This HTML comment is never closed, so everything after it is swallowed \u2014 and on export it is WORSE than invisible: `--strip-notes` cannot find an unterminated comment, so the text ships in the shared file's embedded source even when you asked for notes to be stripped.",
+          fix: "Close the comment with `-->`."
+        });
+      });
+      return findings;
+    }
     function findInlineTitleBodyLine(sample) {
       if (!sample) return null;
       for (const line of sample.split("\n")) {
@@ -1649,6 +1675,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
       if (vocab.colorModeNames) findings.push(...findUnknownColorMode(source, vocab.colorModeNames));
       findings.push(...findDeprecatedClassColorMode(source));
+      findings.push(...findUnterminatedComment(source));
       findings.push(...findRefusedDeckClass(source));
       if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
@@ -3057,7 +3084,7 @@ var require_notes_core = __commonJS({
       // remark-lint (remark-message-control)
       /^lint (disable|enable|ignore).*$/
     ];
-    var COMMENT_SOURCE = "<!--+([\\s\\S]*?)--+>";
+    var COMMENT_SOURCE = "<!--+([\\s\\S]*?)--+!?>";
     function isToolingComment(body) {
       const t = String(body == null ? "" : body).trim();
       return MAGIC_COMMENT_MATCHERS.some((re) => re.test(t));
@@ -3070,12 +3097,52 @@ var require_notes_core = __commonJS({
     function isCaptionComment(body) {
       return CAPTION_MATCHER.test(String(body == null ? "" : body).trim());
     }
+    var KNOWN_DIRECTIVE_NAMES = [
+      "theme",
+      "paginate",
+      "header",
+      "footer",
+      "class",
+      "backgroundColor",
+      "backgroundImage",
+      "backgroundPosition",
+      "backgroundRepeat",
+      "backgroundSize",
+      "color",
+      "size",
+      "style",
+      "lang",
+      "marp",
+      "logo",
+      "focus",
+      "focusStyle",
+      "focusSteps",
+      "build",
+      "debug",
+      "lens"
+    ];
+    var FLAG_DIRECTIVE_NAMES = ["build", "debug", "lens"];
+    var DIRECTIVE_LINE = new RegExp(
+      `^_(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^_(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
+    );
+    var DECK_SCOPE_DIRECTIVE_LINE = new RegExp(
+      `^(?:${KNOWN_DIRECTIVE_NAMES.join("|")})\\s*:|^(?:${FLAG_DIRECTIVE_NAMES.join("|")})\\s*$`
+    );
+    function isDeckScopeDirectiveComment(body) {
+      const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
+      return lines.length > 0 && lines.every((l) => DECK_SCOPE_DIRECTIVE_LINE.test(l) || DIRECTIVE_LINE.test(l));
+    }
+    function isDirectiveComment(body) {
+      const lines = String(body == null ? "" : body).split("\n").map((l) => l.trim()).filter(Boolean);
+      return lines.length > 0 && lines.every((l) => DIRECTIVE_LINE.test(l));
+    }
     function noteBodiesFromHtml(sectionHtml) {
       const re = new RegExp(COMMENT_SOURCE, "g");
       const bodies = [];
       for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
         const body = m[1].trim();
         if (!body || isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
+        if (isDirectiveComment(body)) continue;
         bodies.push(body);
       }
       return bodies;
@@ -3124,6 +3191,20 @@ var require_notes_core = __commonJS({
         ""
       );
     }
+    function slideNoteRecord(sections) {
+      return (Array.isArray(sections) ? sections : []).map((html) => ({
+        note: notesFromHtml(html),
+        // The INDIVIDUAL note bodies, kept alongside the display-joined `note`. The strip
+        // matcher compares a comment's WHOLE trimmed body, and `note` joins a slide's notes
+        // with a blank line — so re-deriving the bodies by splitting `note` on '\n\n' is not
+        // its inverse: a SINGLE note containing a blank line shatters into fragments, none of
+        // which equals the body, and the note then survives a --strip-notes export. Carrying
+        // the pre-join array removes the guesswork.
+        noteBodies: noteBodiesFromHtml(html),
+        description: descriptionFromHtml(html),
+        caption: captionFromHtml(html)
+      }));
+    }
     function stripNotesFromSource(source, noteBodies) {
       const set = noteBodies instanceof Set ? noteBodies : new Set(noteBodies);
       if (set.size === 0) return String(source == null ? "" : source);
@@ -3132,6 +3213,23 @@ var require_notes_core = __commonJS({
         new RegExp(COMMENT_SOURCE, "g"),
         (full, body) => set.has(norm(body)) ? "" : full
       );
+    }
+    function auditStrippedSource(strippedSource) {
+      const survivors = [];
+      const src = String(strippedSource == null ? "" : strippedSource);
+      const masked = src.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, (m) => m.replace(/[^\n]/g, " ")).replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, (m) => m.replace(/[^\n]/g, " ")).replace(/`[^`\n]*`/g, (m) => m.replace(/[^\n]/g, " "));
+      for (const m of masked.matchAll(new RegExp(COMMENT_SOURCE, "g"))) {
+        const body = m[1].trim();
+        if (!body) continue;
+        if (isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
+        if (isDirectiveComment(body) || isDeckScopeDirectiveComment(body)) continue;
+        survivors.push(body);
+      }
+      if (/<!--(?![\s\S]*?--!?>)/.test(masked)) {
+        const at = masked.search(/<!--(?![\s\S]*?--!?>)/);
+        survivors.push(`${src.slice(at, at + 60).split("\n")[0].trim()} \u2026 (comment never closed)`);
+      }
+      return survivors;
     }
     var FRONT_MATTER_BLOCK = /^(﻿?---[ \t]*\r?\n)([\s\S]*?)(\r?\n---[ \t]*(?:\r?\n|$))/;
     function splitKeepEnds(str) {
@@ -3189,9 +3287,13 @@ var require_notes_core = __commonJS({
     }
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
+      KNOWN_DIRECTIVE_NAMES,
+      FLAG_DIRECTIVE_NAMES,
       isToolingComment,
       isDescriptionComment,
       isCaptionComment,
+      isDirectiveComment,
+      isDeckScopeDirectiveComment,
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,
@@ -3200,8 +3302,10 @@ var require_notes_core = __commonJS({
       extractSlideDescriptions,
       captionFromHtml,
       extractSlideCaptions,
+      slideNoteRecord,
       stripCommentNodes,
       stripNotesFromSource,
+      auditStrippedSource,
       stripCaptionsFromSource,
       stripCaptionsFrontMatter
     };
@@ -3246,12 +3350,63 @@ var require_deck_canon = __commonJS({
   }
 });
 
+// lib/core/split-sections.js
+var require_split_sections = __commonJS({
+  "lib/core/split-sections.js"(exports, module) {
+    function splitSections(html) {
+      const pieces = [];
+      let i = 0;
+      while (i < html.length) {
+        const open = html.indexOf("<section", i);
+        if (open < 0) {
+          pieces.push({ type: "gap", text: html.slice(i) });
+          break;
+        }
+        if (open > i) pieces.push({ type: "gap", text: html.slice(i, open) });
+        const tagEnd = html.indexOf(">", open);
+        if (tagEnd < 0) {
+          pieces.push({ type: "gap", text: html.slice(open) });
+          break;
+        }
+        const openTag = html.slice(open, tagEnd + 1);
+        const cm = openTag.match(/\sclass="([^"]*)"/);
+        let depth = 1, pos = tagEnd + 1, closeEnd = -1;
+        while (pos < html.length) {
+          if (html.startsWith("<section", pos)) {
+            const e = html.indexOf(">", pos);
+            if (e < 0) break;
+            depth++;
+            pos = e + 1;
+          } else if (html.startsWith("</section>", pos)) {
+            depth--;
+            if (depth === 0) {
+              closeEnd = pos + 10;
+              break;
+            }
+            pos += 10;
+          } else pos++;
+        }
+        if (closeEnd < 0) {
+          pieces.push({ type: "gap", text: html.slice(open) });
+          break;
+        }
+        pieces.push({ type: "section", openTag, inner: html.slice(tagEnd + 1, closeEnd - 10), cls: cm ? cm[1] : "" });
+        i = closeEnd;
+      }
+      return pieces;
+    }
+    module.exports = { splitSections };
+  }
+});
+
 // lib/authoring/authoring-core.entry.js
 var import_lint_core = __toESM(require_lint_core());
 var import_review_core = __toESM(require_review_core());
 var import_scorecard = __toESM(require_scorecard());
 var import_notes_core = __toESM(require_notes_core());
 var import_deck_canon = __toESM(require_deck_canon());
+var import_split_sections = __toESM(require_split_sections());
+var splitSectionsCore = import_split_sections.default.splitSections;
 var export_deckCanon = import_deck_canon.default;
 var export_lintCore = import_lint_core.default;
 var export_notesCore = import_notes_core.default;
@@ -3262,5 +3417,6 @@ export {
   export_lintCore as lintCore,
   export_notesCore as notesCore,
   export_reviewCore as reviewCore,
-  export_scorecard as scorecard
+  export_scorecard as scorecard,
+  splitSectionsCore
 };

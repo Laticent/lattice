@@ -28,7 +28,6 @@
 // jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
 
 import { themeImportNames } from '../../../lib/theme-fetch.ts';
-import { notesCore } from '../../../playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -373,14 +372,148 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 // Bounded wait for runtime-rendered diagrams (Mermaid) to finish in the capture
 // host, so a diagram deck doesn't rasterize mid-render. Charts are server-rendered
 // SVG (already in the html); only Mermaid streams in async. No-op when absent.
-async function waitForDiagrams(doc) {
-	if (!doc.querySelector('.mermaid, pre.mermaid, code.language-mermaid')) return;
+//
+// Waits on the RUNTIME's own state machine (lib/runtime/index.js), which is the only
+// thing that knows a fence is done: it retags each ```mermaid fence's <pre> with
+// `data-mermaid-state` (pending → rendered | error), rewrites the fence's class to
+// `language-mermaid-source`, and inserts the sibling `.mermaid` div the SVG lands in.
+// So there are TWO ways to be un-settled and the old loop saw neither: a fence the
+// runtime has not reached yet has NO `.mermaid` sibling at all, and the loop counted
+// only existing `.mermaid` boxes — finding none, it declared 0 pending and returned
+// immediately, on the very deck it exists to wait for. (It escaped notice because the
+// ~700ms of font + rAF settling ahead of it usually covered the gap; a cold mermaid
+// script fetch, or a big multi-diagram deck, is where it loses the race.)
+export async function waitForDiagrams(doc, budgetMs = 4000) {
+	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
+	const TAGGED = ':is(pre, marp-pre)[data-mermaid-state]';
+	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid`)) return;
 	const start = Date.now();
-	while (Date.now() - start < 4000) {
-		let pending = 0;
-		doc.querySelectorAll('.mermaid, pre.mermaid').forEach((c) => { if (!c.querySelector('svg')) pending++; });
-		if (!pending) break;
+	while (Date.now() - start < budgetMs) {
+		let pending = doc.querySelectorAll(UNTAGGED).length;
+		for (const pre of doc.querySelectorAll(TAGGED)) {
+			const state = pre.getAttribute('data-mermaid-state');
+			// `error` IS settled — the runtime has given up and the source <pre> is the
+			// honest artifact. Only `rendered` owes an SVG in the sibling box.
+			if (state !== 'rendered' && state !== 'error') pending++;
+			else if (state === 'rendered' && !pre.nextElementSibling?.querySelector?.('svg')) pending++;
+		}
+		if (!pending) return;
 		await new Promise((r) => setTimeout(r, 120));
+	}
+}
+
+/**
+ * The per-slide comment channel (note / `describe:` / `caption:`) for a deck, lifted from
+ * the ENGINE render.
+ *
+ * Every capture-frame consumer needs this and none of them can read it out of the frame:
+ * `createCaptureFrame` builds through `buildSrcdoc`, which sanitizes, and the sanitizer
+ * deletes comment nodes. Split DEPTH-AWARE — the flat "next `</section>`" scan truncates
+ * a slide holding a hand-authored `<section>` while leaving the slide COUNT correct, so
+ * the loss passes a parity check unnoticed.
+ *
+ * @param {string} html the engine's rendered deck HTML
+ * @returns {Promise<{note: string|null, description: string|null, caption: string|null}[]>}
+ */
+async function slideChannelRecord(html) {
+	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-core.generated.js');
+	const sections = splitSectionsCore(String(html || ''))
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
+	return notesCore.slideNoteRecord(sections);
+}
+
+// Inline styles the in-iframe FIT agent writes onto every section to scale the preview
+// to its pane (deck-preview.js fitAgent) — transient chrome, not deck markup, so they
+// must not be serialized into an exported artifact.
+const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'visibility', 'content-visibility'];
+
+/**
+ * Bake the deck's RUNTIME-rendered content into static markup, and return one HTML
+ * string per slide.
+ *
+ * The engine's own render is static HTML: a ```mermaid fence comes out as
+ * `<pre><code class="language-mermaid">`, and the runtime-inflated components
+ * (state-chart, function-plot) come out as inert scripts. On the CLI both are
+ * resolved before the player is assembled — `mmdc` substitutes an inline SVG for the
+ * fence, and the emulator serializes the DOM after the browser has run the inflaters
+ * ("Bake the player's DOM", lattice-emulator.js). The Studio had no equivalent step,
+ * so its webpage export shipped the raw fence: the player strips every script, so the
+ * diagram could never render afterwards, and Read·Article projected the fence as a
+ * code block — a wall of Mermaid source where the diagram belonged.
+ *
+ * This is that step, browser-side: mount the deck in the shared capture frame (which
+ * already loads the runtime + our vendored Mermaid and settles fonts/layout), wait for
+ * the diagrams, then read the settled sections back out. Charts need no special case —
+ * the SVG-family ones are already SVG in the render, and the runtime-inflated ones are
+ * inflated in this same frame.
+ *
+ * Returns null when the frame yields nothing usable, so the caller can fall back to
+ * the static render rather than fail an export over an optimization.
+ *
+ * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl }`
+ * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
+ */
+export async function bakeDeckSections(render) {
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const doc = frame.contentDocument;
+		if (!doc) return null;
+		// A longer budget than the rasterizers': this is a one-shot export step whose whole
+		// job is the diagram, and shipping the fence is a permanent defect in a frozen file
+		// (a raster that lands a frame early is merely a stale pixel).
+		await waitForDiagrams(doc, 12000);
+		const sections = [...doc.querySelectorAll('.lattice > section')];
+		if (!sections.length) return null;
+		let diagrams = 0;
+		let failed = 0;
+		// Bake each Mermaid svg into a SELF-STYLED one with native <text> labels. The
+		// player sanitizes its slide DOM and that sanitizer bars both things a Mermaid
+		// svg leans on — its own injected `<style>` (all of mermaid's type + paint) and
+		// `<foreignObject>` (EVERY label: HTML smuggled into the SVG namespace, the mXSS
+		// shape we keep shut). Unbaked, the diagram arrives as shapes and arrows with no
+		// words. Mutating in place is safe: this frame is a throwaway.
+		//
+		// CHARTS are deliberately left alone — token-driven, driven by the deck CSS the
+		// player ships, and freezing their computed colors would pin them to the
+		// export-time scheme, killing the player's dark/light toggle and Read·Article's
+		// `figure.chart-frame` recolor. Mermaid bakes its colors at render time anyway.
+		const { flattenSvgStyles } = await import('../../../playground/standalone-svg.generated.js');
+		const win = frame.contentWindow;
+		// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the
+		// player's sanitizer strips it, and the diagram ships as shapes with no words —
+		// exactly the defect this bake exists to prevent. Silence here is indistinguishable
+		// from success, which is how the original bug went unnoticed for so long.
+		let unbaked = 0;
+		const svgs = doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg');
+		for (const svg of svgs) {
+			try {
+				svg.replaceWith(flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' }));
+			} catch {
+				unbaked++;
+			}
+		}
+		if (unbaked) {
+			console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
+		}
+		for (const sec of sections) {
+			for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
+			if (!sec.getAttribute('style')) sec.removeAttribute('style');
+			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
+			// CLI's player carries none (mmdc replaces the fence outright). It is already
+			// `display:none`, and both the visibility and the SVG sizing rules are written as
+			// ADJACENT-SIBLING selectors on it (`pre[data-mermaid-state="rendered"] + .mermaid`
+			// in mermaid.css / highlight-js.css) — removing the <pre> would unstyle the very
+			// diagram this step exists to ship. Read·Article is unaffected: the prose
+			// projection re-hosts the first `svg` under the stage, which is the rendered one.
+			for (const pre of sec.querySelectorAll('pre[data-mermaid-state], marp-pre[data-mermaid-state]')) {
+				if (pre.getAttribute('data-mermaid-state') === 'rendered') diagrams++;
+				else failed++;
+			}
+		}
+		return { sections: sections.map((s) => s.outerHTML), diagrams, failed };
+	} finally {
+		dispose();
 	}
 }
 
@@ -928,9 +1061,24 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
 export async function exportPptx(render, name, onStatus, meta) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
+	// Lift the `describe:` channel from the ENGINE render, before the capture frame
+	// sanitizes it away — see the altText note in the slide loop below.
+	const describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 	const { sections, fontEmbedCSS } = await sectionsOf(frame);
+	// The record and the rasterized sections come from two different splits of the same
+	// render, and the alt text below binds them BY INDEX. If they ever disagree on length,
+	// every slide past the divergence gets someone else's description — a silent
+	// mis-binding that reads as correct. The webpage export treats exactly this parity as
+	// its correctness gate; say so here too rather than trusting the index.
+	if (describeRecord.length !== sections.length) {
+		console.warn(
+			`[deck-export] describe-record/slide mismatch (${describeRecord.length} vs ${sections.length}); ` +
+				'falling back to neutral alt text rather than risk mis-bound descriptions.',
+		);
+		describeRecord.length = 0;
+	}
 	const { default: PptxGenJS } = await import('pptxgenjs');
 	const pptx = new PptxGenJS();
 	const { eng, summary } = provenance(meta, sections.length);
@@ -954,10 +1102,17 @@ export async function exportPptx(render, name, onStatus, meta) {
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const png = await rasterizeSection(sections[i], fontEmbedCSS);
-		// Alt text: the slide's own `describe:` description, read from the very
-		// section being rasterized, else a neutral "Slide N" (never let pptxgenjs
-		// default `descr` to the image filename — junk a screen reader reads).
-		const altText = (notesCore.descriptionFromHtml(sections[i].outerHTML) || '').trim() || `Slide ${i + 1}`;
+		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
+		// (never let pptxgenjs default `descr` to the image filename — junk a screen
+		// reader reads).
+		//
+		// Read from the RECORD, not from the rasterized section. `sections` comes out of
+		// the capture frame, and that frame sanitizes — `sanitizeSlideHtml` deletes comment
+		// nodes, which is where `describe:` lives. So every PowerPoint export handed screen
+		// readers "Slide 1" while the author's description sat intact in the engine render
+		// one step upstream. Same root cause as the webpage export's lost notes; the record
+		// is lifted before the frame exists.
+		const altText = (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.

@@ -153,7 +153,22 @@ type NotesCore = {
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
 	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[]) => string;
+	auditStrippedSource: (strippedSource: string) => string[];
+	slideNoteRecord: (sections: string[]) => SlideNoteRecord[];
 };
+
+/** One slide's whole comment channel, lifted once at the render boundary. */
+// `note` is the display JOIN of a slide's notes; `noteBodies` is the pre-join array. The
+// privacy scrub must use `noteBodies` — see `slideNoteRecord` in lib/authoring/notes-core.js.
+type SlideNoteRecord = {
+	note: string | null;
+	noteBodies: string[];
+	description: string | null;
+	caption: string | null;
+};
+
+/** The depth-aware `<section>` walker (lib/core/split-sections.js), via the authoring bundle. */
+type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: string; inner?: string; cls?: string }[];
 
 /**
  * Materialize speaker notes + accessible descriptions into the (already re-tagged)
@@ -163,8 +178,15 @@ type NotesCore = {
  * kept out of the a11y tree) plus an sr-only `p.lattice-description` referenced by
  * `aria-describedby`. Without this the Studio player would silently drop both (its
  * notes sheet would find no aside, and screen-reader slide descriptions would vanish
- * — a WCAG 1.1.1 regression vs. the CLI player). `sections` still carry their
- * comments; each is comment-stripped here before the inject.
+ * — a WCAG 1.1.1 regression vs. the CLI player).
+ *
+ * Reads the channel from a RECORD lifted at the render boundary, not from the sections
+ * it is injecting into. Those two used to be the same thing, and that coupling is what
+ * broke: the sections handed here have been through the capture frame, whose sanitizer
+ * deletes comment nodes, so every note and description silently became null — and the
+ * same empty set left the envelope scrub with nothing to remove, inverting
+ * `--strip-notes` into a leak. The record is taken before any of that happens, so this
+ * function no longer cares what the bake did to the markup.
  *
  * `stripNotes` mirrors the CLI `--strip-notes`: it BLANKS the speaker notes (no
  * `aside` is materialized, so the shared file carries no speaker text) while KEEPING
@@ -172,9 +194,9 @@ type NotesCore = {
  * speaker copy). The caller additionally scrubs the note text from the envelope
  * source — see `shareHtmlPlayer`.
  */
-function materializeNotes(sections: string[], notesCore: NotesCore, stripNotes = false): string {
-	const notes = stripNotes ? sections.map(() => null) : notesCore.extractSlideNotes(sections);
-	const descriptions = notesCore.extractSlideDescriptions(sections);
+function materializeNotes(sections: string[], notesCore: NotesCore, record: SlideNoteRecord[], stripNotes = false): string {
+	const notes = record.map((r) => (stripNotes ? null : r.note));
+	const descriptions = record.map((r) => r.description);
 	return sections
 		.map((sec, i) => {
 			const stripped = notesCore.stripCommentNodes(sec);
@@ -276,7 +298,10 @@ export async function shareHtmlPlayer(
 	// that synthesizes: the bake reads this device's clip store first and bills only the
 	// sentences it does not have, in `voice`, and REFUSES if any of them cannot be prepared.
 	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal },
-): Promise<void> {
+	// Resolves to a DEGRADATION reason when the export completed but shipped something
+	// lesser than intended (today: the diagram bake did not run), else undefined. The
+	// caller surfaces it in the completion toast — see the return at the end.
+): Promise<string | undefined> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra);
@@ -293,7 +318,24 @@ export async function shareHtmlPlayer(
 	const fontCss = await fontMod.buildFontEmbedCss();
 	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[]; KATEX_URL: string };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
+	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	const a11yDefs = deck.A11Y_DEFS;
+	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
+	// `describe:` and `caption:` ride as HTML comments, and every pipeline below this
+	// point destroys them — the capture frame sanitizes, and `sanitizeSlideHtml` deletes
+	// comment nodes. Reading them here, from the engine's own output, is what keeps the
+	// notes sheet, the a11y descriptions and the `--strip-notes` scrub independent of
+	// what the bake does.
+	//
+	// Split DEPTH-AWARE, not with `deck.splitSections`. That one pairs each `<section>`
+	// with the NEXT `</section>`, so a slide containing a hand-authored `<section>` is
+	// truncated at the nested close tag and its comments fall outside the chunk — while
+	// the slide COUNT stays correct, which is exactly why a count-parity check cannot
+	// catch it.
+	const recordSections = splitSectionsCore(out.html)
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
+	const noteRecord = notesCore.slideNoteRecord(recordSections);
 	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section
 	// with it (lattice-emulator.js), and the player CSS + transport key off it. Split
 	// the render into per-slide sections and re-tag them the same way, so the assembled
@@ -301,16 +343,109 @@ export async function shareHtmlPlayer(
 	// concerns handled the same way the Studio preview does — i.e. not here.) Then
 	// materialize speaker notes + a11y descriptions the same way the emulator does, so
 	// the Studio player carries them exactly like the CLI player (notes: true is honest).
-	const tagged = deck.splitSections(out.html).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
-	const slides = materializeNotes(tagged, notesCore, stripNotes);
+	//
+	// BAKE FIRST. The engine's render is static: a ```mermaid fence is still a
+	// `<pre><code class="language-mermaid">`, and state-chart / function-plot are still
+	// inert scripts — all three are inflated by the RUNTIME in the preview iframe, and
+	// the player ships no runtime (it strips every script). So an un-baked export froze
+	// the un-rendered form: raw Mermaid source on the slide and, worse, a wall of it
+	// where Read·Article should have shown the diagram. `bakeDeckSections` runs the deck
+	// through the shared capture frame (runtime + our vendored Mermaid, fonts settled)
+	// and hands back the settled markup — the browser-side twin of the CLI's own
+	// "Bake the player's DOM" step. A bake that can't run falls back to the static
+	// render: the same file we shipped before, never a failed export.
+	onStatus?.('Rendering diagrams…');
+	let baked: string[] | null = null;
+	let bakeWarning: string | undefined;
+	try {
+		const ex = await exporters();
+		const result = await ex.bakeDeckSections({
+			html: out.html,
+			css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
+			mode,
+			geom: { w: out.width || 1280, h: out.height || 720 },
+			runtimeUrl: options.runtimeUrl,
+			fontCss,
+			...(options.mermaidUrl ? { mermaidUrl: options.mermaidUrl } : {}),
+		});
+		// Slide-count parity is the correctness gate: notes, narration cues and the
+		// manifest are all indexed by slide, so a bake that lost or gained a section
+		// would silently mis-bind them. Mismatch → use the static render.
+		if (result && result.sections.length === noteRecord.length) {
+			// The bake's markup is taken as-is. The comment channel it destroys was already
+			// lifted into `noteRecord` above, so nothing downstream depends on the sanitizer
+			// having spared anything — which is what makes this safe to swap wholesale.
+			baked = result.sections;
+			// Honesty, matching the CLI's own bake warnings: a diagram Mermaid could not
+			// render ships as its source `<pre>`, and the author should hear that once
+			// rather than discover it in the file.
+			if (result.failed) {
+				console.warn(`lattice: ${result.failed} diagram(s) failed to render — they ship as their source, not as a drawing.`);
+				// This is the LIKELIER degradation (some diagrams rendered, some did not) and it
+				// reached only the console, so an export shipping N diagrams as raw source still
+				// said "Webpage ready." The rare total failure surfaced and the common partial one
+				// did not.
+				bakeWarning = `${result.failed} diagram(s) ship as source, not as drawings`;
+			}
+		} else if (result) {
+			// Count mismatch. It used to fall through with no `else`, silently shipping the
+			// un-inflated fence — one of the two most likely bake failures, and the one the
+			// `catch` below cannot see because nothing threw.
+			console.warn(`lattice: diagram bake produced ${result.sections.length} slides for a ${noteRecord.length}-slide deck; exporting without it.`);
+			onStatus?.('Diagrams could not be rendered — exporting without them…');
+			bakeWarning = 'diagrams ship as source, not as drawings';
+		} else {
+			// `bakeDeckSections` returns null rather than throwing when the frame yields
+			// nothing usable — the other silent path.
+			console.warn('lattice: the diagram bake produced nothing usable; exporting without it.');
+			onStatus?.('Diagrams could not be rendered — exporting without them…');
+			bakeWarning = 'diagrams ship as source, not as drawings';
+		}
+	} catch (err) {
+		// The static render is a SAFE fallback (it is the file we shipped before the bake
+		// existed) but it is not a GOOD one — it is the un-inflated fence this whole step
+		// exists to replace. A bare swallow here is how a stale generated bundle once made
+		// a broken bake look like a working one: the throw fell back to the raw sections,
+		// notes and diagrams both looked plausible, and nothing said the bake never ran.
+		// Say so, loudly enough to be seen in the export UI, not just the console.
+		console.warn('lattice: diagram bake failed; the webpage export ships un-rendered diagram source.', err);
+		onStatus?.('Diagrams could not be rendered — exporting without them…');
+		bakeWarning = 'diagrams ship as source, not as drawings';
+	}
+	const tagged = (baked ?? recordSections).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	const slides = materializeNotes(tagged, notesCore, noteRecord, stripNotes);
 	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped
 	// file — not the DOM (blanked above) AND not the verbatim envelope source. Scrub
 	// the source with the INDIVIDUAL note bodies lifted from the render (directive-safe:
 	// only exact note bodies are removed, never a `_class`/pragma comment), exactly as
 	// the CLI emulator does. The note/non-note boundary stays the shared notesCore.
+	//
+	// Read from the RECORD, not from `tagged`. Those sections have been through the
+	// bake, so scraping them for note bodies is what produced an empty set and turned
+	// this scrub into a no-op — the leak. A multi-note slide joins its notes with a
+	// blank line, so split them back apart: the scrub matches INDIVIDUAL bodies.
 	const envelopeSource = stripNotes
-		? notesCore.stripNotesFromSource(source, new Set(tagged.flatMap((s) => notesCore.noteBodiesFromHtml(s))))
+		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => r.noteBodies || [])))
 		: source;
+	// FAIL-CLOSED, mirroring the CLI. The scrub matches bodies lifted from the RENDER against
+	// comments in the SOURCE, and every leak this has had was a new way for those two sides to
+	// disagree. So check the OUTPUT rather than trusting the matcher: a comment still standing
+	// that is not a directive, pragma, `describe:` or `caption:` is suspected speaker text. It
+	// reaches the completion toast, because a strip-notes export that quietly keeps a note is
+	// the one failure the author cannot take back once the file has been sent.
+	if (stripNotes) {
+		const survivors = notesCore.auditStrippedSource(envelopeSource);
+		if (survivors.length) {
+			console.warn(`lattice: --strip-notes left ${survivors.length} comment(s) that look like speaker text.`, survivors.slice(0, 5));
+			// APPEND, never overwrite. These are two INDEPENDENT degradations and both can hold on
+			// one deck; assigning here dropped a bake failure that had already been recorded, so
+			// the toast reported the audit and the diagrams-as-source problem fell back to the
+			// transient status line — the exact failure the bake block three screens up exists to
+			// prevent.
+			const privacy = `${survivors.length} comment(s) that look like speaker text are still in the embedded source`;
+			bakeWarning = bakeWarning ? `${bakeWarning}; ${privacy}` : privacy;
+		}
+	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
 	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
@@ -344,7 +479,14 @@ export async function shareHtmlPlayer(
 		} catch {
 			projected = []; // the chain still resolves captions, notes and chart facts
 		}
-		const result = await bake.bakeNarration(source, projected, {
+		// THE SCRUBBED SOURCE, not the raw one. The narration chain's third rung reads the
+		// slide's speaker note out of the source comments (`narration-bake.ts` →
+		// `getSlideNote`), so passing `source` here shipped every note as visible caption
+		// text — and, with audio on, as a synthesized clip the recipient can play aloud —
+		// in a file exported with "Strip speaker notes" ON. Same flag, same file, a third
+		// channel. `envelopeSource` already has the note bodies removed when stripping, so
+		// the chain simply finds nothing to narrate and falls through to its next rung.
+		const result = await bake.bakeNarration(envelopeSource, projected, {
 			voice: narration.voice,
 			audio: narration.audio,
 			// The author's explicit override, only ever set after a refusal named the sentences.
@@ -447,6 +589,13 @@ export async function shareHtmlPlayer(
 	onStatus?.('Downloading…');
 	const { downloadText } = await import('./download');
 	downloadText(`${name}.html`, finalHtml, 'text/html');
+	// A DEGRADED export is still an export, but the author must not be told it is fine.
+	// `onStatus` is transient — it is replaced by the next line and gone by the time the
+	// file lands — so a bake failure announced only there is invisible in practice, and
+	// the completion toast then says "Webpage ready." over a file whose diagrams shipped
+	// as raw source. Returning the reason lets the caller put it IN the toast, which is
+	// the part that persists.
+	return bakeWarning;
 }
 
 /**
@@ -701,8 +850,7 @@ export async function shareCaptions(
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');
-	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
-		import('@/playground/deck-preview.js'),
+	const [authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
@@ -711,9 +859,16 @@ export async function shareCaptions(
 		import('./lint'),
 	]);
 	const { splitSlides } = lintMod;
-	const deck = deckMod as unknown as { splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
-	const sections = deck.splitSections(out.html);
+	// DEPTH-AWARE, for the same reason the webpage export is: the flat splitter pairs each
+	// `<section>` with the NEXT `</section>`, so a slide containing a hand-authored
+	// `<section>` is truncated at the nested close tag and its `<!-- caption: -->` / note
+	// falls outside the chunk — while the slide COUNT stays right, so parity cannot catch it.
+	// That slide then narrates the DOM projection instead of the author's caption, silently.
+	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
+	const sections = splitSectionsCore(out.html)
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
 
 	// The FULL narration chain, identical to the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`

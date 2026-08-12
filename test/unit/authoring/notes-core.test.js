@@ -13,6 +13,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/notes-core');
+const { splitSections: splitSectionsCore } = require('../../../lib/core/split-sections.js');
 
 const sec = (inner) => `<section data-lattice-slide="1">${inner}</section>`;
 
@@ -258,6 +259,80 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /# Slide one/, 'body content untouched');
   });
 
+  // The whole comment channel, extracted ONCE from already-split sections — the shape
+  // that removes the DOM round trip from the problem instead of repairing it afterwards.
+  describe('slideNoteRecord — extract the channel once, from a depth-aware split', () => {
+    // The deck shape that defeats the docs site's flat splitter: a slide containing a
+    // hand-authored <section>. The flat scan ends slide 1 at the NESTED close tag, so the
+    // note after it is lost — while the slide COUNT still matches, which is exactly why a
+    // count-parity check waves it through. `lib/core/split-sections.js` is depth-aware.
+    const NESTED =
+      '<section id="1" class="title"><h1>One</h1><section class="inner"><p>n</p></section><p>tail</p><!-- SECRETNEST --></section>' +
+      '<section id="2" class="content"><h2>Two</h2><!-- NOTETWO --></section>';
+    const flatSplit = (h) => {
+      const out = [];
+      const open = /<section\b[^>]*>/gi;
+      let m;
+      while ((m = open.exec(h))) {
+        const c = h.indexOf('</section>', m.index);
+        if (c === -1) break;
+        out.push(h.slice(m.index, c + 10));
+        open.lastIndex = c + 10;
+      }
+      return out;
+    };
+
+    test('reads note, description and caption per slide', () => {
+      const rec = core.slideNoteRecord([
+        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- caption: Read aloud. --></section>',
+        '<section><h1>B</h1></section>',
+      ]);
+      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', caption: 'Read aloud.' });
+      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, caption: null });
+    });
+
+    // The privacy contract behind `noteBodies`. `note` JOINS a slide's notes with a blank
+    // line, so splitting it back on '\n\n' is not the inverse: a SINGLE note containing a
+    // blank line shatters into fragments, and `stripNotesFromSource` matches a comment's
+    // WHOLE trimmed body — so nothing matches and the note ships in a --strip-notes export.
+    // That shipped in the Studio while the CLI, which passes the bodies, was correct.
+    test('noteBodies survives a note that contains a blank line — the strip set the join cannot rebuild', () => {
+      const body = 'Board only.\n\nDo not share.';
+      const rec = core.slideNoteRecord([`<section><h1>Q3</h1><!--\n${body}\n--></section>`]);
+      assert.deepEqual(rec[0].noteBodies, [body], 'the pre-join body is carried whole');
+
+      const source = `---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!--\n${body}\n-->\n`;
+      const stripped = core.stripNotesFromSource(source, new Set(rec.flatMap((r) => r.noteBodies)));
+      assert.ok(!stripped.includes('Do not share'), 'the note is scrubbed from the envelope source');
+      assert.ok(stripped.includes('_class: title'), 'and the directive beside it survives');
+
+      const rebuilt = new Set(rec.flatMap((r) => (r.note ? r.note.split('\n\n') : [])));
+      assert.ok(
+        core.stripNotesFromSource(source, rebuilt).includes('Do not share'),
+        'guard: rebuilding the set by splitting the joined note really does leak (this is the bug)',
+      );
+    });
+
+    test('noteBodies still separates two notes authored on one slide', () => {
+      const rec = core.slideNoteRecord(['<section><!-- First note. --><!-- Second note. --></section>']);
+      assert.deepEqual(rec[0].noteBodies, ['First note.', 'Second note.'], 'each comment is its own body');
+      assert.equal(rec[0].note, 'First note.\n\nSecond note.', 'and the display join is unchanged');
+    });
+
+    test('a depth-aware split keeps the note a flat split loses — with the COUNT identical', () => {
+      const flat = flatSplit(NESTED);
+      const deep = splitSectionsCore(NESTED).filter((p) => p.type === 'section').map((p) => `${p.openTag}${p.inner}</section>`);
+      assert.equal(flat.length, deep.length, 'both splitters agree on the slide COUNT — which is why a parity check cannot catch this');
+      assert.equal(core.slideNoteRecord(flat)[0].note, null, 'guard: the flat split really does lose it (this is the bug)');
+      assert.equal(core.slideNoteRecord(deep)[0].note, 'SECRETNEST', 'the depth-aware split keeps it');
+      assert.equal(core.slideNoteRecord(deep)[1].note, 'NOTETWO', 'and does not disturb an ordinary slide');
+    });
+
+    test('tolerates a non-array', () => {
+      assert.deepEqual(core.slideNoteRecord(undefined), []);
+    });
+  });
+
   // The SEPARATE privacy strip for the caption channel (`--strip-captions`), orthogonal
   // to the note strip: captions are structurally identified (the `caption:` prefix), so
   // no rendered-body set is needed.
@@ -383,5 +458,169 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /_footer: page/, 'the unrelated comment stays');
     // Empty set → identity (nothing to strip).
     assert.equal(core.stripNotesFromSource(source, new Set()), source);
+  });
+});
+
+// ── Directive classification ────────────────────────────────────────────────
+// `stripNotesFromSource` deletes any comment whose body was lifted as a note. Its
+// directive safety used to rest on the ENGINE having consumed every directive before
+// notes-core ever saw the HTML. That is the engine's property, not this module's, and it
+// fails on a deck where a directive survives into the rendered section — the directive is
+// lifted as a note and then deleted from the verbatim source the envelope carries, so the
+// recipient re-imports a deck whose slide has silently lost its class.
+describe('notes-core: a directive is never a note', () => {
+  test('parity — the mirrored directive names match lib/engine/directives.js', () => {
+    // Same discipline as the Marpit pragma mirror above: this module stays dependency-free,
+    // and this test fails the moment the engine's registry gains or loses a name.
+    const engine = require('../../../lib/engine/directives.js');
+    assert.deepEqual(
+      [...core.KNOWN_DIRECTIVE_NAMES].sort(),
+      [...engine.KNOWN_DIRECTIVES].sort(),
+      'KNOWN_DIRECTIVE_NAMES mirrors the engine KNOWN_DIRECTIVES',
+    );
+    assert.deepEqual(
+      [...core.FLAG_DIRECTIVE_NAMES].sort(),
+      [...engine.FLAG_DIRECTIVES].sort(),
+      'FLAG_DIRECTIVE_NAMES mirrors the engine FLAG_DIRECTIVES',
+    );
+  });
+
+  test('a directive surviving into rendered HTML is not lifted as a note, so the scrub cannot eat it', () => {
+    const html = '<section data-lattice-slide><!-- _class: title --><h1>Q3</h1><!-- A real note. --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['A real note.'], 'only the note is lifted');
+
+    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- A real note. -->\n';
+    const out = core.stripNotesFromSource(source, new Set(core.noteBodiesFromHtml(html)));
+    assert.match(out, /_class: title/, 'the directive survives --strip-notes');
+    assert.doesNotMatch(out, /A real note\./, 'and the note is still scrubbed');
+  });
+
+  test('multi-line and bare-flag SPOT directive forms are recognized', () => {
+    assert.ok(core.isDirectiveComment('_class: title'));
+    assert.ok(core.isDirectiveComment('_class: title\n_paginate: true'), 'every line a directive');
+    assert.ok(core.isDirectiveComment('_build'), 'a bare FLAG directive');
+    assert.ok(core.isDirectiveComment('_backgroundColor: #fff'));
+  });
+
+  test('the DECK-SCOPE form is not treated as a directive — it is ambiguous with prose', () => {
+    // The bare form is real directive syntax, but it is indistinguishable from a speaker
+    // note that happens to open with the word: `<!-- color: we should discuss the palette -->`.
+    // Classifying it as a directive holds it OUT of the scrub set, so --strip-notes never
+    // removes it and it ships in the exported file. Leaking is the worse direction, so only
+    // the unambiguous `_`-prefixed spot form gets the protection.
+    assert.ok(!core.isDirectiveComment('color: we should discuss the palette'));
+    assert.ok(!core.isDirectiveComment('class: title'));
+    assert.ok(!core.isDirectiveComment('footer: ask about the discount'));
+
+    const html = '<section data-lattice-slide><!-- color: SECRET discuss the palette --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['color: SECRET discuss the palette'], 'it stays scrubbable');
+  });
+
+  test('prose is still a note — the classifier does not open a leak', () => {
+    // The dangerous direction: over-classifying would keep a real note OUT of the scrub
+    // set, and it would ship in a --strip-notes export. A note is not a directive merely
+    // for containing a colon, or for naming a directive word without one.
+    assert.ok(!core.isDirectiveComment('Note: mention the caveat'), 'word+colon prose');
+    assert.ok(!core.isDirectiveComment('color'), 'a bare NON-flag directive word is prose');
+    assert.ok(!core.isDirectiveComment('Remember: the class is important'));
+    assert.ok(!core.isDirectiveComment('_class: title\nAnd then say this.'), 'mixed → treated as a note');
+    assert.ok(!core.isDirectiveComment(''), 'empty is not a directive');
+
+    const html = '<section data-lattice-slide><!-- Note: mention the caveat --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['Note: mention the caveat'], 'still scrubbable');
+  });
+});
+
+// The FAIL-CLOSED backstop. Every --strip-notes leak this codebase has had was a new way for
+// the two sides of the scrub to disagree — bodies lifted from RENDERED html vs. comments
+// present in SOURCE. Matching is open-ended, so this checks the OUTPUT instead: it is
+// independent of the matcher and therefore catches a failure OF the matcher.
+describe('notes-core: auditStrippedSource', () => {
+  test('a surviving speaker comment is reported', () => {
+    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- The CFO thinks the deal is dead -->\n';
+    assert.deepEqual(core.auditStrippedSource(src), ['The CFO thinks the deal is dead']);
+  });
+
+  test('the four consumed channels are not reported', () => {
+    const src = [
+      '<!-- _class: title -->',            // spot directive
+      '<!-- markdownlint-disable MD033 -->', // tooling pragma
+      '<!-- describe: A cover slide. -->',  // a11y description
+      '<!-- caption: Read this aloud. -->', // read-as caption
+      '<!--   -->',                          // empty
+    ].join('\n');
+    assert.deepEqual(core.auditStrippedSource(src), []);
+  });
+
+  test('a deck-scope directive that SURVIVED is not reported — the engine owns it', () => {
+    // `color: …` is real directive syntax and also exactly how a note might open, and the two
+    // sides of this answer that differently ON PURPOSE. The SCRUB treats it as a note, so a
+    // note shaped like a directive is still removed. The AUDIT does not report it: a comment
+    // in directive syntax that survived the scrub is one the engine consumed as a directive,
+    // and flagging it fired on two decks this repo ships — a false privacy alarm, which is
+    // the worst kind, because the rational response is to stop trusting the strip.
+    assert.deepEqual(core.auditStrippedSource('<!-- color: we should discuss the palette -->'), []);
+    // The scrub half of that contract, unchanged: it still reaches the note set.
+    assert.deepEqual(
+      core.noteBodiesFromHtml('<section><!-- color: we should discuss the palette --></section>'),
+      ['color: we should discuss the palette'],
+    );
+  });
+
+  test('code regions are masked — a documented `<!-- class: … -->` is not a survivor', () => {
+    // A false PRIVACY alarm is the worst kind: the rational response is to stop trusting the
+    // strip. Two decks this repo ships (`deck-class-register`, `slide-class-forms`) document
+    // directive syntax in fences and inline spans and raised 4 and 2 alarms every export.
+    assert.deepEqual(core.auditStrippedSource('text\n\n```\n<!-- class: kpi -->\n```\n'), []);
+    assert.deepEqual(core.auditStrippedSource('run it with `<!-- class: kpi -->` on the slide'), []);
+    // …but the same body OUTSIDE a code region, as real prose, is still reported.
+    assert.deepEqual(core.auditStrippedSource('<!-- Board only, do not share -->'), ['Board only, do not share']);
+  });
+
+  test('directive syntax in EITHER form is not suspicious residue', () => {
+    // Wider than the scrub's own test, deliberately: the scrub asks "is this scrubbable?" and
+    // must say yes to the bare form so a note shaped like a directive is removed; the audit
+    // asks "is this unexpected?", and a comment in directive syntax that survived is one the
+    // engine consumed as a directive.
+    assert.deepEqual(core.auditStrippedSource('<!-- _class: title -->\n<!-- class: diagram -->'), []);
+  });
+
+  test('an UNTERMINATED comment is reported, not silently shipped', () => {
+    // It never matches the comment pattern, so neither the scrub nor the survivor loop can
+    // see it — and its text ships verbatim in the envelope. "Reported, never silent" has to
+    // cover the shape most likely to be an accident.
+    const found = core.auditStrippedSource('# Q3\n\n<!-- Speaker note GOLF: never closed\n');
+    assert.equal(found.length, 1);
+    assert.match(found[0], /never closed/);
+    assert.match(found[0], /GOLF/, 'and it quotes enough for the author to find it');
+  });
+
+  test('a fully scrubbed source audits clean — no false alarm on the happy path', () => {
+    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n';
+    const bodies = core.noteBodiesFromHtml('<section><!-- A real note. --></section>');
+    assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src, new Set(bodies))), []);
+  });
+});
+
+// COMMENT_SOURCE terminates on `--!>` as well as `-->`, because the HTML parser does: `--!>`
+// closes a comment (as a parse error, but it closes). Reverting the pattern to `--+>` left
+// the whole unit suite green, so this pins it directly.
+describe('notes-core: the comment matcher reads `--!>` as a terminator', () => {
+  test('a `--!>` typo does not merge two comments into one body', () => {
+    // With `-->`-only, the lazy match ran from the first `<!--` past the typo to the NEXT
+    // `-->`, swallowing the following comment — and that merged body then entered the
+    // --strip-notes scrub set, so the whole span was deleted from the envelope source,
+    // taking the directive with it.
+    const html = '<section data-lattice-slide><!-- First note. --!><!-- Second note. --></section>';
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['First note.', 'Second note.']);
+  });
+
+  test('a `--!>`-terminated note still scrubs, and the directive beside it survives', () => {
+    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- Board only. --!>\n';
+    const bodies = core.noteBodiesFromHtml('<section><!-- Board only. --!></section>');
+    assert.deepEqual(bodies, ['Board only.'], 'the body is lifted despite the typo');
+    const out = core.stripNotesFromSource(source, new Set(bodies));
+    assert.doesNotMatch(out, /Board only/, 'the note is scrubbed');
+    assert.match(out, /_class: title/, 'the directive is untouched');
   });
 });

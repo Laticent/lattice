@@ -84,7 +84,7 @@ var require_standalone_svg = __commonJS({
       "mix-blend-mode": "normal"
     };
     var SVG_NS2 = "http://www.w3.org/2000/svg";
-    function flattenSvgStyles2(srcSvg, win) {
+    function flattenSvgStyles2(srcSvg, win, opts) {
       const w = win || (typeof window !== "undefined" ? window : null);
       if (!w) throw new Error("flattenSvgStyles requires a browser window");
       const PROPS = [
@@ -138,6 +138,7 @@ var require_standalone_svg = __commonJS({
         "paint-order": "normal",
         "mix-blend-mode": "normal"
       };
+      const PAINT_PROPS = { fill: 1, stroke: 1 };
       const doc = srcSvg.ownerDocument;
       const SVGNS = "http://www.w3.org/2000/svg";
       const probe = doc.createElementNS(SVGNS, "rect");
@@ -150,7 +151,143 @@ var require_standalone_svg = __commonJS({
         probe.style.color = expr;
         return w.getComputedStyle(probe).color || expr;
       }
+      const SCHEME_TOKENS = [];
+      {
+        const names = {};
+        const sheets = doc.querySelectorAll("style");
+        const nameRe = /(--[a-zA-Z0-9-]+)\s*:/g;
+        for (let i = 0; i < sheets.length; i++) {
+          const text = sheets[i].textContent || "";
+          let nm;
+          nameRe.lastIndex = 0;
+          while (nm = nameRe.exec(text)) names[nm[1]] = 1;
+        }
+        const keys = Object.keys(names);
+        for (let i = 0; i < keys.length; i++) {
+          probe.style.colorScheme = "light";
+          const lightVal = resolveColor("var(" + keys[i] + ")");
+          probe.style.colorScheme = "dark";
+          const darkVal = resolveColor("var(" + keys[i] + ")");
+          if (lightVal && darkVal && lightVal !== darkVal) SCHEME_TOKENS.push(keys[i]);
+        }
+        probe.style.colorScheme = "";
+      }
+      const LABEL_INK_TOKENS = [
+        "--text-heading",
+        "--c-on-container",
+        "--c-on-subcontainer",
+        "--cat-on-fill",
+        "--cat-on-mark"
+      ];
+      const FO_TO_TEXT = !!(opts && opts.foreignObjectLabels === "text");
+      function lineRuns(node) {
+        const range = doc.createRange();
+        range.selectNodeContents(node);
+        const rects = range.getClientRects();
+        const raw = node.nodeValue || "";
+        if (rects.length <= 1) return raw.trim() ? [{ text: raw, rect: rects[0] || range.getBoundingClientRect() }] : [];
+        const runs = [];
+        for (let i = 0; i < raw.length; i++) {
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const r = range.getBoundingClientRect();
+          const key = Math.round(r.top);
+          const last = runs[runs.length - 1];
+          if (last && last.key === key) {
+            last.text += raw[i];
+            last.rect = { top: Math.min(last.rect.top, r.top), bottom: Math.max(last.rect.bottom, r.bottom), left: Math.min(last.rect.left, r.left), right: Math.max(last.rect.right, r.right) };
+          } else if (r.width || r.height) {
+            runs.push({ key, text: raw[i], rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right } });
+          }
+        }
+        return runs.filter((run) => run.text.trim());
+      }
+      function foreignObjectToText(fo) {
+        const box = fo.getBoundingClientRect();
+        const foW = parseFloat(fo.getAttribute("width"));
+        const foH = parseFloat(fo.getAttribute("height"));
+        if (!box.width || !box.height || !(foW > 0) || !(foH > 0)) return null;
+        const sx = foW / box.width;
+        const sy = foH / box.height;
+        const ox = parseFloat(fo.getAttribute("x")) || 0;
+        const oy = parseFloat(fo.getAttribute("y")) || 0;
+        const out2 = doc.createElementNS("http://www.w3.org/2000/svg", "text");
+        let any = false;
+        const walker = doc.createTreeWalker(
+          fo,
+          4
+          /* NodeFilter.SHOW_TEXT */
+        );
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (!(n.nodeValue || "").trim()) continue;
+          const parent = n.parentElement;
+          if (!parent) continue;
+          const pcs = w.getComputedStyle(parent);
+          for (const run of lineRuns(n)) {
+            const r = run.rect;
+            if (!r) continue;
+            const span = doc.createElementNS("http://www.w3.org/2000/svg", "tspan");
+            span.setAttribute("x", String(ox + ((r.left + r.right) / 2 - box.left) * sx));
+            span.setAttribute("y", String(oy + ((r.top + r.bottom) / 2 - box.top) * sy));
+            let decl = "text-anchor:middle;dominant-baseline:central;";
+            decl += `font-family:${pcs.fontFamily};font-size:${pcs.fontSize};font-weight:${pcs.fontWeight};`;
+            if (pcs.fontStyle && pcs.fontStyle !== "normal") decl += `font-style:${pcs.fontStyle};`;
+            let inkToken = "";
+            for (let t = 0; t < LABEL_INK_TOKENS.length; t++) {
+              if (pcs.color && resolveColor("var(" + LABEL_INK_TOKENS[t] + ")") === pcs.color) {
+                inkToken = LABEL_INK_TOKENS[t];
+                break;
+              }
+            }
+            const ownInk = !!pcs.color && !inkToken;
+            const ownWeight = (Number.parseInt(pcs.fontWeight, 10) || 400) >= 600;
+            decl += ownInk ? `fill:${pcs.color};` : `fill:var(${inkToken || "--text-heading"});`;
+            span.setAttribute("style", decl);
+            if (ownInk || ownWeight) span.setAttribute("class", "lp-own-ink");
+            span.textContent = run.text.replace(/\s+/g, " ");
+            out2.appendChild(span);
+            any = true;
+          }
+        }
+        if (!any) return null;
+        const byBox = /* @__PURE__ */ new Map();
+        for (const el of fo.querySelectorAll("*")) {
+          const bg = w.getComputedStyle(el).backgroundColor;
+          if (!bg || bg === "transparent" || /^rgba\(0, *0, *0, *0\)$/.test(bg)) continue;
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height) continue;
+          const geom = {
+            x: ox + (r.left - box.left) * sx,
+            y: oy + (r.top - box.top) * sy,
+            w: r.width * sx,
+            h: r.height * sy
+          };
+          const key = `${geom.x.toFixed(2)}|${geom.y.toFixed(2)}|${geom.w.toFixed(2)}|${geom.h.toFixed(2)}`;
+          const prior = byBox.get(key);
+          if (prior && !/^rgb\(/.test(bg)) continue;
+          byBox.set(key, { geom, bg });
+        }
+        const bgs = [];
+        for (const { geom, bg } of byBox.values()) {
+          const rect = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", String(geom.x));
+          rect.setAttribute("y", String(geom.y));
+          rect.setAttribute("width", String(geom.w));
+          rect.setAttribute("height", String(geom.h));
+          rect.setAttribute("style", `fill:${bg};`);
+          bgs.push(rect);
+        }
+        if (!bgs.length) return out2;
+        const group = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+        for (const rect of bgs) group.appendChild(rect);
+        group.appendChild(out2);
+        return group;
+      }
       function walk(src) {
+        if (FO_TO_TEXT && src.nodeType === 1 && src.tagName && src.tagName.toLowerCase() === "foreignobject") {
+          const replaced = foreignObjectToText(src);
+          if (replaced) return replaced;
+        }
         const clone = src.cloneNode(false);
         if (src.nodeType === 1) {
           const cs = w.getComputedStyle(src);
@@ -169,7 +306,16 @@ var require_standalone_svg = __commonJS({
               const v = cs.getPropertyValue(p);
               if (!v) continue;
               if (Object.hasOwn(INIT, p) && v === INIT[p]) continue;
-              decl += p + ":" + v + ";";
+              let out2 = v;
+              if (Object.hasOwn(PAINT_PROPS, p)) {
+                for (let t = 0; t < SCHEME_TOKENS.length; t++) {
+                  if (resolveColor("var(" + SCHEME_TOKENS[t] + ")") === v) {
+                    out2 = "var(" + SCHEME_TOKENS[t] + ")";
+                    break;
+                  }
+                }
+              }
+              decl += p + ":" + out2 + ";";
             }
           }
           const keepPrev = tag === "stop" ? "" : prev || "";

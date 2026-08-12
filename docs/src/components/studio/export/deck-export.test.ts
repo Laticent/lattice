@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assembleSheetPdf } from './deck-export.js';
+import { assembleSheetPdf, waitForDiagrams } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -115,5 +115,51 @@ describe('assembleSheetPdf — place cached images on a paper sheet', () => {
 		// A4/Letter PORTRAIT MediaBox (816×0.75=612 wide, 1056×0.75=792 tall).
 		expect(mediaBoxes(text)[0]).toMatch(/612/);
 		expect(mediaBoxes(text)[0]).toMatch(/792/);
+	});
+});
+
+// `waitForDiagrams` gates the export capture on the RUNTIME finishing every
+// ```mermaid fence. Its state machine is DOM-only, so it is unit-testable here; the
+// bake it guards needs a real laid-out frame and is verified on the live Studio
+// export (HARD RULE #23). What these pin is the shape the original loop got wrong:
+// it counted only EXISTING `.mermaid` boxes, and a fence the runtime has not reached
+// yet has none — so on the very deck it exists to wait for, it saw 0 pending and
+// returned at once, letting an un-rendered fence freeze into the exported player.
+describe('waitForDiagrams — wait for the runtime, not just for boxes that exist', () => {
+	function frag(html: string): Document {
+		const d = document.implementation.createHTMLDocument('t');
+		d.body.innerHTML = html;
+		return d;
+	}
+	// Did it return WITHIN its own budget, or only once the budget ran out? Always
+	// AWAITS the call rather than racing it, so no poll timer outlives the test — a
+	// dangling one surfaces as an after-teardown error and fails the whole file.
+	const BUDGET = 600;
+	async function returned(doc: Document): Promise<'early' | 'at-budget'> {
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
+	}
+
+	it('returns immediately when the deck has no diagram at all', async () => {
+		expect(await returned(frag('<p>no diagrams here</p>'))).toBe('early');
+	});
+
+	it('keeps waiting on a fence the runtime has NOT tagged yet', async () => {
+		// The original loop's blind spot: no `.mermaid` box exists yet, so it counted
+		// zero pending and returned at once — on exactly the deck it must wait for.
+		expect(await returned(frag('<pre><code class="language-mermaid">flowchart LR\n A --> B</code></pre>'))).toBe('at-budget');
+	});
+
+	it('keeps waiting while a tagged fence is still pending', async () => {
+		expect(await returned(frag('<pre data-mermaid-state="pending"><code class="language-mermaid-source">x</code></pre><div class="mermaid"></div>'))).toBe('at-budget');
+	});
+
+	it('returns once every fence is rendered with its SVG in place', async () => {
+		expect(await returned(frag('<pre data-mermaid-state="rendered"><code class="language-mermaid-source">x</code></pre><div class="mermaid"><svg></svg></div>'))).toBe('early');
+	});
+
+	it('treats an ERROR fence as settled — the source <pre> is the honest artifact', async () => {
+		expect(await returned(frag('<pre data-mermaid-state="error"><code class="language-mermaid-source">x</code></pre><div class="mermaid"></div>'))).toBe('early');
 	});
 });

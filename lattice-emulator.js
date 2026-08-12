@@ -433,7 +433,23 @@ const STRIP_CAPTIONS = !!flags['strip-captions'];
 // `note:` body is never a `caption:` body). `noteBodies` is the set lifted from the render.
 function stripSharedSource(src, noteBodies) {
   let out = src;
-  if (STRIP_NOTES) out = notesCore.stripNotesFromSource(out, noteBodies);
+  if (STRIP_NOTES) {
+    out = notesCore.stripNotesFromSource(out, noteBodies);
+    // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
+    // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
+    // So check the OUTPUT rather than trusting the matcher: a comment still standing that is
+    // not a directive, pragma, `describe:` or `caption:` is suspected speaker text that got
+    // through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
+    // the one failure the author cannot take back once the file is sent.
+    const survivors = notesCore.auditStrippedSource(out);
+    if (survivors.length) {
+      console.warn(
+        `  WARNING: --strip-notes left ${survivors.length} comment(s) in the embedded source that look like speaker text.\n` +
+          survivors.slice(0, 3).map((s) => `    · ${s.replace(/\s+/g, ' ').slice(0, 70)}`).join('\n') +
+          (survivors.length > 3 ? `\n    · …and ${survivors.length - 3} more` : '')
+      );
+    }
+  }
   if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out);
   return out;
 }
@@ -2686,11 +2702,48 @@ async function renderBody(browser, g, closeBrowser) {
         // tool serializes, so the unguarded window is no longer narrow.
         await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 200))), 'player capture: settle inflaters');
       }
-      inflatedPlayerHtml = await g(() => page.evaluate(() => {
+      // Bake every Mermaid diagram into a SELF-STYLED svg with native <text> labels
+      // before the clone. The player sanitizes its slide DOM, and that sanitizer bars
+      // two things a Mermaid svg leans on: its own injected `<style>` (all of mermaid's
+      // type + paint) and `<foreignObject>` (EVERY node/edge/cluster label — HTML
+      // smuggled into the SVG namespace, the mXSS shape we keep shut). So an unbaked
+      // diagram reached the shared file as shapes and arrows with no words at all.
+      // `flattenSvgStyles` resolves the computed paint/type inline and rewrites the
+      // labels as <text>, leaving nothing for the sanitizer to take.
+      //
+      // CHARTS are deliberately NOT flattened: they are token-driven, the player ships
+      // the deck CSS that drives them, and freezing their computed colors here would
+      // pin them to the export-time scheme — killing the player's own dark/light toggle
+      // and the Read·Article re-host's `figure.chart-frame` recolor. Mermaid has no
+      // such dependency (it bakes its colors at render time either way).
+      const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+      await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
+      const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
-        return `<!DOCTYPE html>\n${root.outerHTML}`;
+        const SEL = '.mermaid-svg > svg, .mermaid > svg';
+        const live = document.querySelectorAll(SEL);
+        const copies = root.querySelectorAll(SEL);
+        let unbaked = 0;
+        for (let i = 0; i < live.length && i < copies.length; i++) {
+          // Per-diagram try: one un-flattenable svg keeps its (unbaked) self rather
+          // than costing the whole capture. COUNTED, not swallowed — an unbaked svg
+          // keeps its <foreignObject>, the player's sanitizer strips it, and the
+          // diagram ships as shapes with no words: precisely the defect this bake
+          // exists to prevent. Silence there is indistinguishable from success.
+          try {
+            copies[i].replaceWith(window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' }));
+          } catch (_e) { unbaked++; }
+        }
+        return { html: `<!DOCTYPE html>\n${root.outerHTML}`, unbaked, total: live.length };
       }), 'player capture: serialize baked DOM');
+      inflatedPlayerHtml = baked.html;
+      if (baked.unbaked) {
+        console.warn(
+          `  WARNING: ${baked.unbaked}/${baked.total} diagram(s) could not be baked for the player; ` +
+            'they will ship without their labels.'
+        );
+      }
     } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
   }
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the

@@ -806,3 +806,68 @@ describe('lint-core: stray overflow-marker (an export setting, not a deck key)',
     assert.deepEqual(found.sort(), ['stray-export-settings', 'stray-overflow-marker']);
   });
 });
+
+// An unterminated `<!--` is a PRIVACY trap on export, not only a rendering one: the note
+// extractor's comment matcher requires a terminator, so `--strip-notes` finds no body to
+// remove and the text ships verbatim in the shared file's embedded source. The author asked
+// for the opposite. It is a lint finding rather than a scrub because making the strip match
+// to EOF would delete the rest of the deck from the author's own source.
+describe('lint-core: unterminated comment', () => {
+	const vocab = {};
+	const rules = (src) => core.lintTextWith(src, vocab).map((f) => f.rule);
+
+	test('an unclosed comment is flagged as an error', () => {
+		const src = '---\nmarp: true\n---\n\n# Q3\n\n<!-- Board only: 4.2M\n\n# Next\n';
+		const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'unterminated-comment');
+		assert.ok(f, 'the unclosed comment is named');
+		assert.equal(f.severity, 'error');
+		assert.match(f.message, /strip-notes/, 'and says why it matters on export, not just on screen');
+		// A plain containment check, not a regex: this asserts the fix TEXT names the
+		// terminator, and a `/-->/` literal here reads to a scanner (correctly) as an
+		// HTML-comment matcher that forgets `--!>` — the very bug fixed elsewhere on this
+		// branch. Nothing here parses HTML, so nothing here should look like it does.
+		assert.ok(f.fix.includes('-->'), 'the fix names the terminator to add');
+	});
+
+	test('a well-formed comment is not flagged', () => {
+		const src = '---\nmarp: true\n---\n\n# Q3\n\n<!-- Board only: 4.2M -->\n\n# Next\n';
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
+	test('the `--!>` terminator counts as closed, as it does in the parser', () => {
+		const src = '---\nmarp: true\n---\n\n# Q3\n\n<!-- Board only: 4.2M --!>\n';
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
+	test('a hanging-indent comment is NOT flagged — its terminator line is indented', () => {
+		// The rule originally ran against `withoutCodeBlocks`, which deletes every line
+		// indented four spaces or more as an indented code block — taking the terminator of
+		// an ordinary hanging-indent note with it. A well-formed comment then reported as
+		// unterminated, at ERROR severity, claiming the author's notes would ship when they
+		// asked to strip them. A false alarm about a privacy failure teaches authors to
+		// distrust the strip, which is worse than the miss it was guarding against.
+		const src = [
+			'---', 'marp: true', '---', '', '# Q3', '',
+			'<!-- Talk track:',
+			'     open with the number, then the ask.',
+			'     Keep it under two minutes. -->',
+			'',
+		].join('\n');
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
+	test('a fence whose markers OVERLAP cannot reconstitute one — the reason blanking replaced deleting', () => {
+		// Deleting a multi-character marker in one pass can rebuild it from the text either
+		// side: `<!<!----` loses the inner `<!--` and the halves close up into a fresh one, so
+		// the detector sees a marker the masking believed it had removed and reports a
+		// well-formed deck as leaking its notes. Blanking to spaces cannot do that. Reverting
+		// `blank` to a deletion previously left all 117 tests in this file green.
+		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!<!---- overlapping sample', '```', ''].join('\n');
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+
+	test('a `<!--` inside a code fence is sample text, not a comment', () => {
+		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!-- sample, deliberately unclosed', '```', ''].join('\n');
+		assert.ok(!rules(src).includes('unterminated-comment'));
+	});
+});

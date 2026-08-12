@@ -96,13 +96,21 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// `onStatus` it can call to report progress ("Rendering slide 3 of 6…"), which
 	// the row surfaces live instead of leaving the user staring at a bare spinner.
 	const run = React.useCallback(
-		async (key: string, label: string, fn: (onStatus: (m: string) => void) => Promise<void> | void) => {
+		// `fn` may resolve to a DEGRADATION reason: the export completed, but shipped
+		// something lesser than intended. Progress messages are transient — gone by the
+		// time the file lands — so a degradation reported only through `onStatus` is
+		// invisible, and this toast would say "ready." over a file the author would not
+		// have shipped knowingly. The reason goes IN the toast, which persists.
+		async (key: string, label: string, fn: (onStatus: (m: string) => void, onDegraded: (reason: string) => void) => Promise<void> | void) => {
 			if (busy) return;
 			setBusy(key);
 			setProgress(null);
+			let degraded: string | undefined;
 			try {
-				await fn(setProgress);
-				notify(`${label} ready.`);
+				await fn(setProgress, (reason) => {
+					degraded = reason;
+				});
+				notify(degraded ? `${label} ready — but ${degraded}.` : `${label} ready.`);
 			} catch (e) {
 				// Every share row funnels through here, and each one lazy-imports its exporter.
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
@@ -139,15 +147,19 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		setNarrationFailures(null);
 		bakeRef.current = new AbortController();
 		const signal = bakeRef.current.signal;
-		run('html', 'Webpage', async (onStatus) => {
+		run('html', 'Webpage', async (onStatus, onDegraded) => {
 			try {
-				await shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, choice.stripNotes, choice.scheme, {
+				const degradedReason = await shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, choice.stripNotes, choice.scheme, {
 					captions: choice.narration.captions,
 					audio: choice.narration.audio,
 					allowPartial: choice.narration.allowPartial,
 					voice: choice.narration.voice,
 					signal,
 				});
+				// The export succeeded but shipped something lesser (today: the diagram bake did
+				// not run). Hand the reason to the toast — the progress line it was announced on
+				// is already gone by the time the file lands.
+				if (degradedReason) onDegraded(degradedReason);
 			} catch (e) {
 				// A refused bake names the sentences it could not prepare. The toast can only carry
 				// a line, so the LIST goes back to the panel, where the author can read it against

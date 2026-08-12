@@ -69,6 +69,11 @@ describe('html-player export (--player)', () => {
 		let css = '';
 		for (const b of blocks) {
 			if (/lattice-embedded-fonts/.test(b[1])) continue;
+			// The dual-mode block is NOT the deck stylesheet and can be larger than it (it
+			// repeats the token body once per scheme scope). Selecting the deck CSS by size
+			// alone silently picked it up instead, and this assertion then measured the wrong
+			// block. Both non-deck blocks are excluded by id.
+			if (/lattice-dual-mode/.test(b[1])) continue;
 			if (b[2].length > css.length) css = b[2];
 		}
 		const fullMin = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.min.css'), 'utf8');
@@ -117,6 +122,50 @@ describe('html-player export — honors sketch fonts', () => {
 		const fontBlock = (html.match(/id="lattice-embedded-fonts"[^>]*>([\s\S]*?)<\/style>/) || [])[1] || '';
 		assert.match(fontBlock, /font-family:\s*['"]?Caveat/i, 'Caveat (sketch display) IS shipped for a sketch deck');
 		assert.match(fontBlock, /font-family:\s*['"]?Shantell/i, 'Shantell (sketch body) IS shipped for a sketch deck');
+	});
+});
+
+// Mermaid reaches the shipped file as a SELF-STYLED svg with native <text> labels.
+// The player sanitizes its slide DOM, and that sanitizer bars the two things a Mermaid
+// svg leans on: the `<style>` mermaid injects into it, and `<foreignObject>` — which is
+// where EVERY node/edge/cluster label lives. Unbaked, the diagram shipped as shapes and
+// arrows with no words at all, on every deck, on both export hosts. So the assertion
+// that matters is not "an svg is present" but "the label TEXT is present, and no
+// foreignObject is left for the sanitizer to take."
+describe('html-player export — Mermaid labels survive the sanitizer', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'mermaid-diagram-surface.md');
+	const TIMEOUT = 180000;
+	let doc;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-mermaid-player-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		doc = new JSDOM(fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8')).window.document;
+	}, { timeout: TIMEOUT });
+
+	test('every diagram label is native SVG text, not a stripped foreignObject', () => {
+		const svgs = [...doc.querySelectorAll('.mermaid-svg svg, .mermaid svg')];
+		assert.ok(svgs.length >= 1, 'the deck ships rendered diagram SVGs');
+		for (const svg of svgs) {
+			assert.equal(svg.querySelectorAll('foreignObject').length, 0, 'no foreignObject survives into the player');
+			assert.ok(svg.querySelectorAll('text').length > 0, 'the diagram carries <text> labels');
+		}
+		// The deck's own words, not just "some text node exists".
+		const text = svgs.map((s) => s.textContent.replace(/\s+/g, ' ')).join(' ');
+		assert.match(text, /Read the deck/, 'a node label from the deck source is readable in the shipped svg');
+		assert.match(text, /Resolve the band/);
+	});
+
+	test('the diagram is self-styled — it does not depend on the <style> the sanitizer removes', () => {
+		const svg = doc.querySelector('.mermaid-svg svg, .mermaid svg');
+		assert.equal(svg.querySelectorAll('style').length, 0, "mermaid's own <style> does not survive (it never could)");
+		const painted = [...svg.querySelectorAll('path, rect, polygon')].filter((el) => /(?:^|;)\s*(?:fill|stroke):/.test(el.getAttribute('style') || ''));
+		assert.ok(painted.length > 0, 'paint is inlined on the shapes, so losing the <style> costs nothing');
 	});
 });
 
@@ -352,5 +401,51 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 			assert.equal(vtt.includes(tok), false, `no ${tok} in the fully-stripped .vtt`);
 			assert.equal(source.includes(tok), false, `no ${tok} in the fully-stripped source`);
 		}
+	});
+});
+
+// The baked diagram must FOLLOW the player's light/dark toggle rather than freeze at its
+// export scheme. This is the only gate on `flattenSvgStyles`'s scheme handling: the function
+// is browser-only, so a unit test cannot reach it, and reverting the whole feature previously
+// left all 5995 unit tests green. It renders the real deck through the real emulator and
+// inspects the shipped bytes.
+describe('html-player export — a baked diagram follows the toggle', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'mermaid-diagram-surface.md');
+	const TIMEOUT = 180000;
+	let html;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-diagram-follow-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	}, { timeout: TIMEOUT });
+
+	test('the diagram is baked at all — labels as native text, no foreignObject', () => {
+		// The guard for everything below: if the bake silently fell back, the assertions about
+		// token emission would pass vacuously on markup that has no labels in it.
+		assert.ok((html.match(/<text/g) || []).length > 20, 'the diagram ships its labels as SVG text');
+		assert.equal((html.match(/<foreignObject/g) || []).length, 0, 'and no foreignObject survives the sanitizer');
+	});
+
+	test('scheme-varying paint rides as a TOKEN, so it re-themes with the viewer', () => {
+		// Frozen literals here are what produced connector strokes at 1.09:1 on a dark canvas
+		// (arrowheads re-themed through an !important rule, the lines did not) and container
+		// labels at 1.34:1 (ink followed, the slab under it did not).
+		assert.ok(html.includes('stroke:var(--diagram-line)'), 'connector strokes follow the scheme');
+		assert.ok(html.includes('fill:var(--c-container)'), 'container surfaces follow the scheme');
+		assert.ok(html.includes('fill:var(--c-on-container)'), 'and so does the ink sitting on them');
+	});
+
+	test('a label the author did NOT color is not marked as author-owned', () => {
+		// This deck contains no `classDef … color:` anywhere, so every `lp-own-ink` marker on it
+		// is a false positive — and a marked span opts out of re-theming permanently.
+		assert.equal(fs.readFileSync(DECK, 'utf8').includes('classDef'), false, 'guard: the deck really does set no author color');
+		const marked = (html.match(/<tspan[^>]*lp-own-ink/g) || []).length;
+		assert.equal(marked, 0, 'no label is frozen out of the theme on a deck that chose no colors');
 	});
 });

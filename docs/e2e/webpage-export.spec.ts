@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
@@ -93,4 +94,78 @@ test('the Studio webpage export carries a deck declared canvas (#1577)', async (
 	});
 	expect(box, 'the exported slide keeps the deck canvas, not the player default').toBe('1080px x 1920px');
 	await viewer.close();
+});
+
+// The PRIVACY contract, on the real artifact. "Strip speaker notes" promises the note
+// text appears nowhere in the shared file — not the DOM, and not the re-import source
+// the envelope carries.
+//
+// This exists because that promise was broken twice and nothing noticed. Baking the deck
+// through the capture frame put every slide through `sanitizeSlideHtml`, which deletes
+// comment nodes — and notes ARE comments — so the scrub derived an EMPTY set and returned
+// the source untouched. Then the first repair still leaked on the deck below, because it
+// re-derived slide boundaries with a splitter that truncates a slide holding a nested
+// `<section>` while leaving the slide COUNT correct, so a count-parity check passed it.
+//
+// Both times every gate stayed green: `npm test`, lint, typecheck and the cells above all
+// pass with the fix reverted, because none of them opens the envelope. Two properties make
+// this cell able to fail where they could not:
+//   · it reads the envelope through `parseEnvelope` — the manifest is BASE64, so a plain
+//     substring search of the file finds nothing and reports a leak as clean;
+//   · it asserts the diagram BAKED, so a silent fallback to the un-baked static render
+//     (which carries its comments and therefore strips correctly) cannot pass by accident.
+test('the Studio webpage export honors Strip speaker notes, including on a slide with nested markup', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	const SECRET = 'CONFIDENTIALBOARDFIGURE42';
+	await gotoStudio(page);
+	// Slide 1 carries the nested `<section>` that defeated the first repair; slide 2 carries
+	// a diagram, so the bake has something to prove it ran on.
+	const F = String.fromCharCode(96, 96, 96);
+	await setEditorContent(
+		page,
+		[
+			'---', 'theme: indaco', '---', '',
+			'# Cover', '',
+			'<section class="inner"><p>nested</p></section>', '',
+			'Tail copy.', '',
+			// MULTI-PARAGRAPH on purpose. One comment, two paragraphs: the strip matcher
+			// compares a comment's whole trimmed body, so any repair that re-derives the
+			// note bodies by splitting the joined note on the blank line produces fragments
+			// that match nothing — and this whole comment, secret included, ships in the
+			// envelope. A single-line note cannot catch that.
+			'<!--', 'Board only, do not share.', '', SECRET, '-->',
+			'<!-- describe: A cover slide. -->', '',
+			'---', '', '<!-- _class: diagram -->', '', '## Diagram', '',
+			`${F}mermaid`, 'flowchart LR', '  A["Bake me"] --> B["Or fail loudly"]', F, '',
+			'<!-- An ordinary note. -->', '',
+		].join('\n'),
+	);
+
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('dialog').getByRole('button', { name: /^Webpage \(\.html\)/ }).click();
+	await page.getByRole('switch', { name: 'Strip speaker notes' }).click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
+	await page.getByRole('button', { name: /Download webpage|Exporting/ }).click();
+	const file = path.join(testInfo.outputDir, 'stripped-export.html');
+	await (await downloadPromise).saveAs(file);
+
+	const html = await readFile(file, 'utf8');
+
+	// The bake ran — without this, a fallback to the static render would strip correctly
+	// and this cell would pass while the defect it guards was fully present.
+	expect(html, 'the diagram baked (so a static-render fallback cannot mask the result)').toContain('>Bake me<');
+
+	// The DOM carries no speaker text…
+	expect(html, 'no notes sheet content survives the strip').not.toContain('class="lattice-notes"');
+	// …and neither does the re-import source. `parseEnvelope` is the only way to see this:
+	// the manifest is base64, so `html.includes(SECRET)` is false either way.
+	const { parseEnvelope } = (await import('../../lib/core/lattice-doc.js')) as { parseEnvelope: (h: string) => { source?: string } };
+	const envelopeSource = parseEnvelope(html).source || '';
+	expect(envelopeSource, 'the envelope carries the deck source').toContain('# Cover');
+	expect(envelopeSource, 'the note on the nested-markup slide is scrubbed from the envelope').not.toContain(SECRET);
+	expect(envelopeSource, 'the ordinary slide is scrubbed too').not.toContain('An ordinary note.');
+	// The scrub removes notes, not the deck: a directive must survive it intact.
+	expect(envelopeSource, 'the scrub does not eat directives').toContain('_class: diagram');
+	// The accessible description is a text alternative, not private speaker copy — it stays.
+	expect(html, 'the a11y description survives a notes strip').toContain('class="lattice-description"');
 });
