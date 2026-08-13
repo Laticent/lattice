@@ -1291,6 +1291,13 @@ function preprocessMermaid(source) {
           frontMatter: fm,
           slideClass: fence.slideClass,
           paletteUsesTexture: PALETTE_USES_TEXTURE,
+          // The print band textures EVERY theme's categories (base.print-textures.css),
+          // so the look has to see it — the palette file alone cannot answer for print.
+          band: resolveDiagramBand({
+            frontMatter: fm,
+            slideClass: fence.slideClass,
+            flagPrint: WANT_PRINT,
+          }),
         }),
         scope: resolveDiagramBand({
           frontMatter: fm,

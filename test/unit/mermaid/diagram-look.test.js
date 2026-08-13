@@ -25,11 +25,18 @@ const {
   paletteUsesTextureChannel,
   deckWantsHandDrawn,
 } = require('../../../lib/core/diagram-look');
+const { MODE_REGISTER } = require('../../../lib/core/resolve-mode');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(REPO, 'themes');
 
-const fm = (body) => `---\nmarp: true\n${body}\n---\n`;
+// THE EMULATOR'S REAL SLICE. `preprocessMermaid` passes
+// `source.match(/^---\r?\n[\s\S]*?\r?\n---/)[0]`, which ENDS at the closing `---`
+// with NO trailing newline. The first cut of these tests appended one, so every
+// case exercised an input the engine never produces — and `mode: sketch` shipped
+// reaching no diagram at all, green. Both shapes are asserted below.
+const fm = (body) => `---\nmarp: true\n${body}\n---`;
+const fmNl = (body) => `${fm(body)}\n`;
 
 describe('resolveDiagramLook — rule 3, inherit the deck', () => {
   test('a plain deck bakes classic', () => {
@@ -141,5 +148,78 @@ describe('deckWantsHandDrawn', () => {
     assert.equal(deckWantsHandDrawn(fm('class: sketch')), true);
     assert.equal(deckWantsHandDrawn(fm('theme: carta')), false);
     assert.equal(deckWantsHandDrawn(''), false);
+  });
+});
+
+describe('resolveDiagramLook — the front-matter slice the emulator actually passes', () => {
+  // Regression: `readFrontMatterMode` re-extracts the fence with a pattern that
+  // requires a newline AFTER the closing `---`. Fed the emulator's slice it returned
+  // null, so a `mode:` deck fell through to the legacy `class:` fallback and
+  // `mode: sketch` never reached a diagram on the export path.
+  for (const [label, make] of [['no trailing newline (the engine slice)', fm], ['with trailing newline', fmNl]]) {
+    test(`mode: sketch resolves hand-drawn — ${label}`, () => {
+      assert.equal(resolveDiagramLook({ frontMatter: make('mode: sketch'), slideClass: 'diagram' }), 'handDrawn');
+    });
+    test(`mode: boardroom resolves classic — ${label}`, () => {
+      assert.equal(resolveDiagramLook({ frontMatter: make('mode: boardroom'), slideClass: 'diagram' }), 'classic');
+    });
+  }
+
+  test('the full deck source works too — callers pass either', () => {
+    const source = `${fmNl('mode: sketch')}\n## A slide\n`;
+    assert.equal(resolveDiagramLook({ frontMatter: source, slideClass: 'diagram' }), 'handDrawn');
+  });
+});
+
+describe('resolveDiagramLook — the PRINT band is a texture band for every theme', () => {
+  // base.print-textures.css points --cat-N-texture at the a11y set under
+  // section.print for ANY palette, so a hue-carried theme still carries its
+  // categories by pattern once it prints. Without this the hand look stripped the
+  // channel on paper, in monochrome — and split the two render paths, since the
+  // preview reads computed style and DOES see section.print.
+  test('print forces classic even on a hue-carried palette asking for sketch', () => {
+    assert.equal(
+      resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram', band: 'print' }),
+      'classic',
+    );
+  });
+
+  test('print outranks a per-slide sketch pin', () => {
+    assert.equal(
+      resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: 'diagram sketch', band: 'print' }),
+      'classic',
+    );
+  });
+
+  test('light and dark bands do not change the answer', () => {
+    for (const band of ['light', 'dark', '']) {
+      assert.equal(
+        resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram', band }),
+        'handDrawn',
+        `band ${band || '(unset)'} should not suppress the hand look`,
+      );
+    }
+  });
+
+  test('the print texture block really does cover every theme', () => {
+    // Pins the premise the rule rests on, so a refactor of base.print-textures.css
+    // that scoped it per-theme would fail HERE rather than silently on paper.
+    const css = fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.print-textures.css'), 'utf8');
+    assert.match(css, /section\.print\s*\{[^}]*--cat-1-texture\s*:/, 'section.print must declare the texture channel');
+  });
+});
+
+describe('MODE_WANTS_HAND is derived, not listed', () => {
+  test('every mode register whose classes include `sketch` resolves hand-drawn', () => {
+    // Derived from MODE_REGISTER so a new register cannot be left behind. If this
+    // fails, a mode was added whose class string says sketch but which resolves clean.
+    for (const [name, classes] of Object.entries(MODE_REGISTER)) {
+      const wantsHand = String(classes).split(/\s+/).includes('sketch');
+      assert.equal(
+        resolveDiagramLook({ frontMatter: fm(`mode: ${name}`), slideClass: 'diagram' }),
+        wantsHand ? 'handDrawn' : 'classic',
+        `mode: ${name} (classes "${classes}")`,
+      );
+    }
   });
 });
