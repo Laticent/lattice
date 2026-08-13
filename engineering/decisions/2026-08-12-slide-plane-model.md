@@ -329,7 +329,29 @@ Verified on real renders (HARD RULE #23), not inferred:
 - **Both original defects fail the new test.** Reverting the watermark to `z-index: -1`
   fails it by name; reverting `section { isolation: isolate }` to the `.form` gate fails it
   naming the sovereign `title` section.
-- Full unit suite (6,067 tests), `lint`, `build:check` and `check:ownership` green.
+- Full unit suite (6,067 tests), the 334-test integration invariants tier, `lint`,
+  `build:check` and `check:ownership` green.
+
+**The whole example corpus, A/B.** All 131 decks rendered twice — once from a worktree at
+the pre-change commit, once from this branch — and pixel-diffed page by page. **106 decks
+are byte-identical.** The 25 that moved fall into exactly three families, and every one is
+the model doing its job:
+
+| What moved | Decks | Pages | Why |
+|---|---|---|---|
+| a 1px hairline at the below-note | 17 | 35 | the export flip: a gradient that washed out in the PDF is now a solid accent bar |
+| the running header appears | 9 | 20 | it was painting *under* an opaque full-bleed child and was invisible; chrome is now above content |
+| the page number appears | 2 | 2 | the pagination pseudo had no plane, so an opaque child covered it |
+| the watermark ghost clears the finish | 1 | 1 | the originating defect, on this branch's own demo deck |
+
+(Classified mechanically from each changed page's diff bounding box, not by eye.)
+
+Two of those three are **restorations of something a deck author asked for and silently did
+not get** — `examples/kaizen-craftsmanship.md` declares a `header:` that never rendered on
+its dark split slides, and `examples/scene.md` lost its page number on the exhibit pages.
+Spot-checked at full resolution on the four largest diffs (`kaizen-craftsmanship`,
+`seven-steps-problem-to-code`, `accent-on-accent`, `gallery-jargon`): the header lands in
+the panel's empty top band in every case, well clear of the panel's own eyebrow.
 
 ## Alternatives considered
 
