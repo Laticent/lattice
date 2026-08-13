@@ -96,4 +96,4 @@ section.split-compare > .cell-stage {
  * measured per component rather than on a representative deck.
  *
  * No variant repoints `.compare-left`'s fill, so one rule covers the family. */
-section.split-compare > header { color: var(--on-dark-secondary); }
+section.split-compare :is(header, footer) { color: var(--on-dark-secondary); }

@@ -495,13 +495,21 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
  * and those percentages resolve against a DIFFERENT containing block than the header's
  * (the flex content box vs the section's padding box) — a mismatch measured at ~5% of slide
  * width, which is exactly the kind of geometry coupling that would rot. Tracked in #1640. */
-section.split-panel > header { color: var(--on-dark-secondary); }
-section.split-panel.watermark > header { color: var(--on-accent); }
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > header {
+/* FOOTER TOO, and for a different reason than the header — this one is NOT a regression
+ * from the z-index lift. Marp emits `<header>` BEFORE the component's subtree and
+ * `<footer>` AFTER it, so among positioned siblings with no stacking order the footer
+ * always won and the header always lost. Verified: the footer strip rasterizes to 26
+ * unique colors on `main` as well as here, so the footer has ALWAYS painted over the
+ * panel — carrying canvas ink at 2.76:1 on the inverse fill and 2.44–3.14:1 on the
+ * categorical tints. A pre-existing defect, fixed in place because it is the same defect,
+ * on the same surface, in the same rule (HARD RULE #18's on-path test). */
+section.split-panel :is(header, footer) { color: var(--on-dark-secondary); }
+section.split-panel.watermark :is(header, footer) { color: var(--on-accent); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) :is(header, footer) {
   color: var(--cat-on-fill);
 }
 /* Canvas-field variants keep the deck's ordinary chrome ink. Written explicitly rather
  * than left to the cascade: `.metric`/`.steps` set their own panel background, so a reader
  * checking why the header is not inverse here should find the answer at the header rule. */
-section.split-panel:is(.metric, .steps) > header,
-section.split-panel.mirror > header { color: var(--marp-slide-header-color, var(--text-muted)); }
+section.split-panel:is(.metric, .steps) :is(header, footer),
+section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
