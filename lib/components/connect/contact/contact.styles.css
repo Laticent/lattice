@@ -52,7 +52,7 @@ section.contact .qr-tick {
 section.contact .qr-ledger {
   display: flex;
   flex-direction: column;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-body-compact);
   color: var(--text-muted);
   line-height: 2.05;

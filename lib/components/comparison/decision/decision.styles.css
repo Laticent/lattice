@@ -57,7 +57,7 @@ section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --decision-a
 section.decision > .cell-stage > ul > li > strong,
 section.decision > .cell-stage > ol > li > strong {
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.12em;

@@ -633,6 +633,9 @@ const { resolvePalette } = require('./lib/core/resolve-palette');
 // through getComputedStyle, so CSS inheritance hands it the band implicitly and it
 // never resolves one. See lib/core/diagram-band.js.
 const { resolveDiagramBand } = require('./lib/core/diagram-band');
+// The look question, the band question's sibling — same inputs, same per-slide walk.
+// See lib/core/diagram-look.js for why it is decided HERE and not in CSS.
+const { resolveDiagramLook, paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
 // decides no policy.
@@ -708,6 +711,13 @@ function loadPaletteWithImports(filePath, seen = new Set(), label = null) {
 }
 
 const paletteCSS = loadPaletteWithImports(palettePath);
+// Does this deck's palette carry its categories by PATTERN rather than hue?
+// Read from the IMPORT-RESOLVED palette, so an `a11y-*` variant inherits the
+// answer from `a11y-base` — a theme allowlist here would rot the first time a
+// palette adopted the channel. Gates the hand-drawn diagram look: the texture
+// IS the redundant encoding, and it cannot survive rough.js's stroked hachure
+// (lib/core/diagram-look.js rule 1).
+const PALETTE_USES_TEXTURE = paletteUsesTextureChannel(paletteCSS);
 const layoutCSS  = loadPaletteWithImports(cssFile, new Set(), 'layout CSS');
 const css = paletteCSS + '\n' + layoutCSS;
 
@@ -1045,7 +1055,7 @@ function mermaidKindLabel(definition) {
   return 'Diagram';
 }
 
-function renderMermaidOne(definition, themeVars, extraClass) {
+function renderMermaidOne(definition, themeVars, extraClass, look) {
   // Prepend the Mermaid init block if not already present.
   // JetBrains Mono is bundled by the lattice.css font import and is the
   // safe default for diagrams: predictable character widths, no measurement
@@ -1063,7 +1073,7 @@ function renderMermaidOne(definition, themeVars, extraClass) {
   // lib/integrations/mermaid/init-directive.js. An author directive no longer
   // costs the palette: unless it pins a Mermaid `theme:`, the engine directive
   // goes in ahead of it and mermaid merges the author's keys on top (#1311).
-  const themed = withEngineInit(definition, engineInitConfig(themeVars));
+  const themed = withEngineInit(definition, engineInitConfig(themeVars, { look }));
 
   const tmpDir    = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-'));
   const inFile    = path.join(tmpDir, 'diagram.mmd');
@@ -1189,8 +1199,8 @@ function renderMermaidOne(definition, themeVars, extraClass) {
 // Author-supplied %%{init}%% diagrams keep their own theming.
 // LATTICE_MERMAID_SINGLE=1 forces the light bake everywhere (fallback to the
 // CSS-override path).
-function renderMermaid(definition, mode) {
-  return renderMermaidOne(definition, themeVarsForBand(mode), null);
+function renderMermaid(definition, mode, look) {
+  return renderMermaidOne(definition, themeVarsForBand(mode), null, look);
 }
 
 // ── Pre-process markdown: render mermaid blocks before slide splitting ────────
@@ -1222,6 +1232,13 @@ const MERMAID_REBAKE_DEFS = [];
 // run-once CLI is ever reused for multiple decks in one process, or a look re-render would read a
 // stale bake mode for the wrong deck's diagram.
 const MERMAID_REBAKE_MODES = [];
+// The LOOK each diagram was baked with (index-aligned with the two arrays above),
+// so a cross-scheme image-set re-bake reproduces the slide's own node renderer.
+// Without it a `mode: sketch` deck's re-baked diagrams would come back CLASSIC
+// while every un-re-baked one stayed hand-drawn — the look version of the
+// scheme mismatch MERMAID_REBAKE_MODES exists to prevent. SINGLE-SHOT and reset
+// together with them.
+const MERMAID_REBAKE_LOOKS = [];
 
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
@@ -1267,6 +1284,21 @@ function preprocessMermaid(source) {
     let slide = bySlide.get(fence.slideIndex);
     if (!slide) {
       slide = {
+        // The look rides beside the band on the slide entry: both are per-SLIDE
+        // answers read from the same two inputs, so resolving them together is
+        // what keeps them from drifting apart the way band and chip did.
+        look: resolveDiagramLook({
+          frontMatter: fm,
+          slideClass: fence.slideClass,
+          paletteUsesTexture: PALETTE_USES_TEXTURE,
+          // The print band textures EVERY theme's categories (base.print-textures.css),
+          // so the look has to see it — the palette file alone cannot answer for print.
+          band: resolveDiagramBand({
+            frontMatter: fm,
+            slideClass: fence.slideClass,
+            flagPrint: WANT_PRINT,
+          }),
+        }),
         scope: resolveDiagramBand({
           frontMatter: fm,
           slideClass: fence.slideClass,
@@ -1292,7 +1324,8 @@ function preprocessMermaid(source) {
       // image-set look re-bake can tell whether THIS diagram needs re-rendering.
       const idx = MERMAID_REBAKE_DEFS.push(fence.source) - 1;
       MERMAID_REBAKE_MODES[idx] = meta.scope;
-      const svg = renderMermaidOne(fence.source, themeVars, null);
+      MERMAID_REBAKE_LOOKS[idx] = meta.look;
+      const svg = renderMermaidOne(fence.source, themeVars, null, meta.look);
       if (!QUIET) console.log(' done');
       // Stamp the def index so a cross-scheme image-set export can find + re-bake
       // this exact diagram.
@@ -2989,7 +3022,18 @@ async function renderBody(browser, g, closeBrowser) {
               const explicitColor = /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
               // print → the print theme vars (themeVarsForBand('print'), scheme-independent); light/dark
               // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.
-              const out = lookMode === 'print' ? renderMermaid(def, 'print') : renderMermaidOne(def, lookThemeVars, null);
+              // The LOOK is the slide's own, so a sketch deck's re-baked diagrams stay
+              // hand-drawn like the ones that were not re-baked — EXCEPT into print,
+              // which is a texture band for every theme (base.print-textures.css). The
+              // hand look has no texture channel, so re-baking a sketch diagram onto a
+              // print canvas would strip the redundant encoding exactly the way rule 1
+              // of resolveDiagramLook exists to prevent — and the scratch document this
+              // lands in really is `section.print` (sectionLookClass below). Same rule,
+              // enforced at the second place a diagram can be baked.
+              const bakeLook = lookMode === 'print' ? 'classic' : MERMAID_REBAKE_LOOKS[idx];
+              const out = lookMode === 'print'
+                ? renderMermaid(def, 'print', bakeLook)
+                : renderMermaidOne(def, lookThemeVars, null, bakeLook);
               // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting
               // its retries — keep the ORIGINAL live diagram (still an <svg>) below, but flag it distinctly:
               // it's still in the slide scheme, unlike the benign author-color case.

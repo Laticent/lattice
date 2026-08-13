@@ -114,7 +114,7 @@
 }
 :is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 :is(section.roadmap, figure.roadmap) thead th {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   letter-spacing:0.10em;
@@ -204,7 +204,7 @@
 :is(section.roadmap, figure.roadmap) td:empty::before {
   content:'—';
   color:var(--text-muted);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
 }
 /* The intro paragraph and any trailing caption are lifted by the chart-frame
  * wrap into .chart-subtitle / .chart-caption (styled in chart-family.css), so
@@ -348,7 +348,7 @@
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-label {
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   letter-spacing:0.10em;
@@ -479,7 +479,7 @@
   z-index:1;
 }
 :is(section.roadmap, figure.roadmap).horizons .horizon-eyebrow {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.14em;
@@ -511,7 +511,7 @@
   border-left:2px solid color-mix(in srgb, var(--phase-accent, var(--accent)) 40%, var(--border));
 }
 :is(section.roadmap, figure.roadmap).horizons .row-label {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   letter-spacing:0.08em;
@@ -525,7 +525,7 @@
 }
 :is(section.roadmap, figure.roadmap).horizons .row-text.row-empty {
   color:var(--text-muted);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
 }
 
 /* ── NON-LANDSCAPE legend ─────────────────────────────────────────────────────
@@ -754,7 +754,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
 :is(section.roadmap, figure.roadmap).swimlane tbody td:empty::after {
   content:'—';
   color:var(--text-muted);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
 }
 /* Swimlane thead keeps the categorical column tab from the base rule;
    it carries the column identity that the lane-band rows reinforce. */

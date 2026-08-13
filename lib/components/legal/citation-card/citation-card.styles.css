@@ -34,15 +34,18 @@ section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:v
 /* Hanging citation eyebrow — leading paragraph that is just a `<code>`. */
 section.citation-card > .cell-stage > p:has(> code:only-child) {
   margin:0;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   letter-spacing:0.04em;
   color:var(--accent);
 }
+/* font-family:inherit — see the note in redline.styles.css: the eyebrow font is named
+ * on the parent `<p>`, but `section code` fonts this `<code>` in --font-mono, so the
+ * citation eyebrow never wore the label voice. Only visible under `sketch`. */
 section.citation-card > .cell-stage > p:has(> code:only-child) > code {
   background:none; border:none; padding:0;
-  color:inherit; font-size:inherit;
+  color:inherit; font-size:inherit; font-family:inherit;
 }
 /* Verbatim quote — blockquote, serif italic, accent rule. */
 section.citation-card > .cell-stage > blockquote {
@@ -85,7 +88,7 @@ section.citation-card > .cell-stage > :is(ul, ol) > li:has(> strong:first-child)
 }
 section.citation-card > .cell-stage > :is(ul, ol) > li > strong:first-child {
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.16em;

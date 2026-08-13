@@ -118,7 +118,7 @@ describe('node padding — one constant, both render paths', () => {
     // configs — but the composition is the thing to pin here.
     const src = readCode(path.join('lib', 'runtime', 'index.js'));
     assert.match(src, /engineInitConfig\s*\}\s*=\s*require\(/, 'the runtime must import the shared config builder');
-    assert.match(src, /const shared = engineInitConfig\(themeVars\);/, 'and compose its config from it');
+    assert.match(src, /const shared = engineInitConfig\(themeVars[^)]*\);/, 'and compose its config from it');
     assert.equal(/padding:\s*15\b/.test(src), false, 'the old divergent literal must be gone');
     assert.equal(/padding:\s*DIAGRAM_NODE_PADDING/.test(src), false,
       're-stating the padding beside the shared config is the second copy this exists to prevent');

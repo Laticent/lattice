@@ -527,7 +527,7 @@ section.chart-frame .chart-eyebrow > code {
   border: none;
   padding: 0;
   color: var(--text-label);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -900,7 +900,7 @@ section.chart-frame .chart-caption {
    * which is the point; it moved WITH the chart, not away from it. */
   padding-block: var(--sp-sm);
   text-align: var(--headline-align, center);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -1014,9 +1014,14 @@ section.chart-frame .chart-status[data-s="deferred"] {
  *   • labels/heads route through --font-label (the "label voice") so
  *     section.sketch's token re-point reskins them in the hand sans — a literal
  *     face here would silently break the sketch finish on charts.
- *   • values stay --font-mono + tabular for column alignment (mono is
- *     deliberately NOT re-pointed under sketch).
- * See engineering/decisions/2026-06-13-svg-native-legend.md §4(b). */
+ *   • values ALSO route through --font-label. They used to pin --font-mono for
+ *     column alignment, which left a machine numeral beside a hand label on
+ *     every sketch chart. The alignment does not depend on the face: it comes
+ *     from `font-variant-numeric: tabular-nums` below, and Shantell Sans ships
+ *     the `tnum` feature (verified against assets/fonts/shantell-400.woff2), so
+ *     the columns stay locked in both voices.
+ * See engineering/decisions/2026-06-13-svg-native-legend.md §4(b) and
+ * engineering/decisions/2026-08-12-sketch-label-voice.md. */
 /* Legend text lives INSIDE the svg (svg-legend.js), so Read·Article re-hosts it
  * with the chart; the `figure.chart-frame` arm keeps the label/value ink themed
  * there (black `--text-body` fallback would vanish on a dark canvas). */
@@ -1030,7 +1035,7 @@ section.chart-frame .chart-status[data-s="deferred"] {
   font-weight: 600;
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-value {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   fill: var(--text-heading);
   font-weight: 600;
   font-variant-numeric: tabular-nums;

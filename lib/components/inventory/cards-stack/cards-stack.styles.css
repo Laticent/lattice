@@ -98,7 +98,7 @@ section.cards-stack > .cell-stage > ol > li::before {
   content:counter(stack);
   position:absolute; top:0; left:0;
   padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700; line-height:1;
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
   color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
 }
 section.cards-stack .cards-stack-inner--ordered { counter-reset:stack; }
@@ -110,7 +110,7 @@ section.cards-stack .cards-stack-inner--ordered > .card::before {
   content:counter(stack);
   position:absolute; top:0; left:0;
   padding:0.46875cqi 1.09375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0;
-  font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700; line-height:1;
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
   color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
 }
 

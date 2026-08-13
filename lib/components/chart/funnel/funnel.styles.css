@@ -68,7 +68,7 @@
 /* Conversion rate — small, muted, centred in the gap below each band. */
 :is(section.funnel, figure.chart-frame) .funnel-conv {
   fill: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 6.5px;
   text-anchor: middle;
   dominant-baseline: central;

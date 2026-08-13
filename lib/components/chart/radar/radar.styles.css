@@ -118,7 +118,7 @@
 }
 :is(section.radar, figure.chart-frame) .radar-tick {
   fill: var(--text-muted);
-  font-family: var(--font-mono, var(--font-body));
+  font-family: var(--font-label, var(--font-body));
   font-size: var(--radar-tick-size);
   /* font-weight raised to 600 (matching the cover-variant lift) so faint
    * sub-token-size ticks have enough stroke weight to be legible. */

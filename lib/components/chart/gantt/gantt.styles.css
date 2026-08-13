@@ -64,6 +64,13 @@
 /* ── Axis ─────────────────────────────────────────────────────────────────── */
 :is(section.gantt, figure.gantt) .gantt-tick {
   fill: var(--text-label);
+  /* --font-mono, NOT the label voice: this tick's wrap budget and collision cull
+   * come from the static ADVANCE_MONO_TRACKED constant (0.75) in
+   * _chart-family/svg-label.js, measured for mono + 0.12em tracking. A static
+   * advance cannot describe two faces, and the hand sans runs past it on ordinary
+   * uppercase ticks (`MMM` measures ~1.15), so moving this to --font-label would
+   * silently retire the wrapper's break-early guarantee. Sanctioned in
+   * checkLabelVoiceFont; see 2026-08-13-sketch-mermaid-hand-drawn.md. */
   font-family: var(--font-mono);
   font-weight: 600;
   letter-spacing: 0.12em;

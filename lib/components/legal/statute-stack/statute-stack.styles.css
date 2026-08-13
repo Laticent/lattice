@@ -85,7 +85,7 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-a
 section.statute-stack > .cell-stage > ul > li > strong:first-child,
 section.statute-stack > .cell-stage > ol > li > strong:first-child {
   display:flex; align-items:baseline; gap:var(--sp-sm);
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.16em;
@@ -155,7 +155,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li::marker { conte
 section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code,
 section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
   display:block;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
   color:var(--text-heading);
@@ -288,7 +288,7 @@ section.statute-stack.lane table {
 }
 section.statute-stack.lane thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.statute-stack.lane thead th {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.10em;
@@ -305,7 +305,7 @@ section.statute-stack.lane td {
   line-height:var(--lh-snug);
 }
 section.statute-stack.lane td:first-child {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.10em;
@@ -314,7 +314,7 @@ section.statute-stack.lane td:first-child {
   white-space:nowrap;
 }
 section.statute-stack.lane td:nth-child(2) {
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   color:var(--text-heading);
   white-space:nowrap;
@@ -328,7 +328,7 @@ section.statute-stack.lane tbody tr > td:first-child {
 }
 section.statute-stack.lane td:last-child {
   text-align:right;
-  font-family:var(--font-mono);
+  font-family:var(--font-label);
   font-size:var(--fs-meta);
   letter-spacing:0.04em;
   color:var(--text-secondary);

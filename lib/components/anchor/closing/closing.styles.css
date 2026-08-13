@@ -53,7 +53,7 @@ section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message)
  * dead `normal`. */
 section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:wrap; }
 section.closing h2 + p:has(> code:only-child) > code {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-style: normal;
   font-weight: 600;
@@ -138,7 +138,7 @@ section.closing :is(ul,ol) li {
  * a mono meta-chip so it reads as a reference key. */
 section.closing.index :is(ul,ol) { gap:var(--sp-xs); padding-top:var(--sp-lg); }
 section.closing.index :is(ul,ol) li code {
-  font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:600;
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
 }
 
 

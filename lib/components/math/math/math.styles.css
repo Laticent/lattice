@@ -87,7 +87,7 @@ section.math > :not(h2):not(h3):not(header):not(footer) {
   grid-row: 3;
 }
 section.math h3 {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.22em;
@@ -217,7 +217,7 @@ section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):no
 section.math.feature > :is(ul, ol)::before {
   content: 'where';
   display: block;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -366,7 +366,7 @@ section.math.theorem blockquote p + p {
   padding-top: var(--sp-xs);
 }
 section.math.theorem blockquote strong:first-child {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -766,7 +766,7 @@ section.math.stats > blockquote {
   text-align: center;
   font-style: normal;
   color: var(--text-secondary);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.12em;
 }

@@ -264,7 +264,7 @@ section.form.silent > .cell-footer > footer {
 /* The page number as a real element — mono, --fs-meta, vertically centred with the
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--marp-slide-footer-color, var(--text-muted));
   white-space: nowrap;

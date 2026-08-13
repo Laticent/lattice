@@ -11,7 +11,7 @@
 section.split-compare { padding:0; flex-direction:row; }
 section.split-compare .compare-left { width:30%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:center; padding:var(--sp-xl) var(--sp-lg); position:relative; }
 section.split-compare .compare-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
-section.split-compare .compare-left .frame-label { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-sm); }
+section.split-compare .compare-left .frame-label { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-sm); }
 section.split-compare .compare-left h2 { font-size:var(--fs-h3); color:var(--on-dark-primary); font-weight:800; line-height:var(--lh-tight); margin:0; padding-bottom:var(--sp-md); }
 section.split-compare .compare-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--on-dark-secondary); line-height:var(--lh-snug); margin:0; }
 /* Bottom padding clears the footer / pagination chrome (section::after sits at
@@ -22,7 +22,7 @@ section.split-compare .compare-left p { font-size:var(--fs-body); font-family:va
 section.split-compare .compare-right { flex:1; min-height:0; overflow:clip; background:var(--bg); display:flex; flex-direction:column; padding:var(--sp-lg) var(--sp-xl) var(--sp-xl) var(--sp-lg); gap:var(--sp-sm); }
 section.split-compare .options { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-sm); flex:1; }
 section.split-compare .option { background:var(--bg-alt); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-sm); border:1px solid var(--border); position:relative; }
-section.split-compare .option > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.12em; color:var(--text-secondary); font-weight:700; padding-bottom:var(--sp-xs); border-bottom:2px solid var(--border); margin:0; }
+section.split-compare .option > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.12em; color:var(--text-secondary); font-weight:700; padding-bottom:var(--sp-xs); border-bottom:2px solid var(--border); margin:0; }
 section.split-compare .option.preferred > strong { color:var(--accent); border-color:var(--accent); }
 section.split-compare .option.preferred::after { content:'✧'; position:absolute; top:var(--sp-sm); right:var(--sp-sm); font-size:var(--fs-meta); color:var(--accent); line-height:1; pointer-events:none; }
 section.split-compare .option ul { list-style:disc; padding:0 0 0 var(--sp-md); margin:0; }
@@ -36,7 +36,7 @@ section.split-compare .option ol > li:last-child { padding-bottom:0; }
  * mirroring the ordered-list corner tags in cards-grid. The tag is the
  * eye-catcher; the recommendation reads as normal body inside the card. */
 section.split-compare .verdict { background:var(--accent-soft); border:1px solid var(--on-accent-soft); border-radius:var(--radius-md); padding:calc(var(--sp-xs) + 1.5625cqi) var(--sp-md) var(--sp-sm); position:relative; overflow:hidden; flex-shrink:0; }
-section.split-compare .verdict::before { content:var(--insight-label, 'RECOMMENDATION'); position:absolute; top:0; left:0; padding:0.3125cqi 0.9375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0; font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700; text-transform:uppercase; letter-spacing:0.12em; line-height:1; color:var(--on-accent); background:var(--accent); }
+section.split-compare .verdict::before { content:var(--insight-label, 'RECOMMENDATION'); position:absolute; top:0; left:0; padding:0.3125cqi 0.9375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0; font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; text-transform:uppercase; letter-spacing:0.12em; line-height:1; color:var(--on-accent); background:var(--accent); }
 section.split-compare .verdict blockquote { margin:0; padding:0; border:none; }
 section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); font-weight:400; line-height:var(--lh-snug); margin:0; }
 

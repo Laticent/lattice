@@ -44,6 +44,10 @@ const {
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
+  checkLabelVoiceFont,
+  LABEL_VOICE_MONO_BUDGET,
+  SANCTIONED_MONO_FONTS,
+  monoFontFamilies,
   checkFinishChromeExclusions,
   parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
@@ -251,6 +255,60 @@ describe('check-ownership', () => {
       const errors = [];
       checkMarginDiscipline(errors);
       assert.deepEqual(errors, [], `unsanctioned margin(s) or a stale sanction:\n${errors.join('\n')}`);
+    });
+
+    test('monoFontFamilies finds the declaration AND the selector it sits under', () => {
+      // The selector is what makes a sanction specific; without it the gate can only
+      // count, and a file can swap a blessed rule for an unblessed one for free.
+      const got = monoFontFamilies('.a code { font-family: var(--font-mono); }');
+      assert.equal(got.length, 1);
+      assert.match(got[0].selector, /\.a code/);
+      // a fallback reference is still a reference
+      assert.equal(monoFontFamilies('.b { font-family: var(--x, var(--font-mono)); }').length, 1);
+      // the label voice is not an offence
+      assert.deepEqual(monoFontFamilies('.c { font-family: var(--font-label); }'), []);
+      // !important is stripped from the value, not treated as a different declaration
+      assert.equal(monoFontFamilies('.d { font-family: var(--font-mono) !important; }').length, 1);
+    });
+
+    test('the live engine CSS has zero unsanctioned --font-mono label sites', () => {
+      const errors = [];
+      checkLabelVoiceFont(errors);
+      assert.deepEqual(errors, [], `unsanctioned --font-mono or a stale sanction:\n${errors.join('\n')}`);
+    });
+
+    test('the label-voice gate is budget-0 + a selector-keyed allowlist', () => {
+      assert.equal(LABEL_VOICE_MONO_BUDGET, 0);
+      for (const s of SANCTIONED_MONO_FONTS) {
+        assert.ok(s.file && s.count && s.why, 'every sanction names a file, count, and reason');
+        assert.ok(
+          typeof s.selector === 'string' && s.selector.length > 0,
+          `sanction for ${s.file} must name the selector it blesses — a bare count cannot say WHICH `
+          + 'declaration is sanctioned, which is what lets a file swap one for another',
+        );
+      }
+    });
+
+    test('a sanction cannot be satisfied by a DIFFERENT rule in the same file', () => {
+      // The hole a count-only allowlist leaves open, asserted directly: same file, same
+      // number of declarations, different selector. Must fail in BOTH directions —
+      // the moved rule is unsanctioned, and the sanction that no longer matches is stale.
+      const sanction = SANCTIONED_MONO_FONTS[0];
+      const errors = [];
+      const offences = [
+        { file: sanction.file, value: 'var(--font-mono)', selector: '.a-rule-nobody-sanctioned' },
+      ];
+      // Re-run the consumption logic the gate uses, on a synthetic offence set.
+      const remaining = [...offences];
+      let consumed = 0;
+      for (let i = remaining.length - 1; i >= 0 && consumed < sanction.count; i--) {
+        if (remaining[i].file !== sanction.file) continue;
+        if (sanction.selector && !remaining[i].selector.includes(sanction.selector)) continue;
+        remaining.splice(i, 1); consumed++;
+      }
+      assert.equal(consumed, 0, 'a differently-selected rule must not consume the sanction');
+      assert.equal(remaining.length, 1, 'and it stays an unsanctioned offence');
+      assert.deepEqual(errors, []);
     });
 
     test('the margin gate is layout-budget-0 + a small enumerated allowlist', () => {

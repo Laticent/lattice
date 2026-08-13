@@ -89,7 +89,7 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li::before {
   position: absolute;
   left: var(--sp-xs);
   top: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--qa-index);
   font-weight: 600;
   line-height: var(--lh-snug);

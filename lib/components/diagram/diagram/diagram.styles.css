@@ -119,7 +119,7 @@ section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rend
    than those. A gap cannot be asymmetric, so expressing it as one would move two
    seams to fix a third. It is not an outer inset — it adds nothing on the inline
    axis and nothing at the stage edge — so it is outside what the rule governs. */
-section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
+section.diagram .diagram-caption { font-family:var(--font-label); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the blockquote to fit-content; align-self:stretch

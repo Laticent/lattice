@@ -135,7 +135,7 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol)::after {
   left: 50%;
   top: calc(50% + 1.6em);
   transform: translateX(-50%);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -195,7 +195,7 @@ section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > str
   border-radius: var(--radius-md) 0 var(--radius-sm) 0;
   background: var(--accent);
   color: var(--on-accent, var(--on-dark-primary));
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -269,7 +269,7 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
   border-radius: 0;
   background: var(--accent);
   color: var(--on-accent, var(--on-dark-primary));
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 700;
   letter-spacing: 0.08em;
