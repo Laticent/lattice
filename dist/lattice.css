@@ -1045,18 +1045,27 @@
  * 0–4 map onto the first five tokens below unchanged; `mark` and `alarm` name the two
  * tiers that had grown unnamed above them.
  *
- * SPACED BY TEN, on purpose. A sub-plane can be inserted between two of these without
- * renumbering anything, and at slide scale any value that is not a multiple of ten
- * reads as a mistake on sight.
+ * THE DECORATIVE PLANES SINK; THE CHROME PLANES RISE. Canvas and atmosphere are
+ * NEGATIVE, which is what makes the whole scale cheap: a negative-z child paints at step
+ * 3 of the painting algorithm — after the section's own background, before every in-flow
+ * descendant — so content sits above them WITHOUT declaring anything at all. Nothing has
+ * to be pushed out of the way, no rule reaches across a section's children, and the
+ * elements that carry no plane token (the stage, the author's markup) keep the stacking
+ * behavior they have always had.
  *
- * THE LOCAL BAND IS 0–9, AND IT IS PART OF THE MODEL. The dividing line is whether an
- * element can be a DIRECT CHILD of `section`:
+ * That last part is not just tidiness. An earlier cut of this scale ran canvas at 0 and
+ * lifted content to 20 via a blanket `section > *`, which made `.cell-stage` a stacking
+ * context — and Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline
+ * inside it at ~22% coverage, turning a solid accent rule into a barely-visible tint.
+ * Identical on screen, 3,596 differing pixels in the PDF. Sinking the canvas needs no
+ * such context and the hairline is untouched. Do not "simplify" these back to positive.
  *
- *   · it can  → it sits on a slide plane, and says so with a token.
- *   · it can't (it always renders inside an occupant — a component's internals, a
- *     `.lat-focus` row inside the stage) → it uses the local band 0–9 and nothing else.
- *     Its root isolates, so the whole subtree already rides its owner's plane as a
- *     unit; a plane token used down there would be a promise the isolation breaks.
+ * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
+ * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
+ * counter over a fill) use 0–9 and nothing else; they sit above atmosphere and below
+ * chrome by construction, so no isolation is needed to keep them honest. The dividing
+ * line is whether an element can be a DIRECT CHILD of `section`: if it can, it names a
+ * plane with a token; if it can't, it stays in the band.
  *
  * Both halves are gated by `checkZPlanes` (tools/check-ownership.js, via build:check).
  *
@@ -1066,14 +1075,13 @@
  * not, so a `title` slide's z values escaped to the page root and were ordered against
  * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
 :root, section {
-  --z-canvas:        0;  /* the sheet: section background, .lattice-bg photo panel,
-                          * .image-scrim, the finish .backdrop field */
-  --z-atmosphere:   10;  /* decorative depth BEHIND the words: the watermark ghost,
-                          * oversized ghost numerals, pale quote glyphs */
-  --z-content:      20;  /* the stage, and everything the author wrote. Also the
-                          * DEFAULT plane: `section > *` (base.elements.css) puts an
-                          * unnamed direct child here, so a new one lands somewhere
-                          * safe instead of wherever the painting algorithm drops it */
+  --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
+                          * panel — everything that IS the surface being printed on */
+  --z-atmosphere:   -1;  /* decoration BEHIND the words: the watermark ghost, oversized
+                          * ghost numerals, a photo scrim, pale quote glyphs */
+  --z-content:       0;  /* the words. Note this is the SAME NUMBER an unstyled element
+                          * effectively paints at, which is the point — content is the
+                          * natural resting plane and needs no help to get there */
   --z-chrome:       30;  /* header, footer, pagination, logo, meta, status, kicker,
                           * title, the progress rail */
   --z-mark:         40;  /* stamped ONTO the delivered slide: status stamps
@@ -1344,29 +1352,18 @@ section {
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
 
-/* ── CONTENT is the DEFAULT plane for anything on a slide ─────────────────────
- * Named things opt OUT (a `.backdrop` to canvas, a `header` to chrome, an alarm tab
- * to alarm); everything else lands on content. Deliberately the weakest selector in
- * the engine — (0,0,1) — so every one of those opt-outs wins without a fight, and a
- * direct child nobody has thought about yet still lands somewhere sane.
+/* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the
+ * natural resting plane: the decorative planes are NEGATIVE (base.tokens.css § depth
+ * axis), so they paint at step 3 of the painting algorithm, before every in-flow
+ * descendant, and the author's markup floats above them without declaring anything.
  *
- * IT MUST BE EXPLICIT, and the reason is a corner of the painting algorithm worth
- * knowing. A `section` is `display: flex`, so its children are flex items, and a flex
- * item at `z-index: auto` paints with the INLINE-LEVEL content (step 7) — while a
- * positioned element at `z-index: 0` paints with the POSITIONED descendants (step 8),
- * which is later. So an absolutely-positioned `z-index: 0` backdrop covers content
- * that carries no z-index at all. That is the whole reason base.finish.css used to
- * sweep `z-index: 2` onto every non-backdrop child; naming the plane replaces the
- * sweep, and it applies whether or not the deck uses a finish.
- *
- * The flex context is also what keeps this cheap: a flex item honors `z-index`
- * WITHOUT being positioned (CSS Flexbox §5.4), so nothing here has to touch
- * `position`. That distinction is the exact trap 2026-08-04-finish-stacking-displaces-
- * frame-chrome.md was written about — `position: relative` added as the mechanism for
- * a z-index re-based `top`/`left` onto the flow position and dragged out-of-flow chrome
- * into flow. No plane rule in this engine sets `position`.
+ * A blanket rule was written first and removed. It worked, and it cost more than it was
+ * worth: giving every direct child a z-index made `.cell-stage` a stacking context, and
+ * Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline inside it at ~22%
+ * coverage — a solid accent rule reduced to a barely-visible tint, identical on screen
+ * and 3,596 differing pixels in the PDF. The fewer stacking contexts this engine creates
+ * between a mark and the page, the fewer of those there are to find.
  * engineering/decisions/2026-08-12-slide-plane-model.md. */
-section > * { z-index: var(--z-content); }
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
@@ -1625,6 +1622,14 @@ section footer > p {
    !important needed — confirmed by the marp-cli pixel probe (file header). */
 section::after {
   position: absolute;
+  /* CHROME plane. The page number is frame chrome and belongs above the body, but it is a
+   * PSEUDO-element, so `section > *` (base.elements.css) cannot reach it and it sat at
+   * `z-index: auto` — ordered against the slide's children by accident of the painting
+   * algorithm rather than by intent. That accident went both ways in the same corpus: on
+   * `scene` the number VANISHED behind the exhibit panel, and on `split-panel` a number
+   * that had always been hidden APPEARED. Naming the plane settles it in one place.
+   * base.tokens.css § depth axis. */
+  z-index: var(--z-chrome);
   bottom: var(--frame-inset-y);
   right: var(--frame-inset-x);
   padding: 0;
@@ -3716,6 +3721,31 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
  * absolute) is a separator, not text, so it stays full-bleed. */
 .below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
+
+/* ── EXPORT-SAFE FLIP for the below-note hairline ────────────────────────────────
+ * On screen the rule is an accent gradient fading to nothing. In an EXPORT it is a
+ * solid accent bar covering the same leading stretch, because a gradient IMAGE does
+ * not survive Chromium's print path here: once a slide carries a few stacking
+ * contexts (a running header and a deck logo are enough), the gradient fill is
+ * composited down to roughly 22% of its intended strength and a crisp accent rule
+ * lands in the PDF as a barely-visible tint. Measured on examples/marker-corner.md:
+ * pixel-identical on screen, 3,596 differing pixels in the exported PDF.
+ *
+ * The height is NOT the variable — an 8px-tall gradient washes exactly as badly as a
+ * 1px one — and neither is alpha: an opaque `accent → bg` gradient washes too, and so
+ * does a hard-stop one. What survives is a SOLID fill, which the exporter emits as a
+ * vector rather than a rasterized image. Verified by rendering each candidate.
+ *
+ * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
+ * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
+ * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
+ * no print media). engineering/decisions/2026-08-12-slide-plane-model.md. */
+@media print {
+  .below-note::before { background: var(--accent); right: 62%; }
+}
+:where(.lattice-exporting) .below-note::before,
+.lattice-exporting .below-note::before { background: var(--accent); right: 62%; }
+
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
@@ -18674,6 +18704,73 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
   background:linear-gradient(to right, var(--accent), transparent);
 }
 
+/* ── EXPORT-SAFE FLIP for the below-note hairline ────────────────────────────────
+ * On screen the rule is an accent gradient fading to nothing. In an EXPORT it is a
+ * solid accent bar covering the same leading stretch, because a gradient IMAGE does
+ * not survive Chromium's print path here: once a slide carries a few stacking
+ * contexts (a running header and a deck logo are enough), the gradient fill is
+ * composited down to roughly 22% of its intended strength and a crisp accent rule
+ * lands in the PDF as a barely-visible tint. Measured on examples/marker-corner.md:
+ * pixel-identical on screen, 3,596 differing pixels in the exported PDF.
+ *
+ * The height is NOT the variable — an 8px-tall gradient washes exactly as badly as a
+ * 1px one — and neither is alpha: an opaque `accent → bg` gradient washes too, and so
+ * does a hard-stop one. What survives is a SOLID fill, which the exporter emits as a
+ * vector rather than a rasterized image. Verified by rendering each candidate.
+ *
+ * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
+ * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
+ * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
+ * no print media). engineering/decisions/2026-08-12-slide-plane-model.md. */
+@media print {
+  section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
+}
+:where(.lattice-exporting) section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+.lattice-exporting section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
+
+
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
  * A trailing paragraph whose only child is an <em> renders as a quiet
@@ -24863,26 +24960,23 @@ section.form:has(> .cell-stage) {
  * A component that wants a different body rhythm sets its own `gap` on its
  * `> .cell-stage` rule (most already do). */
 section.form > .cell-stage {
-  /* CONTENT plane — the Cell's declared `"z": 2` (stage.cell.json). This is also the
-   * `section > *` default, so the declaration is not load-bearing for the render; it is
-   * load-bearing for the §4.3 manifest↔CSS plane check, which reads the token. */
-  z-index: var(--z-content);
   flex: 1 1 auto;
   min-height: 0;
   overflow: clip;
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
-  /* The stage is an OCCUPANT ROOT: a component's internal z-index values are local
-   * to it (the 0–9 band, base.tokens.css § depth axis) and must never be ordered
-   * against the slide's planes. Unconditional, and that word is the whole point —
-   * the stage USED to become a stacking context only by accident, when a deck
-   * happened to set a finish and `section.finish > *:not(.backdrop)` handed it a
-   * `z-index`. Measured, before this rule: the same `content` slide gave
-   * `.cell-stage` no stacking context with `finish` off and one with it on, so a
-   * deck-wide cosmetic setting silently decided what a component's `z-index: 3`
-   * competed with. engineering/decisions/2026-08-12-slide-plane-model.md. */
-  isolation: isolate;
+  /* THE STAGE IS DELIBERATELY NOT A STACKING CONTEXT — no `z-index`, no `isolation`.
+   * A component's internals stay in the local 0–9 band, which sits between
+   * `--z-atmosphere` (-1) and `--z-chrome` (30) by construction, so they are already
+   * ordered correctly against the slide's planes without one.
+   *
+   * Both were tried here and removed. Either makes the stage a stacking context, and
+   * Chromium's print-to-PDF then rasterizes a 1px `.below-note` hairline inside it at
+   * ~22% coverage — a solid accent rule reduced to a barely-visible tint, with the two
+   * renders pixel-identical on SCREEN and 3,596 pixels apart in the PDF. Isolating a
+   * container that wraps the author's whole composition is not free on the print path.
+   * engineering/decisions/2026-08-12-slide-plane-model.md. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

@@ -143,26 +143,23 @@ section.form:has(> .cell-stage) {
  * A component that wants a different body rhythm sets its own `gap` on its
  * `> .cell-stage` rule (most already do). */
 section.form > .cell-stage {
-  /* CONTENT plane — the Cell's declared `"z": 2` (stage.cell.json). This is also the
-   * `section > *` default, so the declaration is not load-bearing for the render; it is
-   * load-bearing for the §4.3 manifest↔CSS plane check, which reads the token. */
-  z-index: var(--z-content);
   flex: 1 1 auto;
   min-height: 0;
   overflow: clip;
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
-  /* The stage is an OCCUPANT ROOT: a component's internal z-index values are local
-   * to it (the 0–9 band, base.tokens.css § depth axis) and must never be ordered
-   * against the slide's planes. Unconditional, and that word is the whole point —
-   * the stage USED to become a stacking context only by accident, when a deck
-   * happened to set a finish and `section.finish > *:not(.backdrop)` handed it a
-   * `z-index`. Measured, before this rule: the same `content` slide gave
-   * `.cell-stage` no stacking context with `finish` off and one with it on, so a
-   * deck-wide cosmetic setting silently decided what a component's `z-index: 3`
-   * competed with. engineering/decisions/2026-08-12-slide-plane-model.md. */
-  isolation: isolate;
+  /* THE STAGE IS DELIBERATELY NOT A STACKING CONTEXT — no `z-index`, no `isolation`.
+   * A component's internals stay in the local 0–9 band, which sits between
+   * `--z-atmosphere` (-1) and `--z-chrome` (30) by construction, so they are already
+   * ordered correctly against the slide's planes without one.
+   *
+   * Both were tried here and removed. Either makes the stage a stacking context, and
+   * Chromium's print-to-PDF then rasterizes a 1px `.below-note` hairline inside it at
+   * ~22% coverage — a solid accent rule reduced to a barely-visible tint, with the two
+   * renders pixel-identical on SCREEN and 3,596 pixels apart in the PDF. Isolating a
+   * container that wraps the author's whole composition is not free on the print path.
+   * engineering/decisions/2026-08-12-slide-plane-model.md. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

@@ -264,27 +264,41 @@ A slide is not a flat sheet with things sprinkled on it. It is a **small stack o
 planes**, and `z` is which one a noun lives on. The model has always said so; as of
 2026-08-12 the CSS says so too, and the two are checked against each other.
 
-| Plane | Token | Who lives here |
-|---|---|---|
-| **0 canvas** | `--z-canvas` | the sheet: the section background, the `image` layout's photo panel, the finish `.backdrop` field |
-| **1 atmosphere** | `--z-atmosphere` | decoration *behind the words*: the watermark ghost, oversized ghost numerals, a photo scrim, pale quote glyphs |
-| **2 content** | `--z-content` | the `stage` Cell and everything the author wrote — and the **default**, so an unnamed direct child lands here |
-| **3 chrome** | `--z-chrome` | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, logo, status, progress, pagination |
-| **4 annotation** | `--z-mark` | stamped *onto* the delivered slide: status stamps, review annotations, comments |
-| *(above the model)* | `--z-alarm` | authoring-only signals that must beat everything: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
+| Plane | Token | z | Who lives here |
+|---|---|---|---|
+| **0 canvas** | `--z-canvas` | −2 | the sheet: the `image` layout's photo panel, the finish `.backdrop` field |
+| **1 atmosphere** | `--z-atmosphere` | −1 | decoration *behind the words*: the watermark ghost, oversized ghost numerals, a photo scrim, pale quote glyphs |
+| **2 content** | `--z-content` | 0 | the `stage` Cell and everything the author wrote |
+| **3 chrome** | `--z-chrome` | 30 | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, logo, status, progress, pagination |
+| **4 annotation** | `--z-mark` | 40 | stamped *onto* the delivered slide: status stamps, review annotations, comments |
+| *(above the model)* | `--z-alarm` | 50 | authoring-only signals that must beat everything: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
 
-Two rules make the scale hold, and both are about **containment**, not numbers:
+**The decorative planes sink; the chrome planes rise.** That is the whole trick, and it is
+why the scale costs so little: a negative-z child paints at step 3 of the painting
+algorithm — after the section's own background, before every in-flow descendant — so the
+author's markup floats above the canvas and the atmosphere **without declaring anything**.
+The `stage` Cell carries no z-index at all, and neither does a component's DOM.
+
+Two rules make it hold:
 
 1. **Every `section` is a stacking context**, unconditionally
    (`section { isolation: isolate }`, `lib/base/base.elements.css`). Without it a plane
-   number means something different per slide. It used to be gated on `.form`, so every
+   number means something different per slide — and a negative-z child escapes the section
+   entirely, painting behind its own background. It used to be gated on `.form`, so every
    sovereign Frame had none and its values escaped to the page root, where they were
    ordered against *other slides*.
-2. **Inside an occupant, the band is `0–9`.** A component's internals — a rail behind a
-   node, a counter over a fill — use small local values and never a plane token. The
-   occupant's root isolates, so the whole subtree rides its owner's plane as a unit. The
-   dividing line is exactly whether an element **can be a direct child of `section`**: if
-   it can, it names a plane; if it can't, it stays local.
+2. **The local band `0–9` is the content plane's interior**, which is why the gap up to
+   chrome is 30 and not 1. A component's internals — a rail behind a node, a counter over a
+   fill — use small local values and never a plane token, and they are correctly ordered
+   against the slide by arithmetic rather than by isolation. The dividing line is whether
+   an element **can be a direct child of `section`**: if it can, it names a plane; if it
+   can't, it stays in the band.
+
+**Do not make an occupant a stacking context to "contain" it.** It is not needed — the
+band already does that — and it is not free: isolating the `stage` made Chromium's
+print-to-PDF rasterize a 1px `.below-note` hairline inside it at ~22% coverage, turning a
+solid accent rule into a barely-visible tint. Pixel-identical on screen; 3,596 differing
+pixels in the exported PDF.
 
 A **Frame** does not paint a plane of its own — it slices boxes. The planes belong to the
 Cells it produces and the Tiles that dock into them, which is why `z` is a field on the

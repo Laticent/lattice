@@ -1,9 +1,10 @@
 /**
- * SLIDE PLANE invariant — every direct child of every section sits on a NAMED plane.
+ * SLIDE PLANE invariant — a direct child of a section is on a NAMED plane or in the flow.
  *
- * A Lattice slide is a small stack of planes (`--z-canvas` · `--z-atmosphere` ·
- * `--z-content` · `--z-chrome` · `--z-mark` · `--z-alarm`, base.tokens.css § depth
- * axis), and this is the half of that model no static gate can decide.
+ * A Lattice slide is a small stack of planes — `--z-canvas` (-2) and `--z-atmosphere` (-1)
+ * sink below the words, the content flow rests at `auto`, and `--z-chrome` (30),
+ * `--z-mark` (40) and `--z-alarm` (50) rise above it (base.tokens.css § depth axis). This
+ * is the half of that model no static gate can decide.
  *
  * WHY IT CANNOT BE STATIC. The rule is "an element that can be a DIRECT CHILD of a
  * section is ordered against the slide's planes, so it must name one" — and deciding
@@ -22,15 +23,26 @@
  * `-1` is even inside the local band a component's internals are allowed. But the
  * watermark is a direct section child, so that `-1` was a *plane assignment written in
  * a private language* — and the wrong plane: it put the ghost numeral BELOW the finish
- * backdrop at 0, and under `finish: savile` the pinstripes ruled straight across it.
+ * backdrop, and under `finish: savile` the pinstripes ruled straight across it.
  * `citation-card.styles.css` carries a comment recording the identical bug, found and
  * patched independently years of authors apart. This test is what makes the third one
  * fail instead of ship.
  *
- * THE ASSERTION is membership, not a coordinate: a direct child's computed z-index must
- * be one of the plane VALUES. It deliberately does not assert WHICH plane each element
- * is on — that is a design decision the plane tokens already record at the declaration
- * site, and pinning it here would turn every intentional re-plane into a test edit.
+ * THE ASSERTIONS are two, and neither is a coordinate:
+ *
+ *   1. No direct child carries a RAW NUMBER that is not a plane value. `auto` is legal and
+ *      expected — content is the natural resting plane, and the decorative planes are
+ *      NEGATIVE so they sink below it without anything being declared. What is illegal is
+ *      an unnamed number, which is a layering decision made in private. That is exactly
+ *      the watermark's `-1`.
+ *   2. The two elements the model exists to order are on the planes it names: the finish
+ *      `.backdrop` on `--z-canvas` and the watermark ghost on `--z-atmosphere`. Their
+ *      inversion is what this whole model was written from, so it is asserted by name
+ *      rather than left to the membership check, which `-1` would once have satisfied.
+ *
+ * Neither pins WHICH plane every other element is on — that is a design decision the
+ * tokens already record at the declaration site, and pinning it here would turn every
+ * intentional re-plane into a test edit.
  *
  * Needs Chromium (CHROME_PATH / puppeteer cache) + the emulator (HARD RULE #23 — this
  * is a cascade + layout fact, so it is asserted on a real render and nowhere else).
@@ -66,7 +78,7 @@ function resolveChrome() {
 //   · `.tile-watermark` — the section-number ghost (needs a `divider` above it to have a
 //     section number at all), the element whose wrong plane this test was written from;
 //   · `.lattice-bg` / `.image-scrim` / `.image-text` — the image layout's three-plane
-//     stack, all three direct children of the same section;
+//     stack (canvas · atmosphere · content), all three direct children of one section;
 //   · a sovereign `title` frame, whose h1/p ARE the direct children — the shape that had
 //     no stacking context at all before the plane model.
 const DECK = `---
@@ -148,7 +160,7 @@ function directChildren(page) {
   });
 }
 
-describe('every direct section child sits on a named plane (real render)', () => {
+describe('every direct section child is on a named plane or in the flow (real render)', () => {
   let browser;
   let rows = [];
   const chrome = resolveChrome();
@@ -214,14 +226,38 @@ describe('every direct section child sits on a named plane (real render)', () =>
   });
 
   test('no direct section child carries an unnamed z-index', () => {
-    const offenders = rows.filter((r) => !allowed.has(r.zIndex));
+    // `auto` is legal: content is the natural resting plane and declares nothing. A NUMBER
+    // that is not a plane is not — it is a slide-scale layering decision in a private
+    // language, which is precisely what the watermark's `-1` was.
+    const offenders = rows.filter((r) => r.zIndex !== 'auto' && !allowed.has(r.zIndex));
     assert.deepEqual(
       offenders, [],
-      `every direct child of a section must land on a plane (${slidePlanes.map((p) => `${p.name}=${p.value}`).join(', ')}). ` +
-      'A value outside that set is a layering decision made in private — either a local-band ' +
-      'value on an element that is not local (the watermark defect: a legal `-1` that was ' +
-      'really the wrong plane), or `auto`, which paints by DOM position and puts the element ' +
-      'under the finish backdrop. Give it a `--z-*` token at its declaration site.',
+      `a direct child of a section may carry \`auto\` (the content flow) or a plane value ` +
+      `(${slidePlanes.map((p) => `${p.name}=${p.value}`).join(', ')}) — nothing else. ` +
+      'Give it a `--z-*` token at its declaration site (lib/base/base.tokens.css § depth axis).',
+    );
+  });
+
+  test('the canvas sinks below the words and atmosphere sits between them', () => {
+    // The inversion this model was written from, asserted by name. A membership check alone
+    // would not have caught it: the watermark's `-1` is a perfectly ordinary number.
+    const plane = (n) => String(slidePlanes.find((p) => p.name === n).value);
+    const backdrops = rows.filter((r) => r.what.startsWith('div.backdrop'));
+    const ghosts = rows.filter((r) => r.what.startsWith('div.tile-watermark'));
+    assert.ok(backdrops.length && ghosts.length, 'the probe deck must produce both to compare them');
+    for (const r of backdrops) {
+      assert.equal(r.zIndex, plane('--z-canvas'),
+        'the finish backdrop IS the sheet — it belongs on the canvas plane, below everything');
+    }
+    for (const r of ghosts) {
+      assert.equal(r.zIndex, plane('--z-atmosphere'),
+        'the section-number ghost is decoration behind the words, not part of the sheet. Its ' +
+        'manifest declares plane 1; when its CSS said `z-index: -1` it painted UNDER the ' +
+        'finish field and a patterned finish ruled its texture straight across the numeral');
+    }
+    assert.ok(
+      Number(plane('--z-canvas')) < Number(plane('--z-atmosphere')) && Number(plane('--z-atmosphere')) < 0,
+      'canvas below atmosphere, and both below the content flow at `auto`',
     );
   });
 });

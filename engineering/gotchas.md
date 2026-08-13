@@ -2305,16 +2305,17 @@ means "no gap logged for the runtime route", never "the preview is complete.
   The tell is that it looks right on some decks and wrong on others — most often it breaks
   the moment a deck sets `finish:`, which is unrelated to the element in question.
 - **Cause:** a `z-index` picked locally instead of a plane named globally. A slide is a
-  stack of six named planes (`--z-canvas` · `--z-atmosphere` · `--z-content` · `--z-chrome`
-  · `--z-mark` · `--z-alarm`, `lib/base/base.tokens.css` § depth axis), and a raw integer
-  is a plane assignment nobody else can read. The watermark Tile declared plane 1
-  (atmosphere) in its manifest and `z-index: -1` in its CSS, which put it *below* the finish
-  backdrop at 0; under `finish: savile` the pinstripes ruled straight across the numeral.
+  stack of six named planes — `--z-canvas` (−2) and `--z-atmosphere` (−1) sink below the
+  words, content rests at the natural flow, and `--z-chrome` (30), `--z-mark` (40) and
+  `--z-alarm` (50) rise above (`lib/base/base.tokens.css` § depth axis). A raw integer is a
+  plane assignment nobody else can read. The watermark Tile declared plane 1 (atmosphere) in
+  its manifest and `z-index: -1` in its CSS, which put it *below* the finish backdrop; under
+  `finish: savile` the pinstripes ruled straight across the numeral.
   `citation-card.styles.css` carries a comment recording the identical bug, found and
   patched independently.
-- **Tell:** a negative `z-index` on a slide. It buys nothing — it does not escape the
-  section, whose background paints first either way — and it sinks the element below the
-  canvas plane. If you are reaching for `-1`, you want `--z-atmosphere`.
+- **Tell:** a hand-picked `z-index` on anything that can be a direct child of `section`.
+  If you are reaching for `-1` to push something behind the words, you want
+  `--z-atmosphere`; the plane is already negative, and it is negative for a reason.
 - **The rule:** if the element **can be a direct child of `section`**, it sits on a plane
   and names it with a token. If it always renders **inside** an occupant (a component's
   internals, a `.lat-focus` row inside the stage), it uses the local band `0–9` — its root
@@ -2323,6 +2324,15 @@ means "no gap logged for the runtime route", never "the preview is complete.
   decidable from CSS text, and by
   `test/integration/invariants/slide-planes.test.js` for the part that needs a render:
   every real direct child of every section must land on a plane value.
+- **A related trap, dearly bought:** do NOT make a container a stacking context to
+  "contain" its children's z-indexes. The 0–9 band already does that. Isolating the `stage`
+  made Chromium's print-to-PDF rasterize a 1px `.below-note` gradient hairline inside it at
+  ~22% coverage — a solid accent rule reduced to a barely-visible tint, **pixel-identical on
+  screen and 3,596 pixels apart in the PDF**. Height is not the variable (an 8px gradient
+  washes as badly as a 1px one) and neither is alpha (an opaque gradient washes too). What
+  survives is a SOLID fill, which the exporter emits as a vector instead of a rasterized
+  image — hence the export flip on that hairline. Every stacking context between a mark and
+  the page is a chance for this.
 - **Commits:** `engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ### `white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows

@@ -749,6 +749,73 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
   background:linear-gradient(to right, var(--accent), transparent);
 }
 
+/* ── EXPORT-SAFE FLIP for the below-note hairline ────────────────────────────────
+ * On screen the rule is an accent gradient fading to nothing. In an EXPORT it is a
+ * solid accent bar covering the same leading stretch, because a gradient IMAGE does
+ * not survive Chromium's print path here: once a slide carries a few stacking
+ * contexts (a running header and a deck logo are enough), the gradient fill is
+ * composited down to roughly 22% of its intended strength and a crisp accent rule
+ * lands in the PDF as a barely-visible tint. Measured on examples/marker-corner.md:
+ * pixel-identical on screen, 3,596 differing pixels in the exported PDF.
+ *
+ * The height is NOT the variable — an 8px-tall gradient washes exactly as badly as a
+ * 1px one — and neither is alpha: an opaque `accent → bg` gradient washes too, and so
+ * does a hard-stop one. What survives is a SOLID fill, which the exporter emits as a
+ * vector rather than a rasterized image. Verified by rendering each candidate.
+ *
+ * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
+ * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
+ * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
+ * no print media). engineering/decisions/2026-08-12-slide-plane-model.md. */
+@media print {
+  section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
+}
+:where(.lattice-exporting) section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+.lattice-exporting section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
+section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
+
+
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
  * A trailing paragraph whose only child is an <em> renders as a quiet

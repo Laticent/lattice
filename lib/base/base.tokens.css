@@ -977,18 +977,27 @@
  * 0–4 map onto the first five tokens below unchanged; `mark` and `alarm` name the two
  * tiers that had grown unnamed above them.
  *
- * SPACED BY TEN, on purpose. A sub-plane can be inserted between two of these without
- * renumbering anything, and at slide scale any value that is not a multiple of ten
- * reads as a mistake on sight.
+ * THE DECORATIVE PLANES SINK; THE CHROME PLANES RISE. Canvas and atmosphere are
+ * NEGATIVE, which is what makes the whole scale cheap: a negative-z child paints at step
+ * 3 of the painting algorithm — after the section's own background, before every in-flow
+ * descendant — so content sits above them WITHOUT declaring anything at all. Nothing has
+ * to be pushed out of the way, no rule reaches across a section's children, and the
+ * elements that carry no plane token (the stage, the author's markup) keep the stacking
+ * behavior they have always had.
  *
- * THE LOCAL BAND IS 0–9, AND IT IS PART OF THE MODEL. The dividing line is whether an
- * element can be a DIRECT CHILD of `section`:
+ * That last part is not just tidiness. An earlier cut of this scale ran canvas at 0 and
+ * lifted content to 20 via a blanket `section > *`, which made `.cell-stage` a stacking
+ * context — and Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline
+ * inside it at ~22% coverage, turning a solid accent rule into a barely-visible tint.
+ * Identical on screen, 3,596 differing pixels in the PDF. Sinking the canvas needs no
+ * such context and the hairline is untouched. Do not "simplify" these back to positive.
  *
- *   · it can  → it sits on a slide plane, and says so with a token.
- *   · it can't (it always renders inside an occupant — a component's internals, a
- *     `.lat-focus` row inside the stage) → it uses the local band 0–9 and nothing else.
- *     Its root isolates, so the whole subtree already rides its owner's plane as a
- *     unit; a plane token used down there would be a promise the isolation breaks.
+ * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
+ * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
+ * counter over a fill) use 0–9 and nothing else; they sit above atmosphere and below
+ * chrome by construction, so no isolation is needed to keep them honest. The dividing
+ * line is whether an element can be a DIRECT CHILD of `section`: if it can, it names a
+ * plane with a token; if it can't, it stays in the band.
  *
  * Both halves are gated by `checkZPlanes` (tools/check-ownership.js, via build:check).
  *
@@ -998,14 +1007,13 @@
  * not, so a `title` slide's z values escaped to the page root and were ordered against
  * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
 :root, section {
-  --z-canvas:        0;  /* the sheet: section background, .lattice-bg photo panel,
-                          * .image-scrim, the finish .backdrop field */
-  --z-atmosphere:   10;  /* decorative depth BEHIND the words: the watermark ghost,
-                          * oversized ghost numerals, pale quote glyphs */
-  --z-content:      20;  /* the stage, and everything the author wrote. Also the
-                          * DEFAULT plane: `section > *` (base.elements.css) puts an
-                          * unnamed direct child here, so a new one lands somewhere
-                          * safe instead of wherever the painting algorithm drops it */
+  --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
+                          * panel — everything that IS the surface being printed on */
+  --z-atmosphere:   -1;  /* decoration BEHIND the words: the watermark ghost, oversized
+                          * ghost numerals, a photo scrim, pale quote glyphs */
+  --z-content:       0;  /* the words. Note this is the SAME NUMBER an unstyled element
+                          * effectively paints at, which is the point — content is the
+                          * natural resting plane and needs no help to get there */
   --z-chrome:       30;  /* header, footer, pagination, logo, meta, status, kicker,
                           * title, the progress rail */
   --z-mark:         40;  /* stamped ONTO the delivered slide: status stamps

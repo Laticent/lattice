@@ -568,7 +568,7 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], `unnamed layering or a stale plane token:\n${errors.join('\n')}`);
     });
 
-    test('the plane scale is spaced, ordered, and each plane is actually painted on', () => {
+    test('the decorative planes sink, the chrome planes rise, and content rests at zero', () => {
       const planes = definedPlaneTokens();
       const slide = planes.filter((p) => p.name !== '--z-viewer');
       assert.deepEqual(
@@ -576,8 +576,23 @@ describe('check-ownership', () => {
         ['--z-canvas', '--z-atmosphere', '--z-content', '--z-chrome', '--z-mark', '--z-alarm'],
         'the six slide planes, in paint order — canvas at the bottom, alarm on top',
       );
-      for (const [i, p] of slide.entries()) {
-        assert.equal(p.value, i * 10, `${p.name} sits on the ten-spaced scale, leaving room for a sub-plane`);
+      // The SIGNS carry the design. Canvas and atmosphere are negative so they paint at
+      // step 3 of the painting algorithm — after the section's own background, before every
+      // in-flow descendant — which is what lets content sit above them while declaring
+      // nothing at all. An earlier cut ran the whole scale positive and lifted content with
+      // a blanket `section > *`; that made `.cell-stage` a stacking context, and Chromium's
+      // print path then rasterized a 1px hairline inside it at ~22% coverage. Keeping these
+      // negative is load-bearing, not cosmetic.
+      const v = Object.fromEntries(slide.map((p) => [p.name, p.value]));
+      assert.ok(v['--z-canvas'] < v['--z-atmosphere'] && v['--z-atmosphere'] < 0,
+        'the decorative planes sink below the content flow');
+      assert.equal(v['--z-content'], 0, 'content rests where an unstyled element already paints');
+      // Above content, the gap to chrome is 30 rather than 1 because the LOCAL BAND 0-9 is
+      // the content plane's interior — a component's internals live there and must stay
+      // below chrome without any isolation to hold them.
+      assert.ok(v['--z-chrome'] >= 10, 'the local 0-9 band fits between content and chrome');
+      for (const name of ['--z-chrome', '--z-mark', '--z-alarm']) {
+        assert.equal(v[name] % 10, 0, `${name} sits on the ten-spaced scale, leaving room for a sub-plane`);
       }
       // `--z-viewer` is NOT on that scale on purpose: the fluid-view toggle floats above the
       // whole DECK in the document, outside every section's stacking context, so it is not a

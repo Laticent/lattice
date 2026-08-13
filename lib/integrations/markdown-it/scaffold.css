@@ -42,6 +42,14 @@ section footer > p {
    !important needed — confirmed by the marp-cli pixel probe (file header). */
 section::after {
   position: absolute;
+  /* CHROME plane. The page number is frame chrome and belongs above the body, but it is a
+   * PSEUDO-element, so `section > *` (base.elements.css) cannot reach it and it sat at
+   * `z-index: auto` — ordered against the slide's children by accident of the painting
+   * algorithm rather than by intent. That accident went both ways in the same corpus: on
+   * `scene` the number VANISHED behind the exhibit panel, and on `split-panel` a number
+   * that had always been hidden APPEARED. Naming the plane settles it in one place.
+   * base.tokens.css § depth axis. */
+  z-index: var(--z-chrome);
   bottom: var(--frame-inset-y);
   right: var(--frame-inset-x);
   padding: 0;
