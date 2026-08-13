@@ -77,3 +77,23 @@ section.split-compare .option {
 section.split-compare > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── The running header's ink follows the field under it — same contract as split-panel ──
+ *
+ * `.compare-left` is the same shape as split-panel's `.panel-left`: a full-height opaque
+ * `--surface-inverse` field docked at the very corner `section header` is pinned to. Once
+ * base.modifiers.css lifts chrome to `z-index: 3` the header renders here for the first
+ * time, and it arrives carrying `--text-muted`, which is tuned for the canvas: measured on
+ * the rendered gallery, `#6B7F9A` on `#003D66` at 2.76:1 on all five variants that ship a
+ * header.
+ *
+ * This was MISSED on the first cut of the z-index fix, which inked split-panel only. The
+ * PR claimed split-compare "renders its header fine" on the strength of one sampled slide
+ * in the layout gallery whose header happened to clear the panel; the component's OWN
+ * gallery showed five that did not. Caught by attributing the golden-diff per gallery —
+ * split-compare's 5-slides-per-mood delta turned out to be entirely this. The lesson is in
+ * the sweep, not the rule: a chrome change is a change to EVERY layout, so it has to be
+ * measured per component rather than on a representative deck.
+ *
+ * No variant repoints `.compare-left`'s fill, so one rule covers the family. */
+section.split-compare :is(header, footer) { color: var(--on-dark-secondary); }

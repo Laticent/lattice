@@ -98,3 +98,11 @@ themes/*.html
 # docs/.gitignore covers docs/.astro; nothing covered the repo root, so a stray
 # run left preview.json/preview.log tracked (and tripped the lint-coverage gate).
 .astro/
+
+# Transient dark-injected gallery sources. A sweep that renders every gallery in the
+# dark mood has to write its injected copy NEXT TO the original — the emulator resolves
+# a deck's relative assets against the deck's own directory, which is why
+# build-galleries.js does the same with `*.gallery.<theme>.tmp.md`. Each is deleted the
+# moment its render finishes, so these only exist mid-run; ignored so a sweep in flight
+# cannot be mistaken for work to commit.
+*.darksweep.tmp.md

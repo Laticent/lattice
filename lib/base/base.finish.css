@@ -236,6 +236,16 @@ section.finish {
 section.finish > *:not(.backdrop) {
   z-index: 2;
 }
+/* …but not by FLATTENING chrome into content. The rule above is written for the backdrop
+ * (keep everything above z0), and it catches `header`/`footer` too, which pins them to the
+ * same 2 as the component parts they must paint over — reintroducing, on `finish:` decks
+ * only, exactly the occlusion base.modifiers.css's `z-index: 3` fixes everywhere else.
+ * `:is(header, footer)` contributes (0,0,1), so this computes (0,1,1): a TIE with the rule
+ * above, resolved by source order, which is why it is written immediately after it and
+ * must stay there. */
+section.finish > :is(header, footer) {
+  z-index: 3;
+}
 /* `position: relative` is only the MECHANISM by which a STATIC child earns that
  * z-index — it is not part of the intent, and it must not be forced onto chrome
  * that already positions ITSELF out of flow. Doing so breaks such an element twice

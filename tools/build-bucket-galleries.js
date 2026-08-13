@@ -21,7 +21,7 @@
  *   node tools/build-bucket-galleries.js                 # all buckets, both themes
  *   node tools/build-bucket-galleries.js --only chart    # one bucket
  *   node tools/build-bucket-galleries.js --theme light   # one theme
- *   node tools/build-bucket-galleries.js --check         # verify staleness
+ *   node tools/build-bucket-galleries.js --check         # has any render input changed since HEAD?
  *
  * Exit codes:
  *   0  every requested PDF built (or up-to-date in --check)
@@ -35,6 +35,7 @@ const { execFileSync } = require('node:child_process');
 const { loadAll, groupByBucket, BUCKETS } = require('../lib/components');
 const { injectDark, THEMES } = require('./build-galleries');
 const { injectFooter } = require('./build-component-docs');
+const { stalenessAgainstInputs } = require('./lib/render-inputs');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -231,12 +232,11 @@ function checkOne(bucket, manifests, theme) {
       return { bucket, theme, stale: true, reason: 'source .md drifted from manifests' };
     }
   }
-  const pdfStat = fs.statSync(outPdf);
-  const mdStat = fs.statSync(mdPath);
-  if (mdStat.mtimeMs > pdfStat.mtimeMs) {
-    return { bucket, theme, stale: true, reason: 'source newer than PDF' };
-  }
-  return { bucket, theme, stale: false };
+  // Not just the .md: the layout bundle, the palettes and the transform kernel all
+  // shape the render, so a CSS-only change leaves the source untouched and the PDF
+  // stale. Same one-mtime blind spot as build-galleries.js had — shared helper so the
+  // two gates cannot drift apart again.
+  return { bucket, theme, ...stalenessAgainstInputs(outPdf, mdPath) };
 }
 
 function main(argv) {
@@ -298,7 +298,13 @@ function main(argv) {
 
   if (checkMode) {
     if (stale.length === 0) {
-      process.stdout.write(`✓ all ${upToDate} bucket-gallery PDFs up to date\n`);
+      // Deliberately NOT "up to date". All this establishes is that no render input
+      // differs from HEAD; a change COMMITTED without rebuilding still looks sound here.
+      // tools/golden-diff.mjs rasterizes and diffs, and is the freshness gate.
+      process.stdout.write(
+        `✓ ${upToDate} bucket-gallery PDFs: no render input changed since HEAD ` +
+        '(golden-diff is the pixel gate)\n',
+      );
       return 0;
     }
     process.stderr.write(`✗ ${stale.length} bucket-gallery PDFs are stale:\n`);

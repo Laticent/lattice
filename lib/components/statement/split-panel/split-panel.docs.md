@@ -40,6 +40,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 - **Under `proof`, omitting the lede paragraph between the heading and the `### signal` label.** Always write a lede under `proof` — omitting it lets the extractor mistake the signal paragraph for the lede, hoisting it into the left panel and leaving the right zone's label empty.
 - **Under `proof`, authoring more or fewer than exactly two checkpoint items.** The two-column card grid assumes a pair. One item leaves an empty column; three crowds a third card half-width.
 - **Applying the same `cat-N` to every slide in a sequence, or picking numbers out of order (`cat-1`, `cat-4`, `cat-2`).** The point of `cat-1`…`cat-8` is that each slide in the SET reads as its own step — assign them in order, one number per slide, not the same number repeated or shuffled.
+- **Setting a long deck-level `header:` on a deck that uses this layout.** The running header sits OVER the panel here, so it takes the panel field's ink (`--on-dark-secondary` on the inverse panel, `--on-accent` under `watermark`, `--cat-on-fill` on a `cat-N` tint) rather than the canvas ink. Past roughly 25 characters the header runs beyond the panel's edge and carries that ink onto the canvas, where it loses contrast. Keep it short, or set `<!-- _header: "" -->` on these slides. `metric`, `steps` and the `mirror` forms put canvas under the header and are unaffected.
 
 ## When to use
 

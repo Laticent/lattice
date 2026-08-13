@@ -14811,6 +14811,26 @@ section.split-compare > .cell-stage {
   padding-block: var(--elevation-berth);
 }
 
+/* ── The running header's ink follows the field under it — same contract as split-panel ──
+ *
+ * `.compare-left` is the same shape as split-panel's `.panel-left`: a full-height opaque
+ * `--surface-inverse` field docked at the very corner `section header` is pinned to. Once
+ * base.modifiers.css lifts chrome to `z-index: 3` the header renders here for the first
+ * time, and it arrives carrying `--text-muted`, which is tuned for the canvas: measured on
+ * the rendered gallery, `#6B7F9A` on `#003D66` at 2.76:1 on all five variants that ship a
+ * header.
+ *
+ * This was MISSED on the first cut of the z-index fix, which inked split-panel only. The
+ * PR claimed split-compare "renders its header fine" on the strength of one sampled slide
+ * in the layout gallery whose header happened to clear the panel; the component's OWN
+ * gallery showed five that did not. Caught by attributing the golden-diff per gallery —
+ * split-compare's 5-slides-per-mood delta turned out to be entirely this. The lesson is in
+ * the sweep, not the rule: a chrome change is a change to EVERY layout, so it has to be
+ * measured per component rather than on a representative deck.
+ *
+ * No variant repoints `.compare-left`'s fill, so one rule covers the family. */
+section.split-compare :is(header, footer) { color: var(--on-dark-secondary); }
+
 /* === lib/components/statement/split-panel/split-panel.styles.css === */
 /* split-panel — statement.panel.structure
  *
@@ -15275,6 +15295,58 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
 section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child {
   color: var(--cat-on-fill);
 }
+
+/* ── The running header's ink follows the field the panel puts underneath it ──────────
+ *
+ * base.modifiers.css lifts `section header` to `z-index: 3` so the panel stops painting
+ * over it (it was fully occluded on this family — one unique color in the header strip
+ * where the glyphs belong). Lifting it is only half a fix: the header arrives carrying
+ * `--text-muted`, which is tuned for the CANVAS, and this layout docks an opaque field at
+ * exactly the corner the header is pinned to. Measured on the rendered gallery, that put
+ * `#6B7F9A` on the inverse panel at 2.76:1 and on the categorical tints at 2.44–3.14:1 —
+ * an unreadable header in place of an invisible one, which is not an improvement.
+ *
+ * So each field hands the header the SAME ink its own text already uses. No new token, and
+ * every one of them is already gated:
+ *
+ *   inverse panel   --on-dark-secondary   7.17:1 worst case across the 19 palettes
+ *                                         (engineering/decisions/2026-08-11-on-dark-ink-tiers.md)
+ *   accent panel    --on-accent           the curated rung; what .watermark's own eyebrow uses
+ *   cat-N panel     --cat-on-fill         >=4.5:1 against any --cat-N-fill by the categorical
+ *                                         token contract (checkCatContrast, via build:check)
+ *
+ * NOT LISTED, deliberately: `.metric` (panel is `--bg`), `.steps` (`--bg-alt`) and every
+ * `.mirror` form (panel docks on the far side, so the header sits on canvas). Those land on
+ * an ordinary surface where `--text-muted` is already correct — they measure 3.75–4.10:1,
+ * which IS this deck's muted-chrome level on every other layout, and re-inking them would
+ * make the header louder here than everywhere else.
+ *
+ * KNOWN LIMIT. The header's box spans the full frame width, so a header long enough to run
+ * PAST the panel's edge carries panel ink onto the canvas. Measured at `--fs-meta` with the
+ * label tracking, the panel holds roughly 25 characters at the narrowest variant (.steps,
+ * 30%) and about 32 at the widest (.pullquote, 50%). Beyond that the tail loses contrast.
+ * Constraining the box instead would mean teaching the header each variant's panel width,
+ * and those percentages resolve against a DIFFERENT containing block than the header's
+ * (the flex content box vs the section's padding box) — a mismatch measured at ~5% of slide
+ * width, which is exactly the kind of geometry coupling that would rot. Tracked in #1640. */
+/* FOOTER TOO, and for a different reason than the header — this one is NOT a regression
+ * from the z-index lift. Marp emits `<header>` BEFORE the component's subtree and
+ * `<footer>` AFTER it, so among positioned siblings with no stacking order the footer
+ * always won and the header always lost. Verified: the footer strip rasterizes to 26
+ * unique colors on `main` as well as here, so the footer has ALWAYS painted over the
+ * panel — carrying canvas ink at 2.76:1 on the inverse fill and 2.44–3.14:1 on the
+ * categorical tints. A pre-existing defect, fixed in place because it is the same defect,
+ * on the same surface, in the same rule (HARD RULE #18's on-path test). */
+section.split-panel :is(header, footer) { color: var(--on-dark-secondary); }
+section.split-panel.watermark :is(header, footer) { color: var(--on-accent); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) :is(header, footer) {
+  color: var(--cat-on-fill);
+}
+/* Canvas-field variants keep the deck's ordinary chrome ink. Written explicitly rather
+ * than left to the cascade: `.metric`/`.steps` set their own panel background, so a reader
+ * checking why the header is not inverse here should find the answer at the header rule. */
+section.split-panel:is(.metric, .steps) :is(header, footer),
+section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
 
 /* === lib/components/chart/state-chart/state-chart.styles.css === */
 /* state-chart — native state machine diagram, browser-measured layout.
@@ -18023,14 +18095,40 @@ section img.emoji {
    * glyphs out by the same 0.05em as the old margin would — HARD RULE #20. */
   padding:0 0.05em;
 }
+/* FRAME CHROME SITS ABOVE COMPONENT CONTENT — the `z-index` is not decoration.
+ *
+ * Both of these are `position: absolute` with no stacking order of their own, and so is
+ * every component part that fills a corner of the slide. Positioned elements that do not
+ * declare a `z-index` paint in DOM ORDER, and chrome is emitted before the component's
+ * subtree, so any opaque part docked at an edge paints straight over it. Measured on
+ * `split-panel`, whose `.panel-left` is a full-height opaque field starting at the very
+ * corner the header is pinned to: the header strip rasterized to ONE unique color where
+ * the glyphs belong, against 17 on a layout that paints it. The text was in the PDF and
+ * selectable the whole time — it was underneath a navy rectangle. Five of the family's
+ * variants were affected (base, watermark, metric, steps, pullquote); the `mirror` forms
+ * docked the panel on the other side and were fine, which is why this never looked like
+ * a systematic defect.
+ *
+ * 3, not 1, and not 50. It has to clear base.finish.css's backdrop stack (0/1/2 — see the
+ * companion rule there, which restores this order on a `finish:` deck where the blanket
+ * `section.finish > *` rule would otherwise flatten chrome and content to the same 2).
+ * It must stay BELOW the diagnostic tabs at 50 (`.overflow-tab`, `.illegible-tab`,
+ * `.fixme-tab`): those report on the slide and are meant to cover anything.
+ *
+ * Raising chrome is only half the fix. Revealing a header over a dark panel with the
+ * canvas-tuned `--text-muted` measured 2.45:1 — trading an invisible header for an
+ * unreadable one, which is not a fix. Whatever a layout docks under the frame owes the
+ * header the ink for THAT field; split-panel.styles.css does this per field. */
 section header {
   position:absolute; top:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-inset-x);
+  z-index:3;
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
   letter-spacing:0.10em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
   position:absolute; bottom:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-page-reserve);
+  z-index:3;
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
   line-height:1; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
@@ -22231,6 +22329,16 @@ section.finish {
  * itself, which must stay behind at z0. */
 section.finish > *:not(.backdrop) {
   z-index: 2;
+}
+/* …but not by FLATTENING chrome into content. The rule above is written for the backdrop
+ * (keep everything above z0), and it catches `header`/`footer` too, which pins them to the
+ * same 2 as the component parts they must paint over — reintroducing, on `finish:` decks
+ * only, exactly the occlusion base.modifiers.css's `z-index: 3` fixes everywhere else.
+ * `:is(header, footer)` contributes (0,0,1), so this computes (0,1,1): a TIE with the rule
+ * above, resolved by source order, which is why it is written immediately after it and
+ * must stay there. */
+section.finish > :is(header, footer) {
+  z-index: 3;
 }
 /* `position: relative` is only the MECHANISM by which a STATIC child earns that
  * z-index — it is not part of the intent, and it must not be forced onto chrome
