@@ -20,7 +20,7 @@ numbers that actually decide are `-1` (watermark.css) and `0` (base.finish.css),
 picked years apart by two authors who each reasoned locally and correctly.
 
 The same trap has already been paid for once, in a different file. From
-`lib/components/legal/citation-card/citation-card.styles.css:130`:
+`lib/components/legal/citation-card/citation-card.styles.css`:
 
 ```css
 /* z-index:0 (was -1, which sank it behind the opaque canvas → invisible). */
@@ -44,7 +44,7 @@ The Form model is not vague about depth. `lib/forms/schema/cell.schema.json` and
 | **3 chrome** | `masthead`, `masthead-lede`, `masthead-bay`, `footer`, `footer-left`, `progress-centre`, `pagination-right` | `kicker`, `title`, `meta`, `logo`, `status`, `footer`, `progress`, `pagination` |
 | **4 annotation** | `overlay` | `annotation` |
 
-There is even a gate. `checkZPlaneZIndex` (`lib/forms/index.js:406`, run by
+There is even a gate. `checkZPlaneZIndex` (`lib/forms/index.js`, run by
 `tools/build-forms.js`) asserts that a lower plane never carries a higher
 z-index. It is real and it passes — and it can see exactly **two files**, because
 it only reads `lib/forms/{cell,tile}/*/*.css`, and only two of those declare a
@@ -104,7 +104,7 @@ Read those rows together and the flatness is explained:
   against the slide's chrome. A deck-wide cosmetic setting silently changes what
   a component's `z-index: 3` competes with.
 - **A sovereign frame has no context at all.** `section.form { isolation: isolate }`
-  (`lib/forms/cell/stage/stage.css:105`) is the only thing creating one, and
+  (`lib/forms/cell/stage/stage.css`) is the only thing creating one, and
   `title` / `math` / `divider` and friends never get the class. Their z values
   escape to the page root, where they are ordered against *other slides* and
   against viewer chrome. `container-type: size` does not help — measured
