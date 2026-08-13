@@ -185,6 +185,44 @@ pipeline, reverted) established three things:
    own either: rough.js paints its fill as a hachure of stroked lines, so a
    `fill:` override leaves a muddy box that swallows the label ink.
 
+### The shading, and why AA is not the thing that blocks it
+
+**Who draws it:** rough.js, driven by Mermaid's `userNodeOverrides`, which
+**hardcodes** `fillStyle: "hachure"` with `fillWeight: 4`, `hachureGap: 5.2`,
+`roughness: 0.7`. Mermaid's config exposes only `handDrawnSeed` — there is no
+`fillStyle` knob, so "give me a solid hand-drawn fill" is not available. The
+hachure colour is the `mainBkg` themeVariable (Lattice's `--cat-1-fill`) for
+EVERY node, because Lattice's per-node colours come from CSS that no longer
+matches.
+
+So a node's "fill" is not a flat colour: it is stroked diagonal lines over the
+page canvas, and label ink sits over an alternating stroke/gap background.
+
+**Measured: contrast is not the problem.** Audited all 32 themes with the
+shipped `tools/contrast-audit.js` loader + colour math, scoring `--cat-on-fill`
+against the solid fill, the bare canvas, AND every blend between them (a striped
+background is not decided by its endpoints — if the ink's luminance fell between
+stroke and gap, the blend could be worse than either). It does not: on all 32
+themes the minimum sits at an endpoint, and the worst case across the whole set
+is **6.02:1** (carta-dark) against a 4.5 floor. No theme fails.
+
+**The real regression is one the contrast audit structurally cannot see.** On
+`a11y-*`, `onyx` and `concrete`, a node's fill is
+`var(--cat-N-texture, var(--cat-N-fill))` — an SVG pattern paint-server, and the
+M1 redundant-encoding channel that lets a CVD or monochrome reader tell
+categories apart **without hue** (`engineering/textures.md`). Under `handDrawn`
+the `> rect` selector stops matching, the texture disappears, and every node
+gets the same uniform hachure. Rendered on `a11y-deuteranopia`: classic gives
+four distinct tiles (diagonal, counter-diagonal, horizontal, vertical); handDrawn
+gives four identical boxes. **Categories become indistinguishable for exactly the
+readers the texture exists to serve** — a worse failure than a contrast miss, and
+invisible to every contrast metric.
+
+Note also the trap in the obvious fix: re-pointing the texture at rough's paths
+layers a pattern over a pattern. And a naive `fill:` override on those paths is
+wrong outright — rough paints hachure as STROKED paths with `fill: none`, so
+forcing a fill turns the squiggles into solid blobs.
+
 Also worth recording: a deck-authored `%%{init}%%` carrying its own
 `themeVariables` **replaces the engine's palette wholesale** rather than
 deep-merging it — the probe's variants fell back to Mermaid's stock
