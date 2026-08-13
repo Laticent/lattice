@@ -3754,12 +3754,16 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
  * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
  * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
  * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
- * no print media). engineering/decisions/2026-08-12-slide-plane-model.md. */
+ * no print media).
+ * `.lattice-exporting` is stamped on the SECTION (deck-export.js), so the ancestor form is
+ * the only one needed here — unlike base.finish.css, whose subject `section.finish` can BE
+ * the stamped element and therefore needs a self form too. `:where()` keeps the selector at
+ * the same specificity as the screen rule above, so it wins on source order alone.
+ * engineering/decisions/2026-08-12-slide-plane-model.md. */
 @media print {
   .below-note::before { background: var(--accent); right: 62%; }
 }
-:where(.lattice-exporting) .below-note::before,
-.lattice-exporting .below-note::before { background: var(--accent); right: 62%; }
+:where(.lattice-exporting) .below-note::before { background: var(--accent); right: 62%; }
 
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -18736,7 +18740,12 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
  * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
  * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
  * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
- * no print media). engineering/decisions/2026-08-12-slide-plane-model.md. */
+ * no print media).
+ * `.lattice-exporting` is stamped on the SECTION (deck-export.js), so the ancestor form is
+ * the only one needed here — unlike base.finish.css, whose subject `section.finish` can BE
+ * the stamped element and therefore needs a self form too. `:where()` keeps the selector at
+ * the same specificity as the screen rule above, so it wins on source order alone.
+ * engineering/decisions/2026-08-12-slide-plane-model.md. */
 @media print {
   section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
 section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
@@ -18755,21 +18764,6 @@ section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
 section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
 }
 :where(.lattice-exporting) section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-.lattice-exporting section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
 section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
 section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
 section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
