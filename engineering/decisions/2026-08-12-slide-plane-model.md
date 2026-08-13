@@ -131,31 +131,40 @@ frame cannot miss it. (The theme prefixer emits it as `article.lattice > section
 plane number below then means the same thing on every slide, and nothing on a slide can be
 ordered against anything off it.
 
-### Two: the stage isolates unconditionally
+### Two: nothing else becomes a stacking context
 
-`.cell-stage` gets `isolation: isolate` outright — not as a side effect of a finish
-handing it a z-index. It is the Cell that holds arbitrary component DOM, so it is the
-one that decides whether a component's internals are local, and that answer must not
-depend on a deck-wide cosmetic setting.
+The section is the only new one. In particular the `stage` Cell is **not** isolated and
+carries **no** z-index, which was the opposite of this note's first draft — see *The cut
+that did not survive contact*.
 
-The chrome Cells (`.cell-masthead`, `.cell-footer`) were considered and left alone: they
-hold a known, small set of Tiles, so isolating them adds a stacking context for no gain,
-and it would make a Tile that *can* dock at section level — the progress rail — unable to
-state its plane honestly in the one file that styles it.
+Containment comes from arithmetic instead: the local band `0–9` is the content plane's
+interior, which is why the gap up to `--z-chrome` is 30 and not 1. A component's
+internals sit above atmosphere (−1) and below chrome (30) by construction, so nothing has
+to isolate them for them to be ordered correctly.
 
-### Three: six named planes, spaced by ten
+### Three: six named planes — the decorative ones sink, the chrome ones rise
 
 Tokens in `base.tokens.css`, consumed everywhere a slide-level layering decision
 is made:
 
 | Token | z | What lives here |
 |---|---|---|
-| `--z-canvas` | 0 | the sheet: section background, `.lattice-bg` photo panel, `.image-scrim`, the finish `.backdrop` field |
-| `--z-atmosphere` | 10 | decorative depth: the watermark ghost, oversized ghost numerals, the photo scrim, pale quote glyphs |
-| `--z-content` | 20 | the stage and everything the author wrote — and the **default** for an unnamed direct child |
+| `--z-canvas` | **−2** | the sheet: the `.lattice-bg` photo panel, the finish `.backdrop` field |
+| `--z-atmosphere` | **−1** | decorative depth: the watermark ghost, oversized ghost numerals, the photo scrim, pale quote glyphs |
+| `--z-content` | 0 | the stage and everything the author wrote |
 | `--z-chrome` | 30 | header, footer, pagination, logo, meta, status, kicker, title, the progress rail |
 | `--z-mark` | 40 | what ships stamped **on** the slide: status stamps, review annotations, the comments layer |
 | `--z-alarm` | 50 | authoring-only signals that must beat everything: the overflow / illegible / fix-me tabs, debug boxes |
+
+**The signs are the design.** A negative-z child paints at step 3 of the painting
+algorithm — after the section's own background, before every in-flow descendant — so the
+author's markup floats above the canvas and the atmosphere *without declaring anything*.
+The stage Cell carries no z-index; neither does a component's DOM. Only the things that
+must rise above the words pay for a declaration.
+
+That is not the scale this note first proposed, and the correction is recorded below
+under *The cut that did not survive contact*, because the reason is worth more than the
+outcome.
 
 A seventh plane was drafted and dropped before it shipped: `--z-content-focus` at 25,
 for a promoted `.lat-focus` item. It was wrong by this note's own rule — a focused row
@@ -168,7 +177,7 @@ Plus two rules that are part of the model, not decoration:
 - **Local band 0–9.** The dividing line is whether an element can be a **direct child
   of `section`**. If it can, it sits on a plane and names it. If it can't — a
   component's internals, a `.lat-focus` row inside the stage — it uses 0–9 and nothing
-  else; its root isolates, so the whole subtree rides its owner's plane as a unit.
+  else, and the gap between content and chrome is what keeps it honest.
 - **Viewer chrome is not a slide plane.** `#lattice-fluid-toggle` and the exported
   player's bar live in the *document*, above the entire deck. They keep their own
   `--z-viewer`, outside this scale, and the gate leaves them alone.
@@ -210,6 +219,48 @@ catches it. Two things had to be fixed for it to be true rather than merely gree
   styled in `lib/forms/cell/stage/stage.css`, so a file-keyed collector read the footer's
   `--z-chrome` as a claim by `cell/stage` and reported a disagreement that was entirely its
   own. It now attributes by the DOM class the rule *selects*.
+
+## The cut that did not survive contact
+
+The scale above is the second one. The first ran **entirely positive** — canvas 0,
+atmosphere 10, content 20 — and lifted the content onto its plane with a blanket
+`section > * { z-index: var(--z-content) }`, plus `isolation: isolate` on the stage Cell to
+contain a component's internals. It was coherent, it passed every gate, all 6,067 unit
+tests and the 472-test integration tier, and the invariant test asserted exactly what it
+was supposed to. **A corpus A/B against the pre-change render is what found it.**
+
+On `examples/marker-corner.md` p2 a 1px `.below-note` hairline — an accent gradient fading
+right — came out of the exported PDF as a barely-visible tint. The two renders were
+**pixel-identical on screen**, so nothing in the DOM, the computed styles, or a browser
+screenshot showed anything at all; the difference existed only in the PDF, at 3,596 pixels.
+
+Bisected by appending overrides to the built bundle and re-rendering, one rule at a time:
+the cause was the pair *stage z-index + stage isolation*, i.e. **the stage becoming a
+stacking context**. Chromium's print path composites a gradient image inside a nested
+stacking context down to roughly 22% of its intended strength. Not a Lattice bug, and not
+one any amount of screen review would have caught.
+
+Three things about it are worth keeping, because each one cost a wrong hypothesis:
+
+- **Height is not the variable.** An 8px-tall gradient washes exactly as badly as a 1px
+  one. The first fix attempt assumed sub-pixel coverage and was wrong.
+- **Alpha is not the variable either.** The second attempt assumed the documented
+  fade-to-`transparent` hazard (`base.finish.css`'s OPAQUE rule) and changed the gradient
+  to end opaque. It still washed. So did a hard-stop gradient.
+- **A solid fill survives**, because the exporter emits it as a vector rather than a
+  rasterized image. A `border-top` survives for the same reason.
+
+So the model changed rather than the hairline being patched around: sinking the decorative
+planes needs **no** stacking context on the stage, no blanket rule over a section's
+children, and no isolation anywhere but the section itself. The hairline additionally got
+the export flip the finish presets already use (gradient on screen, solid bar in print and
+`.lattice-exporting`), because that rule was one stacking context away from failing no
+matter who added it.
+
+**The lesson generalizes past this branch: every stacking context between a mark and the
+page is a chance for the print path to rasterize something that used to be vector.** Do
+not create one to "contain" a subtree — space the planes so the arithmetic contains it
+instead.
 
 ## What this deletes
 
@@ -262,6 +313,19 @@ Verified on real renders (HARD RULE #23), not inferred:
 - **The stage stopped being dragged into flow.** `.cell-stage` computed
   `position: relative` on a finish deck and computes `static` now — the destructive
   mechanism the 2026-08-04 note was written about, gone rather than excluded.
+- **The pagination pseudo has a plane.** `section::after` is frame chrome but a
+  pseudo-element, so no rule over a section's children reaches it and it sat at `auto`.
+  That accident went both ways in one corpus: the page number **vanished** behind `scene`'s
+  exhibit panel and **appeared** on `split-panel`, where it had always been hidden.
+- **The running header is consistently visible on split frames.** It used to be hidden over
+  `.panel-left` (positioned, so it painted after the header) and shown over `.panel-right`
+  (a static flex item, so it painted before) — an arbitrary split nobody chose.
+  `split-panel.styles.css` is already written against the header being visible: `watermark`
+  recolors it to on-accent ink, and a `mirror` rule reserves a band for the collision it
+  causes. On a fitting slide it lands in the empty band those comments describe. It crowds
+  the panel eyebrow on one slide of `examples/marker-corner.md`, which is a deliberate
+  overflow demo the engine already tags "Content clipped"; every available fix for that
+  would have moved content on slides that fit, to protect one that does not.
 - **Both original defects fail the new test.** Reverting the watermark to `z-index: -1`
   fails it by name; reverting `section { isolation: isolate }` to the `.form` gate fails it
   naming the sovereign `title` section.
