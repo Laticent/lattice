@@ -25952,6 +25952,39 @@ section g.nodes > g.node:nth-of-type(7)  > rect, figure g.nodes > g.node:nth-of-
 section g.nodes > g.node:nth-of-type(8)  > rect, figure g.nodes > g.node:nth-of-type(8)  > rect{ fill: var(--cat-8-texture, var(--cat-8-fill))  !important; stroke: var(--diagram-stroke) !important; }
 section g.nodes > g.node:nth-of-type(9)  > rect, figure g.nodes > g.node:nth-of-type(9)  > rect{ fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
 section g.nodes > g.node:nth-of-type(10) > rect, figure g.nodes > g.node:nth-of-type(10) > rect{ fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
+/* ── ROUGH NODE FILL — the same categorical cycle, under the hand-drawn look ──
+ * `mode: sketch` bakes Mermaid's `look: 'handDrawn'` (lib/core/diagram-look.js),
+ * which swaps the node renderer: `g.node > rect` becomes
+ * `g.rough-node > g.basic.label-container > path`, drawn by rough.js.
+ *
+ * A rough node HAS NO FILL. Its two paths both carry `fill="none"`, and the
+ * "fill" you see is the FIRST path — a bundle of stroked hachure lines — with
+ * the outline as the second. So the palette goes on with `stroke`, not `fill`.
+ * Both failure modes are worth naming, because both look like a CSS typo:
+ * setting `fill` on the parent `<g>` does nothing (the paths' own `fill="none"`
+ * attribute means there is nothing to inherit), and setting `fill` on the paths
+ * turns each squiggle into a filled blob.
+ *
+ * TEXTURE IS DELIBERATELY ABSENT here — this cycle names `--cat-N-fill` with no
+ * `--cat-N-texture` fallback, unlike its classic sibling above. A pattern
+ * paint-server sampled through a 4px variable-width stroke reads as speckle, not
+ * a tile (the same reason the sankey ribbons below stay on a flat color). That
+ * is exactly why `resolveDiagramLook` refuses the hand look outright on a
+ * texture palette: on `a11y-*` / `onyx` / `concrete` the pattern IS the
+ * redundant encoding, so those decks keep classic shapes and this block never
+ * matches. Measured: four distinct tiles collapse to four grays 5% apart.
+ */
+section g.nodes > g.rough-node:nth-of-type(1) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(1) > g.basic.label-container > path:first-child{ stroke: var(--cat-1-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(2) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(2) > g.basic.label-container > path:first-child{ stroke: var(--cat-2-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(3) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(3) > g.basic.label-container > path:first-child{ stroke: var(--cat-3-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(4) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(4) > g.basic.label-container > path:first-child{ stroke: var(--cat-4-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(5) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(5) > g.basic.label-container > path:first-child{ stroke: var(--cat-5-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(6) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(6) > g.basic.label-container > path:first-child{ stroke: var(--cat-6-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(7) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(7) > g.basic.label-container > path:first-child{ stroke: var(--cat-7-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(8) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(8) > g.basic.label-container > path:first-child{ stroke: var(--cat-8-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(9) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(9) > g.basic.label-container > path:first-child{ stroke: var(--cat-1-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(10) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(10) > g.basic.label-container > path:first-child{ stroke: var(--cat-2-fill) !important; }
+section g.nodes > g.rough-node > g.basic.label-container > path:last-child, figure g.nodes > g.rough-node > g.basic.label-container > path:last-child{ stroke: var(--diagram-stroke) !important; }
 section g.node-labels text, figure g.node-labels text, section g.nodes text, figure g.nodes text{
   fill: var(--cat-on-fill) !important;
 }

@@ -181,8 +181,8 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
     // block goes back to a literal object, `previewInitConfig` stops composing the
     // shared one and every assertion above quietly becomes a comparison of one object
     // with itself.
-    assert.match(RUNTIME_SRC, /const shared = engineInitConfig\(themeVars\);/);
-    assert.match(RUNTIME_SRC, /mermaid\.initialize\(previewInitConfig\(themeVars\)\)/);
+    assert.match(RUNTIME_SRC, /const shared = engineInitConfig\(themeVars[^)]*\);/);
+    assert.match(RUNTIME_SRC, /mermaid\.initialize\(previewInitConfig\(themeVars[^)]*\)\)/);
     assert.equal(/wrappingWidth:\s*\d+/.test(RUNTIME_SRC), false,
       'the runtime states its own wrappingWidth again — that is the #1347 layout gap returning');
     assert.equal(/quadrantChart:\s*\{/.test(RUNTIME_SRC), false,

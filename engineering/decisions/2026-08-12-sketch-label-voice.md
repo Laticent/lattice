@@ -185,43 +185,39 @@ pipeline, reverted) established three things:
    own either: rough.js paints its fill as a hachure of stroked lines, so a
    `fill:` override leaves a muddy box that swallows the label ink.
 
-### The shading, and why AA is not the thing that blocks it
+### The shading — SUPERSEDED, see the note below
 
-**Who draws it:** rough.js, driven by Mermaid's `userNodeOverrides`, which
-**hardcodes** `fillStyle: "hachure"` with `fillWeight: 4`, `hachureGap: 5.2`,
-`roughness: 0.7`. Mermaid's config exposes only `handDrawnSeed` — there is no
-`fillStyle` knob, so "give me a solid hand-drawn fill" is not available. The
-hachure colour is the `mainBkg` themeVariable (Lattice's `--cat-1-fill`) for
-EVERY node, because Lattice's per-node colours come from CSS that no longer
-matches.
+**This section's verdict was wrong and is retained only for the measurements.**
+It concluded the hand look was disqualified because the categorical fill could
+not reach a rough node. The fill IS reachable; the earlier probes were looking
+for it in the wrong place. `2026-08-13-sketch-mermaid-hand-drawn.md` records the
+mechanism and ships it. What survives from this section:
 
-So a node's "fill" is not a flat colour: it is stroked diagonal lines over the
-page canvas, and label ink sits over an alternating stroke/gap background.
+**Who draws the shading:** rough.js, via Mermaid's `userNodeOverrides`, which
+**hardcodes** `fillStyle: "hachure"` (`fillWeight: 4`, `hachureGap: 5.2`,
+`roughness: 0.7`). Mermaid exposes only `handDrawnSeed` — there is no
+`fillStyle` knob.
 
-**Measured: contrast is not the problem.** Audited all 32 themes with the
-shipped `tools/contrast-audit.js` loader + colour math, scoring `--cat-on-fill`
-against the solid fill, the bare canvas, AND every blend between them (a striped
+**Contrast is not a blocker.** Audited all 32 themes with the shipped
+`tools/contrast-audit.js` loader + color math, scoring `--cat-on-fill` against
+the solid fill, the bare canvas, AND every blend between them (a striped
 background is not decided by its endpoints — if the ink's luminance fell between
-stroke and gap, the blend could be worse than either). It does not: on all 32
-themes the minimum sits at an endpoint, and the worst case across the whole set
-is **6.02:1** (carta-dark) against a 4.5 floor. No theme fails.
+stroke and gap, the blend could be worse than either). It does not: the minimum
+sits at an endpoint on all 32, worst case **6.02:1** (carta-dark) against a 4.5
+floor.
 
-**The real regression is one the contrast audit structurally cannot see.** On
-`a11y-*`, `onyx` and `concrete`, a node's fill is
-`var(--cat-N-texture, var(--cat-N-fill))` — an SVG pattern paint-server, and the
-M1 redundant-encoding channel that lets a CVD or monochrome reader tell
-categories apart **without hue** (`engineering/textures.md`). Under `handDrawn`
-the `> rect` selector stops matching, the texture disappears, and every node
-gets the same uniform hachure. Rendered on `a11y-deuteranopia`: classic gives
-four distinct tiles (diagonal, counter-diagonal, horizontal, vertical); handDrawn
-gives four identical boxes. **Categories become indistinguishable for exactly the
-readers the texture exists to serve** — a worse failure than a contrast miss, and
-invisible to every contrast metric.
+**The texture finding stands, and is why the shipped feature refuses the hand
+look on `a11y-*` / `onyx` / `concrete`.** There the per-category pattern is the
+M1 redundant-encoding channel, and it cannot survive being painted through a
+stroke — measured on `a11y-deuteranopia`, four distinct tiles collapse to four
+grays 5% apart.
 
-Note also the trap in the obvious fix: re-pointing the texture at rough's paths
-layers a pattern over a pattern. And a naive `fill:` override on those paths is
-wrong outright — rough paints hachure as STROKED paths with `fill: none`, so
-forcing a fill turns the squiggles into solid blobs.
+**What was wrong:** this section said the categorical fill was unreachable
+because `g.node > rect` became `g.rough-node > … > path`, and that the muddy
+boxes in the probe were inherent. Neither holds. A rough node's "fill" is a
+STROKE (two paths, both `fill="none"`), so the palette goes on with `stroke` —
+at which point the full categorical cycle works. The muddy boxes were a probe
+that forced `fill` onto those stroked paths.
 
 Also worth recording: a deck-authored `%%{init}%%` carrying its own
 `themeVariables` **replaces the engine's palette wholesale** rather than

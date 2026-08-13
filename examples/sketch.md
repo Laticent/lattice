@@ -121,6 +121,22 @@ Because the finish is CSS and fonts, it reskins the heading, the legend labels a
 
 ---
 
+<!-- _class: diagram -->
+<!-- _footer: "Diagrams — mode: sketch bakes Mermaid's own hand-drawn renderer" -->
+
+`Diagrams under sketch`
+
+## The flowchart is drawn by the same hand.
+
+```mermaid
+flowchart LR
+  A["Raw Signals"] --> B["Classify"]
+  B --> C["Score & Weight"]
+  C --> D["Decision Log"]
+```
+
+---
+
 <!-- _class: compare-table -->
 <!-- _footer: "Tables get a drawn frame and ink rules — not just the cards" -->
 

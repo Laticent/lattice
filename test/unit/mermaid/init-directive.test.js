@@ -377,7 +377,7 @@ describe('mermaid init-directive: render-path wiring', () => {
   test('the PDF path builds its Mermaid source through the kernel', () => {
     const src = read('lattice-emulator.js');
     assert.match(src, /require\('\.\/lib\/integrations\/mermaid\/init-directive'\)/);
-    assert.match(src, /withEngineInit\(definition, engineInitConfig\(themeVars\)\)/,
+    assert.match(src, /withEngineInit\(definition, engineInitConfig\(themeVars[^)]*\)\)/,
       'renderMermaidOne composes its themed source via withEngineInit');
     assert.doesNotMatch(src, /const hasInit = definition\.includes/,
       'the old all-or-nothing "has an init directive" skip is gone');
@@ -408,9 +408,9 @@ describe('mermaid init-directive: render-path wiring', () => {
     // config, but that config is `engineInitConfig` plus the enumerated preview-only
     // keys, re-applied per band with the variables `renderDiagrams` resolved from that
     // slide's own reader — not once per document from slide 1.
-    assert.match(src, /mermaid\.initialize\(previewInitConfig\(themeVars\)\)/,
+    assert.match(src, /mermaid\.initialize\(previewInitConfig\(themeVars[^)]*\)\)/,
       'the global config carries the palette');
-    assert.match(src, /const shared = engineInitConfig\(themeVars\);/,
+    assert.match(src, /const shared = engineInitConfig\(themeVars[^)]*\);/,
       'and it is composed from the shared non-palette config (#1347)');
     assert.match(src, /function openSectionReader\(scopeEl\)/,
       'and the palette is read from the SECTION handed in, not from document.querySelector');

@@ -89,6 +89,62 @@ prefer that div over a fence was wrong; use the fence.
 
 Use different shapes for different hierarchy levels to aid visual scanning.
 
+## 5.3e The node look — `mode: sketch` reaches the diagram
+
+A deck in `mode: sketch` (or the legacy deck-wide `class: sketch`) bakes Mermaid's
+native **hand-drawn** node renderer, so the diagram is drawn by the same hand as the
+slide around it. Mermaid 11 bundles rough.js for this; the engine turns it on by
+emitting `look: 'handDrawn'` in the init config.
+
+`resolveDiagramLook` (`lib/core/diagram-look.js`) is the single answer, the sibling
+of `resolveDiagramBand`. Like the band, it must be decided BEFORE mmdc runs: `look`
+swaps the whole node renderer (`g.node > rect` becomes
+`g.rough-node > g.basic.label-container > path`), so no later CSS rule can apply or
+undo it. The rule, in precedence order:
+
+1. **Texture wins.** A palette that routes categories through `--cat-N-texture`
+   renders classic, always — see below.
+2. **A slide naming a mode token owns its look.** `_class: boardroom` opts one slide
+   out of a sketch deck; `_class: sketch` opts one in on a plain deck.
+3. **Otherwise inherit the deck** (`mode:` first, then a deck-wide `class:`).
+
+A deck that resolves to classic emits **no `look` key at all** rather than the
+explicit default, so its directive stays byte-identical to what it emitted before
+the look existed.
+
+### Coloring a rough node — use `stroke`, not `fill`
+
+A rough node **has no fill.** rough.js emits two paths, both carrying `fill="none"`:
+the first is the "fill" (a bundle of stroked hachure lines), the second is the
+outline. So the categorical cycle in `mermaid.css` paints rough nodes with `stroke`.
+Both wrong turns look like a CSS typo and are worth knowing:
+
+- setting `fill` on the parent `<g>` does nothing — the paths' own `fill="none"`
+  attribute means there is nothing to inherit;
+- setting `fill` on the paths turns each squiggle into a filled blob.
+
+### Why texture palettes keep crisp shapes
+
+On `a11y-*`, `onyx` and `concrete`, categories are told apart by **pattern**, not
+hue — the M1 redundant-encoding channel (`engineering/textures.md`) that a
+color-blind or monochrome reader depends on. A pattern paint-server sampled through
+a 4px variable-width stroke reads as speckle, not a tile (the same reason the sankey
+ribbons stay on a flat color), so the channel cannot survive the hand look.
+Measured on `a11y-deuteranopia`: four distinct tiles collapse to four grays 5% apart.
+
+Rule 1 is therefore checked FIRST, ahead of the per-slide pin — a deck cannot opt
+back in one slide at a time. Style does not outrank an accessibility affordance.
+Those decks still get the hand type everywhere else; only the diagram shapes stay
+machine-drawn.
+
+### Not covered
+
+- **Diagram labels stay mono** under sketch. Separate, pre-existing gap — see §5.3.
+- **Legacy-renderer families** (sequence, gantt, pie, journey, timeline, quadrant,
+  mindmap) ignore `look` entirely; Mermaid honors it only in its unified renderer
+  (flowchart, state, class, ER). Those diagrams stay crisp on a sketch deck until
+  Mermaid migrates them.
+
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
 **Do not hand-copy theme variables into your diagram.** The engine already hands

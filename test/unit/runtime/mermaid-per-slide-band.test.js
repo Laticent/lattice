@@ -368,7 +368,7 @@ describe('the one-shot global config is gone', () => {
     // configure→render→configure is only correct if the renders in between are not
     // interleaved. Both halves have to be present: a per-scope configure dispatched
     // into concurrent renders would let a diagram read the NEXT band's palette.
-    assert.match(RUNTIME_SRC, /function configureForScope\(mermaid, themeVars\)/);
+    assert.match(RUNTIME_SRC, /function configureForScope\(mermaid, themeVars[,)]/);
     // The skip-guard compares the PALETTE by identity, not the scope NAME. A name does
     // not imply a palette across passes — a first pass under `force` with the theme CSS
     // unresolved, or a host palette switch that changes no section class, both rebuild
@@ -382,7 +382,7 @@ describe('the one-shot global config is gone', () => {
     // The kernel's run boundary is what triggers the reconfigure, and the run's renders
     // are collected into the SAME queue link — so band B's initialize cannot land
     // between band A's renders.
-    assert.match(RUNTIME_SRC, /beginRun: \(\{ themeVars \}\) => beginDiagramRun\(/);
+    assert.match(RUNTIME_SRC, /beginRun: \(\{[^}]*themeVars[^}]*\}\) => beginDiagramRun\(/);
     // allSettled, not all — `Promise.all` settles on the first rejection, which would
     // hand the NEXT band's `initialize` a run that is still in flight. Behaviorally gated
     // in test/unit/runtime/diagram-queue.test.js.
