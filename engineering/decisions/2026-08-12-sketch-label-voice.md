@@ -148,15 +148,50 @@ when it rides in a `%%{init}%%` directive, and a blank font is *worse* than a
 wrong one (mermaid then measures labels in one font and renders them in
 another, clipping mid-word).
 
-One useful finding for whoever closes it: **`'Shantell Sans'` on its own
-contains no hyphen**, so the sketch face specifically would survive that
-sanitizer where the general stack cannot. That makes a sketch-scoped fix
-plausible without touching the general WYSIWYG gap.
-
 Left out deliberately (HARD RULE #18, off-path): it is a different mechanism
 (JS theme-variable plumbing, not CSS token routing), it has its own parity test
 asserting the divergence, and it changes rendered diagram geometry — which
 belongs in its own change, not bolted onto a CSS token sweep.
+
+### What a follow-up actually has to solve — measured, not guessed
+
+A throwaway probe (engine config patched, rendered through the real PDF
+pipeline, reverted) established three things:
+
+1. **The sanitizer is NOT the binding constraint.** `'Shantell Sans'` contains
+   no hyphen, so it passes `DIRECTIVE_VALUE_OK` and reaches Mermaid intact —
+   the labels really do render in the hand face.
+2. **Label measurement is the binding constraint.** With the hand face, every
+   node label clips mid-word ("Raw Signals" → "Raw Signa", "Decision Log" →
+   "Decision Lo"). This is the failure `DIAGRAM_FONT_STACK`'s comment predicts,
+   and the root cause is sharper than "proportional fonts are risky":
+   `renderMermaidOne` shells out to `mmdc` with only `--backgroundColor` and
+   `--puppeteerConfigFile`, so **mmdc's page never loads Lattice's fonts at
+   all**. Mermaid measures in a fallback face and sizes the `foreignObject`;
+   the SVG is then embedded in the host page where `lattice.css` DOES load the
+   real face, and the wider text overflows the box it was measured for.
+   Mono survives this only because its stack ends in the `monospace` generic —
+   the fallback has near-identical metrics to the intended face. No hand face
+   has that property.
+   **The lever:** `mmdc` accepts `-C, --cssFile`. Feeding it the `@font-face`
+   block would make the measure pass and the render pass agree.
+3. **`look: 'handDrawn'` works today** (Mermaid 11.14 bundles rough.js) and can
+   be set from a deck's own `%%{init}%%` — but it costs the palette. Lattice
+   colours flowchart nodes with
+   `g.nodes > g.node:nth-of-type(N) > rect`, and the handDrawn renderer emits
+   `g.rough-node > g.basic.label-container > path`, so BOTH halves of that
+   selector miss and every node falls back to a single fill. Mirroring the
+   `nth-of-type` block onto the rough path selector is not sufficient on its
+   own either: rough.js paints its fill as a hachure of stroked lines, so a
+   `fill:` override leaves a muddy box that swallows the label ink.
+
+Also worth recording: a deck-authored `%%{init}%%` carrying its own
+`themeVariables` **replaces the engine's palette wholesale** rather than
+deep-merging it — the probe's variants fell back to Mermaid's stock
+`#ECECFF`/`#9370DB` defaults. `engineering/mermaid.md` §5.3 currently tells
+authors their own init "is fine and costs nothing", which is true for
+`flowchart.curve` and not true for `themeVariables`. Worth a doc correction
+independent of any sketch work.
 
 ## Found, not fixed — list-tabular's value column sits flush to the sketch frame
 
