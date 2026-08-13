@@ -1253,7 +1253,7 @@ function monoFontFamilies(css) {
     }
     const selector = (open === -1 ? '' : css.slice(start, open))
       .replace(/\s+/g, ' ')
-      .replace(/^[}\/*\s]+/, '')
+      .replace(/^[}/*\s]+/, '')
       .trim();
     out.push({ value, selector });
   }
