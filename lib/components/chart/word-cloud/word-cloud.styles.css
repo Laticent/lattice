@@ -114,7 +114,11 @@
  * engineering/decisions/2026-07-27-render-nature-declaration.md and
  * 2026-06-13-svg-native-legend.md §7b. */
 :is(section.word-cloud, figure.chart-frame) .wc-key-label {
-  font-family: var(--font-label);
+  /* --font-mono, NOT the label voice — same reason as .gantt-tick: this label's
+   * wrap width AND the key rule's `headW` are computed from ADVANCE_MONO_TRACKED
+   * (word-cloud.transform.js), whose own comment names this rule as the case it
+   * was measured for. Sanctioned in checkLabelVoiceFont. */
+  font-family: var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   fill: var(--text-muted);
@@ -122,7 +126,9 @@
   dominant-baseline: central;
 }
 :is(section.word-cloud, figure.chart-frame) .wc-key-edge {
-  font-family: var(--font-label);
+  /* Stays with .wc-key-label above: the two are one legend block, and splitting
+   * the faces would read as a mistake even though this row is not itself measured. */
+  font-family: var(--font-mono);
   letter-spacing: 0.06em;
   fill: var(--text-muted);
   text-anchor: middle;
