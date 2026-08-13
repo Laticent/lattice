@@ -25970,6 +25970,14 @@ section g.nodes > g.node:nth-of-type(10) > rect, figure g.nodes > g.node:nth-of-
  * which swaps the node renderer: `g.node > rect` becomes
  * `g.rough-node > g.basic.label-container > path`, drawn by rough.js.
  *
+ * WRAPPER-AGNOSTIC on purpose. A rect or circle wraps its two paths in
+ * `g.basic.label-container`; a diamond, slant or any other polygon shape wraps
+ * the same two paths in a CLASSLESS `g[transform]`. Keying on the class left
+ * decision nodes — the single most common flowchart idiom after the rectangle —
+ * with Mermaid's derived gray outline sitting beside correctly-inked neighbors
+ * in one diagram. `> g:first-of-type` is the shape group in both shapes; the
+ * label group that follows it holds a foreignObject, never a path.
+ *
  * A rough node HAS NO FILL. Its two paths both carry `fill="none"`, and the
  * "fill" you see is the FIRST path — a bundle of stroked hachure lines — with
  * the outline as the second. So the palette goes on with `stroke`, not `fill`.
@@ -25987,17 +25995,17 @@ section g.nodes > g.node:nth-of-type(10) > rect, figure g.nodes > g.node:nth-of-
  * redundant encoding, so those decks keep classic shapes and this block never
  * matches. Measured: four distinct tiles collapse to four grays 5% apart.
  */
-section g.nodes > g.rough-node:nth-of-type(1) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(1) > g.basic.label-container > path:first-child{ stroke: var(--cat-1-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(2) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(2) > g.basic.label-container > path:first-child{ stroke: var(--cat-2-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(3) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(3) > g.basic.label-container > path:first-child{ stroke: var(--cat-3-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(4) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(4) > g.basic.label-container > path:first-child{ stroke: var(--cat-4-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(5) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(5) > g.basic.label-container > path:first-child{ stroke: var(--cat-5-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(6) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(6) > g.basic.label-container > path:first-child{ stroke: var(--cat-6-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(7) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(7) > g.basic.label-container > path:first-child{ stroke: var(--cat-7-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(8) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(8) > g.basic.label-container > path:first-child{ stroke: var(--cat-8-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(9) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(9) > g.basic.label-container > path:first-child{ stroke: var(--cat-1-fill) !important; }
-section g.nodes > g.rough-node:nth-of-type(10) > g.basic.label-container > path:first-child, figure g.nodes > g.rough-node:nth-of-type(10) > g.basic.label-container > path:first-child{ stroke: var(--cat-2-fill) !important; }
-section g.nodes > g.rough-node > g.basic.label-container > path:last-child, figure g.nodes > g.rough-node > g.basic.label-container > path:last-child{ stroke: var(--diagram-stroke) !important; }
+section g.nodes > g.rough-node:nth-of-type(1) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(1) > g:first-of-type > path:first-child{ stroke: var(--cat-1-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(2) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(2) > g:first-of-type > path:first-child{ stroke: var(--cat-2-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(3) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(3) > g:first-of-type > path:first-child{ stroke: var(--cat-3-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(4) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(4) > g:first-of-type > path:first-child{ stroke: var(--cat-4-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(5) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(5) > g:first-of-type > path:first-child{ stroke: var(--cat-5-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(6) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(6) > g:first-of-type > path:first-child{ stroke: var(--cat-6-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(7) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(7) > g:first-of-type > path:first-child{ stroke: var(--cat-7-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(8) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(8) > g:first-of-type > path:first-child{ stroke: var(--cat-8-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(9) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(9) > g:first-of-type > path:first-child{ stroke: var(--cat-1-fill) !important; }
+section g.nodes > g.rough-node:nth-of-type(10) > g:first-of-type > path:first-child, figure g.nodes > g.rough-node:nth-of-type(10) > g:first-of-type > path:first-child{ stroke: var(--cat-2-fill) !important; }
+section g.nodes > g.rough-node > g:first-of-type > path:last-child, figure g.nodes > g.rough-node > g:first-of-type > path:last-child{ stroke: var(--diagram-stroke) !important; }
 section g.node-labels text, figure g.node-labels text, section g.nodes text, figure g.nodes text{
   fill: var(--cat-on-fill) !important;
 }

@@ -3022,10 +3022,15 @@ async function renderBody(browser, g, closeBrowser) {
               const explicitColor = /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
               // print → the print theme vars (themeVarsForBand('print'), scheme-independent); light/dark
               // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.
-              // The LOOK is the slide's own, not the look-mode's: re-baking changes the
-              // scheme, never the node renderer. Passing it keeps a sketch deck's
-              // re-baked diagrams hand-drawn like the ones that were not re-baked.
-              const bakeLook = MERMAID_REBAKE_LOOKS[idx];
+              // The LOOK is the slide's own, so a sketch deck's re-baked diagrams stay
+              // hand-drawn like the ones that were not re-baked — EXCEPT into print,
+              // which is a texture band for every theme (base.print-textures.css). The
+              // hand look has no texture channel, so re-baking a sketch diagram onto a
+              // print canvas would strip the redundant encoding exactly the way rule 1
+              // of resolveDiagramLook exists to prevent — and the scratch document this
+              // lands in really is `section.print` (sectionLookClass below). Same rule,
+              // enforced at the second place a diagram can be baked.
+              const bakeLook = lookMode === 'print' ? 'classic' : MERMAID_REBAKE_LOOKS[idx];
               const out = lookMode === 'print'
                 ? renderMermaid(def, 'print', bakeLook)
                 : renderMermaidOne(def, lookThemeVars, null, bakeLook);

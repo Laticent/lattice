@@ -11,9 +11,15 @@
   it — so they had never worn the label voice on any theme. Only visible under
   `sketch`, where they left a machine-faced kicker over hand-drawn content.
 - No visual change on any non-sketch theme: `--font-label` defaults to
-  `var(--font-mono)` and no theme overrides it, so every swapped site resolves
-  to the identical stack. Verified by rendering the 117-slide gallery before and
-  after — zero slide-DOM difference, and no new overflow.
+  `var(--font-mono)` and no theme overrides it, so every swapped site resolves to
+  the identical stack. Verified by rendering the 117-slide gallery before and
+  after and comparing the COMPUTED font on every text run — 301 mono-rendered
+  runs before, 72 after, all of them code — plus identical overflow markers, so
+  the hand face tips nothing into new clipping.
+- **Note for consumer themes:** `--font-mono` now means code voice only. A theme
+  or deck that re-pointed `--font-mono` to restyle labels should re-point
+  `--font-label` instead — the two still resolve identically unless you override
+  one.
 - Chart legend values keep their column alignment in the hand face:
   `font-variant-numeric: tabular-nums` does that work, not the font, and
   Shantell Sans ships the `tnum` feature.

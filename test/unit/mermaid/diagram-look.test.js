@@ -223,3 +223,19 @@ describe('MODE_WANTS_HAND is derived, not listed', () => {
     }
   });
 });
+
+describe('resolveDiagramLook — sketch-clean-body is a modifier, not a signal', () => {
+  // base.sketch.css keys every rule on `section.sketch`, and MODE_REGISTER never emits
+  // `sketch-clean-body` without `sketch` beside it. Treating it as a hand signal baked
+  // hand-drawn diagrams onto a deck whose slides carried no hand styling at all.
+  test('the token alone does NOT turn the hand on', () => {
+    assert.equal(resolveDiagramLook({ frontMatter: fm('class: sketch-clean-body'), slideClass: 'diagram' }), 'classic');
+    assert.equal(resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: 'sketch-clean-body' }), 'classic');
+  });
+
+  test('but the pair the register actually emits does', () => {
+    // MODE_REGISTER['sketch-clean'] === 'sketch sketch-clean-body'
+    assert.equal(resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: MODE_REGISTER['sketch-clean'] }), 'handDrawn');
+    assert.equal(resolveDiagramLook({ frontMatter: fm('mode: sketch-clean'), slideClass: 'diagram' }), 'handDrawn');
+  });
+});
