@@ -314,7 +314,7 @@ section img.emoji {
    * glyphs out by the same 0.05em as the old margin would — HARD RULE #20. */
   padding:0 0.05em;
 }
-/* FRAME CHROME SITS ABOVE COMPONENT CONTENT — the `z-index` is not decoration.
+/* FRAME CHROME SITS ABOVE COMPONENT CONTENT — the plane is not decoration.
  *
  * Both of these are `position: absolute` with no stacking order of their own, and so is
  * every component part that fills a corner of the slide. Positioned elements that do not
@@ -326,28 +326,33 @@ section img.emoji {
  * selectable the whole time — it was underneath a navy rectangle. Five of the family's
  * variants were affected (base, watermark, metric, steps, pullquote); the `mirror` forms
  * docked the panel on the other side and were fine, which is why this never looked like
- * a systematic defect.
+ * a systematic defect. A corpus A/B later found the same occlusion on 9 decks, including
+ * `kaizen-craftsmanship` and `seven-steps-problem-to-code`.
  *
- * 3, not 1, and not 50. It has to clear base.finish.css's backdrop stack (0/1/2 — see the
- * companion rule there, which restores this order on a `finish:` deck where the blanket
- * `section.finish > *` rule would otherwise flatten chrome and content to the same 2).
- * It must stay BELOW the diagnostic tabs at 50 (`.overflow-tab`, `.illegible-tab`,
- * `.fixme-tab`): those report on the slide and are meant to cover anything.
+ * `--z-chrome`, not a hand-picked number. This shipped as a literal `3` — chosen to clear
+ * base.finish.css's backdrop stack and stay below the diagnostic tabs at 50 — alongside a
+ * companion rule in base.finish.css that re-asserted it on `finish:` decks, where the
+ * blanket `section.finish > *` rule would otherwise flatten chrome and content together.
+ * Both the literal and the companion are gone: the slide's depth axis names this plane
+ * (base.tokens.css § depth axis), the decorative planes are negative so there is no
+ * backdrop stack to clear, and the blanket rule that needed compensating no longer exists.
+ * The tabs still win — `--z-alarm` is above `--z-chrome` by construction.
+ * engineering/decisions/2026-08-12-slide-plane-model.md.
  *
  * Raising chrome is only half the fix. Revealing a header over a dark panel with the
  * canvas-tuned `--text-muted` measured 2.45:1 — trading an invisible header for an
  * unreadable one, which is not a fix. Whatever a layout docks under the frame owes the
  * header the ink for THAT field; split-panel.styles.css does this per field. */
 section header {
+  z-index: var(--z-chrome);
   position:absolute; top:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-inset-x);
-  z-index:3;
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
   letter-spacing:0.10em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
+  z-index: var(--z-chrome);
   position:absolute; bottom:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-page-reserve);
-  z-index:3;
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
   line-height:1; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
@@ -1268,7 +1273,10 @@ section.closing.numbered::after {
   color: var(--accent);
   opacity: 0.55;
   pointer-events: none;
-  z-index: 1;
+  /* The oversized section numeral is DECORATION behind the words, not a chrome mark —
+   * same family as the watermark ghost and split-panel's giant step numeral. Its old
+   * `1` sat below the finish rule's blanket `2`, which is the order this preserves. */
+  z-index: var(--z-atmosphere);
 }
 
 /* On dark canvases the accent is muted; lift the numeral with the dark
@@ -1361,7 +1369,7 @@ section.clip-marked > .overflow-tab {
   position: absolute !important;
   top: 0;
   right: 0;
-  z-index: 50;
+  z-index: var(--z-alarm);
   background: #d4351c;
   color: #fff;
   font-family: var(--font-mono);
@@ -1436,7 +1444,7 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* THE TAB'S OWN CORNER, and getting here took three wrong answers worth recording,
    * because each one was a smaller version of the same mistake.
    *
-   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, `z-index: 50`). It shipped
+   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, on the ALARM plane). It shipped
    * bottom-center, which is the running-footer band, so once detection widened to cuts
    * with no overflow every deck carrying one ordinary `footer:` got a capsule painted
    * across its confidentiality line on EVERY page. Both HARD RULE #25 lenses found that
@@ -1519,7 +1527,7 @@ section.illegible > .illegible-tab {
   position: absolute;
   top: 0;
   right: 0;
-  z-index: 50;
+  z-index: var(--z-alarm);
   background: #b8730a;
   color: #fff;
   font-family: var(--font-mono);
@@ -1537,7 +1545,7 @@ section.illegible > .illegible-tab {
 /* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
    FOUR things want this corner. Three want `top: 0; right: 0`: the STATUS STAMP
    (`base.variants.css`,
-   painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
+   painted on `section::before`, on the MARK plane), the clip tab, and the legibility
    tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
    and the pill was moved into the corner on a survey of `lib/components/**` that could
    not see a base modifier. Rendered, `stamp-notch` swallowed the pill entirely — a
@@ -1671,7 +1679,7 @@ section.fit-marked > .fixme-tab {
   position: absolute !important;
   bottom: 0;
   right: 0;
-  z-index: 50;
+  z-index: var(--z-alarm);
   /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
    * the same exception the overflow red and the type-floor amber take: an
    * authoring alarm must read identically loud in every palette and color mode.
@@ -1764,6 +1772,7 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
+  z-index: var(--z-chrome);
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and
@@ -1860,6 +1869,7 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    real air between them rather than reading as one widget. `right` leaves room for the
    number plus the gap. */
 .lat-split-rail {
+  z-index: var(--z-chrome);
   position: absolute; right: 12cqi; bottom: 2.35cqi; left: auto;
   display: flex; align-items: center; gap: 0.55cqi; pointer-events: none;
 }

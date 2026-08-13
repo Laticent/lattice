@@ -336,7 +336,14 @@ section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .re
 section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin)::before {
   content: var(--stamp-label);
   position: absolute;
-  z-index: 100;
+  /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
+   * chrome, and it ships in the export. It stays BELOW the authoring alarm tabs
+   * (--z-alarm), which are the one thing that must beat everything on the slide — a
+   * reversal from the old raw 100-over-50, and the right way round: an author must be
+   * able to see the overflow tab even on a stamped slide. The tabs already clear the
+   * stamp GEOMETRICALLY via --corner-stack (below); planes decide only what covers what
+   * when they do overlap. base.tokens.css § depth axis. */
+  z-index: var(--z-mark);
   pointer-events: none;
   font-family: var(--font-label);
   font-weight: 700;

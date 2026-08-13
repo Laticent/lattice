@@ -70,7 +70,8 @@ section.image > footer { display: none; }
 section.image .lattice-bg {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  /* The photo IS the sheet on this layout — the CANVAS plane. */
+  z-index: var(--z-canvas);
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -79,7 +80,7 @@ section.image .lattice-bg {
 /* The prose panel. Base = a centered flex column; each composition places it. */
 section.image .image-text {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-content);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -366,7 +367,9 @@ section.image[data-img-composition="statement"] .lattice-bg { inset: 0; }
 section.image[data-img-composition="statement"] .image-scrim {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  /* A scrim is ATMOSPHERE: it darkens the sheet so the words read, and it belongs
+   * above the photo and below them. Same plane as the watermark ghost. */
+  z-index: var(--z-atmosphere);
   pointer-events: none;
   background:
     linear-gradient(108deg, rgba(8, 14, 24, 0.86) 0%, rgba(8, 14, 24, 0.5) 34%, rgba(8, 14, 24, 0) 64%),

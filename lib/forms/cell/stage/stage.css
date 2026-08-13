@@ -100,9 +100,12 @@ section.form {
    * the section padding (e.g. section.chart-frame sets `padding: 0`). No masthead
    * height-reserve — the in-flow band supplies its own height. */
   padding: var(--frame-y) var(--frame-x) var(--footer-reserve);
-  /* Own stacking context so the z-behind watermark Tile paints ABOVE the canvas
-   * but BELOW the (non-positioned) stage content. */
-  isolation: isolate;
+  /* `isolation: isolate` USED to live here, and it was the only rule in the engine
+   * creating a slide stacking context — so a sovereign frame (`title`, `math`,
+   * `divider`, …) never got one and its z values escaped to the page root. It is now
+   * unconditional on the bare `section` (base.elements.css), which every Form section
+   * is, so declaring it again here would be a no-op that reads like a local guarantee.
+   * engineering/decisions/2026-08-12-slide-plane-model.md. */
   /* Clip, don't bleed (design/forms.md §6). Stage content that exceeds its box
    * is cut by the section's clip rather than bleeding across the masthead/footer
    * Cells; the runtime overflow ring (scrollHeight > clientHeight) still fires
@@ -140,12 +143,26 @@ section.form:has(> .cell-stage) {
  * A component that wants a different body rhythm sets its own `gap` on its
  * `> .cell-stage` rule (most already do). */
 section.form > .cell-stage {
+  /* CONTENT plane — the Cell's declared `"z": 2` (stage.cell.json). This is also the
+   * `section > *` default, so the declaration is not load-bearing for the render; it is
+   * load-bearing for the §4.3 manifest↔CSS plane check, which reads the token. */
+  z-index: var(--z-content);
   flex: 1 1 auto;
   min-height: 0;
   overflow: clip;
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
+  /* The stage is an OCCUPANT ROOT: a component's internal z-index values are local
+   * to it (the 0–9 band, base.tokens.css § depth axis) and must never be ordered
+   * against the slide's planes. Unconditional, and that word is the whole point —
+   * the stage USED to become a stacking context only by accident, when a deck
+   * happened to set a finish and `section.finish > *:not(.backdrop)` handed it a
+   * `z-index`. Measured, before this rule: the same `content` slide gave
+   * `.cell-stage` no stacking context with `finish` off and one with it on, so a
+   * deck-wide cosmetic setting silently decided what a component's `z-index: 3`
+   * competed with. engineering/decisions/2026-08-12-slide-plane-model.md. */
+  isolation: isolate;
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────
@@ -169,6 +186,9 @@ section.form > .cell-stage {
  * mirroring the header). The `.footer-inset` universal modifier lifts it into the
  * frame. Hug is the default because a board footer conventionally sits at the edge. */
 section.form > .cell-footer {
+  /* CHROME plane — the Cell's declared `"z": 3` (footer.cell.json), matching the
+   * masthead band at the other edge. base.tokens.css § depth axis. */
+  z-index: var(--z-chrome);
   position: absolute;
   left: var(--frame-inset-x);
   right: var(--frame-inset-x);

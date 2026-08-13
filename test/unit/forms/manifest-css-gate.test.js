@@ -111,19 +111,45 @@ describe('§4.4 — suppresses integrity', () => {
   });
 });
 
-describe('§4.3 — z-plane ↔ z-index monotonicity', () => {
-  test('clean when z-index rises with the plane', () => {
+describe('§4.3 — the manifest plane and the CSS plane are the same plane', () => {
+  test('clean when each noun paints on the token for its declared plane', () => {
     assert.deepEqual(
-      checkZPlaneZIndex([{ id: 'a', plane: 1, zindex: -1 }, { id: 'b', plane: 3, zindex: 3 }]),
+      checkZPlaneZIndex([
+        { id: 'tile/watermark', plane: 1, token: '--z-atmosphere', zindex: 'var(--z-atmosphere)' },
+        { id: 'cell/footer', plane: 3, token: '--z-chrome', zindex: 'var(--z-chrome)' },
+      ]),
       [],
     );
   });
-  test('flags an inversion (lower plane, higher z-index)', () => {
-    const errors = checkZPlaneZIndex([{ id: 'a', plane: 1, zindex: 99 }, { id: 'b', plane: 3, zindex: 3 }]);
+  test('flags a noun painting on a plane its manifest does not declare', () => {
+    const errors = checkZPlaneZIndex([
+      { id: 'tile/watermark', plane: 1, token: '--z-chrome', zindex: 'var(--z-chrome)' },
+    ]);
     assert.equal(errors.length, 1);
-    assert.match(errors[0], /z-plane inversion/);
+    assert.match(errors[0], /z-plane disagreement/);
   });
-  test('live: the real co-located z-index declarations are monotonic', () => {
+  test('the watermark defect fails now, where the old monotonicity test passed it', () => {
+    // `"z": 1` in the manifest, `z-index: -1` in the CSS. Monotonic against the only other
+    // co-located declaration in the repo at the time, and wrong: it put the ghost numeral
+    // below the finish backdrop, and under `finish: savile` the pinstripes ruled across it.
+    // This is the regression case the check was rewritten for.
+    const errors = checkZPlaneZIndex([
+      { id: 'tile/watermark', plane: 1, token: null, zindex: -1 },
+      { id: 'tile/progress', plane: 3, token: null, zindex: 3 },
+    ]);
+    assert.equal(errors.length, 2, 'both bare integers are reported, not just the inverted one');
+    for (const e of errors) assert.match(e, /bare `z-index/);
+  });
+  test('an empty item set is an error, not a pass', () => {
+    // The failure mode that let the retired frame-chrome gate certify a deleted rule: when
+    // the Form sheets moved from integers to tokens, a collector still matching only digits
+    // returned nothing and the check went quietly green. A gate that certifies an empty set
+    // is worse than no gate, because it reports confidently on nothing.
+    const errors = checkZPlaneZIndex([]);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /no z-index at all/);
+  });
+  test('live: every real Cell and Tile paints on the plane its manifest declares', () => {
     assert.deepEqual(checkZPlaneZIndex(collectZPlaneZIndex(loadCatalog())), []);
   });
 });

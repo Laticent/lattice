@@ -19,6 +19,10 @@
  * lib/forms/cell/stage/stage.css and cascade in here. Canonical model:
  * design/forms.md. */
 section.form .cell-masthead {
+  /* CHROME plane — the Cell's declared `"z": 3` (masthead.cell.json). Without it the
+   * band would fall to the `section > *` content default and stop being the frame.
+   * base.tokens.css § depth axis. */
+  z-index: var(--z-chrome);
   /* In-flow, content-height band: the hairline sits directly under the title,
    * so there is no dead space when the title is one line, and the band grows
    * naturally for a two-line title. (Was a fixed --masthead-h absolute box,

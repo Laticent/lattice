@@ -233,7 +233,7 @@ authored by a *designer*; a **Tile** binds a *source*.
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
-  annotation).
+  annotation). **This field is now executed, not just declared** — see §5.2.
 - **`accepts`** — which Tile/Frame kinds may dock (the containment contract — §7).
 - **`capacity`** — `one` or `stack`.
 - **`fill`** — how an *underfilling* occupant distributes: `start` · `center` ·
@@ -247,7 +247,7 @@ authored by a *designer*; a **Tile** binds a *source*.
   `chrome` (kicker, title, meta, logo, status, footer, progress, pagination) ·
   `content` (the component) · `review` (annotation).
 - **`fits`** — which Cell(s) it may dock in (the dual of the Cell's `accepts`).
-- **`z`** — its z-plane.
+- **`z`** — its z-plane (§5.2).
 - **`population`** — *where its content comes from*: front-matter (`meta:`,
   `logo:`), authoring grammar (`` `eyebrow` ``, `## h2`), state variants, the
   component DOM, or derived (divider sections → progress, paginate → pagination).
@@ -257,6 +257,45 @@ authored by a *designer*; a **Tile** binds a *source*.
   `default`, and any `condition`.
 - **`status`** — `shipped` · `partial` · `new` (the registry's "Today" column in
   the superseded ADR).
+
+### 5.2 The z-planes, and how a Frame renders them
+
+A slide is not a flat sheet with things sprinkled on it. It is a **small stack of
+planes**, and `z` is which one a noun lives on. The model has always said so; as of
+2026-08-12 the CSS says so too, and the two are checked against each other.
+
+| Plane | Token | Who lives here |
+|---|---|---|
+| **0 canvas** | `--z-canvas` | the sheet: the section background, the `image` layout's photo panel, the finish `.backdrop` field |
+| **1 atmosphere** | `--z-atmosphere` | decoration *behind the words*: the watermark ghost, oversized ghost numerals, a photo scrim, pale quote glyphs |
+| **2 content** | `--z-content` | the `stage` Cell and everything the author wrote — and the **default**, so an unnamed direct child lands here |
+| **3 chrome** | `--z-chrome` | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, logo, status, progress, pagination |
+| **4 annotation** | `--z-mark` | stamped *onto* the delivered slide: status stamps, review annotations, comments |
+| *(above the model)* | `--z-alarm` | authoring-only signals that must beat everything: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
+
+Two rules make the scale hold, and both are about **containment**, not numbers:
+
+1. **Every `section` is a stacking context**, unconditionally
+   (`section { isolation: isolate }`, `lib/base/base.elements.css`). Without it a plane
+   number means something different per slide. It used to be gated on `.form`, so every
+   sovereign Frame had none and its values escaped to the page root, where they were
+   ordered against *other slides*.
+2. **Inside an occupant, the band is `0–9`.** A component's internals — a rail behind a
+   node, a counter over a fill — use small local values and never a plane token. The
+   occupant's root isolates, so the whole subtree rides its owner's plane as a unit. The
+   dividing line is exactly whether an element **can be a direct child of `section`**: if
+   it can, it names a plane; if it can't, it stays local.
+
+A **Frame** does not paint a plane of its own — it slices boxes. The planes belong to the
+Cells it produces and the Tiles that dock into them, which is why `z` is a field on the
+Cell and the Tile and not on the Frame.
+
+Why this needed writing down: the `watermark` Tile declared `"z": 1` and its CSS said
+`z-index: -1`, so the ghost numeral painted *under* the finish field it is defined to sit
+above, and on a patterned finish the texture ruled straight across it. Both halves were
+locally reasonable; nothing connected them. The full account, the measurements, and what
+the model deletes are in
+`engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ### 5.1 The authored part → Cell map (the universal slot vocabulary)
 
@@ -750,8 +789,9 @@ chain, and the coupling ADR for the rungs. As of the "light" coupling
 manifest↔CSS consistency so the contract can't silently drift: geometry/gap
 **token references resolve** to real CSS custom properties (§4.2), every Cell's
 `css` flag matches the filesystem (§4.1), `suppresses` never removes the content
-stage and stays disjoint from a Frame's own cells (§4.4), and co-located `z-index`
-values don't invert the semantic `z` plane order (§4.3). This is what makes designer- and
+stage and stays disjoint from a Frame's own cells (§4.4), and a Cell/Tile's co-located
+CSS paints on **the same plane its manifest declares** (§4.3 — an equality check as of
+2026-08-12; it was a weaker monotonicity test, which the `watermark` inversion passed). This is what makes designer- and
 AI-authored Frames (§7) possible at all — a Frame defined only in three
 hand-edited kernels cannot be generated; a Frame defined as data can. Reuse the
 component infrastructure (the manifest loader, the portal generator, the schema,

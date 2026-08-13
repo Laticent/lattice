@@ -103,7 +103,7 @@
   position: fixed;
   top: max(0.5rem, env(safe-area-inset-top));
   right: max(0.5rem, env(safe-area-inset-right));
-  z-index: 2147483000;
+  z-index: var(--z-viewer);
   padding: 0.5rem 0.85rem;
   border: 0;
   border-radius: 999px;

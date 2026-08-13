@@ -157,7 +157,7 @@ section.scene .scene-figure svg {
 /* The prose panel (mirrors .image-text). */
 section.scene .scene-text {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-content);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

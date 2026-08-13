@@ -465,6 +465,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Engine internals, where transform kernels live | `engineering/architecture.md` |
 | Where we stand vs Marp (independence scorecard) | `engineering/marp-independence.md` |
 | The CSS cascade / `@layer` (declared-but-inert; the trap) | `engineering/cascade.md` |
+| **Layering a slide** — which z-plane a thing lives on, and the local 0–9 band | `design/forms.md` §5.2 + `lib/base/base.tokens.css` § depth axis |
 | Typography scales | `engineering/typography.md` |
 | Running the render pipeline (PDF/HTML/PPTX) | `engineering/pipeline.md` |
 | Authoring/rendering Mermaid diagrams | `engineering/mermaid.md` |

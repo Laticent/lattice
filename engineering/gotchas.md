@@ -2280,18 +2280,50 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Tell:** a coordinate that should be constant is different on different slides. An
   absolute placement cannot depend on how much copy sits above it, so if it does, the
   element is in flow.
-- **Fixed 2026-08-04.** `position` is now withheld from frame chrome, and the exclusion
-  set is derived from the CSS and gated both ways (`checkFinishChromeExclusions`,
-  `tools/check-ownership.js`) so it cannot silently go stale — which it already had once,
-  missing `.lat-split-rail`. Behavior is gated by
-  `test/integration/invariants/frame-chrome-out-of-flow.test.js`.
-- **If you are adding out-of-flow chrome to a section:** you do not need to remember this
-  file. Add the rule, run `npm run build:check`, and the gate will tell you to exclude it.
-- **Do not "simplify" it to `.backdrop { z-index: -1 }`.** It is the better shape and it
-  does not work: a Lattice `section` does not reliably form a stacking context
-  (`isolation` computes `auto` on `math` and `title`), so the backdrop escapes behind the
-  section's own opaque background and the finish disappears. Measured, with a render.
-- **Commits:** `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+- **Fixed 2026-08-04**, then **removed outright 2026-08-12.** The first fix withheld
+  `position` from frame chrome via a gated `:where()` exclusion list. The slide plane model
+  deleted the rule the list existed to hold back: every child of every section now names its
+  own plane, so nothing has to be pushed off the backdrop and no rule reaches across a
+  section's children to set `position` at all. The list and its gate went with it.
+- **The "simplification" that used to be forbidden here is now what ships.**
+  `.backdrop { z-index: var(--z-canvas) }` — sinking the backdrop instead of lifting
+  everything else — was built, rendered and rejected in 2026-08, because a Lattice `section`
+  did not reliably form a stacking context (`isolation` computed `auto` on `math` and
+  `title`), so the backdrop escaped behind the section's own opaque background. That note
+  named the precondition for re-proposing it, and `section { isolation: isolate }`
+  (base.elements.css) now meets it unconditionally. **Do not remove that line** — it is what
+  holds the whole model up.
+- **If you are adding out-of-flow chrome to a section:** add the rule, give it a `--z-*`
+  plane token, and run `npm run build:check`. No exclusion list to update.
+- **Commits:** `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`,
+  `engineering/decisions/2026-08-12-slide-plane-model.md`.
+
+### Something decorative on a slide is painting on the wrong side of something else
+
+- **Symptom:** A ghost numeral, a watermark, a scrim or a pale glyph turns up *behind* the
+  surface it is supposed to sit on, or *in front of* the words it is supposed to sit behind.
+  The tell is that it looks right on some decks and wrong on others — most often it breaks
+  the moment a deck sets `finish:`, which is unrelated to the element in question.
+- **Cause:** a `z-index` picked locally instead of a plane named globally. A slide is a
+  stack of six named planes (`--z-canvas` · `--z-atmosphere` · `--z-content` · `--z-chrome`
+  · `--z-mark` · `--z-alarm`, `lib/base/base.tokens.css` § depth axis), and a raw integer
+  is a plane assignment nobody else can read. The watermark Tile declared plane 1
+  (atmosphere) in its manifest and `z-index: -1` in its CSS, which put it *below* the finish
+  backdrop at 0; under `finish: savile` the pinstripes ruled straight across the numeral.
+  `citation-card.styles.css` carries a comment recording the identical bug, found and
+  patched independently.
+- **Tell:** a negative `z-index` on a slide. It buys nothing — it does not escape the
+  section, whose background paints first either way — and it sinks the element below the
+  canvas plane. If you are reaching for `-1`, you want `--z-atmosphere`.
+- **The rule:** if the element **can be a direct child of `section`**, it sits on a plane
+  and names it with a token. If it always renders **inside** an occupant (a component's
+  internals, a `.lat-focus` row inside the stage), it uses the local band `0–9` — its root
+  isolates, so those values never meet the slide's planes.
+- **Gated** by `checkZPlanes` (`tools/check-ownership.js`, via `build:check`) for the part
+  decidable from CSS text, and by
+  `test/integration/invariants/slide-planes.test.js` for the part that needs a render:
+  every real direct child of every section must land on a plane value.
+- **Commits:** `engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ### `white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows
 

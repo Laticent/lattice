@@ -962,6 +962,68 @@
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
 }
 
+/* ── The slide's DEPTH axis — seven named planes ────────────────────────
+ * The berth tokens above are the frame's x/y; these are its z. A slide is not a
+ * flat sheet with things sprinkled on it — it is a small stack of planes, and
+ * every layering decision at SLIDE scale names the plane it belongs to instead
+ * of picking an integer.
+ *
+ * This EXECUTES the plane model the Form manifests have always declared. Every
+ * Cell and Tile carries a `z` (lib/forms/schema/{cell,tile}.schema.json, required;
+ * lib/forms/index.js `Z_PLANES`), and until now nothing read it: engine CSS ran on
+ * 56 hand-picked integers over an ad-hoc ladder (-1, 0, 1, 2, 3, 50, 100), which is
+ * how a Tile declaring plane 1 (`watermark`, atmosphere) ended up at `z-index: -1`
+ * and painted UNDER the finish field it is defined to sit above. The manifest planes
+ * 0–4 map onto the first five tokens below unchanged; `mark` and `alarm` name the two
+ * tiers that had grown unnamed above them.
+ *
+ * SPACED BY TEN, on purpose. A sub-plane can be inserted between two of these without
+ * renumbering anything, and at slide scale any value that is not a multiple of ten
+ * reads as a mistake on sight.
+ *
+ * THE LOCAL BAND IS 0–9, AND IT IS PART OF THE MODEL. The dividing line is whether an
+ * element can be a DIRECT CHILD of `section`:
+ *
+ *   · it can  → it sits on a slide plane, and says so with a token.
+ *   · it can't (it always renders inside an occupant — a component's internals, a
+ *     `.lat-focus` row inside the stage) → it uses the local band 0–9 and nothing else.
+ *     Its root isolates, so the whole subtree already rides its owner's plane as a
+ *     unit; a plane token used down there would be a promise the isolation breaks.
+ *
+ * Both halves are gated by `checkZPlanes` (tools/check-ownership.js, via build:check).
+ *
+ * These order elements WITHIN one slide, which is only meaningful because every
+ * section is now an unconditional stacking context (`section { isolation: isolate }`,
+ * base.elements.css). Before that, `section.form` isolated and a sovereign frame did
+ * not, so a `title` slide's z values escaped to the page root and were ordered against
+ * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
+:root, section {
+  --z-canvas:        0;  /* the sheet: section background, .lattice-bg photo panel,
+                          * .image-scrim, the finish .backdrop field */
+  --z-atmosphere:   10;  /* decorative depth BEHIND the words: the watermark ghost,
+                          * oversized ghost numerals, pale quote glyphs */
+  --z-content:      20;  /* the stage, and everything the author wrote. Also the
+                          * DEFAULT plane: `section > *` (base.elements.css) puts an
+                          * unnamed direct child here, so a new one lands somewhere
+                          * safe instead of wherever the painting algorithm drops it */
+  --z-chrome:       30;  /* header, footer, pagination, logo, meta, status, kicker,
+                          * title, the progress rail */
+  --z-mark:         40;  /* stamped ONTO the delivered slide: status stamps
+                          * (CONFIDENTIAL / DRAFT / …), review annotations, comments */
+  --z-alarm:        50;  /* authoring-only signals that must beat everything on the
+                          * slide: the overflow / illegible / fix-me tabs, debug boxes */
+}
+
+/* VIEWER chrome is NOT a slide plane, and must not borrow one. The fluid-view toggle
+ * and the exported player's bar float above the WHOLE DECK in the document, outside
+ * every section's stacking context, so they are ordered against the page — not against
+ * anything on a slide. Kept at the historical maximum so a host page's own chrome
+ * cannot bury the only control that gets a reader back to fixed view. Declared on
+ * :root ONLY (not `section`): nothing inside a slide may read it. */
+:root {
+  --z-viewer: 2147483000;
+}
+
 /* ── The 12 typography tokens — GENERATED, not hand-written here ────────
  * The `--fs-*` scale moved to the lib/typography/scale.js manifest + emitter
  * (lib/typography/emit.js), which tools/build-css.js bundles in right after this

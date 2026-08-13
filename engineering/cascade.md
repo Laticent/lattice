@@ -222,6 +222,28 @@ Phase 3.5b isn't redone:
    needs `!important` to defeat the library's inline styles. That's not a
    cascade workaround.
 
+## Not the cascade: the slide's z-planes
+
+`@layer` and `z-index` both get called "layering" and they are unrelated
+problems. Cascade layers decide **which declaration wins**; z-planes decide
+**what paints over what** once the winner is known. Layers are inert here (above);
+planes are live.
+
+A slide is six named planes — `--z-canvas` · `--z-atmosphere` · `--z-content` ·
+`--z-chrome` · `--z-mark` · `--z-alarm`, defined in `lib/base/base.tokens.css`
+§ depth axis — and every layering decision at slide scale names one. Inside an
+occupant the band is `0–9`. The model, and what happens without it:
+
+- `design/forms.md` §5.2 — the plane table and the two containment rules
+- `engineering/decisions/2026-08-12-slide-plane-model.md` — the design record
+- `tools/check-ownership.js` — `checkZPlanes`
+- `test/integration/invariants/slide-planes.test.js` — the empirical half
+
+One place the two topics genuinely touch: a stacking context is what makes a
+plane number mean the same thing on every slide, and `section { isolation: isolate }`
+(`lib/base/base.elements.css`) is what supplies it. That has nothing to do with
+`@layer` and must not be "tidied" into one.
+
 ## Related references
 
 - `engineering/decisions/2026-06-18-layer-activation-scope.md` — the

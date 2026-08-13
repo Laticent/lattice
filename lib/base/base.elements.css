@@ -31,6 +31,32 @@ section {
    * it costs nothing and removing it would break any such rule silently. Do NOT
    * reintroduce an aspect-ratio query on it. */
   container-name:lattice;
+  /* ── EVERY SLIDE IS A STACKING CONTEXT, unconditionally ────────────────────
+   * This is what makes the `--z-*` plane scale (base.tokens.css) mean the same
+   * thing on every slide, and it is deliberately declared HERE — on the bare
+   * `section`, with no class gate — rather than on a Form class.
+   *
+   * It used to be gated, and that was the root of the flat layering. The only
+   * rule creating a slide stacking context was `section.form { isolation: isolate }`
+   * (lib/forms/cell/stage/stage.css), so a SOVEREIGN frame — `title`, `math`,
+   * `divider`, `image`, every frame with `exemptFromChrome: true` — got none at
+   * all, and its z values escaped to the page root, where they were ordered against
+   * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
+   * computed `isolate` on a `content` section and `auto` on a `title` section of the
+   * same deck.
+   *
+   * `container-type: size` does NOT supply one — that was checked, not assumed:
+   * `contain` computes `none` and `isolation` `auto` on a section that has only the
+   * container. Do not delete this on the theory that the container covers it.
+   *
+   * The wider consequence is that `section.finish > .backdrop` can now simply be
+   * `z-index: var(--z-canvas)` while content and chrome take their own planes.
+   * 2026-08-04-finish-stacking-displaces-frame-chrome.md rejected exactly that
+   * shape — "the escape only holds inside a stacking context, and a Lattice
+   * `section` does not reliably form one" — and named this rule as the precondition
+   * for re-proposing it. That is what removed the gated `:where()` chrome exclusion
+   * list. engineering/decisions/2026-08-12-slide-plane-model.md. */
+  isolation:isolate;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;
   padding: calc(var(--_sec-1cqi,1cqi)*6.875) calc(var(--_sec-1cqi,1cqi)*5);
@@ -40,6 +66,30 @@ section {
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
+
+/* ── CONTENT is the DEFAULT plane for anything on a slide ─────────────────────
+ * Named things opt OUT (a `.backdrop` to canvas, a `header` to chrome, an alarm tab
+ * to alarm); everything else lands on content. Deliberately the weakest selector in
+ * the engine — (0,0,1) — so every one of those opt-outs wins without a fight, and a
+ * direct child nobody has thought about yet still lands somewhere sane.
+ *
+ * IT MUST BE EXPLICIT, and the reason is a corner of the painting algorithm worth
+ * knowing. A `section` is `display: flex`, so its children are flex items, and a flex
+ * item at `z-index: auto` paints with the INLINE-LEVEL content (step 7) — while a
+ * positioned element at `z-index: 0` paints with the POSITIONED descendants (step 8),
+ * which is later. So an absolutely-positioned `z-index: 0` backdrop covers content
+ * that carries no z-index at all. That is the whole reason base.finish.css used to
+ * sweep `z-index: 2` onto every non-backdrop child; naming the plane replaces the
+ * sweep, and it applies whether or not the deck uses a finish.
+ *
+ * The flex context is also what keeps this cheap: a flex item honors `z-index`
+ * WITHOUT being positioned (CSS Flexbox §5.4), so nothing here has to touch
+ * `position`. That distinction is the exact trap 2026-08-04-finish-stacking-displaces-
+ * frame-chrome.md was written about — `position: relative` added as the mechanism for
+ * a z-index re-based `top`/`left` onto the flow position and dragged out-of-flow chrome
+ * into flow. No plane rule in this engine sets `position`.
+ * engineering/decisions/2026-08-12-slide-plane-model.md. */
+section > * { z-index: var(--z-content); }
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
