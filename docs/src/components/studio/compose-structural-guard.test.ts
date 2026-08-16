@@ -117,7 +117,7 @@ describe('structuralGuard — a locked slide stays immutable either way', () => 
 // Every rule in the guard reasons about the author's CURRENT selection, and an undo
 // has no such intent to read — it restores a state the guard already approved. Judging
 // it by whatever caret happens to be sitting there was a category error with teeth:
-// after \u2318A \u2318A Delete the selection is a collapsed caret in the one remaining slide, so
+// after ⌘A ⌘A Delete the selection is a collapsed caret in the one remaining slide, so
 // the restore looked exactly like an accidental merge and was filtered. The deck wipe
 // stood, undo did nothing, and StudioShell persists the source on a debounce — so the
 // empty deck reached localStorage with no automatic checkpoint behind it.
