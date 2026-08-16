@@ -78,7 +78,7 @@ function toStudioScene(a: SceneAssetRecord): StudioScene | null {
  * VALIDATED before it is stored (a scene the schema rejects can't silently land).
  * Resolves to the stored Studio scene; rejects on an invalid spec or an unavailable store.
  */
-export async function saveStudioScene(input: { name: string; label?: string; description?: string; spec: Scene; poster?: string; art?: string }): Promise<StudioScene> {
+export async function saveStudioScene(input: { id?: string; name: string; label?: string; description?: string; spec: Scene; poster?: string; art?: string }): Promise<StudioScene> {
 	const r = parseScene(input.spec);
 	if (!r.ok) throw new Error(`Invalid scene spec — not saved: ${r.errors.join('; ')}`);
 	const name = slugify(input.name) || `scene-${Date.now().toString(36)}`;
@@ -97,7 +97,7 @@ export async function saveStudioScene(input: { name: string; label?: string; des
 		addedAt: Date.now(),
 	};
 	const { id: _drop, ...rest } = record;
-	const stored = (await putAsset(rest as unknown as SceneAssetRecord)) as SceneAssetRecord;
+	const stored = (await putAsset((input.id ? { ...rest, id: input.id } : rest) as unknown as SceneAssetRecord)) as SceneAssetRecord;
 	// The spec was validated above (parseScene returns it by reference), so build the Studio
 	// scene directly from the already-valid `r.scene` + the store-assigned id — no re-parse.
 	return { id: stored.id, name: stored.name, label: stored.label || stored.name, description: stored.description, spec: r.scene, poster: stored.poster, art: stored.art };

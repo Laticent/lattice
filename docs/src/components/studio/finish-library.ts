@@ -63,8 +63,14 @@ export function safeSaveSlug(text: string): string {
  * recipe is persisted so a saved finish reloads with its layer stack intact for
  * re-editing. Resolves to the stored Studio finish; rejects if the store is
  * unavailable.
+ *
+ * `id` PINS THE RECORD, and is what makes editing a saved asset safe: without it
+ * the store finds the record to update by NAME, so renaming while editing lands the
+ * edit as a SECOND record and leaves every deck pointing at the untouched first one.
+ * Pass the id you loaded and the same record is rewritten whatever the name becomes.
+ * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioFinish(input: { name: string; label?: string; css: string; recipe: FinishRecipe }): Promise<StudioFinish> {
+export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe }): Promise<StudioFinish> {
 	// safeSaveSlug namespaces a reserved-name collision so a saved finish can never
 	// shadow a built-in preset (e.g. `atrium` → `atrium-custom`); empty → a timestamp.
 	const name = safeSaveSlug(input.name) || `finish-${Date.now().toString(36)}`;
@@ -83,7 +89,7 @@ export async function saveStudioFinish(input: { name: string; label?: string; cs
 	};
 	// asset-store's putAsset replaces the empty id with a generated/looked-up one.
 	const { id: _drop, ...rest } = record;
-	const stored = (await putAsset(rest as unknown as FinishAssetRecord)) as FinishAssetRecord;
+	const stored = (await putAsset((input.id ? { ...rest, id: input.id } : rest) as unknown as FinishAssetRecord)) as FinishAssetRecord;
 	return toStudioFinish(stored);
 }
 

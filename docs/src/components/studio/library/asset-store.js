@@ -14,11 +14,17 @@
 // lib/layout/scaffold); this module only persists them.
 
 const DB_NAME = 'lattice-workbench';
-const DB_VERSION = 1;
+// v2 adds `assetHistory` (asset-history.js). ONE database means ONE upgrade
+// handler, so every store this database will ever hold is created here even
+// though only `assets` is read below — a second module calling `indexedDB.open`
+// with its own version is how you get a VersionError on the tab that opened
+// first. asset-history.js imports `openDB` from here rather than opening its own.
+const DB_VERSION = 2;
 const STORE = 'assets';
+export const HISTORY_STORE = 'assetHistory';
 
 let dbPromise = null;
-function openDB() {
+export function openDB() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
@@ -26,11 +32,18 @@ function openDB() {
       return;
     }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    // Guards, not an `if (oldVersion < N)` ladder: a browser that never saw v1
+    // runs this once with both stores missing, and one upgrading from v1 runs it
+    // with `assets` already present. Both paths must land on the same schema.
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) {
         const os = db.createObjectStore(STORE, { keyPath: 'id' });
         os.createIndex('kind', 'kind', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(HISTORY_STORE)) {
+        const os = db.createObjectStore(HISTORY_STORE, { keyPath: 'id' });
+        os.createIndex('assetId', 'assetId', { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -42,7 +55,7 @@ function openDB() {
 function tx(db, mode) {
   return db.transaction(STORE, mode).objectStore(STORE);
 }
-function reqAsPromise(request) {
+export function reqAsPromise(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

@@ -44,8 +44,14 @@ export type ComponentMeta = {
  * future requests, graduates into the gallery, and reloads with its axes intact.
  * Throws if the name isn't a valid slug (componentAsset enforces it) or the store
  * is unavailable.
+ *
+ * `id` PINS THE RECORD, and is what makes editing a saved asset safe: without it
+ * the store finds the record to update by NAME, so renaming while editing lands the
+ * edit as a SECOND record and leaves every deck pointing at the untouched first one.
+ * Pass the id you loaded and the same record is rewritten whatever the name becomes.
+ * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioComponent(input: { name: string; css: string; skeleton: string; meta?: ComponentMeta }): Promise<StudioComponent> {
+export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta }): Promise<StudioComponent> {
 	const meta = input.meta || {};
 	const manifest: Record<string, unknown> = { name: input.name };
 	for (const k of ['function', 'form', 'substance', 'bucket', 'adapt', 'capacity', 'density'] as const) {
@@ -54,7 +60,7 @@ export async function saveStudioComponent(input: { name: string; css: string; sk
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
 	const asset = componentAsset({ name: input.name, css: input.css, skeleton: input.skeleton, manifest });
-	const stored = (await putAsset(asset)) as ComponentAssetRecord;
+	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }
 

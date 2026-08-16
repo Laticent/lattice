@@ -51,8 +51,16 @@ function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
  * slug the label, then fall back to the given name. Re-saving the same name
  * UPDATES in place (asset-store keys on kind+name) rather than piling up dupes.
  * Resolves to the stored Studio theme; rejects if the store is unavailable.
+ *
+ * `id` PINS THE RECORD, and is what makes editing a saved theme safe. Without it
+ * the store finds the record to update by NAME — so renaming while editing looks
+ * like a save and is really a create: the edited theme lands as a second record
+ * and every deck saying `theme: <old name>` still points at the untouched first
+ * one. Pass the id you loaded and the same record is rewritten whatever the name
+ * becomes. Omit it and the name-keyed behavior above is unchanged, which is what
+ * every save-a-new-theme caller wants.
  */
-export async function saveStudioTheme(input: { name: string; label: string; essentials: Record<string, string>; css: string }): Promise<StudioTheme> {
+export async function saveStudioTheme(input: { id?: string; name: string; label: string; essentials: Record<string, string>; css: string }): Promise<StudioTheme> {
 	// The invariant the feature rests on: the stored record name MUST equal the
 	// name the CSS was serialized under (its `@theme <name>`), or the engine
 	// registers the theme under the CSS name while the deck renders by record name
@@ -61,7 +69,7 @@ export async function saveStudioTheme(input: { name: string; label: string; esse
 	// label slug, then a stamped form) when it isn't.
 	const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
 	const asset = themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css });
-	const stored = (await putAsset(asset)) as ThemeAssetRecord;
+	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }
 
