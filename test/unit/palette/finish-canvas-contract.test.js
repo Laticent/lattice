@@ -39,12 +39,28 @@ test('base.finish.css routes every layer through --fin-canvas, never a bare --bg
 
 test('the three inverse bookends re-point --fin-canvas at their own surface', () => {
   const css = code(FINISH_CSS);
-  const rule = css.match(/section:is\(([^)]*(?:\([^)]*\))?[^)]*)\)\s*\{\s*--fin-canvas:\s*var\(--surface-inverse\)/);
-  assert.ok(rule, 'expected a `section:is(…) { --fin-canvas: var(--surface-inverse) }` rule');
-  for (const bookend of ['.title', '.closing', '.divider:not(.light)']) {
-    assert.ok(rule[1].includes(bookend), `${bookend} paints --surface-inverse, so its finish canvas must follow it`);
+  const rule = css.match(/((?:section[^{}]*,\s*)*section[^{}]*)\{\s*--fin-canvas:\s*var\(--surface-inverse\)/);
+  assert.ok(rule, 'expected a rule setting `--fin-canvas: var(--surface-inverse)` for the inverse bookends');
+  const selector = rule[1];
+  for (const bookend of ['.title', '.closing', '.divider']) {
+    assert.ok(selector.includes(bookend), `${bookend} paints --surface-inverse, so its finish canvas must follow it`);
   }
+  // The CANVAS MODIFIERS must be carved out. `dark` and `print` repaint the section
+  // themselves from base.modifiers.css, which the bundle loads after the component
+  // sheets — so on `title dark` the modifier wins and the surface is `--bg`. Excluding
+  // them is what keeps the fix from inverting its own bug (red-team finding).
+  for (const mod of [':not(.dark)', ':not(.print)']) {
+    assert.ok(selector.includes(mod), `the override must not apply to a ${mod.slice(5, -1)} slide`);
+  }
+  // …but `light` is carved out for the DIVIDER ONLY: `section.light` paints nothing, so
+  // a `title light` keeps its inverse panel while `divider.light` takes the deck canvas.
+  assert.match(selector, /section\.divider:not\(\.light\)/, 'divider must exclude .light');
+  assert.doesNotMatch(selector, /section:is\([^)]*\):not\(\.light\)/, 'title/closing must NOT exclude .light');
 });
+
+// The assertions above are about SOURCE SHAPE, and that is all they can be — the CSS is
+// valid whichever color it resolves to. The behavior itself is gated by a computed-value
+// matrix in real Chromium: test/integration/invariants/finish-canvas-matrix.test.js.
 
 test('--fin-canvas is declared on `section`, so it is never undefined under a finish', () => {
   const css = code(FINISH_CSS);
@@ -55,6 +71,15 @@ test('--fin-canvas is declared on `section`, so it is never undefined under a fi
 
 test('the Studio finish generator emits the same token as the base layer', () => {
   const gen = fs.readFileSync(GENERATOR, 'utf8');
-  assert.ok(!/var\(--bg\)/.test(gen), 'a fabricated finish must mix toward var(--fin-canvas) too — HARD RULE #1, one contract for both sources');
-  assert.ok(/var\(--fin-canvas\)/.test(gen), 'expected the generator to emit var(--fin-canvas)');
+  // The generator writes `var(--fin-canvas, var(--bg))`, WITH the fallback — its output
+  // is consumed both inside a `<section>` (where the engine declares the token) and on
+  // plain chrome `<div>`s, the Library's saved-finish preview strip and the Inspector's
+  // finish swatches. A bare `var(--fin-canvas)` is unresolved there, which invalidates
+  // the whole gradient and paints nothing. Inside a section the fallback is never taken.
+  const withoutFallback = gen.split('var(--fin-canvas, var(--bg))').join('');
+  assert.ok(
+    !/var\(--bg\)/.test(withoutFallback),
+    'a fabricated finish must mix toward var(--fin-canvas) — HARD RULE #1, one contract for both sources',
+  );
+  assert.ok(/var\(--fin-canvas, var\(--bg\)\)/.test(gen), 'expected the generator to emit var(--fin-canvas) WITH its --bg fallback');
 });

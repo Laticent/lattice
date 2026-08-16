@@ -22392,7 +22392,33 @@ section.finish {
 section {
   --fin-canvas: var(--bg);
 }
-section:is(.title, .closing, .divider:not(.light)) {
+/* …but NOT when the slide also carries a canvas modifier. `dark`, `light`, and `print`
+ * re-establish `var(--bg)` as the painted surface — they set `background` themselves at
+ * equal (0,1,1) specificity from `base.modifiers.css`, which the bundle loads AFTER the
+ * component sheets, so on `title dark` it is the MODIFIER that wins and the bookend's
+ * `--surface-inverse` never paints. Measured in Chromium against the real bundle:
+ * `title dark` is rgb(0,29,51) (the dark `--bg`), not rgb(0,61,102).
+ *
+ * Without these three exclusions the fix inverted its own bug — an opaque
+ * `--surface-inverse` wash over a darker `dark` slide, and on `print` a full-page
+ * `--print-surface-inverse` gray flood across a white page, which is exactly what that
+ * token's own comment ("light framed, not a toner-heavy flood") exists to prevent. Four
+ * correct cases traded for one. Caught by the red-team pass before merge, and now gated
+ * by a COMPUTED-VALUE matrix in real Chromium —
+ * `test/integration/invariants/finish-canvas-matrix.test.js` — over
+ * {title, closing, divider, content} × {plain, dark, light, print, color-light,
+ * color-system}. The source-shape assertions in
+ * `test/unit/palette/finish-canvas-contract.test.js` are structurally unable to see this
+ * class of failure: the CSS is valid whichever color it resolves to.
+ *
+ * `light` is NOT a blanket exclusion, because the three bookends do not treat it alike:
+ * `section.light` sets `color-scheme` ONLY and paints nothing, so a `title light` keeps
+ * its inverse panel — while `section.divider.light` DOES replace the canvas with
+ * `var(--bg)`, which is why `divider` alone carries the `:not(.light)` it always had.
+ * Excluding `.light` from all three was the first cut of this fix and broke `title
+ * light`; the matrix caught it. */
+section:is(.title, .closing):not(.dark):not(.print),
+section.divider:not(.light):not(.dark):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
 

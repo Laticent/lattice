@@ -422,3 +422,47 @@ describe('the INSIGHT / NOTE registers follow the class that renders them (#1651
 		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('insight');
 	});
 });
+
+// Red-team finding: the gate read only the FIRST token of `_class`, so an ordinary
+// `<!-- _class: dark quote -->` resolved to `dark`, matched nothing, and fell through to
+// permissive — offering `insight` on a quote. That is not a cosmetic miss: applying the
+// insight register to a quote's blockquote UNWRAPS it, turning the quotation into a plain
+// paragraph and destroying the slide's content.
+describe('the block gate reads every class token, not just the first (#1651)', () => {
+	const blocks: Record<string, string[]> = { content: ['key-insight', 'below-note'], quote: [] };
+	const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], quote: [] };
+	const keysFor = (src: string) => {
+		const t = view(src);
+		t.caret('Someone');
+		return applicableRegisters(t.v.state, headings, blocks).keys;
+	};
+
+	it('gates a modifier-first class', () => {
+		expect(keysFor('<!-- _class: dark quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+		expect(keysFor('<!-- _class: dark quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('note');
+	});
+
+	it('gates a class with trailing modifiers', () => {
+		expect(keysFor('<!-- _class: quote bare silent -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+	});
+
+	// KNOWN LIMIT, not a gap this gate can close: `splitSlideDirectives`'s
+	// `DIRECTIVE_LINE_RE` only hoists `_`-prefixed comments, so a running-global
+	// `<!-- class: quote -->` (and a front-matter `class:`) never reaches the slide's
+	// `directives` at all — it stays in the prose. Compose's HEADING gate is blind to
+	// those two routes in exactly the same way and always has been. Pinned here so the
+	// limit is recorded rather than assumed closed.
+	it('does NOT see a running-global `class:` — it never reaches slide directives', () => {
+		expect(keysFor('<!-- class: quote -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
+	});
+
+	it('still stays permissive when no token names a known component', () => {
+		expect(keysFor('<!-- _class: dark silent -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
+	});
+
+	it('a prototype-chain token cannot resolve through Object.prototype', () => {
+		expect(() => keysFor('<!-- _class: constructor quote -->\n\n> A quotation.\n\n— Someone')).not.toThrow();
+		// `quote` is still found alongside it, so the gate holds.
+		expect(keysFor('<!-- _class: constructor quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+	});
+});

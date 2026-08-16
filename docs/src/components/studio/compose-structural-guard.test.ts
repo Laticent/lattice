@@ -1,3 +1,4 @@
+import { history, redo, undo } from 'prosemirror-history';
 import { AllSelection, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc } from '@/lib/compose/deck-doc';
@@ -108,5 +109,67 @@ describe('structuralGuard — a locked slide stays immutable either way', () => 
 		const state = withLockedMiddle();
 		const removed = state.apply(state.tr.delete(slidePos(state, 1), slidePos(state, 1) + state.doc.child(1).nodeSize).setMeta('slideOp', true));
 		expect(removed.doc.childCount).toBe(2);
+	});
+});
+
+// The destructive half of #1650, caught by the Munger inversion pass before merge.
+//
+// Every rule in the guard reasons about the author's CURRENT selection, and an undo
+// has no such intent to read — it restores a state the guard already approved. Judging
+// it by whatever caret happens to be sitting there was a category error with teeth:
+// after \u2318A \u2318A Delete the selection is a collapsed caret in the one remaining slide, so
+// the restore looked exactly like an accidental merge and was filtered. The deck wipe
+// stood, undo did nothing, and StudioShell persists the source on a debounce — so the
+// empty deck reached localStorage with no automatic checkpoint behind it.
+describe('structuralGuard — undo and redo are never filtered', () => {
+	const withHistory = (source = THREE) => EditorState.create({ doc: deckToDoc(source), plugins: [structuralGuard(), history()] });
+
+	it('select-all-twice then Delete is undoable — the deck comes back whole', () => {
+		let state = withHistory();
+		state = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
+		state = state.apply(state.tr.deleteSelection());
+		expect(state.doc.childCount).toBe(1);
+		undo(state, (tr) => {
+			state = state.apply(tr);
+		});
+		expect(state.doc.childCount).toBe(3);
+		expect(state.doc.textContent).toContain('body one');
+		expect(state.doc.textContent).toContain('body three');
+	});
+
+	it('a cross-slide drag-delete is undoable', () => {
+		let state = withHistory();
+		const sel = TextSelection.between(state.doc.resolve(slidePos(state, 0) + 3), state.doc.resolve(slidePos(state, 1) + 3));
+		state = state.apply(state.tr.setSelection(sel));
+		state = state.apply(state.tr.deleteSelection());
+		expect(state.doc.childCount).toBeLessThan(3);
+		undo(state, (tr) => {
+			state = state.apply(tr);
+		});
+		expect(state.doc.childCount).toBe(3);
+	});
+
+	it('redo re-applies it', () => {
+		let state = withHistory();
+		state = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
+		state = state.apply(state.tr.deleteSelection());
+		undo(state, (tr) => {
+			state = state.apply(tr);
+		});
+		expect(state.doc.childCount).toBe(3);
+		redo(state, (tr) => {
+			state = state.apply(tr);
+		});
+		expect(state.doc.childCount).toBe(1);
+	});
+
+	it('an explicit slideOp removal is undoable too — the hole predated the select-all path', () => {
+		let state = withHistory();
+		state = state.apply(state.tr.delete(slidePos(state, 1), slidePos(state, 1) + state.doc.child(1).nodeSize).setMeta('slideOp', true));
+		expect(state.doc.childCount).toBe(2);
+		undo(state, (tr) => {
+			state = state.apply(tr);
+		});
+		expect(state.doc.childCount).toBe(3);
 	});
 });

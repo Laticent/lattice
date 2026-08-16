@@ -1061,7 +1061,7 @@ var require_below_note = __commonJS({
 // lib/core/authoring-blocks.js
 var require_authoring_blocks = __commonJS({
   "lib/core/authoring-blocks.js"(exports, module) {
-    var { EXCLUDED: BELOW_NOTE_EXCLUDED } = require_below_note();
+    var { EXCLUDED: BELOW_NOTE_EXCLUDED, isExcluded: belowNoteExcluded } = require_below_note();
     var KEY_INSIGHT_EXCLUDED = Object.freeze([
       "quote",
       "math",
@@ -1076,12 +1076,12 @@ var require_authoring_blocks = __commonJS({
       "below-note": Object.freeze([...BELOW_NOTE_EXCLUDED])
     });
     function supportsBlock(component, block) {
-      const excluded = EXCLUSIONS[block];
-      if (!excluded) return false;
+      if (!OPTIONAL_BLOCKS.includes(block)) return false;
       const name = String(component || "").trim();
       if (!name) return true;
-      if (block === "key-insight" && name.startsWith("layout-")) return false;
-      return !excluded.includes(name);
+      if (block === "below-note") return !belowNoteExcluded(name);
+      if (name.startsWith("layout-")) return false;
+      return !KEY_INSIGHT_EXCLUDED.includes(name);
     }
     function blocksFor(component) {
       return OPTIONAL_BLOCKS.filter((b) => supportsBlock(component, b));

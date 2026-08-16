@@ -96,6 +96,11 @@ export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 // shape (and the same one-source-of-truth reasoning) as `SlideHeadings` above.
 export type SlideBlocks = Record<string, string[]>;
 
+/** The WHOLE `_class:` payload — every token, not just the leading one that `CLASS_RE`
+ *  takes. Matches the running-global `<!-- class: … -->` spelling too, so a deck that
+ *  sets its layout that way is gated the same as a per-slide one. */
+const CLASS_PAYLOAD_RE = /<!--\s*_?class:\s*([^>]*?)\s*-->/;
+
 /**
  * Does the caret's slide render the block behind this register?
  *
@@ -108,14 +113,30 @@ export type SlideBlocks = Record<string, string[]>;
  */
 function rendersBlock(directives: string[], block: 'key-insight' | 'below-note', blocks?: SlideBlocks): boolean {
 	if (!blocks) return true;
-	let cls: string | null = null;
+	// Read EVERY token of the directive, not just the first.
+	//
+	// `CLASS_RE` captures one token, which is all the heading gate needs — but a class
+	// payload is a token LIST and the component name is not required to lead it.
+	// `<!-- _class: dark quote -->` is ordinary, legal authoring, and matching the first
+	// token alone resolved it to `dark`, found no entry, and fell through to permissive.
+	// That is not a cosmetic miss: the register the gate then offered was `insight`, and
+	// applying it to a quote's blockquote UNWRAPS it — the quotation becomes a plain
+	// paragraph and the slide's whole content is gone. Found by the red-team pass.
+	//
+	// Scan for the token the map actually knows. The map is keyed by component name and
+	// modifiers are never keys, so the first hit is the component; `Object.hasOwn` keeps
+	// a slide naming `constructor` off the prototype chain.
+	let declared: string[] | undefined;
 	for (const d of directives) {
-		const m = d.match(CLASS_RE);
-		if (m) cls = m[1];
+		const m = d.match(CLASS_PAYLOAD_RE);
+		if (!m) continue;
+		for (const token of m[1].trim().split(/\s+/)) {
+			if (!token || !Object.hasOwn(blocks, token)) continue;
+			const entry = blocks[token];
+			if (Array.isArray(entry)) declared = entry; // later directives win, as the engine does
+		}
 	}
-	if (cls == null) return true;
-	const declared = blocks[cls];
-	if (!Array.isArray(declared)) return true;
+	if (!declared) return true;
 	return declared.includes(block);
 }
 

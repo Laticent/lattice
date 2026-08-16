@@ -63,10 +63,10 @@ describe('finish-generate', () => {
 			expect(slotValue(exp, 'fin-edge'), `transparent in the EXPORT full-bleed EDGE: ${exp}`).not.toMatch(/transparent/);
 			// The TEXTURE also flips to opaque on export (it's face-variant — the rich face
 			// mixes the line/dot into `transparent`). In the export block, every color-mix in
-			// the texture must mix into var(--fin-canvas), never into `transparent`; the ONLY allowed
+			// the texture must mix into var(--fin-canvas, var(--bg)), never into `transparent`; the ONLY allowed
 			// `transparent` is the hard 1px stripe/dot GAP, never a `transparent <pct>%` fade.
 			const expTex = slotValue(exp, 'fin-texture');
-			expect(expTex, `EXPORT texture must mix the pattern into var(--fin-canvas), not transparent: ${expTex}`).not.toMatch(/transparent\)/);
+			expect(expTex, `EXPORT texture must mix the pattern into var(--fin-canvas, var(--bg)), not transparent: ${expTex}`).not.toMatch(/transparent\)/);
 			expect(expTex, `EXPORT texture must not area-fade to transparent: ${expTex}`).not.toMatch(/transparent\s+\d+%/);
 			// No mask/url/hex/margin in EITHER face (whole CSS).
 			expect(css, 'mask drops in PDFKit').not.toMatch(/\bmask/i);
@@ -74,14 +74,14 @@ describe('finish-generate', () => {
 			expect(css, 'hex literal violates HARD RULE #3').not.toMatch(/#[0-9a-f]{3,8}\b/i);
 			expect(css, 'margin violates HARD RULE #20').not.toMatch(/(^|[\s;{])margin\b/i);
 			// Palette-blind — color comes only through var()/color-mix.
-			expect(css).toMatch(/var\(--accent\)|var\(--fin-canvas\)|var\(--ink/);
+			expect(css).toMatch(/var\(--accent\)|var\(--fin-canvas, var\(--bg\)\)|var\(--ink/);
 		}
 	});
 
 	it('a fabricated TEXTURE finish flips its texture to opaque on export (matching the presets)', () => {
 		// A grid texture, no wash/edge — the rich screen face mixes the lines into
 		// `transparent`; the export face (both @media print and .lattice-exporting) must
-		// mix them into var(--fin-canvas) instead, so the pattern bakes opaque-clean.
+		// mix them into var(--fin-canvas, var(--bg)) instead, so the pattern bakes opaque-clean.
 		const css = generateFinishCss('grid-only', {
 			wash: { type: 'none', intensity: 10 },
 			texture: { type: 'grid', intensity: 9, scale: 30 },
@@ -89,9 +89,9 @@ describe('finish-generate', () => {
 			edge: { type: 'none', intensity: 6 },
 		});
 		const exp = exportBlocks(css);
-		// The export block re-declares the texture, and its color mixes into var(--fin-canvas).
+		// The export block re-declares the texture, and its color mixes into var(--fin-canvas, var(--bg)).
 		expect(exp).toContain('--fin-texture:');
-		expect(slotValue(exp, 'fin-texture')).toContain('var(--fin-canvas)');
+		expect(slotValue(exp, 'fin-texture')).toContain('var(--fin-canvas, var(--bg))');
 		expect(slotValue(exp, 'fin-texture'), 'export texture line color must be opaque, not alpha').not.toMatch(/transparent\)/);
 		// The screen (rich) texture, by contrast, DOES mix into transparent.
 		expect(slotValue(screenBlock(css), 'fin-texture')).toMatch(/transparent\)/);
@@ -109,7 +109,7 @@ describe('finish-generate', () => {
 			expect(screen, 'url() adds exfil surface').not.toMatch(/url\(/i);
 			expect(screen, 'hex literal violates HARD RULE #3').not.toMatch(/#[0-9a-f]{3,8}\b/i);
 			expect(screen, 'margin violates HARD RULE #20').not.toMatch(/(^|[\s;{])margin\b/i);
-			expect(screen).toMatch(/var\(--accent\)|var\(--fin-canvas\)|var\(--ink/);
+			expect(screen).toMatch(/var\(--accent\)|var\(--fin-canvas, var\(--bg\)\)|var\(--ink/);
 		}
 	});
 
@@ -204,8 +204,8 @@ describe('finish-generate', () => {
 	it('BAKES a spotlight window mask (rich feather + opaque hard mirror), taking precedence over clearance', () => {
 		const css = generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true, spotlight: { x: 70, y: 35, radius: 38 } } }));
 		// the reveal window is emitted with clamped coords, NOT the clearance shared shape
-		expect(css).toMatch(/--fin-backdrop-mask:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 42%, var\(--fin-canvas\) 96%\)/);
-		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 70%, var\(--fin-canvas\) 70%\)/);
+		expect(css).toMatch(/--fin-backdrop-mask:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 42%, var\(--fin-canvas, var\(--bg\)\) 96%\)/);
+		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 70%, var\(--fin-canvas, var\(--bg\)\) 70%\)/);
 		expect(css).not.toMatch(/--backdrop-clear-mask/); // spotlight won — clearance shape not used
 		// the export rules flip the spotlight mask to its hard mirror in BOTH guards
 		expect((css.match(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque, none\)/g) || []).length).toBe(2);
@@ -348,5 +348,28 @@ describe('finish-generate', () => {
 			expect(c.mark.scale).toBe(200);
 			expect(c.mark.angle).toBe(30);
 		});
+	});
+});
+
+// A generated finish's CSS is consumed in TWO places: inside a `<section>` (where the
+// engine declares `--fin-canvas`), and on plain chrome `<div>`s — the Library's saved-
+// finish preview strip and the Inspector's finish dropdown swatches. `--fin-canvas` is
+// declared on `section` only, so an unresolved `var()` there makes the whole gradient
+// invalid at computed-value time and `background-image` falls to `none`: a blank swatch.
+//
+// The fallback costs nothing inside a section (the token is defined, the fallback is
+// never taken) and is what keeps the chrome case rendering. Found by the independent
+// checker, which probed the real Studio document and measured `none`.
+describe('generated finish CSS resolves OUTSIDE a section too (#1656)', () => {
+	it('every --fin-canvas reference carries the --bg fallback', () => {
+		const css = generateFinishCss('x', coerceRecipe({ wash: { type: 'glow' }, texture: { type: 'grid' }, backdrop: { clearance: true } }));
+		const bare = css.match(/var\(--fin-canvas\)/g) || [];
+		expect(bare, `a bare var(--fin-canvas) renders nothing on a chrome swatch: ${bare.length} found`).toHaveLength(0);
+		expect(css).toContain('var(--fin-canvas, var(--bg))');
+	});
+
+	it('the swatch string carries it as well', () => {
+		const sw = generateSwatch('halo');
+		expect(sw.background).not.toMatch(/var\(--fin-canvas\)(?!,)/);
 	});
 });

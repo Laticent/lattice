@@ -1,5 +1,5 @@
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
-import { history, redo, undo } from 'prosemirror-history';
+import { history, isHistoryTransaction, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
@@ -114,6 +114,18 @@ export function structuralGuard() {
 			// A deliberate slide op (insert/delete/move from the slide rail) is allowed to
 			// change the count and touch locked slides — it's intentional, not an accident.
 			if (tr.getMeta('slideOp')) return true;
+			// UNDO / REDO ARE NEVER FILTERED. Every rule below reasons about the author's
+			// CURRENT selection, and a history transaction has no such intent to read: it
+			// restores a document state this guard already approved once. Judging it by the
+			// caret that happens to be sitting there when ⌘Z is pressed is a category error,
+			// and it was a destructive one — after ⌘A ⌘A Delete the caret is a collapsed
+			// selection in the single remaining slide, so the restore looked exactly like an
+			// accidental merge and was rejected. The deck wipe stood and ⌘Z did nothing.
+			//
+			// This hole predates the selection rule (an undo of a `slideOp` rail-delete was
+			// rejected the same way), but the ⌘A path is what made it reachable by a
+			// documented shortcut, so it is fixed here rather than filed.
+			if (isHistoryTransaction(tr)) return true;
 			const oldDoc = state.doc;
 			const newDoc = tr.doc;
 			// A locked slide is immutable, whatever else this transaction does. Checked by
