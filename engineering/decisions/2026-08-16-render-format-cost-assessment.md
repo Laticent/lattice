@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF, so switching tests or goldens to images would make the repo slower AND larger. The PDF encoder is 2.3% of a small render and 15% of a large one; the cost is the browser round-trip. THE LARGEST SINGLE COST IS mmdc, which boots its own Chrome ONCE PER DIAGRAM — 40.7s of a 44.3s render on the 14-fence diagram gallery. Second is a `networkidle0` wait costing ~1.7s per navigation that pins at ~2.0s regardless of deck size; its cause is UNIDENTIFIED (the first two explanations, font work and the settleFonts cap, were both refuted by experiment), but the render's font correctness rests on an explicit force-load after every navigation, not on the wait, so `waitUntil: 'load'` is a cheap thing to try. The real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 goldens that are not byte-reproducible — which makes MAKING THEM REPRODUCIBLE dominate 'stop committing them'. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file; `.html` is now a first-class output format, a real browser render minus the PDF encode (6.77s vs 8.24s on 58 slides, but ~0 saving on the small fixtures the tests use). Corrected three times under adversarial review; corrections are marked in place.
+summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF, so switching tests or goldens to images would make the repo slower AND larger. The PDF encoder is 2.3% of a small render and 15% of a large one; the cost is the browser round-trip. THE LARGEST SINGLE COST IS mmdc, which boots its own Chrome ONCE PER DIAGRAM — 40.7s of a 44.3s render on the 14-fence diagram gallery. Second is a `networkidle0` wait costing ~1.7s per navigation that pins at ~2.0s regardless of deck size; its cause is UNIDENTIFIED (the first two explanations, font work and the settleFonts cap, were both refuted by experiment), but the render's font correctness rests on an explicit force-load after every navigation, not on the wait, so `waitUntil: 'load'` is a cheap thing to try. The real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 goldens that are not byte-reproducible — which makes MAKING THEM REPRODUCIBLE dominate 'stop committing them'. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file; `.html` is now a first-class output format, a real browser render minus the PDF encode (6.77s vs 8.24s on 58 slides, but ~0 saving on the small fixtures the tests use). Corrected twelve times (§9) — under re-measurement, adversarial review, and the follow-on work; the measurements held every time, the mechanisms did not. The top lever has since shipped in #1677.
 ---
 
 # PDF vs HTML vs image — what each format actually costs
@@ -20,11 +20,17 @@ render are `mmdc` booting its own Chrome **once per diagram** (§2b) and a
 `networkidle0` wait that ignores deck size (§2a); the biggest cost *overall* is
 not time at all but the 150 MB of committed goldens (§5).
 
-> **This document has been corrected three times, twice under adversarial
-> review.** Two mechanisms it originally asserted were refuted by experiment,
-> and one lever was under-sized by 14×. Every correction is marked in place
-> rather than overwritten — §9 lists them. Treat the *measurements* as solid and
-> any *mechanism* here as provisional until re-tested.
+> **This document has been corrected repeatedly — twelve entries in §9, from
+> re-measurement, from adversarial review, and from the work it prompted.** Two
+> mechanisms it originally asserted were refuted by experiment, one lever was
+> under-sized by 14×, and a third cause of golden churn was missed entirely.
+> Every correction is marked in place rather than overwritten. **Treat the
+> measurements as solid and any mechanism here as provisional until re-tested** —
+> that is the pattern: the numbers held every time, the explanations did not.
+>
+> **The top lever has since shipped** (#1677: `mmdc` batching + a pinned
+> hand-drawn seed, −46% corpus render). §7's table describes the state *before*
+> that landed; §9 rows 11–12 record what it changed.
 
 ---
 
@@ -469,8 +475,8 @@ divided by a factor that was never measured.
 
 | # | Lever | Measured size | Risk |
 |---|---|---|---|
-| **L0** | **Make the exported PDF byte-reproducible** (pin the timestamp, stabilize font-subset ordering) | Kills the bulk of the ~150 MB / 65% history growth **without touching goldens at all** — a re-bless would write blobs only for files that actually changed, and `golden-diff.mjs` would stop needing to rasterize to answer "did anything move" | Low-ish and self-contained. **Dominates L4** on cost, risk, and reversibility |
-| **L1** | **Batch or memoize `mmdc`** — one invocation for all fences, or reuse one process | **~2.9s × diagram count.** 40.7s of a 44.3s render on the 14-fence diagram gallery (§2b) | Low — batching touches no theming contract. Only the "render mermaid in our own browser" variant does |
+| **L0** | **Make the exported PDF byte-reproducible** (pin the timestamp, stabilize font-subset ordering — and note #1677 already removed the *largest* source, random hand-drawn diagrams) | Kills the bulk of the ~150 MB / 65% history growth **without touching goldens at all** — a re-bless would write blobs only for files that actually changed, and `golden-diff.mjs` would stop needing to rasterize to answer "did anything move" | Low-ish and self-contained. **Dominates L4** on cost, risk, and reversibility |
+| ~~L1~~ | ~~**Batch or memoize `mmdc`**~~ — **DONE, #1677.** One invocation per deck | Was ~2.9s × diagram count (40.7s of a 44.3s render). Now `1.86s + 1.09s × N`; corpus 454.5s → 245.5s, **−46%** | Landed. Memoization was measured and *dropped*: 118 fences, 111 distinct — 7 redundant renders, not worth a cache |
 | **L2** | **Try `waitUntil: 'load'`** on the three `page.goto` calls, keeping the existing explicit force-load | **~1.7s per navigation**, 1–3 navigations per render, hit on most but not all runs (§2a) | Lower than first stated — the render's font correctness rests on the explicit force-load at `:2421`, not on `waitUntil` (§2a-bis). Test against the overflow corpus |
 | **L3** | **Audit integration assertions for layout-dependence.** Several render a whole browser to assert a string fact — `deck-class-fm`, `deck-mode-fm`, `deck-logo` say so in their own headers | 100% of those renders, not 1.8%. The root is that the emulator's front-matter post-process is a second implementation of the shared kernel — converge it (HARD RULE #1) and the assertions become unit tests | Per-assertion work; **only a minority qualify** (see the non-lever below) |
 | **L4** | **Stop committing 351 golden PDFs** | ~150 MB tracked, 65% of history growth | **Only if L0 is impossible.** As written it trades the visual-review gate for disk: `golden-diff.mjs` needs the before-PDFs in the tree, and HARD RULE #9 requires a committed `.pdf` per feature deck |
@@ -548,6 +554,8 @@ timing signature, and the measurements themselves all held.**
 | 8 | "18 integration files spawn the CLI"; "12 cases read PDF bytes" | 25 files (a literal grep missed the `runEmulator` indirection); 13 direct byte-readers, 14 in this tree | Independent checker |
 | 9 | HARD RULE #23 forecloses the engine-HTML tier | #23 governs how a verification claim is *evidenced*, not which tier an assertion may use. Over-cited to close a door that should stay open (L3) | Munger inversion |
 | 10 | `.html`'s justification is the 17.8% | Its real customer is `--player`/`--fluid`, which previously forced an unwanted PDF encode. Size-independent, and the honest headline | Munger inversion |
+| 11 | The goldens are un-reproducible because of font-subset ordering and timestamps (§5) | **A third cause, and the largest: the diagrams themselves were random.** `look: handDrawn` paints through rough.js, seeded from `handDrawnSeed`, which Mermaid defaults to `0` — read as "use `Math.random()`". 32 of 161 SVG lines differed between back-to-back renders of `examples/sketch.md`. Fixed in #1677 by pinning the seed | Building the diagram oracle for #1677 |
+| 12 | `mmdc` costs "2.9–3.2s per deck with a diagram" (§2b, already corrected once to per-diagram) | Confirmed per-diagram and now **fixed**: #1677 batches a deck's fences into one invocation. Corpus render 454.5s → 245.5s (−46%). The lever table below describes the state *before* that landed | #1677 |
 
 The red team's findings were defects in the shipping code rather than in this
 document — the `--strip-notes` sidecar leak, the `.HTML` case mismatch, the
