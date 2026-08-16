@@ -143,7 +143,11 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 A base palette's spine (from `themes/indaco.css`):
 
 ```css
-/* @theme verdigris */          /* MUST match the filename */
+/* @theme verdigris */          /* MUST match the filename — and it is the ONLY
+                                   metadata the file carries. Never declare
+                                   `@size`: the page box is the engine's
+                                   (lib/engine/sizes.js), and the build stamps
+                                   the Marp directives into dist/. */
 @import 'lattice';              /* pulls in layouts + universal semantic palette */
 
 :where(:root) { color-scheme: light; }   /* zero-specificity default so overrides win */
@@ -270,7 +274,8 @@ The **dark variant in full** — this is the whole file:
 
 ## Ship checklist
 
-- [ ] `@theme <name>` matches the filename exactly.
+- [ ] `@theme <name>` matches the filename exactly, and the file declares no `@size`
+      (a `check:ownership` failure if it does — geometry lives in `lib/engine/sizes.js`).
 - [ ] All 10 required core tokens declared directly.
 - [ ] Every surface/ink/accent token is a `light-dark()` pair; the universal
       semantic palette pinned to fixed hex; `--cat-on-fill` / `--cat-on-mark` **flip**

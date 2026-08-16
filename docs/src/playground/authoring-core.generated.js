@@ -1096,6 +1096,43 @@ var require_authoring_blocks = __commonJS({
   }
 });
 
+// lib/engine/sizes.js
+var require_sizes = __commonJS({
+  "lib/engine/sizes.js"(exports, module) {
+    var SIZES = Object.freeze({
+      // Landscape (screen)
+      hd: { width: "1280px", height: "720px" },
+      HD: { width: "1280px", height: "720px" },
+      "4K": { width: "3840px", height: "2160px" },
+      "4k": { width: "3840px", height: "2160px" },
+      standard: { width: "960px", height: "720px" },
+      "16:9": { width: "1280px", height: "720px" },
+      // Square / portrait — the social + mobile formats (#399,
+      // engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md)
+      square: { width: "1080px", height: "1080px" },
+      "1:1": { width: "1080px", height: "1080px" },
+      portrait: { width: "1080px", height: "1350px" },
+      "4:5": { width: "1080px", height: "1350px" },
+      story: { width: "1080px", height: "1920px" },
+      reel: { width: "1080px", height: "1920px" },
+      "9:16": { width: "1080px", height: "1920px" },
+      mobile: { width: "1080px", height: "2340px" }
+    });
+    var DEFAULT_SIZE_NAME = "hd";
+    var DEFAULT_SIZE = SIZES[DEFAULT_SIZE_NAME];
+    function sizeFor(name) {
+      return isRegisteredSize(name) ? SIZES[name] : DEFAULT_SIZE;
+    }
+    function isRegisteredSize(name) {
+      return Boolean(name) && Object.hasOwn(SIZES, name);
+    }
+    function sizeBlock(prefix = " * ") {
+      return Object.entries(SIZES).map(([name, { width, height }]) => `${prefix}@size ${name.padEnd(8)} ${width.padEnd(6)} ${height}`).join("\n");
+    }
+    module.exports = { SIZES, DEFAULT_SIZE, DEFAULT_SIZE_NAME, sizeFor, isRegisteredSize, sizeBlock };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
@@ -1157,46 +1194,33 @@ var require_lint_core = __commonJS({
       "split-compare"
     ]);
     var NUMBER_SLOT_LAYOUTS = Object.freeze(["kpi", "stats"]);
-    var SIZE_FAMILY_FALLBACK = Object.freeze({
-      square: "square",
-      "1:1": "square",
-      portrait: "tall",
-      "4:5": "tall",
-      story: "tall",
-      reel: "tall",
-      "9:16": "tall",
-      mobile: "strip"
-    });
+    var { sizeFor } = require_sizes();
     function deckSizeName(source) {
       const fm = source.match(/^---\r?\n[\s\S]*?\r?\n---/)?.[0];
       if (!fm) return void 0;
       return fm.match(/^\s*size:\s*["']?([\w:/.-]+)/m)?.[1];
     }
-    function deckFamily(source, vocab) {
+    function deckFamily(source) {
       const name = deckSizeName(source);
       if (!name) return "wide";
-      const geom = vocab?.sizes?.[name];
-      if (geom) {
-        const w = parseFloat(geom.width);
-        const h = parseFloat(geom.height);
-        if (Number.isFinite(w) && Number.isFinite(h) && h > 0) {
-          const a = w / h;
-          if (a > 1.05) return "wide";
-          if (a > 0.9) return "square";
-          if (a > 0.5) return "tall";
-          return "strip";
-        }
-      }
-      return SIZE_FAMILY_FALLBACK[name] || "wide";
+      const { width, height } = sizeFor(name);
+      const w = parseFloat(width);
+      const h = parseFloat(height);
+      if (!Number.isFinite(w) || !Number.isFinite(h) || h <= 0) return "wide";
+      const a = w / h;
+      if (a > 1.05) return "wide";
+      if (a > 0.9) return "square";
+      if (a > 0.5) return "tall";
+      return "strip";
     }
     var AUTOSPLIT_DIRECTIVE = /^\s*autosplit:\s*(\S+)\s*$/im;
-    function findRetiredAutosplitDirective(source, vocab) {
+    function findRetiredAutosplitDirective(source) {
       const fmMatch = String(source || "").match(/^---\r?\n[\s\S]*?\r?\n---/);
       if (!fmMatch) return [];
       const hit = fmMatch[0].match(AUTOSPLIT_DIRECTIVE);
       if (!hit) return [];
       const off = /^(off|false|no)$/i.test(hit[1]);
-      const paginates = deckFamily(source, vocab) !== "wide";
+      const paginates = deckFamily(source) !== "wide";
       return [{
         slide: 1,
         rule: "autosplit-retired",
@@ -1568,7 +1592,7 @@ ${indent}   - ${body.trim()}`;
       const isH2AnchoredSplit = (tokens) => tokens.includes("split-panel") && !tokens.includes("pullquote") || tokens.includes("split-compare");
       const slides = splitTopLevel(source);
       const fm = fmChunks(source);
-      const family = deckFamily(source, vocab);
+      const family = deckFamily(source);
       const fmClaimBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       const deckClaimRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
       const deckClaimName = deckClaimRaw ? deckClaimRaw.trim().toLowerCase() : "";
@@ -2014,7 +2038,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
-      findings.push(...findRetiredAutosplitDirective(source, vocab));
+      findings.push(...findRetiredAutosplitDirective(source));
       findings.push(...findUnsupportedPaginateValues(source));
       return findings;
     }

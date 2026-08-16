@@ -282,7 +282,9 @@ describe('lattice-engine: css emission (P1.1)', () => {
     assert.match(out, /color:\s*#111/); // base rules inlined — the load-bearing assertion
   });
 
-  test('size: directive selects the matching @size geometry', () => {
+  test('size: directive selects the matching registry geometry', () => {
+    // parseSizes reads the Marp-facing ARTIFACT here (dist carries the stamped
+    // directives); the RESOLUTION below goes through the engine's registry.
     assert.equal(parseSizes(BASE).get('4K').width, '3840px');
     const out = composeCss({ themeCss: PALETTE, baseLatticeCss: BASE, sizeName: '4K' });
     assert.match(out, /width:\s*3840px/);
@@ -322,6 +324,9 @@ describe('lattice-engine: css emission (P1.1)', () => {
   // ── Social / mobile portrait + square @sizes ──────────────────────────────
   const SOCIAL = '/* @theme lattice\n * @size hd 1280px 720px\n * @size story 1080px 1920px\n * @size square 1080px 1080px\n * @size 9:16 1080px 1920px */\nsection { color: #111; }';
 
+  // parseSizes is the reader for the Marp-facing artifacts, not the render path —
+  // the registry is (lib/engine/sizes.js). It still has to handle every shape the
+  // stamp emits, aspect aliases included.
   test('parseSizes reads the social/mobile @size names + aspect aliases', () => {
     const m = parseSizes(SOCIAL);
     assert.deepEqual(m.get('story'), { width: '1080px', height: '1920px' });

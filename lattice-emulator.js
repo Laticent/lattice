@@ -743,24 +743,27 @@ const FRONT_MATTER_RE   = /^---\r?\n[\s\S]*?\r?\n---/;
 const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
 
 // ── Fail fast on an unknown `size:` directive (#502) ──────────────────────
-// A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the first
-// declared @size: the deck renders at the wrong geometry with no signal, and a
+// A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the hd
+// default: the deck renders at the wrong geometry with no signal, and a
 // degenerate value can wedge the render. Validate the EXPLICIT directive against
-// the registered @size names (theme first, then base) and error at config time —
-// before any Chrome work — listing the valid names. No directive → hd default,
-// unchanged. Front-matter-scoped so a `size:` in prose / a code block can't trip it.
-const { parseSizes } = require('./lib/engine/css');
+// the engine's size registry and error at config time — before any Chrome work —
+// listing the valid names. No directive → hd default, unchanged. Front-matter-
+// scoped so a `size:` in prose / a code block can't trip it.
+//
+// Reads lib/engine/sizes.js, the same table `resolveSize` resolves against, so
+// the CLI cannot accept a name the renderer would not honour or reject one it
+// would. This used to parse `@size` out of the loaded stylesheets — which meant
+// the guard was only as good as whichever sheet happened to carry the table, and
+// it silently disabled ITSELF (`knownSizes.size &&`) when none did. See
+// engineering/decisions/2026-08-16-size-registry-ownership.md.
+const { SIZES, isRegisteredSize } = require('./lib/engine/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
 const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
-if (explicitSize) {
-  const knownSizes = new Set();
-  for (const src of [paletteCSS, layoutCSS]) for (const k of parseSizes(src).keys()) knownSizes.add(k);
-  if (knownSizes.size && !knownSizes.has(explicitSize)) {
-    console.error(`error: unknown size: ${explicitSize}`);
-    console.error(`available sizes: ${[...knownSizes].sort().join(', ')}`);
-    process.exit(1);
-  }
+if (explicitSize && !isRegisteredSize(explicitSize)) {
+  console.error(`error: unknown size: ${explicitSize}`);
+  console.error(`available sizes: ${Object.keys(SIZES).sort().join(', ')}`);
+  process.exit(1);
 }
 
 // ── Mermaid renderer ─────────────────────────────────────────────────────────

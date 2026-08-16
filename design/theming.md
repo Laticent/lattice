@@ -26,7 +26,12 @@ Every palette extends
 the lattice engine via `@import 'lattice'` at the top of the file, then
 contains:
 
-1. A `@theme <name>` directive (Marp registration; e.g. `@theme indaco`).
+1. A `@theme <name>` directive (registration; e.g. `@theme indaco`). This is
+   the only metadata the file carries. In particular a palette does **not**
+   declare `@size` — the page box belongs to the engine's registry
+   (`lib/engine/sizes.js`), and the build stamps the `@size` directives Marp
+   reads into the `dist/` artifacts. See
+   `engineering/decisions/2026-08-16-size-registry-ownership.md`.
 2. An `@import 'lattice'` line (pulls in layouts, structural tokens, and
    the universal semantic palette + diagram overrides).
 3. A `:root` block defining color tokens used by `lattice.css` (surfaces,
