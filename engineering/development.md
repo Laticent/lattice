@@ -695,6 +695,30 @@ consumers share it, so edit the rule THERE, never duplicate it:
 Tests: `test/unit/components/lint-core.test.js` (the pure API) +
 `lint-deck.test.js` (the Node binding). Both routed via `SCRIPT_FOR_LIB`.
 
+**Giving a rule a MACHINE fix, not just prose.** A finding's `fix` string is
+guidance for a human to follow by hand; `autofixable` is what turns it into a
+one-click button in the editor and makes `applyAllFixes` (Fix all / `--fix`) act
+on it. Two ways to earn it:
+
+- **A line rewrite** — add an arm to `fixReplacement(finding, line)` returning
+  the replacement text, the way `autofixNestedTitle` and `autofixGanttDelimiter`
+  do. Use this when the fix reshapes the line.
+- **A token swap** — wrap the finding in `withTokenSuggestion(finding,
+  candidates)`. It runs the bounded `nearestRegion` "did you mean" over the
+  candidate list and, when exactly one is close enough, attaches
+  `autofixable: true`, `didYouMean`, and a structured `replace: { from, to }`
+  that `fixReplacement` applies with `replaceToken` (whole token, never a
+  substring). This is what every `unknown-<register>` validator uses, so a typo'd
+  `finish:` / `mode:` / `_class:` value is one click rather than a list to read.
+  Nothing close enough → the finding is returned untouched and keeps its prose.
+
+The suggestion rides on `didYouMean`, NOT folded into `message`: the message is
+what every surface prints and asserts, and the suggestion belongs on the button
+(`Fix: use “kpi”`), where it says what pressing it will do.
+`docs/src/playground/editor-diagnostics.js` prints the prose `fix` **only** when
+there is no button — printing both is what #1658 reported as the tool knowing the
+answer and making you type it anyway.
+
 ### Adding a new theme (`themes/<name>.css`)
 No script change needed — `affected-tests.js` routes `themes/*.css` to
 `test:palette` automatically. Just:

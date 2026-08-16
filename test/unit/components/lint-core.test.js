@@ -347,6 +347,67 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.autofixable), false);
   });
 
+  test('replaceToken swaps a whole token, never a substring, and reports a miss', () => {
+    assert.equal(core.replaceToken('<!-- _class: kpu dark -->', 'kpu', 'kpi'), '<!-- _class: kpi dark -->');
+    assert.equal(core.replaceToken('finish: atrum', 'atrum', 'atrium'), 'finish: atrium');
+    // The token is a WORD. A substring replace would rewrite the `text` inside
+    // `pretext` and leave the author's prose quietly edited.
+    assert.equal(core.replaceToken('pretext and text', 'text', 'X'), 'pretext and X');
+    assert.equal(core.replaceToken('nothing here', 'kpu', 'kpi'), null, 'a miss is null, not the unchanged line');
+    // A regex-special character in the value is matched literally, not compiled.
+    assert.equal(core.replaceToken('mode: a.b', 'a.b', 'ab'), 'mode: ab');
+    assert.equal(core.replaceToken('mode: axb', 'a.b', 'ab'), null);
+  });
+
+  test('withTokenSuggestion attaches a machine fix only when one candidate is close', () => {
+    const near = core.withTokenSuggestion({ classToken: 'atrum', message: 'm' }, ['atrium', 'halo', 'loom']);
+    assert.equal(near.autofixable, true);
+    assert.equal(near.didYouMean, 'atrium');
+    assert.deepEqual(near.replace, { from: 'atrum', to: 'atrium' });
+    // Nothing close → the finding is returned untouched, keeping its prose guidance.
+    const far = core.withTokenSuggestion({ classToken: 'zzzzzzzz', message: 'm' }, ['atrium', 'halo']);
+    assert.equal(far.autofixable, undefined);
+    assert.equal(far.replace, undefined);
+    // The message is NOT rewritten — every existing surface prints and asserts it;
+    // the suggestion rides on `didYouMean`, which is what names the button.
+    assert.equal(near.message, 'm');
+  });
+
+  test('a typo\'d `_class` token is one-click fixable, and applyAllFixes lands it', () => {
+    const src = `${FM}<!-- _class: kpu -->\n\n# 42%\n`;
+    const f = ruleFor(src, 'unknown-class');
+    assert.equal(f.autofixable, true, 'a near-miss component name offers a machine fix');
+    assert.equal(f.didYouMean, 'kpi');
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('<!-- _class: kpi -->'));
+    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'unknown-class'), false);
+    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- _class: kpi -->'));
+  });
+
+  test('a typo\'d front-matter REGISTER value is one-click fixable too', () => {
+    // The register validators all report the same shape (a value + the list it should
+    // have come from) and could only ever offer prose. This is the shared arm.
+    const src = '---\nmarp: true\ntheme: indaco\nfinish: atrum\n---\n\n# T\n';
+    const v = { ...vocab, finishNames: ['none', 'atrium', 'halo', 'loom'] };
+    const f = core.lintTextWith(src, v).find((x) => x.rule === 'unknown-finish');
+    assert.equal(f.autofixable, true);
+    assert.equal(f.didYouMean, 'atrium');
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('finish: atrium'));
+    assert.equal(core.lintTextWith(fixed, v).some((x) => x.rule === 'unknown-finish'), false);
+  });
+
+  test('an unknown value with NO near candidate stays prose-only — no misleading button', () => {
+    // `sketch` is a MODE, not a finish (the message says so). A suggestion engine that
+    // reached for the nearest thing regardless would offer to rewrite it to an unrelated
+    // register; `nearestRegion`'s length-scaled bound is what stops that.
+    const src = '---\nmarp: true\ntheme: indaco\nfinish: sketch\n---\n\n# T\n';
+    const v = { ...vocab, finishNames: ['none', 'atrium', 'halo', 'loom', 'gallery'] };
+    const f = core.lintTextWith(src, v).find((x) => x.rule === 'unknown-finish');
+    assert.equal(f.autofixable, undefined);
+    assert.ok(f.fix, 'it keeps the prose guidance instead');
+  });
+
   test('applyAllFixes is a no-op on a clean deck', () => {
     const src = `${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - one\n`;
     assert.equal(core.applyAllFixes(src, vocab), src);

@@ -3,7 +3,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
@@ -44,6 +44,37 @@ export function suggestFor(name: string, known: Set<string>): string {
 		'kpi'
 	);
 }
+
+// ONE lint popup at a time (#1658).
+//
+// `@codemirror/lint` ships two independent tooltip sources over the same diagnostics:
+// `linter()` installs a `hoverTooltip` on the underlined range, and `lintGutter()`
+// opens its own tooltip from the marker's `onmouseover`. Neither knows about the
+// other. Hover the squiggle, then move to the gutter icon — the path an author takes,
+// because the icon is what tells them the line has a problem — and BOTH are up, two
+// identical popups, which is what the report screenshotted. (Reproduced on the real
+// Studio: hover text → 1 tooltip, then hover the marker → 2.)
+//
+// The gutter's own `tooltipFilter` cannot arbitrate this: it runs when the marker is
+// BUILT, not when it is hovered, so it cannot see live tooltip state. The hover
+// tooltip can be closed at any time, though, so the gutter wins the exchange — you
+// pointed at the icon, so the icon's popup is the one you asked for — and the reverse
+// direction already resolves to one (the gutter tooltip yields when the pointer
+// returns to the content).
+// The listener goes on `view.dom` through a ViewPlugin, NOT through
+// `EditorView.domEventHandlers` — those attach to `contentDOM`, which is the text and
+// excludes the gutters, so a handler registered that way never sees the marker hover at
+// all (it looks correct, does nothing, and the two popups stay).
+const oneLintTooltip = ViewPlugin.define((view: EditorView) => {
+	const onMouseOver = (event: Event) => {
+		const target = event.target as HTMLElement | null;
+		if (!target?.closest?.('.cm-lint-marker')) return;
+		// Never consume the event — the gutter still needs it to open its own tooltip.
+		if (hasHoverTooltips(view.state)) view.dispatch({ effects: closeHoverTooltips });
+	};
+	view.dom.addEventListener('mouseover', onMouseOver);
+	return { destroy: () => view.dom.removeEventListener('mouseover', onMouseOver) };
+});
 
 function makeLinter(known: Set<string>) {
 	return linter((view): Diagnostic[] => {
@@ -332,6 +363,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						acComp.current.of(buildAutocomplete()),
 						lintComp.current.of(buildLint()),
 						lintGutter(),
+						oneLintTooltip,
 						editorTheme,
 						// Room to breathe past the last line — the give Monaco has by default
 						// (`scrollBeyondLastLine`) and CodeMirror ships as a one-line extension.
