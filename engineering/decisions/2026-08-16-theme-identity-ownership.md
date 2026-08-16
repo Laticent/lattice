@@ -13,7 +13,9 @@ summary: >
   its scan bounded to the file header, and a nameless registration throws instead of
   returning a `false` nobody checked. `@theme` stays in source CSS — unlike `@size` — because
   `@workwel/lattice/themes/<name>.css` is a published export README.md documents as a Marp
-  theme file, and Marp throws without it.
+  theme file. Verified later against real marp-cli: without the directive it does not throw —
+  it WARNS and renders the deck completely unstyled at exit 0, a silent failure, which makes
+  the case for keeping the directive stronger still (§1).
 ---
 
 # The manifest owns a theme's name; the directive and filename are projections

@@ -55,7 +55,7 @@ function renderEdges() {
 // THE theme graph: name → the theme it extends (manifest \`extends\`). Every Lattice path
 // resolves a palette's chain from THIS, via lib/theme/chain.mjs — never by regexing
 // \`@import\` out of a stylesheet. The CSS import is MARP's copy of the same edge, and
-// \`checkThemeGraph\` keeps the two equal.
+// \`checkThemeRoles\` keeps the two equal.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 export const THEME_EDGES = Object.freeze({
 ${lines}
@@ -146,7 +146,7 @@ function main(argv) {
       );
       return 1;
     }
-    process.stdout.write('theme-catalog OK — theme-catalog.generated.ts matches the manifests.\n');
+    process.stdout.write('theme-catalog OK — theme-catalog.generated.ts + lib/theme/edges.generated.mjs match the manifests.\n');
     return 0;
   }
   fs.writeFileSync(OUT, next);

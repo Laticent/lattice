@@ -224,6 +224,39 @@ The 2376 is the positive control: exactly the set §2's fix targets, and nothing
 - **Staleness of `edges.generated.mjs` is gated** in all three directions (new manifest,
   deleted manifest, changed `extends`) via `theme-catalog --check`, wired into `build:check`.
 
+### A second review, of the rework itself
+
+The trio reviewed `f473166`; the rework answering it was ~490 more insertions that
+nobody had read. A checker was run against exactly that delta, and the session's
+pattern held a fifth time — the gate fix closed four holes and opened three:
+
+- **A fall-through path.** `…map(x => { if (x.ok) return {…}; })` yields `undefined`
+  for the else case. "Every `return` is named" is vacuously true when a path has no
+  `return` at all. That entry registers nothing and returns a `false` nobody checks —
+  the exact silent no-op the gate exists to abolish, reachable through the gate.
+- **`async`.** `…map(async x => ({…}))` produces an array of PROMISES, carrying
+  neither name nor css. Zero themes registered, gate silent.
+- **A false positive on correct code.** A `return` inside an object method, a getter
+  or a class body inside the callback was attributed to the callback, so legitimate
+  call sites were reported — which is how an allowlist stops meaning anything.
+
+The rule is conservative now: the callback must be plain (not `async`, not a
+generator) and either an expression body or a block whose LAST statement is a
+`return`; anything unproven is reported.
+
+**And the real fix is the test that should have existed.** `test/unit/tools/theme-registration-gate.test.js`
+asserts 14 shapes that must fire and 12 that must not, against the real gate.
+Confirmed non-vacuous: reverting the helper to the pre-checker version fails exactly
+5 of them, one per defect. The helper had been rewritten three times without a single
+test — a gate with no test is a claim, and this one kept being false while
+`check:ownership` reported OK.
+
+The same pass also restored a multi-import guard that the `\s*` regex narrowing had
+silently dropped (a second import written with mismatched quotes stopped being
+counted), restored the bare `@import x;` form `flattenCssImports` had quietly stopped
+accepting, and cleared three files that still named the deleted `checkThemeGraph` as
+the live enforcement — including the docstring of the module this whole note is about.
+
 ### What was NOT verified
 
 - **The live Playground and the Studio's Export-to-Marp zip.** `deck-export.js` changed how
@@ -239,7 +272,7 @@ The 2376 is the positive control: exactly the set §2's fix targets, and nothing
   | minified `@import"cuoio";` in the dark wrapper | **resolves** — parent tokens present, no dangling import |
   | `@size` stamp, default | `MediaBox [0 0 960 540]` = 1280×720 px |
   | `@size` stamp, `size: story` | `MediaBox [0 0 810 1440]` = 1080×1920 px |
-  | dark vs light palette applied | distinct canvas fills (`.0824 .0667 .051` vs `.1176 .102 .0824`) |
+  | dark vs light palette applied | distinct canvas fills — dark `.0824 .0667 .051`, light `.9804 .9686 .949` (the `re f` operator painting the page; an earlier draft quoted the light deck's heading TEXT colour here by mistake) |
 
   Both geometries match Lattice's own engine exactly, so the `@size` block stamped by #1665
   is read correctly by real Marp, and the minified-import question that motivated the
