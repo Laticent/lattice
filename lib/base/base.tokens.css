@@ -1020,6 +1020,30 @@
  * base.elements.css). Before that, `section.form` isolated and a sovereign frame did
  * not, so a `title` slide's z values escaped to the page root and were ordered against
  * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
+
+/* THE PLANES ARE TYPED, and that is a safety property rather than a formality. A plane
+ * token is an ordinary inherited custom property, so a deck `<style>` or a theme can set
+ * one to anything — and `--z-canvas: auto` is a perfectly valid `z-index`, so it triggers
+ * no fallback and no gate. Untyped, it moved the finish's full-slide sheet from paint
+ * step 3 to step 8: measured on a `finish: halo` deck, 3,435 differing pixels with the
+ * entire body erased and the chrome left intact.
+ *
+ * Registering each plane as `<integer>` makes a non-integer INVALID AT COMPUTED-VALUE
+ * TIME, so it falls back to the initial value here — the designed plane — instead of
+ * silently becoming `auto`. That closes the same class of hole the gate's own error
+ * message warns about for an undefined `var()`: "the element silently falls back to
+ * `z-index: auto`, the flat behavior the model exists to remove, wearing a token's
+ * clothes." A theme can still RE-PLANE something deliberately by writing another integer;
+ * what it can no longer do is flatten the model by accident.
+ *
+ * Keep each `initial-value` identical to the declaration below it. */
+@property --z-canvas     { syntax: "<integer>"; inherits: true; initial-value: -2; }
+@property --z-atmosphere { syntax: "<integer>"; inherits: true; initial-value: -1; }
+@property --z-content    { syntax: "<integer>"; inherits: true; initial-value: 0; }
+@property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
+@property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 40; }
+@property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 50; }
+
 :root, section {
   --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
                           * panel — everything that IS the surface being printed on */

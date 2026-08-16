@@ -111,7 +111,16 @@ section.finish > .backdrop {
   /* The CANVAS plane — the sheet itself. Everything else on the slide has a plane of
    * its own and simply sits above it; nothing has to be pushed out of the way.
    * (base.tokens.css § depth axis.) Its own internal stack — mark, edge, mask — is
-   * LOCAL band 0–2, contained because this element is a stacking context. */
+   * LOCAL band 0–2, contained because this element is a stacking context.
+   *
+   * Containment does not depend on this token's VALUE, which matters because a plane token
+   * is an ordinary inherited custom property that a deck `<style>` or a theme can rewrite.
+   * `--z-canvas: auto` is a perfectly valid `z-index`, and it used to move this whole
+   * full-slide sheet from paint step 3 to step 8 — on top of the body. Measured on a
+   * `finish: halo` deck with that one line of deck CSS: 3,435 differing pixels, the entire
+   * body gone, chrome intact, no gate raised. The tokens are now registered with
+   * `@property` (base.tokens.css § depth axis), so a non-integer is rejected at compute
+   * time and falls back to the designed plane instead of silently becoming `auto`. */
   z-index: var(--z-canvas);
   pointer-events: none;
   /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED

@@ -231,7 +231,7 @@ planes are live.
 
 A slide is six named planes, defined in `lib/base/base.tokens.css` § depth axis:
 `--z-canvas` (−2) and `--z-atmosphere` (−1) sink below the words, content rests at
-the natural flow, and `--z-chrome` (30), `--z-mark` (40) and `--z-alarm` (50) rise
+the natural flow, and `--z-chrome` (30), `--z-alarm` (40) and `--z-mark` (50) rise
 above it. Every layering decision at slide scale names one; inside an occupant the
 band is `0–9`. The model, and what happens without it:
 

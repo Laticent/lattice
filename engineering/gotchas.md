@@ -2306,8 +2306,8 @@ means "no gap logged for the runtime route", never "the preview is complete.
   the moment a deck sets `finish:`, which is unrelated to the element in question.
 - **Cause:** a `z-index` picked locally instead of a plane named globally. A slide is a
   stack of six named planes — `--z-canvas` (−2) and `--z-atmosphere` (−1) sink below the
-  words, content rests at the natural flow, and `--z-chrome` (30), `--z-mark` (40) and
-  `--z-alarm` (50) rise above (`lib/base/base.tokens.css` § depth axis). A raw integer is a
+  words, content rests at the natural flow, and `--z-chrome` (30), `--z-alarm` (40) and
+  `--z-mark` (50) rise above (`lib/base/base.tokens.css` § depth axis). A raw integer is a
   plane assignment nobody else can read. The watermark Tile declared plane 1 (atmosphere) in
   its manifest and `z-index: -1` in its CSS, which put it *below* the finish backdrop; under
   `finish: savile` the pinstripes ruled straight across the numeral.

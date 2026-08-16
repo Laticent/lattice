@@ -105,11 +105,15 @@ Read those rows together and the flatness is explained:
   against the slide's chrome. A deck-wide cosmetic setting silently changes what
   a component's `z-index: 3` competes with.
 - **A sovereign frame has no context at all.** `section.form { isolation: isolate }`
-  (`lib/forms/cell/stage/stage.css`) is the only thing creating one, and
+  (`lib/forms/cell/stage/stage.css`) is the main thing creating one — `section.image` and
+  `section.scene` declare it for themselves too — and
   `title` / `math` / `divider` and friends never get the class. Their z values
   escape to the page root, where they are ordered against *other slides* and
-  against viewer chrome. `container-type: size` does not help — measured
-  `contain: none`, `isolation: auto`.
+  against viewer chrome. `container-type: size` does not help — verified by putting a
+  `z-index: -1` child in a `container-type: size` box and watching it escape behind the
+  box's own background. (An earlier version cited `contain` computing `none` as the proof.
+  That is not a valid test: the containment a `container-type` implies never appears in
+  `contain`'s computed value, so it would read `none` either way.)
 
 `2026-08-04-finish-stacking-displaces-frame-chrome.md` hit this from the other
 side and wrote the conclusion down:
@@ -154,8 +158,8 @@ is made:
 | `--z-atmosphere` | **−1** | decorative depth: the watermark ghost, oversized ghost numerals, the photo scrim, pale quote glyphs |
 | `--z-content` | 0 | the stage and everything the author wrote |
 | `--z-chrome` | 30 | header, footer, pagination, logo, meta, status, kicker, title, the progress rail |
-| `--z-mark` | 40 | what ships stamped **on** the slide: status stamps, review annotations, the comments layer |
-| `--z-alarm` | 50 | authoring-only signals that must beat everything: the overflow / illegible / fix-me tabs, debug boxes |
+| `--z-alarm` | 40 | authoring-only signals about the slide: the overflow / illegible / fix-me tabs, debug boxes. Never reach a delivered export |
+| `--z-mark` | 50 | what ships stamped **on** the slide: status stamps, review annotations, the comments layer |
 
 **The signs are the design.** A negative-z child paints at step 3 of the painting
 algorithm — after the section's own background, before every in-flow descendant — so the
@@ -256,18 +260,19 @@ planes needs **no** stacking context on the stage, no blanket rule over a sectio
 children, and no isolation anywhere but the section itself.
 
 The hairline was *also* given an export flip at this point — a solid bar in print and
-`.lattice-exporting`, mirroring the finish presets — on the reasoning that the rule was
-one stacking context away from failing no matter who added it. **That flip is gone, and
-it was the worst thing on this branch.** It treated the symptom, restyled 32 slides that
-had never washed, and was blessed into goldens before anyone opened a diff image. The
-cause was a single `z-index` this branch had added to `img.deck-logo`; removing that
-removed the wash. Full account in § The flip that fixed nothing, below — read it before
-reaching for a flip of your own.
+`.lattice-exporting` — because the gradient appeared to render at ~22% strength in
+exported PDFs. **That flip is gone, and it was the worst thing on this branch.** It
+restyled 32 slides that had nothing wrong with them, turning a full-width taper into a
+hard stub at 38% width, and those were blessed into goldens before anyone opened a diff
+image. The wash it was written against was not real. Full account in § The wash that was
+a rasterizer, below — read it before reaching for a flip of your own.
 
-**The lesson generalizes past this branch: every stacking context between a mark and the
-page is a chance for the print path to rasterize something that used to be vector.** Do
-not create one to "contain" a subtree — space the planes so the arithmetic contains it
-instead.
+**The lesson that survives is about measurement, not compositing.** An earlier version of
+this paragraph generalized confidently: "every stacking context between a mark and the
+page is a chance for the print path to rasterize something that used to be vector." That
+was written from one rasterizer's output and it is not established. What IS established is
+that sinking the decorative planes is cheaper than lifting everything else, and that is
+reason enough for the negative signs.
 
 ## What this deletes
 
@@ -353,96 +358,111 @@ Verified on real renders (HARD RULE #23), not inferred:
   the panel eyebrow on one slide of `examples/marker-corner.md`, which is a deliberate
   overflow demo the engine already tags "Content clipped"; every available fix for that
   would have moved content on slides that fit, to protect one that does not.
-- **Both original defects fail the new test.** Reverting the watermark to `z-index: -1`
-  fails it by name; reverting `section { isolation: isolate }` to the `.form` gate fails it
-  naming the sovereign `title` section.
+- **One original defect fails the new test, not two.** Reverting `section { isolation: isolate }`
+  to the `.form` gate fails it, naming the sovereign `title` section. Reverting the watermark
+  to a literal `z-index: -1` does NOT — the test reads computed values and `--z-atmosphere`
+  IS `-1`, so the two are indistinguishable to it. That case is caught by the STATIC gates
+  instead (`checkZPlanes` rejects the bare integer; §4.3 demands the token). The test file's
+  own docstring says so; this line used to claim otherwise.
 - Full unit suite (6,108 tests at the time of writing), the 334-test integration
   invariants tier, `lint`,
   `build:check` and `check:ownership` green.
 
-**The whole example corpus, A/B.** All 131 decks rendered twice — once from a worktree at
-the pre-change commit, once from this branch — and pixel-diffed page by page. **106 decks
-are byte-identical.** The 25 that moved fall into exactly three families, and every one is
-the model doing its job:
+**What it changes on the canonical corpus: nothing.** `test/integration/baseline-decks/gallery.md`
+is 117 pages and exercises every component bucket. Rendered from a worktree at the branch
+point and from this branch, then diffed page by page with **`pdftocairo`**: **zero
+differing pages.**
 
-| What moved | Decks | Pages | Why |
-|---|---|---|---|
-| a 1px hairline at the below-note | 17 | 35 | the export flip: a gradient that washed out in the PDF is now a solid accent bar |
-| the running header appears | 9 | 20 | it was painting *under* an opaque full-bleed child and was invisible; chrome is now above content |
-| the page number appears | 2 | 2 | the pagination pseudo had no plane, so an opaque child covered it |
-| the watermark ghost clears the finish | 1 | 1 | the originating defect, on this branch's own demo deck |
+That is the claim this section should have made from the start, and it took three attempts
+to be able to make it honestly. The earlier versions of this table are worth naming, because
+each failure mode is one a reader might otherwise repeat:
 
-(Classified mechanically from each changed page's diff bounding box, not by eye.)
+- The first A/B measured against a worktree **two merges stale**, so it credited this branch
+  with another PR's work — a "running header appears, 9 decks / 20 pages" family that was
+  #1646's fix, not this one's.
+- The second measured a real difference in the wrong units: a "1px hairline at the
+  below-note, 17 decks / 35 pages" family that was the export flip **restyling** pages, read
+  at the time as the model repairing them.
+- Both were rasterized with `pdftoppm` alone, which is the tool that manufactured the wash
+  those decisions were chasing (§ The wash that was a rasterizer).
 
-Two of those three are **restorations of something a deck author asked for and silently did
-not get** — `examples/kaizen-craftsmanship.md` declares a `header:` that never rendered on
-its dark split slides, and `examples/scene.md` lost its page number on the exhibit pages.
-Spot-checked at full resolution on the four largest diffs (`kaizen-craftsmanship`,
-`seven-steps-problem-to-code`, `accent-on-accent`, `gallery-jargon`): the header lands in
-the panel's empty top band in every case, well clear of the panel's own eyebrow.
+The result is that the plane model is **visually inert** on the corpus. It changes the
+structure of layering — six named planes, one stacking context per section, a deleted
+exclusion list — without moving a delivered pixel. For a change of this blast radius that is
+the outcome to want: the defects it fixes are ones no committed artifact had captured
+(a watermark ghost under a patterned finish, a sovereign frame with no stacking context),
+and everything else stays exactly where the author put it.
 
-## The flip that fixed nothing
+**Two things do change, deliberately, outside the canonical gallery.** The section-number
+watermark now clears the finish field on this branch's own demo deck — the originating
+defect. And `image`'s `statement` composition loses its page number, because there the glyph
+full-bleeds over a photo at 1.72:1; every other image composition and all of `scene` keep
+theirs. An earlier cut suppressed the number on *all* `image` and `scene` slides and was the
+only visible change the model made to the gallery — five deleted numbers, four of them
+perfectly legible on plain canvas at 3.76-4.20:1. Deleting readable content to settle a
+layering question is the inversion of this model's purpose, and the narrow rule replaced it.
 
-The worst thing in this change shipped as a fix, passed every gate, and was blessed
-into six golden PDFs before anyone looked at it. It is worth the space because the
-failure was not in the CSS — it was in the order the questions got asked.
+## The wash that was a rasterizer
 
-**What happened.** An earlier cut of this branch put `z-index: var(--z-chrome)` on
-`img.deck-logo`. That looked obviously right: the logo is chrome, chrome has a plane,
-name it. It also, in Chromium's print path, promoted the logo out of the z-auto/0 paint
-group into the positive-z group — and that tipped the compositor into rendering an
-unrelated **sibling** at roughly 22% strength: the below-note hairline, a
-`linear-gradient` on a 1px `::before`. On `examples/marker-corner.md` p2 the rule went
-from a crisp `#0C71A4` taper to a washed `#CAE0EB` ghost.
+Four decisions on this branch were made to avoid a rendering defect that does not exist.
+This section is the record, because the CSS that used to encode those decisions now points
+here, and because the failure was not in the CSS at all — it was in trusting one tool.
 
-The wash was real and it was measured. What was never asked is *what caused it*. Instead
-a RICH-on-screen / SAFE-on-export flip was written — replacing the gradient with a solid
-`var(--accent)` bar at `right: 62%` under `@media print` and `.lattice-exporting` — on
-the reasoning that a solid fill survives as vector where a gradient image does not. That
-reasoning is correct. The flip did survive export. It also **restyled every page where
-the gradient had never washed**, turning a full-width taper into a hard-edged stub at 38%
-width, on 32 slides across three galleries — all of which were then blessed as goldens,
-which is what made the regression invisible to the regression gate. A gate that compares
-a render to a golden cannot see a bad golden.
+**The observation.** A 1px `linear-gradient` hairline above a `.below-note` appeared to
+render at roughly 22% strength in exported PDFs, turning a crisp accent rule into a
+barely-visible tint — "3,596 differing pixels", measured repeatedly, on
+`examples/marker-corner.md` p2. It seemed to switch on and off with unrelated changes:
+isolating `.cell-stage`, a blanket `section > *` z-index, adding `z-index` to
+`img.deck-logo`, or simply removing the deck's `logo:` line.
 
-**What found it.** Not a test. CI was green, the unit suite was green, `build:check` was
-green, and the regression gate reported "all match committed goldens" — because they did.
-It was found by opening the CI golden-diff bot's before│after│overlay montage and looking
-at the picture, which is the one step the QUALITY BAR asks for and the one step that had
-been skipped.
+**What it actually is.** `pdftoppm`'s splash backend leaks an earlier element's constant
+alpha into a later tiling-pattern fill. The alpha is `/ca .22`, emitted by
+`--code-inline-border` — `color-mix(in srgb, currentColor 22%, transparent)`, the inline
+code chip — so any slide carrying a `code` span could trigger it. The arithmetic settles
+it: `0.22 x accent + 0.78 x white` = `rgb(199,223,236)`, which is the "washed" color to
+within a unit of what anyone measured. The unrelated changes were not causing a wash; they
+were reordering which element painted first, and whichever one interposed a transparency
+group happened to reset the leaked state.
 
-**The bisect.** Neutralizing the flip and re-rendering against the true branch point:
-`obligation-matrix` went from 1,724 differing pixels on 8 pages to **0 on all 12** — so
-there the flip was pure restyle. `marker-corner` p6 went from 856 to **0**; p2 stayed
-washed, which localized the real cause. `isolation: isolate` was ruled out in both
-directions (removing it on this branch did not fix the wash; adding it to the base tree
-did not cause it). The ancestor stacking-context chain of `.below-note` is *identical*
-across the two trees. Diffing every stacking context inside the section instead of the
-ancestors is what surfaced the logo, and single-declaration overrides settled it:
-`img.deck-logo { z-index: auto }` → 0 differing pixels; `header { z-index: 3 }` → still
-1,726. One line, all of it.
+**The proof is one PDF, three rasterizers.** With `.cell-stage` isolated:
 
-**What shipped instead.** The logo's `z-index` is gone and both flips are deleted. Both
-decks now render **pixel-identical to the branch point on every page**, and the six
-blessed goldens were reverted — after which the *base* goldens match a fresh render on
-this branch, which is the proof that the blessing had been certifying a regression rather
-than recording a change.
+| rasterizer | hairline | vs. unisolated |
+|---|---|---|
+| `pdftoppm` (poppler-splash) | `rgb(199,223,235)` | 3,596 px |
+| `pdftocairo` | `rgb(34,130,180)` | **0 px** |
+| ghostscript | `rgb(1,111,167)` | **0 px** |
+
+The PDFs are byte-identical through the hairline — same PatternType 1 tiling pattern, same
+axial shading, same `/Matrix`, same `/SMask /Luminosity` group. Only object numbers differ.
+
+**What it cost.** The export flip (a solid bar at `right: 62%` under `@media print` and
+`.lattice-exporting`) was written to survive it, and did — while restyling every page where
+nothing was wrong: 32 slides across three galleries, blessed into goldens. `img.deck-logo`
+had its plane removed to avoid it, which put the one element the model most obviously
+covers outside the model. A `SANCTIONED_PLANELESS` gate was built to keep it there. The
+logo Tile's manifest was edited from `z: 3` to `z: 2` so the declaration would agree with a
+CSS position adopted to dodge a phantom — the paint editing the model, which is backwards.
+Three CSS files grew guard rails telling future authors not to isolate containers. All of
+it is reverted.
+
+**Why it survived so long.** Every visual check in this repo goes through the same
+rasterizer. `tools/pixel-check.js`, `tools/rasterize-for-review.sh` and `tools/preview.js`
+all shell out to `pdftoppm`; nothing cross-checks against a second engine. The QUALITY BAR
+says to rebuild and actually look at it, and looking was done faithfully — at output that
+was wrong in a way no amount of looking could reveal, because the artifact is deterministic
+and reproduces perfectly. A second opinion from the same tool is not a second opinion.
 
 **Three rules this earns.**
 
-1. **A plane is not free.** Naming an element's plane promotes it in the paint order, and
-   promotion has compositor-level consequences that have nothing to do with the ordering
-   you wanted. An element that is *already* correctly ordered — `img.deck-logo` is
-   absolutely positioned, carries `opacity` below 1, and has nothing left to climb over
-   now the decorative planes are negative — should stay at `auto`. `auto` is a plane
-   decision, not an omission, and the model counts it as one.
-2. **When a workaround and a cause are both available, the cause is the deliverable.**
-   The flip was a correct answer to the wrong question. It survived review because it
-   came with a real measurement attached, which is exactly what made it convincing.
-3. **Blessing a golden is an assertion, not a build step.** `--bless` writes down "this
-   is what the output should be." Six goldens were re-blessed here without the montage
-   being opened once. If a change re-blesses a golden, the diff image is the artifact
-   that justifies it (HARD RULE #23), and "the gate is green" is not that artifact.
+1. **A rendering claim needs two rasterizers.** One engine's output is an observation about
+   that engine. Before a pixel difference becomes a reason to change CSS, reproduce it with
+   `pdftocairo` or ghostscript — it costs one command.
+2. **When a workaround and a cause are both available, the cause is the deliverable.** The
+   flip was a correct answer to the wrong question, and it was convincing precisely because
+   it came with a real measurement attached.
+3. **Blessing a golden is an assertion, not a build step.** Six goldens were re-blessed here
+   without the diff image being opened once. If a change re-blesses a golden, that image is
+   the artifact justifying it (HARD RULE #23); "the gate is green" is not.
 
 ## Alternatives considered
 

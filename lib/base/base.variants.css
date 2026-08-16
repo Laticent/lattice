@@ -337,12 +337,17 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   content: var(--stamp-label);
   position: absolute;
   /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
-   * chrome, and it ships in the export. It stays BELOW the authoring alarm tabs
-   * (--z-alarm), which are the one thing that must beat everything on the slide — a
-   * reversal from the old raw 100-over-50, and the right way round: an author must be
-   * able to see the overflow tab even on a stamped slide. The tabs already clear the
-   * stamp GEOMETRICALLY via --corner-stack (below); planes decide only what covers what
-   * when they do overlap. base.tokens.css § depth axis. */
+   * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
+   * (--z-mark 50 over --z-alarm 40), preserving the order the engine has always shipped.
+   *
+   * That reads backwards and it was briefly written the other way, on the argument that an
+   * author must be able to see the overflow tab even on a stamped slide. It broke delivered
+   * PDFs: `stamp-veil` is a redaction wash at `inset: 0`, and with the alarm above it the
+   * reader-mode overflow pill punched straight through the redaction — 10,136 differing
+   * pixels. The counter-argument also fails on its own terms: full-bleed stamps clear
+   * nothing via --corner-stack, and the marker that ships in a delivered export is the
+   * reader pill, not the authoring tabs, which never reach one. Do not re-invert.
+   * base.tokens.css § depth axis carries the full record. */
   z-index: var(--z-mark);
   pointer-events: none;
   font-family: var(--font-label);

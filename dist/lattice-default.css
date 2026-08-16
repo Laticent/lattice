@@ -1103,6 +1103,30 @@
  * base.elements.css). Before that, `section.form` isolated and a sovereign frame did
  * not, so a `title` slide's z values escaped to the page root and were ordered against
  * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
+
+/* THE PLANES ARE TYPED, and that is a safety property rather than a formality. A plane
+ * token is an ordinary inherited custom property, so a deck `<style>` or a theme can set
+ * one to anything — and `--z-canvas: auto` is a perfectly valid `z-index`, so it triggers
+ * no fallback and no gate. Untyped, it moved the finish's full-slide sheet from paint
+ * step 3 to step 8: measured on a `finish: halo` deck, 3,435 differing pixels with the
+ * entire body erased and the chrome left intact.
+ *
+ * Registering each plane as `<integer>` makes a non-integer INVALID AT COMPUTED-VALUE
+ * TIME, so it falls back to the initial value here — the designed plane — instead of
+ * silently becoming `auto`. That closes the same class of hole the gate's own error
+ * message warns about for an undefined `var()`: "the element silently falls back to
+ * `z-index: auto`, the flat behavior the model exists to remove, wearing a token's
+ * clothes." A theme can still RE-PLANE something deliberately by writing another integer;
+ * what it can no longer do is flatten the model by accident.
+ *
+ * Keep each `initial-value` identical to the declaration below it. */
+@property --z-canvas     { syntax: "<integer>"; inherits: true; initial-value: -2; }
+@property --z-atmosphere { syntax: "<integer>"; inherits: true; initial-value: -1; }
+@property --z-content    { syntax: "<integer>"; inherits: true; initial-value: 0; }
+@property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
+@property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 40; }
+@property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 50; }
+
 :root, section {
   --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
                           * panel — everything that IS the surface being printed on */
@@ -22510,7 +22534,16 @@ section.finish > .backdrop {
   /* The CANVAS plane — the sheet itself. Everything else on the slide has a plane of
    * its own and simply sits above it; nothing has to be pushed out of the way.
    * (base.tokens.css § depth axis.) Its own internal stack — mark, edge, mask — is
-   * LOCAL band 0–2, contained because this element is a stacking context. */
+   * LOCAL band 0–2, contained because this element is a stacking context.
+   *
+   * Containment does not depend on this token's VALUE, which matters because a plane token
+   * is an ordinary inherited custom property that a deck `<style>` or a theme can rewrite.
+   * `--z-canvas: auto` is a perfectly valid `z-index`, and it used to move this whole
+   * full-slide sheet from paint step 3 to step 8 — on top of the body. Measured on a
+   * `finish: halo` deck with that one line of deck CSS: 3,435 differing pixels, the entire
+   * body gone, chrome intact, no gate raised. The tokens are now registered with
+   * `@property` (base.tokens.css § depth axis), so a non-integer is rejected at compute
+   * time and falls back to the designed plane instead of silently becoming `auto`. */
   z-index: var(--z-canvas);
   pointer-events: none;
   /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED
@@ -24444,12 +24477,17 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   content: var(--stamp-label);
   position: absolute;
   /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
-   * chrome, and it ships in the export. It stays BELOW the authoring alarm tabs
-   * (--z-alarm), which are the one thing that must beat everything on the slide — a
-   * reversal from the old raw 100-over-50, and the right way round: an author must be
-   * able to see the overflow tab even on a stamped slide. The tabs already clear the
-   * stamp GEOMETRICALLY via --corner-stack (below); planes decide only what covers what
-   * when they do overlap. base.tokens.css § depth axis. */
+   * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
+   * (--z-mark 50 over --z-alarm 40), preserving the order the engine has always shipped.
+   *
+   * That reads backwards and it was briefly written the other way, on the argument that an
+   * author must be able to see the overflow tab even on a stamped slide. It broke delivered
+   * PDFs: `stamp-veil` is a redaction wash at `inset: 0`, and with the alarm above it the
+   * reader-mode overflow pill punched straight through the redaction — 10,136 differing
+   * pixels. The counter-argument also fails on its own terms: full-bleed stamps clear
+   * nothing via --corner-stack, and the marker that ships in a delivered export is the
+   * reader pill, not the authoring tabs, which never reach one. Do not re-invert.
+   * base.tokens.css § depth axis carries the full record. */
   z-index: var(--z-mark);
   pointer-events: none;
   font-family: var(--font-label);
