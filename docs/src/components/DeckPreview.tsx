@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { getFrontMatter } from '@/components/studio/front-matter';
-import { type DeckCorner, sameCorner, slideCorner } from '@/lib/deck-corner';
+import { slideCornerFraction } from '@/lib/deck-corner';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
@@ -124,24 +124,20 @@ export type DeckPreviewProps = {
 	 */
 	onRender?: () => void;
 	/**
-	 * Fired when the DECK'S OWN corner changes — a fraction of the slide's width plus the
-	 * slide's aspect, measured off the real render (`docs/src/lib/deck-corner.ts`). A zero
-	 * fraction is a square deck: the default, and the only thing the engine produced before
-	 * #1649. Feed it to `cornerRadiusCss` rather than converting to pixels yourself.
+	 * Fired when the DECK'S OWN corner changes — a fraction of the slide's width, measured
+	 * off the real render (`docs/src/lib/deck-corner.ts`). `0` is a square deck: the default,
+	 * and the only thing the engine produced before #1649. Feed it to `cornerRadiusCss` with
+	 * YOUR box's aspect rather than converting to pixels yourself.
 	 *
-	 * STRICTLY OPT-IN, and this component touches nothing unless a host passes it. An earlier
+	 * STRICTLY OPT-IN — this component touches nothing unless a host passes it. An earlier
 	 * cut wrote the radius onto the `<figure>` inline for every host, on the theory that any
-	 * surface showing a slide should show the deck's corner for free — which quietly flattened
-	 * the marketing landing page's hero card from its designed `rounded-[14px]` to a hard
-	 * rectangle, because an inline `0px` beats a class. A slide inside a decorative product
-	 * shot is not "the deck you would ship", and this component has no business deciding that
-	 * for a host it knows nothing about. Ask, and you receive.
-	 *
-	 * Fired only on CHANGE, so a live-editing host that re-renders per keystroke does not
-	 * re-render its chrome on every one — and fired again on REVEAL, because a cold load's
-	 * first measurement lands before the frame has parsed (see `slideCorner`).
+	 * surface showing a slide should show the deck's corner for free, and quietly flattened
+	 * the marketing landing page's hero card from `rounded-[14px]` to a rectangle: an inline
+	 * `0px` beats a class. A slide inside a decorative product shot is not "the deck you
+	 * would ship", and this component cannot make that judgment for a host it knows nothing
+	 * about. Ask, and you receive.
 	 */
-	onCorner?: (corner: DeckCorner) => void;
+	onCorner?: (fraction: number) => void;
 	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
@@ -240,24 +236,50 @@ export function DeckPreview({
 	onRenderRef.current = onRender;
 	const onCornerRef = React.useRef(onCorner);
 	onCornerRef.current = onCorner;
-	// Last corner PUBLISHED, so a publish is a no-op on the overwhelming majority of renders
-	// (a deck's corner changes when its front matter does, not when a word does). Seeded
-	// `null`, NOT `SQUARE`: square is a real value, and seeding with it would swallow the
-	// first publish on the common case — a square deck, i.e. almost every deck.
-	const cornerRef = React.useRef<DeckCorner | null>(null);
+	// Last corner PUBLISHED. `null`, not `0`: square is a real value, and seeding with it
+	// would swallow the first publish on the common case — a square deck, i.e. almost every
+	// deck. Publishing is change-guarded off this.
+	const publishedCornerRef = React.useRef<number | null>(null);
+	const cornerTimersRef = React.useRef<number[]>([]);
 	// Measure the rendered slide's corner and hand it to the host, if the host asked and the
-	// value moved. Held in a ref so the render closure and the reveal effect below call ONE
-	// implementation — they fire at different moments for the same reason (the frame parses
-	// asynchronously) and must not drift into two.
+	// value moved. Ref-held so the render closure and the schedule call ONE implementation.
 	const publishCornerRef = React.useRef(() => {});
 	publishCornerRef.current = () => {
 		if (!onCornerRef.current) return; // opt-in: an unasked host is never touched
-		const corner = slideCorner(stageRef.current);
-		if (!corner) return; // unmeasurable — do NOT cache, so reveal can try again
-		if (cornerRef.current && sameCorner(corner, cornerRef.current)) return;
-		cornerRef.current = corner;
-		onCornerRef.current(corner);
+		const fraction = slideCornerFraction(stageRef.current);
+		if (fraction === null) return; // unmeasurable — do NOT cache, so a later tick retries
+		if (fraction === publishedCornerRef.current) return;
+		publishedCornerRef.current = fraction;
+		onCornerRef.current(fraction);
 	};
+	// Re-measure on a bounded backoff after each committed render.
+	//
+	// A SCHEDULE rather than a single moment, because there is no single moment to trust. On
+	// the write path the renderer resolves right after assigning `srcdoc`, so measuring at the
+	// commit reads the OUTGOING document — which made every deck wear its predecessor's corner
+	// across a `size:` switch. And a MutationObserver on the frame's style cannot stand in for
+	// it: when a re-render reuses the frame at unchanged geometry, Chromium emits NO mutation
+	// record for an identical CSSOM write, so the one post-parse trigger never fires and a cold
+	// load stayed square (4 of 6 runs under CPU throttle). Re-measuring converges on both,
+	// because the change-guard makes every tick after the right one free.
+	const scheduleCornerRef = React.useRef(() => {});
+	scheduleCornerRef.current = () => {
+		if (!onCornerRef.current) return;
+		for (const t of cornerTimersRef.current) clearTimeout(t);
+		cornerTimersRef.current = [];
+		publishCornerRef.current(); // an in-place update is already correct here
+		for (const ms of [80, 200, 450, 900, 1800, 3200]) {
+			cornerTimersRef.current.push(window.setTimeout(() => publishCornerRef.current(), ms));
+		}
+	};
+	// biome-ignore lint/correctness/useExhaustiveDependencies: unmount-only cleanup; reads a ref.
+	React.useEffect(
+		() => () => {
+			for (const t of cornerTimersRef.current) clearTimeout(t);
+			cornerTimersRef.current = [];
+		},
+		[],
+	);
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
 	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
@@ -290,45 +312,6 @@ export function DeckPreview({
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
 	}, [loader, onFirstRender]);
-
-	// CORNER on REVEAL — the publish that actually lands on a cold load.
-	//
-	// The commit-time publish inside the render closure is best-effort: on the write path the
-	// renderer resolves right after assigning `srcdoc`, before the browser has parsed it, so a
-	// freshly-opened deck measures nothing. Typing re-renders and papers over it, which is why
-	// driving the Studio by typing showed a corner that a real user opening a saved deck did
-	// not get. `iframe.live`'s opacity flip is single-slide-render's own "the slide has painted
-	// and is scaled" signal — the same one the skeleton hand-off trusts — so it is the honest
-	// moment to measure.
-	//
-	// Gated on `onCorner`, so only a host that asked pays for the observer; the phone layout
-	// benefits by the same mechanism, since its preview renders once when its pane becomes
-	// visible and then sits still.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `sample` re-arms per render; the body reads only refs.
-	React.useEffect(() => {
-		if (!onCorner) return;
-		const host = stageRef.current;
-		if (!host) return;
-		const tryPublish = () => {
-			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-			if (!fr || !fr.style.opacity || fr.style.opacity === '0') return;
-			publishCornerRef.current();
-		};
-		tryPublish();
-		// Watching the frame's own style, not the srcdoc `load` event — iOS drops that one, and
-		// this is the same MutationObserver shape the reveal-watcher above already relies on.
-		//
-		// It does NOT disconnect on the first successful publish, and that is the fix rather than
-		// an oversight. The frame reveals ONCE; every later render reuses it, and on a cold load
-		// the first reveal can beat the restored deck into the frame. Disconnecting there latched
-		// whatever was showing at that instant — measured: a reloaded `corners: rounded` deck kept
-		// a square box over a rounded slide until the first keystroke. `publishCornerRef` is a
-		// cheap read guarded by a change check, and only an opted-in host runs this at all, so
-		// keeping one observer alive for the host's lifetime costs less than getting it wrong.
-		const mo = new MutationObserver(tryPublish);
-		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
-		return () => mo.disconnect();
-	}, [onCorner, sample]);
 
 	// Anti-stuck FLOOR — reveal-VERIFYING. The reveal-watcher above is the primary handoff; this is
 	// its safety net for ONE failure: the frame IS good but the MutationObserver missed the opacity
@@ -603,15 +586,11 @@ export function DeckPreview({
 		// a real `status` (same as onRender below): a deferred inactive-host bail returns undefined and must
 		// NOT mount/re-pin the layer over a slide that didn't paint.
 		if (status) chartDetailRef.current?.onSlide(0);
-		// The DECK'S OWN CORNER, read back off the section this render just painted. Same
-		// `status` gate as the callbacks around it: a deferred bail painted nothing to measure.
-		// This is best-effort — on the write path the promise resolves before the browser has
-		// parsed the new srcdoc, so a cold load measures nothing here and the reveal effect
-		// (above) is what actually publishes it.
-		if (status) publishCornerRef.current();
 		// Committed-render signal for a parent hosting its own layer over this preview (Present re-pins
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
+		// The deck's own corner. Scheduled, not measured inline — see `scheduleCornerRef`.
+		if (status) scheduleCornerRef.current();
 		if (status) onRenderRef.current?.();
 		return { heavy: status?.writePath === 'write' };
 	};

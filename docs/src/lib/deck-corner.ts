@@ -1,96 +1,97 @@
 /**
- * The rendered slide's own corner, measured off the real render — so the Studio's chrome
- * follows the DECK instead of imposing a corner of its own.
+ * The deck's own corner, for Studio chrome that frames a slide.
  *
- * Before #1649 every surface that showed a slide picked its own fixed radius: the live
- * preview clipped at `rounded-xl` (12px), the picker tiles and overview thumbnails at
- * another `rounded-xl`, the Fabricate specimens at `rounded-lg`. Six call sites, two
- * values, none of them the deck's. Two consequences, and both are what the issue
- * reported: the corner you saw belonged to the STUDIO's palette rather than the deck's —
- * most obvious when the two themes disagreed — and a deck that exports square previewed
- * rounded, so the preview never showed the artifact you would ship.
+ * Before #1649 every surface showing a slide picked its own fixed radius — the live
+ * preview `rounded-xl` (12px), the picker tiles and thumbnails another `rounded-xl`, the
+ * Fabricate specimens `rounded-lg`. So the corner belonged to the STUDIO's palette rather
+ * than the deck's (most obvious when the two themes disagreed), and a deck that exports
+ * square previewed rounded — the preview never showed the artifact you would ship.
  *
- * The engine owns the corner now (`corners:` front matter → `--slide-radius`,
- * lib/core/resolve-corners.js). This reads the value BACK off the rendered section rather
- * than re-deriving it, which is what keeps the two honest: the number lives in one CSS
- * rule, and a consumer that recomputed it from a hardcoded constant would silently
- * disagree the moment that rule moved.
+ * The engine owns the shape now (`corners:` front matter → `--slide-radius`,
+ * lib/core/resolve-corners.js). This is how a host box agrees with it.
  *
- * The value is a FRACTION of the slide's width, never pixels. The engine states the radius
- * in `cqi` — a percentage of the slide — precisely so a 240px thumbnail and a 1280px
- * preview of the same deck round by the same proportion. A pixel value read from a 1280px
- * render and applied to a 240px thumbnail would reinstate the mismatch this replaces, five
- * times too round.
+ * IT MEASURES THE RENDER RATHER THAN RE-DERIVING THE ANSWER, and that is the design.
+ * Reading `corners:` out of the front matter is tempting — synchronous, no race — and it
+ * was tried. It is wrong, because the front-matter key is not the whole answer:
+ *
+ *   · a deck-wide `class: corners-rounded` opts in without the key;
+ *   · a per-slide `_class: corners-square` opts THAT slide back out — so a reader keyed
+ *     on the deck rounds the chrome over a slide the engine renders square, and the box's
+ *     clip then HIDES corner content that is in the exported PDF;
+ *   · a theme is invited to redeclare `--slide-radius`, which no reader of the source can
+ *     see at all;
+ *   · and the docs-side front-matter parser is not the engine's `frontMatterName`, so a
+ *     trailing YAML comment, a stray quote or an indented key make the two disagree —
+ *     the exact two-readers-one-register drift `lib/core/front-matter-key.js` exists to
+ *     end (#1416).
+ *
+ * Measuring is immune to all of that by construction: it reads whatever the engine
+ * actually produced, through every route that produced it. The price is timing — the
+ * measurement has to happen after the frame's document parses — and that is what
+ * `schedulePublish` in DeckPreview handles, by re-measuring on a bounded backoff after
+ * each committed render rather than trusting a single moment.
  */
-
-/** A measured corner: a fraction of the slide's width, plus the slide's width ÷ height. */
-export type DeckCorner = { fraction: number; aspect: number };
-
-/** A square deck — the default, and every deck written before the `corners:` register. */
-export const SQUARE: DeckCorner = { fraction: 0, aspect: 1 };
-
-/** True when two measurements describe the same corner (the publish change-guard). */
-export function sameCorner(a: DeckCorner, b: DeckCorner): boolean {
-	return a.fraction === b.fraction && a.aspect === b.aspect;
-}
 
 /**
- * The slide's corner, read off the live frame — or **`null` when the frame cannot be
- * measured yet**, which is a different thing from a square slide and must not be confused
- * with one.
+ * The slide's corner as a fraction of its own WIDTH, read off the live frame — or `null`
+ * when the frame cannot be measured yet.
  *
- * That distinction is the whole reason this returns a nullable. On the write path the
- * renderer's promise resolves right after assigning `srcdoc`, BEFORE the browser has
- * parsed the new document — so a measurement taken at the commit reads `about:blank` on a
- * cold load and finds no `<section>` at all. Returning `SQUARE` there and caching it
- * latched a square corner over a rounded deck for as long as nothing else re-rendered:
- * open a saved `corners: rounded` deck and the box stayed hard while the slide inside it
- * rounded, which is the exact notch artifact this work exists to remove. It corrected
- * itself the moment you typed a character, which is precisely why driving the Studio by
- * typing did not catch it. `null` says "ask again"; `SQUARE` says "measured, and square".
+ * `null` and "square" are deliberately different answers. On the write path the renderer
+ * resolves right after assigning `srcdoc`, before the browser parses it, so a measurement
+ * taken then finds no `<section>` at all. Reporting that as square and caching it latched
+ * a square box over a rounded deck until the next keystroke — which is why driving the
+ * Studio by typing never caught it. `null` means "ask again"; `0` means "measured, square".
  *
- * Never throws: a cross-origin or torn-down frame is unmeasurable, not an error.
+ * A fraction rather than pixels, because the engine states the radius in `cqi` — 1% of the
+ * slide — so the same deck rounds by the same proportion at 240px and at 1280px. A pixel
+ * value read from a 1280px render and applied to a 240px host would be five times too
+ * round. Never throws: a cross-origin or torn-down frame is unmeasurable, not an error.
  */
-export function slideCorner(host: Element | null | undefined): DeckCorner | null {
+export function slideCornerFraction(host: Element | null | undefined): number | null {
 	const frame = host?.querySelector<HTMLIFrameElement>('iframe.live');
 	if (!frame) return null;
 	let section: Element | null = null;
 	try {
-		// Same-origin `srcdoc`, so this is readable — but a frame mid-write, or torn down
-		// between the render committing and this running, is not.
 		section = frame.contentDocument?.querySelector('section') ?? null;
 	} catch {
 		return null;
 	}
 	if (!section) return null;
-	const { width, height } = section.getBoundingClientRect();
-	if (!(width > 0) || !(height > 0)) return null;
-	// `borderRadius` rather than `clipPath`: the engine sets both, and only this one reports
-	// back as a resolved px length (a clip-path shape does not parse usefully).
-	const radius = Number.parseFloat(getComputedStyle(section).borderTopLeftRadius);
-	if (!Number.isFinite(radius) || radius <= 0) return SQUARE;
-	return { fraction: radius / width, aspect: width / height };
+	const width = section.getBoundingClientRect().width;
+	if (!(width > 0)) return null;
+	// `borderRadius`, not `clipPath`: the engine sets both to the same shape, and only this
+	// one reports back as a length a consumer can use.
+	const raw = getComputedStyle(section).borderTopLeftRadius;
+	// A PERCENTAGE is returned verbatim by Chromium, so parsing it as px would silently
+	// read `50%` as 50 pixels. Author CSS and theme CSS can both set one.
+	if (raw.includes('%')) {
+		const pct = Number.parseFloat(raw);
+		return Number.isFinite(pct) && pct > 0 ? pct / 100 : 0;
+	}
+	const radius = Number.parseFloat(raw);
+	if (!Number.isFinite(radius) || radius <= 0) return 0;
+	return radius / width;
 }
 
 /**
- * The `border-radius` a host should wear to match, as a PERCENTAGE pair.
+ * The `border-radius` a host box should wear to match, as a PERCENTAGE pair.
  *
- * Percentages, not pixels, and that is load-bearing rather than tidy. A percentage radius
- * resolves against the host's OWN box at paint time, so a host that has not been measured
- * yet — or that is sized by the flex / `aspect-ratio` machinery rather than by a JS
- * measurement — still gets the right corner. Deriving pixels from a measured width
- * silently produced `0px` on the Studio's phone layout, where `previewPaneSize` is null
- * and the box falls back to `width: 100%`: the corner never applied at 390px, and the
- * publish change-guard meant it never retried. Measured at three widths; only the phone
- * was wrong, which is exactly the width a desktop-driven check would have missed.
+ * `aspect` is the HOST BOX's width ÷ height, not the slide's — the percentages resolve
+ * against the box, so the box's own proportions are what make the corner circular.
+ *
+ * Percentages rather than pixels, deliberately: a percentage radius resolves against the
+ * host's own painted box, so a box sized by flex or `aspect-ratio` rather than by a JS
+ * measurement still gets the right corner. A pixel value derived from a measured width
+ * came out `0px` on the Studio's phone layout, where the pane size has not resolved and
+ * the box falls back to `width: 100%`.
  *
  * The PAIR is required because CSS resolves a border-radius percentage per AXIS — the
- * horizontal radius against width, the vertical against height. A single value would give
- * an ELLIPTICAL corner on any non-square slide (visibly wrong at 16:9). Scaling the
- * vertical half by the aspect ratio makes both radii the same absolute length: circular.
+ * horizontal against width, the vertical against height. A single value gives an
+ * ELLIPTICAL corner on any non-square box (visibly wrong at 16:9). Scaling the vertical
+ * half by the aspect makes both radii the same absolute length: circular.
  */
-export function cornerRadiusCss(corner: DeckCorner): string {
-	if (!(corner.fraction > 0)) return '0px';
-	const h = corner.fraction * 100;
-	return `${h.toFixed(4)}% / ${(h * corner.aspect).toFixed(4)}%`;
+export function cornerRadiusCss(fraction: number, aspect: number): string {
+	if (!(fraction > 0) || !(aspect > 0)) return '0px';
+	const h = fraction * 100;
+	return `${h.toFixed(4)}% / ${(h * aspect).toFixed(4)}%`;
 }

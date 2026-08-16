@@ -1389,8 +1389,24 @@ section.clip-marked > .overflow-tab {
    * marker must never take flow space it is reporting on), not because the old rule is
    * still there. */
   position: absolute !important;
-  top: 0;
-  right: 0;
+  /* Inset by a fraction of the slide's own corner, so the flag clears the arc on a
+     `corners: rounded` deck instead of being sliced by it — an author alarm must not go
+     quiet because a deck chose a shape (the #1181 shape, HARD RULE #18). On a square deck
+     `--slide-radius` is `0px`, so this resolves to `0px` and nothing moves.
+
+     THE TOKEN'S UNIT IS LOAD-BEARING, and this rule is why. A unitless `0` is a <number>
+     inside `calc()`, so `calc(0 * 0.45)` is not a length — the declaration is invalid at
+     computed-value time and `top`/`right` fall back to `auto`, dropping the marker out of
+     the corner and into flow on EVERY square deck. That shipped once. `--slide-radius` is
+     declared `0px` for exactly this, and the guard is now an absolute-distance assertion
+     in test/integration/parity/content-clipped-pill.test.js rather than a comment — the
+     same typed-fallback trap is recorded below for `--corner-stack`, and this rule fell
+     into it anyway.
+
+     0.45 has margin over the geometric touch point (a corner marker meets the arc at
+     ~0.29 x radius along the diagonal); a warning surface errs toward clearance. */
+  top: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
   z-index: var(--z-alarm);
   background: #d4351c;
   color: #fff;
@@ -1549,8 +1565,10 @@ section.illegible {
    2026-08-12-slide-plane-model.md */
 section.illegible > .illegible-tab {
   position: absolute;
-  top: 0;
-  right: 0;
+  /* Same corner, same reason as `.overflow-tab` above — see its note, including why the
+     token is typed `0px`. This berth stacks one tab-height below that one. */
+  top: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
   z-index: var(--z-alarm);
   background: #b8730a;
   color: #fff;

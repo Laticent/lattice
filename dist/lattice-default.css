@@ -1082,176 +1082,6 @@
 
 }
 
-/* ── The slide's DEPTH axis — seven named planes ────────────────────────
- * The berth tokens above are the frame's x/y; these are its z. A slide is not a
- * flat sheet with things sprinkled on it — it is a small stack of planes, and
- * every layering decision at SLIDE scale names the plane it belongs to instead
- * of picking an integer.
- *
- * This EXECUTES the plane model the Form manifests have always declared. Every
- * Cell and Tile carries a `z` (lib/forms/schema/{cell,tile}.schema.json, required;
- * lib/forms/index.js `Z_PLANES`), and until now nothing read it: engine CSS ran on
- * 56 hand-picked integers over an ad-hoc ladder (-1, 0, 1, 2, 3, 50, 100), which is
- * how a Tile declaring plane 1 (`watermark`, atmosphere) ended up at `z-index: -1`
- * and painted UNDER the finish field it is defined to sit above. The manifest planes
- * 0–4 map onto the first five tokens below unchanged; `mark` and `alarm` name the two
- * tiers that had grown unnamed above them.
- *
- * THE DECORATIVE PLANES SINK; THE CHROME PLANES RISE. Canvas and atmosphere are
- * NEGATIVE, which is what makes the whole scale cheap: a negative-z child paints at step
- * 3 of the painting algorithm — after the section's own background, before every in-flow
- * descendant — so content sits above them WITHOUT declaring anything at all. Nothing has
- * to be pushed out of the way, no rule reaches across a section's children, and the
- * elements that carry no plane token (the stage, the author's markup) keep the stacking
- * behavior they have always had.
- *
- * The negative signs are the good part, and the reason is ordinary: a negative-z child
- * paints at step 3 of the painting algorithm, before every in-flow descendant, so content
- * floats above it without declaring anything and no rule has to reach across a section's
- * children. Sinking the decoration is simply cheaper than lifting everything else.
- *
- * A LONG-RUNNING STORY ABOUT A "PRINT WASH" USED TO LIVE HERE, AND IT WAS FALSE. The claim
- * was that making `.cell-stage` a stacking context caused Chromium's print path to
- * rasterize the 1px `.below-note` hairline at ~22% strength — "3,596 differing pixels in
- * the PDF" — and it shaped four separate decisions on this branch. The PDF was always
- * correct. `pdftoppm`'s splash backend leaks an earlier element's constant alpha into a
- * later tiling-pattern fill; the alpha is `/ca .22` from `--code-inline-border` (defined a
- * few hundred lines above this one as `color-mix(currentColor 22%, transparent)`), and
- * `0.22·accent + 0.78·white` is the exact "washed" color anyone measured. The same PDF
- * through `pdftocairo` or ghostscript is crisp, and the two PDFs are byte-identical
- * through the hairline — same shading, same matrix, same SMask.
- *
- * So: do not "simplify" the negative planes back to positive, because sinking beats
- * lifting — but do not cite a wash as the reason, and if you meet one, rasterize the same
- * PDF a second way before you believe it.
- * (engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer.)
- *
- * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
- * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
- * counter over a fill) use 0–9 and nothing else; they sit above atmosphere and below
- * chrome by construction, so no isolation is needed to keep them honest. The dividing
- * line is whether an element can be a DIRECT CHILD of `section`: if it can, it names a
- * plane with a token; if it can't, it stays in the band.
- *
- * Both halves are gated by `checkZPlanes` (tools/check-ownership.js, via build:check).
- *
- * These order elements WITHIN one slide, which is only meaningful because every
- * section is now an unconditional stacking context (`section { isolation: isolate }`,
- * base.elements.css). Before that, `section.form` isolated and a sovereign frame did
- * not, so a `title` slide's z values escaped to the page root and were ordered against
- * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
-
-/* THE PLANES ARE TYPED, and that is a safety property rather than a formality. A plane
- * token is an ordinary inherited custom property, so a deck `<style>` or a theme can set
- * one to anything — and `--z-canvas: auto` is a perfectly valid `z-index`, so it triggers
- * no fallback and no gate. Untyped, it moved the finish's full-slide sheet from paint
- * step 3 to step 8: measured on a `finish: halo` deck, 3,435 differing pixels with the
- * entire body erased and the chrome left intact.
- *
- * Registering each plane as `<integer>` makes a non-integer INVALID AT COMPUTED-VALUE
- * TIME, so `auto` can no longer flatten the model. BE PRECISE ABOUT WHERE IT LANDS,
- * because the obvious reading is wrong: for a registered property with `inherits: true`,
- * an invalid value falls back to the INHERITED value, not to `initial-value`. Verified in
- * Chromium — with `:root { --z-canvas: 9 }` and `section { --z-canvas: auto }`, the section
- * computes `9`, not `-2`. `initial-value` is only reached where no ancestor declares the
- * property at all, which on the unpacked path never happens (`:root` declares it) and on
- * the PACKED path is the normal case, because `packTheme` relocates `:root` onto the
- * section itself. So the typing is load-bearing mainly in the Studio and Playground, and
- * on the export path the `:root` declaration was already doing the work. If you ever add
- * an ancestor-level plane declaration, you change what the fallback IS.
- *
- * WHAT THIS DOES NOT DO — and the limit is the important half. Typing rejects `auto`, a
- * float, a keyword. It accepts any integer, including a hostile one: `--z-canvas: 60` from
- * a deck `<style>` lifts the finish sheet over every word and erases the slide (9,545 px,
- * verified in two rasterizers). Typing closed the LOUD failure and left the silent one, so
- * do not read these six lines as a security boundary. The real containment is that a deck
- * cannot reach these tokens through ordinary markdown any more — see the directive-value
- * sanitizer in `lib/engine/slides.js`, which is what closed the reachable path.
- *
- * Keep each `initial-value` identical to the declaration below it — `checkZPlanes` enforces
- * that pair, so a drifting fallback fails `build:check` rather than waiting for a surface
- * where it matters. */
-@property --z-canvas     { syntax: "<integer>"; inherits: true; initial-value: -2; }
-@property --z-atmosphere { syntax: "<integer>"; inherits: true; initial-value: -1; }
-@property --z-content    { syntax: "<integer>"; inherits: true; initial-value: 0; }
-@property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
-@property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 90; }
-@property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 100; }
-
-:root, section {
-  --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
-                          * panel — everything that IS the surface being printed on */
-  --z-atmosphere:   -1;  /* decoration BEHIND the words: the watermark ghost, oversized
-                          * ghost numerals, a photo scrim, pale quote glyphs */
-  --z-content:       0;  /* the words. Note this is the SAME NUMBER an unstyled element
-                          * effectively paints at, which is the point — content is the
-                          * natural resting plane and needs no help to get there */
-  --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
-                          * progress rail. NOT the deck logo — the deck mark's KIND is chrome
-                          * but its PLANE is atmosphere, because a mark must never cover the
-                          * author's words. See the rule in base.modifiers.css. */
-  --z-alarm:        90;  /* engine-drawn signals about the slide: the overflow / illegible /
-                          * fix-me tabs, debug boxes. Above chrome, BELOW a stamp.
-                          *
-                          * THE GAP FROM CHROME (30) TO HERE IS DELIBERATE, and it is a
-                          * security property rather than taste. These two planes are ENGINE
-                          * ASSERTIONS — "this slide overflowed", "this slide is CONFIDENTIAL"
-                          * — and ordinary deck CSS must not be able to paint over them. The
-                          * band an author reaches for by habit is roughly 1–99: `z-index: 10`,
-                          * `50`, `99`. An earlier cut of this scale ran alarm 40 / mark 50 for
-                          * tidiness, which put both INSIDE that band: one line of deck markup,
-                          * `<div style="position:absolute;inset:0;z-index:60">`, erased a
-                          * CONFIDENTIAL tab from the delivered PDF. Verified against the branch
-                          * point, where stamps sat at 100 and survived the same overlay.
-                          * These values restore that protection (and raise the alarm's, which
-                          * was 50). Do not compress them back toward chrome to make the scale
-                          * look neat — the distance IS the guarantee. */
-  --z-mark:         100;  /* stamped ONTO the delivered slide: status stamps
-                          * (CONFIDENTIAL / DRAFT / …), review annotations, comments.
-                          *
-                          * MARK OVER ALARM, and the order is load-bearing — this pair was
-                          * briefly inverted on the reasoning that "an author must be able to
-                          * see the overflow tab even on a stamped slide", with the claim that
-                          * `--corner-stack` already separates them geometrically. Both halves
-                          * were wrong. The FULL-BLEED shapes (`stamp-veil`, `stamp-mark`) are
-                          * `inset: 0` and clear nothing, and the marker that actually SHIPS is
-                          * the reader-mode pill, not the authoring tabs — so the inversion
-                          * punched an engine marker through a redaction wash in the DELIVERED
-                          * PDF: 10,136 differing pixels on `confidential stamp-veil` with
-                          * `overflow-marker: reader`, and a `stamp-ribbon` cut in half. A
-                          * classification marking outranks an engine annotation on a delivered
-                          * artifact. Restored to the order the engine has always shipped
-                          * (stamps were 100, tabs 50). */
-}
-
-/* VIEWER chrome is NOT a slide plane, and must not borrow one. The fluid-view toggle
- * and the exported player's bar float above the WHOLE DECK in the document, outside
- * every section's stacking context, so they are ordered against the page — not against
- * anything on a slide. Kept at the historical maximum so a host page's own chrome
- * cannot bury the only control that gets a reader back to fixed view.
- *
- * Declared on `:root` rather than `:root, section` as a statement of INTENT, not a
- * guarantee — and the difference was measured, so do not restate it as one. Custom
- * properties inherit, so on the unpacked path every section can read this anyway; and on the
- * PACKED path (`packTheme`, lib/engine/css.js — the Playground and Studio) `:root` is
- * relocated ONTO the section, so it is defined only INSIDE slides, the exact inverse. The
- * token is off the slide SCALE, which is what `slide-planes.test.js` relies on; it is not
- * out of a slide's reach, and no CSS mechanism would make it so.
- *
- * Not gated: `lib/export/player-core.mjs` hard-codes its viewer chrome at 40/50/60, and
- * `checkZPlanes` scans CSS only. That is a separate surface (its own document, above the
- * whole deck) — logged rather than absorbed.
- *
- * Registered like the slide planes, for the same reason and not for scale membership: an
- * unregistered token accepts `auto`, and a viewer control that flattens to `z-index: auto`
- * drops behind the deck it is supposed to float above. `slide-planes.test.js` still
- * excludes it from the allowed SLIDE values — being typed does not make it a plane. */
-@property --z-viewer { syntax: "<integer>"; inherits: true; initial-value: 2147483000; }
-
-:root {
-  --z-viewer: 2147483000;
-}
-
 /* ── The 12 typography tokens — GENERATED, not hand-written here ────────
  * The `--fs-*` scale moved to the lib/typography/scale.js manifest + emitter
  * (lib/typography/emit.js), which tools/build-css.js bundles in right after this
@@ -1468,38 +1298,6 @@ section {
    * it costs nothing and removing it would break any such rule silently. Do NOT
    * reintroduce an aspect-ratio query on it. */
   container-name:lattice;
-  /* ── EVERY SLIDE IS A STACKING CONTEXT, unconditionally ────────────────────
-   * This is what makes the `--z-*` plane scale (base.tokens.css) mean the same
-   * thing on every slide, and it is deliberately declared HERE — on the bare
-   * `section`, with no class gate — rather than on a Form class.
-   *
-   * It used to be gated, and that was the root of the flat layering. The only
-   * rules creating a slide stacking context were `section.form { isolation: isolate }`
-   * (lib/forms/cell/stage/stage.css) plus the two layouts that declared it for
-   * themselves, `section.image` and `section.scene` — so a SOVEREIGN frame outside that
-   * set — `title`, `math`, `divider`, most frames with `exemptFromChrome: true` — got none at
-   * all, and its z values escaped to the page root, where they were ordered against
-   * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
-   * computed `isolate` on a `content` section and `auto` on a `title` section of the
-   * same deck.
-   *
-   * `container-type: size` does NOT supply one. Verify it the right way if you ever
-   * re-check: put a `z-index: -1` child in a `container-type: size` box and see whether it
-   * escapes behind the box's own background. It does — only `isolation: isolate` contains
-   * it. An earlier version of this comment offered `contain` computing `none` as the
-   * proof, which is not one: the containment a `container-type` implies never shows up in
-   * `contain`'s computed value, so that test would read `none` whether or not a context
-   * existed. Right answer, invalid reasoning — replaced rather than trusted. Do not delete
-   * this rule on the theory that the container covers it.
-   *
-   * The wider consequence is that `section.finish > .backdrop` can now simply be
-   * `z-index: var(--z-canvas)` while content and chrome take their own planes.
-   * 2026-08-04-finish-stacking-displaces-frame-chrome.md rejected exactly that
-   * shape — "the escape only holds inside a stacking context, and a Lattice
-   * `section` does not reliably form one" — and named this rule as the precondition
-   * for re-proposing it. That is what removed the gated `:where()` chrome exclusion
-   * list. engineering/decisions/2026-08-12-slide-plane-model.md. */
-  isolation:isolate;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;
   padding: calc(var(--_sec-1cqi,1cqi)*6.875) calc(var(--_sec-1cqi,1cqi)*5);
@@ -1509,23 +1307,6 @@ section {
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
-
-/* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the
- * natural resting plane: the decorative planes are NEGATIVE (base.tokens.css § depth
- * axis), so they paint at step 3 of the painting algorithm, before every in-flow
- * descendant, and the author's markup floats above them without declaring anything.
- *
- * A blanket rule was written first and removed. The reason it stays removed is simply
- * that content needs no plane: the decorative planes are negative, so the flow already
- * sits above them, and a rule reaching across every child of every section to say so is
- * a lot of cascade for nothing.
- *
- * It was removed at the time for a different and WRONG reason — that it made `.cell-stage`
- * a stacking context and thereby washed a hairline in the exported PDF ("3,596 differing
- * pixels"). That wash is a `pdftoppm` splash-backend defect, not a PDF one; the same file
- * through `pdftocairo` or ghostscript is crisp and byte-identical through the rule. See
- * base.tokens.css § depth axis for the mechanism.
- * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
@@ -1784,14 +1565,6 @@ section footer > p {
    !important needed — confirmed by the marp-cli pixel probe (file header). */
 section::after {
   position: absolute;
-  /* CHROME plane. The page number is frame chrome and belongs above the body, but it is a
-   * PSEUDO-element, so no rule over a section's CHILDREN can reach it, and it sat at
-   * `z-index: auto` — ordered against the slide's children by accident of the painting
-   * algorithm rather than by intent. That accident went both ways in the same corpus: on
-   * `scene` the number VANISHED behind the exhibit panel, and on `split-panel` a number
-   * that had always been hidden APPEARED. Naming the plane settles it in one place.
-   * base.tokens.css § depth axis. */
-  z-index: var(--z-chrome);
   bottom: var(--frame-inset-y);
   right: var(--frame-inset-x);
   padding: 0;
@@ -3883,12 +3656,6 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
  * absolute) is a separator, not text, so it stays full-bleed. */
 .below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
-
-/* No export-safe flip for this hairline — see the note in base.modifiers.css beside the
- * raw-form twin of this rule. Short version: the "gradient washes in the exported PDF"
- * behavior that a flip was once written against is a `pdftoppm` splash-backend artifact,
- * not a property of the PDF. Do not add one back. */
-
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
@@ -5675,43 +5442,13 @@ section.image[data-img-bucket="column"] { --img-aspect: 2 / 5;   --img-aspect-n:
  * the image IS the slide. */
 section.image > header,
 section.image > footer { display: none; }
-/* …and the PAGE NUMBER, which the rule above has always named and never reached. It is
- * `section::after`, a pseudo-element, so no selector over a section's CHILDREN can touch
- * it. What actually hid it was an accident: `.image-scrim` carried `z-index: 1`, putting
- * it in the positive-z group above a pseudo sitting at `auto`. The plane model sinks the
- * scrim to `--z-atmosphere` where it belongs — decoration behind the words — and the
- * number surfaced. It surfaced badly: measured on examples/adaptive-image.md p8 the glyph
- * is `rgb(107,127,154)` at 14.98px over a photo that runs from `rgb(13,20,32)` to
- * `rgb(74,90,112)` beneath it, i.e. 4.54:1 at best and 1.72:1 where the photo lightens —
- * a number legible in one corner of its own box and not the other. The layout's answer
- * was already written; this is it, applied to the element it meant — but ONLY to the
- * composition that has the problem.
- *
- * SCOPE, because the first cut of this was far too wide. It suppressed the number on every
- * `image` slide, and on the 117-page canonical gallery that was the ONLY visible change the
- * whole plane model made: five deleted page numbers, four of them on `clean`/`gallery`/
- * `mirror` compositions where the photo is a floated card and the glyph sits on plain deck
- * canvas at 3.76–4.20:1 — perfectly legible, and the author had asked for it with
- * `paginate:`. Deleting content to solve a layering question is the opposite of the rule
- * this model serves. `statement` is the composition that full-bleeds the photo behind the
- * corner and puts a scrim over it; it is the one measured at 1.72:1, and it is the only
- * one that loses its number.
- *
- * The class is DOUBLED to reach (0,2,2), the same idiom and the same reason as
- * `section.no-paginate.no-paginate::after` in base.variants.css: the engine pagination
- * rule is `section[data-lattice-pagination]::after` at (0,1,2) and it is emitted at the
- * very END of the bundle, so an equally-specific selector LOSES on source order. Written
- * singly first, this rule was in the bundle, more specific than the scaffold default, and
- * changed exactly zero pixels. */
-section.image.image[data-img-composition="statement"]::after { content: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */
 section.image .lattice-bg {
   position: absolute;
   inset: 0;
-  /* The photo IS the sheet on this layout — the CANVAS plane. */
-  z-index: var(--z-canvas);
+  z-index: 0;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -5720,7 +5457,7 @@ section.image .lattice-bg {
 /* The prose panel. Base = a centered flex column; each composition places it. */
 section.image .image-text {
   position: relative;
-  z-index: var(--z-content);
+  z-index: 2;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -6007,9 +5744,7 @@ section.image[data-img-composition="statement"] .lattice-bg { inset: 0; }
 section.image[data-img-composition="statement"] .image-scrim {
   position: absolute;
   inset: 0;
-  /* A scrim is ATMOSPHERE: it darkens the sheet so the words read, and it belongs
-   * above the photo and below them. Same plane as the watermark ghost. */
-  z-index: var(--z-atmosphere);
+  z-index: 1;
   pointer-events: none;
   background:
     linear-gradient(108deg, rgba(8, 14, 24, 0.86) 0%, rgba(8, 14, 24, 0.5) 34%, rgba(8, 14, 24, 0) 64%),
@@ -14703,14 +14438,6 @@ section.scene[data-img-bucket="column"] { --scene-aspect: 2 / 5;   --scene-aspec
 /* The scene IS the slide — the sovereign Frame suppresses chrome, but belt-and-suspenders. */
 section.scene > header,
 section.scene > footer { display: none; }
-/* The page number is NOT suppressed here, and that is deliberate. It was, briefly: the
- * plane model surfaced a number that had been hidden behind the exhibit panel, and the
- * first instinct was to put it back. But it surfaces onto the editorial band — plain
- * canvas, not the still — where it is fully legible, and the deck asked for it with
- * `paginate:`. A layering model whose answer to "this became visible" is to delete it has
- * inverted its own purpose. `image`'s `statement` composition IS suppressed, because there
- * the glyph lands on a full-bleed photo at 1.72:1; see image.styles.css for that
- * measurement. Different situation, different answer. */
 
 /* The poster still — an inline svg, CONTAINED (fits its box, letterboxed by the
  * viewBox), never cover. The box each composition gives it bounds the height. */
@@ -14824,7 +14551,7 @@ section.scene .scene-figure svg {
 /* The prose panel (mirrors .image-text). */
 section.scene .scene-text {
   position: relative;
-  z-index: var(--z-content);
+  z-index: 2;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -18449,7 +18176,7 @@ section img.emoji {
    * glyphs out by the same 0.05em as the old margin would — HARD RULE #20. */
   padding:0 0.05em;
 }
-/* FRAME CHROME SITS ABOVE COMPONENT CONTENT — the plane is not decoration.
+/* FRAME CHROME SITS ABOVE COMPONENT CONTENT — the `z-index` is not decoration.
  *
  * Both of these are `position: absolute` with no stacking order of their own, and so is
  * every component part that fills a corner of the slide. Positioned elements that do not
@@ -18461,33 +18188,28 @@ section img.emoji {
  * selectable the whole time — it was underneath a navy rectangle. Five of the family's
  * variants were affected (base, watermark, metric, steps, pullquote); the `mirror` forms
  * docked the panel on the other side and were fine, which is why this never looked like
- * a systematic defect. A corpus A/B later found the same occlusion on 9 decks, including
- * `kaizen-craftsmanship` and `seven-steps-problem-to-code`.
+ * a systematic defect.
  *
- * `--z-chrome`, not a hand-picked number. This shipped as a literal `3` — chosen to clear
- * base.finish.css's backdrop stack and stay below the diagnostic tabs at 50 — alongside a
- * companion rule in base.finish.css that re-asserted it on `finish:` decks, where the
- * blanket `section.finish > *` rule would otherwise flatten chrome and content together.
- * Both the literal and the companion are gone: the slide's depth axis names this plane
- * (base.tokens.css § depth axis), the decorative planes are negative so there is no
- * backdrop stack to clear, and the blanket rule that needed compensating no longer exists.
- * The tabs still win — `--z-alarm` is above `--z-chrome` by construction.
- * engineering/decisions/2026-08-12-slide-plane-model.md.
+ * 3, not 1, and not 50. It has to clear base.finish.css's backdrop stack (0/1/2 — see the
+ * companion rule there, which restores this order on a `finish:` deck where the blanket
+ * `section.finish > *` rule would otherwise flatten chrome and content to the same 2).
+ * It must stay BELOW the diagnostic tabs at 50 (`.overflow-tab`, `.illegible-tab`,
+ * `.fixme-tab`): those report on the slide and are meant to cover anything.
  *
  * Raising chrome is only half the fix. Revealing a header over a dark panel with the
  * canvas-tuned `--text-muted` measured 2.45:1 — trading an invisible header for an
  * unreadable one, which is not a fix. Whatever a layout docks under the frame owes the
  * header the ink for THAT field; split-panel.styles.css does this per field. */
 section header {
-  z-index: var(--z-chrome);
   position:absolute; top:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-inset-x);
+  z-index:3;
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
   letter-spacing:0.10em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
-  z-index: var(--z-chrome);
   position:absolute; bottom:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-page-reserve);
+  z-index:3;
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:500;
   line-height:1; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
@@ -18884,26 +18606,6 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
   background:linear-gradient(to right, var(--accent), transparent);
 }
 
-/* NO EXPORT-SAFE FLIP HERE, and the reason is a cautionary tale rather than a mechanism.
- *
- * A flip WAS written: under `@media print` and `.lattice-exporting` it swapped this
- * gradient hairline for a solid accent bar at `right: 62%`, because the gradient appeared
- * to render at ~22% strength in exported PDFs. It shipped, and it silently restyled every
- * page where nothing had ever been wrong — a full-width taper became a hard-edged stub at
- * 38% width on 32 slides across three galleries, all blessed into goldens before anyone
- * opened a diff image. That part was real and is why the flip is gone.
- *
- * THE WASH IT WAS WRITTEN AGAINST WAS NOT REAL. It is a defect in `pdftoppm`'s splash
- * backend, which leaks an earlier element's constant alpha into a later tiling-pattern
- * fill; the alpha is `/ca .22` from `--code-inline-border`, so any slide carrying an
- * inline-code chip could trigger it. `0.22·accent + 0.78·white` is precisely the "washed"
- * color. The same PDF through `pdftocairo` or ghostscript is crisp, and the two files are
- * byte-identical through the hairline. Four decisions on this branch were made from that
- * artifact before anyone rasterized a second way.
- *
- * So this rule needs no export variant, and neither does anything else here. If a mark
- * looks washed in a PDF, rasterize it again with a different engine before you change CSS.
- * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
  * A trailing paragraph whose only child is an <em> renders as a quiet
@@ -19428,10 +19130,7 @@ section.closing.numbered::after {
   color: var(--accent);
   opacity: 0.55;
   pointer-events: none;
-  /* The oversized section numeral is DECORATION behind the words, not a chrome mark —
-   * same family as the watermark ghost and split-panel's giant step numeral. Its old
-   * `1` sat below the finish rule's blanket `2`, which is the order this preserves. */
-  z-index: var(--z-atmosphere);
+  z-index: 1;
 }
 
 /* On dark canvases the accent is muted; lift the numeral with the dark
@@ -19513,20 +19212,27 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
  * (measured: stage 438 → 388), letting the marker manufacture the clip it was reporting.
  * That is structurally impossible now. */
 section.clip-marked > .overflow-tab {
-  /* `!important` is HISTORICAL, and kept deliberately. base.finish.css used to carry a
-   * blanket `section.finish > *:not(.backdrop)` setting `position: relative` at the same
-   * specificity (0,2,1) from a later file, and it won — so on a `finish:` deck this
-   * "corner flag" rendered as a full-width in-flow red BAND that pushed content down and
-   * cost a line of copy (measured `x:64 y:593 w:1152 h:23 position:relative`). That rule
-   * is GONE — the plane model deleted it, because sinking the backdrop means nothing has
-   * to be pushed off it. So this `!important` no longer defends against anything today.
-   * It stays because the property it asserts is an invariant in its own right (an overflow
-   * marker must never take flow space it is reporting on), not because the old rule is
-   * still there. */
+  /* `!important` because base.finish.css's `section.finish > *:not(.backdrop)`
+   * sets `position: relative` at the SAME specificity (0,2,1) from a later file,
+   * and won — so on a `finish:` deck this "corner flag" rendered as a full-width
+   * in-flow red BAND that pushed content down and cost a line of copy. Measured:
+   * `x:64 y:593 w:1152 h:23 position:relative`. The reader rule below already
+   * asserts `position: absolute !important` for exactly this reason; the author
+   * rule did not, which is why the claim "the marker never changes the layout"
+   * was false on the one deck family most likely to notice. */
   position: absolute !important;
-  top: 0;
-  right: 0;
-  z-index: var(--z-alarm);
+  /* Inset by a fraction of the slide's own corner, so the flag clears the arc on a
+     `corners: rounded` deck instead of being sliced by it. `--slide-radius` is 0 on a
+     square deck, so this is a no-op for every deck that predates the register — the
+     offset appears only where there is a corner to clear. 0.45 has margin over the
+     geometric touch point (a corner marker meets the arc at ~0.29 × radius along the
+     diagonal); the marker is a warning surface, so it errs toward clearance rather than
+     tightness. Without it, `clip-path` cuts the overflow/illegible flags — an author
+     alarm made quieter as a side effect of a corner register, which is the #1181 shape
+     (HARD RULE #18). */
+  top: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
+  z-index: 50;
   background: #d4351c;
   color: #fff;
   font-family: var(--font-mono);
@@ -19601,7 +19307,7 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* THE TAB'S OWN CORNER, and getting here took three wrong answers worth recording,
    * because each one was a smaller version of the same mistake.
    *
-   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, on the ALARM plane). It shipped
+   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, `z-index: 50`). It shipped
    * bottom-center, which is the running-footer band, so once detection widened to cuts
    * with no overflow every deck carrying one ordinary `footer:` got a capsule painted
    * across its confidentiality line on EVERY page. Both HARD RULE #25 lenses found that
@@ -19676,17 +19382,16 @@ section.illegible {
    until 2026-08-04, because it asserts `!important` and this rule does not. This one ties
    `section.finish > *:not(.backdrop)` at (0,2,1) and LOST on source order (base.finish.css
    is bundled after this file), so on a `finish:` deck it was dragged into flow and did
-   perturb exactly the height math above. That blanket rule NO LONGER EXISTS — the plane
-   model deleted it along with its `:where()` exclusion list, because a sunk backdrop needs
-   nothing pushed off it. The invariant is still gated by
+   perturb exactly the height math above. That rule now withholds `position` from frame
+   chrome instead of a second `!important` being added here; the invariant is gated by
    test/integration/invariants/frame-chrome-out-of-flow.test.js.
-   engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md and
-   2026-08-12-slide-plane-model.md */
+   engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
 section.illegible > .illegible-tab {
   position: absolute;
-  top: 0;
-  right: 0;
-  z-index: var(--z-alarm);
+  /* Same corner, same reason as `.overflow-tab` above — see its note. */
+  top: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
+  z-index: 50;
   background: #b8730a;
   color: #fff;
   font-family: var(--font-mono);
@@ -19704,7 +19409,7 @@ section.illegible > .illegible-tab {
 /* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
    FOUR things want this corner. Three want `top: 0; right: 0`: the STATUS STAMP
    (`base.variants.css`,
-   painted on `section::before`, on the MARK plane), the clip tab, and the legibility
+   painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
    tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
    and the pill was moved into the corner on a survey of `lib/components/**` that could
    not see a base modifier. Rendered, `stamp-notch` swallowed the pill entirely — a
@@ -19831,15 +19536,14 @@ section:not(.illegible) > .illegible-tab { display: none; }
  * has by definition already earned the overflow tab above it. */
 section.fit-marked > .fixme-tab {
   /* `!important` for the same reason the overflow tab asserts it:
-   * `base.finish.css` used to carry a blanket `section.finish > *:not(.backdrop)` setting
-   * `position: relative` at the same (0,2,1) specificity from a later file, and an in-flow
-   * "corner tag" is a full-width band that pushes content down — i.e. the marker consuming
-   * the stage height it is reporting on. That rule is gone (the plane model deleted it);
-   * the `!important` stays because the invariant does. */
+   * `base.finish.css`'s `section.finish > *:not(.backdrop)` sets
+   * `position: relative` at the same (0,2,1) specificity from a later file, and
+   * an in-flow "corner tag" is a full-width band that pushes content down —
+   * i.e. the marker consuming the stage height it is reporting on. */
   position: absolute !important;
   bottom: 0;
   right: 0;
-  z-index: var(--z-alarm);
+  z-index: 50;
   /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
    * the same exception the overflow red and the type-floor amber take: an
    * authoring alarm must read identically loud in every palette and color mode.
@@ -19932,37 +19636,6 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  /* CONTENT plane. The deck mark's KIND is chrome — frame furniture, not author content,
-   * and its Tile manifest says so — but a plane says what may COVER what, and on that axis
-   * the mark belongs with the content it sits among, ordered by DOM position like the rest
-   * of it. This element has now been on three planes; what settles it is two decks that
-   * pull in opposite directions, each measured against the merge-base:
-   *
-   *                     marker-corner p3   citation-card + brand logo, off-corner
-   *   `--z-chrome`             0 px        2,124 px — the opaque brand plate erased four
-   *                                                   words of a pull-quote
-   *   `--z-atmosphere`       932 px        0 px     — the mark vanished under a split panel
-   *   `--z-content`            0 px        0 px
-   *
-   * Only the content plane is right on both, and the reason is ordinary: a POSITIONED
-   * element with `z-index: 0` paints at step 8 of the painting algorithm — above the plain
-   * in-flow content it shares the plane with, below anything claiming the local 0-9 band.
-   * That is exactly where `z-index: auto` put it before this branch, which is why both
-   * decks come back at zero. So this is not a new position; it is the position the logo
-   * always had, finally expressible in the model instead of being an unnamed accident.
-   *
-   * Do not "promote" this to `--z-chrome` on the reasoning that the logo is chrome. That
-   * reasoning is what erased the pull-quote; a plane is not a statement about what an
-   * element IS, only about what it may cover.
-   *
-   * This declaration was also removed once and restored, on a different mistake: it was
-   * pulled because giving the logo a plane appeared to wash an unrelated gradient in the
-   * exported PDF. That "wash" is a defect in `pdftoppm`'s splash backend, which leaks an
-   * earlier element's `/ca .22` into a later tiling-pattern fill; the same PDF through
-   * `pdftocairo` or ghostscript is crisp and byte-identical through the hairline. Do not
-   * re-remove this on pixel evidence from a single rasterizer.
-   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
-  z-index: var(--z-content);
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and
@@ -20059,7 +19732,6 @@ h1 .lat-cont, h2 .lat-cont{
    real air between them rather than reading as one widget. `right` leaves room for the
    number plus the gap. */
 .lat-split-rail {
-  z-index: var(--z-chrome);
   position: absolute; right: 12cqi; bottom: 2.35cqi; left: auto;
   display: flex; align-items: center; gap: 0.55cqi; pointer-events: none;
 }
@@ -22587,21 +22259,11 @@ section.treatment-none {
  * compositor blends, so layers combine instead of replacing each other and a
  * future right-panel designer can drive any single layer by setting one prop.
  *
- *   L1  --fin-wash      a background-image gradient (ambient color field)
- *   L2  --fin-texture   a background-image gradient (pattern: grid/dots/lines…)
- *   L3  ::before        a placed MARK   — --fin-mark (gradient) + --fin-mark-text
- *   L4  ::after         an EDGE          — --fin-edge (gradient)
- *   L5  content         (untouched, painted above every layer)
- *
- * THOSE ARE LAYER NUMBERS, NOT z-index VALUES — they used to read `z1`…`z5`, which is
- * actively misleading now that this file also names real planes. L1/L2 are comma-separated
- * `background-image` slots on `.backdrop` and carry no z-index at all; L3/L4 are its two
- * pseudos at `z-index: 0` and `1`, and the clearance mask sits above both at `2`. All of
- * that is the LOCAL 0–9 band, contained because `.backdrop` is a stacking context in its
- * own right (`position: absolute` + `z-index: var(--z-canvas)`). The whole stack therefore
- * rides the canvas plane as ONE unit — which is what makes sinking it below the content
- * flow safe. L5 "content" is not part of this stack at all: it is the slide's own content,
- * a plane above (base.tokens.css § depth axis).
+ *   z1  --fin-wash      a background-image gradient (ambient color field)
+ *   z2  --fin-texture   a background-image gradient (pattern: grid/dots/lines…)
+ *   z3  ::before        a placed MARK   — --fin-mark (gradient) + --fin-mark-text
+ *   z4  ::after         an EDGE          — --fin-edge (gradient)
+ *   z5  content         (untouched, painted above every layer)
  *
  * The two background slots are composited in ONE rule: --fin-texture is listed
  * first (visually on top of the wash). Because the combined background-image can
@@ -22687,20 +22349,7 @@ section.treatment-none {
 section.finish > .backdrop {
   position: absolute;
   inset: 0;
-  /* The CANVAS plane — the sheet itself. Everything else on the slide has a plane of
-   * its own and simply sits above it; nothing has to be pushed out of the way.
-   * (base.tokens.css § depth axis.) Its own internal stack — mark, edge, mask — is
-   * LOCAL band 0–2, contained because this element is a stacking context.
-   *
-   * Containment does not depend on this token's VALUE, which matters because a plane token
-   * is an ordinary inherited custom property that a deck `<style>` or a theme can rewrite.
-   * `--z-canvas: auto` is a perfectly valid `z-index`, and it used to move this whole
-   * full-slide sheet from paint step 3 to step 8 — on top of the body. Measured on a
-   * `finish: halo` deck with that one line of deck CSS: 3,435 differing pixels, the entire
-   * body gone, chrome intact, no gate raised. The tokens are now registered with
-   * `@property` (base.tokens.css § depth axis), so a non-integer is rejected at compute
-   * time and falls back to the designed plane instead of silently becoming `auto`. */
-  z-index: var(--z-canvas);
+  z-index: 0;
   pointer-events: none;
   /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED
    * `--fin-backdrop-strength` (generateFinishCss, the 5th finish layer); else 1
@@ -22900,45 +22549,83 @@ section.divider:not(.light):not(.dark):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
 
-/* ── WHAT USED TO BE HERE, and what removed it ────────────────────────────────
- * Two rules and a gated exclusion list:
+/* Keep slide content above the backdrop layer (the backdrop is z0, its internal
+ * pseudos/mask are contained in its stacking context). Excludes `.backdrop`
+ * itself, which must stay behind at z0. */
+section.finish > *:not(.backdrop) {
+  z-index: 2;
+}
+/* …but not by FLATTENING chrome into content. The rule above is written for the backdrop
+ * (keep everything above z0), and it catches `header`/`footer` too, which pins them to the
+ * same 2 as the component parts they must paint over — reintroducing, on `finish:` decks
+ * only, exactly the occlusion base.modifiers.css's `z-index: 3` fixes everywhere else.
+ * `:is(header, footer)` contributes (0,0,1), so this computes (0,1,1): a TIE with the rule
+ * above, resolved by source order, which is why it is written immediately after it and
+ * must stay there. */
+section.finish > :is(header, footer) {
+  z-index: 3;
+}
+/* `position: relative` is only the MECHANISM by which a STATIC child earns that
+ * z-index — it is not part of the intent, and it must not be forced onto chrome
+ * that already positions ITSELF out of flow. Doing so breaks such an element twice
+ * over: `top`/`left` stop meaning "inset from the frame" and start meaning "offset
+ * from wherever I landed in flow", AND the element begins taking flow space it was
+ * designed never to take. Measured, on a `finish:` deck:
+ *   · `header` / `footer` — rendered at padding+inset instead of inset (116px/94px
+ *     where the frame berth is 28px/30px), on 11 of 15 slides of
+ *     examples/finish-backdrops.md, while stealing their own height from the body.
+ *     Two components are written AGAINST this invariant and say so in their own
+ *     comments (math.styles.css §body-row, split-panel.styles.css §watermark).
+ *   · `img.deck-logo` — `logo-x`/`logo-y` stopped meaning anything. The documented
+ *     contract is "the logo CENTER as a % of the slide"; every logo slide in the
+ *     corpus declares `logo-x: 50` and rendered at 92.2%, and the y drifted with
+ *     content height (84 / 87.1 / 88 / 100% across all four, every one declaring
+ *     `logo-y: 82`). On examples/marp-export-fidelity.md p1 it left the frame
+ *     entirely, and WAS that deck's whole 23px of overflow.
+ *   · `.illegible-tab` — base.modifiers.css states "both tabs are position:absolute,
+ *     so neither can perturb the height math the watcher itself is measuring". That
+ *     is true of `.overflow-tab`, which asserts `position:absolute !important`, and
+ *     false of this one: it ties this rule at (0,2,1) and LOSES on source order,
+ *     because base.finish.css is bundled after base.modifiers.css.
+ *   · `.lat-split-rail` — the k-of-N run indicator. It docks INSIDE `.cell-footer`
+ *     when the frame builds one, and at SECTION level when it does not
+ *     (lib/core/footer-dock.js: "sovereign frames get the mark appended at section
+ *     level, where CSS keeps it absolutely positioned in its own reserved berth").
+ *     `buildFooterCell` returns nothing when a deck sets neither `footer:` nor
+ *     `paginate:`, so that second path is ordinary, not exotic — and there it is a
+ *     direct child at (0,1,0) and was dragged into flow like the rest.
  *
- *   section.finish > *:not(.backdrop) { z-index: 2 }
- *   section.finish > :is(header, footer) { z-index: 3 }
- *   section.finish > *:not(.backdrop, :where(header, footer, img.deck-logo,
- *     .illegible-tab, .lat-split-rail, .lattice-bg)) { position: relative }
+ * THE EXCLUSION SET IS GATED, because an ungated list of this shape provably rots:
+ * `.lat-split-rail` was MISSED by the first cut of this very fix — an empirical sweep
+ * over a six-layout probe deck could not see it, because the probe had no split run.
+ * `checkFinishChromeExclusions` (tools/check-ownership.js, via build:check) derives the
+ * set from the CSS itself and fails BOTH ways: a rule that absolutely positions a
+ * possible direct child of `section` and is not listed here, and a listed name nothing
+ * positions any more. Same contract as SANCTIONED_MARGINS / SANCTIONED_HEX and the rest.
  *
- * The middle one arrived last (#1646) and is the clearest argument for the plane model:
- * it existed ONLY to undo the first, which flattened chrome and content onto the same 2
- * and so re-created, on `finish:` decks alone, the occlusion that commit had just fixed
- * everywhere else. A rule whose whole job is to compensate for the rule above it is a
- * number line with no names on it.
+ * The exclusions sit inside `:where()` so they carry ZERO specificity: `:not()` takes
+ * the weight of its most specific argument, which stays `.backdrop` (0,1,0), so this
+ * selector still computes (0,2,1) — the same weight as the z-index rule above and the
+ * same weight `.overflow-tab`'s `!important` note is written against. Verified by
+ * reading the computed value on a real render, not inferred from the spec.
  *
- * They existed because a `z-index: 0` backdrop paints ABOVE a flex child that carries
- * no z-index at all (positioned descendants paint at step 8, inline-level content at
- * step 7), so every non-backdrop child had to be pushed up — and `position: relative`
- * was the mechanism by which a STATIC child earns a z-index. On a child that positions
- * ITSELF that mechanism was destructive: `top`/`left` re-based onto the flow position
- * and the element started taking flow space. It rendered the running header 88px low
- * on 11 of 15 slides of examples/finish-backdrops.md, made `logo-x`/`logo-y` mean
- * nothing, and collapsed the image layout's photo panel to height 0 on two
- * compositions. The `:where()` list held it back, and `checkFinishChromeExclusions`
- * held the list back from rotting — a list that had ALREADY shipped stale the day it
- * was written. 2026-08-04-finish-stacking-displaces-frame-chrome.md.
- *
- * The plane model deletes all of it. The decorative planes are NEGATIVE, so this backdrop
- * paints at step 3 of the painting algorithm — before every in-flow descendant — and the
- * content floats above it without declaring anything at all (base.elements.css carries an
- * explicit note that there is deliberately NO `section > *` rule), so nothing needs pushing off the
- * backdrop and no rule reaches across a section's children to set `position`. The
- * alternative that note built, rendered and REJECTED — sinking the backdrop instead
- * of lifting everything else — is what the compositor above does now, in the token
- * form `z-index: var(--z-canvas)`. It failed then for one reason: a Lattice `section`
- * did not reliably form a stacking context, so on `math` and `title` the backdrop
- * escaped behind the section's own opaque background (87,430 differing pixels).
- * `section { isolation: isolate }` (base.elements.css) is exactly the precondition
- * that note set for re-proposing it, and it is now unconditional.
- * engineering/decisions/2026-08-12-slide-plane-model.md. */
+ * REJECTED ALTERNATIVE — `section.finish > .backdrop { z-index: -1 }`, deleting both
+ * rules and the list outright. A negative-z child paints at step 3 of the painting
+ * algorithm, after the section's own background and before every in-flow descendant, so
+ * in principle content sits above it with nothing touching a single child. It was built
+ * and rendered, and it FAILS: the escape only holds inside a stacking context, and a
+ * Lattice `section` does not reliably form one. Measured on
+ * examples/marp-export-fidelity.md, `isolation` computes `isolate` on the six `form`
+ * sections and `auto` on `math` and `title` (`contain` is `none` on all eight —
+ * `container-type: size` does NOT contribute one here). On those two the backdrop
+ * escapes to the parent context and paints BEHIND the section's own opaque `--bg`: page
+ * 6's finish disappeared completely, 87,430 differing pixels against this rule's render.
+ * Do not re-propose it without first giving every section an unconditional stacking
+ * context, which is a wider change than this one.
+ * engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
+section.finish > *:not(.backdrop, :where(header, footer, img.deck-logo, .illegible-tab, .lat-split-rail, .lattice-bg)) {
+  position: relative;
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
  * THE 5 PRESETS — each a composition of the slots above.
@@ -24632,19 +24319,7 @@ section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .re
 section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin)::before {
   content: var(--stamp-label);
   position: absolute;
-  /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
-   * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
-   * (--z-mark 50 over --z-alarm 40), preserving the order the engine has always shipped.
-   *
-   * That reads backwards and it was briefly written the other way, on the argument that an
-   * author must be able to see the overflow tab even on a stamped slide. It broke delivered
-   * PDFs: `stamp-veil` is a redaction wash at `inset: 0`, and with the alarm above it the
-   * reader-mode overflow pill punched straight through the redaction — 10,136 differing
-   * pixels. The counter-argument also fails on its own terms: full-bleed stamps clear
-   * nothing via --corner-stack, and the marker that ships in a delivered export is the
-   * reader pill, not the authoring tabs, which never reach one. Do not re-invert.
-   * base.tokens.css § depth axis carries the full record. */
-  z-index: var(--z-mark);
+  z-index: 100;
   pointer-events: none;
   font-family: var(--font-label);
   font-weight: 700;
@@ -24959,10 +24634,6 @@ section.form .cell-masthead .masthead-lede {
  * lib/forms/cell/stage/stage.css and cascade in here. Canonical model:
  * design/forms.md. */
 section.form .cell-masthead {
-  /* CHROME plane — the Cell's declared `"z": 3` (masthead.cell.json). Without it the
-   * band would fall to the `section > *` content default and stop being the frame.
-   * base.tokens.css § depth axis. */
-  z-index: var(--z-chrome);
   /* In-flow, content-height band: the hairline sits directly under the title,
    * so there is no dead space when the title is one line, and the band grows
    * naturally for a two-line title. (Was a fixed --masthead-h absolute box,
@@ -25051,11 +24722,7 @@ section.form .tile-progress {
    * the rail ANYWHERE — e.g. a Frame's slicing sets it to `50% … auto auto` to
    * drop the rail to the right-middle (independent movability, forms.md §7.3). */
   inset: var(--progress-inset, auto var(--footer-pag-reserve) var(--frame-inset-y) auto);
-  /* CHROME plane — its manifest's declared `"z": 3`. It needs the token rather than a
-   * local value because the rail is not always inside a Cell: lib/core/footer-dock.js
-   * docks it at SECTION level on a frame that builds no footer Cell, where it is a
-   * direct child competing with the slide's own planes. */
-  z-index: var(--z-chrome);
+  z-index: 3;
   /* Reserved width (the manifest geometry token), for the ABSOLUTE placement this Cell owns.
    * It was a truncation cap for a section label of unbounded length; the rail is dots only now
    * (progress.transform.js caps them at MAX_DOTS), so it is a real reserve — but ONLY while the
@@ -25172,12 +24839,9 @@ section.form {
    * the section padding (e.g. section.chart-frame sets `padding: 0`). No masthead
    * height-reserve — the in-flow band supplies its own height. */
   padding: var(--frame-y) var(--frame-x) var(--footer-reserve);
-  /* `isolation: isolate` USED to live here, and it was the only rule in the engine
-   * creating a slide stacking context — so a sovereign frame (`title`, `math`,
-   * `divider`, …) never got one and its z values escaped to the page root. It is now
-   * unconditional on the bare `section` (base.elements.css), which every Form section
-   * is, so declaring it again here would be a no-op that reads like a local guarantee.
-   * engineering/decisions/2026-08-12-slide-plane-model.md. */
+  /* Own stacking context so the z-behind watermark Tile paints ABOVE the canvas
+   * but BELOW the (non-positioned) stage content. */
+  isolation: isolate;
   /* Clip, don't bleed (design/forms.md §6). Stage content that exceeds its box
    * is cut by the section's clip rather than bleeding across the masthead/footer
    * Cells; the runtime overflow ring (scrollHeight > clientHeight) still fires
@@ -25221,24 +24885,6 @@ section.form > .cell-stage {
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
-  /* THE STAGE IS DELIBERATELY NOT A STACKING CONTEXT — no `z-index`, no `isolation`.
-   * A component's internals stay in the local 0–9 band, which sits between
-   * `--z-atmosphere` (-1) and `--z-chrome` (30) by construction, so they are already
-   * ordered correctly against the slide's planes without one.
-   *
-   * BOTH WERE TRIED AND REMOVED, ON A REASON THAT TURNED OUT TO BE FALSE. The claim was
-   * that isolating this element made Chromium's print path rasterize the `.below-note`
-   * hairline at ~22% strength — "3,596 pixels apart in the PDF." It does not. That is a
-   * `pdftoppm` splash-backend defect (it leaks `--code-inline-border`'s `/ca .22` into a
-   * later tiling-pattern fill); the identical PDF through `pdftocairo` or ghostscript
-   * shows ZERO differing pixels with the stage isolated. base.tokens.css § depth axis.
-   *
-   * So the honest status is: the stage does not isolate today because the 0–9 band already
-   * orders component internals correctly against the planes by arithmetic, and nothing has
-   * needed more. Whether it SHOULD isolate — which would contain the band properly instead
-   * of relying on everyone staying inside it — is an open design question, not a settled
-   * prohibition. If you take it up, measure with two rasterizers.
-   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────
@@ -25262,9 +24908,6 @@ section.form > .cell-stage {
  * mirroring the header). The `.footer-inset` universal modifier lifts it into the
  * frame. Hug is the default because a board footer conventionally sits at the edge. */
 section.form > .cell-footer {
-  /* CHROME plane — the Cell's declared `"z": 3` (footer.cell.json), matching the
-   * masthead band at the other edge. base.tokens.css § depth axis. */
-  z-index: var(--z-chrome);
   position: absolute;
   left: var(--frame-inset-x);
   right: var(--frame-inset-x);
@@ -25648,17 +25291,9 @@ section.form .tile-progress {
 /* === lib/forms/tile/watermark/watermark.css === */
 /* ── FORM · watermark Tile — section-number ghost ───────────────────────
  * A large z-behind background glyph (the section number) on `form
- * watermark` slides. It rides the ATMOSPHERE plane — above the canvas, behind the
- * words — which is the plane its manifest has always declared (`"z": 1`); the
- * section's overflow:hidden clips the overscan. Palette-blind; lifts to the on-dark
- * ghost on dark canvases.
- *
- * It used to say `z-index: -1`, and that was the plane model's own worked example of
- * what goes wrong without one. A negative z-index buys nothing here — it does not
- * escape the section, whose background paints first either way — and it put the ghost
- * BELOW the finish `.backdrop` at 0. Rendered under `finish: savile`, the pinstripes
- * ruled straight across the numeral. `citation-card.styles.css` carries a comment
- * recording the identical bug, found and patched separately. Both are now planes.
+ * watermark` slides. z-index:-1 keeps it ABOVE the canvas but BEHIND the
+ * (non-positioned) body content; the section's overflow:hidden clips the
+ * overscan. Palette-blind; lifts to the on-dark ghost on dark canvases.
  *
  * Self-contained Form Tile (issue #356): this CSS lives with the Tile's
  * kernel (watermark.transform.js) + manifest, and is bundled by
@@ -25669,7 +25304,7 @@ section.form .tile-watermark {
   position: absolute;
   right: -2cqi;
   bottom: -9cqi;
-  z-index: var(--z-atmosphere);
+  z-index: -1;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 44cqi; /* cqi-ok: full-tile decorative watermark glyph */
@@ -26986,7 +26621,7 @@ section.print.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !im
   position: fixed;
   top: max(0.5rem, env(safe-area-inset-top));
   right: max(0.5rem, env(safe-area-inset-right));
-  z-index: var(--z-viewer);
+  z-index: 2147483000;
   padding: 0.5rem 0.85rem;
   border: 0;
   border-radius: 999px;

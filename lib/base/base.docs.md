@@ -1154,11 +1154,23 @@ with its own export (#1649). The gallery tiles, navigator thumbnails and Fabrica
 specimens deliberately keep their own card corner — a tile is a frame around a slide, not
 the slide — and `DeckPreview` touches no host that has not asked via `onCorner`.
 
-**Nothing sits behind the slide in a preview.** The frame's own `html, body` is
-`transparent` (`docs/src/lib/single-slide-render.ts`); it used to paint a fixed
-`#e7e7ea` / `#0c0c0c` belonging to neither the deck nor the app, which a rounded corner
-would have exposed at all four corners by construction. The host's surface shows through
-instead, which is the honest answer — outside the slide is the app.
+**What sits behind the slide in a preview is the APP, not a stray gray.** The frame's own
+`html, body` is `transparent` (`docs/src/lib/single-slide-render.ts`); it used to paint a
+fixed `#e7e7ea` / `#0c0c0c` belonging to neither the deck nor the app, which a rounded
+corner would have exposed at all four corners by construction. Be precise about what
+replaced it, because "nothing" would be wrong: `iframe.live` still carries
+`background: var(--bg)` (`docs/src/styles/landing.css`) as the pre-paint white-flash guard,
+so the opaque layer behind the slide is the **app's** `--bg`. Under a `paletteOverride` —
+which is the Studio previewing a deck whose theme differs from the app's — that is a
+foreign palette one layer down. It is invisible while the host box and the slide clip to
+the same shape, and it is why they are kept in step rather than left to coincide.
+
+**In an EXPORT there is no app behind the slide — there is the page.** A rounded corner
+exposes it, so on a dark deck every page shows white paper at all four corners, and on a
+light deck the corner reads only on the dark bookends (`title`, `divider`, `closing`) and
+is invisible on body slides. That is not a defect to be fixed downstream; it is what
+rounding a page means. Decide whether a deck wants it before setting `corners: rounded` on
+something destined for print.
 
 | Token / class | Effect |
 |---|---|
