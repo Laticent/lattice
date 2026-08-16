@@ -3600,12 +3600,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    width while a decorative dot held its ground. Same trade the wordmark in
 					    the launcher beside it already makes, and the same boundary (`compact`,
 					    the app's own 1100px line, never Tailwind's `lg`). */}
-					{/* …and it is `--text-muted`, not `bg-primary`. `--primary` IS `--accent`
+					{/* …and it is `--text-body`, not `bg-primary`. `--primary` IS `--accent`
 					    (tailwind.css maps them), so a self-declared decoration was drawing in
 					    the bar's scarcest signal color — accent is a pointer, and this one
 					    pointed at nothing. Decoration in the pointer color is a false pointer;
-					    the accent budget is spent once, on Present. */}
-					{!compact && <span className="size-2 shrink-0 rounded-full bg-[var(--text-muted)]" />}
+					    the accent budget is spent once, on Present.
+					    `--text-body` rather than `--text-muted`, though: muted took this dot from
+					    5.96:1 to 2.64:1 in cuoio, which is the site's DEFAULT palette — trading a
+					    false pointer for a dot nobody can see is not the fix. Body keeps it
+					    legible while leaving accent to mean one thing. */}
+					{!compact && <span className="size-2 shrink-0 rounded-full bg-[var(--text-body)]" />}
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
 					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
 					    desktop/tablet the deck title takes priority. */}

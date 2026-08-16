@@ -99,7 +99,7 @@ function DeckPill({ title }: { title: string }) {
 			data-ssr-demo="deck-switcher"
 			className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
 		>
-			<span className="hidden size-2 shrink-0 rounded-full bg-[var(--text-muted)] min-[1100px]:block" />
+			<span className="hidden size-2 shrink-0 rounded-full bg-[var(--text-body)] min-[1100px]:block" />
 			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
 			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
 			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be

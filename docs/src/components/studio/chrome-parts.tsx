@@ -56,11 +56,25 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 						      with the accent hue doing the real work. That fails twice: the fill is at the
 						      edge of perceptibility, and in the 13 monochrome/a11y combos where `--accent`
 						      resolves to `--text-heading` the lit label is the same ink as an unlit one.
-						      `--accent-soft` is distinct from `--accent` in ALL 36 combos and reads as a
-						      real chip; `--text-heading` on it is the highest-contrast label available.
-						    This also buys back an accent draw: the bar now spends its accent on ONE filled
-						    object (Present), not five. */}
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-[var(--accent-soft)] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--accent-soft)] text-[var(--text-heading)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
+						      The fill is now MIXED FROM `--text-heading` INTO `--bg`, which is the only way
+						      to be sure it is visible: `--text-heading`/`--bg` is the theme's primary text
+						      pair, so it is high-contrast in every palette BY CONSTRUCTION, and any mix of
+						      the two therefore differs from the container. A first cut used `--accent-soft`
+						      and that was WRONG in a way worth recording — it is distinct from `--accent` in
+						      all 36 combos, which is the comparison that was checked, but a chip has to be
+						      distinct from THE SURFACE IT SITS ON, and `--accent-soft` is byte-identical to
+						      `--bg` in 8 dark palettes (ardesia, atelier, brina, burgundy, crepuscolo,
+						      laguna, magnolia, mustard), so the chip had no fill at all there.
+						      Measured across all 36: fill vs container ≥ 1.25 (was 1.00 in those 8),
+						      label vs fill ≥ 7.67, ring vs fill ≥ 1.65.
+						    · The state is deliberately OVER-DETERMINED now — fill, a heading-colored label
+						      against body-colored neighbors, an accent hairline, and the shadow — so no
+						      single channel collapsing can make the lit stop unreadable in some palette
+						      nobody looked at. The hairline is solid where the transient arm's is dashed,
+						      which is what keeps "your saved home" and "showing now" apart.
+						    This also buys back an accent draw: the bar spends accent on ONE filled object
+						    (Present), and here only on a hairline — a state marker, not a filled control. */}
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm ring-1 ring-inset ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700

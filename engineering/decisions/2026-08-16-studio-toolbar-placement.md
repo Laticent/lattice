@@ -239,6 +239,112 @@ to **"Workspace stop"**, the product's own vocabulary.
   shadcn's `has-[>svg]:px-2.5` outranks both. Remove the icon from either button
   and the headers silently diverge, breaking the tail invariant.
 
+## The prior-art survey the reorder rests on
+
+Recorded here because two load-bearing claims in the source comments cite it, and
+a claim nobody can check is not evidence. Emphasis is the hardest thing to verify
+from vendor docs (no help page says "the Share button is filled"), so **[V]** =
+verified against a cited URL, **[R]** = recalled from direct familiarity.
+
+| Tool | Accent CTA | Present vs Share | Filled buttons in bar |
+|---|---|---|---|
+| Google Slides | Share [V placement] | Present left [V] | 2, **tiered** — Slideshow tonal, Share full [R] |
+| PowerPoint web | Share [V] | Present not in the bar [V] | 1 [R] |
+| Keynote | — | Play left [V] | **0** [R] |
+| Canva | Share [V] | Present left [V] | 1 [V-ish] |
+| Pitch | Play [R] | Present right [V both top-right] | 1 [R] |
+| Figma / FigJam | Share [R] | Present right, **icon-only** [R] | 1 [R] |
+| Figma Slides | Share [R] | Present right [V] | 1 [R] |
+| Notion | — | n/a | **0** — Publish is inside the popover [R] |
+| Linear | — | n/a | **0** [R] |
+| Miro | Share [R] | Present left, icon [R] | 1 [R] |
+| Gamma | Share [R] | Present left [R] | 1 [R] |
+| Beautiful.ai | Present [R] | Present left [R] | 1 [R] |
+| Prezi | **Present** [V "this blue button"] | Present right [R] | 1 [V] |
+| Deckset | — | n/a | **0** [R] |
+| VS Code / Obsidian | — | n/a | **0** [R] |
+
+**Derived, and these are the two the code cites:**
+
+1. **Exactly one full-strength accent, or zero.** 9 tools run one, 6 run zero,
+   **0 run two**. Google Slides is the only two-button case and it explicitly
+   tiers them (tonal + full) — which is the precedent for a future "Present
+   filled, Share tonal" if the outline ever reads too quiet.
+2. **The accent CTA is the last labeled action**; only icon-only utilities and
+   the avatar sit outboard of it (~13/15 of the tools that have a CTA).
+
+**Not a rule:** Present left-vs-right of Share is genuinely split 6 vs 5. That is
+why this change kept the existing Present-before-Share reading.
+
+## Post-review corrections (the checker caught a regression I introduced)
+
+An independent checker ran over the diff and found a **self-inflicted regression**
+that the first cut shipped. Recorded rather than quietly patched, because the
+*reasoning* error is the reusable lesson.
+
+**The dial's lit chip was invisible in 8 of 36 palette×mode combos.** The first
+cut used `--accent-soft` as the fill, justified in the source comment as
+*"`--accent-soft` is distinct from `--accent` in ALL 36 combos."* That statement
+is **true and irrelevant** — a chip has to be distinct from **the surface it sits
+on**, not from `--accent`. The dial's container is `bg-background` = `--bg`, and
+`--accent-soft` is byte-identical to `--bg` in ardesia, atelier, brina, burgundy,
+crepuscolo, laguna, magnolia and mustard **dark**. Fill-vs-container went
+**1.16–1.34:1 → 1.00:1** in those eight: no chip at all. Eleven combos were
+strictly worse than before the change. The check that was run could not have
+caught it, because the 8 broken combos are disjoint from the 13
+`--accent === --text-heading` combos the comment reasons about.
+
+**Fixed by construction, not by another lookup.** The fill is now mixed from
+`--text-heading` into `--bg` — the theme's primary text pair, high-contrast in
+every palette *by definition*, so any mix of the two necessarily differs from the
+container. And the state is deliberately **over-determined** — fill, a
+heading-colored label against body-colored neighbors, a solid accent hairline
+(dashed on the transient arm, which is what still separates "saved home" from
+"showing now"), and the shadow — so no single channel collapsing in some palette
+nobody looked at can make the lit stop unreadable. Measured across all 36: fill
+vs container **≥ 1.25**, label vs fill **≥ 7.67**, ring vs fill **≥ 1.65**; and
+verified live in real Chromium across 20 palette×mode combos, including all 8
+that were broken.
+
+**The deck dot was also over-corrected.** `--text-muted` took it from 5.96:1 to
+**2.64:1 in cuoio, the site's default palette** — trading a false pointer for a
+dot nobody can see. It is `--text-body` now: legible, and still not accent.
+
+**A keyboard behavior change that the first write-up did not name.** `deck-nav.ts`
+yields the arrow keys only to elements matching an **explicit** `[role="…"]`
+selector. `<fieldset>`'s `group` role is *implicit*, so removing `role="toolbar"`
+means arrow keys — and the `+`/`-`/`0` zoom keys — now act on the deck from inside
+the eight-cell bar, where they were previously inert. Measured: focus "Toggle
+Coach" at 390px, press →, deck goes 1/7 → 2/7. This is arguably correct under the
+shell's own contract ("arrows turn the deck from anywhere that isn't a typing
+target") and it is kept — but it is a real change on a surface that had none, so
+it is in the changelog rather than buried in "removed an unimplemented promise."
+
+**Numbers reconciled.** The contrast figures quoted for `--text-body` come from
+two methods: **5.95:1** is token-derived (cuoio light `#6B5D4F` on `--bg`) and is
+the authoritative figure; **6.04:1** was sampled from rendered pixels, where
+antialiasing shifts the darkest sampled ink. Both describe the same fix; the
+token figure is the one to cite.
+
+## Logged, not fixed here (pre-existing, off-path — HARD RULE #18)
+
+- **`ComposeView.tsx:398` and `:989` declare `role="toolbar"`** with no
+  `tabIndex` or `onKeyDown` anywhere in the file — exactly the 4.1.2 role-misuse
+  this change removed from the deck-actions bar, still live two files away.
+- **The three committed `@visual` Studio baselines are badly stale** — the
+  expected `studio-desktop-linux.png` shows a header with *no posture dial at
+  all* and a deck titled "Welcome to Latti…", and the diff covers the editor
+  gutter and preview slide, which this change never touches. They were **not**
+  re-blessed here: doing so would silently bake in months of unrelated drift.
+  `@visual` is not in CI (`test:e2e:smoke` is `--grep @smoke`), which is why it
+  rotted unnoticed. Needs its own change.
+- **On the phone bar, the active cell and the filled CTA are byte-identical in
+  the 13 combos where `--accent === --text-heading`.** The mechanism is
+  pre-existing and the `--bg` bottom rule still tells them apart. What the swap
+  changes is *which words* collide: "Preview" and "Share" before, "Preview" and
+  "**Present**" now — two identical cells labeled with near-homographs. A
+  scannability cost worth naming.
+
 ## Verification (HARD RULE #23)
 
 Real headless Chromium against the running Studio, plus the repo's own gates:
