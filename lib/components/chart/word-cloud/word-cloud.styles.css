@@ -114,11 +114,13 @@
  * engineering/decisions/2026-07-27-render-nature-declaration.md and
  * 2026-06-13-svg-native-legend.md §7b. */
 :is(section.word-cloud, figure.chart-frame) .wc-key-label {
-  /* --font-mono, NOT the label voice — same reason as .gantt-tick: this label's
-   * wrap width AND the key rule's `headW` are computed from ADVANCE_MONO_TRACKED
-   * (word-cloud.transform.js), whose own comment names this rule as the case it
-   * was measured for. Sanctioned in checkLabelVoiceFont. */
-  font-family: var(--font-mono);
+  /* The label voice. Unlike .gantt-tick this needed NO change to the layout math
+   * beside it: both faces measure ~0.68 per character on this heading's own CSS
+   * (uppercase + 0.08em tracking — mono 0.680, the hand sans 0.675), so the single
+   * ADVANCE_MONO_TRACKED bound in word-cloud.transform.js still covers the wrap
+   * width AND the key rule's `headW` on either face. That holds because the heading
+   * is a fixed literal; see the derivation note at `headW`. */
+  font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   fill: var(--text-muted);
@@ -128,7 +130,7 @@
 :is(section.word-cloud, figure.chart-frame) .wc-key-edge {
   /* Stays with .wc-key-label above: the two are one legend block, and splitting
    * the faces would read as a mistake even though this row is not itself measured. */
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   letter-spacing: 0.06em;
   fill: var(--text-muted);
   text-anchor: middle;

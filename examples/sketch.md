@@ -96,6 +96,49 @@ Because the finish is CSS and fonts, it reskins the heading, the legend labels a
 
 ---
 
+<!-- _class: gantt -->
+<!-- _footer: "gantt — the date axis wears the hand, and the tick math follows the face" -->
+
+`2026-01-01 .. 2027-03-31` `today 2026-08-01`
+
+## The calendar reads in the same hand as the plan above it.
+
+Every tick is drawn, not typeset. The hand sets wider than mono, so a crowded
+axis thins itself and the months that remain keep their air.
+
+- Framework
+  - Signal taxonomy `2026-01-01..2026-04-30` `done`
+  - Scoring model v2 `2026-05-01..2026-09-30` `live` `after: Signal taxonomy`
+  - Per-team weighting `2026-10-01..2027-02-28` `at-risk` `after: Scoring model v2`
+- Adoption
+  - Pilot onboarding `2026-02-01..2026-06-30` `done`
+  - Org-wide rollout `2026-07-01..2027-01-31` `after: Pilot onboarding`
+  - GA `2027-02-15` `milestone` `after: Org-wide rollout`
+
+---
+
+<!-- _class: word-cloud -->
+<!-- _footer: "word-cloud — the key legend joins the words on the hand face" -->
+
+`The last machine-faced labels`
+
+## Even the legend that explains the cloud is drawn.
+
+The words were always hand-drawn; the small print was not. The
+`size = frequency` key and its more/less ends now match them.
+
+- time-to-value `5`
+- security `4`
+- onboarding `4`
+- pricing `3`
+- integrations `3`
+- reporting `2`
+- migration `2`
+- support `1`
+- roadmap `1`
+
+---
+
 <!-- _class: list-tabular -->
 <!-- _footer: "Counters, column values and row labels all ride the --font-label seam" -->
 

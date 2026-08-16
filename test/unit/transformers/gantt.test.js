@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const engine = require('../../../lib/components/chart/_chart-family/chart-family');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, extractFirstList, GANTT_GEOM } = engine;
+const { buildGanttChart, extractFirstList, GANTT_GEOM, GANTT_GEOM_TALL } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
 // The gantt is SVG-native (2026-07-26): marks are <rect>/<polygon> in viewBox
@@ -333,5 +333,153 @@ describe('gantt — portrait geometry', () => {
       assert.equal((html.match(/data-anima-role="bar"/g) || []).length, 2);
       assert.equal((html.match(/data-mark="\d+"/g) || []).length, 2);
     }
+  });
+});
+
+// ── Tick face selection (#1663) ────────────────────────────────────────────
+// `.gantt-tick` is --font-label, which `mode: sketch` re-points at the hand sans.
+// The tick's wrap budget and collision cull are computed from a STATIC
+// per-character advance, so the builder takes a `hand` flag and selects the
+// matching constant. These lock the two halves that must never desync: the mono
+// path is untouched, and the hand path actually uses the wider advance.
+describe('gantt — tick advance follows the painted face', () => {
+  // Fifteen months in date mode: monthly ticks land ~23.7u apart, which is the
+  // spacing where the two faces genuinely disagree. Mono's 3-char month (19.1u)
+  // clears the cull's 2u of air; the hand's (23.0u, and 22.1u as actually painted)
+  // does not — so the hand axis thins to alternate months. That is the face being
+  // wider, not the constant being generous: a perfect measurer culls them too.
+  const ul = `<ul><li>Framework<ul>
+    <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
+    <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
+  </ul></li></ul>`;
+  const eyebrow = '<p><code>2026-01-01 .. 2027-03-31</code></p>';
+  // One entry per tick, tspans joined — a wrapped tick is one label, not two.
+  // Reads the <tspan> contents rather than stripping tags out of the <text>: the
+  // emitter puts one tspan per line and nothing else inside, so this is the exact
+  // extraction, and a single-pass tag strip is the shape CodeQL flags as an
+  // incomplete sanitizer (harmless on engine-generated markup, but not worth
+  // teaching by example in a test).
+  const ticks = (html) => [...html.matchAll(/<text class="gantt-tick"[\s\S]*?<\/text>/g)]
+    .map(m => [...m[0].matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)].map(t => t[1]).join(''));
+  // The gradient <defs> ids carry a module-level counter, so two identical calls
+  // differ by id alone. Compare the AXIS, which is what the advance decides.
+  const axis = (html) => (html.match(/<g class="gantt-axis"[\s\S]*?<\/g>/) || [])[0];
+  const mono = buildGanttChart(inner(ul), eyebrow, undefined, false);
+  const hand = buildGanttChart(inner(ul), eyebrow, undefined, true);
+
+  test('the mono path is unchanged when the flag is omitted — a strict no-op default', () => {
+    assert.equal(axis(buildGanttChart(inner(ul), eyebrow)), axis(mono));
+  });
+
+  test('the hand path thins the axis the mono path keeps dense', () => {
+    assert.ok(ticks(hand).length < ticks(mono).length,
+      `hand kept ${ticks(hand).length} ticks, mono ${ticks(mono).length} — the wider face must cull more`);
+  });
+
+  test('both faces keep the axis bounds — the first and last tick always survive', () => {
+    for (const [name, html] of [['mono', mono], ['hand', hand]]) {
+      const t = ticks(html);
+      assert.ok(t.length >= 2, `${name} axis lost its bounds`);
+      assert.match(t[0], /Jan/, `${name} lost the opening tick, got ${JSON.stringify(t)}`);
+      assert.match(t[t.length - 1], /Mar/, `${name} lost the closing tick, got ${JSON.stringify(t)}`);
+    }
+  });
+
+  test('neither face ellipsizes a tick — every label in the vocabulary fits one line', () => {
+    // maxLines: 1 means "break early" ELLIPSIZES. The hand constant is calibrated
+    // so the longest possible label (`Jan '26`, 7 chars) still clears the budget;
+    // a value rounded up for comfort would silently truncate it.
+    for (const [name, html] of [['mono', mono], ['hand', hand]]) {
+      for (const t of ticks(html)) {
+        assert.ok(!t.includes('…'), `${name} ellipsized the tick ${JSON.stringify(t)}`);
+      }
+    }
+  });
+
+  // The longest label the axis actually emits, read off the RENDER rather than
+  // restated: this deck's span crosses two Januaries, so it exercises the
+  // year-tagged month (`Jan '26`), the widest form in the tick vocabulary. Taking
+  // it from the emitter means a vocabulary change — four-letter months, a
+  // four-digit year tag — moves the ceiling below instead of quietly invalidating
+  // a hard-coded 7.
+  const longestLabel = Math.max(...ticks(mono).map(t => t.length));
+
+  test('the deck really does exercise the widest label form', () => {
+    // Guards the two tests below: if this span stopped emitting a year-tagged
+    // month, `longestLabel` would silently shrink and the ceiling would loosen.
+    assert.ok(ticks(mono).some(t => /^[A-Z][a-z]{2} '\d\d$/.test(t)),
+      `expected a year-tagged month tick, got ${JSON.stringify(ticks(mono))}`);
+    assert.equal(longestLabel, 7);
+  });
+
+  test('the hand advance stays inside its derivation window', () => {
+    const { ADVANCE_MONO_TRACKED, ADVANCE_HAND_TRACKED } =
+      require('../../../lib/components/chart/_chart-family/svg-label');
+    assert.ok(ADVANCE_HAND_TRACKED > ADVANCE_MONO_TRACKED,
+      'the proportional hand sans sets wider than tracked mono');
+    // Both walls of the window svg-label.js derives, locked here because the
+    // failure at each end is silent. BELOW the measured worst case ('May' at
+    // 0.889) the COLLISION CULL under-counts each tick's half-width and adjacent
+    // ticks overprint — it is the cull this wall protects, not the wrapper, since
+    // the widest label paints under 44u into a 56u box either way. ABOVE
+    // tickBoxW / (longest label × fsTick) the one-line budget loses a character
+    // and `maxLines: 1` ellipsizes `Jan '26` — so the usual instinct to round a
+    // safety constant up is itself the regression here.
+    //
+    // The ceiling is DERIVED from the geometry that sets it (both halves live in
+    // GANTT_GEOM) and from the emitted vocabulary, so retuning the tick box or its
+    // font size fails this test instead of silently moving the wall. Landscape is
+    // the binding orientation — portrait's smaller fsTick buys a looser ceiling —
+    // so assert against the tighter of the two, whichever that becomes.
+    const ceilingFor = (G) => G.tickBoxW / (longestLabel * G.fsTick);
+    const ceiling = Math.min(ceilingFor(GANTT_GEOM), ceilingFor(GANTT_GEOM_TALL));
+    assert.ok(ADVANCE_HAND_TRACKED >= 0.889,
+      `${ADVANCE_HAND_TRACKED} is under the measured worst case (0.889) — labels will overrun`);
+    assert.ok(ADVANCE_HAND_TRACKED <= ceiling,
+      `${ADVANCE_HAND_TRACKED} exceeds ${ceiling.toFixed(3)} — ${longestLabel}-char ticks would ellipsize`);
+  });
+
+  test('the wrap budget admits the longest emitted label, in BOTH orientations', () => {
+    const { charBudget, ADVANCE_HAND_TRACKED, ADVANCE_MONO_TRACKED } =
+      require('../../../lib/components/chart/_chart-family/svg-label');
+    for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
+      for (const [face, adv] of [['mono', ADVANCE_MONO_TRACKED], ['hand', ADVANCE_HAND_TRACKED]]) {
+        const budget = charBudget(G.tickBoxW, G.fsTick, adv);
+        assert.ok(budget >= longestLabel,
+          `${name}/${face} budget ${budget} < ${longestLabel} chars — the axis would ellipsize`);
+      }
+    }
+  });
+});
+
+// The section dispatcher is the seam where the slide's class reaches the builder.
+// It keys on the `sketch` TOKEN because that is what the CSS keys on, so a
+// per-slide `_class: boardroom` opt-out lands on both sides at once.
+describe('gantt — the sketch token reaches the builder', () => {
+  const { transformChartSection } = engine;
+  const section = `<h2>Plan</h2>
+<p><code>2026-01-01 .. 2027-03-31</code></p>
+<ul><li>Framework<ul>
+  <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
+  <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
+</ul></li></ul>`;
+  const tickCount = (cls) =>
+    (transformChartSection(section, cls, 'landscape').html.match(/class="gantt-tick"/g) || []).length;
+
+  test('a `sketch` slide renders the hand axis; a plain slide renders the mono one', () => {
+    assert.ok(tickCount('gantt sketch') < tickCount('gantt'),
+      'the sketch token must reach the tick math, not just the CSS');
+  });
+
+  test('a per-slide boardroom opt-out returns the mono axis', () => {
+    // `_class: boardroom` suppresses the deck-wide `sketch` token, so the CSS
+    // paints mono here — and the math has to follow it back.
+    assert.equal(tickCount('gantt boardroom'), tickCount('gantt'));
+  });
+
+  test('`sketch-clean-body` alone is not the hand signal', () => {
+    // MODE_REGISTER never emits it without `sketch` beside it, and base.sketch.css
+    // keys every rule on section.sketch — the same trap diagram-look.js documents.
+    assert.equal(tickCount('gantt sketch-clean-body'), tickCount('gantt'));
   });
 });

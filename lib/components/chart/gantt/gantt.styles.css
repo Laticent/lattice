@@ -64,14 +64,23 @@
 /* ── Axis ─────────────────────────────────────────────────────────────────── */
 :is(section.gantt, figure.gantt) .gantt-tick {
   fill: var(--text-label);
-  /* --font-mono, NOT the label voice: this tick's wrap budget and collision cull
-   * come from the static ADVANCE_MONO_TRACKED constant (0.75) in
-   * _chart-family/svg-label.js, measured for mono + 0.12em tracking. A static
-   * advance cannot describe two faces, and the hand sans runs past it on ordinary
-   * uppercase ticks (`MMM` measures ~1.15), so moving this to --font-label would
-   * silently retire the wrapper's break-early guarantee. Sanctioned in
-   * checkLabelVoiceFont; see 2026-08-13-sketch-mermaid-hand-drawn.md. */
-  font-family: var(--font-mono);
+  /* The label voice — so a `mode: sketch` axis reads hand-drawn like the rest of
+   * the chart. This tick is MEASURED GEOMETRY: its wrap budget and collision cull
+   * come from a static per-character advance in _chart-family/svg-label.js, and a
+   * static advance cannot describe two faces. So the builder selects the constant
+   * from the slide's `sketch` class (ADVANCE_MONO_TRACKED / ADVANCE_HAND_TRACKED,
+   * chart-family.js §gantt axis) — if you re-point this rule at another face, that
+   * selection is the other half of the change, or the math and the painted glyphs
+   * desync. See 2026-08-13-sketch-mermaid-hand-drawn.md.
+   *
+   * That coupling is to the CLASS, not to the resolved font, so it also constrains
+   * the TOKEN: base.tokens.css invites a theme to re-point --font-label to give
+   * labels their own face, and a theme that points it at a face wider than tracked
+   * mono would leave this tick culling against the wrong width with no gate to
+   * catch it. No shipped theme re-points it (only base.tokens.css defines it and
+   * base.sketch.css re-points it); a consumer theme that wants to should widen the
+   * advance selection here at the same time. */
+  font-family: var(--font-label);
   font-weight: 600;
   letter-spacing: 0.12em;
 }
