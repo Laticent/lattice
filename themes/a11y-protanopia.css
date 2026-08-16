@@ -13,9 +13,16 @@
 @import 'a11y-base';
 
 :root {
-  --pass: #004982;
-  --warn: #946400;
-  --fail: #800613;
+  /* PAIRED for the reason spelled out in a11y-deuteranopia.css: the `:root:root`
+   * scheme pin cannot reach a per-slide `_class: dark` (#1323), where the flat
+   * light-tuned trio lands at 1.59–1.80:1. Same trio, same dark arm — protan
+   * and deutan share the axis, and both were checked when it was chosen.
+   * Weakest clears AA at 5.89:1 flat (4.68:1 through redline's strike-through
+   * opacity); separation under protanopia is ΔE 0.191, at the light trio's own
+   * 0.189, against 0.092 for the base trio a dark slide fell back to. */
+  --pass: light-dark(#004982, #7CBBFC);
+  --warn: light-dark(#946400, #FFDBA9);
+  --fail: light-dark(#800613, #FC827A);
   --chart-state-pass: #004982;
   --chart-state-warn: #946400;
   --chart-state-fail: #800613;

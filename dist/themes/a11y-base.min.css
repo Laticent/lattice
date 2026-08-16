@@ -38,6 +38,15 @@
  * has no effect. Accordingly every colour here is a FIXED hex, not a
  * `light-dark()` pair: there is no dark side to flip.
  *
+ * ONE EXCEPTION, and it is not a mode: the `:root` pin cannot reach a per-slide
+ * `_class: dark`, which sets color-scheme on the SECTION (#1323 — the same seam
+ * that forced --cat-on-fill / --cat-on-mark to be pinned below). An author who
+ * darkens ONE slide of an a11y deck is still inside a light-mode deck, so the
+ * pin correctly stays; but the status trio has to survive that section. Each
+ * a11y-<type>.css therefore pairs --pass / --warn / --fail, sized so the dark
+ * arm holds both AA and the deficiency separation. Nothing else here is paired:
+ * the categorical ramp is fixed grays that read on either canvas.
+ *
  * Redundant encoding (engineering/decisions/2026-06-16-cvd-redundant-encoding.md):
  * colour alone separates only ~1–2 categories under dichromacy, so the heavy
  * lifting is the non-colour channels below — categorical TEXTURE patterns,
