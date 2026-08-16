@@ -39,7 +39,13 @@ test('base.finish.css routes every layer through --fin-canvas, never a bare --bg
 
 test('the three inverse bookends re-point --fin-canvas at their own surface', () => {
   const css = code(FINISH_CSS);
-  const rule = css.match(/((?:section[^{}]*,\s*)*section[^{}]*)\{\s*--fin-canvas:\s*var\(--surface-inverse\)/);
+  // `[^{}]*` — ONE unnested quantifier. The obvious form here is a repeated
+  // selector group, `(?:section[^{}]*,\s*)*section[^{}]*`, and CodeQL is right to
+  // reject it: a quantified group whose body is itself unbounded backtracks
+  // exponentially on input like `section,section,section…`. A single negated class
+  // cannot cross a `}`, so it stops at the previous rule's brace on its own and
+  // matches the whole selector list in linear time.
+  const rule = css.match(/([^{}]*)\{\s*--fin-canvas:\s*var\(--surface-inverse\)/);
   assert.ok(rule, 'expected a rule setting `--fin-canvas: var(--surface-inverse)` for the inverse bookends');
   const selector = rule[1];
   for (const bookend of ['.title', '.closing', '.divider']) {

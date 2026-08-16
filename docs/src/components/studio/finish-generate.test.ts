@@ -368,8 +368,10 @@ describe('generated finish CSS resolves OUTSIDE a section too (#1656)', () => {
 		expect(css).toContain('var(--fin-canvas, var(--bg))');
 	});
 
-	it('the swatch string carries it as well', () => {
-		const sw = generateSwatch('halo');
-		expect(sw.background).not.toMatch(/var\(--fin-canvas\)(?!,)/);
+	it('every preset swatch carries it as well — these are the strings the chrome mounts', () => {
+		for (const [name, recipe] of Object.entries(PRESET_RECIPES)) {
+			const sw = generateSwatch(recipe);
+			expect(sw.background, `${name} swatch must not reference a bare var(--fin-canvas)`).not.toMatch(/var\(--fin-canvas\)(?!\s*,)/);
+		}
 	});
 });
