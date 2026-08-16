@@ -234,6 +234,44 @@ export path there is nothing to wait for. Only the `.md` FETCH fallback genuinel
 cannot answer that early, and deferring first paint behind a network round trip is
 what the bootstrap deliberately refuses to do.
 
+#### What the priming does NOT cover, measured
+
+The fix reaches every path that carries a baked block — which is every
+Export-to-Marp bundle. One surface remains: **marp-kit**, where a hand-rolled Marp
+setup references our runtime, so the HTML has no baked block and the runtime falls
+back to fetching the source `.md`. That fetch cannot land before first paint, and
+deferring first paint behind a network round trip is what the bootstrap refuses to
+do. There, a `mode: sketch` gantt still builds its axis with mono advances and
+paints it in the hand face. (Over `file://` the fetch fails outright, so no token
+lands at all and paint and math agree on mono — consistent, if machine-faced.)
+
+Measured rather than assumed, on the real rendered surface — 15-month axis, mono
+advances, hand paint:
+
+| | |
+|---|---|
+| tick pairs under the cull's intended 2u air | **1 of 12** (`Feb`\|`Mar`, 1.85u) |
+| overprinting pairs | **0** |
+| worst clearance | 1.85u |
+
+So the practical cost on that surface is one pair sitting 0.15u tighter than the
+cull intends, with the face correct.
+
+**Considered and rejected: pairing the paint to the measurement structurally** —
+have the builder stamp the face it measured (`data-face="hand"`, which
+`wrapSvgLabel` already supports via `attrs`) and let CSS follow that attribute
+instead of the class. It would make the desync impossible on every path, at the
+cost of one sanctioned `--font-mono` declaration. Rejected because it makes the
+*viewer's* outcome worse exactly where it applies: on that surface the axis would
+render machine-faced on a hand-drawn deck — the defect this whole change exists to
+remove, visible on every gantt slide — in order to recover an invariant whose
+violation there costs 0.15u of tick spacing and no overprint. Trading a visible
+regression for an invisible one is the wrong direction. Revisit if the fetch
+fallback ever becomes a common surface, or fold it into the proper fix: un-gate the
+runtime's re-run AND make the chart axis rebuildable, which would give that path
+hand geometry *and* hand paint. That is a bootstrap-and-chart-family change across
+all 14 chart components, and belongs in its own PR with its own checker.
+
 ### Found, not fixed — ADVANCE_UPPER under-bounds the hand face
 
 `ADVANCE_UPPER` (0.68, `svg-label.js`) is calibrated for uppercase + 0.04em
