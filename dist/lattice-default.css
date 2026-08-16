@@ -1068,24 +1068,26 @@
  * elements that carry no plane token (the stage, the author's markup) keep the stacking
  * behavior they have always had.
  *
- * That last part is not just tidiness. An earlier cut of this scale ran canvas at 0 and
- * lifted content to 20 via a blanket `section > *`, which made `.cell-stage` a stacking
- * context — and Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline
- * inside it at ~22% coverage, turning a solid accent rule into a barely-visible tint.
- * Identical on screen, 3,596 differing pixels in the PDF. Sinking the canvas needs no
- * such context and the hairline is untouched. Do not "simplify" these back to positive.
+ * The negative signs are the good part, and the reason is ordinary: a negative-z child
+ * paints at step 3 of the painting algorithm, before every in-flow descendant, so content
+ * floats above it without declaring anything and no rule has to reach across a section's
+ * children. Sinking the decoration is simply cheaper than lifting everything else.
  *
- * TREAT THAT MECHANISM AS UNPINNED, THOUGH — the reading above is the one this branch
- * acted on, and an adversarial re-run could not reproduce it: a blanket `section > *`
- * z-index left the hairline crisp, and isolating `.cell-stage` moved zero pixels. What
- * IS established is narrower. The hairline washes or not depending on something about
- * the slide's paint grouping that nobody here has isolated; on a deck carrying a `logo:`
- * it went crisp → washed → crisp as `img.deck-logo`'s z-index was added and removed, and
- * on a deck WITHOUT one it washes at every revision including the branch point. So the
- * negative canvas stands on its own merits (it needs no stacking context, which is a
- * good property regardless), but do not cite this paragraph as proof of a trigger. If
- * you are chasing a wash, measure it — do not reason from here.
- * (engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing.)
+ * A LONG-RUNNING STORY ABOUT A "PRINT WASH" USED TO LIVE HERE, AND IT WAS FALSE. The claim
+ * was that making `.cell-stage` a stacking context caused Chromium's print path to
+ * rasterize the 1px `.below-note` hairline at ~22% strength — "3,596 differing pixels in
+ * the PDF" — and it shaped four separate decisions on this branch. The PDF was always
+ * correct. `pdftoppm`'s splash backend leaks an earlier element's constant alpha into a
+ * later tiling-pattern fill; the alpha is `/ca .22` from `--code-inline-border` (defined a
+ * few hundred lines above this one as `color-mix(currentColor 22%, transparent)`), and
+ * `0.22·accent + 0.78·white` is the exact "washed" color anyone measured. The same PDF
+ * through `pdftocairo` or ghostscript is crisp, and the two PDFs are byte-identical
+ * through the hairline — same shading, same matrix, same SMask.
+ *
+ * So: do not "simplify" the negative planes back to positive, because sinking beats
+ * lifting — but do not cite a wash as the reason, and if you meet one, rasterize the same
+ * PDF a second way before you believe it.
+ * (engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer.)
  *
  * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
  * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
@@ -1418,18 +1420,17 @@ section {
  * axis), so they paint at step 3 of the painting algorithm, before every in-flow
  * descendant, and the author's markup floats above them without declaring anything.
  *
- * A blanket rule was written first and removed. It worked, and it cost more than it was
- * worth: giving every direct child a z-index made `.cell-stage` a stacking context, and
- * Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline inside it at ~22%
- * coverage — a solid accent rule reduced to a barely-visible tint, identical on screen
- * and 3,596 differing pixels in the PDF. The fewer stacking contexts this engine creates
- * between a mark and the page, the fewer of those there are to find.
+ * A blanket rule was written first and removed. The reason it stays removed is simply
+ * that content needs no plane: the decorative planes are negative, so the flow already
+ * sits above them, and a rule reaching across every child of every section to say so is
+ * a lot of cascade for nothing.
  *
- * The general lesson holds; this particular attribution does not reproduce (a blanket
- * child z-index was re-measured leaving the hairline crisp). Keep the rule absent because
- * content needs no plane, not because of the wash. base.tokens.css § depth axis carries
- * what is actually established.
- * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
+ * It was removed at the time for a different and WRONG reason — that it made `.cell-stage`
+ * a stacking context and thereby washed a hairline in the exported PDF ("3,596 differing
+ * pixels"). That wash is a `pdftoppm` splash-backend defect, not a PDF one; the same file
+ * through `pdftocairo` or ghostscript is crisp and byte-identical through the rule. See
+ * base.tokens.css § depth axis for the mechanism.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
@@ -3789,8 +3790,9 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
 
 /* No export-safe flip for this hairline — see the note in base.modifiers.css beside the
- * raw-form twin of this rule. The gradient wash it was written against was caused by a
- * `z-index` this change had added to `img.deck-logo`; removing that removed the wash. */
+ * raw-form twin of this rule. Short version: the "gradient washes in the exported PDF"
+ * behavior that a flip was once written against is a `pdftoppm` splash-backend artifact,
+ * not a property of the PDF. Do not add one back. */
 
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -5587,7 +5589,18 @@ section.image > footer { display: none; }
  * is `rgb(107,127,154)` at 14.98px over a photo that runs from `rgb(13,20,32)` to
  * `rgb(74,90,112)` beneath it, i.e. 4.54:1 at best and 1.72:1 where the photo lightens —
  * a number legible in one corner of its own box and not the other. The layout's answer
- * was already written; this is it, finally applied to the element it meant.
+ * was already written; this is it, applied to the element it meant — but ONLY to the
+ * composition that has the problem.
+ *
+ * SCOPE, because the first cut of this was far too wide. It suppressed the number on every
+ * `image` slide, and on the 117-page canonical gallery that was the ONLY visible change the
+ * whole plane model made: five deleted page numbers, four of them on `clean`/`gallery`/
+ * `mirror` compositions where the photo is a floated card and the glyph sits on plain deck
+ * canvas at 3.76–4.20:1 — perfectly legible, and the author had asked for it with
+ * `paginate:`. Deleting content to solve a layering question is the opposite of the rule
+ * this model serves. `statement` is the composition that full-bleeds the photo behind the
+ * corner and puts a scrim over it; it is the one measured at 1.72:1, and it is the only
+ * one that loses its number.
  *
  * The class is DOUBLED to reach (0,2,2), the same idiom and the same reason as
  * `section.no-paginate.no-paginate::after` in base.variants.css: the engine pagination
@@ -5595,7 +5608,7 @@ section.image > footer { display: none; }
  * very END of the bundle, so an equally-specific selector LOSES on source order. Written
  * singly first, this rule was in the bundle, more specific than the scaffold default, and
  * changed exactly zero pixels. */
-section.image.image::after { content: none; }
+section.image.image[data-img-composition="statement"]::after { content: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */
@@ -14595,15 +14608,14 @@ section.scene[data-img-bucket="column"] { --scene-aspect: 2 / 5;   --scene-aspec
 /* The scene IS the slide — the sovereign Frame suppresses chrome, but belt-and-suspenders. */
 section.scene > header,
 section.scene > footer { display: none; }
-/* The page number too — same reason, and same reach problem as `image`: it is
- * `section::after`, a pseudo, so the child selector above never covered it. Here it was
- * hidden by the exhibit panel rather than by a scrim, which is why sinking the decorative
- * planes surfaced it. "Belt-and-suspenders" is the whole point of the rule above; this is
- * the third fastening it always implied. See image.styles.css for the measurement, and
- * base.variants.css `section.no-paginate.no-paginate::after` for why the class is
- * DOUBLED: the engine pagination rule is equally specific and emitted last, so a single
- * class loses on source order and silently does nothing. */
-section.scene.scene::after { content: none; }
+/* The page number is NOT suppressed here, and that is deliberate. It was, briefly: the
+ * plane model surfaced a number that had been hidden behind the exhibit panel, and the
+ * first instinct was to put it back. But it surfaces onto the editorial band — plain
+ * canvas, not the still — where it is fully legible, and the deck asked for it with
+ * `paginate:`. A layering model whose answer to "this became visible" is to delete it has
+ * inverted its own purpose. `image`'s `statement` composition IS suppressed, because there
+ * the glyph lands on a full-bleed photo at 1.72:1; see image.styles.css for that
+ * measurement. Different situation, different answer. */
 
 /* The poster still — an inline svg, CONTAINED (fits its box, letterboxed by the
  * viewBox), never cover. The box each composition gives it bounds the height. */
@@ -18777,34 +18789,26 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
   background:linear-gradient(to right, var(--accent), transparent);
 }
 
-/* NO EXPORT-SAFE FLIP HERE — and the reason is worth keeping. A gradient IMAGE does
- * wash out to ~22% in Chromium's print path, but only under some condition this repo has
- * NOT pinned down. What is established is narrower and enough to act on: the wash on this
- * corpus was caused by a `z-index` this very change had put on `img.deck-logo` (see its
- * rule below), and removing that removed the wash. It is NOT simply "any promotion out of
- * the z-auto/0 group" — this branch promotes `section::after`, `.cell-masthead`,
- * `.cell-footer` and `.lat-split-rail` the same way, and page 3 of the branch's own
- * examples/slide-planes.pdf renders a promoted page number and a full-strength hairline on
- * the same slide. Whatever distinguishes the logo (an `<img>`, its `filter`/`opacity`, its
- * DOM adjacency) is unidentified. Do not write a comment that claims otherwise. A
- * solid-fill flip was written to survive that wash, and it "worked" — while silently
- * restyling every page where the gradient had never washed at all: the full-width taper
- * became a hard-edged stub at 38%, on 32 slides across three galleries, all of them
- * blessed as goldens before anyone looked at them. Removing the z-index removed the wash,
- * and the flip with it — on the decks it had broken.
+/* NO EXPORT-SAFE FLIP HERE, and the reason is a cautionary tale rather than a mechanism.
  *
- * BE PRECISE ABOUT WHAT THAT FIXED, because the flip's deletion is easy to misread as a
- * claim that the wash is gone. It is not. On a deck carrying a `logo:` the hairline went
- * crisp → washed → crisp as that z-index was added and removed. On a deck WITHOUT one it
- * washes at every revision, the branch point included — measured at `rgb(199,223,235)`
- * against a crisp `rgb(5,111,166)`. So the wash is a PRE-EXISTING defect on logo-less
- * decks that this change neither caused nor cures; deleting the flip returns those decks
- * to exactly what they always did, while sparing the ones that were fine. Restoring a
- * flip is still the wrong move — it restyles the crisp pages to rescue the washed ones.
- * The real fix is whatever makes the print compositor keep a 1px gradient, and nobody has
- * found it. If you reintroduce a wash, find what your change did to the slide's paint
- * grouping and undo THAT.
- * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
+ * A flip WAS written: under `@media print` and `.lattice-exporting` it swapped this
+ * gradient hairline for a solid accent bar at `right: 62%`, because the gradient appeared
+ * to render at ~22% strength in exported PDFs. It shipped, and it silently restyled every
+ * page where nothing had ever been wrong — a full-width taper became a hard-edged stub at
+ * 38% width on 32 slides across three galleries, all blessed into goldens before anyone
+ * opened a diff image. That part was real and is why the flip is gone.
+ *
+ * THE WASH IT WAS WRITTEN AGAINST WAS NOT REAL. It is a defect in `pdftoppm`'s splash
+ * backend, which leaks an earlier element's constant alpha into a later tiling-pattern
+ * fill; the alpha is `/ca .22` from `--code-inline-border`, so any slide carrying an
+ * inline-code chip could trigger it. `0.22·accent + 0.78·white` is precisely the "washed"
+ * color. The same PDF through `pdftocairo` or ghostscript is crisp, and the two files are
+ * byte-identical through the hairline. Four decisions on this branch were made from that
+ * artifact before anyone rasterized a second way.
+ *
+ * So this rule needs no export variant, and neither does anything else here. If a mark
+ * looks washed in a PDF, rasterize it again with a different engine before you change CSS.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
  * A trailing paragraph whose only child is an <em> renders as a quiet
@@ -19828,28 +19832,18 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  /* DELIBERATELY NO `z-index` — `auto`, which the plane model counts as a plane decision
-   * (the content flow's own resting plane) rather than an omission. `checkZPlanes` holds
-   * this element to it by name, so re-adding a plane here fails `build:check` rather than
-   * shipping: it is a one-line change that has already cost this repo 32 regressed slides.
+  /* CHROME plane. The deck mark is frame chrome and is ordered with the rest of it.
    *
-   * This element needs no plane. It is `position: absolute`, it forms its own stacking
-   * context (`opacity` below 1 on the default; the `.deck-logo-brand` variant is opacity 1
-   * and gets one from `backdrop-filter` instead), and with the decorative planes NEGATIVE
-   * there is nothing left on the slide for it to climb over. Note that forming a stacking
-   * context is not what orders it against its siblings — `z-index: auto` plus DOM position
-   * is; the logo is injected as the section's FIRST child, and the chrome that must sit
-   * above it declares `--z-chrome` explicitly.
-   *
-   * Giving it `var(--z-chrome)` bought no ordering and cost a real regression: Chromium's
-   * print compositor rendered a SIBLING gradient (the below-note hairline) at roughly 22%
-   * strength — crisp `#0C71A4` at the branch point, washed `#CAE0EB` with the z-index, on
-   * examples/marker-corner.md p2. Bisected to this one declaration: `img.deck-logo
-   * { z-index: auto }` takes that deck and obligation-matrix to 0 differing pixels against
-   * the branch point on every page, while `header { z-index: 3 }` changes nothing.
-   * The exact compositor trigger is NOT understood — see the note beside the below-note
-   * rule above for why "promotion out of z-auto/0" is not the answer.
-   * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
+   * This declaration was removed once and restored, and the round trip is worth one line
+   * of warning: it was pulled because giving the logo a plane appeared to render an
+   * unrelated sibling gradient at ~22% strength in the exported PDF. It does not. That
+   * "wash" is a defect in `pdftoppm`'s splash backend, which leaks an earlier element's
+   * constant alpha (`/ca .22`, the inline-code chip border) into a later tiling-pattern
+   * fill. The same PDF rasterized with `pdftocairo` or ghostscript is crisp, and the two
+   * PDFs are byte-identical through the hairline. Do not re-remove this on pixel evidence
+   * from a single rasterizer.
+   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
+  z-index: var(--z-chrome);
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and
@@ -25038,18 +25032,19 @@ section.form > .cell-stage {
    * `--z-atmosphere` (-1) and `--z-chrome` (30) by construction, so they are already
    * ordered correctly against the slide's planes without one.
    *
-   * Both were tried here and removed. Either makes the stage a stacking context, and
-   * Chromium's print-to-PDF then rasterizes a 1px `.below-note` hairline inside it at
-   * ~22% coverage — a solid accent rule reduced to a barely-visible tint, with the two
-   * renders pixel-identical on SCREEN and 3,596 pixels apart in the PDF. Isolating a
-   * container that wraps the author's whole composition is not free on the print path.
+   * BOTH WERE TRIED AND REMOVED, ON A REASON THAT TURNED OUT TO BE FALSE. The claim was
+   * that isolating this element made Chromium's print path rasterize the `.below-note`
+   * hairline at ~22% strength — "3,596 pixels apart in the PDF." It does not. That is a
+   * `pdftoppm` splash-backend defect (it leaks `--code-inline-border`'s `/ca .22` into a
+   * later tiling-pattern fill); the identical PDF through `pdftocairo` or ghostscript
+   * shows ZERO differing pixels with the stage isolated. base.tokens.css § depth axis.
    *
-   * That specific causal claim did NOT survive an adversarial re-run — isolating
-   * `.cell-stage` on a form slide was re-measured at zero differing pixels. The stage
-   * still should not isolate (it wraps arbitrary component DOM, and the 0–9 local band
-   * already contains it by arithmetic), but do not keep this rule out on the strength of
-   * the wash story alone. See base.tokens.css § depth axis for what is and is not
-   * established. engineering/decisions/2026-08-12-slide-plane-model.md. */
+   * So the honest status is: the stage does not isolate today because the 0–9 band already
+   * orders component internals correctly against the planes by arithmetic, and nothing has
+   * needed more. Whether it SHOULD isolate — which would contain the band properly instead
+   * of relying on everyone staying inside it — is an open design question, not a settled
+   * prohibition. If you take it up, measure with two rasterizers.
+   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

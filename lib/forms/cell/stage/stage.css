@@ -154,18 +154,19 @@ section.form > .cell-stage {
    * `--z-atmosphere` (-1) and `--z-chrome` (30) by construction, so they are already
    * ordered correctly against the slide's planes without one.
    *
-   * Both were tried here and removed. Either makes the stage a stacking context, and
-   * Chromium's print-to-PDF then rasterizes a 1px `.below-note` hairline inside it at
-   * ~22% coverage — a solid accent rule reduced to a barely-visible tint, with the two
-   * renders pixel-identical on SCREEN and 3,596 pixels apart in the PDF. Isolating a
-   * container that wraps the author's whole composition is not free on the print path.
+   * BOTH WERE TRIED AND REMOVED, ON A REASON THAT TURNED OUT TO BE FALSE. The claim was
+   * that isolating this element made Chromium's print path rasterize the `.below-note`
+   * hairline at ~22% strength — "3,596 pixels apart in the PDF." It does not. That is a
+   * `pdftoppm` splash-backend defect (it leaks `--code-inline-border`'s `/ca .22` into a
+   * later tiling-pattern fill); the identical PDF through `pdftocairo` or ghostscript
+   * shows ZERO differing pixels with the stage isolated. base.tokens.css § depth axis.
    *
-   * That specific causal claim did NOT survive an adversarial re-run — isolating
-   * `.cell-stage` on a form slide was re-measured at zero differing pixels. The stage
-   * still should not isolate (it wraps arbitrary component DOM, and the 0–9 local band
-   * already contains it by arithmetic), but do not keep this rule out on the strength of
-   * the wash story alone. See base.tokens.css § depth axis for what is and is not
-   * established. engineering/decisions/2026-08-12-slide-plane-model.md. */
+   * So the honest status is: the stage does not isolate today because the 0–9 band already
+   * orders component internals correctly against the planes by arithmetic, and nothing has
+   * needed more. Whether it SHOULD isolate — which would contain the band properly instead
+   * of relying on everyone staying inside it — is an open design question, not a settled
+   * prohibition. If you take it up, measure with two rasterizers.
+   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

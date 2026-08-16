@@ -985,24 +985,26 @@
  * elements that carry no plane token (the stage, the author's markup) keep the stacking
  * behavior they have always had.
  *
- * That last part is not just tidiness. An earlier cut of this scale ran canvas at 0 and
- * lifted content to 20 via a blanket `section > *`, which made `.cell-stage` a stacking
- * context — and Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline
- * inside it at ~22% coverage, turning a solid accent rule into a barely-visible tint.
- * Identical on screen, 3,596 differing pixels in the PDF. Sinking the canvas needs no
- * such context and the hairline is untouched. Do not "simplify" these back to positive.
+ * The negative signs are the good part, and the reason is ordinary: a negative-z child
+ * paints at step 3 of the painting algorithm, before every in-flow descendant, so content
+ * floats above it without declaring anything and no rule has to reach across a section's
+ * children. Sinking the decoration is simply cheaper than lifting everything else.
  *
- * TREAT THAT MECHANISM AS UNPINNED, THOUGH — the reading above is the one this branch
- * acted on, and an adversarial re-run could not reproduce it: a blanket `section > *`
- * z-index left the hairline crisp, and isolating `.cell-stage` moved zero pixels. What
- * IS established is narrower. The hairline washes or not depending on something about
- * the slide's paint grouping that nobody here has isolated; on a deck carrying a `logo:`
- * it went crisp → washed → crisp as `img.deck-logo`'s z-index was added and removed, and
- * on a deck WITHOUT one it washes at every revision including the branch point. So the
- * negative canvas stands on its own merits (it needs no stacking context, which is a
- * good property regardless), but do not cite this paragraph as proof of a trigger. If
- * you are chasing a wash, measure it — do not reason from here.
- * (engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing.)
+ * A LONG-RUNNING STORY ABOUT A "PRINT WASH" USED TO LIVE HERE, AND IT WAS FALSE. The claim
+ * was that making `.cell-stage` a stacking context caused Chromium's print path to
+ * rasterize the 1px `.below-note` hairline at ~22% strength — "3,596 differing pixels in
+ * the PDF" — and it shaped four separate decisions on this branch. The PDF was always
+ * correct. `pdftoppm`'s splash backend leaks an earlier element's constant alpha into a
+ * later tiling-pattern fill; the alpha is `/ca .22` from `--code-inline-border` (defined a
+ * few hundred lines above this one as `color-mix(currentColor 22%, transparent)`), and
+ * `0.22·accent + 0.78·white` is the exact "washed" color anyone measured. The same PDF
+ * through `pdftocairo` or ghostscript is crisp, and the two PDFs are byte-identical
+ * through the hairline — same shading, same matrix, same SMask.
+ *
+ * So: do not "simplify" the negative planes back to positive, because sinking beats
+ * lifting — but do not cite a wash as the reason, and if you meet one, rasterize the same
+ * PDF a second way before you believe it.
+ * (engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer.)
  *
  * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
  * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a

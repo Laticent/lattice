@@ -73,7 +73,18 @@ section.image > footer { display: none; }
  * is `rgb(107,127,154)` at 14.98px over a photo that runs from `rgb(13,20,32)` to
  * `rgb(74,90,112)` beneath it, i.e. 4.54:1 at best and 1.72:1 where the photo lightens —
  * a number legible in one corner of its own box and not the other. The layout's answer
- * was already written; this is it, finally applied to the element it meant.
+ * was already written; this is it, applied to the element it meant — but ONLY to the
+ * composition that has the problem.
+ *
+ * SCOPE, because the first cut of this was far too wide. It suppressed the number on every
+ * `image` slide, and on the 117-page canonical gallery that was the ONLY visible change the
+ * whole plane model made: five deleted page numbers, four of them on `clean`/`gallery`/
+ * `mirror` compositions where the photo is a floated card and the glyph sits on plain deck
+ * canvas at 3.76–4.20:1 — perfectly legible, and the author had asked for it with
+ * `paginate:`. Deleting content to solve a layering question is the opposite of the rule
+ * this model serves. `statement` is the composition that full-bleeds the photo behind the
+ * corner and puts a scrim over it; it is the one measured at 1.72:1, and it is the only
+ * one that loses its number.
  *
  * The class is DOUBLED to reach (0,2,2), the same idiom and the same reason as
  * `section.no-paginate.no-paginate::after` in base.variants.css: the engine pagination
@@ -81,7 +92,7 @@ section.image > footer { display: none; }
  * very END of the bundle, so an equally-specific selector LOSES on source order. Written
  * singly first, this rule was in the bundle, more specific than the scaffold default, and
  * changed exactly zero pixels. */
-section.image.image::after { content: none; }
+section.image.image[data-img-composition="statement"]::after { content: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */

@@ -2555,10 +2555,12 @@ function checkStageInsetOwnership(errors) {
 //   1. NO MAGIC INTEGERS. Any `z-index` outside the LOCAL BAND 0–9 must be a `--z-*`
 //      token. The band is what an occupant's internals get (a rail behind a node is
 //      `z-index: 1`); it is safe because the band sits BETWEEN `--z-atmosphere` (-1) and
-//      `--z-chrome` (30) by arithmetic — NOT because anything isolates it. The shipped model
-//      deliberately isolates nothing below the section (isolating the stage made Chromium's
-//      print path rasterize a hairline; see the decision note). Anything reaching beyond the
-//      band is claiming a slide-scale position and has to name which one.
+//      `--z-chrome` (30) by arithmetic — NOT because anything isolates it. Anything reaching
+//      beyond the band is claiming a slide-scale position and has to name which one.
+//      (An earlier version of this note said the stage must not isolate because doing so made
+//      the print path rasterize a hairline. That was a `pdftoppm` artifact, not a PDF fact —
+//      see the decision note § The wash that was a rasterizer. Whether the stage should
+//      isolate is now an open design question, not a settled prohibition.)
 //
 //   2. NO DECORATIVE OR PHANTOM TOKENS, both directions: a plane token nothing reads is
 //      an error, and so is a `var(--z-…)` the scale does not define — the latter because
@@ -2598,39 +2600,6 @@ function checkStageInsetOwnership(errors) {
 const Z_PLANE_TOKENS_FILE = path.join(LIB_DIR, 'base', 'base.tokens.css');
 const Z_LOCAL_BAND_MAX = 9;
 
-// ── DELIBERATELY PLANELESS — elements pinned at `z-index: auto` ────────────────────
-// `auto` is a plane DECISION in this model, not an omission (the render test spells this
-// out: content is the natural resting plane and declares nothing). For most elements that
-// needs no gate — nothing tempts you to add a z-index to a paragraph. For an element that
-// LOOKS like it wants a plane, it does: the reviewer's instinct and the model's own
-// vocabulary both push toward naming one, and here that instinct is wrong.
-//
-// A plane is not free. Naming one promotes the element in the paint order, and promotion
-// has compositor-level consequences unrelated to the ordering you wanted. `img.deck-logo`
-// is the case this list is built from: it was given `var(--z-chrome)` on the entirely
-// reasonable ground that the logo is chrome, it bought NO ordering (already a stacking
-// context, already above the now-negative decorative planes), and it made Chromium's print
-// compositor render an unrelated sibling gradient at ~22% strength. The repair was reverted
-// into 32 regressed slides across three galleries before anyone opened a diff image.
-// Nothing caught it: lint, 6,108 unit tests, `build:check`, and the regression gate were
-// green throughout, because a valid plane token is exactly what `checkZPlanes` wants.
-//
-// So the ONLY guard was a CSS comment, and a comment does not fail a build. This does.
-// It fails BOTH ways, same contract as SANCTIONED_MARGINS / SANCTIONED_HEX: an entry that
-// regains a `z-index` fails, and an entry whose selector no longer appears in its file
-// fails as STALE, so the list cannot rot into decoration.
-const SANCTIONED_PLANELESS = [
-  {
-    selector: 'img.deck-logo',
-    file: 'lib/base/base.modifiers.css',
-    why:
-      'Already a stacking context (position:absolute + opacity<1, or backdrop-filter on the ' +
-      '`.deck-logo-brand` variant) and injected as the section\'s first child, with everything ' +
-      'that must sit above it declaring --z-chrome explicitly. Giving it a plane bought no ' +
-      'ordering and washed the below-note hairline gradient in the print path — crisp #0C71A4 ' +
-      'at the branch point, #CAE0EB with the z-index, on examples/marker-corner.md p2.',
-  },
-];
 
 /** The `--z-*` plane tokens defined in base.tokens.css, in declaration order. */
 function definedPlaneTokens() {
@@ -2727,29 +2696,6 @@ function checkZPlanes(errors) {
     }
   }
 
-  // ── 3 · the deliberately planeless stay planeless, and the list cannot rot ──────
-  for (const s of SANCTIONED_PLANELESS) {
-    for (const d of decls.filter((x) => x.selector === s.selector)) {
-      errors.push(
-        `${d.file}: \`${s.selector}\` declares \`z-index: ${d.raw}\`, but it is pinned at \`auto\` ` +
-        `on purpose (SANCTIONED_PLANELESS in tools/check-ownership.js). ${s.why} A plane is not ` +
-        'free: naming one promotes the element in the paint order, and the damage shows up on a ' +
-        'DIFFERENT element, only on the export path, where no unit test looks. If you genuinely ' +
-        'need this ordering, remove the entry in the same change and say in the PR what render ' +
-        'you checked — do not delete the pin silently.',
-      );
-    }
-    // STALENESS — a sanction for a selector nothing declares any more is a claim about
-    // code that no longer exists, which is how the finish exclusion list rotted.
-    const abs = path.join(ROOT, s.file);
-    const src = fs.existsSync(abs) ? stripComments(fs.readFileSync(abs, 'utf8')) : '';
-    if (!src.includes(s.selector)) {
-      errors.push(
-        `stale SANCTIONED_PLANELESS entry — \`${s.selector}\` no longer appears in ${s.file}, so ` +
-        'the pin guards nothing. Remove the entry, or point it at the selector that replaced it.',
-      );
-    }
-  }
 }
 
 // ── HARD RULE #26: cascade layers stay INERT — engine CSS admits no layer blocks ──

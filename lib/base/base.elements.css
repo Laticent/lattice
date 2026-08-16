@@ -78,18 +78,17 @@ section {
  * axis), so they paint at step 3 of the painting algorithm, before every in-flow
  * descendant, and the author's markup floats above them without declaring anything.
  *
- * A blanket rule was written first and removed. It worked, and it cost more than it was
- * worth: giving every direct child a z-index made `.cell-stage` a stacking context, and
- * Chromium's print-to-PDF then rasterized a 1px `.below-note` hairline inside it at ~22%
- * coverage — a solid accent rule reduced to a barely-visible tint, identical on screen
- * and 3,596 differing pixels in the PDF. The fewer stacking contexts this engine creates
- * between a mark and the page, the fewer of those there are to find.
+ * A blanket rule was written first and removed. The reason it stays removed is simply
+ * that content needs no plane: the decorative planes are negative, so the flow already
+ * sits above them, and a rule reaching across every child of every section to say so is
+ * a lot of cascade for nothing.
  *
- * The general lesson holds; this particular attribution does not reproduce (a blanket
- * child z-index was re-measured leaving the hairline crisp). Keep the rule absent because
- * content needs no plane, not because of the wash. base.tokens.css § depth axis carries
- * what is actually established.
- * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
+ * It was removed at the time for a different and WRONG reason — that it made `.cell-stage`
+ * a stacking context and thereby washed a hairline in the exported PDF ("3,596 differing
+ * pixels"). That wash is a `pdftoppm` splash-backend defect, not a PDF one; the same file
+ * through `pdftocairo` or ghostscript is crisp and byte-identical through the rule. See
+ * base.tokens.css § depth axis for the mechanism.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives

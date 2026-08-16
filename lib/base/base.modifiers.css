@@ -749,34 +749,26 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
   background:linear-gradient(to right, var(--accent), transparent);
 }
 
-/* NO EXPORT-SAFE FLIP HERE — and the reason is worth keeping. A gradient IMAGE does
- * wash out to ~22% in Chromium's print path, but only under some condition this repo has
- * NOT pinned down. What is established is narrower and enough to act on: the wash on this
- * corpus was caused by a `z-index` this very change had put on `img.deck-logo` (see its
- * rule below), and removing that removed the wash. It is NOT simply "any promotion out of
- * the z-auto/0 group" — this branch promotes `section::after`, `.cell-masthead`,
- * `.cell-footer` and `.lat-split-rail` the same way, and page 3 of the branch's own
- * examples/slide-planes.pdf renders a promoted page number and a full-strength hairline on
- * the same slide. Whatever distinguishes the logo (an `<img>`, its `filter`/`opacity`, its
- * DOM adjacency) is unidentified. Do not write a comment that claims otherwise. A
- * solid-fill flip was written to survive that wash, and it "worked" — while silently
- * restyling every page where the gradient had never washed at all: the full-width taper
- * became a hard-edged stub at 38%, on 32 slides across three galleries, all of them
- * blessed as goldens before anyone looked at them. Removing the z-index removed the wash,
- * and the flip with it — on the decks it had broken.
+/* NO EXPORT-SAFE FLIP HERE, and the reason is a cautionary tale rather than a mechanism.
  *
- * BE PRECISE ABOUT WHAT THAT FIXED, because the flip's deletion is easy to misread as a
- * claim that the wash is gone. It is not. On a deck carrying a `logo:` the hairline went
- * crisp → washed → crisp as that z-index was added and removed. On a deck WITHOUT one it
- * washes at every revision, the branch point included — measured at `rgb(199,223,235)`
- * against a crisp `rgb(5,111,166)`. So the wash is a PRE-EXISTING defect on logo-less
- * decks that this change neither caused nor cures; deleting the flip returns those decks
- * to exactly what they always did, while sparing the ones that were fine. Restoring a
- * flip is still the wrong move — it restyles the crisp pages to rescue the washed ones.
- * The real fix is whatever makes the print compositor keep a 1px gradient, and nobody has
- * found it. If you reintroduce a wash, find what your change did to the slide's paint
- * grouping and undo THAT.
- * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
+ * A flip WAS written: under `@media print` and `.lattice-exporting` it swapped this
+ * gradient hairline for a solid accent bar at `right: 62%`, because the gradient appeared
+ * to render at ~22% strength in exported PDFs. It shipped, and it silently restyled every
+ * page where nothing had ever been wrong — a full-width taper became a hard-edged stub at
+ * 38% width on 32 slides across three galleries, all blessed into goldens before anyone
+ * opened a diff image. That part was real and is why the flip is gone.
+ *
+ * THE WASH IT WAS WRITTEN AGAINST WAS NOT REAL. It is a defect in `pdftoppm`'s splash
+ * backend, which leaks an earlier element's constant alpha into a later tiling-pattern
+ * fill; the alpha is `/ca .22` from `--code-inline-border`, so any slide carrying an
+ * inline-code chip could trigger it. `0.22·accent + 0.78·white` is precisely the "washed"
+ * color. The same PDF through `pdftocairo` or ghostscript is crisp, and the two files are
+ * byte-identical through the hairline. Four decisions on this branch were made from that
+ * artifact before anyone rasterized a second way.
+ *
+ * So this rule needs no export variant, and neither does anything else here. If a mark
+ * looks washed in a PDF, rasterize it again with a different engine before you change CSS.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
  * A trailing paragraph whose only child is an <em> renders as a quiet
@@ -1800,28 +1792,18 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  /* DELIBERATELY NO `z-index` — `auto`, which the plane model counts as a plane decision
-   * (the content flow's own resting plane) rather than an omission. `checkZPlanes` holds
-   * this element to it by name, so re-adding a plane here fails `build:check` rather than
-   * shipping: it is a one-line change that has already cost this repo 32 regressed slides.
+  /* CHROME plane. The deck mark is frame chrome and is ordered with the rest of it.
    *
-   * This element needs no plane. It is `position: absolute`, it forms its own stacking
-   * context (`opacity` below 1 on the default; the `.deck-logo-brand` variant is opacity 1
-   * and gets one from `backdrop-filter` instead), and with the decorative planes NEGATIVE
-   * there is nothing left on the slide for it to climb over. Note that forming a stacking
-   * context is not what orders it against its siblings — `z-index: auto` plus DOM position
-   * is; the logo is injected as the section's FIRST child, and the chrome that must sit
-   * above it declares `--z-chrome` explicitly.
-   *
-   * Giving it `var(--z-chrome)` bought no ordering and cost a real regression: Chromium's
-   * print compositor rendered a SIBLING gradient (the below-note hairline) at roughly 22%
-   * strength — crisp `#0C71A4` at the branch point, washed `#CAE0EB` with the z-index, on
-   * examples/marker-corner.md p2. Bisected to this one declaration: `img.deck-logo
-   * { z-index: auto }` takes that deck and obligation-matrix to 0 differing pixels against
-   * the branch point on every page, while `header { z-index: 3 }` changes nothing.
-   * The exact compositor trigger is NOT understood — see the note beside the below-note
-   * rule above for why "promotion out of z-auto/0" is not the answer.
-   * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
+   * This declaration was removed once and restored, and the round trip is worth one line
+   * of warning: it was pulled because giving the logo a plane appeared to render an
+   * unrelated sibling gradient at ~22% strength in the exported PDF. It does not. That
+   * "wash" is a defect in `pdftoppm`'s splash backend, which leaks an earlier element's
+   * constant alpha (`/ca .22`, the inline-code chip border) into a later tiling-pattern
+   * fill. The same PDF rasterized with `pdftocairo` or ghostscript is crisp, and the two
+   * PDFs are byte-identical through the hairline. Do not re-remove this on pixel evidence
+   * from a single rasterizer.
+   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
+  z-index: var(--z-chrome);
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and

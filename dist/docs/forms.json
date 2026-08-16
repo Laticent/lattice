@@ -497,7 +497,7 @@
       "fits": [
         "masthead-bay"
       ],
-      "z": 2,
+      "z": 3,
       "population": "front-matter `logo:` key (the `logo-on` class ENABLES it — an opt-in show token, so the logo Tile has no true hide token; the islands §2.2 registry lists `logo-on` under 'Hide token' but it is a show token)",
       "hideToken": null,
       "status": "shipped"
