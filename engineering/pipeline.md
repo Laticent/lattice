@@ -34,14 +34,20 @@ the output file.
 
 | Output | Wall | Use it when |
 |---|---:|---|
-| `.html` | 6.4s | You need a real render but no PDF — most tests, and any check that reads markup or structure |
-| `.pdf` | 8.5s | Sharing, review, goldens. **The cheapest artifact we commit** — smaller than its own HTML |
+| `.html` | 6.77s | You need a real render but no PDF — anything that reads markup or structure |
+| `.pdf` | 8.24s | Sharing, review, goldens. **The cheapest artifact we commit** — smaller than its own HTML |
 | `.pptx` / `.png` / `.zip` | 58–74s | You genuinely need pixels. ~860 ms/slide to rasterize |
 
 The vector PDF is **not** the expensive option — every image format costs 7–9×
 more and 3–12× more bytes. To review a PDF as images, rasterize it
 (`tools/rasterize-for-review.sh`, §3) rather than re-rendering to `.png`:
-render + `pdftoppm -r 30` is 15.7s against 59.0s.
+render + `pdftoppm -r 30` is 15.5s against 59.0s.
+
+**Don't reach for `.html` to speed up a test.** The saving is proportional to
+how much PDF there is to encode: ~18% on the 58-slide gallery and 20% on the
+chart gallery, but **under 1% on a one-slide fixture**, where browser startup
+and `mmdc` dominate and the PDF is a few tens of milliseconds. Pick `.html`
+because you want HTML, not because you want speed.
 
 `.html` is a **full browser render minus the PDF encode**, not a browser-free
 path: auto-split and the overflow/legibility passes measure laid-out DOM, and

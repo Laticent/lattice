@@ -536,8 +536,11 @@ const OUT_EXT = path.extname(outFile).toLowerCase();
 // This is NOT a browser-free path and must not be sold as one. The deck still
 // renders in Chromium — the auto-split, overflow and legibility passes measure laid-out
 // DOM, and the HTML written here is the post-split result of those passes, which is
-// exactly what makes it worth having. What it skips is the PDF encode: measured at
-// 1.6% of a 1-slide render and 15% of a 58-slide one
+// exactly what makes it worth having. What it skips is the PDF encode (plus the
+// PDF-only SVG rasterize pass): 2.3% of a 1-slide render and 15% of a 58-slide one,
+// so the whole-run saving is ~18% on a large deck and UNDER 1% on a one-slide
+// fixture, where browser startup dominates. Do not pick this format for speed on a
+// small deck — there is none
 // (engineering/decisions/2026-08-16-render-format-cost-assessment.md). For markup
 // without layout, call `lib/engine` directly instead — that IS browser-free, and it
 // is a different coverage tier, not a faster version of this one.

@@ -3,8 +3,10 @@
   **PDF bytes into a file named `.html`** and put the actual HTML in a second
   `out.html.html`. The rendered HTML was always produced as a sidecar of every render;
   the only thing missing was a way to ask for it without also paying the PDF encode.
-  Measured on a 58-slide deck, the `.html` render takes 6.4s against the `.pdf`
-  render's 8.5s.
+  Measured on a 58-slide deck (medians of 3), the `.html` render takes 6.77s
+  against the `.pdf` render's 8.24s. **The saving scales with the deck** — about
+  18% there and 20% on the chart gallery, but under 1% on a one-slide deck, where
+  browser startup dominates and there is barely any PDF to encode.
 - **This is still a full browser render, not a browser-free one.** Auto-split and the
   overflow/legibility passes measure laid-out DOM, and the written file is their
   post-split result — an `.html` render pages identically to the same deck's `.pdf`.
