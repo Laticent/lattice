@@ -282,6 +282,26 @@ proposal meets it.
 `--corner-stack` stays. It is geometry — keeping two corner tags from covering
 each other — and planes do not solve adjacency.
 
+**The deletion changes what a future author inherits, and that is worth stating
+plainly.** Before this change, every non-backdrop child of a `finish:` section sat at
+`z-index: 2`, so a new element added there landed *among* content and had to out-number
+it to cover anything. After it, content sits at `auto` and floats above a backdrop sunk
+to −2 — which means a new element placed inside the `section` but outside `.backdrop`,
+carrying any positive z-index at all, paints **above** the words rather than tying with
+them. That is the correct behavior for chrome and the wrong behavior for a decorative
+layer, and the difference is no longer visible in the number: `z-index: 2` used to read
+"level with content" and now reads "over it".
+
+So a decorative layer added at section level belongs on `--z-canvas` or
+`--z-atmosphere`, not on a small positive number — and if it needs to sit inside the
+finish's own stack rather than the slide's, it belongs inside `.backdrop`, whose local
+band 0–2 is contained. `checkZPlanes` will reject the bare integer either way, but the
+gate only says *don't*; this paragraph is the *why*. The live case is the `--surface`
+token sketched in #1662 — a token declared by whichever rule paints the background,
+which would retire that PR's enumerated `:is()` list. It is a color mechanism, so
+nothing here blocks it; the note is only that it must not assume finish content still
+carries a z-index of its own.
+
 **One deletion nearly went wrong, and it is the note's own best cautionary tale.** The
 removed gate located its subject with `css.indexOf('section.finish > *:not(.backdrop,
 :where(')` on the **raw** file. The comment written to explain the deletion quotes the
@@ -295,7 +315,7 @@ anything. A gate must not be able to read its own obituary as its subject.
 Naming the planes is also what makes "slam a plane into the frame independently"
 addressable. Once each plane is a token and each section is a context, a present-mode
 depth effect is a sibling token (`--depth-atmosphere`) plus one transform per plane,
-rather than a hunt for which of 56 integers moves the ghost numeral.
+rather than a hunt for which of 50 integers moves the ghost numeral.
 
 Two honest caveats, so this is designed *toward* and not claimed: `transform-style:
 preserve-3d` does not survive the stage's `overflow: hidden` clip, and
