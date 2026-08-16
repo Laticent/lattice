@@ -672,8 +672,8 @@ for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatter
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
 // THE theme graph, from the manifests — never re-derived from the stylesheets.
-const { themeChain } = require('./lib/theme/chain');
-const { THEME_EDGES } = require('./lib/theme/edges.generated.js');
+const { themeChain } = require('./lib/theme/chain.mjs');
+const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 // Which band does a slide's diagram bake for — light, dark, or print. Lives in
 // the kernel so it is unit-testable as BEHAVIOR rather than as a source-text
 // assertion on this CLI. THIS PATH IS ITS ONLY CALLER — the preview reads tokens
@@ -1803,7 +1803,7 @@ function engineSlides() {
   // unnoticed because this file discards `rendered.css` and inlines its own
   // `paletteCSS` — but any caller using the engine's composed output from a
   // CLI-shaped setup got an unstyled deck. The chain comes from the manifests
-  // (lib/theme/chain.js); no stylesheet is parsed to find it.
+  // (lib/theme/chain.mjs); no stylesheet is parsed to find it.
   const layoutCss = readFileOrDie(cssFile, 'layout CSS');
   engine.addThemes([
     cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,

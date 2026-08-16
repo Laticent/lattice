@@ -27,8 +27,8 @@
 // `themeImportNames` and was the third such resolver in the repo; the three had
 // already drifted (the emulator's missed a minified `@import"onyx"` that this one
 // handled). See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
-import { themeChain } from '../../../lib/theme/chain.js';
-import { THEME_EDGES } from '../../../lib/theme/edges.generated.js';
+import { themeChain } from '../../../lib/theme/chain.mjs';
+import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 
 
 // Module-level shared cache keyed by themeBase — so EVERY preview host that renders against

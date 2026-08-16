@@ -918,7 +918,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
 // A palette's parent is declared in `themes/<name>.manifest.json` as `extends`.
 // The CSS also says `@import 'parent'` — that copy is MARP's, since Marp has no
 // manifest and must learn the graph from the stylesheet. Lattice reads the
-// manifest and never parses the CSS for it (lib/theme/chain.js).
+// manifest and never parses the CSS for it (lib/theme/chain.mjs).
 //
 // This gate is the entire reason the CSS copy is allowed to stay. Without it the
 // two drift, and drift here is not theoretical: THREE separate `@import` resolvers

@@ -31,7 +31,7 @@ contains:
    has no manifest, so it learns identity and the parent edge from the stylesheet.
    **Lattice reads neither.** Identity and the chain come from
    `themes/<name>.manifest.json` (`name`, `extends`), resolved by
-   `lib/theme/chain.js`, and `check:ownership` fails if the CSS and the manifest
+   `lib/theme/chain.mjs`, and `check:ownership` fails if the CSS and the manifest
    disagree. See `engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md`.
    The manifest **owns the name** — the
    filename and this directive are projections of `manifest.json`'s `name`, and

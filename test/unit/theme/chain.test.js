@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { themeChain, edgesFromManifests } = require('../../../lib/theme/chain.js');
+const { themeChain, edgesFromManifests } = require('../../../lib/theme/chain.mjs');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(ROOT, 'themes');
@@ -109,7 +109,7 @@ describe('the browser gets the same graph Node reads', () => {
     // browser import the SAME file — a docs-only home is unreachable from the first two,
     // which is how a second copy would start. If this drifts, the browser resolves a
     // different chain than the CLI: the exact bug class this change removes.
-    const { THEME_EDGES } = require('../../../lib/theme/edges.generated.js');
+    const { THEME_EDGES } = require('../../../lib/theme/edges.generated.mjs');
     const fromManifests = Object.fromEntries(
       manifests.filter((m) => m.extends).map((m) => [m.name, m.extends]),
     );

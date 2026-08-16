@@ -99,11 +99,11 @@ source file is itself a published export.
 
 **One pure resolver, two bindings** (the `lint-core` / `lint.js` shape, HARD RULE #7):
 
-- `lib/theme/chain.js` — PURE, fs-free, browser-safe. `themeChain(name, edges)` walks a
+- `lib/theme/chain.mjs` — PURE, fs-free, browser-safe. `themeChain(name, edges)` walks a
   `{ name → extends }` map and returns the ordered chain **parent-first**, so a child's
   `:root` overrides its parent at equal specificity (the order `loadPaletteWithImports`
   produces today). Cycles and unknown names terminate rather than throw.
-- `lib/theme/edges.generated.js` — the `{ name → extends }` map, baked from every manifest
+- `lib/theme/edges.generated.mjs` — the `{ name → extends }` map, baked from every manifest
   by `tools/build-theme-catalog.js`. Every runtime imports this ONE file: the CLI, the unit
   suite, and the browser bundle. It deliberately does not live in the docs catalog — that
   home is unreachable from Node, which is exactly how a second copy would start. (The
@@ -179,7 +179,7 @@ the one with the worst failure mode (a missing ancestor renders stripped on the
 
 ### Where the edge map lives, and why
 
-`lib/theme/edges.generated.js`, not the docs catalog. The browser cannot read manifests at
+`lib/theme/edges.generated.mjs`, not the docs catalog. The browser cannot read manifests at
 runtime so the map must be baked; putting it in `docs/src/lib` would have made it
 unreachable from the CLI and the unit suite, which is precisely how a second copy starts.
 One generated file beside the pure resolver, imported by all three runtimes, asserted
