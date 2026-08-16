@@ -48,7 +48,17 @@
 			tc.setAttribute('content', dark ? '#0B0F14' : '#FFFFFF');
 
 			// Then the truth: whatever `--bg` actually resolves to for this palette+mode.
+			//
+			// NEVER WHILE THE DOCUMENT IS STILL PARSING. `getComputedStyle` forces the engine
+			// to resolve style NOW; called from a <head> script, that happens before the
+			// render-blocking stylesheet has been applied, and a browser that flushes style
+			// with no author CSS loaded will paint the raw DOM — Firefox says so in as many
+			// words ("Layout was forced before the page was fully loaded…") and then shows it:
+			// the Studio flashed its whole chrome unstyled on every reload (#1653). The read
+			// had nothing to offer that early anyway — the palette CSS is exactly the sheet
+			// that has not landed, which is why the static cold-load guess above exists.
 			var sync = function () {
+				if (document.readyState === 'loading') return;
 				try {
 					var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
 					// `--bg` is `light-dark(...)` in source but computes to a single color;
@@ -57,16 +67,26 @@
 					if (/^(#|rgb|oklch|oklab|color\()/i.test(bg)) tc.setAttribute('content', bg);
 				} catch (e) {}
 			};
-			if (document.readyState === 'loading') addEventListener('DOMContentLoaded', sync);
-			else sync();
-			addEventListener('load', sync);
 			// The palette and mode are attributes on <html>; the site chrome and the Studio
 			// both drive them, so observing the element covers every path without either
 			// needing to know this exists.
-			new MutationObserver(sync).observe(document.documentElement, {
-				attributes: true,
-				attributeFilter: ['data-palette', 'data-mode', 'style'],
-			});
+			//
+			// ARMED ONLY ONCE THE PARSE IS DONE, for the same reason. `style` is in the filter,
+			// and the Studio's own boot script writes seventeen custom properties onto <html>
+			// while the head is still parsing (the geometry seed) — each batch woke this
+			// observer and forced a style flush with no author stylesheet applied. Nothing can
+			// change the palette before hydration, so watching that window bought nothing and
+			// cost the flash; the DOMContentLoaded sync below reads the settled state anyway.
+			var arm = function () {
+				sync();
+				new MutationObserver(sync).observe(document.documentElement, {
+					attributes: true,
+					attributeFilter: ['data-palette', 'data-mode', 'style'],
+				});
+			};
+			if (document.readyState === 'loading') addEventListener('DOMContentLoaded', arm);
+			else arm();
+			addEventListener('load', sync);
 		} catch (e) {}
 	})();
 </script>
