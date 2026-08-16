@@ -136,7 +136,7 @@ function showHelp() {
   console.log(`lattice-emulator — PDF / PPTX / PNG / HTML renderer for Lattice decks
 
 USAGE
-  node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip> [palette]
+  node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
   node lattice-emulator.js <source.md> <custom.css> <output> [palette]
 
 ARGUMENTS
@@ -149,7 +149,13 @@ ARGUMENTS
                        .zip   an IMAGE SET — a zip of one raster per slide
                               (PNG/JPEG/WebP) plus opt-in thumbnails and
                               standalone chart/diagram SVGs (see IMAGE SET below)
-                     An HTML sidecar is always written alongside.
+                       .html  the rendered HTML as the DELIVERABLE — no PDF is
+                              written. Still a real browser render (auto-split and
+                              the overflow/legibility passes measure laid-out DOM,
+                              and this file is their post-split result); it only
+                              skips the PDF encode
+                     For every format EXCEPT .html, an HTML sidecar is written
+                     alongside; with .html that sidecar IS the output file.
   custom.css         Optional layout CSS override; if omitted, the bundled
                      lattice.css from the install dir is used
   palette            Palette name (e.g. 'indaco', 'cuoio')
@@ -517,10 +523,31 @@ if (!mdFile || !outFile) {
 const OUT_EXT = path.extname(outFile).toLowerCase();
 // `.zip` → an IMAGE SET: a zip of one raster per slide (PNG/JPEG/WebP) plus opt-in
 // thumbnails and standalone chart/diagram SVGs. `.pptx` → image-per-slide PowerPoint,
-// `.png` → loose per-slide PNGs, anything else → the vector PDF.
+// `.png` → loose per-slide PNGs, `.html` → the rendered HTML as the DELIVERABLE (no
+// PDF at all), anything else → the vector PDF.
+//
+// `.html` used to fall through to 'pdf', which wrote PDF BYTES INTO A FILE NAMED
+// `.html` and put the real HTML in a second `<out>.html.html` — a silently
+// mislabeled file, because the sidecar name is derived by stripping the output
+// extension and appending `.html`. It is a first-class format now rather than a
+// rejected extension: the HTML sidecar was always a real artifact of every render,
+// so the only thing missing was a way to ask for it WITHOUT paying `page.pdf`.
+//
+// This is NOT a browser-free path and must not be sold as one. The deck still
+// renders in Chromium — the auto-split, overflow and legibility passes measure laid-out
+// DOM, and the HTML written here is the post-split result of those passes, which is
+// exactly what makes it worth having. What it skips is the PDF encode (plus the
+// PDF-only SVG rasterize pass): 2.3% of a 1-slide render and 15% of a 58-slide one,
+// so the whole-run saving is ~18% on a large deck and UNDER 1% on a one-slide
+// fixture, where browser startup dominates. Do not pick this format for speed on a
+// small deck — there is none
+// (engineering/decisions/2026-08-16-render-format-cost-assessment.md). For markup
+// without layout, call `lib/engine` directly instead — that IS browser-free, and it
+// is a different coverage tier, not a faster version of this one.
 const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
   : OUT_EXT === '.png' ? 'png'
   : OUT_EXT === '.zip' ? 'imageset'
+  : OUT_EXT === '.html' ? 'html'
   : 'pdf';
 // Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
 // thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
@@ -543,7 +570,10 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
 // by construction, so the flag is meaningless (and warned) there.
 const RASTER_PDF = !!flags.raster && OUT_FORMAT === 'pdf';
 if (flags.raster && OUT_FORMAT !== 'pdf') {
-  console.warn(`  ⚠ --raster applies only to .pdf output (a .${OUT_FORMAT} is already image-per-slide) — ignoring.`);
+  // Two different reasons the flag is meaningless here, and the old message asserted
+  // the wrong one for `.html` ("already image-per-slide" — it has no images at all).
+  const why = OUT_FORMAT === 'html' ? 'a .html render has no page raster' : `a .${OUT_FORMAT} is already image-per-slide`;
+  console.warn(`  ⚠ --raster applies only to .pdf output (${why}) — ignoring.`);
 }
 
 // --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)
@@ -568,6 +598,14 @@ const PAPER_FIT = !!(PAPER || ORIENTATION);
 if (PAPER_FIT && (OUT_FORMAT !== 'pdf' || RASTER_PDF)) {
   console.warn(`  ⚠ --paper/--orientation apply only to the vector .pdf export — ignoring for ${RASTER_PDF ? '--raster PDF' : `.${OUT_FORMAT}`}.`);
 }
+// --present writes PDF catalog hints. Scoped to `.html` deliberately: before this
+// change `deck.md out.html --present` produced a (mislabeled) PDF that DID carry the
+// hints, so going silent on that combination is a regression THIS change introduces,
+// and it gets the warning. `--present` with .png/.pptx/.zip was already silently
+// ignored and is left alone — off-path pre-existing behavior, not this diff's to
+// widen (HARD RULE #18). The warning itself lives further down, next to PRESENT's
+// definition: it must fire for the front-matter `present: true` form too, and the
+// front matter is not parsed yet here.
 
 // Friendly error wrapper for file reads. Bare ENOENT throws produce
 // stack traces that look like crashes; this surfaces them as one-line
@@ -1526,6 +1564,16 @@ const FLUID_VIEW = !!flags.fluid || /^\s*fluid:\s*(?:true|yes|on)\s*$/im.test(fm
 // view (see applyPresentMode). Enabled by the `--present` flag OR a
 // `present: true` front-matter key, mirroring --fluid. PDF only.
 const PRESENT = !!flags.present || /^\s*present:\s*(?:true|yes|on)\s*$/im.test(fm);
+// PDF-only options that have nothing to attach to under `.html`, warned HERE rather
+// than beside the other output-format warnings because both must see the FRONT MATTER
+// form, not just the CLI flag: a deck opting in with `present: true` renders to .html
+// and would otherwise get no warning at all — the exact silent regression the guard
+// exists to prevent, missed on half its input space (red-team, this PR). Scoped to
+// `.html` on purpose; the same silence on .png/.pptx/.zip is pre-existing (#18).
+if (OUT_FORMAT === 'html') {
+  if (PRESENT) console.warn('  ⚠ --present / `present: true` sets PDF viewer hints — ignoring for .html (no PDF is written).');
+  if (EMBED_SOURCE) console.warn('  ⚠ --embed-source embeds the deck in the PDF — ignoring for .html. Use --player, which embeds the source for lossless re-import.');
+}
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
 // sidecar into a portable, offline, three-view player (Present · Read·Slides ·
 // Read·Article). Like --fluid, it only affects the written .html, after raster.
@@ -2352,7 +2400,15 @@ ${stateChartScript}
 </script>
 </body></html>`;
 
-const outHtml = outFile.replace(/\.(pdf|pptx|png|zip)$/i, '') + '.html';
+// For an `.html` OUTPUT the sidecar IS the deliverable, so it resolves to `outFile`
+// ITSELF rather than to `<out>.html.html`. Taken as an identity rather than by
+// round-tripping the extension through the strip-and-append below, because that
+// rebuilds the extension in LOWERCASE: `deck.HTML` resolved to `deck.html`, so the
+// path the caller asked for was never written and the run still exited 0
+// (red-team, this PR). Case-insensitive filesystems hide it; CI does not.
+const outHtml = OUT_FORMAT === 'html'
+  ? outFile
+  : outFile.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.html';
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red
@@ -2400,7 +2456,10 @@ function toFluidViewer(cleanHtml) {
 // Write the clean export HTML now; the raster path below loads it. If --fluid,
 // the post-raster rewrite replaces it with the viewer once raster is done.
 fs.writeFileSync(outHtml, cleanDocHtml);
-if (!QUIET) console.log(`HTML: ${slides.length} slides → ${outHtml}`);
+// Skipped when the HTML *is* the deliverable: this fires BEFORE the auto-split pass
+// rewrites the file, so its count is the pre-split one. The `.html` branch logs the
+// final rendered-page count instead, and one line beats two disagreeing ones.
+if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
 
 // ── PDF via Puppeteer ─────────────────────────────────────────────────────────
 // Locate puppeteer in either: a local node_modules (preferred), the project
@@ -3328,6 +3387,44 @@ async function renderBody(browser, g, closeBrowser) {
       if (c.assets) tags.push(`${c.assets} SVG${effectiveSvgBackground !== 'inherit' ? ` (${effectiveSvgBackground})` : ''}`);
       console.log(`Image set: ${outFile} (${tags.join(', ')}, ${(zipBuf.length / 1024).toFixed(0)} KB)`);
     }
+  } else if (OUT_FORMAT === 'html') {
+    // HTML deliverable: there is nothing left to export. `outHtml === outFile` here, and
+    // the file on disk is already the finished render — written pre-navigation and
+    // REWRITTEN by the auto-split / rails passes, so what is on disk is the measured,
+    // split-baked document rather than the pre-layout guess.
+    //
+    // Close the browser and stop. No `page.pdf`, no screenshots. `--player` / `--fluid`
+    // still apply below and overwrite this same path with the viewer build, which is
+    // coherent: in this mode the sidecar IS the deliverable, so the viewer replaces it
+    // exactly as it replaces the sidecar of a PDF render.
+    // Count the RENDERED pages off the live document, not `slides.length` — a deck that
+    // auto-splits has more of the former than the latter, and reporting the authored
+    // count here would disagree with the page count the same deck's PDF would carry.
+    // Read it before closing the browser; fall back to the authored count if the query
+    // fails, since a log line must never sink a completed render.
+    // Scope the count to the document's OWN slide sections. `section[data-lattice-slide]`
+    // unscoped also matches a `<section data-lattice-slide>` an author wrote in their
+    // markdown, which parses as nested DOM — the same hazard measureOverflow scopes around
+    // — and an inflated count here would contradict the "pages identically to the .pdf"
+    // claim this format is documented on.
+    let pageCount = slides.length;
+    try {
+      const n = (await page.$$('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')).length;
+      if (n > 0) pageCount = n;
+    } catch { /* keep the authored count */ }
+    await closeBrowser();
+    // materializedNotes, NOT slideNotes — under --strip-notes the former is all-null. The
+    // sidecar is a SHAREABLE file, so handing it the unstripped array leaks exactly the
+    // text the flag exists to remove, and it did (red-team, this PR): the same deck+flags
+    // stripped on the .pdf path and leaked here. The log tag counts the same array so it
+    // cannot claim notes the sidecar does not contain.
+    const noteCount = materializedNotes.filter(Boolean).length;
+    if (!QUIET) {
+      const tags = [`${pageCount} slide${pageCount === 1 ? '' : 's'}`];
+      if (noteCount) tags.push(`${noteCount} slide${noteCount === 1 ? '' : 's'} with speaker notes`);
+      console.log(`HTML: ${outFile} (${tags.join(', ')})`);
+    }
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else {
     // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
@@ -3832,6 +3929,18 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
     }
   }
 })().catch((e) => {
+  // A FAILED `.html` render must not leave a complete-looking deliverable behind.
+  // Every other format writes its artifact only on success, so a failure leaves no
+  // file. `.html` is the exception by construction — outHtml IS outFile, and it is
+  // written before the browser launches and rewritten on the hardened retry — so a
+  // crash here left a 2.5 MB PRE-SPLIT, unmeasured document at the deliverable path,
+  // indistinguishable from a good render and overwriting any previous good one
+  // (red-team, this PR). Absence is the honest outcome; unlink so the caller sees
+  // "no artifact" like every other format. Best-effort: a failing unlink must not
+  // mask the render error we are about to report.
+  if (OUT_FORMAT === 'html') {
+    try { if (fs.existsSync(outFile)) fs.unlinkSync(outFile); } catch { /* report the real error below */ }
+  }
   // Surface render/export failures as a one-line error (matching readFileOrDie),
   // not a raw unhandled-rejection stack trace that reads like a crash.
   console.error(`error: ${e?.message ? e.message : e}`);
@@ -4013,12 +4122,15 @@ async function applyPresentMode(pdfBytes) {
 }
 
 // Plaintext speaker-notes sidecar: one block per slide that has a note.
-function writeNotesSidecar(pdfPath, notes) {
+function writeNotesSidecar(outPath, notes) {
   const blocks = [];
   notes.forEach((note, i) => {
     if (note) blocks.push(`# Slide ${i + 1}\n\n${note}\n`);
   });
-  const sidecar = pdfPath.replace(/\.pdf$/i, '') + '.notes.txt';
+  // Strip whichever output extension we were given, not just `.pdf` — an `.html`
+  // deliverable should get `deck.notes.txt` like every other format, not
+  // `deck.html.notes.txt`.
+  const sidecar = outPath.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
 }
