@@ -1544,6 +1544,90 @@ function checkSectionBoxOwnership(errors) {
   }
 }
 
+// ─── Size-registry ownership gate ─────────────────────────────────────────
+// The engine owns the page box (lib/engine/sizes.js). No SOURCE stylesheet
+// declares `@size`, and every MARP-FACING ARTIFACT carries the full table.
+//
+// Until 2026-08-16 the registry lived in a `/* @theme … */` comment that the
+// engine regexed back out — a round trip that cost 33 byte-identical copies
+// across `themes/*.css` + `lib/_theme.css`, a 34th in the Theme Studio
+// serializer, and a names-only duplicate in the browser-safe linter, which
+// could not read a CSS comment at all. Geometry moved into a module every one
+// of those consumers imports, and `tools/build-css.js stampSizeDirectives()`
+// writes the `@size` block into dist/ for the one consumer that genuinely reads
+// it from a stylesheet: Marp. See
+// engineering/decisions/2026-08-16-size-registry-ownership.md.
+//
+// BOTH DIRECTIONS, deliberately. A one-way check would let the move rot from
+// either end: a reintroduced table in a theme is a second source of truth the
+// renderer now ignores (so it would be silently inert, the #1218 failure shape),
+// and a dropped stamp is a silently wrong page size in every exported deck —
+// invisible to every in-repo render, since nothing here reads geometry from CSS
+// any more.
+const SIZE_DECL_RE = /@size\s+[A-Za-z0-9:_-]+\s+\S+\s+\S+/;
+// Source roots that must be free of `@size` declarations. (Prose mentioning
+// "the mobile @size" in a comment is fine — the regex wants a full declaration.)
+const SIZE_FREE_ROOTS = ['themes', 'lib'];
+// Marp-facing artifacts that MUST carry the stamped table. `dist/marp-kit` is
+// built on demand (`npm run marp-kit:build`), so it is checked when present.
+const SIZE_STAMPED_ARTIFACTS = [
+  'dist/lattice.css',
+  'dist/lattice.min.css',
+  'dist/marp-kit/lattice.min.css',
+];
+function checkSizeRegistryOwnership(errors) {
+  const { SIZES } = require('../lib/engine/sizes');
+  const { parseSizes } = require('../lib/engine/css');
+  const registered = Object.keys(SIZES);
+
+  for (const root of SIZE_FREE_ROOTS) {
+    const dir = path.join(ROOT, root);
+    if (!fs.existsSync(dir)) continue;
+    for (const file of listCssFiles(dir)) {
+      if (!SIZE_DECL_RE.test(fs.readFileSync(file, 'utf8'))) continue;
+      errors.push(
+        `${path.relative(ROOT, file)}: declares \`@size\`. Geometry belongs to the engine's registry ` +
+        `(lib/engine/sizes.js), not to a stylesheet — the renderer resolves \`size:\` against the ` +
+        `registry and would IGNORE this table, so it is a second source of truth that is silently ` +
+        `inert. Add or edit the canvas in lib/engine/sizes.js; the build stamps the \`@size\` block ` +
+        `into the Marp-facing artifacts for you. See ` +
+        `engineering/decisions/2026-08-16-size-registry-ownership.md.`,
+      );
+    }
+  }
+
+  // Every dist/themes/*.min.css too — the Export-to-Marp bundle ships whichever
+  // palette the deck uses, so a stamp that only reached the base is a half-fix.
+  const distThemes = path.join(ROOT, 'dist', 'themes');
+  const artifacts = [...SIZE_STAMPED_ARTIFACTS];
+  if (fs.existsSync(distThemes)) {
+    for (const f of fs.readdirSync(distThemes).sort()) {
+      if (f.endsWith('.min.css')) artifacts.push(`dist/themes/${f}`);
+    }
+  }
+  for (const rel of artifacts) {
+    const file = path.join(ROOT, rel);
+    if (!fs.existsSync(file)) continue;
+    // Read the artifact with the ENGINE's own `@size` parser, not a fresh regex —
+    // the check then fails on exactly what Marp would fail to read (HARD RULE #1).
+    const stamped = parseSizes(fs.readFileSync(file, 'utf8'));
+    const missing = registered.filter((name) => {
+      const got = stamped.get(name);
+      return !got || got.width !== SIZES[name].width || got.height !== SIZES[name].height;
+    });
+    if (missing.length) {
+      errors.push(
+        `${rel}: the Marp \`@size\` stamp is missing or has drifted for: ${missing.join(', ')}. ` +
+        `marp-cli and the Marp for VS Code extension read the page geometry out of the theme ` +
+        `comment and only ever see dist/, so an unstamped artifact exports every deck at the wrong ` +
+        `page size — and no in-repo render would notice, because the engine reads its registry ` +
+        `instead. Re-run \`npm run css:build\` (and \`npm run marp-kit:build\`); the stamp lives in ` +
+        `tools/build-css.js stampSizeDirectives().`,
+      );
+    }
+  }
+}
+
 // ── The section's own `cq*` units must be ANCHORED to the slide ───────────────
 // A `container-type: size` element cannot query ITSELF, so a bare `cqi`/`cqh` in a
 // declaration that lands on the `<section>` falls back to the initial containing
@@ -7398,6 +7482,7 @@ function run() {
   checkBackgroundLayerVars(errors);
   checkMathRendererParity(errors);
   checkSectionBoxOwnership(errors);
+  checkSizeRegistryOwnership(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
   checkFinishChromeExclusions(errors);
@@ -7530,6 +7615,7 @@ module.exports = {
   targetsSectionElement,
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,
+  checkSizeRegistryOwnership,
   SANCTIONED_SECTION_BOXES,
   checkLabelVoiceFont,
   LABEL_VOICE_MONO_BUDGET,

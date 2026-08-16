@@ -68,11 +68,10 @@ test('parser memo: output matches an engine whose memo never warmed', () => {
 	assert.deepEqual(drifted, [], `decks where a warm engine differs from a cold one: ${drifted.join(', ')}`);
 });
 
-// A bare engine has NO themes registered, and named sizes (`story`, `portrait`, `4K`) come from
-// `@size` declarations inside theme CSS — so without registering one, `theme:` and `size:` change
-// neither the html nor the geometry, and any assertion about them is vacuous. These two tests
-// therefore build their own engine and register the real bundle + a palette, the way
-// lattice-emulator.js does before it renders.
+// A bare engine has NO themes registered, so `theme:` changes neither the html nor the css and any
+// assertion about it is vacuous. (`size:` resolves against the engine's own registry and needs no
+// theme.) These two tests therefore build their own engine and register the real bundle + a
+// palette, the way lattice-emulator.js does before it renders.
 function themedEngine() {
 	const { createEngine } = require('../../../lib/engine/index.js');
 	const e = createEngine();
@@ -106,53 +105,67 @@ test('parser memo: interleaving two themes does not leak one into the other', ()
 	assert.equal(first.css, again.css, 'a theme round-trip changed the css');
 });
 
-test('parser memo: re-registering a theme whose @size changed does NOT serve a stale parser', () => {
-	// THE REGRESSION THE ADVERSARIAL TRIO FOUND. `buildMd` resolves geometryFor(theme, size) and
-	// bakes the resulting orientation + family into the slide pipeline. Live surfaces re-register
-	// themes on EVERY render (addThemes overwrites by name so an edited theme takes effect at once),
-	// so a key covering only `globalBase` hit the memo after a theme's `@size` changed and served a
-	// parser built against the OLD geometry — width/height updated while data-orientation /
-	// data-family did not, silently disabling every family-keyed reflow rule in the cascade.
+test('parser memo: a geometry change across a theme re-registration does NOT serve a stale parser', () => {
+	// THE REGRESSION THE ADVERSARIAL TRIO FOUND. `buildMd` resolves the geometry and bakes the
+	// resulting orientation + family into the slide pipeline. Live surfaces re-register themes on
+	// EVERY render (addThemes overwrites by name so an edited theme takes effect at once), so a key
+	// covering only `globalBase` hit the memo after the geometry changed and served a parser built
+	// against the OLD one — width/height updated while data-orientation / data-family did not,
+	// silently disabling every family-keyed reflow rule in the cascade.
+	//
+	// The VEHICLE changed on 2026-08-16: geometry used to come from an `@size` the theme itself
+	// declared, so the original fixture re-registered a theme with an edited `@size`. The engine now
+	// owns the registry (lib/engine/sizes.js) and a stylesheet cannot redefine the page box, so the
+	// geometry change comes through the deck's `size:` directive instead. The invariant under test —
+	// the memo key covers the RESOLVED GEOMETRY, and store churn does not mask a change to it — is
+	// unchanged. See engineering/decisions/2026-08-16-size-registry-ownership.md.
 	const { createEngine } = require('../../../lib/engine/index.js');
+	const base = fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8');
+	const themeCss = '/*! @theme flip */\n:root{--x:1}';
 	const e = createEngine();
-	e.addThemes([fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8')]);
-	const landscape = '/*! @theme flip */\n/* @size box 1280px 720px */\n:root{--x:1}';
-	const portrait = '/*! @theme flip */\n/* @size box 1080px 1920px */\n:root{--x:1}';
-	const deck = '---\ntheme: flip\nsize: box\n---\n\n# One\n\n---\n\n## Two\n';
+	e.addThemes([base, themeCss]);
+	const body = '# One\n\n---\n\n## Two\n';
+	const wideDeck = `---\ntheme: flip\nsize: hd\n---\n\n${body}`;
+	const tallDeck = `---\ntheme: flip\nsize: story\n---\n\n${body}`;
 
-	e.addThemes([landscape]);
-	const wide = e.render(deck, 'flip');
-	e.addThemes([portrait]); // the author edits the theme's @size and it is re-registered
-	const tall = e.render(deck, 'flip');
+	const wide = e.render(wideDeck, 'flip');
+	e.addThemes([themeCss]); // the live host re-registers on every render
+	const tall = e.render(tallDeck, 'flip');
 
-	// Fixture guard: if `@size` stopped resolving, everything below passes vacuously.
-	assert.notEqual(`${tall.width}x${tall.height}`, `${wide.width}x${wide.height}`, 'fixture broken: the re-registered @size did not change the resolved geometry');
-	// The real assertion: a fresh engine given the portrait theme is the reference.
+	// Fixture guard: if `size:` stopped resolving, everything below passes vacuously.
+	assert.notEqual(`${tall.width}x${tall.height}`, `${wide.width}x${wide.height}`, 'fixture broken: the size directive did not change the resolved geometry');
+	// The real assertion: a fresh engine rendering the same deck is the reference.
 	const ref = createEngine();
-	ref.addThemes([fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'), portrait]);
-	assert.equal(tall.html, ref.render(deck, 'flip').html, 'a re-registered theme served a stale parser — the memo key is missing the resolved geometry');
+	ref.addThemes([base, themeCss]);
+	assert.equal(tall.html, ref.render(tallDeck, 'flip').html, 'a re-registered theme served a stale parser — the memo key is missing the resolved geometry');
 });
 
 test('parser memo: registering the deck theme AFTER a first render does NOT serve a stale parser', () => {
 	// The other half of the same staleness class, and the one a live host hits on startup: the first
-	// render happens before the theme lands (unknown theme → the HD default geometry gets baked), the
-	// theme arrives, and the second render must pick up the real box. Found by the red team.
+	// render happens before the theme lands, the theme arrives, and the second render must match a
+	// render that had the theme all along. Found by the red team.
+	//
+	// This used to turn on GEOMETRY — an unknown theme baked the HD default, and the late-arriving
+	// theme's own `@size` changed the box. Geometry no longer depends on the theme at all (the
+	// registry owns it), so what is left to protect is the theme axis of the memo key: a late
+	// registration must not serve a parser built while the theme was missing.
 	const { createEngine } = require('../../../lib/engine/index.js');
 	const base = fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8');
-	const portrait = '/*! @theme late */\n/* @size box 1080px 1920px */\n:root{--x:1}';
-	const deck = '---\ntheme: late\nsize: box\n---\n\n# One\n\n---\n\n## Two\n';
+	const late = '/*! @theme late */\n/* the palette arrives after the first render */\nsection{--x:1}';
+	const deck = '---\ntheme: late\nsize: story\n---\n\n# One\n\n---\n\n## Two\n';
 
 	const e = createEngine();
 	e.addThemes([base]);
 	e.render(deck, 'late'); // theme not registered yet
-	e.addThemes([portrait]);
+	e.addThemes([late]);
 	const after = e.render(deck, 'late');
 
 	const ref = createEngine();
-	ref.addThemes([base, portrait]);
+	ref.addThemes([base, late]);
 	const want = ref.render(deck, 'late');
 	assert.match(want.html, /data-orientation="portrait"/, 'fixture broken: the reference render is not portrait');
-	assert.equal(after.html, want.html, 'a late-registered theme served a parser built for the pre-registration geometry');
+	assert.equal(after.html, want.html, 'a late-registered theme served a parser built before the theme landed');
+	assert.equal(after.css, want.css, 'a late-registered theme served stale css');
 });
 
 // ── Counting how many parsers actually get built ────────────────────────────────────────────
@@ -193,8 +206,8 @@ test('parser memo: re-registering byte-identical theme css keeps the parser warm
 	// `buildMd` reads from the store — invalidates precisely when the baked stamps would change.
 	const { engine: e, state } = countingEngine();
 	const base = fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8');
-	const css = '/*! @theme warm */\n/* @size box 1280px 720px */\n:root{--x:1}';
-	const deck = '---\ntheme: warm\nsize: box\n---\n\n# One\n';
+	const css = '/*! @theme warm */\n:root{--x:1}';
+	const deck = '---\ntheme: warm\nsize: hd\n---\n\n# One\n';
 	e.addThemes([base, css]);
 	e.render(deck, 'warm');
 	const afterFirst = state.builds;
@@ -206,10 +219,11 @@ test('parser memo: re-registering byte-identical theme css keeps the parser warm
 	assert.equal(state.builds, afterFirst, 'a no-op theme re-registration rebuilt the parser — the memo key is invalidating on mutation rather than on geometry');
 
 	// And the converse, so this is not just "the key ignores the store": a real geometry change must
-	// still rebuild.
-	e.addThemes(['/*! @theme warm */\n/* @size box 1080px 1920px */\n:root{--x:1}']);
-	e.render(deck, 'warm');
-	assert.ok(state.builds > afterFirst, 'a changed @size did not rebuild the parser');
+	// still rebuild. It arrives through the deck's `size:` directive now that the engine owns the
+	// registry rather than through an edited `@size` in the theme.
+	e.addThemes([css]);
+	e.render('---\ntheme: warm\nsize: story\n---\n\n# One\n', 'warm');
+	assert.ok(state.builds > afterFirst, 'a changed size did not rebuild the parser');
 });
 
 test('parser memo: many DIFFERENT documents through ONE parser match cold renders', () => {
