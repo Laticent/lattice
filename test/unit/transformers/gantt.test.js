@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const engine = require('../../../lib/components/chart/_chart-family/chart-family');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, extractFirstList, GANTT_GEOM } = engine;
+const { buildGanttChart, extractFirstList, GANTT_GEOM, GANTT_GEOM_TALL } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
 // The gantt is SVG-native (2026-07-26): marks are <rect>/<polygon> in viewBox
@@ -396,6 +396,22 @@ describe('gantt — tick advance follows the painted face', () => {
     }
   });
 
+  // The longest label the axis actually emits, read off the RENDER rather than
+  // restated: this deck's span crosses two Januaries, so it exercises the
+  // year-tagged month (`Jan '26`), the widest form in the tick vocabulary. Taking
+  // it from the emitter means a vocabulary change — four-letter months, a
+  // four-digit year tag — moves the ceiling below instead of quietly invalidating
+  // a hard-coded 7.
+  const longestLabel = Math.max(...ticks(mono).map(t => t.length));
+
+  test('the deck really does exercise the widest label form', () => {
+    // Guards the two tests below: if this span stopped emitting a year-tagged
+    // month, `longestLabel` would silently shrink and the ceiling would loosen.
+    assert.ok(ticks(mono).some(t => /^[A-Z][a-z]{2} '\d\d$/.test(t)),
+      `expected a year-tagged month tick, got ${JSON.stringify(ticks(mono))}`);
+    assert.equal(longestLabel, 7);
+  });
+
   test('the hand advance stays inside its derivation window', () => {
     const { ADVANCE_MONO_TRACKED, ADVANCE_HAND_TRACKED } =
       require('../../../lib/components/chart/_chart-family/svg-label');
@@ -404,21 +420,33 @@ describe('gantt — tick advance follows the painted face', () => {
     // Both walls of the window svg-label.js derives, locked here because the
     // failure at each end is silent. BELOW the measured worst case ('May' at
     // 0.889) the wrapper under-counts and a label overruns its box. ABOVE
-    // 56u / (7 chars × fsTick) the one-line budget drops to 6 characters and
-    // `maxLines: 1` ellipsizes the longest ordinary tick, `Jan '26` — so the
-    // usual instinct to round a safety constant up is itself the regression.
-    const ceiling = 56 / (7 * GANTT_GEOM.fsTick);
+    // tickBoxW / (longest label × fsTick) the one-line budget loses a character
+    // and `maxLines: 1` ellipsizes `Jan '26` — so the usual instinct to round a
+    // safety constant up is itself the regression here.
+    //
+    // The ceiling is DERIVED from the geometry that sets it (both halves live in
+    // GANTT_GEOM) and from the emitted vocabulary, so retuning the tick box or its
+    // font size fails this test instead of silently moving the wall. Landscape is
+    // the binding orientation — portrait's smaller fsTick buys a looser ceiling —
+    // so assert against the tighter of the two, whichever that becomes.
+    const ceilingFor = (G) => G.tickBoxW / (longestLabel * G.fsTick);
+    const ceiling = Math.min(ceilingFor(GANTT_GEOM), ceilingFor(GANTT_GEOM_TALL));
     assert.ok(ADVANCE_HAND_TRACKED >= 0.889,
       `${ADVANCE_HAND_TRACKED} is under the measured worst case (0.889) — labels will overrun`);
     assert.ok(ADVANCE_HAND_TRACKED <= ceiling,
-      `${ADVANCE_HAND_TRACKED} exceeds ${ceiling.toFixed(3)} — "Jan '26" would ellipsize`);
+      `${ADVANCE_HAND_TRACKED} exceeds ${ceiling.toFixed(3)} — ${longestLabel}-char ticks would ellipsize`);
   });
 
-  test('the wrap budget still admits the longest label in the vocabulary', () => {
-    const { charBudget, ADVANCE_HAND_TRACKED } =
+  test('the wrap budget admits the longest emitted label, in BOTH orientations', () => {
+    const { charBudget, ADVANCE_HAND_TRACKED, ADVANCE_MONO_TRACKED } =
       require('../../../lib/components/chart/_chart-family/svg-label');
-    // "Jan '26" — 7 characters, the widest string buildGanttTicks can emit.
-    assert.ok(charBudget(56, GANTT_GEOM.fsTick, ADVANCE_HAND_TRACKED) >= 7);
+    for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
+      for (const [face, adv] of [['mono', ADVANCE_MONO_TRACKED], ['hand', ADVANCE_HAND_TRACKED]]) {
+        const budget = charBudget(G.tickBoxW, G.fsTick, adv);
+        assert.ok(budget >= longestLabel,
+          `${name}/${face} budget ${budget} < ${longestLabel} chars — the axis would ellipsize`);
+      }
+    }
   });
 });
 
