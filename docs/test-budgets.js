@@ -63,6 +63,20 @@ export const HOOK_TIMEOUT_MS = 20_000;
 export const ASYNC_UTIL_TIMEOUT_MS = 5_000;
 
 /**
+ * The THIRD budget, and the one that is easy to miss: `vi.waitFor` is vitest's own
+ * API, not Testing Library's, and it carries its own hardcoded 1 s default
+ * (`vitest/dist/chunks/vi.*.js`: `const { interval = 50, timeout = 1e3 }`). No
+ * config option reaches it — `configure({ asyncUtilTimeout })` governs
+ * `@testing-library/dom` alone — so the only way to move it is to pass it at the
+ * call site.
+ *
+ * Same value as ASYNC_UTIL_TIMEOUT_MS deliberately: they are the same kind of
+ * budget doing the same job, and a reader should not have to know which library a
+ * given `waitFor` came from to know how long it waits.
+ */
+export const VI_WAIT_FOR_TIMEOUT_MS = 5_000;
+
+/**
  * For a test that waits out REAL animation frames rather than a render.
  *
  * The vetrina deictic gestures are driven by `requestAnimationFrame` and polled
@@ -73,9 +87,16 @@ export const ASYNC_UTIL_TIMEOUT_MS = 5_000;
  * bound the test itself permits. They spent 5.4–9.4 s idle and died together
  * the first time a full run got busy.
  *
- * 19 s of frames against the same ~3× contention stretch the other budgets are
- * sized for. Pass it explicitly — `it('…', { timeout: ANIMATION_TEST_TIMEOUT_MS }, …)` —
- * so a reader can see which tests are paying for real motion.
+ * Pass it explicitly — `it('…', { timeout: ANIMATION_TEST_TIMEOUT_MS }, …)` — so a
+ * reader can see which tests are paying for real motion.
+ *
+ * DO NOT treat this number as what keeps those tests honest. The measured
+ * contention stretch is ~7×, not the ~3× the other budgets are sized against, so
+ * even 60 s has been observed within ~12% of its wall. What actually protects them
+ * is `watchGesture()` in `deictic.test.ts`, which reports whether its sampling
+ * window covered the whole gesture and fails when it did not — otherwise a
+ * half-watched path silently satisfies a "the cursor never went there" bound. The
+ * budget is the safety valve; the guard is the oracle.
  */
 export const ANIMATION_TEST_TIMEOUT_MS = 60_000;
 

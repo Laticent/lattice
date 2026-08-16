@@ -118,17 +118,45 @@ because it is what a single green verification run would have hidden.
 
 Those tests wait out real `requestAnimationFrame` motion, polled a frame at a
 time: `for (let i = 0; i < 1200 && !settled; i++) await frames(1)`. At jsdom's
-~16 ms a frame that loop's **own declared worst case is ~19 s**, before the
-mount and the gesture. So a 25 s budget held ~6 s of slack and a 20 s one sat
-*under the bound the test itself permits* — they spent 5.4–9.4 s idle and died
-together the first time a full run got busy. They now take
-`ANIMATION_TEST_TIMEOUT_MS` (60 s = the 19 s bound against the same ~3×
-stretch), named in `test-budgets.js` beside the others rather than being four
-more magic numbers.
+~16 ms a frame that loop's own worst case is ~19 s, before the mount and the
+gesture. So a 25 s budget held ~6 s of slack and a 20 s one sat *under the bound
+the test itself permits* — they spent 5.4–9.4 s idle and died together the first
+time a full run got busy. They now take `ANIMATION_TEST_TIMEOUT_MS` (60 s).
 
-Note which way the evidence ran here: the deictic tests do not import Testing
-Library and use no `waitFor`, so the `asyncUtilTimeout` change could not have
-caused this. It was pre-existing, and on this issue's own path.
+**But a bigger budget was the wrong fix on its own, and an independent checker
+caught why.** The sampling loop is bounded in FRAMES while the contention it
+suffers is in WALL-CLOCK. Under load a frame stretches from ~16 ms to ~25 ms, so
+the loop spends its 1200 frames *before the gesture finishes* — and then the
+test asserts against a path it only half watched. That has two faces:
+
+- `expect(reached).toBeGreaterThan(…)` fails loudly and confusingly
+  (`expected 600 to be greater than 880`) — a red that no timeout value fixes.
+- `expect(far).toBeLessThan(…)` — a *"the cursor never went over there"* claim —
+  **passes vacuously**, because a truncated sample satisfies an upper bound for
+  free. The checker observed exactly this: two siblings passing at 30.8 s and
+  23.2 s with arithmetically exhausted windows. The oracle goes quiet precisely
+  when the machine is too busy to run it properly, which is the worse half.
+
+So the ceiling stops being part of the measurement. `watchGesture()` returns
+whether the window `expired`, and every caller asserts on it first. A contended
+run now says *"the sampling window ran out before the gesture settled"* instead
+of either lying or confusing you, and `ANIMATION_TEST_TIMEOUT_MS` is no longer
+load-bearing for a correctness claim — which is the property that matters, since
+the measured contention stretch turned out to be ~7×, not the ~3× these budgets
+were first sized against.
+
+**A claim withdrawn.** This note first said the deictic cluster "could not have
+been caused" by the change, on the grounds that deictic imports no Testing
+Library and uses no `waitFor`. That half is true and an independent checker
+confirmed it — but it answers only the `asyncUtilTimeout` half of the change. The
+other half raises `testTimeout` 5 s → 20 s, which lets a straggler hold a worker
+four times longer, and peak contention is exactly the variable that stretches
+these tests. Pre-change they ran 5.4–9.4 s and passed; the first post-change run
+killed all four. That record is consistent with causation, and nothing here
+measures the contention delta either way. So this is **undetermined**, not
+pre-existing — and under HARD RULE #18 an undetermined regression that appeared
+across this change is treated as one this change caused, which is why the fix
+below is in this PR rather than a follow-up.
 
 ### Considered and rejected
 
@@ -147,7 +175,8 @@ caused this. It was pre-existing, and on this issue's own path.
 ## Keeping it fixed
 
 - `npm run check:test-margin` tables how much of its budget each test spends.
-  **Report-only, always exits 0** — see above.
+  **Report-only** — no finding fails a build; the only non-zero exit is being
+  pointed at a report that isn't there. See above.
 - `.github/workflows/docs-flake-nightly.yml` runs the full suite three times and
   opens a rolling `[docs-flake]` issue if the runs disagree. One green run
   cannot disprove nondeterminism, which is the whole reason this took six weeks

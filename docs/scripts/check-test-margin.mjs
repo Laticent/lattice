@@ -11,10 +11,12 @@
 // REPORT-ONLY, ON PURPOSE. This never fails a build. Per-test durations are
 // measured while the suite competes with itself, so they swing run to run —
 // ratcheting a gate on that number would reintroduce exactly the nondeterminism
-// this whole issue is about. It always exits 0. If a nightly streak ever shows
-// the numbers are stable enough to gate, that is the moment to add one — never
-// on hope (the same rule the @smoke e2e subset is held to,
-// engineering/decisions/2026-06-28-experience-gating-playwright.md §3).
+// this whole issue is about. No FINDING here ever fails a build; the only
+// non-zero exit is the usage error of being pointed at a report that isn't
+// there, which is a broken invocation rather than a verdict on the suite. If a
+// nightly streak ever shows the numbers are stable enough to gate, that is the
+// moment to add one — never on hope (the same rule the @smoke e2e subset is
+// held to, engineering/decisions/2026-06-28-experience-gating-playwright.md §3).
 //
 // Usage:
 //   npm run test:report                       # runs the suite, writes the JSON
@@ -51,14 +53,21 @@ export function marginReport(report, budgets = {}) {
 				file: file.name.replace(/.*\/docs\//, ''),
 				name: a.title,
 				ms: Math.round(a.duration ?? 0),
+				status: a.status,
 			})),
 	);
 	tests.sort((a, b) => b.ms - a.ms);
 
 	const slowest = tests.filter((t) => t.ms >= slow);
-	const overBudget = tests.filter((t) => t.ms >= timeout);
-	// How many tests sit within Nx of the wall — the number that actually
-	// predicted #1324 (26 within 2x of the old 5 s budget).
+	// PASSED only. A test that ran past the budget and passed is one carrying its own
+	// longer per-test timeout, which is what the report says about this set. A test that
+	// ran past it and FAILED is just the suite failing, and lumping the two together made
+	// the report state "ran past 20 s and still passed" about a test that had died —
+	// wrong exactly on the run a human opens the report to read.
+	const overBudget = tests.filter((t) => t.ms >= timeout && t.status === 'passed');
+	// How many tests sit within Nx of the wall — the number that actually predicted
+	// #1324. Measured on the pre-fix run: 26 of all tests, or 20 once the six carrying
+	// their own longer timeouts are set aside, which is the figure test-budgets.js cites.
 	const within = Object.fromEntries([2, 3, 4].map((f) => [f, tests.filter((t) => t.ms * f >= timeout).length]));
 
 	return { tests, slowest, overBudget, within, timeout, slow };

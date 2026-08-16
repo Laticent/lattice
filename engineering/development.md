@@ -496,8 +496,14 @@ and the margin report so they cannot drift apart:
 | Budget | Value | What it bounds |
 | --- | --- | --- |
 | `TEST_TIMEOUT_MS` / `HOOK_TIMEOUT_MS` | 20 s | one `it()` / one hook |
-| `ASYNC_UTIL_TIMEOUT_MS` | 5 s | one `findBy*` / `waitFor` poll |
+| `ASYNC_UTIL_TIMEOUT_MS` | 5 s | one Testing Library `findBy*` / `waitFor` poll |
+| `VI_WAIT_FOR_TIMEOUT_MS` | 5 s | one **`vi.waitFor`** poll — vitest's own API, whose 1 s default no config can reach, so it is passed at the call site |
 | `ANIMATION_TEST_TIMEOUT_MS` | 60 s | opt-in, for a test that waits out real `requestAnimationFrame` motion (the vetrina gestures) |
+
+`vi.waitFor` is the one that bites: it looks identical to Testing Library's
+`waitFor` at the call site but is a different function with its own hardcoded
+`timeout = 1e3`, and `configure({ asyncUtilTimeout })` does not touch it. If you
+write one, pass `VI_WAIT_FOR_TIMEOUT_MS`.
 
 Neither is a library default any more, and that is the fix for **#1324**. The
 defaults (5 s and 1 s) are sized for a test that does almost nothing on an idle
@@ -523,7 +529,9 @@ Two tools come with it, both from `docs/`:
 - **`npm run check:test-margin`** (`docs/scripts/check-test-margin.mjs`) — reads
   that report and tables how much of its budget each test is spending. A test
   creeping toward its timeout is the leading indicator for the next #1324.
-  **Report-only, always exits 0**: durations are measured while the suite
+  **Report-only — no finding ever fails a build** (the one non-zero exit is
+  being pointed at a report that doesn't exist, a broken invocation rather than
+  a verdict): durations are measured while the suite
   competes with itself, so gating on them would reintroduce the very
   nondeterminism this fixed.
 - **`.github/workflows/docs-flake-nightly.yml`** runs the suite three times over
@@ -532,12 +540,19 @@ Two tools come with it, both from `docs/`:
 
 If a test genuinely needs longer than the shared budget (a fast-check property
 run, say), give it its own `}, 60_000)` third argument — and size it against the
-test's **own worst case**, not against what it happens to cost today. The
-deictic gestures are the cautionary tale: a 1200-frame rAF poll is ~19 s of
-frames by construction, and the hand-written budgets around it were 20–25 s, so
-they died the first time a run got busy. If you find yourself adding a *third*
-such override, the shared budget is probably wrong — change it in
-`test-budgets.js` rather than at the call site.
+test's **own worst case**, not against what it happens to cost today. If you find
+yourself adding a *third* such override, the shared budget is probably wrong —
+change it in `test-budgets.js` rather than at the call site.
+
+Better still, **do not let a timeout be your oracle.** The deictic gestures are
+the cautionary tale, and the reason is worth internalizing: they sample motion for
+a fixed number of *frames* while the contention they suffer is in *wall-clock*, so
+on a busy machine the window closes before the gesture ends. A test that then
+asserts an upper bound — "the cursor never went over there" — **passes**, because a
+half-watched path clears the bound for free. A bigger budget cannot fix that; only
+noticing can. `watchGesture()` returns whether its window `expired`, and every
+caller asserts on that before anything else. If you write a test that samples a
+process until it finishes, bound the sample and fail when the bound is hit.
 
 ### Studio e2e suite (Playwright) — and running it in the sandbox
 

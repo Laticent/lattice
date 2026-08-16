@@ -24,7 +24,7 @@ export default defineConfig({
 		setupFiles: ['./vitest.setup.ts'],
 		include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
 		// Not vitest's 5 s default — the Studio tests cost 1–2 s of real wall-clock
-		// each and the suite runs its files in parallel, so the default left ~26
+		// each and the suite runs its files in parallel, so the default left 20
 		// tests close enough to the wall that contention pushed a different one
 		// over it every run (#1324). Rationale + measurements: ./test-budgets.js.
 		testTimeout: TEST_TIMEOUT_MS,

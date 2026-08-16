@@ -46,9 +46,21 @@ describe('marginReport', () => {
 		expect(r.within[4]).toBe(3);
 	});
 
-	it('flags a test that met the budget outright, so the caller can exit non-zero', () => {
+	// `overBudget` means "ran long and PASSED anyway", i.e. carries its own longer
+	// per-test timeout — which is what the report says about that set. A test that ran
+	// long and DIED is just the suite failing. Counting the two together made the report
+	// state "ran past 20 s and still passed" about a test that had not passed, on exactly
+	// the run someone opens the report to read.
+	it('counts a long test that PASSED — one carrying its own longer timeout', () => {
+		const r = marginReport(report([{ title: 'slow but green', duration: 20_000, status: 'passed' }]), BUDGETS);
+		expect(r.overBudget.map((t) => t.name)).toEqual(['slow but green']);
+	});
+
+	it('does NOT count a long test that FAILED — that is the suite failing, not a budget note', () => {
 		const r = marginReport(report([{ title: 'blown', duration: 20_000, status: 'failed' }]), BUDGETS);
-		expect(r.overBudget).toHaveLength(1);
+		expect(r.overBudget).toEqual([]);
+		// still measured, just not described as "and still passed"
+		expect(r.tests.map((t) => t.name)).toEqual(['blown']);
 	});
 
 	it('ignores skipped tests rather than counting them as 0 ms', () => {

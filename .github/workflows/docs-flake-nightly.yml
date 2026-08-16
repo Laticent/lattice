@@ -69,6 +69,11 @@ jobs:
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/flake-report.md"
           FAILED=0
+          # A dispatch can hand us anything. `seq 1 garbage` fails, the loop never
+          # runs, and the report would then claim a clean night on zero runs.
+          case "$RUNS" in
+            ''|*[!0-9]*) echo "runs input '$RUNS' is not a number — using 3"; RUNS=3 ;;
+          esac
           {
             echo "## Docs suite — ${RUNS} consecutive full runs"
             echo ""
@@ -105,21 +110,32 @@ jobs:
           } >> "$REPORT"
           # The margin table from the final run — how close the suite is to its
           # own budgets, which is the leading indicator for the next one of these.
-          npm run check:test-margin >> "$REPORT" || true
+          # 2>&1 deliberately: the script reports a missing report on STDERR, and
+          # a stdout-only capture would leave the table silently absent from the
+          # issue body rather than saying why.
+          npm run check:test-margin >> "$REPORT" 2>&1 || true
           echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
 
       - name: Job summary
         if: always()
         run: cat "$GITHUB_WORKSPACE/flake-report.md" >> "$GITHUB_STEP_SUMMARY" || true
 
+      # `always()` and the outcome check, not just the output: if the step above
+      # DIES (npm ci failure, runner OOM) it never sets `failed`, and keying only
+      # on that output would leave a red nightly with no tracking artifact at all
+      # — on the one job whose whole premise is that nobody is watching it.
       - name: Open / append flake issue
-        if: steps.repeat.outputs.failed == '1'
+        if: always() && (steps.repeat.outputs.failed == '1' || steps.repeat.outcome != 'success')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           MARKER='[docs-flake]'
           BODY="$GITHUB_WORKSPACE/flake-report.md"
+          # The step may have died before writing anything.
+          if [ ! -s "$BODY" ]; then
+            printf '## Docs suite flake nightly\n\nThe run step did not complete — no report was produced. Check the job log.\n' > "$BODY"
+          fi
           {
             echo ""
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · commit \`${{ github.sha }}\`._"
