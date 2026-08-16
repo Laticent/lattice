@@ -87,6 +87,17 @@ export const CHROME = {
 	 * spec that steps the dial had it hardcoded — the exact #780 shape this map
 	 * exists to prevent, on a suite that only runs nightly. The transient variant a
 	 * summoned panel produces is `<hint>, showing temporarily`.
+	 *
+	 * LOCATION CHANGED 2026-08-16 (names did not): the dial now sits BEFORE Present
+	 * and Share in both headers, where it used to follow them, so the filled CTA is
+	 * the last labeled control in the row
+	 * (2026-08-16-studio-toolbar-placement.md). Recorded here because the selector
+	 * contract covers a control's location as well as its name, and because the
+	 * #1371 tail-x invariant now reads `rule · dial · Present · Share · feedback` —
+	 * the two headers must keep that order IDENTICAL or the cluster slides on every
+	 * dial step. The dial's own x-stability is still not asserted by
+	 * `studio-header-fit.spec.ts` (its `TAIL` list omits it), though it does hold —
+	 * measured stable at 1100/1280/1440/1920 across all three stops.
 	 */
 	postureStops: ['Read — just the slides', 'Write — editor + preview', 'Craft — every panel'],
 } as const;
