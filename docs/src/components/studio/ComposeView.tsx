@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
+import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -115,11 +116,20 @@ export function structuralGuard() {
 			if (tr.getMeta('slideOp')) return true;
 			const oldDoc = state.doc;
 			const newDoc = tr.doc;
-			if (oldDoc.childCount !== newDoc.childCount) return false; // no accidental merge/split
-			for (let i = 0; i < oldDoc.childCount; i++) {
-				if (oldDoc.child(i).attrs.locked && oldDoc.child(i) !== newDoc.child(i)) return false; // locked slide is immutable
-			}
-			return true;
+			// A locked slide is immutable, whatever else this transaction does. Checked by
+			// NODE IDENTITY across the whole doc rather than index-for-index: a deliberate
+			// cross-slide edit changes the count, which shifts every slide after it, and the
+			// old index comparison then reported all of them as modified.
+			if (touchesLockedSlide(oldDoc, newDoc)) return false;
+			if (oldDoc.childCount === newDoc.childCount) return true;
+			// The slide COUNT changed. That is the accident this guard was written for — a
+			// Backspace at a slide boundary silently merging two slides — UNLESS the author
+			// had deliberately selected across the boundary first (#1650). ⌘A⌘A then Delete,
+			// a drag across two slides then Cut, and typing over such a selection are all
+			// intentional; the pre-transaction selection is what tells them apart, and it
+			// distinguishes them for EVERY route at once (keystroke, cut, paste, drop)
+			// instead of one keymap entry at a time.
+			return selectionSpansSlides(state.selection);
 		},
 	});
 }
@@ -624,6 +634,10 @@ function buildPlugins() {
 		// commands the toolbar drives. No columnResizing (GFM has no column widths).
 		tableEditing(),
 		keymap({ 'Mod-b': toggleMark(deckSchema.marks.strong), 'Mod-i': toggleMark(deckSchema.marks.em) }),
+		// ⌘A scopes to the CURRENT SLIDE; a second ⌘A falls through to baseKeymap's own
+		// `selectAll` for the whole deck. Must sit BEFORE `keymap(baseKeymap)` — the chain
+		// runs in plugin order and stops at the first handler that returns true (#1650).
+		keymap({ 'Mod-a': selectSlideThenDeck }),
 		keymap(baseKeymap),
 		inputRules({
 			rules: [
