@@ -69,6 +69,29 @@ describe('the id contract, for every asset kind', () => {
 		expect(all[0].css).not.toContain('finish-velvet');
 	});
 
+	it('theme: the derivation inputs round-trip, so a reload reproduces the saved CSS', async () => {
+		// `css` is derived FROM the essentials THROUGH a ramp strategy and then has
+		// per-token nudges pinned on top. Keeping only the essentials means a reload
+		// re-derives something that is not what was saved — the record holds the right
+		// CSS while the editor shows a derivation that no longer produces it.
+		const saved = await saveStudioTheme({
+			name: 'midnight', label: 'Midnight', essentials: { accent: '#123456' }, css: '/* @theme midnight */ a{}',
+			overrides: { 'cat-1-fill': { light: '#abcdef' } }, rampStrategy: 'analogous',
+		});
+		expect(saved.overrides).toEqual({ 'cat-1-fill': { light: '#abcdef' } });
+		expect(saved.rampStrategy).toBe('analogous');
+		const [read] = await listStudioThemes();
+		expect(read.overrides).toEqual({ 'cat-1-fill': { light: '#abcdef' } });
+		expect(read.rampStrategy).toBe('analogous');
+	});
+
+	it('theme: a theme that used neither reads back as null, not undefined', async () => {
+		await saveStudioTheme({ name: 'plain', label: 'Plain', essentials: {}, css: '/* @theme plain */ a{}' });
+		const [read] = await listStudioThemes();
+		expect(read.overrides).toBeNull();
+		expect(read.rampStrategy).toBeNull();
+	});
+
 	it('an id that matches nothing creates that record rather than throwing', async () => {
 		// Defensive: a stale Edit (the asset was deleted in another tab while the
 		// faculty was open) must not lose the user's work to an exception.

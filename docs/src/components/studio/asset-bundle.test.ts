@@ -13,6 +13,8 @@ const theme: StudioTheme = {
 	label: 'Harbor',
 	css: '@theme harbor { --accent: #2d4ed8; }',
 	essentials: { accent: '#2d4ed8', bg: '#ffffff' },
+	overrides: null,
+	rampStrategy: null,
 };
 const comp: StudioComponent = { id: 'c1', name: 'callout', bucket: 'statement', css: 'section.callout { color: var(--accent); }', skeleton: '<!-- _class: callout -->\n\n## Hi', meta: { bucket: 'statement' } };
 const finish: StudioFinish = { id: 'f1', name: 'mybrand', label: 'My Brand', css: 'section.finish.finish-mybrand { --fin-wash: none; }', recipe: { ...DEFAULT_RECIPE, mark: { type: 'monogram', placement: 'bottom-right', glyph: 'AB' } } };
