@@ -167,17 +167,31 @@ walls of its window are load-bearing and each fails silently:
 
 1. **The tick vocabulary is CLOSED**, so a measured maximum is a real bound
    rather than a sample. `buildGanttTicks` generates every label the axis can
-   ever show — `Q1`…`Q4` and `Jan`…`Dec`, each with an optional two-digit year
-   tag, 1616 strings in all. No author text reaches the label. Issue #1663 was
-   drafted against `MMM` at 1.148, which looks like the worst case and **cannot
-   occur**; calibrating to it would have been calibrating to a string the engine
-   never emits.
+   ever show — `Q1`…`Q4` and `Jan`…`Dec`, each with an optional year tag — and no
+   author text reaches the label. Issue #1663 was drafted against `MMM` at 1.148,
+   which looks like the worst case and **cannot occur**; calibrating to it would
+   have been calibrating to a string the engine never emits.
+   *Don't restate this set as a count.* An early draft of the constant's comment
+   said "1616 strings", which is wrong: the tag is `String(year).slice(2)`, so a
+   3-digit year yields a one-character tag (`0500-01-01` → `Q1 '0`). The bound
+   does not depend on the count — it depends on the widest per-character form (a
+   bare 3-letter month) and on nothing reachable being longer than 7 characters.
 2. **Rounding a safety constant up is itself the regression here.** The tick
    wraps with `maxLines: 1`, so "break early" does not mean "wrap sooner" — it
-   means *ellipsize*. Above 0.941 (56 units / 7 chars × 8.5 fsTick) the one-line
-   budget drops to six characters and the ordinary `Jan '26` renders as
+   means *ellipsize*. Above 0.941 (`tickBoxW` 56 / 7 chars × 8.5 `fsTick`) the
+   one-line budget drops to six characters and the ordinary `Jan '26` renders as
    `Jan …`. The window is [0.889, 0.941] and 0.90 sits in it with air at both
-   ends; a unit test pins both walls.
+   ends; a unit test pins both walls, deriving each from `GANTT_GEOM` and from the
+   emitted axis rather than restating the numbers.
+3. **The floor protects the COLLISION CULL, not the wrapper.** Easy to get
+   backwards, and the constant's first comment did: it claimed an under-count
+   makes a label "overrun its box". It cannot — the widest label paints under 44
+   units into a 56-unit box, so every reachable tick fits one line at any advance
+   in this range. What an under-count breaks is the cull, which derives each
+   tick's half-width from the same constant and would then let neighbors
+   overprint. Both walls hold on either metric: on the real rendered ticks
+   `getBBox().width` exceeds `getComputedTextLength()` by at most 0.016 per
+   character, and the worst tick is 0.8885 on both.
 
 One visible consequence, and it is correct rather than tolerated: a crowded
 monthly axis thins one step further under sketch. At ~24 units of tick spacing
@@ -187,6 +201,63 @@ how we know it is the face being wider and not the constant being generous.
 
 Note that `lib/base/base.docs.md` already claimed axis ticks rode the hand seam
 while these three did not. That claim is now true; it was aspirational before.
+
+### The bug this uncovered in the runtime's class ordering
+
+Making a transform's GEOMETRY depend on a deck-wide token exposed a latent
+ordering defect in the browser runtime, found by an independent checker on the
+#1663 diff and fixed in it.
+
+`applyDeckClassFromFrontMatter` resolved the deck's registers inside a **promise
+continuation**, so the FIRST `runAllContentTransforms()` pass read every section
+*before* its deck-wide tokens landed. The bootstrap comment already named that
+hazard and leaned on a later re-run to converge the two render paths — but the
+re-run is gated on `applyDefaultComponent()` reporting a change, so a deck whose
+slides all name their own component (`_class: gantt` on every slide) never gets
+one. And chart-family's `chart-frame` idempotency guard makes the re-run a no-op
+for charts even when it does fire.
+
+Harmless while no transform keyed on a deck token; a real desync the moment one
+keyed on it for MEASUREMENT. Reproduced against the shipped
+`dist/lattice-runtime.js` in jsdom: a `mode: sketch` gantt came out with **13
+ticks (mono advances) painted in the hand face**, where the engine renders 8 —
+precisely the CSS-and-math-disagree failure this whole change exists to prevent.
+`mode:` is the register that breaks, because Marp stamps a native `class:` itself
+but has never heard of `mode:`.
+
+Fix: `applyCachedDeckClass` now **primes the cache synchronously from the baked
+front-matter block** when the promise has not resolved yet. The token derivation
+moved out of the continuation into `deckClassConfigFrom(fm)` so both paths share
+it. This is the same reasoning `deckFormMode` already used for `form: off` — the
+baked block is in the DOM and `readBakedFrontMatter` is synchronous, so on the
+export path there is nothing to wait for. Only the `.md` FETCH fallback genuinely
+cannot answer that early, and deferring first paint behind a network round trip is
+what the bootstrap deliberately refuses to do.
+
+### Found, not fixed — ADVANCE_UPPER under-bounds the hand face
+
+`ADVANCE_UPPER` (0.68, `svg-label.js`) is calibrated for uppercase + 0.04em
+tracking in the CLEAN face. Its three consumers — `quadrant.transform.js:624` and
+`:1093`, `radar.transform.js:772` — style their labels `--font-body`, which
+`base.sketch.css` re-points to the hand sans. Measured there, the hand exceeds
+0.68 by up to ~9.6%:
+
+| label | hand |
+|---|---|
+| `Wide moat` | 0.745 |
+| `Emerging challengers` | 0.723 |
+| `Operational maturity` | 0.706 |
+| `Quick Wins` | 0.692 |
+
+Unlike the gantt tick these are **open vocabulary** (author text), and the same
+estimate feeds `placeLabels` / `deCollideLabels`, so an under-count is a placement
+error as well as a wrap error. Latent: rendered the sketch quadrant and radar and
+saw no clipping on the gallery's own data.
+
+**Pre-existing** — it arrived with the `--font-body` re-point in #1647, not with
+#1663 — and off the path of a change scoped to three specific rules with a
+different constant. Recorded here rather than pulled into that diff, per HARD RULE
+#18's pre-existing/off-path branch.
 
 ## Known gap — Mermaid diagram labels (NOT closed here)
 

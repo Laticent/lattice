@@ -10,13 +10,23 @@
   string says, while the hand sans runs 0.561 to 0.889 over the same labels. The
   builder now selects `ADVANCE_HAND_TRACKED` (0.90) or `ADVANCE_MONO_TRACKED`
   (0.75) from the slide's `sketch` class, so the CSS and the measurement can no
-  longer name different faces. Both constants were measured in a real browser
-  over all 1616 labels `buildGanttTicks` can emit.
+  longer name different faces. Both constants were measured in a real browser over
+  the closed set of labels `buildGanttTicks` can emit, none longer than `Jan '26`.
 - A sketch gantt thins a crowded monthly axis one step further than the same
   chart off sketch. That is the hand face genuinely setting wider, not a padded
   constant: at ~24 units of tick spacing the hand's painted `Mar` leaves 1.7
   units of air, under the two the cull requires, so alternate months drop and
   the survivors keep their spacing. No label is ever ellipsized on either face.
+- **The browser runtime now stamps the deck's `mode:`/`class:` registers before its
+  first transform pass**, not one promise-tick after it, whenever the front matter
+  is baked into the document (every Export-to-Marp bundle). It resolved the tokens
+  inside a promise continuation, so the first pass read every section without them
+  and leaned on a later re-run to converge — but that re-run is gated on the
+  default-component rule reporting a change, so a deck whose slides all name their
+  own component never got one. Latent until a transform's *geometry* keyed on a
+  deck-wide token: a `mode: sketch` export built its gantt axis with mono advances
+  and then painted it in the hand face. Marp stamps a native `class:` itself, which
+  is why `mode:` was the register that broke.
 - No visual change off `sketch`. The mono path is a strict no-op — the rendered
   body of the chart gallery is byte-identical before and after, and the
   word-cloud key needed no math change at all: both faces paint its tracked

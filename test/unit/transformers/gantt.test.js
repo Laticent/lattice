@@ -419,7 +419,9 @@ describe('gantt — tick advance follows the painted face', () => {
       'the proportional hand sans sets wider than tracked mono');
     // Both walls of the window svg-label.js derives, locked here because the
     // failure at each end is silent. BELOW the measured worst case ('May' at
-    // 0.889) the wrapper under-counts and a label overruns its box. ABOVE
+    // 0.889) the COLLISION CULL under-counts each tick's half-width and adjacent
+    // ticks overprint — it is the cull this wall protects, not the wrapper, since
+    // the widest label paints under 44u into a 56u box either way. ABOVE
     // tickBoxW / (longest label × fsTick) the one-line budget loses a character
     // and `maxLines: 1` ellipsizes `Jan '26` — so the usual instinct to round a
     // safety constant up is itself the regression here.
