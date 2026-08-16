@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ANIMATION_TEST_TIMEOUT_MS } from '../../../test-budgets.js';
 import { createStage, gestureRest, type RectSource, type Stage } from './stage';
 import { resolveTheme } from './theme';
 
@@ -53,6 +54,51 @@ const cursorAt = () => {
 	const c = document.querySelector<HTMLElement>('.vetrina-cursor');
 	return { x: Number.parseFloat(c?.style.left ?? 'NaN'), y: Number.parseFloat(c?.style.top ?? 'NaN') };
 };
+/**
+ * Watch a gesture frame by frame until it settles, reporting the furthest-right x the
+ * cursor ever occupied — and, crucially, whether we watched the WHOLE thing.
+ *
+ * The frame ceiling is a safety valve, not part of the measurement. It used to be both,
+ * and that was a trap: a contended suite run stretches a frame from ~16 ms to ~25 ms, so
+ * the loop spent its 1200 frames before the gesture finished and the caller then asserted
+ * against a path it had only half-watched. In one direction that reads as a real failure
+ * (`expected 600 to be greater than 880`). In the other — a `far < bound` assertion,
+ * i.e. "the cursor never went over THERE" — a truncated sample makes the bound trivially
+ * true and the test passes VACUOUSLY, which is the worse half: the oracle goes quiet
+ * exactly when the machine is too busy to run it properly.
+ *
+ * So the caller gets `expired` and must assert on it. That is what keeps these tests
+ * honest independently of `ANIMATION_TEST_TIMEOUT_MS` — the timeout stops being
+ * load-bearing for a correctness claim. Found by an independent checker on #1324.
+ */
+async function watchGesture(gesture: Promise<unknown>, ceiling = 1200) {
+	let settled = false;
+	const done = gesture.then(
+		() => {
+			settled = true;
+		},
+		() => {
+			settled = true;
+		},
+	);
+	let far = Number.NEGATIVE_INFINITY;
+	let used = 0;
+	for (; used < ceiling && !settled; used++) {
+		const p = cursorAt();
+		if (Number.isFinite(p.x)) far = Math.max(far, p.x);
+		await frames(1);
+	}
+	// Captured BEFORE awaiting `done` — afterwards `settled` is always true and tells
+	// us nothing about whether the sampling window covered the gesture.
+	const expired = !settled;
+	await done;
+	return { far, expired, used };
+}
+
+/** The message every caller of `watchGesture` shares, so the diagnosis is written once. */
+const EXPIRED =
+	'the sampling window ran out before the gesture settled, so the path below was only partly watched — this is a CONTENTION artifact, not a motion regression; re-run, and if it persists raise the ceiling rather than trusting the assertion that follows';
+
 /** Does the cursor's 28px footprint, centered where it rests, touch `b`? */
 const covers = (p: { x: number; y: number }, b: { left: number; top: number; width: number; height: number }) =>
 	p.x - POINTER / 2 < b.left + b.width && p.x + POINTER / 2 > b.left && p.y - POINTER / 2 < b.top + b.height && p.y + POINTER / 2 > b.top;
@@ -292,27 +338,13 @@ describe('the stroke is always stroked, then withdrawn', () => {
 	// stroke's own ending is past the line's right edge); with a host rest to the LEFT — which is
 	// what a whitespace search returns most of the time — the hand approached the line's START and
 	// then moved backwards over the words while the ink drew itself. The gesture did not happen.
-	it('underline still sweeps its line before withdrawing to a rest behind it', { timeout: 25_000 }, async () => {
+	it('underline still sweeps its line before withdrawing to a rest behind it', { timeout: ANIMATION_TEST_TIMEOUT_MS }, async () => {
 		const stage = mount('full');
 		const box = { left: 600, top: 200, width: 300, height: 24 };
 		const t = target(box, [box]);
-		let settled = false;
 		const rest = { getBoundingClientRect: () => rect({ left: box.left - 60, top: box.top, width: 2, height: 2 }) };
-		const run = stage.gesture('underline', t.src, undefined, { clearance: POINTER / 2 + 5, rest }).then(
-			() => {
-				settled = true;
-			},
-			() => {
-				settled = true;
-			},
-		);
-		let reached = Number.NEGATIVE_INFINITY;
-		for (let i = 0; i < 1200 && !settled; i++) {
-			const p = cursorAt();
-			if (Number.isFinite(p.x)) reached = Math.max(reached, p.x);
-			await frames(1);
-		}
-		await run;
+		const { far: reached, expired } = await watchGesture(stage.gesture('underline', t.src, undefined, { clearance: POINTER / 2 + 5, rest }));
+		expect(expired, EXPIRED).toBe(false);
 		// It got to the END of the line it was drawing under. Without the sweep the furthest right
 		// the cursor ever reaches is the line's START, 300px back.
 		expect(reached).toBeGreaterThan(box.left + box.width - 20);
@@ -337,7 +369,7 @@ describe('an explicit `rest` is where the stroke ENDS, not somewhere it withdraw
 	const DEFAULT_X = { underline: BOX.left + BOX.width + CLEAR, wash: BOX.left + BOX.width + CLEAR, tap: BOX.left + BOX.width + CLEAR, bracket: BOX.left - 6 - CLEAR } as const;
 
 	for (const kind of ['underline', 'wash', 'bracket', 'tap'] as const) {
-		it(`${kind} goes straight there`, { timeout: 25_000 }, async () => {
+		it(`${kind} goes straight there`, { timeout: ANIMATION_TEST_TIMEOUT_MS }, async () => {
 			const stage = mount('full');
 			const t = target(BOX, [BOX]);
 			// PAST the default, on the same side, for `bracket`: its default is already to the left,
@@ -345,22 +377,11 @@ describe('an explicit `rest` is where the stroke ENDS, not somewhere it withdraw
 			// that discriminates. A rest FURTHER left means the fixed stroke never reaches the
 			// default's x at all, while the old two-hop had to stop there first.
 			const restAt = kind === 'bracket' ? { x: DEFAULT_X.bracket - 160, y: BOX.top + BOX.height / 2 } : { x: BOX.left - 160, y: BOX.top + BOX.height / 2 };
-			let settled = false;
-			let far = Number.NEGATIVE_INFINITY;
-			const run = stage.gesture(kind, t.src, undefined, { clearance: CLEAR, rest: point(restAt.x, restAt.y) }).then(
-				() => {
-					settled = true;
-				},
-				() => {
-					settled = true;
-				},
-			);
-			for (let i = 0; i < 1200 && !settled; i++) {
-				const p = cursorAt();
-				if (Number.isFinite(p.x)) far = Math.max(far, p.x);
-				await frames(1);
-			}
-			await run;
+			const { far, expired } = await watchGesture(stage.gesture(kind, t.src, undefined, { clearance: CLEAR, rest: point(restAt.x, restAt.y) }));
+			// FIRST, before the bound below. `far < bound` is a "never went there" claim, and a
+			// half-watched path satisfies it for free — so an expired window has to fail here
+			// rather than sail through as a pass.
+			expect(expired, EXPIRED).toBe(false);
 			expect(cursorAt().x).toBeCloseTo(restAt.x, 0);
 			// It never went to the default. `underline`/`wash` legitimately sweep TO the line's right
 			// edge, so their bound is that edge plus a few pixels of hand — the default sits a whole
@@ -461,7 +482,7 @@ describe('teardown and the reduced tier — the two ways `circle` used to leak',
 		const p = cursorAt();
 		expect(Number.isFinite(p.x), 'the cursor coordinates are NaN — every later gesture is a no-op').toBe(true);
 		expect(p.x).toBeGreaterThan(800);
-	}, 30_000);
+	}, ANIMATION_TEST_TIMEOUT_MS);
 });
 
 describe('the shapes of "gone", and the shapes of "no"', () => {
@@ -529,7 +550,7 @@ describe('the motion policy', () => {
 		const after = new Set(path.slice(turn + 1));
 		expect(after.size, `no motion along the stroke itself — only the approach to it (path ${JSON.stringify(path)})`).toBeGreaterThan(3);
 		expect(cursorAt().x).toBeGreaterThan(700);
-	}, 20_000);
+	}, ANIMATION_TEST_TIMEOUT_MS);
 
 	it('draws heavier ink for a notable target than for a quiet one', () => {
 		// `strength` is public surface and nothing else asserts it does anything: a mutation making

@@ -483,6 +483,77 @@ locally from `docs/`:
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.
 
+### The docs Vitest suite — and its two timeout budgets
+
+`cd docs && npm test` (the `docs-build` job's `npm test` step) runs the React
+islands under Vitest + Testing Library. **Run it from `docs/`, never the repo
+root** — the root has its own suite and gives ~245 unrelated failures.
+
+Two wall-clock budgets govern it, and they live together in
+**`docs/test-budgets.js`**, imported by `vitest.config.ts`, `vitest.setup.ts`
+and the margin report so they cannot drift apart:
+
+| Budget | Value | What it bounds |
+| --- | --- | --- |
+| `TEST_TIMEOUT_MS` / `HOOK_TIMEOUT_MS` | 20 s | one `it()` / one hook |
+| `ASYNC_UTIL_TIMEOUT_MS` | 5 s | one Testing Library `findBy*` / `waitFor` poll |
+| `VI_WAIT_FOR_TIMEOUT_MS` | 5 s | one **`vi.waitFor`** poll — vitest's own API, whose 1 s default no config can reach, so it is passed at the call site |
+| `ANIMATION_TEST_TIMEOUT_MS` | 60 s | opt-in, for a test that waits out real `requestAnimationFrame` motion (the vetrina gestures) |
+
+`vi.waitFor` is the one that bites: it looks identical to Testing Library's
+`waitFor` at the call site but is a different function with its own hardcoded
+`timeout = 1e3`, and `configure({ asyncUtilTimeout })` does not touch it. If you
+write one, pass `VI_WAIT_FOR_TIMEOUT_MS`.
+
+Neither is a library default any more, and that is the fix for **#1324**. The
+defaults (5 s and 1 s) are sized for a test that does almost nothing on an idle
+machine; a Studio component test renders the whole `StudioShell` and waits out a
+400 ms assessment debounce, costing 1–2 s **idle**, while Vitest runs the
+suite's files in parallel. So contention killed whichever test drew the worst
+scheduling — a different one every run, all of them passing in isolation. Since
+`docs-build` is a *required* check, each of those ejected whatever PR was in the
+queue, including ones touching zero files under `docs/`.
+
+Two consequences worth knowing before you debug a red run:
+
+- **A failure here is not reproducible by running the named file alone.** It
+  will pass. Reproduce with repeated *full* runs.
+- **Cross-file state is not the explanation.** Vitest runs `pool: 'forks'` with
+  `isolate: true`, so every file gets its own process and its own jsdom. There
+  is no shared module state to leak.
+
+Two tools come with it, both from `docs/`:
+
+- **`npm run test:report`** — the suite plus a JSON reporter
+  (`.vitest-report.json`, git-ignored).
+- **`npm run check:test-margin`** (`docs/scripts/check-test-margin.mjs`) — reads
+  that report and tables how much of its budget each test is spending. A test
+  creeping toward its timeout is the leading indicator for the next #1324.
+  **Report-only — no finding ever fails a build** (the one non-zero exit is
+  being pointed at a report that doesn't exist, a broken invocation rather than
+  a verdict): durations are measured while the suite
+  competes with itself, so gating on them would reintroduce the very
+  nondeterminism this fixed.
+- **`.github/workflows/docs-flake-nightly.yml`** runs the suite three times over
+  and opens a rolling `[docs-flake]` issue if the runs disagree — the only way
+  to see this class, since one green run cannot disprove nondeterminism.
+
+If a test genuinely needs longer than the shared budget (a fast-check property
+run, say), give it its own `}, 60_000)` third argument — and size it against the
+test's **own worst case**, not against what it happens to cost today. If you find
+yourself adding a *third* such override, the shared budget is probably wrong —
+change it in `test-budgets.js` rather than at the call site.
+
+Better still, **do not let a timeout be your oracle.** The deictic gestures are
+the cautionary tale, and the reason is worth internalizing: they sample motion for
+a fixed number of *frames* while the contention they suffer is in *wall-clock*, so
+on a busy machine the window closes before the gesture ends. A test that then
+asserts an upper bound — "the cursor never went over there" — **passes**, because a
+half-watched path clears the bound for free. A bigger budget cannot fix that; only
+noticing can. `watchGesture()` returns whether its window `expired`, and every
+caller asserts on that before anything else. If you write a test that samples a
+process until it finishes, bound the sample and fail when the bound is hit.
+
 ### Studio e2e suite (Playwright) — and running it in the sandbox
 
 The Studio's real-browser e2e suite (`docs/e2e/*.spec.ts`, driven by

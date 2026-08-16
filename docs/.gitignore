@@ -45,6 +45,8 @@ pnpm-debug.log*
 .perf/
 # preview-e2e screenshots + report (scripts/check-preview-render.mjs)
 .preview-e2e-out/
+# vitest JSON report (npm run test:report) — the input to check-test-margin.mjs
+.vitest-report.json
 # Playwright E2E (playwright.config.ts): HTML report, trace/video/screenshot
 # artifacts, and blob reports. Committed snapshot baselines (if any) live under
 # e2e/**-snapshots and are NOT ignored.

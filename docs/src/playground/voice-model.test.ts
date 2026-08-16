@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { splitSentences as cadenzaSplit } from '@/lib/cadenza';
+import { VI_WAIT_FOR_TIMEOUT_MS } from '../../test-budgets.js';
 import { createVoiceModel, splitSentences as voiceSplit } from './voice-model.js';
 
 // voice-model is now a BYTE SOURCE only — it synthesizes audio bytes (synthOne /
@@ -572,7 +574,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
       },
     });
     model.warm(['Next slide sentence.']);
-    await vi.waitFor(() => expect(calls).toEqual(['Next slide sentence.']));
+    await vi.waitFor(() => expect(calls).toEqual(['Next slide sentence.']), VI_WAIT_FOR_TIMEOUT_MS);
     await model.synthOne({ text: 'Next slide sentence.' });
     expect(calls).toEqual(['Next slide sentence.']); // synthOne replayed the warmed cache entry, no second synth
   });
@@ -646,11 +648,11 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.__setRung(mock.rung);
 
     model.warm(['One.', 'Two.', 'Three.', 'Four.']);
-    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']), VI_WAIT_FOR_TIMEOUT_MS);
     expect(started).not.toContain('Four.'); // capped at 3 — nothing has resolved yet
 
     mock.resolve('One.');
-    await vi.waitFor(() => expect(started).toContain('Four.'));
+    await vi.waitFor(() => expect(started).toContain('Four.'), VI_WAIT_FOR_TIMEOUT_MS);
     mock.resolve('Two.');
     mock.resolve('Three.');
     mock.resolve('Four.');
@@ -673,19 +675,19 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.warm(['Slide 6.']);
     // Three in flight (the shared cap), NOT five — the budget belongs to the instance,
     // not to each call. That property is what this test exists for; only the number moved.
-    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.']));
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.']), VI_WAIT_FOR_TIMEOUT_MS);
     expect(started).toHaveLength(3);
 
     mock.resolve('Slide 2.');
-    await vi.waitFor(() => expect(started).toContain('Slide 5.'));
+    await vi.waitFor(() => expect(started).toContain('Slide 5.'), VI_WAIT_FOR_TIMEOUT_MS);
     expect(started).toHaveLength(4);
 
     mock.resolve('Slide 3.');
-    await vi.waitFor(() => expect(started).toContain('Slide 6.'));
+    await vi.waitFor(() => expect(started).toContain('Slide 6.'), VI_WAIT_FOR_TIMEOUT_MS);
     mock.resolve('Slide 4.');
     mock.resolve('Slide 5.');
     mock.resolve('Slide 6.');
-    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.', 'Slide 5.', 'Slide 6.']));
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.', 'Slide 5.', 'Slide 6.']), VI_WAIT_FOR_TIMEOUT_MS);
   });
 
   it("stops firing FURTHER requests once its signal aborts, but doesn't cancel one already in flight", async () => {
@@ -698,7 +700,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     // Four items against a cap of 3: the first three start, the fourth is queued — which
     // is exactly the state an abort must be able to cancel.
     model.warm(['One.', 'Two.', 'Three.', 'Four.'], { signal: ctl.signal });
-    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']), VI_WAIT_FOR_TIMEOUT_MS);
 
     ctl.abort();
     mock.resolve('One.'); // frees a slot the queued 'Four.' would otherwise take
@@ -719,7 +721,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     const ctlA = new AbortController();
 
     model.warm(['Shared sentence.'], { signal: ctlA.signal }); // caller A fires the real request
-    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
+    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']), VI_WAIT_FOR_TIMEOUT_MS);
 
     const bytesP = model.synthOne({ text: 'Shared sentence.' }); // caller B joins A's in-flight entry
     await new Promise((r) => setTimeout(r, 10));
@@ -738,7 +740,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.__setRung(mock.rung);
 
     const bytesP = model.synthOne({ text: 'Shared sentence.' });
-    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
+    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']), VI_WAIT_FOR_TIMEOUT_MS);
 
     model.warm(['Shared sentence.']); // must join synthOne's in-flight request, not fire a second one
     await new Promise((r) => setTimeout(r, 20));
@@ -755,7 +757,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.__setRung(mock.rung);
 
     model.warm(['Upcoming sentence.']);
-    await vi.waitFor(() => expect(calls).toEqual(['Upcoming sentence.']));
+    await vi.waitFor(() => expect(calls).toEqual(['Upcoming sentence.']), VI_WAIT_FOR_TIMEOUT_MS);
 
     const bytesP = model.synthOne({ text: 'Upcoming sentence.' });
     await new Promise((r) => setTimeout(r, 20));
