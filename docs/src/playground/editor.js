@@ -24,7 +24,7 @@ import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { Compartment, EditorState } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
-import { lintTheme, lintThemeCoarse } from '../lib/lint-theme.js';
+import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
 import { readFrontMatter } from './deck-config.js';
 import { buildVocabSets, findingsToDiagnostics } from './editor-diagnostics.js';
@@ -266,6 +266,12 @@ const latticeTheme = EditorView.theme({
 	},
 	'::selection': { backgroundColor: 'var(--cm-selection)' },
 	'.cm-matchingBracket': { backgroundColor: 'var(--cm-match)', outline: 'none' },
+	// The floating shell every tooltip wears. This surface never had one: its lint
+	// popup fell through to @codemirror/view's base theme (`#f5f5f5`) in every
+	// palette AND in dark mode, where `--text-body` on that fill measures 1.32:1.
+	// The Studio themed `.cm-tooltip` and this editor did not — precisely the drift
+	// this module exists to end, so the rule is shared rather than copied.
+	...tooltipShell,
 	// Every lint surface — squiggle, gutter disc, hover card, panel — comes from
 	// the shared module, so this editor and the Studio's deck editor cannot drift
 	// apart. It replaces a local copy that painted severity with

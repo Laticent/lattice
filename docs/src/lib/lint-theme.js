@@ -17,15 +17,19 @@
 // hands us a fixed child order (text → button(s) → source); CSS grid placement
 // re-reads it as meta / message / action without forking the package.
 //
-// WHAT IT DELIBERATELY DOES NOT TOUCH
-// `.cm-tooltip` — the floating-surface shell (fill, hairline, radius, shadow) —
-// is already themed by each surface and shared with the AUTOCOMPLETE popup. The
-// lint tooltip lives in that same element, so leaving it alone is what keeps the
-// two popups from drifting apart. Verified on the real built Studio, not assumed:
-// the lint tooltip's computed background resolves to `--bg`, and the tooltip is
-// a descendant of `.cm-editor` (so a scoped `EditorView.theme` reaches it — the
-// tooltip plugin falls back to `container = view.dom` when no `parent` is
-// configured, and nothing in docs/src configures one).
+// THE SHELL, AND WHY IT IS HERE TOO
+// `.cm-tooltip` — the floating-surface shell (fill, hairline, radius, shadow) — is
+// shared with the AUTOCOMPLETE popup, so the lint card deliberately styles only the
+// INTERIOR and lets the shell carry both. That was originally left to each surface,
+// on the assumption both already themed it. Only the Studio did: the Playground's
+// popup fell through to `@codemirror/view`'s base `#f5f5f5` on every palette and in
+// dark mode. `tooltipShell` below is therefore exported and spread by both, for the
+// same reason the interior is.
+//
+// Scoped theming reaches all of this — measured, not assumed: the tooltip is a
+// descendant of `.cm-editor`, because the tooltip plugin falls back to
+// `container = view.dom` when no `parent` is configured and nothing in docs/src
+// configures one.
 //
 // SEVERITY WITHOUT HUE
 // Three channels carry severity — the glyph SHAPE (octagon / triangle / circle),
@@ -74,6 +78,36 @@ export const MUTED_INK = 'color-mix(in srgb, var(--text-muted) 55%, var(--text-b
 // tuned as a card edge against `--bg-alt`, and this surface is `--bg`, where it
 // all but disappears on several palettes.
 const HAIRLINE = '1px solid color-mix(in srgb, var(--text-heading) 12%, transparent)';
+
+/**
+ * The floating-surface shell every CodeMirror tooltip wears — fill, hairline,
+ * radius, shadow.
+ *
+ * It lives here, and BOTH consumers spread it, because leaving it to each surface
+ * is exactly how they drifted: the Studio themed `.cm-tooltip` and the Playground
+ * never did, so the Playground's lint popup fell through to `@codemirror/view`'s
+ * base theme — `&light .cm-tooltip { background:#f5f5f5 }` — in every palette AND
+ * in dark mode, where `--text-body` on `#f5f5f5` measures 1.32:1.
+ *
+ * Two tooltip shapes matter here, and only one of them was ever covered:
+ *   · the SQUIGGLE hover goes through `HoverTooltipHost`, so `.cm-tooltip` lands on
+ *     a wrapper `<div>` and the `<ul>` gets `cm-tooltip-section`;
+ *   · the GUTTER-MARKER tooltip goes through `showTooltip` directly, so the `<ul>`
+ *     itself carries both `cm-tooltip` and `cm-tooltip-lint`.
+ * A rule written as `.cm-tooltip.cm-tooltip-lint` therefore reaches the gutter path
+ * only. This is a bare `.cm-tooltip` so it reaches both.
+ *
+ * @type {Record<string, Record<string, string>>}
+ */
+export const tooltipShell = {
+	'.cm-tooltip': {
+		backgroundColor: 'var(--bg)',
+		color: 'var(--text-body)',
+		border: '1px solid color-mix(in srgb, var(--text-heading) 18%, transparent)',
+		borderRadius: '8px',
+		boxShadow: '0 8px 28px color-mix(in srgb, var(--text-heading) 22%, transparent)',
+	},
+};
 
 /**
  * The lint treatment, as a CodeMirror theme-object fragment.

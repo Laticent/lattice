@@ -9,6 +9,10 @@
 - **Both code editors now share ONE lint definition** (`docs/src/lib/lint-theme.js`). The
   Studio deck editor and the Playground each dressed the same `@codemirror/lint` DOM
   independently, so the two popups looked different and a fix to one skipped the other.
+- **Fixed: the Playground's lint popup was an unthemed light box, dark mode included.**
+  It never themed `.cm-tooltip`, so the popup fell through to CodeMirror's built-in
+  `#f5f5f5` on every palette — body text on that fill measures 1.32:1 in dark mode, and
+  the severity word 1.09:1. Both editors now share the shell as well as the interior.
 - **Fixed: lint severity colors never tracked the palette.** The Playground painted the
   squiggle, the gutter marker and the panel with `--db-sev-error` / `--db-sev-warning` —
   tokens referenced in four places and **defined nowhere in the repo**, so their

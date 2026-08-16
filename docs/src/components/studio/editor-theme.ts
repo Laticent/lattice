@@ -1,7 +1,7 @@
 import { HighlightStyle } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
-import { lintTheme, lintThemeCoarse } from '../../lib/lint-theme.js';
+import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.js';
 
 // The shared CodeMirror 6 visual theme for every Studio code surface — the deck
 // Editor (markdown) and the Component studio's CSS + skeleton fields (CodeField).
@@ -40,16 +40,12 @@ export const editorTheme = EditorView.theme({
 	// cannot drift apart. It also retires the lone `#b42318` hex literal that
 	// used to color the error squiggle here.
 	...lintTheme,
-	// Autocomplete popup — palette-aware so the dropdown tracks the active theme +
-	// mode (CodeMirror's default is a fixed light chrome that clashes on dark/tinted
-	// palettes). Every color a token; the matched substring + selected row use accent.
-	'.cm-tooltip': {
-		backgroundColor: 'var(--bg)',
-		color: 'var(--text-body)',
-		border: '1px solid color-mix(in srgb, var(--text-heading) 18%, transparent)',
-		borderRadius: '8px',
-		boxShadow: '0 8px 28px color-mix(in srgb, var(--text-heading) 22%, transparent)',
-	},
+	// The floating shell both the lint popup and the autocomplete dropdown wear —
+	// now shared with the Playground so the two surfaces cannot diverge again
+	// (CodeMirror's default is a fixed light chrome that clashes on dark/tinted
+	// palettes). The autocomplete interior follows; every color a token, with the
+	// matched substring + selected row on accent.
+	...tooltipShell,
 	'.cm-tooltip.cm-tooltip-autocomplete > ul': {
 		fontFamily: 'var(--font-mono, ui-monospace, monospace)',
 		maxHeight: '16em',

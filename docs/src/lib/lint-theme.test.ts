@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { lintTheme, lintThemeCoarse, MUTED_INK } from './lint-theme.js';
+import { lintTheme, lintThemeCoarse, MUTED_INK, tooltipShell } from './lint-theme.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -124,6 +124,26 @@ describe('lintTheme', () => {
 		// its own copy of that key would replace theirs on spread.
 		expect(lintTheme['@media (pointer: coarse)']).toBeUndefined();
 		expect(lintThemeCoarse['.cm-tooltip-lint .cm-diagnosticAction'].minHeight).toBe('44px');
+	});
+
+	it('gives BOTH consumers the tooltip shell', () => {
+		// The lint card styles only the popup's interior and lets `.cm-tooltip` carry
+		// the fill — which works only if every consuming surface actually themes that
+		// shell. The Studio did and the Playground did not, so the Playground's popup
+		// fell through to @codemirror/view's base `&light .cm-tooltip{background:#f5f5f5}`
+		// on every palette AND in dark mode (--text-body on #f5f5f5 is 1.32:1).
+		// It is a bare `.cm-tooltip`, not `.cm-tooltip.cm-tooltip-lint`, on purpose:
+		// @codemirror/lint has TWO tooltip paths, and only the gutter-marker one puts
+		// both classes on the same element — the squiggle hover puts `.cm-tooltip` on a
+		// HoverTooltipHost wrapper whose `<ul>` gets `cm-tooltip-section` instead.
+		expect(Object.keys(tooltipShell)).toEqual(['.cm-tooltip']);
+		expect(tooltipShell['.cm-tooltip'].backgroundColor).toBe('var(--bg)');
+		for (const file of ['../components/studio/editor-theme.ts', '../playground/editor.js']) {
+			const src = readFileSync(join(HERE, file), 'utf8');
+			expect(src, `${file}: must spread the shared tooltip shell`).toContain('...tooltipShell,');
+			// And must not re-declare it locally, which is how the two drifted before.
+			expect(src.match(/^\s*'\.cm-tooltip':\s*\{/m), `${file}: don't redeclare .cm-tooltip`).toBeNull();
+		}
 	});
 
 	it('is spread BEFORE each consumer’s coarse-pointer block', () => {

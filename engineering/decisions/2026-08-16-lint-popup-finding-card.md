@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Studio's lint hover popup was the last surface still wearing `@codemirror/lint`'s stock chrome — a 5px `#d11`/`orange` rail and a `#444` button — because `editor-theme.ts` themed the shared `.cm-tooltip` shell but never its interior. Three independent design tracks were judged and the human picked "Finding Card, in place": the Coach panel's meta/message/action rhythm reproduced by CSS-grid placement over the package's fixed DOM, with severity carried on glyph shape and word as well as color so the `a11y-*` palettes still separate it. Landing it uncovered three latent defects, all fixed here — the Studio and Playground each dressed the same lint DOM independently (now one shared `docs/src/lib/lint-theme.js`); `--db-sev-error`/`--db-sev-warning` were referenced in four places and DEFINED NOWHERE, so hex fallbacks won on all 36 palette x mode rows and severity never tracked the theme (now `--fail`/`--warn`); and recessive ink was bare `--text-muted`, which measures 2.47:1 on magnolia light and 2.64:1 on cuoio light (now mixed 55% into `--text-body`, lifting all 36 rows past 3:1). It also uncovered a trap worth knowing: a CodeMirror theme object compiles in KEY ORDER, so an `@media (pointer: coarse)` block placed above the base rules loses to them at equal specificity — the fix pill measured 28px instead of 44px on a real coarse pointer until the block moved last, and nothing but a real touch context catches it. Verified on the built site across Studio and Playground x light/dark x 1440/820/390, plus a genuine coarse-pointer context where the popup opens and dismisses by tap. iOS Safari is UNVERIFIED.
+summary: The Studio's lint hover popup was the last surface still wearing `@codemirror/lint`'s stock chrome — a 5px `#d11`/`orange` rail and a `#444` button — because `editor-theme.ts` themed the shared `.cm-tooltip` shell but never its interior. Three independent design tracks were judged and the human picked "Finding Card, in place": the Coach panel's meta/message/action rhythm reproduced by CSS-grid placement over the package's fixed DOM, with severity carried on glyph shape and word as well as color so the `a11y-*` palettes still separate it. Landing it uncovered three latent defects, all fixed here — the Studio and Playground each dressed the same lint DOM independently (now one shared `docs/src/lib/lint-theme.js`); `--db-sev-error`/`--db-sev-warning` were referenced in eight declarations across four groups and DEFINED NOWHERE, so hex fallbacks won on all 36 palette x mode rows and severity never tracked the theme (now `--fail`/`--warn`); and recessive ink was bare `--text-muted`, which measures 2.47:1 on magnolia light and 2.64:1 on cuoio light (now mixed 55% into `--text-body`, lifting all 36 rows past 3:1). It also uncovered a trap worth knowing: a CodeMirror theme object compiles in KEY ORDER, so an `@media (pointer: coarse)` block placed above the base rules loses to them at equal specificity — the fix pill measured 28px instead of 44px under a matching coarse-pointer media query until the block moved last, and nothing but a coarse-pointer context catches it. A maker-checker pass then caught a regression this change had CREATED: deleting the Playground's global lint block dropped the fill from its GUTTER-marker tooltip (a second @codemirror/lint path, where `.cm-tooltip` sits on the `<ul>` itself rather than a HoverTooltipHost wrapper), and exposed that the Playground never themed `.cm-tooltip` at all — its popup was CodeMirror's base `#f5f5f5` on every palette and in dark mode, 1.32:1. Fixed by sharing `tooltipShell` too; the original verification had missed it by driving only the hover path and by asserting the shell color with a check that could not fail. Now verified on the built site across Studio and Playground x light/dark x 1440/820/390, on BOTH tooltip paths, comparing the shell against the palette's --bg. The 44px touch target is confirmed via a genuinely-matching coarse-pointer media query; tap-to-open/dismiss was observed under EMULATION only and is not claimed as verified. iOS Safari is UNVERIFIED.
 ---
 
 # The lint popup is the Coach finding card, rendered in place
@@ -22,10 +22,11 @@ Underneath that were three defects nobody had noticed:
    lint DOM in its own idiom, from a global stylesheet. Same findings, same markup, two
    different-looking popups — and a fix to one silently skipped the other.
 2. **`--db-sev-error` / `--db-sev-warning` are not defined anywhere in this repo.** The
-   Playground referenced them in four places for the squiggle, the gutter disc and the
-   panel. Their `#c0392b` / `#b8860b` fallbacks therefore won on all 36 palette × mode
-   rows: the severity colors never tracked the theme at all, despite a changelog entry
-   claiming they were "token-first off `--fail`/`--warn`".
+   Playground referenced them in eight declarations across four groups — the squiggle,
+   the gutter disc, the lint panel's rails, and the tooltip's own left rail in the
+   global `TOOLTIP_CSS`. Their `#c0392b` / `#b8860b` fallbacks therefore won on all 36
+   palette × mode rows: the severity colors never tracked the theme at all, despite a
+   changelog entry claiming they were "token-first off `--fail`/`--warn`".
 3. **Recessive ink below 3:1.** Bare `--text-muted` measures 2.47:1 against `--bg` on
    magnolia light and 2.64:1 on cuoio light.
 
@@ -47,9 +48,11 @@ the same way, so nothing new is minted. `@codemirror/lint` emits a fixed child o
 without forking the package. Actions carry no explicit row so they auto-flow to rows 3..n,
 which is what lets 0..n buttons land cleanly.
 
-Deliberately **not** touched: `.cm-tooltip` itself. The lint popup lives in the same
-element as the autocomplete popup, so leaving the shell alone is what stops the two from
-drifting apart.
+The card styles only the popup's **interior** and lets `.cm-tooltip` — the shell it
+shares with the autocomplete popup — carry the fill, so the two cannot drift apart. That
+only works if every surface themes that shell, and one did not: `tooltipShell` is now
+exported from the same module and spread by both. See "The shell that only one surface
+had" below.
 
 Severity is carried on three channels — glyph shape (octagon / triangle / circle), the
 word, and color — because color is the one channel the `a11y-*` palettes can flatten.
@@ -75,6 +78,34 @@ For the same reason `lintThemeCoarse` is exported **separately** rather than liv
 `.cm-content` lift that keeps iOS from auto-zooming on focus, and a spread carrying a
 second copy of that key would replace theirs, taking the zoom guard with it.
 
+## The shell that only one surface had — caught by the checker, not by me
+
+The first cut of this change left `.cm-tooltip` to each surface on the assumption both
+already themed it. Only the Studio did. The Playground's popup therefore fell through to
+`@codemirror/view`'s base `&light .cm-tooltip { background:#f5f5f5 }` — in every palette
+**and in dark mode**, where `--text-body` on `#f5f5f5` measures **1.32:1** and the
+severity word measures **1.09:1**.
+
+Worse, deleting the Playground's global lint block made part of that a **new** break
+rather than an inherited one. `@codemirror/lint` renders two tooltips over the same
+markup:
+
+- the **squiggle hover** goes through `HoverTooltipHost`, so `.cm-tooltip` lands on a
+  wrapper `<div>` and the `<ul>` only gets `cm-tooltip-section`;
+- the **gutter-marker** tooltip goes through `showTooltip` directly, so the `<ul>` itself
+  carries both `cm-tooltip` and `cm-tooltip-lint`.
+
+The deleted rule was written `.cm-tooltip.cm-tooltip-lint`, so it never matched the hover
+path — but it *did* match the gutter path, and nothing replaced it. Fixed by exporting
+`tooltipShell` (a bare `.cm-tooltip`, which reaches both paths) and spreading it in both
+consumers.
+
+**The verification that missed it drove only the hover path.** The harness now opens the
+popup by gutter marker as well, and compares the computed shell against the palette's
+`--bg` instead of merely asserting it is some color — the original check was
+`shellBg.startsWith('rgb')`, which cannot fail. The raw data had recorded
+`rgb(245,245,245)` against a `--bg` of `#15110d` on six of twelve rows the whole time.
+
 ## A claim in the code that turned out to be false
 
 `playground/editor.js` justified its global stylesheet by asserting that CodeMirror
@@ -89,15 +120,25 @@ duplication was left alone — a separate surface with its own history.
 ## Verification
 
 Twelve cases on the **built** site (HARD RULE #23): Studio and Playground × light and dark
-× 1440 / 820 / 390, each driven to a real hover over a real squiggle, reporting computed
-styles. All twelve: tooltip inside `.cm-editor`, stock rail cleared to `0px`, card renders
-as a grid, `pre-wrap` preserved, glyph mask applied, popup never overflows its viewport,
-fix pill present at `999px` radius on the `--accent` / `--on-accent` pair.
+× 1440 / 820 / 390, each driven to a real hover over a real squiggle **and** to the gutter
+marker, reporting computed styles. All twelve, on both paths: tooltip inside `.cm-editor`,
+shell fill equal to the palette's `--bg` (compared, not merely non-empty), stock rail
+cleared to `0px`, card renders as a grid, `pre-wrap` preserved, glyph mask applied, popup
+never overflows its viewport, fix pill present at `999px` radius on the `--accent` /
+`--on-accent` pair.
 
-**Touch**, in a genuine coarse-pointer context: the popup opens on tap and dismisses on a
-tap elsewhere, and the pill measures 44px. Chromium synthesizes the mouse events the
-package's hover path listens for. **iOS Safari is UNVERIFIED** — it cannot be reached from
-this sandbox, and mobile emulation is not verification.
+**Touch — read this precisely.** The context is Chromium with `hasTouch`, which is
+**emulation**, so the two halves carry different weight:
+
+- The **CSS** conclusion is sound: `matchMedia('(pointer: coarse)')` genuinely matches, so
+  the coarse branch really is exercised, and the fix pill computes 44px at 14px type
+  (28px before the key-order fix). A media query does not care whether the finger is real.
+- The **interaction** conclusion is NOT verification under HARD RULE #23. Tap-to-open and
+  tap-to-dismiss were observed under emulation only; a physical device is unproven. The
+  same run also recorded `openedByGutterTap: false` — a tap on the gutter marker did not
+  open the popup even in emulation.
+
+**iOS Safari is UNVERIFIED** — unreachable from this sandbox.
 
 ## What this change does NOT do
 
