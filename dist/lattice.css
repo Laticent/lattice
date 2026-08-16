@@ -1180,8 +1180,9 @@
                           * natural resting plane and needs no help to get there */
   --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
                           * progress rail. NOT the deck logo — the deck mark's KIND is chrome
-                          * but its PLANE is atmosphere, because a mark must never cover the
-                          * author's words. See the rule in base.modifiers.css. */
+                          * but its PLANE is content, because a mark must never cover the
+                          * author's words and the content plane is where it already painted.
+                          * See the rule in base.modifiers.css for the measurement. */
   --z-alarm:        90;  /* engine-drawn signals about the slide: the overflow / illegible /
                           * fix-me tabs, debug boxes. Above chrome, BELOW a stamp.
                           *
@@ -19952,10 +19953,16 @@ img.deck-logo {
    * pull in opposite directions, each measured against the merge-base:
    *
    *                     marker-corner p3   citation-card + brand logo, off-corner
-   *   `--z-chrome`             0 px        2,124 px — the opaque brand plate erased four
-   *                                                   words of a pull-quote
-   *   `--z-atmosphere`       932 px        0 px     — the mark vanished under a split panel
+   *   `--z-chrome`             0 px        DIFFERS — the opaque brand plate paints over the
+   *                                                 pull-quote, erasing four words
+   *   `--z-atmosphere`       DIFFERS       0 px    — the mark vanishes under a split panel
    *   `--z-content`            0 px        0 px
+   *
+   * The ZEROES are the load-bearing part and they reproduce exactly. The non-zero cells
+   * carry no pixel count on purpose: three independent measurements of the same comparison
+   * produced three different magnitudes (they move with DPI and with rasterizer), so a
+   * number there would be evidence-shaped rather than evidence. The DIRECTION is what the
+   * decision rests on, and that is stable everywhere.
    *
    * Only the content plane is right on both, and the reason is ordinary: a POSITIONED
    * element with `z-index: 0` paints at step 8 of the painting algorithm — above the plain
@@ -24649,7 +24656,7 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   position: absolute;
   /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
    * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
-   * (--z-mark 50 over --z-alarm 40), preserving the order the engine has always shipped.
+   * (--z-mark 100 over --z-alarm 90), preserving the order the engine has always shipped.
    *
    * That reads backwards and it was briefly written the other way, on the argument that an
    * author must be able to see the overflow tab even on a stamped slide. It broke delivered
