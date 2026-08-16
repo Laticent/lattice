@@ -231,8 +231,23 @@ The 2376 is the positive control: exactly the set §2's fix targets, and nothing
   machine, where we never see it." `THEME_EDGES` is confirmed present in the shipped browser
   chunk and the closure was proven equivalent over all 32 themes against the real minified
   served bytes — but nobody clicked Export and opened the zip. **UNVERIFIED.**
-- **A real marp-cli render** of an exported bundle, including whether Marp resolves the
-  minified `@import"indaco";` form the bundle ships. Pre-existing, not changed here.
+- ~~A real marp-cli render~~ — **DONE, 2026-08-16.** marp-cli 4.5.0 (marp-core 4.4.0) was
+  installed and run against the real `dist/marp-kit`. Results, all confirming the kit works:
+
+  | check | result |
+  |---|---|
+  | minified `@import"cuoio";` in the dark wrapper | **resolves** — parent tokens present, no dangling import |
+  | `@size` stamp, default | `MediaBox [0 0 960 540]` = 1280×720 px |
+  | `@size` stamp, `size: story` | `MediaBox [0 0 810 1440]` = 1080×1920 px |
+  | dark vs light palette applied | distinct canvas fills (`.0824 .0667 .051` vs `.1176 .102 .0824`) |
+
+  Both geometries match Lattice's own engine exactly, so the `@size` block stamped by #1665
+  is read correctly by real Marp, and the minified-import question that motivated the
+  whitespace concern is answered: Marp handles it.
+
+  It also corrected a claim in the predecessor record: a missing `@theme` does **not** hard-fail
+  marp-cli. It warns and renders unstyled at **exit 0** — a silent failure, which makes the case
+  for keeping the directive stronger, not weaker.
 - **Whether some cyclic or dangling manifest shape escapes every gate.** Two constructed
   cases were caught only by unrelated gates, by accident.
 

@@ -38,9 +38,21 @@ engine. It had no business in a stylesheet.
 **`@theme` is IDENTITY, and identity travels with content.** Two hard constraints:
 
 - **`@workwel/lattice/themes/<name>.css` is a published package export**, and `README.md`
-  documents it as *"a Marp theme file"*. Marpit **throws** without the directive. A missing
-  `@size` merely degraded a deck to the default box; a missing `@theme` is a hard failure in
-  a documented, working integration.
+  documents it as *"a Marp theme file"*. Without the directive the palette does not register.
+  **Verified against real marp-cli 4.5.0 / marp-core 4.4.0 on 2026-08-16** (this note
+  originally said "Marpit throws", taken from its documented behavior rather than observed —
+  the truth is worse): Marpit throws, but **marp-cli catches it, prints a WARNING, and
+  continues at exit 0**, rendering the deck completely unstyled —
+
+  ```
+  [ WARN ] Cannot register theme CSS: cuoio.min.css (Marpit theme CSS requires @theme meta.)
+  with @theme    : 925,962 bytes, palette tokens present
+  without @theme : 108,696 bytes, NO palette tokens — unstyled
+  ```
+
+  So it is a **silent** failure in a documented integration, not a loud one, which
+  strengthens rather than weakens the case for keeping the directive. A missing `@size`
+  merely degraded a deck to the default box.
 - **`themes/indaco-dark.css` is literally `@import 'indaco'; :root{…}`** — CSS referencing
   another theme BY NAME (`THEME_NAME_IMPORT_RE`). Strip the directive from source and that
   import points at a name appearing nowhere in the source tree.
