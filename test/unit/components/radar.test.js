@@ -343,12 +343,16 @@ describe('radar', () => {
       '</ul></li></ul>';
     // Match every <text>, then filter on its class LIST. Baking the class into
     // the pattern (`<text class="foo"[^>]*>([\s\S]*?)`) backtracks polynomially
-    // over a document with many such tags, which CodeQL flags and rightly.
+    // over a document with many such tags, which CodeQL flags and rightly. The
+    // tspan pattern anchors on the literal `x="`/`y="` the emitter always writes
+    // for the same reason — an unbounded `[^>]*` run is what backtracks, so
+    // `<tspan[^>]*>` is flagged even though it ends at a bare `<`.
     const TEXT_EL = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
+    const TSPAN = /<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g;
     const labels = (cls) => [...transformChartSection(inner, cls).html.matchAll(TEXT_EL)]
       .filter((m) => ((m[1].match(/class="([^"]*)"/) || [])[1] || '')
         .split(/\s+/).includes('radar-sector-label'))
-      .map((m) => [...m[2].matchAll(/<tspan[^>]*>([^<]*)</g)].map((t) => t[1]));
+      .map((m) => [...m[2].matchAll(TSPAN)].map((t) => t[3]));
     const clean = labels('radar quadrant');
     const hand = labels('radar quadrant sketch');
     assert.notDeepEqual(clean, hand,

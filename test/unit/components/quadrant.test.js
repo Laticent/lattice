@@ -103,15 +103,23 @@ function textBoxes(html, className, fontSize, hand = false) {
  * Reuses TEXT_EL_RE and filters on the class LIST in code rather than baking the
  * class into the pattern — the same reason spelled out on `textBoxes` above, and
  * the reason CodeQL flags the baked form: `<text class="foo"[^>]*>([\s\S]*?)`
- * backtracks polynomially over a document with many such tags. The tspan pattern
- * likewise ends at `<` rather than a `</tspan>` literal, so it stays linear.
+ * backtracks polynomially over a document with many such tags.
+ *
+ * The tspan pattern is the file's existing one, anchored on the literal `x="`
+ * and `y="` the emitter always writes. An earlier cut of this helper used
+ * `<tspan[^>]*>` and a comment claiming that ending at `<` rather than a
+ * `</tspan>` literal kept it linear. It does not: the UNBOUNDED `[^>]*` run is
+ * what backtracks, and CodeQL flagged it again. Bounded classes, no unbounded
+ * run, is the property that matters.
  */
+const TSPAN_RE = /<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g;
+
 function labelLines(html, className) {
   const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
     .split(/\s+/).includes(className);
   return [...html.matchAll(TEXT_EL_RE)]
     .filter((m) => wanted(m[1]))
-    .map((m) => [...m[2].matchAll(/<tspan[^>]*>([^<]*)</g)].map((t) => t[1]));
+    .map((m) => [...m[2].matchAll(TSPAN_RE)].map((t) => t[3]));
 }
 
 // ── Fixtures ───────────────────────────────────────────────────────────
