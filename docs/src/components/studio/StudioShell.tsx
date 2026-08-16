@@ -3683,7 +3683,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				) : deckSwitcher}
 				<div className="flex-1" />
 				<Tip label="Search or run a command (⌘K)">
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
+					{/* Same contract as the full header's pill (see the note there): shrink-0 +
+					    nowrap, so the deck switcher stays the one item that gives. The slim
+					    header has far more slack, so it never wrapped — matching it here keeps
+					    the two pills from drifting apart the next time one is touched. */}
+					<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
@@ -3785,7 +3789,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    inside ⋯ is the search affordance; the ⌘K shortcut stays always-bound. */}
 				{!compact && (
 					<Tip label="Search or run a command (⌘K)">
-						<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
+						{/* `shrink-0 whitespace-nowrap` is not decoration — it is this row's stated
+						    contract. The deck switcher is the ONE shrinkable item (`min-w-0` + a
+						    truncating title) and "every sibling is shrink-0"; this pill was the
+						    sibling that never got the class. Without it the pill shrinks below its
+						    own intrinsic width at 1280 in Craft — the width where `xl:` turns the
+						    label + ⌘K Kbd on but the full header has only ~24px of slack — and the
+						    label wraps to two lines, rendering the pill 56px tall inside a 54px
+						    header (measured, both modes). `check:overflow` and `studio-header-fit`
+						    never saw it: they assert `scrollWidth <= clientWidth`, and this burst is
+						    VERTICAL. With the class the pressure lands where the design says it
+						    should — the deck title truncates a little sooner — and the fix holds for
+						    any deck title length rather than for the one that happened to be open. */}
+						<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
