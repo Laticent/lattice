@@ -313,7 +313,7 @@ planes**, and `z` is which one a noun lives on. The model has always said so; as
 |---|---|---|---|
 | **0 canvas** | `--z-canvas` | −2 | the sheet: the `image` layout's photo panel, the finish `.backdrop` field |
 | **1 atmosphere** | `--z-atmosphere` | −1 | decoration *behind the words*: the watermark ghost, oversized ghost numerals, a photo scrim, pale quote glyphs |
-| **2 content** | `--z-content` | 0 | the `stage` Cell and everything the author wrote |
+| **2 content** | `--z-content` | 0 | the `stage` Cell, everything the author wrote, and the deck logo |
 | **3 chrome** | `--z-chrome` | 30 | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, status, progress, pagination |
 | *(above the model)* | `--z-alarm` | 90 | authoring-only signals that must beat the slide: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
 | **4 annotation** | `--z-mark` | 100 | stamped *onto* the delivered slide: status stamps, review annotations, comments |
@@ -326,11 +326,12 @@ redaction. Full-bleed stamps are `inset: 0` and clear nothing via `--corner-stac
 geometry does not save it either. The alarm tabs are authoring-only and never reach a
 delivered export; the stamp does. Do not re-invert these.
 
-**The deck logo sits on ATMOSPHERE, not chrome.** Its *kind* is chrome — frame furniture,
-not author content — and its Tile manifest says so. Its *plane* is atmosphere, because a
-plane decides what may cover what, and a deck mark must never cover the words. On the
-chrome plane an off-corner `logo-style: brand` plate painted over a pull-quote and erased
-four words; on atmosphere the same deck is pixel-identical to before the plane model.
+**The deck logo sits on the CONTENT plane, not chrome.** Its *kind* is chrome — frame
+furniture, not author content — and its Tile manifest says so. Its *plane* is content,
+because a plane says what may cover what, and on that axis the mark belongs with the
+content it sits among. On chrome, an off-corner `logo-style: brand` plate erased four words
+of a pull-quote; on atmosphere it vanished under a split panel. Content is the only value
+correct on both, and it is where `z-index: auto` had it before the model existed.
 
 **The decorative planes sink; the chrome planes rise.** That is the whole trick, and it is
 why the scale costs so little: a negative-z child paints at step 3 of the painting
@@ -353,11 +354,19 @@ Two rules make it hold:
    an element **can be a direct child of `section`**: if it can, it names a plane; if it
    can't, it stays in the band.
 
-**Do not make an occupant a stacking context to "contain" it.** It is not needed — the
-band already does that — and it is not free: isolating the `stage` made Chromium's
-print-to-PDF rasterize a 1px `.below-note` hairline inside it at ~22% coverage, turning a
-solid accent rule into a barely-visible tint. Pixel-identical on screen; 3,596 differing
-pixels in the exported PDF.
+**An occupant does not need to be a stacking context to "contain" it** — the 0-9 band
+already orders component internals against the planes by arithmetic, so isolating the
+`stage` buys nothing today. Whether it *should* isolate (which would contain the band
+properly rather than trusting everyone to stay inside it) is an open design question.
+
+It was a settled prohibition until recently, on the grounds that isolating the stage made
+Chromium's print path rasterize a `.below-note` hairline at ~22% strength — "3,596
+differing pixels in the exported PDF". That measurement came from `pdftoppm`, whose splash
+backend leaks an earlier element's constant alpha into a later tiling-pattern fill; the
+identical PDF through `pdftocairo` or ghostscript shows **zero** differing pixels with the
+stage isolated. See `engineering/gotchas.md` and
+`engineering/decisions/2026-08-12-slide-plane-model.md` § The wash that was a rasterizer
+before you reason from any pixel claim about the print path.
 
 A **Frame** does not paint a plane of its own — it slices boxes. The planes belong to the
 Cells it produces and the Tiles that dock into them, which is why `z` is a field on the

@@ -39,8 +39,8 @@ The Form model is not vague about depth. `lib/forms/schema/cell.schema.json` and
 | Plane | Cells | Tiles |
 |---|---|---|
 | **0 canvas** | — | `canvas`, `rule` |
-| **1 atmosphere** | — | `atmosphere`, `watermark`, `logo` |
-| **2 content** | `stage` | `content` |
+| **1 atmosphere** | — | `atmosphere`, `watermark` |
+| **2 content** | `stage` | `content`, `logo` |
 | **3 chrome** | `masthead`, `masthead-lede`, `masthead-bay`, `footer`, `footer-left`, `progress-centre`, `pagination-right` | `kicker`, `title`, `meta`, `status`, `footer`, `progress`, `pagination` |
 | **4 annotation** | `overlay` | `annotation` |
 
@@ -157,7 +157,7 @@ is made:
 | `--z-canvas` | **−2** | the sheet: the `.lattice-bg` photo panel, the finish `.backdrop` field |
 | `--z-atmosphere` | **−1** | decorative depth: the watermark ghost, oversized ghost numerals, the photo scrim, pale quote glyphs |
 | `--z-content` | 0 | the stage and everything the author wrote |
-| `--z-chrome` | 30 | header, footer, pagination, meta, status, kicker, title, the progress rail (NOT the deck logo — see below) |
+| `--z-chrome` | 30 | header, footer, pagination, meta, status, kicker, title, the progress rail. NOT the deck logo, which is content-plane — see § The wash that was a rasterizer |
 | `--z-alarm` | 90 | authoring-only signals about the slide: the overflow / illegible / fix-me tabs, debug boxes. Never reach a delivered export |
 | `--z-mark` | 100 | what ships stamped **on** the slide: status stamps, review annotations, the comments layer |
 
@@ -240,10 +240,17 @@ right — came out of the exported PDF as a barely-visible tint. The two renders
 screenshot showed anything at all; the difference existed only in the PDF, at 3,596 pixels.
 
 Bisected by appending overrides to the built bundle and re-rendering, one rule at a time:
-the cause was the pair *stage z-index + stage isolation*, i.e. **the stage becoming a
-stacking context**. Chromium's print path composites a gradient image inside a nested
-stacking context down to roughly 22% of its intended strength. Not a Lattice bug, and not
-one any amount of screen review would have caught.
+the difference tracked the pair *stage z-index + stage isolation*, i.e. **the stage becoming
+a stacking context**. The conclusion drawn at the time — that Chromium's print path
+composites a gradient image inside a nested stacking context down to ~22% strength — is
+**WRONG, and everything below in this section is the record of a hypothesis, not a finding.**
+The wash is a defect in the RASTERIZER used to look at the PDF, not in the PDF; the same
+file through `pdftocairo` or ghostscript shows zero differing pixels with the stage
+isolated. § The wash that was a rasterizer, below, has the mechanism and the proof.
+
+It is kept here rather than deleted because the reasoning reads as sound at every step, and
+that is the point: a bisect over one tool's output isolates whatever that tool is sensitive
+to, with total internal consistency. Read on for what a convincing wrong answer looks like.
 
 Three things about it are worth keeping, because each one cost a wrong hypothesis:
 
@@ -364,7 +371,7 @@ Verified on real renders (HARD RULE #23), not inferred:
   IS `-1`, so the two are indistinguishable to it. That case is caught by the STATIC gates
   instead (`checkZPlanes` rejects the bare integer; §4.3 demands the token). The test file's
   own docstring says so; this line used to claim otherwise.
-- Full unit suite (6,108 tests at the time of writing), the 334-test integration
+- Full unit suite (6,108 tests at the time of writing), the 338-test integration
   invariants tier, `lint`,
   `build:check` and `check:ownership` green.
 
@@ -440,10 +447,26 @@ axial shading, same `/Matrix`, same `/SMask /Luminosity` group. Only object numb
 nothing was wrong: 32 slides across three galleries, blessed into goldens. `img.deck-logo`
 had its plane removed to avoid it, which put the one element the model most obviously
 covers outside the model. A `SANCTIONED_PLANELESS` gate was built to keep it there. The
-logo Tile's manifest was edited from `z: 3` to `z: 2` so the declaration would agree with a
-CSS position adopted to dodge a phantom — the paint editing the model, which is backwards.
-Three CSS files grew guard rails telling future authors not to isolate containers. All of
-it is reverted.
+logo Tile's manifest was edited to agree with a CSS position adopted to dodge a phantom —
+the paint editing the model, which is backwards. Three CSS files grew guard rails telling
+future authors not to isolate containers. All of that is reverted.
+
+**Where the logo actually landed, and why it took four attempts.** Not back on `--z-chrome`.
+Removing the phantom left a real question underneath it, and the answer is `--z-content`.
+Two decks discriminate, each measured against the merge-base:
+
+| logo plane | `marker-corner` p3 | citation-card + brand logo, off-corner |
+|---|---|---|
+| `--z-chrome` | 0 px | **2,124 px** — the opaque brand plate erased four words of a pull-quote |
+| `--z-atmosphere` | **932 px** — the mark vanished under a split panel | 0 px |
+| `--z-content` | 0 px | 0 px |
+
+A positioned element at `z-index: 0` paints at step 8 — above the plain in-flow content it
+shares the plane with, below anything claiming the local 0-9 band. That is precisely where
+`z-index: auto` had it before this branch, which is why both decks return to zero. The
+logo's KIND is chrome and its manifest says so; its PLANE is content, because a plane is a
+statement about what may cover what, not about what a thing is. Reading the two as the same
+question is what erased the pull-quote.
 
 **Why it survived so long.** Every visual check in this repo goes through the same
 rasterizer. `tools/pixel-check.js`, `tools/rasterize-for-review.sh` and `tools/preview.js`

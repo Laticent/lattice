@@ -242,6 +242,43 @@ describe('every direct section child is on a named plane or in the flow (real re
     );
   });
 
+  test('the deck logo paints the plane its manifest declares', () => {
+    // THE ONE FORM NOUN §4.3 CANNOT SEE. `collectZPlaneZIndex` (tools/build-forms.js) reads a
+    // noun's CO-LOCATED CSS — `lib/forms/tile/<id>/<id>.css` — and the logo Tile ships none;
+    // its rule lives in base.modifiers.css. So the manifest↔CSS equality this branch is proud
+    // of does not reach the logo, and a mutation test confirms it: setting the manifest to a
+    // plane the CSS does not paint passes build-forms, check-ownership and every unit suite.
+    //
+    // That matters more here than anywhere else, because this Tile's plane has moved four
+    // times on one branch (3 → 2 → 3 → 1 → 2) while chasing a rendering defect that turned
+    // out to be a rasterizer bug. Asking the DOM is the only place the pair can actually be
+    // held, so it is held here.
+    //
+    // WHY CONTENT AND NOT CHROME, since the logo is plainly frame furniture: a plane says
+    // what may COVER what, not what a thing IS. On `--z-chrome` an off-corner
+    // `logo-style: brand` plate erased four words of a pull-quote; on `--z-atmosphere` the
+    // mark vanished under a split panel. `--z-content` is the only value that renders 0 px
+    // against the merge-base on both, because a positioned element at `z-index: 0` paints at
+    // step 8 — above plain in-flow content, below anything claiming the local 0–9 band —
+    // which is exactly where `z-index: auto` had it before the model existed.
+    const declared = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '../../../lib/forms/tile/logo/logo.manifest.json'), 'utf8'),
+    ).z;
+    const PLANE_FOR_MANIFEST_Z = { 0: '--z-canvas', 1: '--z-atmosphere', 2: '--z-content', 3: '--z-chrome', 4: '--z-mark' };
+    const expected = String(slidePlanes.find((p) => p.name === PLANE_FOR_MANIFEST_Z[declared]).value);
+    const logos = rows.filter((r) => r.what.startsWith('img.deck-logo'));
+    assert.ok(logos.length, 'the probe deck must render a deck logo to hold this pair');
+    for (const r of logos) {
+      assert.equal(
+        r.zIndex, expected,
+        `logo.manifest.json declares z ${declared} (${PLANE_FOR_MANIFEST_Z[declared]} = ${expected}) ` +
+        `but the element paints at ${r.zIndex}. The manifest and the paint are the same decision ` +
+        'written twice; when they disagree the catalog lies to every agent that reads it — the ' +
+        'defect this whole model was written from. Change both, or neither.',
+      );
+    }
+  });
+
   test('the canvas sinks below the words and atmosphere sits between them', () => {
     // The inversion this model was written from, asserted by name. A membership check alone
     // would not have caught it: the watermark's `-1` is a perfectly ordinary number.

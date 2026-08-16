@@ -1378,14 +1378,16 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
  * (measured: stage 438 → 388), letting the marker manufacture the clip it was reporting.
  * That is structurally impossible now. */
 section.clip-marked > .overflow-tab {
-  /* `!important` because base.finish.css's `section.finish > *:not(.backdrop)`
-   * sets `position: relative` at the SAME specificity (0,2,1) from a later file,
-   * and won — so on a `finish:` deck this "corner flag" rendered as a full-width
-   * in-flow red BAND that pushed content down and cost a line of copy. Measured:
-   * `x:64 y:593 w:1152 h:23 position:relative`. The reader rule below already
-   * asserts `position: absolute !important` for exactly this reason; the author
-   * rule did not, which is why the claim "the marker never changes the layout"
-   * was false on the one deck family most likely to notice. */
+  /* `!important` is HISTORICAL, and kept deliberately. base.finish.css used to carry a
+   * blanket `section.finish > *:not(.backdrop)` setting `position: relative` at the same
+   * specificity (0,2,1) from a later file, and it won — so on a `finish:` deck this
+   * "corner flag" rendered as a full-width in-flow red BAND that pushed content down and
+   * cost a line of copy (measured `x:64 y:593 w:1152 h:23 position:relative`). That rule
+   * is GONE — the plane model deleted it, because sinking the backdrop means nothing has
+   * to be pushed off it. So this `!important` no longer defends against anything today.
+   * It stays because the property it asserts is an invariant in its own right (an overflow
+   * marker must never take flow space it is reporting on), not because the old rule is
+   * still there. */
   position: absolute !important;
   top: 0;
   right: 0;
@@ -1539,10 +1541,12 @@ section.illegible {
    until 2026-08-04, because it asserts `!important` and this rule does not. This one ties
    `section.finish > *:not(.backdrop)` at (0,2,1) and LOST on source order (base.finish.css
    is bundled after this file), so on a `finish:` deck it was dragged into flow and did
-   perturb exactly the height math above. That rule now withholds `position` from frame
-   chrome instead of a second `!important` being added here; the invariant is gated by
+   perturb exactly the height math above. That blanket rule NO LONGER EXISTS — the plane
+   model deleted it along with its `:where()` exclusion list, because a sunk backdrop needs
+   nothing pushed off it. The invariant is still gated by
    test/integration/invariants/frame-chrome-out-of-flow.test.js.
-   engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
+   engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md and
+   2026-08-12-slide-plane-model.md */
 section.illegible > .illegible-tab {
   position: absolute;
   top: 0;
@@ -1692,10 +1696,11 @@ section:not(.illegible) > .illegible-tab { display: none; }
  * has by definition already earned the overflow tab above it. */
 section.fit-marked > .fixme-tab {
   /* `!important` for the same reason the overflow tab asserts it:
-   * `base.finish.css`'s `section.finish > *:not(.backdrop)` sets
-   * `position: relative` at the same (0,2,1) specificity from a later file, and
-   * an in-flow "corner tag" is a full-width band that pushes content down —
-   * i.e. the marker consuming the stage height it is reporting on. */
+   * `base.finish.css` used to carry a blanket `section.finish > *:not(.backdrop)` setting
+   * `position: relative` at the same (0,2,1) specificity from a later file, and an in-flow
+   * "corner tag" is a full-width band that pushes content down — i.e. the marker consuming
+   * the stage height it is reporting on. That rule is gone (the plane model deleted it);
+   * the `!important` stays because the invariant does. */
   position: absolute !important;
   bottom: 0;
   right: 0;
@@ -1792,31 +1797,37 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  /* ATMOSPHERE plane — decoration BEHIND the words, with the watermark ghost.
+  /* CONTENT plane. The deck mark's KIND is chrome — frame furniture, not author content,
+   * and its Tile manifest says so — but a plane says what may COVER what, and on that axis
+   * the mark belongs with the content it sits among, ordered by DOM position like the rest
+   * of it. This element has now been on three planes; what settles it is two decks that
+   * pull in opposite directions, each measured against the merge-base:
    *
-   * The deck mark's KIND is chrome (it is frame furniture, not author content) and its
-   * Tile manifest says so. Its PLANE is not, and the distinction is the whole point of
-   * having both: a plane says what may cover what, and a deck mark must never cover the
-   * text. On `--z-chrome` it did. `logo-style: brand` is an opaque plate with a
-   * `backdrop-filter`, and with documented authoring knobs — `logo-x: 45; logo-y: 46;
-   * logo-scale: 5`, exactly the off-corner placement logo.docs.md recommends — it painted
-   * over a pull-quote and erased four words. At `--z-atmosphere` the same deck renders 0 px
-   * from the branch point, where the logo was planeless and content out-painted it in tree
-   * order. So this is not a new position; it is the position it always had, finally named.
+   *                     marker-corner p3   citation-card + brand logo, off-corner
+   *   `--z-chrome`             0 px        2,124 px — the opaque brand plate erased four
+   *                                                   words of a pull-quote
+   *   `--z-atmosphere`       932 px        0 px     — the mark vanished under a split panel
+   *   `--z-content`            0 px        0 px
    *
-   * KNOWN CONSEQUENCE, and it is the right trade: on two canonical gallery slides an opaque
-   * split panel covers the corner mark, as it did before this branch. A decorative mark
-   * losing to a panel is a worse outcome than the author's sentence losing to a mark, and
-   * only one of those is recoverable by moving the logo.
+   * Only the content plane is right on both, and the reason is ordinary: a POSITIONED
+   * element with `z-index: 0` paints at step 8 of the painting algorithm — above the plain
+   * in-flow content it shares the plane with, below anything claiming the local 0-9 band.
+   * That is exactly where `z-index: auto` put it before this branch, which is why both
+   * decks come back at zero. So this is not a new position; it is the position the logo
+   * always had, finally expressible in the model instead of being an unnamed accident.
    *
-   * This declaration has also been removed once and restored. It was pulled because giving
-   * the logo a plane appeared to render an unrelated sibling gradient at ~22% strength in
-   * the exported PDF. It does not — that "wash" is a defect in `pdftoppm`'s splash backend,
-   * which leaks an earlier element's `/ca .22` into a later tiling-pattern fill. The same
-   * PDF through `pdftocairo` or ghostscript is crisp and byte-identical through the
-   * hairline. Do not re-remove this on pixel evidence from a single rasterizer.
+   * Do not "promote" this to `--z-chrome` on the reasoning that the logo is chrome. That
+   * reasoning is what erased the pull-quote; a plane is not a statement about what an
+   * element IS, only about what it may cover.
+   *
+   * This declaration was also removed once and restored, on a different mistake: it was
+   * pulled because giving the logo a plane appeared to wash an unrelated gradient in the
+   * exported PDF. That "wash" is a defect in `pdftoppm`'s splash backend, which leaks an
+   * earlier element's `/ca .22` into a later tiling-pattern fill; the same PDF through
+   * `pdftocairo` or ghostscript is crisp and byte-identical through the hairline. Do not
+   * re-remove this on pixel evidence from a single rasterizer.
    * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
-  z-index: var(--z-atmosphere);
+  z-index: var(--z-content);
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and

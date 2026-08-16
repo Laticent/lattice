@@ -2328,24 +2328,29 @@ means "no gap logged for the runtime route", never "the preview is complete.
   **The render test cannot catch a plane written as its literal** — `--z-atmosphere` IS `-1`,
   and the test reads computed values — so the STATIC gates are what stop a bare `-1`
   (`checkZPlanes`, and §4.3 in `tools/build-forms.js` for a Form noun).
-- **A related trap, dearly bought:** do NOT make a container a stacking context to
-  "contain" its children's z-indexes. The 0–9 band already does that. Isolating the `stage`
-  made Chromium's print-to-PDF rasterize a 1px `.below-note` gradient hairline inside it at
-  ~22% coverage — a solid accent rule reduced to a barely-visible tint, **pixel-identical on
-  screen and 3,596 pixels apart in the PDF**. Height is not the variable (an 8px gradient
-  washes as badly as a 1px one) and neither is alpha (an opaque gradient washes too). What
-  survives is a SOLID fill, which the exporter emits as a vector instead of a rasterized
-  image. Every stacking context between a mark and the page is a chance for this.
-- **The wash is a symptom — chase the promotion, not the gradient.** A flip that swapped
-  the gradient for a solid bar in exports WAS written here, and it is gone. It survived
-  export and silently restyled every page where the gradient had never washed — a
-  full-width taper became a hard stub at 38%, on 32 slides across three galleries, blessed
-  into goldens before anyone opened the diff image. The actual cause was a `z-index` this
-  same branch had put on `img.deck-logo`; removing it removed the wash, and the taper came
-  back everywhere. **If you meet this symptom, find what changed the paint grouping on that
-  slide and undo THAT.** Restyling the victim to survive the compositor hides the cause and
-  costs every page that was fine. `2026-08-12-slide-plane-model.md` § The flip that fixed
-  nothing.
+- **A "print-path wash" was diagnosed here for months. It does not exist — it is a bug in
+  `pdftoppm`.** The symptom: a 1px `.below-note` gradient hairline renders in an exported
+  PDF at ~22% strength, a crisp accent rule reduced to a barely-visible tint, while the
+  screen is perfect. It was attributed in turn to isolating `.cell-stage`, to a blanket
+  child `z-index`, and to a `z-index` on `img.deck-logo`, and each attribution produced a
+  design rule. All of them were measured through poppler's splash backend, which leaks an
+  earlier element's constant alpha into a later tiling-pattern fill. The alpha is `/ca .22`
+  from `--code-inline-border` (`base.elements.css`), so **any slide carrying an inline-code
+  chip can trigger it**, and `0.22 x accent + 0.78 x white` is the "washed" color to within
+  a unit. The same PDF through `pdftocairo` or ghostscript is crisp, and the two files are
+  byte-identical through the hairline.
+
+  **So: if a mark looks washed in a PDF, rasterize it a second way before you change any
+  CSS.** `pdftoppm out.pdf` and `pdftocairo out.pdf` disagreeing IS the diagnosis. Every
+  visual tool in this repo (`tools/pixel-check.js`, `tools/rasterize-for-review.sh`,
+  `tools/preview.js`) shells out to `pdftoppm` alone, so a second opinion from the tooling
+  is not a second opinion.
+
+  What it cost before anyone checked: an export flip that swapped the gradient for a solid
+  bar and silently restyled 32 slides that were fine, blessed into goldens; the deck logo
+  pulled off the plane scale; a gate built to keep it off; and guard rails in three CSS
+  files telling authors not to isolate containers. All reverted.
+  `2026-08-12-slide-plane-model.md` § The wash that was a rasterizer.
 - **Commits:** `engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ### `white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows
