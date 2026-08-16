@@ -3762,33 +3762,9 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
 .below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
 
-/* ── EXPORT-SAFE FLIP for the below-note hairline ────────────────────────────────
- * On screen the rule is an accent gradient fading to nothing. In an EXPORT it is a
- * solid accent bar covering the same leading stretch, because a gradient IMAGE does
- * not survive Chromium's print path here: once a slide carries a few stacking
- * contexts (a running header and a deck logo are enough), the gradient fill is
- * composited down to roughly 22% of its intended strength and a crisp accent rule
- * lands in the PDF as a barely-visible tint. Measured on examples/marker-corner.md:
- * pixel-identical on screen, 3,596 differing pixels in the exported PDF.
- *
- * The height is NOT the variable — an 8px-tall gradient washes exactly as badly as a
- * 1px one — and neither is alpha: an opaque `accent → bg` gradient washes too, and so
- * does a hard-stop one. What survives is a SOLID fill, which the exporter emits as a
- * vector rather than a rasterized image. Verified by rendering each candidate.
- *
- * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
- * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
- * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
- * no print media).
- * `.lattice-exporting` is stamped on the SECTION (deck-export.js), so the ancestor form is
- * the only one needed here — unlike base.finish.css, whose subject `section.finish` can BE
- * the stamped element and therefore needs a self form too. `:where()` keeps the selector at
- * the same specificity as the screen rule above, so it wins on source order alone.
- * engineering/decisions/2026-08-12-slide-plane-model.md. */
-@media print {
-  .below-note::before { background: var(--accent); right: 62%; }
-}
-:where(.lattice-exporting) .below-note::before { background: var(--accent); right: 62%; }
+/* No export-safe flip for this hairline — see the note in base.modifiers.css beside the
+ * raw-form twin of this rule. The gradient wash it was written against was caused by a
+ * `z-index` this change had added to `img.deck-logo`; removing that removed the wash. */
 
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -18748,52 +18724,17 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
   background:linear-gradient(to right, var(--accent), transparent);
 }
 
-/* ── EXPORT-SAFE FLIP for the below-note hairline ────────────────────────────────
- * On screen the rule is an accent gradient fading to nothing. In an EXPORT it is a
- * solid accent bar covering the same leading stretch, because a gradient IMAGE does
- * not survive Chromium's print path here: once a slide carries a few stacking
- * contexts (a running header and a deck logo are enough), the gradient fill is
- * composited down to roughly 22% of its intended strength and a crisp accent rule
- * lands in the PDF as a barely-visible tint. Measured on examples/marker-corner.md:
- * pixel-identical on screen, 3,596 differing pixels in the exported PDF.
- *
- * The height is NOT the variable — an 8px-tall gradient washes exactly as badly as a
- * 1px one — and neither is alpha: an opaque `accent → bg` gradient washes too, and so
- * does a hard-stop one. What survives is a SOLID fill, which the exporter emits as a
- * vector rather than a rasterized image. Verified by rendering each candidate.
- *
- * This is the same RICH-on-screen / SAFE-on-export split base.finish.css runs on, and
- * it fires for the same two export paths: `@media print` (the CLI vector PDF) and
- * `.lattice-exporting` (the Studio raster export, which captures the screen DOM with
- * no print media).
- * BOTH forms, and both twins (print + exporting) share ONE factored head so they cannot
- * drift. Three mistakes were made here and all are worth naming:
- *
- *   · A selector LIST scopes only what each selector says. Writing
- *     `:where(.lattice-exporting) A, B, C` scopes A and leaves B and C UNCONDITIONAL — so 14
- *     of these 15 layouts were applying the EXPORT form on screen. Factoring the compounds
- *     into a single `:is()` makes that class of mistake unrepresentable.
- *   · The subject here STARTS with `section.<layout>`, and `deck-export.js` stamps
- *     `.lattice-exporting` on the SECTION ITSELF — so the ancestor form alone never matched
- *     and the flip was dead on this path. base.finish.css carries both forms for exactly this
- *     reason; this rule now does too. (compare-prose.styles.css needs only the ancestor form,
- *     because its subject `.below-note` is a DESCENDANT of the stamped section.)
- *
- *   · `:is()` must not LEAD the selector and its arms must be equally specific — the
- *     `leading-is` gate scores them, and it cannot score `:not(:has(…))`. Factoring the
- *     CLASSES into `section:is(.a, .b, …):not(:has(.below-note))` gives it fifteen plain,
- *     equally-weighted arms and puts `section` in front, which is both scorable and shorter
- *     than the fifteen full selectors it replaces.
- *
- * `:where()` contributes zero and `:is()` takes its most specific arm, so every form here
- * computes (0,2,4) — the same as the screen rule above — and wins on source order alone.
- * engineering/decisions/2026-08-12-slide-plane-model.md. */
-@media print {
-  section:is(.cards-grid, .compare-prose, .verdict-grid, .list-criteria, .cards-stack, .list, .list-steps, .list-tabular, .timeline, .principles, .matrix-2x2, .decision, .actors, .kpi, .agenda):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
-}
-
-section:is(.cards-grid, .compare-prose, .verdict-grid, .list-criteria, .cards-stack, .list, .list-steps, .list-tabular, .timeline, .principles, .matrix-2x2, .decision, .actors, .kpi, .agenda):not(:has(.below-note)):where(.lattice-exporting) > :is(ul, ol, blockquote, table) + p::before,
-:where(.lattice-exporting) section:is(.cards-grid, .compare-prose, .verdict-grid, .list-criteria, .cards-stack, .list, .list-steps, .list-tabular, .timeline, .principles, .matrix-2x2, .decision, .actors, .kpi, .agenda):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before { background: var(--accent); right: 62%; }
+/* NO EXPORT-SAFE FLIP HERE — and the reason is worth keeping. A gradient IMAGE does
+ * wash out to ~22% in Chromium's print path, but only once the slide carries a
+ * particular extra stacking context, and on this corpus the ONLY thing that added one
+ * was a `z-index` this very change had put on `img.deck-logo` (see its rule below). A
+ * solid-fill flip was written to survive that wash, and it "worked" — while silently
+ * restyling every page where the gradient had never washed at all: the full-width taper
+ * became a hard-edged stub at 38%, on 32 slides across three galleries, all of them
+ * blessed as goldens before anyone looked at them. Removing the z-index removed the wash,
+ * and the flip with it. If a future change reintroduces the wash, fix the stacking
+ * context that caused it — do not restyle the rule to survive it.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
 
 
 
@@ -19819,7 +19760,19 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  z-index: var(--z-chrome);
+  /* DELIBERATELY NO `z-index` — `auto`, which the plane model counts as legal (the
+   * content flow's own resting plane) rather than an omission. This element does not
+   * need a plane: it is `position: absolute` AND carries `opacity` below 1, so it is
+   * already a stacking context, and with the decorative planes NEGATIVE there is
+   * nothing left on the slide for it to have to climb over.
+   *
+   * Giving it `var(--z-chrome)` bought nothing and cost a real regression. Promoting it
+   * out of the z-auto/0 paint group and into the positive-z group tipped Chromium's
+   * print compositor into rendering a SIBLING gradient (the below-note hairline) at
+   * roughly 22% strength — crisp `#0C71A4` at the branch point, washed `#CAE0EB` with
+   * the z-index, on examples/marker-corner.md p2. Bisected to this one declaration:
+   * `header` at 3 vs 30 makes no difference, this line makes all of it.
+   * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and

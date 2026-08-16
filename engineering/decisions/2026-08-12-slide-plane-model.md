@@ -375,6 +375,69 @@ Spot-checked at full resolution on the four largest diffs (`kaizen-craftsmanship
 `seven-steps-problem-to-code`, `accent-on-accent`, `gallery-jargon`): the header lands in
 the panel's empty top band in every case, well clear of the panel's own eyebrow.
 
+## The flip that fixed nothing
+
+The worst thing in this change shipped as a fix, passed every gate, and was blessed
+into six golden PDFs before anyone looked at it. It is worth the space because the
+failure was not in the CSS — it was in the order the questions got asked.
+
+**What happened.** An earlier cut of this branch put `z-index: var(--z-chrome)` on
+`img.deck-logo`. That looked obviously right: the logo is chrome, chrome has a plane,
+name it. It also, in Chromium's print path, promoted the logo out of the z-auto/0 paint
+group into the positive-z group — and that tipped the compositor into rendering an
+unrelated **sibling** at roughly 22% strength: the below-note hairline, a
+`linear-gradient` on a 1px `::before`. On `examples/marker-corner.md` p2 the rule went
+from a crisp `#0C71A4` taper to a washed `#CAE0EB` ghost.
+
+The wash was real and it was measured. What was never asked is *what caused it*. Instead
+a RICH-on-screen / SAFE-on-export flip was written — replacing the gradient with a solid
+`var(--accent)` bar at `right: 62%` under `@media print` and `.lattice-exporting` — on
+the reasoning that a solid fill survives as vector where a gradient image does not. That
+reasoning is correct. The flip did survive export. It also **restyled every page where
+the gradient had never washed**, turning a full-width taper into a hard-edged stub at 38%
+width, on 32 slides across three galleries — all of which were then blessed as goldens,
+which is what made the regression invisible to the regression gate. A gate that compares
+a render to a golden cannot see a bad golden.
+
+**What found it.** Not a test. CI was green, the unit suite was green, `build:check` was
+green, and the regression gate reported "all match committed goldens" — because they did.
+It was found by opening the CI golden-diff bot's before│after│overlay montage and looking
+at the picture, which is the one step the QUALITY BAR asks for and the one step that had
+been skipped.
+
+**The bisect.** Neutralizing the flip and re-rendering against the true branch point:
+`obligation-matrix` went from 1,724 differing pixels on 8 pages to **0 on all 12** — so
+there the flip was pure restyle. `marker-corner` p6 went from 856 to **0**; p2 stayed
+washed, which localized the real cause. `isolation: isolate` was ruled out in both
+directions (removing it on this branch did not fix the wash; adding it to the base tree
+did not cause it). The ancestor stacking-context chain of `.below-note` is *identical*
+across the two trees. Diffing every stacking context inside the section instead of the
+ancestors is what surfaced the logo, and single-declaration overrides settled it:
+`img.deck-logo { z-index: auto }` → 0 differing pixels; `header { z-index: 3 }` → still
+1,726. One line, all of it.
+
+**What shipped instead.** The logo's `z-index` is gone and both flips are deleted. Both
+decks now render **pixel-identical to the branch point on every page**, and the six
+blessed goldens were reverted — after which the *base* goldens match a fresh render on
+this branch, which is the proof that the blessing had been certifying a regression rather
+than recording a change.
+
+**Three rules this earns.**
+
+1. **A plane is not free.** Naming an element's plane promotes it in the paint order, and
+   promotion has compositor-level consequences that have nothing to do with the ordering
+   you wanted. An element that is *already* correctly ordered — `img.deck-logo` is
+   absolutely positioned, carries `opacity` below 1, and has nothing left to climb over
+   now the decorative planes are negative — should stay at `auto`. `auto` is a plane
+   decision, not an omission, and the model counts it as one.
+2. **When a workaround and a cause are both available, the cause is the deliverable.**
+   The flip was a correct answer to the wrong question. It survived review because it
+   came with a real measurement attached, which is exactly what made it convincing.
+3. **Blessing a golden is an assertion, not a build step.** `--bless` writes down "this
+   is what the output should be." Six goldens were re-blessed here without the montage
+   being opened once. If a change re-blesses a golden, the diff image is the artifact
+   that justifies it (HARD RULE #23), and "the gate is green" is not that artifact.
+
 ## Alternatives considered
 
 - **Leave the integers, document a convention.** Rejected: the two files that
