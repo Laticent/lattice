@@ -463,6 +463,21 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
     assert.notEqual(ticks(sec), mono, 'the deck token was ignored because a watcher class rode with it');
   });
 
+  test('a changed data-orientation rebuilds — the class list is not the only build input', () => {
+    // transformChartSection takes (source, cls, orientation). Keying only on the
+    // class list left a chart built for landscape sitting on a section the
+    // runtime had since re-stamped portrait. #1673, found by the inversion lens.
+    const doc = makeDoc(GANTT);
+    const sec = doc.querySelector('section.gantt');
+    sec.setAttribute('data-orientation', 'landscape');
+    chartFamily.applyToDom(doc);
+    const landscape = sec.innerHTML;
+    sec.setAttribute('data-orientation', 'portrait');
+    chartFamily.applyToDom(doc);
+    assert.notEqual(sec.innerHTML, landscape,
+      'the section became portrait and the chart kept its landscape geometry');
+  });
+
   test('class order alone is not a change', () => {
     const doc = makeDoc(GANTT);
     chartFamily.applyToDom(doc);

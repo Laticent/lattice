@@ -346,6 +346,54 @@ rather than reason about — a rebuild-every-pass bug looks completely correct i
 the rendered output while quietly discarding each chart's `data-mark` popover
 targets and anima nodes on every tick of the preview.
 
+#### What the adversarial trio caught (HARD RULE #25 tier 2)
+
+The ladder was mis-applied at first. #1673 was scoped to maker-checker, and
+#1672 got no independent eyes at all — self-review plus the gates — despite
+changing a shared kernel whose `measureLabel` / `widestOf` serve every
+chart-family label. The tier-1/tier-2 question turns on *novel*, and keeping a
+source snapshot so a transform can rebuild a section is machinery no other
+transformer in this repo has. Escalating found three defects the gates could
+not, two of them in the half that had already been reviewed.
+
+**`mode: sketch-clean` measured the hand and painted the clean face.** The
+worst of the three, because it is the exact defect class this whole line of work
+exists to close, reintroduced by the fix for it. `sketch-clean` resolves to
+`sketch sketch-clean-body`, and that rule puts `--font-body` BACK to the clean
+stack while leaving `--font-display` and `--font-label` on the hand. The three
+labels here are `--font-body`; `.gantt-tick` is `--font-label`. So the gantt's
+`classTokens.includes('sketch')` predicate is correct for the gantt and wrong
+here — and it was copied without re-asking which token the rule names. Measured,
+the hand table is NARROWER than the clean one for `C`, `D`, `O`, `Q`, so
+`C`/`O`-heavy names under-count by up to 11% (`LOCO` 0.703 estimated against
+0.790 painted) — the direction that lets a line past its box. Now
+`readsHandBody()`, with a test on the seam.
+
+Latent in precisely the way the original bug was: no shipped deck pairs
+`sketch-clean` with a quadrant or radar, so the byte-identical corpus proves
+nothing about it. **The generalizable lesson: ask which TOKEN a rule names,
+never which mode looks hand-drawn.**
+
+**`data-orientation` is a build input that the rebuild key ignored.**
+`transformChartSection` takes three arguments and the class list is one of them.
+Orientation is re-stamped at runtime from measured aspect, and builders key on it
+(the funnel's portrait viewBox, `GANTT_GEOM_TALL`) — so a chart built for
+landscape could sit on a section that had since become portrait. Same
+measure-versus-paint disagreement, different channel. Now part of the key.
+
+**Two false claims in this change's own comments.** `svg-label.js`'s header still
+said "NO FONT METRICS. A pure kernel has no DOM and no font tables" — the
+sentence that was the *argument* for why an estimate was acceptable — while the
+file had grown a 92-entry font table. And the new test's header claimed that "a
+change to the glyph table, to the shipped faces, or to those rules has to face
+these again": false for the middle one, since both the table and the recorded
+measurements are frozen literals in the same repo, so bumping a woff2 moves the
+paint while both sides sit still and the suite stays green. Both corrected.
+Closing that drift channel properly — a generator following the
+`tools/derive-*` / `calibrate-*` precedent, or a font-file hash pin gated by
+`build:check` — is a real follow-up, and is now stated as missing rather than
+implied to exist (HARD RULE #23).
+
 #### What the checker caught, and why the first cut was wrong
 
 Two defects survived the maker's own testing, both found by the independent

@@ -548,6 +548,20 @@ describe('quadrant — the sketch token reaches the builder', () => {
       'the hand sans is wider here — identical output means `hand` never reached buildQuadrant');
   });
 
+  test('`sketch-clean` measures the CLEAN face — it reverts --font-body', () => {
+    // `mode: sketch-clean` resolves to `sketch sketch-clean-body`, and
+    // base.sketch.css puts `--font-body` back to the clean stack while leaving
+    // `--font-display` / `--font-label` on the hand. These labels are
+    // `--font-body`, so they paint CLEAN there — unlike `.gantt-tick`, which is
+    // `--font-label` and stays hand. Testing the bare `sketch` token (as the
+    // gantt correctly does) measured the hand while the CSS painted the clean
+    // face, under-counting by up to 11% on C/O-heavy names. #1672.
+    assert.deepEqual(labelsOf('quadrant sketch sketch-clean-body'), labelsOf('quadrant'),
+      'a sketch-clean slide must be measured exactly as a clean slide is');
+    assert.notDeepEqual(labelsOf('quadrant sketch sketch-clean-body'), labelsOf('quadrant sketch'),
+      'and must NOT be measured as a full-sketch slide');
+  });
+
   test('the hand face breaks the wide name into more lines', () => {
     const lines = (cls) => labelsOf(cls)[0].match(/<tspan/g).length;
     assert.ok(lines('quadrant sketch') > lines('quadrant'),

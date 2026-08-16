@@ -13,8 +13,20 @@
  * the code. Each is `getComputedTextLength() / (chars × fontSize)` for that
  * string at `.quadrant-label`'s real CSS (Outfit / Shantell Sans, weight 700,
  * `text-transform: uppercase`, `letter-spacing: 0.04em`) against the shipped
- * woff2s in headless Chromium. A change to the glyph table, to the shipped
- * faces, or to those rules has to face these again.
+ * woff2s in headless Chromium.
+ *
+ * WHAT THIS TEST DOES NOT CATCH, stated plainly because an earlier draft of this
+ * comment claimed otherwise: **it cannot see a change to the shipped faces.**
+ * Both the table and these "measurements" are frozen literals in the repo, so
+ * bumping `assets/fonts/outfit-700.woff2` moves the painted width while both
+ * sides of this comparison sit still, and the suite stays green. What the test
+ * DOES catch is the table drifting from these recorded measurements — an edit to
+ * `GLYPH_UPPER`, to `upperAdvance`, or to the rules' size/tracking.
+ *
+ * Closing the font-drift channel needs a gate that re-derives from the woff2
+ * (the `tools/derive-*` / `calibrate-*` precedent) or pins the font files' hashes
+ * beside the table. Tracked as a follow-up rather than done here, and called out
+ * so nobody reads this file as protection it does not provide (HARD RULE #23).
  *
  * THE ASSERTION IS TWO-SIDED, because both directions are defects and they are
  * different defects — see the derivation comment in svg-label.js. Short and the
