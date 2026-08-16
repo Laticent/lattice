@@ -9,13 +9,39 @@
 // two different-looking popups — and a fix to one silently skipped the other.
 // This module is the single source both spread into their themes (HARD RULE #15).
 //
+// A THIRD consumer inherits these rules without rendering any of them:
+// `components/studio/CodeField.tsx` also spreads `editorTheme` for the Component
+// studio's CSS / skeleton / manifest boxes, and it deliberately installs no
+// linter. It therefore carries lint selectors that can never match. That is inert
+// rather than wrong, but note the popup geometry below is viewport-relative
+// (`min(46vh, 320px)`), tuned for a full-height deck editor — if a small embedded
+// field ever DOES need findings, that is the seam to revisit, and the honest fix
+// is a parameter here rather than a second copy of the file.
+//
 // THE DESIGN — "Finding Card, in place"
 // The Coach panel already renders a lint finding as a card with a fixed rhythm:
 // meta line (severity + rule id), then the message, then the action on its own
-// row (coach/FindingCard.tsx). A hover popup that reports the SAME finding
-// should read the same way — so nothing new is minted here. `@codemirror/lint`
-// hands us a fixed child order (text → button(s) → source); CSS grid placement
-// re-reads it as meta / message / action without forking the package.
+// row (coach/FindingCard.tsx). A hover popup that reports the SAME finding should
+// read the same way. `@codemirror/lint` hands us a fixed child order
+// (text → button(s) → source); CSS grid placement re-reads it as
+// meta / message / action without forking the package.
+//
+// It is a deliberate SECOND rendering of that rhythm, not a shared implementation,
+// and nothing in the code binds the two — no import, no shared constant, no test.
+// They already differ in three ways worth knowing before you assume kinship:
+// FindingCard's meta slot 2 carries scope ("Slide 4") where this carries severity;
+// its FILLED accent pill means "apply this drafted change" while its QUIET pill is
+// the default, which is the opposite weighting to the one action here; and its
+// warning glyph resolves to `var(--chart-2, …)`, a token this repo never defines
+// (tracked separately in issue #1688 — 25 such references across 14 files). Restyle one and you must
+// restyle the other by hand.
+//
+// THE ONE ASSUMPTION THIS CANNOT SURVIVE BEING WRONG ABOUT
+// The child order and class names above are package internals with no stability
+// contract, and `@codemirror/lint` is pinned `^6.9.7` inside dependabot's
+// auto-merging `routine` group. `lint-dom-contract.test.ts` drives the real
+// package and pins that DOM, so a bump that wraps or reorders the children fails
+// a gate instead of silently misplacing every rule in this file.
 //
 // THE SHELL, AND WHY IT IS HERE TOO
 // `.cm-tooltip` — the floating-surface shell (fill, hairline, radius, shadow) — is

@@ -303,10 +303,29 @@ const latticeTheme = EditorView.theme({
 });
 
 // Global autocomplete-popup theme. Injected once into <head> (not via
-// EditorView.theme) so it reaches the completion tooltip even when CodeMirror
-// places it in a detached/fixed layer outside .cm-editor — the cause of the
-// unthemed white box on iOS Safari. Backgrounds use !important to beat CM's
-// dynamically-injected base theme regardless of stylesheet order.
+// EditorView.theme). Backgrounds use !important to beat CM's dynamically-injected
+// base theme regardless of stylesheet order.
+//
+// WHY GLOBAL, HONESTLY: this block predates the shared lint theme and was written
+// on the belief that CodeMirror places tooltips "in a detached/fixed layer outside
+// .cm-editor", said to be the cause of an unthemed white box on iOS Safari. That
+// belief does NOT hold for the installed version: tooltipPlugin.createContainer()
+// falls back to `container = view.dom` whenever no `parent` is configured, nothing
+// in docs/src configures one, and the lint tooltip measures as a descendant of
+// .cm-editor on the built site in every case tested. The lint popup is therefore
+// themed with SCOPED rules (lib/lint-theme.js) and needs nothing here.
+//
+// This block stays global anyway, deliberately: the original iOS report was never
+// reproduced or refuted on a real iOS Safari — that platform is unreachable from
+// this sandbox — so removing the belt while the brace is untested would trade a
+// verified-harmless duplication for an unverifiable risk on the one platform the
+// complaint came from. Retire it when someone can drive real iOS Safari and show
+// the autocomplete popup stays themed without it.
+//
+// Note the coupling this leaves: `.cm-tooltip.cm-tooltip-autocomplete` below sets
+// its own fill with !important, so it does NOT inherit `tooltipShell`. The two
+// agree today only because both resolve to var(--bg); retuning the shared shell
+// would move the lint popup and leave the autocomplete popup behind.
 const TOOLTIP_CSS = `
 .cm-tooltip.cm-tooltip-autocomplete {
 	border: 1px solid color-mix(in srgb, var(--border) 45%, var(--text-muted));
@@ -335,10 +354,12 @@ const TOOLTIP_CSS = `
 	max-width: 22em;
 	box-shadow: 0 10px 28px color-mix(in srgb, var(--text-heading) 22%, transparent);
 }
-/* The lint hover tooltip is NOT themed here — it lives inside .cm-editor, so the
-   scoped rules from lib/lint-theme.js reach it, and one definition dresses both
-   this editor and the Studio's. Only the shell it shares with the autocomplete
-   popup is set above. */`;
+/* The lint tooltip is NOT themed here — it lives inside .cm-editor, so the scoped
+   rules from lib/lint-theme.js reach it, and one definition dresses both this
+   editor and the Studio's. Its shell comes from the tooltipShell spread in the
+   theme OBJECT above, not from this sheet; what is in this sheet is the
+   autocomplete-specific chrome. (No backticks in here — this is inside a template
+   literal, and one would end it.) */`;
 
 function ensureTooltipTheme() {
 	if (typeof document === 'undefined' || document.getElementById('lattice-cm-tooltip-theme')) return;

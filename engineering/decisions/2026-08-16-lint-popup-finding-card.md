@@ -117,6 +117,69 @@ descendant of `.cm-editor` on every case tested. Scoped theming reaches it, whic
 this lands as a theme object and not a global sheet. The autocomplete popup's global
 duplication was left alone — a separate surface with its own history.
 
+## The assumption this rests on, and the gate that now holds it
+
+The card is produced by grid placement over a DOM this repo does not own. The child
+order (`text → button(s) → source`) and the class names are `@codemirror/lint`
+internals with no stability contract — and `@codemirror/lint` is pinned `^6.9.7`
+inside dependabot's `routine` group, which **auto-merges minor and patch bumps
+unattended once CI is green**.
+
+Every other assertion about this design reads the exported theme *object*, which
+stays perfectly valid while the DOM underneath it moves. So the failure path was:
+minor bump → grouped → CI green → auto-merged → the grid addresses elements that are
+no longer siblings → the popup renders as overlapping text, and nothing tells us.
+
+`docs/src/lib/lint-dom-contract.test.ts` closes it. It drives the REAL package under
+jsdom (via `openLintPanel`, which renders diagnostics through the same
+`renderDiagnostic` the tooltip uses and needs no pointer) and pins the child order,
+the class names, the severity class, and that the action is a `<button>`. It was
+mutation-checked: altering one expected child makes it fail, and restoring it makes
+it pass — a test that cannot fail is worse than no test, which this change learned
+the hard way (see the shell section above).
+
+## What this design is NOT — read before assuming kinship
+
+The popup is a deliberate **second rendering** of FindingCard's rhythm, not a shared
+implementation. Nothing in the code binds them: no import, no shared constant, no
+test. They already differ in three ways:
+
+- FindingCard's meta slot 2 carries **scope** ("Slide 4"); the popup's carries
+  **severity** ("Error"). Defensible — a popup knows its own location — but it means
+  the shared rhythm is structural, not semantic.
+- FindingCard's **filled** accent pill means "apply this drafted change" and its
+  **quiet** pill is the default; the popup's single action uses the filled pill. The
+  same maximum-weight fill therefore means "commit a reviewed change" on one surface
+  and "here is an offer" on the other.
+- FindingCard's warning glyph resolves to `var(--chart-2, …)` — a token this repo
+  **never defines**, so it renders `#9c3f00` on all 36 rows while the popup renders
+  `var(--warn)`. That is the same defect class as this change's own `--db-sev-*`
+  finding, and it is not alone: 25 references to `--chart-2/3/4` across 14 files, all
+  falling back to hardcoded hexes. Filed as **#1688** rather than fixed here —
+  pre-existing, off-path, and spread across surfaces that each need their own visual
+  verification (HARD RULE #18's log-don't-drag rule, keeping #17 intact).
+
+If you restyle one, you must restyle the other by hand. The honest fix, when someone
+takes #1688, is to hoist the severity map (glyph + color) into one module both
+import, so the kinship is code rather than prose.
+
+## What centralizing cost
+
+`editorTheme` has **three** consumers, not two: `Editor.tsx`, `playground/editor.js`,
+and `CodeField.tsx` — the Component studio's CSS / skeleton / manifest boxes, which
+deliberately install no linter. `CodeField` therefore inherits ~40 lint selectors it
+can never match. Inert, but the module header says so rather than claiming two.
+
+The popup geometry is viewport-relative (`min(46vh, 320px)`), tuned for a full-height
+deck editor. If a small embedded field ever needs findings, that is the seam to
+revisit — and the fix is a parameter here, not a second copy of the file.
+
+One coupling did NOT survive: on the Playground, `.cm-tooltip.cm-tooltip-autocomplete`
+sets its own fill with `!important` in the global sheet, so the autocomplete popup does
+**not** take `tooltipShell`. The two agree today only because both resolve to `var(--bg)`;
+retuning the shared shell would move the lint popup and leave the autocomplete popup
+behind. The shell-sharing guarantee is real on the Studio and partial on the Playground.
+
 ## Verification
 
 Twelve cases on the **built** site (HARD RULE #23): Studio and Playground × light and dark
