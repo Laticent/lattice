@@ -16,11 +16,13 @@
   /* PAIRED for the reason spelled out in a11y-deuteranopia.css: the `:root:root`
    * scheme pin reaches neither a per-slide `_class: dark` (#1323) nor the
    * status-marker pseudo on a title / closing / dark divider, and on both the
-   * flat light-tuned trio landed at 1.59–1.95:1. Same trio, same dark arm —
-   * protan and deutan share the axis, and both were checked when it was chosen.
-   * Weakest clears AA at 5.89:1 flat (4.68:1 through redline's strike-through
-   * opacity); separation under protanopia is ΔE 0.191, at the light trio's own
-   * 0.189. */
+   * flat light-tuned trio landed at 1.80 / 3.04 / 1.59:1 on redline's 12% band
+   * and 1.95:1 (Confidential) / 4.08:1 (WIP·Draft) on the stamp. Same trio, same
+   * dark arm — protan and deutan share the axis, and both were checked when it
+   * was chosen.
+   * Weakest clears AA at 5.89:1 flat (4.69:1 through redline's strike-through
+   * opacity, sampled off the rendered pixels); separation under protanopia is
+   * ΔE 0.191, at the light trio's own 0.189. */
   --pass: light-dark(#004982, #7CBBFC);
   --warn: light-dark(#946400, #FFDBA9);
   --fail: light-dark(#800613, #FC827A);

@@ -23,15 +23,20 @@
    * and the status-marker pseudo, which base.variants.css pins to
    * `color-scheme: dark` on every title / closing / non-light divider — so the
    * dark arm also paints the Confidential / WIP stamp on an otherwise LIGHT
-   * slide. On both, the flat light-tuned trio landed at 1.59–1.95:1.
+   * slide. Both seams were broken, with different numbers, so each is given its
+   * own: on redline's 12% band the flat light-tuned trio landed at
+   * pass/warn/fail 1.80 / 3.04 / 1.59:1; on the stamp, against the bookend's
+   * black, Confidential (--fail) sat at 1.95:1 and WIP/Draft (--warn) at 4.08:1.
    *
    * The dark arm is each curated hue lifted up the OKLab lightness axis, hue
    * kept, by the smallest amount that clears AA on the surface it actually
    * lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN over
    * --bg-alt, so the background moves with the value, and `del` renders at
    * opacity .85 on top of that. Measured on that band: pass 6.85:1, warn
-   * 9.78:1, fail 5.89:1, and fail again at 4.68:1 once the strike-through
-   * opacity composites it. Separation under simulation is held at ΔE 0.162
+   * 9.78:1, fail 5.89:1, and fail again at 4.69:1 once the strike-through
+   * opacity composites it — that last one sampled off the rendered pixels, since
+   * the .85 fades the band as well as the ink and a model of it does not.
+   * Separation under simulation is held at ΔE 0.162
    * deutan / 0.191 protan — at or above the light trio's own 0.161 / 0.189,
    * and both are checked because protanopia shares this trio.
    *

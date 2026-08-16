@@ -91,6 +91,16 @@ function resolve(vars, mode) {
     out[k] = arms ? arms[mode === 'dark' ? 1 : 0] : v;
   }
   const REF = /var\(\s*--([a-z0-9-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/i;
+  // Substituting ANYWHERE in the value (rather than only whole-value `var(--x)`)
+  // makes a self-referential declaration expandable, and therefore explosive:
+  // `--accent: color-mix(in oklab, var(--accent) 92%, black)` doubles in length
+  // every pass and dies with `RangeError: Invalid string length` — which reports
+  // nothing useful about which token is at fault. A cycle is invalid CSS and no
+  // palette has one, so this is a guard, not a feature: stop expanding a value
+  // that is running away and leave it as-is. It then compares equal across the
+  // two schemes and the token is reported as flat — a loud, locatable failure
+  // instead of a crash.
+  const RUNAWAY = 4096;
   for (let pass = 0; pass < 24; pass += 1) {
     let changed = false;
     for (const k of Object.keys(out)) {
@@ -99,8 +109,10 @@ function resolve(vars, mode) {
       // An undeclared reference falls back to its own fallback arm, as CSS does.
       const sub = out[m[1]] !== undefined ? out[m[1]] : m[2];
       if (sub === undefined) continue;
-      const next = String(out[k]).replace(m[0], sub);
-      if (next === out[k]) continue;
+      // Function replacer: a literal `$&` / `$'` in a substituted value would
+      // otherwise be read as a replacement pattern rather than as text.
+      const next = String(out[k]).replace(m[0], () => sub);
+      if (next === out[k] || next.length > RUNAWAY) continue;
       out[k] = next;
       changed = true;
     }
@@ -132,12 +144,16 @@ describe('paired-token parity: no flat override of a base light-dark() pair', ()
       // override in the parent is exactly the defect, on exactly that canvas.
       //
       // The exemption is NOT free and is not symmetric with the light-only case
-      // above: carbone's pin is `:where(:root)` (specificity 0), so `section.light`
-      // / `section.print` DO reach past it, and carbone does carry one flat
-      // override of a base pair — `--on-accent: var(--surface-inverse)`, plus the
-      // four tiers deriving from it. That one is deliberate and already
-      // adjudicated: #1640 item 3 measured it as an IMPROVEMENT under the #1527
-      // flip (white on carbone's bright lime -> its curated near-black, 10.95:1).
+      // above. `section.light` / `section.print` DO reach past carbone's `:where(:root)`
+      // pin — not because that pin is specificity 0, but for the same reason
+      // `section.dark` reaches past the a11y HARD pin three lines up: an element's
+      // own `color-scheme` governs its subtree whatever the root said. And carbone
+      // does carry one flat override of a base pair — `--on-accent:
+      // var(--surface-inverse)`, which moves 4 tokens (itself plus the three
+      // `--on-accent-*` tiers derived from it; `--on-accent-soft` reads --accent and
+      // does not move). That one is deliberate and already adjudicated: #1640 item 3
+      // measured it as an IMPROVEMENT under the #1527 flip — carbone's curated
+      // near-black on its bright lime is 12.15:1 where base's white was 1.59:1.
       // The cost of the exemption is that a FUTURE flat override in carbone is
       // invisible here; revisit if carbone ever grows a real light face.
       if (modes.length === 1 && modes[0] === 'dark' && !manifests.get(name)?.extends) return;

@@ -22,15 +22,19 @@
    * and the status-marker pseudo, which base.variants.css pins to
    * `color-scheme: dark` on every title / closing / non-light divider — so the
    * dark arm also paints the Confidential / WIP stamp on an otherwise LIGHT
-   * slide. On both, the flat light grays landed at
-   * 1.25–3.04:1 — the two darkest invisible, the lightest sub-AA.
+   * slide. Both seams were broken, with different numbers, so each is given its
+   * own: on redline's 12% band the flat light grays landed at pass/warn/fail
+   * 1.92 / 3.04 / 1.25:1; on the stamp, against the bookend's black, the
+   * Confidential marker (--fail) sat at 1.55:1 and WIP/Draft (--warn) at 4.12:1.
    *
    * The dark arm is each gray lifted until it clears AA on the surface it
    * actually lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN
    * over --bg-alt, so the background moves with the value, and `del` renders at
    * opacity .85 on top of that. Measured on that band: pass 6.56:1, warn
-   * 4.61:1, fail 9.23:1, and fail again at 7.14:1 once the strike-through
-   * opacity composites it. Fail takes the loudest rung, as on the light arm.
+   * 4.61:1, fail 9.23:1, and fail again at 7.15:1 once the strike-through
+   * opacity composites it — that last one sampled off the rendered pixels, since
+   * the .85 fades the band as well as the ink and a model of it does not. Fail
+   * takes the loudest rung, as on the light arm.
    * The pairwise separation an achromat reads meaning from is 1.50:1 (light arm
    * 1.61:1, gate floor 1.25).
    *
