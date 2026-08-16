@@ -45,6 +45,57 @@ describe('ThemeStore.add — identity is an argument', () => {
     assert.equal(s.add('section{color:red}'), false);
   });
 
+  test('a NAMED registration with a missing stylesheet throws — it does not fall back to the scan', () => {
+    // Found by the adversarial trio, in the branch this change itself added. Keying the
+    // form on `cssText === undefined` meant `add('lattice', undefined)` took the LEGACY
+    // path: the given name was discarded and the NAME was scanned as css, so a named
+    // registration silently no-op'd — the exact failure this method exists to abolish,
+    // reachable through its own new branch. The form is now `arguments.length`.
+    const s = new ThemeStore();
+    assert.throws(() => s.add('lattice', undefined), TypeError, 'add(name, undefined) must throw, not scan the name');
+    assert.throws(() => s.add('lattice', null), TypeError, 'add(name, null) must throw, not register null');
+    assert.throws(() => s.add('lattice', 42), TypeError);
+    assert.equal(s.has('lattice'), false, 'nothing may be registered by a throwing call');
+  });
+
+  test('add(name) with the stylesheet forgotten does not register the NAME as a theme', () => {
+    // One argument is the legacy form by definition, so `add('mytheme')` scans
+    // 'mytheme' for a directive, finds none, and returns false. It must not throw
+    // (external callers pass one argument legitimately) and must not register.
+    const s = new ThemeStore();
+    assert.equal(s.add('mytheme'), false);
+    assert.equal(s.has('mytheme'), false);
+  });
+
+  test('a poisoned entry can never report as registered', () => {
+    // `add(name, null)` used to return TRUE and store null: `has(name)` was then true
+    // forever, permanently disarming every `if (!hasTheme(name))` self-heal guard in
+    // docs/src/lib/theme-fetch.ts, while cssFor served scaffold-only CSS. A `true` that
+    // means "registered nothing" is worse than the `false` this change set out to kill.
+    const s = new ThemeStore();
+    for (const bad of [null, undefined, 42, {}, []]) {
+      assert.throws(() => s.add('poison', bad), TypeError, `add('poison', ${JSON.stringify(bad)}) must throw`);
+    }
+    assert.equal(s.has('poison'), false);
+  });
+
+  test('the legacy form still accepts a Buffer and a boxed String (published API)', () => {
+    // `typeof entry === 'object'` routed BOTH to add(undefined, undefined) — they
+    // registered under the pre-change code and silently stopped under the new one.
+    // `fs.readFileSync(p)` with the encoding forgotten is an ordinary Node call shape
+    // on a published CJS export, so that was a real regression, in the same silent
+    // class this change removes.
+    const css = "/* @theme boxed */\nsection{}";
+    const viaEngine = (entry) => {
+      const e = createEngine();
+      e.addThemes([entry]);
+      return e.hasTheme('boxed');
+    };
+    assert.equal(viaEngine(Buffer.from(css, 'utf8')), true, 'a Buffer must still register');
+    assert.equal(viaEngine(new String(css)), true, 'a boxed String must still register');
+    assert.equal(viaEngine(css), true);
+  });
+
   test('the legacy scan is BOUNDED — a directive-less sheet cannot cost a full buffer', () => {
     // Unbounded, a miss scanned the whole 1.5 MB base sheet (884 µs measured) to then
     // register nothing. The scan window is 4 KB; a directive parked past it is not found,

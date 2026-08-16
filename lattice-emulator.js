@@ -396,17 +396,23 @@ const { flags, positional } = parseArgs(process.argv.slice(2));
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
 const mdFile = positional[0];
 let cssFile, outFile, paletteArg;
+// Did the CALLER supply the layout stylesheet, or did we construct the default? On
+// the default path the sheet is `dist/lattice.css` and its name is unambiguously
+// `lattice`, so the name is passed rather than searched for. Only a caller-supplied
+// sheet has an identity we genuinely cannot know.
+let cssIsDefault = false;
 if (positional[1]?.endsWith('.css')) {
   cssFile    = positional[1];
   outFile    = positional[2];
   paletteArg = positional[3];
 } else {
   cssFile    = path.join(PKG_ROOT, 'dist', 'lattice.css');
+  cssIsDefault = true;
   outFile    = positional[1];
   paletteArg = positional[2];
 }
 // Named flags override positional resolution.
-if (flags.css)     cssFile    = flags.css;
+if (flags.css)     { cssFile = flags.css; cssIsDefault = false; }
 if (flags.output)  outFile    = flags.output;
 if (flags.palette) paletteArg = flags.palette;
 const QUIET = flags.quiet;
@@ -1739,14 +1745,18 @@ function engineSlides() {
   // EXPORT (the file people actually ship, and the ADR's designated accessible route)
   // was the only path that lost it. See the semantic-html ADR §17.11.
   const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml' });
-  // The PALETTE's name is known (palettePath is `themes/<paletteName>.css`), so it is
-  // GIVEN rather than regexed back out of the sheet. The LAYOUT CSS is not: `--css`
-  // lets a caller substitute their own engine stylesheet, whose identity is genuinely
-  // whatever it declares — so that one legitimately uses the content-derived form.
-  // That is what the legacy shape is for; it is not a migration this file skipped.
+  // Both names are passed wherever they are known. The PALETTE's always is
+  // (`palettePath` is `themes/<paletteName>.css`). The LAYOUT CSS's is known on the
+  // DEFAULT path — it is `dist/lattice.css`, which is `lattice`, the name every
+  // palette's `@import 'lattice'` resolves against — and only genuinely unknown when
+  // `--css` / a positional `.css` substitutes a caller's own engine stylesheet. The
+  // original sanction here claimed the layout slot could never know its name; that was
+  // wrong for the default path, which is 100% of real usage, so it left the searched
+  // form on the one path that did not need it.
   // See engineering/decisions/2026-08-16-theme-identity-ownership.md.
+  const layoutCss = readFileOrDie(cssFile, 'layout CSS');
   engine.addThemes([
-    readFileOrDie(cssFile, 'layout CSS'),
+    cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
     { name: paletteName, css: fs.readFileSync(palettePath, 'utf8') },
   ]);
   // Rewrite `![bg side](url)` to the lattice-bg div (CSS background) BEFORE render
