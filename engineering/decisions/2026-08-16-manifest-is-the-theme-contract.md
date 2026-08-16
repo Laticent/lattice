@@ -1,19 +1,20 @@
 ---
 status: shipped
 summary: >
-  Theme identity got one owner (the manifest) in #1668, but the theme GRAPH did not: a
-  palette's parent is declared twice — `extends` in the manifest and `@import 'x'` in the
-  CSS — and THREE separate resolvers re-derive it from the CSS with three different
-  regexes. They already disagree: on a minified `@import"indaco"` the engine and the docs
-  resolve it and the emulator does not, because the engine's copy carries a fix its own
-  comment documents and the emulator's copy never got. The emulator therefore flattens
-  imports itself and inlines its own stylesheet, which is why nobody noticed that the
-  engine's `render().css` is WRONG on the CLI path for every `-dark` theme (2,323 bytes of
-  scaffold against 767,712). This note makes the manifest the whole contract for Lattice:
-  one `themeChain(name)` from `extends`, used by the engine, the CLI and the browser
-  alike. `@theme` and `@import` stay in the CSS as Marp-facing projections that Lattice
-  itself never reads — which is the distinction #1668 missed, and the reason that PR felt
-  like it left the job half done.
+  Theme identity got one owner (the manifest) in #1668; the theme GRAPH did not. A palette's
+  parent was declared twice — `extends` in the manifest, `@import 'x'` in the CSS — and three
+  distinct regexes re-derived it from the CSS. They had drifted (the emulator's missed a
+  minified `@import"indaco"` the other two handled), latently rather than live. The emulator
+  also flattened imports itself and inlined its own stylesheet, which is why nobody noticed
+  that the engine's `render().css` was WRONG on the CLI path for every `-dark` theme — ~2 KB
+  of scaffold against ~768 KB. This note makes the manifest the contract for DISCOVERY: one
+  `themeChain(name)` from `extends`, baked into one generated edge map, used by the CLI, the
+  browser and the Marp bundler alike. It does NOT make the CSS directive decorative — the
+  store still splices the parent via `@import` on every render, and an earlier draft of this
+  note wrongly claimed otherwise (§3). The adversarial trio also caught a real regression in
+  the first cut (a caller-supplied `--css` sheet stopped inlining its own import), a gate that
+  duplicated an existing one and disagreed with it, and evidence that could not have detected
+  a regression.
 ---
 
 # The manifest is the theme contract; the CSS directives are Marp's copy
@@ -35,7 +36,8 @@ facts:
 | identity | filename · manifest `name` · `@theme` |
 | the parent edge | manifest `extends` · CSS `@import 'x'` |
 
-And the edge has **three resolvers**, each with its own regex:
+And the edge had **three distinct regexes** re-deriving it (a fourth consumer,
+`deck-export.js`, imported the docs one, so it could not drift from it):
 
 | Where | Regex |
 |---|---|
@@ -53,8 +55,22 @@ minified  @import"indaco"     engine: resolves | emulator: MISSES   | docs: reso
 The engine's regex carries a comment explaining exactly this — *"minified palettes ship the
 import as `@import"concrete"` with no space — requiring whitespace collapsed every `*-dark`
 wrapper to scaffold-only CSS"* — and the emulator's copy never received the fix. One bug,
-fixed in one of the three places it exists. That is the drift a duplicated derivation
-guarantees, and it has already happened.
+fixed in one of the places it existed.
+
+**Be precise about the severity: that divergence was LATENT, not live.** The emulator only
+ever reads `themes/*.css`, which are all source-form with the space; the minified form is
+served only to the browser, where the docs resolver handled it. So no shipped render was
+wrong. What the divergence demonstrates is that a fix applied to one copy does not reach
+the others — the standing cost of duplicated derivation, not a fire.
+
+**And the sweep is partial.** Deleting the emulator's and the docs' copies leaves the
+engine's (deliberately — §5) plus a family of chain-flatteners in `tools/` and `test/`
+that regex `@import` for their own purposes: `tools/build-docs-portal.js`,
+`tools/derive-cat-ink.js`, `tools/derive-chart-cat-ink.js`, `tools/contrast-audit.js`,
+`tools/cvd-audit.js`, `checkThemeRoles`, and six palette tests — several still carrying the
+`\s+` form. They are a knowing scope boundary, not a claim of completeness: they read
+source-form themes off disk, where the whitespace divergence cannot bite. Converting them
+is worth a follow-up; this note does not.
 
 ## 2. The latent defect this hides
 
@@ -71,25 +87,33 @@ engine .css with indaco also registered:     767,712 bytes
 ```
 
 The CLI registers exactly one palette. Anyone calling `engine.render().css` from a
-CLI-shaped setup gets an unstyled deck for any `-dark` theme, and no gate would catch it.
+CLI-shaped setup gets an unstyled deck for any `-dark` theme, and no gate would catch it —
+nor would the corpus harness this note originally cited as evidence (§8).
 
 ## 3. The distinction #1668 missed
 
 #1668 framed the question as *"should `@theme` be in the CSS?"* and answered "yes, because
-Marp needs it." Correct, and beside the point. The right question is **"should LATTICE READ
-it?"** — and the answer is no.
+Marp needs it." Correct, and beside the point. The better question is **"who DISCOVERS the
+graph?"**
 
-The confusion was never that the directive exists in the file. It is that Lattice treats it
-as a source of truth, which forces every consumer to parse CSS to learn something the
-manifest states declaratively.
+- **The manifest is the contract for DISCOVERY** — which themes exist, what each extends,
+  which files to load. No first-party path re-derives that from a stylesheet any more.
+- **`@theme` and `@import` stay in the CSS**, gated against the manifest so they cannot lie.
 
-So:
+**What this note must NOT claim — and an earlier draft did.** It said the CSS directives are
+"Marp's copy, which Lattice never reads." That is false, and the measurement is one line:
 
-- **The manifest is the whole contract for Lattice** — identity, file discovery, and the
-  parent chain. Nothing in the engine, CLI or docs parses `@theme` or `@import` for its own
-  purposes.
-- **`@theme` and `@import` stay in the CSS as MARP's copy** — valid CSS, gated against the
-  manifest so they cannot lie, read by Marp and by nobody else on our side.
+```
+chain registered, CSS intact           : 767,712 bytes
+chain registered, @import DELETED      :   2,305 bytes
+```
+
+`ThemeStore.resolveThemeImports` parses `@import` on **every** engine render, and it is what
+splices the parent into the composed sheet. Registering the chain decides what is *available*
+to splice; the CSS import is still what performs the splice. So the honest statement is:
+**chain discovery no longer parses CSS; composition still does.** Making composition
+chain-driven too is a real follow-up, and until it lands the directive is load-bearing, not
+decorative.
 
 That is the same shape as `@size`: one owner, a stamped/gated projection for the foreign
 consumer. The only difference is that this projection lives in a source file, because the
@@ -107,8 +131,9 @@ source file is itself a published export.
   by `tools/build-theme-catalog.js`. Every runtime imports this ONE file: the CLI, the unit
   suite, and the browser bundle. It deliberately does not live in the docs catalog — that
   home is unreachable from Node, which is exactly how a second copy would start. (The
-  catalog's own lists cover only the 18 picker-listed BASE palettes; the 14 `*-dark`
-  variants are absent from them, and they are precisely the themes that have a parent.)
+  catalog's own lists cover only the 18 picker-listed BASE palettes, so the 13 `*-dark`
+  variants — which all have a parent — are absent from them. Four of the listed `a11y-*`
+  palettes have parents too, so the catalog was never the right home for the edge map.)
 
 **Consumers:**
 
@@ -127,9 +152,10 @@ the Studio's user-authored themes, a shared deck payload, an external `./engine`
 The store is the last line, working from content alone.
 
 The difference after this change is that **every first-party caller registers the whole
-chain up front**, so `resolveThemeImports` finds its targets already present and is a no-op
-in practice rather than the mechanism being relied upon. That also makes the CLI's
-`render().css` correct for the first time (§2).
+chain up front**, so `resolveThemeImports` finds its targets present instead of missing.
+That is what makes the CLI's `render().css` correct for the first time (§2) — and it means
+the store's scan is now MORE load-bearing than before, not less. An earlier draft of this
+note claimed the opposite; see §3.
 
 ## 6. Cost, and who pays
 
@@ -144,43 +170,78 @@ in practice rather than the mechanism being relied upon. That also makes the CLI
   `a11y-*` palettes (`a11y-deuteranopia` → `a11y-base` → `onyx`). This is a walk, not a
   graph problem.
 
-## 7. Gate
+## 7. Gate — there is no new one
 
-`checkThemeGraph` — the manifest's `extends` must equal the CSS's theme-name `@import`
-(ignoring `@import 'lattice'`, which is the engine base and declared by `role`), in both
-directions, for every palette. That is what keeps Marp's copy honest, and it is the only
-reason the CSS directive is allowed to remain.
+The first cut of this change added `checkThemeGraph`. It was **deleted before merge**:
+`checkThemeRoles` (G2) has compared `extends` against the CSS `@import` since before this
+work, and side-by-side over ten mutated theme directories the two had an *identical* firing
+set and identical blind spots. Worse, they used different regexes and disagreed on day one —
+on the minified `@import"indaco";` form the dist build actually ships, G2 errored and the new
+gate passed.
+
+Two gates, two regexes, one fact, already diverging is precisely this note's thesis violated
+inside its own enforcement — and it repeats a correction the predecessor record already had
+to make about `checkThemeIdentity`. So instead, G2 absorbed the only two things the new gate
+did better: comment-stripping, and `\s*` so the minified form is read correctly. One gate,
+one regex.
+
+**Known blind spot, unchanged:** a self-consistent cycle or a dangling `extends` (manifest
+and CSS agreeing on a bad target) passes G2. `test/unit/theme/chain.test.js` is the backstop
+— it asserts no chain repeats a name and every declared parent exists.
 
 ## 8. Verification
 
-- **The chain is a byte-for-byte drop-in.** For all 32 palettes,
-  `themeChain(name).map(read).join('\n')` equals what the emulator's deleted flattener
-  produced. Frozen as a test (`test/unit/theme/chain.test.js`) that keeps a copy of the
-  old algorithm and compares — so the equivalence stays asserted, not just measured once.
-- **4224 renders unchanged** (132 decks × 32 palettes, both `addThemes` shapes) against a
-  worktree of the base commit.
-- **The §2 defect is now a passing assertion**: registered through the chain, the CLI-shaped
-  `render().css` for `indaco-dark` is 767,712 bytes; leaf-only it was 2,323.
-- **Real artifacts:** a `-dark` deck through `lattice-emulator.js` is **byte-identical**
-  before and after the rewrite (31,972 bytes, `/CreationDate` `/ModDate` `/ID` normalized),
-  and `size: story` still yields `MediaBox [0 0 810 1440]`.
-- **Suites:** root 6167 pass / 0 fail; docs 3074 pass / 231 files; `typecheck` clean; `lint`
-  clean; `build:check` OK.
-- **`checkThemeGraph` fires in all three directions**: manifest declares `extends` and the
-  CSS drops the import; the CSS imports a different parent; the manifest drops `extends`
-  while the CSS keeps the import.
+Rewritten after the adversarial trio. **The first version of this section was vacuous** and
+that is worth recording: it cited "4224 renders unchanged" from a harness that registers
+every theme up front and touches only `lib/engine` — which this change does not modify. The
+inputs were byte-identical across both commits, so the fingerprints matched *by
+construction*. It could not have caught a regression.
 
-### A fourth resolver, found while wiring this up
+The check the claim needed replicates the emulator's ACTUAL registration, old leaf-only
+shape vs new chain shape, over the same corpus:
 
-`docs/src/components/studio/export/deck-export.js` scanned `@import` to decide which theme
-files to put in the Export-to-Marp bundle — a fourth copy the original survey missed, and
-the one with the worst failure mode (a missing ancestor renders stripped on the
-*recipient's* machine, where we never see it). It takes the declared chain now.
+```
+4224 renders (132 decks x 32 palettes)
+  html differing:                 0
+  composed css differing:      2376   = 18 parented palettes x 132 decks
+  CLI inlined stylesheet:      0 / 32 differing
+```
 
-### Where the edge map lives, and why
+The 2376 is the positive control: exactly the set §2's fix targets, and nothing else moved.
 
-`lib/theme/edges.generated.mjs`, not the docs catalog. The browser cannot read manifests at
-runtime so the map must be baked; putting it in `docs/src/lib` would have made it
-unreachable from the CLI and the unit suite, which is precisely how a second copy starts.
-One generated file beside the pure resolver, imported by all three runtimes, asserted
-against the manifests by a test.
+- **Byte-for-byte flattener equivalence**, re-derived by extracting the deleted function out
+  of `git show 81e09e4:lattice-emulator.js` rather than trusting the copy in the test: 32/32
+  identical, with two negative controls firing.
+- **Real artifacts** (HARD RULE #23): `indaco-dark` at hd and `a11y-deuteranopia` at
+  `size: story` (the deepest chain) rendered through the real CLI and Chrome — **both PDFs
+  and both HTML files byte-identical** to the base commit, dates/ID normalized.
+- **The §2 defect**: `render().css` for `indaco-dark` is **2,323 bytes** leaf-only and
+  **767,712** chain-registered, measured on a `# x` deck against `dist/lattice.css`. (Figures
+  move with the deck — an earlier draft quoted them without their conditions.)
+- **Suites:** root 6167 pass / 0 fail; integration 720 pass / 0 fail / 7 skipped (run ALONE —
+  it races the unit tier on `lib/components/`); docs 3074 pass, typecheck clean, build 88
+  pages; `lint` clean; `build:check` OK.
+- **Staleness of `edges.generated.mjs` is gated** in all three directions (new manifest,
+  deleted manifest, changed `extends`) via `theme-catalog --check`, wired into `build:check`.
+
+### What was NOT verified
+
+- **The live Playground and the Studio's Export-to-Marp zip.** `deck-export.js` changed how
+  bundle members are chosen, and its own failure mode is "renders stripped on the recipient's
+  machine, where we never see it." `THEME_EDGES` is confirmed present in the shipped browser
+  chunk and the closure was proven equivalent over all 32 themes against the real minified
+  served bytes — but nobody clicked Export and opened the zip. **UNVERIFIED.**
+- **A real marp-cli render** of an exported bundle, including whether Marp resolves the
+  minified `@import"indaco";` form the bundle ships. Pre-existing, not changed here.
+- **Whether some cyclic or dangling manifest shape escapes every gate.** Two constructed
+  cases were caught only by unrelated gates, by accident.
+
+### One regression the trio caught, and the fix
+
+Replacing the emulator's layout-CSS read with a plain `readFileOrDie` dropped theme-name
+`@import` inlining for a **caller-supplied** `--css` sheet — a documented CLI form. Measured:
+an imported sheet's tokens vanished from the render. The justification in the code ("the
+layout sheet never carries a theme-name import") was true of the default `dist/lattice.css`
+and false of the input the flag exists to accept. Fixed with `flattenCssImports` in
+`lib/theme/chain.mjs` — one named helper, `\s*` so it handles the minified form, for the one
+input that has no manifest and never will.

@@ -32,8 +32,10 @@ describe('themeChain', () => {
   });
 
   test('terminates on a cycle instead of hanging', () => {
-    // A malformed manifest pair must degrade to "resolve what we can", not take out
-    // the CLI. The gate is what reports it as the authoring error it is.
+    // A malformed manifest must degrade to "resolve what we can", not take out the CLI.
+    // The GATE does not catch a self-consistent cycle (checkThemeRoles compares extends
+    // against the CSS import, and a cycle where both agree passes) — the two assertions
+    // at the bottom of this describe block are the actual backstop.
     assert.deepEqual(themeChain('a', { a: 'b', b: 'a' }), ['b', 'a']);
     assert.deepEqual(themeChain('a', { a: 'a' }), ['a']);
   });

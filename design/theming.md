@@ -29,10 +29,11 @@ contains:
 1. A `@theme <name>` directive (registration; e.g. `@theme indaco`), and — for a
    dark/derived variant — an `@import '<parent>'`. Both are **Marp's copy**: Marp
    has no manifest, so it learns identity and the parent edge from the stylesheet.
-   **Lattice reads neither.** Identity and the chain come from
+   Lattice DISCOVERS neither from the CSS — identity and the chain come from
    `themes/<name>.manifest.json` (`name`, `extends`), resolved by
    `lib/theme/chain.mjs`, and `check:ownership` fails if the CSS and the manifest
-   disagree. See `engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md`.
+   disagree. The `@import` is still what splices the parent into the composed
+   stylesheet at render time, so keep it accurate: it is not decoration. See `engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md`.
    The manifest **owns the name** — the
    filename and this directive are projections of `manifest.json`'s `name`, and
    `check:ownership` fails if the three disagree. The directive stays in the CSS

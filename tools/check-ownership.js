@@ -777,7 +777,13 @@ function checkThemeRoles(errors, themesDir = THEMES_DIR) {
     // `@import 'carbone';` sit under `@import 'lattice';` and pull in an entirely
     // different palette with the gate green — the declaration would be true about the
     // line it named and silent about the one that mattered.
-    const imports = [...css.matchAll(/@import\s+['"]([^'"]+)['"]/g)].map((x) => x[1]);
+    // `\s*` (not `\s+`) and comment-stripped: the dist palettes ship the import
+    // minified as `@import"indaco";`, which the `\s+` form MISSED — this gate would
+    // then report a correct theme as declaring `extends` while importing nothing. That
+    // divergence is the one the theme-graph work exists to end, so it is fixed here in
+    // G2 rather than duplicated into a second gate.
+    // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+    const imports = [...css.matchAll(/@import\s*(['"])([^'"]+)\1\s*;?/g)].map((x) => x[2]);
     const imp = imports[0] ?? null;
     const shown = imports.length ? imports.map((i) => `'${i}'`).join(' + ') : 'nothing';
     const tokens = parseThemeTokens(cssText).size;
@@ -914,50 +920,6 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
   }
 }
 
-// ─── The theme GRAPH has one owner too ────────────────────────────────────
-// A palette's parent is declared in `themes/<name>.manifest.json` as `extends`.
-// The CSS also says `@import 'parent'` — that copy is MARP's, since Marp has no
-// manifest and must learn the graph from the stylesheet. Lattice reads the
-// manifest and never parses the CSS for it (lib/theme/chain.mjs).
-//
-// This gate is the entire reason the CSS copy is allowed to stay. Without it the
-// two drift, and drift here is not theoretical: THREE separate `@import` resolvers
-// existed before 2026-08-16 and had already diverged — the emulator's missed a
-// minified `@import"indaco"` that the engine's and the docs' both handled, because
-// the fix was applied to one copy and not the others.
-// See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
-const THEME_IMPORT_IN_CSS = /@import\s*(['"])([A-Za-z0-9_-]+)\1\s*;?/g;
-function checkThemeGraph(errors, themesDir = THEMES_DIR) {
-  const files = listThemeFiles(themesDir);
-  const manifests = listThemeManifests(themesDir);
-  for (const [name, cssText] of files) {
-    const m = manifests.get(name);
-    if (!m) continue; // G1 owns the orphan
-    // `@import 'lattice'` is the ENGINE base, not a theme edge — it is declared by
-    // `role` and resolved by composeCss, so it is excluded from the comparison.
-    const imported = [...stripComments(cssText).matchAll(THEME_IMPORT_IN_CSS)]
-      .map((x) => x[2])
-      .filter((n) => n !== 'lattice');
-    const declared = m.extends ? [m.extends] : [];
-    if (imported.length > 1) {
-      errors.push(
-        `themes/${name}.css @imports ${imported.map((i) => `'${i}'`).join(' + ')}. A theme extends exactly ` +
-        `one thing, and the manifest's \`extends\` can only say one — a second import is invisible to every ` +
-        `Lattice path, which resolves the chain from the manifest.`,
-      );
-      continue;
-    }
-    if (imported.join() !== declared.join()) {
-      errors.push(
-        `themes/${name}: the manifest says ${m.extends ? `\`extends: "${m.extends}"\`` : 'no `extends`'} but ` +
-        `the CSS ${imported.length ? `@imports '${imported[0]}'` : 'imports no theme'}. These are the SAME ` +
-        `fact written twice — the manifest for Lattice, the \`@import\` for Marp — and they have to agree, ` +
-        `because only one of them is read on each path. Fix whichever is wrong.`,
-      );
-    }
-  }
-}
-
 // ─── Theme registration passes the name, never searches for it ────────────
 // `ThemeStore.add(name, css)` takes identity as an argument. The one-argument
 // `add(css)` form recovers it from `@theme` and survives only for external
@@ -1002,27 +964,63 @@ const SANCTIONED_UNNAMED_THEME_REGISTRATIONS = [
 
 
 /**
- * Does this expression provably evaluate to `{ name, css }` entries?
+ * Does this expression provably evaluate to entries that CARRY A NAME?
  *
- * An object literal obviously does. `...chain.map((n) => ({ name: n, css: … }))` does
- * too, and that is the natural way to register a whole theme chain — reporting it
- * would push correct code onto the sanction list, which is how an allowlist stops
- * meaning anything. Everything else (a bare identifier, a conditional with a
- * non-object branch) is still reported: the gate's job is to make the shape visible
- * AT the call, and those genuinely hide it.
+ * The first cut of this helper checked only "is it an object literal", which the
+ * adversarial trio broke immediately: `...xs.map((c) => ({ css: c }))` and even
+ * `...xs.map(() => ({}))` passed. A nameless entry is exactly what sends
+ * `ThemeStore.add` back to regexing `@theme` out of a 1.5 MB sheet — the thing this
+ * gate exists to prevent — so the gate was certifying its own failure mode.
+ *
+ * Two further holes it closed: a NESTED map spreads arrays rather than entries, and
+ * taking only the FIRST `return` let a later bare-CSS return hide behind an early
+ * object literal. Every return is checked now.
  */
+function hasNameProperty(node, ts) {
+  return node.properties.some((prop) => {
+    if (ts.isShorthandPropertyAssignment(prop)) return prop.name.text === 'name';
+    if (ts.isPropertyAssignment(prop)) {
+      const k = prop.name;
+      return (ts.isIdentifier(k) || ts.isStringLiteral(k)) && k.text === 'name';
+    }
+    // A spread inside the entry (`{ ...entry }`) could carry a name we cannot see;
+    // treat it as unknown rather than assume, and let the caller report it.
+    return false;
+  });
+}
+/** One entry: an object literal that carries a `name`. */
 function producesNamedEntry(node, ts) {
   if (ts.isParenthesizedExpression(node)) return producesNamedEntry(node.expression, ts);
-  if (ts.isObjectLiteralExpression(node)) return true;
-  // `xs.map(fn)` where fn returns an object literal.
+  if (ts.isObjectLiteralExpression(node)) return hasNameProperty(node, ts);
+  return false;
+}
+
+/**
+ * An ARRAY of entries — what a spread must produce. Kept separate from
+ * `producesNamedEntry` because conflating the two let a NESTED map through:
+ * `...xs.map((n) => ys.map((m) => ({name: m, css: n})))` spreads arrays, not
+ * entries, while every leaf literal looks correct.
+ */
+function producesNamedEntryArray(node, ts) {
+  if (ts.isParenthesizedExpression(node)) return producesNamedEntryArray(node.expression, ts);
+  if (ts.isArrayLiteralExpression(node)) {
+    return node.elements.length > 0 && node.elements.every((el) => producesNamedEntry(el, ts));
+  }
   if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
       && node.expression.name.text === 'map') {
     const fn = node.arguments[0];
-    if (fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) {
-      if (!ts.isBlock(fn.body)) return producesNamedEntry(fn.body, ts);
-      const ret = fn.body.statements.find((st) => ts.isReturnStatement(st));
-      return Boolean(ret?.expression) && producesNamedEntry(ret.expression, ts);
-    }
+    if (!fn || !(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) return false;
+    if (!ts.isBlock(fn.body)) return producesNamedEntry(fn.body, ts);
+    // EVERY return, not the first: a later bare-CSS return hid behind an early
+    // object literal. Nested functions are skipped — their returns are not this one's.
+    const returns = [];
+    const walk = (n) => {
+      if (n !== fn.body && (ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isFunctionDeclaration(n))) return;
+      if (ts.isReturnStatement(n)) returns.push(n);
+      ts.forEachChild(n, walk);
+    };
+    walk(fn.body);
+    return returns.length > 0 && returns.every((r) => r.expression && producesNamedEntry(r.expression, ts));
   }
   return false;
 }
@@ -1097,8 +1095,12 @@ function checkThemeRegistrationCallSites(errors) {
           const arg = node.arguments[0];
           if (arg && ts.isArrayLiteralExpression(arg)) {
             for (const el of arg.elements) {
-              const inner = ts.isSpreadElement(el) ? el.expression : el;
-              if (!producesNamedEntry(inner, ts)) report(el, 'array element is not a `{ name, css }` object literal');
+              // A SPREAD must produce an array of named entries; a plain element must
+              // BE one. Checking both with one predicate is what let a nested map pass.
+              const ok = ts.isSpreadElement(el)
+                ? producesNamedEntryArray(el.expression, ts)
+                : producesNamedEntry(el, ts);
+              if (!ok) report(el, 'array element does not provably carry a `name` — pass `{ name, css }`');
             }
           } else if (arg && !(ts.isIdentifier(arg) && isEnclosingParam(node, arg.text))) {
             // Not an inline array: the previous gate's regex required `addThemes([`, so
@@ -7843,7 +7845,6 @@ function run() {
   checkSectionBoxOwnership(errors);
   checkSizeRegistryOwnership(errors);
   checkThemeIdentity(errors);
-  checkThemeGraph(errors);
   checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
@@ -7979,7 +7980,6 @@ module.exports = {
   checkSectionBoxOwnership,
   checkSizeRegistryOwnership,
   checkThemeIdentity,
-  checkThemeGraph,
   checkThemeRegistrationCallSites,
   SANCTIONED_SECTION_BOXES,
   checkLabelVoiceFont,

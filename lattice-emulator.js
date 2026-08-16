@@ -672,7 +672,7 @@ for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatter
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
 // THE theme graph, from the manifests — never re-derived from the stylesheets.
-const { themeChain } = require('./lib/theme/chain.mjs');
+const { themeChain, flattenCssImports } = require('./lib/theme/chain.mjs');
 const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 // Which band does a slide's diagram bake for — light, dark, or print. Lives in
 // the kernel so it is unit-testable as BEHAVIOR rather than as a source-text
@@ -755,9 +755,16 @@ const paletteCSS = paletteFiles.map((f) => readFileOrDie(f, `palette '${path.bas
 // IS the redundant encoding, and it cannot survive rough.js's stroked hachure
 // (lib/core/diagram-look.js rule 1).
 const PALETTE_USES_TEXTURE = paletteUsesTextureChannel(paletteCSS);
-// A plain read: the layout sheet carries only `@import url(…)` font imports, never a
-// theme-name one, so the flattener this replaces never resolved anything here.
-const layoutCSS  = readFileOrDie(cssFile, 'layout CSS');
+// The layout sheet is CALLER-SUPPLIED (`--css` / the positional form, both documented
+// in the usage text above), so it has no manifest and its graph can only come from its
+// own bytes. The default `dist/lattice.css` declares no theme-name import, but a custom
+// sheet may — dropping to a plain read here silently stopped inlining it, which the
+// adversarial trio caught as a real regression. One named helper, not a fourth regex.
+const layoutCSS  = flattenCssImports(cssFile, {
+  read: (f) => readFileOrDie(f, 'layout CSS'),
+  resolve: (from, name) => path.join(path.dirname(from), `${name}.css`),
+  exists: fs.existsSync,
+});
 const css = paletteCSS + '\n' + layoutCSS;
 
 // ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
