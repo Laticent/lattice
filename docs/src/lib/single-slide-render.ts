@@ -797,7 +797,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
 					// theme re-saved under the same name takes effect immediately. A
 					// hasTheme() guard would silently keep rendering the stale CSS.
-					PG.addThemes([extra.css]);
+					PG.addThemes([{ name: extra.name, css: extra.css }]);
 				})
 			: Promise.all([themes.ensure(palette, mode), ensurePreviewFonts()]);
 		return themeReady

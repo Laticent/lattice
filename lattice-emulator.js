@@ -1739,7 +1739,16 @@ function engineSlides() {
   // EXPORT (the file people actually ship, and the ADR's designated accessible route)
   // was the only path that lost it. See the semantic-html ADR §17.11.
   const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml' });
-  engine.addThemes([readFileOrDie(cssFile, 'layout CSS'), fs.readFileSync(palettePath, 'utf8')]);
+  // The PALETTE's name is known (palettePath is `themes/<paletteName>.css`), so it is
+  // GIVEN rather than regexed back out of the sheet. The LAYOUT CSS is not: `--css`
+  // lets a caller substitute their own engine stylesheet, whose identity is genuinely
+  // whatever it declares — so that one legitimately uses the content-derived form.
+  // That is what the legacy shape is for; it is not a migration this file skipped.
+  // See engineering/decisions/2026-08-16-theme-identity-ownership.md.
+  engine.addThemes([
+    readFileOrDie(cssFile, 'layout CSS'),
+    { name: paletteName, css: fs.readFileSync(palettePath, 'utf8') },
+  ]);
   // Rewrite `![bg side](url)` to the lattice-bg div (CSS background) BEFORE render
   // so the engine's basic-mode background ruler never collapses the split (lib/engine
   // matches marp WEB mode; the emulator's PDF path wants the half-canvas panel).

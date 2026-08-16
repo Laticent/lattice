@@ -849,6 +849,208 @@ function checkThemeRoles(errors, themesDir = THEMES_DIR) {
   }
 }
 
+// ─── Theme identity: ONE owner, two verified projections ──────────────────
+// A palette's name exists in three places — the manifest's `name` field, the
+// filename, and the `@theme` directive in the CSS — and until 2026-08-16 NOTHING
+// bound them. `checkThemeRoles` keys by filename and never reads `@theme` at all,
+// so `themes/foo.css` declaring `@theme bar` would pass every gate and register
+// under a name nobody expects. All 32 palettes agreed by discipline alone, and
+// design/skills/theme.md already told authors the directive "MUST match the
+// filename" — a promise the machine did not keep.
+//
+// THE MANIFEST OWNS THE NAME. It is already the single declaration of which
+// palettes exist (tools/build-theme-catalog.js reads it for the picker, roles,
+// swatches). The filename and `@theme` are PROJECTIONS of that owner, and this
+// gate is what makes them projections rather than independent copies.
+//
+// Why `@theme` stays in the source CSS at all, when `@size` did not: the source
+// file is itself a published artifact. `@workwel/lattice/themes/<name>.css` is a
+// package export README.md documents as "a Marp theme file", and Marpit THROWS
+// without the directive — where a missing `@size` merely degraded to the default
+// box. Identity has to travel with the bytes; geometry did not.
+// See engineering/decisions/2026-08-16-theme-identity-ownership.md.
+const THEME_DIRECTIVE_RE = /@theme\s+([A-Za-z0-9_-]+)/;
+function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
+  const files = listThemeFiles(themesDir);
+  const manifests = listThemeManifests(themesDir);
+
+  for (const [fileName, cssText] of files) {
+    const declared = THEME_DIRECTIVE_RE.exec(cssText)?.[1];
+    if (!declared) {
+      errors.push(
+        `themes/${fileName}.css declares no \`@theme\`. The file is a published export ` +
+        `(\`@workwel/lattice/themes/${fileName}.css\`) that README.md calls a Marp theme file, and ` +
+        `Marp throws without the directive. Add \`/* @theme ${fileName} */\` as the first line.`,
+      );
+      continue;
+    }
+    if (declared !== fileName) {
+      errors.push(
+        `themes/${fileName}.css declares \`@theme ${declared}\` — the filename says "${fileName}". ` +
+        `A theme registers under the name in the directive, so these disagreeing means the palette ` +
+        `loads under a name no picker, manifest, or \`@import\` refers to. Make them match.`,
+      );
+    }
+    const m = manifests.get(fileName);
+    if (m && m.name !== undefined && m.name !== fileName) {
+      errors.push(
+        `themes/${fileName}.manifest.json declares \`"name": "${m.name}"\` — the filename says ` +
+        `"${fileName}". The manifest OWNS the theme's name; the filename and \`@theme\` are ` +
+        `projections of it, so all three have to agree.`,
+      );
+    }
+  }
+
+  // The engine base is not in themes/, but it is registered by name like any other
+  // theme (`@import 'lattice'` resolves against it), so its directive is load-bearing too.
+  const baseCss = fs.readFileSync(path.join(ROOT, 'lib', '_theme.css'), 'utf8');
+  const baseName = THEME_DIRECTIVE_RE.exec(baseCss)?.[1];
+  if (baseName !== 'lattice') {
+    errors.push(
+      `lib/_theme.css declares \`@theme ${baseName ?? '(nothing)'}\` — it must be \`lattice\`. ` +
+      `Every palette says \`@import 'lattice'\`, and that import resolves against this name; ` +
+      `change it and all 32 palettes silently collapse to scaffold-only CSS.`,
+    );
+  }
+}
+
+// ─── Theme registration passes the name, never searches for it ────────────
+// `ThemeStore.add(name, css)` takes identity as an argument. The one-argument
+// `add(css)` form recovers it from `@theme` and survives only for external
+// consumers of the published `./engine` export and the documented
+// `window.LatticePlayground.addThemes` API.
+//
+// In-repo callers must pass the name, because they all HAVE it — the fetcher
+// fetched by name, the Studio serialized with one, a shared payload carries
+// `{ name, css }`, the CLI has a path. `theme-fetch.ts` was the clearest case:
+// `if (!PG.hasTheme(name)) PG.addThemes([css])` used the name and threw it away on
+// the same line, leaving `add` to regex it back out of the sheet.
+//
+// The searched form is not merely redundant, it is unsafe: a sheet with no
+// directive registers NOTHING and returns a `false` no caller checks.
+const THEME_REG_ROOTS = ['lib', 'docs/src', 'tools', 'lattice-emulator.js'];
+/**
+ * Blank out JS comments and string/template literals, preserving length and
+ * newlines so offsets and line numbers still line up. Not a parser — it is
+ * enough to keep a code scan from reading prose, which is all this gate needs.
+ */
+function stripJsCommentsAndStrings(src) {
+  let out = '';
+  let i = 0;
+  const blank = (s) => s.replace(/[^\n]/g, ' ');
+  while (i < src.length) {
+    const two = src.slice(i, i + 2);
+    if (two === '/*') {
+      const end = src.indexOf('*/', i + 2);
+      const stop = end === -1 ? src.length : end + 2;
+      out += blank(src.slice(i, stop));
+      i = stop;
+    } else if (two === '//') {
+      const end = src.indexOf('\n', i);
+      const stop = end === -1 ? src.length : end;
+      out += blank(src.slice(i, stop));
+      i = stop;
+    } else if (src[i] === '"' || src[i] === "'" || src[i] === '`') {
+      const q = src[i];
+      let j = i + 1;
+      while (j < src.length && src[j] !== q) j += src[j] === '\\' ? 2 : 1;
+      out += q + blank(src.slice(i + 1, j)) + (src[j] === q ? q : '');
+      i = j + 1;
+    } else {
+      out += src[i];
+      i++;
+    }
+  }
+  return out;
+}
+// Sites that legitimately cannot know the name. Each needs its justification here;
+// the gate also fails on a STALE entry, so the list cannot rot.
+const SANCTIONED_UNNAMED_THEME_REGISTRATIONS = [
+  {
+    file: 'lattice-emulator.js',
+    why: 'the `--css` / positional layout-CSS override lets a caller substitute their own engine '
+       + 'stylesheet, whose identity is genuinely whatever it declares — the emulator has no name to pass.',
+  },
+];
+function checkThemeRegistrationCallSites(errors) {
+  const found = [];
+  const walk = (p) => {
+    const st = fs.statSync(p);
+    if (st.isDirectory()) {
+      for (const e of fs.readdirSync(p).sort()) {
+        if (e === 'node_modules' || e === 'public') continue;
+        walk(path.join(p, e));
+      }
+      return;
+    }
+    if (!/\.(js|mjs|ts|tsx)$/.test(p) || p.includes('.generated.')) return;
+    const rel = path.relative(ROOT, p);
+    // Scrub comments and string literals FIRST. Three docblocks in this repo quote
+    // `addThemes([cssText])` while explaining the legacy form — including this gate's
+    // own error message — and matching prose would make the gate fire on the
+    // documentation telling you how to satisfy it. The scrubber preserves LENGTH, so
+    // offsets still index the original — which is what the message quotes, since a
+    // reader needs to see their code, not its blanked-out shadow.
+    const raw = fs.readFileSync(p, 'utf8');
+    const src = stripJsCommentsAndStrings(raw);
+    for (const m of src.matchAll(/addThemes\(\s*\[/g)) {
+      // Take the bracketed argument list, then split its TOP-LEVEL entries.
+      let depth = 0;
+      let end = -1;
+      for (let i = m.index + m[0].length - 1; i < src.length; i++) {
+        const c = src[i];
+        if (c === '[' || c === '{' || c === '(') depth++;
+        else if (c === ']' || c === '}' || c === ')') {
+          depth--;
+          if (depth === 0) { end = i; break; }
+        }
+      }
+      if (end === -1) continue;
+      const start = m.index + m[0].length;
+      const inner = src.slice(start, end);
+      let d = 0;
+      let from = 0;
+      const spans = [];
+      for (let k = 0; k < inner.length; k++) {
+        const c = inner[k];
+        if ('[{('.includes(c)) d++;
+        else if (']})'.includes(c)) d--;
+        else if (c === ',' && d === 0) { spans.push([from, k]); from = k + 1; }
+      }
+      spans.push([from, inner.length]);
+      for (const [a, b] of spans) {
+        if (!src.slice(start + a, start + b).trim().startsWith('{') && src.slice(start + a, start + b).trim()) {
+          // Quote the ORIGINAL source for the human; the scrubbed copy is scan-only.
+          const t = raw.slice(start + a, start + b).trim().replace(/\s+/g, ' ');
+          found.push({ file: rel, entry: t.length > 60 ? `${t.slice(0, 57)}…` : t });
+        }
+      }
+    }
+  };
+  for (const r of THEME_REG_ROOTS) {
+    const p = path.join(ROOT, r);
+    if (fs.existsSync(p)) walk(p);
+  }
+
+  const stale = [...SANCTIONED_UNNAMED_THEME_REGISTRATIONS];
+  for (const f of found) {
+    const i = stale.findIndex((s) => s.file === f.file);
+    if (i !== -1) { stale.splice(i, 1); continue; }
+    errors.push(
+      `${f.file}: \`addThemes\` is passed bare CSS (\`${f.entry}\`). Pass the name you already have — ` +
+      `\`addThemes([{ name, css }])\`. The one-argument form recovers the name by regex and, on a sheet ` +
+      `with no \`@theme\`, registers nothing while returning a \`false\` nobody checks. If this call site ` +
+      `genuinely cannot know the name, add it to SANCTIONED_UNNAMED_THEME_REGISTRATIONS with the reason.`,
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `stale unnamed-theme-registration sanction in tools/check-ownership.js — ${s.file} no longer passes ` +
+      `bare CSS to addThemes. Remove the entry so the allowlist stays honest.`,
+    );
+  }
+}
+
 /**
  * G3 — `modes` AGREES WITH THE CSS, and `darkCounterpart` points at a real wrapper.
  *
@@ -7459,6 +7661,8 @@ function run() {
   checkMathRendererParity(errors);
   checkSectionBoxOwnership(errors);
   checkSizeRegistryOwnership(errors);
+  checkThemeIdentity(errors);
+  checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
   checkFinishChromeExclusions(errors);
@@ -7592,6 +7796,8 @@ module.exports = {
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,
   checkSizeRegistryOwnership,
+  checkThemeIdentity,
+  checkThemeRegistrationCallSites,
   SANCTIONED_SECTION_BOXES,
   checkLabelVoiceFont,
   LABEL_VOICE_MONO_BUDGET,
