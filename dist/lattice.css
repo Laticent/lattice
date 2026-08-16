@@ -302,6 +302,35 @@
    * are fitted at 1.40x-2.17x (median 1.64), and 7 x 1.64 = 11.5px against
    * --radius-md's 10.8px at hd. Consumed by lib/integrations/mermaid/mermaid.css. */
   --diagram-cluster-radius:7px;
+
+  /* THE SLIDE'S OWN CORNER — a different tier from the three radii above, which round
+   * things INSIDE a slide (cards, images, code panels). This one rounds the slide.
+   *
+   * `--slide-radius` is the LIVE value and is `0` by default: square, which is what every
+   * deck rendered and exported at before this register existed, so nothing moves for a
+   * deck that says nothing. A deck opts in with `corners: rounded` in its front matter,
+   * which stamps `corners-rounded` on every section and swaps in the value below
+   * (lib/core/resolve-corners.js, applied in base.modifiers.css).
+   *
+   * `--slide-radius-rounded` is what "rounded" MEANS, and it is the theme's to set —
+   * the value layer, per 2026-08-09-color-theme-ownership.md. `cqi` like every other
+   * engine radius, so the corner holds its proportion at any render size: a 240px
+   * gallery thumbnail and a 1280px preview of the same deck round by the same FRACTION
+   * of the slide, where the fixed-pixel corners this replaces made the thumbnail look
+   * markedly rounder than the slide it stood for. 1.5cqi ≈ 19px at hd — a shade past
+   * --radius-lg, because a corner that has to read across a whole slide needs more
+   * radius than one rounding a card inside it.
+   *
+   * ANCHORED to `--_sec-1cqi` rather than written as a bare `1.5cqi`, and that is
+   * load-bearing here in a way it is not for the three radii above. A length resolves
+   * where it is USED, and this one is used ON THE SECTION — which is the size container
+   * itself, so a bare `cqi` there escapes to the nearest OUTER container and, finding
+   * none, to the initial containing block: the host viewport. The corner would then
+   * scale with the browser window instead of the slide. The three in-slide radii are
+   * consumed by DESCENDANTS, where a bare `cqi` resolves against the slide correctly,
+   * which is why they stay bare. (`checkContainerUnits` fails a bare unit that reaches
+   * a section-own consumer; #1243 is the same shape on `--frame-inset-y`.) */
+  --slide-radius:0;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
@@ -1046,6 +1075,16 @@
   --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi));
   --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
+
+  /* What `corners: rounded` MEANS for this theme — the slide's own corner (see the
+   * `--slide-radius` note in the radii block above for why this tier exists at all).
+   * In THIS block, not `:root`, for the reason spelled out at the top of it: the
+   * consumer is `section.corners-rounded`'s own `clip-path`, i.e. the section itself,
+   * and a `:root`-only copy bakes the `1cqi` fallback in and silently resolves against
+   * the host viewport — a corner that grew and shrank with the browser window rather
+   * than with the slide. A theme overrides this token to set how round its decks are;
+   * it is the value layer's to own (2026-08-09-color-theme-ownership.md). */
+  --slide-radius-rounded: calc(1.5 * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── The slide's DEPTH axis — seven named planes ────────────────────────
@@ -20444,6 +20483,55 @@ section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.card
 section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
   > .lat-split-note > .below-note > p:has(> em:only-child) {
   font-size: var(--fs-body-compact);
+}
+
+
+/* ── THE SLIDE'S CORNER — the `corners:` register ──────────────────────────────
+   Whether the slide's own surface is square or rounded. `corners: square` (the
+   default and the whole prior behavior) → nothing here applies; `corners: rounded`
+   → the deck stamps `corners-rounded` on every section and the slide rounds.
+   Kernel + why the register exists: lib/core/resolve-corners.js.
+
+   WHY `clip-path` AND NOT `border-radius`. The slide's brand bar is the section's
+   own `border-top` painted with `border-image-source: var(--spectrum)`, and a
+   BORDER-IMAGE DOES NOT HONOR `border-radius` — the corners of the bar stay square
+   and poke past the rounded surface, which is a worse artifact than the one this
+   register exists to fix. Measured in this repo's Chromium, not recalled from the
+   spec: a `border-radius` box draws a hard rectangular bar over a rounded body,
+   while `clip-path: inset(0 round R)` clips the WHOLE element — border image
+   included — so the bar hugs the corner exactly. That holds for the four
+   `spectrum-edge-*` rails too, which are the same border-image on another side, so
+   one property covers every placement with no per-edge repaint to keep in step.
+
+   Everything else on the slide is already inside the clip for free: `section` is
+   `overflow: hidden`, so a full-bleed `image` backdrop, the finish `.backdrop`
+   layer, and the divider's background rail are all clipped to the same shape
+   without a rule of their own.
+
+   APPLIED ONLY WHEN ROUNDED, deliberately. `inset(0 round 0)` is a no-op SHAPE but
+   still establishes a stacking context, so declaring it unconditionally would
+   change the paint order of every slide in the corpus to buy nothing. A deck that
+   says nothing gets no `clip-path` property at all.
+
+   `border-radius` rides alongside because a CONSUMER needs to read the resolved
+   value. `getComputedStyle(section).borderRadius` reports a real px length in the
+   frame's own scale, where a `clip-path` shape does not parse back usefully — that
+   is how the Studio's preview chrome follows the deck's corner instead of imposing
+   a fixed 12px of its own (#1649). It also rounds the surface a second time, which
+   is harmless and identical. */
+section.corners-rounded {
+  --slide-radius: var(--slide-radius-rounded);
+  clip-path: inset(0 round var(--slide-radius));
+  border-radius: var(--slide-radius);
+}
+/* A slide opting OUT of a rounded deck. The propagation kernels already EVICT the
+   deck's `corners-rounded` when a slide names `corners-square`, so this rule
+   normally has nothing to undo — it is here for the hand-written section that
+   carries both, where the two would otherwise resolve by source order. */
+section.corners-square {
+  --slide-radius: 0;
+  clip-path: none;
+  border-radius: 0;
 }
 
 /* === lib/integrations/highlight-js/highlight-js.css === */

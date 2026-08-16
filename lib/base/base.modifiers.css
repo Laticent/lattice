@@ -2345,3 +2345,51 @@ section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.card
   font-size: var(--fs-body-compact);
 }
 
+
+/* ── THE SLIDE'S CORNER — the `corners:` register ──────────────────────────────
+   Whether the slide's own surface is square or rounded. `corners: square` (the
+   default and the whole prior behavior) → nothing here applies; `corners: rounded`
+   → the deck stamps `corners-rounded` on every section and the slide rounds.
+   Kernel + why the register exists: lib/core/resolve-corners.js.
+
+   WHY `clip-path` AND NOT `border-radius`. The slide's brand bar is the section's
+   own `border-top` painted with `border-image-source: var(--spectrum)`, and a
+   BORDER-IMAGE DOES NOT HONOR `border-radius` — the corners of the bar stay square
+   and poke past the rounded surface, which is a worse artifact than the one this
+   register exists to fix. Measured in this repo's Chromium, not recalled from the
+   spec: a `border-radius` box draws a hard rectangular bar over a rounded body,
+   while `clip-path: inset(0 round R)` clips the WHOLE element — border image
+   included — so the bar hugs the corner exactly. That holds for the four
+   `spectrum-edge-*` rails too, which are the same border-image on another side, so
+   one property covers every placement with no per-edge repaint to keep in step.
+
+   Everything else on the slide is already inside the clip for free: `section` is
+   `overflow: hidden`, so a full-bleed `image` backdrop, the finish `.backdrop`
+   layer, and the divider's background rail are all clipped to the same shape
+   without a rule of their own.
+
+   APPLIED ONLY WHEN ROUNDED, deliberately. `inset(0 round 0)` is a no-op SHAPE but
+   still establishes a stacking context, so declaring it unconditionally would
+   change the paint order of every slide in the corpus to buy nothing. A deck that
+   says nothing gets no `clip-path` property at all.
+
+   `border-radius` rides alongside because a CONSUMER needs to read the resolved
+   value. `getComputedStyle(section).borderRadius` reports a real px length in the
+   frame's own scale, where a `clip-path` shape does not parse back usefully — that
+   is how the Studio's preview chrome follows the deck's corner instead of imposing
+   a fixed 12px of its own (#1649). It also rounds the surface a second time, which
+   is harmless and identical. */
+section.corners-rounded {
+  --slide-radius: var(--slide-radius-rounded);
+  clip-path: inset(0 round var(--slide-radius));
+  border-radius: var(--slide-radius);
+}
+/* A slide opting OUT of a rounded deck. The propagation kernels already EVICT the
+   deck's `corners-rounded` when a slide names `corners-square`, so this rule
+   normally has nothing to undo — it is here for the hand-written section that
+   carries both, where the two would otherwise resolve by source order. */
+section.corners-square {
+  --slide-radius: 0;
+  clip-path: none;
+  border-radius: 0;
+}

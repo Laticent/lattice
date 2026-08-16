@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { getFrontMatter } from '@/components/studio/front-matter';
+import { cornerLength, slideCornerFraction } from '@/lib/deck-corner';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
@@ -123,6 +124,22 @@ export type DeckPreviewProps = {
 	 */
 	onRender?: () => void;
 	/**
+	 * Fired when the DECK'S OWN corner radius changes — as a FRACTION of the slide's width,
+	 * measured off the real render (`docs/src/lib/deck-corner.ts`). `0` is a square deck,
+	 * which is the default and was the only thing the engine ever produced before #1649.
+	 *
+	 * This exists because the radius has to reach chrome the figure does not own: the
+	 * Studio's preview backing box, the picker tile's button shell, the overview thumbnail's
+	 * button. Those elements are the ones with `overflow-hidden`, so they are the ones that
+	 * have to round — a figure rounding inside a square clip rounds nothing. A host whose
+	 * figure IS the clip (Fabricate, the Layout Studio) needs no handler: the figure already
+	 * carries the radius and `--deck-corner` from this component.
+	 *
+	 * Fired only on CHANGE, so a live-editing host that re-renders per keystroke does not
+	 * re-render its chrome on every one.
+	 */
+	onCorner?: (fraction: number) => void;
+	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
 	 * landing/showcase hosts render a known static sample with no meaningful load gap.
@@ -167,6 +184,7 @@ export function DeckPreview({
 	role,
 	onFirstRender,
 	onRender,
+	onCorner,
 	loader = false,
 	chartDetail = false,
 	specimen = false,
@@ -217,6 +235,13 @@ export function DeckPreview({
 	// enters the render closure's dependency list.
 	const onRenderRef = React.useRef(onRender);
 	onRenderRef.current = onRender;
+	const onCornerRef = React.useRef(onCorner);
+	onCornerRef.current = onCorner;
+	// Last corner fraction PUBLISHED, so the sync below is a no-op on the overwhelming
+	// majority of renders (a deck's corner changes when its front matter does, not when a
+	// word does). `-1` rather than `0` as the seed: `0` is a real value — a square deck —
+	// and seeding with it would swallow the first publish on the common case.
+	const cornerRef = React.useRef(-1);
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
 	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
@@ -523,6 +548,26 @@ export function DeckPreview({
 		// a real `status` (same as onRender below): a deferred inactive-host bail returns undefined and must
 		// NOT mount/re-pin the layer over a slide that didn't paint.
 		if (status) chartDetailRef.current?.onSlide(0);
+		// The DECK'S OWN CORNER, read back off the section this render just painted, and pushed
+		// onto the figure so a host whose figure IS the clip rounds with no wiring of its own.
+		// `--deck-corner` rides alongside for chrome that wants it in a class. Same `status`
+		// gate as the callbacks around it: a deferred bail painted nothing to measure.
+		if (status) {
+			const fig = stageRef.current;
+			const fraction = slideCornerFraction(fig);
+			if (fig && fraction !== cornerRef.current) {
+				cornerRef.current = fraction;
+				fig.style.setProperty('--deck-corner', cornerLength(fraction, fig.getBoundingClientRect().width));
+				// Set unconditionally, INCLUDING at 0 — that is the point. A host whose class list
+				// said `rounded-lg` was asserting a corner the deck never had; an inline length
+				// beats the class either way, so a square deck previews square and a rounded one
+				// previews rounded. The clip has to be here too: rounding a figure the iframe
+				// overflows rounds nothing.
+				fig.style.borderRadius = 'var(--deck-corner, 0px)';
+				fig.style.overflow = fraction > 0 ? 'hidden' : '';
+				onCornerRef.current?.(fraction);
+			}
+		}
 		// Committed-render signal for a parent hosting its own layer over this preview (Present re-pins
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.

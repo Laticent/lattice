@@ -123,6 +123,7 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 | **Spectrum card** | `spectrum-card:` | an INDEPENDENT spectrum rail on card surfaces (`off`/`auto`/`solid`/`duo`/`mono`/`rainbow`) |
 | **Spectrum card edge** | `spectrum-card-edge:` | where the card rail sits (`left`/`top`/`right`/`bottom`) |
 | **Spectrum trim** | `spectrum-trim:` | how much the structural accents carry the spectrum (`off`/`restrained`/`on`) — off = quiet accent-tint hairline by default |
+| **Corners** | `corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the theme sets how round via `--slide-radius-rounded` |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
 | **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |

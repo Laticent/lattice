@@ -1107,6 +1107,46 @@ left panel) never lift, even when `lift` is on. Toggle it from the **Deck Settin
 (a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
 matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
 
+### The slide's corner — `corners:`
+
+Whether the slide's own surface is square or rounded. A sibling register of the ones
+above (`lib/core/resolve-corners.js`), propagated to every section, overridable per
+slide.
+
+| `corners:` value | Token | Effect |
+|---|---|---|
+| `square` | *(none)* | Hard corners. **The default** (omit the key). |
+| `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
+
+Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
+`<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the
+layout too, e.g. `_class: cards-grid corners-square`).
+
+**Two tokens, and only one of them is a theme's to set.** `--slide-radius` is the live
+value and is `0` unless the register turns it on — do not set it directly.
+`--slide-radius-rounded` is what *rounded* means for this palette, and that is the value
+layer's to own (`design/theming.md`); the engine ships `calc(1.5 * var(--_sec-1cqi))`,
+about 19px at hd. Both are a **different tier** from `--radius-sm/md/lg`, which round
+things *inside* a slide — cards, images, code panels — and are wrong for this job.
+
+Two implementation notes worth knowing before you touch either:
+
+- **It clips with `clip-path`, not `border-radius`.** The brand bar is the section's own
+  `border-top` painted with `border-image-source: var(--spectrum)`, and a border image
+  does **not** honor `border-radius` — the bar keeps square corners and pokes past the
+  rounded surface. `clip-path: inset(0 round R)` clips the whole element, border image
+  included, so one property covers the top bar and all four `spectrum-edge` rails.
+- **The rounded value is anchored to `--_sec-1cqi`.** It is consumed by the section's own
+  clip, and a section cannot query its own container — a bare `cqi` there escapes to the
+  host viewport, so the corner would scale with the browser window instead of the slide.
+
+Everything downstream follows the rendered slide rather than guessing: the Studio's
+preview box, its gallery tiles and thumbnails, and the Fabricate specimens all read the
+radius back off the live render (`docs/src/lib/deck-corner.ts`) as a *fraction* of the
+slide's width, so one deck rounds by the same proportion at 240px and at 1280px. Before
+this register those surfaces each picked a fixed pixel corner of their own, which is what
+made a preview disagree with its own export (#1649).
+
 | Token / class | Effect |
 |---|---|
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |
