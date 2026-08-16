@@ -11,7 +11,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
-import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
@@ -352,6 +352,9 @@ class SlideView {
 		private getHeadings?: () => SlideHeadings | undefined,
 		onInsertBelow?: (index: number) => void,
 		private mountTable?: (slot: HTMLElement | null, owner: SlideView, stateful: boolean) => void,
+		// Read LAZILY like getHeadings — the map arrives as a prop and a SlideView outlives
+		// a prop change, so a getter keeps the gutter current without recreating node views.
+		private getBlocks?: () => SlideBlocks | undefined,
 	) {
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
@@ -461,7 +464,7 @@ class SlideView {
 			this.mountTable?.(slot, this, this.stateful);
 			return;
 		}
-		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.());
+		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.(), this.getBlocks?.());
 		const sig = `${keys.join(',')}|${activeReg ?? ''}`;
 		if (this.fmtGroup.dataset.sig === sig) return;
 		this.fmtGroup.dataset.sig = sig;
@@ -664,7 +667,7 @@ export type ComposeHandle = {
 	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow, onCursorSlide }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, onInsertBelow, onCursorSlide }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -779,6 +782,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the Format group offers the grammar-correct heading register per the caret slide's `_class`.
 	const slideHeadingsRef = React.useRef(slideHeadings);
 	slideHeadingsRef.current = slideHeadings;
+	const slideBlocksRef = React.useRef(slideBlocks);
+	slideBlocksRef.current = slideBlocks;
 	const onInsertBelowRef = React.useRef(onInsertBelow);
 	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
@@ -829,7 +834,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable, () => slideBlocksRef.current),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.

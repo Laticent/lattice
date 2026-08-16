@@ -89,6 +89,36 @@ export function activeRegister(state: EditorState): Reg | null {
 // ABSENT from the map (an unrecognized `_class`) falls back to permissive (both).
 export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 
+// A class name → the OPTIONAL editorial blocks that layout actually renders, read from
+// `authoring.blocks` in the generated manifest (#1651). Both blocks are opt-out, and a
+// layout that claims its trailing blockquote / paragraph for its own anatomy renders
+// neither: a `quote` takes them as the quotation and the attribution. Same injection
+// shape (and the same one-source-of-truth reasoning) as `SlideHeadings` above.
+export type SlideBlocks = Record<string, string[]>;
+
+/**
+ * Does the caret's slide render the block behind this register?
+ *
+ * PERMISSIVE BY DEFAULT, on exactly the same three guards `headingKeysFor` carries:
+ * only an explicitly-classed slide is gated, the LAST `_class` wins, and the lookup is
+ * `Array.isArray`-guarded so a slide naming `constructor` in its `_class` can't reach a
+ * function up the prototype chain. A class absent from the map — or a missing map — is
+ * offered the register, so an unrecognized class and a build that could not read the
+ * manifest both behave exactly as they did before this gate existed.
+ */
+function rendersBlock(directives: string[], block: 'key-insight' | 'below-note', blocks?: SlideBlocks): boolean {
+	if (!blocks) return true;
+	let cls: string | null = null;
+	for (const d of directives) {
+		const m = d.match(CLASS_RE);
+		if (m) cls = m[1];
+	}
+	if (cls == null) return true;
+	const declared = blocks[cls];
+	if (!Array.isArray(declared)) return true;
+	return declared.includes(block);
+}
+
 // Which HEADING register(s) the caret's slide grammar permits: the class's declared level(s), or —
 // when the class isn't in the grammar map — both (never silently drop the control on an unknown class).
 // Three guards, all from the adversarial trio:
@@ -126,9 +156,10 @@ function headingKeysFor(directives: string[], headings?: SlideHeadings): Reg[] {
 //   - blockquote (Key-insight) → just Key-insight (to toggle it off).
 //   - paragraph → the grammar heading register; Eyebrow / Subtitle only where the engine would render
 //     them (a code label adjacent to a heading) or where already active; Key-insight + Below-note
-//     always (these are BASE modifiers the engine renders on any class, so they stay block-driven).
+//     where the CLASS renders them (#1651 — both blocks are opt-out, and a layout that claims its
+//     trailing blockquote / paragraph for its own anatomy renders neither).
 //   - list / table / other container → nothing (no register can render from it).
-export function applicableRegisters(state: EditorState, headings?: SlideHeadings): { keys: Reg[]; active: Reg | null } {
+export function applicableRegisters(state: EditorState, headings?: SlideHeadings, blocks?: SlideBlocks): { keys: Reg[]; active: Reg | null } {
 	const ctx = slideContext(state);
 	if (!ctx || ctx.slide.attrs.locked) return { keys: [], active: null };
 	const active = activeRegister(state);
@@ -142,8 +173,20 @@ export function applicableRegisters(state: EditorState, headings?: SlideHeadings
 	// be lit or toggled off from the pill (recoverable only in Markdown mode). Prepend so the active,
 	// lit register reads first, then the grammar target to switch to.
 	if ((active === 'h1' || active === 'h2') && !hk.includes(active)) hk.unshift(active);
+	const directives = ctx.slide.attrs.directives as string[];
+	// NO "keep the active register" escape here, unlike the heading fallback above — the two
+	// cases are not alike. A stray H1 is REAL markup that renders wrong and needs a pill to
+	// fix. An "active" insight/note on a layout that drops the block is not: `activeRegister`
+	// infers both POSITIONALLY (a trailing blockquote, a paragraph after a structural block),
+	// and on an excluded layout that inference is simply wrong — a quote's trailing paragraph
+	// is its ATTRIBUTION and renders as such. There is no stray construct to clear.
+	//
+	// Offering the pill anyway would be worse than useless for insight: the quotation is a
+	// real `<blockquote>`, so toggling the register off would unwrap it and destroy the quote.
+	const takesInsight = rendersBlock(directives, 'key-insight', blocks);
+	const takesNote = rendersBlock(directives, 'below-note', blocks);
 	if (kind === 'heading') return { keys: hk, active };
-	if (kind === 'blockquote') return { keys: ['insight'], active };
+	if (kind === 'blockquote') return { keys: takesInsight ? ['insight'] : [], active };
 	if (kind === 'paragraph') {
 		const keys: Reg[] = [...hk];
 		if (isHeading(next) || active === 'eyebrow') keys.push('eyebrow');
@@ -153,7 +196,8 @@ export function applicableRegisters(state: EditorState, headings?: SlideHeadings
 		// pill affordance to clear the code mark (recoverable only in Markdown mode). Offer eyebrow so a
 		// tap toggles the code off; the register glyph is the same construct either way.
 		if (isCodeLabel(block) && !keys.includes('eyebrow') && !keys.includes('subtitle')) keys.push('eyebrow');
-		keys.push('insight', 'note');
+		if (takesInsight) keys.push('insight');
+		if (takesNote) keys.push('note');
 		return { keys, active };
 	}
 	return { keys: [], active };

@@ -160,6 +160,35 @@ try {
 	slideHeadings = {};
 }
 
+// The per-class OPTIONAL-BLOCK map for Compose: a `_class` name → the universal
+// editorial blocks that layout actually renders (`key-insight`, `below-note`), read
+// from `authoring.blocks` in the generated manifest (#1651). Both blocks are
+// OPT-OUT, so a layout that claims its trailing blockquote or paragraph for its own
+// anatomy renders neither — a `quote` takes them as the quotation and the
+// attribution. Compose's grammar gutter offered "Key insight" and "Below-note" on
+// every slide regardless, so applying one on a quote did nothing and said nothing.
+// Threaded through so the gutter only offers a register that will render, sharing
+// the engine's own exclusion sets as the one source of truth (HARD RULE #1 — the
+// same shape as slideHeadings above).
+//
+// An ABSENT class stays permissive: `applicableRegisters` only withholds a register
+// for a class it positively knows drops the block, so an unrecognized `_class` and a
+// missing map both behave exactly as they did before.
+let slideBlocks = {};
+try {
+	const catalogForBlocks = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
+	for (const c of catalogForBlocks.components || []) {
+		if (!c.name) continue;
+		const blocks = c.authoring && Array.isArray(c.authoring.blocks) ? c.authoring.blocks : null;
+		if (blocks) slideBlocks[c.name] = blocks;
+	}
+} catch (e) {
+	// Same observable degradation as slideHeadings: without the map Compose offers
+	// both registers everywhere, which is exactly the pre-#1651 behavior.
+	console.warn('[studio] slideBlocks: could not read authoring.blocks — Compose offers insight/note on every layout', e && e.message);
+	slideBlocks = {};
+}
+
 // The deterministic lint vocabulary — built at build time from the LIVE component
 // manifests (the SAME buildVocab the Drawing Board and the Node CLI use), so the
 // editor's inline grammar linter is the canonical lint-core, not a reduced copy.
@@ -893,7 +922,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		</div>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioIsland client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} />
+		<StudioIsland client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}

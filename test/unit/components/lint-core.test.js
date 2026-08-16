@@ -881,3 +881,54 @@ describe('lint-core: unterminated comment', () => {
 		assert.ok(!rules(src).includes('unterminated-comment'));
 	});
 });
+
+// #1651 — a universal editorial modifier that has no host on this layout.
+// `insight-*` and `no-note` are accepted everywhere (they are universals, and the
+// manifest lists them among every component's effectiveVariants), but they only do
+// something where the block they govern renders. On a `quote` neither does.
+describe('lint-core: block-unsupported', () => {
+  const bVocab = {
+    names: new Set(['quote', 'content', 'cards-grid', 'math', 'timeline-list']),
+    modifiers: new Set(['insight-key', 'insight-verdict', 'no-note', 'bare']),
+  };
+  const bu = (cls, body = '# H\n') =>
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n${body}`, bVocab).filter((f) => f.rule === 'block-unsupported');
+
+  test('flags insight-* on a quote — the case that opened the issue', () => {
+    const f = bu('quote insight-key');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].classToken, 'insight-key');
+    assert.match(f[0].message, /does nothing on a quote slide/);
+  });
+
+  test('flags no-note on a quote too', () => {
+    const f = bu('quote no-note');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].classToken, 'no-note');
+  });
+
+  test('flags BOTH when both are inert on the same slide', () => {
+    assert.equal(bu('quote insight-key no-note').length, 2);
+  });
+
+  test('stays silent where the block really renders', () => {
+    assert.deepEqual(bu('content insight-key'), []);
+    assert.deepEqual(bu('cards-grid no-note'), []);
+    assert.deepEqual(bu('content insight-verdict no-note'), []);
+  });
+
+  test('handles a layout that takes one block and not the other', () => {
+    // timeline-list renders the key-insight callout but not a below-note.
+    assert.deepEqual(bu('timeline-list insight-key'), []);
+    assert.equal(bu('timeline-list no-note').length, 1);
+  });
+
+  test('says nothing about a correctly-authored quote carrying no modifier', () => {
+    assert.deepEqual(bu('quote', '> A quotation.\n\n— Someone\n'), []);
+    assert.deepEqual(bu('quote bare', '> A quotation.\n\n— Someone\n'), []);
+  });
+
+  test('ignores a slide whose class names no known component', () => {
+    assert.deepEqual(bu('insight-key'), []);
+  });
+});
