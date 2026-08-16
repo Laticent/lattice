@@ -22153,7 +22153,7 @@ section.treatment-none {
  *     encodes a large-area gradient that fades through ALPHA so PDF rasterizers
  *     (poppler AND Ghostscript both confirmed) interpolate toward transparent-
  *     BLACK → a muddy GRAY cloud. So every FULL-BLEED fade must end OPAQUE: a
- *     wash/glow is `color-mix(var(--accent) N%, var(--bg))` → plain `var(--bg)`
+ *     wash/glow is `color-mix(var(--accent) N%, var(--fin-canvas))` → plain `var(--fin-canvas)`
  *     (accent mixed INTO the bg, never into `transparent`); patterns are UNIFORM
  *     and faint (a 1px opaque line / dot, transparent GAP only — a hard stop,
  *     never an area fade). This is the look that bakes clean into the vector PDF.
@@ -22176,7 +22176,7 @@ section.treatment-none {
  *   other or from the preset — there is a single source for every value.
  *
  * Design constraints (all load-bearing — see the decision doc):
- *   1. PALETTE-BLIND. Every color is color-mix() of var(--accent)/var(--bg);
+ *   1. PALETTE-BLIND. Every color is color-mix() of var(--accent)/var(--fin-canvas);
  *      a theme swap (or `dark`) recolors the finish automatically. No hex (#3).
  *      The RICH variant may mix toward `transparent` (alpha) — palette-blind
  *      still holds (it is the accent/bg color, just faded).
@@ -22285,7 +22285,7 @@ section.finish > .backdrop::before {
   font-size: var(--fin-mark-fs, 0);
   line-height: 0.78;
   letter-spacing: -0.04em;
-  color: var(--fin-mark-color, var(--bg));
+  color: var(--fin-mark-color, var(--fin-canvas));
   /* The placed text glyph is centered (align/justify) then freely MOVED + TILTED by
    * the designer's transform (translate to x/y, rotate by angle). Default `none`
    * keeps the built-in presets' flex placement untouched. transform-origin center so
@@ -22313,7 +22313,7 @@ section.finish > .backdrop::after {
 
 /* The MASK overlay — topmost inside `.backdrop`, ABOVE the mark (z0) + edge (z1)
  * pseudos, so the clearance / spotlight controls cover the WHOLE finish (no
- * ghost-mark leak). Paints `var(--bg)` where the finish should be hidden; default
+ * ghost-mark leak). Paints `var(--fin-canvas)` where the finish should be hidden; default
  * `none` = no mask. Reads the finish's BAKED `--fin-backdrop-mask` (generateFinishCss
  * emits it as `var(--backdrop-clear-mask)` when the finish's clearance is on). */
 section.finish > .backdrop > .backdrop-mask {
@@ -22323,11 +22323,11 @@ section.finish > .backdrop > .backdrop-mask {
   background: var(--fin-backdrop-mask, none);
 }
 
-/* CLEARANCE — recede the finish behind the content box. The mask paints `var(--bg)`
+/* CLEARANCE — recede the finish behind the content box. The mask paints `var(--fin-canvas)`
  * over the central content area and is transparent toward the margins, so the finish
  * reads only as a frame — the words sit on clean canvas. Approximate geometry (a safe
  * central ellipse, biased up toward the masthead), not measured — see the decision
- * doc's open question. Palette-blind (`var(--bg)` only), no `mask-image`. RICH feathers
+ * doc's open question. Palette-blind (`var(--fin-canvas)` only), no `mask-image`. RICH feathers
  * the reveal edge; the OPAQUE mirror is a single HARD stop (a feathered alpha area-fade
  * grays in the vector PDF).
  *
@@ -22335,8 +22335,50 @@ section.finish > .backdrop > .backdrop-mask {
  * (generateFinishCss emits `--fin-backdrop-mask: var(--backdrop-clear-mask)`), so the
  * gradient lives in one place; the export flip below swaps to the hard `-opaque` mirror. */
 section.finish {
-  --backdrop-clear-mask: radial-gradient(ellipse 90% 84% at 50% 45%, var(--bg) 44%, transparent 88%);
-  --backdrop-clear-mask-opaque: radial-gradient(ellipse 84% 78% at 50% 45%, var(--bg) 64%, transparent 64%);
+  --backdrop-clear-mask: radial-gradient(ellipse 90% 84% at 50% 45%, var(--fin-canvas) 44%, transparent 88%);
+  --backdrop-clear-mask-opaque: radial-gradient(ellipse 84% 78% at 50% 45%, var(--fin-canvas) 64%, transparent 64%);
+}
+
+/* ── --fin-canvas: THE SURFACE THIS FINISH IS PAINTED ON (#1656) ───────
+ * Every finish layer is palette-blind by mixing toward the slide's canvas — the
+ * wash is `color-mix(var(--accent) N%, canvas)`, the opaque export face fades to
+ * plain canvas, the clearance mask PAINTS canvas over the content area, the ghost
+ * mark inks it. Each of those said `var(--bg)` and was therefore correct only
+ * while `--bg` was the color actually under the finish.
+ *
+ * For an ordinary slide it is, and it STAYS correct per-slide for `.dark` /
+ * `.light`: those flip `color-scheme`, the palette's `light-dark()` pairs
+ * re-resolve `--bg` for the whole subtree, and the finish follows the slide's mode
+ * for free. Nothing here changes that.
+ *
+ * The THREE INVERSE BOOKENDS are the hole. `title`, `closing`, and a non-`light`
+ * `divider` paint `--surface-inverse` — a dark panel on a light deck — and they
+ * deliberately KEEP `color-scheme: light` so the on-dark inks they set explicitly
+ * stay predictable (base.modifiers.css § Bookend tables). So `--bg` on those
+ * slides is the LIGHT deck canvas while the surface beneath the finish is dark,
+ * and every layer mixed toward the wrong end. The clearance mask was the visible
+ * casualty: it painted a light ellipse across the middle of a dark bookend, and a
+ * bookend's display text is white — so the headline vanished into it. A `finish:`
+ * deck's title slide rendered as very nearly a blank page (#1656).
+ *
+ * Naming the canvas fixes the whole stack at once, because every layer was already
+ * written in terms of it. A section's default IS `--bg`, so nothing moves for the
+ * cases that were already right.
+ *
+ * Declared on `section` rather than `section.finish` so the token is never
+ * undefined — a fabricated finish (finish-generate.ts) emits the same
+ * `var(--fin-canvas)` and may be applied before the base class lands.
+ *
+ * This is also why the house pattern was `finish-none` on bookends, and why the
+ * deck lint (`bookend-finish-contrast`) told authors to add it by hand: the
+ * workaround existed because the backdrop had no way to know the slide was
+ * inverse. It does now — so that rule's advice is a preference ("keep the bookend
+ * clean"), not a repair for an unreadable slide. */
+section {
+  --fin-canvas: var(--bg);
+}
+section:is(.title, .closing, .divider:not(.light)) {
+  --fin-canvas: var(--surface-inverse);
 }
 
 /* Keep slide content above the backdrop layer (the backdrop is z0, its internal
@@ -22462,19 +22504,19 @@ section.finish-atrium {
   --fin-texture-opaque:
     repeating-linear-gradient(
       0deg,
-      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0 1px,
+      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 38px
     ),
     repeating-linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0 1px,
+      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 38px
     );
   --fin-wash-opaque:
     radial-gradient(
       ellipse 120% 90% at 100% 0%,
-      color-mix(in srgb, var(--accent) 10%, var(--bg)) 0%,
-      var(--bg) 55%
+      color-mix(in srgb, var(--accent) 10%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 55%
     );
   /* 3 field layers: grid-h, grid-v, glow (same count in both faces) */
   --fin-size: auto, auto, cover;
@@ -22512,14 +22554,14 @@ section.finish-meridian {
     repeating-linear-gradient(
       -4deg,
       transparent 0 46px,
-      color-mix(in srgb, var(--accent) 6%, var(--bg)) 46px 47px
+      color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 46px 47px
     );
   --fin-wash-opaque:
     linear-gradient(
       118deg,
-      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0%,
-      var(--bg) 42%,
-      color-mix(in srgb, var(--accent) 4%, var(--bg)) 100%
+      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 42%,
+      color-mix(in srgb, var(--accent) 4%, var(--fin-canvas)) 100%
     );
   /* 2 field layers: contour, duotone */
   --fin-size: auto, cover;
@@ -22532,7 +22574,7 @@ section.finish-meridian {
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--fin-canvas));
   --fin-mark-fs: 30cqi;              /* tasteful default ghost (~third of slide height) */
   --fin-mark-pad: 0 1cqi 0 0;        /* right-aligned, hug the bottom edge */
   --fin-mark-align: flex-end;
@@ -22568,22 +22610,22 @@ section.finish-strata {
     );
   --fin-texture-opaque:
     radial-gradient(
-      color-mix(in srgb, var(--accent) 13%, var(--bg)) 0 1.3px,
+      color-mix(in srgb, var(--accent) 13%, var(--fin-canvas)) 0 1.3px,
       transparent 1.7px
     );
   --fin-wash-opaque:
     linear-gradient(
       90deg,
       var(--accent) 0%,
-      color-mix(in srgb, var(--accent) 35%, var(--bg)) 60%,
-      var(--bg) 100%
+      color-mix(in srgb, var(--accent) 35%, var(--fin-canvas)) 60%,
+      var(--fin-canvas) 100%
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--accent) 5%, var(--bg)) 0%,
-      var(--bg) 30%,
-      var(--bg) 70%,
-      color-mix(in srgb, var(--accent) 4%, var(--bg)) 100%
+      color-mix(in srgb, var(--accent) 5%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 30%,
+      var(--fin-canvas) 70%,
+      color-mix(in srgb, var(--accent) 4%, var(--fin-canvas)) 100%
     );
   /* 3 field layers: dot-matrix, top-hairline, bands */
   --fin-size: 26px 26px, 100% 0.31cqi, cover;
@@ -22626,13 +22668,13 @@ section.finish-halo {
     repeating-radial-gradient(
       circle at 50% 42%,
       transparent 0 56px,
-      color-mix(in srgb, var(--accent) 6%, var(--bg)) 56px 57px
+      color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 56px 57px
     );
   --fin-wash-opaque:
     radial-gradient(
       80% 70% at 50% 42%,
-      color-mix(in srgb, var(--accent) 6%, var(--bg)) 0%,
-      var(--bg) 60%
+      color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 60%
     );
   /* 2 field layers: rings, spotlight */
   --fin-size: auto, cover;
@@ -22651,8 +22693,8 @@ section.finish-halo {
   --fin-edge-opaque:
     radial-gradient(
       78% 78% at 50% 50%,
-      var(--bg) 62%,
-      color-mix(in srgb, var(--ink, var(--accent)) 5%, var(--bg)) 100%
+      var(--fin-canvas) 62%,
+      color-mix(in srgb, var(--ink, var(--accent)) 5%, var(--fin-canvas)) 100%
     );
   --fin-edge-position: center;
   --fin-edge-size: cover;
@@ -22675,7 +22717,7 @@ section.finish-ledger {
     repeating-linear-gradient(
       180deg,
       transparent 0 39px,
-      color-mix(in srgb, var(--accent) 8%, var(--bg)) 39px 40px
+      color-mix(in srgb, var(--accent) 8%, var(--fin-canvas)) 39px 40px
     );
   --fin-wash-opaque: none;
   /* 2 field layers: ruled lines, wash-none */
@@ -22696,8 +22738,8 @@ section.finish-ledger {
   --fin-edge-opaque:
     linear-gradient(
       225deg,
-      color-mix(in srgb, var(--accent) 16%, var(--bg)) 0%,
-      var(--bg) 60%
+      color-mix(in srgb, var(--accent) 16%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 60%
     );
   --fin-edge-position: top right;
   --fin-edge-size: 9.4cqi 9.4cqi; /* ~120px corner fold */
@@ -22709,7 +22751,7 @@ section.finish-ledger {
  * premium air; the wash intensity tunes the bloom strength. No texture, no mark.
  * RICH:   each bloom fades to transparent so they ADD cleanly (premultiplied
  *         alpha) into a soft mesh; the vignette fades to a faint ink rim.
- * OPAQUE: each bloom ends opaque on var(--bg) (no gray cloud); opaque ink-in-bg
+ * OPAQUE: each bloom ends opaque on var(--fin-canvas) (no gray cloud); opaque ink-in-bg
  *         vignette. Same 4 wash layers + 0 texture layers in both faces. */
 section.finish-nimbus {
   --fin-texture: none;
@@ -22720,12 +22762,12 @@ section.finish-nimbus {
     radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 58%),
     radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 62%),
     radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 58%);
-  /* OPAQUE mesh — four blooms ending on var(--bg). */
+  /* OPAQUE mesh — four blooms ending on var(--fin-canvas). */
   --fin-wash-opaque:
-    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--accent) 12%, var(--bg)) 0%, var(--bg) 60%),
-    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%, var(--bg) 58%),
-    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0%, var(--bg) 62%),
-    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0%, var(--bg) 58%);
+    radial-gradient(60% 60% at 12% 18%, color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)) 0%, var(--fin-canvas) 60%),
+    radial-gradient(58% 58% at 88% 24%, color-mix(in srgb, var(--accent) 8%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%),
+    radial-gradient(64% 64% at 78% 90%, color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 62%),
+    radial-gradient(50% 50% at 28% 88%, color-mix(in srgb, var(--accent) 6%, var(--fin-canvas)) 0%, var(--fin-canvas) 58%);
   /* 5 background-image layers: the texture-none slot (the compositor always lists
    * `var(--fin-texture,none)` first) + the 4 mesh wash blooms — same count both faces.
    * The aux slots carry one entry per layer, in compositor order (texture, then wash). */
@@ -22745,8 +22787,8 @@ section.finish-nimbus {
   --fin-edge-opaque:
     radial-gradient(
       82% 82% at 50% 50%,
-      var(--bg) 60%,
-      color-mix(in srgb, var(--ink, var(--accent)) 6%, var(--bg)) 100%
+      var(--fin-canvas) 60%,
+      color-mix(in srgb, var(--ink, var(--accent)) 6%, var(--fin-canvas)) 100%
     );
   --fin-edge-position: center;
   --fin-edge-size: cover;
@@ -22758,7 +22800,7 @@ section.finish-nimbus {
  * Lattice). The texture scale tunes the weave pitch; the corner glow is MOVABLE
  * via placement (here top-left, the opposite corner from Atrium's top-right).
  * RICH:   weave lines + glow mix toward transparent.
- * OPAQUE: weave lines + glow mix into var(--bg). 2 texture + 1 wash, both faces. */
+ * OPAQUE: weave lines + glow mix into var(--fin-canvas). 2 texture + 1 wash, both faces. */
 section.finish-loom {
   --fin-texture:
     repeating-linear-gradient(
@@ -22774,12 +22816,12 @@ section.finish-loom {
   --fin-texture-opaque:
     repeating-linear-gradient(
       45deg,
-      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0 1px,
+      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 34px
     ),
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0 1px,
+      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0 1px,
       transparent 1px 34px
     );
   --fin-wash:
@@ -22791,8 +22833,8 @@ section.finish-loom {
   --fin-wash-opaque:
     radial-gradient(
       ellipse 120% 90% at 0% 0%,
-      color-mix(in srgb, var(--accent) 11%, var(--bg)) 0%,
-      var(--bg) 55%
+      color-mix(in srgb, var(--accent) 11%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 55%
     );
   /* 2 weave layers (45°, −45°) + 1 glow layer — same count both faces. */
   --fin-size: auto, auto, cover;
@@ -22822,7 +22864,7 @@ section.finish-savile {
   --fin-texture-opaque:
     repeating-linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 8%, var(--bg)) 0 1px,
+      color-mix(in srgb, var(--accent) 8%, var(--fin-canvas)) 0 1px,
       transparent 1px 18px
     );
   --fin-wash: none;
@@ -22838,7 +22880,7 @@ section.finish-savile {
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--fin-canvas));
   --fin-mark-fs: 30cqi;
   --fin-mark-pad: 0 2cqi;
   --fin-mark-align: flex-end;
@@ -22867,8 +22909,8 @@ section.finish-gallery {
   --fin-wash-opaque:
     radial-gradient(
       80% 70% at 50% 42%,
-      color-mix(in srgb, var(--accent) 7%, var(--bg)) 0%,
-      var(--bg) 60%
+      color-mix(in srgb, var(--accent) 7%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 60%
     );
   /* 2 background-image layers: the texture-none slot (the compositor always lists
    * `var(--fin-texture,none)` first) + the 1 spotlight wash — same count both faces. */
@@ -22881,7 +22923,7 @@ section.finish-gallery {
   --fin-mark: none;
   --fin-mark-opaque: none;
   --fin-mark-text: "";
-  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  --fin-mark-color: color-mix(in srgb, var(--accent) 9%, var(--fin-canvas));
   --fin-mark-fs: 30cqi;
   --fin-mark-pad: 0 1cqi;
   --fin-mark-align: flex-start;
@@ -22895,8 +22937,8 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame:
-    inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--bg),
-    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--accent) 40%, var(--bg));
+    inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--fin-canvas),
+    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--accent) 40%, var(--fin-canvas));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

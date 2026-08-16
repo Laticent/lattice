@@ -1619,11 +1619,11 @@ ${indent}   - ${body.trim()}`;
             findings.push({
               slide: idx - fm + 1,
               rule: "bookend-finish-contrast",
-              severity: "warning",
+              severity: "info",
               classToken: bookend,
               line: m[0],
-              message: `deck-wide \`finish: ${deckFinishName}\` paints its backdrop over this ${bookend} bookend's inverse surface \u2014 its display text can wash out on a light canvas`,
-              fix: "Add `finish-none` to the bookend to keep its own surface (the house pattern), or an explicit `finish-<name>` if you intend the finish here."
+              message: `deck-wide \`finish: ${deckFinishName}\` also paints behind this ${bookend} bookend \u2014 the house pattern keeps a bookend's surface clean`,
+              fix: "Add `finish-none` to the bookend for the house look, or leave it as it is if you want the finish there \u2014 both read correctly."
             });
           }
         }
