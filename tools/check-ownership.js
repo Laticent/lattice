@@ -2541,161 +2541,229 @@ function checkStageInsetOwnership(errors) {
   }
 }
 
-// ── Frame chrome stays out of flow under a slide `finish:` ────────────────────────
-// `base.finish.css` lifts slide content above the finish backdrop. The z-index is the
-// intent; the `position: relative` that carries it must NOT reach a child that already
-// positions ITSELF, because on such a child it is destructive twice — `top`/`left`
-// re-base from the frame onto the flow position, and the element starts consuming stage
-// height it was designed never to take. So that rule carries a `:where()` exclusion list
-// of the out-of-flow chrome, and THIS gate keeps the list honest.
+// ── The slide's DEPTH axis: every layering decision names a plane ─────────────────
+// A slide is a small stack of named planes (`--z-canvas` … `--z-alarm`,
+// base.tokens.css § depth axis), and this gate is what keeps the engine on them.
+// Before the model, engine CSS ran on 50 hand-picked integers over an ad-hoc ladder
+// (-1, 0, 1, 2, 3, 50, 100, 2147483000): a Tile whose manifest declared plane 1
+// (atmosphere) sat at `z-index: -1` and painted UNDER the finish field it is defined
+// to sit above, and `citation-card.styles.css` carries a comment recording the same
+// bug found and patched independently. Two authors, two local fixes, no shared rule.
 //
-// WHY A GATE AND NOT A COMMENT. The list is exactly the shape this repo has been bitten
-// by: `.overflow-tab` defended itself with `!important` and `.illegible-tab`, written
-// later, did not — the same defect, shipped, because nothing checked. The first cut of
-// the exclusion list repeated it: built from an empirical sweep over a six-layout probe
-// deck, it missed `.lat-split-rail`, which only appears when a split run has no footer
-// Cell. An enumeration that is not gated is an enumeration that is already stale.
+// WHAT THIS GATE CHECKS — the half of the model that is decidable from CSS text:
 //
-// It fails BOTH ways, like SANCTIONED_MARGINS / SANCTIONED_HEX / SANCTIONED_LAYER_BLOCKS:
-//   · a KNOWN section-level chrome hook that engine CSS still positions absolutely but the
-//     rule no longer excludes — someone deleting an entry, or renaming a class;
-//   · an excluded name that nothing positions any more — so the list cannot rot quiet.
+//   1. NO MAGIC INTEGERS. Any `z-index` outside the LOCAL BAND 0–9 must be a `--z-*`
+//      token. The band is what an occupant's internals get (a rail behind a node is
+//      `z-index: 1`); it is safe because the band sits BETWEEN `--z-atmosphere` (-1) and
+//      `--z-chrome` (30) by arithmetic — NOT because anything isolates it. Anything reaching
+//      beyond the band is claiming a slide-scale position and has to name which one.
+//      (An earlier version of this note said the stage must not isolate because doing so made
+//      the print path rasterize a hairline. That was a `pdftoppm` artifact, not a PDF fact —
+//      see the decision note § The wash that was a rasterizer. Whether the stage should
+//      isolate is now an open design question, not a settled prohibition.)
 //
-// WHAT THIS GATE DOES NOT DO, stated plainly so nobody trusts it further than it goes: it
-// does NOT discover chrome nobody has enumerated. `SECTION_LEVEL_CHROME` below is a hand-
-// written set, and a genuinely new section-level element is invisible here until someone
-// adds it. A fully derived static version was built and abandoned — deciding "can this
-// selector match a direct child of a section, and does it lose to (0,2,1)?" from CSS text
-// alone means reimplementing specificity AND bundle source order, and it produced 38
-// candidates of which nearly all were false positives; the waiver list that would have
-// silenced them is the same ungated enumeration in a new coat.
-// THE DERIVED CHECK IS EMPIRICAL, and it lives in
-// test/integration/invariants/frame-chrome-out-of-flow.test.js: render a deck, toggle
-// `.finish` off and on, and assert NO direct child of any section changes its computed
-// position. That asks the real cascade instead of modelling it, needs no list at all, and
-// is what actually caught `.lattice-bg` — whose photo silently collapsed to height 0 on
-// the `spotlight` and `statement` compositions.
+//   2. NO DECORATIVE OR PHANTOM TOKENS, both directions: a plane token nothing reads is
+//      an error, and so is a `var(--z-…)` the scale does not define — the latter because
+//      an undefined custom property makes the whole declaration invalid at compute time,
+//      so the element silently falls back to `z-index: auto`. That is the flat behavior
+//      the model exists to remove, wearing a token's clothes.
 //
-// The subject is deliberately narrow: a top-level rule whose selector's LAST compound is a
-// bare tag or single class (`section header`, `.lat-split-rail`) and which declares
-// `position: absolute`. A selector that pins its own parent (`section.image .lattice-bg`,
-// `.cell-footer > .x`) is out of scope — it either cannot be a direct child of a `finish`
-// section or already outranks the rule at (0,2,1).
-const FINISH_CHROME_RULE = 'section.finish > *:not(.backdrop, :where(';
+// AND WHAT IT DELIBERATELY DOES NOT CHECK: whether a given element sits on the RIGHT
+// plane. That needs to know which elements are direct children of a `section`, and
+// deciding that from CSS text alone does not work — the removed gate tried it, abandoned
+// it at "38 candidates, nearly all false positives", and a rebuilt version here fired on
+// `.state-chart-edges`, `.scene-control` and `.panel-eyebrow`, none of which is a section
+// child. So that half is EMPIRICAL and lives in
+// test/integration/invariants/slide-planes.test.js: render a corpus of decks, walk every
+// real direct child of every section, and assert its computed z-index is a plane value.
+// That asks the DOM instead of modelling it, and it needs no enumeration at all — the
+// same division of labour the gate this replaced arrived at for its own derived check.
+//
+// WHAT REPLACED WHAT. This gate stands where `checkFinishChromeExclusions` did. That
+// one kept base.finish.css's `:where(header, footer, img.deck-logo, …)` exclusion list
+// honest — the list that stopped a blanket `position: relative` from dragging
+// out-of-flow chrome into flow (2026-08-04-finish-stacking-displaces-frame-chrome.md).
+// Planes deleted the blanket rule, so the list and its gate went with it.
+//
+// A PARTING LESSON FROM ITS REMOVAL, which is why check 1 strips comments first: that
+// gate located its subject with `css.indexOf('section.finish > *:not(.backdrop, :where(')`
+// on the RAW file. When the rule was deleted and quoted in the comment explaining the
+// deletion, the gate found the quote, parsed the comment as its exclusion list, and
+// passed — certifying a rule that no longer existed, which is precisely the outcome its
+// own error message was written to prevent. A gate must not be able to read its own
+// obituary as its subject. engineering/decisions/2026-08-12-slide-plane-model.md.
 
-/** Hooks that are absolutely positioned somewhere in engine CSS and CAN be a `section` child. */
-function absolutelyPositionedSectionChildHooks() {
-  const hooks = new Map(); // hook → first file that positions it
-  for (const file of listCssFiles(LIB_DIR)) {
-    const rel = path.relative(ROOT, file);
-    if (rel.endsWith('base.finish.css')) continue; // the rule under test
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
-    // Rule bodies that declare `position: absolute` (not inside a `:not()`/`@supports` arg).
-    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
-    let m;
-    while ((m = ruleRe.exec(css))) {
-      const selectorList = m[1];
-      const body = m[2];
-      if (!/(^|[;\s])position\s*:\s*absolute/.test(body)) continue;
-      for (const sel of selectorList.split(',')) {
-        const s = sel.trim();
-        if (!s || s.includes('::') || s.includes('@')) continue; // pseudo-elements aren't children
-        const last = s.split(/[\s>+~]+/).filter(Boolean).pop() || '';
-        // A bare tag (header/footer) or a single leading-class hook (.lat-split-rail),
-        // optionally tag-qualified (img.deck-logo). Anything else is parent-scoped.
-        const bare = /^([a-z][a-z0-9-]*)$/.exec(last);
-        const cls = /^([a-z][a-z0-9-]*)?\.([a-zA-Z][\w-]*)$/.exec(last);
-        if (bare && ['header', 'footer'].includes(bare[1])) hooks.set(bare[1], rel);
-        else if (cls) hooks.set(`.${cls[2]}`, rel);
-      }
-    }
+// Files whose z-index values are NOT slide layering and are out of scope:
+//   · base.tokens.css — where the scale itself is defined.
+//   · the fluid-view toggle reads `--z-viewer`, which is a DOCUMENT-level value, not a
+//     slide plane; it is a token either way, so check 1 passes it without an exemption.
+const Z_PLANE_TOKENS_FILE = path.join(LIB_DIR, 'base', 'base.tokens.css');
+const Z_LOCAL_BAND_MAX = 9;
+
+
+/** The `--z-*` plane tokens defined in base.tokens.css, in declaration order.
+ *  The `@property` prelude is `--z-name {`, not `--z-name:`, so the descriptor block is
+ *  invisible to this pattern by construction — that is what `registeredPlaneTokens()`
+ *  below is for, and why the two are cross-checked. */
+function definedPlaneTokens() {
+  const css = stripComments(fs.readFileSync(Z_PLANE_TOKENS_FILE, 'utf8'));
+  return [...css.matchAll(/(--z-[a-z0-9-]+)\s*:\s*(-?\d+)\s*;/g)].map((m) => ({ name: m[1], value: Number(m[2]) }));
+}
+
+/** The `--z-*` planes REGISTERED with `@property`, as {name, initial}. */
+function registeredPlaneTokens() {
+  const css = stripComments(fs.readFileSync(Z_PLANE_TOKENS_FILE, 'utf8'));
+  const out = [];
+  for (const m of css.matchAll(/@property\s+(--z-[a-z0-9-]+)\s*\{([^}]*)\}/g)) {
+    const body = m[2];
+    const initial = /initial-value\s*:\s*(-?\d+)/.exec(body);
+    const syntax = /syntax\s*:\s*["']([^"']+)["']/.exec(body);
+    out.push({
+      name: m[1],
+      initial: initial ? Number(initial[1]) : null,
+      syntax: syntax ? syntax[1].trim() : null,
+    });
   }
-  return hooks;
+  return out;
 }
 
 /**
- * Read the frame-chrome exclusion list out of base.finish.css. Pure, so the failure
- * modes below are reachable from a test without writing to lib/.
- *
- * Returns `{ excluded }` or `{ error }` — never a half-parsed list. THAT IS THE POINT.
- * An unterminated `:where(` makes `indexOf` return -1, and `slice(listStart, -1)` then
- * silently yields the whole REST OF THE STYLESHEET split on commas: a garbage "exclusion
- * list" that would drown the real check in bogus stale-entry errors, or worse, satisfy it
- * by accident. The same applies when the next `)` turns up only in a LATER rule — a `{`
- * in between says this declaration block ended first. A build gate that mis-parses its
- * own subject is worse than no gate, because it reports confidently on something that
- * isn't there. Caught in PR review.
+ * Every `z-index` declaration in engine CSS, with its selector and whether it uses a
+ * token. Comments are stripped FIRST — see the obituary note above.
+ * Returns [{ file, selector, raw, token, value }].
  */
-function parseFinishChromeExclusions(css) {
-  const at = css.indexOf(FINISH_CHROME_RULE);
-  if (at === -1) {
-    return { error:
-      'base.finish.css no longer carries the frame-chrome exclusion rule ' +
-      `(\`${FINISH_CHROME_RULE}…\`). If the stacking fix was replaced, remove ` +
-      'checkFinishChromeExclusions with it; do not let the gate certify nothing.' };
+function collectZIndexDeclarations() {
+  const out = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    while ((m = ruleRe.exec(css))) {
+      const selector = m[1].trim().replace(/\s+/g, ' ');
+      for (const d of m[2].matchAll(/(^|[;\s])z-index\s*:\s*([^;}]+)/g)) {
+        const raw = d[2].trim().replace(/\s*!important$/, '');
+        const token = /^var\(\s*(--z-[a-z0-9-]+)/.exec(raw);
+        out.push({
+          file: rel,
+          selector,
+          raw,
+          token: token ? token[1] : null,
+          value: /^-?\d+$/.test(raw) ? Number(raw) : null,
+        });
+      }
+    }
   }
-  const listStart = at + FINISH_CHROME_RULE.length;
-  const listEnd = css.indexOf(')', listStart);
-  const blockOpen = css.indexOf('{', listStart);
-  if (listEnd === -1 || (blockOpen !== -1 && blockOpen < listEnd)) {
-    return { error:
-      'base.finish.css\'s frame-chrome exclusion list is malformed — the `:where(` opened by ' +
-      `\`${FINISH_CHROME_RULE}\` is never closed before the declaration block. Fix the ` +
-      'selector; checkFinishChromeExclusions cannot verify a list it cannot parse.' };
-  }
-  return { excluded: css.slice(listStart, listEnd).split(',').map((s) => s.trim()).filter(Boolean) };
+  return out;
 }
 
-function checkFinishChromeExclusions(errors) {
-  const finishFile = path.join(LIB_DIR, 'base', 'base.finish.css');
-  const parsed = parseFinishChromeExclusions(fs.readFileSync(finishFile, 'utf8'));
-  if (parsed.error) { errors.push(parsed.error); return; }
-  const excluded = parsed.excluded;
+function checkZPlanes(errors) {
+  const tokens = definedPlaneTokens();
+  const byName = new Map(tokens.map((t) => [t.name, t.value]));
+  const decls = collectZIndexDeclarations().filter((d) => !d.file.endsWith('base.tokens.css'));
 
-  const hooks = absolutelyPositionedSectionChildHooks();
-  // Only chrome that can actually BE a direct child is in scope. `header`/`footer` and the
-  // engine's injected chrome qualify; a component's inner part (`.panel-right`, `.seg`) is
-  // built inside its own subtree and never docks at section level, so the candidate set is
-  // narrowed to hooks the engine docks onto a section — enumerated by the injectors.
-  const SECTION_LEVEL_CHROME = new Set([
-    'header', 'footer',
-    '.deck-logo',        // lib/runtime applyDeckLogo* / applyDeckLogoToHtml — first child
-    '.overflow-tab',     // the overflow watcher (defends itself with !important)
-    '.illegible-tab',    // the legibility watcher
-    '.fixme-tab',        // the Fix-Me label (defends itself with !important)
-    '.lat-split-rail',   // lib/core/footer-dock.js — section level when there is no footer Cell
-    '.lattice-bg',       // the image layout's photo panel — a direct child on every composition
-  ]);
-
-  const missing = [];
-  for (const [hook, file] of hooks) {
-    if (!SECTION_LEVEL_CHROME.has(hook)) continue;
-    // Both assert `position: absolute !important` at their own declaration, so
-    // base.finish.css's `position: relative` cannot reach them either way.
-    if (hook === '.overflow-tab' || hook === '.fixme-tab') continue;
-    const named = excluded.some((e) => e === hook || e.endsWith(hook));
-    if (!named) missing.push(`${hook} (positioned in ${file})`);
-  }
-  const stale = excluded.filter((e) => {
-    const hook = e.startsWith('.') ? e : (e.includes('.') ? `.${e.split('.').pop()}` : e);
-    return !hooks.has(hook) && !hooks.has(e);
-  });
-
-  if (missing.length) {
+  // ── 1 · no magic integers outside the local band ─────────────────────────────────
+  // UNREADABLE values are errors, not passes. `value` is null for anything that is not a
+  // bare integer and `token` is null for anything that is not a `var(--z-*)`, so a value in
+  // any third syntax — `calc(30 + 25)`, `var(--lift)`, a keyword — used to satisfy both
+  // filters and sail through. That is not hypothetical: the adversarial pass landed
+  // `z-index: var(--lift)` at 9999 and `z-index: calc(30 + 25)` (above --z-alarm) inside a
+  // component and the gate reported zero errors. It matters more here than it would in a
+  // model that isolates: containment in this engine is ARITHMETIC — the 0–9 band sits
+  // between atmosphere and chrome and nothing isolates it — so this gate IS the containment,
+  // and a gate that reads one syntax out of three is not one.
+  for (const d of decls) {
+    if (d.value !== null || d.token !== null) continue;
     errors.push(
-      `${missing.length} out-of-flow section chrome element(s) are NOT excluded from ` +
-      'base.finish.css\'s `position: relative` rule, so a `finish:` deck drags them into ' +
-      'flow — displacing them AND making them consume stage height. Add them to the ' +
-      `\`:where(…)\` list. Offending: ${missing.join(', ')}.`,
+      `${d.file}: \`${d.selector}\` declares \`z-index: ${d.raw}\`, which this gate cannot ` +
+      'read. A slide-scale z-index must be a `--z-*` plane token and a local one must be a bare ' +
+      `integer in 0–${Z_LOCAL_BAND_MAX}; a \`calc()\`, an indirect custom property, or a keyword ` +
+      'is neither, so nothing can check where it lands. Write the plane, or the band.',
     );
   }
-  for (const e of stale) {
+
+  const magic = decls.filter((d) => d.value !== null && (d.value < 0 || d.value > Z_LOCAL_BAND_MAX));
+  for (const d of magic) {
     errors.push(
-      `stale frame-chrome exclusion in base.finish.css — \`${e}\` is no longer positioned ` +
-      'absolutely anywhere in engine CSS. Remove it from the `:where(…)` list so the ' +
-      'exclusion set stays honest.',
+      `${d.file}: \`${d.selector}\` declares \`z-index: ${d.raw}\`. If this element renders ` +
+      `INSIDE a component or a Tile, use the local band 0–${Z_LOCAL_BAND_MAX} — it already sits ` +
+      'between `--z-atmosphere` and `--z-chrome`, so it needs no token and no isolation. Only an ' +
+      'element that can be a DIRECT CHILD of `section` names a plane, with a `--z-*` token ' +
+      '(base.tokens.css § depth axis) — reaching for one from inside a component is how the ' +
+      'citation-card glyph ended up sunk behind an opaque canvas.',
     );
   }
+
+  // ── 2 · no decorative tokens, and none pointing at a plane that does not exist ──
+  const used = new Set(decls.map((d) => d.token).filter(Boolean));
+  for (const t of tokens) {
+    if (!used.has(t.name)) {
+      errors.push(
+        `stale plane token in lib/base/base.tokens.css — \`${t.name}\` is defined but no engine ` +
+        'CSS reads it. A plane nothing paints on is a name pretending to be a model; remove it, ' +
+        'or land the rule that uses it in the same change.',
+      );
+    }
+  }
+  // ── 3 · every plane is REGISTERED, and its fallback agrees with its declaration ──
+  // `@property` is what stops a bad value silently becoming `z-index: auto`. It is also a
+  // SECOND source of truth for every plane's number, and the two are written a dozen lines
+  // apart. Nothing else in the toolchain reads the descriptor block: this function's own
+  // `definedPlaneTokens()` regex cannot match `--z-name {`, and check-css-values.js skips
+  // descriptor at-rules whole. So a typo in `syntax:`, a dropped `initial-value:`, or a
+  // drifted number silently unregisters the property or points the fallback at the wrong
+  // plane — with zero gate failures and zero pixel change until it reaches the one surface
+  // where it matters (the packed Studio path, where `packTheme` moves `:root` onto the
+  // section and `initial-value` becomes the live fallback).
+  const registered = new Map(registeredPlaneTokens().map((r) => [r.name, r]));
+  for (const t of tokens) {
+    const r = registered.get(t.name);
+    if (!r) {
+      errors.push(
+        `lib/base/base.tokens.css: \`${t.name}\` is declared but not registered with ` +
+        '`@property`. An unregistered plane accepts any value, so `--z-canvas: auto` from a ' +
+        'deck or theme flattens it to `z-index: auto` instead of being rejected. Add ' +
+        `\`@property ${t.name} { syntax: "<integer>"; inherits: true; initial-value: ${t.value}; }\`.`,
+      );
+      continue;
+    }
+    if (r.syntax !== '<integer>') {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${t.name}\` declares \`syntax: "${r.syntax}"\`. ` +
+        'A plane is an integer; any other syntax lets a non-integer through, which is the ' +
+        'flattening this registration exists to prevent.',
+      );
+    }
+    if (r.initial !== t.value) {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${t.name}\` has \`initial-value: ${r.initial}\` ` +
+        `but the token is declared \`${t.value}\`. These are the same plane written twice; when ` +
+        'they disagree, an invalid value falls back to a DIFFERENT plane than the one every ' +
+        'other rule reads. Keep them identical.',
+      );
+    }
+  }
+  for (const r of registered.keys()) {
+    if (!byName.has(r)) {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${r}\` registers a plane the scale does not ` +
+        'declare. A registration with no declaration supplies a fallback for a plane nothing ' +
+        'paints on — remove it, or land the declaration in the same change.',
+      );
+    }
+  }
+
+  for (const d of decls) {
+    if (d.token && !byName.has(d.token)) {
+      errors.push(
+        `${d.file}: \`${d.selector}\` reads \`${d.token}\`, which base.tokens.css does not define. ` +
+        'A `var()` on an undefined custom property makes the whole declaration invalid at compute ' +
+        'time, so the element silently falls back to `z-index: auto` — the flat behavior the plane ' +
+        'model exists to remove, wearing a token\'s clothes.',
+      );
+    }
+  }
+
 }
 
 // ── HARD RULE #26: cascade layers stay INERT — engine CSS admits no layer blocks ──
@@ -7710,7 +7778,7 @@ function run() {
   checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
-  checkFinishChromeExclusions(errors);
+  checkZPlanes(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
   checkAdaptDeclarations(manifests, errors);
@@ -7791,9 +7859,9 @@ module.exports = {
   themeActualModes,
   splitLightDark,
   listThemeManifests,
-  checkFinishChromeExclusions,
-  parseFinishChromeExclusions,
-  absolutelyPositionedSectionChildHooks,
+  checkZPlanes,
+  definedPlaneTokens,
+  collectZIndexDeclarations,
   checkCommittedPdfs,
   checkChangelogFragments,
   checkFallbackContracts,

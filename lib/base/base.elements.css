@@ -31,6 +31,38 @@ section {
    * it costs nothing and removing it would break any such rule silently. Do NOT
    * reintroduce an aspect-ratio query on it. */
   container-name:lattice;
+  /* ── EVERY SLIDE IS A STACKING CONTEXT, unconditionally ────────────────────
+   * This is what makes the `--z-*` plane scale (base.tokens.css) mean the same
+   * thing on every slide, and it is deliberately declared HERE — on the bare
+   * `section`, with no class gate — rather than on a Form class.
+   *
+   * It used to be gated, and that was the root of the flat layering. The only
+   * rules creating a slide stacking context were `section.form { isolation: isolate }`
+   * (lib/forms/cell/stage/stage.css) plus the two layouts that declared it for
+   * themselves, `section.image` and `section.scene` — so a SOVEREIGN frame outside that
+   * set — `title`, `math`, `divider`, most frames with `exemptFromChrome: true` — got none at
+   * all, and its z values escaped to the page root, where they were ordered against
+   * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
+   * computed `isolate` on a `content` section and `auto` on a `title` section of the
+   * same deck.
+   *
+   * `container-type: size` does NOT supply one. Verify it the right way if you ever
+   * re-check: put a `z-index: -1` child in a `container-type: size` box and see whether it
+   * escapes behind the box's own background. It does — only `isolation: isolate` contains
+   * it. An earlier version of this comment offered `contain` computing `none` as the
+   * proof, which is not one: the containment a `container-type` implies never shows up in
+   * `contain`'s computed value, so that test would read `none` whether or not a context
+   * existed. Right answer, invalid reasoning — replaced rather than trusted. Do not delete
+   * this rule on the theory that the container covers it.
+   *
+   * The wider consequence is that `section.finish > .backdrop` can now simply be
+   * `z-index: var(--z-canvas)` while content and chrome take their own planes.
+   * 2026-08-04-finish-stacking-displaces-frame-chrome.md rejected exactly that
+   * shape — "the escape only holds inside a stacking context, and a Lattice
+   * `section` does not reliably form one" — and named this rule as the precondition
+   * for re-proposing it. That is what removed the gated `:where()` chrome exclusion
+   * list. engineering/decisions/2026-08-12-slide-plane-model.md. */
+  isolation:isolate;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;
   padding: calc(var(--_sec-1cqi,1cqi)*6.875) calc(var(--_sec-1cqi,1cqi)*5);
@@ -40,6 +72,23 @@ section {
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
+
+/* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the
+ * natural resting plane: the decorative planes are NEGATIVE (base.tokens.css § depth
+ * axis), so they paint at step 3 of the painting algorithm, before every in-flow
+ * descendant, and the author's markup floats above them without declaring anything.
+ *
+ * A blanket rule was written first and removed. The reason it stays removed is simply
+ * that content needs no plane: the decorative planes are negative, so the flow already
+ * sits above them, and a rule reaching across every child of every section to say so is
+ * a lot of cascade for nothing.
+ *
+ * It was removed at the time for a different and WRONG reason — that it made `.cell-stage`
+ * a stacking context and thereby washed a hairline in the exported PDF ("3,596 differing
+ * pixels"). That wash is a `pdftoppm` splash-backend defect, not a PDF one; the same file
+ * through `pdftocairo` or ghostscript is crisp and byte-identical through the rule. See
+ * base.tokens.css § depth axis for the mechanism.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives

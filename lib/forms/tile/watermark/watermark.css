@@ -1,8 +1,16 @@
 /* ── FORM · watermark Tile — section-number ghost ───────────────────────
  * A large z-behind background glyph (the section number) on `form
- * watermark` slides. z-index:-1 keeps it ABOVE the canvas but BEHIND the
- * (non-positioned) body content; the section's overflow:hidden clips the
- * overscan. Palette-blind; lifts to the on-dark ghost on dark canvases.
+ * watermark` slides. It rides the ATMOSPHERE plane — above the canvas, behind the
+ * words — which is the plane its manifest has always declared (`"z": 1`); the
+ * section's overflow:hidden clips the overscan. Palette-blind; lifts to the on-dark
+ * ghost on dark canvases.
+ *
+ * It used to say `z-index: -1`, and that was the plane model's own worked example of
+ * what goes wrong without one. A negative z-index buys nothing here — it does not
+ * escape the section, whose background paints first either way — and it put the ghost
+ * BELOW the finish `.backdrop` at 0. Rendered under `finish: savile`, the pinstripes
+ * ruled straight across the numeral. `citation-card.styles.css` carries a comment
+ * recording the identical bug, found and patched separately. Both are now planes.
  *
  * Self-contained Form Tile (issue #356): this CSS lives with the Tile's
  * kernel (watermark.transform.js) + manifest, and is bundled by
@@ -13,7 +21,7 @@ section.form .tile-watermark {
   position: absolute;
   right: -2cqi;
   bottom: -9cqi;
-  z-index: -1;
+  z-index: var(--z-atmosphere);
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 44cqi; /* cqi-ok: full-tile decorative watermark glyph */

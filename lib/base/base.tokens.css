@@ -962,6 +962,176 @@
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
 }
 
+/* ── The slide's DEPTH axis — seven named planes ────────────────────────
+ * The berth tokens above are the frame's x/y; these are its z. A slide is not a
+ * flat sheet with things sprinkled on it — it is a small stack of planes, and
+ * every layering decision at SLIDE scale names the plane it belongs to instead
+ * of picking an integer.
+ *
+ * This EXECUTES the plane model the Form manifests have always declared. Every
+ * Cell and Tile carries a `z` (lib/forms/schema/{cell,tile}.schema.json, required;
+ * lib/forms/index.js `Z_PLANES`), and until now nothing read it: engine CSS ran on
+ * 56 hand-picked integers over an ad-hoc ladder (-1, 0, 1, 2, 3, 50, 100), which is
+ * how a Tile declaring plane 1 (`watermark`, atmosphere) ended up at `z-index: -1`
+ * and painted UNDER the finish field it is defined to sit above. The manifest planes
+ * 0–4 map onto the first five tokens below unchanged; `mark` and `alarm` name the two
+ * tiers that had grown unnamed above them.
+ *
+ * THE DECORATIVE PLANES SINK; THE CHROME PLANES RISE. Canvas and atmosphere are
+ * NEGATIVE, which is what makes the whole scale cheap: a negative-z child paints at step
+ * 3 of the painting algorithm — after the section's own background, before every in-flow
+ * descendant — so content sits above them WITHOUT declaring anything at all. Nothing has
+ * to be pushed out of the way, no rule reaches across a section's children, and the
+ * elements that carry no plane token (the stage, the author's markup) keep the stacking
+ * behavior they have always had.
+ *
+ * The negative signs are the good part, and the reason is ordinary: a negative-z child
+ * paints at step 3 of the painting algorithm, before every in-flow descendant, so content
+ * floats above it without declaring anything and no rule has to reach across a section's
+ * children. Sinking the decoration is simply cheaper than lifting everything else.
+ *
+ * A LONG-RUNNING STORY ABOUT A "PRINT WASH" USED TO LIVE HERE, AND IT WAS FALSE. The claim
+ * was that making `.cell-stage` a stacking context caused Chromium's print path to
+ * rasterize the 1px `.below-note` hairline at ~22% strength — "3,596 differing pixels in
+ * the PDF" — and it shaped four separate decisions on this branch. The PDF was always
+ * correct. `pdftoppm`'s splash backend leaks an earlier element's constant alpha into a
+ * later tiling-pattern fill; the alpha is `/ca .22` from `--code-inline-border` (defined a
+ * few hundred lines above this one as `color-mix(currentColor 22%, transparent)`), and
+ * `0.22·accent + 0.78·white` is the exact "washed" color anyone measured. The same PDF
+ * through `pdftocairo` or ghostscript is crisp, and the two PDFs are byte-identical
+ * through the hairline — same shading, same matrix, same SMask.
+ *
+ * So: do not "simplify" the negative planes back to positive, because sinking beats
+ * lifting — but do not cite a wash as the reason, and if you meet one, rasterize the same
+ * PDF a second way before you believe it.
+ * (engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer.)
+ *
+ * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
+ * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
+ * counter over a fill) use 0–9 and nothing else; they sit above atmosphere and below
+ * chrome by construction, so no isolation is needed to keep them honest. The dividing
+ * line is whether an element can be a DIRECT CHILD of `section`: if it can, it names a
+ * plane with a token; if it can't, it stays in the band.
+ *
+ * Both halves are gated by `checkZPlanes` (tools/check-ownership.js, via build:check).
+ *
+ * These order elements WITHIN one slide, which is only meaningful because every
+ * section is now an unconditional stacking context (`section { isolation: isolate }`,
+ * base.elements.css). Before that, `section.form` isolated and a sovereign frame did
+ * not, so a `title` slide's z values escaped to the page root and were ordered against
+ * OTHER SLIDES. engineering/decisions/2026-08-12-slide-plane-model.md. */
+
+/* THE PLANES ARE TYPED, and that is a safety property rather than a formality. A plane
+ * token is an ordinary inherited custom property, so a deck `<style>` or a theme can set
+ * one to anything — and `--z-canvas: auto` is a perfectly valid `z-index`, so it triggers
+ * no fallback and no gate. Untyped, it moved the finish's full-slide sheet from paint
+ * step 3 to step 8: measured on a `finish: halo` deck, 3,435 differing pixels with the
+ * entire body erased and the chrome left intact.
+ *
+ * Registering each plane as `<integer>` makes a non-integer INVALID AT COMPUTED-VALUE
+ * TIME, so `auto` can no longer flatten the model. BE PRECISE ABOUT WHERE IT LANDS,
+ * because the obvious reading is wrong: for a registered property with `inherits: true`,
+ * an invalid value falls back to the INHERITED value, not to `initial-value`. Verified in
+ * Chromium — with `:root { --z-canvas: 9 }` and `section { --z-canvas: auto }`, the section
+ * computes `9`, not `-2`. `initial-value` is only reached where no ancestor declares the
+ * property at all, which on the unpacked path never happens (`:root` declares it) and on
+ * the PACKED path is the normal case, because `packTheme` relocates `:root` onto the
+ * section itself. So the typing is load-bearing mainly in the Studio and Playground, and
+ * on the export path the `:root` declaration was already doing the work. If you ever add
+ * an ancestor-level plane declaration, you change what the fallback IS.
+ *
+ * WHAT THIS DOES NOT DO — and the limit is the important half. Typing rejects `auto`, a
+ * float, a keyword. It accepts any integer, including a hostile one: `--z-canvas: 60` from
+ * a deck `<style>` lifts the finish sheet over every word and erases the slide (9,545 px,
+ * verified in two rasterizers). Typing closed the LOUD failure and left the silent one, so
+ * do not read these six lines as a security boundary. The real containment is that a deck
+ * cannot reach these tokens through ordinary markdown any more — see the directive-value
+ * sanitizer in `lib/engine/slides.js`, which is what closed the reachable path.
+ *
+ * Keep each `initial-value` identical to the declaration below it — `checkZPlanes` enforces
+ * that pair, so a drifting fallback fails `build:check` rather than waiting for a surface
+ * where it matters. */
+@property --z-canvas     { syntax: "<integer>"; inherits: true; initial-value: -2; }
+@property --z-atmosphere { syntax: "<integer>"; inherits: true; initial-value: -1; }
+@property --z-content    { syntax: "<integer>"; inherits: true; initial-value: 0; }
+@property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
+@property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 90; }
+@property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 100; }
+
+:root, section {
+  --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
+                          * panel — everything that IS the surface being printed on */
+  --z-atmosphere:   -1;  /* decoration BEHIND the words: the watermark ghost, oversized
+                          * ghost numerals, a photo scrim, pale quote glyphs */
+  --z-content:       0;  /* the words. Note this is the SAME NUMBER an unstyled element
+                          * effectively paints at, which is the point — content is the
+                          * natural resting plane and needs no help to get there */
+  --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
+                          * progress rail. NOT the deck logo — the deck mark's KIND is chrome
+                          * but its PLANE is atmosphere, because a mark must never cover the
+                          * author's words. See the rule in base.modifiers.css. */
+  --z-alarm:        90;  /* engine-drawn signals about the slide: the overflow / illegible /
+                          * fix-me tabs, debug boxes. Above chrome, BELOW a stamp.
+                          *
+                          * THE GAP FROM CHROME (30) TO HERE IS DELIBERATE, and it is a
+                          * security property rather than taste. These two planes are ENGINE
+                          * ASSERTIONS — "this slide overflowed", "this slide is CONFIDENTIAL"
+                          * — and ordinary deck CSS must not be able to paint over them. The
+                          * band an author reaches for by habit is roughly 1–99: `z-index: 10`,
+                          * `50`, `99`. An earlier cut of this scale ran alarm 40 / mark 50 for
+                          * tidiness, which put both INSIDE that band: one line of deck markup,
+                          * `<div style="position:absolute;inset:0;z-index:60">`, erased a
+                          * CONFIDENTIAL tab from the delivered PDF. Verified against the branch
+                          * point, where stamps sat at 100 and survived the same overlay.
+                          * These values restore that protection (and raise the alarm's, which
+                          * was 50). Do not compress them back toward chrome to make the scale
+                          * look neat — the distance IS the guarantee. */
+  --z-mark:         100;  /* stamped ONTO the delivered slide: status stamps
+                          * (CONFIDENTIAL / DRAFT / …), review annotations, comments.
+                          *
+                          * MARK OVER ALARM, and the order is load-bearing — this pair was
+                          * briefly inverted on the reasoning that "an author must be able to
+                          * see the overflow tab even on a stamped slide", with the claim that
+                          * `--corner-stack` already separates them geometrically. Both halves
+                          * were wrong. The FULL-BLEED shapes (`stamp-veil`, `stamp-mark`) are
+                          * `inset: 0` and clear nothing, and the marker that actually SHIPS is
+                          * the reader-mode pill, not the authoring tabs — so the inversion
+                          * punched an engine marker through a redaction wash in the DELIVERED
+                          * PDF: 10,136 differing pixels on `confidential stamp-veil` with
+                          * `overflow-marker: reader`, and a `stamp-ribbon` cut in half. A
+                          * classification marking outranks an engine annotation on a delivered
+                          * artifact. Restored to the order the engine has always shipped
+                          * (stamps were 100, tabs 50). */
+}
+
+/* VIEWER chrome is NOT a slide plane, and must not borrow one. The fluid-view toggle
+ * and the exported player's bar float above the WHOLE DECK in the document, outside
+ * every section's stacking context, so they are ordered against the page — not against
+ * anything on a slide. Kept at the historical maximum so a host page's own chrome
+ * cannot bury the only control that gets a reader back to fixed view.
+ *
+ * Declared on `:root` rather than `:root, section` as a statement of INTENT, not a
+ * guarantee — and the difference was measured, so do not restate it as one. Custom
+ * properties inherit, so on the unpacked path every section can read this anyway; and on the
+ * PACKED path (`packTheme`, lib/engine/css.js — the Playground and Studio) `:root` is
+ * relocated ONTO the section, so it is defined only INSIDE slides, the exact inverse. The
+ * token is off the slide SCALE, which is what `slide-planes.test.js` relies on; it is not
+ * out of a slide's reach, and no CSS mechanism would make it so.
+ *
+ * Not gated: `lib/export/player-core.mjs` hard-codes its viewer chrome at 40/50/60, and
+ * `checkZPlanes` scans CSS only. That is a separate surface (its own document, above the
+ * whole deck) — logged rather than absorbed.
+ *
+ * Registered like the slide planes, for the same reason and not for scale membership: an
+ * unregistered token accepts `auto`, and a viewer control that flattens to `z-index: auto`
+ * drops behind the deck it is supposed to float above. `slide-planes.test.js` still
+ * excludes it from the allowed SLIDE values — being typed does not make it a plane. */
+@property --z-viewer { syntax: "<integer>"; inherits: true; initial-value: 2147483000; }
+
+:root {
+  --z-viewer: 2147483000;
+}
+
 /* ── The 12 typography tokens — GENERATED, not hand-written here ────────
  * The `--fs-*` scale moved to the lib/typography/scale.js manifest + emitter
  * (lib/typography/emit.js), which tools/build-css.js bundles in right after this

@@ -31,6 +31,9 @@ const {
   checkSuppressIntegrity,
   checkZPlaneZIndex,
 } = require('../lib/forms');
+// The Cell id → DOM class map, so §4.3 can attribute a z-index to the noun its SELECTOR
+// targets rather than to the folder the sheet happens to sit in (see collectZPlaneZIndex).
+const { CELL_DOM_CLASS } = require('../lib/forms/frame-conformance');
 
 const ROOT = path.join(__dirname, '..');
 const DOCS_DIR = path.join(ROOT, 'dist', 'docs');
@@ -76,15 +79,38 @@ function collectCellCssPresence() {
   return present;
 }
 
-// Every numeric `z-index` declared in a co-located Cell/Tile sheet, paired with
-// that noun's manifest `z` plane — the filesystem side of the §4.3 z-plane↔z-index
-// check. Comments are stripped first (a z-index mentioned in prose isn't a rule).
-// Returns [{ id, plane, zindex }] (one entry per numeric z-index occurrence).
+// Every `z-index` declared in a co-located Cell/Tile sheet, paired with the manifest `z`
+// plane of the noun the RULE TARGETS — the filesystem side of the §4.3 check.
+//
+// ATTRIBUTION IS BY SELECTOR, NOT BY FILE, and that distinction is load-bearing: a Cell's
+// rules do not all live in its own folder. `.cell-footer` is styled in
+// lib/forms/cell/stage/stage.css (the two bands are written as one flex cell-tree), so a
+// file-keyed collector reads the footer's `--z-chrome` as a claim by `cell/stage` and
+// reports a disagreement that is entirely its own. Keying on the DOM class the rule
+// actually selects — via frame-conformance's CELL_DOM_CLASS map plus the `tile-<id>`
+// convention — asks which noun the declaration is about.
+//
+// Comments are stripped first. A z-index mentioned in prose is not a rule, and a gate that
+// can read its own documentation as its subject is how the retired frame-chrome gate came
+// to certify a rule that had already been deleted.
+//
+// Captures the `--z-*` TOKEN when there is one and the raw number when there is not; §4.3
+// treats a bare number as a failure in its own right.
+// Returns [{ id, plane, token, zindex }] (one entry per z-index occurrence).
 function collectZPlaneZIndex({ cells, tiles }) {
   const planeById = new Map();
-  for (const c of cells) planeById.set(`cell/${c.id}`, c.z);
-  for (const t of tiles) planeById.set(`tile/${t.id}`, t.z);
-  const ZI = /z-index\s*:\s*(-?\d+)/gi;
+  const classToId = new Map();
+  for (const c of cells) {
+    planeById.set(`cell/${c.id}`, c.z);
+    const cls = CELL_DOM_CLASS[c.id];
+    if (cls) classToId.set(cls, `cell/${c.id}`);
+  }
+  for (const t of tiles) {
+    planeById.set(`tile/${t.id}`, t.z);
+    classToId.set(`tile-${t.id}`, `tile/${t.id}`);
+  }
+  const ZI = /z-index\s*:\s*([^;}]+)/gi;
+  const RULE = /([^{}]+)\{([^{}]*)\}/g;
   const items = [];
   for (const noun of ['cell', 'tile']) {
     const dir = path.join(FORMS_DIR, noun);
@@ -93,10 +119,30 @@ function collectZPlaneZIndex({ cells, tiles }) {
       if (!e.isDirectory()) continue;
       const cssPath = path.join(dir, e.name, `${e.name}.css`);
       if (!fs.existsSync(cssPath)) continue;
-      const plane = planeById.get(`${noun}/${e.name}`);
-      if (plane === undefined) continue; // css without a manifest — caught elsewhere
+      const own = `${noun}/${e.name}`;
+      if (planeById.get(own) === undefined) continue; // css without a manifest — caught elsewhere
       const css = fs.readFileSync(cssPath, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-      for (const m of css.matchAll(ZI)) items.push({ id: `${noun}/${e.name}`, plane, zindex: Number(m[1]) });
+      let m;
+      while ((m = RULE.exec(css))) {
+        const selector = m[1];
+        const body = m[2];
+        for (const z of body.matchAll(ZI)) {
+          // The noun whose class the selector names; the sheet's OWN noun when it names none
+          // (a rule like `section.form { … }` in the stage sheet is the stage speaking).
+          let id = own;
+          for (const [cls, nounId] of classToId) {
+            if (selector.includes(`.${cls}`)) { id = nounId; break; }
+          }
+          const raw = z[1].trim().replace(/\s*!important$/, '');
+          const token = /^var\(\s*(--z-[a-z0-9-]+)/.exec(raw);
+          items.push({
+            id,
+            plane: planeById.get(id),
+            token: token ? token[1] : null,
+            zindex: /^-?\d+$/.test(raw) ? Number(raw) : raw,
+          });
+        }
+      }
     }
   }
   return items;

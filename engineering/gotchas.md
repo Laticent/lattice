@@ -2280,18 +2280,78 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Tell:** a coordinate that should be constant is different on different slides. An
   absolute placement cannot depend on how much copy sits above it, so if it does, the
   element is in flow.
-- **Fixed 2026-08-04.** `position` is now withheld from frame chrome, and the exclusion
-  set is derived from the CSS and gated both ways (`checkFinishChromeExclusions`,
-  `tools/check-ownership.js`) so it cannot silently go stale — which it already had once,
-  missing `.lat-split-rail`. Behavior is gated by
-  `test/integration/invariants/frame-chrome-out-of-flow.test.js`.
-- **If you are adding out-of-flow chrome to a section:** you do not need to remember this
-  file. Add the rule, run `npm run build:check`, and the gate will tell you to exclude it.
-- **Do not "simplify" it to `.backdrop { z-index: -1 }`.** It is the better shape and it
-  does not work: a Lattice `section` does not reliably form a stacking context
-  (`isolation` computes `auto` on `math` and `title`), so the backdrop escapes behind the
-  section's own opaque background and the finish disappears. Measured, with a render.
-- **Commits:** `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+- **Fixed 2026-08-04**, then **removed outright 2026-08-12.** The first fix withheld
+  `position` from frame chrome via a gated `:where()` exclusion list. The slide plane model
+  deleted the rule the list existed to hold back: every child of every section now names its
+  own plane, so nothing has to be pushed off the backdrop and no rule reaches across a
+  section's children to set `position` at all. The list and its gate went with it.
+- **The "simplification" that used to be forbidden here is now what ships.**
+  `.backdrop { z-index: var(--z-canvas) }` — sinking the backdrop instead of lifting
+  everything else — was built, rendered and rejected in 2026-08, because a Lattice `section`
+  did not reliably form a stacking context (`isolation` computed `auto` on `math` and
+  `title`), so the backdrop escaped behind the section's own opaque background. That note
+  named the precondition for re-proposing it, and `section { isolation: isolate }`
+  (base.elements.css) now meets it unconditionally. **Do not remove that line** — it is what
+  holds the whole model up.
+- **If you are adding out-of-flow chrome to a section:** add the rule, give it a `--z-*`
+  plane token, and run `npm run build:check`. No exclusion list to update.
+- **Commits:** `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`,
+  `engineering/decisions/2026-08-12-slide-plane-model.md`.
+
+### Something decorative on a slide is painting on the wrong side of something else
+
+- **Symptom:** A ghost numeral, a watermark, a scrim or a pale glyph turns up *behind* the
+  surface it is supposed to sit on, or *in front of* the words it is supposed to sit behind.
+  The tell is that it looks right on some decks and wrong on others — most often it breaks
+  the moment a deck sets `finish:`, which is unrelated to the element in question.
+- **Cause:** a `z-index` picked locally instead of a plane named globally. A slide is a
+  stack of six named planes — `--z-canvas` (−2) and `--z-atmosphere` (−1) sink below the
+  words, content rests at the natural flow, and `--z-chrome` (30), `--z-alarm` (90) and
+  `--z-mark` (100) rise above (`lib/base/base.tokens.css` § depth axis). A raw integer is a
+  plane assignment nobody else can read. The watermark Tile declared plane 1 (atmosphere) in
+  its manifest and `z-index: -1` in its CSS, which put it *below* the finish backdrop; under
+  `finish: savile` the pinstripes ruled straight across the numeral.
+  `citation-card.styles.css` carries a comment recording the identical bug, found and
+  patched independently.
+- **Tell:** a hand-picked `z-index` on anything that can be a direct child of `section`.
+  If you are reaching for `-1` to push something behind the words, you want
+  `--z-atmosphere`; the plane is already negative, and it is negative for a reason.
+- **The rule:** if the element **can be a direct child of `section`**, it sits on a plane
+  and names it with a token. If it always renders **inside** an occupant (a component's
+  internals, a `.lat-focus` row inside the stage), it uses the local band `0–9`. That band
+  sits BETWEEN `--z-atmosphere` (-1) and `--z-chrome` (30), so arithmetic orders it — nothing
+  isolates it, and nothing should: isolating a container is a print-path hazard (below).
+- **Gated** by `checkZPlanes` (`tools/check-ownership.js`, via `build:check`) for the part
+  decidable from CSS text, and by
+  `test/integration/invariants/slide-planes.test.js` for the part that needs a render:
+  every real direct child of every section must land on a plane value or the content flow.
+  **The render test cannot catch a plane written as its literal** — `--z-atmosphere` IS `-1`,
+  and the test reads computed values — so the STATIC gates are what stop a bare `-1`
+  (`checkZPlanes`, and §4.3 in `tools/build-forms.js` for a Form noun).
+- **A "print-path wash" was diagnosed here for months. It does not exist — it is a bug in
+  `pdftoppm`.** The symptom: a 1px `.below-note` gradient hairline renders in an exported
+  PDF at ~22% strength, a crisp accent rule reduced to a barely-visible tint, while the
+  screen is perfect. It was attributed in turn to isolating `.cell-stage`, to a blanket
+  child `z-index`, and to a `z-index` on `img.deck-logo`, and each attribution produced a
+  design rule. All of them were measured through poppler's splash backend, which leaks an
+  earlier element's constant alpha into a later tiling-pattern fill. The alpha is `/ca .22`
+  from `--code-inline-border` (`base.elements.css`), so **any slide carrying an inline-code
+  chip can trigger it**, and `0.22 x accent + 0.78 x white` is the "washed" color to within
+  a unit. The same PDF through `pdftocairo` or ghostscript is crisp, and the two files are
+  byte-identical through the hairline.
+
+  **So: if a mark looks washed in a PDF, rasterize it a second way before you change any
+  CSS.** `pdftoppm out.pdf` and `pdftocairo out.pdf` disagreeing IS the diagnosis. Every
+  visual tool in this repo (`tools/pixel-check.js`, `tools/rasterize-for-review.sh`,
+  `tools/preview.js`) shells out to `pdftoppm` alone, so a second opinion from the tooling
+  is not a second opinion.
+
+  What it cost before anyone checked: an export flip that swapped the gradient for a solid
+  bar and silently restyled 32 slides that were fine, blessed into goldens; the deck logo
+  pulled off the plane scale; a gate built to keep it off; and guard rails in three CSS
+  files telling authors not to isolate containers. All reverted.
+  `2026-08-12-slide-plane-model.md` § The wash that was a rasterizer.
+- **Commits:** `engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ### `white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows
 

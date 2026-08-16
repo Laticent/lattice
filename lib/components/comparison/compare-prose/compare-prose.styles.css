@@ -29,6 +29,12 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
  * absolute) is a separator, not text, so it stays full-bleed. */
 .below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
+
+/* No export-safe flip for this hairline — see the note in base.modifiers.css beside the
+ * raw-form twin of this rule. Short version: the "gradient washes in the exported PDF"
+ * behavior that a flip was once written against is a `pdftoppm` splash-backend artifact,
+ * not a property of the PDF. Do not add one back. */
+
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 

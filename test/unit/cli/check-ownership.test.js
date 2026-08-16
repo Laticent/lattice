@@ -48,9 +48,9 @@ const {
   LABEL_VOICE_MONO_BUDGET,
   SANCTIONED_MONO_FONTS,
   monoFontFamilies,
-  checkFinishChromeExclusions,
-  parseFinishChromeExclusions,
-  absolutelyPositionedSectionChildHooks,
+  checkZPlanes,
+  definedPlaneTokens,
+  collectZIndexDeclarations,
   layerBlocksIn,
   checkCascadeLayers,
   LAYER_BLOCK_BUDGET,
@@ -561,79 +561,87 @@ describe('check-ownership', () => {
     });
   });
 
-  describe('frame-chrome exclusion gate (a finish must not drag chrome into flow)', () => {
-    test('the live engine CSS excludes every section-level chrome hook, with no stale entry', () => {
+  describe('slide plane gate (the depth axis)', () => {
+    test('the live engine CSS declares no z-index outside the local band or the plane tokens', () => {
       const errors = [];
-      checkFinishChromeExclusions(errors);
-      assert.deepEqual(errors, [], `unexcluded or stale frame chrome:\n${errors.join('\n')}`);
+      checkZPlanes(errors);
+      assert.deepEqual(errors, [], `unnamed layering or a stale plane token:\n${errors.join('\n')}`);
     });
 
-    test('the derived hook set finds the chrome the fix was written for', () => {
-      // Derived from the CSS, not hardcoded, so the CANDIDATE side of the gate cannot go
-      // stale as engine CSS moves: the first cut of the exclusion list was hand-built from a
-      // probe deck and missed `.lat-split-rail`, and a derived set does not have that failure
-      // mode. The assertion is that derivation actually reaches each one.
-      //
-      // BE PRECISE ABOUT WHAT THIS DOES NOT DO. `checkFinishChromeExclusions` intersects
-      // these derived hooks with the hand-maintained SECTION_LEVEL_CHROME set, so genuinely
-      // NEW section-level chrome is skipped until someone adds it there — this gate does not
-      // catch chrome nobody has enumerated, and an earlier version of this comment claimed it
-      // did. What covers the unenumerated case is the DERIVED SWEEP in
-      // test/integration/invariants/frame-chrome-out-of-flow.test.js, which toggles `.finish`
-      // on a real render and asserts no direct child of any section changes its computed
-      // position — no list at all. The division is deliberate: this gate guards the known
-      // cheaply on every `build:check`, the sweep finds the unknown at render cost.
-      const hooks = absolutelyPositionedSectionChildHooks();
-      for (const hook of ['header', 'footer', '.deck-logo', '.overflow-tab', '.illegible-tab', '.lat-split-rail']) {
-        assert.ok(hooks.has(hook), `expected engine CSS to absolutely position ${hook}`);
-      }
-    });
-
-    test('the gate refuses to parse a malformed exclusion list instead of guessing', () => {
-      // An unterminated `:where(` used to make `indexOf(')')` return -1, and slice(start, -1)
-      // then handed the check the whole rest of the stylesheet as the "exclusion list".
-      // A build gate must fail loudly on input it cannot parse, never report on a list it
-      // invented. Both malformed shapes are covered: no `)` at all, and a `)` that only
-      // appears in a LATER rule (the declaration block opened first). Caught in PR review.
-      const RULE = 'section.finish > *:not(.backdrop, :where(';
-
-      const unterminated = `${RULE}header, footer\n/* no closing paren anywhere */\n`;
-      assert.match(parseFinishChromeExclusions(unterminated).error || '', /malformed/);
-      assert.equal(parseFinishChromeExclusions(unterminated).excluded, undefined,
-        'a malformed list must yield NO exclusion set — a half-parsed one is what caused this');
-
-      const blockFirst = `${RULE}header, footer { position: relative; }\nsection.x { color: red; }`;
-      assert.match(parseFinishChromeExclusions(blockFirst).error || '', /malformed/);
-
-      // …and the well-formed shape still parses to exactly the tokens between the parens.
-      const ok = `${RULE}header, footer, img.deck-logo) { position: relative; }`;
-      assert.deepEqual(parseFinishChromeExclusions(ok).excluded, ['header', 'footer', 'img.deck-logo']);
-
-      // A missing rule is its own, separately-worded failure — not "malformed".
-      const gone = 'section.finish > * { position: relative; }';
-      assert.match(parseFinishChromeExclusions(gone).error || '', /no longer carries/);
-    });
-
-    test('the gate refuses to certify a rule that is no longer there', () => {
-      // A gate whose subject vanishes must fail, not pass silently — otherwise removing the
-      // fix removes its own guard. Asserted by pointing the check at the real file after the
-      // sentinel is gone is not possible without writing to lib/, so assert the sentinel the
-      // check keys on is present and load-bearing.
-      const css = require('node:fs').readFileSync(
-        require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.finish.css'), 'utf8');
-      assert.ok(
-        css.includes('section.finish > *:not(.backdrop, :where('),
-        'base.finish.css must carry the exclusion rule the gate keys on; if the stacking fix ' +
-        'is ever replaced, retire checkFinishChromeExclusions with it',
+    test('the decorative planes sink, the chrome planes rise, and content rests at zero', () => {
+      const planes = definedPlaneTokens();
+      const slide = planes.filter((p) => p.name !== '--z-viewer');
+      assert.deepEqual(
+        slide.map((p) => p.name),
+        ['--z-canvas', '--z-atmosphere', '--z-content', '--z-chrome', '--z-alarm', '--z-mark'],
+        'the six slide planes, in paint order — canvas at the bottom, mark on top',
       );
+      // The SIGNS carry the design. Canvas and atmosphere are negative so they paint at
+      // step 3 of the painting algorithm — after the section's own background, before every
+      // in-flow descendant — which is what lets content sit above them while declaring
+      // nothing at all. An earlier cut ran the whole scale positive and lifted content with
+      // a blanket `section > *`; that made `.cell-stage` a stacking context, and Chromium's
+      // print path then rasterized a 1px hairline inside it at ~22% coverage. Keeping these
+      // negative is load-bearing, not cosmetic.
+      const v = Object.fromEntries(slide.map((p) => [p.name, p.value]));
+      assert.ok(v['--z-canvas'] < v['--z-atmosphere'] && v['--z-atmosphere'] < 0,
+        'the decorative planes sink below the content flow');
+      assert.equal(v['--z-content'], 0, 'content rests where an unstyled element already paints');
+      // Above content, the gap to chrome is 30 rather than 1 because the LOCAL BAND 0-9 is
+      // the content plane's interior — a component's internals live there and must stay
+      // below chrome without any isolation to hold them.
+      assert.ok(v['--z-chrome'] >= 10, 'the local 0-9 band fits between content and chrome');
+      // MARK OVER ALARM. This pair was briefly inverted, on the reasoning that an authoring
+      // tab should beat a stamp and that --corner-stack separates them geometrically anyway.
+      // Both were wrong: the full-bleed shapes (stamp-veil, stamp-mark) are `inset: 0` and
+      // clear nothing, and the marker that SHIPS is the reader-mode pill, not the authoring
+      // tabs — so the inversion punched an engine marker through a redaction wash in the
+      // delivered PDF (10,136 pixels on `confidential stamp-veil` with `overflow-marker:
+      // reader`; a `stamp-ribbon` cut in half). A classification marking outranks an engine
+      // annotation on a delivered artifact.
+      assert.ok(v['--z-mark'] > v['--z-alarm'],
+        'a status stamp must paint OVER an engine marker — it ships in the export, the marker annotates it');
+      for (const name of ['--z-chrome', '--z-mark', '--z-alarm']) {
+        assert.equal(v[name] % 10, 0, `${name} sits on the ten-spaced scale, leaving room for a sub-plane`);
+      }
+      // `--z-viewer` is NOT on that scale on purpose: the fluid-view toggle floats above the
+      // whole DECK in the document, outside every section's stacking context, so it is not a
+      // slide plane and must never be treated as the top of one.
+      const viewer = planes.find((p) => p.name === '--z-viewer');
+      assert.ok(viewer && viewer.value > slide.at(-1).value * 1000, 'viewer chrome sits off the slide scale entirely');
     });
 
-    test('.overflow-tab is exempt because it defends itself with !important', () => {
-      // It is section-level chrome and IS absolutely positioned, but it asserts
-      // `position: absolute !important` at its own rule (base.modifiers.css), which is what
-      // makes it the one hook that needs no exclusion. If that `!important` is ever removed,
-      // the render gate catches it — but record the reason here so the exemption is not a
-      // mystery to the next reader.
+    test('the local band is what a component keeps, and the engine stays inside it', () => {
+      // The band exists because an occupant's root isolates, so its internals never meet the
+      // slide's planes. This asserts the split is real: every bare integer left in engine CSS
+      // is inside 0-9, and every value beyond it goes through a token.
+      const bare = collectZIndexDeclarations().filter((d) => d.value !== null);
+      const outside = bare.filter((d) => d.value < 0 || d.value > 9);
+      assert.deepEqual(outside.map((d) => `${d.file}: ${d.selector} → ${d.raw}`), []);
+      assert.ok(bare.length > 20, 'components still carry their own local stacks — the band is in use, not empty');
+    });
+
+    test('a plane token that nothing reads is an error, and so is one nothing defines', () => {
+      // Both directions, because both have a real failure mode. A defined-but-unused plane is
+      // a name pretending to be a model. A read-but-undefined one is worse: `var()` on an
+      // undefined custom property invalidates the whole declaration at compute time, so the
+      // element falls back to `z-index: auto` — flat again, but now wearing a token.
+      const defined = new Set(definedPlaneTokens().map((p) => p.name));
+      const read = new Set(collectZIndexDeclarations().map((d) => d.token).filter(Boolean));
+      assert.deepEqual([...read].filter((t) => !defined.has(t)), [], 'every token read is defined');
+      assert.deepEqual([...defined].filter((t) => !read.has(t)), [], 'every token defined is read');
+    });
+
+    test('.overflow-tab still defends its own position with !important', () => {
+      // Kept from the retired frame-chrome exclusion gate, because the PROPERTY it guards
+      // outlived the rule it was written against. The tab asserts
+      // `position: absolute !important` at its own rule (base.modifiers.css) so nothing can
+      // drag it into flow — originally a defense against base.finish.css's blanket
+      // `position: relative`, which the plane model has since deleted. It stays because being
+      // out of flow is load-bearing for the tab ITSELF: the overflow watcher measures the
+      // cell this tab reports on, so an in-flow tab consumes the height it is measuring and
+      // corrupts its own verdict. No plane rule sets `position`, so nothing in the engine
+      // threatens it today — which is exactly when a guard quietly stops being true.
       const css = require('node:fs').readFileSync(
         require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
       // ONE selector now, `section.clip-marked`, because one class answers the whole

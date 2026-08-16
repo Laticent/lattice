@@ -100,9 +100,12 @@ section.form {
    * the section padding (e.g. section.chart-frame sets `padding: 0`). No masthead
    * height-reserve — the in-flow band supplies its own height. */
   padding: var(--frame-y) var(--frame-x) var(--footer-reserve);
-  /* Own stacking context so the z-behind watermark Tile paints ABOVE the canvas
-   * but BELOW the (non-positioned) stage content. */
-  isolation: isolate;
+  /* `isolation: isolate` USED to live here, and it was the only rule in the engine
+   * creating a slide stacking context — so a sovereign frame (`title`, `math`,
+   * `divider`, …) never got one and its z values escaped to the page root. It is now
+   * unconditional on the bare `section` (base.elements.css), which every Form section
+   * is, so declaring it again here would be a no-op that reads like a local guarantee.
+   * engineering/decisions/2026-08-12-slide-plane-model.md. */
   /* Clip, don't bleed (design/forms.md §6). Stage content that exceeds its box
    * is cut by the section's clip rather than bleeding across the masthead/footer
    * Cells; the runtime overflow ring (scrollHeight > clientHeight) still fires
@@ -146,6 +149,24 @@ section.form > .cell-stage {
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
+  /* THE STAGE IS DELIBERATELY NOT A STACKING CONTEXT — no `z-index`, no `isolation`.
+   * A component's internals stay in the local 0–9 band, which sits between
+   * `--z-atmosphere` (-1) and `--z-chrome` (30) by construction, so they are already
+   * ordered correctly against the slide's planes without one.
+   *
+   * BOTH WERE TRIED AND REMOVED, ON A REASON THAT TURNED OUT TO BE FALSE. The claim was
+   * that isolating this element made Chromium's print path rasterize the `.below-note`
+   * hairline at ~22% strength — "3,596 pixels apart in the PDF." It does not. That is a
+   * `pdftoppm` splash-backend defect (it leaks `--code-inline-border`'s `/ca .22` into a
+   * later tiling-pattern fill); the identical PDF through `pdftocairo` or ghostscript
+   * shows ZERO differing pixels with the stage isolated. base.tokens.css § depth axis.
+   *
+   * So the honest status is: the stage does not isolate today because the 0–9 band already
+   * orders component internals correctly against the planes by arithmetic, and nothing has
+   * needed more. Whether it SHOULD isolate — which would contain the band properly instead
+   * of relying on everyone staying inside it — is an open design question, not a settled
+   * prohibition. If you take it up, measure with two rasterizers.
+   * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────
@@ -169,6 +190,9 @@ section.form > .cell-stage {
  * mirroring the header). The `.footer-inset` universal modifier lifts it into the
  * frame. Hug is the default because a board footer conventionally sits at the edge. */
 section.form > .cell-footer {
+  /* CHROME plane — the Cell's declared `"z": 3` (footer.cell.json), matching the
+   * masthead band at the other edge. base.tokens.css § depth axis. */
+  z-index: var(--z-chrome);
   position: absolute;
   left: var(--frame-inset-x);
   right: var(--frame-inset-x);

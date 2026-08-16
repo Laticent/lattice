@@ -233,7 +233,7 @@ authored by a *designer*; a **Tile** binds a *source*.
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
-  annotation).
+  annotation). **This field is now executed, not just declared** — see §5.2.
 - **`accepts`** — which Tile/Frame kinds may dock (the containment contract — §7).
 - **`capacity`** — `one` or `stack`.
 - **`fill`** — how an *underfilling* occupant distributes: `start` · `center` ·
@@ -247,7 +247,7 @@ authored by a *designer*; a **Tile** binds a *source*.
   `chrome` (kicker, title, meta, logo, status, footer, progress, pagination) ·
   `content` (the component) · `review` (annotation).
 - **`fits`** — which Cell(s) it may dock in (the dual of the Cell's `accepts`).
-- **`z`** — its z-plane.
+- **`z`** — its z-plane (§5.2).
 - **`population`** — *where its content comes from*: front-matter (`meta:`,
   `logo:`), authoring grammar (`` `eyebrow` ``, `## h2`), state variants, the
   component DOM, or derived (divider sections → progress, paginate → pagination).
@@ -302,6 +302,82 @@ in its Cell. Opt-in, one component at a time. Full model + sequence:
 `engineering/decisions/2026-07-15-model-driven-frame-render.md`.
 
 ---
+
+### 5.2 The z-planes, and how a Frame renders them
+
+A slide is not a flat sheet with things sprinkled on it. It is a **small stack of
+planes**, and `z` is which one a noun lives on. The model has always said so; as of
+2026-08-12 the CSS says so too, and the two are checked against each other.
+
+| Plane | Token | z | Who lives here |
+|---|---|---|---|
+| **0 canvas** | `--z-canvas` | −2 | the sheet: the `image` layout's photo panel, the finish `.backdrop` field |
+| **1 atmosphere** | `--z-atmosphere` | −1 | decoration *behind the words*: the watermark ghost, oversized ghost numerals, a photo scrim, pale quote glyphs |
+| **2 content** | `--z-content` | 0 | the `stage` Cell, everything the author wrote, and the deck logo |
+| **3 chrome** | `--z-chrome` | 30 | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, status, progress, pagination |
+| *(above the model)* | `--z-alarm` | 90 | authoring-only signals that must beat the slide: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
+| **4 annotation** | `--z-mark` | 100 | stamped *onto* the delivered slide: status stamps, review annotations, comments |
+
+**Mark sits ABOVE alarm, and that order is load-bearing.** It reads backwards — an
+authoring alarm feels like it should beat everything — and it was briefly written that
+way. It breaks delivered PDFs: `stamp-veil` is a redaction wash over the whole slide, and
+with the alarm above it a reader-mode overflow pill punched straight through the
+redaction. Full-bleed stamps are `inset: 0` and clear nothing via `--corner-stack`, so
+geometry does not save it either. The alarm tabs are authoring-only and never reach a
+delivered export; the stamp does. Do not re-invert these.
+
+**The deck logo sits on the CONTENT plane, not chrome.** Its *kind* is chrome — frame
+furniture, not author content — and its Tile manifest says so. Its *plane* is content,
+because a plane says what may cover what, and on that axis the mark belongs with the
+content it sits among. On chrome, an off-corner `logo-style: brand` plate erased four words
+of a pull-quote; on atmosphere it vanished under a split panel. Content is the only value
+correct on both, and it is where `z-index: auto` had it before the model existed.
+
+**The decorative planes sink; the chrome planes rise.** That is the whole trick, and it is
+why the scale costs so little: a negative-z child paints at step 3 of the painting
+algorithm — after the section's own background, before every in-flow descendant — so the
+author's markup floats above the canvas and the atmosphere **without declaring anything**.
+The `stage` Cell carries no z-index at all, and neither does a component's DOM.
+
+Two rules make it hold:
+
+1. **Every `section` is a stacking context**, unconditionally
+   (`section { isolation: isolate }`, `lib/base/base.elements.css`). Without it a plane
+   number means something different per slide — and a negative-z child escapes the section
+   entirely, painting behind its own background. It used to be gated on `.form`, so every
+   sovereign Frame had none and its values escaped to the page root, where they were
+   ordered against *other slides*.
+2. **The local band `0–9` is the content plane's interior**, which is why the gap up to
+   chrome is 30 and not 1. A component's internals — a rail behind a node, a counter over a
+   fill — use small local values and never a plane token, and they are correctly ordered
+   against the slide by arithmetic rather than by isolation. The dividing line is whether
+   an element **can be a direct child of `section`**: if it can, it names a plane; if it
+   can't, it stays in the band.
+
+**An occupant does not need to be a stacking context to "contain" it** — the 0-9 band
+already orders component internals against the planes by arithmetic, so isolating the
+`stage` buys nothing today. Whether it *should* isolate (which would contain the band
+properly rather than trusting everyone to stay inside it) is an open design question.
+
+It was a settled prohibition until recently, on the grounds that isolating the stage made
+Chromium's print path rasterize a `.below-note` hairline at ~22% strength — "3,596
+differing pixels in the exported PDF". That measurement came from `pdftoppm`, whose splash
+backend leaks an earlier element's constant alpha into a later tiling-pattern fill; the
+identical PDF through `pdftocairo` or ghostscript shows **zero** differing pixels with the
+stage isolated. See `engineering/gotchas.md` and
+`engineering/decisions/2026-08-12-slide-plane-model.md` § The wash that was a rasterizer
+before you reason from any pixel claim about the print path.
+
+A **Frame** does not paint a plane of its own — it slices boxes. The planes belong to the
+Cells it produces and the Tiles that dock into them, which is why `z` is a field on the
+Cell and the Tile and not on the Frame.
+
+Why this needed writing down: the `watermark` Tile declared `"z": 1` and its CSS said
+`z-index: -1`, so the ghost numeral painted *under* the finish field it is defined to sit
+above, and on a patterned finish the texture ruled straight across it. Both halves were
+locally reasonable; nothing connected them. The full account, the measurements, and what
+the model deletes are in
+`engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ## 6. Cells are resolution-blind boxes (the non-negotiable contract)
 
@@ -750,8 +826,9 @@ chain, and the coupling ADR for the rungs. As of the "light" coupling
 manifest↔CSS consistency so the contract can't silently drift: geometry/gap
 **token references resolve** to real CSS custom properties (§4.2), every Cell's
 `css` flag matches the filesystem (§4.1), `suppresses` never removes the content
-stage and stays disjoint from a Frame's own cells (§4.4), and co-located `z-index`
-values don't invert the semantic `z` plane order (§4.3). This is what makes designer- and
+stage and stays disjoint from a Frame's own cells (§4.4), and a Cell/Tile's co-located
+CSS paints on **the same plane its manifest declares** (§4.3 — an equality check as of
+2026-08-12; it was a weaker monotonicity test, which the `watermark` inversion passed). This is what makes designer- and
 AI-authored Frames (§7) possible at all — a Frame defined only in three
 hand-edited kernels cannot be generated; a Frame defined as data can. Reuse the
 component infrastructure (the manifest loader, the portal generator, the schema,

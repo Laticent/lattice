@@ -24,7 +24,11 @@ section.form .tile-progress {
    * the rail ANYWHERE — e.g. a Frame's slicing sets it to `50% … auto auto` to
    * drop the rail to the right-middle (independent movability, forms.md §7.3). */
   inset: var(--progress-inset, auto var(--footer-pag-reserve) var(--frame-inset-y) auto);
-  z-index: 3;
+  /* CHROME plane — its manifest's declared `"z": 3`. It needs the token rather than a
+   * local value because the rail is not always inside a Cell: lib/core/footer-dock.js
+   * docks it at SECTION level on a frame that builds no footer Cell, where it is a
+   * direct child competing with the slide's own planes. */
+  z-index: var(--z-chrome);
   /* Reserved width (the manifest geometry token), for the ABSOLUTE placement this Cell owns.
    * It was a truncation cap for a section label of unbounded length; the rail is dots only now
    * (progress.transform.js caps them at MAX_DOTS), so it is a real reserve — but ONLY while the

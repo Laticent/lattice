@@ -8,11 +8,21 @@
  * compositor blends, so layers combine instead of replacing each other and a
  * future right-panel designer can drive any single layer by setting one prop.
  *
- *   z1  --fin-wash      a background-image gradient (ambient color field)
- *   z2  --fin-texture   a background-image gradient (pattern: grid/dots/lines…)
- *   z3  ::before        a placed MARK   — --fin-mark (gradient) + --fin-mark-text
- *   z4  ::after         an EDGE          — --fin-edge (gradient)
- *   z5  content         (untouched, painted above every layer)
+ *   L1  --fin-wash      a background-image gradient (ambient color field)
+ *   L2  --fin-texture   a background-image gradient (pattern: grid/dots/lines…)
+ *   L3  ::before        a placed MARK   — --fin-mark (gradient) + --fin-mark-text
+ *   L4  ::after         an EDGE          — --fin-edge (gradient)
+ *   L5  content         (untouched, painted above every layer)
+ *
+ * THOSE ARE LAYER NUMBERS, NOT z-index VALUES — they used to read `z1`…`z5`, which is
+ * actively misleading now that this file also names real planes. L1/L2 are comma-separated
+ * `background-image` slots on `.backdrop` and carry no z-index at all; L3/L4 are its two
+ * pseudos at `z-index: 0` and `1`, and the clearance mask sits above both at `2`. All of
+ * that is the LOCAL 0–9 band, contained because `.backdrop` is a stacking context in its
+ * own right (`position: absolute` + `z-index: var(--z-canvas)`). The whole stack therefore
+ * rides the canvas plane as ONE unit — which is what makes sinking it below the content
+ * flow safe. L5 "content" is not part of this stack at all: it is the slide's own content,
+ * a plane above (base.tokens.css § depth axis).
  *
  * The two background slots are composited in ONE rule: --fin-texture is listed
  * first (visually on top of the wash). Because the combined background-image can
@@ -98,7 +108,20 @@
 section.finish > .backdrop {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  /* The CANVAS plane — the sheet itself. Everything else on the slide has a plane of
+   * its own and simply sits above it; nothing has to be pushed out of the way.
+   * (base.tokens.css § depth axis.) Its own internal stack — mark, edge, mask — is
+   * LOCAL band 0–2, contained because this element is a stacking context.
+   *
+   * Containment does not depend on this token's VALUE, which matters because a plane token
+   * is an ordinary inherited custom property that a deck `<style>` or a theme can rewrite.
+   * `--z-canvas: auto` is a perfectly valid `z-index`, and it used to move this whole
+   * full-slide sheet from paint step 3 to step 8 — on top of the body. Measured on a
+   * `finish: halo` deck with that one line of deck CSS: 3,435 differing pixels, the entire
+   * body gone, chrome intact, no gate raised. The tokens are now registered with
+   * `@property` (base.tokens.css § depth axis), so a non-integer is rejected at compute
+   * time and falls back to the designed plane instead of silently becoming `auto`. */
+  z-index: var(--z-canvas);
   pointer-events: none;
   /* STRENGTH — one uniform dial over the whole finish. Reads the finish's BAKED
    * `--fin-backdrop-strength` (generateFinishCss, the 5th finish layer); else 1
@@ -298,83 +321,45 @@ section.divider:not(.light):not(.dark):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
 
-/* Keep slide content above the backdrop layer (the backdrop is z0, its internal
- * pseudos/mask are contained in its stacking context). Excludes `.backdrop`
- * itself, which must stay behind at z0. */
-section.finish > *:not(.backdrop) {
-  z-index: 2;
-}
-/* …but not by FLATTENING chrome into content. The rule above is written for the backdrop
- * (keep everything above z0), and it catches `header`/`footer` too, which pins them to the
- * same 2 as the component parts they must paint over — reintroducing, on `finish:` decks
- * only, exactly the occlusion base.modifiers.css's `z-index: 3` fixes everywhere else.
- * `:is(header, footer)` contributes (0,0,1), so this computes (0,1,1): a TIE with the rule
- * above, resolved by source order, which is why it is written immediately after it and
- * must stay there. */
-section.finish > :is(header, footer) {
-  z-index: 3;
-}
-/* `position: relative` is only the MECHANISM by which a STATIC child earns that
- * z-index — it is not part of the intent, and it must not be forced onto chrome
- * that already positions ITSELF out of flow. Doing so breaks such an element twice
- * over: `top`/`left` stop meaning "inset from the frame" and start meaning "offset
- * from wherever I landed in flow", AND the element begins taking flow space it was
- * designed never to take. Measured, on a `finish:` deck:
- *   · `header` / `footer` — rendered at padding+inset instead of inset (116px/94px
- *     where the frame berth is 28px/30px), on 11 of 15 slides of
- *     examples/finish-backdrops.md, while stealing their own height from the body.
- *     Two components are written AGAINST this invariant and say so in their own
- *     comments (math.styles.css §body-row, split-panel.styles.css §watermark).
- *   · `img.deck-logo` — `logo-x`/`logo-y` stopped meaning anything. The documented
- *     contract is "the logo CENTER as a % of the slide"; every logo slide in the
- *     corpus declares `logo-x: 50` and rendered at 92.2%, and the y drifted with
- *     content height (84 / 87.1 / 88 / 100% across all four, every one declaring
- *     `logo-y: 82`). On examples/marp-export-fidelity.md p1 it left the frame
- *     entirely, and WAS that deck's whole 23px of overflow.
- *   · `.illegible-tab` — base.modifiers.css states "both tabs are position:absolute,
- *     so neither can perturb the height math the watcher itself is measuring". That
- *     is true of `.overflow-tab`, which asserts `position:absolute !important`, and
- *     false of this one: it ties this rule at (0,2,1) and LOSES on source order,
- *     because base.finish.css is bundled after base.modifiers.css.
- *   · `.lat-split-rail` — the k-of-N run indicator. It docks INSIDE `.cell-footer`
- *     when the frame builds one, and at SECTION level when it does not
- *     (lib/core/footer-dock.js: "sovereign frames get the mark appended at section
- *     level, where CSS keeps it absolutely positioned in its own reserved berth").
- *     `buildFooterCell` returns nothing when a deck sets neither `footer:` nor
- *     `paginate:`, so that second path is ordinary, not exotic — and there it is a
- *     direct child at (0,1,0) and was dragged into flow like the rest.
+/* ── WHAT USED TO BE HERE, and what removed it ────────────────────────────────
+ * Two rules and a gated exclusion list:
  *
- * THE EXCLUSION SET IS GATED, because an ungated list of this shape provably rots:
- * `.lat-split-rail` was MISSED by the first cut of this very fix — an empirical sweep
- * over a six-layout probe deck could not see it, because the probe had no split run.
- * `checkFinishChromeExclusions` (tools/check-ownership.js, via build:check) derives the
- * set from the CSS itself and fails BOTH ways: a rule that absolutely positions a
- * possible direct child of `section` and is not listed here, and a listed name nothing
- * positions any more. Same contract as SANCTIONED_MARGINS / SANCTIONED_HEX and the rest.
+ *   section.finish > *:not(.backdrop) { z-index: 2 }
+ *   section.finish > :is(header, footer) { z-index: 3 }
+ *   section.finish > *:not(.backdrop, :where(header, footer, img.deck-logo,
+ *     .illegible-tab, .lat-split-rail, .lattice-bg)) { position: relative }
  *
- * The exclusions sit inside `:where()` so they carry ZERO specificity: `:not()` takes
- * the weight of its most specific argument, which stays `.backdrop` (0,1,0), so this
- * selector still computes (0,2,1) — the same weight as the z-index rule above and the
- * same weight `.overflow-tab`'s `!important` note is written against. Verified by
- * reading the computed value on a real render, not inferred from the spec.
+ * The middle one arrived last (#1646) and is the clearest argument for the plane model:
+ * it existed ONLY to undo the first, which flattened chrome and content onto the same 2
+ * and so re-created, on `finish:` decks alone, the occlusion that commit had just fixed
+ * everywhere else. A rule whose whole job is to compensate for the rule above it is a
+ * number line with no names on it.
  *
- * REJECTED ALTERNATIVE — `section.finish > .backdrop { z-index: -1 }`, deleting both
- * rules and the list outright. A negative-z child paints at step 3 of the painting
- * algorithm, after the section's own background and before every in-flow descendant, so
- * in principle content sits above it with nothing touching a single child. It was built
- * and rendered, and it FAILS: the escape only holds inside a stacking context, and a
- * Lattice `section` does not reliably form one. Measured on
- * examples/marp-export-fidelity.md, `isolation` computes `isolate` on the six `form`
- * sections and `auto` on `math` and `title` (`contain` is `none` on all eight —
- * `container-type: size` does NOT contribute one here). On those two the backdrop
- * escapes to the parent context and paints BEHIND the section's own opaque `--bg`: page
- * 6's finish disappeared completely, 87,430 differing pixels against this rule's render.
- * Do not re-propose it without first giving every section an unconditional stacking
- * context, which is a wider change than this one.
- * engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
-section.finish > *:not(.backdrop, :where(header, footer, img.deck-logo, .illegible-tab, .lat-split-rail, .lattice-bg)) {
-  position: relative;
-}
+ * They existed because a `z-index: 0` backdrop paints ABOVE a flex child that carries
+ * no z-index at all (positioned descendants paint at step 8, inline-level content at
+ * step 7), so every non-backdrop child had to be pushed up — and `position: relative`
+ * was the mechanism by which a STATIC child earns a z-index. On a child that positions
+ * ITSELF that mechanism was destructive: `top`/`left` re-based onto the flow position
+ * and the element started taking flow space. It rendered the running header 88px low
+ * on 11 of 15 slides of examples/finish-backdrops.md, made `logo-x`/`logo-y` mean
+ * nothing, and collapsed the image layout's photo panel to height 0 on two
+ * compositions. The `:where()` list held it back, and `checkFinishChromeExclusions`
+ * held the list back from rotting — a list that had ALREADY shipped stale the day it
+ * was written. 2026-08-04-finish-stacking-displaces-frame-chrome.md.
+ *
+ * The plane model deletes all of it. The decorative planes are NEGATIVE, so this backdrop
+ * paints at step 3 of the painting algorithm — before every in-flow descendant — and the
+ * content floats above it without declaring anything at all (base.elements.css carries an
+ * explicit note that there is deliberately NO `section > *` rule), so nothing needs pushing off the
+ * backdrop and no rule reaches across a section's children to set `position`. The
+ * alternative that note built, rendered and REJECTED — sinking the backdrop instead
+ * of lifting everything else — is what the compositor above does now, in the token
+ * form `z-index: var(--z-canvas)`. It failed then for one reason: a Lattice `section`
+ * did not reliably form a stacking context, so on `math` and `title` the backdrop
+ * escaped behind the section's own opaque background (87,430 differing pixels).
+ * `section { isolation: isolate }` (base.elements.css) is exactly the precondition
+ * that note set for re-proposing it, and it is now unconditional.
+ * engineering/decisions/2026-08-12-slide-plane-model.md. */
 
 /* ════════════════════════════════════════════════════════════════════════════
  * THE 5 PRESETS — each a composition of the slots above.
