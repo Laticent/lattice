@@ -162,6 +162,55 @@ const runRuntimeFetched = async (fmLines) => {
   return result;
 };
 
+/**
+ * How many TRANSFORM PASSES does startup run?
+ *
+ * Counting chart BUILDS cannot answer this and it matters: an extra pass over a
+ * settled deck rebuilds nothing (the class list has not moved), so a build
+ * counter reads 1 either way while the deck quietly pays for a second full pass
+ * over every transform. That is exactly how the clear-point went unguarded.
+ *
+ * So instrument the real bundle: one counter at the top of the real
+ * `runAllContentTransforms`, injected into the SHIPPED source string. The anchor
+ * is asserted below, so a rename fails loudly instead of silently counting zero.
+ */
+const PASS_ANCHOR = 'function runAllContentTransforms() {';
+const INSTRUMENTED = RUNTIME_SRC.replace(
+  PASS_ANCHOR,
+  `${PASS_ANCHOR} window.__passes = (window.__passes || 0) + 1;`,
+);
+
+const countTransformPasses = async (fmLines, baked) => {
+  const src = deckFrontMatter(fmLines);
+  const head = baked ? frontMatterBlock(src) : '';
+  const dom = new JSDOM(
+    `<!DOCTYPE html><html><head></head><body>${head}${GANTT_SECTION}</body></html>`,
+    {
+      url: baked ? 'file:///tmp/deck.html' : 'https://example.test/deck.html',
+      runScripts: 'dangerously',
+      pretendToBeVisual: true,
+    },
+  );
+  const { window } = dom;
+  const { document } = window;
+  window.fetch = (url) => (baked
+    ? Promise.reject(new TypeError('Failed to fetch'))
+    : Promise.resolve({
+      ok: String(url).endsWith('.md'),
+      status: String(url).endsWith('.md') ? 200 : 404,
+      text: () => Promise.resolve(src),
+    }));
+
+  const scriptEl = document.createElement('script');
+  scriptEl.textContent = INSTRUMENTED;
+  document.body.appendChild(scriptEl);
+  await new Promise((r) => setTimeout(r, 400));
+  const passes = window.__passes || 0;
+  const ticks = document.querySelectorAll('text.gantt-tick').length;
+  window.close();
+  return { passes, ticks };
+};
+
 describe('runtime mode-geometry parity — `mode:` reaches the transforms on pass 1', () => {
   test('sanity: the two advances DO produce different tick counts on this axis', () => {
     assert.notEqual(engineTicks(true), engineTicks(false),
@@ -245,5 +294,38 @@ describe('runtime mode-geometry parity — the FETCH FALLBACK converges too (#16
     assert.equal(r.backdropGap, false,
       'the chart painted with no finish backdrop for part of startup — the rebuild '
       + 'took the wrapper with it and nothing restored it until the observer fired');
+  });
+  // THE COST STORY, PINNED. The re-run gate is deliberately still a GATE: the
+  // whole justification for not simply running the transforms twice is that a
+  // deck carrying a baked block — every Export-to-Marp bundle — pays nothing.
+  // That rests entirely on `runAllContentTransforms` clearing
+  // `deckClassStampedSincePass` right after it applies the classes for its own
+  // pass, so a stamp made INSIDE pass 1 does not bill for a pass 2.
+  //
+  // An independent verifier deleted that clear-point and found the baked path
+  // silently go from one transform pass to two with the whole suite still
+  // green. The property the record calls "the whole design" was unguarded; this
+  // is the guard. Counts DISTINCT `.chart-body` element identities rather than
+  // insertions — `injectBackdrops` re-parents nodes, so a naive insertion count
+  // reads high.
+  test('the instrumentation anchor still exists — otherwise the two tests below count nothing', () => {
+    assert.ok(RUNTIME_SRC.includes(PASS_ANCHOR), `${PASS_ANCHOR} not found in the shipped bundle`);
+    assert.notEqual(INSTRUMENTED, RUNTIME_SRC);
+  });
+
+  test('the baked path runs exactly ONE transform pass — the gate still gates', async () => {
+    const r = await countTransformPasses(['mode: sketch'], true);
+    assert.equal(r.ticks, engineTicks(true), 'sanity: the baked path still converges');
+    assert.equal(r.passes, 1,
+      `baked + mode: sketch ran ${r.passes} transform passes — the re-run gate has stopped `
+      + 'gating and every Export-to-Marp bundle now pays for a second full pass. This is the '
+      + 'property the clear-point in runAllContentTransforms exists for.');
+  });
+
+  test('the fetch fallback buys the correction pass it needs, and does not loop', async () => {
+    const r = await countTransformPasses(['mode: sketch'], false);
+    assert.ok(r.passes >= 2, `fetch fallback ran ${r.passes} passes — it needs a correction pass`);
+    assert.ok(r.passes <= 3, `fetch fallback ran ${r.passes} passes — that is a re-run loop`);
+    assert.equal(r.ticks, engineTicks(true));
   });
 });

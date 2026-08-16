@@ -545,7 +545,17 @@ over the 42-string vocabulary in both faces:
 | estimator | ratio |
 |---|---|
 | flat 0.68 | 0.61 … 2.04 |
-| glyph table | 1.02 … 1.08 |
+| glyph table | 1.02 … 1.11 |
+
+Those endpoints describe the VOCABULARY, not any one string. An independent
+re-measurement over a different 49-string set (the trio's verification lens) put
+the table's upper end at 1.098 on fully-mapped text and 1.114 once an unmapped
+script is in the string — so the "at most 8% generous" this section first claimed
+was a property of the first vocabulary, not of the estimator. **The claim that
+survives both sets is the lower wall: it never under-counts.** The same lens
+caught the −39% / +104% ends being attributed to `WORKFLOW` and `IL ILI`
+specifically, which the recorded per-string numbers contradict (13.9% short and
+68.3% over respectively); they are the extremes of the set.
 
 Three things are worth carrying forward:
 
@@ -562,18 +572,31 @@ Three things are worth carrying forward:
    re-wraps until the budget stops shrinking. A NUMERIC advance is unaffected —
    every line returns the same number, so the loop exits on its first pass and
    the legend, funnel and gantt callers are byte-identical.
-3. **An unmapped character bills at the face's widest glyph.** Wrong in the only
-   direction that cannot clip, which is what makes measuring non-Latin scripts a
-   safe change to defer rather than a silent gap.
+3. **An unmapped character bills a fallback — and "the widest glyph in the
+   table" was the wrong fallback.** It sounds safe and is not: the table's widest
+   glyph is only the widest we happened to MEASURE, while what an author can type
+   is unbounded. Measured, a three-em dash paints 3.00em — three times the widest
+   letter — so a label of them was estimated at **0.34×** its painted width, and
+   an astral emoji at 0.81× because one glyph spans two UTF-16 units while the
+   consumers count units. The em-quad dashes are mapped explicitly now, astral
+   code points bill per unit, and the fallback is pinned at 1.10 against the
+   widest unmapped thing measured (CJK and fullwidth Latin, both exactly 1.00em,
+   which the old fallback cleared by exactly zero). The residual is stated on the
+   constant rather than implied away: a character neither in the table nor under
+   1.10em still under-counts, and only real measurement could close that.
 
 Verified on the real surface, not by eye: a stress deck of deliberately wide
 author names rendered through the real pipeline in both modes, then read in
 headless Chromium — computed `font-family` confirms Outfit clean / Shantell Sans
 sketch, and every line's `getComputedTextLength()` is compared against the width
 it was wrapped to. **One overrun before (`MMMM WWWW MMMM`, 12.9% past its box in
-the hand face), zero after; zero painted-box overlaps either way.** Across all 22
-shipped decks carrying a quadrant or radar (44 renders, clean and sketch), the
-rendered HTML is **byte-identical** before and after.
+the hand face), zero after; zero painted-box overlaps either way.** Across all **24** shipped
+decks carrying a quadrant or radar (48 renders, clean and sketch), the rendered
+HTML is **byte-identical** before and after. (22 in the first sweep — the
+corpus glob missed `design/forms.gallery.md` and
+`exemplars/academic/conference-talk.md`, both of which ship committed PDFs. Both
+were rendered afterwards and are identical too, so the conclusion held; the
+count did not.)
 
 That last number was only readable because #1677 landed first. Measured against
 the base before it, five sketch decks showed whole-file diffs that had nothing to

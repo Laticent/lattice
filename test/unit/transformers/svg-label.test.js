@@ -42,6 +42,9 @@ const {
   upperAdvance, measureLabel, wrapSvgLabel, charBudget,
   GLYPH_UPPER, GLYPH_UPPER_MAX, ADVANCE,
 } = require('../../../lib/components/chart/_chart-family/svg-label');
+// The greedy line-breaker the emitter uses, so the "untightened wrap" below is
+// the real one rather than a re-implementation that could disagree.
+const { wrapLabelToLines } = require('../../../lib/components/chart/_chart-family/svg-legend');
 
 // [string, clean, hand] — measured, as described above. Deliberately spans the
 // whole reachable range rather than sampling the pretty middle: the four
@@ -68,9 +71,14 @@ const TRACK = 0.04;
 // How far over the painted width the estimate may sit. The table rounds each
 // glyph UP to the nearest 0.05, which is what buys "never short"; 12% is the
 // slack that rounding can accumulate on a short string of narrow glyphs, with
-// room for a face update to move a glyph one step. Measured worst on this set
-// is under 8% — if this has to be RAISED, the table has drifted from the faces
-// and wants re-measuring, not a looser bound.
+// room for a face update to move a glyph one step.
+//
+// The worst on THIS set is under 8%, but do not read that as a property of the
+// estimator: an independent 49-string vocabulary reached 1.098 on fully-mapped
+// text (`1.1%`) and 1.114 with an unmapped script. The bound that holds across
+// vocabularies is the lower one — it never under-counts. If this has to be
+// RAISED, check first whether the table has drifted from the faces; a looser
+// bound is the wrong fix for that.
 const MAX_OVER = 1.12;
 
 describe('upperAdvance — the estimate tracks the painted width, in both faces', () => {
@@ -120,20 +128,38 @@ describe('upperAdvance — mechanics', () => {
     }
   });
 
-  test('an unmapped character bills at the face\'s widest glyph', () => {
-    // Wrong in the generous direction by construction — the only direction that
-    // cannot clip. A label in a script the table does not cover wraps early
-    // rather than overrunning, which is what makes measuring those scripts a
-    // safe change to defer.
+  test('the unmapped fallback clears the widest UNMAPPED thing measured', () => {
+    // An earlier cut asserted the fallback equalled the widest entry in the
+    // TABLE, which sounded safe and was not: the table's widest glyph is only
+    // the widest we happened to measure, and it left CJK — at exactly 1.00em —
+    // with zero margin while a three-em dash (3.00em) under-counted by 3×. The
+    // dashes are mapped now; the fallback covers what is left, and the thing it
+    // has to clear is the 1.00em CJK/fullwidth cluster, not the table's max.
     for (const hand of [false, true]) {
       const face = hand ? 'hand' : 'clean';
-      const widest = Math.max(...Object.values(GLYPH_UPPER[face]));
-      assert.equal(GLYPH_UPPER_MAX[face], widest,
-        `${face}: the fallback must BE the widest entry, not a number beside it`);
-      assert.equal(upperAdvance('日本語', { hand, tracking: 0 }), widest);
-      // …and an empty label cannot return NaN or 0 (a 0 advance makes the
+      assert.ok(GLYPH_UPPER_MAX[face] > 1.00,
+        `${face}: the fallback must clear the 1.00em CJK/fullwidth cluster`);
+      // CJK is unmapped and must therefore bill the fallback, with margin.
+      assert.equal(upperAdvance('日本語', { hand, tracking: 0 }), GLYPH_UPPER_MAX[face]);
+      // An ASTRAL code point is ONE glyph over TWO UTF-16 units, and the
+      // consumers count units — so it has to bill per unit or it halves.
+      assert.equal(upperAdvance('🙂', { hand, tracking: 0 }), GLYPH_UPPER_MAX[face]);
+      // An empty label cannot return NaN or 0 (a 0 advance makes the
       // line-breaker's budget infinite).
       assert.ok(upperAdvance('', { hand, tracking: 0 }) > 0);
+    }
+  });
+
+  test('the em-quad dashes are MAPPED, because no fallback could cover them', () => {
+    // `⸻` paints a flat 3.00em in both faces — three times the widest letter.
+    // While it rode the fallback, a label of them was estimated at 0.34× its
+    // painted width, which is the clipping direction.
+    for (const hand of [false, true]) {
+      const face = hand ? 'hand' : 'clean';
+      assert.ok(GLYPH_UPPER[face]['⸻'] >= 3.0, `${face}: three-em dash must be mapped at >= 3em`);
+      assert.ok(GLYPH_UPPER[face]['⸺'] >= 2.0, `${face}: two-em dash must be mapped at >= 2em`);
+      assert.ok(upperAdvance('⸻', { hand, tracking: 0 }) > GLYPH_UPPER_MAX[face] * 2,
+        `${face}: a three-em dash must not bill as an ordinary unmapped character`);
     }
   });
 
@@ -174,29 +200,84 @@ describe('measureLabel — a wide LINE cannot ride a narrow string average', () 
   // loop: `IL ILI` is roughly half the per-character width of `WORKFLOW`, so
   // averaged over the whole label it buys the `WORKFLOW` line a budget that
   // line does not deserve — and it is the LINE that has to fit the box.
-  const text = 'Il Ili Workflow';
+  //
+  // BOTH TESTS BELOW ONCE PASSED WITH THE LOOP DISABLED, including the one
+  // named for it — the fixture `Il Ili Workflow` fits on ONE line at this width,
+  // so nothing was ever re-wrapped, and the second test asserted a hypothetical
+  // (what a budget WOULD buy) rather than what the code emits. An independent
+  // verifier caught it by reverting the loop and watching the suite stay green.
+  // The fixture now actually wraps, and both assertions read the real output.
+  const text = 'Il Ili Ili Il Workflow Workflow';
   const fontSize = 12;
   const width = 140;
+  const advOf = (s) => upperAdvance(s, { tracking: TRACK });
+  const painted = (line) => line.length * fontSize * advOf(line);
+
+  test('the fixture really does wrap — otherwise nothing below is exercised', () => {
+    const m = measureLabel(text, { width, fontSize, advance: advOf });
+    assert.ok(m.lines.length > 1,
+      `fixture emitted one line (${JSON.stringify(m.lines)}) — it cannot exercise the loop`);
+  });
 
   test('every emitted line fits the width it was wrapped to', () => {
-    const m = measureLabel(text, {
-      width, fontSize, advance: (s) => upperAdvance(s, { tracking: TRACK }),
-    });
+    const m = measureLabel(text, { width, fontSize, advance: advOf });
     for (const line of m.lines) {
-      const painted = line.length * fontSize * upperAdvance(line, { tracking: TRACK });
-      assert.ok(painted <= width + 0.01,
-        `line ${JSON.stringify(line)} paints ${painted.toFixed(1)}u into ${width}u`);
+      assert.ok(painted(line) <= width + 0.01,
+        `line ${JSON.stringify(line)} paints ${painted(line).toFixed(1)}u into ${width}u`);
     }
   });
 
   test('the string average alone would NOT have fit — the loop is load-bearing', () => {
+    // Assert against the WRAP THE STRING AVERAGE ACTUALLY PRODUCES, not against
+    // a budget arithmetic. Disabling the loop must make a real emitted line
+    // overrun, or this test is decoration.
     const avg = upperAdvance(text, { tracking: TRACK });
-    const naive = charBudget(width, fontSize, avg);
-    // The budget the average buys, spent entirely on the widest word.
-    const worst = 'WORKFLOW';
-    const perChar = upperAdvance(worst, { tracking: TRACK });
-    assert.ok(naive * fontSize * perChar > width,
-      'this fixture no longer exercises the hazard — pick a wider/narrower pair');
+    const naive = wrapLabelToLines(text, charBudget(width, fontSize, avg));
+    assert.ok(naive.some((l) => painted(l) > width + 0.01),
+      `the untightened wrap ${JSON.stringify(naive)} already fits — this fixture no longer `
+      + 'exercises the hazard; pick a wider/narrower pair');
+  });
+});
+
+describe('the ELLIPSIZED line fits too — it is a new string the budget never saw', () => {
+  // The truncation runs after the tighten loop and REPLACES the last line's
+  // content, and `…` is not among the characters the budget was derived over —
+  // so a line at exactly `budget` characters can paint past `width` once the
+  // ellipsis is swapped in. Found by an adversarial sweep, not by the corpus:
+  // an Arabic label (every glyph unmapped, so billed at the widest) came out at
+  // 140.8u in a 140u box.
+  const width = 140;
+  const fontSize = 12;
+  const CASES = [
+    ['مرحبا '.repeat(100), 'RTL — every glyph unmapped'],
+    ['日本語'.repeat(200), 'CJK'],
+    ['ﬄ'.repeat(200), 'ligatures that expand under uppercase'],
+    ['W'.repeat(4000), 'one unbreakable 4000-glyph token'],
+    [`${'Il '.repeat(300)}Workflow`, 'narrow run then a wide word'],
+    ['Workflow Warehouse Wellbeing Maximum', 'ordinary wide author text'],
+  ];
+  for (const hand of [false, true]) {
+    for (const [text, name] of CASES) {
+      test(`${hand ? 'hand' : 'clean'}: ${name}`, () => {
+        const advOf = (s) => upperAdvance(s, { hand, tracking: TRACK });
+        const m = measureLabel(text, { width, fontSize, maxLines: 2, advance: advOf });
+        for (const line of m.lines) {
+          assert.ok(line.length * fontSize * advOf(line) <= width + 0.01,
+            `${JSON.stringify(line)} paints ${(line.length * fontSize * advOf(line)).toFixed(1)}u into ${width}u`);
+        }
+      });
+    }
+  }
+
+  test('the shrink terminates and always leaves an ellipsis', () => {
+    // The floor is one character plus `…`; past that the caller has asked for a
+    // box too narrow for any label, and looping forever would be worse than
+    // overflowing.
+    const m = measureLabel('Workflow Warehouse', {
+      width: 6, fontSize: 12, maxLines: 1, advance: (s) => upperAdvance(s, { tracking: TRACK }),
+    });
+    assert.equal(m.lines.length, 1);
+    assert.match(m.lines[0], /…$/);
   });
 });
 

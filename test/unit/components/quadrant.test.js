@@ -574,7 +574,12 @@ describe('quadrant — the sketch token reaches the builder', () => {
   for (const [name, cls, hand] of [
     ['Visibility Workflow Workflow', 'quadrant', false],
     ['Momentum Window Illinois', 'quadrant sketch', true],
-    ['Workflow Workflow', 'quadrant', false],
+    // A narrow run subsidizing a wide word — the shape the tighten loop exists
+    // for. `Workflow Workflow` was here and does NOT discriminate: the string
+    // average already buys a budget that wraps it to two 8-char lines, so it
+    // never overran even with the loop disabled. Verified against the real
+    // pre-fix commit, not a mutant.
+    ['Il Ili Ili Il Workflow Workflow', 'quadrant', false],
   ]) {
     test(`no emitted line overruns its box: ${JSON.stringify(name)} (${cls})`, () => {
       assert.deepEqual(overrunsIn(cls, name, hand), [],
