@@ -1,14 +1,15 @@
-import { expect, gotoStudio, railButtons, slideCount, test, toastText } from './studio-fixture';
+import { expect, gotoStudio, openAddSlide, railButtons, slideCount, test, toastText } from './studio-fixture';
 
 // The add-slide gallery over the component catalog: open, search, insert → a new
 // slide carrying that component's skeleton (rail count +1). The gallery replaced
-// the old cmdk text list — tiles are live-preview buttons named "Insert <name>".
+// the old cmdk text list — tiles are live-preview buttons named "Insert <name>"
+// (the tile action names the component; the DOOR says "Add slide", #1654).
 
 test('inserting a component adds a slide from the catalog', async ({ page }) => {
 	await gotoStudio(page);
 	const n = await slideCount(page);
 
-	await page.getByRole('button', { name: 'Insert component' }).click();
+	await openAddSlide(page);
 
 	const search = page.getByPlaceholder(/Search \d+ slides/);
 	await expect(search).toBeVisible();

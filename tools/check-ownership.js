@@ -4409,7 +4409,12 @@ const SANCTIONED_E2E_SLEEPS = [
   { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
   { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 180, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
   { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 400, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 600, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  // Was `docs/e2e/gallery-preview-budget.spec.ts` @ 600ms until #1654 lifted that spec's
+  // local `openGallery` into the shared `openAddSlide` fixture helper (the launcher rename
+  // made an open-coded `getByRole` ambiguous, so every caller had to route through one
+  // opener). Same wait, same mobile drawer route, new file — MOVED, NOT JUDGED. The gate
+  // caught the move as an unsanctioned wait plus a stale entry, which is exactly its job.
+  { file: 'docs/e2e/studio-fixture.ts', ms: 600, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575), moved from gallery-preview-budget.spec.ts in #1654. Never counted by #1526.' },
   { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 1200, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
   { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 2500, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
   { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 4000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },

@@ -1,4 +1,4 @@
-import { expect, gotoStudio, railButtons, slideCount, test, toastText } from './studio-fixture';
+import { expect, gotoStudio, openAddSlide, railButtons, slideCount, test, toastText } from './studio-fixture';
 
 // Slide structural ops via the rail toolbar. The rail button count is the
 // primary structural oracle (one button per slide — a fuzz invariant), asserted
@@ -8,13 +8,15 @@ test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
 });
 
-// "Add slide" is the #1058 "one insert door": it opens the add-slide gallery
-// rather than dropping a bare blank, so the quick-blank path is the gallery's
-// synthetic Blank tile. (Until #1198 this test still asserted the retired
+// "Add slide" is the #1058 "one insert door", and since #1654 it is that door's one
+// name on every launcher — hence the fixture helper rather than an open-coded
+// `getByRole`, which now resolves to two controls on desktop. The door opens the
+// add-slide gallery rather than dropping a bare blank, so the quick-blank path is the
+// gallery's synthetic Blank tile. (Until #1198 this test still asserted the retired
 // "Slide added." toast — invisible because the fixture's toast locator was dead.)
 test('add slide grows the deck by one', async ({ page }) => {
 	const n = await slideCount(page);
-	await page.getByRole('button', { name: 'Add slide' }).click();
+	await openAddSlide(page);
 	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
 	await expect(toastText(page)).toContainText('Inserted');
 	await expect(railButtons(page)).toHaveCount(n + 1);

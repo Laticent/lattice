@@ -376,7 +376,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		</>
 	);
 
-	const title = 'Insert a component';
+	const title = 'Add a slide';
 	const description = 'Search the slide gallery and add one as a new slide.';
 
 	// Grid ↔ list, in the header beside the dialog's close button — where a file browser
@@ -402,16 +402,17 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	);
 
 	if (compact) {
-		// The sixth surface the mobile drawer opens ("Insert component", on the Edit
+		// The sixth surface the mobile drawer opens ("Add slide", on the Edit
 		// pane) — so it wears the same shell as the other five (#1211). It was the one
 		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
 		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
 			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg">
-				{/* "Insert a component", not "Add a slide". Both launchers — the drawer row and
-				    the command palette's "Insert a component…" — say insert-a-component, and the
-				    panel they opened was titled something else. Same class of defect as the
-				    "Reader views" row landing on a panel headed LENSES, one card over (#1211). */}
+				{/* `title` — one name for one door. This sheet and the desktop dialog below share
+				    it, and so do all five launchers (rail, editor header, this drawer row, the
+				    command palette, the Compose divider): "Add a slide" / "Add slide" (#1654).
+				    Same class of defect as the "Reader views" row landing on a panel headed
+				    LENSES, one card over (#1211) — a launcher must agree with what it opens. */}
 				<PanelHeader icon={<Plus />} title={title} srDescription={description} />
 				{body}
 				{/* Phone: search docks above the keyboard. */}
@@ -429,11 +430,10 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			    intended width — which is what shrank the previews to ~93px and truncated every
 			    name to three characters. Match the modifier and the override lands (#1657). */}
 			<DialogContent className="flex h-[min(84vh,760px)] sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
-				{/* `title` — "Insert a component" — on BOTH transports. The phone sheet was
-				    renamed to agree with its two launchers and the desktop dialog was left
-				    saying "Add a slide", so the defect being fixed survived on the surface most
-				    people use, and the old sr-only span then announced the OTHER name as stray
-				    content after it. One name, one place. Found by the independent checker. */}
+				{/* `title` — "Add a slide" — on BOTH transports, from the one `title` const. Keep
+				    it that way: a previous pass renamed the phone sheet and left the desktop
+				    dialog saying something else, so the very defect being fixed survived on the
+				    surface most people use. One name, one place. */}
 				{/* `pr-24` clears BOTH the view toggle and the dialog's own absolutely-positioned
 				    close button, which sits at `top-4 right-4`. */}
 				<div className="flex items-center justify-between gap-3 px-4 pt-4 pr-24 sm:px-5 sm:pr-24">

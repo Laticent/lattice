@@ -1,5 +1,5 @@
 import { paintedMarkers } from './marker-chrome';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // #1463 — scrolling the add-slide gallery used to accumulate one live engine iframe per
 // tile the user had ever passed. Measured on the built site before the fix: opening the
@@ -17,29 +17,15 @@ const CEILING = 48;
 /** Live engine preview documents currently mounted in the page. */
 const liveFrames = (page: import('@playwright/test').Page) => page.evaluate(() => document.querySelectorAll('iframe.live').length);
 
-/**
- * Open the add-slide gallery at EITHER width. There is no header launcher on a phone: the row
- * lives in the StudioDrawer behind "Menu", and only on the Edit pane — so a desktop-shaped open
- * simply times out at 390px, which is what kept this spec desktop-only and left the mobile
- * budget number unmeasured. The search field is the ready signal, and its placeholder differs
- * per breakpoint (`Search slides…` vs `Search 61 slides — …`).
- */
-async function openGallery(page: import('@playwright/test').Page, compact: boolean) {
-	if (compact) {
-		await page.getByRole('button', { name: 'Markdown source' }).click();
-		await page.waitForTimeout(600);
-		await page.getByRole('button', { name: 'Menu' }).click();
-	}
-	await page.getByRole('button', { name: 'Insert component' }).click();
-	await page.getByPlaceholder(/Search slides|Search \d+ slides/).waitFor();
-}
-
 test('@crosswidth the add-slide gallery holds its live-preview count flat across a full scroll', async ({ page }, testInfo) => {
 	// Three flick-scroll traversals of a 61-tile grid plus a search pass — comfortably past the
 	// 60s suite default. Explicit rather than `test.slow()`, which would triple it.
 	test.setTimeout(120_000);
 	await gotoStudio(page);
-	await openGallery(page, testInfo.project.name === 'mobile');
+	// The cross-width open (drawer route on a phone) is `openAddSlide` in the fixture now —
+	// it grew out of this spec's local helper when #1654 unified the launcher names and made
+	// an open-coded `getByRole` ambiguous on desktop.
+	await openAddSlide(page, testInfo.project.name === 'mobile');
 	// Let the first band paint, so the baseline is a real windowed set and not zero.
 	await expect.poll(() => liveFrames(page), { timeout: 30_000 }).toBeGreaterThan(1);
 
@@ -119,7 +105,7 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({ page }, testInfo) => {
 	test.setTimeout(120_000);
 	await gotoStudio(page);
-	await openGallery(page, testInfo.project.name === 'mobile');
+	await openAddSlide(page, testInfo.project.name === 'mobile');
 
 	const scroller = page.locator('div.overflow-y-auto.overscroll-contain').first();
 	const height = await scroller.evaluate((el) => el.scrollHeight);

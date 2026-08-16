@@ -45,6 +45,22 @@ export const CHROME = {
 	/** The version-history sheet trigger. */
 	versionHistory: 'Version history',
 	/**
+	 * The add-slide gallery — ONE door, and as of #1654 one name on every launcher that
+	 * opens it: the preview rail's `+`, the editor header's button, the mobile drawer row
+	 * (Edit pane, behind `moreControls`), the command palette's "Add a slide…", and the
+	 * Compose divider's "Add slide below". They used to read five different things
+	 * ("Add slide" / "Insert component" / "Insert a component…" / "Insert slide below"),
+	 * which is what the issue reported.
+	 *
+	 * Consequence for specs: on desktop with a catalog loaded, `addSlide` matches BOTH the
+	 * rail and the editor-header button, so a bare `getByRole('button', { name: CHROME
+	 * .addSlide })` is a strict-mode violation. Open the gallery through `openAddSlide`
+	 * below — it picks a launcher and waits for the dialog — and never by open-coded name.
+	 */
+	addSlide: 'Add slide',
+	/** The dialog/sheet the five launchers open — `SlidePicker`'s own title. */
+	addSlideDialog: 'Add a slide',
+	/**
 	 * "Send feedback" — a 1-tap header button on tablet AND desktop, at the same tail
 	 * slot in both headers (directly above Settings in the right-hand run), so it holds
 	 * position across the Read/Write/Craft dial. On MOBILE there is no header button:
@@ -488,6 +504,28 @@ export async function openArchitect(page: Page): Promise<void> {
 export async function openChat(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.chat }).click();
 	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
+}
+
+/**
+ * Open the add-slide gallery (`SlidePicker`) and wait for it to be usable.
+ *
+ * There is no header launcher on a phone: the row lives in the StudioDrawer behind "Menu",
+ * and only on the Edit pane — so a desktop-shaped open simply times out at 390px. Pass
+ * `compact` (`testInfo.project.name === 'mobile'`) to take the drawer route.
+ *
+ * `.first()` is load-bearing on desktop: the rail `+` and the editor-header button share the
+ * accessible name (#1654 — one door, one name), so an unqualified locator resolves to two.
+ * The search field is the ready signal; its placeholder differs per breakpoint
+ * (`Search slides…` vs `Search 61 slides — …`).
+ */
+export async function openAddSlide(page: Page, compact = false): Promise<void> {
+	if (compact) {
+		await page.getByRole('button', { name: 'Markdown source' }).click();
+		await page.waitForTimeout(600);
+		await page.getByRole('button', { name: CHROME.moreControls }).click();
+	}
+	await page.getByRole('button', { name: CHROME.addSlide }).first().click();
+	await page.getByPlaceholder(/Search slides|Search \d+ slides/).waitFor();
 }
 
 /** Open the Lenses (reader-views) panel — a first-class launcher peer of the Architect. */
