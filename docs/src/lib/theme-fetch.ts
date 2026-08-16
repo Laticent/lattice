@@ -122,7 +122,7 @@ export function createThemeFetcher(themeBase: string) {
 		if (!PG) return Promise.reject(new Error('engine not ready'));
 		if (!state.latticeReady) {
 			state.latticeReady = fetchTheme('lattice')
-				.then((css) => PG.addThemes([css]))
+				.then((css) => PG.addThemes([{ name: 'lattice', css }]))
 				.catch((e) => { if (e?.status !== 404) state.latticeReady = null; throw e; }); // self-heal transient only (keep a 404 negatively cached)
 		}
 		// Eviction-safe: the memo is now page-lifetime-shared, so it must not outlive the engine's
@@ -131,7 +131,7 @@ export function createThemeFetcher(themeBase: string) {
 		// when present — negligible on the hot path). Without this, the shared memo would say
 		// "registered" forever and strip the render (Munger inversion on Fix A).
 		return state.latticeReady.then(() => {
-			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([css]); });
+			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([{ name: 'lattice', css }]); });
 		});
 	}
 
@@ -154,7 +154,7 @@ export function createThemeFetcher(themeBase: string) {
 		if (!registering[name]) {
 			registering[name] = fetchTheme(name)
 				.then((css) => {
-					if (!PG.hasTheme(name)) PG.addThemes([css]);
+					if (!PG.hasTheme(name)) PG.addThemes([{ name, css }]);
 					// Walk the transitive theme-name @import closure — the engine inlines
 					// an import only if its target is already registered, so a multi-level
 					// chain (a11y-deuteranopia → a11y-base → onyx → lattice) renders
@@ -168,7 +168,7 @@ export function createThemeFetcher(themeBase: string) {
 		// engine eviction dropped it after the shared memo resolved. (Deps re-register on the
 		// first call only; a fuller re-walk waits until fix D actually adds eviction.)
 		return registering[name].then(() => {
-			if (!PG.hasTheme(name)) return fetchTheme(name).then((css) => { PG.addThemes([css]); });
+			if (!PG.hasTheme(name)) return fetchTheme(name).then((css) => { PG.addThemes([{ name, css }]); });
 		});
 	}
 

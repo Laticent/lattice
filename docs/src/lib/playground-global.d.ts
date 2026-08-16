@@ -23,7 +23,13 @@ export interface LatticePlaygroundEngine {
 		 *  Omitted on every full-deck and export path, where numbering is already right. */
 		opts?: { baseUrl?: string; stats?: boolean; page?: { offset: number; total?: number; deckSection?: { index: number; total: number } } },
 	) => { html: string; css: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
-	addThemes: (css: string[]) => void;
+	/** Register stylesheets. `{ name, css }` is the contract — identity is GIVEN, so the
+	 *  store never regexes it back out of the sheet (and a directive-less sheet can no
+	 *  longer register nothing while returning a `false` nobody checks). A bare string
+	 *  stays valid for external consumers of this documented global, where the name is
+	 *  recovered from `@theme`. See
+	 *  engineering/decisions/2026-08-16-theme-identity-ownership.md. */
+	addThemes: (themes: Array<{ name: string; css: string } | string>) => void;
 	hasTheme: (name: string) => boolean;
 }
 

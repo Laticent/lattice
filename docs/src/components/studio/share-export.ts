@@ -60,7 +60,7 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 		// ALWAYS (re-)register so an edited theme re-saved under the same name
 		// exports with the current CSS (addThemes overwrites by name); a hasTheme
 		// guard would silently export the stale theme.
-		if (PG) PG.addThemes([extra.css]);
+		if (PG) PG.addThemes([{ name: extra.name, css: extra.css }]);
 		return extra.name;
 	}
 	const themes = createThemeFetcher(options.themeBase);

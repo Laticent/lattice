@@ -44,7 +44,7 @@ const s   = getStarter('dusk');
 const map = deriveTheme(s.essentials);     // full, contrast-clean token map
 auditBoth(map).ok;                          // true — passes the gate's pairs, both modes
 const css = serializeTheme(map, { name: s.name, label: s.label });
-// → drop css into themes/dusk.css, or PG.addThemes([css]) for live preview
+// → drop css into themes/dusk.css, or PG.addThemes([{ name, css }]) for live preview
 ```
 
 ## What this covers — and what's next
