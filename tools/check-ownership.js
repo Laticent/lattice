@@ -1185,30 +1185,6 @@ const SANCTIONED_MONO_FONTS = [
        + 'surrounding slide is prose.',
   },
   {
-    file: 'lib/components/chart/gantt/gantt.styles.css',
-    selector: '.gantt-tick',
-    count: 1,
-    why: 'MEASURED GEOMETRY. The tick\'s wrap budget and collision cull come from the static '
-       + 'ADVANCE_MONO_TRACKED constant (0.75, svg-label.js), calibrated for mono + 0.12em '
-       + 'tracking. A static advance cannot describe two faces and the hand sans exceeds it on '
-       + 'ordinary uppercase ticks, so the CSS must name the face the math assumes.',
-  },
-  {
-    file: 'lib/components/chart/word-cloud/word-cloud.styles.css',
-    selector: '.wc-key-label',
-    count: 1,
-    why: 'MEASURED GEOMETRY, same as .gantt-tick: this label\'s wrap width and the key rule\'s '
-       + '`headW` both derive from ADVANCE_MONO_TRACKED, whose comment names this rule as the '
-       + 'case it was measured for.',
-  },
-  {
-    file: 'lib/components/chart/word-cloud/word-cloud.styles.css',
-    selector: '.wc-key-edge',
-    count: 1,
-    why: 'Legend coherence — one block with .wc-key-label above. Not itself measured, but '
-       + 'splitting the two faces inside one legend would read as a mistake.',
-  },
-  {
     file: 'lib/base/base.modifiers.css',
     selector: '-tab',
     count: 3,

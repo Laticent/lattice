@@ -137,6 +137,57 @@ This matters more than a normal ratchet because the defect class is
 label-voice site holding the wrong token, since both tokens resolve to the same
 stack. The gate is the only thing that can catch it.
 
+## Closed later — the three measured-geometry labels (#1663, 2026-08-16)
+
+Three native-chart labels were sanctioned out of the sweep above and held back
+through #1647, not because their voice was in doubt but because their **layout
+geometry is computed from a static per-character advance** rather than measured:
+`.gantt-tick`, `.wc-key-label`, `.wc-key-edge`. Pointing the CSS at
+`--font-label` while the math still assumed mono would have retired the
+wrapper's break-early guarantee silently, and invisibly off `sketch`. #1663
+closed all three; the three sanction entries are gone and the chart family scans
+**0 mono runs** under sketch.
+
+The useful lesson is that the two rules needed **opposite** answers, and only
+measuring told them apart:
+
+- **`.gantt-tick` needed a second constant.** Mono sets 0.720 per character
+  whatever the string says; the hand sans runs 0.561 (`Jul '11`) to 0.889
+  (`May`) over the same labels, so one number cannot serve both. The builder now
+  takes a `hand` flag from the slide's `sketch` class and selects
+  `ADVANCE_HAND_TRACKED` (0.90) or `ADVANCE_MONO_TRACKED` (0.75).
+- **`.wc-key-label` needed nothing.** Re-measured at its own CSS (uppercase +
+  0.08em tracking), mono is 0.680 per character and the hand 0.675 — the tracked
+  uppercase heading paints the same width either way, so the existing 0.75 bound
+  still covers both the wrap width and the divider rule's `headW`. The CSS moved
+  alone.
+
+Two things about that hand constant are worth carrying forward, because both
+walls of its window are load-bearing and each fails silently:
+
+1. **The tick vocabulary is CLOSED**, so a measured maximum is a real bound
+   rather than a sample. `buildGanttTicks` generates every label the axis can
+   ever show — `Q1`…`Q4` and `Jan`…`Dec`, each with an optional two-digit year
+   tag, 1616 strings in all. No author text reaches the label. Issue #1663 was
+   drafted against `MMM` at 1.148, which looks like the worst case and **cannot
+   occur**; calibrating to it would have been calibrating to a string the engine
+   never emits.
+2. **Rounding a safety constant up is itself the regression here.** The tick
+   wraps with `maxLines: 1`, so "break early" does not mean "wrap sooner" — it
+   means *ellipsize*. Above 0.941 (56 units / 7 chars × 8.5 fsTick) the one-line
+   budget drops to six characters and the ordinary `Jan '26` renders as
+   `Jan …`. The window is [0.889, 0.941] and 0.90 sits in it with air at both
+   ends; a unit test pins both walls.
+
+One visible consequence, and it is correct rather than tolerated: a crowded
+monthly axis thins one step further under sketch. At ~24 units of tick spacing
+the hand's painted `Mar` (22.1u) leaves 1.7u of air, under the 2u the cull
+requires — so alternate months drop. A perfect measurer culls them too, which is
+how we know it is the face being wider and not the constant being generous.
+
+Note that `lib/base/base.docs.md` already claimed axis ticks rode the hand seam
+while these three did not. That claim is now true; it was aspirational before.
+
 ## Known gap — Mermaid diagram labels (NOT closed here)
 
 Text inside a rendered Mermaid diagram stays JetBrains Mono under sketch. This

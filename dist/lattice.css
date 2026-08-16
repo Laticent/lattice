@@ -5129,14 +5129,15 @@ section.gantt.chart-frame .chart-body, figure.gantt.chart-frame .chart-body{
 /* ── Axis ─────────────────────────────────────────────────────────────────── */
 section.gantt .gantt-tick, figure.gantt .gantt-tick{
   fill: var(--text-label);
-  /* --font-mono, NOT the label voice: this tick's wrap budget and collision cull
-   * come from the static ADVANCE_MONO_TRACKED constant (0.75) in
-   * _chart-family/svg-label.js, measured for mono + 0.12em tracking. A static
-   * advance cannot describe two faces, and the hand sans runs past it on ordinary
-   * uppercase ticks (`MMM` measures ~1.15), so moving this to --font-label would
-   * silently retire the wrapper's break-early guarantee. Sanctioned in
-   * checkLabelVoiceFont; see 2026-08-13-sketch-mermaid-hand-drawn.md. */
-  font-family: var(--font-mono);
+  /* The label voice — so a `mode: sketch` axis reads hand-drawn like the rest of
+   * the chart. This tick is MEASURED GEOMETRY: its wrap budget and collision cull
+   * come from a static per-character advance in _chart-family/svg-label.js, and a
+   * static advance cannot describe two faces. So the builder selects the constant
+   * from the slide's `sketch` class (ADVANCE_MONO_TRACKED / ADVANCE_HAND_TRACKED,
+   * chart-family.js §gantt axis) — if you re-point this rule at another face, that
+   * selection is the other half of the change, or the math and the painted glyphs
+   * desync. See 2026-08-13-sketch-mermaid-hand-drawn.md. */
+  font-family: var(--font-label);
   font-weight: 600;
   letter-spacing: 0.12em;
 }
@@ -17716,11 +17717,13 @@ section.word-cloud .wc-svg, figure.chart-frame .wc-svg{
  * engineering/decisions/2026-07-27-render-nature-declaration.md and
  * 2026-06-13-svg-native-legend.md §7b. */
 section.word-cloud .wc-key-label, figure.chart-frame .wc-key-label{
-  /* --font-mono, NOT the label voice — same reason as .gantt-tick: this label's
-   * wrap width AND the key rule's `headW` are computed from ADVANCE_MONO_TRACKED
-   * (word-cloud.transform.js), whose own comment names this rule as the case it
-   * was measured for. Sanctioned in checkLabelVoiceFont. */
-  font-family: var(--font-mono);
+  /* The label voice. Unlike .gantt-tick this needed NO change to the layout math
+   * beside it: both faces measure ~0.68 per character on this heading's own CSS
+   * (uppercase + 0.08em tracking — mono 0.680, the hand sans 0.675), so the single
+   * ADVANCE_MONO_TRACKED bound in word-cloud.transform.js still covers the wrap
+   * width AND the key rule's `headW` on either face. That holds because the heading
+   * is a fixed literal; see the derivation note at `headW`. */
+  font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   fill: var(--text-muted);
@@ -17730,7 +17733,7 @@ section.word-cloud .wc-key-label, figure.chart-frame .wc-key-label{
 section.word-cloud .wc-key-edge, figure.chart-frame .wc-key-edge{
   /* Stays with .wc-key-label above: the two are one legend block, and splitting
    * the faces would read as a mistake even though this row is not itself measured. */
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   letter-spacing: 0.06em;
   fill: var(--text-muted);
   text-anchor: middle;
