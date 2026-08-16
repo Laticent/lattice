@@ -1720,8 +1720,11 @@ section.fit-marked > .fixme-tab {
    * the stage height it is reporting on. That rule is gone (the plane model deleted it);
    * the `!important` stays because the invariant does. */
   position: absolute !important;
-  bottom: 0;
-  right: 0;
+  /* Same corner treatment as the two berths above — the BOTTOM-right is rounded by the
+     same clip, so this one insets too. See `.overflow-tab`'s note, including why the
+     token is typed `0px`. */
+  bottom: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
   z-index: var(--z-alarm);
   /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
    * the same exception the overflow red and the type-floor amber take: an
@@ -2419,7 +2422,9 @@ section.corners-rounded {
    normally has nothing to undo — it is here for the hand-written section that
    carries both, where the two would otherwise resolve by source order. */
 section.corners-square {
-  --slide-radius: 0;
+  /* `0px`, not `0` — see the token's own note. A unitless zero here would break the
+     corner-berth insets on exactly the slides that opted OUT of rounding. */
+  --slide-radius: 0px;
   clip-path: none;
   border-radius: 0;
 }

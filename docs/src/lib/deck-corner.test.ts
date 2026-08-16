@@ -58,19 +58,33 @@ describe('slideCornerFraction', () => {
 		expect(measure({ radius: '19.2px', w: 0 })).toBeNull();
 	});
 
-	it('reads a PERCENTAGE radius as a percentage, not as pixels', () => {
-		// Chromium returns a percentage radius verbatim from `getComputedStyle`, so a naive
-		// `parseFloat` reads `50%` as 50 PIXELS — a 3.9% corner over a slide that is a full
-		// ellipse. Reachable from theme CSS and from author CSS, both of which the repo
-		// explicitly invites (`--slide-radius` is documented as a theme's to redeclare).
-		expect(measure({ radius: '50%' })).toBeCloseTo(0.5, 6);
-		expect(measure({ radius: '1.5%' })).toBeCloseTo(0.015, 6);
+	it('DECLINES a percentage radius rather than converting it', () => {
+		// A percentage `border-radius` is per-axis by definition — `50%` is half the width
+		// horizontally AND half the height vertically, an ellipse that tracks the box — while
+		// this function's contract is one fraction the host re-expands into a circle.
+		// Converting would hand the host a circle where the slide has an ellipse: the exact
+		// mismatch the module exists to prevent. The engine only emits px, so this is
+		// reachable only from theme or author CSS, and there a square host is the honest
+		// answer — it declines to claim a shape it cannot match.
+		expect(measure({ radius: '50%' })).toBe(0);
+		expect(measure({ radius: '1.5%' })).toBe(0);
+	});
+
+	it('reads the FIRST component of a pair, so a mixed-unit pair is not misread', () => {
+		// Chromium can return `20px 10%` — a horizontal radius and a vertical one. Testing the
+		// whole string for `%` took the percentage branch and read a 20px corner as 20%:
+		// 12.8x too round. Only the horizontal component decides.
+		expect(measure({ radius: '20px 10%' })).toBeCloseTo(20 / 1280, 6);
+		expect(measure({ radius: '19.2px 19.2px' })).toBeCloseTo(0.015, 6);
+		expect(measure({ radius: '10% 20px' })).toBe(0);
 	});
 
 	it('an unparseable or non-positive radius is square, never NaN', () => {
 		expect(measure({ radius: 'auto' })).toBe(0);
 		expect(measure({ radius: '' })).toBe(0);
 		expect(measure({ radius: '-4px' })).toBe(0);
+		// `calc()` survives into the computed value unresolved; unparseable is square, not NaN.
+		expect(measure({ radius: 'calc(10% + 5px)' })).toBe(0);
 	});
 });
 

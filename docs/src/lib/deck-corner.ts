@@ -62,13 +62,20 @@ export function slideCornerFraction(host: Element | null | undefined): number | 
 	// `borderRadius`, not `clipPath`: the engine sets both to the same shape, and only this
 	// one reports back as a length a consumer can use.
 	const raw = getComputedStyle(section).borderTopLeftRadius;
-	// A PERCENTAGE is returned verbatim by Chromium, so parsing it as px would silently
-	// read `50%` as 50 pixels. Author CSS and theme CSS can both set one.
-	if (raw.includes('%')) {
-		const pct = Number.parseFloat(raw);
-		return Number.isFinite(pct) && pct > 0 ? pct / 100 : 0;
-	}
-	const radius = Number.parseFloat(raw);
+	// Chromium can return a PAIR (`20px 10%` — a horizontal radius and a vertical one), so
+	// read the FIRST component and decide on that alone. Testing the whole string for `%`
+	// misreads `20px 10%` as a 20% corner: 12.8x too round.
+	const horizontal = raw.trim().split(/\s+/)[0] ?? '';
+	// A PERCENTAGE corner is declined rather than converted, and that is a correctness
+	// choice, not laziness. A percentage `border-radius` is PER-AXIS by definition — `50%`
+	// is half the width horizontally AND half the height vertically, an ellipse that tracks
+	// the box — while this function's contract is a single fraction the host re-expands into
+	// a circle. Converting one to the other hands the host a circle where the slide has an
+	// ellipse: the very mismatch this module exists to prevent. The engine only ever emits
+	// px, so this is reachable only from theme or author CSS; there, a square host box is
+	// the honest answer — it declines to claim a shape it cannot match.
+	if (horizontal.endsWith('%')) return 0;
+	const radius = Number.parseFloat(horizontal);
 	if (!Number.isFinite(radius) || radius <= 0) return 0;
 	return radius / width;
 }

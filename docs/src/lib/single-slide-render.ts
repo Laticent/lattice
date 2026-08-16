@@ -621,10 +621,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			':root{color-scheme:' +
 			mode +
 			// TRANSPARENT, so nothing of this document's own sits BEHIND the slide. It used to
-			// paint the engine's generic `#e7e7ea` / `#0c0c0c` — a fixed grey belonging to
+			// paint the engine's generic `#e7e7ea` / `#0c0c0c` — a fixed gray belonging to
 			// neither the deck nor the app, invisible only for as long as the slide covered the
 			// frame exactly. `corners: rounded` makes it visible by construction: the slide's
-			// clip exposes whatever is behind it at every corner, and a stray grey arc there is
+			// clip exposes whatever is behind it at every corner, and a stray gray arc there is
 			// precisely the artifact this register exists to remove (#1649). With nothing here,
 			// the corner shows the HOST's surface, which is the honest answer — outside the
 			// slide is the app. The host still guards the pre-paint white flash the old fill was

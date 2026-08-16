@@ -14,3 +14,7 @@
   its proportion at every split position and every screen size. The gallery tiles
   and navigator thumbnails keep their own card corner: a tile is a frame around a
   slide, not the slide.
+- **Fixed: the corner author-warning flags follow the slide's shape.** The overflow,
+  illegible and fix-me markers sit in the corners a rounded deck clips, so they now
+  inset with it rather than being sliced — an authoring alarm should not go quiet
+  because a deck chose a corner. No movement on a square deck.

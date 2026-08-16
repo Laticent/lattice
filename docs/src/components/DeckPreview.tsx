@@ -272,7 +272,6 @@ export function DeckPreview({
 			cornerTimersRef.current.push(window.setTimeout(() => publishCornerRef.current(), ms));
 		}
 	};
-	// biome-ignore lint/correctness/useExhaustiveDependencies: unmount-only cleanup; reads a ref.
 	React.useEffect(
 		() => () => {
 			for (const t of cornerTimersRef.current) clearTimeout(t);

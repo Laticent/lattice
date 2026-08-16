@@ -1165,6 +1165,14 @@ which is the Studio previewing a deck whose theme differs from the app's — tha
 foreign palette one layer down. It is invisible while the host box and the slide clip to
 the same shape, and it is why they are kept in step rather than left to coincide.
 
+**The corner berths move with it.** The overflow / illegible / fix-me author-warning flags
+sit in the slide's corners, inside the arc a rounded deck cuts, so they inset by a fraction
+of `--slide-radius` — an alarm surface must not go quiet because a deck chose a shape. The
+token is typed `0px` rather than `0` precisely so that inset resolves to a length on a
+square deck: a unitless zero inside `calc()` is a `<number>`, which makes the whole
+declaration invalid and drops the marker into flow. Gated by an absolute-distance
+assertion in `test/integration/parity/content-clipped-pill.test.js`.
+
 **In an EXPORT there is no app behind the slide — there is the page.** A rounded corner
 exposes it, so on a dark deck every page shows white paper at all four corners, and on a
 light deck the corner reads only on the dark bookends (`title`, `divider`, `closing`) and

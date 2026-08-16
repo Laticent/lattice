@@ -251,7 +251,14 @@
    * want to vary, no theme in the tree set it, and a theme that ever wants its own corner is
    * CSS — it can redeclare `--slide-radius` under `section.corners-rounded` without a
    * dedicated token existing to be discovered. One token, declared here, resolved there. */
-  --slide-radius:0;
+  /* `0px`, NOT `0`, and that is load-bearing rather than pedantic. A unitless zero is a
+   * <number> inside `calc()`, so `calc(var(--slide-radius) * 0.45)` — how the corner
+   * berths inset the author-warning tabs — is INVALID at computed-value time and the
+   * property falls back to `auto`. Typed here, that multiply is a length on every deck.
+   * The same trap is recorded a few hundred lines down for `--corner-stack` / `--clip-stack`
+   * ("THE FALLBACKS ARE TYPED (0%, not 0) AND THAT IS LOAD-BEARING"); this declaration
+   * fell into it anyway, which is why the guard is now a test and not a comment. */
+  --slide-radius:0px;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
