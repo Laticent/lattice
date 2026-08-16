@@ -1,0 +1,260 @@
+---
+status: shipped
+summary: A five-lens review of the Studio's top toolbar — interaction, visual, accessibility, prior art, and a constraints audit — measured against the real bar at six widths × three stops × both color modes. It found one live rendering defect (the ⌘K pill wrapped to two lines and rendered 56px tall inside the 54px header at 1280 in Craft, invisible to every guard because they all measure WIDTH), one WCAG 1.4.3 AA failure (the unselected dial labels, the search placeholder and the slide-count meta all drew in `--text-muted`, which every theme documents as decorative and WCAG-exempt — 2.46–2.68:1 measured, below 4.5:1 in 21 of 36 palette×mode combos), a role that promised behavior it never implemented (`role="toolbar"` with eight tab stops and no roving focus), and an accent budget spent five times over. The owner's question — why does Share get the filled CTA and Present only an outline? — traced to StudioShell's FIRST commit, where Share simply inherited shadcn's default variant while Present was explicitly demoted; no reason was ever given anywhere, and a later decision doc then cited the accident as a premise. The owner's call: Present takes the fill, Share the outline, exactly one full-strength accent in the bar, and the dial moves inboard so the CTA is the terminal labeled action.
+---
+
+# Studio toolbar — placement, order, and where the accent goes
+
+**Ask (2026-08-16):** the owner liked the toolbar but was uneasy about the
+**order and placement** of its controls, and wanted "a scientific approach … to
+ensure excellence user experience" from a UI/UX expert, a visual design expert,
+"and any other expert." Mid-review they added a second, sharper question:
+**"I am also bothered that share button gets a special treat rather than
+present. Why does share get special treats?"**
+
+## Method — measure first, then argue
+
+Nothing here rests on looking at a screenshot. A throwaway probe drove real
+headless Chromium over the live Studio and captured, for **6 widths × 3 stops ×
+2 color modes**, both a crop of the header and the exact rect + accessible name
+of every control in it. Five agents then reviewed the same artifacts from
+different lenses, in parallel, and were told to argue from the numbers.
+
+**Limitations of that probe, stated because two of them changed conclusions:**
+
+- It did **not** wait for `document.fonts.ready`, so every measurement is one
+  font state. `studio-header-fit.spec.ts` does wait, and records that the
+  fallback font grows the dial 219 → 240px.
+- The color-mode toggle **failed to fire at 1920** (the slim header at Read/Write
+  has no mode button to click — see F1 below, which is itself a finding), so the
+  1920 "light" and "dark" captures are byte-identical. 1440 and below are genuine.
+- The three 390px "stops" are **one capture repeated** — the phone header has no
+  dial, so the probe never switched.
+- No 700px or 1024px capture, which are the two most constrained widths.
+
+**`scrollWidth === clientWidth` is not a slack signal.** It was true in all 36
+captures, including ones with 600px free; it means *no overflow*. The real free
+space is the `flex-1` spacer, which is **0px at 820, 1100-Craft and 1280-Craft**.
+Any pixel budget derived from the former is derived from nothing.
+
+## The owner's question, answered
+
+**Share's filled treatment was never a decision.** In the source, Share rendered
+`<Button size="sm">` with **no `variant`** — shadcn's `defaultVariants.variant =
+"default"` → `bg-primary text-primary-foreground`. Present was **explicitly**
+`variant="outline"`. So Present was actively demoted and Share simply inherited
+the framework default.
+
+Provenance (the local clone is shallow, so this came from the GitHub API):
+it appears in **`c9ecdae`, 2026-06-28, `StudioShell.tsx`'s first commit** —
+825 additions, 0 deletions — already in its final form. Nothing preceded it; the
+Drawing Board it succeeded was vanilla DOM with no filled/outline verb pair to
+inherit from.
+
+**No justification was ever given.** PR #567's body describes what Share *does*,
+never its weight. The mockup-era `2026-06-21-app-redesign.md` mentions Share 14
+times and never its emphasis. Then
+`2026-07-03-studio-brand-mark-toolbar.md:39` — *"Share is the bar's only filled
+CTA; folding both verbs leaves a toolbar with no visible actions at the payoff
+moment"* — used the fact as a **premise**, as the third bullet of an argument for
+a different conclusion, five days after it silently shipped. And
+`2026-07-26-studio-mobile-eight-cell-bar.md:76` propagated the split to the phone
+bar without re-deriving which verb deserved which tone.
+
+**Verdict: an accreted default later treated as a decision.** Literally the
+absence of a prop.
+
+### The panel split 2–1, and the disagreement was real
+
+| Lens | Verdict |
+|---|---|
+| Prior art | **Keep Share solid.** Across 17 tools the accent goes to Share/Publish in 8, to Present in 3, and 6 accent nothing. The predictor is not "presentation vs collaboration" (that hypothesis was tested and refuted) but **where the payoff is consumed**: if the artifact leaves the tool, Share gets the accent. Lattice's PDF leaves the tool. |
+| Interaction | **Flip it.** Present outranks Share on frequency for every persona (author ≈1.5–3 vs 0.3–1 per session), repeats within a session where Share is once per deck *lifecycle*, and its trigger is time-pressured. Share publishes: the least reversible control should not be the most attractive target. |
+| Visual | **Flip it.** Weight should track how much of the product an action commits. Present takes over the whole screen; Share opens a dialog of reversible choices. |
+
+The dissent was narrower than it looks — prior art conceded the flip is
+legitimate precedent (Prezi, Pitch) provided Present also takes the terminal
+labeled slot. And the convention's *rationale* is a growth loop: Canva, Figma and
+Miro accent the button that puts their product in front of a non-user. Lattice's
+Share hands over a link to a rendered deck, not a seat invite, so the reason
+behind the convention does not transfer even where the convention does.
+
+**All three agreed on the rule that outranks the choice: exactly one
+full-strength fill.** Zero of 17 comparables run two. Where a second tier is
+genuinely needed, the answer is *tonal* (Google Slides' Slideshow), never a
+second accent.
+
+**Owner's call: Present takes the fill; Share takes the outline.**
+
+## What shipped
+
+### 1. The ⌘K pill stops bursting the header at 1280 (a live defect)
+
+At 1280 in Craft the search pill rendered `Search or / run…` on two lines and
+measured **56px tall inside a 54px header**, clipped, in both color modes.
+1280 is Tailwind's `xl`, where the pill gains its label and ⌘K cap; it is also
+where the full header is tightest (24px of slack, the title already truncated).
+The pill carried no `shrink-0`, so it became the row's shock absorber.
+
+The deck switcher is *supposed* to be the only thing that gives — it is `min-w-0`
+with a truncating title, and its own comment states "every sibling is
+`shrink-0`". **The pill was the sibling that never got the class.**
+
+**Every existing guard missed it because they all measure WIDTH.**
+`check:overflow` and `studio-header-fit.spec.ts` assert
+`scrollWidth <= clientWidth`, and that held throughout — the row *did* fit; the
+control just got taller than the bar. So the fit spec gains a **vertical oracle**
+(no header control taller than the header) and now visits **1280**, a breakpoint
+it already named as `XL` but stepped over, going 1100 → 1440. Verified failing
+before the fix, with the defect's own message, and passing after.
+
+### 2. Present takes the fill; Share takes the outline
+
+Swapped in lockstep across **14 sites** — both headers, the mobile eight-cell
+bar's `tone` props, and `StudioChromeSkeleton.tsx`'s four mirrors — because
+`studio-shell-parity.spec.ts` compares every control's box between shell and app
+within 2px, and the `outline` variant's 1px border moves each button by 2px.
+
+### 3. The accent is spent once, not five times
+
+Measured on the rendered bar, the accent hue appeared in **five** places: Share's
+fill (84% of accent ink), the lit dial segment, the "Show me" tours glyph, the
+deck dot — which the code itself labels *"DESKTOP-ONLY decoration"* — and the
+brand mark. Accent is a pointer, and pre-attentive pop-out is an O(1) advantage
+**only for a singleton**; with five draws the search degrades to serial and the
+intended CTA loses most of its advantage.
+
+- **Tours glyph** → `--text-body` with a hover tint. It was the only saturated
+  icon in the run (a 1.44:1 luminance step plus a large chroma step off its
+  neighbors) with the **largest clear space of any control**, for a
+  ~0.05×/session detour this repo already judged cheap enough to bury one tap
+  deeper on tablet (#1401). Maximum salience, minimum importance.
+- **Deck dot** → `--text-muted`. `--primary` *is* `--accent`, so a self-declared
+  decoration was drawing in the bar's scarcest signal color.
+- **Dial's lit segment** → `--accent-soft` fill + `--text-heading` label,
+  replacing a `bg-card` fill measured at **1.09:1** against the ground with the
+  accent hue carrying the state. That failed twice: the fill was at the edge of
+  perceptibility, and in the **13 combos where `--accent` resolves to
+  `--text-heading`** the lit label was the same ink as an unlit one.
+
+### 4. The CTA is the terminal labeled action — the dial moves inboard
+
+The strongest derived convention across the comparable set: **the accent CTA is
+the last *labeled* action; only icon-only utilities and the avatar sit outboard
+of it.** Lattice violated it — a three-segment *labeled* mode dial and a feedback
+icon sat to the right of the fill, so the eye's terminal fixation landed on
+**Craft**, not on what the bar exists to do.
+
+The dial now sits **before** the verbs, in **both** headers and all three
+skeleton tails. Present-before-Share is kept: that split is genuinely unsettled
+across tools (6 put Present left, 4–5 right), and it is the reading this bar
+already had.
+
+**This is the smallest edit that closes the violation.** A fuller
+"CTA-terminal" reshuffle (Share, then Present, at the far right) was evaluated
+and **rejected**: it would move the entire pinned tail for no motor gain, and it
+would put the time-pressured verb at the maximum-distance edge while moving the
+rarest control inward.
+
+*Honest scope note:* Share remains labeled and outboard of Present, so the
+convention is satisfied in spirit — no *mode* control steals terminal fixation —
+rather than to the letter. The verbs read as one terminal pair with the fill
+inside it.
+
+### 5. WCAG 1.4.3 AA — three labels were drawing in the decorative channel
+
+`text-muted-foreground` → `--text-muted`, which every theme documents as
+*"decorative / de-emphasized — chrome, empty/skipped marks, glyphs;
+WCAG-exempt"* (`themes/cuoio.css:108`). It was carrying load-bearing labels:
+
+| Element | Before | After |
+|---|---|---|
+| Unselected dial labels (12px semibold) | **2.68:1** | **6.04:1** |
+| ⌘K placeholder | **2.46:1** | **5.55:1** |
+| Slide-count meta (11px) | **2.64:1** | *(moved to `--text-body`)* |
+
+Sampled from rendered pixels, cuoio light, before and after. Not a cuoio quirk —
+`--text-muted` is below 4.5:1 in **21 of 36** palette×mode combinations. This
+also silently undid #1401, which spent 87px of header width precisely so those
+two words would be legible on touch: a low-vision user saw one legible chip and
+two ghosts.
+
+### 6. A role that promised behavior it never implemented
+
+The phone's deck-actions bar declared `role="toolbar"` — a **promise of
+behavior**, obliging one tab stop plus arrow-key roving focus. Measured at 390px:
+eight buttons, zero `tabindex` management, no `onKeyDown`. AT announced "Deck
+actions, toolbar" and the user's model was then wrong in both directions.
+
+It is now a real `<fieldset aria-label="Deck actions">` — the element carrying
+the role rather than an attribute bolted onto a div, which is what
+`lint/a11y/useSemanticElements` asks for and the idiom `PostureDial` already
+uses. The dial's sr-only legend also moves from **"Workspace density"** — the one
+place AT was told what the control *is*, saying something no other surface says —
+to **"Workspace stop"**, the product's own vocabulary.
+
+## Deliberately NOT done (and why)
+
+- **Implementing the real toolbar pattern** (roving tabindex + arrows, taking
+  eight tab stops to one). The better end state, but a keyboard-behavior change
+  that needs its own spec updates. A half-built toolbar is what this removed.
+- **Converting the dial to `radiogroup`/`radio`.** It is an exclusive 3-way
+  choice exposed as three independent `aria-pressed` toggles, so a screen-reader
+  user hears "not pressed" three times with nothing conveying exclusivity or
+  "2 of 3". APG's Radio Group is the right pattern and would collapse three tab
+  stops to one — but it changes Space/Enter to arrow selection. Own change.
+- **Touch target sizes.** Dial segments are 27px tall and abut with a 0px gap at
+  820 — a touch tier — and six 32×32 ghost buttons run at 38px centre-to-centre.
+  This **passes** SC 2.5.8 (AA, 24px) and fails 2.5.5 (AAA, 44px) and the repo's
+  own `min-h-11` floor, which `BarIcon` already honors. The header's `icon-sm`
+  never got it. Cheap and free of layout cost (there is 13.5px of unused padding
+  above and below each segment); still, a separate change.
+- **Capping the header at ~1440px** to close the 624–930px void on ultrawide.
+  Argued both ways by two lenses: it would freeze the composition at its
+  best-composed width, but it would also break the identical right-gaps the bar
+  currently holds across 1100/1280/1440/1920. Left alone.
+- **The `hasFinePointer()` gap.** Every label-collapse here is gated on WIDTH, so
+  a 1180px iPad Air gets the *desktop* header with five bare glyphs whose only
+  labels are Radix tooltips — and Radix returns early on `pointerType === 'touch'`.
+  The helper already exists and is used elsewhere. Real, and off-path for a
+  placement pass.
+- **The light/dark toggle missing from the desktop slim header.** Reachable only
+  by stepping to Craft, which *persists* the posture. Filed; it is an availability
+  bug, not a placement one.
+
+## Contradictions found in the docs, worth correcting
+
+- **The dial is not actually protected by the tail-x test.** Three places —
+  `StudioShell.tsx`, and `CHANGELOG.md:2843` — claim Present/Share/**dial**/feedback
+  hold their x across stops. `studio-header-fit.spec.ts:109`'s `TAIL` list omits
+  the dial. It holds empirically; nothing would fail if it stopped.
+- **`2026-06-30-studio-topbar-ia.md:96` is stale and unmarked.** Its desktop row
+  still lists Architect/Inspector/Library/Workspace/avatar in the header; none has
+  been there since the activity bar landed 2026-07-06.
+- **`2026-07-03-studio-brand-mark-toolbar.md:39`** should carry a dated
+  correction: its conclusion (keep both verbs on the bar) survives; its stated
+  reason does not.
+- **A latent landmine:** the two headers give Present/Share different padding
+  classes (`px-2` vs `px-2 lg:px-3`) that are currently **inert**, because
+  shadcn's `has-[>svg]:px-2.5` outranks both. Remove the icon from either button
+  and the headers silently diverge, breaking the tail invariant.
+
+## Verification (HARD RULE #23)
+
+Real headless Chromium against the running Studio, plus the repo's own gates:
+
+- `studio-header-fit.spec.ts` — passes, now including 1280 and the vertical
+  oracle. **Verified able to fail:** reverting only the pill fix reproduces
+  `Search or run a command 56px` at 1280 on Craft.
+- `studio-shell-parity.spec.ts` + `studio-instant-shell.spec.ts` — 43 passing,
+  so the app and the SSR skeleton agree on every control's box after the reorder
+  and the emphasis swap.
+- `StudioShell.test.tsx` — 92 passing.
+- Tail-x invariant re-measured after the reorder: dial / Present / Share /
+  feedback at x = 1450 / 1680 / 1781 / 1874, **identical at Read, Write and
+  Craft** at 1920.
+- Contrast sampled from rendered pixels before and after (table above).
+- `npm run lint` and the docs typecheck clean.
+
+**UNVERIFIED:** real touch on a physical tablet, and iOS Safari — neither is
+reachable from this sandbox. Every touch claim here is geometry, not a tap.
