@@ -37,17 +37,23 @@ section {
    * `section`, with no class gate — rather than on a Form class.
    *
    * It used to be gated, and that was the root of the flat layering. The only
-   * rule creating a slide stacking context was `section.form { isolation: isolate }`
-   * (lib/forms/cell/stage/stage.css), so a SOVEREIGN frame — `title`, `math`,
-   * `divider`, `image`, every frame with `exemptFromChrome: true` — got none at
+   * rules creating a slide stacking context were `section.form { isolation: isolate }`
+   * (lib/forms/cell/stage/stage.css) plus the two layouts that declared it for
+   * themselves, `section.image` and `section.scene` — so a SOVEREIGN frame outside that
+   * set — `title`, `math`, `divider`, most frames with `exemptFromChrome: true` — got none at
    * all, and its z values escaped to the page root, where they were ordered against
    * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
    * computed `isolate` on a `content` section and `auto` on a `title` section of the
    * same deck.
    *
-   * `container-type: size` does NOT supply one — that was checked, not assumed:
-   * `contain` computes `none` and `isolation` `auto` on a section that has only the
-   * container. Do not delete this on the theory that the container covers it.
+   * `container-type: size` does NOT supply one. Verify it the right way if you ever
+   * re-check: put a `z-index: -1` child in a `container-type: size` box and see whether it
+   * escapes behind the box's own background. It does — only `isolation: isolate` contains
+   * it. An earlier version of this comment offered `contain` computing `none` as the
+   * proof, which is not one: the containment a `container-type` implies never shows up in
+   * `contain`'s computed value, so that test would read `none` whether or not a context
+   * existed. Right answer, invalid reasoning — replaced rather than trusted. Do not delete
+   * this rule on the theory that the container covers it.
    *
    * The wider consequence is that `section.finish > .backdrop` can now simply be
    * `z-index: var(--z-canvas)` while content and chrome take their own planes.
@@ -78,7 +84,12 @@ section {
  * coverage — a solid accent rule reduced to a barely-visible tint, identical on screen
  * and 3,596 differing pixels in the PDF. The fewer stacking contexts this engine creates
  * between a mark and the page, the fewer of those there are to find.
- * engineering/decisions/2026-08-12-slide-plane-model.md. */
+ *
+ * The general lesson holds; this particular attribution does not reproduce (a blanket
+ * child z-index was re-measured leaving the hairline crisp). Keep the rule absent because
+ * content needs no plane, not because of the wash. base.tokens.css § depth axis carries
+ * what is actually established.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives

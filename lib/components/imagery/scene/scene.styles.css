@@ -44,6 +44,15 @@ section.scene[data-img-bucket="column"] { --scene-aspect: 2 / 5;   --scene-aspec
 /* The scene IS the slide — the sovereign Frame suppresses chrome, but belt-and-suspenders. */
 section.scene > header,
 section.scene > footer { display: none; }
+/* The page number too — same reason, and same reach problem as `image`: it is
+ * `section::after`, a pseudo, so the child selector above never covered it. Here it was
+ * hidden by the exhibit panel rather than by a scrim, which is why sinking the decorative
+ * planes surfaced it. "Belt-and-suspenders" is the whole point of the rule above; this is
+ * the third fastening it always implied. See image.styles.css for the measurement, and
+ * base.variants.css `section.no-paginate.no-paginate::after` for why the class is
+ * DOUBLED: the engine pagination rule is equally specific and emitted last, so a single
+ * class loses on source order and silently does nothing. */
+section.scene.scene::after { content: none; }
 
 /* The poster still — an inline svg, CONTAINED (fits its box, letterboxed by the
  * viewBox), never cover. The box each composition gives it bounds the height. */

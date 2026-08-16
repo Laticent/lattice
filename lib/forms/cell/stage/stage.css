@@ -159,7 +159,13 @@ section.form > .cell-stage {
    * ~22% coverage — a solid accent rule reduced to a barely-visible tint, with the two
    * renders pixel-identical on SCREEN and 3,596 pixels apart in the PDF. Isolating a
    * container that wraps the author's whole composition is not free on the print path.
-   * engineering/decisions/2026-08-12-slide-plane-model.md. */
+   *
+   * That specific causal claim did NOT survive an adversarial re-run — isolating
+   * `.cell-stage` on a form slide was re-measured at zero differing pixels. The stage
+   * still should not isolate (it wraps arbitrary component DOM, and the 0–9 local band
+   * already contains it by arithmetic), but do not keep this rule out on the strength of
+   * the wash story alone. See base.tokens.css § depth axis for what is and is not
+   * established. engineering/decisions/2026-08-12-slide-plane-model.md. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

@@ -1075,6 +1075,18 @@
  * Identical on screen, 3,596 differing pixels in the PDF. Sinking the canvas needs no
  * such context and the hairline is untouched. Do not "simplify" these back to positive.
  *
+ * TREAT THAT MECHANISM AS UNPINNED, THOUGH — the reading above is the one this branch
+ * acted on, and an adversarial re-run could not reproduce it: a blanket `section > *`
+ * z-index left the hairline crisp, and isolating `.cell-stage` moved zero pixels. What
+ * IS established is narrower. The hairline washes or not depending on something about
+ * the slide's paint grouping that nobody here has isolated; on a deck carrying a `logo:`
+ * it went crisp → washed → crisp as `img.deck-logo`'s z-index was added and removed, and
+ * on a deck WITHOUT one it washes at every revision including the branch point. So the
+ * negative canvas stands on its own merits (it needs no stacking context, which is a
+ * good property regardless), but do not cite this paragraph as proof of a trigger. If
+ * you are chasing a wash, measure it — do not reason from here.
+ * (engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing.)
+ *
  * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
  * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
  * counter over a fill) use 0–9 and nothing else; they sit above atmosphere and below
@@ -1365,17 +1377,23 @@ section {
    * `section`, with no class gate — rather than on a Form class.
    *
    * It used to be gated, and that was the root of the flat layering. The only
-   * rule creating a slide stacking context was `section.form { isolation: isolate }`
-   * (lib/forms/cell/stage/stage.css), so a SOVEREIGN frame — `title`, `math`,
-   * `divider`, `image`, every frame with `exemptFromChrome: true` — got none at
+   * rules creating a slide stacking context were `section.form { isolation: isolate }`
+   * (lib/forms/cell/stage/stage.css) plus the two layouts that declared it for
+   * themselves, `section.image` and `section.scene` — so a SOVEREIGN frame outside that
+   * set — `title`, `math`, `divider`, most frames with `exemptFromChrome: true` — got none at
    * all, and its z values escaped to the page root, where they were ordered against
    * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
    * computed `isolate` on a `content` section and `auto` on a `title` section of the
    * same deck.
    *
-   * `container-type: size` does NOT supply one — that was checked, not assumed:
-   * `contain` computes `none` and `isolation` `auto` on a section that has only the
-   * container. Do not delete this on the theory that the container covers it.
+   * `container-type: size` does NOT supply one. Verify it the right way if you ever
+   * re-check: put a `z-index: -1` child in a `container-type: size` box and see whether it
+   * escapes behind the box's own background. It does — only `isolation: isolate` contains
+   * it. An earlier version of this comment offered `contain` computing `none` as the
+   * proof, which is not one: the containment a `container-type` implies never shows up in
+   * `contain`'s computed value, so that test would read `none` whether or not a context
+   * existed. Right answer, invalid reasoning — replaced rather than trusted. Do not delete
+   * this rule on the theory that the container covers it.
    *
    * The wider consequence is that `section.finish > .backdrop` can now simply be
    * `z-index: var(--z-canvas)` while content and chrome take their own planes.
@@ -1406,7 +1424,12 @@ section {
  * coverage — a solid accent rule reduced to a barely-visible tint, identical on screen
  * and 3,596 differing pixels in the PDF. The fewer stacking contexts this engine creates
  * between a mark and the page, the fewer of those there are to find.
- * engineering/decisions/2026-08-12-slide-plane-model.md. */
+ *
+ * The general lesson holds; this particular attribution does not reproduce (a blanket
+ * child z-index was re-measured leaving the hairline crisp). Keep the rule absent because
+ * content needs no plane, not because of the wash. base.tokens.css § depth axis carries
+ * what is actually established.
+ * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
@@ -5555,6 +5578,24 @@ section.image[data-img-bucket="column"] { --img-aspect: 2 / 5;   --img-aspect-n:
  * the image IS the slide. */
 section.image > header,
 section.image > footer { display: none; }
+/* …and the PAGE NUMBER, which the rule above has always named and never reached. It is
+ * `section::after`, a pseudo-element, so no selector over a section's CHILDREN can touch
+ * it. What actually hid it was an accident: `.image-scrim` carried `z-index: 1`, putting
+ * it in the positive-z group above a pseudo sitting at `auto`. The plane model sinks the
+ * scrim to `--z-atmosphere` where it belongs — decoration behind the words — and the
+ * number surfaced. It surfaced badly: measured on examples/adaptive-image.md p8 the glyph
+ * is `rgb(107,127,154)` at 14.98px over a photo that runs from `rgb(13,20,32)` to
+ * `rgb(74,90,112)` beneath it, i.e. 4.54:1 at best and 1.72:1 where the photo lightens —
+ * a number legible in one corner of its own box and not the other. The layout's answer
+ * was already written; this is it, finally applied to the element it meant.
+ *
+ * The class is DOUBLED to reach (0,2,2), the same idiom and the same reason as
+ * `section.no-paginate.no-paginate::after` in base.variants.css: the engine pagination
+ * rule is `section[data-lattice-pagination]::after` at (0,1,2) and it is emitted at the
+ * very END of the bundle, so an equally-specific selector LOSES on source order. Written
+ * singly first, this rule was in the bundle, more specific than the scaffold default, and
+ * changed exactly zero pixels. */
+section.image.image::after { content: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */
@@ -14554,6 +14595,15 @@ section.scene[data-img-bucket="column"] { --scene-aspect: 2 / 5;   --scene-aspec
 /* The scene IS the slide — the sovereign Frame suppresses chrome, but belt-and-suspenders. */
 section.scene > header,
 section.scene > footer { display: none; }
+/* The page number too — same reason, and same reach problem as `image`: it is
+ * `section::after`, a pseudo, so the child selector above never covered it. Here it was
+ * hidden by the exhibit panel rather than by a scrim, which is why sinking the decorative
+ * planes surfaced it. "Belt-and-suspenders" is the whole point of the rule above; this is
+ * the third fastening it always implied. See image.styles.css for the measurement, and
+ * base.variants.css `section.no-paginate.no-paginate::after` for why the class is
+ * DOUBLED: the engine pagination rule is equally specific and emitted last, so a single
+ * class loses on source order and silently does nothing. */
+section.scene.scene::after { content: none; }
 
 /* The poster still — an inline svg, CONTAINED (fits its box, letterboxed by the
  * viewBox), never cover. The box each composition gives it bounds the height. */
@@ -18741,8 +18791,19 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
  * restyling every page where the gradient had never washed at all: the full-width taper
  * became a hard-edged stub at 38%, on 32 slides across three galleries, all of them
  * blessed as goldens before anyone looked at them. Removing the z-index removed the wash,
- * and the flip with it. If a future change reintroduces the wash, find what it changed
- * about this slide's paint order and undo THAT — do not restyle the rule to survive it.
+ * and the flip with it — on the decks it had broken.
+ *
+ * BE PRECISE ABOUT WHAT THAT FIXED, because the flip's deletion is easy to misread as a
+ * claim that the wash is gone. It is not. On a deck carrying a `logo:` the hairline went
+ * crisp → washed → crisp as that z-index was added and removed. On a deck WITHOUT one it
+ * washes at every revision, the branch point included — measured at `rgb(199,223,235)`
+ * against a crisp `rgb(5,111,166)`. So the wash is a PRE-EXISTING defect on logo-less
+ * decks that this change neither caused nor cures; deleting the flip returns those decks
+ * to exactly what they always did, while sparing the ones that were fine. Restoring a
+ * flip is still the wrong move — it restyles the crisp pages to rescue the washed ones.
+ * The real fix is whatever makes the print compositor keep a 1px gradient, and nobody has
+ * found it. If you reintroduce a wash, find what your change did to the slide's paint
+ * grouping and undo THAT.
  * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
@@ -24982,7 +25043,13 @@ section.form > .cell-stage {
    * ~22% coverage — a solid accent rule reduced to a barely-visible tint, with the two
    * renders pixel-identical on SCREEN and 3,596 pixels apart in the PDF. Isolating a
    * container that wraps the author's whole composition is not free on the print path.
-   * engineering/decisions/2026-08-12-slide-plane-model.md. */
+   *
+   * That specific causal claim did NOT survive an adversarial re-run — isolating
+   * `.cell-stage` on a form slide was re-measured at zero differing pixels. The stage
+   * still should not isolate (it wraps arbitrary component DOM, and the 0–9 local band
+   * already contains it by arithmetic), but do not keep this rule out on the strength of
+   * the wash story alone. See base.tokens.css § depth axis for what is and is not
+   * established. engineering/decisions/2026-08-12-slide-plane-model.md. */
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

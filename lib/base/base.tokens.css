@@ -992,6 +992,18 @@
  * Identical on screen, 3,596 differing pixels in the PDF. Sinking the canvas needs no
  * such context and the hairline is untouched. Do not "simplify" these back to positive.
  *
+ * TREAT THAT MECHANISM AS UNPINNED, THOUGH — the reading above is the one this branch
+ * acted on, and an adversarial re-run could not reproduce it: a blanket `section > *`
+ * z-index left the hairline crisp, and isolating `.cell-stage` moved zero pixels. What
+ * IS established is narrower. The hairline washes or not depending on something about
+ * the slide's paint grouping that nobody here has isolated; on a deck carrying a `logo:`
+ * it went crisp → washed → crisp as `img.deck-logo`'s z-index was added and removed, and
+ * on a deck WITHOUT one it washes at every revision including the branch point. So the
+ * negative canvas stands on its own merits (it needs no stacking context, which is a
+ * good property regardless), but do not cite this paragraph as proof of a trigger. If
+ * you are chasing a wash, measure it — do not reason from here.
+ * (engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing.)
+ *
  * THE LOCAL BAND IS 0–9, AND IT IS THE CONTENT PLANE'S INTERIOR — that is why the gap to
  * `--z-chrome` is 30 rather than 1. An occupant's internals (a rail behind a node, a
  * counter over a fill) use 0–9 and nothing else; they sit above atmosphere and below

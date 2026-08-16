@@ -64,6 +64,24 @@ section.image[data-img-bucket="column"] { --img-aspect: 2 / 5;   --img-aspect-n:
  * the image IS the slide. */
 section.image > header,
 section.image > footer { display: none; }
+/* …and the PAGE NUMBER, which the rule above has always named and never reached. It is
+ * `section::after`, a pseudo-element, so no selector over a section's CHILDREN can touch
+ * it. What actually hid it was an accident: `.image-scrim` carried `z-index: 1`, putting
+ * it in the positive-z group above a pseudo sitting at `auto`. The plane model sinks the
+ * scrim to `--z-atmosphere` where it belongs — decoration behind the words — and the
+ * number surfaced. It surfaced badly: measured on examples/adaptive-image.md p8 the glyph
+ * is `rgb(107,127,154)` at 14.98px over a photo that runs from `rgb(13,20,32)` to
+ * `rgb(74,90,112)` beneath it, i.e. 4.54:1 at best and 1.72:1 where the photo lightens —
+ * a number legible in one corner of its own box and not the other. The layout's answer
+ * was already written; this is it, finally applied to the element it meant.
+ *
+ * The class is DOUBLED to reach (0,2,2), the same idiom and the same reason as
+ * `section.no-paginate.no-paginate::after` in base.variants.css: the engine pagination
+ * rule is `section[data-lattice-pagination]::after` at (0,1,2) and it is emitted at the
+ * very END of the bundle, so an equally-specific selector LOSES on source order. Written
+ * singly first, this rule was in the bundle, more specific than the scaffold default, and
+ * changed exactly zero pixels. */
+section.image.image::after { content: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */

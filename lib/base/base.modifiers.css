@@ -763,8 +763,19 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
  * restyling every page where the gradient had never washed at all: the full-width taper
  * became a hard-edged stub at 38%, on 32 slides across three galleries, all of them
  * blessed as goldens before anyone looked at them. Removing the z-index removed the wash,
- * and the flip with it. If a future change reintroduces the wash, find what it changed
- * about this slide's paint order and undo THAT — do not restyle the rule to survive it.
+ * and the flip with it — on the decks it had broken.
+ *
+ * BE PRECISE ABOUT WHAT THAT FIXED, because the flip's deletion is easy to misread as a
+ * claim that the wash is gone. It is not. On a deck carrying a `logo:` the hairline went
+ * crisp → washed → crisp as that z-index was added and removed. On a deck WITHOUT one it
+ * washes at every revision, the branch point included — measured at `rgb(199,223,235)`
+ * against a crisp `rgb(5,111,166)`. So the wash is a PRE-EXISTING defect on logo-less
+ * decks that this change neither caused nor cures; deleting the flip returns those decks
+ * to exactly what they always did, while sparing the ones that were fine. Restoring a
+ * flip is still the wrong move — it restyles the crisp pages to rescue the washed ones.
+ * The real fix is whatever makes the print compositor keep a 1px gradient, and nobody has
+ * found it. If you reintroduce a wash, find what your change did to the slide's paint
+ * grouping and undo THAT.
  * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
