@@ -39,9 +39,9 @@ The Form model is not vague about depth. `lib/forms/schema/cell.schema.json` and
 | Plane | Cells | Tiles |
 |---|---|---|
 | **0 canvas** | — | `canvas`, `rule` |
-| **1 atmosphere** | — | `atmosphere`, `watermark` |
+| **1 atmosphere** | — | `atmosphere`, `watermark`, `logo` |
 | **2 content** | `stage` | `content` |
-| **3 chrome** | `masthead`, `masthead-lede`, `masthead-bay`, `footer`, `footer-left`, `progress-centre`, `pagination-right` | `kicker`, `title`, `meta`, `logo`, `status`, `footer`, `progress`, `pagination` |
+| **3 chrome** | `masthead`, `masthead-lede`, `masthead-bay`, `footer`, `footer-left`, `progress-centre`, `pagination-right` | `kicker`, `title`, `meta`, `status`, `footer`, `progress`, `pagination` |
 | **4 annotation** | `overlay` | `annotation` |
 
 There is even a gate. `checkZPlaneZIndex` (`lib/forms/index.js`, run by
@@ -157,9 +157,9 @@ is made:
 | `--z-canvas` | **−2** | the sheet: the `.lattice-bg` photo panel, the finish `.backdrop` field |
 | `--z-atmosphere` | **−1** | decorative depth: the watermark ghost, oversized ghost numerals, the photo scrim, pale quote glyphs |
 | `--z-content` | 0 | the stage and everything the author wrote |
-| `--z-chrome` | 30 | header, footer, pagination, logo, meta, status, kicker, title, the progress rail |
-| `--z-alarm` | 40 | authoring-only signals about the slide: the overflow / illegible / fix-me tabs, debug boxes. Never reach a delivered export |
-| `--z-mark` | 50 | what ships stamped **on** the slide: status stamps, review annotations, the comments layer |
+| `--z-chrome` | 30 | header, footer, pagination, meta, status, kicker, title, the progress rail (NOT the deck logo — see below) |
+| `--z-alarm` | 90 | authoring-only signals about the slide: the overflow / illegible / fix-me tabs, debug boxes. Never reach a delivered export |
+| `--z-mark` | 100 | what ships stamped **on** the slide: status stamps, review annotations, the comments layer |
 
 **The signs are the design.** A negative-z child paints at step 3 of the painting
 algorithm — after the section's own background, before every in-flow descendant — so the

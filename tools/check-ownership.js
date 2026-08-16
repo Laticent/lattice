@@ -2601,10 +2601,30 @@ const Z_PLANE_TOKENS_FILE = path.join(LIB_DIR, 'base', 'base.tokens.css');
 const Z_LOCAL_BAND_MAX = 9;
 
 
-/** The `--z-*` plane tokens defined in base.tokens.css, in declaration order. */
+/** The `--z-*` plane tokens defined in base.tokens.css, in declaration order.
+ *  The `@property` prelude is `--z-name {`, not `--z-name:`, so the descriptor block is
+ *  invisible to this pattern by construction — that is what `registeredPlaneTokens()`
+ *  below is for, and why the two are cross-checked. */
 function definedPlaneTokens() {
   const css = stripComments(fs.readFileSync(Z_PLANE_TOKENS_FILE, 'utf8'));
   return [...css.matchAll(/(--z-[a-z0-9-]+)\s*:\s*(-?\d+)\s*;/g)].map((m) => ({ name: m[1], value: Number(m[2]) }));
+}
+
+/** The `--z-*` planes REGISTERED with `@property`, as {name, initial}. */
+function registeredPlaneTokens() {
+  const css = stripComments(fs.readFileSync(Z_PLANE_TOKENS_FILE, 'utf8'));
+  const out = [];
+  for (const m of css.matchAll(/@property\s+(--z-[a-z0-9-]+)\s*\{([^}]*)\}/g)) {
+    const body = m[2];
+    const initial = /initial-value\s*:\s*(-?\d+)/.exec(body);
+    const syntax = /syntax\s*:\s*["']([^"']+)["']/.exec(body);
+    out.push({
+      name: m[1],
+      initial: initial ? Number(initial[1]) : null,
+      syntax: syntax ? syntax[1].trim() : null,
+    });
+  }
+  return out;
 }
 
 /**
@@ -2685,6 +2705,54 @@ function checkZPlanes(errors) {
       );
     }
   }
+  // ── 3 · every plane is REGISTERED, and its fallback agrees with its declaration ──
+  // `@property` is what stops a bad value silently becoming `z-index: auto`. It is also a
+  // SECOND source of truth for every plane's number, and the two are written a dozen lines
+  // apart. Nothing else in the toolchain reads the descriptor block: this function's own
+  // `definedPlaneTokens()` regex cannot match `--z-name {`, and check-css-values.js skips
+  // descriptor at-rules whole. So a typo in `syntax:`, a dropped `initial-value:`, or a
+  // drifted number silently unregisters the property or points the fallback at the wrong
+  // plane — with zero gate failures and zero pixel change until it reaches the one surface
+  // where it matters (the packed Studio path, where `packTheme` moves `:root` onto the
+  // section and `initial-value` becomes the live fallback).
+  const registered = new Map(registeredPlaneTokens().map((r) => [r.name, r]));
+  for (const t of tokens) {
+    const r = registered.get(t.name);
+    if (!r) {
+      errors.push(
+        `lib/base/base.tokens.css: \`${t.name}\` is declared but not registered with ` +
+        '`@property`. An unregistered plane accepts any value, so `--z-canvas: auto` from a ' +
+        'deck or theme flattens it to `z-index: auto` instead of being rejected. Add ' +
+        `\`@property ${t.name} { syntax: "<integer>"; inherits: true; initial-value: ${t.value}; }\`.`,
+      );
+      continue;
+    }
+    if (r.syntax !== '<integer>') {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${t.name}\` declares \`syntax: "${r.syntax}"\`. ` +
+        'A plane is an integer; any other syntax lets a non-integer through, which is the ' +
+        'flattening this registration exists to prevent.',
+      );
+    }
+    if (r.initial !== t.value) {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${t.name}\` has \`initial-value: ${r.initial}\` ` +
+        `but the token is declared \`${t.value}\`. These are the same plane written twice; when ` +
+        'they disagree, an invalid value falls back to a DIFFERENT plane than the one every ' +
+        'other rule reads. Keep them identical.',
+      );
+    }
+  }
+  for (const r of registered.keys()) {
+    if (!byName.has(r)) {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${r}\` registers a plane the scale does not ` +
+        'declare. A registration with no declaration supplies a fallback for a plane nothing ' +
+        'paints on — remove it, or land the declaration in the same change.',
+      );
+    }
+  }
+
   for (const d of decls) {
     if (d.token && !byName.has(d.token)) {
       errors.push(

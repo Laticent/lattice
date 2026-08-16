@@ -3,7 +3,7 @@
  *
  * A Lattice slide is a small stack of planes — `--z-canvas` (-2) and `--z-atmosphere` (-1)
  * sink below the words, the content flow rests at `auto`, and `--z-chrome` (30),
- * `--z-mark` (40) and `--z-alarm` (50) rise above it (base.tokens.css § depth axis). This
+ * `--z-alarm` (90) and `--z-mark` (100) rise above it (base.tokens.css § depth axis). This
  * is the half of that model no static gate can decide.
  *
  * WHY IT CANNOT BE STATIC. The rule is "an element that can be a DIRECT CHILD of a

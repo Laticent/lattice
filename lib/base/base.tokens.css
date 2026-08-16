@@ -1029,20 +1029,34 @@
  * entire body erased and the chrome left intact.
  *
  * Registering each plane as `<integer>` makes a non-integer INVALID AT COMPUTED-VALUE
- * TIME, so it falls back to the initial value here — the designed plane — instead of
- * silently becoming `auto`. That closes the same class of hole the gate's own error
- * message warns about for an undefined `var()`: "the element silently falls back to
- * `z-index: auto`, the flat behavior the model exists to remove, wearing a token's
- * clothes." A theme can still RE-PLANE something deliberately by writing another integer;
- * what it can no longer do is flatten the model by accident.
+ * TIME, so `auto` can no longer flatten the model. BE PRECISE ABOUT WHERE IT LANDS,
+ * because the obvious reading is wrong: for a registered property with `inherits: true`,
+ * an invalid value falls back to the INHERITED value, not to `initial-value`. Verified in
+ * Chromium — with `:root { --z-canvas: 9 }` and `section { --z-canvas: auto }`, the section
+ * computes `9`, not `-2`. `initial-value` is only reached where no ancestor declares the
+ * property at all, which on the unpacked path never happens (`:root` declares it) and on
+ * the PACKED path is the normal case, because `packTheme` relocates `:root` onto the
+ * section itself. So the typing is load-bearing mainly in the Studio and Playground, and
+ * on the export path the `:root` declaration was already doing the work. If you ever add
+ * an ancestor-level plane declaration, you change what the fallback IS.
  *
- * Keep each `initial-value` identical to the declaration below it. */
+ * WHAT THIS DOES NOT DO — and the limit is the important half. Typing rejects `auto`, a
+ * float, a keyword. It accepts any integer, including a hostile one: `--z-canvas: 60` from
+ * a deck `<style>` lifts the finish sheet over every word and erases the slide (9,545 px,
+ * verified in two rasterizers). Typing closed the LOUD failure and left the silent one, so
+ * do not read these six lines as a security boundary. The real containment is that a deck
+ * cannot reach these tokens through ordinary markdown any more — see the directive-value
+ * sanitizer in `lib/engine/slides.js`, which is what closed the reachable path.
+ *
+ * Keep each `initial-value` identical to the declaration below it — `checkZPlanes` enforces
+ * that pair, so a drifting fallback fails `build:check` rather than waiting for a surface
+ * where it matters. */
 @property --z-canvas     { syntax: "<integer>"; inherits: true; initial-value: -2; }
 @property --z-atmosphere { syntax: "<integer>"; inherits: true; initial-value: -1; }
 @property --z-content    { syntax: "<integer>"; inherits: true; initial-value: 0; }
 @property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
-@property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 40; }
-@property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 50; }
+@property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 90; }
+@property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 100; }
 
 :root, section {
   --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
@@ -1053,13 +1067,26 @@
                           * effectively paints at, which is the point — content is the
                           * natural resting plane and needs no help to get there */
   --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
-                          * progress rail. NOT the deck logo — `img.deck-logo` is
-                          * deliberately planeless (`auto`); giving it a plane bought no
-                          * ordering and washed a sibling gradient in the print path.
-                          * See the rule in base.modifiers.css for the measurement. */
-  --z-alarm:        40;  /* engine-drawn signals about the slide: the overflow / illegible /
-                          * fix-me tabs, debug boxes. Above chrome, BELOW a stamp */
-  --z-mark:         50;  /* stamped ONTO the delivered slide: status stamps
+                          * progress rail. NOT the deck logo — the deck mark's KIND is chrome
+                          * but its PLANE is atmosphere, because a mark must never cover the
+                          * author's words. See the rule in base.modifiers.css. */
+  --z-alarm:        90;  /* engine-drawn signals about the slide: the overflow / illegible /
+                          * fix-me tabs, debug boxes. Above chrome, BELOW a stamp.
+                          *
+                          * THE GAP FROM CHROME (30) TO HERE IS DELIBERATE, and it is a
+                          * security property rather than taste. These two planes are ENGINE
+                          * ASSERTIONS — "this slide overflowed", "this slide is CONFIDENTIAL"
+                          * — and ordinary deck CSS must not be able to paint over them. The
+                          * band an author reaches for by habit is roughly 1–99: `z-index: 10`,
+                          * `50`, `99`. An earlier cut of this scale ran alarm 40 / mark 50 for
+                          * tidiness, which put both INSIDE that band: one line of deck markup,
+                          * `<div style="position:absolute;inset:0;z-index:60">`, erased a
+                          * CONFIDENTIAL tab from the delivered PDF. Verified against the branch
+                          * point, where stamps sat at 100 and survived the same overlay.
+                          * These values restore that protection (and raise the alarm's, which
+                          * was 50). Do not compress them back toward chrome to make the scale
+                          * look neat — the distance IS the guarantee. */
+  --z-mark:         100;  /* stamped ONTO the delivered slide: status stamps
                           * (CONFIDENTIAL / DRAFT / …), review annotations, comments.
                           *
                           * MARK OVER ALARM, and the order is load-bearing — this pair was
@@ -1093,7 +1120,14 @@
  *
  * Not gated: `lib/export/player-core.mjs` hard-codes its viewer chrome at 40/50/60, and
  * `checkZPlanes` scans CSS only. That is a separate surface (its own document, above the
- * whole deck) — logged rather than absorbed. */
+ * whole deck) — logged rather than absorbed.
+ *
+ * Registered like the slide planes, for the same reason and not for scale membership: an
+ * unregistered token accepts `auto`, and a viewer control that flattens to `z-index: auto`
+ * drops behind the deck it is supposed to float above. `slide-planes.test.js` still
+ * excludes it from the allowed SLIDE values — being typed does not make it a plane. */
+@property --z-viewer { syntax: "<integer>"; inherits: true; initial-value: 2147483000; }
+
 :root {
   --z-viewer: 2147483000;
 }

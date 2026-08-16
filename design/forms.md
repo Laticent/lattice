@@ -315,8 +315,8 @@ planes**, and `z` is which one a noun lives on. The model has always said so; as
 | **1 atmosphere** | `--z-atmosphere` | −1 | decoration *behind the words*: the watermark ghost, oversized ghost numerals, a photo scrim, pale quote glyphs |
 | **2 content** | `--z-content` | 0 | the `stage` Cell and everything the author wrote |
 | **3 chrome** | `--z-chrome` | 30 | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, status, progress, pagination |
-| *(above the model)* | `--z-alarm` | 40 | authoring-only signals that must beat the slide: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
-| **4 annotation** | `--z-mark` | 50 | stamped *onto* the delivered slide: status stamps, review annotations, comments |
+| *(above the model)* | `--z-alarm` | 90 | authoring-only signals that must beat the slide: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
+| **4 annotation** | `--z-mark` | 100 | stamped *onto* the delivered slide: status stamps, review annotations, comments |
 
 **Mark sits ABOVE alarm, and that order is load-bearing.** It reads backwards — an
 authoring alarm feels like it should beat everything — and it was briefly written that
@@ -326,11 +326,11 @@ redaction. Full-bleed stamps are `inset: 0` and clear nothing via `--corner-stac
 geometry does not save it either. The alarm tabs are authoring-only and never reach a
 delivered export; the stamp does. Do not re-invert these.
 
-**The deck logo is deliberately absent from the chrome row.** `img.deck-logo` carries no
-`z-index` at all — it is already a stacking context and has nothing to climb over now the
-decorative planes are negative, and giving it a plane caused a print-compositor
-regression. See `engineering/decisions/2026-08-12-slide-plane-model.md` § The flip that
-fixed nothing.
+**The deck logo sits on ATMOSPHERE, not chrome.** Its *kind* is chrome — frame furniture,
+not author content — and its Tile manifest says so. Its *plane* is atmosphere, because a
+plane decides what may cover what, and a deck mark must never cover the words. On the
+chrome plane an off-corner `logo-style: brand` plate painted over a pull-quote and erased
+four words; on atmosphere the same deck is pixel-identical to before the plane model.
 
 **The decorative planes sink; the chrome planes rise.** That is the whole trick, and it is
 why the scale costs so little: a negative-z child paints at step 3 of the painting

@@ -1792,18 +1792,31 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  /* CHROME plane. The deck mark is frame chrome and is ordered with the rest of it.
+  /* ATMOSPHERE plane — decoration BEHIND the words, with the watermark ghost.
    *
-   * This declaration was removed once and restored, and the round trip is worth one line
-   * of warning: it was pulled because giving the logo a plane appeared to render an
-   * unrelated sibling gradient at ~22% strength in the exported PDF. It does not. That
-   * "wash" is a defect in `pdftoppm`'s splash backend, which leaks an earlier element's
-   * constant alpha (`/ca .22`, the inline-code chip border) into a later tiling-pattern
-   * fill. The same PDF rasterized with `pdftocairo` or ghostscript is crisp, and the two
-   * PDFs are byte-identical through the hairline. Do not re-remove this on pixel evidence
-   * from a single rasterizer.
+   * The deck mark's KIND is chrome (it is frame furniture, not author content) and its
+   * Tile manifest says so. Its PLANE is not, and the distinction is the whole point of
+   * having both: a plane says what may cover what, and a deck mark must never cover the
+   * text. On `--z-chrome` it did. `logo-style: brand` is an opaque plate with a
+   * `backdrop-filter`, and with documented authoring knobs — `logo-x: 45; logo-y: 46;
+   * logo-scale: 5`, exactly the off-corner placement logo.docs.md recommends — it painted
+   * over a pull-quote and erased four words. At `--z-atmosphere` the same deck renders 0 px
+   * from the branch point, where the logo was planeless and content out-painted it in tree
+   * order. So this is not a new position; it is the position it always had, finally named.
+   *
+   * KNOWN CONSEQUENCE, and it is the right trade: on two canonical gallery slides an opaque
+   * split panel covers the corner mark, as it did before this branch. A decorative mark
+   * losing to a panel is a worse outcome than the author's sentence losing to a mark, and
+   * only one of those is recoverable by moving the logo.
+   *
+   * This declaration has also been removed once and restored. It was pulled because giving
+   * the logo a plane appeared to render an unrelated sibling gradient at ~22% strength in
+   * the exported PDF. It does not — that "wash" is a defect in `pdftoppm`'s splash backend,
+   * which leaks an earlier element's `/ca .22` into a later tiling-pattern fill. The same
+   * PDF through `pdftocairo` or ghostscript is crisp and byte-identical through the
+   * hairline. Do not re-remove this on pixel evidence from a single rasterizer.
    * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
-  z-index: var(--z-chrome);
+  z-index: var(--z-atmosphere);
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the
    * mark with `logo-x`/`logo-y` (0–100, the logo CENTER as a % of the slide) and
