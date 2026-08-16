@@ -40,7 +40,7 @@ describe('deck-logo', () => {
     // assert position (first child).
     const bodies = [...html.matchAll(/<section\b[^>]*\bid="(\d+)"[^>]*>([\s\S]*?)<\/section>/g)]
       .map(m => ({ id: m[1], inner: m[2] }));
-    assert.equal(bodies.length, 3, 'expected 3 sections');
+    assert.equal(bodies.length, 4, 'expected 4 sections');
 
     for (const s of bodies) {
       assert.match(s.inner, /^<img[^>]*\bclass="deck-logo"/,
@@ -49,6 +49,15 @@ describe('deck-logo', () => {
         `slide ${s.id} should reference the logo path`);
       assert.match(s.inner, /aria-hidden="true"/,
         `slide ${s.id} logo should be aria-hidden`);
+      // EXACTLY ONE. The first-child assertion above cannot see a duplicate — a second
+      // mark injected behind the finish `.backdrop` wrapper still leaves a `.deck-logo`
+      // in first position, so the deck rendered green while slide 4 carried two stacked
+      // logos at ~0.70 composite opacity. Count, don't just look at the front.
+      assert.equal((s.inner.match(/class="deck-logo/g) || []).length, 1,
+        `slide ${s.id} should carry exactly ONE deck logo`);
     }
+    // And the finish slide really is one — otherwise the case above is untested and the
+    // whole fixture reverts to the shape that missed the duplicate.
+    assert.match(bodies[3].inner, /<div class="backdrop"/, 'slide 4 must be a finish slide, with its backdrop wrapper');
   });
 });
