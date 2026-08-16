@@ -357,3 +357,112 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		stable(t);
 	});
 });
+
+// #1651 — the gutter must not offer a register the layout will silently drop.
+//
+// key-insight and below-note are OPT-OUT: a layout that claims its trailing blockquote
+// or paragraph for its own anatomy renders neither. `quote` takes them as the quotation
+// and the attribution, so "Key insight" and "Below-note" were pure decoration there —
+// tap one and nothing happened, with the manifest positively advertising the modifier.
+describe('the INSIGHT / NOTE registers follow the class that renders them (#1651)', () => {
+	const blocks: Record<string, string[]> = {
+		content: ['key-insight', 'below-note'],
+		quote: [],
+		'timeline-list': ['key-insight'],
+		inventory: ['below-note'],
+	};
+	const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], quote: [], 'timeline-list': ['h2'], inventory: ['h2'] };
+
+	it('offers both on a layout that renders both', () => {
+		const t = view('<!-- _class: content -->\n\n## Head\n\nbody text');
+		t.caret('body text');
+		expect(applicableRegisters(t.v.state, headings, blocks).keys).toEqual(['h2', 'subtitle', 'insight', 'note']);
+	});
+
+	it('offers NEITHER on a quote — the case that opened the issue', () => {
+		const t = view('<!-- _class: quote -->\n\n> A quotation.\n\n— Someone');
+		t.caret('Someone');
+		const keys = applicableRegisters(t.v.state, headings, blocks).keys;
+		expect(keys).not.toContain('insight');
+		expect(keys).not.toContain('note');
+	});
+
+	it('offers no insight register from a quote BLOCKQUOTE either', () => {
+		const t = view('<!-- _class: quote -->\n\n> A quotation.\n\n— Someone');
+		t.caret('A quotation');
+		expect(applicableRegisters(t.v.state, headings, blocks).keys).toEqual([]);
+	});
+
+	it('offers exactly the one a half-supporting layout renders', () => {
+		const tl = view('<!-- _class: timeline-list -->\n\n## Head\n\nbody text');
+		tl.caret('body text');
+		expect(applicableRegisters(tl.v.state, headings, blocks).keys).toContain('insight');
+		expect(applicableRegisters(tl.v.state, headings, blocks).keys).not.toContain('note');
+		const inv = view('<!-- _class: inventory -->\n\n## Head\n\nbody text');
+		inv.caret('body text');
+		expect(applicableRegisters(inv.v.state, headings, blocks).keys).toContain('note');
+		expect(applicableRegisters(inv.v.state, headings, blocks).keys).not.toContain('insight');
+	});
+
+	it('stays permissive for an unknown class and when no map is supplied', () => {
+		const t = view('<!-- _class: mystery-box -->\n\n## Head\n\nbody text');
+		t.caret('body text');
+		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('insight');
+		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('note');
+		// No map at all → exactly the pre-#1651 behavior.
+		const q = view('<!-- _class: quote -->\n\n> A quotation.\n\n— Someone');
+		q.caret('Someone');
+		expect(applicableRegisters(q.v.state).keys).toContain('insight');
+	});
+
+	it('a prototype-chain key in _class cannot reach a function up the chain', () => {
+		const t = view('<!-- _class: constructor -->\n\n## Head\n\nbody text');
+		t.caret('body text');
+		expect(() => applicableRegisters(t.v.state, headings, blocks)).not.toThrow();
+		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('insight');
+	});
+});
+
+// Red-team finding: the gate read only the FIRST token of `_class`, so an ordinary
+// `<!-- _class: dark quote -->` resolved to `dark`, matched nothing, and fell through to
+// permissive — offering `insight` on a quote. That is not a cosmetic miss: applying the
+// insight register to a quote's blockquote UNWRAPS it, turning the quotation into a plain
+// paragraph and destroying the slide's content.
+describe('the block gate reads every class token, not just the first (#1651)', () => {
+	const blocks: Record<string, string[]> = { content: ['key-insight', 'below-note'], quote: [] };
+	const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], quote: [] };
+	const keysFor = (src: string) => {
+		const t = view(src);
+		t.caret('Someone');
+		return applicableRegisters(t.v.state, headings, blocks).keys;
+	};
+
+	it('gates a modifier-first class', () => {
+		expect(keysFor('<!-- _class: dark quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+		expect(keysFor('<!-- _class: dark quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('note');
+	});
+
+	it('gates a class with trailing modifiers', () => {
+		expect(keysFor('<!-- _class: quote bare silent -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+	});
+
+	// KNOWN LIMIT, not a gap this gate can close: `splitSlideDirectives`'s
+	// `DIRECTIVE_LINE_RE` only hoists `_`-prefixed comments, so a running-global
+	// `<!-- class: quote -->` (and a front-matter `class:`) never reaches the slide's
+	// `directives` at all — it stays in the prose. Compose's HEADING gate is blind to
+	// those two routes in exactly the same way and always has been. Pinned here so the
+	// limit is recorded rather than assumed closed.
+	it('does NOT see a running-global `class:` — it never reaches slide directives', () => {
+		expect(keysFor('<!-- class: quote -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
+	});
+
+	it('still stays permissive when no token names a known component', () => {
+		expect(keysFor('<!-- _class: dark silent -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
+	});
+
+	it('a prototype-chain token cannot resolve through Object.prototype', () => {
+		expect(() => keysFor('<!-- _class: constructor quote -->\n\n> A quotation.\n\n— Someone')).not.toThrow();
+		// `quote` is still found alongside it, so the gate holds.
+		expect(keysFor('<!-- _class: constructor quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+	});
+});

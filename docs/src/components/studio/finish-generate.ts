@@ -12,7 +12,7 @@
 //     run to `transparent` (alpha), which the browser composites perfectly. This is
 //     the value written into the `section.finish.finish-<slug>` default rule.
 //   • OPAQUE (export fallback) — the PDF-clean look: every full-bleed fade ends on
-//     `var(--bg)` (accent mixed INTO the bg, never into `transparent`); a fade to
+//     `var(--fin-canvas, var(--bg))` (accent mixed INTO the bg, never into `transparent`); a fade to
 //     0-alpha grays into a muddy cloud in the vector PDF. This is emitted in a
 //     `@media print` block AND a `:where(.lattice-exporting)` block (the two export
 //     paths: CLI vector PDF, and the Studio html-to-image raster, which tags the
@@ -295,7 +295,7 @@ function coerceSpotlight(v: unknown): { x: number; y: number; radius: number } |
 
 // ── CSS emitters — one gradient builder per layer type, in TWO faces. ──
 // The face decides the fade END of every FULL-BLEED gradient (wash z1, edge z4):
-//   • 'opaque' (export) — accent mixed INTO var(--bg); the fade ends on var(--bg).
+//   • 'opaque' (export) — accent mixed INTO var(--fin-canvas, var(--bg)); the fade ends on var(--fin-canvas, var(--bg)).
 //     A fade toward 0-alpha grays into a muddy cloud in the vector PDF, so the
 //     export face never does it.
 //   • 'rich'   (screen) — accent mixed into `transparent`; the fade ends on
@@ -305,15 +305,15 @@ function coerceSpotlight(v: unknown): { x: number; y: number; radius: number } |
 // A TILED texture (grid/dots/…) is the same in both faces — its `transparent` is a
 // hard 1px GAP, not an area fade — except the rich face nudges the accent up and
 // mixes the line/dot into `transparent` (so a faint pattern still composites over
-// any canvas) while the opaque face mixes into var(--bg).
+// any canvas) while the opaque face mixes into var(--fin-canvas, var(--bg)).
 export type FinishFace = 'rich' | 'opaque';
 
-// An accent mix at N%. The fade-base is var(--bg) for export, `transparent` for
+// An accent mix at N%. The fade-base is var(--fin-canvas, var(--bg)) for export, `transparent` for
 // screen — the single knob that splits the two faces.
 const mix = (pct: number, face: FinishFace) =>
-	`color-mix(in srgb, var(--accent) ${Math.round(pct)}%, ${face === 'rich' ? 'transparent' : 'var(--bg)'})`;
+	`color-mix(in srgb, var(--accent) ${Math.round(pct)}%, ${face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))'})`;
 // The end-stop of a full-bleed fade: the canvas for export, nothing for screen.
-const fadeEnd = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'var(--bg)');
+const fadeEnd = (face: FinishFace) => (face === 'rich' ? 'transparent' : 'var(--fin-canvas, var(--bg))');
 // Rich nudges accent up a touch (the alpha falloff makes it read fainter than the
 // same % over an opaque canvas), capped so text-on-bg AA still survives.
 const lift = (pct: number, face: FinishFace) => (face === 'rich' ? Math.min(22, pct + 3) : pct);
@@ -342,7 +342,7 @@ function washImage(type: WashType, i: number, face: FinishFace, x = 100, y = 0, 
 			// A gradient-MESH: 3 soft overlapping accent blooms in different corners +
 			// one fainter counter-bloom, summed into an organic atmosphere. Each bloom is
 			// its own full-bleed radial that fades to the face's end-stop (transparent on
-			// screen so the blooms add cleanly; var(--bg) on export so no gray cloud — the
+			// screen so the blooms add cleanly; var(--fin-canvas, var(--bg)) on export so no gray cloud — the
 			// blooms over-mix toward bg but each ends opaque, so the PDF bakes clean).
 			const hi = mix(a, face);
 			const mid = mix(lift(Math.max(3, i * 0.7), face), face);
@@ -361,7 +361,7 @@ function washImage(type: WashType, i: number, face: FinishFace, x = 100, y = 0, 
 
 // Build the --fin-texture gradient (z2). Patterns are UNIFORM + faint (opaque
 // lines/dots, transparent GAPS only — a hard stop, never an area fade). The line/dot
-// color mixes into var(--bg) for export, into `transparent` for screen.
+// color mixes into var(--fin-canvas, var(--bg)) for export, into `transparent` for screen.
 function textureImage(type: TextureType, i: number, s: number, face: FinishFace): string {
 	const a = lift(i, face);
 	const c = mix(a, face);
@@ -459,8 +459,8 @@ function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
 			const rim =
 				face === 'rich'
 					? `color-mix(in srgb, var(--ink, var(--accent)) ${Math.round(Math.min(22, i + 2))}%, transparent)`
-					: `color-mix(in srgb, var(--ink, var(--accent)) ${Math.round(i)}%, var(--bg))`;
-			const center = face === 'rich' ? 'transparent 60%' : 'var(--bg) 62%';
+					: `color-mix(in srgb, var(--ink, var(--accent)) ${Math.round(i)}%, var(--fin-canvas, var(--bg)))`;
+			const center = face === 'rich' ? 'transparent 60%' : 'var(--fin-canvas, var(--bg)) 62%';
 			return `radial-gradient(78% 78% at 50% 50%, ${center}, ${rim} 100%)`;
 		}
 		case 'fold':
@@ -481,7 +481,7 @@ function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
 /** The slot declarations (decl list, no selector) for a recipe, in one FACE.
  *  Each of the four layers writes the custom property the engine compositor blends.
  *  `face` decides the fade-end of the full-bleed wash/edge ('rich' = transparent,
- *  screen-only; 'opaque' = var(--bg), export-safe). The non-full-bleed slots (mark
+ *  screen-only; 'opaque' = var(--fin-canvas, var(--bg)), export-safe). The non-full-bleed slots (mark
  *  glyph/bar/tick, the alignment + size + position aux slots) are face-invariant. */
 export function recipeSlots(r: FinishRecipe, face: FinishFace = 'opaque'): string[] {
 	const decls: string[] = [];
@@ -557,8 +557,8 @@ export function recipeSlots(r: FinishRecipe, face: FinishFace = 'opaque'): strin
 		// opaque + blur-free, so they bake crisp in the vector PDF and carry no alpha —
 		// identical in both faces (export-safe by construction). Intensity tunes the
 		// keyline strength.
-		const c = `color-mix(in srgb, var(--accent) ${Math.round(Math.min(48, 26 + r.edge.intensity))}%, var(--bg))`;
-		decls.push(`--fin-frame:inset 0 0 0 2.6cqi var(--bg), inset 0 0 0 2.82cqi ${c}`);
+		const c = `color-mix(in srgb, var(--accent) ${Math.round(Math.min(48, 26 + r.edge.intensity))}%, var(--fin-canvas, var(--bg)))`;
+		decls.push(`--fin-frame:inset 0 0 0 2.6cqi var(--fin-canvas, var(--bg)), inset 0 0 0 2.82cqi ${c}`);
 	}
 
 	return decls;
@@ -567,7 +567,7 @@ export function recipeSlots(r: FinishRecipe, face: FinishFace = 'opaque'): strin
 // The slots whose VALUE differs between faces, so the export override must re-emit
 // them opaque: the full-bleed wash (z1) + edge (z4) AND the texture (z2). The texture
 // is face-variant too — its line/dot color mixes into `transparent` on screen (a faint
-// pattern that composites over any canvas) but must mix into var(--bg) on export, so it
+// pattern that composites over any canvas) but must mix into var(--fin-canvas, var(--bg)) on export, so it
 // bakes opaque rather than carrying alpha into the PNG/PDF. This MIRRORS the built-in
 // presets, which each ship a --fin-texture-opaque flipped by base.finish.css. The aux
 // size/position/repeat slots and the marks ARE face-invariant (same layer count, opaque
@@ -635,8 +635,8 @@ function backdropSlots(r: FinishRecipe): string[] {
 	return out;
 }
 
-// The SPOTLIGHT mask — a `var(--bg)` overlay that REVEALS the finish in one window and
-// hides it everywhere else (the inverse of clearance). Palette-blind (`var(--bg)` only),
+// The SPOTLIGHT mask — a `var(--fin-canvas, var(--bg))` overlay that REVEALS the finish in one window and
+// hides it everywhere else (the inverse of clearance). Palette-blind (`var(--fin-canvas, var(--bg))` only),
 // no `mask-image`. RICH feathers the reveal edge; OPAQUE is a single HARD stop (a
 // feathered alpha area-fade grays in the vector PDF). x/y/radius are clamped integers, so
 // nothing but numbers reaches the CSS (HARD RULE #22).
@@ -644,10 +644,10 @@ function spotlightMask(spot: { x: number; y: number; radius: number }, face: 'ri
 	const x = spot.x.toFixed(0);
 	const y = spot.y.toFixed(0);
 	const rr = spot.radius.toFixed(0);
-	// transparent = finish shown (the window), var(--bg) = finish hidden (everywhere else).
+	// transparent = finish shown (the window), var(--fin-canvas, var(--bg)) = finish hidden (everywhere else).
 	return face === 'opaque'
-		? `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 70%, var(--bg) 70%)`
-		: `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 42%, var(--bg) 96%)`;
+		? `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 70%, var(--fin-canvas, var(--bg)) 70%)`
+		: `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 42%, var(--fin-canvas, var(--bg)) 96%)`;
 }
 
 export function generateFinishCss(slug: string, recipe: FinishRecipe): string {
@@ -710,5 +710,5 @@ export function generateSwatch(recipe: FinishRecipe): { background: string; back
 		return { background: textureImage(r.texture.type, Math.min(40, r.texture.intensity * 3), s, 'opaque'), backgroundSize: textureSize(r.texture.type, s) };
 	}
 	if (r.edge.type !== 'none') return { background: edgeImage(r.edge.type, Math.min(40, r.edge.intensity * 3), 'opaque') };
-	return { background: 'var(--bg)' };
+	return { background: 'var(--fin-canvas, var(--bg))' };
 }

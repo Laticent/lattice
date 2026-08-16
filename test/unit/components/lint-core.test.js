@@ -656,9 +656,12 @@ describe('lint-core: big-number-hero-heading', () => {
 });
 
 describe('lint-core: bookend-finish-contrast', () => {
-  // A deck-wide `finish:` paints a backdrop over title/closing bookends, whose
-  // inverse display text washes out on a light canvas. The house pattern is
-  // `finish-none` on bookends (examples/finish-backdrops.md).
+  // A deck-wide `finish:` paints a backdrop over title/closing bookends. That used
+  // to WASH OUT their inverse display text, and the rule reported it as a defect;
+  // since #1656 the finish composites against `--fin-canvas` (the slide's own
+  // surface), so the bookend stays legible. The rule survives as an EDITORIAL note
+  // at `info` — the house pattern is still a clean bookend
+  // (examples/finish-backdrops.md) — and must no longer claim a contrast failure.
   const beVocab = {
     names: new Set(['title', 'closing', 'content']),
     modifiers: new Set(['silent']),
@@ -669,15 +672,22 @@ describe('lint-core: bookend-finish-contrast', () => {
   const be = (fin, cls) => core.lintTextWith(`${FMF(fin)}<!-- _class: ${cls} -->\n\n# H\n`, beVocab)
     .find((f) => f.rule === 'bookend-finish-contrast');
 
-  test('warns on a title bookend under a deck finish with no opt-out', () => {
+  test('notes a title bookend under a deck finish with no opt-out', () => {
     const f = be('atrium', 'title silent');
-    assert.ok(f, 'title under a deck finish should warn');
-    assert.equal(f.severity, 'warning');
+    assert.ok(f, 'title under a deck finish should be noted');
+    assert.equal(f.severity, 'info');
     assert.equal(f.classToken, 'title');
   });
 
-  test('warns on a closing bookend too', () => {
-    assert.ok(be('ledger', 'closing silent'), 'closing under a deck finish should warn');
+  test('notes a closing bookend too', () => {
+    assert.ok(be('ledger', 'closing silent'), 'closing under a deck finish should be noted');
+  });
+
+  test('no longer claims the display text washes out — that defect is fixed (#1656)', () => {
+    const f = be('atrium', 'title silent');
+    assert.ok(f, 'expected the editorial note');
+    assert.doesNotMatch(f.message, /wash(es)? out|contrast/i, 'the message must not describe a contrast failure the engine no longer has');
+    assert.doesNotMatch(f.fix, /keep its own surface/i, 'the fix is a preference now, not a repair');
   });
 
   test('clean when the bookend opts out with finish-none', () => {
@@ -870,4 +880,55 @@ describe('lint-core: unterminated comment', () => {
 		const src = ['---', 'marp: true', '---', '', '# Q3', '', '```html', '<!-- sample, deliberately unclosed', '```', ''].join('\n');
 		assert.ok(!rules(src).includes('unterminated-comment'));
 	});
+});
+
+// #1651 — a universal editorial modifier that has no host on this layout.
+// `insight-*` and `no-note` are accepted everywhere (they are universals, and the
+// manifest lists them among every component's effectiveVariants), but they only do
+// something where the block they govern renders. On a `quote` neither does.
+describe('lint-core: block-unsupported', () => {
+  const bVocab = {
+    names: new Set(['quote', 'content', 'cards-grid', 'math', 'timeline-list']),
+    modifiers: new Set(['insight-key', 'insight-verdict', 'no-note', 'bare']),
+  };
+  const bu = (cls, body = '# H\n') =>
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n${body}`, bVocab).filter((f) => f.rule === 'block-unsupported');
+
+  test('flags insight-* on a quote — the case that opened the issue', () => {
+    const f = bu('quote insight-key');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].classToken, 'insight-key');
+    assert.match(f[0].message, /does nothing on a quote slide/);
+  });
+
+  test('flags no-note on a quote too', () => {
+    const f = bu('quote no-note');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].classToken, 'no-note');
+  });
+
+  test('flags BOTH when both are inert on the same slide', () => {
+    assert.equal(bu('quote insight-key no-note').length, 2);
+  });
+
+  test('stays silent where the block really renders', () => {
+    assert.deepEqual(bu('content insight-key'), []);
+    assert.deepEqual(bu('cards-grid no-note'), []);
+    assert.deepEqual(bu('content insight-verdict no-note'), []);
+  });
+
+  test('handles a layout that takes one block and not the other', () => {
+    // timeline-list renders the key-insight callout but not a below-note.
+    assert.deepEqual(bu('timeline-list insight-key'), []);
+    assert.equal(bu('timeline-list no-note').length, 1);
+  });
+
+  test('says nothing about a correctly-authored quote carrying no modifier', () => {
+    assert.deepEqual(bu('quote', '> A quotation.\n\n— Someone\n'), []);
+    assert.deepEqual(bu('quote bare', '> A quotation.\n\n— Someone\n'), []);
+  });
+
+  test('ignores a slide whose class names no known component', () => {
+    assert.deepEqual(bu('insight-key'), []);
+  });
 });

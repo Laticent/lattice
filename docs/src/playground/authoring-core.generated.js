@@ -801,6 +801,301 @@ var init_class_directive_scan = __esm({
   }
 });
 
+// lib/core/section-walk.js
+var require_section_walk = __commonJS({
+  "lib/core/section-walk.js"(exports, module) {
+    var CLASS_ATTR = /(?:^|\s)class="([^"]*)"/;
+    function readAttr(tag, name) {
+      if (typeof tag !== "string") return null;
+      const m = tag.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`));
+      return m ? m[1] : null;
+    }
+    function readClassAttr(tag) {
+      if (typeof tag !== "string") return "";
+      const m = tag.match(CLASS_ATTR);
+      return m ? m[1] : "";
+    }
+    function mapSections(html, rewrite) {
+      let out = "";
+      let i = 0;
+      while (i < html.length) {
+        const open = html.indexOf("<section", i);
+        if (open < 0) {
+          out += html.slice(i);
+          break;
+        }
+        out += html.slice(i, open);
+        const tagEnd = html.indexOf(">", open);
+        if (tagEnd < 0) {
+          out += html.slice(open);
+          break;
+        }
+        const openTag = html.slice(open, tagEnd + 1);
+        const cls = readClassAttr(openTag);
+        let depth = 1, pos = tagEnd + 1, closeEnd = -1;
+        while (pos < html.length) {
+          const nextOpen = html.indexOf("<section", pos);
+          const nextClose = html.indexOf("</section>", pos);
+          if (nextClose < 0) break;
+          if (nextOpen >= 0 && nextOpen < nextClose) {
+            const e = html.indexOf(">", nextOpen);
+            if (e < 0) break;
+            depth++;
+            pos = e + 1;
+          } else {
+            depth--;
+            if (depth === 0) {
+              closeEnd = nextClose + "</section>".length;
+              break;
+            }
+            pos = nextClose + "</section>".length;
+          }
+        }
+        if (closeEnd < 0) {
+          out += html.slice(open);
+          break;
+        }
+        const inner = html.slice(tagEnd + 1, closeEnd - "</section>".length);
+        const result = rewrite(openTag, cls, inner);
+        if (result === null || result === void 0) {
+          out += html.slice(open, closeEnd);
+        } else if (typeof result === "string") {
+          out += openTag + result + "</section>";
+        } else {
+          out += (result.openTag ?? openTag) + (result.inner ?? inner) + "</section>";
+        }
+        i = closeEnd;
+      }
+      return out;
+    }
+    module.exports = { mapSections, readAttr, readClassAttr, CLASS_ATTR };
+  }
+});
+
+// lib/core/below-note.js
+var require_below_note = __commonJS({
+  "lib/core/below-note.js"(exports, module) {
+    var { readClassAttr } = require_section_walk();
+    var EXCLUDED = [
+      "title",
+      "closing",
+      "quote",
+      "big-number",
+      "divider",
+      "image",
+      "split-panel",
+      "split-compare",
+      "diagram",
+      "stats",
+      "code",
+      "roadmap",
+      "progress",
+      "timeline-list",
+      "piechart",
+      "gantt",
+      "kanban",
+      "image-razor",
+      "image-brief",
+      "image-chamber",
+      "math"
+    ];
+    var OPT_OUT_TOKEN = "no-note";
+    function hasOptOut(cls = "") {
+      const tokens = Array.isArray(cls) ? cls : String(cls).split(/\s+/);
+      return tokens.includes(OPT_OUT_TOKEN);
+    }
+    var SUPPRESSION_PREFIX = "no-";
+    function isExcluded(cls = "") {
+      if (hasOptOut(cls)) return true;
+      if (Array.isArray(cls)) return EXCLUDED.some((x) => cls.includes(x));
+      const tokens = String(cls).split(/\s+/).filter((t) => t && !t.startsWith(SUPPRESSION_PREFIX));
+      return EXCLUDED.some((x) => tokens.some((t) => t.includes(x)));
+    }
+    var TRAILING_NOTE = /((?:<\/div>|<\/ul>|<\/ol>|<\/table>|<\/pre>|<\/blockquote>)\s*)<p>((?:(?!<\/p>)[\s\S])*?)<\/p>\s*(<footer\b[^>]*>[\s\S]*?<\/footer>)?\s*$/;
+    var STAGE_TRAILING_NOTE = /((?:<\/div>|<\/ul>|<\/ol>|<\/table>|<\/pre>|<\/blockquote>)\s*)<p>((?:(?!<\/p>)[\s\S])*?)<\/p>\s*$/;
+    var VOID_TAGS = /* @__PURE__ */ new Set([
+      "br",
+      "hr",
+      "img",
+      "input",
+      "meta",
+      "link",
+      "area",
+      "base",
+      "col",
+      "embed",
+      "source",
+      "track",
+      "wbr"
+    ]);
+    var STAGE_OPEN_RE = /^<([a-zA-Z][a-zA-Z0-9-]*)\s+class="cell-stage"(?:\s[^>]*)?>$/;
+    function findStageOpen(inner) {
+      const tagRe = /<([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(\/)?>|<\/([a-zA-Z][a-zA-Z0-9-]*)>/g;
+      let depth = 0;
+      let m;
+      while (m = tagRe.exec(inner)) {
+        const [full, openName, selfClose, closeName] = m;
+        if (closeName) {
+          if (depth > 0) depth--;
+          continue;
+        }
+        if (selfClose || VOID_TAGS.has(openName.toLowerCase())) continue;
+        if (depth === 0) {
+          const stage = full.match(STAGE_OPEN_RE);
+          if (stage) return { index: m.index, tag: stage[1].toLowerCase(), openLen: full.length };
+        }
+        depth++;
+      }
+      return null;
+    }
+    var ANY_TAG = /<([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(\/)?>|<\/([a-zA-Z][a-zA-Z0-9-]*)>/g;
+    var FOREIGN_ROOTS = /* @__PURE__ */ new Set(["svg", "math"]);
+    function extractStage(inner) {
+      const open = findStageOpen(inner);
+      if (!open) return null;
+      const bodyStart = open.index + open.openLen;
+      ANY_TAG.lastIndex = bodyStart;
+      let depth = 1;
+      let m;
+      while (m = ANY_TAG.exec(inner)) {
+        const [, openName, selfClose, closeName] = m;
+        if (closeName) {
+          if (closeName.toLowerCase() !== open.tag) continue;
+          if (--depth === 0) return { bodyStart, bodyEnd: m.index };
+          continue;
+        }
+        if (selfClose && FOREIGN_ROOTS.has(openName.toLowerCase()) || openName.toLowerCase() !== open.tag) continue;
+        depth++;
+      }
+      return null;
+    }
+    function wrapTrailingNote(inner) {
+      if (typeof inner !== "string" || inner.indexOf("<p>") === -1) return inner;
+      const stage = extractStage(inner);
+      if (stage) {
+        const body = inner.slice(stage.bodyStart, stage.bodyEnd);
+        const wrapped = body.replace(STAGE_TRAILING_NOTE, '$1<div class="below-note"><p>$2</p></div>');
+        return wrapped === body ? inner : inner.slice(0, stage.bodyStart) + wrapped + inner.slice(stage.bodyEnd);
+      }
+      return inner.replace(TRAILING_NOTE, '$1<div class="below-note"><p>$2</p></div>$3');
+    }
+    function wrapSectionBody(inner, cls) {
+      return isExcluded(cls) ? inner : wrapTrailingNote(inner);
+    }
+    function applyToHtml(html) {
+      if (typeof html !== "string" || html.indexOf("<section") === -1) return html;
+      const openRe = /<section\b[^>]*>/g;
+      const tagRe = /<section\b[^>]*>|<\/section>/g;
+      let out = "";
+      let i = 0;
+      while (i < html.length) {
+        openRe.lastIndex = i;
+        const open = openRe.exec(html);
+        if (!open) {
+          out += html.slice(i);
+          break;
+        }
+        out += html.slice(i, open.index);
+        const bodyStart = openRe.lastIndex;
+        let depth = 1;
+        let close = -1;
+        tagRe.lastIndex = bodyStart;
+        let t;
+        while (t = tagRe.exec(html)) {
+          if (t[0].charAt(1) === "/") {
+            if (--depth === 0) {
+              close = t.index;
+              break;
+            }
+          } else {
+            depth++;
+          }
+        }
+        if (close === -1) {
+          out += html.slice(open.index);
+          break;
+        }
+        const inner = html.slice(bodyStart, close);
+        const cls = readClassAttr(open[0]);
+        const wrapped = isExcluded(cls) || inner.indexOf('class="below-note"') !== -1 ? inner : wrapTrailingNote(inner);
+        out += open[0] + wrapped + "</section>";
+        i = close + "</section>".length;
+      }
+      return out;
+    }
+    var STRUCTURAL = /* @__PURE__ */ new Set(["DIV", "UL", "OL", "TABLE", "PRE", "BLOCKQUOTE"]);
+    function applyToDom(root) {
+      const doc = root?.ownerDocument ? root.ownerDocument : root;
+      const scope = root && typeof root.querySelectorAll === "function" ? root : doc;
+      if (!scope || typeof scope.querySelectorAll !== "function") return;
+      for (const section of scope.querySelectorAll("section:not(section section)")) {
+        if (isExcluded(section.className || "")) continue;
+        const stage = section.querySelector(":scope > .cell-stage");
+        const host = stage || section;
+        if (host.querySelector(":scope > .below-note")) continue;
+        let last = host.lastElementChild;
+        if (!stage) while (last && last.tagName === "FOOTER") last = last.previousElementSibling;
+        if (!last || last.tagName !== "P") continue;
+        const prev = last.previousElementSibling;
+        if (!prev || !STRUCTURAL.has(prev.tagName)) continue;
+        const wrap = doc.createElement("div");
+        wrap.className = "below-note";
+        last.parentNode.insertBefore(wrap, last);
+        wrap.appendChild(last);
+      }
+    }
+    module.exports = {
+      EXCLUDED,
+      OPT_OUT_TOKEN,
+      hasOptOut,
+      isExcluded,
+      extractStage,
+      wrapTrailingNote,
+      wrapSectionBody,
+      applyToHtml,
+      applyToDom
+    };
+  }
+});
+
+// lib/core/authoring-blocks.js
+var require_authoring_blocks = __commonJS({
+  "lib/core/authoring-blocks.js"(exports, module) {
+    var { EXCLUDED: BELOW_NOTE_EXCLUDED, isExcluded: belowNoteExcluded } = require_below_note();
+    var KEY_INSIGHT_EXCLUDED = Object.freeze([
+      "quote",
+      "math",
+      "citation-card",
+      "redline",
+      "inventory",
+      "policy-recommendation"
+    ]);
+    var OPTIONAL_BLOCKS = Object.freeze(["key-insight", "below-note"]);
+    var EXCLUSIONS = Object.freeze({
+      "key-insight": KEY_INSIGHT_EXCLUDED,
+      "below-note": Object.freeze([...BELOW_NOTE_EXCLUDED])
+    });
+    function supportsBlock(component, block) {
+      if (!OPTIONAL_BLOCKS.includes(block)) return false;
+      const name = String(component || "").trim();
+      if (!name) return true;
+      if (block === "below-note") return !belowNoteExcluded(name);
+      if (name.startsWith("layout-")) return false;
+      return !KEY_INSIGHT_EXCLUDED.includes(name);
+    }
+    function blocksFor(component) {
+      return OPTIONAL_BLOCKS.filter((b) => supportsBlock(component, b));
+    }
+    module.exports = {
+      OPTIONAL_BLOCKS,
+      KEY_INSIGHT_EXCLUDED,
+      EXCLUSIONS,
+      supportsBlock,
+      blocksFor
+    };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
@@ -810,6 +1105,7 @@ var require_lint_core = __commonJS({
     var { deckClassRefusalsFromFrontMatter } = require_deck_class_register();
     var { topLevelFrontMatterValue, frontMatterScalar } = require_front_matter_key();
     var { slideClassDirectives: slideClassDirectives2 } = (init_class_directive_scan(), __toCommonJS(class_directive_scan_exports));
+    var { supportsBlock } = require_authoring_blocks();
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
     var FOCUS_STEPS_DIRECTIVE = /<!--\s*_focusSteps:\s*([^>]+?)\s*-->/;
@@ -1619,11 +1915,32 @@ ${indent}   - ${body.trim()}`;
             findings.push({
               slide: idx - fm + 1,
               rule: "bookend-finish-contrast",
-              severity: "warning",
+              severity: "info",
               classToken: bookend,
               line: m[0],
-              message: `deck-wide \`finish: ${deckFinishName}\` paints its backdrop over this ${bookend} bookend's inverse surface \u2014 its display text can wash out on a light canvas`,
-              fix: "Add `finish-none` to the bookend to keep its own surface (the house pattern), or an explicit `finish-<name>` if you intend the finish here."
+              message: `deck-wide \`finish: ${deckFinishName}\` also paints behind this ${bookend} bookend \u2014 the house pattern keeps a bookend's surface clean`,
+              fix: "Add `finish-none` to the bookend for the house look, or leave it as it is if you want the finish there \u2014 both read correctly."
+            });
+          }
+        }
+        const componentToken = tokens.find((t2) => vocab.names.has(t2));
+        if (componentToken) {
+          const inert = [];
+          if (tokens.some((t2) => /^insight-/.test(t2)) && !supportsBlock(componentToken, "key-insight")) {
+            inert.push({ token: tokens.find((t2) => /^insight-/.test(t2)), block: "key-insight", what: "the Key Insight callout" });
+          }
+          if (tokens.includes("no-note") && !supportsBlock(componentToken, "below-note")) {
+            inert.push({ token: "no-note", block: "below-note", what: "the below-note footnote" });
+          }
+          for (const { token, block, what } of inert) {
+            findings.push({
+              slide: idx - fm + 1,
+              rule: "block-unsupported",
+              severity: "warning",
+              classToken: token,
+              line: m[0],
+              message: `\`${token}\` does nothing on a ${componentToken} slide \u2014 ${componentToken} does not render ${what}`,
+              fix: `${componentToken} claims that element for its own anatomy, so there is nothing for \`${token}\` to govern. Drop the modifier, or move the content to a layout that renders ${block} (see \`authoring.blocks\` in dist/docs/components.json).`
             });
           }
         }

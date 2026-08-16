@@ -18,10 +18,10 @@ finish:
 - Keeps accent alpha **low (~5–16%)** so text-on-background AA contrast survives
   with no scrim.
 - Provides **both faces**: a RICH screen face (gradients that fade to transparent)
-  and an OPAQUE export face (every full-bleed fade ends on `var(--bg)`, patterns
+  and an OPAQUE export face (every full-bleed fade ends on `var(--fin-canvas)`, patterns
   are hard-stop opaque lines) — with **identical layer counts**.
 - Is **palette-blind**: every color is `color-mix()` of `var(--accent)` /
-  `var(--bg)` / `var(--ink)`. A theme swap or `dark` recolors it automatically.
+  `var(--fin-canvas)` / `var(--ink)`. A theme swap or `dark` recolors it automatically.
 - Has a **point of view** — a signature layer type (a mesh, a lattice, a pinstripe,
   a frame) — not just "a gradient wash of the accent the theme already paints."
 
@@ -68,7 +68,16 @@ that composes freely (`mode: sketch` + `finish: atrium`). Don't conflate them.
 
 **The RICH/OPAQUE dual is the load-bearing constraint.** Chromium's print-to-PDF
 encodes large alpha-fading gradients toward transparent-black → a muddy gray cloud.
-So every full-bleed fade needs an OPAQUE mirror that ends on `var(--bg)` (accent
+**Mix toward `var(--fin-canvas)`, never `var(--bg)` directly.** `--fin-canvas` is the
+surface THIS SLIDE paints, and it defaults to `var(--bg)` — so on an ordinary slide the
+two are the same value and nothing changes. They differ on the three inverse bookends
+(`title`, `closing`, a non-`light` `divider`), which paint `--surface-inverse` while
+keeping `color-scheme: light`. A finish written against `var(--bg)` composites a
+light-canvas wash over those dark surfaces and the white display text disappears — a
+`finish:` deck's title slide exported as a nearly blank page (#1656). Using the canvas
+token is the whole of the fix, and it costs nothing anywhere else.
+
+So every full-bleed fade needs an OPAQUE mirror that ends on `var(--fin-canvas)` (accent
 mixed *into* bg, never into transparent); patterns become uniform 1px opaque lines
 with transparent gaps. A shared "opaque flip" re-points every slot to its `-opaque`
 mirror under `@media print` and `.lattice-exporting` — you only supply the mirror
@@ -104,11 +113,11 @@ values, and both faces must keep the **same layer count**.
    Declare **all four slot families** (unused = `none`, so it never inherits a
    sibling's stray layer). For each layer you use, write both the RICH default
    (`--fin-wash: …` fading toward transparent) and the `--fin-*-opaque` mirror
-   (ending on `var(--bg)`, hard stops), plus matching `--fin-size` / `--fin-position`
+   (ending on `var(--fin-canvas)`, hard stops), plus matching `--fin-size` / `--fin-position`
    / `--fin-repeat` — one entry per background layer, in compositor order (texture
    first, then wash).
 3. **Keep it palette-blind**: every color is `color-mix(in srgb, var(--accent) N%,
-   transparent | var(--bg))` or `var(--ink)`. No hex, no `url()`, no `mask-image`,
+   transparent | var(--fin-canvas))` or `var(--ink)`. No hex, no `url()`, no `mask-image`,
    no `margin`.
 4. **Default glyph marks to empty** — `--fin-mark-text: ""`. A deck-wide finish
    paints no monogram/numeral until the author personalizes it per slide.
@@ -130,15 +139,15 @@ section.finish-myfinish {
   /* wash (z1) — RICH default fades to transparent … */
   --fin-wash: radial-gradient(120% 90% at 12% 8%,
                 color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%);
-  /* … and the OPAQUE mirror ends on var(--bg) */
+  /* … and the OPAQUE mirror ends on var(--fin-canvas) */
   --fin-wash-opaque: radial-gradient(120% 90% at 12% 8%,
-                color-mix(in srgb, var(--accent) 12%, var(--bg)), var(--bg) 60%);
+                color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)), var(--fin-canvas) 60%);
 
   /* texture (z2) — hard-stop lines, transparent gaps in both faces */
   --fin-texture: repeating-linear-gradient(0deg,
                 color-mix(in srgb, var(--ink) 6%, transparent) 0 1px, transparent 1px 28px);
   --fin-texture-opaque: repeating-linear-gradient(0deg,
-                color-mix(in srgb, var(--ink) 6%, var(--bg)) 0 1px, transparent 1px 28px);
+                color-mix(in srgb, var(--ink) 6%, var(--fin-canvas)) 0 1px, transparent 1px 28px);
 
   /* mark (z3) — empty by default; author opts in per slide */
   --fin-mark-text: "";

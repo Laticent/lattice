@@ -69,10 +69,18 @@ section h5 + p:has(> code:only-child) > code {
   padding: 0;
   border-radius: 0;
 }
-/* Dark bookend slides are always dark but don't carry .dark — set explicitly */
-section.title   h1 + p:has(> code:only-child),
-section.divider h2 + p:has(> code:only-child),
-section.closing h2 + p:has(> code:only-child) { color: var(--on-dark-secondary); }
+/* Dark bookend slides are always dark but don't carry .dark — set explicitly.
+ *
+ * BOTH heading levels, on all three. The ink has to follow the SURFACE, and the
+ * surface is dark whatever heading the author typed. Pairing each bookend with its
+ * one grammar-correct level (`title h1`, `divider h2`, `closing h2`) left the OTHER
+ * level falling through to `--text-secondary` — a light-canvas ink on the dark panel.
+ * Measured in Chromium on indaco: 7.19:1 on the grammar level, 1.65:1 on the other,
+ * i.e. an eyebrow that all but disappears. An off-grammar heading is an authoring
+ * slip the deck lint already flags; it should not also silently erase the label. */
+section.title   :is(h1, h2) + p:has(> code:only-child),
+section.divider :is(h1, h2) + p:has(> code:only-child),
+section.closing :is(h1, h2) + p:has(> code:only-child) { color: var(--on-dark-secondary); }
 /* divider.light is the bright-canvas variant (former subtopic) — the dark-canvas
  * eyebrow colour above would render near-invisible on it, so reset to the
  * standard muted ink and centre it. */

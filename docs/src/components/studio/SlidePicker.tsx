@@ -1,8 +1,9 @@
-import { ChevronDown, Layers, Plus } from 'lucide-react';
+import { ChevronDown, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedHitsFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -10,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
 import { SlideThumbFace, useInView } from './slide-thumb';
 import { componentLooks, type VariantAxis, variantSample } from './slide-variants';
-import { loadSettings, SETTINGS_EVENT } from './studio-store';
+import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePickerView } from './studio-store';
 
 // The add-slide GALLERY — the canonical "insert a slide" surface, replacing the
 // old cmdk text list (InsertComponent.tsx). Every tile is the REAL engine render
@@ -130,6 +131,18 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const [detail, setDetail] = React.useState<PickerItem | null>(null);
 	const [expanded, setExpanded] = React.useState<string | null>(null); // component name whose looks are open
 	const searchRef = React.useRef<HTMLInputElement>(null);
+	// Grid or list. Read from storage LAZILY (never during module init) so the server
+	// render and the first client render agree — `loadPickerView` touches localStorage,
+	// which does not exist during SSR.
+	const [view, setView] = React.useState<PickerView>('grid');
+	React.useEffect(() => setView(loadPickerView()), []);
+	const chooseView = React.useCallback((next: PickerView) => {
+		setView(next);
+		savePickerView(next);
+	}, []);
+	// A phone is always the grid: a list row wants ~520px to seat a preview beside its
+	// prose, and below that it degenerates into a stack with a postage-stamp thumbnail.
+	const effectiveView: PickerView = compact ? 'grid' : view;
 	// The On-Device switch, held live rather than read once: flipping it in the Workspace
 	// sheet must re-rank an already-open gallery, not wait for a remount.
 	const [intentSearch, setIntentSearch] = React.useState(() => loadSettings().intentSearch);
@@ -250,7 +263,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		onOpenChange(false);
 	};
 
-	const tileProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert: insert, onDetail: setDetail };
+	const tileProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert: insert, onDetail: setDetail, view: effectiveView };
 	const previewProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride };
 
 	// A tile, followed by its expanded looks panel when open. `looksFilter` narrows the
@@ -330,7 +343,11 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 				{searching && flat.length === 0 ? (
 					<Empty query={query} />
 				) : (
-					<div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+					/* ONE grid element in both views — only the column track changes, so a tile
+					   (and its live-preview iframe) survives a view flip instead of unmounting and
+					   re-rendering cold. List is a single full-width column whose tiles lay
+					   themselves out as rows; band headers stay `col-span-full` in both. */
+					<div className={cn('grid gap-3 pt-1', effectiveView === 'list' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4')}>
 						{searching
 							? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
 							: (bands ?? []).flatMap((band) => {
@@ -362,6 +379,28 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const title = 'Insert a component';
 	const description = 'Search the slide gallery and add one as a new slide.';
 
+	// Grid ↔ list, in the header beside the dialog's close button — where a file browser
+	// puts it. Icon-only: the two glyphs are the convention, and the header is tight.
+	// Phone-only surfaces don't get it (see `effectiveView`).
+	const viewToggle = (
+		<ToggleGroup
+			type="single"
+			aria-label="Gallery layout"
+			value={view}
+			// Radix reports '' when the pressed item is toggled OFF. A layout is never
+			// unset, so an empty value keeps the current view instead of clearing it.
+			onValueChange={(v) => v && chooseView(v as PickerView)}
+			className="gap-0.5 rounded-lg border border-border p-0.5"
+		>
+			<ToggleGroupItem value="grid" aria-label="Grid view" title="Grid view" className="rounded-md px-1.5 py-1 text-muted-foreground hover:text-foreground data-[state=on]:bg-[var(--accent-soft)] data-[state=on]:text-[var(--accent)]">
+				<LayoutGrid className="size-4" />
+			</ToggleGroupItem>
+			<ToggleGroupItem value="list" aria-label="List view" title="List view" className="rounded-md px-1.5 py-1 text-muted-foreground hover:text-foreground data-[state=on]:bg-[var(--accent-soft)] data-[state=on]:text-[var(--accent)]">
+				<Rows3 className="size-4" />
+			</ToggleGroupItem>
+		</ToggleGroup>
+	);
+
 	if (compact) {
 		// The sixth surface the mobile drawer opens ("Insert component", on the Edit
 		// pane) — so it wears the same shell as the other five (#1211). It was the one
@@ -382,13 +421,25 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	}
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="flex h-[min(84vh,760px)] max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
+			{/* `sm:max-w-[1120px]`, NOT `max-w-[1120px]` — the width this gallery is drawn for.
+			    DialogContent's shadcn base carries `sm:max-w-lg`, and tailwind-merge keys its
+			    conflict groups on the responsive modifier, so an UNPREFIXED override is not a
+			    conflict: both classes survived and `sm:max-w-lg` won on source order at every
+			    width above 640px. The dialog had been rendering at 512px — under half its
+			    intended width — which is what shrank the previews to ~93px and truncated every
+			    name to three characters. Match the modifier and the override lands (#1657). */}
+			<DialogContent className="flex h-[min(84vh,760px)] sm:max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
 				{/* `title` — "Insert a component" — on BOTH transports. The phone sheet was
 				    renamed to agree with its two launchers and the desktop dialog was left
 				    saying "Add a slide", so the defect being fixed survived on the surface most
 				    people use, and the old sr-only span then announced the OTHER name as stray
 				    content after it. One name, one place. Found by the independent checker. */}
-				<DialogTitle className="px-4 pt-4 text-[15px] sm:px-5">{title}</DialogTitle>
+				{/* `pr-24` clears BOTH the view toggle and the dialog's own absolutely-positioned
+				    close button, which sits at `top-4 right-4`. */}
+				<div className="flex items-center justify-between gap-3 px-4 pt-4 pr-24 sm:px-5 sm:pr-24">
+					<DialogTitle className="text-[15px]">{title}</DialogTitle>
+					{viewToggle}
+				</div>
 				<DialogDescription className="sr-only">{description}</DialogDescription>
 				{body}
 			</DialogContent>
@@ -402,82 +453,136 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 // is the question a picker actually poses. It is not a probability and must never be
 // presented as one.
 //
-// It sits OVER the preview's top-left corner rather than in the name row. In the row it
-// cost ~50px of a ~135px line, which truncated even a short name ("actors" → "act…") and
-// collided with the absolutely-positioned looks button on any tile that has variants. The
-// corner is free space on every tile at every breakpoint. `pointer-events-none` so it can
-// never intercept the click that inserts the slide, and it is aria-hidden because the
-// tile's own label already states the match.
+// It sits on the tile's META ROW, beside the looks control — the third line of the
+// card, after the preview and the name. It used to be an absolute overlay pinned over
+// the preview's top-left corner, which was the right answer while the name row was the
+// only alternative: there it cost ~50px of the line and truncated the name.
+//
+// That trade is gone. The row it was avoiding no longer holds the name (which now owns
+// a full line of its own) and no longer reserves a gutter for an absolutely-positioned
+// looks button (which is now in flow beside this). So the meter comes off the preview,
+// where it was covering the very artwork the tile exists to show — at four tiles across
+// it obscured roughly an eighth of the render, and on a text-dense component that is the
+// headline. `aria-hidden` because the tile's own label already states the match.
 function MatchMeter({ value }: { value: number }) {
 	const pct = Math.round(value * 100);
 	return (
-		<span
-			aria-hidden
-			title={`${pct}% as strong a match as the top result`}
-			className="pointer-events-none absolute left-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md border border-border bg-[color-mix(in_srgb,var(--card)_88%,transparent)] px-1.5 py-0.5 backdrop-blur-[2px]"
-		>
-			<span className="block h-[3px] w-5 overflow-hidden rounded-full bg-border">
+		<span aria-hidden title={`${pct}% as strong a match as the top result`} className="flex min-w-0 items-center gap-1">
+			<span className="block h-[3px] w-5 shrink-0 overflow-hidden rounded-full bg-border">
 				<span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(8, pct)}%` }} />
 			</span>
-			<span className="font-mono text-[10px] font-semibold tabular-nums text-[var(--text-heading)]">{pct}%</span>
+			<span className="font-mono text-[10px] font-semibold tabular-nums text-muted-foreground">{pct}%</span>
 		</span>
 	);
 }
 
-function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
+/** The looks control — a real sibling of the insert button (never nested), revealing
+ *  this component's variant looks. Highlights when a variant-term search matched some. */
+function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name: string; looksCount: number; matchCount: number; isOpen: boolean; onToggle: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onToggle}
+			aria-expanded={isOpen}
+			aria-label={`${name} looks — ${looksCount} variant${looksCount === 1 ? '' : 's'}${matchCount ? `, ${matchCount} matching` : ''}`}
+			className={cn(
+				'inline-flex shrink-0 items-center gap-0.5 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-colors',
+				isOpen || matchCount ? 'border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-[color-mix(in_srgb,var(--card)_85%,transparent)] text-muted-foreground hover:text-foreground',
+			)}
+		>
+			<Layers className="size-3" />
+			{matchCount ? `${matchCount}✓` : looksCount}
+			<ChevronDown className={cn('size-3 transition-transform', isOpen && 'rotate-180')} />
+		</button>
+	);
+}
+
+// A gallery tile, in either view.
+//
+// THE CARD IS THREE LINES (#1657): preview → name → meta (match strength + looks).
+// It used to be two, with the name sharing its line with an absolutely-positioned looks
+// button behind a 64px `pr-16` reservation. That reservation is what made the name the
+// first thing to go when tiles got narrow — at the sizes this dialog was actually
+// rendering, it left ~13px of text and every name read as three characters and an
+// ellipsis ("citation" → "cit…"). Giving the name its own full line and putting the two
+// controls on a line of their own removes the competition instead of re-balancing it.
+//
+// LIST view is the same three pieces on one row — preview, then name over purpose, then
+// the meta — for when you are reading names and descriptions rather than scanning
+// artwork. Both views render the SAME live engine preview through the same windowing.
+function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
 	const [ref, visible] = useInView<HTMLDivElement>();
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
-	// Wrapper is a DIV (not a button) so the looks toggle can be a real sibling button —
-	// a button may not nest another button. The insert affordance fills the tile.
-	return (
-		<div ref={ref} className={cn('group relative overflow-hidden rounded-xl border-2 bg-card transition-colors', isOpen ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]')}>
-			{/* Match strength, present only when the natural-language pass ordered these results. */}
-			{match != null && <MatchMeter value={match} />}
-			<button
-				type="button"
-				onClick={() => onInsert(item)}
-				onMouseEnter={() => onDetail(item)}
-				onFocus={() => onDetail(item)}
-				aria-label={`Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`}
-				className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
-			>
-				{isBlank ? (
-					<span className="grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
-						<Plus className="size-7" />
+	const isList = view === 'list';
+	const label = `Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
+
+	// The preview face — identical in both views; only its box differs.
+	const preview = isBlank ? (
+		<span className="grid aspect-video w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)] text-muted-foreground">
+			<Plus className={isList ? 'size-5' : 'size-7'} />
+		</span>
+	) : (
+		// pointer-events-none: the render is a separate-document iframe that would
+		// otherwise swallow the tile's click.
+		<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
+	);
+
+	// Line 3 in grid, the trailing cluster in list. Rendered OUTSIDE the insert button in
+	// both views — a button may not nest another button, and the looks toggle is real.
+	const meta = (match != null || onToggleLooks) && (
+		<div className={cn('flex items-center gap-2', isList ? 'shrink-0 pr-2.5' : 'justify-between px-2 pb-1.5')}>
+			{match != null ? <MatchMeter value={match} /> : <span />}
+			{onToggleLooks && <LooksToggle name={item.name} looksCount={looksCount} matchCount={matchCount} isOpen={isOpen} onToggle={onToggleLooks} />}
+		</div>
+	);
+
+	// Wrapper is a DIV (not a button) so the looks toggle can be a real sibling button.
+	const shell = cn('group relative overflow-hidden rounded-xl border-2 bg-card transition-colors', isOpen ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]');
+	const insertProps = {
+		type: 'button' as const,
+		onClick: () => onInsert(item),
+		onMouseEnter: () => onDetail(item),
+		onFocus: () => onDetail(item),
+		'aria-label': label,
+	};
+
+	if (isList) {
+		return (
+			<div ref={ref} className={cn(shell, 'flex items-center')}>
+				<button {...insertProps} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
+					<span className="relative w-[184px] shrink-0 overflow-hidden rounded-lg border border-border">
+						{preview}
+						{/* Insert affordance on hover/focus — decorative; the button owns the click. */}
+						<span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+							<Plus className="size-3.5" /> Insert
+						</span>
 					</span>
-				) : (
-					// pointer-events-none: the render is a separate-document iframe that would
-					// otherwise swallow the tile's click.
-					<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
-				)}
-				{/* Name is ALWAYS legible (not a hover afterthought) — recognition + names together. */}
-				<div className={cn('flex items-center gap-1.5 px-2 py-1.5', onToggleLooks && 'pr-16')}>
-					<span className="min-w-0 flex-1 truncate font-mono text-[11px] font-semibold text-[var(--text-heading)]">{item.name}</span>
-				</div>
-				{/* Insert affordance on hover/focus — decorative; the button fills the tile. */}
-				<span className="pointer-events-none absolute inset-x-2 bottom-9 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-					<Plus className="size-3.5" /> Insert
-				</span>
-			</button>
-			{/* Looks toggle — a real sibling button (never nested), revealing this component's
-			    variant looks. Highlights when a variant-term search matched some of them. */}
-			{onToggleLooks && (
-				<button
-					type="button"
-					onClick={onToggleLooks}
-					aria-expanded={isOpen}
-					aria-label={`${item.name} looks — ${looksCount} variant${looksCount === 1 ? '' : 's'}${matchCount ? `, ${matchCount} matching` : ''}`}
-					className={cn(
-						'absolute bottom-1.5 right-1.5 inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-colors',
-						isOpen || matchCount ? 'border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-[color-mix(in_srgb,var(--card)_85%,transparent)] text-muted-foreground hover:text-foreground',
-					)}
-				>
-					<Layers className="size-3" />
-					{matchCount ? `${matchCount}✓` : looksCount}
-					<ChevronDown className={cn('size-3 transition-transform', isOpen && 'rotate-180')} />
+					<span className="min-w-0 flex-1">
+						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{item.name}</span>
+						<span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{item.purpose || item.description}</span>
+					</span>
 				</button>
-			)}
+				{meta}
+			</div>
+		);
+	}
+
+	return (
+		<div ref={ref} className={cn(shell, 'flex flex-col')}>
+			<button {...insertProps} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
+				<span className="relative block">
+					{preview}
+					{/* Insert affordance on hover/focus — decorative; the button owns the click. */}
+					<span className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+						<Plus className="size-3.5" /> Insert
+					</span>
+				</span>
+				{/* Name owns a FULL line — always legible, never a hover afterthought, and no
+				    longer sharing the row with a control. */}
+				<span className="block truncate px-2 pt-1.5 font-mono text-[11.5px] font-semibold text-[var(--text-heading)]">{item.name}</span>
+			</button>
+			{meta ? meta : <span className="pb-1.5" />}
 		</div>
 	);
 }

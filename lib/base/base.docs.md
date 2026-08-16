@@ -14,7 +14,7 @@ that any component can opt into.
 | `base.variants.css` | Universal opt-in variants — `dark`, `mirror`, `numbered`, `silent`, state markers, tone tokens. Composed via `_class:`. |
 | `base.treatments.css` | 27 treatment utility classes — 12 tints (`tint-corner at-tl`, `tint-vignette`, etc.) and 11 marks (`mark-orbit`, `mark-seeds`, etc.) plus `treatment-none` — for peripheral atmospheric accents. |
 | `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type + drawn boxes). Palette-blind; set via `mode:` or `class:` / `_class:`. |
-| `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `finish-none` (or back-compat `backdrop-none`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--bg)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--bg))`), no masks, no `url()`; only the screen face uses alpha. Selected deck-wide via the `finish:` register or per-slide via `_class: finish finish-<name>`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
+| `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `finish-none` (or back-compat `backdrop-none`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the three inverse bookends, which is what keeps a finish from washing out a title/closing/divider (#1656). Selected deck-wide via the `finish:` register or per-slide via `_class: finish finish-<name>`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
 
 ---
 
@@ -186,11 +186,20 @@ audience should remember from a card-grid slide.
 > Key insight: signals without decisions are noise.
 ```
 
-**Supported layouts:** `cards-grid`, `cards-stack`, `compare-prose`, `compare-table`, `verdict-grid`,
-`list`, `list-criteria`, `list-steps`, `list-tabular`,
-`timeline`, `principles`, `matrix-2x2`, `decision`,
-`actors`, `kpi`, `agenda`. Other layouts render
-blockquote as default blockquote chrome.
+**Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
+the callout unless it claims `blockquote` for its own anatomy. The six that do are
+`quote` (the quotation itself), `math` (a display equation), `citation-card`,
+`redline`, `inventory`, and `policy-recommendation` — plus the generated `layout-*`
+skeletons, which carry their own blockquote treatment. Everywhere else a trailing
+blockquote becomes the callout.
+
+The list above used to be enumerated here by hand, as sixteen opt-IN layouts. That
+was never how it worked, and the prose had drifted from the `:not()` chain that
+actually renders it. The set now lives in `lib/core/authoring-blocks.js`, is
+published per component as `authoring.blocks` in `dist/docs/components.json`, and is
+what the deck lint's `block-unsupported` rule and Compose's grammar gutter both read
+(#1651). A unit test parses the CSS and fails if the two disagree, so this paragraph
+cannot go stale again without something going red.
 
 ### Below-Note
 
@@ -210,12 +219,18 @@ shouldn't get card weight.
 — Note: figures are pre-audit; final numbers ship in Q3.
 ```
 
-**Supported layouts:** same set as Key Insight Panel above —
-`cards-grid`, `cards-stack`, `compare-prose`, `compare-table`, `verdict-grid`, `list`,
-`list-criteria`, `list-steps`, `list-tabular`, `timeline`,
-`principles`, `matrix-2x2`, `decision`, `actors`, `kpi`, `agenda` — **plus `content`**,
-which means plus any slide that names no component at all, since that is what an
-un-classed slide resolves to (#1292).
+**Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** The
+exclusions are the render kernel's own list (`EXCLUDED` in `lib/core/below-note.js`):
+the bookends (`title`, `closing`, `divider`), `quote`, `big-number`, `image` and the
+image family, `split-panel`, `split-compare`, `diagram`, `stats`, `code`, `roadmap`,
+`progress`, `timeline-list`, `piechart`, `gantt`, `kanban`, and `math` — each of which
+claims its trailing paragraph for a caption, attribution, legend, or main content.
+Everything else promotes, **including `content`**, which means any slide that names no
+component at all, since that is what an un-classed slide resolves to (#1292).
+
+The two sets do not coincide: `inventory` takes a below-note but not a key insight,
+`timeline-list` the reverse. Read `authoring.blocks` in `dist/docs/components.json`
+for the per-component answer rather than deriving it from either list here (#1651).
 
 Promotion needs the paragraph to follow a **structural** block — a list, table,
 blockquote, code fence or div. A paragraph after a paragraph is body copy on every
@@ -735,7 +750,7 @@ of their preset; only the *glyph* marks wait for an author value. See the
 with explicit glyphs to showcase the movable mark).
 
 Every full-bleed gradient fades **opaque-to-opaque** (`color-mix(var(--accent)
-N%, var(--bg))` → `var(--bg)`), never to `transparent`. This is load-bearing for
+N%, var(--fin-canvas))` → `var(--fin-canvas)`), never to `transparent`. This is load-bearing for
 export: Chromium's print-to-PDF encodes an alpha area-fade so PDF rasterizers
 interpolate toward transparent-black → a gray cloud (the browser hides it, the
 PDF does not). Patterns are therefore uniform and faint (thin opaque lines with

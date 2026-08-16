@@ -806,6 +806,25 @@ export function saveSettings(partial: Partial<StudioSettings>): void {
 	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_EVENT));
 }
 
+// ── The add-slide gallery's layout (#1657) ──────────────────────────────────
+// GRID (a dense wall of previews — recognition first) or LIST (one row per slide,
+// the preview beside its prose — names and purpose first). Persisted so the choice
+// survives closing the gallery, the way a file browser remembers its view.
+//
+// Deliberately NOT part of `StudioSettings`: that type is the workspace's authored
+// state and rides along in the backup file. This is furniture — it belongs to the
+// screen you are sitting at, not to the deck you would restore onto another one.
+const PICKER_VIEW_LS = 'lattice-studio-picker-view';
+export type PickerView = 'grid' | 'list';
+/** Anything but a stored `'list'` reads as the grid default — a junk or absent
+ *  value can only ever fall back, never throw. */
+export function loadPickerView(): PickerView {
+	return read<PickerView>(PICKER_VIEW_LS) === 'list' ? 'list' : 'grid';
+}
+export function savePickerView(view: PickerView): void {
+	write(PICKER_VIEW_LS, view);
+}
+
 // ── Workspace export / import (the backup feature's store half) ─────────────
 // The knowledge of WHICH keys make up a Studio workspace stays in this module;
 // workspace-backup.ts only packs/unpacks what these two functions hand it.

@@ -1,5 +1,5 @@
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
-import { history, redo, undo } from 'prosemirror-history';
+import { history, isHistoryTransaction, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
@@ -11,7 +11,8 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
-import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings } from '@/lib/compose/registers';
+import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -113,13 +114,34 @@ export function structuralGuard() {
 			// A deliberate slide op (insert/delete/move from the slide rail) is allowed to
 			// change the count and touch locked slides — it's intentional, not an accident.
 			if (tr.getMeta('slideOp')) return true;
+			// UNDO / REDO ARE NEVER FILTERED. Every rule below reasons about the author's
+			// CURRENT selection, and a history transaction has no such intent to read: it
+			// restores a document state this guard already approved once. Judging it by the
+			// caret that happens to be sitting there when ⌘Z is pressed is a category error,
+			// and it was a destructive one — after ⌘A ⌘A Delete the caret is a collapsed
+			// selection in the single remaining slide, so the restore looked exactly like an
+			// accidental merge and was rejected. The deck wipe stood and ⌘Z did nothing.
+			//
+			// This hole predates the selection rule (an undo of a `slideOp` rail-delete was
+			// rejected the same way), but the ⌘A path is what made it reachable by a
+			// documented shortcut, so it is fixed here rather than filed.
+			if (isHistoryTransaction(tr)) return true;
 			const oldDoc = state.doc;
 			const newDoc = tr.doc;
-			if (oldDoc.childCount !== newDoc.childCount) return false; // no accidental merge/split
-			for (let i = 0; i < oldDoc.childCount; i++) {
-				if (oldDoc.child(i).attrs.locked && oldDoc.child(i) !== newDoc.child(i)) return false; // locked slide is immutable
-			}
-			return true;
+			// A locked slide is immutable, whatever else this transaction does. Checked by
+			// NODE IDENTITY across the whole doc rather than index-for-index: a deliberate
+			// cross-slide edit changes the count, which shifts every slide after it, and the
+			// old index comparison then reported all of them as modified.
+			if (touchesLockedSlide(oldDoc, newDoc)) return false;
+			if (oldDoc.childCount === newDoc.childCount) return true;
+			// The slide COUNT changed. That is the accident this guard was written for — a
+			// Backspace at a slide boundary silently merging two slides — UNLESS the author
+			// had deliberately selected across the boundary first (#1650). ⌘A⌘A then Delete,
+			// a drag across two slides then Cut, and typing over such a selection are all
+			// intentional; the pre-transaction selection is what tells them apart, and it
+			// distinguishes them for EVERY route at once (keystroke, cut, paste, drop)
+			// instead of one keymap entry at a time.
+			return selectionSpansSlides(state.selection);
 		},
 	});
 }
@@ -342,6 +364,9 @@ class SlideView {
 		private getHeadings?: () => SlideHeadings | undefined,
 		onInsertBelow?: (index: number) => void,
 		private mountTable?: (slot: HTMLElement | null, owner: SlideView, stateful: boolean) => void,
+		// Read LAZILY like getHeadings — the map arrives as a prop and a SlideView outlives
+		// a prop change, so a getter keeps the gutter current without recreating node views.
+		private getBlocks?: () => SlideBlocks | undefined,
 	) {
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
@@ -451,7 +476,7 @@ class SlideView {
 			this.mountTable?.(slot, this, this.stateful);
 			return;
 		}
-		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.());
+		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.(), this.getBlocks?.());
 		const sig = `${keys.join(',')}|${activeReg ?? ''}`;
 		if (this.fmtGroup.dataset.sig === sig) return;
 		this.fmtGroup.dataset.sig = sig;
@@ -624,6 +649,10 @@ function buildPlugins() {
 		// commands the toolbar drives. No columnResizing (GFM has no column widths).
 		tableEditing(),
 		keymap({ 'Mod-b': toggleMark(deckSchema.marks.strong), 'Mod-i': toggleMark(deckSchema.marks.em) }),
+		// ⌘A scopes to the CURRENT SLIDE; a second ⌘A falls through to baseKeymap's own
+		// `selectAll` for the whole deck. Must sit BEFORE `keymap(baseKeymap)` — the chain
+		// runs in plugin order and stops at the first handler that returns true (#1650).
+		keymap({ 'Mod-a': selectSlideThenDeck }),
 		keymap(baseKeymap),
 		inputRules({
 			rules: [
@@ -650,7 +679,7 @@ export type ComposeHandle = {
 	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow, onCursorSlide }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, onInsertBelow, onCursorSlide }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -765,6 +794,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the Format group offers the grammar-correct heading register per the caret slide's `_class`.
 	const slideHeadingsRef = React.useRef(slideHeadings);
 	slideHeadingsRef.current = slideHeadings;
+	const slideBlocksRef = React.useRef(slideBlocks);
+	slideBlocksRef.current = slideBlocks;
 	const onInsertBelowRef = React.useRef(onInsertBelow);
 	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
@@ -815,7 +846,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable, () => slideBlocksRef.current),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.

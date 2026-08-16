@@ -54,6 +54,7 @@ const {
   UNIVERSAL_GROUPS, UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, EXCLUSIVE_AXES, effectiveVariants,
   FAMILY_MODIFIERS, familyModifiersFor,
 } = require('../lib/components');
+const { blocksFor } = require('../lib/core/authoring-blocks');
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
@@ -596,6 +597,17 @@ function renderPortalJson(manifests) {
     ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
     slots: m.slots || {},
+    // The OPTIONAL editorial blocks this layout actually renders, in document
+    // order (#1651). `slots` describe a component's own anatomy; these are the two
+    // universal trailing beats an author can add to almost any slide — the
+    // key-insight callout and the below-note footnote — and both are OPT-OUT, so
+    // "which layouts drop them" was knowledge only the render kernel and a CSS
+    // `:not()` chain held. A quote renders NEITHER (it claims its blockquote as the
+    // quotation and its trailing paragraph as the attribution), while its
+    // `effectiveVariants` still lists `insight-key` and `no-note` — those are
+    // universal MODIFIERS, accepted everywhere, with no host to attach to here.
+    // Publishing the blocks separately is what lets a consumer tell the two apart.
+    authoring: { blocks: blocksFor(m.name) },
     skeleton: m.skeleton,
     whenToUse: Array.isArray(m.whenToUse) ? m.whenToUse : [],
     antiPatterns: Array.isArray(m.antiPatterns) ? m.antiPatterns : [],
