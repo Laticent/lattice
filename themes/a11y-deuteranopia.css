@@ -18,9 +18,12 @@
 
 :root {
   /* PAIRED even though this palette is mode-invariant. The `:root:root` pin in
-   * a11y-base makes the deck-wide dark TOGGLE inert, but it cannot reach a
-   * per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323) —
-   * and there the flat light-tuned trio lands at 1.59–1.80:1.
+   * a11y-base makes the deck-wide dark TOGGLE inert, but TWO seams reach past it:
+   * a per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
+   * and the status-marker pseudo, which base.variants.css pins to
+   * `color-scheme: dark` on every title / closing / non-light divider — so the
+   * dark arm also paints the Confidential / WIP stamp on an otherwise LIGHT
+   * slide. On both, the flat light-tuned trio landed at 1.59–1.95:1.
    *
    * The dark arm is each curated hue lifted up the OKLab lightness axis, hue
    * kept, by the smallest amount that clears AA on the surface it actually
@@ -30,9 +33,14 @@
    * 9.78:1, fail 5.89:1, and fail again at 4.68:1 once the strike-through
    * opacity composites it. Separation under simulation is held at ΔE 0.162
    * deutan / 0.191 protan — at or above the light trio's own 0.161 / 0.189,
-   * and both are checked because protanopia shares this trio. What a dark
-   * slide fell back to before this — base's #4ADE80/#F97316/#F87171 — is
-   * 0.072 deutan / 0.092 protan: collapsed. */
+   * and both are checked because protanopia shares this trio.
+   *
+   * That separation is why these are curated rather than inherited, but it is
+   * NOT what was broken on this path: with the palette winning the engine
+   * cascade a dark slide already got THESE hues, just at 1.6:1. Base's trio
+   * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) is
+   * what the EXPORT path renders, and these arms are inert there until #1527
+   * flips the order. */
   --pass: light-dark(#004982, #7CBBFC);
   --warn: light-dark(#946400, #FFDBA9);
   --fail: light-dark(#800613, #FC827A);

@@ -630,8 +630,10 @@
    * Each override MUST use light-dark() pairs so dark canvases keep AA
    * contrast — the universal default above is the example to follow. That
    * includes the mode-invariant a11y palettes: their `:root:root` scheme pin
-   * makes the deck-wide toggle inert but cannot reach a per-slide `_class:
-   * dark`, which sets color-scheme on the SECTION (#1323). A flat override was
+   * makes the deck-wide toggle inert but reaches neither a per-slide `_class:
+   * dark`, which sets color-scheme on the SECTION (#1323), nor the status-marker
+   * pseudo, which base.variants.css pins to `color-scheme: dark` on every title /
+   * closing / non-light divider. A flat override was
    * survivable only while this base won the cascade over the palette in the
    * export path, quietly lending its dark arm back; it is not once the palette
    * wins (#1527). See engineering/decisions/2026-08-16-flat-palette-dark-companions.md.

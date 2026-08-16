@@ -14,22 +14,30 @@
 @import 'a11y-base';
 
 :root {
-  /* Status as luminance-separated greys — on the light arm, fail darkest.
+  /* Status as luminance-separated grays — on the light arm, fail darkest.
    *
    * PAIRED even though this palette is mode-invariant. The `:root:root` pin in
-   * a11y-base makes the deck-wide dark TOGGLE inert, but it cannot reach a
-   * per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
-   * and flat light greys land at 1.25–1.92:1 there — invisible.
+   * a11y-base makes the deck-wide dark TOGGLE inert, but TWO seams reach past it:
+   * a per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
+   * and the status-marker pseudo, which base.variants.css pins to
+   * `color-scheme: dark` on every title / closing / non-light divider — so the
+   * dark arm also paints the Confidential / WIP stamp on an otherwise LIGHT
+   * slide. On both, the flat light grays landed at
+   * 1.25–3.04:1 — the two darkest invisible, the lightest sub-AA.
    *
-   * The dark arm is each grey lifted until it clears AA on the surface it
+   * The dark arm is each gray lifted until it clears AA on the surface it
    * actually lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN
    * over --bg-alt, so the background moves with the value, and `del` renders at
    * opacity .85 on top of that. Measured on that band: pass 6.56:1, warn
    * 4.61:1, fail 9.23:1, and fail again at 7.14:1 once the strike-through
    * opacity composites it. Fail takes the loudest rung, as on the light arm.
    * The pairwise separation an achromat reads meaning from is 1.50:1 (light arm
-   * 1.61:1, gate floor 1.25). What a dark slide fell back to before this —
-   * base's #4ADE80/#F97316/#F87171 — is 1.01:1: fully collapsed. */
+   * 1.61:1, gate floor 1.25).
+   *
+   * NOT to be confused with the EXPORT path's problem: there the base still
+   * wins the cascade, so a dark slide gets base's own trio
+   * (#4ADE80/#F97316/#F87171 — 1.01:1 for an achromat, fully collapsed) and
+   * these arms are inert until #1527 flips the order. */
   --pass: light-dark(#4d4d4d, #B2B2B2);
   --warn: light-dark(#6E6E6E, #909090);
   --fail: light-dark(#2e2e2e, #D9D9D9);

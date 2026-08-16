@@ -17,11 +17,13 @@
  * worst regression — base's value there is `var(--accent)`, which reads flat and
  * resolves to a pair.
  *
- * Exempt: a palette with only a dark face (carbone). It has no second canvas for an
- * arm to describe, so a single value IS the curated answer. A palette with only a
- * LIGHT face is NOT exempt: the a11y palettes pin `color-scheme: light` at `:root`,
- * but that pin cannot reach a per-slide `_class: dark`, which sets color-scheme on the
- * SECTION (#1323) — the seam the a11y status trio's dark arms exist for.
+ * Exempt: a palette with only a dark face (carbone) — see the note at the exemption
+ * itself, which is a narrower call than it looks. A palette with only a LIGHT face is
+ * NOT exempt: the a11y palettes pin `color-scheme: light` at `:root`, but that pin
+ * reaches neither a per-slide `_class: dark`, which sets color-scheme on the SECTION
+ * (#1323), nor the status-marker pseudo, which base.variants.css pins to
+ * `color-scheme: dark` on every title / closing / non-light divider. Those two seams
+ * are what the a11y status trio's dark arms exist for.
  */
 
 const { test, describe } = require('node:test');
@@ -63,20 +65,42 @@ function paletteVars(name, seen = new Set()) {
   return { ...out, ...rootVars(css) };
 }
 
-/** Collapse `light-dark()` to one arm, then follow `var()` chains to a leaf. */
+/**
+ * Collapse `light-dark()` to one arm, then substitute `var()` references until
+ * the value stops changing.
+ *
+ * Substitution is TEXTUAL and happens ANYWHERE in the value, not only when the
+ * whole value is a bare `var(--x)`. That matters for the false-POSITIVE
+ * direction: `color-mix(in oklab, var(--accent) 92%, black)`,
+ * `var(--accent, #006FA8)` and `oklch(from var(--accent) l c h)` are all
+ * genuinely adaptive — each resolves through a pair — and a whole-value-only
+ * matcher reads every one of them as flat and tells the author to add an arm it
+ * already has. `color-mix()` derivation is the house idiom for the `-bg` family
+ * and the nine derived `--seq-*` stops, so making it un-declarable would be a
+ * gate that fails valid code.
+ *
+ * The arms are compared as STRINGS afterwards, so an expression that still
+ * contains unresolved function syntax is fine: what decides the verdict is
+ * whether the two schemes produce different text, which they do exactly when
+ * some `light-dark()` in the chain contributed.
+ */
 function resolve(vars, mode) {
   const out = {};
   for (const [k, v] of Object.entries(vars)) {
     const arms = splitLightDark(v);
     out[k] = arms ? arms[mode === 'dark' ? 1 : 0] : v;
   }
-  for (let pass = 0; pass < 12; pass += 1) {
+  const REF = /var\(\s*--([a-z0-9-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/i;
+  for (let pass = 0; pass < 24; pass += 1) {
     let changed = false;
     for (const k of Object.keys(out)) {
-      const ref = String(out[k]).match(/^var\(\s*--([a-z0-9-]+)\s*\)$/i);
-      if (!ref) continue;
-      const next = out[ref[1]];
-      if (next === undefined || next === out[k]) continue;
+      const m = String(out[k]).match(REF);
+      if (!m) continue;
+      // An undeclared reference falls back to its own fallback arm, as CSS does.
+      const sub = out[m[1]] !== undefined ? out[m[1]] : m[2];
+      if (sub === undefined) continue;
+      const next = String(out[k]).replace(m[0], sub);
+      if (next === out[k]) continue;
       out[k] = next;
       changed = true;
     }
@@ -106,6 +130,16 @@ describe('paired-token parity: no flat override of a base light-dark() pair', ()
       // arm to describe. NOT a `-dark` wrapper — it pins color-scheme over a
       // two-face parent, so it reads as dark-only here while a flat light-tuned
       // override in the parent is exactly the defect, on exactly that canvas.
+      //
+      // The exemption is NOT free and is not symmetric with the light-only case
+      // above: carbone's pin is `:where(:root)` (specificity 0), so `section.light`
+      // / `section.print` DO reach past it, and carbone does carry one flat
+      // override of a base pair — `--on-accent: var(--surface-inverse)`, plus the
+      // four tiers deriving from it. That one is deliberate and already
+      // adjudicated: #1640 item 3 measured it as an IMPROVEMENT under the #1527
+      // flip (white on carbone's bright lime -> its curated near-black, 10.95:1).
+      // The cost of the exemption is that a FUTURE flat override in carbone is
+      // invisible here; revisit if carbone ever grows a real light face.
       if (modes.length === 1 && modes[0] === 'dark' && !manifests.get(name)?.extends) return;
 
       const own = paletteVars(name);

@@ -14,13 +14,15 @@
 
 :root {
   /* PAIRED for the reason spelled out in a11y-deuteranopia.css: the `:root:root`
-   * scheme pin cannot reach a per-slide `_class: dark` (#1323), where the flat
-   * light-tuned trio lands at 1.56–2.60:1. Each curated hue lifted up the OKLab
-   * lightness axis, hue kept, by the smallest amount that clears AA on the
+   * scheme pin reaches neither a per-slide `_class: dark` (#1323) nor the
+   * status-marker pseudo on a title / closing / dark divider, and on both the
+   * flat light-tuned trio landed at 1.55–2.60:1. Each curated hue lifted up the
+   * OKLab lightness axis, hue kept, by the smallest amount that clears AA on the
    * surface it lands on — pass 5.78:1, warn 4.62:1, fail 8.06:1 on redline's
    * 12% band, fail 6.28:1 through the strike-through opacity. Separation under
-   * tritanopia is ΔE 0.190, at the light trio's own 0.188. Base's dark arm, the
-   * fallback a dark slide got, is 0.019: fully collapsed. */
+   * tritanopia is ΔE 0.190, at the light trio's own 0.188. (Base's trio scores
+   * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
+   * where these arms stay inert until #1527.) */
   --pass: light-dark(#007131, #5CB772);
   --warn: light-dark(#B05139, #D7745B);
   --fail: light-dark(#6b1667, #FFADF7);
