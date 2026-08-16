@@ -14,8 +14,11 @@
 // No new image tree. The gate renders each gallery FRESH through the emulator
 // (the same path build-galleries.js blesses with), rasterizes both the fresh
 // render and the committed golden to pixels, and diffs with a small AA
-// tolerance. It NEVER byte-compares PDFs: PDFs aren't byte-reproducible
-// (timestamps, font-subset ordering) but the rendered pixels are — the §7.1
+// tolerance. It NEVER byte-compares PDFs. Two renders on ONE machine ARE now
+// byte-identical (lib/core/pdf-timestamps.js pinned the clock, the only thing
+// that was churning), but a golden blessed on a DIFFERENT machine is not: Skia
+// rasterizes through CPU-dispatched code paths. Pixels, compared with a
+// tolerance, are what survives that — the §7.1
 // spike proved cross-session pixel determinism once fonts are self-hosted
 // (assets/fonts/*.woff2, emitted into every PDF by the emulator).
 //
@@ -257,9 +260,10 @@ function failFractionForDeck(md) {
 // this run already produced onto the golden. Two reasons it works that way rather than
 // re-rendering the whole scope:
 //
-//   1. PDF bytes are NOT reproducible between runs (timestamps, font-subset ordering —
-//      it is why this gate compares pixels at all). A blanket re-render would rewrite
-//      all 185 files to land ~20 real changes, burying the review in noise.
+//   1. A blanket re-render rewrites every file whose golden was blessed on ANOTHER
+//      machine, because Skia rasterizes differently across hosts — 185 rewritten files
+//      to land ~20 real changes, burying the review in noise. (Same-machine clock churn
+//      no longer contributes: lib/core/pdf-timestamps.js pinned it.)
 //   2. The fresh render is already on disk and already rasterized. Promoting it costs
 //      one rename; re-rendering costs another full sweep.
 function runDeckGolden(md, opts = {}) {
@@ -460,8 +464,8 @@ function main() {
   //     `--bless` would re-render all 150 and then diff them against themselves.
   //   · DECK GOLDENS fall THROUGH into the comparison with `bless: true`, so only the
   //     ones that actually drifted are rewritten. Blindly re-rendering the scope would
-  //     rewrite all 185 files — PDF bytes are not reproducible between runs — to land a
-  //     handful of real changes.
+  //     rewrite every file blessed on a different machine — Skia's rasterization is not
+  //     bit-identical across hosts — to land a handful of real changes.
   let decks = galleries;
   // The "nothing matched" guard runs BEFORE the bless branch, not after it. With it below,
   // a typo'd `--bless --only zzz` found no gallery to bless and no golden to compare, hit

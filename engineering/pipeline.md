@@ -115,6 +115,33 @@ maximum viewer compatibility). If a recipient needs an *editable* PPTX
 (real text boxes, not an image), that's out of scope for this exporter —
 Lattice's PPTX output is a presentation artifact, not an authoring one.
 
+## 4a. PDF output is byte-reproducible
+
+Rendering the same deck twice writes the **same bytes** — so re-blessing a
+golden that did not visually change adds nothing to git, and `git diff` on a
+committed PDF means the picture actually moved.
+
+What made it churn was the wall clock: `/CreationDate` and `/ModDate` carried
+the render time, and four differing bytes in 1.5 MB is a whole new blob as far
+as git is concerned. Both fields are now pinned to the Unix epoch by
+`lib/core/pdf-timestamps.js`, on every PDF path — vector, `--raster`/`--paper`,
+and the `--notes` / `--present` / `--embed-source` post-passes.
+
+Set `SOURCE_DATE_EPOCH` (the [reproducible-builds][rb] convention) to stamp a
+real date instead, and still get stable bytes:
+
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice-emulator.js deck.md out.pdf
+```
+
+[rb]: https://reproducible-builds.org/specs/source-date-epoch/
+
+**This is same-machine reproducibility.** Skia's rasterization is
+CPU-dispatched and not bit-identical across hosts, so a golden blessed on
+another machine still differs by ~0.4–2% of pixels — which is why
+`tools/regression-gate.mjs` compares pixels with a tolerance rather than bytes,
+and why it stays a local spot-check instead of a CI gate.
+
 ## 5. Image set (`.zip`)
 
 A `.zip` output writes an **image set**: one raster per slide plus, by default,
