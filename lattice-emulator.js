@@ -1104,7 +1104,7 @@ function renderMermaidOne(definition, themeVars, extraClass, look) {
       if (!fs.existsSync(outSvg) || fs.statSync(outSvg).size === 0) {
         throw new Error('mmdc exited cleanly but produced no SVG');
       }
-      let svg = fs.readFileSync(outSvg, 'utf8');
+      const svg = fs.readFileSync(outSvg, 'utf8');
       // mmdc hardcodes the SVG root id to "my-svg" and prefixes every internal
       // id (markers, gradients, filters) and every emitted CSS rule with that
       // same string. When a slide deck embeds many Mermaid SVGs in one HTML,
@@ -1115,17 +1115,10 @@ function renderMermaidOne(definition, themeVars, extraClass, look) {
       // The replacement is a single global substitution: it catches the root
       // id, every internal id (e.g. my-svg-flowchart-A-0), every url(#my-svg…)
       // reference, and every #my-svg selector inside the embedded <style>.
-      const uniqueId = `lattice-mmd-${renderMermaidOne.counter = (renderMermaidOne.counter || 0) + 1}`;
-      svg = svg.replace(/my-svg/g, uniqueId);
-      // Mermaid sankey (11.14) has a label-rendering bug: it appends the
-      // outbound-link value to the source node's <text> as raw HTML <p>…</p>,
-      // breaking SVG text positioning and concatenating labels visually.
-      // Strip any <p>…</p> from inside <text>…</text>: the link-value labels
-      // are unrecoverable here (they'd need a separate <text> with proper
-      // positioning), so the deck-friendly fallback is "keep just the node
-      // name" — same trade Mermaid's own docs recommend when sankey labels
-      // overlap. Sankey-only by virtue of <p> never appearing inside <text>
-      // in any other diagram type's emitted SVG.
+      // The id isolation that used to live here now runs inside finishMermaidSvg,
+      // so the batched path gets it too — see there. Skipping it on one path gave
+      // every diagram in a deck the same `my-svg` prefix, which is the collision
+      // this repo already knew about; the oracle caught it on 118 of 118 fences.
       // Mermaid sankey (11.14) emits each node's <text> with the node name on
       // line 1 and the outbound-link value on line 2, separated by a literal
       // newline:   <text>Wages\n750</text>
@@ -1138,44 +1131,8 @@ function renderMermaidOne(definition, themeVars, extraClass, look) {
       // only diagram type that puts newlines inside <text>; gate on the
       // sankey-specific <g class="links"> marker so the substitution doesn't
       // touch <text> elements in any other diagram type.
-      if (svg.includes('<g class="links"')) {
-        svg = svg.replace(/(<text\b[^>]*>)([\s\S]*?)(<\/text>)/g, (_m, open, inner, close) => {
-          const collapsed = inner.replace(/\s*\n\s*/g, ' ').trim();
-          return `${open}${collapsed}${close}`;
-        });
-      }
       fs.rmSync(tmpDir, { recursive: true, force: true });
-      // ── PAST THIS POINT mmdc HAS SUCCEEDED ────────────────────────────────────
-      // Everything below is post-processing on a string we already hold, and it must
-      // NOT be retried: the temp dir above is gone, so a re-run of mmdc would fail on
-      // a missing input file and report `Command failed: … mmdc …` — blaming the
-      // renderer for a bug in our own code. That is exactly what happened when the
-      // accessible-name injection first landed (ADR §17.13): a TDZ error here cost
-      // several minutes of misdiagnosis because the retry laundered it.
-      //
-      // §17.13 stated the lesson and did not apply it. This is the fix: post-processing
-      // gets its own try, so a throw here degrades to the UNPROCESSED-but-valid SVG and
-      // says so, instead of masquerading as a renderer failure.
-      try {
-      // ACCESSIBLE NAME. Mermaid emits its root as `role="graphics-document document"`
-      // with NO name unless the author wrote `accTitle:` / `accDescr:` in the diagram
-      // source — so an un-annotated diagram reaches a screen reader as an anonymous
-      // graphics document. We do not author this markup (mmdc does), so the fix is
-      // additive and conservative: only when the SVG carries no name of its own, label
-      // it with the diagram's TYPE, read from the first meaningful line of the source.
-      // That is a floor, not a description — `accTitle:`/`accDescr:` remain the right
-      // way to say what a diagram MEANS, and mermaid's own `<title>`/`aria-labelledby`
-      // is left untouched wherever it exists. Semantic-html ADR §17.12.
-      if (!/\saria-label(?:ledby)?=/.test(svg.slice(0, svg.indexOf('>') + 1)) && !/<title\b/.test(svg)) {
-        const kind = mermaidKindLabel(definition);
-        svg = svg.replace(/^(\s*<svg\b)/, `$1 aria-label="${escAttrLocal(kind)}"`);
-      }
-      } catch (postErr) {
-        // The diagram itself is fine — only our decoration failed. Ship the SVG.
-        console.warn(`  ⚠ Mermaid post-processing failed (diagram still rendered): ${postErr?.message}`);
-      }
-      const cls = extraClass ? `mermaid-svg ${extraClass}` : 'mermaid-svg';
-      return `<div class="${cls}">${svg}</div>`;
+      return finishMermaidSvg(svg, definition, extraClass);
     } catch (e) {
       lastError = e;
       if (attempt < MAX_ATTEMPTS) {
@@ -1188,6 +1145,158 @@ function renderMermaidOne(definition, themeVars, extraClass, look) {
   console.warn(`  ⚠ Mermaid render failed after ${MAX_ATTEMPTS} attempts:`, lastError.message.split('\n')[0]);
   fs.rmSync(tmpDir, { recursive: true, force: true });
   return `<pre class="mermaid-fallback">${definition}</pre>`;
+}
+
+/**
+ * Everything that happens to an mmdc-produced SVG between "mmdc succeeded" and
+ * "this is a slide fragment". EXTRACTED so the one-at-a-time path and the batched
+ * path cannot drift: they are two ways of invoking mmdc, not two renderers, and a
+ * fix applied to one of them silently missing the other is precisely the failure
+ * `lib/core/render-diagrams.js` was built to stop (#1326, four defects in a row,
+ * each one two implementations answering the same question differently).
+ *
+ * @param {string} svg          Raw mmdc output.
+ * @param {string} definition   The diagram source, for the accessible-name fallback.
+ * @param {string|null} extraClass  Extra class on the wrapper, or null.
+ */
+let mermaidSvgCounter = 0;
+function finishMermaidSvg(svg, definition, extraClass) {
+  // ID ISOLATION — the first thing that happens, and it must happen on EVERY path.
+  // mmdc hardcodes the SVG root id to "my-svg" and prefixes every internal id
+  // (markers, gradients, filters) and every emitted CSS rule with that same string.
+  // When a deck embeds many Mermaid SVGs in one HTML, their `<style>` blocks all use
+  // `#my-svg .node …` selectors that step on each other — the last diagram's theme
+  // variables (a treeview with primaryColor="#FFFFFF", say) silently override every
+  // prior diagram's node fills. Rewrite to a per-diagram suffix so the SVGs are
+  // isolated. One global substitution catches the root id, every internal id
+  // (my-svg-flowchart-A-0), every url(#my-svg…) reference, and every #my-svg
+  // selector inside the embedded <style>.
+  //
+  // It lived in `renderMermaidOne` until batching arrived, and the batched path
+  // did not inherit it — so all 14 diagrams of a gallery came back sharing one
+  // prefix. The counter is module-level rather than a function property for exactly
+  // that reason: it belongs to "a diagram was finished", not to "a diagram was
+  // rendered one-at-a-time". Order is unchanged either way, so the ids a deck emits
+  // are identical whether its fences were batched or not.
+  svg = svg.replace(/my-svg/g, `lattice-mmd-${++mermaidSvgCounter}`);
+  // Mermaid sankey (11.14) emits each node's <text> with the node name on line 1
+  // and the outbound-link value on line 2, separated by a literal newline. SVG
+  // ignores newlines inside <text>, but the post-mmdc pipeline runs the HTML
+  // through markdown-it, which parses `\n\n` inside the inlined SVG as a paragraph
+  // break and wraps the value in <p>…</p>. The resulting <text>Wages<p>750</text>
+  // is invalid SVG and breaks text positioning, producing the visible
+  // "750Disposable income750Savings…" run-together labels. Sankey is the only
+  // diagram type that puts newlines inside <text>; gate on the sankey-specific
+  // <g class="links"> marker so the substitution doesn't touch <text> elements in
+  // any other diagram type.
+  if (svg.includes('<g class="links"')) {
+    svg = svg.replace(/(<text\b[^>]*>)([\s\S]*?)(<\/text>)/g, (_m, open, inner, close) => {
+      const collapsed = inner.replace(/\s*\n\s*/g, ' ').trim();
+      return `${open}${collapsed}${close}`;
+    });
+  }
+  // ── PAST THIS POINT mmdc HAS SUCCEEDED ──────────────────────────────────────
+  // Everything below is post-processing on a string we already hold, and it must
+  // NOT be retried by the caller: on the one-at-a-time path the temp dir is already
+  // gone, so a re-run of mmdc would fail on a missing input file and report
+  // `Command failed: … mmdc …` — blaming the renderer for a bug in our own code.
+  // That is exactly what happened when the accessible-name injection first landed
+  // (ADR §17.13): a TDZ error here cost several minutes of misdiagnosis because the
+  // retry laundered it. §17.13 stated the lesson and did not apply it; this is the
+  // fix: post-processing gets its own try, so a throw here degrades to the
+  // UNPROCESSED-but-valid SVG and says so, instead of masquerading as a failure.
+  try {
+    // ACCESSIBLE NAME. Mermaid emits its root as `role="graphics-document document"`
+    // with NO name unless the author wrote `accTitle:` / `accDescr:` in the diagram
+    // source — so an un-annotated diagram reaches a screen reader as an anonymous
+    // graphics document. We do not author this markup (mmdc does), so the fix is
+    // additive and conservative: only when the SVG carries no name of its own, label
+    // it with the diagram's TYPE, read from the first meaningful line of the source.
+    // That is a floor, not a description — `accTitle:`/`accDescr:` remain the right
+    // way to say what a diagram MEANS, and mermaid's own `<title>`/`aria-labelledby`
+    // is left untouched wherever it exists. Semantic-html ADR §17.12.
+    if (!/\saria-label(?:ledby)?=/.test(svg.slice(0, svg.indexOf('>') + 1)) && !/<title\b/.test(svg)) {
+      const kind = mermaidKindLabel(definition);
+      svg = svg.replace(/^(\s*<svg\b)/, `$1 aria-label="${escAttrLocal(kind)}"`);
+    }
+  } catch (postErr) {
+    // The diagram itself is fine — only our decoration failed. Ship the SVG.
+    console.warn(`  ⚠ Mermaid post-processing failed (diagram still rendered): ${postErr?.message}`);
+  }
+  const cls = extraClass ? `mermaid-svg ${extraClass}` : 'mermaid-svg';
+  return `<div class="${cls}">${svg}</div>`;
+}
+
+/**
+ * Render EVERY fence in one mmdc invocation instead of one invocation each.
+ *
+ * mmdc boots its own Chromium, and it was booting one PER DIAGRAM: measured at
+ * ~2.9s per fence, which on the 14-fence diagram gallery was 40.7s of a 44.3s
+ * render — 92%, and the largest single cost anywhere in the CLI
+ * (engineering/decisions/2026-08-16-render-format-cost-assessment.md §2b).
+ *
+ * mmdc's `-i` accepts a MARKDOWN file and extracts every ```mermaid fence from it,
+ * writing `<out>-1.svg`, `<out>-2.svg`, … in fence order. That is the whole
+ * mechanism. Batching is safe across theme bands because `withEngineInit` bakes
+ * each fence's palette into its OWN `%%{init}%%` directive, so a light fence and a
+ * dark fence in one file still render with their own colors — verified, not assumed.
+ *
+ * Measured: `1.86s + 1.09s × N` batched against `2.9s × N` serial, so it wins from
+ * two fences up.
+ *
+ * Returns an array of finished slide fragments index-aligned with `requests`, or
+ * `null` if the batch could not be completed — the caller then falls back to the
+ * one-at-a-time path, which keeps `renderMermaidOne`'s per-diagram retry and
+ * per-diagram fallback. A batch is all-or-nothing on purpose: one bad fence must
+ * not cost the other thirteen their diagrams.
+ *
+ * @param {Array<{definition: string, themeVars: object, look: string|undefined, extraClass: string|null}>} requests
+ */
+function renderMermaidBatch(requests) {
+  if (!requests.length) return [];
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-batch-'));
+  try {
+    const inFile = path.join(tmpDir, 'batch.md');
+    const outFile = path.join(tmpDir, 'out.md');
+    const cfgFile = path.join(tmpDir, 'puppeteer.json');
+    fs.writeFileSync(cfgFile, PUPPETEER_CONFIG);
+    // One fence per request, in order. The themed source is byte-identical to what
+    // the one-at-a-time path writes — same `withEngineInit`, same config — so the
+    // two paths differ only in how many Chromiums pay for it.
+    fs.writeFileSync(
+      inFile,
+      requests
+        .map((r) => `\`\`\`mermaid\n${withEngineInit(r.definition, engineInitConfig(r.themeVars, { look: r.look }))}\n\`\`\``)
+        .join('\n\n') + '\n',
+    );
+
+    const localMmdc = path.join(PKG_ROOT, 'node_modules', '.bin', 'mmdc');
+    const mmdcBin = fs.existsSync(localMmdc) ? localMmdc : 'mmdc';
+    execSync(
+      `"${mmdcBin}" -i "${inFile}" -o "${outFile}" -e svg --backgroundColor transparent --puppeteerConfigFile "${cfgFile}" --quiet`,
+      { stdio: ['ignore', 'ignore', 'pipe'] },
+    );
+
+    // `<out>-N.svg`, 1-based, in fence order. A missing file means mmdc skipped a
+    // fence (a syntax error in one diagram), which invalidates the index alignment
+    // the caller depends on — bail to the per-fence path rather than shift every
+    // subsequent diagram onto the wrong slide.
+    const base = outFile.replace(/\.md$/, '');
+    const svgs = [];
+    for (let i = 0; i < requests.length; i++) {
+      const f = `${base}-${i + 1}.svg`;
+      if (!fs.existsSync(f)) return null;
+      svgs.push(fs.readFileSync(f, 'utf8'));
+    }
+    return svgs.map((svg, i) => finishMermaidSvg(svg, requests[i].definition, requests[i].extraClass));
+  } catch (e) {
+    if (!QUIET) {
+      console.warn(`  ⚠ batched Mermaid render failed (${String(e.message || e).split('\n')[0]}) — falling back to one render per diagram`);
+    }
+    return null;
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 // Scheme-aware render: a diagram is baked with the dark-resolved themeVars when
@@ -1316,22 +1425,50 @@ function preprocessMermaid(source) {
   }
   const deck = [...bySlide.keys()].sort((a, b) => a - b).map((k) => bySlide.get(k));
 
+  // TWO PASSES, and the kernel is untouched by design. `renderDiagrams`
+  // (lib/core/render-diagrams.js) is SHARED with the browser runtime, which renders
+  // in-page and has nothing to batch; widening its synchronous `renderOne` contract
+  // to serve one path is exactly the "two renderers deciding the same thing"
+  // failure that kernel exists to prevent. So the kernel still drives the walk and
+  // still calls back once per diagram — this path's callback just RECORDS the
+  // request instead of shelling out, and the batch runs after the walk returns.
+  //
+  // Pass 1 keeps every index-aligned side effect (MERMAID_REBAKE_*) in exactly the
+  // order it had before, because the image-set cross-scheme re-bake reads those by
+  // position and a reordering would re-bake the wrong diagram.
+  const requests = [];
   const rendered = renderDiagrams(deck, {
     readToken: readBandToken,
     renderOne: (fence, themeVars, meta) => {
-      if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${meta.scope})...`);
       // Keep the source def AND the band it was baked in, index-aligned, so the
       // image-set look re-bake can tell whether THIS diagram needs re-rendering.
       const idx = MERMAID_REBAKE_DEFS.push(fence.source) - 1;
       MERMAID_REBAKE_MODES[idx] = meta.scope;
       MERMAID_REBAKE_LOOKS[idx] = meta.look;
-      const svg = renderMermaidOne(fence.source, themeVars, null, meta.look);
-      if (!QUIET) console.log(' done');
-      // Stamp the def index so a cross-scheme image-set export can find + re-bake
-      // this exact diagram.
-      return { fence, html: svg.replace(/(<div class="mermaid-svg[^"]*")/, `$1 data-mmd-idx="${idx}"`) };
+      requests.push({ definition: fence.source, themeVars, look: meta.look, extraClass: null, scope: meta.scope });
+      return { fence, idx };
     },
   });
+
+  // Pass 2: one mmdc for all of them, falling back to one-per-diagram if the batch
+  // cannot be completed. The fallback is not a formality — it is what preserves
+  // `renderMermaidOne`'s per-diagram retry and per-diagram `<pre>` degradation, so a
+  // single malformed fence still costs only itself.
+  if (!QUIET && requests.length) {
+    const scopes = [...new Set(requests.map((r) => r.scope))].join(', ');
+    process.stdout.write(`  Rendering ${requests.length} mermaid diagram${requests.length === 1 ? '' : 's'} (${scopes}) in one pass...`);
+  }
+  let htmls = renderMermaidBatch(requests);
+  if (!htmls) {
+    htmls = requests.map((r) => renderMermaidOne(r.definition, r.themeVars, r.extraClass, r.look));
+  } else if (!QUIET) {
+    console.log(' done');
+  }
+  for (const r of rendered) {
+    // Stamp the def index so a cross-scheme image-set export can find + re-bake
+    // this exact diagram.
+    r.html = htmls[r.idx].replace(/(<div class="mermaid-svg[^"]*")/, `$1 data-mmd-idx="${r.idx}"`);
+  }
 
   // Splice the rendered diagrams back in, by slicing. NOT because `String.replace` was
   // unsafe — a replacement FUNCTION never interprets `$1`/`$&`, only a replacement
