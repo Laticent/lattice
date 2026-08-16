@@ -338,8 +338,10 @@ section.divider:not(.light):not(.dark):not(.print) {
  * held the list back from rotting — a list that had ALREADY shipped stale the day it
  * was written. 2026-08-04-finish-stacking-displaces-frame-chrome.md.
  *
- * The plane model deletes all of it. Every child of every section now names its own
- * plane (content by default, base.elements.css), so nothing needs pushing off the
+ * The plane model deletes all of it. The decorative planes are NEGATIVE, so this backdrop
+ * paints at step 3 of the painting algorithm — before every in-flow descendant — and the
+ * content floats above it without declaring anything at all (base.elements.css carries an
+ * explicit note that there is deliberately NO `section > *` rule), so nothing needs pushing off the
  * backdrop and no rule reaches across a section's children to set `position`. The
  * alternative that note built, rendered and REJECTED — sinking the backdrop instead
  * of lifting everything else — is what the compositor above does now, in the token

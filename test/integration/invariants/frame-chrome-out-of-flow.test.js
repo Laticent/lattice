@@ -3,7 +3,15 @@
  * the deck logo are pinned to the slide FRAME, and no slide-level treatment may
  * pull them into the content flow.
  *
- * WHY THIS EXISTS. `finish:` did exactly that, and it shipped. To put its content
+ * THE RULE THIS WAS WRITTEN AGAINST NO LONGER EXISTS — read the history below as history.
+ * The slide plane model (2026-08-12-slide-plane-model.md) deleted both of the rules quoted
+ * here and the gated exclusion list that held them back; the decorative planes are now
+ * negative, so nothing has to be lifted off the backdrop and no rule reaches across a
+ * section's children to set `position`. The INVARIANT is unchanged and still worth
+ * asserting: no treatment, present or future, may drag frame chrome into flow. What the
+ * history explains is why that is worth a render test rather than a comment.
+ *
+ * WHY IT WAS WRITTEN. `finish:` did exactly that, and it shipped. To put its content
  * above the backdrop layer, `base.finish.css` declared
  *
  *     section.finish > *:not(.backdrop) { position: relative; z-index: 2; }
@@ -129,8 +137,9 @@ const PAIRS = [
 //
 // It is here because the first cut of the exclusion list MISSED it: that list was built
 // from an empirical sweep over a probe deck with no split run, so the sweep could not see
-// it. `checkFinishChromeExclusions` now guards the list statically; this guards the
-// behavior on a real render.
+// it. The static gate that guarded that list (`checkFinishChromeExclusions`) is gone with
+// the list itself; this guards the behavior on a real render, which is the half that
+// outlived the rule.
 // `size: portrait` matches examples/auto-split.md, the shipped deck that demonstrates the
 // split move — the taller, narrower frame is what makes a checklist of this length actually
 // exceed one page. The first test below asserts the split really fired, so this suite fails
@@ -398,7 +407,8 @@ describe('DERIVED: a finish changes NO direct child\'s position, on any layout (
     assert.deepEqual(changed, [],
       'a finish must not change any child\'s position. An element that positions ITSELF and is ' +
       'forced to `relative` is displaced (top/left re-base onto the flow position) AND starts ' +
-      'consuming stage height. Exclude it in base.finish.css\'s `:where(…)` list.');
+      'consuming stage height. No rule should be setting `position` on a section\'s children '
+      + 'at all — give the element a `--z-*` plane token instead (base.tokens.css § depth axis).');
   });
 });
 

@@ -2544,7 +2544,7 @@ function checkStageInsetOwnership(errors) {
 // ── The slide's DEPTH axis: every layering decision names a plane ─────────────────
 // A slide is a small stack of named planes (`--z-canvas` … `--z-alarm`,
 // base.tokens.css § depth axis), and this gate is what keeps the engine on them.
-// Before the model, engine CSS ran on 56 hand-picked integers over an ad-hoc ladder
+// Before the model, engine CSS ran on 50 hand-picked integers over an ad-hoc ladder
 // (-1, 0, 1, 2, 3, 50, 100, 2147483000): a Tile whose manifest declared plane 1
 // (atmosphere) sat at `z-index: -1` and painted UNDER the finish field it is defined
 // to sit above, and `citation-card.styles.css` carries a comment recording the same
@@ -2554,9 +2554,11 @@ function checkStageInsetOwnership(errors) {
 //
 //   1. NO MAGIC INTEGERS. Any `z-index` outside the LOCAL BAND 0–9 must be a `--z-*`
 //      token. The band is what an occupant's internals get (a rail behind a node is
-//      `z-index: 1`); it is safe because the occupant root isolates, so those values
-//      never meet the slide's planes. Anything reaching beyond the band is claiming a
-//      slide-scale position and has to name which one.
+//      `z-index: 1`); it is safe because the band sits BETWEEN `--z-atmosphere` (-1) and
+//      `--z-chrome` (30) by arithmetic — NOT because anything isolates it. The shipped model
+//      deliberately isolates nothing below the section (isolating the stage made Chromium's
+//      print path rasterize a hairline; see the decision note). Anything reaching beyond the
+//      band is claiming a slide-scale position and has to name which one.
 //
 //   2. NO DECORATIVE OR PHANTOM TOKENS, both directions: a plane token nothing reads is
 //      an error, and so is a `var(--z-…)` the scale does not define — the latter because
@@ -2638,15 +2640,34 @@ function checkZPlanes(errors) {
   const decls = collectZIndexDeclarations().filter((d) => !d.file.endsWith('base.tokens.css'));
 
   // ── 1 · no magic integers outside the local band ─────────────────────────────────
+  // UNREADABLE values are errors, not passes. `value` is null for anything that is not a
+  // bare integer and `token` is null for anything that is not a `var(--z-*)`, so a value in
+  // any third syntax — `calc(30 + 25)`, `var(--lift)`, a keyword — used to satisfy both
+  // filters and sail through. That is not hypothetical: the adversarial pass landed
+  // `z-index: var(--lift)` at 9999 and `z-index: calc(30 + 25)` (above --z-alarm) inside a
+  // component and the gate reported zero errors. It matters more here than it would in a
+  // model that isolates: containment in this engine is ARITHMETIC — the 0–9 band sits
+  // between atmosphere and chrome and nothing isolates it — so this gate IS the containment,
+  // and a gate that reads one syntax out of three is not one.
+  for (const d of decls) {
+    if (d.value !== null || d.token !== null) continue;
+    errors.push(
+      `${d.file}: \`${d.selector}\` declares \`z-index: ${d.raw}\`, which this gate cannot ` +
+      'read. A slide-scale z-index must be a `--z-*` plane token and a local one must be a bare ' +
+      `integer in 0–${Z_LOCAL_BAND_MAX}; a \`calc()\`, an indirect custom property, or a keyword ` +
+      'is neither, so nothing can check where it lands. Write the plane, or the band.',
+    );
+  }
+
   const magic = decls.filter((d) => d.value !== null && (d.value < 0 || d.value > Z_LOCAL_BAND_MAX));
   for (const d of magic) {
     errors.push(
-      `${d.file}: \`${d.selector}\` declares \`z-index: ${d.raw}\`. The local band is ` +
-      `0–${Z_LOCAL_BAND_MAX} (an occupant's internals, contained by its isolated root); anything ` +
-      'outside it is a SLIDE-SCALE claim and must name its plane with a `--z-*` token ' +
-      '(base.tokens.css § depth axis). A negative value in particular buys nothing here — it ' +
-      'does not escape the section, whose background paints first either way, and it sinks the ' +
-      'element below the finish backdrop at `--z-canvas`.',
+      `${d.file}: \`${d.selector}\` declares \`z-index: ${d.raw}\`. If this element renders ` +
+      `INSIDE a component or a Tile, use the local band 0–${Z_LOCAL_BAND_MAX} — it already sits ` +
+      'between `--z-atmosphere` and `--z-chrome`, so it needs no token and no isolation. Only an ' +
+      'element that can be a DIRECT CHILD of `section` names a plane, with a `--z-*` token ' +
+      '(base.tokens.css § depth axis) — reaching for one from inside a component is how the ' +
+      'citation-card glyph ended up sunk behind an opaque canvas.',
     );
   }
 

@@ -18,15 +18,19 @@
  * heuristic but a fact — `el.parentElement === section` — and no enumeration is
  * needed or kept.
  *
- * WHAT IT CATCHES, stated as the bug it was written from. The watermark Tile declared
- * plane 1 (atmosphere) in its manifest and `z-index: -1` in its CSS. Both are legal;
- * `-1` is even inside the local band a component's internals are allowed. But the
- * watermark is a direct section child, so that `-1` was a *plane assignment written in
- * a private language* — and the wrong plane: it put the ghost numeral BELOW the finish
- * backdrop, and under `finish: savile` the pinstripes ruled straight across it.
- * `citation-card.styles.css` carries a comment recording the identical bug, found and
- * patched independently years of authors apart. This test is what makes the third one
- * fail instead of ship.
+ * WHAT IT CATCHES — and, just as importantly, WHAT IT DOES NOT. It reads COMPUTED
+ * z-index, so it sees values, never the source that produced them. `--z-atmosphere` IS
+ * `-1`, which means reverting the watermark Tile to a literal `z-index: -1` — the exact
+ * defect this model was written from — passes every assertion here. That case is caught by
+ * the STATIC gates instead: `checkZPlanes` rejects any bare integer outside 0–9, and §4.3
+ * in `tools/build-forms.js` rejects a bare integer on a Form noun and demands the token for
+ * its declared plane. Both were verified firing on that revert. An earlier version of this
+ * docstring claimed the render test caught it; it does not, and the distinction is the
+ * whole division of labour between the two halves of the gate.
+ *
+ * What this test uniquely catches is the half no static check can decide: an element that
+ * is a direct section child in the DOM carrying a value that is not a plane at all, and the
+ * canvas/atmosphere ordering being inverted on a real render.
  *
  * THE ASSERTIONS are two, and neither is a coordinate:
  *

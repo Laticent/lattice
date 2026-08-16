@@ -2318,12 +2318,16 @@ means "no gap logged for the runtime route", never "the preview is complete.
   `--z-atmosphere`; the plane is already negative, and it is negative for a reason.
 - **The rule:** if the element **can be a direct child of `section`**, it sits on a plane
   and names it with a token. If it always renders **inside** an occupant (a component's
-  internals, a `.lat-focus` row inside the stage), it uses the local band `0–9` — its root
-  isolates, so those values never meet the slide's planes.
+  internals, a `.lat-focus` row inside the stage), it uses the local band `0–9`. That band
+  sits BETWEEN `--z-atmosphere` (-1) and `--z-chrome` (30), so arithmetic orders it — nothing
+  isolates it, and nothing should: isolating a container is a print-path hazard (below).
 - **Gated** by `checkZPlanes` (`tools/check-ownership.js`, via `build:check`) for the part
   decidable from CSS text, and by
   `test/integration/invariants/slide-planes.test.js` for the part that needs a render:
-  every real direct child of every section must land on a plane value.
+  every real direct child of every section must land on a plane value or the content flow.
+  **The render test cannot catch a plane written as its literal** — `--z-atmosphere` IS `-1`,
+  and the test reads computed values — so the STATIC gates are what stop a bare `-1`
+  (`checkZPlanes`, and §4.3 in `tools/build-forms.js` for a Form noun).
 - **A related trap, dearly bought:** do NOT make a container a stacking context to
   "contain" its children's z-indexes. The 0–9 band already does that. Isolating the `stage`
   made Chromium's print-to-PDF rasterize a 1px `.below-note` gradient hairline inside it at

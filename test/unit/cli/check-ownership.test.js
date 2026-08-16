@@ -573,8 +573,8 @@ describe('check-ownership', () => {
       const slide = planes.filter((p) => p.name !== '--z-viewer');
       assert.deepEqual(
         slide.map((p) => p.name),
-        ['--z-canvas', '--z-atmosphere', '--z-content', '--z-chrome', '--z-mark', '--z-alarm'],
-        'the six slide planes, in paint order — canvas at the bottom, alarm on top',
+        ['--z-canvas', '--z-atmosphere', '--z-content', '--z-chrome', '--z-alarm', '--z-mark'],
+        'the six slide planes, in paint order — canvas at the bottom, mark on top',
       );
       // The SIGNS carry the design. Canvas and atmosphere are negative so they paint at
       // step 3 of the painting algorithm — after the section's own background, before every
@@ -591,6 +591,16 @@ describe('check-ownership', () => {
       // the content plane's interior — a component's internals live there and must stay
       // below chrome without any isolation to hold them.
       assert.ok(v['--z-chrome'] >= 10, 'the local 0-9 band fits between content and chrome');
+      // MARK OVER ALARM. This pair was briefly inverted, on the reasoning that an authoring
+      // tab should beat a stamp and that --corner-stack separates them geometrically anyway.
+      // Both were wrong: the full-bleed shapes (stamp-veil, stamp-mark) are `inset: 0` and
+      // clear nothing, and the marker that SHIPS is the reader-mode pill, not the authoring
+      // tabs — so the inversion punched an engine marker through a redaction wash in the
+      // delivered PDF (10,136 pixels on `confidential stamp-veil` with `overflow-marker:
+      // reader`; a `stamp-ribbon` cut in half). A classification marking outranks an engine
+      // annotation on a delivered artifact.
+      assert.ok(v['--z-mark'] > v['--z-alarm'],
+        'a status stamp must paint OVER an engine marker — it ships in the export, the marker annotates it');
       for (const name of ['--z-chrome', '--z-mark', '--z-alarm']) {
         assert.equal(v[name] % 10, 0, `${name} sits on the ten-spaced scale, leaving room for a sub-plane`);
       }

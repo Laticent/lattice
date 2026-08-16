@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: A Lattice slide has no working depth model. The Form manifests already declare five z-planes (0 canvas · 1 atmosphere · 2 content · 3 chrome · 4 annotation) and every Cell and Tile carries a `z` — but no CSS reads it. Engine CSS instead uses 56 hand-picked integers on an ad-hoc ladder (-1, 0, 1, 2, 3, 50, 100, 2147483000), and the containers those integers are compared inside are inconsistent: a `section` forms a stacking context only when it is `.form`, and a `.cell-stage` only when the deck happens to use a finish. Measured consequences — the watermark ghost (atmosphere) paints UNDER the finish field (canvas) and gets overprinted by its texture; `citation-card`'s pale glyph hit the same trap and was patched in place; a sovereign frame's z values escape to the page root. Shipped — the declared model executed as six named, tokenized planes with a local 0–9 band inside each occupant, on an unconditional per-section stacking context. That last piece is the precondition `2026-08-04-finish-stacking-displaces-frame-chrome.md` named before its rejected alternative can be re-proposed, and landing it deletes that note's gated exclusion list.
+summary: A Lattice slide has no working depth model. The Form manifests already declare five z-planes (0 canvas · 1 atmosphere · 2 content · 3 chrome · 4 annotation) and every Cell and Tile carries a `z` — but no CSS reads it. Engine CSS instead uses 50 hand-picked integers on an ad-hoc ladder (-1, 0, 1, 2, 3, 50, 100, 2147483000), and the containers those integers are compared inside are inconsistent: a `section` forms a stacking context only when it is `.form`, and a `.cell-stage` only when the deck happens to use a finish. Measured consequences — the watermark ghost (atmosphere) paints UNDER the finish field (canvas) and gets overprinted by its texture; `citation-card`'s pale glyph hit the same trap and was patched in place; a sovereign frame's z values escape to the page root. Shipped — the declared model executed as six named, tokenized planes with a local 0–9 band inside each occupant, on an unconditional per-section stacking context. That last piece is the precondition `2026-08-04-finish-stacking-displaces-frame-chrome.md` named before its rejected alternative can be re-proposed, and landing it deletes that note's gated exclusion list.
 builds-on: 2026-08-04-finish-stacking-displaces-frame-chrome.md, 2026-06-16-form-manifest-medium-independent-contract.md, 2026-06-15-form-implementation.md
 ---
 
@@ -53,7 +53,8 @@ decision in the engine is outside its field of view.
 
 ## What the paint actually does
 
-56 `z-index` declarations across `lib/`, on this ladder:
+50 `z-index` declarations across `lib/` (comments stripped; a raw grep says 66 and that
+is where an earlier draft's "56" came from), on this ladder:
 
 ```
 -1     watermark ghost
@@ -225,7 +226,7 @@ catches it. Two things had to be fixed for it to be true rather than merely gree
 The scale above is the second one. The first ran **entirely positive** — canvas 0,
 atmosphere 10, content 20 — and lifted the content onto its plane with a blanket
 `section > * { z-index: var(--z-content) }`, plus `isolation: isolate` on the stage Cell to
-contain a component's internals. It was coherent, it passed every gate, all 6,067 unit
+contain a component's internals. It was coherent, it passed every gate, the whole unit
 tests and the 472-test integration tier, and the invariant test asserted exactly what it
 was supposed to. **A corpus A/B against the pre-change render is what found it.**
 
@@ -329,7 +330,8 @@ Verified on real renders (HARD RULE #23), not inferred:
 - **Both original defects fail the new test.** Reverting the watermark to `z-index: -1`
   fails it by name; reverting `section { isolation: isolate }` to the `.form` gate fails it
   naming the sovereign `title` section.
-- Full unit suite (6,067 tests), the 334-test integration invariants tier, `lint`,
+- Full unit suite (6,108 tests at the time of writing), the 334-test integration
+  invariants tier, `lint`,
   `build:check` and `check:ownership` green.
 
 **The whole example corpus, A/B.** All 131 decks rendered twice — once from a worktree at
@@ -369,6 +371,7 @@ the panel's empty top band in every case, well clear of the panel's own eyebrow.
   protected surface. Considered and deferred with the human; the token model does not
   preclude it later.
 - **Retrofit every component's internal z-index in the same branch.** Unnecessary: all 33
-  bare values left in engine CSS are already inside the local band, and unconditional
-  stage isolation is what actually contains them. Pulling them in would have been churn
+  bare values left in engine CSS are already inside the local band, and the GAP between
+  atmosphere (-1) and chrome (30) is what contains them — not isolation, which the shipped
+  model deliberately does not use below the section. Pulling them in would have been churn
   against HARD RULE #17.

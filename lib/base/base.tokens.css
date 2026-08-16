@@ -1016,18 +1016,43 @@
                           * natural resting plane and needs no help to get there */
   --z-chrome:       30;  /* header, footer, pagination, logo, meta, status, kicker,
                           * title, the progress rail */
-  --z-mark:         40;  /* stamped ONTO the delivered slide: status stamps
-                          * (CONFIDENTIAL / DRAFT / …), review annotations, comments */
-  --z-alarm:        50;  /* authoring-only signals that must beat everything on the
-                          * slide: the overflow / illegible / fix-me tabs, debug boxes */
+  --z-alarm:        40;  /* engine-drawn signals about the slide: the overflow / illegible /
+                          * fix-me tabs, debug boxes. Above chrome, BELOW a stamp */
+  --z-mark:         50;  /* stamped ONTO the delivered slide: status stamps
+                          * (CONFIDENTIAL / DRAFT / …), review annotations, comments.
+                          *
+                          * MARK OVER ALARM, and the order is load-bearing — this pair was
+                          * briefly inverted on the reasoning that "an author must be able to
+                          * see the overflow tab even on a stamped slide", with the claim that
+                          * `--corner-stack` already separates them geometrically. Both halves
+                          * were wrong. The FULL-BLEED shapes (`stamp-veil`, `stamp-mark`) are
+                          * `inset: 0` and clear nothing, and the marker that actually SHIPS is
+                          * the reader-mode pill, not the authoring tabs — so the inversion
+                          * punched an engine marker through a redaction wash in the DELIVERED
+                          * PDF: 10,136 differing pixels on `confidential stamp-veil` with
+                          * `overflow-marker: reader`, and a `stamp-ribbon` cut in half. A
+                          * classification marking outranks an engine annotation on a delivered
+                          * artifact. Restored to the order the engine has always shipped
+                          * (stamps were 100, tabs 50). */
 }
 
 /* VIEWER chrome is NOT a slide plane, and must not borrow one. The fluid-view toggle
  * and the exported player's bar float above the WHOLE DECK in the document, outside
  * every section's stacking context, so they are ordered against the page — not against
  * anything on a slide. Kept at the historical maximum so a host page's own chrome
- * cannot bury the only control that gets a reader back to fixed view. Declared on
- * :root ONLY (not `section`): nothing inside a slide may read it. */
+ * cannot bury the only control that gets a reader back to fixed view.
+ *
+ * Declared on `:root` rather than `:root, section` as a statement of INTENT, not a
+ * guarantee — and the difference was measured, so do not restate it as one. Custom
+ * properties inherit, so on the unpacked path every section can read this anyway; and on the
+ * PACKED path (`packTheme`, lib/engine/css.js — the Playground and Studio) `:root` is
+ * relocated ONTO the section, so it is defined only INSIDE slides, the exact inverse. The
+ * token is off the slide SCALE, which is what `slide-planes.test.js` relies on; it is not
+ * out of a slide's reach, and no CSS mechanism would make it so.
+ *
+ * Not gated: `lib/export/player-core.mjs` hard-codes its viewer chrome at 40/50/60, and
+ * `checkZPlanes` scans CSS only. That is a separate surface (its own document, above the
+ * whole deck) — logged rather than absorbed. */
 :root {
   --z-viewer: 2147483000;
 }
