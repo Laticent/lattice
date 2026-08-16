@@ -39,7 +39,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 	const transient = shown !== posture;
 	return (
 		<fieldset className="m-0 inline-flex shrink-0 items-center rounded-lg border border-border bg-background p-[3px]">
-			<legend className="sr-only">Workspace density</legend>
+			<legend className="sr-only">Workspace stop</legend>
 			{POSTURE_STOPS.map((s) => {
 				const lit = shown === s.id;
 				return (

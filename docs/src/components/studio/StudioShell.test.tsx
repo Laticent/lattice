@@ -142,7 +142,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.getByText(/This sample deck is/)).toBeInTheDocument();
 		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
 		// The dial is present with Read the lit stop; the boot stop is persisted once (R1).
-		expect(screen.getByRole('group', { name: 'Workspace density' })).toBeInTheDocument();
+		expect(screen.getByRole('group', { name: 'Workspace stop' })).toBeInTheDocument();
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
 	});
 
@@ -712,7 +712,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// the Eight-Cell Bar (2026-07-26-studio-mobile-eight-cell-bar.md) reclaims width by
 		// merging Markdown/Compose/Preview into one segment and dropping all gaps/padding,
 		// not by hiding anything.
-		const paneBar = screen.getByRole('toolbar', { name: 'Deck actions' });
+		const paneBar = screen.getByRole('group', { name: 'Deck actions' });
 		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Coach' })).toBeInTheDocument();

@@ -163,7 +163,7 @@ for (const c of CASES) {
 		await page.evaluate(() => document.fonts.ready);
 
 		const app = (await page.evaluate(
-			READ_CONTROLS(['header', '[role="toolbar"][aria-label="Deck actions"]']),
+			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]']),
 		)) as Control[];
 		expect(app.length, 'no app chrome found — the selectors have drifted').toBeGreaterThan(0);
 

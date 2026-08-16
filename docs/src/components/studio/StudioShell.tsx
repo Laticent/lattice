@@ -4110,7 +4110,29 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   drawer — HARD RULE per the round-1 postmortem: those six stay one tap, inline,
 				   always, full stop. */
 				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
-					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-stretch border-b border-border bg-card transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+					{/* `role="group"`, NOT `role="toolbar"` (2026-08-16). This shipped as a
+					    toolbar, and a toolbar is a PROMISE OF BEHAVIOR, not a label: the ARIA
+					    pattern obliges one tab stop into the widget plus arrow-key roving focus.
+					    This bar implemented none of it — measured at 390px, eight buttons, zero
+					    `tabindex` management, no `onKeyDown` — so AT announced "Deck actions,
+					    toolbar" and the user's learned model was then wrong in both directions:
+					    arrows did nothing, and the widget ate eight tab stops. That is the
+					    textbook 4.1.2 role-misuse failure.
+					    `group` keeps the accessible name (the reason the attribute was added)
+					    and promises nothing that isn't implemented. Implementing the real
+					    pattern is the better end state and is worth doing — it would take these
+					    eight stops to one — but it is a keyboard-behavior change that has to
+					    land with its own spec updates, not ride along in a placement pass. It is
+					    filed rather than half-built here; a half-built toolbar is what we just
+					    removed. */}
+					{/* A real `<fieldset>`, so the group role is the ELEMENT's, not an attribute
+					    bolted onto a div — the same idiom PostureDial already uses, and what
+					    `lint/a11y/useSemanticElements` asks for. The resets matter: a fieldset
+					    ships a groove border, padding, and an intrinsic `min-width` that would
+					    each break this flex row, so `m-0 p-0 min-w-0 border-x-0 border-t-0` take
+					    them off and leave only the `border-b` this bar actually wants. (`m-0` is
+					    a bare reset — it adds no space, so HARD RULE #20 is satisfied.) */}
+					<fieldset aria-label="Deck actions" className={cn('m-0 flex min-w-0 shrink-0 items-stretch border-x-0 border-t-0 border-b border-border bg-card p-0 transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 						<BarIcon variant="bar" label="Markdown source" hint="Markdown source" caption="Source" active={effPane === 'edit' && editMode === 'markdown'} demo={editMode === 'markdown' ? 'pane-edit' : undefined} badge={issues} describedBy={issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('markdown'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><FileText className="size-[17px]" /></BarIcon>
 						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
 						<BarIcon variant="bar" label="Compose — rich editor" hint="Compose — rich editor" caption="Compose" active={effPane === 'edit' && editMode === 'compose'} demo={editMode === 'compose' ? 'pane-edit' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('compose'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><Sparkles className="size-[17px]" /></BarIcon>
@@ -4122,7 +4144,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
 						<BarIcon label="Present" hint="Present" caption="Present" variant="bar" tone="solid" demo="present" onClick={openPresent}><Play className="size-[17px]" /></BarIcon>
 						<BarIcon label="Share" hint="Share" caption="Share" variant="bar" tone="outline" demo="share" onClick={() => setShareOpen(true)}><Share2 className="size-[17px]" /></BarIcon>
-					</div>
+					</fieldset>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
 					    INSTANT: no iframe remount, no reload, no blank flash (the pane jank that made

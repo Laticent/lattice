@@ -199,7 +199,7 @@ const READ_APP = (want: string) => {
 	const below = holderIdx < 0 ? [] : kids.slice(holderIdx + 1);
 	return {
 		header: r(document.querySelector('header')),
-		toolbar: r(document.querySelector('[role="toolbar"][aria-label="Deck actions"]')),
+		toolbar: r(document.querySelector('fieldset[aria-label="Deck actions"]')),
 		pill: r(document.querySelector('header [data-demo="deck-switcher"]')),
 		// Null where the app draws none — the shell must then draw none either.
 		panehdr: holderIdx > 0 ? r(kids[holderIdx - 1]) : null,
