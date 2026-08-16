@@ -272,6 +272,56 @@ runtime's re-run AND make the chart axis rebuildable, which would give that path
 hand geometry *and* hand paint. That is a bootstrap-and-chart-family change across
 all 14 chart components, and belongs in its own PR with its own checker.
 
+#### Closed — the proper fix landed (#1673, 2026-08-16)
+
+The paragraph above named the two defects and deferred them. Both are now gone,
+and the residue it measured with them.
+
+**The re-run was gated on the wrong question.** `if (applyDefaultComponent())
+runAllContentTransforms();` asked whether the DEFAULT-COMPONENT stamp had
+changed — a signal with no relationship to whether the deck's own registers had
+landed. For a deck whose every slide names its own component it is permanently
+false, so those decks never re-ran and the convergence the bootstrap comment
+claimed was simply not happening. The gate is now the union of that signal and a
+new one: `deckClassStampedSincePass`, set by `applyCachedDeckClass` when it
+actually changes a section's class list, and cleared by `runAllContentTransforms`
+the instant it has applied the classes for the pass it is about to run.
+
+That clear-point is the whole design, and it is what keeps the cost story
+intact. On the baked path the block primes synchronously *inside* pass 1, so the
+stamp belongs to that pass and is cleared before the transforms run — both gate
+signals are false and the deck pays nothing, which is the property the old gate
+was reaching for and the reason not to just drop it. Only the fetch fallback,
+where the answer genuinely cannot arrive before first paint, buys a second pass.
+
+**A chart could not be rebuilt even when the re-run fired.**
+`transformChartSection` early-returns on a section already carrying
+`chart-frame`, and the DOM adapter had replaced `innerHTML` on pass 1, so the
+authored `<ul>` the builder needs was gone. The adapter now keeps that source in
+a `WeakMap` keyed by the section, alongside the class list it built for, and
+rebuilds from it when — and only when — that class list changes.
+
+Two choices inside that worth keeping:
+
+- **A `WeakMap`, not a `data-` attribute.** An attribute would ride into every
+  exported bundle, inflating the artifact and changing its bytes, to serve a
+  re-run that only ever happens live in a page session. The map is exactly that
+  scope, and it lets a previewer replacing a section wholesale on an edit drop
+  the entry with it. **No exported byte changes.**
+- **The comparison is order-independent** (tokens sorted before joining), and
+  the *absence* of a change is what buys the free pass. The runtime runs this
+  transform repeatedly and cheaply on purpose — every transform is an idempotent
+  no-op — so a chart that rebuilt on every pass would throw away its own
+  `data-mark` popover targets and anima nodes each time. Both halves are pinned
+  by test, because either being wrong is a defect.
+
+Verified the way #1664's fix was: the parity test drives the real shipped
+`dist/lattice-runtime.js` in jsdom, and now covers the fetch fallback (no baked
+block, an `https://` origin, a stubbed `fetch` that resolves on a later turn than
+the synchronous first pass). **Confirmed to fail without the fix** — 1 of 9
+assertions, the tick count, exactly the one that reads which advance the builder
+used. The five baked-path assertions are unchanged and still pass.
+
 ### Closed later — ADVANCE_UPPER under-bounded BOTH faces (#1672, 2026-08-16)
 
 `ADVANCE_UPPER` (0.68, `svg-label.js`) was calibrated for uppercase + 0.04em
