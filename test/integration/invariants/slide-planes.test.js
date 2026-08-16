@@ -242,6 +242,34 @@ describe('every direct section child is on a named plane or in the flow (real re
     );
   });
 
+  test('the deliberately planeless compute `auto` — the pin is a fact, not a comment', () => {
+    // `img.deck-logo` is pinned at `auto` by SANCTIONED_PLANELESS (tools/check-ownership.js).
+    // That gate reads CSS TEXT, so it catches the declaration being written back into
+    // base.modifiers.css and nothing else — a plane arriving from a theme, a component
+    // override, or an inline style is invisible to it. This asserts the OUTCOME instead, on
+    // a real render, which is the only place the two can be told apart.
+    //
+    // Worth stating why the element is pinned at all, since the instinct runs the other
+    // way: the logo IS chrome, and the model's own vocabulary pushes toward naming it
+    // `--z-chrome`. Doing so bought no ordering and made Chromium's print compositor render
+    // an unrelated sibling gradient at ~22% strength. The manifest agrees now (`z: 2`,
+    // content) — but §4.3 cannot check that agreement, because it reads a Tile's co-located
+    // CSS and the logo Tile ships none. This test is where that pair is actually held.
+    const logos = rows.filter((r) => r.what.startsWith('img.deck-logo'));
+    assert.ok(logos.length, 'the probe deck must render a deck logo to pin its plane');
+    for (const r of logos) {
+      assert.equal(
+        r.zIndex, 'auto',
+        'the deck logo is pinned planeless. It is already a stacking context and is injected ' +
+        'as the section\'s first child, with everything that must paint above it declaring ' +
+        '`--z-chrome` explicitly — so a plane here changes no ordering, and it regressed 32 ' +
+        'slides the one time it was added (2026-08-12-slide-plane-model.md § The flip that ' +
+        'fixed nothing). If you are deliberately re-planing it, drop the SANCTIONED_PLANELESS ' +
+        'entry and this assertion together, and carry a render diff in the PR.',
+      );
+    }
+  });
+
   test('the canvas sinks below the words and atmosphere sits between them', () => {
     // The inversion this model was written from, asserted by name. A membership check alone
     // would not have caught it: the watermark's `-1` is a perfectly ordinary number.

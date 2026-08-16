@@ -253,10 +253,16 @@ Three things about it are worth keeping, because each one cost a wrong hypothesi
 
 So the model changed rather than the hairline being patched around: sinking the decorative
 planes needs **no** stacking context on the stage, no blanket rule over a section's
-children, and no isolation anywhere but the section itself. The hairline additionally got
-the export flip the finish presets already use (gradient on screen, solid bar in print and
-`.lattice-exporting`), because that rule was one stacking context away from failing no
-matter who added it.
+children, and no isolation anywhere but the section itself.
+
+The hairline was *also* given an export flip at this point — a solid bar in print and
+`.lattice-exporting`, mirroring the finish presets — on the reasoning that the rule was
+one stacking context away from failing no matter who added it. **That flip is gone, and
+it was the worst thing on this branch.** It treated the symptom, restyled 32 slides that
+had never washed, and was blessed into goldens before anyone opened a diff image. The
+cause was a single `z-index` this branch had added to `img.deck-logo`; removing that
+removed the wash. Full account in § The flip that fixed nothing, below — read it before
+reaching for a flip of your own.
 
 **The lesson generalizes past this branch: every stacking context between a mark and the
 page is a chance for the print path to rasterize something that used to be vector.** Do

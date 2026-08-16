@@ -1082,8 +1082,11 @@
   --z-content:       0;  /* the words. Note this is the SAME NUMBER an unstyled element
                           * effectively paints at, which is the point — content is the
                           * natural resting plane and needs no help to get there */
-  --z-chrome:       30;  /* header, footer, pagination, logo, meta, status, kicker,
-                          * title, the progress rail */
+  --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
+                          * progress rail. NOT the deck logo — `img.deck-logo` is
+                          * deliberately planeless (`auto`); giving it a plane bought no
+                          * ordering and washed a sibling gradient in the print path.
+                          * See the rule in base.modifiers.css for the measurement. */
   --z-alarm:        40;  /* engine-drawn signals about the slide: the overflow / illegible /
                           * fix-me tabs, debug boxes. Above chrome, BELOW a stamp */
   --z-mark:         50;  /* stamped ONTO the delivered slide: status stamps
@@ -18710,18 +18713,22 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
 }
 
 /* NO EXPORT-SAFE FLIP HERE — and the reason is worth keeping. A gradient IMAGE does
- * wash out to ~22% in Chromium's print path, but only once the slide carries a
- * particular extra stacking context, and on this corpus the ONLY thing that added one
- * was a `z-index` this very change had put on `img.deck-logo` (see its rule below). A
+ * wash out to ~22% in Chromium's print path, but only under some condition this repo has
+ * NOT pinned down. What is established is narrower and enough to act on: the wash on this
+ * corpus was caused by a `z-index` this very change had put on `img.deck-logo` (see its
+ * rule below), and removing that removed the wash. It is NOT simply "any promotion out of
+ * the z-auto/0 group" — this branch promotes `section::after`, `.cell-masthead`,
+ * `.cell-footer` and `.lat-split-rail` the same way, and page 3 of the branch's own
+ * examples/slide-planes.pdf renders a promoted page number and a full-strength hairline on
+ * the same slide. Whatever distinguishes the logo (an `<img>`, its `filter`/`opacity`, its
+ * DOM adjacency) is unidentified. Do not write a comment that claims otherwise. A
  * solid-fill flip was written to survive that wash, and it "worked" — while silently
  * restyling every page where the gradient had never washed at all: the full-width taper
  * became a hard-edged stub at 38%, on 32 slides across three galleries, all of them
  * blessed as goldens before anyone looked at them. Removing the z-index removed the wash,
- * and the flip with it. If a future change reintroduces the wash, fix the stacking
- * context that caused it — do not restyle the rule to survive it.
+ * and the flip with it. If a future change reintroduces the wash, find what it changed
+ * about this slide's paint order and undo THAT — do not restyle the rule to survive it.
  * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
-
-
 
 /* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
  * A trailing paragraph whose only child is an <em> renders as a quiet
@@ -19745,18 +19752,27 @@ section.lattice-exporting .fit-culprit,
  * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
-  /* DELIBERATELY NO `z-index` — `auto`, which the plane model counts as legal (the
-   * content flow's own resting plane) rather than an omission. This element does not
-   * need a plane: it is `position: absolute` AND carries `opacity` below 1, so it is
-   * already a stacking context, and with the decorative planes NEGATIVE there is
-   * nothing left on the slide for it to have to climb over.
+  /* DELIBERATELY NO `z-index` — `auto`, which the plane model counts as a plane decision
+   * (the content flow's own resting plane) rather than an omission. `checkZPlanes` holds
+   * this element to it by name, so re-adding a plane here fails `build:check` rather than
+   * shipping: it is a one-line change that has already cost this repo 32 regressed slides.
    *
-   * Giving it `var(--z-chrome)` bought nothing and cost a real regression. Promoting it
-   * out of the z-auto/0 paint group and into the positive-z group tipped Chromium's
-   * print compositor into rendering a SIBLING gradient (the below-note hairline) at
-   * roughly 22% strength — crisp `#0C71A4` at the branch point, washed `#CAE0EB` with
-   * the z-index, on examples/marker-corner.md p2. Bisected to this one declaration:
-   * `header` at 3 vs 30 makes no difference, this line makes all of it.
+   * This element needs no plane. It is `position: absolute`, it forms its own stacking
+   * context (`opacity` below 1 on the default; the `.deck-logo-brand` variant is opacity 1
+   * and gets one from `backdrop-filter` instead), and with the decorative planes NEGATIVE
+   * there is nothing left on the slide for it to climb over. Note that forming a stacking
+   * context is not what orders it against its siblings — `z-index: auto` plus DOM position
+   * is; the logo is injected as the section's FIRST child, and the chrome that must sit
+   * above it declares `--z-chrome` explicitly.
+   *
+   * Giving it `var(--z-chrome)` bought no ordering and cost a real regression: Chromium's
+   * print compositor rendered a SIBLING gradient (the below-note hairline) at roughly 22%
+   * strength — crisp `#0C71A4` at the branch point, washed `#CAE0EB` with the z-index, on
+   * examples/marker-corner.md p2. Bisected to this one declaration: `img.deck-logo
+   * { z-index: auto }` takes that deck and obligation-matrix to 0 differing pixels against
+   * the branch point on every page, while `header { z-index: 3 }` changes nothing.
+   * The exact compositor trigger is NOT understood — see the note beside the below-note
+   * rule above for why "promotion out of z-auto/0" is not the answer.
    * engineering/decisions/2026-08-12-slide-plane-model.md § The flip that fixed nothing. */
   position: absolute;
   /* Default: the top-right corner via frame insets. An author can MOVE + SIZE the

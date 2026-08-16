@@ -2335,8 +2335,17 @@ means "no gap logged for the runtime route", never "the preview is complete.
   screen and 3,596 pixels apart in the PDF**. Height is not the variable (an 8px gradient
   washes as badly as a 1px one) and neither is alpha (an opaque gradient washes too). What
   survives is a SOLID fill, which the exporter emits as a vector instead of a rasterized
-  image — hence the export flip on that hairline. Every stacking context between a mark and
-  the page is a chance for this.
+  image. Every stacking context between a mark and the page is a chance for this.
+- **The wash is a symptom — chase the promotion, not the gradient.** A flip that swapped
+  the gradient for a solid bar in exports WAS written here, and it is gone. It survived
+  export and silently restyled every page where the gradient had never washed — a
+  full-width taper became a hard stub at 38%, on 32 slides across three galleries, blessed
+  into goldens before anyone opened the diff image. The actual cause was a `z-index` this
+  same branch had put on `img.deck-logo`; removing it removed the wash, and the taper came
+  back everywhere. **If you meet this symptom, find what changed the paint grouping on that
+  slide and undo THAT.** Restyling the victim to survive the compositor hides the cause and
+  costs every page that was fine. `2026-08-12-slide-plane-model.md` § The flip that fixed
+  nothing.
 - **Commits:** `engineering/decisions/2026-08-12-slide-plane-model.md`.
 
 ### `white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows

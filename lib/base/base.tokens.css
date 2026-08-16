@@ -1014,8 +1014,11 @@
   --z-content:       0;  /* the words. Note this is the SAME NUMBER an unstyled element
                           * effectively paints at, which is the point — content is the
                           * natural resting plane and needs no help to get there */
-  --z-chrome:       30;  /* header, footer, pagination, logo, meta, status, kicker,
-                          * title, the progress rail */
+  --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
+                          * progress rail. NOT the deck logo — `img.deck-logo` is
+                          * deliberately planeless (`auto`); giving it a plane bought no
+                          * ordering and washed a sibling gradient in the print path.
+                          * See the rule in base.modifiers.css for the measurement. */
   --z-alarm:        40;  /* engine-drawn signals about the slide: the overflow / illegible /
                           * fix-me tabs, debug boxes. Above chrome, BELOW a stamp */
   --z-mark:         50;  /* stamped ONTO the delivered slide: status stamps
