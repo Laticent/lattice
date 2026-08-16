@@ -16,12 +16,35 @@ export type StudioComponent = {
 	bucket: string | null;
 	css: string;
 	skeleton: string;
+	/** The persisted manifest, minus the fields already hoisted above.
+	 *
+	 *  CARRIED, NOT DROPPED. `saveStudioComponent` has always persisted the FULL
+	 *  manifest — function, form, substance, tags, adapt, capacity, density — and this
+	 *  mapper used to discard every one of them on the way back out. Nothing noticed
+	 *  while the only reader was a card that shows a name and a bucket; it breaks the
+	 *  moment a component can be REOPENED for editing, because the faculty would seed
+	 *  from its own saved record and silently lose the author's whole contract. */
+	meta: ComponentMeta;
 };
 
-type ComponentAssetRecord = { id: string; name: string; bucket?: string | null; text?: string; skeleton?: string };
+type ComponentAssetRecord = { id: string; name: string; bucket?: string | null; text?: string; skeleton?: string; manifest?: Record<string, unknown> };
+
+/** The manifest fields worth carrying back, in the shape `saveStudioComponent` takes. */
+function toMeta(manifest: Record<string, unknown> | undefined): ComponentMeta {
+	const m = manifest || {};
+	const out: ComponentMeta = {};
+	for (const k of ['function', 'form', 'substance', 'bucket', 'description'] as const) {
+		if (typeof m[k] === 'string') out[k] = m[k] as string;
+	}
+	if (Array.isArray(m.tags)) out.tags = m.tags.filter((t): t is string => typeof t === 'string');
+	if (m.adapt && typeof m.adapt === 'object') out.adapt = m.adapt as ComponentMeta['adapt'];
+	if (m.capacity && typeof m.capacity === 'object') out.capacity = m.capacity as ComponentMeta['capacity'];
+	if (m.density && typeof m.density === 'object') out.density = m.density as ComponentMeta['density'];
+	return out;
+}
 
 function toStudioComponent(a: ComponentAssetRecord): StudioComponent {
-	return { id: a.id, name: a.name, bucket: a.bucket ?? null, css: a.text || '', skeleton: a.skeleton || '' };
+	return { id: a.id, name: a.name, bucket: a.bucket ?? null, css: a.text || '', skeleton: a.skeleton || '', meta: toMeta(a.manifest) };
 }
 
 /** The full component contract the Studio captures (manifest minus name/skeleton). */

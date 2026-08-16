@@ -14,7 +14,7 @@ const theme: StudioTheme = {
 	css: '@theme harbor { --accent: #2d4ed8; }',
 	essentials: { accent: '#2d4ed8', bg: '#ffffff' },
 };
-const comp: StudioComponent = { id: 'c1', name: 'callout', bucket: 'statement', css: 'section.callout { color: var(--accent); }', skeleton: '<!-- _class: callout -->\n\n## Hi' };
+const comp: StudioComponent = { id: 'c1', name: 'callout', bucket: 'statement', css: 'section.callout { color: var(--accent); }', skeleton: '<!-- _class: callout -->\n\n## Hi', meta: { bucket: 'statement' } };
 const finish: StudioFinish = { id: 'f1', name: 'mybrand', label: 'My Brand', css: 'section.finish.finish-mybrand { --fin-wash: none; }', recipe: { ...DEFAULT_RECIPE, mark: { type: 'monogram', placement: 'bottom-right', glyph: 'AB' } } };
 const builtSpec = { source: 'built', duration: 6000, hero: 0.4, elements: [{ id: 'rotor', shape: 'cone', color: 'var(--accent)', motion: [{ verb: 'spin', axis: 'y', period: 6000 }] }] } as unknown as Scene;
 const svgSpec = { source: 'svg', duration: 4000, hero: 1, asset: 'route.svg', elements: [{ id: 'p', pathRef: 'p1', color: 'var(--accent)', motion: [{ verb: 'draw', span: 1 }] }] } as unknown as Scene;
