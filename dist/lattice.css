@@ -22352,11 +22352,21 @@ section.treatment-none {
  * compositor blends, so layers combine instead of replacing each other and a
  * future right-panel designer can drive any single layer by setting one prop.
  *
- *   z1  --fin-wash      a background-image gradient (ambient color field)
- *   z2  --fin-texture   a background-image gradient (pattern: grid/dots/lines…)
- *   z3  ::before        a placed MARK   — --fin-mark (gradient) + --fin-mark-text
- *   z4  ::after         an EDGE          — --fin-edge (gradient)
- *   z5  content         (untouched, painted above every layer)
+ *   L1  --fin-wash      a background-image gradient (ambient color field)
+ *   L2  --fin-texture   a background-image gradient (pattern: grid/dots/lines…)
+ *   L3  ::before        a placed MARK   — --fin-mark (gradient) + --fin-mark-text
+ *   L4  ::after         an EDGE          — --fin-edge (gradient)
+ *   L5  content         (untouched, painted above every layer)
+ *
+ * THOSE ARE LAYER NUMBERS, NOT z-index VALUES — they used to read `z1`…`z5`, which is
+ * actively misleading now that this file also names real planes. L1/L2 are comma-separated
+ * `background-image` slots on `.backdrop` and carry no z-index at all; L3/L4 are its two
+ * pseudos at `z-index: 0` and `1`, and the clearance mask sits above both at `2`. All of
+ * that is the LOCAL 0–9 band, contained because `.backdrop` is a stacking context in its
+ * own right (`position: absolute` + `z-index: var(--z-canvas)`). The whole stack therefore
+ * rides the canvas plane as ONE unit — which is what makes sinking it below the content
+ * flow safe. L5 "content" is not part of this stack at all: it is the slide's own content,
+ * a plane above (base.tokens.css § depth axis).
  *
  * The two background slots are composited in ONE rule: --fin-texture is listed
  * first (visually on top of the wash). Because the combined background-image can
