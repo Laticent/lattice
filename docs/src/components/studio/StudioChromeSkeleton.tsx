@@ -63,8 +63,8 @@ function ActionBar() {
 			<BarIcon variant="bar" label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" onClick={NOOP}><ChatIcon className="size-[17px]" /></BarIcon>
 			<BarIcon variant="bar" label="Settings" hint="Settings — deck & slide" caption="Settings" onClick={NOOP}><SlidersHorizontal className="size-[17px]" /></BarIcon>
 			<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
-			<BarIcon variant="bar" tone="outline" label="Present" hint="Present" caption="Present" onClick={NOOP}><Play className="size-[17px]" /></BarIcon>
-			<BarIcon variant="bar" tone="solid" label="Share" hint="Share" caption="Share" onClick={NOOP}><Share2 className="size-[17px]" /></BarIcon>
+			<BarIcon variant="bar" tone="solid" label="Present" hint="Present" caption="Present" onClick={NOOP}><Play className="size-[17px]" /></BarIcon>
+			<BarIcon variant="bar" tone="outline" label="Share" hint="Share" caption="Share" onClick={NOOP}><Share2 className="size-[17px]" /></BarIcon>
 		</div>
 	);
 }
@@ -99,7 +99,7 @@ function DeckPill({ title }: { title: string }) {
 			data-ssr-demo="deck-switcher"
 			className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
 		>
-			<span className="hidden size-2 shrink-0 rounded-full bg-primary min-[1100px]:block" />
+			<span className="hidden size-2 shrink-0 rounded-full bg-[var(--text-muted)] min-[1100px]:block" />
 			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
 			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
 			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be
@@ -210,11 +210,11 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* TABLET tail: Present · Share · the dial · Coach · Chat · feedback · Settings · mode · Menu. */}
+				{/* TABLET tail: the dial · Present · Share · Coach · Chat · feedback · Settings · mode · Menu. */}
 				<span className="hidden min-[700px]:max-[1100px]:contents">
-					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<StopDial />
+					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Coach"><Gauge className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Chat"><ChatIcon className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
@@ -223,17 +223,17 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* DESKTOP tail (slim header): ⌘K · Present · Share · rule · dial · feedback.
+				{/* DESKTOP tail (slim header): ⌘K · rule · dial · Present · Share · feedback.
 				    The ⌘K pill grows its label at Tailwind's `xl`, exactly as the app's does. */}
 				<span className="ssr-desktop-tail hidden min-[1100px]:contents">
-					<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
+					<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
-					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Separator orientation="vertical" className="h-5" />
 					<StopDial />
+					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 				</span>
 					{/* DESKTOP at CRAFT: the app swaps its slim header for the FULL one, which regains
@@ -241,7 +241,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					    52px activity rail instead). Mirrored control-for-control — the parity spec
 					    compares the two SETS, so an omission here fails rather than ships. */}
 					<span className="ssr-craft-tail hidden min-[1100px]:contents">
-						<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
+						<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
@@ -250,11 +250,11 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
 						</span>
 						<Separator orientation="vertical" className="h-5" />
-						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--accent)]"><MonitorPlay className="size-[18px]" /></Button>
-						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
+						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--text-body)]"><MonitorPlay className="size-[18px]" /></Button>
 						<Separator orientation="vertical" className="h-5" />
 						<StopDial />
+						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 						<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 					</span>
 			</div>

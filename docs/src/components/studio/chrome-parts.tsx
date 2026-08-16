@@ -44,7 +44,23 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 				const lit = shown === s.id;
 				return (
 					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-card text-[var(--accent)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-card text-[var(--accent)] shadow-sm') : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
+						{/* COLOR, both arms, deliberately (2026-08-16 toolbar placement review):
+						    · UNSELECTED was `text-muted-foreground` → `--text-muted`, which every theme
+						      documents as "decorative / de-emphasized … WCAG-exempt" (themes/cuoio.css:108).
+						      On 12px semibold that is a 1.4.3 AA FAILURE — measured 2.64:1 in cuoio light,
+						      and below 4.5:1 in 21 of 36 palette×mode combos. These are load-bearing labels:
+						      the two stops you are NOT on are exactly the ones you must read to decide where
+						      to go, and #1401 spent 87px of header width precisely so they would be legible
+						      on touch. `--text-body` is the AA-rated body channel (5.95:1 cuoio light).
+						    · SELECTED was `bg-card text-[var(--accent)]` — a 1.09:1 fill carrying the state,
+						      with the accent hue doing the real work. That fails twice: the fill is at the
+						      edge of perceptibility, and in the 13 monochrome/a11y combos where `--accent`
+						      resolves to `--text-heading` the lit label is the same ink as an unlit one.
+						      `--accent-soft` is distinct from `--accent` in ALL 36 combos and reads as a
+						      real chip; `--text-heading` on it is the highest-contrast label available.
+						    This also buys back an accent draw: the bar now spends its accent on ONE filled
+						    object (Present), not five. */}
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-[var(--accent-soft)] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--accent-soft)] text-[var(--text-heading)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700
@@ -105,14 +121,19 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			    palette (onyx, the four a11y-* palettes, atelier, concrete, ardesia)
 			    --accent resolves to the SAME value as --text-heading, which is this cell's
 			    OWN fill — an --accent rule would be invisible on it, AND (found by the
-			    adversarial trio, 2026-07-26-studio-mobile-eight-cell-bar.md) Share's solid
-			    tone (`bg-[var(--accent)] text-[var(--on-accent)]`) then renders as a
+			    adversarial trio, 2026-07-26-studio-mobile-eight-cell-bar.md) the SOLID tone
+			    (`bg-[var(--accent)] text-[var(--on-accent)]`) then renders as a
 			    byte-identical block to this cell, so nothing distinguished "selected" from
-			    "share" in 13 of 36 palette×mode combinations. --bg is guaranteed high
+			    the filled CTA in 13 of 36 palette×mode combinations. --bg is guaranteed high
 			    contrast against --text-heading in every palette (checked: 9.65–21:1), so
 			    the rule is always visible on the fill it sits on — and only a `tone==='ghost'`
-			    cell ever gets it, so Share (tone="solid") and Present (tone="outline") never
-			    do, regardless of what their own fill happens to resolve to. */}
+			    cell ever gets it, so neither verb ever does, regardless of what its own fill
+			    happens to resolve to.
+			    NOTE (2026-08-16): this rule keys on `tone`, never on WHICH verb is solid, so
+			    it survived the Present/Share emphasis swap untouched — Present now carries
+			    the fill and Share the outline. That is exactly why it keys on tone; if you
+			    ever rewrite it to name a verb, you re-create the coupling this note exists
+			    to prevent. */}
 			{active && tone === 'ghost' && (
 				<span aria-hidden="true" className={bar ? 'absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-[var(--bg)]' : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
 			)}

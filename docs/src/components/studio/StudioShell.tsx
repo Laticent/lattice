@@ -3600,11 +3600,22 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    width while a decorative dot held its ground. Same trade the wordmark in
 					    the launcher beside it already makes, and the same boundary (`compact`,
 					    the app's own 1100px line, never Tailwind's `lg`). */}
-					{!compact && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+					{/* …and it is `--text-muted`, not `bg-primary`. `--primary` IS `--accent`
+					    (tailwind.css maps them), so a self-declared decoration was drawing in
+					    the bar's scarcest signal color — accent is a pointer, and this one
+					    pointed at nothing. Decoration in the pointer color is a false pointer;
+					    the accent budget is spent once, on Present. */}
+					{!compact && <span className="size-2 shrink-0 rounded-full bg-[var(--text-muted)]" />}
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
 					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
 					    desktop/tablet the deck title takes priority. */}
-					<span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground xl:inline">{metaFor(source)}</span>
+					{/* `--text-body`, not `--text-muted`, for the same reason as the dial labels
+					    and the ⌘K placeholder: this is READ TEXT (the deck's slide count), and
+					    `--text-muted` is the theme's declared-decorative, WCAG-exempt channel —
+					    2.64:1 measured here at 11px, where 1.4.3 wants 4.5:1. Found while
+					    verifying the other two; same root cause, same header, so it is fixed
+					    here rather than logged. */}
+					<span className="hidden shrink-0 font-mono text-[11px] text-[var(--text-body)] xl:inline">{metaFor(source)}</span>
 					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 				</button>
 			</DropdownMenuTrigger>
@@ -3687,21 +3698,32 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    nowrap, so the deck switcher stays the one item that gives. The slim
 					    header has far more slack, so it never wrapped — matching it here keeps
 					    the two pills from drifting apart the next time one is touched. */}
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
+					<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
 				</Tip>
-				{/* Present + Share are deliverable verbs — they stay reachable at EVERY stop,
-				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
-				<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
-				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
-				{/* The tail — separator · dial · feedback — mirrors the full header's tail
-				    exactly, and that is the point: Present, Share, the dial and feedback all
-				    sit at the SAME x at Read, Write and Craft. Drop either the divider or the
-				    feedback button here and the whole cluster slides on every dial step. */}
+				{/* THE DIAL SITS INBOARD OF THE VERBS (2026-08-16). It used to follow them, so
+				    a three-segment LABELED mode control — plus the feedback icon — sat outboard
+				    of the bar's filled CTA. Across 17 comparable tools the accent CTA is the
+				    last LABELED action, with only icon-only utilities and the avatar outboard
+				    of it; the eye's terminal fixation landed on "Craft" rather than on the
+				    thing the bar exists to do. Moving the dial in front of Present/Share is the
+				    smallest edit that fixes it, and it keeps Present-before-Share — the reading
+				    the plurality of tools use and the one this bar already had.
+				    Present/Share stay reachable at EVERY stop, never hidden behind a posture
+				    (2026-07-17-studio-persona-dial.md, T5 graft). */}
 				<Separator orientation="vertical" className="h-5" />
 				<PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />
+				{/* The tail — dial · verbs · feedback — mirrors the full header's tail EXACTLY,
+				    and that is the point: the dial, Present, Share and feedback all sit at the
+				    SAME x at Read, Write and Craft (#1371). The mirroring is what makes that
+				    true, so this order and the full header's must be changed together, always —
+				    drop or move one element here and the whole cluster slides on every dial
+				    step. `studio-header-fit.spec.ts` asserts the x-stability, but NOT the
+				    order, so the mirror is on you. */}
+				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
+				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{feedbackButton}
 			</header>
 			) : (
@@ -3801,7 +3823,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    VERTICAL. With the class the pressure lands where the design says it
 						    should — the deck title truncates a little sooner — and the fix holds for
 						    any deck title length rather than for the one that happened to be open. */}
-						<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
+						<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
@@ -3835,6 +3857,25 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
+				{/* WHICH VERB WEARS THE FILL IS NOW A DECISION, not a default
+				    (2026-08-16-studio-toolbar-placement.md). It used to be neither: Share
+				    rendered `<Button size="sm">` with no `variant`, i.e. shadcn's default
+				    solid, while Present was EXPLICITLY demoted to `variant="outline"`. That
+				    arrived fully formed in this file's first commit (c9ecdae) and was never
+				    argued anywhere — then 2026-07-03-studio-brand-mark-toolbar.md:39 cited
+				    "Share is the bar's only filled CTA" as a PREMISE, and the phone bar
+				    copied the tone split. An omitted prop had become a rule.
+				    Present carries the fill now: it is the more frequent verb for every
+				    persona, it repeats within a session where Share is once per deck
+				    lifecycle, its real-world trigger is time-pressured ("we're starting"),
+				    and it is the terminal act of a *presentation* engine. Share publishes —
+				    the least reversible thing on the bar should not also be the most
+				    attractive target 12px from a quiet outline.
+				    The rule that outranks the choice: EXACTLY ONE full-strength fill. Zero
+				    of 17 comparable tools run two, and this row already lost most of its
+				    pop-out to spending accent five times over (Share's fill, the lit dial
+				    segment, the tours glyph, the deck dot, the mark). Whichever verb wins,
+				    the other is `variant="outline"` — never both filled. */}
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
 				{/* DESKTOP ONLY. Below 1100 the tours ride the ⋯ overflow instead (tablet) or the
@@ -3851,7 +3892,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
+									{/* NOT accent-colored any more. Measured, this glyph was the loudest thing in
+								    the row relative to its importance: the only saturated icon in the run (a
+								    1.44:1 luminance step plus a large chroma step off its neighbors), the
+								    largest clear space of any control, and more accent ink than the deck's own
+								    identity dot — for a once-per-session detour this repo already judged cheap
+								    enough to bury one tap deeper on tablet (#1401). Accent is a pointer and the
+								    bar was spending it five times; a hover tint keeps the affordance without
+								    competing with the CTA two slots away. */}
+								<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('text-[var(--text-body)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
 								</DropdownMenuTrigger>
 							</TooltipTrigger>
 							<TooltipContent>Show me — a guided tour that drives itself</TooltipContent>
@@ -3867,18 +3916,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{!mobile && <Tip label="Present"><Button variant="outline" size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
-				{!mobile && <Tip label="Share"><Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
-
 				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. At ≥1100
 				    this still renders in BOTH headers at the same slot, so the #1371 tail-x
-				    invariant (Present / Share / dial / feedback hold their x across the dial)
-				    is untouched; below 1100 all three stops render THIS header, so there is no
-				    second row for it to disagree with. */}
+				    invariant (the dial / Present / Share / feedback hold their x across the
+				    dial) is untouched; below 1100 all three stops render THIS header, so there
+				    is no second row for it to disagree with. */}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 				{/* The posture dial — the always-visible, reversible way to any stop. Present
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
+				{/* IT SITS BEFORE THE VERBS (2026-08-16) — the mirror of the slim header's tail,
+				    which is what makes the #1371 x-stability true. See the long note there; the
+				    short version is that a labeled three-way mode control outboard of the bar's
+				    filled CTA took the eye's terminal fixation, and no comparable tool puts a
+				    labeled action outboard of its accent CTA. Change one header's order without
+				    the other and the cluster slides on every dial step. */}
 				{/* WORDS AT EVERY WIDTH THIS RENDERS AT (≥700px). The dial shipped icon-only
 				    below 1100 for one release and that was the wrong trade (#1401): on a touch
 				    tablet the words became UNREACHABLE, not merely hidden — Radix's tooltip
@@ -3890,6 +3942,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    Below 700 the dial is not in the header at all (`!mobile`) — the phone
 				    carries the density on its own pane bar. */}
 				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
+				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -4066,8 +4120,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" variant="bar" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><ChatIcon className="size-[17px]" /></BarIcon>
 						<BarIcon label="Settings" hint="Settings — deck & slide" caption="Settings" variant="bar" active={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))}><SlidersHorizontal className="size-[17px]" /></BarIcon>
 						<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
-						<BarIcon label="Present" hint="Present" caption="Present" variant="bar" tone="outline" demo="present" onClick={openPresent}><Play className="size-[17px]" /></BarIcon>
-						<BarIcon label="Share" hint="Share" caption="Share" variant="bar" tone="solid" demo="share" onClick={() => setShareOpen(true)}><Share2 className="size-[17px]" /></BarIcon>
+						<BarIcon label="Present" hint="Present" caption="Present" variant="bar" tone="solid" demo="present" onClick={openPresent}><Play className="size-[17px]" /></BarIcon>
+						<BarIcon label="Share" hint="Share" caption="Share" variant="bar" tone="outline" demo="share" onClick={() => setShareOpen(true)}><Share2 className="size-[17px]" /></BarIcon>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
