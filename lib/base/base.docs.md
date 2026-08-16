@@ -1122,12 +1122,18 @@ Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck 
 `<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the
 layout too, e.g. `_class: cards-grid corners-square`).
 
-**Two tokens, and only one of them is a theme's to set.** `--slide-radius` is the live
-value and is `0` unless the register turns it on — do not set it directly.
-`--slide-radius-rounded` is what *rounded* means for this palette, and that is the value
-layer's to own (`design/theming.md`); the engine ships `calc(1.5 * var(--_sec-1cqi))`,
-about 19px at hd. Both are a **different tier** from `--radius-sm/md/lg`, which round
-things *inside* a slide — cards, images, code panels — and are wrong for this job.
+**One token, and it is the engine's.** `--slide-radius` is `0` unless the register turns
+it on; `section.corners-rounded` (`base.modifiers.css`) is the single place that gives it
+a length — `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd. It is a **different tier**
+from `--radius-sm/md/lg`, which round things *inside* a slide (cards, images, code
+panels) and are wrong for this job.
+
+There is deliberately **no theme-facing radius token**. An earlier cut shipped one, on the
+engine-owns-names / theme-owns-values reading of
+`engineering/decisions/2026-08-09-color-theme-ownership.md` — but that charter is about
+*color*. A corner has no per-palette answer worth varying, no theme in the tree wanted
+one, and a theme that ever does is CSS: redeclare `--slide-radius` under
+`section.corners-rounded`.
 
 Two implementation notes worth knowing before you touch either:
 
@@ -1141,11 +1147,17 @@ Two implementation notes worth knowing before you touch either:
   host viewport, so the corner would scale with the browser window instead of the slide.
 
 Everything downstream follows the rendered slide rather than guessing: the Studio's
-preview box, its gallery tiles and thumbnails, and the Fabricate specimens all read the
-radius back off the live render (`docs/src/lib/deck-corner.ts`) as a *fraction* of the
-slide's width, so one deck rounds by the same proportion at 240px and at 1280px. Before
-this register those surfaces each picked a fixed pixel corner of their own, which is what
-made a preview disagree with its own export (#1649).
+preview box, its gallery tiles and thumbnails, and the Fabricate specimens read the radius
+back off the live render (`docs/src/lib/deck-corner.ts`) as a *fraction* of the slide's
+width, so one deck rounds by the same proportion at 240px and at 1280px. Before this
+register those surfaces each picked a fixed pixel corner of their own, which is what made
+a preview disagree with its own export (#1649).
+
+**Nothing sits behind the slide in a preview.** The frame's own `html, body` is
+`transparent` (`docs/src/lib/single-slide-render.ts`); it used to paint a fixed
+`#e7e7ea` / `#0c0c0c` belonging to neither the deck nor the app, which a rounded corner
+would have exposed at all four corners by construction. The host's surface shows through
+instead, which is the honest answer — outside the slide is the app.
 
 | Token / class | Effect |
 |---|---|

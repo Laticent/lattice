@@ -238,30 +238,19 @@
   /* THE SLIDE'S OWN CORNER — a different tier from the three radii above, which round
    * things INSIDE a slide (cards, images, code panels). This one rounds the slide.
    *
-   * `--slide-radius` is the LIVE value and is `0` by default: square, which is what every
-   * deck rendered and exported at before this register existed, so nothing moves for a
-   * deck that says nothing. A deck opts in with `corners: rounded` in its front matter,
-   * which stamps `corners-rounded` on every section and swaps in the value below
-   * (lib/core/resolve-corners.js, applied in base.modifiers.css).
+   * `0` by default: square, which is what every deck rendered and exported at before this
+   * register existed, so nothing moves for a deck that says nothing. A deck opts in with
+   * `corners: rounded` in its front matter, and `section.corners-rounded`
+   * (base.modifiers.css) is the ONE place that gives it a length —
+   * `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd.
    *
-   * `--slide-radius-rounded` is what "rounded" MEANS, and it is the theme's to set —
-   * the value layer, per 2026-08-09-color-theme-ownership.md. `cqi` like every other
-   * engine radius, so the corner holds its proportion at any render size: a 240px
-   * gallery thumbnail and a 1280px preview of the same deck round by the same FRACTION
-   * of the slide, where the fixed-pixel corners this replaces made the thumbnail look
-   * markedly rounder than the slide it stood for. 1.5cqi ≈ 19px at hd — a shade past
-   * --radius-lg, because a corner that has to read across a whole slide needs more
-   * radius than one rounding a card inside it.
-   *
-   * ANCHORED to `--_sec-1cqi` rather than written as a bare `1.5cqi`, and that is
-   * load-bearing here in a way it is not for the three radii above. A length resolves
-   * where it is USED, and this one is used ON THE SECTION — which is the size container
-   * itself, so a bare `cqi` there escapes to the nearest OUTER container and, finding
-   * none, to the initial containing block: the host viewport. The corner would then
-   * scale with the browser window instead of the slide. The three in-slide radii are
-   * consumed by DESCENDANTS, where a bare `cqi` resolves against the slide correctly,
-   * which is why they stay bare. (`checkContainerUnits` fails a bare unit that reaches
-   * a section-own consumer; #1243 is the same shape on `--frame-inset-y`.) */
+   * THERE IS NO SECOND, THEME-FACING TOKEN, and that is deliberate. An earlier cut of this
+   * shipped a `--slide-radius-rounded` seam on the reasoning that the engine owns names and
+   * a theme owns values (2026-08-09-color-theme-ownership.md). But that charter is about
+   * COLOR, and a corner is not a color: there is no per-palette answer a designer would
+   * want to vary, no theme in the tree set it, and a theme that ever wants its own corner is
+   * CSS — it can redeclare `--slide-radius` under `section.corners-rounded` without a
+   * dedicated token existing to be discovered. One token, declared here, resolved there. */
   --slide-radius:0;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
@@ -1008,15 +997,6 @@
   --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
 
-  /* What `corners: rounded` MEANS for this theme — the slide's own corner (see the
-   * `--slide-radius` note in the radii block above for why this tier exists at all).
-   * In THIS block, not `:root`, for the reason spelled out at the top of it: the
-   * consumer is `section.corners-rounded`'s own `clip-path`, i.e. the section itself,
-   * and a `:root`-only copy bakes the `1cqi` fallback in and silently resolves against
-   * the host viewport — a corner that grew and shrank with the browser window rather
-   * than with the slide. A theme overrides this token to set how round its decks are;
-   * it is the value layer's to own (2026-08-09-color-theme-ownership.md). */
-  --slide-radius-rounded: calc(1.5 * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── The slide's DEPTH axis — seven named planes ────────────────────────

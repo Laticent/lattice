@@ -11,10 +11,10 @@
  * previewed rounded, so the preview never showed the artifact you would ship.
  *
  * The engine owns the corner now (`corners:` front matter → `--slide-radius`,
- * lib/core/resolve-corners.js). This reads the value BACK off the rendered section
- * rather than re-deriving it, which is what keeps the two honest: a theme is free to
- * redefine `--slide-radius-rounded`, and a consumer that recomputed the number from a
- * hardcoded constant would silently disagree with the engine the moment it did.
+ * lib/core/resolve-corners.js). This reads the value BACK off the rendered section rather
+ * than re-deriving it, which is what keeps the two honest: the number lives in one CSS
+ * rule, and a consumer that recomputed it from a hardcoded constant would silently
+ * disagree the moment that rule moved.
  *
  * The value is returned as a FRACTION of the slide's width, not as pixels. The engine
  * states the radius in `cqi` — a percentage of the slide — precisely so that a 240px

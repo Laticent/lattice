@@ -615,15 +615,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// pairs resolve as chosen; author-supplied `extraCss` (Fabricate Layout Studio's live component
 	// styles) is appended AFTER the theme, the same order the Workbench previews it.
 	function themeStyleContent(css: string, mode: 'light' | 'dark', geom: Geom, extraCss = ''): string {
-		const bg = mode === 'dark' ? '#0c0c0c' : '#e7e7ea';
 		return (
 			fontFaceCss +
 			singleSlideFrame(geom.width, geom.height) +
 			':root{color-scheme:' +
 			mode +
-			'}html,body{background:' +
-			bg +
-			'}' +
+			// TRANSPARENT, so nothing of this document's own sits BEHIND the slide. It used to
+			// paint the engine's generic `#e7e7ea` / `#0c0c0c` — a fixed grey belonging to
+			// neither the deck nor the app, invisible only for as long as the slide covered the
+			// frame exactly. `corners: rounded` makes it visible by construction: the slide's
+			// clip exposes whatever is behind it at every corner, and a stray grey arc there is
+			// precisely the artifact this register exists to remove (#1649). With nothing here,
+			// the corner shows the HOST's surface, which is the honest answer — outside the
+			// slide is the app. The host still guards the pre-paint white flash the old fill was
+			// also doing double duty for: `iframe.live { background: var(--bg) }` (landing.css)
+			// paints the element itself, which is what iOS Safari flashes, not the document.
+			'}html,body{background:transparent}' +
 			// PREVIEW-ONLY (this srcdoc builder is never an export path): a motion-eligible chart figure the
 			// live host has pre-hidden starts invisible, so the viewer never sees the static poster flash
 			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`

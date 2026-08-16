@@ -665,7 +665,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
 	// The deck's own corner radius, as a FRACTION of the slide's width — measured off the
 	// live render by DeckPreview (docs/src/lib/deck-corner.ts) rather than re-derived here,
-	// so a theme that redefines `--slide-radius-rounded` moves the chrome with it. `0` is a
+	// so the chrome follows the one CSS rule that owns the number. `0` is a
 	// square deck: the default, and every deck that predates the `corners:` register.
 	// DeckPreview only fires on CHANGE, so this does not re-render per keystroke.
 	const [deckCorner, setDeckCorner] = React.useState(0);

@@ -25,8 +25,8 @@ One register, one token, and the brand bar comes with it.
 
 1. The engine owns the shape
    - `corners: rounded` in the deck's front matter, nowhere else
-2. The theme owns how round
-   - a palette sets `--slide-radius-rounded`; the engine never names a number
+2. One rule owns how round
+   - `section.corners-rounded`, and nothing downstream re-derives it
 3. The deck decides, per deck
    - the same axis `theme:` and `color-mode:` already sit on
 

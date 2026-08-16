@@ -2380,7 +2380,13 @@ section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.card
    a fixed 12px of its own (#1649). It also rounds the surface a second time, which
    is harmless and identical. */
 section.corners-rounded {
-  --slide-radius: var(--slide-radius-rounded);
+  /* The one place the corner gets a length. Anchored to `--_sec-1cqi` and declared HERE,
+     on a section selector, for the reason `--slide-radius`'s own note gives: the value is
+     consumed by the section's own clip, and a section cannot query its own container, so a
+     bare `cqi` would escape to the host viewport and scale the corner with the browser
+     window. A theme wanting its own corner redeclares this line; there is no separate
+     theme-facing token to keep in step. */
+  --slide-radius: calc(1.5 * var(--_sec-1cqi, 1cqi));
   clip-path: inset(0 round var(--slide-radius));
   border-radius: var(--slide-radius);
 }

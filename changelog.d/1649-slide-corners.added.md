@@ -1,8 +1,8 @@
 - **Added: the engine owns the slide's corner, and a deck can ask for a rounded
   one.** A new `corners:` front-matter register — `square` (the default, and what
   every deck rendered at before) or `rounded` — with a per-slide `_class:
-  corners-rounded` / `corners-square` override. The theme sets how round via
-  `--slide-radius-rounded`; the engine never names a number. It clips with
+  corners-rounded` / `corners-square` override. One engine rule owns how round,
+  and nothing downstream re-derives it. It clips with
   `clip-path` rather than `border-radius`, so the brand bar and all four
   `spectrum-edge` rails follow the corner instead of poking square ends past it.
 - **Fixed: the Studio preview no longer invents a corner the deck doesn't have.**

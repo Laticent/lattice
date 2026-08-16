@@ -103,7 +103,14 @@ describe('resolve-corners', () => {
     const css = read('lib/base/base.modifiers.css');
     const rounded = css.match(/section\.corners-rounded\s*\{[^}]*\}/);
     assert.ok(rounded, 'section.corners-rounded activation rule missing');
-    assert.match(rounded[0], /--slide-radius:\s*var\(--slide-radius-rounded\)/, 'rounded must swap in the theme value');
+    // The length is declared HERE, on a section selector, and anchored — a section cannot
+    // query its own container, so a bare `cqi` would resolve against the host viewport and
+    // scale the corner with the browser window. `checkContainerUnits` also catches this.
+    assert.match(
+      rounded[0],
+      /--slide-radius:\s*calc\([^)]*var\(--_sec-1cqi/,
+      'rounded must give the corner an anchored length',
+    );
     // `clip-path`, NOT `border-radius` alone. The slide's brand bar is a `border-image`,
     // and a border-image does not honor border-radius — the bar keeps square corners and
     // pokes past the rounded surface, a worse artifact than the one being fixed. Measured
@@ -114,21 +121,18 @@ describe('resolve-corners', () => {
     assert.match(square[0], /clip-path:\s*none/, 'the opt-out must clear the clip, not just the radius');
   });
 
-  test('base.tokens.css: square is the default, and the rounded value is section-anchored', () => {
+  test('base.tokens.css: square is the default, and there is exactly ONE corner token', () => {
     const css = read('lib/base/base.tokens.css');
     assert.match(css, /--slide-radius:\s*0/, 'the live value defaults to 0 — square, the pre-register baseline');
-    // A bare `cqi` here would resolve against the ICB (the host VIEWPORT in a browser),
-    // because the consumer is the SECTION'S OWN clip-path and a section cannot query its
-    // own container. The corner would then scale with the browser window rather than the
-    // slide. `checkContainerUnits` catches this, and so does this case.
-    assert.match(
-      css,
-      /--slide-radius-rounded:\s*calc\([^)]*var\(--_sec-1cqi/,
-      'the rounded value must be anchored to --_sec-1cqi, never a bare cqi',
-    );
+    // No second, theme-facing seam. An earlier cut shipped `--slide-radius-rounded` on the
+    // engine-owns-names/theme-owns-values charter, but that charter is about COLOR: no theme
+    // set it, and a theme that wants its own corner can redeclare `--slide-radius` under
+    // `section.corners-rounded` without a token existing to be discovered. Owner-directed.
+    // A DECLARATION, not a mention: the name survives in the note above `--slide-radius`
+    // recording why the seam was dropped, and that note is the point of keeping it.
     assert.equal(
-      (css.match(/--slide-radius-rounded:\s*[\d.]+cqi/g) || []).length, 0,
-      'a bare-cqi declaration would resolve against the host viewport on the section',
+      (css.match(/--slide-radius-rounded\s*:/g) || []).length, 0,
+      'the theme seam was deliberately collapsed — one token, resolved in base.modifiers.css',
     );
   });
 });
