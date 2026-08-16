@@ -46,8 +46,16 @@ const {
 const FS_LABEL = 12;    // .quadrant-label
 const FS_ZONE = 11.5;   // .quadrant-label--zone
 const FS_ITEM = 9.5;    // .quadrant-dot-label / .quadrant-bubble-label
-const ADV_UPPER = 0.68; // uppercase + tracked, as the emitter measures it
 const ADV = 0.6;
+// The uppercase estimate is a per-STRING glyph sum, not a constant, so this
+// helper asks the kernel for it rather than holding a copy (#1672). That is the
+// right call here even though the sizes above are duplicated on purpose: the
+// question these tests ask is whether two labels the DE-COLLISION PASS thought
+// were clear actually are, so the box has to be the one the pass reasoned
+// about. Whether that box matches the painted glyphs is a different question,
+// asked against real browser measurements in
+// test/unit/transformers/svg-label.test.js.
+const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
 
 /**
  * Rebuild the boxes a `<text class="…">` set actually paints, honoring both
@@ -57,9 +65,11 @@ const ADV = 0.6;
  */
 const TEXT_EL_RE = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
 
-function textBoxes(html, className, fontSize) {
+function textBoxes(html, className, fontSize, hand = false) {
   const upper = /quadrant-label/.test(className);
-  const adv = upper ? ADV_UPPER : ADV;
+  // Tracking follows the rule the class actually matches, as cornerSpec does.
+  const tracking = /--magic/.test(className) ? 0.08 : /--zone/.test(className) ? 0.06 : 0.04;
+  const advOf = upper ? (s) => upperAdvance(s, { hand, tracking }) : () => ADV;
   // Match every <text>, then filter on its class LIST. Testing the class inside
   // the element pattern would need two unbounded runs around a literal
   // (`[^"]*\bfoo\b[^"]*`), which backtracks polynomially — CodeQL flags it, and
@@ -73,7 +83,9 @@ function textBoxes(html, className, fontSize) {
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
     const lines = [...m[2].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
       .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
-    const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * fontSize * adv;
+    // Widest by PAINTED width, not character count — with a per-string advance
+    // the two disagree, and it is the painted one that collides.
+    const widest = lines.reduce((w, l) => Math.max(w, l.text.length * advOf(l.text)), 0) * fontSize;
     const x0 = lines[0].x;
     const left = anchor === 'middle' ? x0 - widest / 2 : anchor === 'end' ? x0 - widest : x0;
     return {
@@ -510,6 +522,36 @@ describe('quadrant', () => {
     assert.match(html, /data-ty="75"/);
     // Eyebrow stays in the DOM as `.chart-eyebrow`.
     assert.match(html, /class="chart-eyebrow"/);
+  });
+});
+
+// The dispatcher is the seam where the slide's class reaches the builder, and a
+// break here is invisible: the labels still render, just measured for the wrong
+// face. Keyed on the `sketch` TOKEN because that is what the CSS keys on, so a
+// per-slide `_class: boardroom` opt-out lands on both sides at once — the same
+// contract the gantt axis uses (see gantt.test.js).
+describe('quadrant — the sketch token reaches the builder', () => {
+  // A corner name whose two faces straddle a word break — `COMMITMENT WAVE`
+  // fits one line in Outfit and needs two in Shantell Sans. Most names do NOT
+  // straddle one (the gallery's are short and wrap identically in both, which
+  // is why the shipped corpus renders byte-identically), so this fixture is
+  // deliberately picked to make the seam observable at all (#1672).
+  const inner = '<h2>X</h2><ul>' +
+    '<li>Commitment Wave<ul><li>A <code>2, 82</code></li></ul></li>' +
+    '<li>Quick Wins<ul><li>B <code>8, 88</code></li></ul></li>' +
+    '</ul>';
+  const labelsOf = (cls) => [...transformChartSection(inner, cls).html
+    .matchAll(/<text class="quadrant-label"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => m[1]);
+
+  test('a `sketch` slide measures the hand face; a plain slide measures the clean one', () => {
+    assert.notDeepEqual(labelsOf('quadrant sketch'), labelsOf('quadrant'),
+      'the hand sans is wider here — identical output means `hand` never reached buildQuadrant');
+  });
+
+  test('the hand face breaks the wide name into more lines', () => {
+    const lines = (cls) => labelsOf(cls)[0].match(/<tspan/g).length;
+    assert.ok(lines('quadrant sketch') > lines('quadrant'),
+      'the wider face must wrap sooner, not later');
   });
 });
 

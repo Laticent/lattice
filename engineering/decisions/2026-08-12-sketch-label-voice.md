@@ -272,30 +272,99 @@ runtime's re-run AND make the chart axis rebuildable, which would give that path
 hand geometry *and* hand paint. That is a bootstrap-and-chart-family change across
 all 14 chart components, and belongs in its own PR with its own checker.
 
-### Found, not fixed — ADVANCE_UPPER under-bounds the hand face
+### Closed later — ADVANCE_UPPER under-bounded BOTH faces (#1672, 2026-08-16)
 
-`ADVANCE_UPPER` (0.68, `svg-label.js`) is calibrated for uppercase + 0.04em
+`ADVANCE_UPPER` (0.68, `svg-label.js`) was calibrated for uppercase + 0.04em
 tracking in the CLEAN face. Its three consumers — `quadrant.transform.js:624` and
 `:1093`, `radar.transform.js:772` — style their labels `--font-body`, which
-`base.sketch.css` re-points to the hand sans. Measured there, the hand exceeds
-0.68 by up to ~9.6%:
+`base.sketch.css` re-points to the hand sans, where the hand exceeded 0.68 by up
+to ~9.6% (`Wide moat` 0.745, `Emerging challengers` 0.723, `Operational maturity`
+0.706, `Quick Wins` 0.692).
 
-| label | hand |
+**Re-measuring first changed what the bug was.** Those four strings reproduced
+exactly, but the vocabulary was widened from four gallery names to 42 strings
+spanning `IL ILI` to `WWWWWWWWWW`, at each rule's real CSS (weight **700** — the
+shipped rules say 700, not the 600 the issue assumed), and that showed the clean
+face already broke its own bound on ordinary author text: `WORKFLOW` 0.790,
+`AUTOMATE` 0.737, `COST` 0.702, `DEFER` 0.685. **This was never a sketch defect.**
+Sketch widened an estimate that was already wrong, and a second per-face
+CONSTANT — the shape the gantt tick used, and the shape this issue was drafted
+around — would have carried the same class of error into both faces.
+
+The reason the gantt answer does not transfer is the one the issue named: the
+tick's vocabulary is CLOSED, so a measured maximum is a real bound. These labels
+are author text, and no single average describes both `IL ILI` and `WORKFLOW` —
+the two differ by more than 2× per character in the same face.
+
+**Real measurement was not available.** `state-chart.transform.js:882` solves the
+same problem with a canvas because its whole architecture is browser-measured
+layout: it computes NO geometry at build time and installs a layout pass on all
+three render paths. Quadrant and radar do the opposite — every box, wrap and
+de-collision decision is made in a pure string transform, deliberately, so the
+export and the runtime cannot disagree and the anima clone has a stable target
+(`svg-label.js` header). Reaching for a canvas here means rewriting both charts,
+not calling a different function.
+
+**What shipped instead: a per-glyph table per face.** `upperAdvance(text, {hand,
+tracking})` sums a measured advance per character and adds the rule's tracking,
+so the estimate follows the STRING and the FACE. The table holds glyphs at
+`letter-spacing: 0`, which is what lets one table serve all four tracked rules
+(0.04 / 0.06 / 0.08em). Each entry is rounded UP to the nearest 0.05 — that
+rounding is what buys the "never short" property. Predicted ÷ actually-painted,
+over the 42-string vocabulary in both faces:
+
+| estimator | ratio |
 |---|---|
-| `Wide moat` | 0.745 |
-| `Emerging challengers` | 0.723 |
-| `Operational maturity` | 0.706 |
-| `Quick Wins` | 0.692 |
+| flat 0.68 | 0.61 … 2.04 |
+| glyph table | 1.02 … 1.08 |
 
-Unlike the gantt tick these are **open vocabulary** (author text), and the same
-estimate feeds `placeLabels` / `deCollideLabels`, so an under-count is a placement
-error as well as a wrap error. Latent: rendered the sketch quadrant and radar and
-saw no clipping on the gallery's own data.
+Three things are worth carrying forward:
 
-**Pre-existing** — it arrived with the `--font-body` re-point in #1647, not with
-#1663 — and off the path of a change scoped to three specific rules with a
-different constant. Recorded here rather than pulled into that diff, per HARD RULE
-#18's pre-existing/off-path branch.
+1. **Both ends of that range are defects, and they are different defects.** An
+   under-count lets the line past its box AND makes `placeLabels` /
+   `deCollideLabels` guard a box narrower than the painted glyphs, so an item
+   label routes through a corner name. An over-count is not the safe direction:
+   inflated boxes wrap text that fits and shove neighbors until the hide-overlap
+   rule DROPS a name from the artifact. The goal is a tight bound, not a
+   generous one — the same lesson `ADVANCE_HAND_TRACKED`'s ceiling records.
+2. **A per-string average needs a per-LINE check.** `IL ILI WORKFLOW` averages
+   well under what the line `WORKFLOW` alone paints, and it is the line that has
+   to fit. `measureLabel` now re-asks with the widest line's own advance and
+   re-wraps until the budget stops shrinking. A NUMERIC advance is unaffected —
+   every line returns the same number, so the loop exits on its first pass and
+   the legend, funnel and gantt callers are byte-identical.
+3. **An unmapped character bills at the face's widest glyph.** Wrong in the only
+   direction that cannot clip, which is what makes measuring non-Latin scripts a
+   safe change to defer rather than a silent gap.
+
+Verified on the real surface, not by eye: a stress deck of deliberately wide
+author names rendered through the real pipeline in both modes, then read in
+headless Chromium — computed `font-family` confirms Outfit clean / Shantell Sans
+sketch, and every line's `getComputedTextLength()` is compared against the width
+it was wrapped to. **One overrun before (`MMMM WWWW MMMM`, 12.9% past its box in
+the hand face), zero after; zero painted-box overlaps either way.** Across all 22
+shipped decks carrying a quadrant or radar (44 renders, clean and sketch), the
+rendered HTML is **byte-identical** before and after.
+
+That last number was only readable because #1677 landed first. Measured against
+the base before it, five sketch decks showed whole-file diffs that had nothing to
+do with this change — re-rendering twice with identical code produced the same
+five, because their Mermaid SVG was nondeterministic run to run. Rebasing onto
+the deterministic bake turned a result that needed a paragraph of explanation
+into a clean zero. Worth remembering the next time a corpus diff looks alarming:
+**run the control — render twice with the same code — before attributing a diff
+to your own change.**
+
+*A note on the gallery names.* Most do NOT straddle a word break between the two
+faces, which is why the corpus renders identically and why the unit tests pick
+`COMMITMENT WAVE` and `MAXIMUM COMMITMENT` deliberately — the seam where the
+`sketch` token reaches the builder is unobservable on the shipped fixtures, so a
+test written against them would pass with the token unplumbed.
+
+Originally recorded here as *found, not fixed*: it arrived with the `--font-body`
+re-point in #1647, not with #1663, and was off the path of a change scoped to
+three specific rules with a different constant (HARD RULE #18's
+pre-existing/off-path branch).
 
 ## Known gap — Mermaid diagram labels (NOT closed here)
 
