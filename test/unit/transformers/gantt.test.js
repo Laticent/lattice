@@ -354,8 +354,13 @@ describe('gantt — tick advance follows the painted face', () => {
   </ul></li></ul>`;
   const eyebrow = '<p><code>2026-01-01 .. 2027-03-31</code></p>';
   // One entry per tick, tspans joined — a wrapped tick is one label, not two.
+  // Reads the <tspan> contents rather than stripping tags out of the <text>: the
+  // emitter puts one tspan per line and nothing else inside, so this is the exact
+  // extraction, and a single-pass tag strip is the shape CodeQL flags as an
+  // incomplete sanitizer (harmless on engine-generated markup, but not worth
+  // teaching by example in a test).
   const ticks = (html) => [...html.matchAll(/<text class="gantt-tick"[\s\S]*?<\/text>/g)]
-    .map(m => m[0].replace(/<[^>]*>/g, ''));
+    .map(m => [...m[0].matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)].map(t => t[1]).join(''));
   // The gradient <defs> ids carry a module-level counter, so two identical calls
   // differ by id alone. Compare the AXIS, which is what the advance decides.
   const axis = (html) => (html.match(/<g class="gantt-axis"[\s\S]*?<\/g>/) || [])[0];
