@@ -1,11 +1,11 @@
 ---
 status: shipped
-summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF. The PDF encoder is 1.6% of a small render and 15% of a large one; the cost is the browser round-trip, and inside it a FLAT ~2.0s `networkidle0` toll per render (56% of a 1-slide render) plus a second Chrome booted by `mmdc` (2.7–3.2s per deck with any diagram). 16 of 18 integration files render a PDF and assert only on the HTML sidecar, but dropping it buys 1.2–1.8% — the real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 non-byte-reproducible goldens at once. Also found: `deck.md out.html` writes PDF bytes into a `.html` file — there is no HTML-only output mode.
+summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF. The PDF encoder is 1.6% of a small render and 15% of a large one; the cost is the browser round-trip, and inside it a FLAT ~2.0s `networkidle0` toll per render (56% of a 1-slide render) plus a second Chrome booted by `mmdc` (2.7–3.2s per deck with any diagram). 16 of 18 integration files render a PDF and assert only on the HTML sidecar, but dropping it buys 1.2–1.8% — the real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 non-byte-reproducible goldens at once. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file (plus an `out.html.html`) — `.html` is now a first-class output format, a real browser render minus the PDF encode, measured 6.4s vs 8.5s on a 58-slide deck.
 ---
 
 # PDF vs HTML vs image — what each format actually costs
 
-**2026-08-16 · measurement record, no behavior change in this commit**
+**2026-08-16 · measurement record, plus the one defect it turned up (§6)**
 
 **Question asked:** we default to PDF for testing and sanity checks; PDF feels
 heavy. What does it buy us, and where can we be leaner?
@@ -269,18 +269,33 @@ render cost.**
 
 ---
 
-## 6. A defect found while measuring
+## 6. A defect found while measuring — **fixed in this change**
 
-`node lattice-emulator.js deck.md out.html` writes **PDF bytes into
-`out.html`**, plus a second file `out.html.html` containing the actual HTML.
-Verified — `out.html` begins `%PDF-1.7`.
+`node lattice-emulator.js deck.md out.html` wrote **PDF bytes into `out.html`**
+(verified — the file began `%PDF-1.7`), plus a second `out.html.html` holding
+the actual HTML. Cause: the format switch mapped only `.pptx`/`.png`/`.zip` and
+fell through to `'pdf'` for everything else, and the sidecar name is derived by
+stripping the output extension and appending `.html` — so an `.html` output
+resolved to `out.html.html`.
 
-Cause: `lattice-emulator.js:515-518` maps only `.pptx`/`.png`/`.zip` and falls
-through to `'pdf'` for everything else, including `.html`. **There is no
-HTML-only output mode in the CLI** — the HTML is always a byproduct of a full
-browser PDF render. The `--help` text does not list `.html` as an output, so
-this is an unhandled extension rather than a broken feature, but it silently
-produces a mislabeled file instead of erroring.
+`.html` is now a first-class output format rather than a rejected extension:
+
+- The rendered HTML is the deliverable; no PDF is written, and the sidecar and
+  the output are the same file.
+- **Still a real browser render.** Auto-split and the overflow/legibility passes
+  measure laid-out DOM, and the written file is their post-split result — an
+  `.html` render pages identically to the same deck's `.pdf` (asserted in
+  `test/integration/export/export-formats.test.js`). What it skips is `page.pdf`
+  and the PDF-only iOS-Quartz SVG rasterization pass.
+- Measured on the 58-slide deck: **6.4s vs 8.5s** for the same deck to `.pdf`
+  — about 25%, which is `page.pdf` (1,176 ms in §2) plus the skipped SVG pass.
+- `--player` / `--fluid` build the viewer at that path; `--notes` writes
+  `deck.notes.txt`; `--raster`, `--paper`/`--orientation` and `--present` are
+  PDF-only and now warn instead of going silent.
+
+**What this does not do:** it is not the 0.78s browser-free number from §1, and
+should not be sold as one. That figure is `lib/engine` with no layout at all —
+a different coverage tier (§7, non-levers).
 
 ---
 

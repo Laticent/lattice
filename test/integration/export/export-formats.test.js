@@ -435,6 +435,45 @@ describe('export-formats', () => {
     assert.ok(blend2 > 15000, `scrim-over-image blend should cover the 200×150 box, got ${blend2}`);
   });
 
+  // `.html` used to fall through the format switch to 'pdf', so this exact command
+  // wrote PDF BYTES into `deck.html` and put the real HTML in a second
+  // `deck.html.html`. Both halves are asserted: the deliverable is HTML, and the
+  // doubled-extension file does not exist.
+  test('.html output is HTML, not a PDF wearing an .html name, and writes no deck.html.html', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.html');
+    const r = run(out);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.ok(fs.existsSync(out), 'html should exist');
+
+    const head = fs.readFileSync(out).subarray(0, 5).toString();
+    assert.notEqual(head, '%PDF-', 'the .html file must not contain PDF bytes');
+    assert.match(fs.readFileSync(out, 'utf8').slice(0, 200), /<!DOCTYPE html>/i, 'not an HTML document');
+
+    assert.ok(!fs.existsSync(`${out}.html`), 'must not write a doubled-extension deck.html.html');
+    assert.ok(!fs.existsSync(path.join(dir, 'deck.pdf')), 'must not write a PDF at all');
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['deck.html'], 'the .html render writes exactly one file');
+  });
+
+  // The .html path skips `page.pdf`, NOT the browser — auto-split runs over laid-out
+  // DOM, and its result must reach the written file. Same fixture, both formats: the
+  // HTML's rendered-section count has to equal the PDF's page count, or the .html
+  // deliverable is a pre-split document masquerading as a finished render.
+  test('.html carries the post-split render — section count equals the PDF page count', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const html = path.join(dir, 'deck.html');
+    const pdf = path.join(dir, 'out.pdf');
+    assert.equal(run(html).status, 0, 'html render failed');
+    assert.equal(run(pdf).status, 0, 'pdf render failed');
+
+    const sections = (fs.readFileSync(html, 'utf8').match(/<section[^>]*\sdata-lattice-slide/g) || []).length;
+    const pages = Number(
+      execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }).match(/^Pages:\s+(\d+)/m)[1],
+    );
+    assert.ok(sections > 0, 'expected rendered slide sections in the .html output');
+    assert.equal(sections, pages, 'the .html render must page identically to the .pdf render');
+  });
+
   test('renders one PNG per slide at the 2× raster size', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.png');

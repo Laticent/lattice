@@ -1,0 +1,16 @@
+- **Added: `.html` is a real output format — `lattice deck.md out.html` now writes
+  HTML.** It previously fell through the format switch to PDF, so that command wrote
+  **PDF bytes into a file named `.html`** and put the actual HTML in a second
+  `out.html.html`. The rendered HTML was always produced as a sidecar of every render;
+  the only thing missing was a way to ask for it without also paying the PDF encode.
+  Measured on a 58-slide deck, the `.html` render takes 6.4s against the `.pdf`
+  render's 8.5s.
+- **This is still a full browser render, not a browser-free one.** Auto-split and the
+  overflow/legibility passes measure laid-out DOM, and the written file is their
+  post-split result — an `.html` render pages identically to the same deck's `.pdf`.
+  What it skips is the PDF encode and the PDF-only SVG rasterization pass. For markup
+  without layout, call `lib/engine` directly instead.
+- `--player` and `--fluid` build the viewer at the requested `.html` path, and
+  `--notes` writes `deck.notes.txt` rather than `deck.html.notes.txt`. `--raster`,
+  `--paper`/`--orientation` and `--present` are PDF-only and now say so instead of
+  going silent.

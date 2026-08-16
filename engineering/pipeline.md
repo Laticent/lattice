@@ -1,5 +1,9 @@
 # Rendering pipeline — running PDF / PPTX / PNG / HTML
 
+<!-- Output-format table below: keep in sync with `lattice-emulator.js` --help and
+     the format switch (`OUT_FORMAT`). Cost figures come from
+     engineering/decisions/2026-08-16-render-format-cost-assessment.md. -->
+
 This is the operational how-to: the commands that turn a deck's Markdown into
 shipped output. For the pipeline's internals (how the engine actually
 transforms Markdown into HTML, why it works the way it does), read
@@ -15,13 +19,36 @@ Lattice deck, this is the tool, full stop.
 ## 1. Run it
 
 ```bash
-node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.html> [palette]
+node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
 ```
 
 The output extension picks the format — `.pdf` (vector, selectable text,
 default), `.pptx` (one full-bleed slide image per slide), `.png` (one file
-per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5). An HTML
-sidecar is always written alongside.
+per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
+(the rendered HTML *as* the deliverable, no PDF). For every format except
+`.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
+the output file.
+
+**Pick by cost, and it is not the ordering people expect.** Measured on a
+58-slide deck (`2026-08-16-render-format-cost-assessment.md`):
+
+| Output | Wall | Use it when |
+|---|---:|---|
+| `.html` | 6.4s | You need a real render but no PDF — most tests, and any check that reads markup or structure |
+| `.pdf` | 8.5s | Sharing, review, goldens. **The cheapest artifact we commit** — smaller than its own HTML |
+| `.pptx` / `.png` / `.zip` | 58–74s | You genuinely need pixels. ~860 ms/slide to rasterize |
+
+The vector PDF is **not** the expensive option — every image format costs 7–9×
+more and 3–12× more bytes. To review a PDF as images, rasterize it
+(`tools/rasterize-for-review.sh`, §3) rather than re-rendering to `.png`:
+render + `pdftoppm -r 30` is 15.7s against 59.0s.
+
+`.html` is a **full browser render minus the PDF encode**, not a browser-free
+path: auto-split and the overflow/legibility passes measure laid-out DOM, and
+the written file is their post-split result — an `.html` render pages
+identically to the same deck's `.pdf`. For markup with **no** layout (0.78s,
+and no fonts/measurement/overflow/split), call `lib/engine` directly instead —
+a different coverage tier, not a faster version of this one (HARD RULE #23).
 `node lattice-emulator.js --help` is the full reference (flags for speaker
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
