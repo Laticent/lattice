@@ -341,13 +341,19 @@ describe('radar', () => {
       '<li>Process<ul><li>Cadence <code>5</code></li>' +
       '<li>Rigor <code>4</code></li></ul></li>' +
       '</ul></li></ul>';
-    const labels = (cls) => [...transformChartSection(inner, cls).html
-      .matchAll(/<text class="radar-sector-label"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => m[1]);
+    // Match every <text>, then filter on its class LIST. Baking the class into
+    // the pattern (`<text class="foo"[^>]*>([\s\S]*?)`) backtracks polynomially
+    // over a document with many such tags, which CodeQL flags and rightly.
+    const TEXT_EL = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
+    const labels = (cls) => [...transformChartSection(inner, cls).html.matchAll(TEXT_EL)]
+      .filter((m) => ((m[1].match(/class="([^"]*)"/) || [])[1] || '')
+        .split(/\s+/).includes('radar-sector-label'))
+      .map((m) => [...m[2].matchAll(/<tspan[^>]*>([^<]*)</g)].map((t) => t[1]));
     const clean = labels('radar quadrant');
     const hand = labels('radar quadrant sketch');
     assert.notDeepEqual(clean, hand,
       'identical output means `hand` never reached buildRadar');
-    const tspans = (set) => set.join('').match(/<tspan/g).length;
+    const tspans = (set) => set.flat().length;
     assert.ok(tspans(hand) > tspans(clean), 'the wider face must wrap sooner, not later');
   });
 

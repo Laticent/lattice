@@ -97,6 +97,23 @@ function textBoxes(html, className, fontSize, hand = false) {
   });
 }
 
+/**
+ * The `<tspan>` texts of every `<text>` carrying `className`, in document order.
+ *
+ * Reuses TEXT_EL_RE and filters on the class LIST in code rather than baking the
+ * class into the pattern — the same reason spelled out on `textBoxes` above, and
+ * the reason CodeQL flags the baked form: `<text class="foo"[^>]*>([\s\S]*?)`
+ * backtracks polynomially over a document with many such tags. The tspan pattern
+ * likewise ends at `<` rather than a `</tspan>` literal, so it stays linear.
+ */
+function labelLines(html, className) {
+  const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
+    .split(/\s+/).includes(className);
+  return [...html.matchAll(TEXT_EL_RE)]
+    .filter((m) => wanted(m[1]))
+    .map((m) => [...m[2].matchAll(/<tspan[^>]*>([^<]*)</g)].map((t) => t[1]));
+}
+
 // ── Fixtures ───────────────────────────────────────────────────────────
 
 const UL_FOUR = (
@@ -540,8 +557,7 @@ describe('quadrant — the sketch token reaches the builder', () => {
     '<li>Commitment Wave<ul><li>A <code>2, 82</code></li></ul></li>' +
     '<li>Quick Wins<ul><li>B <code>8, 88</code></li></ul></li>' +
     '</ul>';
-  const labelsOf = (cls) => [...transformChartSection(inner, cls).html
-    .matchAll(/<text class="quadrant-label"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => m[1]);
+  const labelsOf = (cls) => labelLines(transformChartSection(inner, cls).html, 'quadrant-label');
 
   test('a `sketch` slide measures the hand face; a plain slide measures the clean one', () => {
     assert.notDeepEqual(labelsOf('quadrant sketch'), labelsOf('quadrant'),
@@ -565,9 +581,7 @@ describe('quadrant — the sketch token reaches the builder', () => {
     const html = transformChartSection(
       `<h2>X</h2><ul><li>${name}<ul><li>A <code>2, 82</code></li></ul></li>`
       + '<li>Other<ul><li>B <code>8, 88</code></li></ul></li></ul>', cls).html;
-    const block = [...html.matchAll(/<text class="quadrant-label"[^>]*>([\s\S]*?)<\/text>/g)][0][1];
-    return [...block.matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)]
-      .map((m) => m[1])
+    return labelLines(html, 'quadrant-label')[0]
       .filter((line) => line.length * FS_LABEL * upperAdvance(line, { hand, tracking: 0.04 }) > QLW.corner + 0.01);
   };
 
@@ -602,7 +616,7 @@ describe('quadrant — the sketch token reaches the builder', () => {
   });
 
   test('the hand face breaks the wide name into more lines', () => {
-    const lines = (cls) => labelsOf(cls)[0].match(/<tspan/g).length;
+    const lines = (cls) => labelsOf(cls)[0].length;
     assert.ok(lines('quadrant sketch') > lines('quadrant'),
       'the wider face must wrap sooner, not later');
   });
