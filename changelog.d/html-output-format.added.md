@@ -12,7 +12,13 @@
   post-split result — an `.html` render pages identically to the same deck's `.pdf`.
   What it skips is the PDF encode and the PDF-only SVG rasterization pass. For markup
   without layout, call `lib/engine` directly instead.
-- `--player` and `--fluid` build the viewer at the requested `.html` path, and
-  `--notes` writes `deck.notes.txt` rather than `deck.html.notes.txt`. `--raster`,
-  `--paper`/`--orientation` and `--present` are PDF-only and now say so instead of
+- **`--player` and `--fluid` are the best reason to use it**: they build the viewer
+  at the requested `.html` path, where previously they forced a full PDF encode and
+  a megabyte-plus artifact nobody asked for. That win holds at any deck size.
+- `--notes` writes `deck.notes.txt` rather than `deck.html.notes.txt`, and
+  `--strip-notes` scrubs that sidecar exactly as it does on the PDF path.
+  `--raster`, `--paper`/`--orientation`, `--present` (including the `present: true`
+  front-matter form) and `--embed-source` are PDF-only and now say so instead of
   going silent.
+- A failed `.html` render leaves **no** file, like every other format — it no longer
+  strands a complete-looking pre-split document at the deliverable path.

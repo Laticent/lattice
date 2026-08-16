@@ -34,8 +34,8 @@ the output file.
 
 | Output | Wall | Use it when |
 |---|---:|---|
-| `.html` | 6.77s | You need a real render but no PDF — anything that reads markup or structure |
-| `.pdf` | 8.24s | Sharing, review, goldens. **The cheapest artifact we commit** — smaller than its own HTML |
+| `.html` | 6.77s | You want the HTML itself — `--player`/`--fluid` viewers, or anything reading markup or structure |
+| `.pdf` | 8.24s | Sharing, review, goldens. **The cheapest artifact we commit** — 3–12× smaller than any image golden |
 | `.pptx` / `.png` / `.zip` | 58–74s | You genuinely need pixels. ~860 ms/slide to rasterize |
 
 The vector PDF is **not** the expensive option — every image format costs 7–9×
@@ -43,18 +43,22 @@ more and 3–12× more bytes. To review a PDF as images, rasterize it
 (`tools/rasterize-for-review.sh`, §3) rather than re-rendering to `.png`:
 render + `pdftoppm -r 30` is 15.5s against 59.0s.
 
-**Don't reach for `.html` to speed up a test.** The saving is proportional to
-how much PDF there is to encode: ~18% on the 58-slide gallery and 20% on the
-chart gallery, but **under 1% on a one-slide fixture**, where browser startup
-and `mmdc` dominate and the PDF is a few tens of milliseconds. Pick `.html`
-because you want HTML, not because you want speed.
+**Pick `.html` because you want HTML, not because you want speed.** The saving
+is proportional to how much PDF there is to encode: ~18% on the 58-slide gallery
+and 20% on the chart gallery, but **under 1% on a one-slide fixture**, where
+browser startup and `mmdc` dominate and the PDF is a few tens of milliseconds.
+
+Its best use is with **`--player` / `--fluid`**: those build a viewer at the
+`.html` path, and before `.html` was a real format they forced a full PDF encode
+plus a megabyte-plus artifact nobody asked for. That win is real at any deck
+size, unlike the percentage above.
 
 `.html` is a **full browser render minus the PDF encode**, not a browser-free
 path: auto-split and the overflow/legibility passes measure laid-out DOM, and
 the written file is their post-split result — an `.html` render pages
 identically to the same deck's `.pdf`. For markup with **no** layout (0.78s,
 and no fonts/measurement/overflow/split), call `lib/engine` directly instead —
-a different coverage tier, not a faster version of this one (HARD RULE #23).
+a different coverage tier, not a faster version of this one.
 `node lattice-emulator.js --help` is the full reference (flags for speaker
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).

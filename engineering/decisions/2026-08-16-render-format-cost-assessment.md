@@ -1,23 +1,30 @@
 ---
 status: shipped
-summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF. The PDF encoder is 2.3% of a small render and 15% of a large one; the cost is the browser round-trip, and inside it a `networkidle0` wait that pins at ~2.0s on a 1-slide and a 58-slide deck ALIKE — the signature of a timeout, and it is the `settleFonts` 2000ms cap leaking through the network heuristic while the page force-loads 17 declared faces to use about 9 — plus a second Chrome booted by `mmdc` (2.9–3.2s per deck with any diagram). 16 of 18 integration files render a PDF and assert only on the HTML sidecar, but dropping it buys 1.2–1.8% — the real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 non-byte-reproducible goldens at once. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file (plus an `out.html.html`) — `.html` is now a first-class output format, a real browser render minus the PDF encode, measured 6.77s vs 8.24s on a 58-slide deck (medians of 3) — a saving that scales with the deck and is ~0 on the small fixtures the tests use.
+summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF, so switching tests or goldens to images would make the repo slower AND larger. The PDF encoder is 2.3% of a small render and 15% of a large one; the cost is the browser round-trip. THE LARGEST SINGLE COST IS mmdc, which boots its own Chrome ONCE PER DIAGRAM — 40.7s of a 44.3s render on the 14-fence diagram gallery. Second is a `networkidle0` wait costing ~1.7s per navigation that pins at ~2.0s regardless of deck size; its cause is UNIDENTIFIED (the first two explanations, font work and the settleFonts cap, were both refuted by experiment), but the render's font correctness rests on an explicit force-load after every navigation, not on the wait, so `waitUntil: 'load'` is a cheap thing to try. The real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 goldens that are not byte-reproducible — which makes MAKING THEM REPRODUCIBLE dominate 'stop committing them'. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file; `.html` is now a first-class output format, a real browser render minus the PDF encode (6.77s vs 8.24s on 58 slides, but ~0 saving on the small fixtures the tests use). Corrected three times under adversarial review; corrections are marked in place.
 ---
 
 # PDF vs HTML vs image — what each format actually costs
 
-**2026-08-16 · measurement record, plus the one defect it turned up (§6)**
+**2026-08-16 · measurement record + the defect it turned up (§6), hardened by the adversarial trio (§9)**
 
 **Question asked:** we default to PDF for testing and sanity checks; PDF feels
 heavy. What does it buy us, and where can we be leaner?
 
 **Short answer, and it inverts the premise:** PDF is the **cheapest**
-browser-backed format Lattice ships — every image format costs 6–10× more for
+browser-backed format Lattice ships — every image format costs 7–9× more for
 the same deck, and every image *golden* costs 3–12× more bytes. What is
 expensive is **the browser round-trip itself**, which every format except the
 in-process engine render pays. The PDF encoder is 2.3% of a small render and
-15% of a large one. Format is not the lever; **the number of browser
-round-trips, and a font wait inside each one that is pinned to a 2,000 ms
-timeout rather than to the deck, are.**
+15% of a large one. **Format is not the lever.** The two biggest costs inside a
+render are `mmdc` booting its own Chrome **once per diagram** (§2b) and a
+`networkidle0` wait that ignores deck size (§2a); the biggest cost *overall* is
+not time at all but the 150 MB of committed goldens (§5).
+
+> **This document has been corrected three times, twice under adversarial
+> review.** Two mechanisms it originally asserted were refuted by experiment,
+> and one lever was under-sized by 14×. Every correction is marked in place
+> rather than overwritten — §9 lists them. Treat the *measurements* as solid and
+> any *mechanism* here as provisional until re-tested.
 
 ---
 
@@ -86,9 +93,12 @@ Two things fall out immediately:
 
 1. **Rasterizing is the expensive act, not PDF.** PNG/PPTX/ZIP are 7–9× the
    PDF. Screenshotting each slide costs ~860 ms/slide.
-2. **The vector PDF is the smallest artifact we can commit** — smaller than its
-   own HTML sidecar (1.66 MB vs 2.54 MB), and 3–12× smaller than any image
-   golden of the same deck.
+2. **The vector PDF is the smallest artifact we can commit** — 3–12× smaller
+   than any image golden of the same deck. (It is also smaller than its own HTML
+   sidecar here, 1.66 MB vs 2.54 MB, but **that relation is not general**: the
+   sidecar is ~2.5 MB for a 1-slide deck too, being dominated by inlined CSS and
+   base64 fonts, while the PDF scales with the deck. It inverts on a large
+   enough deck. The golden comparison is what the conclusion rests on.)
 
 Image-golden sizes for the same deck, for the record: WebP `--image-size half`
 4.7 MB, WebP `1x` 8.3 MB, JPEG `1x` 15.8 MB, PNG `2x` 20.6 MB — against the
@@ -157,39 +167,104 @@ So `networkidle0` costs **~1.77s more than `load` on the small deck and ~1.37s
 more on the large one** — larger than the ~1.3s first recorded, and *inversely*
 related to deck size, which is the tell.
 
-**A number that ignores deck size is a timeout, not work**, and this one is the
-`settleFonts` bound. The exported HTML's own script calls
-`settleFonts(document.fonts, 2000)` on `DOMContentLoaded`
-(`lattice-emulator.js`, `lib/core/font-settle.js`), which calls `.load()` on
-**every declared `@font-face`** — 17 faces, of which a given deck uses about 9
-(the `--player` prune reports `9/17 faces kept`). Those loads are network
-requests, so they hold `networkidle0` open, and the 2,000 ms cap in
-`settleFonts`'s `Promise.race` is what the navigation ends up pinned to. The
-render is waiting on **fonts the deck never uses**, through a heuristic that
-cannot tell the difference.
+**A number that ignores deck size is a timeout, not work.** That inference
+stands. The *first* answer to "which timeout" was `settleFonts`'s 2,000 ms cap,
+and **that answer is refuted — by experiment, not by argument.**
 
-Traced inside the real CLI the same wait is **bimodal** — 771 / 794 / 801 / 802
-ms on some runs of an identical command, then exactly 2,003 ms on others. The
-fast runs are the fonts genuinely resolving; the slow ones are the cap. Both
-readings are real, which is why "~2.0s every time" was wrong: the honest
-statement is **up to ~1.8s per render, hit often but not always**.
+Take a real sidecar and vary only the in-page font handling, interleaved against
+real Chrome:
 
-This is still not free money, and the fix is not swapping the `waitUntil`. The
-comment at `lattice-emulator.js:2170` records why the wait exists: fonts that
-load lazily leave a slide measured against fallback metrics and produce a false
-overflow ring (#894). Dropping to `load` would reintroduce exactly that. The
-shape of a real fix is to **await the page's own settle promise** — the
-`settleFonts` result is already computed in-page — instead of inferring it from
-network idle, and to force-load only the faces the deck actually uses. Then a
-render waits as long as its fonts take (~0.3s on the fast runs above) rather
-than paying a 2,000 ms cap that has nothing to do with the deck.
+| Variant | `networkidle0` |
+|---|---|
+| as shipped (`settleFonts(document.fonts, 2000)`) | 807 / 2003 / 1915 ms |
+| **`settleFonts` call removed entirely** | 2003 / 2004 / 2002 ms |
 
-### 2b. mmdc launches a second browser
+Removing the force-load changes nothing. Instrumenting the same navigations, the
+**last network event fires at 162–239 ms** — the network is quiet for ~1.8s
+before `networkidle0` releases. Two a-priori arguments agree: `Promise.race`
+does not cancel, so a cap that loses the race has no channel to the network at
+all; and `networkidle0` fires 500 ms after the last request, so a 2,000 ms cap
+could only ever produce ~2,500 ms, never a repeatable 2,003 ms.
 
-`mmdc` costs 2,659 ms on a 58-slide deck with many diagrams and 3,235 ms on a
-1-slide deck with one trivial flowchart. **The cost is a fixed second Chrome
-boot, not per-diagram work.** Any deck touching mermaid pays it on top of the
-emulator's own `browser.launch`.
+A related claim went with it. "17 declared faces, of which about 9 are used" is
+the `--player` prune's count of the embedded-font block — **not** what
+`settleFonts` walks. In a real render `document.fonts.size` is **74**. So
+"the render is waiting on fonts the deck never uses" was wrong twice over: it is
+not waiting on fonts, and the font set was misidentified.
+
+**What survives, and it is the part that matters:** the penalty is real and
+reproducible. On the same file, `load` returns in 238–304 ms where
+`networkidle0` takes 2,002 ms — **~1.7s per navigation, and the render performs
+one to three of them** (initial, auto-split, rails). Traced in the real CLI the
+wait is **bimodal** — 771–802 ms on some runs of an identical command, exactly
+2,003 ms on others — so "~2.0s every time" was also wrong; **up to ~1.8s, hit
+often but not always** is the honest statement.
+
+**The cause is UNIDENTIFIED.** It is browser-side, unaffected by anything in the
+page's script, and reproducible on demand. Naming it is the first task of any
+work on this lever — not because the fix depends on it, but because the last two
+guesses were both wrong and the third should be measured before it is written
+down.
+
+### 2a-bis. Why the fix is nonetheless cheap — the wait is not what protects #894
+
+The first pass asserted that dropping `networkidle0` would reintroduce #894's
+false overflow ring, and scoped the lever as multi-day work. **That was a
+misattribution.** `lattice-emulator.js:2421`, immediately after every
+navigation, already does this:
+
+```js
+await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+await document.fonts.ready;
+```
+
+An explicit, **unbounded** force-load-then-await, on the Node side, repeated
+after the auto-split and rails navigations. The render's font correctness rests
+on *that*, not on `waitUntil`. #894 was a bug in the **exported HTML's embedded
+watcher** — the script a human runs when they open the static file later — and
+`2026-07-10-overflow-cause-highlighting.md` §14 says so directly: "`measureOverflow()`
+was never affected — it already force-loads fonts first." The comment beside the
+code says the same ("not touched by the bug this file's OTHER two copies had").
+
+So the cheap experiment is: set `waitUntil: 'load'` on the three `page.goto`
+calls, keep the existing explicit force-load, and run the overflow corpus and
+the split suites. That is an afternoon with a real test, not a project — and it
+is the opening move, with the settle-promise plumbing as the fallback if it
+fails.
+
+### 2b. mmdc launches a second browser **per diagram** — the largest cost here
+
+**Corrected.** The first pass wrote: "`mmdc` costs 2,659 ms on a 58-slide deck
+with many diagrams and 3,235 ms on a 1-slide deck with one trivial flowchart.
+The cost is a fixed second Chrome boot, not per-diagram work."
+
+`examples/gallery-jargon.md` contains **exactly one** mermaid fence. That was one
+diagram against one diagram — a comparison that could not establish scaling, and
+"many diagrams" was simply false.
+
+The code says per-fence: `renderMermaidOne` (`lattice-emulator.js:1097`)
+`execSync`s the `mmdc` binary and is invoked once per fence from the `renderOne`
+callback (`:1367`), with no memoization of rendered SVGs in
+`lib/core/render-diagrams.js`. Traced against `lib/components/diagram/diagram.gallery.md`
+(**14 fences**):
+
+```
+total 44,303 ms
+mmdc (mermaid)   40,754 ms   x14   92.0%
+page.goto         2,003 ms    x1    4.5%
+browser.launch      283 ms    x1    0.6%
+```
+
+Fourteen invocations, **~2.9s each, 92% of the render**. Every diagram boots its
+own Chrome.
+
+**This reranks the whole document.** `mmdc` is not "2.7–3.2s per deck" — it is
+**~2.9s × diagram count**, which on the diagram and component galleries dominates
+every other cost measured here, `page.goto` included. It also shrinks the fix:
+the first pass proposed re-rendering mermaid inside the browser we already
+launched, which touches the theming contract (`engineering/mermaid.md`). Batching
+all fences into one `mmdc` invocation, reusing one process, or memoizing
+identical definitions gets most of it and touches no contract at all.
 
 ---
 
@@ -225,12 +300,16 @@ One full integration run performs **156 emulator renders**, leaving 424 MB in
 
 ### 3a. How much of that is *actually* PDF
 
-18 integration files spawn the CLI. Classified by what they read back:
+**Corrected — the first pass undercounted the universe.** It said "18 integration
+files spawn the CLI", which is exactly what a literal `grep lattice-emulator`
+returns; it misses the files that reach the CLI through `runEmulator` in
+`test/helpers/render.js`. Recounted (`grep -rl "lattice-emulator\|runEmulator"`):
+**25 files**, 12 of them via the helper. Classified by what they read back:
 
 | | Files | What they need |
 |---|---:|---|
-| Read real PDF bytes | **2** (`export-formats`, `present-mode`) + `speaker-notes`, `marp-kit-render` | pdf-lib / pdfinfo / pdftotext |
-| Render a `.pdf` and assert **only on the `.html` sidecar** | **16** | nothing PDF-specific |
+| Read real PDF bytes | `export-formats`, `present-mode`, `speaker-notes`, `marp-kit-render` (+ the `pageCount` users below) | pdf-lib / pdfinfo / pdftotext |
+| Render a `.pdf` and assert **only on the `.html` sidecar** | the large majority | nothing PDF-specific |
 
 `test/integration/mermaid/mermaid-smoke.test.js` is the archetype: it renders
 `deck.pdf`, then `return fs.readFileSync(html, 'utf8')`. The PDF is never
@@ -275,9 +354,20 @@ Genuinely PDF-only, provable nowhere else:
 | One PDF page per slide, last page is a real slide | `pdfinfo`, `pdftotext` | `marp-kit-render` — 1 of 7 cases |
 | Page count after auto-split | `pdfinfo` | `component-galleries`, `bucket-galleries`, `exemplar-render` — **replaceable, see §3b** |
 
-**Twelve test cases** — out of 44 in those four files, and out of 714
-integration tests total — genuinely read PDF bytes. Everything else currently
-rendered to PDF is provable from the HTML sidecar.
+**Thirteen test cases** in those four files read PDF bytes directly — corrected
+from twelve: the first pass missed `export-formats`'s "the exported PDF carries
+an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)", which reads the raw bytes for
+`/Lang`. This PR's own new `pdfinfo` case makes it fourteen in the shipped tree.
+
+Two honesty notes on that figure. It counts only cases that parse PDF bytes
+*inline*; the `pageCount()` helper also shells out to `pdfinfo`, and
+`component-galleries` / `bucket-galleries` / `exemplar-render` call it across
+every enriched component and bucket — dozens of cases, listed one row above but
+not in the total. And the count is of *direct byte readers*, not of "tests that
+need a PDF". The load-bearing conclusion is unchanged and narrower than the
+number suggests: **a small, nameable set of capabilities genuinely requires PDF
+bytes; everything else currently rendered to PDF is provable from the HTML
+sidecar.**
 
 Beyond the test suite, PDF earns its keep in two places numbers support:
 
@@ -303,7 +393,12 @@ Beyond the test suite, PDF earns its keep in two places numbers support:
 | **PDF share of recent history growth** | **65.3%** |
 
 By group: `examples/` 150 files / 57.3 MB · `lib/components/**/*.gallery.pdf`
-150 files / 58.3 MB · `exemplars/` 45 files / 13.9 MB.
+150 files / 58.3 MiB · `exemplars/` 45 files / 13.9 MiB.
+
+**Units:** the group figures above and the commit table below are **MiB**; the
+headline 150.8 MB / 223.2 MB are decimal MB. The same 61,180,658 bytes therefore
+appears as "58.3" in the group line and "61.2" in the commit table — one number,
+two bases, not two measurements. The 67.5% and 65.3% ratios are unaffected.
 
 The mechanism is re-blessing. A single cross-cutting CSS commit rewrites every
 golden it touches:
@@ -362,37 +457,100 @@ a different coverage tier (§7, non-levers).
 
 ## 7. Levers, ranked by measured size
 
+**Read the sizes as per-render or per-artifact, not as wall clock.** The first
+pass multiplied a per-render saving by 156 renders and subtracted it from an
+11m39s wall clock. That is wrong: `node --test` runs files **concurrently**
+(`availableParallelism` = 4 here), and this document's own §3 proves it — the
+five slowest suites it lists sum to ~1,119s against a 698.5s wall. A saving of
+*N* serial seconds removes roughly *N* ÷ parallelism of wall clock, and less
+when the box is CPU-saturated, because idle wait frees a core that other work
+immediately refills. The serial×count arithmetic has been removed rather than
+divided by a factor that was never measured.
+
 | # | Lever | Measured size | Risk |
 |---|---|---|---|
-| L1 | **Await the page's own `settleFonts` promise instead of `networkidle0`**, and force-load only the faces the deck uses | `networkidle0` costs **1.37s (58-slide) to 1.77s (1-slide)** over `load`, hit on most but not all renders (§2a). Bounded by ~1.8s × 156 renders ≈ **4.6 min** off an 11m39s run | Real — #894's false-overflow bug is what the wait prevents, so a weaker `waitUntil` is NOT the fix. The in-page settle result already exists; the work is plumbing it out and re-running the overflow corpus. |
-| L2 | **Stop shelling out to `mmdc`**; render mermaid in the browser we already launched | **2.7–3.2s per deck** with any diagram — a whole second Chrome boot | Moderate — mermaid theming contract must be preserved (`engineering/mermaid.md`) |
-| L3 | **Amortize per-spawn boot** — batch/daemon render for the test suite instead of 156 cold `spawnSync` calls | ~0.3–0.9s × 156 ≈ **1–2 min**, plus node startup | Low, but it is new machinery |
-| L4 | **Stop committing 351 golden PDFs**; keep the `.md`, render goldens on demand, commit only what a human is meant to open | **~150 MB tracked, 65% of history growth** | Design decision, not a tweak — touches HARD RULE #9 and the golden/regression gate |
-| L5 | Skip the PDF write in the 16 tests that never read it | **1.2–1.8%** of those renders | Low — and not worth doing on its own |
+| **L0** | **Make the exported PDF byte-reproducible** (pin the timestamp, stabilize font-subset ordering) | Kills the bulk of the ~150 MB / 65% history growth **without touching goldens at all** — a re-bless would write blobs only for files that actually changed, and `golden-diff.mjs` would stop needing to rasterize to answer "did anything move" | Low-ish and self-contained. **Dominates L4** on cost, risk, and reversibility |
+| **L1** | **Batch or memoize `mmdc`** — one invocation for all fences, or reuse one process | **~2.9s × diagram count.** 40.7s of a 44.3s render on the 14-fence diagram gallery (§2b) | Low — batching touches no theming contract. Only the "render mermaid in our own browser" variant does |
+| **L2** | **Try `waitUntil: 'load'`** on the three `page.goto` calls, keeping the existing explicit force-load | **~1.7s per navigation**, 1–3 navigations per render, hit on most but not all runs (§2a) | Lower than first stated — the render's font correctness rests on the explicit force-load at `:2421`, not on `waitUntil` (§2a-bis). Test against the overflow corpus |
+| **L3** | **Audit integration assertions for layout-dependence.** Several render a whole browser to assert a string fact — `deck-class-fm`, `deck-mode-fm`, `deck-logo` say so in their own headers | 100% of those renders, not 1.8%. The root is that the emulator's front-matter post-process is a second implementation of the shared kernel — converge it (HARD RULE #1) and the assertions become unit tests | Per-assertion work; **only a minority qualify** (see the non-lever below) |
+| **L4** | **Stop committing 351 golden PDFs** | ~150 MB tracked, 65% of history growth | **Only if L0 is impossible.** As written it trades the visual-review gate for disk: `golden-diff.mjs` needs the before-PDFs in the tree, and HARD RULE #9 requires a committed `.pdf` per feature deck |
+| L5 | **Amortize per-spawn boot** — batch/daemon render instead of cold `spawnSync` per test | ~0.3–0.9s per spawn | Low, but new machinery. Deduplicating redundant re-renders is likely the bigger and safer win — one fixture is rendered 6× in a single file (`test/helpers/render.js` header) |
+| L6 | Skip the PDF write in the tests that never read it | **0.2–0.9%** of those renders (§1) | Not worth doing on its own |
 
 ### Measured non-levers — do not do these
 
 - **Switching tests or review to images.** 7–9× slower to produce, 3–12× more
   bytes.
 - **Switching goldens to images.** Same, worse.
+- **Switching tests to `.html` for speed.** 0.2–0.9% on the small fixtures the
+  suite actually renders (§1).
 - **Rasterizing PDFs at high DPI for review.** `pdftoppm -r 150` on the
   58-page deck is 91.2s — 11× the render that produced it. `-r 30` (what
   `rasterize-for-review.sh --overview` does) is 7.3s and is the right default.
-- **Replacing the browser render with the engine's in-process HTML.** It is
-  12× faster (0.78s vs 8.4s) but it does not lay anything out: no fonts, no
-  measurement, no overflow, no auto-split. It is a different coverage tier, not
-  a cheaper version of the same one. Per HARD RULE #23, a claim verified there
-  is not a claim about the rendered deck.
+- **WHOLESALE replacement of the browser render with the engine's in-process
+  HTML.** It is ~10× faster (0.78s vs 8.24s) but lays nothing out: no fonts, no
+  measurement, no overflow, no auto-split. Most of the per-PR slice genuinely
+  needs that — `split-trigger`, `split-veto`, `split-envelope-css`,
+  `content-clipped-pill`, `footer-band`, `legibility-watcher`, `axe-a11y` are
+  all layout claims. **But this is a limit on wholesale replacement, not a
+  reason to skip the per-assertion audit in L3.** The first pass cited HARD
+  RULE #23 here; that rule says a verification claim must name its surface and
+  carry an artifact from it — it does not say every assertion must be made
+  against the shipped artifact, and it should not be stretched into "the
+  browser is always required."
 
 ---
 
 ## 8. What is not measured here
 
 - **CI wall-clock.** Every number above is this sandbox. GitHub runners are a
-  different machine; the *ratios* should hold, the absolutes will not.
+  different machine; the *ratios* should hold, the absolutes will not. Real CI
+  job durations are free from the Actions API and were not collected — they are
+  the only wall clock anyone actually waits on.
+- **The parallelism factor.** `node --test` runs files concurrently and this
+  document never measured by how much. One run with `--test-concurrency=1`
+  beside a normal run would give it directly, and every per-render lever should
+  be divided by it.
+- **The hit rate of the slow arm** of the bimodal `networkidle0` wait. L2's size
+  turns on it, and "hit often but not always" is the one unquantified number in
+  a document whose premise is "numbers first".
+- **What actually causes the 2,003 ms pin** (§2a). Two candidate mechanisms were
+  refuted; the third has not been found.
+- **How many of the renders are distinct inputs** versus redundant re-renders of
+  the same deck. `test/helpers/render.js`'s own header notes one fixture is
+  rendered 6× in a single file, so deduplication may be a larger and safer win
+  than L5's daemon — and it is invisible while the render count is treated as a
+  constant.
 - **The nightly tiers** (`test:integration:nightly`, `perf-nightly`,
-  `studio-e2e-nightly`) were not timed as tiers — only the full local
-  integration run, the per-PR slice, and their per-suite breakdowns.
-- **Whether L1 is safe.** The 1.37–1.77s is real; that #894 stays fixed under a
-  `document.fonts.ready` gate is a hypothesis until it is built and the
-  overflow corpus is re-run. Marked **UNVERIFIED**.
+  `studio-e2e-nightly`) were not timed as tiers.
+- **Whether L2 is safe.** The ~1.7s is real and reproducible; that the overflow
+  corpus stays clean under `waitUntil: 'load'` is a hypothesis until it is run.
+  Marked **UNVERIFIED**.
+
+---
+
+## 9. Correction log
+
+This document asserted things that were wrong. They are listed rather than
+quietly fixed, because it was quoted in a PR while wrong, and because the
+pattern in them is instructive: **every error was a mechanism inferred from a
+timing signature, and the measurements themselves all held.**
+
+| # | Originally said | Actually | Found by |
+|---|---|---|---|
+| 1 | `.html` saves ~25% (6.4 vs 8.5s, 2 samples) | 17.8% (6.77 vs 8.24, medians of 3), and **~0 on small decks** | Re-measuring with more samples |
+| 2 | The ~2.0s wait is a flat toll | Bimodal: 771–802 ms or exactly 2,003 ms on identical commands | Re-measuring |
+| 3 | The 2,003 ms is the `settleFonts` 2,000 ms cap leaking through `networkidle0` | **Refuted by experiment** — removing the force-load entirely still yields 2,003 ms, and the last network event fires at 162 ms. Cause unidentified | Independent checker |
+| 4 | "17 declared faces, ~9 used" is what `settleFonts` walks | That is the `--player` prune's count of a different set; `document.fonts.size` is 74 in a real render | Independent checker |
+| 5 | Dropping `networkidle0` reintroduces #894 | #894 was the **exported watcher**; the render has its own explicit unbounded force-load at `:2421`. The cheap fix was ruled out on a false premise | Munger inversion |
+| 6 | `mmdc` is a fixed per-deck cost (2.7–3.2s) | **Per diagram** — ~2.9s × N; 40.7s of a 44.3s render on a 14-fence deck. The comparison used two 1-fence decks, one of them labeled "many diagrams" | Munger inversion |
+| 7 | Levers sized as per-render × 156 renders ≈ minutes of wall clock | `node --test` runs files concurrently; the doc's own suite sums exceed its own wall clock | Munger inversion |
+| 8 | "18 integration files spawn the CLI"; "12 cases read PDF bytes" | 25 files (a literal grep missed the `runEmulator` indirection); 13 direct byte-readers, 14 in this tree | Independent checker |
+| 9 | HARD RULE #23 forecloses the engine-HTML tier | #23 governs how a verification claim is *evidenced*, not which tier an assertion may use. Over-cited to close a door that should stay open (L3) | Munger inversion |
+| 10 | `.html`'s justification is the 17.8% | Its real customer is `--player`/`--fluid`, which previously forced an unwanted PDF encode. Size-independent, and the honest headline | Munger inversion |
+
+The red team's findings were defects in the shipping code rather than in this
+document — the `--strip-notes` sidecar leak, the `.HTML` case mismatch, the
+orphaned pre-split file on a failed render, an inflatable page count, and a
+regression test that could not fail. All are fixed in this PR; see its
+description.

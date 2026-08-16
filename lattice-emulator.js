@@ -603,10 +603,9 @@ if (PAPER_FIT && (OUT_FORMAT !== 'pdf' || RASTER_PDF)) {
 // hints, so going silent on that combination is a regression THIS change introduces,
 // and it gets the warning. `--present` with .png/.pptx/.zip was already silently
 // ignored and is left alone — off-path pre-existing behavior, not this diff's to
-// widen (HARD RULE #18).
-if (flags.present && OUT_FORMAT === 'html') {
-  console.warn('  ⚠ --present sets PDF viewer hints — ignoring for .html (no PDF is written).');
-}
+// widen (HARD RULE #18). The warning itself lives further down, next to PRESENT's
+// definition: it must fire for the front-matter `present: true` form too, and the
+// front matter is not parsed yet here.
 
 // Friendly error wrapper for file reads. Bare ENOENT throws produce
 // stack traces that look like crashes; this surfaces them as one-line
@@ -1565,6 +1564,16 @@ const FLUID_VIEW = !!flags.fluid || /^\s*fluid:\s*(?:true|yes|on)\s*$/im.test(fm
 // view (see applyPresentMode). Enabled by the `--present` flag OR a
 // `present: true` front-matter key, mirroring --fluid. PDF only.
 const PRESENT = !!flags.present || /^\s*present:\s*(?:true|yes|on)\s*$/im.test(fm);
+// PDF-only options that have nothing to attach to under `.html`, warned HERE rather
+// than beside the other output-format warnings because both must see the FRONT MATTER
+// form, not just the CLI flag: a deck opting in with `present: true` renders to .html
+// and would otherwise get no warning at all — the exact silent regression the guard
+// exists to prevent, missed on half its input space (red-team, this PR). Scoped to
+// `.html` on purpose; the same silence on .png/.pptx/.zip is pre-existing (#18).
+if (OUT_FORMAT === 'html') {
+  if (PRESENT) console.warn('  ⚠ --present / `present: true` sets PDF viewer hints — ignoring for .html (no PDF is written).');
+  if (EMBED_SOURCE) console.warn('  ⚠ --embed-source embeds the deck in the PDF — ignoring for .html. Use --player, which embeds the source for lossless re-import.');
+}
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
 // sidecar into a portable, offline, three-view player (Present · Read·Slides ·
 // Read·Article). Like --fluid, it only affects the written .html, after raster.
@@ -2391,9 +2400,15 @@ ${stateChartScript}
 </script>
 </body></html>`;
 
-// `.html` is in the strip list so an `.html` OUTPUT resolves to ITSELF rather than to
-// `<out>.html.html` — the sidecar and the deliverable are the same file in that mode.
-const outHtml = outFile.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.html';
+// For an `.html` OUTPUT the sidecar IS the deliverable, so it resolves to `outFile`
+// ITSELF rather than to `<out>.html.html`. Taken as an identity rather than by
+// round-tripping the extension through the strip-and-append below, because that
+// rebuilds the extension in LOWERCASE: `deck.HTML` resolved to `deck.html`, so the
+// path the caller asked for was never written and the run still exited 0
+// (red-team, this PR). Case-insensitive filesystems hide it; CI does not.
+const outHtml = OUT_FORMAT === 'html'
+  ? outFile
+  : outFile.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.html';
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red
@@ -3387,18 +3402,29 @@ async function renderBody(browser, g, closeBrowser) {
     // count here would disagree with the page count the same deck's PDF would carry.
     // Read it before closing the browser; fall back to the authored count if the query
     // fails, since a log line must never sink a completed render.
+    // Scope the count to the document's OWN slide sections. `section[data-lattice-slide]`
+    // unscoped also matches a `<section data-lattice-slide>` an author wrote in their
+    // markdown, which parses as nested DOM — the same hazard measureOverflow scopes around
+    // — and an inflated count here would contradict the "pages identically to the .pdf"
+    // claim this format is documented on.
     let pageCount = slides.length;
     try {
-      pageCount = (await page.$$('section[data-lattice-slide]')).length || pageCount;
+      const n = (await page.$$('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')).length;
+      if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
+    // materializedNotes, NOT slideNotes — under --strip-notes the former is all-null. The
+    // sidecar is a SHAREABLE file, so handing it the unstripped array leaks exactly the
+    // text the flag exists to remove, and it did (red-team, this PR): the same deck+flags
+    // stripped on the .pdf path and leaked here. The log tag counts the same array so it
+    // cannot claim notes the sidecar does not contain.
+    const noteCount = materializedNotes.filter(Boolean).length;
     if (!QUIET) {
       const tags = [`${pageCount} slide${pageCount === 1 ? '' : 's'}`];
-      const noteCount = slideNotes.filter(Boolean).length;
       if (noteCount) tags.push(`${noteCount} slide${noteCount === 1 ? '' : 's'} with speaker notes`);
       console.log(`HTML: ${outFile} (${tags.join(', ')})`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, slideNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else {
     // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
@@ -3903,6 +3929,18 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
     }
   }
 })().catch((e) => {
+  // A FAILED `.html` render must not leave a complete-looking deliverable behind.
+  // Every other format writes its artifact only on success, so a failure leaves no
+  // file. `.html` is the exception by construction — outHtml IS outFile, and it is
+  // written before the browser launches and rewritten on the hardened retry — so a
+  // crash here left a 2.5 MB PRE-SPLIT, unmeasured document at the deliverable path,
+  // indistinguishable from a good render and overwriting any previous good one
+  // (red-team, this PR). Absence is the honest outcome; unlink so the caller sees
+  // "no artifact" like every other format. Best-effort: a failing unlink must not
+  // mask the render error we are about to report.
+  if (OUT_FORMAT === 'html') {
+    try { if (fs.existsSync(outFile)) fs.unlinkSync(outFile); } catch { /* report the real error below */ }
+  }
   // Surface render/export failures as a one-line error (matching readFileOrDie),
   // not a raw unhandled-rejection stack trace that reads like a crash.
   console.error(`error: ${e?.message ? e.message : e}`);
