@@ -20503,10 +20503,16 @@ section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.card
    layer, and the divider's background rail are all clipped to the same shape
    without a rule of their own.
 
-   APPLIED ONLY WHEN ROUNDED, deliberately. `inset(0 round 0)` is a no-op SHAPE but
-   still establishes a stacking context, so declaring it unconditionally would
-   change the paint order of every slide in the corpus to buy nothing. A deck that
-   says nothing gets no `clip-path` property at all.
+   APPLIED ONLY WHEN ROUNDED. `inset(0 round 0)` is a no-op SHAPE, but `clip-path`
+   establishes a stacking context where `container-type: size` alone does not — so an
+   unconditional declaration would change what CAN reorder, for a deck that asked for
+   nothing. Worth being precise about the size of that risk, because an earlier draft
+   of this note overstated it: rendering the 117-slide baseline gallery with and
+   without an unconditional `inset(0 round 0)` and pixel-diffing every page found ZERO
+   differing pages, including the twelve most exposed (`split-panel watermark`, the
+   `image` variants, `math`). So the corpus is provably unaffected either way; the
+   narrow form is kept because a property a deck did not ask for should not be there,
+   not because a regression was observed.
 
    `border-radius` rides alongside because a CONSUMER needs to read the resolved
    value. `getComputedStyle(section).borderRadius` reports a real px length in the

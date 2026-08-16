@@ -8,6 +8,7 @@ header: "Lattice · The slide's corner"
 ---
 
 <!-- _class: title -->
+<!-- _header: '' -->
 <!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 

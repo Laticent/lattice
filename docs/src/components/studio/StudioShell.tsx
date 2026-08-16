@@ -24,7 +24,7 @@ import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/to
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports } from '@/lib/crash-sentinel';
-import { cornerLength } from '@/lib/deck-corner';
+import { cornerRadiusCss, type DeckCorner, SQUARE } from '@/lib/deck-corner';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -668,7 +668,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// so the chrome follows the one CSS rule that owns the number. `0` is a
 	// square deck: the default, and every deck that predates the `corners:` register.
 	// DeckPreview only fires on CHANGE, so this does not re-render per keystroke.
-	const [deckCorner, setDeckCorner] = React.useState(0);
+	const [deckCorner, setDeckCorner] = React.useState<DeckCorner>(SQUARE);
 	// Dismiss the instant-shell when the editor preview first renders (its own Nacre loader
 	// now covers the preview area) OR at the 8s backstop above. The editor DeckPreview lives
 	// in-flow in `previewBoxRef` and fires `onFirstRender` on its first paint — idempotent.
@@ -3364,8 +3364,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// deck's — most obvious when the two themes disagree. The engine owns the slide's
 					// corner now (`corners:` front matter → `--slide-radius`), and this box follows
 					// what the render reports: `deckCorner` is a FRACTION of the slide's width,
-					// measured off the live frame by DeckPreview, so one deck rounds by the same
-					// proportion here and in a 240px gallery tile.
+					// measured off the live frame by DeckPreview and applied as a PERCENTAGE, so it
+					// resolves against this box's own painted size — the corner holds its
+					// proportion at every split position, and it lands even at widths where
+					// `previewPaneSize` has not resolved (the phone layout, where a pixel
+					// derivation silently produced 0 and, being cached, never retried).
 					landscapePhone ? '' : 'border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]')}
 					// CONTAIN to a clean deck-ratio (usually 16:9) box. Width = the SMALLER of the
 					// pane's measured width and its height-derived width (paneH × ratio) — see
@@ -3386,7 +3389,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						// measured pane width so it holds the deck's proportion at every split
 						// position, and `0px` — a hard corner — whenever the deck is square, which is
 						// the default and every deck written before the register existed.
-						borderRadius: cornerLength(deckCorner, previewPaneSize ? Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue) : 0),
+						borderRadius: cornerRadiusCss(deckCorner),
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
 					    measure-and-track controller). Being a normal layout child, the browser keeps

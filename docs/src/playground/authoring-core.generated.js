@@ -2030,6 +2030,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
       if (vocab.headlineNames) findings.push(...findUnknownHeadline(source, vocab.headlineNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
+      if (vocab.cornersNames) findings.push(...findUnknownCorners(source, vocab.cornersNames));
       if (vocab.paceNames) findings.push(...findUnknownPace(source, vocab.paceNames));
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findSingleLetterLexiconKeys(source));
@@ -2574,6 +2575,24 @@ ${indent}   - ${body.trim()}`;
         line: fmHeadline[0].trim(),
         message: `'${value}' is not a known headline value \u2014 the deck would silently keep each component's baked alignment`,
         fix: `Set front-matter \`headline:\` to one of: ${[...headlineNames].join(", ")}.`
+      }];
+    }
+    function findUnknownCorners(source, cornersNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmCorners = fmBlock[1].match(/^\s*corners:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmCorners) return [];
+      const value = fmCorners[1].trim();
+      const known = new Set([...cornersNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-corners",
+        severity: "warning",
+        classToken: value,
+        line: fmCorners[0].trim(),
+        message: `'${value}' is not a known corners value \u2014 the deck would silently render square`,
+        fix: `Set front-matter \`corners:\` to one of: ${[...cornersNames].join(", ")}.`
       }];
     }
     function findUnknownLift(source, liftNames) {

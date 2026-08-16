@@ -1146,12 +1146,13 @@ Two implementation notes worth knowing before you touch either:
   clip, and a section cannot query its own container — a bare `cqi` there escapes to the
   host viewport, so the corner would scale with the browser window instead of the slide.
 
-Everything downstream follows the rendered slide rather than guessing: the Studio's
-preview box, its gallery tiles and thumbnails, and the Fabricate specimens read the radius
-back off the live render (`docs/src/lib/deck-corner.ts`) as a *fraction* of the slide's
-width, so one deck rounds by the same proportion at 240px and at 1280px. Before this
-register those surfaces each picked a fixed pixel corner of their own, which is what made
-a preview disagree with its own export (#1649).
+The Studio's live preview follows the rendered slide rather than guessing: it reads the
+radius back off the frame (`docs/src/lib/deck-corner.ts`) as a *fraction* of the slide's
+width, so the corner holds its proportion at every split position and screen size. Before
+this register it clipped at a fixed 12px of its own, which is what made a preview disagree
+with its own export (#1649). The gallery tiles, navigator thumbnails and Fabricate
+specimens deliberately keep their own card corner — a tile is a frame around a slide, not
+the slide — and `DeckPreview` touches no host that has not asked via `onCorner`.
 
 **Nothing sits behind the slide in a preview.** The frame's own `html, body` is
 `transparent` (`docs/src/lib/single-slide-render.ts`); it used to paint a fixed

@@ -36,7 +36,7 @@ describe('resolve-corners', () => {
   test('omitted / unrecognized resolve to no class (square)', () => {
     assert.equal(cornersClass(''), '');
     assert.equal(cornersClass('   '), '');
-    assert.equal(cornersClass('round'), '', 'typo → square (deck-lint flags it)');
+    assert.equal(cornersClass('round'), '', 'typo → square; `unknown-corners` in lint-core is what tells the author');
     assert.equal(cornersClass(undefined), '');
     assert.equal(cornersClass(null), '');
   });
