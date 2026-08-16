@@ -24,6 +24,7 @@ import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { Compartment, EditorState } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
+import { lintTheme, lintThemeCoarse } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
 import { readFrontMatter } from './deck-config.js';
 import { buildVocabSets, findingsToDiagnostics } from './editor-diagnostics.js';
@@ -239,9 +240,8 @@ const latticeTheme = EditorView.theme({
 	// On touch devices, iOS Safari auto-zooms the page when you focus an input
 	// whose font is under 16px. Bump the editable surface to 16px on coarse
 	// pointers so tapping in doesn't zoom; desktop keeps the denser 13.5px.
-	'@media (pointer: coarse)': {
-		'.cm-content': { fontSize: '16px' },
-	},
+	// (Coarse-pointer rules live in the `@media` block at the END of this object —
+	// its position is load-bearing; see the note there.)
 	'.cm-scroller': {
 		fontFamily: 'var(--font-mono)',
 		lineHeight: '1.6',
@@ -266,53 +266,34 @@ const latticeTheme = EditorView.theme({
 	},
 	'::selection': { backgroundColor: 'var(--cm-selection)' },
 	'.cm-matchingBracket': { backgroundColor: 'var(--cm-match)', outline: 'none' },
-	// Inline validation underlines — palette-blind, matched to the Architect panel's
-	// severity tokens (defined by the host surface) so the inline and panel views of the
-	// lint stream read as one system. We replace CodeMirror's fixed-colour wavy SVG
-	// with a text-decoration squiggle painted in the brand severity colour. The hex
-	// is a last-resort fallback for a surface without the studio tokens (where the
-	// linter is inert anyway — it needs the deck-grammar vocab).
-	'.cm-lintRange-error': {
-		backgroundImage: 'none',
-		textDecoration: 'underline wavy var(--db-sev-error, #c0392b)',
-		textDecorationSkipInk: 'none',
-		textUnderlineOffset: '2px',
-	},
-	'.cm-lintRange-warning': {
-		backgroundImage: 'none',
-		textDecoration: 'underline wavy var(--db-sev-warning, #b8860b)',
-		textDecorationSkipInk: 'none',
-		textUnderlineOffset: '2px',
-	},
-	'.cm-lintRange-info': {
-		backgroundImage: 'none',
-		textDecoration: 'underline dotted var(--accent)',
-		textUnderlineOffset: '2px',
-	},
-	// Severity gutter markers — CodeMirror's default is a coloured SVG glyph; we
-	// replace it with a simple brand-coloured disc (same severity tokens as the
-	// underline) so the gutter reads as one system with the rest of the editor.
-	'.cm-gutter-lint': { width: '0.9em' },
-	'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px' },
-	'.cm-lint-marker': { width: '0.7em', height: '0.7em', backgroundImage: 'none', borderRadius: '50%' },
-	'.cm-lint-marker-error': { backgroundColor: 'var(--db-sev-error, #c0392b)' },
-	'.cm-lint-marker-warning': { backgroundColor: 'var(--db-sev-warning, #b8860b)' },
-	'.cm-lint-marker-info': { backgroundColor: 'var(--accent)' },
-	// Lint panel (Ctrl-Shift-M) — themed off the page tokens so it's not an
-	// unstyled box; severity border mirrors the underline + gutter.
-	'.cm-panel.cm-panel-lint': { backgroundColor: 'var(--bg-alt)', borderTop: '1px solid var(--border)', color: 'var(--text-body)' },
-	'.cm-panel.cm-panel-lint ul [aria-selected]': { backgroundColor: 'color-mix(in srgb, var(--accent) 18%, var(--bg-alt))' },
-	'.cm-panel.cm-panel-lint .cm-diagnostic-error': { borderLeftColor: 'var(--db-sev-error, #c0392b)' },
-	'.cm-panel.cm-panel-lint .cm-diagnostic-warning': { borderLeftColor: 'var(--db-sev-warning, #b8860b)' },
-	'.cm-panel.cm-panel-lint button[name="close"]': { color: 'var(--text-muted)' },
+	// Every lint surface — squiggle, gutter disc, hover card, panel — comes from
+	// the shared module, so this editor and the Studio's deck editor cannot drift
+	// apart. It replaces a local copy that painted severity with
+	// `--db-sev-error` / `--db-sev-warning`: tokens referenced here but DEFINED
+	// NOWHERE in the repo, so their `#c0392b` / `#b8860b` fallbacks won on every
+	// palette and the severity colors never tracked the theme at all.
+	...lintTheme,
 	// NOTE: the autocomplete popup (.cm-tooltip-autocomplete / .cm-completionInfo)
-	// is themed in a GLOBAL stylesheet (ensureTooltipTheme below), NOT here —
-	// EditorView.theme is scoped to the .cm-editor element, and CodeMirror renders
-	// completion tooltips in a fixed/detached layer that can fall OUTSIDE it
-	// (notably on iOS Safari), where the scoped rules don't reach and the popup
-	// falls back to CodeMirror's default white panel. The global rules reach it
-	// wherever CM places it; the palette vars resolve anywhere under <html>. The
-	// --cm-* tokens are editor-scoped, so the global block uses the base tokens.
+	// is ALSO themed in a global stylesheet (ensureTooltipTheme below). The lint
+	// tooltip needs no such treatment: measured on the built site, `.cm-tooltip-lint`
+	// is a descendant of `.cm-editor` (the tooltip plugin sets
+	// `container = view.dom` whenever no `parent` is configured, and nothing here
+	// configures one), so these scoped rules reach it. The autocomplete duplication
+	// is left alone deliberately — it is a separate surface with its own history,
+	// and unpicking it is not this change's job.
+	//
+	// LAST on purpose, and it must stay last. A theme object compiles to a
+	// stylesheet in key order, and these rules target the same selectors as the
+	// base ones at the same specificity — so placed earlier they lose to the very
+	// rules they exist to override and the touch sizes silently never apply.
+	// (Measured: the fix pill stayed 28px on a real coarse pointer until this
+	// block moved below `...lintTheme`.)
+	'@media (pointer: coarse)': {
+		// iOS Safari auto-zooms the page when focusing an editable surface whose
+		// font computes under 16px.
+		'.cm-content': { fontSize: '16px' },
+		...lintThemeCoarse,
+	},
 });
 
 // Global autocomplete-popup theme. Injected once into <head> (not via
@@ -348,47 +329,10 @@ const TOOLTIP_CSS = `
 	max-width: 22em;
 	box-shadow: 0 10px 28px color-mix(in srgb, var(--text-heading) 22%, transparent);
 }
-/* Inline-validation hover tooltip — same detached-layer treatment as the popup,
-   themed off the page tokens (brand severity colours on the left rule, matching
-   the editor underline + the Architect panel). */
-.cm-tooltip.cm-tooltip-lint {
-	border: 1px solid color-mix(in srgb, var(--border) 45%, var(--text-muted));
-	border-radius: 8px;
-	background-color: var(--bg-alt) !important;
-	color: var(--text-body);
-	box-shadow: 0 10px 28px color-mix(in srgb, var(--text-heading) 22%, transparent);
-	overflow: hidden;
-}
-.cm-tooltip-lint .cm-diagnostic {
-	padding: 7px 10px;
-	font-family: var(--font-body, inherit);
-	font-size: 12.5px;
-	line-height: 1.45;
-	white-space: pre-wrap;
-	border-left: 3px solid var(--accent);
-}
-.cm-tooltip-lint .cm-diagnostic-error { border-left-color: var(--db-sev-error, #c0392b); }
-.cm-tooltip-lint .cm-diagnostic-warning { border-left-color: var(--db-sev-warning, #b8860b); }
-.cm-tooltip-lint .cm-diagnostic-info { border-left-color: var(--accent); }
-.cm-tooltip-lint .cm-diagnosticSource {
-	display: block;
-	margin-top: 3px;
-	font-size: 11px;
-	font-style: italic;
-	color: color-mix(in srgb, var(--text-muted) 50%, var(--text-body));
-}
-.cm-diagnosticAction {
-	margin: 0 0 0 8px;
-	font-family: var(--font-body, inherit);
-	font-size: 11.5px;
-	color: var(--on-accent);
-	background-color: var(--accent);
-	border: none;
-	border-radius: 6px;
-	padding: 2px 9px;
-	cursor: pointer;
-}
-.cm-diagnosticAction:hover { background-color: color-mix(in srgb, var(--accent) 85%, var(--text-heading)); }`;
+/* The lint hover tooltip is NOT themed here — it lives inside .cm-editor, so the
+   scoped rules from lib/lint-theme.js reach it, and one definition dresses both
+   this editor and the Studio's. Only the shell it shares with the autocomplete
+   popup is set above. */`;
 
 function ensureTooltipTheme() {
 	if (typeof document === 'undefined' || document.getElementById('lattice-cm-tooltip-theme')) return;

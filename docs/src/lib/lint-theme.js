@@ -1,0 +1,337 @@
+// The lint diagnostic surface — ONE definition, worn by every Studio code editor.
+//
+// WHY THIS FILE EXISTS
+// Two editor surfaces render the same `@codemirror/lint` DOM and, until this
+// file, each dressed it independently: the Studio deck editor
+// (components/studio/editor-theme.ts) themed the tooltip SHELL and left the
+// interior stock, while the Playground (playground/editor.js) themed the
+// interior from a global stylesheet in its own idiom. Same findings, same DOM,
+// two different-looking popups — and a fix to one silently skipped the other.
+// This module is the single source both spread into their themes (HARD RULE #15).
+//
+// THE DESIGN — "Finding Card, in place"
+// The Coach panel already renders a lint finding as a card with a fixed rhythm:
+// meta line (severity + rule id), then the message, then the action on its own
+// row (coach/FindingCard.tsx). A hover popup that reports the SAME finding
+// should read the same way — so nothing new is minted here. `@codemirror/lint`
+// hands us a fixed child order (text → button(s) → source); CSS grid placement
+// re-reads it as meta / message / action without forking the package.
+//
+// WHAT IT DELIBERATELY DOES NOT TOUCH
+// `.cm-tooltip` — the floating-surface shell (fill, hairline, radius, shadow) —
+// is already themed by each surface and shared with the AUTOCOMPLETE popup. The
+// lint tooltip lives in that same element, so leaving it alone is what keeps the
+// two popups from drifting apart. Verified on the real built Studio, not assumed:
+// the lint tooltip's computed background resolves to `--bg`, and the tooltip is
+// a descendant of `.cm-editor` (so a scoped `EditorView.theme` reaches it — the
+// tooltip plugin falls back to `container = view.dom` when no `parent` is
+// configured, and nothing in docs/src configures one).
+//
+// SEVERITY WITHOUT HUE
+// Three channels carry severity — the glyph SHAPE (octagon / triangle / circle),
+// the WORD ("Error" / "Warning" / "Note"), and color. Color is the only one the
+// `a11y-*` palettes can flatten (on `a11y-achromatopsia` the severity tokens
+// collapse toward one gray), so it is deliberately the least load-bearing.
+
+// Lucide glyphs, verbatim from the icon set FindingCard already imports
+// (OctagonAlert / TriangleAlert / Info), inlined as CSS masks. A mask uses the
+// image's ALPHA, never its color, so the `stroke='%23000'` in the data URI is an
+// opacity carrier and not a palette decision — the visible color is
+// `background-color`, a token. Masking rather than a colored background-image is
+// what lets one glyph re-tint per severity AND per palette with no second asset.
+const icon = (body) =>
+	`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E${body}%3C/svg%3E")`;
+
+const ICON_ERROR = icon(
+	"%3Cpath d='M12 16h.01'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z'/%3E",
+);
+const ICON_WARNING = icon(
+	"%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E",
+);
+const ICON_INFO = icon("%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E");
+
+const mask = (img) => ({
+	maskImage: img,
+	WebkitMaskImage: img,
+	maskRepeat: 'no-repeat',
+	WebkitMaskRepeat: 'no-repeat',
+	maskPosition: 'center',
+	WebkitMaskPosition: 'center',
+	maskSize: '100% 100%',
+	WebkitMaskSize: '100% 100%',
+});
+
+// Recessive ink that still clears 3:1. `--text-muted` alone does NOT: measured
+// against `--bg` across all 36 palette x mode rows it bottoms out at 2.47:1
+// (magnolia light) and 2.64:1 (cuoio light). Mixing 55% of it into `--text-body`
+// — which is AA against `--bg` by contract — lifts every row past 3:1 (worst
+// becomes 3.75:1) while still reading as secondary beside `--text-heading`.
+// Used for the rule id and the Note glyph, the two places severity ink would
+// otherwise be the palette's weakest color.
+export const MUTED_INK = 'color-mix(in srgb, var(--text-muted) 55%, var(--text-body))';
+
+// A hairline drawn from the popup's OWN ink rather than `--border`: `--border` is
+// tuned as a card edge against `--bg-alt`, and this surface is `--bg`, where it
+// all but disappears on several palettes.
+const HAIRLINE = '1px solid color-mix(in srgb, var(--text-heading) 12%, transparent)';
+
+/**
+ * The lint treatment, as a CodeMirror theme-object fragment.
+ *
+ * Spread into an `EditorView.theme({...})` call — NOT injected as a global
+ * stylesheet. Scoped theming is what keeps these rules at the same cascade
+ * weight as CodeMirror's own base theme (both compile to a single generated
+ * class), so they win on load order without a single `!important`.
+ *
+ * @type {Record<string, Record<string, string>>}
+ */
+export const lintTheme = {
+	// ── The list ────────────────────────────────────────────────────────────
+	'.cm-tooltip-lint': {
+		// Prose, not identifiers — so the UI voice, unlike the autocomplete list
+		// (which is mono because every row IS an identifier).
+		fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+		listStyle: 'none',
+		margin: '0',
+		padding: '0',
+		borderRadius: '7px', // the shell's 8px less its 1px border, so corners stay round
+		// Narrow enough to sit BESIDE the code it describes rather than blanket it,
+		// and never wider than a 390px viewport can hold.
+		maxWidth: 'min(340px, calc(100vw - 28px))',
+		maxHeight: 'min(46vh, 320px)',
+		overflowY: 'auto',
+		overscrollBehavior: 'contain',
+	},
+	// Two findings on one span share a popup; stacked hover tooltips are separate
+	// sections. Both get the popup's own divider instead of the base theme's #bbb.
+	'.cm-tooltip-lint > li + li': { borderTop: HAIRLINE },
+	'.cm-tooltip-section:not(:first-child)': { borderTop: HAIRLINE },
+
+	// ── One finding: FindingCard's three rows, on a DOM we cannot reorder ────
+	// The package emits `text → button(s) → source`; FindingCard reads
+	// `meta → message → action`. Explicit grid placement re-orders it with no
+	// fork and no JS, and actions auto-flow onto rows 3..n so 0..n buttons all
+	// land cleanly on their own line rather than competing with the prose.
+	'.cm-tooltip-lint > li.cm-diagnostic': {
+		display: 'grid',
+		gridTemplateColumns: 'auto auto minmax(0, 1fr)',
+		columnGap: '6px',
+		rowGap: '7px',
+		alignItems: 'center',
+		padding: '10px 12px',
+		margin: '0',
+		borderLeft: 'none', // kill the stock 5px #d11 / orange rail
+		whiteSpace: 'normal',
+	},
+
+	// Row 1a — the severity GLYPH. Shape is the channel that survives a palette
+	// with no usable severity hue.
+	'.cm-tooltip-lint > li.cm-diagnostic::before': {
+		content: "''",
+		gridColumn: '1',
+		gridRow: '1',
+		width: '15px',
+		height: '15px',
+		alignSelf: 'center',
+		backgroundColor: MUTED_INK,
+		...mask(ICON_INFO),
+	},
+	// Row 1b — the severity WORD, in `--text-heading` (AA against `--bg` by
+	// contract) rather than the severity hue, exactly as FindingCard sets its
+	// slide number beside a tinted glyph.
+	'.cm-tooltip-lint > li.cm-diagnostic::after': {
+		gridColumn: '2',
+		gridRow: '1',
+		alignSelf: 'center',
+		fontSize: '12px',
+		fontWeight: '600',
+		lineHeight: '1.2',
+		color: 'var(--text-heading)',
+		whiteSpace: 'nowrap',
+	},
+	'.cm-tooltip-lint > li.cm-diagnostic-error::before': { backgroundColor: 'var(--fail)', ...mask(ICON_ERROR) },
+	'.cm-tooltip-lint > li.cm-diagnostic-error::after': { content: "'Error'" },
+	'.cm-tooltip-lint > li.cm-diagnostic-warning::before': { backgroundColor: 'var(--warn)', ...mask(ICON_WARNING) },
+	'.cm-tooltip-lint > li.cm-diagnostic-warning::after': { content: "'Warning'" },
+	'.cm-tooltip-lint > li.cm-diagnostic-info::after': { content: "'Note'" },
+	'.cm-tooltip-lint > li.cm-diagnostic-hint::after': { content: "'Hint'" },
+
+	// Row 1c — the rule id. Mono + uppercase + tracking is FindingCard's meta
+	// voice for an IDENTIFIER, and the editor beneath it is mono. Truncates
+	// rather than wrapping, so a long rule name can never push the message down.
+	'.cm-tooltip-lint .cm-diagnosticSource': {
+		gridColumn: '3',
+		gridRow: '1',
+		justifySelf: 'start',
+		alignSelf: 'center',
+		minWidth: '0',
+		maxWidth: '100%',
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap',
+		fontFamily: 'var(--font-mono, ui-monospace, monospace)',
+		fontSize: '11px',
+		fontWeight: '400', // it must recede behind "Error"
+		letterSpacing: '0.05em',
+		textTransform: 'uppercase',
+		color: MUTED_INK,
+		fontStyle: 'normal',
+		opacity: '1', // stock ships `font-size:70%; opacity:.7`
+	},
+
+	// Row 2 — the message. `pre-wrap` is load-bearing: lint-core composes
+	// `${message}\n\nFix: ${fix}` for findings with no one-click action, and the
+	// blank line is what separates the diagnosis from the remedy.
+	'.cm-tooltip-lint .cm-diagnosticText': {
+		gridColumn: '1 / -1',
+		gridRow: '2',
+		fontSize: '12.5px',
+		lineHeight: '1.5',
+		color: 'var(--text-body)',
+		whiteSpace: 'pre-wrap',
+		// Slightly more air below the prose than above it, so a filled pill reads
+		// as a separate move rather than a third line of the sentence.
+		paddingBottom: '2px',
+	},
+
+	// ── Row 3+ — the point of the surface ───────────────────────────────────
+	// FindingCard's "Apply" pill, verbatim: filled `--accent` with `--on-accent`
+	// ink. `--on-accent` is the repo's curated per-theme answer to "accent has no
+	// contrast guarantee" — every theme names it against its own accent, which is
+	// why the fill is safe here and a hand-picked white would not be.
+	'.cm-tooltip-lint .cm-diagnosticAction': {
+		gridColumn: '1 / -1',
+		justifySelf: 'start',
+		display: 'inline-flex',
+		alignItems: 'center',
+		gap: '6px',
+		minHeight: '28px',
+		padding: '4px 12px',
+		border: '1px solid transparent',
+		borderRadius: '999px',
+		backgroundColor: 'var(--accent)',
+		color: 'var(--on-accent)',
+		font: 'inherit',
+		fontSize: '12px',
+		fontWeight: '600',
+		lineHeight: '1.3',
+		cursor: 'pointer',
+		transition: 'box-shadow 120ms ease',
+		margin: '0',
+	},
+	// Hover/press is a HALO, not a fill shift — both obvious fill shifts fail
+	// somewhere across the palette set: toward `--bg` lightens a dark-gold accent
+	// far enough that `--on-accent` drops below AA, and toward `--text-heading` is
+	// a measured no-op on the `a11y-*` palettes where accent and heading ink are
+	// the same color. A translucent accent ring composites over `--bg` (which
+	// `--accent` must already contrast with to be usable at all) and leaves the
+	// fill — and so the label's contrast — untouched.
+	'.cm-tooltip-lint .cm-diagnosticAction:hover': {
+		boxShadow: '0 0 0 3px color-mix(in srgb, var(--accent) 42%, transparent)',
+	},
+	'.cm-tooltip-lint .cm-diagnosticAction:active': {
+		boxShadow: '0 0 0 3px color-mix(in srgb, var(--accent) 62%, transparent)',
+	},
+	// Focus is an INK outline at a gap — a different channel from the hover halo,
+	// so "hovered" and "keyboard-focused" never read as the same state.
+	'.cm-tooltip-lint .cm-diagnosticAction:focus-visible': {
+		outline: '2px solid color-mix(in srgb, var(--text-heading) 55%, transparent)',
+		outlineOffset: '2px',
+	},
+	// Reserved SECONDARY, for an action given `markClass: 'cm-diagnosticAction-quiet'`
+	// — FindingCard's own secondary pill. Nothing sets it today; it exists so a
+	// second action never has to invent one.
+	'.cm-tooltip-lint .cm-diagnosticAction-quiet': {
+		backgroundColor: 'var(--accent-soft)',
+		borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)',
+		color: 'var(--accent)',
+	},
+	'.cm-tooltip-lint .cm-diagnosticAction-quiet:hover': {
+		backgroundColor: 'color-mix(in srgb, var(--accent) 14%, var(--bg))',
+	},
+
+	// ── The mark on the line ────────────────────────────────────────────────
+	// The squiggle is the popup's anchor; if it doesn't share the severity system
+	// the card reads as unrelated chrome. Stock paints an SVG squiggle with
+	// #f11 / orange baked into the data URI — untintable. `text-decoration:
+	// underline wavy` is the tokenizable equivalent.
+	//
+	// `--fail` / `--warn` are the palette's real severity tokens. The retired
+	// `--db-sev-error` / `--db-sev-warning` these replace were referenced by the
+	// Playground but DEFINED NOWHERE in the repo, so their `#c0392b` / `#b8860b`
+	// fallbacks won on all 36 palette x mode rows — the severity colors never
+	// tracked the theme at all.
+	'.cm-lintRange': {
+		backgroundImage: 'none',
+		paddingBottom: '0',
+		textDecorationLine: 'underline',
+		textDecorationStyle: 'wavy',
+		textDecorationThickness: '1px',
+		textDecorationSkipInk: 'none',
+		textUnderlineOffset: '3px',
+	},
+	// `backgroundImage: none` is repeated per severity because the stock squiggle
+	// is declared on the SEVERITY class, not on `.cm-lintRange` — clearing only
+	// the base class would leave the outcome to source order.
+	'.cm-lintRange-error': { backgroundImage: 'none', textDecorationColor: 'var(--fail)' },
+	'.cm-lintRange-warning': { backgroundImage: 'none', textDecorationColor: 'var(--warn)' },
+	'.cm-lintRange-info': { backgroundImage: 'none', textDecorationColor: MUTED_INK },
+	'.cm-lintRange-hint': { backgroundImage: 'none', textDecorationColor: MUTED_INK },
+	'.cm-lintRange-active': { backgroundColor: 'color-mix(in srgb, var(--accent) 14%, transparent)' },
+
+	// ── The gutter marker ───────────────────────────────────────────────────
+	// A brand-colored disc in place of CodeMirror's fixed-color SVG glyph, so
+	// the gutter, the squiggle, and the card read as one system.
+	'.cm-gutter-lint': { width: '0.9em' },
+	'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px' },
+	'.cm-lint-marker': { width: '0.7em', height: '0.7em', backgroundImage: 'none', borderRadius: '50%' },
+	'.cm-lint-marker-error': { backgroundColor: 'var(--fail)' },
+	'.cm-lint-marker-warning': { backgroundColor: 'var(--warn)' },
+	'.cm-lint-marker-info': { backgroundColor: MUTED_INK },
+
+	// ── The lint panel (Ctrl-Shift-M) ───────────────────────────────────────
+	// The third view of the same stream; same severity tokens so it cannot drift
+	// from the card and the gutter.
+	'.cm-panel.cm-panel-lint': {
+		backgroundColor: 'var(--bg-alt)',
+		borderTop: '1px solid var(--border)',
+		color: 'var(--text-body)',
+	},
+	'.cm-panel.cm-panel-lint ul [aria-selected]': {
+		backgroundColor: 'color-mix(in srgb, var(--accent) 18%, var(--bg-alt))',
+	},
+	'.cm-panel.cm-panel-lint .cm-diagnostic-error': { borderLeftColor: 'var(--fail)' },
+	'.cm-panel.cm-panel-lint .cm-diagnostic-warning': { borderLeftColor: 'var(--warn)' },
+	'.cm-panel.cm-panel-lint button[name="close"]': { color: 'var(--text-muted)' },
+};
+
+/**
+ * Coarse-pointer overrides, kept OUT of `lintTheme` on purpose.
+ *
+ * Both consuming themes already own a `'@media (pointer: coarse)'` key (they lift
+ * `.cm-content` to 16px so iOS Safari doesn't auto-zoom on focus). A theme object
+ * is a flat map, so spreading a second object that also carries that key would
+ * silently REPLACE the existing block and drop the zoom guard. Exporting the
+ * coarse rules separately forces each consumer to merge them explicitly:
+ *
+ *   '@media (pointer: coarse)': { '.cm-content': { fontSize: '16px' }, ...lintThemeCoarse },
+ *
+ * On a phone the card gets reading sizes and the fix becomes a full-width 44px
+ * target instead of a 28px pill.
+ *
+ * @type {Record<string, Record<string, string>>}
+ */
+export const lintThemeCoarse = {
+	'.cm-tooltip-lint': { maxWidth: 'calc(100vw - 24px)' },
+	'.cm-tooltip-lint > li.cm-diagnostic': { padding: '12px 14px', rowGap: '9px' },
+	'.cm-tooltip-lint > li.cm-diagnostic::before': { width: '17px', height: '17px' },
+	'.cm-tooltip-lint > li.cm-diagnostic::after': { fontSize: '13px' },
+	'.cm-tooltip-lint .cm-diagnosticSource': { fontSize: '12px' },
+	'.cm-tooltip-lint .cm-diagnosticText': { fontSize: '14px' },
+	'.cm-tooltip-lint .cm-diagnosticAction': {
+		justifySelf: 'stretch',
+		justifyContent: 'center',
+		minHeight: '44px',
+		fontSize: '14px',
+	},
+};
