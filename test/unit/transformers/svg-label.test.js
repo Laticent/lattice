@@ -140,6 +140,33 @@ describe('upperAdvance — mechanics', () => {
   test('the estimate reads the transformed glyphs, as `text-transform: uppercase` paints them', () => {
     assert.equal(upperAdvance('workflow', { tracking: 0 }), upperAdvance('WORKFLOW', { tracking: 0 }));
   });
+
+  test('an uppercase EXPANSION is billed against the source length', () => {
+    // The return value is per-character and both consumers multiply it back by a
+    // count of the SOURCE string — `charBudget` feeds a character budget to the
+    // line-breaker, `widestOf` does `line.length × advance`. `toUpperCase()` can
+    // expand (`ß`→`SS`; the ligatures a paste out of a PDF carries, `ﬄ`→`FFL`,
+    // 1→3), and CSS `text-transform: uppercase` performs the same mapping — so
+    // the paint expands while the count does not. Dividing by the expanded
+    // length diluted the advance by exactly the expansion factor, an UNDER-count
+    // and therefore the clipping direction: measured on a real render, 16 `ﬄ`
+    // painted 356.97u into a 140u box and ran off the viewBox.
+    const total = (s) => s.length * upperAdvance(s, { tracking: 0.04 });
+    assert.ok(Math.abs(total('Straße') - total('Strasse')) < 1e-9,
+      'STRASSE and STRAßE paint the same glyphs and must estimate the same total');
+    // And the pathological expansion is billed rather than diluted: three glyphs
+    // of ink per source character has to cost about three glyphs.
+    assert.ok(total('ﬄﬄﬄﬄ') > 3 * total('FFL'.slice(0, 1)) * 3,
+      'a 1→3 ligature expansion must not read as one character of ink');
+    assert.ok(upperAdvance('ﬄ', { tracking: 0 }) > upperAdvance('F', { tracking: 0 }) * 2.5,
+      'one ligature paints roughly three glyphs and must be billed that way');
+  });
+
+  test('an explicit null options object does not throw', () => {
+    // `= {}` only defaults `undefined`. Unreachable from today's call sites; a
+    // footgun for the next one.
+    assert.doesNotThrow(() => upperAdvance('X', null));
+  });
 });
 
 describe('measureLabel — a wide LINE cannot ride a narrow string average', () => {

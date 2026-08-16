@@ -463,6 +463,23 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
     assert.notEqual(ticks(sec), mono, 'the deck token was ignored because a watcher class rode with it');
   });
 
+  test('re-authored content wins over the stored source — the map cannot go stale', () => {
+    // A previewer that reuses the same <section> across an edit rewrites the
+    // content AND re-stamps the class list from `_class:`, dropping chart-frame.
+    // Without a check for that marker, the rebuild ran from the stored source and
+    // resurrected the OLD chart over the new authoring — a regression against the
+    // pre-change code, which had no memory and so could not be stale. #1673.
+    const doc = makeDoc(GANTT);
+    const sec = doc.querySelector('section.gantt');
+    chartFamily.applyToDom(doc);
+    sec.innerHTML = '<h2>New deck.</h2><ul><li>Zulu<ul>'
+      + '<li>New work <code>2030-01-01..2030-06-30</code></li></ul></li></ul>';
+    sec.className = 'gantt';
+    chartFamily.applyToDom(doc);
+    assert.match(sec.innerHTML, /Zulu/, 'the newly authored lane is missing');
+    assert.doesNotMatch(sec.innerHTML, /Framework/, 'the previous deck was resurrected');
+  });
+
   test('a changed data-orientation rebuilds — the class list is not the only build input', () => {
     // transformChartSection takes (source, cls, orientation). Keying only on the
     // class list left a chart built for landscape sitting on a section the

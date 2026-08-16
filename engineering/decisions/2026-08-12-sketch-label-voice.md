@@ -394,6 +394,76 @@ Closing that drift channel properly — a generator following the
 `build:check` — is a real follow-up, and is now stated as missing rather than
 implied to exist (HARD RULE #23).
 
+#### What the red team caught — the tighten loop was dead code
+
+The worst finding of the three lenses, and the most instructive, because the
+mechanism was correct and *unreachable*.
+
+`measureLabel`'s per-line tighten loop only engages when `advance` is a
+FUNCTION. All three consumers passed `advance: upperAdvance(name, {...})` —
+which **calls** it, yielding a number. `advanceFor` then returned that same
+constant for every line, `tighter >= budget` on the first pass, and the loop
+exited having done nothing. So the safety property the whole change rests on was
+off in every shipping caller, and the string-average hazard the loop exists to
+prevent was live:
+
+| slide | line emitted | box | actually painted |
+|---|---|---|---|
+| clean | `WORKFLOW WORKFLOW` | 140u | **154.3u** (+10.2%) |
+| sketch | `MOMENTUM WINDOW` | 140u | **146.8u** (+4.9%) |
+
+The estimator's own model agreed those lines were over budget and emitted them
+anyway, and `widestOf` handed `placeLabels` boxes 6–9.5% narrower than the
+painted glyphs — the exact under-count this change documents as the box-breaking
+defect. Fixed by passing the function: `advance: (s) => upperAdvance(s, {...})`.
+(`cornerSpec`'s `name` parameter became dead in the process and is gone.)
+
+**Why no test caught it, and this is the part worth carrying forward.** The test
+written for this property called `measureLabel` directly with the FUNCTION form
+— the shape production does not use — so it exercised a path nothing reached.
+Its companion asserted a hypothetical rather than the emitted wrap. Two tests,
+zero coverage of the shipped path: the "test that cannot fail for the thing it
+exists to catch" shape, self-inflicted. The replacement asserts on the SVG that
+`transformChartSection` actually emits, and fails when the call sites regress to
+a number.
+
+**`toUpperCase()` expansion broke the char-count ↔ advance contract.**
+`upperAdvance` returns a PER-CHARACTER number and both consumers multiply it
+back by a count of the SOURCE string, but it divided by the UPPERCASED length.
+`ß`→`SS` is 1→2 and the ligatures a paste out of a PDF carries (`ﬄ`→`FFL`) are
+1→3, while CSS `text-transform: uppercase` performs the same mapping — so the
+paint expanded and the count did not, diluting the advance by exactly the
+expansion factor. Measured on a real render: a corner name of 16 `ﬄ` painted
+**356.97u into a 140u box**, ran off the left edge of the viewBox and printed
+through its neighbor. Now billed against the source length, so `STRASSE` and
+`STRAßE` estimate the same total, which is what they paint.
+
+**The rebuild could resurrect a deleted deck.** `built` cached the source from
+the first pass with no invalidation, so a previewer reusing a `<section>` across
+an edit — new content, class list re-stamped from `_class:` — rebuilt from the
+stale source and painted a chart the deck no longer contained. A regression
+against the pre-change code, which had no memory and so could not be stale. The
+fix keys on `chart-frame`: it is the marker saying "this section holds built
+output", and a re-stamp drops it. Deliberately **not** `innerHTML !== prior.html`
+— transforms after this one restructure these children (masthead-lift hoists the
+chrome into cells), so that test reads every section as stale on every later pass
+and would disable rebuilding entirely. That was tried, and the suite caught it.
+
+Also fixed: an explicit `null` options object threw (`= {}` defaults only
+`undefined`), and one British spelling in new prose that the `checkUsEnglish`
+curated list does not carry (HARD RULE #21 says that class rides on review).
+
+**What the red team could not break**, which is worth recording as covered
+ground: the per-glyph table itself (all 51 mapped glyphs re-measured against the
+real shipped woff2s in both faces — **zero entries below the real advance**); the
+re-run gate under a slow, 404, garbage and never-responding fetch (all converge,
+no unbounded pass loop, no lost wakeup); cross-path parity on the real
+fetch-fallback surface (all 35 geometry nodes byte-identical to the engine's);
+backdrop and Form survival across a rebuild; `cloneNode` of a built chart; and
+hostile author names (empty, whitespace, NBSP, a 4000-character unbreakable
+token, ZWJ emoji, RTL, CJK, and markup-injection attempts, which are stripped to
+text before reaching the emitter).
+
 #### What the checker caught, and why the first cut was wrong
 
 Two defects survived the maker's own testing, both found by the independent

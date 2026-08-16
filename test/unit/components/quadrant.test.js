@@ -548,6 +548,40 @@ describe('quadrant — the sketch token reaches the builder', () => {
       'the hand sans is wider here — identical output means `hand` never reached buildQuadrant');
   });
 
+  // THROUGH THE REAL TRANSFORM, not through measureLabel. The previous cut of
+  // this coverage exercised the per-line tighten by calling `measureLabel` with
+  // a FUNCTION advance — while all three production call sites passed the
+  // RESULT of `upperAdvance`, i.e. a number. `advanceFor` then returned the same
+  // constant for every line, the loop exited on its first pass having done
+  // nothing, and the emitted lines overran their box by up to 15% on ordinary
+  // two-word author names. Two tests, zero coverage of the shipped path — the
+  // exact "test that cannot fail for the thing it exists to catch" shape this
+  // repo keeps re-learning. Asserting on the emitted SVG is what closes it.
+  const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
+  // The box the corner label is wrapped to, from the transform rather than a
+  // literal — a retune of LW.corner must move this test, not slip past it.
+  const { LW: QLW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const overrunsIn = (cls, name, hand) => {
+    const html = transformChartSection(
+      `<h2>X</h2><ul><li>${name}<ul><li>A <code>2, 82</code></li></ul></li>`
+      + '<li>Other<ul><li>B <code>8, 88</code></li></ul></li></ul>', cls).html;
+    const block = [...html.matchAll(/<text class="quadrant-label"[^>]*>([\s\S]*?)<\/text>/g)][0][1];
+    return [...block.matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)]
+      .map((m) => m[1])
+      .filter((line) => line.length * FS_LABEL * upperAdvance(line, { hand, tracking: 0.04 }) > QLW.corner + 0.01);
+  };
+
+  for (const [name, cls, hand] of [
+    ['Visibility Workflow Workflow', 'quadrant', false],
+    ['Momentum Window Illinois', 'quadrant sketch', true],
+    ['Workflow Workflow', 'quadrant', false],
+  ]) {
+    test(`no emitted line overruns its box: ${JSON.stringify(name)} (${cls})`, () => {
+      assert.deepEqual(overrunsIn(cls, name, hand), [],
+        'a line was emitted wider than the width it was wrapped to');
+    });
+  }
+
   test('`sketch-clean` measures the CLEAN face — it reverts --font-body', () => {
     // `mode: sketch-clean` resolves to `sketch sketch-clean-body`, and
     // base.sketch.css puts `--font-body` back to the clean stack while leaving
