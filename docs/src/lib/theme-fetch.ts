@@ -22,20 +22,14 @@
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
-/**
- * The theme-name `@import` targets a stylesheet declares — the ONE place this
- * scan lives (every consumer that walks the theme chain uses it, so the footguns
- * are fixed once). Two footguns it handles:
- *   - the minified dist themes drop the space after @import (`@import"onyx"`), so
- *     the pattern is `\s*` not `\s+` (mirrors the engine's THEME_IMPORT_RE);
- *   - a banner COMMENT can contain literal `@import '<self>'` prose, which would
- *     self-match and deadlock a closure walk — so comments are stripped first.
- * `url(...)` font imports don't match (no bare quote-name). `lattice` is included
- * if present; callers route it to their base-registration path.
- */
-export function themeImportNames(css: string): string[] {
-	return [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@import\s*['"]([A-Za-z0-9_-]+)['"]/g)].map((m) => m[1]);
-}
+// THE theme graph, declared in the manifests and baked into the catalog — not
+// re-derived by regexing `@import` out of the fetched CSS. That scan lived here as
+// `themeImportNames` and was the third such resolver in the repo; the three had
+// already drifted (the emulator's missed a minified `@import"onyx"` that this one
+// handled). See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+import { themeChain } from '../../../lib/theme/chain.js';
+import { THEME_EDGES } from '../../../lib/theme/edges.generated.js';
+
 
 // Module-level shared cache keyed by themeBase — so EVERY preview host that renders against
 // the same theme root shares ONE fetch + ONE decoded/rewritten ~560KB CSS string, instead of
@@ -155,11 +149,14 @@ export function createThemeFetcher(themeBase: string) {
 			registering[name] = fetchTheme(name)
 				.then((css) => {
 					if (!PG.hasTheme(name)) PG.addThemes([{ name, css }]);
-					// Walk the transitive theme-name @import closure — the engine inlines
-					// an import only if its target is already registered, so a multi-level
-					// chain (a11y-deuteranopia → a11y-base → onyx → lattice) renders
-					// STRIPPED unless every link is present. `lattice` routes via ensureBase.
-					const deps = themeImportNames(css).filter((d) => d && d !== name);
+					// The engine inlines a theme-name `@import` only if its target is already
+					// registered, so a multi-level chain (a11y-deuteranopia → a11y-base → onyx
+					// → lattice) renders STRIPPED unless every link is present. The chain is
+					// DECLARED (manifest `extends`, baked into THEME_EDGES) rather than
+					// re-derived from the fetched CSS. A name absent from the catalog has no
+					// declared parent, so its chain is itself — correct, and the only answer
+					// available without parsing. `lattice` routes via ensureBase.
+					const deps = themeChain(name, THEME_EDGES).filter((d: string) => d && d !== name);
 					return Promise.all([ensureBase(), ...deps.map(register)]).then(() => undefined);
 				})
 				.catch((e) => { if (e?.status !== 404) delete registering[name]; throw e; }); // self-heal transient only; keep a 404 (absent `-dark`) negatively cached

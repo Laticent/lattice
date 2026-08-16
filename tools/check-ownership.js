@@ -914,6 +914,50 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
   }
 }
 
+// ─── The theme GRAPH has one owner too ────────────────────────────────────
+// A palette's parent is declared in `themes/<name>.manifest.json` as `extends`.
+// The CSS also says `@import 'parent'` — that copy is MARP's, since Marp has no
+// manifest and must learn the graph from the stylesheet. Lattice reads the
+// manifest and never parses the CSS for it (lib/theme/chain.js).
+//
+// This gate is the entire reason the CSS copy is allowed to stay. Without it the
+// two drift, and drift here is not theoretical: THREE separate `@import` resolvers
+// existed before 2026-08-16 and had already diverged — the emulator's missed a
+// minified `@import"indaco"` that the engine's and the docs' both handled, because
+// the fix was applied to one copy and not the others.
+// See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+const THEME_IMPORT_IN_CSS = /@import\s*(['"])([A-Za-z0-9_-]+)\1\s*;?/g;
+function checkThemeGraph(errors, themesDir = THEMES_DIR) {
+  const files = listThemeFiles(themesDir);
+  const manifests = listThemeManifests(themesDir);
+  for (const [name, cssText] of files) {
+    const m = manifests.get(name);
+    if (!m) continue; // G1 owns the orphan
+    // `@import 'lattice'` is the ENGINE base, not a theme edge — it is declared by
+    // `role` and resolved by composeCss, so it is excluded from the comparison.
+    const imported = [...stripComments(cssText).matchAll(THEME_IMPORT_IN_CSS)]
+      .map((x) => x[2])
+      .filter((n) => n !== 'lattice');
+    const declared = m.extends ? [m.extends] : [];
+    if (imported.length > 1) {
+      errors.push(
+        `themes/${name}.css @imports ${imported.map((i) => `'${i}'`).join(' + ')}. A theme extends exactly ` +
+        `one thing, and the manifest's \`extends\` can only say one — a second import is invisible to every ` +
+        `Lattice path, which resolves the chain from the manifest.`,
+      );
+      continue;
+    }
+    if (imported.join() !== declared.join()) {
+      errors.push(
+        `themes/${name}: the manifest says ${m.extends ? `\`extends: "${m.extends}"\`` : 'no `extends`'} but ` +
+        `the CSS ${imported.length ? `@imports '${imported[0]}'` : 'imports no theme'}. These are the SAME ` +
+        `fact written twice — the manifest for Lattice, the \`@import\` for Marp — and they have to agree, ` +
+        `because only one of them is read on each path. Fix whichever is wrong.`,
+      );
+    }
+  }
+}
+
 // ─── Theme registration passes the name, never searches for it ────────────
 // `ThemeStore.add(name, css)` takes identity as an argument. The one-argument
 // `add(css)` form recovers it from `@theme` and survives only for external
@@ -955,6 +999,33 @@ const SANCTIONED_UNNAMED_THEME_REGISTRATIONS = [
        + 'DEFAULT path constructs `dist/lattice.css` itself and now passes `{ name: \'lattice\' }`.',
   },
 ];
+
+
+/**
+ * Does this expression provably evaluate to `{ name, css }` entries?
+ *
+ * An object literal obviously does. `...chain.map((n) => ({ name: n, css: … }))` does
+ * too, and that is the natural way to register a whole theme chain — reporting it
+ * would push correct code onto the sanction list, which is how an allowlist stops
+ * meaning anything. Everything else (a bare identifier, a conditional with a
+ * non-object branch) is still reported: the gate's job is to make the shape visible
+ * AT the call, and those genuinely hide it.
+ */
+function producesNamedEntry(node, ts) {
+  if (ts.isParenthesizedExpression(node)) return producesNamedEntry(node.expression, ts);
+  if (ts.isObjectLiteralExpression(node)) return true;
+  // `xs.map(fn)` where fn returns an object literal.
+  if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+      && node.expression.name.text === 'map') {
+    const fn = node.arguments[0];
+    if (fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) {
+      if (!ts.isBlock(fn.body)) return producesNamedEntry(fn.body, ts);
+      const ret = fn.body.statements.find((st) => ts.isReturnStatement(st));
+      return Boolean(ret?.expression) && producesNamedEntry(ret.expression, ts);
+    }
+  }
+  return false;
+}
 
 /**
  * Find theme registrations that hand over a stylesheet without its name.
@@ -1027,10 +1098,7 @@ function checkThemeRegistrationCallSites(errors) {
           if (arg && ts.isArrayLiteralExpression(arg)) {
             for (const el of arg.elements) {
               const inner = ts.isSpreadElement(el) ? el.expression : el;
-              // An object literal is the contract. A spread or identifier MAY hold the
-              // object form; it cannot be proven here, so it is reported rather than
-              // assumed — the gate's job is to make the shape visible at the call.
-              if (!ts.isObjectLiteralExpression(inner)) report(el, 'array element is not a `{ name, css }` object literal');
+              if (!producesNamedEntry(inner, ts)) report(el, 'array element is not a `{ name, css }` object literal');
             }
           } else if (arg && !(ts.isIdentifier(arg) && isEnclosingParam(node, arg.text))) {
             // Not an inline array: the previous gate's regex required `addThemes([`, so
@@ -7775,6 +7843,7 @@ function run() {
   checkSectionBoxOwnership(errors);
   checkSizeRegistryOwnership(errors);
   checkThemeIdentity(errors);
+  checkThemeGraph(errors);
   checkThemeRegistrationCallSites(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
@@ -7910,6 +7979,7 @@ module.exports = {
   checkSectionBoxOwnership,
   checkSizeRegistryOwnership,
   checkThemeIdentity,
+  checkThemeGraph,
   checkThemeRegistrationCallSites,
   SANCTIONED_SECTION_BOXES,
   checkLabelVoiceFont,
