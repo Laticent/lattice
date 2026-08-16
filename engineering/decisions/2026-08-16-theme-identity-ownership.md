@@ -101,12 +101,14 @@ promise nothing kept.
 
 ## 5. What shipped
 
-1. **`ThemeStore.add(name, css)`** — the contract. `add(css)` remains for external consumers
-   (`./engine` is a published export; `window.LatticePlayground.addThemes` is documented
-   API), with its scan **bounded to the first 4 KB** — the directive is a header comment by
-   construction, so the bound costs nothing real and removes the unbounded miss. A nameless
-   two-argument call **throws**; the legacy form keeps its `false` return, which external
-   callers may rely on.
+1. **`ThemeStore.add(name, css)`** — the contract. The form is decided by true ARITY (a rest
+   parameter), not by the value of either argument; §7.4 records the two narrower tests that
+   were wrong. `add(css)` remains for external consumers (`./engine` is a published export;
+   `window.LatticePlayground.addThemes` is documented API), with its scan **bounded to the
+   first 4096 characters** — the directive is a header comment by construction (max offset
+   1005 across all 70 shipped stylesheets), so the bound removes the unbounded miss. On the
+   named path a broken registration **throws** — missing/non-string name AND missing/non-string
+   stylesheet; the legacy form keeps its `false` return, which external callers may rely on.
 2. **`addThemes([{ name, css } | cssText])`** on both the engine and playground facades —
    additive, so no version break.
 3. **Every registration site in the gated roots migrated**, except the two that
@@ -117,21 +119,27 @@ promise nothing kept.
    sanction so the list cannot rot. `test/**` is deliberately out of scope (§7.7).
 4. **`checkThemeIdentity`** — filename ≡ manifest `name` ≡ `@theme`, for every palette, plus
    `lib/_theme.css` declaring `@theme lattice` (the name all 32 palettes `@import`).
-5. **`checkThemeRegistrationCallSites`** — new bare-CSS callers are rejected. It scrubs JS
-   comments and string literals before scanning, because three docblocks in this repo quote
-   `addThemes([cssText])` while explaining the legacy form, **including this gate's own error
-   message**; without the scrub the gate fired on the documentation telling you how to
-   satisfy it.
+5. **`checkThemeRegistrationCallSites`** — registrations that hand over a stylesheet without
+   its name are rejected, in `lib/`, `docs/src/`, `tools/` and the emulator. It walks a real
+   **TypeScript AST** (already a devDependency; handles `.js`/`.mjs`/`.ts`/`.tsx`), catching
+   the non-inline-array shape and the `engine.themes.add(css)` back door as well, and treating
+   a forwarded enclosing parameter as the legitimate pass-through it is. A text pre-filter is
+   a cost optimization only. The first cut scrubbed text instead and was blind on ~9% of files;
+   §7.1 is the whole story and it is why this gate parses.
 6. **`test/unit/engine/theme-identity.test.js`** — the contract, both shapes, the throw, the
    scan bound, and the three-way binding asserted in the fast suite as well as the gate.
 
-### Two bugs found by the new tests
+### Bugs found by the tests, before the trio ran
 
 - **An explicit `null` name fell through to the content scan.** The first implementation
   branched on `name === null`, which conflated "one argument was passed" with "the caller
   passed a broken name". `add(null, css)` silently regexed the sheet instead of throwing.
-  Now the branch keys on the *form* (`cssText === undefined`).
-- The gate's own false-positive on comments (item 5) surfaced the same way.
+- The gate's own false-positive on prose surfaced the same way.
+
+Both were repairs in the right direction and both were still wrong — the replacements
+(`cssText === undefined`, and a text scrubber) failed on the next input the trio tried.
+That is the pattern §7 is worth reading for: each fix kept the shape of the original
+mistake, testing a proxy for the thing that actually mattered.
 
 ## 6. Verification
 

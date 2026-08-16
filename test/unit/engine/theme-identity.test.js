@@ -50,7 +50,8 @@ describe('ThemeStore.add — identity is an argument', () => {
     // form on `cssText === undefined` meant `add('lattice', undefined)` took the LEGACY
     // path: the given name was discarded and the NAME was scanned as css, so a named
     // registration silently no-op'd — the exact failure this method exists to abolish,
-    // reachable through its own new branch. The form is now `arguments.length`.
+    // reachable through its own new branch. The form is now true arity (a rest param); a
+    // sentinel default parameter does NOT work, because an explicit `undefined` triggers it.
     const s = new ThemeStore();
     assert.throws(() => s.add('lattice', undefined), TypeError, 'add(name, undefined) must throw, not scan the name');
     assert.throws(() => s.add('lattice', null), TypeError, 'add(name, null) must throw, not register null');
