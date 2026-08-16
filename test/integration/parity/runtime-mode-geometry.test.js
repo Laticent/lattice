@@ -132,14 +132,31 @@ const runRuntimeFetched = async (fmLines) => {
   const scriptEl = document.createElement('script');
   scriptEl.textContent = RUNTIME_SRC;
   document.body.appendChild(scriptEl);
-  await new Promise((r) => setTimeout(r, 300));
 
+  // SAMPLE THROUGHOUT, don't just read the end state. The backdrop defect this
+  // guards (#1673 F1) is a WINDOW, not a final condition: the MutationObserver's
+  // 150ms debounce brings another pass round and repairs it, so a single read at
+  // 300ms sees a correct document and the test passes with the fix reverted.
+  // (Confirmed: it did.) Poll instead, and report the worst moment seen.
   const section = document.querySelector('section.gantt');
+  const hasBackdrop = () => section.querySelectorAll(':scope > .backdrop').length;
+  const wantsBackdrop = () => section.className.split(/\s+/).includes('finish');
+  let backdropGap = false;
+  for (let t = 0; t < 30; t++) {
+    await new Promise((r) => setTimeout(r, 10));
+    // Only meaningful once the chart exists and the finish register has landed —
+    // before that there is nothing to have lost.
+    if (section.querySelector('svg') && wantsBackdrop() && !hasBackdrop()) backdropGap = true;
+  }
+
   const result = {
     fetchCalls,
     sketch: section.classList.contains('sketch'),
     ticks: document.querySelectorAll('text.gantt-tick').length,
-    frames: document.querySelectorAll('figure.chart-frame, .chart-frame').length,
+    bodies: section.querySelectorAll('.chart-body').length,
+    svgs: section.querySelectorAll('svg').length,
+    backdrop: hasBackdrop(),
+    backdropGap,
   };
   window.close();
   return result;
@@ -199,15 +216,34 @@ describe('runtime mode-geometry parity — the FETCH FALLBACK converges too (#16
       + 'destroyed the authored list).');
   });
 
-  test('the rebuild leaves exactly one chart frame — it replaces, it does not stack', async () => {
+  test('the rebuild replaces the figure rather than stacking a second one', async () => {
     const r = await runRuntimeFetched(['mode: sketch']);
-    assert.equal(r.frames, 1,
-      'a second build appending beside the first would double the figure');
+    // Counted INSIDE the section, on the structures a second build would
+    // duplicate. An earlier cut of this test counted `.chart-frame`, which is a
+    // class on the `<section>` itself — so it was always exactly 1 and could not
+    // fail for the thing it was written to catch.
+    assert.equal(r.bodies, 1, 'a second build appending beside the first would double the body');
+    assert.equal(r.svgs, 1, 'a second build appending beside the first would double the figure');
   });
 
   test('no mode over fetch: the mono advance, and nothing rebuilt', async () => {
     const r = await runRuntimeFetched([]);
     assert.equal(r.sketch, false);
     assert.equal(r.ticks, engineTicks(false));
+  });
+
+  test('a rebuilt chart still has its finish backdrop by the end of the pass', async () => {
+    // The rebuild writes `innerHTML`, and the `.backdrop` wrapper is the
+    // section's first child rather than part of the transform's own output — so
+    // it goes with the write. `injectBackdrops` runs at the TOP of a pass, which
+    // meant nothing restored it until the MutationObserver's 150ms debounce
+    // brought the next pass round, and the finish popped in late on chart slides
+    // only. Found by the checker on this diff; the fix re-injects after the
+    // registry rather than teaching chart-family what a finish is.
+    const r = await runRuntimeFetched(['mode: sketch', 'finish: atrium']);
+    assert.equal(r.backdrop, 1, 'the chart section ended without its finish backdrop');
+    assert.equal(r.backdropGap, false,
+      'the chart painted with no finish backdrop for part of startup — the rebuild '
+      + 'took the wrapper with it and nothing restored it until the observer fired');
   });
 });

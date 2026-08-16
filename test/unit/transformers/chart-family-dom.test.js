@@ -426,6 +426,43 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
     assert.ok(ticks(sec) > 0, 'the source list was consumed — a rebuild found nothing to build');
   });
 
+  test('an engine diagnostic class flipping is NOT a change', () => {
+    // The overflow / fit / legibility watchers toggle these onto and off top-level
+    // sections as live state, and they land on chart sections for real — the
+    // type-floor alarm's own note records it firing on 7 of 11 slides of the
+    // state-chart gallery, and state-chart is a chart layout. No builder reads
+    // them, so a flip must not buy a destructive rebuild: the output would be
+    // identical and the chart would lose its popover and motion targets for
+    // nothing. Found by the checker on this diff (#1673).
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    for (const cls of ['overflow', 'clip-marked', 'illegible', 'fit-marked']) {
+      sec.querySelector('svg').setAttribute('data-sentinel', 'kept');
+      sec.classList.add(cls);
+      chartFamily.applyToDom(doc);
+      assert.equal(sec.querySelector('svg').getAttribute('data-sentinel'), 'kept',
+        `adding \`${cls}\` rebuilt the chart`);
+      sec.classList.remove(cls);
+      chartFamily.applyToDom(doc);
+      assert.equal(sec.querySelector('svg').getAttribute('data-sentinel'), 'kept',
+        `removing \`${cls}\` rebuilt the chart`);
+    }
+  });
+
+  test('a diagnostic class alongside a REAL change still rebuilds', () => {
+    // The filter must not swallow a genuine trigger that happens to arrive in the
+    // same pass as a watcher flip.
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    const mono = ticks(sec);
+    sec.classList.add('overflow');
+    sec.classList.add('sketch');
+    chartFamily.applyToDom(doc);
+    assert.notEqual(ticks(sec), mono, 'the deck token was ignored because a watcher class rode with it');
+  });
+
   test('class order alone is not a change', () => {
     const doc = makeDoc(GANTT);
     chartFamily.applyToDom(doc);

@@ -322,6 +322,67 @@ the synchronous first pass). **Confirmed to fail without the fix** — 1 of 9
 assertions, the tick count, exactly the one that reads which advance the builder
 used. The five baked-path assertions are unchanged and still pass.
 
+**The cost, measured on the real runtime rather than argued.** Two different
+numbers, and it is worth keeping them apart — CHART BUILDS (observed as
+`.chart-body` insertions) and TRANSFORM PASSES (counted inside
+`runAllContentTransforms`):
+
+| path | chart builds | transform passes | ticks |
+|---|---|---|---|
+| baked block + `mode: sketch` | **1** | **1** | 8 (hand) |
+| fetch fallback + `mode: sketch`, plain slide | — | **2** | — |
+| fetch fallback + `mode: sketch`, chart slide | **2** | **3** | 8 (hand — converged) |
+| fetch fallback, no `mode:` | 1 | 1 | 13 (mono) |
+
+The baked path pays nothing, which is the property the old gate was reaching for
+and the whole reason the gate survived rather than being deleted. The fetch
+fallback buys a second pass, and on a CHART deck a third — the rebuild's own
+`innerHTML` write returning through the MutationObserver. An earlier draft of
+this note said "the second pass" flatly; that undercounted the chart case.
+
+Steady state is clean on both paths: after the deck settles, further transform
+passes leave the SVG node IDENTITY unchanged. That mattered enough to measure
+rather than reason about — a rebuild-every-pass bug looks completely correct in
+the rendered output while quietly discarding each chart's `data-mark` popover
+targets and anima nodes on every tick of the preview.
+
+#### What the checker caught, and why the first cut was wrong
+
+Two defects survived the maker's own testing, both found by the independent
+checker required here (HARD RULE #25), both reproduced before being accepted.
+
+**The rebuild dropped the finish backdrop.** `injectBackdrops()` runs at the TOP
+of a pass (inside `applyCachedDeckClass`), and the `.backdrop` wrapper is the
+section's FIRST CHILD rather than part of any transform's output — so a rebuild
+writing `innerHTML` later in the same pass took it with it, and nothing restored
+it until the MutationObserver's 150 ms debounce brought the next pass around. A
+finish visibly popped in late, on chart slides only. This is a regression the
+change itself introduced, so HARD RULE #18 gives it no exit — filing it would
+have been the prohibited move. Fixed at the ordering, by re-injecting after the
+registry as well: the hazard belongs to any transform that rebuilds a section's
+children, and a transformer has no business knowing what a finish is.
+
+**Engine diagnostic classes forced rebuilds.** The trigger was "the class list
+changed", but the overflow / fit / legibility watchers toggle `overflow`,
+`clip-marked`, `illegible` and `fit-marked` onto sections as live state — and
+they land on chart sections for real, as the type-floor alarm's own note records
+(7 of 11 slides of the state-chart gallery). Every flip re-minted a chart to
+identical output while discarding its popover and motion targets. `classKey` now
+excludes them.
+
+The two fixes are deliberately layered: a missing entry in that exclusion list
+costs wasted work rather than a broken slide, because the backdrop is restored
+either way.
+
+A third finding was a test defect, and the useful kind. The assertion written to
+prove the rebuild "replaces rather than stacks" counted `.chart-frame` — which is
+a class on the `<section>` itself, so it was always exactly 1 and could not fail
+for the thing it existed to catch. It counts `.chart-body` and `svg` inside the
+section now. The backdrop test needed the same correction in a different form:
+read at the end of startup it passed with the fix reverted, because the debounce
+had already repaired the document. It samples throughout and asserts on the
+worst moment seen.
+
 ### Closed later — ADVANCE_UPPER under-bounded BOTH faces (#1672, 2026-08-16)
 
 `ADVANCE_UPPER` (0.68, `svg-label.js`) was calibrated for uppercase + 0.04em
