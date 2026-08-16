@@ -308,9 +308,18 @@ measurement. Same for the flat `--diagram-critical` in each a11y palette.
   unchanged — each pins `color-scheme: light` explicitly, so no light island inside a
   dark scheme exists to catch out a near-white arm used as a FILL.
 
-**UNVERIFIED (HARD RULE #23).** The engine-path change — 256 token values across 26
-palette-modes, all in the dark scheme — has no artifact from the engine surface. Every
-render above is the emulator (export path) or a Chromium harness driving `composeCss`
-directly; nobody has built the docs site and looked at the Studio or the Playground.
-The direction is measured and the token values are right, but "it looks right in the
-Studio" is not a claim this note is entitled to make.
+**The engine surface, driven and photographed** (HARD RULE #23). The measurements above
+are the emulator (export path) and a Chromium harness over `composeCss`; neither is the
+surface a human uses. So the docs site was built, the real Playground opened on
+`a11y-achromatopsia`, and the deck typed into its actual CodeMirror editor — `_class:
+redline dark` — on `origin/main` and on this branch:
+
+- **before:** the struck clauses read as near-black on the near-black card. They are
+  there, and you cannot see them. That is 1.25:1 rendered rather than computed.
+- **after:** both struck spans and both insertions are legible.
+
+Screenshots at 1440×900, deviceScaleFactor 2. The remaining engine-path scope — 256
+token values across 26 palette-modes, all in the dark scheme — is measured but not
+individually looked at; the seq half in particular is inert by construction
+(`var(--accent)` resolves to what base already supplied) and was verified by value,
+not by eye.
