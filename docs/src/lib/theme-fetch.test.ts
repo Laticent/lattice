@@ -31,10 +31,16 @@ describe('createThemeFetcher — transitive @import closure', () => {
 		registered = new Set();
 		(globalThis as unknown as { window: unknown }).window = {
 			LatticePlayground: {
-				addThemes: (cssList: string[]) => {
-					for (const css of cssList) {
-						const m = css.match(/@theme\s+([\w-]+)/);
-						if (m) registered.add(m[1]);
+				// Records the name AS PASSED, and rejects a bare string outright: the
+				// contract is that a caller hands the store identity rather than making it
+				// regex the sheet, and theme-fetch is the surface where the name was most
+				// obviously in hand and thrown away. A regression to the legacy shape here
+				// should fail the test, not be quietly tolerated by a mock that re-derives.
+				// See engineering/decisions/2026-08-16-theme-identity-ownership.md.
+				addThemes: (list: Array<{ name: string; css: string } | string>) => {
+					for (const t of list) {
+						if (typeof t === 'string') throw new Error('theme-fetch passed bare CSS to addThemes — pass { name, css }');
+						registered.add(t.name);
 					}
 				},
 				hasTheme: (name: string) => registered.has(name),
@@ -106,7 +112,12 @@ describe('createThemeFetcher — relative font url() rewriting', () => {
 		registeredCss = [];
 		(globalThis as unknown as { window: unknown }).window = {
 			LatticePlayground: {
-				addThemes: (cssList: string[]) => registeredCss.push(...cssList),
+				addThemes: (list: Array<{ name: string; css: string } | string>) => {
+					for (const t of list) {
+						if (typeof t === 'string') throw new Error('theme-fetch passed bare CSS to addThemes — pass { name, css }');
+						registeredCss.push(t.css);
+					}
+				},
 				hasTheme: () => false,
 			},
 		};
