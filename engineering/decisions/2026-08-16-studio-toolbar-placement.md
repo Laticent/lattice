@@ -344,6 +344,23 @@ token figure is the one to cite.
   changes is *which words* collide: "Preview" and "Share" before, "Preview" and
   "**Present**" now — two identical cells labeled with near-homographs. A
   scannability cost worth naming.
+- **Two rotation tests in `studio-instant-shell.spec.ts` are FLAKY on `main`** —
+  `:443` "rotating a phone into landscape leaves no chrome behind" and `:527`
+  "a rect from another orientation is not replayed in portrait". Measured on a
+  clean `origin/main` checkout with a fresh preview build: **2 of 3 runs fail**,
+  and the same two tests fail on this branch at the same rate. Both are
+  orientation/timing cases gated on `ENGINE_HOLD_MS`, and neither touches the
+  header. They live in the NIGHTLY tier and carry no `@smoke` tag, so the
+  per-PR `studio-smoke` job never runs them — the #780 shape again, now as
+  flake rather than drift.
+
+  **Method note, because the first attempt got this exactly backwards.** An
+  initial comparison showed base passing 3/3 and this branch failing 2/3, which
+  read as a self-inflicted regression. It was an artifact: `playwright.config.ts`
+  sets `reuseExistingServer: !isCI`, so checking out `main` and re-running
+  WITHOUT killing the preview server on :4321 silently re-tested the branch's
+  build under the base checkout. Kill the server between checkouts or the
+  comparison is meaningless — the whole conclusion inverted once it was killed.
 
 ## Verification (HARD RULE #23)
 
