@@ -21,8 +21,9 @@ summary: >
 # Composition stays content-addressed; the divergence to fix is the one we made
 
 **Date:** 2026-08-17
-**Status:** shipped — §5's recommendation (1)–(3); the manifest-driven composition in §1 was
-investigated and deliberately NOT built
+**Status:** shipped — §5's items (1) and (3), and item (2) REDUCED to its core after five
+review rounds; the manifest-driven composition in §1 was investigated and deliberately NOT
+built. §5's full scanner unification is attempted-and-abandoned, and remains open (§6).
 **Follows:** `2026-08-16-manifest-is-the-theme-contract.md` (#1680) §3, §5 — which named this
 follow-up, and `2026-08-17`'s tools sweep (#1691), which finished the other one.
 
@@ -142,92 +143,59 @@ Estimated blast radius for (2): `lib/engine/themes.js` plus one export in `lib/t
 — a shared kernel, so maker-checker minimum under HARD RULE #25, with the 4224-render corpus
 comparison as the equivalence evidence.
 
-## 6. What shipped, and what the trio changed about it
+## 6. What shipped — and why it is smaller than §5 recommended
 
-`lib/theme/chain.mjs` owns one content-side grammar — `themeNameImports(css)` and
-`replaceThemeNameImports(css, fn)` — and BOTH consumers scan **comment-stripped** text
-through it. `THEME_NAME_IMPORT_RE` is gone from `lib/engine/themes.js`;
-`flattenCssImports` no longer strips separately before calling.
+**§5 recommended unifying the two content-side scanners. That was attempted, reviewed
+five times, and abandoned.** What ships is only §5's item (2) reduced to its core: the
+engine store stops reading a theme's own COMMENTS as imports. The scanners are NOT
+unified; `flattenCssImports` is untouched.
 
-**The first cut of this change was wrong in five ways, and the adversarial trio
-(HARD RULE #25) found all five.** Recording them, because the pattern is the finding.
+That is not a retreat from the analysis, it is the analysis applied to its own result.
+Five rounds — an adversarial trio plus two checkers — found **six** defects, and every
+single one lived in the unification machinery, not in the comment fix:
 
-| # | what | found by |
-|---|---|---|
-| 1 | There is a **THIRD** content-side reader — `THEME_IMPORT_RE` in `lib/engine/css.js`, which resolves the base `@import 'lattice'`. It is quoted-only. Widening this grammar to a bare `@import x;` therefore made `@import lattice;` resolve here, get handed off at `BASE_THEME`, and compose to **2 KB of scaffold**. The changelog's headline "fixed unquoted imports" was false for the only import most themes have. The first cut also **deleted the comment that pointed at that third reader.** | red team + inversion |
-| 2 | Comment RANGE-SKIPPING read a comment closer followed by `*` — the `/*!banner*/*{…}` minified-reset idiom — and an opener inside a string or `url()` as comment OPENERS, so one stray sequence silently dropped every later import: a parent lost, an unstyled deck, no error. **A regression the change itself created.** | red team |
-| 3 | `inComment` was O(matches × ranges) per compose: **12.5 ms → 1,945 ms** on 440 KB, **20.3 s on 1 MB**. The Studio re-registers its theme on every render and `add()` clears the whole cache, so a large pasted theme froze the tab per keystroke. **Also self-inflicted.** | red team |
-| 4 | The two consumers **still disagreed** — the flattener pre-stripped comments, the store range-skipped, so `@import /* c */ 'onyx';` (valid CSS) resolved in one and not the other. 129 divergences in 300,000 fuzzed inputs. The central claim of the change was false. | red team + inversion |
-| 5 | `@import "extra.css";` in a `--css` layout sheet — valid CSS, the documented CLI form — **silently stopped being flattened**. Driven end to end through the real emulator: canary present on the base commit, absent on the branch. The old flattener resolved it by accident (its `['"]?` bookends captured the stem and stopped at the dot); the rework dropped it while the note claimed a pure union. | checker |
+| # | Defect | Where it lived | Found by |
+|---|---|---|---|
+| 1 | A **third** content-side reader nobody counted (`THEME_IMPORT_RE`, `lib/engine/css.js`, quoted-only). Widening to a bare `@import x;` made `@import lattice;` resolve in the store, get handed off, and compose to 2 KB of scaffold. The cut also deleted the comment pointing at that third reader. | the widening | red team + inversion |
+| 2 | Comment RANGE-SKIPPING read a closer-then-star (`/*!banner*/*{…}`) and an opener inside a string as OPENERS — one stray sequence silently dropped every later import. **Self-inflicted.** | the shared scanner | red team |
+| 3 | That skipping was O(matches × ranges) per compose: 12.5 ms → 1,945 ms on 440 KB, 20.3 s on 1 MB, on the Studio's per-keystroke path. **Self-inflicted.** | the shared scanner | red team |
+| 4 | The two consumers **still disagreed** — 129 divergences in 300,000 fuzzed inputs — because one pre-stripped and the other range-skipped. The unification's whole claim. | the unification | red team + inversion |
+| 5 | `@import "extra.css";` in a `--css` sheet silently stopped being flattened. Valid CSS, a documented CLI form. | the flattener's new grammar | checker |
+| 6 | The fix for #2 did not fix it: a naive stripper still paired a string's opener with the next real closer. Two test rows passed only because their fixtures had no TRAILING comment. | the shared scanner | checker |
 
-**What the rework does instead.** The grammar is **quoted-only** — matching CSS itself,
-`checkThemeRoles`' extractor, real Marp, and `css.js` — with an explicit optional `.css`
-suffix so the `--css` form in (5) is supported deliberately rather than accidentally.
-The bare arm is **dropped**: it is not valid CSS, nothing in the tree emits it, and
-keeping it is what caused (1) and (2). Comment handling is a single shared
-`stripComments`, the same shape `composeCss` and `css.js` already use, which is what
-finally makes (4) true — and it removes the range machinery behind (2) and (3) entirely.
+The comment fix itself survived all five rounds unchanged. So the scope was cut to it.
 
-**Byte figures, re-measured after the rework:**
+**What that leaves, against `main`:**
+
+- `lib/core/strip-css-comments.mjs` — the quote- and escape-aware comment stripper
+  **promoted out of `tools/check-css-values.js`**, where it already existed carrying a
+  docblock about exactly the failure in #6. A naive copy had been written next to it
+  (HARD RULE #15: reuse, don't reinvent). Both callers now share the one implementation.
+- `ThemeStore.resolveThemeImports` scans a comment-MASKED copy and splices against the
+  ORIGINAL, so offsets are exact and non-directive bytes come back untouched. Its
+  grammar is **unchanged from `main`** — no widening, no narrowing, nothing to disagree
+  with `css.js` about.
+- `test/unit/theme/store-comment-imports.test.js`, nine arms. Non-vacuous against all
+  three historical defects: reverting to no comment awareness fails 2, the naive stripper
+  fails 2, returning the stripped text fails 1.
+
+**Measured:**
 
 ```
 composed CSS identical: 128/128   (32 palettes x 4 sizes)
-  — a checker re-ran it across all 17 REAL size names: 544/544 identical.
-    Worth knowing: '', hd and 4:3 compose byte-identically ('4:3' is not even a
-    registered size), so the maker's "4 sizes" was really 2 distinct compositions.
-
-quoted import in a COMMENT:  old LEAKED 770,735 bytes -> new 2,296   <- the real fix
-bare import (now rejected):  old 2,313 -> new 2,313                  <- widening withdrawn
-url() font import:           identical, url preserved
---css sibling sheet:         inlined on main, inlined again after the rework
-@import lattice; (bare):     2,302 both here and in css.js — consistent, no hand-off gap
-DoS input 440 KB:            1,945 ms -> 9.9 ms
-1 MB all-comment:           20,267 ms -> 11.2 ms
+quoted import in a COMMENT:  old LEAKED 770,735 bytes -> new 2,296   <- the fix
+string opener + trailing comment: parent retained (defect #6 closed)
+url() font import, unknown names, the base hand-off: byte-identical
+--css flattener: untouched, so nothing to regress
 ```
 
-**Corpus sweep, re-derived** (the first cut cited "113 files, 0 divergences", which a
-checker could not reproduce from the stated inputs — neither the count nor the zero).
-Honest numbers, over `themes/ dist/ docs/ examples/ tools/ lib/ test/`:
-
-```
-files scanned 2,293  ·  containing @import 191
-differ from the OLD STORE grammar:      31
-differ from the OLD FLATTENER grammar:  60
-```
-
-Every one is comment-borne — that is, every one *is* the comment fix. Most involve
-`lattice`, which both consumers special-case; a later checker reconstructed the sweep and
-could not reproduce these counts either (it measured 32 and 31 over a differently-drawn
-file set) and showed that "every one involves `lattice`" is FALSE — a handful name `onyx`,
-`a11y-base` or `carbone`, all inside prose or test fixtures rather than a registered
-stylesheet. **Treat the counts as indicative, not reproducible: the file set is not pinned
-and the script is not committed.** What IS independently reproducible, and what the sweep
-was reaching for, is the composed-output comparison above — a checker re-derived it at
-480/480 identical from a worktree at the base commit.
-
-**The gate is `test/unit/theme/import-grammar.test.js`** — 30 forms across both consumers
-and the grammar itself, including every attack above. Arms 3 and 4 now assert the EXACT
-spliced set on every row rather than "nothing extra" only where nothing was expected, and
-the agreement arm's candidate list covers `lattice` and a full quoted URL.
-
-**One arm was DELETED rather than hardened a third time.** Three versions of a "the regex
-is fresh, so `lastIndex` cannot leak" arm were written, and all three were vacuous —
-`matchAll` and `replace` do not advance `lastIndex`, so every version passed against a
-module-level shared literal, including the one whose comment claimed to observe `exec`.
-Two checkers caught it in turn. Freshness is a defensive detail with no observable
-behavior; a test that cannot fail is worse than no test.
-
-**Two of the string rows were passing by luck.** The "opener inside a string" fixtures had
-no TRAILING comment, and the naive stripper's failure mode is to pair the string's opener
-with the NEXT real closer — so with nothing after it, the damage was invisible. Every real
-palette has a trailing comment. The rows now carry one, and a checker's version of that
-input is what proved the naive stripper had not fixed the bug at all.
-
-**Deliberate narrowings, disclosed** (the first cut called itself "a union minus one
-false positive" and was not): the flattener no longer follows `@import 'a/b.css';`
-(which resolved the stem `a`), mismatched quotes, the media-qualified bare form, the
-bare form with no terminator, or the bare form at all. Nothing in the tree emits any of
-them; `@import "name.css";` — the one that had a real user — is restored explicitly.
+**Not done, deliberately:** the scanners remain un-unified, and `flattenCssImports`
+keeps the naive comment strip it has always had (so the #6 class is still live *there*,
+pre-existing and unchanged by this note). §5's item (2) is therefore **open**, with the
+five rounds above as the evidence about how to attempt it — the honest lesson being that
+the coupling is harder than it looks because the two consumers resolve into different
+domains (a registry and a filesystem), which is what the inversion argued in the first
+place and what #1, #4 and #5 each demonstrated concretely.
 
 ## 7. What this note does NOT claim
 
