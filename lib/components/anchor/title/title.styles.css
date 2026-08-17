@@ -10,7 +10,21 @@
  * the headline-alignment seam (`headline:` register). `auto`/no register → the fallback `center`
  * applies, byte-identical to the centered title bookend. head-left/right re-anchor the whole
  * cluster (heading, eyebrow, hr, dek) as one. */
-section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+/* THE SCHEME TRAVELS WITH THE SURFACE. Painting `--surface-inverse` without also declaring
+ * `color-scheme: dark` leaves every `light-dark()` token on this slide resolving to its
+ * LIGHT-canvas side — light-canvas ink on a dark field. That is a silent, per-element
+ * failure: whatever the base layer did not name explicitly disappears. Measured on indaco
+ * before this line: bold body text 1.61:1, an off-grammar eyebrow 1.65:1, table body cells
+ * 1.02:1, all against a 3:1/4.5:1 floor.
+ *
+ * It used to be answered one element at a time — the eyebrow, bookend tables, the
+ * inline-code chip and the status-stamp pseudo each carry a hand-written rebind, each with
+ * its own measurement, and each found only when somebody noticed a bad slide. That list is
+ * opt-in, so every element nobody has thought of yet is still broken. Declaring the scheme
+ * beside the surface makes the whole class resolve correctly by default and turns those
+ * rebinds into belt-and-braces rather than the only thing holding.
+ * See engineering/decisions/2026-08-17-dark-surface-ink.md. */
+section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
 section.title { border-top: none; }
 /* A measure on the deck title: uncapped, a long title runs the full frame width
  * as one thin line that reads as a banner rather than a title block. Capped, it

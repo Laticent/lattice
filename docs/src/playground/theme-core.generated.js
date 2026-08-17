@@ -350,6 +350,7 @@ var require_derive = __commonJS({
     var {
       hexToOklch: hexToOklch2,
       hexToRgb: hexToRgb2,
+      rgbToHex: rgbToHex2,
       oklchToHex: oklchToHex2,
       relativeLuminance: relativeLuminance2,
       withLightness: withLightness2,
@@ -423,7 +424,12 @@ var require_derive = __commonJS({
     }
     var REQUIRED_TOKENS2 = Object.freeze({
       surfaces: ["bg", "bg-alt", "surface-inverse", "border"],
-      ink: ["text-display", "text-heading", "text-body", "text-secondary", "text-label", "text-muted"],
+      // `code-inline-fg` is INK, not an accent container, and that distinction is the whole
+      // reason it is here. It used to be absent, with `section code` reading
+      // `var(--code-inline-fg, var(--accent))` — ink falling back onto an AREA token held to no
+      // text-contrast contract. That is the --cat-N-ink shape, and it shipped the same result:
+      // the chip painted --accent at 4.36:1 on a card against a 4.5 floor.
+      ink: ["text-display", "text-heading", "text-body", "text-secondary", "text-label", "text-muted", "code-inline-fg"],
       accent: ["accent", "accent-soft", "on-accent", "on-accent-soft", "accent-soft-body"],
       semantic: ["pass", "fail", "warn", "pass-bg", "fail-bg", "warn-bg"],
       dark: [
@@ -512,6 +518,21 @@ var require_derive = __commonJS({
       return out;
     }
     var ld = (light, dark) => `light-dark(${light}, ${dark})`;
+    var WASH_ALPHA = 0.1;
+    function washOver(ink, canvas) {
+      const a = hexToRgb2(ink);
+      const b = hexToRgb2(canvas);
+      return rgbToHex2(a.map((v, i) => Math.round(v * WASH_ALPHA + b[i] * (1 - WASH_ALPHA))));
+    }
+    function inkOnWash(ink, canvas, direction) {
+      let out = ink;
+      for (let pass = 0; pass < 4; pass++) {
+        const next = ensureContrast2(out, washOver(out, canvas), AA2, direction);
+        if (next === out) break;
+        out = next;
+      }
+      return out;
+    }
     var tint = (color2, pct) => `color-mix(in srgb, var(--${color2}) ${pct}%, transparent)`;
     function deriveTheme2(essentials, options = {}) {
       const e = validateEssentials2(essentials);
@@ -560,6 +581,10 @@ var require_derive = __commonJS({
         ensureContrast2(darkAccent, darkAccentSoft, AA2, "lighten")
       );
       t["accent-soft-body"] = "var(--text-body)";
+      t["code-inline-fg"] = ld(
+        inkOnWash(inkOnWash(e.accent, e.bg, "darken"), e.bgAlt, "darken"),
+        inkOnWash(inkOnWash(darkAccent, darkBgDeeper, "lighten"), darkBgAlt, "lighten")
+      );
       t.pass = ld(ensureContrast2(e.pass, e.bg, AA2, "darken"), ensureContrast2(mix2(e.pass, "#ffffff", 0.3), darkBgDeeper, AA2, "lighten"));
       t.fail = ld(ensureContrast2(e.fail, e.bg, AA2, "darken"), ensureContrast2(mix2(e.fail, "#ffffff", 0.3), darkBgDeeper, AA2, "lighten"));
       t.warn = ld(ensureContrast2(e.warn, e.bg, AA2, "darken"), ensureContrast2(mix2(e.warn, "#ffffff", 0.3), darkBgDeeper, AA2, "lighten"));
@@ -740,7 +765,17 @@ var require_contrast = __commonJS({
         ["accent", "on-accent", AA2, "on-accent"],
         ["accent-soft", "on-accent-soft", AA2, "on-accent-soft"],
         ["accent-soft", "accent-soft-body", AA2, "accent-soft-body"],
-        ["bg", "accent", AA2, "accent-text"]
+        ["bg", "accent", AA2, "accent-text"],
+        // The inline-code chip ink. DELIBERATELY A LOWER BOUND, and the reason is worth stating
+        // because a check that looks exact and isn't is how --cat-N-ink shipped: the chip does
+        // not paint on `bg`/`bg-alt`, it paints on its OWN translucent wash over them
+        // (`--code-inline-bg`, 10% currentColor), which is a computed color and not a token this
+        // pair list can name. The real target is solved in derive.js `inkOnWash`, and it is
+        // STRICTER than these two rows — so passing here does not prove the chip is legible,
+        // while failing here proves it is not. Kept because the cheap direction still catches a
+        // gross regression, not because it closes the question.
+        ["bg", "code-inline-fg", AA2, "code-chip"],
+        ["bg-alt", "code-inline-fg", AA2, "code-chip"]
       ];
     }
     function evalPair(resolved, [fill, ink, threshold, role]) {

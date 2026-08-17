@@ -757,8 +757,32 @@
    *   section.title code { --code-inline-fg: var(--on-dark-primary); }
    * and the wash/border follow automatically. The bg/border tokens exist as
    * optional seams for a theme that wants an opaque chip instead of the wash.
-   * See engineering/decisions/2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg:     var(--accent);
+   * See engineering/decisions/2026-06-08-inline-code-contrast.md.
+   *
+   * THE INK IS DELIBERATELY NOT DECLARED HERE. It used to be — `--code-inline-fg: var(--accent)`
+   * sat on this line — and on the CLI/export path that default silently beat the theme's own
+   * value. `lattice-emulator.js` composes a render as `paletteCSS + '\n' + layoutCSS`: the raw
+   * palette first, this bundle second, both declarations landing at the same specificity where
+   * source order decides. The same trap `tools/check-ownership.js` already records in prose —
+   * "the export bundle concatenates the theme BEFORE the base, so a default there would win."
+   *
+   * Note it is path-specific, and the first version of this comment got that wrong by blaming
+   * `packTheme`. The packing path does the OPPOSITE: `composeCss` inlines this bundle AT the
+   * theme's `@import 'lattice'` line, so the base lands first and the theme last, and there
+   * the theme's value won and always reached the page. That path is the browser runtime, the
+   * Playground and the Studio; the CLI is where it was lost.
+   *
+   * What that cost: of the 14 themes declaring this token, 8 give it a value distinct from
+   * `--accent`, deepened so the chip clears AA on a CARD and not merely on the canvas, each
+   * with its measured pair in a trailing comment (`indaco` → `#006599`, `L:5.46/5.02`). Those
+   * 8 were discarded on every CLI render. Measured in Chromium: the chip shipped `--accent` at
+   * 4.36:1 on a card panel against a 4.5 floor. (The other 6 declare `var(--accent)` outright,
+   * so for them the default was a no-op either way.)
+   *
+   * `section code` already spells the fallback — `var(--code-inline-fg, var(--accent))` — so a
+   * theme that sets nothing lands on exactly the same ink it did before, and a theme that has
+   * done the work now gets it on every path. A default that overrides the specific value it is
+   * a default FOR is not a default; leave the seam empty and let the fallback be the default. */
   --code-inline-bg:     color-mix(in srgb, currentColor 10%, transparent);
   --code-inline-border: color-mix(in srgb, currentColor 22%, transparent);
 
@@ -3447,7 +3471,10 @@ section.citation-card > .cell-stage {
 /* align-items (horizontal, this is a flex column) + the h2/p text-align read the headline
  * seam (`headline:` register). `auto`/no register → the fallback `center` — byte-identical to
  * the centered closing bookend. */
-section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+/* `color-scheme: dark` rides with `--surface-inverse` — see the note on `section.title`.
+ * Without it this bookend's own accent heading measured 2.06:1 on indaco (light-canvas
+ * `--accent` on the dark field), and every unnamed inherited ink was equally exposed. */
+section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
 /* The shared sovereign-bookend measures (base.tokens.css), mirroring title.
@@ -5207,6 +5234,10 @@ section.diagram > .cell-stage > blockquote { align-self:stretch; }
  * shorthand, which resets every longhand, so their behavior is unchanged (#1528). */
 section.divider {
   background-color: var(--surface-inverse);
+  /* Rides with the surface — see the note on `section.title`. Measured here before it: the
+   * divider's own lede ran 1.02:1, near-black body ink on the dark canvas. `.light` REPLACES
+   * this canvas below, so it puts the scheme back with it. */
+  color-scheme: dark;
   background-image: var(--spectrum-vertical, var(--spectrum));
   background-position: left;
   background-size: calc(var(--_sec-1cqi,1cqi)*0.46875) 100%;
@@ -5244,7 +5275,7 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
  * orientation. Merged from the standalone subtopic on 2026-06-07. */
 /* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
  * byte-identical while head-left/right still re-anchor it. */
-section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
+section.divider.light { background:var(--bg); color-scheme: light; padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
 /* The light heading keeps `max-width:none` — it renders a tier down (--fs-h2),
  * so the frame is already a sane measure for it and a cap only ever costs a
  * line. It still takes `balance`, which spends no width: measured across the
@@ -17271,7 +17302,21 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
  * the headline-alignment seam (`headline:` register). `auto`/no register → the fallback `center`
  * applies, byte-identical to the centered title bookend. head-left/right re-anchor the whole
  * cluster (heading, eyebrow, hr, dek) as one. */
-section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+/* THE SCHEME TRAVELS WITH THE SURFACE. Painting `--surface-inverse` without also declaring
+ * `color-scheme: dark` leaves every `light-dark()` token on this slide resolving to its
+ * LIGHT-canvas side — light-canvas ink on a dark field. That is a silent, per-element
+ * failure: whatever the base layer did not name explicitly disappears. Measured on indaco
+ * before this line: bold body text 1.61:1, an off-grammar eyebrow 1.65:1, table body cells
+ * 1.02:1, all against a 3:1/4.5:1 floor.
+ *
+ * It used to be answered one element at a time — the eyebrow, bookend tables, the
+ * inline-code chip and the status-stamp pseudo each carry a hand-written rebind, each with
+ * its own measurement, and each found only when somebody noticed a bad slide. That list is
+ * opt-in, so every element nobody has thought of yet is still broken. Declaring the scheme
+ * beside the surface makes the whole class resolve correctly by default and turns those
+ * rebinds into belt-and-braces rather than the only thing holding.
+ * See engineering/decisions/2026-08-17-dark-surface-ink.md. */
+section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
 section.title { border-top: none; }
 /* A measure on the deck title: uncapped, a long title runs the full frame width
  * as one thin line that reads as a banner rather than a title block. Capped, it
@@ -18239,9 +18284,12 @@ section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondar
  * base.elements.css § UNIVERSAL TABLE gives every slide a default `<table>`
  * treatment, and it names the LIGHT-canvas inks (--text-body, --text-label) the
  * way the rest of the base layer does. On the three dark bookends that is the
- * exact failure the block above exists to prevent: they paint --surface-inverse
- * WITHOUT flipping color-scheme, so an element whose ink is not named explicitly
- * inherits dark ink onto a dark panel. Measured with tools/check-slide-contrast.js
+ * exact failure the block above exists to prevent. (HISTORICAL: these bookends used to
+ * paint --surface-inverse WITHOUT flipping color-scheme, so an element whose ink was not
+ * named explicitly inherited light-canvas ink onto a dark panel. They now declare
+ * `color-scheme: dark` — see the re-assertion block further down — which fixes the general
+ * case. This binding is kept because it names the ink explicitly, which is clearer at the
+ * point of use and independent of scheme resolution.) Measured with tools/check-slide-contrast.js
  * over a table on all 61 components: these three are the ONLY failures, and they
  * are severe — 1.02:1 body cells, 2.06:1 column heads, against a 4.5 threshold.
  * The hairline and zebra survive the flip on their own (both are alpha washes
@@ -18793,11 +18841,49 @@ section.color-inherited {
 }
 
 
-/* ── INLINE-CODE INK on non-flipping dark islands ──
- * title/divider/closing bookends and the split-panel dark rail paint a dark
- * surface via --surface-inverse WITHOUT flipping color-scheme, so --accent (the chip's
- * default ink) stays on its light-mode value and the chip reads as a bright box
- * on a dark field. Rebind the ink to the on-dark tier; the chip's wash + border
+/* ── A DARK PANEL RE-ASSERTS ITS SCHEME, AFTER the canvas registers ──────────────────
+ * THE POSITION OF THIS BLOCK IS THE WHOLE POINT. It must stay below every rule above.
+ *
+ * The bookend components declare `color-scheme: dark` beside the `--surface-inverse` they
+ * paint, which is the honest place for it. But `section.title` and `section.color-light`
+ * are both (0,1,1), and the bundle emits this file AFTER the component sheets — so at
+ * equal specificity, source order hands the win to the register. Measured before this
+ * block: a deck with `color-mode: light`, `system`, or `inherited`, or a slide written
+ * `<!-- _class: title light -->`, rendered bold body text at 1.61:1 and a link at 1.20:1
+ * on the dark panel — bit-for-bit the defect 2026-08-17-dark-surface-ink.md was written
+ * to close. The first fix for that defect fell into the SAME equal-specificity trap it
+ * had just diagnosed one token over.
+ *
+ * Why the register must lose here, rather than the panel following it: `.light` and the
+ * `color-*` registers set a SCHEME and paint nothing (see base.finish.css — a
+ * `title light` deliberately keeps its inverse panel). The panel is therefore still dark
+ * no matter which register is on, so on-dark ink is not a preference, it is the only
+ * legible answer. `--surface-inverse` is a constant dark hex in all 32 shipped themes,
+ * verified — there is no theme where deferring to the register would be right.
+ *
+ * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
+ * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
+ * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
+ * the light scheme it declares beside that background. */
+section:is(.title, .closing):not(.print),
+section.divider:not(.light):not(.print) {
+  color-scheme: dark;
+}
+
+
+/* ── INLINE-CODE INK on dark islands ──
+ * title/divider/closing bookends and the split-panel / split-compare dark rails paint a
+ * dark surface via --surface-inverse, and the chip's default ink (--accent) is a
+ * light-canvas value, so without help the chip reads as a bright box on a dark field.
+ *
+ * THE BOOKENDS AND THE RAILS ARE NOT THE SAME CASE, though they look it. A bookend is a
+ * SECTION and now declares `color-scheme: dark`, which fixes its inks generally. A rail is a
+ * DESCENDANT, and that cannot work for it: `light-dark()` in a custom property resolves at
+ * computed-value time where the property is DECLARED, and the ink tokens are declared on
+ * `section` — so by the time a rail could flip its own scheme, what it inherits is already a
+ * resolved light-canvas color. Measured: setting `color-scheme: dark` on a rail changes its
+ * computed colorScheme and leaves the body ink at 1.02:1, unmoved. Rails therefore need an
+ * explicit ink, which is what this rule is. Rebind the ink to the on-dark tier; the chip's wash + border
  * track currentColor, so this one value re-tunes the whole chip. Mirrors the
  * eyebrow/subtitle dark-bookend overrides above. The `.dark` modifier and
  * fully-dark themes are NOT listed — they flip color-scheme, so --accent (and
@@ -18807,7 +18893,18 @@ section.title code,
 section.divider code,
 section.closing code,
 section.split-panel:not(.metric) .panel-left code,
-section.split-panel.metric .panel-right code {
+section.split-panel.metric .panel-right code,
+/* split-compare's rail paints the SAME `--surface-inverse` as the two above and was simply
+ * missing from this list. That was latent while the chip rode `--accent`, and stopped being
+ * latent the moment themes' own `--code-inline-fg` started reaching the page: a theme
+ * deepens that ink for a light CARD, i.e. darker, which on a dark rail is the wrong
+ * direction. Measured worsening on this surface — mustard 3.65:1 → 2.49:1, and six other
+ * themes with it. A regression tipped by a change elsewhere is still a regression to fix
+ * (HARD RULE #18), and it belongs here rather than as a `color-scheme` flip on the rail:
+ * these rails are DESCENDANTS, and the ink tokens they inherit were already resolved at the
+ * `section` under the section's scheme, so flipping a descendant's scheme cannot move them.
+ * That asymmetry is why sections take the scheme and rails take an explicit ink. */
+section.split-compare .compare-left code {
   --code-inline-fg: var(--on-dark-primary);
 }
 /* divider.light is the bright-canvas variant — keep the brand-accent ink. */
@@ -22882,9 +22979,14 @@ section.finish {
  * for free. Nothing here changes that.
  *
  * The THREE INVERSE BOOKENDS are the hole. `title`, `closing`, and a non-`light`
- * `divider` paint `--surface-inverse` — a dark panel on a light deck — and they
- * deliberately KEEP `color-scheme: light` so the on-dark inks they set explicitly
- * stay predictable (base.modifiers.css § Bookend tables). So `--bg` on those
+ * `divider` paint `--surface-inverse` — a dark panel on a light deck. They used to KEEP
+ * `color-scheme: light` deliberately, which is the state this note was written against;
+ * as of 2026-08-17-dark-surface-ink.md they declare `color-scheme: dark` instead, because
+ * keeping light meant every ink not named explicitly resolved light-canvas onto the dark
+ * panel (bold body text measured 1.61:1). THE HOLE THIS BLOCK DESCRIBES IS UNCHANGED by
+ * that: `--fin-canvas` still has to be told the surface is inverse, because the finish
+ * layers mix toward `--bg`, and `--bg` is a deck-canvas token that the scheme flip does not
+ * repoint at the panel. So `--bg` on those
  * slides is the LIGHT deck canvas while the surface beneath the finish is dark,
  * and every layer mixed toward the wrong end. The clearance mask was the visible
  * casualty: it painted a light ellipse across the middle of a dark bookend, and a
@@ -24690,13 +24792,14 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   line-height: 1;
 }
 
-/* Non-flipping dark bookends (title / closing / a dark divider) paint a dark surface
-   via --surface-inverse but deliberately KEEP color-scheme:light so their explicit
-   --text-display headings hold (base.modifiers.css, inline-code note). That would leave
-   the marker's light-dark() --stamp-color resolving to its faint LIGHT value on the dark
-   field. Flip the marker PSEUDO's own color-scheme so the label picks the bright on-dark
-   side — the same targeted rebind the inline-code chip uses. divider.light is bright, so
-   it is excluded. */
+/* HISTORICAL, and now redundant — kept because it is harmless and states the same intent
+   the section does. These bookends USED to paint --surface-inverse while keeping
+   color-scheme:light, which left the marker's light-dark() --stamp-color resolving to its
+   faint LIGHT value on the dark field; flipping the marker PSEUDO's own scheme was the
+   targeted fix. The sections now declare `color-scheme: dark` themselves
+   (2026-08-17-dark-surface-ink.md), so the pseudo inherits dark and this rule changes
+   nothing. Removing it is safe but unverified, so it stays until someone measures it.
+   divider.light is bright, so it is excluded. */
 section:is(.title, .closing)::before,
 section.divider:not(.light)::before {
   color-scheme: dark;

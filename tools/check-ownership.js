@@ -3834,10 +3834,18 @@ const SANCTIONED_FALLBACK_READS = [
  * Deliberately narrower than the issue's own population. #1545 counts "declared by shipped
  * palettes, absent from REQUIRED_TOKENS, and read only with fallbacks", which is 17 tokens
  * and reproduces exactly. This adds one term — that NO engine default rescues the read —
- * which drops the four whose fallback is incidental (--code-inline-fg and the three
- * --marp-slide-*-color) and leaves 13. A token the engine also defaults is not taking
- * this exit at all: its reads resolve whether or not anyone wrote a fallback, so a ledger
- * row for it would carry no decision.
+ * which drops the ones whose fallback is incidental (the three --marp-slide-*-color) and
+ * leaves 13. A token the engine also defaults is not taking this exit at all: its reads
+ * resolve whether or not anyone wrote a fallback, so a ledger row for it would carry no
+ * decision.
+ *
+ * --code-inline-fg WAS in that dropped set and no longer is, which is worth recording
+ * because the change looks like a regression and is the opposite. Its engine default
+ * (`--code-inline-fg: var(--accent)` in base.tokens.css) was deleted on 2026-08-17: on the
+ * CLI path that default was concatenated AFTER the palette and beat every theme's own,
+ * deeper value, shipping a 4.36:1 chip on a card. The token is now in REQUIRED_TOKENS and
+ * derived, so it leaves this population by the front door — contract membership — rather
+ * than by an engine default rescuing a read nobody audited.
  *
  * EVERY via-chain read is returned, not just the first. The ledger checks each one against
  * the fallback it claims, and a divergent chain on read #12 of 19 is exactly the silent
