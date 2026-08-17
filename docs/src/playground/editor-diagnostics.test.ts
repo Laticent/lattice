@@ -104,6 +104,47 @@ describe('findingsToDiagnostics', () => {
 		expect(calls).toHaveLength(1);
 	});
 
+	it('names the button after what it will do, and drops the prose fix it replaces', () => {
+		// #1658: a tooltip that prints "Fix: set it to one of: …" underneath a button that
+		// already does it reads as the tool knowing the answer and making you type it.
+		const [diag] = findingsToDiagnostics(
+			d,
+			[{ slide: 1, rule: 'unknown-class', severity: 'warning', line: '<!-- _class: kpi -->', message: 'unknown', fix: 'Check the spelling.', autofixable: true, didYouMean: 'kpi' }],
+			{ onFix: () => {} },
+		);
+		expect(diag.actions?.[0].name).toBe('Fix: use “kpi”');
+		expect(diag.message).toBe('unknown');
+		expect(diag.message).not.toContain('Fix:');
+	});
+
+	it('keeps the prose fix when the kernel cannot apply it — guidance is all there is', () => {
+		const [diag] = findingsToDiagnostics(
+			d,
+			[{ slide: 1, rule: 'r', severity: 'warning', line: '<!-- _class: kpi -->', message: 'unknown', fix: 'Check the spelling.' }],
+			{ onFix: () => {} },
+		);
+		expect(diag.actions).toBeUndefined();
+		expect(diag.message).toContain('Fix: Check the spelling.');
+	});
+
+	it('falls back to the generic label when a fixable finding names no suggestion', () => {
+		const [diag] = findingsToDiagnostics(
+			d,
+			[{ slide: 1, rule: 'card-style-inline-title', severity: 'error', line: '- **A.** body', message: 'm', autofixable: true }],
+			{ onFix: () => {} },
+		);
+		expect(diag.actions?.[0].name).toBe('Quick fix');
+	});
+
+	it('offers no button when there is no onFix hook, even for an autofixable finding', () => {
+		// The Architect panel renders the same findings without an editor to dispatch into.
+		const [diag] = findingsToDiagnostics(d, [
+			{ slide: 1, rule: 'unknown-class', severity: 'warning', line: '<!-- _class: kpi -->', message: 'unknown', fix: 'Check the spelling.', autofixable: true, didYouMean: 'kpi' },
+		]);
+		expect(diag.actions).toBeUndefined();
+		expect(diag.message).toContain('Fix: Check the spelling.');
+	});
+
 	it('prefers an exact line match over an earlier superset line', () => {
 		const d2 = doc('<!-- _class: cards-grid -->\n\n- foobar baz\n- foo\n');
 		const [diag] = findingsToDiagnostics(d2, [{ slide: 1, rule: 'r', severity: 'warning', line: '- foo', message: 'm' }]);

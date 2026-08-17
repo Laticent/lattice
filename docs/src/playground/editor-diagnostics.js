@@ -150,10 +150,19 @@ export function findingsToDiagnostics(doc, findings, opts = {}) {
 		let to = line.to;
 		if (to <= from) to = Math.min(doc.length, from + 1); // a visible range on a blank/short line
 		const severity = f.severity === 'error' ? 'error' : f.severity === 'warning' ? 'warning' : 'info';
-		const message = f.fix ? `${f.message}\n\nFix: ${f.fix}` : f.message;
+		const canApply = !!(f.autofixable && onFix);
+		// PROSE OR A BUTTON, NOT BOTH. The `fix` string is guidance for a human to follow
+		// by hand; when the kernel can apply the fix itself, printing "Fix: set it to one
+		// of: …" underneath a button that already does it reads as the tool knowing the
+		// answer and making you type it anyway, which is half of what #1658 reports.
+		const message = f.fix && !canApply ? `${f.message}\n\nFix: ${f.fix}` : f.message;
 		const d = { from, to, severity, message, source: f.rule };
-		if (f.autofixable && onFix) {
-			d.actions = [{ name: 'Quick fix', apply: (view) => onFix(view, f) }];
+		if (canApply) {
+			// Name the button after what pressing it DOES. "Quick fix" on every finding
+			// tells you a fix exists; `Fix: use “kpi”` tells you what you are about to get,
+			// which is what makes it safe to press without reading the message first.
+			const name = f.didYouMean ? `Fix: use “${f.didYouMean}”` : 'Quick fix';
+			d.actions = [{ name, apply: (view) => onFix(view, f) }];
 		}
 		out.push(d);
 	}

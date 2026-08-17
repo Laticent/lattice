@@ -1469,8 +1469,24 @@ ${indent}   - ${body.trim()}`;
       }).join("");
       return changed ? head + rebuilt : null;
     }
-    function fixReplacement(rule, line) {
-      switch (rule) {
+    function replaceToken(line, from, to) {
+      if (!line || !from || !to) return null;
+      const escaped = String(from).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`(^|[^A-Za-z0-9_-])${escaped}(?![A-Za-z0-9_-])`);
+      if (!re.test(line)) return null;
+      return line.replace(re, (_m, pre) => `${pre}${to}`);
+    }
+    function withTokenSuggestion(finding, candidates) {
+      const value = finding?.classToken;
+      if (!value || !candidates) return finding;
+      const list = [...candidates].map((c) => String(c));
+      const near = nearestRegion(String(value), list);
+      if (!near || near === String(value)) return finding;
+      return { ...finding, autofixable: true, didYouMean: near, replace: { from: String(value), to: near } };
+    }
+    function fixReplacement(finding, line) {
+      if (finding?.replace) return replaceToken(line, finding.replace.from, finding.replace.to);
+      switch (finding?.rule) {
         case "ledger-inline-title":
           return autofixOrderedNestedTitle(line);
         case "gantt-retired-delimiter":
@@ -1492,7 +1508,7 @@ ${indent}   - ${body.trim()}`;
           continue;
         }
         if (chunk === targetChunk && lines[i].trim() === target) {
-          const repl = fixReplacement(finding.rule, lines[i]);
+          const repl = fixReplacement(finding, lines[i]);
           if (repl == null) return null;
           return lines.slice(0, i).concat(repl.split("\n"), lines.slice(i + 1)).join("\n");
         }
@@ -1611,7 +1627,7 @@ ${indent}   - ${body.trim()}`;
           if (vocab.names.has(t2)) continue;
           if (isKnownModifier(t2, vocab)) continue;
           if (DEPRECATED_CLASSES.has(t2)) continue;
-          findings.push({
+          findings.push(withTokenSuggestion({
             slide: idx - fm + 1,
             rule: "unknown-class",
             severity: "warning",
@@ -1619,7 +1635,7 @@ ${indent}   - ${body.trim()}`;
             line: m[0],
             message: `'${t2}' is not a known component or modifier`,
             fix: "Check the spelling against dist/docs/components.json (component names) or design/design-system.md \xA76.5 (modifiers)."
-          });
+          }, [...vocab.names, ...vocab.modifiers || []]));
         }
         const exclusiveAxes = vocab.exclusiveAxes || {};
         for (const [axis, members] of Object.entries(exclusiveAxes)) {
@@ -2275,7 +2291,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmFinish[1].trim();
       const known = new Set([...finishNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-finish",
         severity: "warning",
@@ -2283,7 +2299,7 @@ ${indent}   - ${body.trim()}`;
         line: fmFinish[0].trim(),
         message: `'${value}' is not a known finish register \u2014 the deck would silently render no backdrop (was 'sketch'/'boardroom' a finish? those moved to \`mode:\`)`,
         fix: `Set front-matter \`finish:\` to one of: ${[...finishNames].join(", ")}.`
-      }];
+      }, finishNames)];
     }
     function findUnknownMode(source, modeNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2293,7 +2309,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmMode[1].trim();
       const known = new Set([...modeNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-mode",
         severity: "warning",
@@ -2301,7 +2317,7 @@ ${indent}   - ${body.trim()}`;
         line: fmMode[0].trim(),
         message: `'${value}' is not a known mode register \u2014 the deck would silently render the boardroom baseline`,
         fix: `Set front-matter \`mode:\` to one of: ${[...modeNames].join(", ")}.`
-      }];
+      }, modeNames)];
     }
     var PACE_NAMES = ["brisk", "natural", "deliberate"];
     function findUnknownPace(source, paceNames) {
@@ -2313,7 +2329,7 @@ ${indent}   - ${body.trim()}`;
       if (!value) return [];
       const known = new Set([...paceNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-pace",
         severity: "warning",
@@ -2321,7 +2337,7 @@ ${indent}   - ${body.trim()}`;
         line: fmPace[0].trim(),
         message: `'${value}' is not a known pace register \u2014 the deck would fall back to whatever pace the VIEWER's browser holds`,
         fix: `Set front-matter \`pace:\` to one of: ${[...paceNames].join(", ")}.`
-      }];
+      }, paceNames)];
     }
     function findUnknownColorMode(source, colorModeNames) {
       const fmBlock = source.match(/^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
@@ -2332,7 +2348,7 @@ ${indent}   - ${body.trim()}`;
       if (!value) return [];
       const known = new Set([...colorModeNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-color-mode",
         severity: "warning",
@@ -2340,7 +2356,7 @@ ${indent}   - ${body.trim()}`;
         line: fm[0].trim(),
         message: `'${value}' is not a known color-mode \u2014 the deck would silently render the theme default`,
         fix: `Set front-matter \`color-mode:\` to one of: ${[...colorModeNames].join(", ")}.`
-      }];
+      }, colorModeNames)];
     }
     function findDeprecatedClassColorMode(source) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2387,7 +2403,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmClaim[1].trim();
       const known = new Set([...claimNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-claim",
         severity: "warning",
@@ -2395,7 +2411,7 @@ ${indent}   - ${body.trim()}`;
         line: fmClaim[0].trim(),
         message: `'${value}' is not a known claim register \u2014 the deck would silently render the framed baseline`,
         fix: `Set front-matter \`claim:\` to one of: ${[...claimNames].join(", ")}.`
-      }];
+      }, claimNames)];
     }
     function findUnknownStamp(source, stampStyleNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2405,7 +2421,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmStamp[1].trim();
       const known = new Set([...stampStyleNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-stamp",
         severity: "warning",
@@ -2413,7 +2429,7 @@ ${indent}   - ${body.trim()}`;
         line: fmStamp[0].trim(),
         message: `'${value}' is not a known stamp style \u2014 the deck would silently render the uniform default (tab) shape`,
         fix: `Set front-matter \`stamp:\` to one of: ${[...stampStyleNames].join(", ")}.`
-      }];
+      }, stampStyleNames)];
     }
     function findUnknownToneStyle(source, toneStyleNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2423,7 +2439,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmTone[1].trim();
       const known = new Set([...toneStyleNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-tone",
         severity: "warning",
@@ -2431,7 +2447,7 @@ ${indent}   - ${body.trim()}`;
         line: fmTone[0].trim(),
         message: `'${value}' is not a known tone style \u2014 the deck would silently render the default rail shape`,
         fix: `Set front-matter \`tone:\` to one of: ${[...toneStyleNames].join(", ")}.`
-      }];
+      }, toneStyleNames)];
     }
     function findUnknownSpectrum(source, spectrumNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2441,7 +2457,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmSpectrum[1].trim();
       const known = new Set([...spectrumNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-spectrum",
         severity: "warning",
@@ -2449,7 +2465,7 @@ ${indent}   - ${body.trim()}`;
         line: fmSpectrum[0].trim(),
         message: `'${value}' is not a known spectrum value \u2014 the deck would silently render the rainbow default`,
         fix: `Set front-matter \`spectrum:\` to one of: ${[...spectrumNames].join(", ")}.`
-      }];
+      }, spectrumNames)];
     }
     function findUnknownSpectrumEdge(source, spectrumEdgeNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2459,7 +2475,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmEdge[1].trim();
       const known = new Set([...spectrumEdgeNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-spectrum-edge",
         severity: "warning",
@@ -2467,7 +2483,7 @@ ${indent}   - ${body.trim()}`;
         line: fmEdge[0].trim(),
         message: `'${value}' is not a known spectrum-edge value \u2014 the deck would silently render the top bar`,
         fix: `Set front-matter \`spectrum-edge:\` to one of: ${[...spectrumEdgeNames].join(", ")}.`
-      }];
+      }, spectrumEdgeNames)];
     }
     function findUnknownSpectrumCard(source, spectrumCardNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2477,7 +2493,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmCard[1].trim();
       const known = new Set([...spectrumCardNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-spectrum-card",
         severity: "warning",
@@ -2485,7 +2501,7 @@ ${indent}   - ${body.trim()}`;
         line: fmCard[0].trim(),
         message: `'${value}' is not a known spectrum-card value \u2014 the deck would silently render no card rail`,
         fix: `Set front-matter \`spectrum-card:\` to one of: ${[...spectrumCardNames].join(", ")}.`
-      }];
+      }, spectrumCardNames)];
     }
     function findUnknownSpectrumCardEdge(source, spectrumCardEdgeNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2495,7 +2511,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmEdge[1].trim();
       const known = new Set([...spectrumCardEdgeNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-spectrum-card-edge",
         severity: "warning",
@@ -2503,7 +2519,7 @@ ${indent}   - ${body.trim()}`;
         line: fmEdge[0].trim(),
         message: `'${value}' is not a known spectrum-card-edge value \u2014 the deck would silently render the left rail`,
         fix: `Set front-matter \`spectrum-card-edge:\` to one of: ${[...spectrumCardEdgeNames].join(", ")}.`
-      }];
+      }, spectrumCardEdgeNames)];
     }
     function findUnknownSpectrumTrim(source, spectrumTrimNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2513,7 +2529,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmTrim[1].trim();
       const known = new Set([...spectrumTrimNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-spectrum-trim",
         severity: "warning",
@@ -2521,7 +2537,7 @@ ${indent}   - ${body.trim()}`;
         line: fmTrim[0].trim(),
         message: `'${value}' is not a known spectrum-trim value \u2014 the deck would silently leave the structural accents quiet`,
         fix: `Set front-matter \`spectrum-trim:\` to one of: ${[...spectrumTrimNames].join(", ")}.`
-      }];
+      }, spectrumTrimNames)];
     }
     function findUnknownRule(source, ruleNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2531,7 +2547,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmRule[1].trim();
       const known = new Set([...ruleNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-rule",
         severity: "warning",
@@ -2539,7 +2555,7 @@ ${indent}   - ${body.trim()}`;
         line: fmRule[0].trim(),
         message: `'${value}' is not a known rule value \u2014 the deck would silently render the default heading underline`,
         fix: `Set front-matter \`rule:\` to one of: ${[...ruleNames].join(", ")}.`
-      }];
+      }, ruleNames)];
     }
     function findUnknownEyebrow(source, eyebrowNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2549,7 +2565,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmEyebrow[1].trim();
       const known = new Set([...eyebrowNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-eyebrow",
         severity: "warning",
@@ -2557,7 +2573,7 @@ ${indent}   - ${body.trim()}`;
         line: fmEyebrow[0].trim(),
         message: `'${value}' is not a known eyebrow value \u2014 the deck would silently render the bare label`,
         fix: `Set front-matter \`eyebrow:\` to one of: ${[...eyebrowNames].join(", ")}.`
-      }];
+      }, eyebrowNames)];
     }
     function findUnknownHeadline(source, headlineNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2567,7 +2583,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmHeadline[1].trim();
       const known = new Set([...headlineNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-headline",
         severity: "warning",
@@ -2575,7 +2591,7 @@ ${indent}   - ${body.trim()}`;
         line: fmHeadline[0].trim(),
         message: `'${value}' is not a known headline value \u2014 the deck would silently keep each component's baked alignment`,
         fix: `Set front-matter \`headline:\` to one of: ${[...headlineNames].join(", ")}.`
-      }];
+      }, headlineNames)];
     }
     function findUnknownCorners(source, cornersNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2603,7 +2619,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmLift[1].trim();
       const known = new Set([...liftNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-lift",
         severity: "warning",
@@ -2611,7 +2627,7 @@ ${indent}   - ${body.trim()}`;
         line: fmLift[0].trim(),
         message: `'${value}' is not a known lift value \u2014 the deck would silently render flat`,
         fix: `Set front-matter \`lift:\` to one of: ${[...liftNames].join(", ")}.`
-      }];
+      }, liftNames)];
     }
     function findRetiredBackdrop(source) {
       const fmBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -2677,7 +2693,7 @@ ${indent}   - ${body.trim()}`;
       const value = fmSplit[1].trim();
       const known = new Set([...splitNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
-      return [{
+      return [withTokenSuggestion({
         slide: 0,
         rule: "unknown-split",
         severity: "warning",
@@ -2685,7 +2701,7 @@ ${indent}   - ${body.trim()}`;
         line: fmSplit[0].trim(),
         message: `'${value}' is not a known split mode \u2014 the deck would silently fall back to 'rule' (split on ---)`,
         fix: `Set front-matter \`split:\` to one of: ${[...splitNames].join(", ")}.`
-      }];
+      }, splitNames)];
     }
     var DEBUG_VALID = /* @__PURE__ */ new Set(["off", "on-hover", "on-always", "verbose"]);
     function findBadDebugFacets(source) {
@@ -2796,6 +2812,8 @@ ${indent}   - ${body.trim()}`;
       findUnknownHeadline,
       findSingleLetterLexiconKeys,
       nearestRegion,
+      withTokenSuggestion,
+      replaceToken,
       editDistance,
       isKnownModifier,
       autofixNestedTitle,
