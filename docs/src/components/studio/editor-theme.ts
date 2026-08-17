@@ -87,37 +87,66 @@ export const editorTheme = EditorView.theme({
 // editors track the active studio theme + mode (no fixed light-only defaults that
 // wash out in dark). Shared by CodeField (CSS / skeleton) and any future surface.
 //
-// WHY THE STATUS TRIO CARRIES THE STRING / NUMBER / INVALID ROLES (#1688). These
-// three rows read `var(--chart-3, #2e6f00)` / `var(--chart-2, #9c3f00)` — tokens
-// defined NOWHERE in the repo, so the hardcoded hex won on all 36 palette x mode
-// rows and the "every color a theme token" claim above was false for exactly the
-// rows that carried a hue. Three candidate homes, and why this one:
-//   · `--hljs-string` / `--hljs-number` ARE the repo's real code-token colors and
-//     would be the ideal fit — but the four a11y-* base palettes declare none, and
-//     `resolveToken` THROWS if any base palette lacks a token on PORTAL_TOKENS
-//     (engineering/gotchas/css.md). Authoring a syntax palette for the palettes
-//     that deliberately collapse hue is a design decision, not a mechanical
-//     fill-in, so it is logged rather than smuggled in here.
-//   · `--chart-cat2` / `--chart-cat3` are the categorical MARK tier, repaired to
-//     the 3:1 GRAPHICAL floor. Measured over the generated sheet, 12 of the 24
-//     hex rows fall under 4.5:1 against `--bg`/`--bg-alt` (worst 3.09:1) — painting
-//     them as text is the exact `--cat-N-ink` construction the no-safe-default
-//     record exists to prevent.
-//   · `--pass` / `--warn` / `--fail` clear AA as text on all 36 rows (worst 4.52:1),
-//     and they are already the hues these rows were hand-picking: #2e6f00 IS a
-//     green and #9c3f00 IS an amber. `t.invalid` is not a stretch at all — invalid
-//     input is what `--fail` names. So the appearance is preserved and it now
-//     tracks the palette. On a11y-achromatopsia the trio is grayscale and syntax
-//     stops separating by hue, which is that palette's whole point.
+// THE SYNTAX INK TIER (#1688). `--syntax-keyword-ink` / `--syntax-string-ink` /
+// `--syntax-number-ink` are DERIVED per palette per mode by
+// `tools/build-docs-portal.js` (`deriveSyntaxInks`) and emitted onto the
+// `html[data-palette][data-mode]` blocks in `lattice-tokens.generated.css`, exactly like
+// the status FILL tokens. They are real code-token colors — the palette's own
+// `--hljs-string` / `--hljs-number`, the same hues the deck's rendered code panel uses —
+// with lightness solved until they clear AA on the EDITOR's canvas (`--bg` and
+// `--bg-alt`), and then held clear of the colors these rows below already paint from
+// `--text-heading` / `--text-body` / `--text-muted`. Measured over 18 base palettes x 2
+// modes: worst 4.65:1 against the canvas, and worst OKLab dE 0.0350 from any neighboring role
+// FOR THE TWO REPELLED ROLES (string, number). `--syntax-keyword-ink` is NOT repelled and is
+// byte-identical to `--text-heading` on 13 palette-modes — a monochrome palette choosing its
+// ink as its accent — so the unqualified form of that sentence is false. Why, seed choice per
+// palette, and the a11y-* exception all live in that generator's docblock.
+//
+// WHAT THIS REPLACED, AND THE CLAIM THAT WAS WRONG. Before #1703 the string and number
+// rows read `var(--chart-3, #2e6f00)` / `var(--chart-2, #9c3f00)` — tokens defined
+// NOWHERE in the repo, so the hardcoded hex won on all 36 palette x mode rows and the
+// "every color a theme token" claim above was false for exactly the rows that carried a
+// hue. #1703 pointed them at `--pass` / `--warn`, which cleared AA and preserved the
+// green/amber intent, and justified NOT using `--hljs-*` on the grounds that the four
+// a11y-* base palettes declare none and `resolveToken` would throw on partial coverage.
+// **That reason was false.** `a11y-base` extends `onyx`, which declares the whole syntax
+// family, so all 18 base palettes resolve `--hljs-*` and PORTAL_TOKENS would not have
+// thrown. The real blocker was the SURFACE: those values are tuned for `--code-bg`, a
+// panel that is dark on every palette in both modes, and 21 of 36 rows put a raw
+// `--hljs-*` below AA on the editor's canvas (worst 1.01:1). Hence a solved tier rather
+// than a direct read.
+//
+// COMMENTS AND PUNCTUATION DELIBERATELY STAY ON `--text-muted`, AND THAT TOKEN IS NOT AA.
+// An earlier cut of this change first excluded them on a claim that was simply false — that
+// "--text-muted is AA against the canvas by contract" (true of `--text-body` and
+// `--text-heading`, false of `--text-muted`, which is below AA on 44 of 72
+// palette-mode-surface pairs, worst 2.11:1 on magnolia/light against `--bg-alt`, 2.47:1
+// against `--bg`). It then over-corrected and pulled both rows into the tier, which was worse:
+// the solve moves lightness AWAY from the canvas, which is where `--text-body` already sits,
+// so on cuoio/light — the default palette and mode — comment-to-body separation collapsed from
+// OKLab 0.198 to 0.038, and `.cm-gutters` / `.cm-completionDetail` above still read
+// `--text-muted`, leaving the line numbers DIMMER than the comment beside them.
+//
+// So the honest scope is: this tier does not own `--text-muted`. Repairing it means repairing
+// the token, so the gutter, the completion chrome, the docs captions and the comment row move
+// together — a theme-token change with a much wider blast radius, tracked separately.
+//
+// `t.invalid` KEEPS `--fail`, and that is not residue from the same compromise — invalid
+// input is precisely what a status token names.
 export const studioHighlight = HighlightStyle.define([
-	{ tag: [t.keyword, t.modifier, t.operatorKeyword], color: 'var(--accent)' },
+	{ tag: [t.keyword, t.modifier, t.operatorKeyword], color: 'var(--syntax-keyword-ink)' },
 	{ tag: [t.propertyName, t.attributeName, t.definition(t.propertyName)], color: 'var(--text-heading)' },
-	{ tag: [t.string, t.special(t.string), t.attributeValue], color: 'var(--pass)' },
-	{ tag: [t.number, t.unit, t.bool, t.atom, t.color], color: 'var(--warn)' },
+	{ tag: [t.string, t.special(t.string), t.attributeValue], color: 'var(--syntax-string-ink)' },
+	{ tag: [t.number, t.unit, t.bool, t.atom, t.color], color: 'var(--syntax-number-ink)' },
 	{ tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--text-muted)', fontStyle: 'italic' },
-	{ tag: [t.tagName, t.heading], color: 'var(--accent)', fontWeight: '600' },
+	// tagName / heading / link stay on the SAME value as the keyword row — they are the
+	// three other places the editor spent `--accent`, and `--syntax-keyword-ink` is that
+	// accent made legible (identical on 34 of 36 palette-modes; repaired on mustard/light,
+	// where `--accent` #8C6A18 read at 3.89:1 on its own canvas, and burgundy/dark).
+	// Keeping them together preserves the shipping look and fixes all four rows at once.
+	{ tag: [t.tagName, t.heading], color: 'var(--syntax-keyword-ink)', fontWeight: '600' },
 	{ tag: [t.variableName, t.className, t.typeName], color: 'var(--text-body)' },
 	{ tag: [t.punctuation, t.bracket, t.brace, t.separator], color: 'var(--text-muted)' },
-	{ tag: [t.link, t.url], color: 'var(--accent)', textDecoration: 'underline' },
+	{ tag: [t.link, t.url], color: 'var(--syntax-keyword-ink)', textDecoration: 'underline' },
 	{ tag: t.invalid, color: 'var(--fail)' },
 ]);

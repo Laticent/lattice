@@ -63,7 +63,8 @@ const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
-const { ensureContrast } = require('../lib/theme/color.js');
+const { ensureContrast, hexToOklch, oklabDistance, withLightness } = require('../lib/theme/color.js');
+const { solveInk, bestEffortInk, feasibleRange, MIN_DIST } = require('../lib/theme/cat-ink.js');
 
 // The capacity to publish, matching what `tools/build-component-docs.js` prints in
 // `<name>.docs.md` — the SAME derivation, so the prose surface and this machine
@@ -145,6 +146,109 @@ const PORTAL_TOKENS = [
   // Emitting it here makes the trio resolve on `document.body`, per palette + mode.
   'pass', 'warn', 'fail',
 ];
+
+// ── The Studio editor's SYNTAX INK tier ───────────────────────────────────
+//
+// `--syntax-string-ink` / `--syntax-number-ink` / `--syntax-keyword-ink`: the three
+// code-token colors the Studio's CodeMirror editors and chat code blocks paint, solved
+// to read as TEXT on the EDITOR canvas (`--bg` / `--bg-alt`) rather than on the slide's
+// dark code panel. Derived here, not declared by any palette — the same shape the
+// status FILL tokens below already use, and the same recipe as `--cat-N-ink`
+// (`lib/theme/cat-ink.js`: hold hue and chroma, move lightness by binary search until
+// it clears AA on both surfaces).
+//
+// WHY A NEW TIER AND NOT `--hljs-*` DIRECTLY. `--hljs-*` ARE the repo's real code-token
+// colors, and they are the right SEED — but they are tuned for `--code-bg`, a panel that
+// is dark on every palette in both modes, and the editor's canvas is `--bg`. Measured
+// over 18 base palettes x 2 modes x {string, number}: 21 of 36 rows put a raw `--hljs-*`
+// below AA on the editor canvas, worst 1.01:1 (concrete/light `--hljs-number` #C8B880 on
+// #B8B8B5 — invisible). Dropping them in as-is would be materially worse than the status
+// trio #1703 shipped, which is why that PR took the cheap path.
+//
+// (#1703 also stated a WRONG reason for taking it: that `--hljs-*` cannot join
+// PORTAL_TOKENS because the four a11y-* palettes declare none and `resolveToken` throws
+// on partial coverage. `a11y-base` extends `onyx`, which declares the full syntax
+// family, so all 18 base palettes resolve them — verified, and the claim is corrected in
+// `editor-theme.ts` where it was load-bearing. The real blocker was the surface, above.)
+const SYNTAX_INK_ROLES = ['keyword', 'string', 'number'];
+
+/**
+ * The roles held clear of the editor's OTHER colors, and of each other. See step 2 of
+ * `deriveSyntaxInks` for why `keyword` is deliberately not one of them.
+ */
+const SYNTAX_INK_REPELLED = ['string', 'number'];
+
+/**
+ * Which token seeds each syntax role, per palette.
+ *
+ * `keyword` seeds from `--accent` — the color the editor already paints keywords,
+ * headings, tags and links, so the tier reproduces the shipping appearance on every
+ * palette where accent already clears AA (34 of 36 palette-modes: `solveInk`
+ * returns a seed that already clears UNCHANGED). It exists to catch the two that do not —
+ * mustard/light,
+ * `--accent` #8C6A18 at 3.89:1 against its own canvas, a pre-existing legibility failure
+ * on this very surface.
+ *
+ * THERE IS NO `muted` ROLE, AND THAT IS A DECISION, NOT AN OVERSIGHT. One was added and then
+ * removed. The motivation was real — `--text-muted` carries no AA guarantee against the canvas
+ * and is below AA on 44 of 72 palette-mode-surface pairs (worst 2.11:1 on magnolia/light against
+ * `--bg-alt`, 2.47:1 against `--bg`) — and it is the token `studioHighlight` paints COMMENTS and
+ * PUNCTUATION with. Repairing it here looked free.
+ *
+ * It is not free, because this solve has only one lever. `solveInk` moves LIGHTNESS AWAY FROM
+ * THE CANVAS, and away from the canvas is exactly where `--text-body` already sits — so raising
+ * the comment's contrast necessarily walks it toward the body text it exists to be quieter than.
+ * `MIN_DIST` is a floor against collision; nothing in the design is a ceiling against being too
+ * loud. Measured on `cuoio` light, the site's DEFAULT palette and mode: comment-to-body OKLab
+ * distance fell from 0.198 to 0.038 — 1.09x the very `MIN_DIST` this file calls "collapsed" when
+ * it happens between two syntax roles. 26 of 36 palette-modes lost separation; none gained any.
+ * The ORDERING survives (the comment stays quieter than the body on every row), which is what
+ * made it look safe; the MARGIN is what vanished.
+ *
+ * And it could not be completed here even in principle: `editor-theme.ts` also paints
+ * `.cm-gutters` and `.cm-completionDetail` from `--text-muted`, so lifting only the comment row
+ * left the line numbers at 2.64:1 beside a 5.07:1 comment — the chrome DIMMER than the content it
+ * numbers, an inverted hierarchy introduced by the repair itself. Fixing that properly means
+ * repairing `--text-muted` so the gutter, the completion chrome, the docs captions and the comment
+ * row move together: a theme-token change with a far wider blast radius than this tier. Tracked
+ * separately, not smuggled in here.
+ *
+ * `string` / `number` seed from the palette's own `--hljs-string` / `--hljs-number`, so
+ * the editor and the deck's rendered code panel agree on what a string IS: indaco gets
+ * its Night Owl tan, cuoio its terracotta, laguna its sage — instead of one status green
+ * everywhere.
+ *
+ * EXCEPT ON THE FOUR a11y-* PALETTES, where they seed from `--pass` / `--warn` instead.
+ * Those palettes exist to avoid a specific hue confusion, and their syntax family is
+ * inherited wholesale from `onyx`: green 144deg and yellow-green 104deg, a pair that is
+ * exactly the red-green axis `a11y-deuteranopia` and `-protanopia` are built to avoid,
+ * and meaningless under `-achromatopsia`. Their status pair is the distinction each of
+ * those palettes has CURATED as safe under its own condition — blue 250deg / amber 76deg
+ * for deuteranopia and protanopia, green 150deg / red-orange 35deg for tritanopia, and a
+ * deliberate two-step GRAYSCALE (#4D4D4D / #6E6E6E) for achromatopsia, which is the
+ * "collapse to lightness only" answer that palette already gives every other decision.
+ * Measured separation of the status pair on those palettes: OKLab dE 0.118-0.268, against
+ * 0.101 for the inherited syntax pair — so this is the safer pair on the measurement as
+ * well as on the intent.
+ *
+ * The a11y family is asked BY NAME, as `isModeInvariant` above already does and for the
+ * same reason: there is no structural signal that separates them from `onyx`, which
+ * shares their grayscale categorical cycle and is a monochrome BRAND rather than a
+ * color-vision accommodation. onyx keeps its own hued syntax pair.
+ *
+ * The deeper fix — giving the a11y palettes their own `--hljs-*` family, so their SLIDE
+ * code panels stop rendering confusable syntax too — is a per-palette design job across
+ * twelve tokens and four palettes, off this change's path (HARD RULE #18). Tracked, not
+ * smuggled in here.
+ */
+function syntaxInkSeeds(name) {
+  const safePair = name.startsWith('a11y-');
+  return {
+    keyword: 'accent',
+    string: safePair ? 'pass' : 'hljs-string',
+    number: safePair ? 'warn' : 'hljs-number',
+  };
+}
 
 // Palettes surfaced first in the dropdown (the two canonical palettes
 // named in CLAUDE.md); the rest follow alphabetically.
@@ -267,6 +371,108 @@ function resolveToken(map, tokenName) {
   return { light: expanded, dark: expanded };
 }
 
+/**
+ * Solve one palette-mode's syntax ink tier: `seeds` (role → hex) against the editor
+ * canvas, kept clear of the roles the editor paints from OTHER tokens.
+ *
+ * TWO STEPS, and the second is the one the `--cat-N-ink` tier does not need.
+ *
+ * 1. LEGIBILITY. `solveInk` — hue and chroma held, lightness bisected until the value
+ *    clears AA + margin against BOTH `--bg` and `--bg-alt`. A seed that already clears
+ *    comes back untouched, which is what keeps `keyword` visually identical to `--accent`
+ *    on the 34 palette-modes where accent is already legible.
+ *
+ * 2. SEPARATION FROM THE FIXED ROLES. A slide's categorical inks only have to be
+ *    tellable from EACH OTHER, so `solveInkArm`'s anti-collapse pass is enough there. An
+ *    editor surface is different: the tier lands among four colors it does not control
+ *    and cannot move — `--text-muted` (comments and punctuation), `--text-body`
+ *    (identifiers), `--text-heading` (property names), and whatever `keyword` resolved to
+ *    — and a string that reads as a comment is the same defect as a string that reads as
+ *    another string. Measured, this is not hypothetical: the solve's minimum-move
+ *    placement puts `a11y-achromatopsia`'s number ink BYTE-IDENTICAL to its
+ *    `--text-muted` (#6E6E6E), because both are "the least darkening of a mid-gray that
+ *    clears AA on white" and there is only one such value.
+ *
+ *    So each role is pushed along its own feasible direction — `feasibleRange`'s `dir`,
+ *    which is AWAY from the canvas and therefore monotonically MORE legible, so the push
+ *    can never undo step 1 — until it sits at least `MIN_DIST` in OKLab from every fixed
+ *    role and every role already placed. Roles are placed in a FIXED order (keyword,
+ *    string, number) rather than nearest-first: the output is committed to a generated
+ *    file that a staleness gate compares byte-for-byte, so determinism matters more than
+ *    minimizing total movement.
+ *
+ * ONLY `string` AND `number` ARE REPELLED (`SYNTAX_INK_REPELLED`), and the exclusion is
+ * the point rather than an oversight. `keyword` is not a new color — it is `--accent`,
+ * which the editor ALREADY paints keywords, headings, tags and links with, made legible.
+ * On 13 palette-modes across seven palettes, `--accent` is deliberately IDENTICAL to
+ * `--text-heading` — a monochrome palette choosing its ink as its accent. Measured on the
+ * emitted sheet: byte-identical on `onyx` and `concrete` (both modes), the four `a11y-*`
+ * (both modes), and `atelier` LIGHT; the shared value is #000000 on the light arms and
+ * #FFFFFF / #ECECE8 on onyx/dark and concrete/dark, so there is no lightness left to push
+ * into in either direction. (`ardesia` at dE 0.0945 and `atelier`/dark at 0.0768 are NOT in
+ * this group — an earlier draft called them "near enough", which at 2.2-2.7x MIN_DIST they
+ * are not.) Repelling it would invent an off-brand accent on every one of those rows
+ * to solve a collision the palette author chose. So `keyword` is solved for legibility,
+ * and then joins `placed` so the two roles that ARE new stay clear of it.
+ *
+ * Returns `{ inks, moved, exhausted, illegible }`. `exhausted` names any role that ran out of
+ * lightness axis before clearing everything — the honest failure, reported rather than
+ * parked silently. Nothing in the shipped palettes reaches it (see the gate in
+ * `test/unit/palette/syntax-ink.test.js`), and a future palette that does gets a named
+ * error instead of a collapsed editor.
+ */
+function deriveSyntaxInks({ seeds, bg, bgAlt, avoid }) {
+  const inks = {};
+  const moved = [];
+  const exhausted = [];
+  const illegible = [];
+  const placed = [...avoid]; // fixed roles first; each solved role joins as it lands
+  for (const role of SYNTAX_INK_ROLES) {
+    const seed = seeds[role];
+    const range = feasibleRange(seed, bg, bgAlt);
+    // NO LEGIBLE SHADE EXISTS. `solveInk` returns null when neither lightness pole clears
+    // AA on both surfaces, which is a fact about the canvas PAIR — a straddle (one surface
+    // wants a dark ink, the other a light one) or two surfaces too close together. This
+    // caller writes a COMMITTED file, so it must be as loud as the cosmetic case below: the
+    // first cut fell through to `bestEffortInk` and reported nothing, so a 1.63:1 ink would
+    // have built clean while a 0.02 dE near-collision broke the whole docs-token build. That
+    // asymmetry was exactly backwards.
+    const solved = solveInk(seed, bg, bgAlt);
+    let ink = solved ?? bestEffortInk(seed, bg, bgAlt);
+    if (!solved) illegible.push(role);
+    if (SYNTAX_INK_REPELLED.includes(role) && range && placed.some((h) => oklabDistance(ink, h) < MIN_DIST)) {
+      // Safety coordinates: u = dir * L, so larger u is always further from the canvas
+      // and always still AA-legal (the feasible interval is one-sided and unbounded in
+      // that direction up to the pole — see `feasibleRange`).
+      const { dir } = range;
+      const uMax = dir === -1 ? 0 : 1;
+      const step = MIN_DIST / 8;
+      const clears = (hex) => placed.every((h) => oklabDistance(hex, h) >= MIN_DIST);
+      let u = dir * hexToOklch(ink).L;
+      let candidate = ink;
+      while (u < uMax && !clears(candidate)) {
+        u = Math.min(u + step, uMax);
+        candidate = withLightness(seed, Math.min(Math.max(dir * u, 0), 1));
+      }
+      // TEST THE POLE ITSELF, which the first cut never did. It re-tested `u <= uMax` before
+      // re-testing the candidate, and `u` walks in steps of MIN_DIST/8 from an arbitrary
+      // starting lightness — so it essentially never lands ON uMax, and the clamped pole
+      // candidate was computed and then discarded unexamined. Clamping the step to uMax and
+      // judging on `clears(candidate)` rather than on where `u` ended removes both that
+      // systematic blind spot and the symmetric hazard (accepting a candidate the loop never
+      // cleared because `u` landed inside the 1e-9 tolerance).
+      if (!clears(candidate)) exhausted.push(role);
+      else {
+        ink = candidate;
+        moved.push(role);
+      }
+    }
+    inks[role] = ink;
+    placed.push(ink);
+  }
+  return { inks, moved, exhausted, illegible };
+}
+
 /** Ordered list of selectable base palettes (those that declare no parent).
  *
  *  `edges` is injectable so a test can hand in the OTHER encoding of the same
@@ -376,9 +582,86 @@ function resolvePalettes() {
       light[`${s}-fill`] = base;
       dark[`${s}-fill`] = base;
     }
+    // The editor SYNTAX INK tier, per mode against that mode's own canvas pair. Seeded
+    // from tokens that are NOT all on PORTAL_TOKENS (`--hljs-string` / `--hljs-number`),
+    // so they are resolved here the way --spectrum is, and a palette missing one is a
+    // loud failure rather than a silently skipped role: every base palette resolves the
+    // syntax family today (onyx declares it; a11y-base extends onyx), and a future
+    // palette that breaks the chain must be noticed, not defaulted around.
+    const seedNames = syntaxInkSeeds(name);
+    for (const [set, schemeDark] of [[light, lightSchemeDark], [dark, darkSchemeDark]]) {
+      const seeds = {};
+      for (const [role, token] of Object.entries(seedNames)) {
+        const r = resolveToken(map, token);
+        if (!r) throw new Error(`theme "${name}" is missing token --${token}, the ${role} syntax ink seed`);
+        seeds[role] = pick(r, schemeDark);
+      }
+      // FAIL LOUD ON A NON-HEX SEED OR CANVAS, naming the theme, the token and the role. The
+      // solve is hex-only, and without this the value travels into `hexToOklch` and surfaces as
+      // `not a hex color: color-mix(in oklab, …)` from deep inside lib/theme/color.js — naming
+      // nothing, and taking the WHOLE docs token sheet (and therefore `build:check`) down with it.
+      // That is precisely the failure `lib/theme/cat-ink.js` documents as the thing its own
+      // null-check exists to prevent, and the status-fill block above already guards the same way
+      // for the same reason. Non-hex token values are a live shape here: the generated sheet
+      // already carries `color-mix(...)` for the `--chart-cat*` family.
+      for (const [label, value] of [['--bg', set.bg], ['--bg-alt', set['bg-alt']],
+        ...Object.entries(seeds).map(([role, hex]) => [`--${seedNames[role]} (the ${role} seed)`, hex])]) {
+        if (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(String(value ?? '').trim())) {
+          throw new Error(
+            `theme "${name}": ${label} resolves to "${value}", which is not a hex literal, so the ` +
+              'syntax ink tier cannot solve it. Resolve the token to hex, or extend deriveSyntaxInks ' +
+              'to read the notation — do not let it reach the OKLCH solver, which reports the value ' +
+              'without naming the theme, the token or the role.',
+          );
+        }
+      }
+      const { inks, exhausted, illegible } = deriveSyntaxInks({
+        seeds,
+        bg: set.bg,
+        bgAlt: set['bg-alt'],
+        // The colors the editor paints from OTHER tokens and cannot move. `--text-muted`
+        // carries comments AND punctuation, `--text-body` identifiers, `--text-heading` property
+        // names — see `studioHighlight` in docs/src/components/studio/editor-theme.ts.
+        //
+        // MEASURED COVERAGE, because an earlier draft called this half "not hypothetical" and it
+        // is: regenerating the sheet with `avoid: []` produces a BYTE-IDENTICAL file. On all 18
+        // shipped palettes this constraint has never moved a value — every collision the tier
+        // actually resolves is ink-vs-ink, handled by the `placed` accumulator. The guard stays
+        // because a future palette can collide here and it costs nothing, but it is unexercised
+        // today and says so rather than borrowing the ink-vs-ink pass's evidence.
+        avoid: [set['text-heading'], set['text-body'], set['text-muted']],
+      });
+      if (illegible.length) {
+        throw new Error(
+          `theme "${name}": no legible syntax ink exists for ${illegible.join(', ')} on the ` +
+            `${set === light ? 'light' : 'dark'} canvas (--bg ${set.bg} / --bg-alt ${set['bg-alt']}). ` +
+            'No shade of the seed hue clears AA against BOTH surfaces, so this is a fact about the ' +
+            'canvas pair rather than the hue: either the two surfaces straddle the legible range ' +
+            '(one wants a dark ink, the other a light one) or they are too close in lightness for ' +
+            'any shade to clear both. Bring --bg and --bg-alt onto the same side of the canvas, or ' +
+            'widen the gap between them.',
+        );
+      }
+      if (exhausted.length) {
+        throw new Error(
+          `theme "${name}": no legible, distinguishable syntax ink for ${exhausted.join(', ')} on the ` +
+            `${set === light ? 'light' : 'dark'} canvas (--bg ${set.bg} / --bg-alt ${set['bg-alt']}). ` +
+            'After clearing AA there is no lightness left that also stays clear of the roles this ' +
+            'solve holds it against: --text-heading, --text-body, --text-muted, AND the syntax inks ' +
+            'already placed (keyword, then string, then number). On the shipped palettes it is ' +
+            'always the already-placed inks that run the axis out, not the text roles — so widen ' +
+            "the categorical distance between this palette's --hljs-string and --hljs-number, or " +
+            're-hue the seed. This is a property of the palette: re-running reproduces it.',
+        );
+      }
+      for (const role of SYNTAX_INK_ROLES) set[`syntax-${role}-ink`] = inks[role];
+    }
     return { name, light, dark };
   });
 }
+
+/** The emitted names of the syntax ink tier, in declaration order. */
+const SYNTAX_INK_TOKENS = SYNTAX_INK_ROLES.map((r) => `syntax-${r}-ink`);
 
 /** True when a resolved `--bg` hex reads as a dark surface, so the block should
  *  declare `color-scheme: dark` and the browser paints native widgets
@@ -424,7 +707,8 @@ function paletteCss() {
       `color-scheme:${isDarkSurface(set.bg) ? 'dark' : 'light'};` +
       PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('') +
       (set.spectrum ? `--spectrum:${set.spectrum};` : '') +
-      ['pass-fill', 'warn-fill', 'fail-fill'].map((t) => (set[t] ? `--${t}:${set[t]};` : '')).join('');
+      ['pass-fill', 'warn-fill', 'fail-fill'].map((t) => (set[t] ? `--${t}:${set[t]};` : '')).join('') +
+      SYNTAX_INK_TOKENS.map((t) => `--${t}:${set[t]};`).join('');
     blocks.push(`html[data-palette="${p.name}"][data-mode="light"]{${decls(p.light)}}`);
     blocks.push(`html[data-palette="${p.name}"][data-mode="dark"]{${decls(p.dark)}}`);
   }
@@ -996,6 +1280,11 @@ module.exports = {
   paletteCss,
   isDarkSurface,
   PORTAL_TOKENS,
+  SYNTAX_INK_ROLES,
+  SYNTAX_INK_REPELLED,
+  SYNTAX_INK_TOKENS,
+  syntaxInkSeeds,
+  deriveSyntaxInks,
   build,
   MD_FILE,
   JSON_FILE,

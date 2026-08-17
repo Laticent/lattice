@@ -54,19 +54,22 @@ export function tokenize(code: string, lang: string): CodeToken[] {
 
 // Map a lezer highlight class (space-separated `tok-*`) to a palette var(). Checked
 // most-specific first; the same colors the editor's studioHighlight uses so the chat
-// and the editor read as one language.
+// and the editor read as one language — including the derived `--syntax-*-ink` tier,
+// whose seeds and contrast guarantees are documented in `editor-theme.ts` and in
+// `deriveSyntaxInks` (tools/build-docs-portal.js). Keep these rows in step with
+// `studioHighlight`: `syntax-highlight-parity.test.ts` asserts they agree.
 export function tokenColor(cls: string | null): string | undefined {
 	if (!cls) return undefined;
 	if (cls.includes('tok-comment')) return 'var(--text-muted)';
-	if (cls.includes('tok-string')) return 'var(--pass)';
-	if (cls.includes('tok-number') || cls.includes('tok-bool') || cls.includes('tok-null') || cls.includes('tok-atom')) return 'var(--warn)';
-	if (cls.includes('tok-keyword')) return 'var(--accent)';
-	if (cls.includes('tok-heading') || cls.includes('tok-tagName') || cls.includes('tok-typeName') || cls.includes('tok-className')) return 'var(--accent)';
+	if (cls.includes('tok-string')) return 'var(--syntax-string-ink)';
+	if (cls.includes('tok-number') || cls.includes('tok-bool') || cls.includes('tok-null') || cls.includes('tok-atom')) return 'var(--syntax-number-ink)';
+	if (cls.includes('tok-keyword')) return 'var(--syntax-keyword-ink)';
+	if (cls.includes('tok-heading') || cls.includes('tok-tagName') || cls.includes('tok-typeName') || cls.includes('tok-className')) return 'var(--syntax-keyword-ink)';
 	// `--text-heading`, matching studioHighlight's propertyName row. This line read
 	// `var(--chart-2, …)` — the NUMBER color — so the parity the comment above
 	// claims was already broken here on top of the token being undefined (#1688).
 	if (cls.includes('tok-propertyName') || cls.includes('tok-attributeName') || cls.includes('tok-variableName')) return 'var(--text-heading)';
-	if (cls.includes('tok-link') || cls.includes('tok-url')) return 'var(--accent)';
+	if (cls.includes('tok-link') || cls.includes('tok-url')) return 'var(--syntax-keyword-ink)';
 	if (cls.includes('tok-meta') || cls.includes('tok-punctuation') || cls.includes('tok-operator') || cls.includes('tok-processingInstruction')) return 'var(--text-muted)';
 	if (cls.includes('tok-emphasis')) return 'var(--text-body)';
 	return undefined;

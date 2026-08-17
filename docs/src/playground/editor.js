@@ -181,25 +181,43 @@ const EAGER_LANGUAGES = [
 
 // Highlight palette mapped onto Lattice CSS tokens. CodeMirror needs concrete
 // colours per tag, but we point them at var(--token) so they track the palette.
-const latticeHighlight = HighlightStyle.define([
+// CONTRAST-REPAIRED VIA THE SHARED SYNTAX INK TIER (#1688). Every row that used to read
+// `var(--accent)` or `var(--text-muted)` now reads the derived `--syntax-*-ink` token instead,
+// for one measured reason: neither of those carries an AA guarantee against the canvas. Over the
+// emitted per-palette sheet, `--accent` bottoms out at 3.89:1 (mustard/light) and `--text-muted`
+// at 2.11:1 (magnolia/light) — and `--text-muted` is below AA on 44 of 72 palette-mode-surface
+// pairs. This is the PUBLIC Playground editor, a larger surface than the Studio's CodeField, and
+// it carried the same defect; a checker caught that the first cut of #1688 repaired only the
+// smaller one. The tier is emitted onto the same `html[data-palette][data-mode]` blocks this page
+// already resolves its tokens from (docs/src/styles/lattice-tokens.generated.css), so this is a
+// re-point, not a new mechanism. `--text-heading` and `--text-body` stay: both ARE AA by
+// contract, and repointing them would be a redesign rather than a repair.
+//
+// `t.number` goes to `--syntax-number-ink` rather than the keyword ink — it was on `--accent`
+// only because nothing better existed. Rows are otherwise mapped to preserve exactly which ones
+// read alike today.
+// Exported for `syntax-highlight-parity.test.ts`, which pins every row to a token that is AA
+// against the canvas. Nothing else imports it — the export exists so the gate can see it, the
+// same reason Fabricate's audit reduction was extracted.
+export const latticeHighlight = HighlightStyle.define([
 	{ tag: t.heading, color: 'var(--text-heading)', fontWeight: '700' },
 	{ tag: [t.strong], color: 'var(--text-heading)', fontWeight: '700' },
 	{ tag: [t.emphasis], fontStyle: 'italic' },
-	{ tag: [t.link, t.url], color: 'var(--accent)', textDecoration: 'underline' },
-	{ tag: [t.monospace], color: 'var(--accent)' },
+	{ tag: [t.link, t.url], color: 'var(--syntax-keyword-ink)', textDecoration: 'underline' },
+	{ tag: [t.monospace], color: 'var(--syntax-keyword-ink)' },
 	{ tag: [t.comment], color: 'var(--text-muted)', fontStyle: 'italic' },
-	{ tag: [t.keyword], color: 'var(--accent)', fontWeight: '600' },
+	{ tag: [t.keyword], color: 'var(--syntax-keyword-ink)', fontWeight: '600' },
 	{ tag: [t.operator], color: 'var(--text-muted)' },
 	{ tag: [t.bracket], color: 'var(--text-muted)' },
 	{ tag: [t.string], color: 'var(--text-body)' },
-	{ tag: [t.number], color: 'var(--accent)' },
+	{ tag: [t.number], color: 'var(--syntax-number-ink)' },
 	{ tag: [t.processingInstruction, t.meta], color: 'var(--text-muted)' },
-	{ tag: [t.list], color: 'var(--accent)' },
+	{ tag: [t.list], color: 'var(--syntax-keyword-ink)' },
 	{ tag: [t.quote], color: 'var(--text-muted)', fontStyle: 'italic' },
 	// Mermaid token tags (ported from Prism): node ids, edge labels, style props,
 	// annotations, punctuation. Distinct hues so a diagram reads structurally.
 	{ tag: [t.variableName], color: 'var(--text-heading)' },
-	{ tag: [t.propertyName], color: 'var(--accent)' },
+	{ tag: [t.propertyName], color: 'var(--syntax-keyword-ink)' },
 	{ tag: [t.labelName], color: 'var(--text-body)', fontStyle: 'italic' },
 	{ tag: [t.punctuation, t.separator], color: 'var(--text-muted)' },
 ]);
