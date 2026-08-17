@@ -18,6 +18,7 @@
 
 const { describe, test, before } = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -247,19 +248,19 @@ describe('differential: identical to the old strip wherever the old strip was ri
     return imported + content;
   }
 
-  test('byte-identical over every .css in the repo', () => {
-    const sheets = [];
-    (function walk(dir) {
-      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        // `dist` is NOT skipped: dist/lattice.css is the DEFAULT layout sheet every
-        // render flattens, so excluding it would omit the one input that always matters.
-        if (['node_modules', '.git', '.scratch'].includes(e.name)) continue;
-        const p = path.join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (e.name.endsWith('.css')) sheets.push(p);
-      }
-    })(ROOT);
-    assert.ok(sheets.length > 200, `expected a real corpus, found ${sheets.length}`);
+  test('byte-identical over every COMMITTED .css in the repo', () => {
+    // The corpus is what git TRACKS, not what happens to be on disk, and that is the fix
+    // for a real CI failure this test caused: a directory walk also picked up `docs/dist`
+    // and `docs/public` build outputs (88 extra files), so the corpus was 267 on a machine
+    // that had built the docs site and 179 on a clean checkout — and a `length > 200`
+    // floor tuned to the former failed the unit job on the latter. Tracked files are
+    // identical everywhere, and they are also the honest definition: committed stylesheets
+    // are what ship. `dist/` IS included — `dist/lattice.css` is committed, and it is the
+    // DEFAULT layout sheet every render flattens, so leaving it out would omit the one
+    // input that always matters.
+    const sheets = execFileSync('git', ['ls-files', '*.css'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\n').filter(Boolean).map((p) => path.join(ROOT, p));
+    assert.ok(sheets.length > 100, `expected a real corpus, found ${sheets.length}`);
     assert.ok(sheets.some((p) => p.endsWith(`dist${path.sep}lattice.css`)), 'the default layout sheet must be in the corpus');
 
     let diffs = 0;

@@ -15,7 +15,7 @@
   bake it into the shipped file. The embedded-fonts block and the baked-finish `<style>`
   spliced into exported markdown are guarded too. Exported bytes are unchanged for every real
   deck — the guard returns its input unmodified unless the CSS actually contains `</style`,
-  which no stylesheet in the repo does.
+  which none of the repo's 179 committed stylesheets does.
 - **HARD RULE #22 and its `build:check` gate now cover the stylesheet channel**, not just the
   markup one, and discovery is keyed on assembling a whole HTML document rather than on the
   preview-frame idiom — which is what let the export assembler slip past.

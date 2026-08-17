@@ -146,15 +146,28 @@ the fix, and the two-line security primitive itself survived all three passes un
 | 2 | **Form feed.** The bad-string-token rule stopped at LF/CR but CSS Syntax §3.3 preprocesses **U+000C** to a newline too. A bad-string opened before an FF ran past it and swallowed the next comment — which then was not masked, so a theme's PROSE `@import` resolved. That is #1696's defect, reopened. | `css-comments.mjs` | `\f` added; verified through the real store |
 | 3 | **`commentSafe` DELETED a character** while this note and the commit message both claimed it round-tripped: `"a 2*/3 split"` came back `"a 2*3 split"`, a changed claim rather than an escaped one. Found independently by two of the three. | `serialize.js` | escape with a backslash (inert in a CSS comment) — lossless, and now pinned |
 | 4 | **Six test arms were vacuous.** The regex being replaced is LAZY, so a fixture with no trailing `*/` is satisfied by the broken implementation too. See §6. | the flattener test | `/* tail */` on every fixture; 2 → 7 arms bite |
-| 5 | `url(icons/*)` — an unquoted url-token is a third context where `/*` is not a comment. The shared walk read it as one and DROPPED an import the naive regex resolved: a regression on valid CSS. | `css-comments.mjs` | url-token run type; 0 change over the 267-sheet corpus |
+| 5 | `url(icons/*)` — an unquoted url-token is a third context where `/*` is not a comment. The shared walk read it as one and DROPPED an import the naive regex resolved: a regression on valid CSS. | `css-comments.mjs` | url-token run type; 0 change over the 179-sheet corpus |
 | 6 | The gate test wrote probe files into the real `docs/src`. `node --test` runs files concurrently, so another check scanning the same tree saw them — it produced a **real 1-in-6589 flake** during a push. | the gate test | `root` injected; probes live in a temp tree |
 | 7 | A second, unguarded `<style>` sink in `deck-preview.js` (`fontCss`). Ours today, but `buildSrcdoc` is exported, and the file-scoped gate cannot tell the difference — so the file stayed green. | `deck-preview.js` | guarded; the guard is free (identity return) |
 | 8 | Two arms named for control-character handling asserted only the `*/` property, which a newline can never violate — all three blanking mutants killed zero tests. Likewise "returned by identity" used value equality. | tests | real assertions added |
-| 9 | "190 repo stylesheets" reproduced as neither 190 nor anything else; and §6's end-to-end prose dropped the trailing comment that makes the claim true. | this note | corrected in place (267, and §6) |
+| 9 | "190 repo stylesheets" reproduced as neither 190 nor anything else; and §6's end-to-end prose dropped the trailing comment that makes the claim true. | this note | corrected in place (see §6 — the honest figure is **179**, and getting there cost a CI failure of its own) |
 
 Findings 1, 2, 5 and 6 are defects **this change introduced or left open**, so none of them was
 eligible for a follow-up issue (HARD RULE #18). Findings 3, 8 and 9 are the record being wrong,
 which is the same class of defect in a repo where the record is how the next person decides.
+
+### A pre-commit hook gap, found by tripping over it
+
+`tools/affected-tests.js` maps `test/unit/<scope>/` to a `test:<scope>` npm script, and
+**`test:theme` did not exist** — so staging only a file under `test/unit/theme/` failed the
+pre-commit hook with `Missing script`. Pre-existing (that directory has been there since
+#1680), but squarely on this change's path, since it is where the flattener's tests live and
+it blocked this commit. Added, per HARD RULE #14 — a hook failure is a root cause, never a
+`--no-verify`.
+
+Two sibling scopes are still missing the same way and are **off** this path, so they are
+logged here rather than pulled into the diff: **`test:diagnostics`** and **`test:runtime`**.
+Either will fail a commit that stages only files in its directory.
 
 ## 5. The gate: HARD RULE #22 now has two channels
 
@@ -222,10 +235,18 @@ trying to unify them, including a narrowed grammar that silently stopped flatten
 documented CLI form. What is shared here is only the answer to "is this inside a comment",
 which both must agree on and neither owns. §5's item (2) therefore remains open, by choice.
 
-**Evidence:** byte-identical to the old flattener over all **267** repo stylesheets — the count is
-the test's own corpus rule, and `dist/` is now IN it, which an earlier draft's "190" was not (that
-figure matched no exclusion set; the first cut of the test skipped `dist`, leaving out
-`dist/lattice.css`, the DEFAULT layout sheet every render flattens). Over 300,000
+**Evidence:** byte-identical to the old flattener over all **179** committed stylesheets, `dist/`
+included — `dist/lattice.css` is the DEFAULT layout sheet every render flattens, and the first cut
+of the test skipped it.
+
+That number took three tries, which is the point of writing it down. An early draft said "190",
+matching no exclusion set at all. The correction said "267" — measured by walking the working
+tree, which on this machine had a built `docs/dist` and `docs/public` contributing 88 generated
+duplicates. **That inflated corpus then failed CI**: the test's `length > 200` floor was tuned to
+a tree that had built the docs site, and a clean checkout has 179, so `unit (node 22)` went red on
+a test asserting about its own environment rather than about the code. The corpus is now
+`git ls-files '*.css'` — identical on every machine, and the honest definition besides, since
+committed stylesheets are what ship. Over 300,000
 fuzzed sheets every divergence is adjudicated against an **independently written** oracle
 (a different code shape, from the CSS Syntax rules) rather than by a heuristic. Both
 divergence classes occur and both are the old regex being wrong — it sometimes MISSED an
@@ -288,7 +309,7 @@ is every real stylesheet.
   entry in `SANCTIONED_STYLE_SINK_EXEMPT`, so the gate names it every run instead of
   overlooking it.
   **On exported bytes:** the guard returns its input **by identity** unless the CSS contains
-  `</style`, and no stylesheet in the 267-sheet corpus does — so for every real deck the
+  `</style`, and no stylesheet in the 179-sheet committed corpus does — so for every real deck the
   exported file is byte-identical. That is a measurement, not a promise, and it is why this was
   judged safe to include rather than held.
 - **It does not claim `sanitizeStyleText` makes theme CSS safe.** It neutralizes exactly one
