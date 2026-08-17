@@ -59,8 +59,11 @@
      already equals --chart-state-pass; --warn/--fail complete the set to match
      (carta previously defined only --pass, leaving its own --fail-bg/--warn-bg
      referencing undefined vars). */
+  /* The light --fail is solved against redline's deepest own-hue stack — a 12%
+     --fail band on a .stacked card's own 5% --fail tint — not against the canvas,
+     because that background moves with the value (#1640). */
   --pass: light-dark(#3C6B1E, #7FC85A);
-  --fail: light-dark(#C0283A, #FF6B72);
+  --fail: light-dark(#8B001F, #FF6B72);
   --warn: light-dark(#8F5E00, #E3A93C);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
@@ -236,7 +239,7 @@
 
   --chart-state-pass: light-dark(#3C6B1E, #7FC85A);
   --chart-state-warn: light-dark(#8F5E00, #E3A93C);
-  --chart-state-fail: light-dark(#C0283A, #FF6B72);
+  --chart-state-fail: light-dark(#8B001F, #FF6B72);
   --chart-state-info: light-dark(#38598C, #9DB8DC);
   --chart-state-mute: light-dark(#897C68, #B2A78F);
 }

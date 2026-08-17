@@ -17,6 +17,22 @@
  * Born from #1207: the token audit was green at 704 pairs while the rendered
  * deck carried 44 sub-AA text runs, several as low as 2.54:1.
  *
+ * ELEMENT OPACITY — read since #1640, and it was a real blind spot. A CSS
+ * `opacity` renders the subtree to a buffer and composites the whole buffer — ink
+ * AND background — at that alpha, which moves the ink much further than the band
+ * under it. Reading computed `color` alone therefore reported an OPTIMISTIC number
+ * for every run inside an opacity group, silently: on indaco's `redline .stacked`
+ * (`del` at .85 inside a card at .78, both removed in #1640) it said ~5:1 where the
+ * rendered pixels were 3.21:1. That figure is a `<del>` nested inside the .stacked
+ * card — markup the CSS allows but no shipped deck writes, so it was measured on a
+ * probe deck built to reach it; the DEFAULT variant every deck does render measured
+ * 4.95:1 with the washes and 6.34:1 without. `resolveStack` below now walks the ink
+ * and the backdrop through the SAME group stack, which is the only way the two can
+ * be composited consistently. Validated against sampled pixels: within 0.01 on the
+ * nested-wash runs (3.20 vs 3.21, 2.74 vs 2.75) and within 0.07 across the wider
+ * set (4.98 / 5.15 / 3.85 / 6.99 modelled against 4.95 / 5.13 / 3.90 / 6.92). `tools/composed-contrast.js` models the same stack
+ * statically, from the token table rather than a render.
+ *
  * KNOWN LIMITATION — OCCLUDED RUNS. It scores every run that is in the DOM and not
  * `display:none` / `visibility:hidden`, including one painted UNDER an opaque
  * sibling and therefore not on screen at all. Such a run is neither a pass nor a
@@ -101,13 +117,29 @@ const PROBE = () => {
   const over = (fg, bg, a) => fg.map((c, i) => c * a + bg[i] * (1 - a));
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 
-  // Climb ancestors, compositing every translucent paint, until an opaque one.
-  // `from` seeds the stack with paints that are NOT ancestors — see the two
-  // callers below; without it this function has two blind spots that both report
-  // as failures, which is worse than silence because it teaches the reader to
-  // ignore the output.
-  const effectiveBg = (el, from = []) => {
-    let acc = null;
+  // Climb ancestors, compositing every translucent paint and every element
+  // `opacity`, down to the page. `from` seeds the stack with paints that are NOT
+  // ancestors — see the two callers below; without it this function has two blind
+  // spots that both report as failures, which is worse than silence because it
+  // teaches the reader to ignore the output.
+  //
+  // `ink` seeds the TOP of the stack with the run's own foreground, so the same
+  // walk answers both questions: `resolveStack(el, unders, fg)` is the glyph pixel
+  // and `resolveStack(el, unders)` is the pixel beside it. That symmetry is what
+  // makes element `opacity` readable at all. CSS `opacity` renders the subtree to a
+  // buffer and composites the WHOLE buffer — ink and background together — at that
+  // alpha, so it cannot be applied to a foreground and a background independently.
+  // Reading computed `color` alone reported ~5:1 for indaco's `redline .stacked`
+  // struck clause where the rendered pixels were 3.21:1, two nested washes deep
+  // (probe deck; the shipped default variant measured 4.95:1)
+  // (`del` at .85 inside a card at .78, both removed in #1640).
+  //
+  // The early return on an opaque accumulator is deliberately gone: an ancestor
+  // ABOVE the first opaque paint can still carry an opacity that scales everything
+  // under it, and stopping early would miss it. Absorbing further layers into a
+  // saturated accumulator is a no-op, so the full walk costs nothing but is right.
+  const resolveStack = (el, from = [], ink = null) => {
+    let acc = ink && ink.a > 0 ? { rgb: ink.rgb.slice(), a: ink.a } : null;
     // Accumulated coverage must COMPOUND — `a + c.a * (1 - a)` — not snap to 1 on the
     // second layer. Stamping `a: 1` there truncates the stack at two paints and never
     // reaches the opaque base, so two stacked 20%-black washes on white resolved to a
@@ -122,13 +154,19 @@ const PROBE = () => {
         : { rgb: over(acc.rgb, c.rgb, acc.a), a: acc.a + c.a * (1 - acc.a) };
       return acc.a >= 0.999;
     };
-    for (const c of from) if (absorb(c)) return acc.rgb;
+    for (const c of from) absorb(c);
     let node = el;
     while (node && node !== document.documentElement) {
-      if (absorb(parse(getComputedStyle(node).backgroundColor))) return acc.rgb;
+      const cs = getComputedStyle(node);
+      absorb(parse(cs.backgroundColor));
+      // Leaving this element's group: its opacity scales everything accumulated
+      // inside it, ink and background alike.
+      const o = parseFloat(cs.opacity);
+      if (acc && !Number.isNaN(o) && o < 1) acc.a *= o;
       node = node.parentElement;
     }
-    return acc ? acc.rgb : [255, 255, 255];
+    absorb(parse(getComputedStyle(document.documentElement).backgroundColor));
+    return acc ? over(acc.rgb, [255, 255, 255], acc.a) : [255, 255, 255];
   };
 
   // BLIND SPOT 2: a paint that is a SIBLING, not an ancestor. This engine
@@ -257,8 +295,9 @@ const PROBE = () => {
       // `underlays`. Cheap, and exact where the element box is not.
       const tr = document.createRange();
       tr.selectNodeContents(n);
-      const bg = effectiveBg(el, underlays(el, tr.getBoundingClientRect()));
-      const fgc = fg.a < 1 ? over(fg.rgb, bg, fg.a) : fg.rgb;
+      const unders = underlays(el, tr.getBoundingClientRect());
+      const bg  = resolveStack(el, unders);
+      const fgc = resolveStack(el, unders, fg);
       const w = parseInt(cs.fontWeight, 10) || 400;
       // WCAG "large text": >=24px, or >=18.66px when bold (>=700)
       const large = fs >= 24 || (fs >= 18.66 && w >= 700);
@@ -290,8 +329,9 @@ const PROBE = () => {
         // text node does — the pagination pseudo on a cover sits over an absolutely
         // positioned rail (base.modifiers.css), and without this it scored 1.00:1
         // white-on-white where it really renders 11.29:1 on the rail.
-        const bg = effectiveBg(el, [parse(cs.backgroundColor), ...underlays(el)].filter(Boolean));
-        const fgc = fg.a < 1 ? over(fg.rgb, bg, fg.a) : fg.rgb;
+        const seed = [parse(cs.backgroundColor), ...underlays(el)].filter(Boolean);
+        const bg  = resolveStack(el, seed);
+        const fgc = resolveStack(el, seed, fg);
         const w = parseInt(cs.fontWeight, 10) || 400;
         const large = fs >= 24 || (fs >= 18.66 && w >= 700);
         out.push({

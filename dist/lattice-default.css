@@ -906,7 +906,19 @@
    * what masked flat anchors for as long as this base won the cascade over the
    * palette in the export path; it does not once the palette wins (#1527).
    * Anchor the dark arm on the palette's own dark --accent.
-   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md. */
+   *
+   * A PAIR IS NOT ENOUGH ON ITS OWN — the arm has to be solved against the STOP,
+   * not against the anchor. Because 600-900 always shade toward black, a dark arm
+   * that reads beautifully itself can still leave --seq-700 (45% of the way to
+   * black) under 3:1 on a near-black canvas: onyx and concrete both shipped
+   * correct pairs and both failed there. `tools/composed-contrast.js` scores the
+   * derived stops, so a new anchor is checked where it lands.
+   * The canvas-blind derivation itself is a live defect on ELEVEN palettes whose
+   * anchor is `var(--accent)` — --seq-700 sits at 1.66-3.19:1 on their dark
+   * canvases in BOTH cascade orders, so it is not a #1527 blocker and not fixed
+   * here; making the ramp canvas-relative is its own slice.
+   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md and
+   * engineering/decisions/2026-08-17-composed-surface-contrast.md. */
   --seq-500: var(--accent);
   --seq-50:  color-mix(in oklab, var(--seq-500)  8%, white);
   --seq-100: color-mix(in oklab, var(--seq-500) 18%, white);
@@ -13328,7 +13340,22 @@ section.redline > .cell-stage > blockquote {
 }
 section.redline > .cell-stage > blockquote > p { margin:0; }
 section.redline > .cell-stage > blockquote > p + p { padding-top:var(--sp-sm); }
-/* Insertions and deletions — ins/del HTML, also ~~md~~ which renders as s. */
+/* Insertions and deletions — ins/del HTML, also ~~md~~ which renders as s.
+ *
+ * NEITHER CARRIES AN `opacity`, AND THAT IS LOAD-BEARING. `<del>` used to render
+ * at `opacity:0.85` as a de-emphasis. CSS opacity renders the subtree to a buffer
+ * and composites the WHOLE buffer — the ink AND the --fail-bg band under it — at
+ * that alpha, so it pulls the ink toward the backdrop while the band it sits on
+ * barely moves. That band is a 12% tint OF --fail, so the background already moves
+ * with the ink and there is no headroom to spend: measured across the shipped
+ * palettes, this wash and the .stacked card's below held 82 composed runs under
+ * their bar (313 -> 231 with nothing else changed), and forced the curated hues
+ * that DID need re-tuning about twice as far off their design (carta's --fail
+ * wanted OKLab dL -0.090 with them, -0.048 without). base.tokens.css states
+ * the house rule for exactly this: "If you need a quieter label here, spend size
+ * or weight, not alpha." The strike-through, the --fail hue and the tinted band
+ * carry the de-emphasis on their own.
+ * See engineering/decisions/2026-08-17-composed-surface-contrast.md. */
 section.redline ins, section.redline :is(p) ins {
   text-decoration:underline;
   text-decoration-thickness:2px;
@@ -13348,7 +13375,6 @@ section.redline del, section.redline s {
   background:var(--fail-bg);
   padding:0 0.234375cqi;
   border-radius:var(--radius-sm);
-  opacity:0.85;
 }
 /* Annotation list — appears below the quote, gives reviewer plain-English
  * rationale for each numbered delta in the text. */
@@ -13460,13 +13486,22 @@ section.redline.annotated > .cell-stage > :is(ol, ul) > li::before {
   line-height:1.4;
 }
 
-/* .stacked — two blockquotes vertically: old on top (struck), new below. */
+/* .stacked — two blockquotes vertically: old on top (struck), new below.
+ * NO `opacity` on this card, for the reason spelled out at the ins/del rule above:
+ * a group opacity drags the ink and its own-hue card toward the backdrop together.
+ * At the 0.78 it used to carry, its OLD label was the BINDING constraint on six
+ * palettes' curated --fail — they cleared AA on every other redline surface and
+ * failed only through this wash. Measured on the render, indaco's struck clause
+ * here was 4.95:1 with both washes and is 6.34:1 without them, on the DEFAULT variant that
+ * every deck renders. The deepest stack — a <del> inside this card, which the CSS allows
+ * but no deck in the repo writes — went 3.21:1 to 5.85:1 on a probe deck built to reach it.
+ * The card is already tinted, bordered, struck and
+ * labeled "OLD — prior text"; the de-emphasis does not need a fifth channel. */
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1) {
   background:color-mix(in srgb, var(--fail) 5%, var(--bg-alt));
   border-left-color:var(--fail);
   text-decoration:line-through;
   text-decoration-color:color-mix(in srgb, var(--fail) 40%, transparent);
-  opacity:0.78;
 }
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1)::before {
   content:'OLD — prior text';

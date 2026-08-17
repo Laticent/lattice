@@ -31,11 +31,11 @@
    * The dark arm is each curated hue lifted up the OKLab lightness axis, hue
    * kept, by the smallest amount that clears AA on the surface it actually
    * lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN over
-   * --bg-alt, so the background moves with the value, and `del` renders at
-   * opacity .85 on top of that. Measured on that band: pass 6.85:1, warn
-   * 9.78:1, fail 5.89:1, and fail again at 4.69:1 once the strike-through
-   * opacity composites it — that last one sampled off the rendered pixels, since
-   * the .85 fades the band as well as the ink and a model of it does not.
+   * --bg-alt, so the background moves with the value. Measured on that band:
+   * pass 6.87:1, warn 9.82:1, fail 5.91:1 — and 5.42:1 for the deepest stack the
+   * component ships, that band on a .stacked card's own 5% tint. (`del` also
+   * carried `opacity:.85` when these were chosen; #1640 removed it, so the ink is
+   * no longer composited back toward its own band.)
    * Separation under simulation is held at ΔE 0.162
    * deutan / 0.191 protan — at or above the light trio's own 0.161 / 0.189,
    * and both are checked because protanopia shares this trio.
