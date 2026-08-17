@@ -1183,7 +1183,8 @@ than rounding then flattening:
 | Export | Corner | Why |
 |---|---|---|
 | `.png`, `.zip` PNG / WebP (slides **and** thumbnails) | **rounded** | an alpha channel carries a real hole |
-| `.html`, `--player` / `--fluid` | **rounded** | a live document; the host paints behind it |
+| `.html`, `--player` / `--fluid` — **on screen** | **rounded** | a live document; the host paints behind it |
+| the same documents, **printed** | square | a printer's page is paper too, so `@media print` squares them |
 | `.zip` JPEG | square | the format has no alpha channel |
 | `.pdf` (vector and `--raster`) | square | a page is paper |
 | `.pptx` | square | the image sits on the **recipient's** slide background, so the corner would take the color of their PowerPoint template |

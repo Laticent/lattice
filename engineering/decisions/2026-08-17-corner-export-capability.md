@@ -17,7 +17,8 @@ summary: >-
   clear) and border-radius (the capture frame's own 6px preview chrome, which html-to-image DOES
   honor and which must never reach an artifact); and lossy is not the same axis as alpha-less, so
   the image-set underlay had to branch on the capability table rather than on meta.lossy or WebP
-  would have lost its corner. Square decks are byte-identical.
+  would have lost its corner. Square decks render byte-identical rasters and PDFs (the
+  .html sidecar gains the print rule, so it moves for every deck).
 ---
 
 # A rounded corner is a capability of the target, not a preference of the deck
@@ -142,10 +143,20 @@ disagreement this note exists to end. It now branches on the capability table.
 
 ## Consequences
 
-- Square decks are **byte-identical**. `omitBackground` is scoped to decks that
-  actually carry a rounded slide, so a deck with no `corners:` moves no bytes —
-  confirmed by a full `npm run build`, which regenerated every committed artifact
-  unchanged.
+- Square decks produce **byte-identical rasters and PDFs**. `omitBackground` is scoped to
+  decks that actually carry a rounded slide, so a deck with no `corners:` moves no image or
+  PDF bytes. Verified by rendering the same square deck from `origin/main` and from this
+  branch and comparing md5 — `sq.pdf`, `sq.001.png`, `sq.002.png` all identical.
+
+  **The `.html` sidecar is the exception, and it moves for every deck.** The `@media print`
+  block is inlined into every emitted document, so the sidecar grows ~1.4 KB whether or not
+  the deck rounds. That is correct — the rule has to reach a document a human might print —
+  but it means "byte-identical" is a claim about rasters and PDFs, not about every artifact.
+
+  An earlier draft of this note cited `npm run build` as the evidence. That was wrong twice
+  over: `tools/build.js` regenerates `dist/` and never renders an export at all, and this
+  change *does* move `dist/lattice.css` and friends. Corrected after the independent
+  checker caught it — the claim was true, the evidence for it was not.
 - `examples/slide-corners.pdf` **is** regenerated: it is the corners demo deck, and
   under this rule its PDF is square.
 - A deck author who wants a rounded artifact exports PNG or WebP. That is now a

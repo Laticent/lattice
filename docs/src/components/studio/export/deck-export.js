@@ -703,21 +703,30 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 	const wantsRound = section.classList.contains('corners-rounded');
 	const keepRound = wantsRound && cornerSurvivesExport(cornerTarget);
 	const hadRounded = wantsRound && !keepRound;
-	if (hadRounded) section.classList.remove('corners-rounded');
 	const prevRadius = section.style.borderRadius;
-	if (!keepRound) section.style.borderRadius = '0';
-	// Defeat the preview's lazy-render gates (content-visibility virtualization +
-	// the `.lattice` visibility reveal) so html-to-image rasterizes a laid-out,
-	// painted slide even when the preview was never shown (phone Edit-tab export).
-	const restoreVisibility = forceSectionVisibleForCapture(section);
-	const { w, h } = slideGeom(section);
+	// The mutation itself is INSIDE the try below, not here. Everything else this
+	// function changes self-heals on the next render, but the corner token does not: a
+	// throw between stripping it and entering the try would leave `corners-rounded` off
+	// the LIVE preview node, and every later export of that section would then read
+	// `wantsRound === false` and square a deck whose front matter still says rounded. A
+	// visible artifact would be bad; a wrong DECISION that persists is worse.
+	let restoreVisibility = () => {};
+	let w = 0;
+	let h = 0;
 	// Cap the device-pixel multiplier so a 4K box (3840) rasterizes near its
 	// native 3840 rather than a 7680 canvas that risks an OOM in the browser;
 	// HD keeps the 2× retina capture it always had. The image-set export passes an
 	// explicit ratio (its size preset / thumbnail scale, already OOM-capped by the
 	// shared kernel), which wins over this default.
-	const pixelRatio = pixelRatioOverride != null ? pixelRatioOverride : (w > 2048 ? 1 : 2);
 	try {
+		if (hadRounded) section.classList.remove('corners-rounded');
+		if (!keepRound) section.style.borderRadius = '0';
+		// Defeat the preview's lazy-render gates (content-visibility virtualization +
+		// the `.lattice` visibility reveal) so html-to-image rasterizes a laid-out,
+		// painted slide even when the preview was never shown (phone Edit-tab export).
+		restoreVisibility = forceSectionVisibleForCapture(section);
+		({ w, h } = slideGeom(section));
+		const pixelRatio = pixelRatioOverride != null ? pixelRatioOverride : (w > 2048 ? 1 : 2);
 		return await capture(w, h, pixelRatio);
 	} finally {
 		section.style.borderImageSource = prev.borderImageSource;
@@ -867,6 +876,11 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // BLACK), encoded on this thread. NOT html-to-image's toJpeg — its
 // `backgroundColor` option overrides the slide's own background (see the header
 // warning), so we composite ourselves, exactly like the worker lane does.
+// Forwards `cornerTarget` on BOTH branches. Today every caller passes 'pdf', which squares
+// either way, so letting the JPEG branch drop it was inert — and inert is exactly how a
+// wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
+// would read this signature, pass 'png', and silently get a square corner. The kernel's
+// fail-safe default would mask that rather than catch it.
 async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget) {
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget);
 	const { toCanvas } = await import('html-to-image');
@@ -880,7 +894,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, corn
 		ctx.fillRect(0, 0, out.width, out.height);
 		ctx.drawImage(canvas, 0, 0);
 		return out.toDataURL('image/jpeg', 0.95);
-	});
+	}, undefined, cornerTarget);
 }
 
 // Legacy lane: the original all-main-thread jsPDF build — the full-bleed colour PDF

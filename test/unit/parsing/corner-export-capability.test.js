@@ -62,6 +62,23 @@ describe('corner export capability', async () => {
     assert.equal(cornerSurvivesExport('PPTX'), false);
   });
 
+  test('EVERY target string the exporters can actually produce is classified', async () => {
+    // The most valuable guard here, and the one the kernel cannot provide for itself: the
+    // table is only correct if it covers the real vocabulary. Nothing else fails when a new
+    // export format appears — it just silently squares, because unknown targets square by
+    // design. That default is right for safety and wrong for discovery, so this is the test
+    // that turns "we forgot to classify avif" from a shipped artifact into a red suite.
+    const { IMAGE_FORMATS } = require('../../../lib/export/image-set.js');
+    // The emulator's OUT_FORMAT vocabulary (lattice-emulator.js) plus the literals the
+    // Studio's capture sites pass (deck-export.js). Kept explicit rather than parsed out of
+    // the sources: a regex over those files would rot more quietly than this list.
+    const EXPORTER_TARGETS = [...IMAGE_FORMATS, 'pdf', 'pptx', 'html'];
+    for (const t of EXPORTER_TARGETS) {
+      const classified = CORNER_CAPABLE_TARGETS.includes(t) || CORNER_FLAT_TARGETS.includes(t);
+      assert.equal(classified, true, `'${t}' is a target an exporter can produce but the capability table never classifies it — it would silently square. Add it to lib/core/corner-export-capability.mjs with its measurement.`);
+    }
+  });
+
   test('the two lists are disjoint and frozen', () => {
     for (const t of CORNER_CAPABLE_TARGETS) {
       assert.equal(CORNER_FLAT_TARGETS.includes(t), false, `${t} cannot be both capable and flat`);

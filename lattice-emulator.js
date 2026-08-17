@@ -567,8 +567,9 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
 // hold — an alpha channel, or a live document whose host paints behind it. `.zip` is the
 // only output whose capability depends on a flag, because the image format IS the choice
 // (png/webp carry alpha, jpeg has no such channel). Everything else is fixed by the
-// container. The capability table and the per-format measurements live next to the
-// register itself: lib/core/resolve-corners.js.
+// container. The capability table and the per-format measurements live in
+// lib/core/corner-export-capability.mjs — NOT in resolve-corners.js, which answers the
+// different question of what the DECK asked for.
 const { cornerSurvivesExport } = require('./lib/core/corner-export-capability.mjs');
 const CORNER_TARGET = OUT_FORMAT === 'imageset' ? IMAGE_SET_OPTS.format : OUT_FORMAT;
 const CORNER_SURVIVES = cornerSurvivesExport(CORNER_TARGET);
@@ -3047,7 +3048,7 @@ async function renderBody(browser, g, closeBrowser) {
   // This runs IN THE PAGE, not on the emitted HTML, and that is deliberate: the `.html`
   // sidecar written alongside every non-html output is a LIVE document, which CAN hold the
   // corner. Stripping the markup would wrongly square it. Squaring the DOM squares only
-  // the pixels we are about to flatten. See lib/core/resolve-corners.js.
+  // the pixels we are about to flatten. See lib/core/corner-export-capability.mjs.
   // `squareNow` also tells us whether this deck is rounded AT ALL, which decides
   // `omitBackground` below. A square deck must stay BYTE-IDENTICAL: it stamps no token
   // today, and asking for an alpha channel it has no hole to put in would rewrite every
