@@ -17,6 +17,7 @@ files. See the repo `README.md` for the full entry-point table.
 |---|---|---|
 | `docs/components.json` | Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component. | load as JSON / `@workwel/lattice/dist/docs/components.json` |
 | `docs/components.md` | Canonical single-file component reference (plain Markdown): every component's slots, variants, when/why, anti-patterns. The browsable edition — live previews + an in-browser editor — is the docs-site component pages. | read directly / link from docs |
+| `docs/components.pick.md` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `docs/concepts.json` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `docs/forms.json` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `docs/grammar.json` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |

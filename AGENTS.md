@@ -25,29 +25,39 @@ reinvent it.
 
 ## The catalog — pick the right component
 
-Every component is described in two generated, always-current files:
+Every component is described in generated, always-current files. **Start with the
+pick list** — the other two are bigger and answer later questions:
 
-- **`dist/docs/components.json`** — machine-readable. One read gives you
-  every component's axes, **search tags**, slots, authoring skeleton,
-  **`capacity`** (how many elements the component holds), **`density`**
-  (how many WORDS each element gets before it overflows), and
-  `whenToUse` / `antiPatterns` / `related` prose, plus the controlled
-  vocabularies. Load this to select a component.
-- **`dist/docs/components.md`** — the same, human-readable; the browsable
-  edition (the docs-site component pages) adds a live filter by name,
-  description, or tag, plus a live preview and an in-browser editor.
+- **`dist/docs/components.pick.md`** — **the one to read when choosing.** One line
+  per component: axes, **search tags**, **`capacity`**, its escalation target, and a
+  one-line purpose. The whole 61-component catalog is ~3k tokens, so you can hold all
+  of it, and one line per component means `grep -i comparison` returns rows rather
+  than a walk through a 95k-token JSON document.
+- **`dist/docs/components.json`** — the full machine record: slots, authoring
+  skeleton, effective variants, **`density`** (how many WORDS each element gets
+  before it overflows), `whenToUse` / `antiPatterns` / `related` prose, and the
+  controlled vocabularies. This is what TOOLS read (the Studio's picker, deck export,
+  the playground). **Don't load it to choose a component** — that is what the pick
+  list is for, and the per-component detail you need after choosing is in that
+  component's own `.docs.md` (HARD RULE #6).
+- **`dist/docs/components.md`** — human-readable, the browsable edition (the
+  docs-site component pages) adds a live filter by name, description, or tag, plus a
+  live preview and an in-browser editor.
 
 **Selecting by intent.** Each component carries 3–5 search tags — the
 *searcher's* vocabulary (e.g. `swimlane`, `board-deck`, `percentage`,
-`prioritize`). Match the author's intent words to tags, then confirm with
-the component's `whenToUse` / `antiPatterns`. Don't pick from memory; the
-catalog is the source of truth.
+`prioritize`). Match the author's intent words to tags in
+`components.pick.md`, then confirm with the shortlisted component's `whenToUse` /
+`antiPatterns` — in its `.docs.md`, or in `components.json` if you want several at
+once. Don't pick from memory; the catalog is the source of truth.
 
 **Count first, then filter by capacity.** A component overflows when you pour
 more elements into it than it holds — the single most common authoring slip.
 Before committing to a `_class`, **count your content** (how many items / rows
 / columns / code lines) and check the component's **`capacity`** in
-`components.json`: `{ axis, sweet, soft, hard, escalateTo }`. `sweet` is the
+`components.pick.md` (the `capacity` column is `axis:sweet/soft/hard`, with its
+escalation target beside it; `components.json` carries the same as
+`{ axis, sweet, soft, hard, escalateTo }`). `sweet` is the
 ideal count; past `soft` it crowds; past `hard` it overflows. If your count
 exceeds `hard`, **don't pick that component** — use one of its `escalateTo`
 targets or split the content across slides. `lint:deck` warns when a slide

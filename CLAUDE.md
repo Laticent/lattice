@@ -481,7 +481,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | The deck-authoring contract | `design/skill.md` |
 | Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` |
 | A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
-| Picking a component as an agent (machine catalog) | `dist/docs/components.json`, `AGENTS.md` |
+| Picking a component as an agent | `dist/docs/components.pick.md` — one line per component, the whole catalog in ~3k tokens; skim or grep it, then read the picked component's `.docs.md` (#6). `dist/docs/components.json` is the full machine record for TOOLS — don't load it to choose. Also `AGENTS.md` |
 | What scripts/tools already exist (don't reinvent) | `engineering/capabilities.md` |
 | Automated codebase quality assessment (coupling, boundaries, cycles, change coupling, complexity, duplication, dead code) | `engineering/quality-assessment.md` |
 | The 10/10 visual rubric | `engineering/decisions/2026-06-06-layout-audit/` |
