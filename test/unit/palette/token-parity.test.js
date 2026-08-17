@@ -53,6 +53,12 @@ const CONTRACT = [
   // these has an unreadable grouping box and unreadable label ink. Legibility
   // itself is gated by containment-contrast.test.js.
   'c-container-edge', 'c-subcontainer-edge', 'c-on-container', 'c-on-subcontainer',
+  // The sequential ramp's anchor. Required despite the engine declaring a
+  // fallback (`--seq-500: var(--accent)`), because that fallback is the defect:
+  // a dark --accent is near-white on a near-black canvas by design, so the nine
+  // stops lattice.css derives from it collapse to 1.08-1.90:1 apart (#1697).
+  // Headroom is a property of the anchor, and only the palette can own it.
+  'seq-500',
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-state-pass',
   'chart-state-warn', 'chart-state-fail', 'chart-state-info', 'chart-state-mute',

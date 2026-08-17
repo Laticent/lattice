@@ -132,7 +132,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
    convention, and it forces you to check.
 4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
    in light and dark. Register the palette name in **`test/unit/palette/token-parity.test.js`'s
-   `THEMES` array** (this is what enforces the full 97-token contract on your theme)
+   `THEMES` array** (this is what enforces the full 98-token contract on your theme)
    and in `.vscode/settings.json` under `markdown.marp.themes`. (`contrast.test.js`
    is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
    run via cascade — so adding your theme *there* does nothing.)
@@ -251,7 +251,7 @@ rather than by eye. Also define **all 12**
 `--c-subcontainer`; and the `--chart-cat1..8` / `--chart-state-*` chart palette.
 **Note:** `token-parity` only checks the themes *listed* in its `THEMES` array — so
 until you add your theme there, a passing `npm test` does **not** prove the contract
-is complete. The 12 `--cat-N-texture` tokens are **not** in this 97-token contract —
+is complete. The 12 `--cat-N-texture` tokens are **not** in this 98-token contract —
 texture is an *optional* adoption channel (recipe step 5), declared only by a
 monochrome/CVD theme.
 
@@ -319,7 +319,7 @@ The **dark variant in full** — this is the whole file:
       per-slide `_class: dark` while the pinned chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Full 97-token contract defined directly (not just the 11 core) — all 12
+- [ ] Full 98-token contract defined directly (not just the 11 core) — all 12
       `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`.
 - [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
       `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.

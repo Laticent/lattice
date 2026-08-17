@@ -146,8 +146,6 @@
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
 
-  /* Sequential ramp anchor — indaco's brand mid-blue. The 9 derivative
-   * stops auto-derive in lattice.css :root via OKLab color-mix. */
   /* The ramp anchor — a pair, solved ARM BY ARM against the derived stops.
    * The light arm rides var(--brand-accent) by reference, the same source --accent's
    * light arm reads, so re-tuning the brand hue moves the ramp with it and no

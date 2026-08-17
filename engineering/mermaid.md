@@ -362,7 +362,7 @@ fill; not `--diagram-stroke`, which doesn't flip with color-scheme and so went
 dark-on-dark; not `--cat-on-fill`, which is the *categorical* tier's ink. The distinction matters because a
 cluster sits *behind* the categorical node fills and must not compete with them,
 which is a different job from a card sitting on the canvas. `--c-container` is
-part of the 91-token per-theme contract, so every theme curates it (they differ
+part of the 96-token per-theme contract, so every theme curates it (they differ
 sharply — indaco `#E8F0F7`, concrete `#A8A8A8`). This only reaches PLAIN
 clusters: a `.section-N` cluster (mindmap, timeline, kanban) is overridden to
 `--cat-N-fill` by `mermaid.css`'s band cycle.

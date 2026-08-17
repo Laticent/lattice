@@ -848,8 +848,17 @@
    * a font size. This group is canonical (universal-token flip, group 1 —
    * 2026-06-11 ADR §11); the old --scale-* names are retired.
    *
-   * Default --seq-500 falls back to --accent so unstyled themes still
-   * have a usable ramp, but every theme should set it deliberately.
+   * THE ANCHOR IS A CONTRACT TOKEN, and the fallback below is a LAST RESORT
+   * rather than a supported configuration. `--seq-500: var(--accent)` keeps an
+   * anchorless palette painting a ramp, but it paints the collapsed one: a dark
+   * --accent is near-white on a near-black canvas by design, so the stops that
+   * climb toward the high pole start from a value already there. That is why
+   * --seq-500 is in `REQUIRED_TOKENS` (lib/theme/derive.js, so the Studio emits
+   * a solved anchor), in the token-parity contract (so no committed palette can
+   * lean on this line), and on tools/new-theme.js's author checklist. A
+   * consumer palette written from scratch outside this repo is the one case the
+   * fallback still serves, and it inherits the collapse — see
+   * engineering/decisions/2026-08-17-sequential-anchor-in-the-contract.md.
    *
    * THE POLES ARE CANVAS-RELATIVE, and that pair is the whole mechanism. On a
    * light canvas quiet is white and loud is black; on a dark canvas BOTH flip,
