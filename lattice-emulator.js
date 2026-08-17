@@ -570,7 +570,7 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
 // container. The capability table and the per-format measurements live in
 // lib/core/corner-export-capability.mjs — NOT in resolve-corners.js, which answers the
 // different question of what the DECK asked for.
-const { cornerSurvivesExport } = require('./lib/core/corner-export-capability.mjs');
+const { cornerSurvivesExport, isFlatExportTarget } = require('./lib/core/corner-export-capability.mjs');
 const CORNER_TARGET = OUT_FORMAT === 'imageset' ? IMAGE_SET_OPTS.format : OUT_FORMAT;
 const CORNER_SURVIVES = cornerSurvivesExport(CORNER_TARGET);
 // --raster swaps the PDF's vector page content for one full-bleed slide image
@@ -3059,7 +3059,16 @@ async function renderBody(browser, g, closeBrowser) {
     return hit.length;
   }, !CORNER_SURVIVES), 'resolve corners for the export target');
   if (roundedSlides && !CORNER_SURVIVES && !QUIET) {
-    console.log(`  Corners: squared on ${roundedSlides} slide${roundedSlides === 1 ? '' : 's'} — a .${CORNER_TARGET} cannot carry a transparent corner.`);
+    // Say which of the two reasons applies. `isFlatExportTarget` is the kernel's whole
+    // point of having two lists rather than one: a MEASURED flat format and a target
+    // nobody ever classified both square, but only the first is a fact about the format.
+    // Claiming "a .avif cannot carry a transparent corner" would be asserting a
+    // measurement that was never taken — the corner squared because the target is
+    // unknown and unknown fails safe, which is a different sentence and a fixable state.
+    const why = isFlatExportTarget(CORNER_TARGET)
+      ? `a .${CORNER_TARGET} cannot carry a transparent corner`
+      : `.${CORNER_TARGET} is not a classified export target, so the corner squares to be safe (lib/core/corner-export-capability.mjs)`;
+    console.log(`  Corners: squared on ${roundedSlides} slide${roundedSlides === 1 ? '' : 's'} — ${why}.`);
   }
   // A rounded deck into an alpha-capable raster: let the corner be a real hole. Puppeteer
   // paints an opaque white default canvas unless told otherwise, which is exactly the

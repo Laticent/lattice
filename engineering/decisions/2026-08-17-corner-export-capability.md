@@ -143,9 +143,11 @@ disagreement this note exists to end. It now branches on the capability table.
 
 ## Consequences
 
-- Square decks produce **byte-identical rasters and PDFs**. `omitBackground` is scoped to
-  decks that actually carry a rounded slide, so a deck with no `corners:` moves no image or
-  PDF bytes. Verified by rendering the same square deck from `origin/main` and from this
+- Decks with **no rounded slides** produce byte-identical rasters and PDFs. Note the guard
+  is `roundedSlides > 0`, not "the front matter says rounded" — so a deck with no `corners:`
+  key that opts in per-slide via `_class: corners-rounded` *does* gain an alpha channel, and
+  correctly so. The red-team pass falsified an earlier wording that said "a deck with no
+  `corners:`", by building exactly that deck. Verified by rendering the same square deck from `origin/main` and from this
   branch and comparing md5 — `sq.pdf`, `sq.001.png`, `sq.002.png` all identical.
 
   **The `.html` sidecar is the exception, and it moves for every deck.** The `@media print`
@@ -161,3 +163,46 @@ disagreement this note exists to end. It now branches on the capability table.
   under this rule its PDF is square.
 - A deck author who wants a rounded artifact exports PNG or WebP. That is now a
   property of the format, documented rather than discovered.
+
+## The road not taken, recorded because the review argued for it
+
+The Munger inversion pass accepted the rule and the shared kernel but argued the PLUMBING
+is over-built, and the argument is good enough to write down rather than lose.
+
+Its observation: of the eight Studio capture sites that pass a target, only two change
+behavior — `'png'` at the chart export and `format` at the image set. The five passing
+`'pdf'`/`'pptx'` are behaviorally identical to passing nothing, because unknown targets
+square. They are documentation compiled as code. And of the defects found across this
+change, three were WIRING (an unwired site, a dropped parameter on an inert branch, a doc
+citing the wrong evidence) rather than domain errors — evidence, it argued, that threading
+a string through eight hand-written sites is the wrong shape for a rule with two live
+consumers.
+
+The alternative it sketched: (a) the `@media print` block exactly as written, (b) one
+UNCONDITIONAL eviction at each exporter's shared capture entry — no `cornerTarget`
+parameter, no threading — and (c) a small `rasterCarriesAlpha(format)` consulted at the
+three encoders where `format` is already in scope. Same kernel, same HARD RULE #1
+compliance, same output bytes, and the unknown-target policy plus half the table
+disappears because the vocabulary reduces to `IMAGE_FORMATS`, which is already exported
+and closed.
+
+Not taken here, for one reason: what shipped is measured working on both surfaces across
+every target, and a redesign would discard that evidence to buy tidiness. The wiring is
+verbose but it is verified, and the coupling test now fails if a new format goes
+unclassified. If this area is touched again — most likely for #1713's `<p:bg>` — reshape
+it then, with these notes, rather than re-deriving the argument.
+
+Two smaller points from the same pass, both addressed rather than deferred: the CLI was
+claiming "a .X cannot carry a transparent corner" even for a target that was never
+classified (asserting a measurement it never took — `isFlatExportTarget` now distinguishes
+the two), and the Studio says nothing at all when it overrides an explicit directive.
+
+The CLI half is fixed here. The Studio half is **#1716**, and it is filed rather than
+shipped because the obvious fix does not work: `onStatus` is a transient progress line,
+and the render loop's next `onStatus('Rendering slide 1 of 2…')` supersedes the notice
+microseconds later. Verified on the real Studio — the helper runs, `onStatus` is called
+with the right text, and polling the dialog every 60ms never catches it, because React
+never paints the intermediate state. The persistent `notify` toast in `ShareSheet` is the
+right channel (its own comment says so), and wiring it means deciding how the export
+reports back — real work, out of scope here, rather than a no-op that looks like a
+feature.
