@@ -56,6 +56,79 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Commits:** `29c3022` (regen chart survey after the word-cloud
   `sample` 1–5 normalization).
 
+## A committed render golden doesn't match a fresh render — check staleness FIRST
+
+- **Symptom:** a committed gallery golden
+  (`lib/components/**/*.gallery.{light,dark}.pdf`, or any committed PDF) diffs
+  against a fresh render — text-heavy pages show a few percent of changed pixels,
+  even at `compare -fuzz 3%`. Two fresh renders in the *same* session are
+  pixel-identical (AE=0), so it is not session noise, and fuzz/blur can't
+  tolerate it away.
+- **Do NOT conclude the renderer is non-deterministic.** Self-hosted fonts
+  (`assets/fonts/`, embedded by `lattice-emulator.js`) + pinned Chromium make
+  cross-session renders deterministic *by design* (the P4 §7.1 spike measured 0px
+  drift). A cross-*artifact* diff is almost always a **stale golden**, not jitter.
+  Relitigating a de-risked design (CI-blessed goldens / an AA-tolerant comparator
+  / dropping pixel-gating) before excluding staleness is the wasted-cycle trap
+  this entry exists to stop.
+- **Diagnose the boring cause first, in this order:**
+  1. `pdffonts <committed-golden>` vs `pdffonts <fresh-render>` — **different
+     embedded font subsets ⇒ the golden was blessed before a font change** (e.g.
+     #226 added Outfit 300/500/600 + Shantell 500). That alone explains a
+     text-only pixel delta.
+  2. `git log -1 -- <golden>` vs the history of `assets/fonts/`,
+     `lib/base/base.tokens.css` (the `@import`), and `lattice.css` — if the
+     golden's commit predates a font/CSS change, it is stale.
+  3. Confirm determinism is intact: render the same deck twice → AE=0; render
+     against the golden's **exact** tree (`git show <golden-commit>:dist/lattice.css`
+     …) — if it *still* differs, the delta is environmental (fonts/assets), not
+     CSS. That is the self-hosted-font story, not non-determinism.
+- **Fix:** re-bless — rebuild + commit the goldens (`node tools/build-galleries.js
+  [--only <name>]` + `node tools/build-bucket-galleries.js`). Confirm
+  `npm run regress` is green first (fresh render == the committed golden).
+  Re-blessing changes exported PDFs (font embedding), so per the
+  QUALITY BAR show before/after (dark + light) for sign-off. See
+  `engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md` §9.
+- **The one real exception — cross-*machine* mermaid AA (not stale, not same-machine).**
+  Determinism is 0px cross-*session* on one machine class, but **fine mmdc-SVG
+  vector/text is not bit-identical across machine *classes***. A golden blessed
+  in the cloud sandbox drifts ~0.4–0.5% on a GitHub CI runner — below
+  human-visible, but it tripped the regression gate's 0.05% floor on the
+  `diagram` bucket on its first CI run. Fonts, Chromium, and CSS were all
+  verified identical; the residue is sub-pixel anti-aliasing of fine vectors.
+  **This is why `tools/regression-gate.mjs` gives the chart + diagram (mermaid)
+  buckets a wider `FAIL_FRACTION_MERMAID` (1%) while flat galleries keep 0.05%.**
+  If a *flat* gallery diffs, it's still a stale golden (diagnose as above); only
+  fine mermaid content has this cross-machine floor.
+- **Lesson:** a stale artifact is not a broken renderer. Exclude the boring cause
+  before relitigating a settled design decision.
+
+## A manifest slot's `selector` describes AUTHORING input — a transform may consume it
+
+- **Symptom:** the semantic-invariant suite
+  (`test/integration/invariants/component-invariants.test.js`) reports a required
+  slot's selector resolving to **0** elements in the rendered DOM, for a component
+  that clearly renders fine — e.g. `funnel`'s `stages: "ul > li"`, `glossary`'s
+  `entries: "ul > li"`, `compare-code`'s `left: "section > h3 + pre"`.
+- **Cause:** `<name>.manifest.json` `slots[].selector` documents the **authoring
+  contract** (the markdown you *write*), not the rendered output. For
+  CSS-styled components the authored markup survives (`cards-grid`'s `ul > li`
+  becomes the cards), so the selector matches the rendered DOM. But **transforming
+  components consume their input**: a chart's `ul > li` becomes a `.chart-body`
+  SVG/HTML frame, `glossary`'s list becomes a `<table>`, `compare-code`'s fences
+  become code panels. The authored selector is gone from the render.
+- **Fix:** those components live in the `TRANSFORM` set
+  (`component-invariants.layer3.js`); layer-1's slot check is skipped for them and
+  layer-3 asserts the **rendered** contract instead. Add a new transforming
+  component to that set + give it a layer-3 entry.
+- **Also:** manifest selectors are written against the slide `<section>` *root*, so
+  a leading `section` IS that element — the suite normalises it to `:scope` per
+  comma-group. A bare `section > p, section > ul` queried unscoped leaks its second
+  clause and false-fails. (And note `roadmap`/`state-chart` pass layer-1 only by
+  tag-shape luck — `roadmap`'s `horizons` modifier transposes its `<table>` away.)
+- **Lesson:** "the slot selector doesn't match the render" usually means the slot
+  documents *input*, not *output* — not that the component is broken.
+
 ## Legacy `--fs-*` token names retired
 
 - **Symptom:** Component CSS or theme using `var(--fs-md)`,
@@ -122,30 +195,6 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Removable when:** We narrow the observer to chart-family-relevant
   mutations (e.g., `attributeFilter: ['class']`).
 - **Commits:** `225cea0`.
-
-## A fixed-size slide frame silently truncates content past 1280×720
-
-- **Symptom:** Authors lose hours debugging clipped content because the
-  render prints / exports cleanly but is visually missing the bottom of
-  a slide. Nothing in the build output flags it.
-- **Cause:** Each slide renders into a fixed-size viewport (the owned
-  engine's `@page`/Puppeteer viewport; the SVG viewport in the VS Code
-  Marp preview). Anything past the bottom of the viewport gets clipped
-  at the rasterization step with no warning.
-- **Mitigation:** [lattice.css](../dist/lattice.css) defines
-  `section.overflow` as a 4px inset red ring (via `box-shadow`, no
-  layout shift). [lattice-runtime.js](../dist/lattice-runtime.js)
-  `startOverflowWatcher()` tags the class on every section whose
-  scrollHeight/Width exceeds clientHeight/Width by more than 12px
-  (the tolerance filters sub-pixel rounding noise from nested flex/
-  grid). The lattice-emulator does the same check in the rendered
-  HTML AND via `page.evaluate()` before `page.pdf()`, so the ring
-  is burned into the printed deck.
-- **Triggered by:** Any slide with content past the 720px height (or
-  whatever your `@size` is set to).
-- **Removable when:** A render path adds native overflow detection (the
-  fixed-viewport clip has no built-in warning).
-- **Commits:** `0da73e59`.
 
 ## Stray colors escape the palette via Mermaid's hardcoded defaults
 
@@ -322,6 +371,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Currently only `kanban` (column → card → meta/body).
 - **Commits:** `277a2c3` (feat(kanban): structured authoring convention and card layout redesign)
 
+## lattice-emulator doesn't auto-load `style:` from front matter
+
+- **Symptom:** Same `style: ":root{…}"` works in the VS Code Marp
+  preview but was silently ignored by `lattice-emulator.js`.
+- **Cause:** The emulator hand-rolls its front-matter reader (it
+  doesn't use markdown-it / Marpit for parse). Until recently it only
+  looked for `paginate:`, `header:`, `footer:`, `class:`, and
+  `headingDivider:`.
+- **Mitigation:** Front-matter reader in
+  [lattice-emulator.js:773-792](../lattice-emulator.js#L773-L792)
+  now parses both inline (`style: "..."`) and YAML block scalar
+  (`style: |`) forms and injects the content into the `<style>` block
+  after the theme CSS so author overrides win.
+- **Triggered by:** Any `style:` directive in front matter when
+  rendering through `lattice-emulator.js`.
+- **Removable when:** The emulator switches to a real Marpit/Marp
+  engine. Tracked separately.
+- **Commits:** `6276665`.
+
 ## Mermaid diagrams render at HD size inside 4K slides in VS Code preview
 
 - **Symptom:** Mermaid diagrams on 4K slides look small in VS Code
@@ -377,367 +445,105 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Don't reintroduce:** never hardcode `1280`/`720` in a preview/export host —
   thread the geometry from the render result through `frame-css.js`.
 
-## Playground preview won't scroll on iOS after opening a settings sheet
+## lattice-engine: deck looks fine on desktop but collapses on mobile WebKit (no `:root` token relocation)
 
-- **Symptom:** On the **/playground** — load a
-  deck (e.g. the jargon gallery), scroll the preview (fine), open **Galleries** or
-  **Deck setup**, change something (e.g. slide size), close the sheet → the preview
-  is now frozen. It scrolls again only once focus leaves it (tap elsewhere) or after
-  a prolonged delay (10s+). iOS Safari only; desktop Chromium never shows it (faster
-  + off-main-thread scrolling), which is why headless wheel tests can't repro it.
-- **Cause:** The playground is the React/shadcn surface; its panels are shadcn
-  **Sheets** (Radix Dialog), which default to `modal`. A modal Radix dialog engages
-  `react-remove-scroll` — it sets `body[data-scroll-locked]` and, crucially on iOS,
-  adds non-passive `touchmove` `preventDefault` listeners to block background scroll
-  (iOS ignores `overflow:hidden` for touch). On iOS Safari that touch-block lingers
-  after the dialog closes until a focus change or a long timeout, freezing the
-  preview. The (now removed) vanilla Drawing Board used no Radix dialog and was
-  immune — the tell that originally distinguished the two surfaces. Confirmed in Playwright WebKit:
-  `body[data-scroll-locked]` was `"1"` while the modal Deck-setup sheet was open.
-- **Fix:** Make the playground's preview-side sheets **non-modal** — `modal={false}`
-  on the `<Sheet>` Root + `overlay={false}` on `<SheetContent>` (a new opt-out prop
-  on the shared `ui/sheet.tsx` primitive; default keeps the modal behavior for
-  every other sheet). A live-tool side panel shouldn't lock the page anyway, and
-  non-modal lets you watch the preview update as you change front matter. Files:
-  `docs/src/components/playground/{DeckSetupSheet,GalleriesSheet}.tsx`,
-  `docs/src/components/ui/sheet.tsx`.
-- **Don't reintroduce:** any sheet/dialog that overlays a surface the user still
-  needs to scroll (the live preview) must be non-modal, or it will scroll-lock iOS.
+- **Symptom:** A deck rendered through the owned engine on mobile Safari/iOS:
+  spacing collapses (cards/list rows overlap with ~0 gap),
+  `list-criteria`/`list principles` counters vanish, title/KPI slides don't centre
+  with breathing room. The SAME engine output renders perfectly in headless
+  Chromium and on desktop WebKit. Looks like the scaled-`foreignObject` WebKit class
+  ("Playground renders broken in mobile Safari/WebKit" in `studio-playground.md`), but
+  the engine already renders `inlineSVG:false` plain sections — so that's not it.
+- **Cause:** Lattice declares its cqi spacing/radius scale on `:root`
+  (`dist/lattice.css` `:root { --sp-md:1.875cqi; … }`). A `cqi` unit resolves
+  against the element's nearest `container-type` ancestor; `:root` has none, so
+  it falls back to the viewport. Marpit's theme `pack()` quietly rewrites every
+  theme `:root` selector onto the slide `section` (the `container-type:size`
+  query container) — so on the marp path the tokens resolve against the SLIDE.
+  The engine's first clean CSS emitter (P1.1) inlined `@import 'lattice'` with no
+  selector rewrite, leaving the tokens trapped on `:root`. Desktop Chromium
+  re-resolves cqi at the use-site so it looks fine; mobile WebKit does not, and
+  every `--sp-*` collapses toward 0 (counters sized in `cqh` of a now-zero-height
+  row disappear). **Headless-Chromium gates can't see this** — same blind spot as
+  "Playground renders broken in mobile Safari/WebKit" in `studio-playground.md`.
+- **Fix (the reliable one):** the playground's lattice-engine path
+  (`lib/playground/index.js render()`) keeps the engine's owned HTML but
+  **delegates CSS theme-packing to marp-core's packer** — pairing the owned HTML
+  with marp's exact, mobile-WebKit-correct stylesheet, byte-identical to the
+  default path. The engine's own emitter (`composeCss`) was the suspect, and
+  relocating its `:root` token blocks onto `:where(section)` (`rootToSection`)
+  made the CSS *closer* to marp's, but that change alone is **not** the
+  mechanism — real desktop WebKit renders both placements identically, so the
+  iOS-only divergence was never localized to a single rule. Emitting marp's CSS
+  verbatim sidesteps the whole question. Reimplementing a mobile-correct owned
+  packer (so the engine drops the marp-core CSS dependency) is tracked as P5.
+- **Why headless gates miss it:** every regression gate renders via headless
+  Chromium; the divergence only manifests on real iOS Safari, and even
+  Playwright's Linux WebKit does not reproduce it. The only true test is an iOS
+  device. Rebuild after touching the engine CSS path: `npm run playground:build`.
+- **Triggered by:** Any theme that declares cqi-valued custom properties on
+  `:root` — i.e. all of them.
 
-## `svh` can resolve LARGER than `dvh` on a real mobile browser
+## A slide surface ignores one input device (a wheel mouse does nothing; arrows are dead)
 
-- **Symptom:** A full-bleed element sized with `100svh` **overflows the visible
-  viewport on a real phone** (the bottom clips / a swipe reveals slide spill), even
-  though `100dvh` fits exactly and it all looks right in headless Chromium and on
-  desktop. Reaching for `svh` "to be safe against the URL bar" makes it worse, not
-  better.
-- **Cause:** The spec ordering is `svh ≤ dvh ≤ lvh` (small ≤ dynamic ≤ large), and
-  headless Chromium honors it — so a spike looks clean and misleading. But a **real
-  mobile browser can report `svh > dvh`**: on the device that surfaced this, an
-  on-page probe read `svh 333 · dvh 313` (dvh = the actually-visible height). So `svh`
-  is **not** a reliable "always-visible floor"; `100dvh` is the current visible height
-  and `100svh` can exceed it. Another headless-Chromium blind spot, like the
-  `zoom`/`cqi` entry below.
-- **Mitigation:** For a "fill the currently-visible viewport" box, use **`100dvh`** (it
-  already tracks the URL bar as it shows/hides). Don't reach for `svh` as a
-  smaller-safer height — and don't trust any `svh`/`dvh`/`lvh` ordering without
-  measuring on a **real device**. The Viewport-debug overlay (`?vvdebug`, or Workspace
-  → Diagnostics) prints the live resolved values per device for exactly this.
-- **Triggered by:** Sizing a full-height mobile surface off `svh`/`lvh` on the
-  assumption `svh` is the visible floor. Cost four wrong rounds on the landscape
-  cinema-morph overflow — where the real fix was a fit-**axis** change (fit-by-height,
-  not fit-by-width), not the container height; `100dvh` was correct all along.
-- **Commits:** Landscape cinema-morph (#1121); see
-  [engineering/decisions/2026-07-20-landscape-phone-preview-lock.md](decisions/2026-07-20-landscape-phone-preview-lock.md)
-  §Real-device fix.
+- **Symptom:** A surface that shows a slide turns fine with one input and not
+  another — a trackpad flick works but a wheel mouse does nothing, or swipe
+  works but the arrow keys are inert. Typically it works on the machine the
+  feature was written on, which is what keeps it alive.
+- **Cause:** The surface hand-rolled its own rule for that verb instead of
+  reading the kernel. The classic is a wheel test written as "horizontal
+  intent" — `Math.abs(deltaX) <= Math.abs(deltaY)` returns early for the pure
+  `deltaY` a wheel mouse always emits, so the rule answers a trackpad and
+  ignores every mouse (#1294). The keyboard version is a hand-written
+  `e.key === 'ArrowRight' || …` list that drifts from `PRESENT_KEYMAP` and
+  quietly drops PageUp/PageDown — which is what a presentation clicker sends.
+- **Fix:** Take all three rules from `lib/core/present-transport.mjs` —
+  `keyAction`/`PRESENT_KEYMAP` (keyboard), `swipeAction` (touch),
+  `createWheelGate` (mouse + trackpad, dominant axis) — plus
+  `docs/src/lib/deck-nav.ts`'s `shellKeyAction` for any surface where the user
+  can also be typing. Never branch a verb on breakpoint or on a pointer-capability
+  probe: a laptop has a touchscreen, a tablet has a keyboard case, a phone can
+  have both. See `engineering/decisions/2026-08-10-input-verb-parity.md`.
+- **Also check:** an `<iframe>` over the slide swallows wheel and touch before
+  they reach your listener. Both the Studio's preview holder and the presenter
+  screen's stage frames set `pointer-events: none` for exactly this reason.
+- **Triggered by:** adding a new surface that shows slides, or "fixing" gesture
+  navigation locally instead of in the kernel.
 
-## Preview slides collapse (cqi shrinks to near-zero) on iOS if scaled with CSS `zoom`
+## A pinch on a slide turns the deck (and `preventDefault` in your React handler does nothing)
 
-- **Symptom:** Down-scaling the preview with CSS `zoom` instead of `transform: scale()`
-  renders **perfectly in Chromium** (and every headless gate) but on a **real iPhone**
-  collapses every `cqi`/`cqh`-sized dimension — a `46cqi` poster shrinks to a fragment,
-  flex text columns wrap to one word per line, the slide under-fills the pane.
-- **Cause:** iOS Safari does **not** re-resolve `container-type: size` + `cqi`/`cqh`
-  against a `zoom`-scaled container — the container-query lengths resolve against a
-  wrong/near-zero effective container. Chromium re-resolves them proportionally, so the
-  headless spike looks clean and misleading (adjacent to the mobile-WebKit `:root` cqi
-  entry above; both are headless-Chromium blind spots). `transform: scale()` is immune —
-  it scales the *paint* of an already-resolved layout (cqi resolves once against the
-  intrinsic 1280×720 box), which is exactly why the preview uses it.
-- **Fix / don't reintroduce:** keep `transform: scale()` for preview down-scaling. Do
-  NOT swap in `zoom` on headless evidence alone — verify `46cqi` on a real iOS device
-  first. Full post-mortem: `engineering/decisions/2026-07-02-preview-scale-zoom.md`
-  (REJECTED).
-
-## The Studio says a feature "hit an unexpected error" on a tab that has been open a while
-
-- **Symptom:** a tab left open across a deploy — or any tab with a flaky connection — opens a
-  feature it has not used this session (Fabricate, an export, a `.lattice` import) and gets an
-  error card or a toast blaming the deck, the file, or "an unexpected error". Reproducible on
-  demand: 404 a not-yet-loaded `/_astro/*.js` chunk and click the feature.
-- **Cause:** the site serves only the CURRENT deployment (lattice.style is GitHub Pages;
-  Cloudflare Pages is PR previews only), so a previous deploy's hashed asset is gone. A page
-  that already loaded is fine — it runs the bundle it booted with — but a lazy `import()` for
-  something never fetched resolves to a 404. On iOS this is the ordinary case, not an edge one:
-  Safari restores tabs from memory without re-navigating, so a phone left on the Studio never
-  learns a deploy happened. A correctly-shipped fix (#1233) looked broken on a real device for
-  exactly this reason before anyone suspected the tab.
-- **What it is NOT:** a crash. And do not read the message as proof a deploy happened — a 404, a
-  403, a 500 and being OFFLINE all reject with byte-identical text in both engines (Chromium:
-  `Failed to fetch dynamically imported module`; WebKit: `Importing a module script failed.`).
-  `docs/src/lib/chunk-load.ts` recognizes the shape and says only what is observable; asserting a
-  cause here tells an offline user a falsehood.
-- **Recovery is a reload, and only a reload.** A retry cannot work for any cause: the browser's
-  module map caches the rejection for the document's lifetime (measured: zero further requests)
-  and `React.lazy` replays it. That is why the card offers one button.
-- **Testing an iOS fix on this site?** Use a Private tab or force a reload first — a restored tab
-  will happily keep serving you the pre-fix bundle while you conclude the fix failed.
-
-## A long press on a button selects its label on iOS (Copy / Look Up callout)
-
-- **Symptom:** On a real iPhone/iPad, press-and-hold any app-chrome control — a Studio
-  drawer row is the reported case — and instead of the row reading as *pressed*, iOS
-  **selects the label text** ("Library") and raises the Copy / Look Up callout. The
-  control behaves like prose. Invisible in every headless test: Playwright's WebKit has
-  no long-press callout UI, and Chromium never shows it at all.
-- **Cause:** nothing set `user-select` on controls. It is **not** a Tailwind Preflight
-  gap — Preflight declares no `user-select` at all. shadcn's primitives each carry the
-  `select-none` *utility* per component, which covers only the components that opted in;
-  a **hand-rolled** `<button>` (the norm in this codebase) inherits `user-select: text`,
-  and iOS answers a long press on selectable text by selecting it.
-- **Fix:** the scoped `.lx-ui` baseline (`docs/src/styles/tailwind.css`, `@layer base`)
-  sets `user-select: none` + `-webkit-touch-callout: none` on controls — `button` plus
-  the ARIA control roles. Scoped to controls on purpose: the same property on `.lx-ui`
-  or a wildcard makes the editor, chat transcript and code blocks uncopyable, which is
-  worse than the bug. Guarded in `test/unit/tokens/shadcn-bridge.test.js` (including
-  against a later rule re-enabling selection — unlayered CSS outranks `@layer base`) and
-  measured in `docs/e2e/touch-chrome.spec.ts` on the `webkit-phone` project.
-- **Note the boundary:** this only reaches `.lx-ui` islands. A surface outside them —
-  tab bars, the site header menu, anchors styled as buttons — still
-  selects on long press. For an anchor that is usually *wanted* (iOS's link action sheet
-  offers Open / Copy Link); for a non-`.lx-ui` control it is the same bug, unfixed.
-
-## Tapping an input zooms the page on iOS (sub-16px text controls)
-
-- **Symptom:** On an iPhone, tapping into a text field — a search box, a settings
-  input, or a CodeMirror editor — makes iOS Safari zoom the whole page in, leaving
-  the layout cropped and forcing a pinch-out. Desktop and Android never show it.
-- **Cause:** iOS Safari auto-zooms on focus when the **focused element's computed
-  font-size is under 16 CSS px**. The trigger is per-element — the base body font,
-  viewport meta (`initial-scale=1`), and `-webkit-text-size-adjust` are all
-  irrelevant to it. Dense desktop-friendly controls (12–14px) are exactly the ones
-  that trip it.
-- **Why it regressed:** the first fix bumped *individual* offenders (docs search
-  boxes, the Playground editor's `.cm-content`) to 16px on coarse pointers. Every
-  NEW surface then had to remember the rule — and the Studio didn't: it forked its
-  own CodeMirror theme (`editor-theme.ts`, 13px) and shipped a set of 12–13.5px
-  raw inputs. Spot fixes don't survive new surfaces.
-- **Fix / don't reintroduce:** two layers, both keyed on `(pointer: coarse)`:
-  1. a **global net in the `landing.css` reset** (shared by every standalone
-     page) — all text-entry `input`/`textarea`/`select` compute
-     `max(16px, 1em)`; being unlayered it beats Tailwind's `@layer`-ed `text-*`
-     utilities, so a dense one-off input can't undercut it;
-  2. **each CodeMirror theme carries its own 16px `.cm-content` block**
-     (`docs/src/playground/editor.js`, `docs/src/components/studio/editor-theme.ts`)
-     — the scoped theme classes out-specify the global net, so a new CM surface
-     MUST copy the block.
-  Guard: `docs/e2e/ios-zoom.spec.ts` (touch-emulating; sweeps every mounted text
-  control on Studio + Playground and probes the net with a fresh input). The
-  emulated check pins the CSS contract; the zoom itself is only observable on a
-  real device (HARD RULE #23). Do NOT "fix" this with `maximum-scale=1` — it
-  degrades pinch-zoom accessibility instead of removing the trigger.
-
-## Tapping an in-slide link blanks the live preview on iOS
-
-- **Symptom:** On the **/playground** (or Studio filmstrip) on an iPhone,
-  pick a component that carries a real link — the `video` poster is the obvious one
-  (a big `<a href="https://youtube…">` tap target), but `contact`/`qr`/`closing`
-  links do it too — the slide renders fine, then **tapping the link blanks the whole
-  preview** and it never comes back. Desktop Chromium never shows it (it opens a new
-  tab), so headless click tests can't repro it — the iOS-only trap again.
-- **Cause:** The slide's `<a>` is a genuine link (correct for the exported
-  HTML/PDF), but the preview is a CSS-transform-**scaled** `srcdoc` iframe. iOS
-  Safari follows the tap *into the iframe* and navigates the FRAME itself to the
-  external URL; the external site frame-blocks (X-Frame-Options / CSP), so the
-  iframe goes blank — and nothing re-renders it. Same "the frame is the wrong place
-  for the interaction" class as the debug-overlay touch saga
-  (`2026-07-01-debug-bounding-boxes.md`).
-- **Fix:** A preview-only **link guard** injected into every filmstrip srcdoc
-  (`linkGuardAgent` in `docs/src/playground/deck-preview.js`): a capture-phase click
-  listener that, for any `http(s)` anchor, `preventDefault()`s the frame navigation
-  and opens the URL in a real **top-level** tab (`window.top.open`) instead. In-page
-  (`#id`), `mailto:`, and `tel:` links are left alone; the **exported** artifact's
-  link is untouched (preview-only). If the popup is blocked the frame is still
-  preserved, so the worst case is an inert tap, never a blank.
-- **Don't reintroduce:** never let a preview iframe follow an external link — a
-  navigated preview frame can't recover. Any new preview builder that renders slide
-  links must carry the same guard (the single-slide Studio path,
-  `single-slide-render.ts`, scales the iframe ELEMENT rather than each section, but
-  is the same class — add the guard there if a linked component surfaces the blank
-  in Studio).
-
-## A blurred `box-shadow` renders as a flat gray block in Apple PDFKit
-
-- **Symptom:** A soft drop-shadow (any `box-shadow` with a blur radius) that
-  looks fine in Chrome / poppler renders in **Apple PDFKit** (iOS/macOS Preview,
-  the iOS share-sheet viewer) as an opaque grey **rectangle** filling the
-  shadow's footprint — not a soft gradient. Caught on the focus `pop`/`blur`
-  lift: the focused card showed a hard grey box behind it on iPhone while the
-  sandbox raster (poppler) looked correct.
-- **Cause:** PDFKit does not composite the soft transparency group Chromium
-  emits for a blurred shadow — the same soft-compositing weakness that makes it
-  drop SVG `mask-image` (see the mask gotcha). poppler/Chrome composite it, so
-  the sandbox raster hides the bug — **verify shadow-bearing exports on an Apple
-  viewer.**
-- **Fix / don't reintroduce:** for anything that must survive PDF, lift with
-  **hard-edged** shapes only — a crisp border, or a **zero-blur** offset shadow
-  (`box-shadow: Xcqi Ycqi 0 <color>`), which is a solid vector fill. Keep the
-  color **opaque** (mix toward `--bg`, not `transparent`) to avoid alpha
-  compositing too. This is why `--focus-lift` is an opaque hard offset, not a
-  soft elevation shadow (`lib/base/base.focus.css`).
-
-## A JSON data block inside a `<script>` comes back with `&amp;` in every string
-
-- **Symptom:** An inline data block (the manifest envelope, the baked-narration
-  blocks) parses, but every caption containing `&` reads `&amp;` — and a `<` in
-  deck text either survives or breaks the block in two.
-- **Cause:** the content of a `<script>` element is **raw text**. The HTML parser
-  does not decode character references there, so HTML-escaping the payload
-  (`escapeText`, `&amp;`/`&lt;`/`&gt;`) puts the *literal* entity into the JSON
-  string — `JSON.parse` returns `&amp;` because that is genuinely what is there.
-- **Fix:** escape in the JSON layer, not the HTML layer:
-  `JSON.stringify(payload).replace(/</g, '\\u003c')` (a literal backslash-u escape).
-  The parser then never sees a
-  `<` (so neither `</script` nor the `<!--` that flips it into script-data-escaped
-  state can appear), and `JSON.parse` decodes it back to the real character.
-  `lib/export/player-core.mjs` › `narrationBlocks`.
-
-## The exported player has no front matter to read
-
-- **Symptom:** A player-side feature written as "read the deck's `pace:` / `lang:`
-  / any front-matter key at runtime" silently gets nothing.
-- **Cause:** `assemblePlayer` strips every `<script>` that is not the manifest
-  envelope, so the `application/lattice-front-matter` block the render emits never
-  reaches the shipped file. A standalone artifact also has no workspace preset to
-  fall back on.
-- **Fix:** resolve it at ASSEMBLY and bake the value in
-  (`lib/export/player-core.mjs`, `const paceName = frontMatterPace(source)`), or
-  put it in the envelope, which does survive.
-
-## A slide-level color-scheme pin has to be re-emitted for the exported player
-
-- **Symptom:** A deck authored dark (`color-mode: dark`, or any `_class: dark`
-  slide) opens correctly in the exported `.html` player — and goes blank the moment
-  the viewer flips the player's light toggle. Title / divider / closing lose their
-  words entirely; body slides just look "wrong but readable." Dark mode looks fine,
-  which is what makes it easy to misread as a light-mode styling bug.
-- **Cause:** the player cannot ship `light-dark()` (it does not exist before
-  WebKit 17.5), so `themeDualMode` collapses every pair to its light arm and
-  re-emits the dark values as a flat `:root[data-lp-scheme=dark]` block. That is a
-  faithful emulation of a *document-level* scheme only. Lattice also pins the scheme
-  per SLIDE — `section.dark`, `.light`, `.color-light`, `.print` set `color-scheme`
-  on the section, which is what `light-dark()` actually resolves against — and
-  collapsing the function away erased those pins. A `.dark` slide then took the
-  viewer's light tokens while still painting `--text-display`, a constant `#FFFFFF`
-  with no light-dark() pair for anything to rewrite: white ink on a white canvas.
-  It read fine in dark only by luck — the page behind it was dark too.
-- **Fix:** the dark block re-states each pin — `.dark` sections carry the dark
-  literals in *both* player schemes, `.light`/`.color-light` are restored to the
-  light literals when the player is dark, and `.print` is excluded from the blanket
-  rule so its own `--print-*` band survives (it was previously overridden in dark
-  mode too, printing `#111111` ink on a `#001D33` canvas). `.color-system` /
-  `.color-inherited` are deliberately left unpinned: both defer, which in a
-  standalone player IS the toggle. `lib/export/player-core.mjs` › `themeDualMode`.
-- **The general shape:** anything that replaces `light-dark()` with static CSS has
-  to answer *which element's* `color-scheme` each token was resolving against, not
-  just "light or dark".
-
-## A token flattened for the player took the print band's value
-
-- **Symptom:** In an exported `.html` player, one token family is wrong in dark
-  mode — and wrong in a specific direction: near-white or near-gray where the theme
-  says a color. `examples/accent-on-accent.md` slide 5 shipped its headline, eyebrow,
-  watermark and counter chip as `#ECECEC` on the cream accent rail — **1.24:1**, on the
-  deck whose subject is on-accent contrast (13.0:1 in the reference render). On a
-  chart deck the whole categorical ramp went gray in dark mode.
-- **Cause:** `themeDualMode` flattens each dark value's `var()` chain to a literal, so
-  the player never depends on a custom property resolving to another custom property
-  (fatal on an older in-app WebKit). The map it flattened against was built by scanning
-  the WHOLE stylesheet, last declaration wins — but the last declaration of a token is
-  often a COMPONENT-scoped one. `section.print{--surface-inverse: var(--print-surface-inverse)}`
-  is the last `--surface-inverse` in the bundle, so `--on-accent: light-dark(#F0EDE6,
-  var(--surface-inverse))` flattened its dark arm to the print band's `#ECECEC`, and the
-  whole `--on-accent-*` family followed. Same mechanism gave `--state-pass-hue` the print
-  band's gray and every `--chart-cat-N-hue` a grayscale value in dark mode.
-- **Fix:** the map is scoped to `:root`-subject blocks (`rootScopedDecls`), the same
-  scoping the derived-token closure beside it already had, and both now read ONE map.
-  A component-scoped declaration is simply absent, so the chain stops and the `var()`
-  ships intact — a missed flatten, never a wrong color. `lib/export/player-core.mjs`.
-- **The general shape:** a flattener answers "what does this resolve to ON THE ELEMENT
-  I am writing to". Scanning a whole sheet for the last declaration answers a different
-  question, and the two agree only until some component declares the same token.
-
-## Chart fills took one scheme while the page took the other
-
-- **Symptom:** In an exported `.html` player, gantt bars / state-chart nodes / kanban cards
-  paint with the DARK fills while the slide canvas, labels, axes, badges and legend dots
-  beside them are all correctly light. Reported from a real iPad; not reproducible in a
-  headless browser with default settings, which is what made it look like a theme bug.
-- **Cause:** the player's contract is that nothing it ships depends on the `light-dark()`
-  CSS function — `themeDualMode` collapses every pair to a light base plus a block keyed on
-  the `data-lp-scheme` attribute. That contract had a hole the width of an attribute:
-  `themeDualMode` only ever read `<style>` BLOCKS, and two chart components write their
-  gradient stops as an inline `style` ATTRIBUTE
-  (`lib/components/chart/_chart-family/chart-family.js`,
-  `lib/components/chart/state-chart/state-chart.transform.js`). Those shipped verbatim — 22
-  of them in `examples/data-viz-gallery.md` — so the fill was decided by the element's
-  `color-scheme` and the page by `data-lp-scheme`. The two agree only because the player's
-  script writes an inline `color-scheme` onto `<html>`; wherever that coupling does not hold
-  (a script that never ran, a host that re-parents the SVG, an engine that resolves
-  `light-dark()` inside a never-rendered `<defs>` subtree against the OS) they diverge. And
-  on a pre-17.5 WebKit the declaration is invalid outright, so the fills fall back to black.
-- **Reproduce it anywhere:** load the player, `data-lp-scheme=light`, OS dark, then
-  `document.documentElement.style.removeProperty('color-scheme')` — the page stays light and
-  the gradient stops resolve dark. That is the whole bug, without an iPad.
-- **Fix:** `hoistInlineLightDark` (`lib/export/player-core.mjs`) collapses each inline
-  attribute to its LIGHT arm and returns the dark arms as scoped rules marked `!important`
-  (nothing else outranks an inline style), under the same scheme scopes the token block uses.
-  The arms stay ON the element deliberately — their inner `var()`s (`--chart-fill-top-l`,
-  `--fill-hue`) are declared on `.chart-frame`, so lifting the whole expression to a `:root`
-  token makes it invalid at computed-value time and every gradient renders BLACK. An
-  integration test now fails on any inline `light-dark()` in a shipped player.
-- **The general shape:** an export that rewrites CSS has to answer for every place CSS can
-  hide. A `<style>` sweep misses attributes, and the miss is invisible until the one signal
-  that was silently holding it together stops holding.
-
-## A baked diagram label went dark-on-dark after the player's toggle
-
-- **Symptom:** In an exported `.html` player, an EDGE label ("a case fails", "yes"/"no")
-  is fine as exported and near-invisible after the viewer taps the light/dark toggle —
-  around **1.1:1**. Node and container labels on the same diagram are fine.
-- **Cause:** the label's halo. `foreignObjectToText` rewrites a Mermaid label into native
-  `<text>` plus a `<rect>` carrying the label's HTML background, and that rect was written
-  as a raw literal — the ONE paint in the bake that skipped the scheme-token matcher every
-  other paint goes through. Mermaid paints an edge label's halo from the slide canvas, so
-  it froze at the export scheme while the ink above it kept following
-  `.label tspan:not(.lp-own-ink){fill:var(--text-heading)!important}`. Dark ink, dark halo.
-- **Fix:** the halo is matched against the same follow-set (`followToken`), so it ships as
-  `fill:var(--bg)` and moves with the toggle. When a halo matches NO token (an author's own
-  background) the ink above it is frozen to its bake-time literal and marked `lp-own-ink`
-  instead — frozen together. `lib/components/chart/_chart-family/standalone-svg.js`.
-- **The general shape:** in a document with a runtime theme toggle, "frozen" and
-  "following" are both fine; a frozen surface under a following ink is not. Freezing on
-  ambiguity is not the safe default here — it was measured as strictly worse than the bug.
-
-## `--strip-notes` deleted a comment out of a code fence
-
-- **Symptom:** A deck that DOCUMENTS the note syntax exports with `--strip-notes` and the
-  recipient re-imports a deck whose ```markdown sample has lost a line — while the slide
-  they can see still shows it. Source destruction, not a leak.
-- **Cause:** `stripNotesFromSource` matched whole-body set membership with no notion of
-  where a comment sits, so any `<!-- X -->` ANYWHERE in the source was removed when `X`
-  was a note body somewhere else — including inside a fenced block or an inline span.
-- **Fix:** the scrub is position-aware. It shares `maskCodeRegions` with the envelope
-  audit (which already had to skip the same regions to avoid a false privacy alarm), and
-  removes a comment only where a note can actually live. A comment inside a code region
-  can never be the secret the strip exists to protect: the audience is reading it off the
-  slide. `lib/authoring/notes-core.js`.
-
-## `--strip-notes` could not remove a note that opens with a directive keyword
-
-- **Symptom:** `<!-- color: we should discuss the palette -->` survives a `--strip-notes`
-  export verbatim — in the envelope source AND on the section as `data-color` / `--color`.
-- **Cause:** the engine's directive test accepts ANY value after `key:`, so this is
-  consumed as the deck-scope `color` directive. It never reaches rendered HTML, so it
-  never enters the note set, so the source scrub has nothing to match.
-- **Fix (a report, not a scrub):** the envelope audit now reports a directive whose value
-  reads as prose — checked only for the directives whose value domain is tight enough to
-  tell (`color`, `backgroundColor`, `theme`, `size`, `lang`, `marp`, `paginate`); free-text
-  ones like `header:` are indistinguishable from prose and are never reported. Scrubbing it
-  instead would corrupt every deck using the ordinary `<!-- paginate: true -->` idiom, and
-  would not close the leak anyway, because the engine bakes the value onto the section. Only
-  the author can fix it, by rewording the note — which is what the warning asks for.
-  `lib/authoring/notes-core.js` › `directiveShapedProse`; `design/skills/speaker-notes.md`.
+- **Symptom:** Two fingers on a slide surface navigate instead of zooming, and the
+  page zooms at the same time. On a laptop, pinching a trackpad scrubs back and
+  forth through the deck. Adding `e.preventDefault()` to the React `onWheel` /
+  `onTouchMove` handler changes nothing at all.
+- **Cause:** Two independent traps that show up together.
+  1. **Nobody counted the fingers.** The swipe rule reads the first touch against
+     the last (`touches[0]` vs `changedTouches[0]`). During a pinch each finger
+     travels ~100px horizontally, which clears `swipeAction`'s 45px threshold with
+     a perfect horizontality ratio — so it fires confidently on the gesture that
+     means the opposite. A trackpad pinch has the same shape through a different
+     door: Chromium delivers it as a `wheel` event with `ctrlKey` set, so a wheel
+     gate that ignores `ctrlKey` navigates on every pinch.
+  2. **React's synthetic touch/wheel listeners are PASSIVE.** They are attached at
+     the React root, and a passive listener cannot `preventDefault()`. The call is
+     a silent no-op: the code reads correctly in review and the browser keeps
+     zooming the page underneath you.
+- **Fix:** Take the rule from `lib/core/present-transport.mjs` —
+  `createZoomGesture` owns the finger count and returns `{swipeBlocked}` from
+  `up()`, which you must check *before* calling `swipeAction`. Bind the surface
+  with `docs/src/lib/preview-zoom.ts`'s `attachPreviewZoom`, which uses NATIVE
+  `{passive: false}` listeners, sets `touch-action: none` so the browser cannot
+  claim the gesture first, and suppresses Safari's `gesturestart`/`gesturechange`.
+  Let ONE controller own the surface's whole input stream — a second React handler
+  racing it over the same touch stream is how the swipe rule and the zoom rule
+  disagree about what a gesture is. See
+  `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
+- **Also check:** verify MID-DECK. A misfired `prev` on slide 1 clamps and looks
+  exactly like a gesture that was correctly ignored — a probe that starts on slide
+  1 will report a false pass.
+- **Triggered by:** adding gesture handling to a surface that shows a slide, or
+  reaching for React's `onTouchStart`/`onWheel` props for anything that must
+  preventDefault.
 
 ## A destructuring default in a plain-JS export erases the rest of its parameter type
 

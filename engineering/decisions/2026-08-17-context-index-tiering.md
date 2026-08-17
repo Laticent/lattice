@@ -105,6 +105,8 @@ never loads the file.
 - **`gotchas/ci.md` carries six Playground/Studio entries** filed under "CI (GitHub
   Actions / code scanning)" — a pre-existing mis-filing, inherited by the move and worse
   than `marp.md`'s. Off-path per HARD RULE #18: logged here, not swept into this diff.
+  **Fixed in `2026-08-17-gotchas-topic-refile.md`** — `ci.md` now holds only what its
+  title claims.
 
 ## Measurement
 
@@ -133,6 +135,8 @@ Repo-wide context, same encoder: ~21.9M tokens across all tracked text, of which
   Marpit" heading). Re-filing entries across topics is an editorial judgment on
   content, not a mechanical split, so it stays out of a change whose diff is already
   a whole-file move. Off-path per HARD RULE #18: logged here rather than pulled in.
+  **Done next, in `2026-08-17-gotchas-topic-refile.md`** — 26 of its 34 entries were
+  filed elsewhere; it is now 8 entries about Marp.
 - **Entry-level files (one per gotcha) were considered and rejected.** 144 files
   would minimize the read further but destroy topic browsing and make every entry
   edit a new-file decision. Topic granularity matches how a human navigates.

@@ -10,9 +10,11 @@
  * behaving strangely — so the cheapest question in the repo cost more context than
  * the change that prompted it, and the honest alternative was to grep blind.
  *
- * The split: 144 entries live in 10 topic files; this file's index is one line per
- * entry (7k tokens), linking straight to the entry. Skim or grep the index, open
- * the ONE topic file it names.
+ * The split: ~150 entries live in 14 topic files; this file's index is one line per
+ * entry (~7k tokens), linking straight to the entry. Skim or grep the index, open
+ * the ONE topic file it names. (Deliberately approximate — an exact count in a
+ * comment is a number nothing regenerates, and it is wrong the next time someone
+ * adds a gotcha.)
  *
  * The index is GENERATED because a hand-maintained one drifts, and a stale map is
  * worse than no map: it misdirects confidently and the reader pays for the wrong
