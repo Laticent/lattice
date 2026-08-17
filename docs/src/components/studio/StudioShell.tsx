@@ -3647,6 +3647,65 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		</DropdownMenu>
 	);
 
+	// ONE palette, three transports (2026-08-16). The props are built once here and handed
+	// to whichever surface the width calls for: `cmdInline` is the desktop header combobox,
+	// `cmdPalette` the overlay every other tier uses. They are MUTUALLY EXCLUSIVE — desktop
+	// renders only the inline one, compact only the overlay — so `⌘K` never has two homes
+	// and the command list has exactly one definition (CommandPalette.tsx).
+	const cmdProps = {
+				open: cmdOpen,
+				onOpenChange: setCmdOpen,
+				// Running a command is a deliberate departure, not a dismissal: the drawer
+				// must not follow you to wherever the command took you. Without this, all
+				// ~31 commands sprang the drawer back open on top of the result.
+				onRun: () => setDrawerPendingReturn(false),
+				decks: deckList,
+				palettes: BUILTIN_PALETTES,
+				onPickDeck: loadDeck,
+				onNewDeck: () => newDeck(),
+				onPalette: applyPalette,
+				onPresent: openPresent,
+				onShare: () => setShareOpen(true),
+				onFeedback: () => setFeedbackOpen(true),
+				onFabricate: () => setView('fabricate'),
+				onLibrary: () => { revealCraftDock(); setLibraryOpen(true); },
+				onWorkspace: () => setWorkspaceOpen(true),
+				onReshape: () => { revealCraftDock(); setLensesOpen(true); },
+				onWatchDemo: startDemo,
+				onInsert: insertComponents.length > 0 ? () => setInsertOpen(true) : undefined,
+				onFocus: posture === 'craft' ? () => setQuietened(true) : undefined,
+				onCollapseEditor: splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined,
+				onCollapsePreview: splitUsable && split.collapsed !== 'b' ? () => collapseFromHeader('b') : undefined,
+				onExpandPane: split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined,
+				onResetSplit: splitUsable ? () => splitApiRef.current.reset() : undefined,
+	};
+	// eslint-disable-next-line -- the spread is the point: one prop set, two mount points.
+	// DESKTOP AND TABLET BOTH GET THE INLINE FIELD (owner's call, 2026-08-17): ⌘K should not
+	// change its presentation with the width. Only the LAUNCHER differs, and only because the
+	// tablet row has no pixels for a pill — measured, its flex spacer is 0px from 700 through
+	// 834 — so `idlePill` is off there and the ⋯ menu's "Search / commands" row plus ⌘K stay
+	// the way in. Phones keep the sheet: its bottom-docked field is a solved keyboard problem
+	// (reported from a real device), not a stylistic difference.
+	const cmdInline = !mobile ? <CommandPalette inline idlePill={!compact} {...cmdProps} /> : null;
+	const cmdPalette = mobile ? <CommandPalette {...cmdProps} /> : null;
+	/**
+	 * THE ROW YIELDS ITS RIGHT-HAND SIDE WHILE THE FIELD IS OPEN (owner's call, 2026-08-17:
+	 * "we should reclaim space by hiding everything to the right").
+	 *
+	 * Before this, the field grew only into the flex spacer, so the cost of opening it landed
+	 * on the LEFT: measured at 1440, the deck title went 311 → 263px and the posture dial slid
+	 * 48px left, while Present/Share never moved. At tablet it could not open at all, because
+	 * the spacer there is 0px. Hiding the trailing cluster inverts that — the controls the user
+	 * is not using while searching pay, and the deck they are searching within does not.
+	 *
+	 * It also dissolves the narrow-desktop burst this branch had to work around: with the tail
+	 * gone there is room at 1100/1160 in Craft without leaning on the field's min-width floor.
+	 *
+	 * Deliberately NOT applied to phones — `cmdInline` is null there and the sheet owns the
+	 * whole screen anyway, so there is no row to reclaim.
+	 */
+	const searchExpanded = cmdOpen && !mobile;
+
 	return (
 		// Where the phone's back chevron says it goes, published once for every panel
 		// below. The answer is a property of the LAUNCH PATH, not of the panel: the
@@ -3685,7 +3744,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* The cinema morph (iPhone landscape) shows NO header — the slide is the whole
 			    screen. Every other width/stop keeps its header. */}
 			{!landscapePhone && (effectiveStop !== 'craft' && !compact ? (
-			<header className="flex h-[54px] shrink-0 items-center gap-3 overflow-x-auto overscroll-x-contain border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5',
+				// THE CLIP LIFTS WHILE SEARCH IS OPEN — one of the TWO clips the inline dropdown
+				// has to clear, and the less interesting one. `overflow-x-auto` is this row's
+				// overflow survival valve (#1381), and `overflow-x: auto` computes
+				// `overflow-y: auto` too, so it would clip the dropdown into the 54px band.
+				// Swapping to `overflow-visible` while the field is open costs nothing: the row
+				// cannot be scrolled and focused-elsewhere at the same time, and the valve returns
+				// the moment the field closes. The OTHER clip — the one that actually kept the card
+				// invisible through three attempts — is the `Command` root's own `overflow-hidden`;
+				// it is neutralized in CommandPalette.tsx, and that note is the one to read before
+				// touching this, because lifting either clip ALONE paints nothing and invites the
+				// wrong conclusion. The scroll valve is KEPT: it never had to be traded away.
+				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain')}>
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
 				    switching / New deck is a Write-and-up concern). Write gets the real
@@ -3712,16 +3783,25 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 				<div className="flex-1" />
-				<Tip label="Search or run a command (⌘K)">
-					{/* Same contract as the full header's pill (see the note there): shrink-0 +
-					    nowrap, so the deck switcher stays the one item that gives. The slim
-					    header has far more slack, so it never wrapped — matching it here keeps
-					    the two pills from drifting apart the next time one is touched. */}
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
-						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
-						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
-					</button>
-				</Tip>
+				{/* The search is the header's own combobox now, not a button that opens an
+				    overlay (2026-08-16). Closed it renders the same pill it always did — the SSR
+				    skeleton draws that pill and `studio-shell-parity` measures it, so the idle box
+				    must not move. Opened it becomes the field, grown into the row's free space with
+				    the command list beneath it.
+				    No `Tip` wrapper any more: a tooltip belongs on a button, not on a control that
+				    turns into a text field under the pointer — and Radix would keep it armed while
+				    you type. The ⌘K hint the tooltip carried is drawn inside the pill itself.
+				    Desktop only. `cmdPalette` below mounts the OVERLAY for compact tiers, and the
+				    two are mutually exclusive, so exactly one search surface exists per width. */}
+				{cmdInline}
+				{/* THE ROW YIELDS ITS TAIL WHILE THE FIELD IS OPEN (owner's call, 2026-08-17).
+				    The #1371 x-invariant below is about the IDLE row and is unaffected: these
+				    three still sit at the same x at Read, Write and Craft, and still mirror the
+				    full header, whenever the search is closed. While it is open they are not
+				    moved — they are GONE — so there is no x to disagree about, and the width they
+				    were holding goes to the field instead of coming out of the deck title.
+				    `studio-header-fit`'s open-state guard asserts exactly that. */}
+				{!searchExpanded && (<>
 				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
 				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
 				    and Craft (#1371). It survives the dial moving to the identity band precisely
@@ -3739,9 +3819,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{feedbackButton}
+				</>)}
 			</header>
 			) : (
-			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out',
+				// See the slim header's note: the clip lifts while the inline search is open.
+				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 				{/* SCROLLABLE WHEN IT OVERFLOWS — the failure mode, made survivable. Everything
 				    above is about making the row FIT; this is about what happens the day it
 				    doesn't. Today the tail simply leaves the screen, silently, and on a tablet
@@ -3842,28 +3925,32 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 				<div className="flex-1" />
 
-				{/* ⌘K pill — desktop only (≥1100). On compact the "Search / commands" row
+				{/* ⌘K search — desktop only (≥1100). On compact the "Search / commands" row
 				    inside ⋯ is the search affordance; the ⌘K shortcut stays always-bound. */}
-				{!compact && (
-					<Tip label="Search or run a command (⌘K)">
-						{/* `shrink-0 whitespace-nowrap` is not decoration — it is this row's stated
-						    contract. The deck switcher is the ONE shrinkable item (`min-w-0` + a
-						    truncating title) and "every sibling is shrink-0"; this pill was the
-						    sibling that never got the class. Without it the pill shrinks below its
-						    own intrinsic width at 1280 in Craft — the width where `xl:` turns the
-						    label + ⌘K Kbd on but the full header has only ~24px of slack — and the
-						    label wraps to two lines, rendering the pill 56px tall inside a 54px
-						    header (measured, both modes). `check:overflow` and `studio-header-fit`
-						    never saw it: they assert `scrollWidth <= clientWidth`, and this burst is
-						    VERTICAL. With the class the pressure lands where the design says it
-						    should — the deck title truncates a little sooner — and the fix holds for
-						    any deck title length rather than for the one that happened to be open. */}
-						<button type="button" onClick={() => setCmdOpen(true)} className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
-							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
-							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
-						</button>
-					</Tip>
-				)}
+				{/* The search is the header's own combobox now, not a button that opens an
+				    overlay (2026-08-16). Closed it renders the same pill it always did — the SSR
+				    skeleton draws that pill and `studio-shell-parity` measures it, so the idle box
+				    must not move. Opened it becomes the field, grown into the row's free space with
+				    the command list beneath it.
+				    No `Tip` wrapper any more: a tooltip belongs on a button, not on a control that
+				    turns into a text field under the pointer — and Radix would keep it armed while
+				    you type. The ⌘K hint the tooltip carried is drawn inside the pill itself.
+				    Desktop only. `cmdPalette` below mounts the OVERLAY for compact tiers, and the
+				    two are mutually exclusive, so exactly one search surface exists per width. */}
+				{cmdInline}
+				{/* EVERYTHING RIGHT OF THE FIELD YIELDS WHILE IT IS OPEN (owner's call,
+				    2026-08-17: "we should reclaim space by hiding everything to the right").
+				    Appearance, the banding rules, tours, Present, Share, feedback, and the
+				    compact mode toggle + Menu are all inside this branch — the whole trailing
+				    run, at every tier that gets the inline field.
+				    WHY IT IS THE RIGHT SIDE THAT PAYS: before this, the field grew only into
+				    the flex spacer, so opening it cost the LEFT — measured at 1440 the deck
+				    title went 311 -> 263px and the dial slid 48px — and at tablet it could not
+				    grow at all, the spacer there being 0px from 700 through 834. The controls
+				    you are not using while searching are the right ones to spend.
+				    Idle is untouched, so `studio-shell-parity` and the SSR skeleton do not
+				    move; the open state is guarded by `studio-header-fit`'s open-state test. */}
+				{!searchExpanded && (<>
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,
 				    the mode toggle kept a direct 1-tap button. On compact the theme picker
@@ -4067,6 +4154,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						onApplyPalette={applyPalette}
 					/>
 				)}
+				</>)}
 
 				{/* Library + Workspace + account — on DESKTOP these live in the left activity
 				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the
@@ -4457,33 +4545,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				/>
 			)}
 			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
-			<CommandPalette
-				open={cmdOpen}
-				onOpenChange={setCmdOpen}
-				// Running a command is a deliberate departure, not a dismissal: the drawer
-				// must not follow you to wherever the command took you. Without this, all
-				// ~31 commands sprang the drawer back open on top of the result.
-				onRun={() => setDrawerPendingReturn(false)}
-				decks={deckList}
-				palettes={BUILTIN_PALETTES}
-				onPickDeck={loadDeck}
-				onNewDeck={() => newDeck()}
-				onPalette={applyPalette}
-				onPresent={openPresent}
-				onShare={() => setShareOpen(true)}
-				onFeedback={() => setFeedbackOpen(true)}
-				onFabricate={() => setView('fabricate')}
-				onLibrary={() => { revealCraftDock(); setLibraryOpen(true); }}
-				onWorkspace={() => setWorkspaceOpen(true)}
-				onReshape={() => { revealCraftDock(); setLensesOpen(true); }}
-				onWatchDemo={startDemo}
-				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
-				onFocus={posture === 'craft' ? () => setQuietened(true) : undefined}
-				onCollapseEditor={splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined}
-				onCollapsePreview={splitUsable && split.collapsed !== 'b' ? () => collapseFromHeader('b') : undefined}
-				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
-				onResetSplit={splitUsable ? () => splitApiRef.current.reset() : undefined}
-			/>
+			{cmdPalette}
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />

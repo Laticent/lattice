@@ -451,3 +451,95 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		}
 	}
 });
+
+/**
+ * THE OPEN STATE OF THE INLINE SEARCH (#1707).
+ *
+ * Everything above measures the header IDLE, and that blind spot is how the inline search
+ * first shipped a burst row: with the field open at 1100 and 1160 in Craft, its min-width
+ * floor made the row need 1200px, so `scrollWidth` exceeded `clientWidth` by 100px and
+ * 40px. Same shape of blind spot #1687 closed when a width-only oracle missed a VERTICAL
+ * burst, same remedy: when a guard misses a state, teach it the state.
+ *
+ * Why an overflowing row matters MORE in this state: the header's `overflow-x-auto` scroll
+ * valve (#1381) is deliberately LIFTED while the field is open, because `overflow-x: auto`
+ * computes `overflow-y: auto` and would clip the dropdown into the 54px band. So an
+ * overflow here cannot be scrolled back into reach.
+ *
+ * THE ROW NOW YIELDS ITS WHOLE RIGHT-HAND SIDE while the field is open (owner's call,
+ * 2026-08-17), so the tail is not merely on-screen — it is ABSENT, and that is asserted
+ * below rather than left implicit. Before the yield, opening the field cost the LEFT: the
+ * deck title paid for it, and at tablet (spacer = 0px from 700 through 834) the field could
+ * not grow at all.
+ *
+ * EVERY TIER THAT GETS THE FIELD IS COVERED — desktop AND tablet, down to the 700px floor,
+ * because tablet now opens the same inline field. Only the LAUNCHER differs by tier: at
+ * desktop the pill is the trigger, at tablet there is no room for one, so ⌘K is the way in.
+ * That difference is asserted explicitly, both ways, so a tier silently losing (or gaining)
+ * its pill fails here instead of hollowing the test into a no-op.
+ */
+const OPEN_SEARCH_WIDTHS = [700, 768, 834, 1024, 1099, 1100, 1160, 1200, 1280, 1440, 1920];
+
+test('the inline search does not burst the row when it opens, at every tier that has it', async ({ page }) => {
+	test.slow(); // 11 widths x up to 3 stops, each with an open/close cycle
+	await gotoStudio(page);
+	await page.evaluate(() => document.fonts.ready);
+	const header = page.locator('[data-studio-root] header');
+
+	for (const width of OPEN_SEARCH_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		const compact = width < DESKTOP;
+		// Wait on the observable breakpoint consequence, never a sleep.
+		await expect(header.getByRole('button', { name: CHROME.moreControls, exact: true })).toHaveCount(compact ? 1 : 0);
+
+		for (const stop of STOPS) {
+			const button = header.getByRole('button', { name: stop.name }).first();
+			await button.click();
+			await expect(button, `${stop.word} @ ${width}px should be the lit stop`).toHaveAttribute('aria-pressed', 'true');
+
+			// THE LAUNCHER, asserted both ways. Desktop draws the pill (it becomes the field);
+			// tablet draws none, because its row measures 0px of spare from 700 through 834 and
+			// a 34px pill would come straight out of the deck title. Pinning both directions is
+			// what stops this test quietly becoming a no-op if a tier loses its pill.
+			const pill = header.getByRole('button', { name: 'Search or run a command' });
+			await expect(
+				pill,
+				`at ${width}px on ${stop.word} the search launcher should be ${compact ? 'the ⋯ menu / ⌘K (no pill — the tablet row has no spare width)' : 'the header pill'}`,
+			).toHaveCount(compact ? 0 : 1);
+
+			if (compact) await page.keyboard.press('ControlOrMeta+k');
+			else await pill.first().click();
+			// Wait on the OBSERVABLE consequence of opening, never a sleep.
+			await expect(header.getByPlaceholder('Search or run a command…')).toBeVisible();
+			await expect(pill).toHaveCount(0);
+
+			const open = await readHeaderSettled(page, TAIL, CHROME.moreControls);
+			expect(
+				open.over,
+				`the open search bursts the row at ${width}px on ${stop.word} by ${open.over}px — the scroll valve is lifted while the field is open, so this overflow CANNOT be scrolled and whatever spills is unreachable. Fix the field's sizing in CommandPalette.tsx; do not raise this tolerance.`,
+			).toBeLessThanOrEqual(TOLERANCE);
+
+			// THE TAIL IS GONE, not merely on-screen. This is the contract that lets the field
+			// grow without the deck title paying, so it is asserted rather than assumed — and
+			// asserting absence also catches the opposite regression, a tail that renders but
+			// off-viewport, which is what the previous version of this check allowed.
+			for (const name of TAIL) {
+				expect(
+					open.x[name],
+					`${name} is still in the header with the search open at ${width}px on ${stop.word} — the row is supposed to yield its whole right-hand side, and if it no longer does, the width has to come from somewhere else (it used to come out of the deck title)`,
+				).toBeUndefined();
+			}
+			expect(
+				open.tall,
+				`a header control is taller than the header with the search open at ${width}px on ${stop.word} (${open.tall.map((c) => `${c.name} ${c.h}px`).join(', ')})`,
+			).toEqual([]);
+
+			// Close it, so the next stop/width starts from the idle row rather than inheriting
+			// an open field — the state leak that would make later widths lie. The tail coming
+			// back is the observable consequence of closing at every tier, pill or not.
+			await page.keyboard.press('Escape');
+			await expect(pill).toHaveCount(compact ? 0 : 1);
+			await expect(header.getByRole('button', { name: CHROME.moreControls, exact: true })).toHaveCount(compact ? 1 : 0);
+		}
+	}
+});
