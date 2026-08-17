@@ -127,6 +127,98 @@ the header is deliberately `color-mix(in srgb, var(--bg) 92%, transparent)`. The
 field's own wrapper carries the surface it needs (`bg-card` + a border), so the
 root is now `bg-transparent`.
 
+## Round two — the owner's two calls, and the measurement that shaped one of them
+
+After seeing the four surfaces side by side, the owner made two calls:
+*"tablet portrait should use drop down too… no sense of having different behavior
+for it"* and *"we should reclaim space by hiding everything to the right."* Both
+shipped. The second one also retired a compromise this branch had made.
+
+### 1. Everything right of the field yields while it is open
+
+This is the half of the ORIGINAL ask that the first cut silently dropped. The
+owner's opening words were *"search input expanding **and hiding items on the
+right**"*, and the first implementation delivered the expansion but kept the tail
+pinned — then reported the pinned tail approvingly (*"Present at x=1200, Share at
+x=1301, identical open and closed"*) without checking it against what was asked.
+It looked like a virtue because #1371 pins that tail deliberately.
+
+Measured, it was close to the inverse of the request. Opening the field at 1440:
+
+| Element | idle → open (before this change) |
+|---|---|
+| Deck title | 311 → **263px** (truncates) |
+| Posture dial | x 390 → **342** (slides left) |
+| Present / Share / feedback | **unchanged** |
+
+The row was paying from the LEFT — the deck being searched within — while the
+controls not in use sat still. At tablet it was worse: the field could not grow at
+all, because that row's spacer is 0px.
+
+With the trailing run hidden while open, the width comes from the right instead:
+
+| Width | Field before → after | Deck title while open |
+|---|---|---|
+| 1920 | 720 → 720 | 188 → **188** |
+| 1440 | 600 → **720** | **188 → 188** (was 311 → 263) |
+| 1280 | 486 → **656** | 188 → 163 |
+| 1160 Craft | 232 → **607** | 188 → 153 |
+| 1100 Craft | 220 *(pinned at the floor)* → **561** | 188 → 138 |
+| 834 tablet portrait | *overlay* → **376 inline** | 154 → 87 |
+| 700 tablet floor | *overlay* → **272 inline** | 20 → 56 |
+
+**It also dissolved this branch's worst compromise.** The narrow-desktop burst
+(#4 above) forced the field's `min-width` down from 320 to 220 so the row could
+not overflow. With the tail yielding there is simply room: the field at 1100/Craft
+went from sitting *on* the 220px floor to 561px, and the floor no longer binds
+anywhere. It is kept as a floor rather than removed — it costs nothing and it is
+what stops a future row change reintroducing the collapse — but it is now genuinely
+a floor rather than the number holding the design together.
+
+At 1440 and up the deck title is fully protected. Below 1280 it still gives a
+little, because the field's `flex-[1_1_720px]` basis is greedier than the row is
+wide; that is the field taking slack it can actually use, not the title paying for
+a control nobody is looking at.
+
+### 2. Tablet opens the same dropdown — and why it still has no pill
+
+The tier table below is rewritten: tablet no longer gets `CommandDialog`. What it
+does NOT get is an idle pill, and that is a width fact rather than a preference.
+Measured on the real row, the tablet header's flex spacer is **0px from 700 all the
+way through 834** (900: 32px, 1024: 60px, 1099: 135px). Every pixel is spoken for,
+with the deck title absorbing the pressure. A 34px icon pill would come straight
+out of the deck title at every tablet width, and at the 700px floor it would eat a
+spare budget `studio-header-fit` ratchets at 16px with about 3px of room in it.
+
+So tablet keeps its existing launchers — the ⋯ menu's "Search / commands" row, and
+⌘K — and pays **nothing** when idle, while the thing that opens is the same field
+and the same dropdown. The distinction that matters: the owner objected to ⌘K
+*behaving* differently by width, and it no longer does. The launcher differing
+where there is physically no room for a pill is a separate question, and it is
+flagged rather than settled — putting a pill there is available at the price of the
+deck title, and that is the owner's call to make.
+
+**This is also why the change is cheap.** Idle is byte-identical at every width, so
+`StudioChromeSkeleton` needs no edit and `studio-shell-parity` is untouched — the
+constraint that has governed every step of this branch.
+
+**Phones keep the `PanelSheet`.** Its field docks at the BOTTOM, above the thumb
+keyboard, which is a solved keyboard problem reported from a real device — not a
+stylistic difference. Converting it would reintroduce that bug. The owner named
+tablet portrait specifically; the phone is flagged, not assumed.
+
+### What the open-state guard now asserts
+
+`studio-header-fit`'s open-state test was rewritten for the new contract. It covers
+**11 widths** — the whole tablet tier down to the 700px floor, plus desktop — and
+asserts that the tail is **absent** rather than merely on-screen. That is a
+stronger check than the one it replaces: the old version skipped any tail control
+it could not find, which would have quietly passed a tail that rendered off-viewport.
+It also pins the launcher difference **both ways** (pill at desktop, none at
+tablet), so a tier silently losing or gaining its pill fails here instead of
+hollowing the test into a no-op — the third time this file has had to close that
+exact shape of hole.
+
 ## What the tier split is, stated as a decision rather than inherited
 
 The issue flagged that ⌘K's *presentation* varies by width and asked for that to
@@ -134,9 +226,9 @@ be an explicit call. It is, and it stays as it is:
 
 | Tier | Search surface | Why |
 |---|---|---|
-| desktop, ≥1100 | **inline field + dropdown** | There is a pill in the row to grow, and free space to grow into. |
-| tablet, 700–1099 | `CommandDialog` | No pill renders here — search is reached through the ⋯ menu, so there is nothing to expand in place. |
-| mobile, <700 | `PanelSheet`, field bottom-docked | The field sits directly above the keyboard, which is the same problem the owner's photograph shows, already solved on this tier. |
+| desktop, ≥1100 | **inline field + dropdown**, launched from the pill | The pill is the trigger and becomes the field. |
+| tablet, 700–1099 | **the same inline field + dropdown**, launched from ⋯ / ⌘K | Identical presentation; no pill only because the row measures 0px of spare from 700 through 834. |
+| mobile, <700 | `PanelSheet`, field bottom-docked | The field sits directly above the keyboard — the same problem the owner's photograph shows, already solved on this tier. |
 
 Exactly one surface mounts per width (`cmdInline` and `cmdPalette` are mutually
 exclusive in `StudioShell.tsx`), so ⌘K never has two homes. Verified at the

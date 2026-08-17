@@ -3680,8 +3680,31 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onResetSplit: splitUsable ? () => splitApiRef.current.reset() : undefined,
 	};
 	// eslint-disable-next-line -- the spread is the point: one prop set, two mount points.
-	const cmdInline = !compact ? <CommandPalette inline {...cmdProps} /> : null;
-	const cmdPalette = compact ? <CommandPalette {...cmdProps} /> : null;
+	// DESKTOP AND TABLET BOTH GET THE INLINE FIELD (owner's call, 2026-08-17): ⌘K should not
+	// change its presentation with the width. Only the LAUNCHER differs, and only because the
+	// tablet row has no pixels for a pill — measured, its flex spacer is 0px from 700 through
+	// 834 — so `idlePill` is off there and the ⋯ menu's "Search / commands" row plus ⌘K stay
+	// the way in. Phones keep the sheet: its bottom-docked field is a solved keyboard problem
+	// (reported from a real device), not a stylistic difference.
+	const cmdInline = !mobile ? <CommandPalette inline idlePill={!compact} {...cmdProps} /> : null;
+	const cmdPalette = mobile ? <CommandPalette {...cmdProps} /> : null;
+	/**
+	 * THE ROW YIELDS ITS RIGHT-HAND SIDE WHILE THE FIELD IS OPEN (owner's call, 2026-08-17:
+	 * "we should reclaim space by hiding everything to the right").
+	 *
+	 * Before this, the field grew only into the flex spacer, so the cost of opening it landed
+	 * on the LEFT: measured at 1440, the deck title went 311 → 263px and the posture dial slid
+	 * 48px left, while Present/Share never moved. At tablet it could not open at all, because
+	 * the spacer there is 0px. Hiding the trailing cluster inverts that — the controls the user
+	 * is not using while searching pay, and the deck they are searching within does not.
+	 *
+	 * It also dissolves the narrow-desktop burst this branch had to work around: with the tail
+	 * gone there is room at 1100/1160 in Craft without leaning on the field's min-width floor.
+	 *
+	 * Deliberately NOT applied to phones — `cmdInline` is null there and the sheet owns the
+	 * whole screen anyway, so there is no row to reclaim.
+	 */
+	const searchExpanded = cmdOpen && !mobile;
 
 	return (
 		// Where the phone's back chevron says it goes, published once for every panel
@@ -3733,7 +3756,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// it is neutralized in CommandPalette.tsx, and that note is the one to read before
 				// touching this, because lifting either clip ALONE paints nothing and invites the
 				// wrong conclusion. The scroll valve is KEPT: it never had to be traded away.
-				cmdOpen && !compact ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain')}>
+				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain')}>
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
 				    switching / New deck is a Write-and-up concern). Write gets the real
@@ -3771,6 +3794,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    Desktop only. `cmdPalette` below mounts the OVERLAY for compact tiers, and the
 				    two are mutually exclusive, so exactly one search surface exists per width. */}
 				{cmdInline}
+				{/* THE ROW YIELDS ITS TAIL WHILE THE FIELD IS OPEN (owner's call, 2026-08-17).
+				    The #1371 x-invariant below is about the IDLE row and is unaffected: these
+				    three still sit at the same x at Read, Write and Craft, and still mirror the
+				    full header, whenever the search is closed. While it is open they are not
+				    moved — they are GONE — so there is no x to disagree about, and the width they
+				    were holding goes to the field instead of coming out of the deck title.
+				    `studio-header-fit`'s open-state guard asserts exactly that. */}
+				{!searchExpanded && (<>
 				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
 				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
 				    and Craft (#1371). It survives the dial moving to the identity band precisely
@@ -3788,11 +3819,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{feedbackButton}
+				</>)}
 			</header>
 			) : (
 			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out',
 				// See the slim header's note: the clip lifts while the inline search is open.
-				cmdOpen && !compact ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 				{/* SCROLLABLE WHEN IT OVERFLOWS — the failure mode, made survivable. Everything
 				    above is about making the row FIT; this is about what happens the day it
 				    doesn't. Today the tail simply leaves the screen, silently, and on a tablet
@@ -3906,6 +3938,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    Desktop only. `cmdPalette` below mounts the OVERLAY for compact tiers, and the
 				    two are mutually exclusive, so exactly one search surface exists per width. */}
 				{cmdInline}
+				{/* EVERYTHING RIGHT OF THE FIELD YIELDS WHILE IT IS OPEN (owner's call,
+				    2026-08-17: "we should reclaim space by hiding everything to the right").
+				    Appearance, the banding rules, tours, Present, Share, feedback, and the
+				    compact mode toggle + Menu are all inside this branch — the whole trailing
+				    run, at every tier that gets the inline field.
+				    WHY IT IS THE RIGHT SIDE THAT PAYS: before this, the field grew only into
+				    the flex spacer, so opening it cost the LEFT — measured at 1440 the deck
+				    title went 311 -> 263px and the dial slid 48px — and at tablet it could not
+				    grow at all, the spacer there being 0px from 700 through 834. The controls
+				    you are not using while searching are the right ones to spend.
+				    Idle is untouched, so `studio-shell-parity` and the SSR skeleton do not
+				    move; the open state is guarded by `studio-header-fit`'s open-state test. */}
+				{!searchExpanded && (<>
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,
 				    the mode toggle kept a direct 1-tap button. On compact the theme picker
@@ -4109,6 +4154,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						onApplyPalette={applyPalette}
 					/>
 				)}
+				</>)}
 
 				{/* Library + Workspace + account — on DESKTOP these live in the left activity
 				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the

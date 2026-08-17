@@ -11,7 +11,7 @@ import { FeedbackIcon } from './icons';
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
 	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
-	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit, inline,
+	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit, inline, idlePill = true,
 }: {
 	/**
 	 * THE THIRD TRANSPORT (2026-08-16). `inline` renders the palette as a header-resident
@@ -23,12 +23,16 @@ export function CommandPalette({
 	 * split them. That split existed because mobile docks the field at the bottom; inline
 	 * is the same trick again.
 	 *
-	 * DESKTOP ONLY, and the caller enforces it. The pill only renders at ≥1100; tablet
-	 * reaches search through the ⋯ menu and mobile through the drawer, and neither has an
-	 * inline field to grow. So the caller mounts exactly one instance per tier — inline at
-	 * desktop, overlay below it — which keeps "one action, one home" true at every width
-	 * even though the presentation differs. That is the same tier-split this file already
-	 * makes for `PanelSheet` vs `CommandDialog`, not a new pattern.
+	 * DESKTOP **AND TABLET**, and the caller enforces it. The owner's call (2026-08-17):
+	 * ⌘K should not behave differently by width, so tablet gets this same field and the
+	 * same dropdown rather than a centered overlay. What still differs at tablet is only
+	 * the LAUNCHER — see `idlePill`, where the row has literally 0px of spare width to put
+	 * a pill in. Phones keep the `PanelSheet`: its field is docked at the BOTTOM, directly
+	 * above the thumb keyboard, which is a solved keyboard problem rather than a stylistic
+	 * difference (it was reported from a real device).
+	 *
+	 * So the caller mounts exactly one instance per tier — inline at desktop and tablet, the
+	 * sheet on phones — and "one action, one home" holds at every width.
 	 *
 	 * CLOSED, IT MUST BE THE PILL, byte-for-byte. `studio-shell-parity.spec.ts` compares
 	 * every control's box against the pre-paint skeleton, which draws a plain pill button —
@@ -36,6 +40,25 @@ export function CommandPalette({
 	 * label here and the shell has to change in the same commit.
 	 */
 	inline?: boolean;
+	/**
+	 * Does the inline transport draw its own IDLE PILL, or is it launched from elsewhere?
+	 *
+	 * Desktop: `true` — the pill is the launcher and becomes the field.
+	 * Tablet:  `false` — because there is no width for a pill. Measured on the real row,
+	 * the tablet header's flex spacer is **0px from 700 all the way to 834** (it first
+	 * opens up at 900: 32px, 1024: 60px, 1099: 135px). Every pixel is already spoken for,
+	 * with the deck title absorbing the pressure. A 34px icon pill there would come
+	 * straight out of the deck title at every tablet width, and at the 700px floor it
+	 * would eat a spare budget that `studio-header-fit` ratchets and that has ~3px in it.
+	 *
+	 * So tablet keeps its EXISTING launchers — the ⋯ menu's "Search / commands" row, and
+	 * ⌘K — and pays nothing when idle, while the thing that opens is the same inline field
+	 * and the same dropdown desktop gets. The owner's objection was that ⌘K *behaved*
+	 * differently per tier; the launcher differing where there is physically no room for a
+	 * pill is not that. Idle is byte-identical to before at every tablet width, which is
+	 * why `StudioChromeSkeleton` needs no change and `studio-shell-parity` is untouched.
+	 */
+	idlePill?: boolean;
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	/**
@@ -200,6 +223,10 @@ export function CommandPalette({
 	// field, grown into the row's free space with the list hanging beneath it.
 	if (inline) {
 		if (!open) {
+			// Tablet launches from the ⋯ menu / ⌘K, so there is nothing to draw when closed —
+			// see `idlePill` for the width measurement that forces it. Returning null keeps the
+			// tablet row byte-identical to what the SSR skeleton draws.
+			if (!idlePill) return null;
 			// The idle pill, reproduced EXACTLY — `studio-shell-parity` measures this against
 			// the skeleton's copy, and `shrink-0 whitespace-nowrap` is the row's contract (the
 			// deck switcher is the one item that gives).

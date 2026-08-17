@@ -28,6 +28,16 @@
   document body, so Escape-then-Enter did nothing and a screen reader lost its place in the
   row. Escape now hands focus back to the pill — while a click elsewhere, or a command that
   moves focus itself, still keeps it where the user put it.
-- Below 1100 the search keeps its existing homes — the `CommandDialog` at tablet,
-  the bottom-docked `PanelSheet` on mobile — so exactly one search surface exists
-  at every width.
+- **Tablet gets the same dropdown as desktop.** ⌘K no longer changes its
+  presentation with the width: at tablet the centered overlay is replaced by the
+  identical inline field and dropdown. Only the launcher differs — the tablet row
+  has no spare width for a pill (measured 0px of slack from 700 through 834), so
+  search is still reached from the ⋯ menu and ⌘K there. Phones keep the sheet,
+  whose field docks above the keyboard.
+- **Opening the search now hides the controls to its right** — appearance, tours,
+  Present, Share, feedback — and gives that width to the field. Previously the
+  field grew only into the row's leftover space, so the cost landed on the deck
+  title (311px → 263px at 1440) and at tablet it could not grow at all. The deck
+  title now keeps its full width at 1440 and above, and the field roughly doubles
+  at the tightest desktop widths (220px → 561px at 1100). Everything returns when
+  the search closes.
