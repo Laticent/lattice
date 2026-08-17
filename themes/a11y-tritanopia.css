@@ -23,8 +23,7 @@
    * surface it lands on — pass 5.76:1, warn 4.61:1, fail 8.04:1 on redline's
    * 12% band, and 7.24:1 on the deepest stack the component ships (that band on a
    * .stacked card's own 5% tint; redline's `del` no longer carries an opacity,
-   * #1640). The light --pass moved #007131 -> #006D2F in the same change, the
-   * smallest step that keeps `<ins>` at AA inside a .stacked NEW card. Separation
+   * #1640). Separation
    * under tritanopia is ΔE 0.190, at the light trio's own 0.188. (Base's trio scores
    * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
    * where these arms stay inert until #1527.) */
