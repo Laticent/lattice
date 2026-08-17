@@ -30,6 +30,8 @@ const path = require('path');
 const { resolveVars } = require('../lib/theme/contrast.js');
 const { simulate, canonicalType, CVD_TYPES } = require('../lib/theme/cvd.js');
 const { oklabDistance, normalizeHex } = require('../lib/theme/color.js');
+const { themeChain } = require('../lib/theme/chain.mjs');
+const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
 
 const ROOT       = path.join(__dirname, '..');
 const THEMES_DIR = path.join(ROOT, 'themes');
@@ -39,22 +41,23 @@ const THEMES_DIR = path.join(ROOT, 'themes');
 // categorical palettes target ≥ 0.20 for adjacent slots.
 const COLLAPSE = 0.15;
 
-// ── Palette loader (mirrors the emulator's loadPaletteWithImports) ───────────
+// ── Palette loader ───────────────────────────────────────────────────────────
+//
+// A theme plus everything it extends, PARENT-FIRST — the cascade order every palette
+// is authored against. The chain comes from the MANIFEST (`extends`, baked into
+// `THEME_EDGES`), not from regexing `@import` out of the stylesheet: the CSS directive
+// is Marp's copy of the same edge. See
+// engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+//
+// `lattice` (the engine base) is not a theme edge and is absent from the graph — which
+// is what this audit wants: it measures the color tokens, which live in themes.
 
-function loadPaletteWithImports(filePath, seen = new Set()) {
-  if (seen.has(filePath) || !fs.existsSync(filePath)) return '';
-  seen.add(filePath);
-  const content = fs.readFileSync(filePath, 'utf8');
-  const dir     = path.dirname(filePath);
-  let imported  = '';
-  let m;
-  const importRe = /@import\s+["']?([A-Za-z0-9_-]+)["']?\s*;/g;
-  while ((m = importRe.exec(content)) !== null) {
-    if (m[1] === 'lattice') continue; // layout CSS; colour tokens live in themes
-    const imp = path.join(dir, `${m[1]}.css`);
-    if (fs.existsSync(imp)) imported += loadPaletteWithImports(imp, seen) + '\n';
-  }
-  return imported + content;
+function paletteChainCss(theme) {
+  return themeChain(theme, THEME_EDGES)
+    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .filter((f) => fs.existsSync(f))
+    .map((f) => fs.readFileSync(f, 'utf8'))
+    .join('\n');
 }
 
 /** Parse every `:root { … }` block into a flat `{ name: value }` map. */
@@ -183,7 +186,7 @@ for (const theme of themes) {
     uncovered.push(theme);
     continue;
   }
-  const css  = loadPaletteWithImports(cssFile);
+  const css  = paletteChainCss(theme);
   const mode = isDarkTheme(css) ? 'dark' : 'light';
   const resolved = resolveVars(parseVars(css), mode);
   const hexByToken = {};

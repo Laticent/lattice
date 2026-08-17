@@ -21,26 +21,31 @@
 const fs   = require('fs');
 const path = require('path');
 
+const { themeChain } = require('../lib/theme/chain.mjs');
+const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
+
 const ROOT       = path.join(__dirname, '..');
 const THEMES_DIR = path.join(ROOT, 'themes');
 
-// ── CSS loader (mirrors emulator's loadPaletteWithImports) ────────────────
+// ── CSS loader ────────────────────────────────────────────────────────────
+//
+// A theme plus everything it extends, PARENT-FIRST — the cascade order every
+// palette is authored against. The chain comes from the MANIFEST (`extends`,
+// baked into `THEME_EDGES`), not from regexing `@import` out of the stylesheet:
+// the CSS directive is Marp's copy of the same edge, and re-deriving it here was
+// a private regex to keep in step with three others. See
+// engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+//
+// `lattice` (the engine base) is not a theme edge and is absent from the graph,
+// which is what this audit wants anyway — it scores theme-owned tokens, and takes
+// the one thing it needs from the base sheet (the on-dark ramp) directly, below.
 
-function loadPaletteWithImports(filePath, seen = new Set()) {
-  if (seen.has(filePath) || !fs.existsSync(filePath)) return '';
-  seen.add(filePath);
-  const content = fs.readFileSync(filePath, 'utf8');
-  const dir     = path.dirname(filePath);
-  const importRe = /@import\s+["']?([A-Za-z0-9_-]+)["']?\s*;/g;
-  let imported = '';
-  let m;
-  while ((m = importRe.exec(content)) !== null) {
-    const name = m[1];
-    if (name === 'lattice') continue; // layout CSS; color tokens live in themes
-    const imp = path.join(dir, `${name}.css`);
-    if (fs.existsSync(imp)) imported += loadPaletteWithImports(imp, seen) + '\n';
-  }
-  return imported + content;
+function paletteChainCss(theme) {
+  return themeChain(theme, THEME_EDGES)
+    .map((n) => path.join(THEMES_DIR, `${n}.css`))
+    .filter((f) => fs.existsSync(f))
+    .map((f) => fs.readFileSync(f, 'utf8'))
+    .join('\n');
 }
 
 // ── Token resolver (mirrors emulator's parsePaletteVars) ─────────────────
@@ -115,7 +120,7 @@ function contrastRatio(fg, bg) {
 }
 
 // Universal on-dark opacity ramp — READ from base.tokens.css, not copied from it.
-// This tool skips the `lattice` @import (it audits theme-owned tokens), so it needs
+// This tool loads only the theme chain (it audits theme-owned tokens), so it needs
 // the base ramp's alphas; it used to hardcode them. That copy silently went stale
 // the moment the ramp moved, and a stale alpha here does not fail loudly — it makes
 // the gate score an ink the engine no longer paints, which is how a rung sat at
@@ -304,7 +309,7 @@ function auditTheme(theme) {
   const cssFile = path.join(THEMES_DIR, `${theme}.css`);
   if (!fs.existsSync(cssFile)) return null;
 
-  const css  = loadPaletteWithImports(cssFile);
+  const css  = paletteChainCss(theme);
   const vars = parsePaletteVars(css);
   const fails = [];
   const missing = [];

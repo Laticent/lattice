@@ -72,6 +72,36 @@ that regex `@import` for their own purposes: `tools/build-docs-portal.js`,
 source-form themes off disk, where the whitespace divergence cannot bite. Converting them
 is worth a follow-up; this note does not.
 
+**FOLLOW-UP LANDED (2026-08-17): the five `tools/` flatteners are converted.** All five now
+call `themeChain(name, THEME_EDGES)` — `require()`d from CJS, which Node ≥22.12 (the engines
+floor, and both CI matrix legs) supports — and `build-docs-portal.js` also asks the manifest,
+rather than a `@import 'lattice'` probe, which palettes are selectable. The replacement was
+proved byte-for-byte identical to each old flattener across all 32 palettes by extracting the
+OLD functions out of `git show <base>:<tool>` rather than copying them, with reversed-order and
+leaf-only negative controls firing 18/18; the durable half of that evidence is a base-branch
+worktree running the REAL tools, whose seven invocations are byte-identical on stdout, stderr
+and exit code, and `npm run build` moved nothing.
+
+**And the session's pattern held a sixth time — in the evidence, again.** The first cut of the
+selectable-palette filter asked `Object.hasOwn(THEME_EDGES, name)`. That is right for the
+GENERATED map, which omits root keys (`build-theme-catalog.js` filters on `m.extends`), and
+exactly backwards for `edgesFromManifests`, which writes `{indaco: undefined}` — key present.
+Handed the builder's map, the docs picker would have come back EMPTY. Nothing could have caught
+it: `themeChain` reconciles the two representations internally, so until that line no code
+could tell them apart, and the equivalence probe compared a *hand-written* predicate that
+happened to be correct under both. The fix routes the question through `themeChain` (a chain of
+one is a root), and the real fix is
+`test/unit/theme/base-palette-predicate.test.js` — it drives the SHIPPED `listBasePalettes`
+with both encodings and fails on the `hasOwn` form, confirmed by reverting it.
+
+**Still outstanding:** `checkThemeRoles` (which must read the CSS — comparing the two encodings
+is its whole job) and **seven** private re-derivations of the edge still in `test/`, counted
+rather than remembered: five chain-flatteners under `test/unit/palette/` (`contrast`,
+`diagram-ink-contrast`, `hljs-contrast`, `journey-chip-contrast`, `paired-token-parity`), one in
+`test/unit/core/texture-ramp.test.js`, and a shim detector in
+`test/unit/mermaid/mermaid-var-map.test.js`. §1 above called these "six palette tests"; the
+count was low and two of them are not palette tests.
+
 ## 2. The latent defect this hides
 
 The emulator does not use the engine's theme resolution at all. It flattens imports itself
