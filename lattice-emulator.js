@@ -563,6 +563,15 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
   mode: flags['image-mode'],
   svgBackground: flags['svg-background'],
 });
+// THE CORNER'S EXPORT TARGET. A rounded corner is a hole the artifact has to be able to
+// hold — an alpha channel, or a live document whose host paints behind it. `.zip` is the
+// only output whose capability depends on a flag, because the image format IS the choice
+// (png/webp carry alpha, jpeg has no such channel). Everything else is fixed by the
+// container. The capability table and the per-format measurements live next to the
+// register itself: lib/core/resolve-corners.js.
+const { cornerSurvivesExport } = require('./lib/core/corner-export-capability.mjs');
+const CORNER_TARGET = OUT_FORMAT === 'imageset' ? IMAGE_SET_OPTS.format : OUT_FORMAT;
+const CORNER_SURVIVES = cornerSurvivesExport(CORNER_TARGET);
 // --raster swaps the PDF's vector page content for one full-bleed slide image
 // per page (the same 2× screenshots the PPTX path uses) — a maximum-compatibility
 // mode for viewers that mishandle vector constructs. Selectable text is lost, so
@@ -3027,6 +3036,35 @@ async function renderBody(browser, g, closeBrowser) {
       }
     } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
   }
+  // SQUARE THE CORNER for a target that cannot hold it — BEFORE any capture, so the
+  // clip is never applied rather than applied and then undone. Undoing it downstream
+  // (resetting border-radius on a clone, say) is what left the two exporters disagreeing:
+  // `clip-path` does the real rounding here, `border-radius` only rides along for
+  // consumers to read back, so a reset that names one and not the other flattens nothing.
+  // Evicting the token is the whole fix, and it covers a per-slide `_class: corners-rounded`
+  // opt-in for free — that is the same token, on the same element.
+  //
+  // This runs IN THE PAGE, not on the emitted HTML, and that is deliberate: the `.html`
+  // sidecar written alongside every non-html output is a LIVE document, which CAN hold the
+  // corner. Stripping the markup would wrongly square it. Squaring the DOM squares only
+  // the pixels we are about to flatten. See lib/core/resolve-corners.js.
+  // `squareNow` also tells us whether this deck is rounded AT ALL, which decides
+  // `omitBackground` below. A square deck must stay BYTE-IDENTICAL: it stamps no token
+  // today, and asking for an alpha channel it has no hole to put in would rewrite every
+  // existing PNG export for nothing.
+  const roundedSlides = await g(() => page.evaluate((squareNow) => {
+    const hit = document.querySelectorAll('section.corners-rounded');
+    if (squareNow) for (const s of hit) s.classList.remove('corners-rounded');
+    return hit.length;
+  }, !CORNER_SURVIVES), 'resolve corners for the export target');
+  if (roundedSlides && !CORNER_SURVIVES && !QUIET) {
+    console.log(`  Corners: squared on ${roundedSlides} slide${roundedSlides === 1 ? '' : 's'} — a .${CORNER_TARGET} cannot carry a transparent corner.`);
+  }
+  // A rounded deck into an alpha-capable raster: let the corner be a real hole. Puppeteer
+  // paints an opaque white default canvas unless told otherwise, which is exactly the
+  // pale-notch artifact — the corner LOOKS clipped but ships white. Scoped to rounded
+  // decks so a square deck's bytes do not move.
+  const OMIT_BG = CORNER_SURVIVES && roundedSlides > 0 && OUT_FORMAT !== 'html';
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /
   // transparency-group constructs that iOS Quartz viewers partially render or
@@ -3114,6 +3152,9 @@ async function renderBody(browser, g, closeBrowser) {
     // (lib/export/image-set.js), the same contract the Studio's "Images" export uses.
     const fmt = IMAGE_SET_OPTS.format;
     const shot = fmt === 'png' ? { type: 'png' } : { type: fmt, quality: IMAGE_SET_OPTS.quality };
+    // png/webp carry the rounded corner as real transparency; jpeg has no alpha channel
+    // and was squared before this point, so it never reaches here wanting one.
+    if (OMIT_BG) shot.omitBackground = true;
 
     // (1) Full-fidelity raster, one per slide, at the resolved `--image-size` scale. Taken
     // FIRST, before any SVG-look re-styling below, so the slides keep the export color mode.
@@ -3450,8 +3491,11 @@ async function renderBody(browser, g, closeBrowser) {
     // so an element screenshot yields a clean full-bleed slide image.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
     const pngBuffers = [];
+    // `.png` keeps a rounded corner as transparency; `.pptx` shares this loop but was
+    // squared above, so OMIT_BG is false for it and its images stay opaque.
+    const pngShot = OMIT_BG ? { type: 'png', omitBackground: true } : { type: 'png' };
     for (const h of handles) {
-      pngBuffers.push(await g(() => h.screenshot({ type: 'png' }), 'screenshot slide'));
+      pngBuffers.push(await g(() => h.screenshot(pngShot), 'screenshot slide'));
     }
     await closeBrowser();
 
