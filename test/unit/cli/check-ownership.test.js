@@ -111,6 +111,7 @@ const {
   subjectIsTableElement,
   classAttrOffences,
   SANCTIONED_CLASS_ATTR_READS,
+  checkFontMetricsPin,
 } = require('../../../tools/check-ownership');
 const { loadAll } = require('../../../lib/components');
 const fs = require('node:fs');
@@ -2997,6 +2998,179 @@ describe('check-ownership: checkE2ESleeps (#1575)', () => {
     assert.ok(
       SANCTIONED_E2E_SLEEPS.some((s) => s.why.startsWith('UNJUDGED')),
       'inherited-but-unexamined sleeps must be labelled, not quietly blessed',
+    );
+  });
+});
+
+/**
+ * The FONT-METRICS PIN.
+ *
+ * `GLYPH_UPPER` is a measurement of two specific woff2 files, and so is the
+ * `MEASURED` array in test/unit/transformers/svg-label.test.js. Both are frozen
+ * literals in this repo, so a font bump moves the painted width while both sides
+ * of that comparison sit still — the suite stays green while quadrant and radar
+ * labels overrun their boxes. `checkFontMetricsPin` is what notices.
+ *
+ * These drive the REAL gate against fixture trees rather than re-implementing
+ * its logic, for the reason the #27 block above records: a test that asserts
+ * against a re-implementation stays green when the gate is deleted. Anything
+ * here that keeps passing with a branch of the gate removed is a bug in the
+ * test, not a passing gate.
+ */
+describe('check-ownership: checkFontMetricsPin (font drift)', () => {
+  const sha = (buf) => require('node:crypto').createHash('sha256').update(buf).digest('hex');
+
+  // A throwaway fonts root holding one "face", plus a pin that matches it.
+  const withFonts = (bytes, assertions) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fontpin-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'assets', 'fonts'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'assets', 'fonts', 'f.woff2'), bytes);
+      assertions(dir, sha(bytes));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const TABLE = { clean: { A: 0.7 } };
+  const PIN = (digest) => ({ clean: { family: 'F', sources: [{ file: 'assets/fonts/f.woff2', sha256: digest }] } });
+
+  test('the live tree is pinned — every shipped face matches its digest', () => {
+    const errors = [];
+    checkFontMetricsPin(errors);
+    assert.deepEqual(errors, [], errors.join('\n'));
+  });
+
+  test('a moved digest FAILS — this is the arm the whole gate exists for', () => {
+    withFonts(Buffer.from('the bytes the table was measured against'), (dir, digest) => {
+      // Same tree, pin recorded against DIFFERENT bytes: exactly what bumping
+      // assets/fonts/outfit-700.woff2 does.
+      const errors = [];
+      checkFontMetricsPin(errors, { fontsRoot: dir, tables: TABLE, pins: PIN(sha(Buffer.from('other bytes'))) });
+      assert.equal(errors.length, 1, errors.join('\n'));
+      assert.match(errors[0], /font drift/);
+      assert.match(errors[0], new RegExp(digest), 'the error must show the ACTUAL digest, or nobody can act on it');
+      assert.match(errors[0], /fonts:measure/, 'the error must name the re-measurement command');
+      // The tempting wrong fix is to paste the new hash and move on; the gate has
+      // to say so, because doing that re-opens the hole it just closed.
+      assert.match(errors[0], /Do NOT just update the sha256/);
+    });
+  });
+
+  test('matching bytes pass — the gate is not simply always-red', () => {
+    withFonts(Buffer.from('stable bytes'), (dir, digest) => {
+      const errors = [];
+      checkFontMetricsPin(errors, { fontsRoot: dir, tables: TABLE, pins: PIN(digest) });
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+  });
+
+  test('a face with a table but no pin FAILS — a third face cannot land un-pinned', () => {
+    withFonts(Buffer.from('x'), (dir, digest) => {
+      const errors = [];
+      checkFontMetricsPin(errors, {
+        fontsRoot: dir,
+        tables: { clean: { A: 0.7 }, hand: { A: 0.8 } },
+        pins: PIN(digest),
+      });
+      assert.equal(errors.length, 1, errors.join('\n'));
+      assert.match(errors[0], /has a "hand" face but GLYPH_UPPER_FONTS does not pin one/);
+    });
+  });
+
+  test('a pin naming a dropped face FAILS as stale — the allowlist cannot rot', () => {
+    withFonts(Buffer.from('x'), (dir, digest) => {
+      const errors = [];
+      checkFontMetricsPin(errors, {
+        fontsRoot: dir,
+        tables: TABLE,
+        pins: { ...PIN(digest), ghost: { family: 'G', sources: [{ file: 'assets/fonts/f.woff2', sha256: digest }] } },
+      });
+      assert.equal(errors.length, 1, errors.join('\n'));
+      assert.match(errors[0], /stale font-metrics pin/);
+    });
+  });
+
+  test('a pin pointing at a missing file FAILS rather than passing vacuously', () => {
+    // The worst possible outcome for a hash gate is hashing nothing and
+    // reporting green, so the absent-file path is an error, not a skip.
+    withFonts(Buffer.from('x'), (dir) => {
+      const errors = [];
+      checkFontMetricsPin(errors, {
+        fontsRoot: dir,
+        tables: TABLE,
+        pins: { clean: { family: 'F', sources: [{ file: 'assets/fonts/gone.woff2', sha256: 'deadbeef' }] } },
+      });
+      assert.equal(errors.length, 1, errors.join('\n'));
+      assert.match(errors[0], /missing file/);
+    });
+  });
+
+  test('EVERY source is hashed, not just the first — the second supply is a real swap channel', () => {
+    // Each face ships twice from source: assets/fonts/ for the engine and the
+    // export, and a separately vendored docs/src/playground/fonts/ copy that
+    // font-embed.js inlines into the Studio's live preview — which paints these
+    // labels through this same kernel. A gate that stopped at sources[0] would
+    // leave the Studio's supply free to move under a green build.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fontpin-multi-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'a'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'a', 'one.woff2'), 'first supply');
+      fs.writeFileSync(path.join(dir, 'a', 'two.woff2'), 'second supply, MOVED');
+      const errors = [];
+      checkFontMetricsPin(errors, {
+        fontsRoot: dir,
+        tables: TABLE,
+        pins: {
+          clean: {
+            family: 'F',
+            sources: [
+              { file: 'a/one.woff2', sha256: sha(Buffer.from('first supply')) },
+              { file: 'a/two.woff2', sha256: sha(Buffer.from('second supply')) },
+            ],
+          },
+        },
+      });
+      assert.equal(errors.length, 1, errors.join('\n'));
+      assert.match(errors[0], /a\/two\.woff2/, 'the SECOND source must be hashed too');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a face pinning no sources at all FAILS rather than verifying nothing', () => {
+    const errors = [];
+    checkFontMetricsPin(errors, {
+      fontsRoot: '/nonexistent', tables: TABLE, pins: { clean: { family: 'F', sources: [] } },
+    });
+    assert.equal(errors.length, 1, errors.join('\n'));
+    assert.match(errors[0], /pins no source files/);
+  });
+
+  test('an empty table AND empty pin FAILS rather than verifying nothing', () => {
+    // Every loop in the gate is a no-op on two empty objects, so it would report
+    // green having checked zero faces — the same "cannot fail" shape it exists
+    // to remove.
+    const errors = [];
+    checkFontMetricsPin(errors, { fontsRoot: '/nonexistent', tables: {}, pins: {} });
+    assert.equal(errors.length, 1, errors.join('\n'));
+    assert.match(errors[0], /verified nothing/);
+  });
+
+  test('run() actually invokes the gate — it is wired into build:check', () => {
+    // Calling the gate directly proves the gate; it does not prove `build:check`
+    // runs it. Hide the pinned face from run() and assert the error surfaces
+    // through the real runner.
+    const realExists = fs.existsSync;
+    let errors;
+    try {
+      fs.existsSync = (p) => (String(p).endsWith(path.join('assets', 'fonts', 'outfit-700.woff2')) ? false : realExists(p));
+      ({ errors } = run());
+    } finally {
+      fs.existsSync = realExists;
+    }
+    assert.ok(
+      errors.some((e) => e.includes('font-metrics pin points at a missing file')),
+      `run() did not report the font pin — the gate is not wired in:\n${errors.join('\n')}`,
     );
   });
 });

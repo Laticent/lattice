@@ -641,16 +641,40 @@ push* (step 1) still holds — it keeps the PR current and the queue fast.
 ### "CI passed" is no longer silent — the CI-green beacon
 
 Of the three silent events above, **"CI passed" is now delivered.** The `ci`
-aggregate job posts a one-line `✅ CI green for <sha>` comment the instant the gate
-goes green (`.github/workflows/ci.yml`). A subscribed session receives that as a
+aggregate job posts a comment the instant the gate goes green
+(`.github/workflows/ci.yml`). A subscribed session receives that as a
 `<github-webhook-activity>` comment and **wakes within seconds — no polling
 `get_check_runs`, no waiting on the hourly check-in for the success transition.**
 So once subscribed, *react to the beacon* rather than re-checking on a timer.
+
+**It is NOT a merge signal, and the comment says so itself.** It used to lead
+with "✅ **CI green**", which reads as *everything on this PR is green* — and it
+is not: the `ci` gate covers four tiers of one workflow and knows nothing about
+CodeQL, which runs from GitHub's default code-scanning setup in a separate
+workflow with no `needs` edge to this one. Observed twice on #1689: the beacon
+posted "CI green" for `c7f4a51` while CodeQL had **failed with 4 high-severity
+alerts**, and again for `ef0248f` with 2 still open. Both were real
+(polynomial-regex findings in new test helpers) and were caught only because a
+human was watching the individual check runs. A beacon that overstates its scope
+manufactures confidence — the same defect class as a check that cannot fail.
+
+So it now leads with **`✅ \`ci\` workflow green`**, names the four tiers, and
+carries a **snapshot of every other check run on the head SHA** — leading with
+⚠️ instead of ✅ when one of them has failed, and saying plainly when a check is
+still running or could not be read. The snapshot is a *reading taken at beacon
+time*, deliberately not a gate: code scanning can conclude after `ci` does, and
+waiting on it would either race or need the polling this repo refuses (HARD RULE
+#16). **Read the PR's own check list before merging — the beacon narrows what you
+have to look for, it does not replace looking.**
 
 The contract, and its limits — be precise about what it does and doesn't cover:
 
 - **Success only.** CI *failures* already arrive as webhook events; the beacon
   fills only the green gap the integration doesn't forward. It does not fire on red.
+- **Scoped to the `ci` workflow, plus an observed snapshot.** The tick is a claim
+  about lint · unit · integration · docs-build only. Everything else — CodeQL, the
+  advisory `golden-diff` / `studio-smoke` jobs, other workflows — is reported as
+  observed, never gated on.
 - **Create, not update.** It deletes the prior beacon and posts a fresh comment —
   only a newly *created* comment is forwarded as a wake event; an in-place edit
   (the golden-diff sticky's `updateComment`) is not, so it would never wake you.
