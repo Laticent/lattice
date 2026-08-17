@@ -106,7 +106,7 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ## The ink now follows the fill, and a gate now watches every gallery.
 
-`--journey-stage-fg` becomes `--text-heading`, the ink the canvas already solves for: clear of 4.5:1 on all sixty-four palette and scheme pairs, worst 5.63:1. Behind it, `tools/check-slide-contrast.js` stops being on-demand — it now gates three rendered galleries in CI.
+`--journey-stage-fg` becomes `--text-heading`, the ink the canvas already solves for: clear of 4.5:1 on all sixty-four palette and scheme pairs, worst 5.63:1. The mood legend lost an opacity wash that was costing it legibility for nothing. Behind both, `tools/check-slide-contrast.js` stops being on-demand — it now gates three rendered galleries in CI.
 
 ---
 

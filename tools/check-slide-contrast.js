@@ -10,7 +10,8 @@
  * chosen against `--bg-alt` instead of `--bg`. Those only exist once a slide
  * renders. This walks the real DOM of a rendered deck, resolves every text run's
  * effective background by climbing ancestors through transparent paints, and
- * scores WCAG 2.x AA (4.5:1 normal, 3:1 for >=24px or >=18.66px bold). It reads
+ * scores WCAG 2.x AA (4.5:1 normal, 3:1 for large text — see `isLarge`, which converts
+ * WCAG's 18pt/14pt-bold line into this engine's 4-deck-px-per-point units). It reads
  * pseudo-element text too, since this engine puts real content there (axis
  * labels, step badges, checkpoint labels).
  *
@@ -133,6 +134,33 @@ const PROBE = () => {
   const over = (fg, bg, a) => fg.map((c, i) => c * a + bg[i] * (1 - a));
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 
+  // WCAG "LARGE TEXT", IN THE UNITS A HUMAN ACTUALLY SEES — not in deck pixels.
+  //
+  // This engine lays a slide out at 3840 CSS px and exports it to a 960pt PDF page
+  // (`pdfinfo` on any exported deck: `Page size: 960 x 540 pts`), so there are exactly
+  // **4 deck-px per point**. WCAG's large-text line is 18pt (14pt when bold >= 700),
+  // which is 72 deck-px and 56 deck-px here.
+  //
+  // This file used the raw CSS numbers — `fs >= 24 || (fs >= 18.66 && w >= 700)` — which
+  // in deck units is a 6pt cutoff. Measured on the gated galleries that graded 2667 of
+  // 3888 runs (68.6%) as "large" and held them to 3:1 when WCAG requires 4.5:1, and it
+  // passed 14 runs that genuinely fail AA — including `journey`'s own mood legend at
+  // 3.78:1, on the component whose contrast defect this gate was built for.
+  //
+  // The repo had already ruled on this and the ruling was not applied here. Register
+  // entry G13 in `2026-07-03-semantic-html-accessibility.md`: an earlier draft's claim
+  // that chrome "passes AA as LARGE text at export scale" is "a page-box artifact and
+  // IS WITHDRAWN … the slide canvas is nominally 3840 CSS px wide, so the chrome's
+  // 43.4px clears WCAG's 24px large-text line ONLY in canvas units. Nothing about the
+  // way a human sees it is 'large'."
+  //
+  // NOT parameterised on the deck's real size, deliberately: every gated deck is a
+  // 4K-canvas landscape slide, and a wrong ratio is far worse than a conservative one.
+  // A deck that genuinely lays out at a different scale would need this derived from
+  // the section's own computed width — worth doing when such a deck exists to test it.
+  const PX_PER_PT = 3840 / 960;
+  const isLarge = (fs, w) => fs >= 18 * PX_PER_PT || (fs >= 14 * PX_PER_PT && w >= 700);
+
   // Climb ancestors, compositing every translucent paint and every element
   // `opacity`, down to the page. `from` seeds the stack with paints that are NOT
   // ancestors — see the two callers below; without it this function has two blind
@@ -162,10 +190,16 @@ const PROBE = () => {
     // alpha, so it is not true source-over. Same-color stacks (the case the note below
     // reproduces) come out right; mixed ones do not — measured, white under 20% black
     // under 50% red paints rgb(229,101,101) and this computes rgb(179,102,102).
-    // Pre-dates the gate and is not live on any gated surface: of 1518 runs only 12 have
-    // ANY sibling underlay and ZERO composite two. Left alone deliberately — fixing it
-    // is off-path here and there is no multi-layer case in the galleries to verify a fix
-    // against (#1717).
+    // Pre-dates the gate. An earlier draft of this note claimed it was "not live on any
+    // gated surface: only 12 runs have ANY sibling underlay and ZERO composite two."
+    // BOTH HALVES WERE WRONG — measured by instrumenting this accumulator: 16 runs have
+    // an underlay, and TWO mixed-color composites are live, the `<del>` runs on p105
+    // `redline` ([45,106,63 @0.1] over [153,27,27 @0.1] over opaque [242,245,250]).
+    // True source-over gives rgb(214,211,211) → 5.59:1; this computes rgb(223,205,208)
+    // → 5.45:1. The error is 0.14 and both sides clear the floor, so it changes no
+    // verdict today — but the sentence licensing "left alone" was a measurement claim
+    // that did not reproduce, which is the failure this file keeps making. Still not
+    // fixed here (off-path, #1717); now at least described accurately.
     //
     // Accumulated coverage must COMPOUND — `a + c.a * (1 - a)` — not snap to 1 on the
     // second layer. Stamping `a: 1` there truncates the stack at two paints and never
@@ -239,7 +273,12 @@ const PROBE = () => {
   // the old rule's mistake. A review built the counterexample and rendered it: an
   // absolutely-positioned z-1 panel before an in-flow `<p>` scored 7.17:1 under the old
   // filter and 1.58:1 under this one. Direction defensible, guarantee overstated.
-  // Measured on the three gated galleries: 0 rows lose a backdrop, 16 gain one.
+  // Measured on the three gated galleries: 16 rows GAIN a backdrop and 34 LOSE one.
+  // (An earlier draft of this line said "0 rows lose", which was wrong — the same shape
+  // of unverified measurement the paragraph above apologizes for.) All 34 losses are
+  // p91 `state-chart lr` SVG runs dropping `OL.state-nodes`/`LI.state-node` from their
+  // underlay set; `.state-chart-edges` is `position:absolute; z-index:0`, deliberately
+  // behind the node column, and every dropped paint is transparent, so no ratio moves.
   //
   // Done by GEOMETRY, deliberately not by `document.elementsFromPoint`: that hit-
   // tests in VIEWPORT coordinates, and a rendered deck is one tall document with
@@ -263,10 +302,10 @@ const PROBE = () => {
   // paints only around it still counts. Both fail toward a backdrop closer to the
   // truth than the section canvas.
   // `z-index` applies to a positioned box AND to a flex/grid ITEM, which may be
-  // `position: static` — a census of a rendered gallery found 179 such boxes
-  // (`.cell-masthead` and `FOOTER` at z=30, `.tile-progress` at z=30,
-  // `.journey-lane-dot` at z=1), every one of which an earlier cut of this ranked as
-  // layer 0. That under-estimates the run's own layer and drops it back onto the
+  // `position: static` — a census of the gated galleries found 248 / 248 / 134 such
+  // boxes (`FOOTER`, `DIV.tile-progress` and `DIV.cell-masthead`, all at z=30), every
+  // one of which an earlier cut of this ranked as layer 0. (An earlier draft of this
+  // comment said "179"; that number reproduced on no surface.) That under-estimates the run's own layer and drops it back onto the
   // DOM-order fallback — the same shape as the bug this whole function fixes.
   const paintLayer = (n) => {
     const cs = getComputedStyle(n);
@@ -274,15 +313,33 @@ const PROBE = () => {
     const zApplies = cs.position !== 'static'
       || (parent && /\b(flex|grid)\b/.test(getComputedStyle(parent).display));
     if (!zApplies) return 0;                         // in-flow background (step 4)
-    const z = cs.zIndex === 'auto' ? 0 : (parseInt(cs.zIndex, 10) || 0);
+    const auto = cs.zIndex === 'auto';
+    const z = auto ? 0 : (parseInt(cs.zIndex, 10) || 0);
     if (z < 0) return -1;                            // negative-z (step 3)
-    if (cs.position === 'static' && z === 0) return 0; // a flex item with z:auto is in-flow
-    return z === 0 ? 1 : 1 + z;                      // positioned, z auto/0 then above
+    // A static flex/grid item with `z-index: AUTO` stays in the in-flow band. An
+    // EXPLICIT `z-index: 0` on one does create a stacking context (Flexbox §5.4,
+    // Grid §6) and paints at step 8, so it must not be folded in with auto — testing
+    // `z === 0` did exactly that, because `auto` had already been normalized to 0.
+    if (cs.position === 'static' && auto) return 0;
+    return z === 0 ? 1 : 1 + z;                      // positioned/stacking, then above
   };
-  /** A box paints in the highest layer it or any ancestor up to `stop` establishes. */
+  /**
+   * A box paints in the highest layer it or any ancestor up to `stop` establishes.
+   *
+   * Seeded from the node's OWN layer, not from 0. Seeding at 0 and only `Math.max`ing
+   * made `paintLayer`'s `return -1` unreachable, which silently retired the negative-z
+   * tier: `.lattice-bg` (z=-2) and `.image-scrim` (z=-1) ranked 0 instead of below the
+   * in-flow band, so they stopped being admitted as underlays on layer alone and fell
+   * back to "must precede in the DOM". Emit a canvas fill AFTER the content and every
+   * run over it resolves to the section — a false 1.00:1, the exact class this function
+   * exists to remove. Latent today only because `.lattice-bg` happens to be emitted
+   * first; that is luck, not design.
+   */
   const stackLayer = (n, stop) => {
-    let best = 0;
-    for (let x = n; x && x !== stop; x = x.parentElement) best = Math.max(best, paintLayer(x));
+    let best = paintLayer(n);
+    for (let x = n.parentElement; x && x !== stop; x = x.parentElement) {
+      best = Math.max(best, paintLayer(x));
+    }
     return best;
   };
   /**
@@ -464,8 +521,7 @@ const PROBE = () => {
       const bg  = resolveStack(el, unders);
       const fgc = resolveStack(el, unders, fg);
       const w = parseInt(cs.fontWeight, 10) || 400;
-      // WCAG "large text": >=24px, or >=18.66px when bold (>=700)
-      const large = fs >= 24 || (fs >= 18.66 && w >= 700);
+      const large = isLarge(fs, w);
       out.push({
         page, cls, tag: el.tagName.toLowerCase(),
         text: t.slice(0, 44), fs: +fs.toFixed(1), w, large,
@@ -481,7 +537,14 @@ const PROBE = () => {
         const cs = getComputedStyle(el, pe);
         const content = cs.content;
         if (!content || content === 'none' || content === 'normal') continue;
-        if (!/[A-Za-z0-9]/.test(content)) continue;
+        // Any VISIBLE glyph counts, not just ASCII alphanumerics. `/[A-Za-z0-9]/` was a
+        // content heuristic standing in for a paints-anything question, and it silently
+        // dropped 24 real painted marks per gallery — the `❯` chevrons, `·` separators,
+        // `✦`/`✧` stars, `›`, `↻`, `→`, `—` and curly quotes this engine draws in
+        // pseudo-elements — plus any non-Latin label. Their ink could be regressed to any
+        // ratio unmeasured. `content: ""` and pure-punctuation-free whitespace still drop.
+        const glyphs = content.replace(/^["']|["']$/g, '').trim();
+        if (!glyphs || glyphs === 'none' || /^[\s\u200b]*$/.test(glyphs)) continue;
         const fs = parseFloat(cs.fontSize); if (!fs) continue;
         const fg = parse(cs.color); if (!fg) continue;
         // BLIND SPOT 1: the PSEUDO's own background. A pseudo is not in the DOM, so
@@ -499,7 +562,7 @@ const PROBE = () => {
         const bg  = resolveStack(el, seed);
         const fgc = resolveStack(el, seed, fg);
         const w = parseInt(cs.fontWeight, 10) || 400;
-        const large = fs >= 24 || (fs >= 18.66 && w >= 700);
+        const large = isLarge(fs, w);
         out.push({
           page, cls, tag: el.tagName.toLowerCase() + pe,
           text: content.replace(/^"|"$/g, '').slice(0, 44), fs: +fs.toFixed(1), w, large,

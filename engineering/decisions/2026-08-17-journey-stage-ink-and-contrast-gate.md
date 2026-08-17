@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The `journey` stage ribbon painted 92%-white labels on a fill that is only dark on one of the three canvases it renders on — 1.87:1 in indaco, and 31 of 64 palette x scheme pairs below the 3:1 floor, EVERY light-mode pair. Two fixes were legitimate (darken the ink, or push the fill dark); the ink won, because the fill is canvas-derived by construction and `section.print` had already made exactly this fix one layer down by remapping `--on-dark-primary` to print's heading ink. Print output is byte-identical (verified on a real print render); dark mode was never the defect but is NOT unchanged either - 17 palettes now use their own tinted heading ink and 10 of 64 rows lose a little contrast at an altitude where it cannot matter (worst 15.26 -> 14.09, lowest dark row 11.30). Then the follow-through from `2026-08-17-dark-surface-ink.md` - `tools/check-slide-contrast.js` becomes a per-PR gate over three rendered galleries, with a two-entry allowlist that fails both ways. Adjudicating the 8 "prober artifacts" that gate was scoped to absorb found that 4 were a bug IN THE PROBER, not an inherent limit - it approximated paint order by DOM order and discarded a split rail as the backdrop for chrome emitted before it. Fixed instead of allowlisted; the allowlist is 2 entries, not 8. The predecessor record's explanation of those 4 runs (sibling-not-ancestor) was ALSO wrong and is corrected there.
+summary: The `journey` stage ribbon painted 92%-white labels on a fill that is only dark on one of the three canvases it renders on — 1.87:1 in indaco, and 31 of 64 palette x scheme pairs below the 3:1 floor, EVERY light-mode pair. Two fixes were legitimate (darken the ink, or push the fill dark); the ink won, because the fill is canvas-derived by construction and `section.print` had already made exactly this fix one layer down by remapping `--on-dark-primary` to print's heading ink. Print output is byte-identical (verified on a real print render); dark mode was never the defect but is NOT unchanged either - 17 palettes now use their own tinted heading ink and 10 of 64 rows lose a little contrast at an altitude where it cannot matter (worst 15.26 -> 14.09, lowest dark row 11.30). Then the follow-through from `2026-08-17-dark-surface-ink.md` - `tools/check-slide-contrast.js` becomes a per-PR gate over three rendered galleries, with a two-entry allowlist that fails both ways. Adjudicating the 8 "prober artifacts" that gate was scoped to absorb found that 4 were a bug IN THE PROBER, not an inherent limit - it approximated paint order by DOM order and discarded a split rail as the backdrop for chrome emitted before it. Fixed instead of allowlisted; the allowlist is 2 entries, not 8. The predecessor record's explanation of those 4 runs (sibling-not-ancestor) was ALSO wrong and is corrected there. Then the adversarial trio found the gate did NOT measure what its title claimed, twice over: WCAG's large-text line was being applied in DECK pixels (a 3840px slide exports to a 960pt page, so 24px was a 6pt cutoff), grading 68.6% of runs at 3:1 instead of 4.5:1 and passing 14 real AA failures - one of them `journey`'s own mood legend at 3.78:1, which the repo had ALREADY withdrawn this reasoning for in register entry G13. And 21.6% of runs were skipped before any assertion because their ink matched the `--text-muted`/`--border` tier, which a red team exploited two ways (soften the token: 297 runs to 1.17:1; or just point a component's ink at it) with every gate in the repo green. Both closed; the tier is now held to a 3:1 floor AND its size pinned. The backlog ratchet was reversed to ceiling-only after the inversion measured that failing-downward would red unrelated PRs for improving the repo.
 builds-on: 2026-08-17-dark-surface-ink.md, 2026-08-11-on-dark-ink-tiers.md, 2026-07-03-semantic-html-accessibility.md
 ---
 
@@ -72,7 +72,7 @@ did:
    would put the fill in direct conflict with a print band that deliberately makes
    that surface light.
 3. **Option (2) is a much larger visual change.** It turns a calm tinted ribbon
-   into a near-black band on every light deck, to fix a text colour.
+   into a near-black band on every light deck, to fix a text color.
 
 **Decision: `--journey-stage-fg: var(--text-heading)`.** It is also the honest
 ROLE token — the stage bar heads the group of task chips beneath it — and the
@@ -94,7 +94,7 @@ The two tokens are different values on every palette: `--on-dark-primary` is whi
 at 92% alpha, `--text-heading` on a dark canvas is the theme's own heading ink —
 pure white on 15 palettes and a deliberately tinted off-white on 17 (burgundy
 `#f0e2ce`, mustard `#f0e5c8`, brina `#e6edf4`, …). So 17 palettes now ink the stage
-label with the same colour as every other heading on the slide instead of neutral
+label with the same color as every other heading on the slide instead of neutral
 white, which is a small improvement in theme coherence rather than a cost.
 
 Ten of the 64 rows lose a little contrast as a result. Measured, worst first:
@@ -177,7 +177,7 @@ number (the galleries are long-running and their slides move, HARD RULE #8):
 
 Both fail both ways: an un-exempt failure errors, **and** an entry matching nothing
 errors as stale. A fourth test caps the share of runs the exemptions may absorb, so
-broadening a matcher cannot quietly restore the budget behaviour the allowlist
+broadening a matcher cannot quietly restore the budget behavior the allowlist
 exists to avoid.
 
 **Genuine failures attributable to any change on this branch: zero.**
@@ -202,10 +202,12 @@ in; HARD RULE #17 says do not bolt a second feature onto this PR.
 
 But a gate that cannot go green is not a gate, so they cannot simply be ignored either.
 `PREEXISTING_CONTRAST_BACKLOG` resolves that with the shape HARD RULE #21's US-English
-gate already uses for a tracked migration backlog: **exact per-surface counts that fail
-in both directions.** Up means a regression. Down means someone fixed one and left the
-ceiling high, which would let the next regression slip in underneath it — so that fails
-too, with an instruction to lower the number. An entry at zero must be deleted.
+gate already uses for a tracked migration backlog — an **exceed-only ratchet**, here
+itemized to per-surface, per-tag ceilings. Growth fails. Progress prints and invites
+lowering the number rather than failing, because an unrelated PR that *improves* the
+repo must not be reded for it (see the trio section — `agenda li` sits 0.03 from its
+floor). An entry that reaches zero is stale and must be deleted, which is what forces
+the ratchet to close rather than idle.
 
 This is deliberately *not* the "bare numeric budget" the handoff ruled out. Nothing is
 absorbed anonymously: each entry names its component, its CSS rule, the design question
@@ -233,7 +235,101 @@ measurement, and so does a decision record's. Both have now been corrected in
 place, and the prober's header says outright that it should not be trusted over a
 render — including that paragraph.
 
-## What the independent checker found (HARD RULE #25 maker-checker)
+## What the adversarial trio found, and why it was escalated to (HARD RULE #25)
+
+The single checker below found four defects, one of which was that the gate's own
+exemption could absorb a real regression. **A lens finding "this gate can be fooled" is
+the trigger for more lenses, not fewer** — so the work escalated to the full trio (red
+team · Munger inversion · a second independent checker), scoped to the gate and the
+prober rather than the one-token CSS fix. It found that the gate, as first written,
+**did not measure what its title claimed**, in two large ways that two independent lenses
+reached from opposite directions.
+
+### The large-text threshold was off by 4×
+
+`PROBE` applied WCAG's large-text line — 18pt, or 14pt bold — to a font size read off a
+slide that lays out at **3840 CSS px** and exports to a **960pt** page (`pdfinfo` on any
+deck: `Page size: 960 x 540 pts`). That is **4 deck-px per point**, so the file's `fs >= 24`
+was a **6pt** cutoff. Measured: **2667 of 3888 runs (68.6%)** were graded at 3:1 where
+WCAG requires 4.5:1, and **14 runs that genuinely fail AA were passing** — including
+`journey`'s own mood legend at **3.78:1**. The gate built to stop `journey` contrast
+regressions was passing a live `journey` AA failure sitting beside the one it fixed.
+
+**The repo had already ruled on this and the ruling was not applied.** Register entry
+**G13** in `2026-07-03-semantic-html-accessibility.md` withdraws exactly this reasoning:
+*"that reassurance is a page-box artifact and IS WITHDRAWN … the slide canvas is nominally
+3840 CSS px wide, so the chrome's 43.4px clears WCAG's 24px large-text line ONLY in canvas
+units … Nothing about the way a human sees it is 'large'."* This change edits the register
+row directly beneath G13 and cites G13 by number — and imported half of it. Now fixed:
+`isLarge` converts 18pt/14pt-bold into deck units.
+
+Of the 14 runs it surfaced, one is `journey`'s and was fixed here (the mood legend carried
+`opacity: 0.75` over `--text-secondary`; small-caps and letter-spacing already carry the
+de-emphasis, so the wash was buying nothing and costing legibility). The other three
+components go to the backlog.
+
+### A fifth of all runs were excluded before any assertion ran
+
+`PROBE` marks any run whose composited ink equals the resolved `--text-muted` or
+`--border` as `exempt`, and every assertion skipped those **first** — before the exemption
+list, the backlog, and the share cap. That is **841 of 3888 runs (21.6%)**.
+
+The red team turned it into two working attacks, both green on every gate in the repo:
+
+1. **Soften the token.** One line in `themes/indaco.css` put **297 runs at 1.17:1** — wifi
+   field labels and logo-wall captions visibly gone from the render. `npm test`,
+   `build:check`, the palette suite and this gate all passed.
+2. **Adopt the token.** No theme edit at all: point a component's ink at `--text-muted`
+   (one `var()` swap) and its runs leave the measured population at ~4.10:1, above any
+   floor. `glossary td` dropped 14 body runs out of the gate silently.
+
+The "chrome only" justification — stated in three places — is also false: **136 of 330**
+exempt runs are real content, and 44 `color: var(--text-muted)` sites exist across 31
+components.
+
+`EXEMPT_TIER_FLOOR` closes both. The tier may sit under the 4.5:1 TEXT threshold by
+palette contract (that is what the contract means), but nothing in it may fall through the
+**3:1 graphical floor**, and **the tier's size is pinned** — because an opt-out from
+measurement that can grow silently is not an exemption, it is a hole. Both attacks now
+fail. The recorded numbers (14/14/12 below the floor; 333/333/184 in the tier) are
+themselves a backlog on #1717.
+
+### The other trio findings, all folded in
+
+- **`stackLayer` had destroyed the negative-z tier** — seeded at `0` and only `Math.max`ed,
+  making `paintLayer`'s `return -1` dead code, so `.lattice-bg` (z=−2) and `.image-scrim`
+  (z=−1) stopped being admitted as underlays on layer alone. Latent only because they
+  happen to be emitted first. A regression this branch introduced; fixed.
+- **`z-index: 0` on a static flex item** creates a stacking context (Flexbox §5.4) but was
+  folded in with `auto` because `auto` had already been normalized to `0`. Fixed.
+- **The pseudo-element filter dropped 24 painted glyphs per gallery** (`❯ · ✦ › ↻ →` and
+  curly quotes) by testing for ASCII alphanumerics. Fixed — which immediately surfaced a
+  660px decorative `"` on `split-panel pullquote`, now a sanctioned ornament.
+- **The count ledger ignored a typo'd surface key**: `'gallery @ TYPO': { div: 99 }` passed
+  silently. Now every recorded key must name a live surface and every live surface must be
+  recorded.
+- **The backlog ratchet was reversed from both-ways to ceiling-only.** The inversion
+  measured the cost: `agenda li` sits at **2.97:1** against a 3:1 floor, so the first token
+  retune that *improves* the repo would red an unrelated PR and hand its author a 400-line
+  contrast policy to edit. Twice, and "just bump the number" becomes folk wisdom. Growth
+  still fails; progress prints; zero forces deletion.
+- **Three of my own measurement claims did not reproduce** and are corrected in place:
+  "0 rows lose a backdrop" (34 do), "ZERO composite two" (two mixed-color composites are
+  live on `redline` p105), and "a census found 179 such boxes" (248/248/134). Writing
+  those is the same failure this record spends its length warning about, committed by the
+  record — which is why they are corrected rather than quietly dropped.
+- **A false precedent claim**: this ratchet was described as "the same shape as HARD RULE
+  #21's US-English ratchet". `checkUsEnglish` is exceed-only against a single global
+  budget; the first cut here was per-tag and failed downward. Ceiling-only actually *is*
+  #21's shape now, so the sentence is finally true — but it was borrowed authority when
+  written.
+
+Two objections the inversion was sent to make and could not sustain, worth recording
+because they were my own worries: the **CI cost** (48s standalone inside a 617s tier whose
+critical path is 371s — marginal wall clock ≈ 0) and **gallery churn** (`gallery.md`: 1
+commit in 12 months; `agenda`/`kanban` styles: 0 in 6).
+
+## What the first independent checker found (HARD RULE #25 maker-checker)
 
 Four real defects, all in work this branch authored, all fixed here. Worth listing
 because two of them were *over-claims in prose that the code did not support* — the
@@ -292,7 +388,7 @@ four unit assertions bite.
   per-pixel sampling of the decoded image behind each glyph.
 - **Not re-verified on the PDF rasterizer.** Everything here is measured on the
   rendered DOM in Chromium. The `journey` stage ribbon is plain CSS `background` +
-  `color`, so no rasterizer-specific behaviour is expected, but the claim is DOM-
+  `color`, so no rasterizer-specific behavior is expected, but the claim is DOM-
   scoped (HARD RULE #23).
 
 ## Observed, not fixed (found-not-caused, off-path)

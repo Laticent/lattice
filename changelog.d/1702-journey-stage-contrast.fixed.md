@@ -21,12 +21,27 @@
   — a later, in-flow sibling — was discarded as the backdrop for out-of-flow chrome
   emitted before it, scoring four headers at 1.00:1 that render in white on a dark rail.
   Paint order is now ranked by CSS painting layer first, DOM order within a layer. Runs
-  sitting over a raster or gradient backdrop are flagged rather than silently scored
-  against the paint behind the picture.
+  sitting over a `url()` raster backdrop are flagged rather than silently scored against
+  the paint behind the picture — gradients are deliberately not flagged, because this
+  engine draws rules with them and a gradient-inclusive net was wide enough to hide a
+  real regression.
 - **Changed: two pre-existing contrast defects are now tracked instead of invisible.**
   #1704 taught the prober to read element `opacity` but never re-measured the rendered
   galleries, so `agenda progress-*` and `kanban` de-emphasis washes have been putting
   real text below AA on `main` unseen. They are a design call on those components
   rather than part of this change, so the new gate carries them as an itemized ratchet
-  with exact per-surface counts that fail if the backlog grows AND if it shrinks
-  without the number being lowered. Tracked as #1717.
+  with per-surface, per-tag ceilings: growth fails the build, progress prints and invites
+  lowering the number, and an entry that reaches zero must be deleted. Tracked as #1717.
+- **Fixed: the contrast prober applied WCAG's large-text line in DECK pixels.** A slide
+  lays out at 3840px and exports to a 960pt page — 4 deck-px per point — so the 24px
+  cutoff was really 6pt, and 68.6% of runs were held to 3:1 where WCAG requires 4.5:1.
+  It now converts 18pt/14pt-bold into deck units. That surfaced a real `journey` defect
+  (the mood legend's PAIN/DELIGHT labels at 3.78:1, fixed by dropping an opacity wash)
+  and three pre-existing ones now tracked on #1717. The prober also stopped dropping
+  pseudo-element glyphs with no ASCII alphanumerics, which had hidden 24 painted marks
+  per gallery.
+- **Added: the WCAG-exempt decorative ink tier is no longer invisible.** Runs inked with
+  `--text-muted` / `--border` are skipped before every contrast assertion — 21.6% of all
+  runs, and an adversarial review softened that token by one line to put 297 runs at
+  1.17:1 with every gate still green. The tier is now held to the 3:1 graphical floor,
+  and its size is pinned, so re-pointing real text into it fails the build.
