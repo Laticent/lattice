@@ -781,7 +781,20 @@ function renderGrammarJson(manifests) {
  * to carry everything the pick actually needs, or it just adds a hop.
  */
 function renderPickMd(manifests) {
-  const cell = (s) => String(s ?? '').replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim();
+  // Backslash FIRST, then pipe — escaping the pipe alone is incomplete (CodeQL
+  // caught it). The demonstrated consequence is not a broken row, which is what I
+  // assumed first and could not reproduce against a real parser: it is that the cell
+  // silently MISREPORTS the manifest. A purpose of `a \| b` rendered as `a | b`, and
+  // `a \\ b` as `a \ b` — the backslash was consumed as an escape, so the pick list
+  // showed prose the manifest never wrote. Escaping in the other order is
+  // self-defeating for the same reason: it would re-escape the backslashes the pipe
+  // rule just added.
+  const cell = (s) =>
+    String(s ?? '')
+      .replace(/\s+/g, ' ')
+      .replace(/\\/g, '\\\\')
+      .replace(/\|/g, '\\|')
+      .trim();
   const clamp = (s, n) => (s.length <= n ? s : `${s.slice(0, n - 1).replace(/\s+\S*$/, '')}…`);
 
   const rows = manifests.map((m) => {

@@ -101,14 +101,37 @@ describe('components.pick.md', () => {
     }
   });
 
-  // A raw `|` in manifest prose would split a row into extra columns and shift every
-  // fact after it into the wrong header — capacity read as tags, silently.
-  test('a pipe in prose is escaped rather than breaking the table', () => {
-    const fake = [{ ...manifests[0], name: 'pipe-test', purpose: 'Use for a | b choices', tags: ['x'] }];
-    const row = renderPickMd(fake).split('\n').find((l) => l.startsWith('| pipe-test '));
-    assert.ok(row, 'the fixture row should render');
-    assert.equal(cells(row).length, 7, 'the row must still have exactly 7 cells');
-    assert.match(row, /Use for a \\\| b choices/);
+  // Escaping is verified by RENDERING, not by a regex opinion about the source. The
+  // first version of this test split on unescaped pipes and passed while the escaper
+  // was incomplete — CodeQL found what the test could not. The contract that actually
+  // matters: what a reader SEES is what the manifest wrote.
+  describe('cell escaping — round-tripped through a markdown parser', () => {
+    const MarkdownIt = require('markdown-it');
+    const md = new MarkdownIt();
+    const renderedPurpose = (purpose) => {
+      const table = renderPickMd([{ ...manifests[0], name: 'esc-test', purpose, tags: ['x'] }]);
+      const html = md.render(table.slice(table.indexOf('| component')));
+      const tds = [...html.matchAll(/<td>(.*?)<\/td>/gs)].map((m) => m[1]);
+      return { count: tds.length, purpose: tds[tds.length - 1] };
+    };
+
+    const cases = [
+      ['a bare pipe', 'Use for a | b choices'],
+      ['an escaped pipe', String.raw`Use for a \| b choices`],
+      ['a lone backslash', String.raw`A windows path C:\dir`],
+      ['a double backslash', String.raw`Escaped \\ backslash`],
+      // NB: a template literal cannot END in a backslash — the lexer reads it as
+      // escaping the closing backtick — so this one is built as an ordinary string.
+      ['a trailing backslash', 'Ends with one \\'],
+    ];
+
+    for (const [label, input] of cases) {
+      test(`${label} keeps the row intact and renders verbatim`, () => {
+        const { count, purpose } = renderedPurpose(input);
+        assert.equal(count, 7, `${label}: the row must still have exactly 7 cells`);
+        assert.equal(purpose, input, `${label}: the reader must see what the manifest wrote`);
+      });
+    }
   });
 
   test('rendering is deterministic', () => {
