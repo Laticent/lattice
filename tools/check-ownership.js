@@ -8184,6 +8184,168 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
   }
 }
 
+// ─── a11y syntax separation UNDER the condition (#1715) ────────────────────
+//
+// `checkHljsContrast` holds every `--hljs-*` to AA against `--code-bg`, and on the
+// four `a11y-*` palettes it PASSED the whole time — every inherited value cleared
+// the floor comfortably. Contrast was never what was wrong there.
+//
+// What was wrong is that two colors can both clear contrast and still be the SAME
+// COLOR to the reader the palette exists for. Until #1715 the four declared no
+// syntax family at all, so `a11y-base`'s import of `onyx` gave them onyx's:
+// `--hljs-string` green at hue 144° beside `--hljs-keyword` red at 17° — the
+// red-green axis `a11y-deuteranopia` and `a11y-protanopia` are named for. Measured
+// through the simulation, 17 of 55 role pairs on deuteranopia were distinct to a
+// normal-sighted reader and collapsed under the condition; 19 of 55 on
+// achromatopsia, where hue carries nothing at all.
+//
+// So this gate measures the SIMULATED values, which no existing gate did:
+// `tools/cvd-audit.js` covers the categorical cycle and the status trio but not
+// the syntax family, and it has never had an achromatopsia arm at all.
+const A11Y_SYNTAX_CONDITIONS = Object.freeze([
+  { theme: 'a11y-deuteranopia', condition: 'deuteranopia' },
+  { theme: 'a11y-protanopia', condition: 'protanopia' },
+  { theme: 'a11y-tritanopia', condition: 'tritanopia' },
+  { theme: 'a11y-achromatopsia', condition: 'achromatopsia' },
+]);
+
+/** The twelve roles a palette declares. `.hljs-meta` and `.hljs-name` are not
+ *  separate tokens — highlight-js.css routes them to `--hljs-type` / `--hljs-tag`. */
+const HLJS_ROLES = Object.freeze(['comment', 'keyword', 'built_in', 'number', 'literal',
+  'string', 'title', 'type', 'variable', 'params', 'tag', 'punctuation']);
+
+/**
+ * PINNED LITERALS, not imported from whatever produced the values — a floor that
+ * moves with its producer cannot fail for the reason that matters (#1720 §5, where
+ * a gate reusing the recipe's own constants tolerated a 3.2x weakening).
+ *
+ * Two floors because the two conditions are structurally different, and one number
+ * covering both would be the weaker of the two everywhere:
+ *
+ *   DICHROMACY — two axes survive (lightness, plus position on the one chromatic
+ *   axis the condition leaves), so the families are spaced on both. Measured today:
+ *   deuteranopia 0.1194, protanopia 0.1143, tritanopia 0.1285.
+ *
+ *   MONOCHROMACY — only lightness survives, so six roles plus `--code-text` share
+ *   one axis and the ceiling is arithmetic. Measured today: 0.0511.
+ *
+ * Both are far above `checkCatContrast`'s 0.010 collapse floor and the syntax
+ * tier's own 0.035 MIN_DIST; neither reaches the 0.15 `tools/cvd-audit.js` uses for
+ * CATEGORICAL distinctness, which is a bar for large flat areas of color rather
+ * than for small text carrying italics and language structure as well.
+ */
+const HLJS_SEP_FLOOR_DICHROMACY = 0.11;
+const HLJS_SEP_FLOOR_MONOCHROMACY = 0.048;
+
+/**
+ * comment and punctuation are BOTH quiet by design, so holding them to the floor
+ * above would be asking the palette to make its two de-emphasis roles shout at
+ * each other. They are not exempt, though: `checkHljsContrast` polices exactly
+ * that pair by name against the repo's 0.010 collapse floor, after an earlier
+ * change lifted both to the same AA target and merged them into one gray in eight
+ * palettes. That gate owns the pair; this one steps aside rather than duplicating
+ * it with a second, different number (HARD RULE #15).
+ */
+const HLJS_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
+
+function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
+  const { simulate } = require('../lib/theme/cvd.js');
+  const { oklabDistance } = require('../lib/theme/color.js');
+  let compared = 0;
+
+  for (const { theme, condition } of A11Y_SYNTAX_CONDITIONS) {
+    const file = path.join(themesDir, `${theme}.css`);
+    if (!fs.existsSync(file)) {
+      errors.push(`checkHljsSeparation: themes/${theme}.css is missing — the gate cannot run.`);
+      continue;
+    }
+    // The EMITTED file, flattened through its @import chain — the same reader
+    // checkHljsContrast uses, so the two cannot disagree about what a palette says.
+    const map = catParseTokens(catPaletteSource(theme, new Set(), themesDir));
+    // These palettes are mode-invariant (a11y-base pins color-scheme: light), so
+    // 'light' is the only mode that renders. Asking for it explicitly rather than
+    // looping both keeps the gate honest about what it measured.
+    const mode = 'light';
+
+    // EVERY ROLE THE PALETTE MUST DECLARE ITSELF. Before #1715 these resolved
+    // through the a11y-base -> onyx import, which is exactly the defect; so a role
+    // that is not declared in this palette's OWN file is an error, not an inherit.
+    const own = fs.readFileSync(file, 'utf8');
+    const missing = HLJS_ROLES.filter((r) => !new RegExp(`--hljs-${r}\\s*:`).test(own));
+    if (missing.length) {
+      errors.push(
+        `themes/${theme}.css declares no --hljs-${missing.join(', --hljs-')} of its own, so it `
+        + "inherits onyx's syntax family through a11y-base — the red-green pair this palette "
+        + 'exists to avoid (#1715).');
+      continue;
+    }
+
+    // The panel, and the UN-highlighted text on it. A syntax role that collides
+    // with `--code-text` is as unreadable as two roles colliding, so it is a FIXED
+    // member of the set rather than a bystander.
+    const bg = catResolve(map, '--code-bg', mode);
+    const codeText = catResolve(map, '--code-text', mode);
+    // FAIL CLOSED on an operand we cannot read. `oklabDistance` on an unparseable
+    // value throws, and a `try`-wrapped skip would make the gate pass while
+    // measuring nothing — the shape #1720 had to repair in checkSyntaxInkContrast.
+    if (!bg || !codeText) {
+      errors.push(
+        `checkHljsSeparation: ${theme} — could not resolve `
+        + `${!bg ? '--code-bg' : '--code-text'} to a hex, so nothing can be measured against it.`);
+      continue;
+    }
+
+    const vals = new Map([['code-text', codeText]]);
+    let unresolved = null;
+    for (const role of HLJS_ROLES) {
+      const hex = catResolve(map, `--hljs-${role}`, mode);
+      if (!hex) { unresolved = role; break; }
+      vals.set(role, hex);
+    }
+    if (unresolved) {
+      errors.push(`checkHljsSeparation: ${theme} — --hljs-${unresolved} does not resolve to a hex.`);
+      continue;
+    }
+
+    const floor = condition === 'achromatopsia'
+      ? HLJS_SEP_FLOOR_MONOCHROMACY : HLJS_SEP_FLOOR_DICHROMACY;
+    const entries = [...vals];
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const [na, ha] = entries[i];
+        const [nb, hb] = entries[j];
+        // Roles the palette makes DELIBERATELY identical are not a collapse — they
+        // are the design (a twelve-way color distinction does not survive a
+        // dichromacy). Only pairs the palette claims are different are measured.
+        if (ha.toLowerCase() === hb.toLowerCase()) continue;
+        // The two quiet roles are checkHljsContrast's to police; see HLJS_QUIET_PAIR.
+        if (HLJS_QUIET_PAIR.includes(na) && HLJS_QUIET_PAIR.includes(nb)) continue;
+        compared++;
+        const d = oklabDistance(simulate(ha, condition), simulate(hb, condition));
+        if (!(d >= floor)) {
+          // `--code-text` is in the set but is NOT an --hljs-* token, so it gets its
+          // own name in the message rather than a fabricated `--hljs-code-text`.
+          const nameOf = (n) => (n === 'code-text' ? '--code-text' : `--hljs-${n}`);
+          errors.push(
+            `${theme}: ${nameOf(na)} (${ha}) and ${nameOf(nb)} (${hb}) are different colors that `
+            + `render ΔE ${d.toFixed(4)} apart UNDER ${condition} — below the ${floor} floor. `
+            + 'Two colors that both clear contrast can still be the same color to the reader this '
+            + 'palette is for (#1715).');
+        }
+      }
+    }
+  }
+
+  // ANTI-VACUOUS. Every arm above `continue`s on a problem it reports, so a broken
+  // reader could report one error and zero comparisons; a run that measured nothing
+  // is a failure whatever else it said.
+  if (compared < 20) {
+    errors.push(
+      `checkHljsSeparation made only ${compared} comparison(s) across `
+      + `${A11Y_SYNTAX_CONDITIONS.length} palettes — it should make dozens, so the scan is broken.`);
+  }
+}
+
 // ─── Phantom token reads (#1715) ───────────────────────────────────────────
 //
 // A token READ that no palette declares and no code writes. `--ink` was read four
@@ -9098,6 +9260,7 @@ function run() {
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
+  checkHljsSeparation(errors);
   return {
     errors,
     counts: {
@@ -9157,6 +9320,9 @@ module.exports = {
   ledgerContractProblems,
   fallbackHops,
   checkPhantomTokenReads,
+  checkHljsSeparation,
+  A11Y_SYNTAX_CONDITIONS,
+  HLJS_ROLES,
   engineDeclaredTokens,
   runtimeWrittenTokens,
   AUTHOR_SET_ENGINE_TOKENS,

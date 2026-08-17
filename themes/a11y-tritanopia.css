@@ -34,4 +34,57 @@
   --chart-state-warn: #B05139;
   --chart-state-fail: #6b1667;
   --diagram-critical: #6b1667;
+
+  /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
+   * Until now this palette declared NONE, so a11y-base's import of onyx handed
+   * it onyx's whole family: --hljs-string green at hue 144 deg beside
+   * --hljs-keyword red at 17 deg. That pair sits on the very red-green axis this
+   * palette exists to avoid. #1720 routed the Studio's EDITOR around it; a deck
+   * rendered on this palette still got the green strings.
+   *
+   * CONTRAST WAS NEVER THE PROBLEM. Every inherited value already cleared AA on
+   * this panel, which is why checkHljsContrast passed the whole time. SEPARATION
+   * UNDER THE CONDITION was: 3 of 55 role pairs were distinct to a
+   * normal-sighted reader and collapsed for the reader this palette is for, the
+   * worst at dE 0.0224. Two colors can both clear contrast and still be the
+   * same color to the person reading them.
+   *
+   * THE PANEL IS AN INVERTED SURFACE, which decides the seeds. --code-bg
+   * resolves to --surface-inverse (#000000, inherited from onyx) while this
+   * palette forces color-scheme:light — so these are built from the DARK side of
+   * its curated status pair, not the light side the rest of the palette renders.
+   * The light-mode --pass (#004982 on deuteranopia) would be 1.5:1 here.
+   *
+   * SIX GROUPS, NOT TWELVE. A twelve-way color distinction does not survive a
+   * dichromacy and certainly not achromatopsia; inventing one is the defect, not
+   * the fix. Roles that cannot be told apart under this condition are made
+   * DELIBERATELY identical rather than accidentally so, and the six that remain
+   * are spaced on the axes that do survive: green 150 deg / red-orange 35 deg — the pair this palette already curates as --pass / --warn, plus lightness.
+   * comment and punctuation are both quiet but NOT equal — checkHljsContrast
+   * polices that pair by name, after an earlier change collapsed them into one
+   * gray in eight palettes.
+   *
+   * --code-text (#D9D9D9, the panel's UN-highlighted text) is a FIXED member of
+   * the separation set: a role that collides with it is as unreadable as two
+   * roles colliding, and an earlier cut of this ladder put the string row two hex
+   * digits off it.
+   *
+   * Measured on THESE values, simulated: worst pair dE 0.1285
+   * (numeric/code-text), against 0.0224 for what was inherited. Lowest contrast on
+   * the panel 4.62:1. Gated by checkHljsSeparation, which
+   * measures the SIMULATED values — no existing gate did. .hljs-comment,
+   * .hljs-built_in and .hljs-title also carry font-style:italic from
+   * highlight-js.css, a second channel that survives every condition. */
+  --hljs-comment:     #767676;   /* comment */
+  --hljs-keyword:     #4FCE74;   /* structure */
+  --hljs-built_in:    #4FCE74;   /* structure */
+  --hljs-number:      #7DFA9D;   /* numeric */
+  --hljs-literal:     #7DFA9D;   /* numeric */
+  --hljs-string:      #FFAF9A;   /* string */
+  --hljs-title:       #4FCE74;   /* structure */
+  --hljs-type:        #F36F4E;   /* identifier */
+  --hljs-variable:    #F36F4E;   /* identifier */
+  --hljs-params:      #F36F4E;   /* identifier */
+  --hljs-tag:         #4FCE74;   /* structure */
+  --hljs-punctuation: #898989;   /* punctuation */
 }
