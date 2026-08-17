@@ -115,17 +115,20 @@ maximum viewer compatibility). If a recipient needs an *editable* PPTX
 (real text boxes, not an image), that's out of scope for this exporter —
 Lattice's PPTX output is a presentation artifact, not an authoring one.
 
-## 4a. PDF output is byte-reproducible
+## 4a. CLI PDF output is byte-reproducible
 
-Rendering the same deck twice writes the **same bytes** — so re-blessing a
-golden that did not visually change adds nothing to git, and `git diff` on a
-committed PDF means the picture actually moved.
+Rendering the same deck twice **on the same machine** writes the same bytes — so
+re-blessing a golden that did not visually change adds nothing to git, and `git
+diff` on a committed PDF means the picture actually moved.
 
 What made it churn was the wall clock: `/CreationDate` and `/ModDate` carried
 the render time, and four differing bytes in 1.5 MB is a whole new blob as far
 as git is concerned. Both fields are now pinned to the Unix epoch by
-`lib/core/pdf-timestamps.js`, on every PDF path — vector, `--raster`/`--paper`,
-and the `--notes` / `--present` / `--embed-source` post-passes.
+`lib/core/pdf-timestamps.js`, on every PDF path the **CLI** writes — vector,
+`--raster`/`--paper`, and the `--notes` / `--present` / `--embed-source`
+post-passes. The docs-site Studio's export is a different producer (jsPDF, in a
+browser worker) and is **not** pinned; its output is a user download, never a
+committed golden.
 
 Set `SOURCE_DATE_EPOCH` (the [reproducible-builds][rb] convention) to stamp a
 real date instead, and still get stable bytes:
@@ -136,11 +139,19 @@ SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice-emulator.js deck.md ou
 
 [rb]: https://reproducible-builds.org/specs/source-date-epoch/
 
-**This is same-machine reproducibility.** Skia's rasterization is
-CPU-dispatched and not bit-identical across hosts, so a golden blessed on
-another machine still differs by ~0.4–2% of pixels — which is why
-`tools/regression-gate.mjs` compares pixels with a tolerance rather than bytes,
-and why it stays a local spot-check instead of a CI gate.
+**This is same-machine reproducibility, and the cross-machine gap is much bigger
+than people expect.** Skia's rasterization is CPU-dispatched and not
+bit-identical across hosts, so a golden blessed on another machine still
+differs — measured on one sandbox against the committed deck goldens, most sit
+under 2% but **29 decks exceed 5%, one reaches 64%, and one re-paginates
+entirely** (auto-split is height-driven, so it flips when font metrics shift).
+That is why `tools/regression-gate.mjs` compares pixels with a tolerance rather
+than bytes, and why it stays a local spot-check instead of a CI gate.
+
+**Do not read a drift percentage as evidence of a regression** — reproduce it at
+a commit predating the suspected cause first. The numbers, the controls, and how
+that triage goes wrong are in
+`engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md` §0a.
 
 ## 5. Image set (`.zip`)
 

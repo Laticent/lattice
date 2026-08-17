@@ -13,8 +13,10 @@
 // still show up in `git diff`. As of the timestamp pin (lib/core/pdf-timestamps.js)
 // two renders on ONE machine are byte-identical, so same-machine clock churn is
 // gone — but a golden blessed on a different machine still differs, because Skia's
-// rasterization is CPU-dispatched and not bit-identical across hosts (the ~0.4–2%
-// noise floor that kept this gate out of CI). We use the git
+// rasterization is CPU-dispatched and not bit-identical across hosts. That band is
+// WIDE on the deck scope — most decks under 2%, but 29 over 5% and one at 64% with
+// a page-count flip; see 2026-06-12-p4-regression-gate-retire-marp.md §0a before
+// reading any drift number as a regression. We use the git
 // diff only as the cheap candidate filter, then rasterize and pixel-diff (the
 // same comparator + tolerance the gate uses) so the report counts only slides
 // that actually moved. A rebuild-only golden → 0 changed slides → "no visual

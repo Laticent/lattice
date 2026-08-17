@@ -68,6 +68,52 @@ describe('pinPdfTimestamps', () => {
     assert.match(out, /\(D:1970\)/);
   });
 
+  // A maker-checker finding (2026-08-17). The offset zeroing used to fire on a
+  // bare `+`/`-` and blank six bytes unconditionally, which walked out of a
+  // truncated date and into the next object — same length, so nothing complained.
+  // These are the exact byte strings that corrupted.
+  describe('a malformed offset never reaches past the date', () => {
+    test('an indirect reference after a truncated date is untouched', () => {
+      const { out } = pin("/ModDate (D:20260816213743-)9 0 R");
+      assert.equal(out, "/ModDate (D:19700101000000-)9 0 R", 'the 9 0 R reference must survive');
+    });
+
+    test('an unrelated number after a truncated date is untouched', () => {
+      const { out } = pin('/ModDate (D:2026-) 123456 more');
+      assert.equal(out, '/ModDate (D:1970-) 123456 more');
+    });
+
+    test('a hyphenated date is not mistaken for an offset', () => {
+      const { out } = pin('/ModDate (D:2026-05-05)');
+      assert.equal(out, '/ModDate (D:1970-05-05)');
+    });
+
+    test('a well-formed offset is still normalized', () => {
+      assert.match(pin("/ModDate (D:20260816213743-05'30')").out, /\(D:19700101000000\+00'00'\)/);
+    });
+  });
+
+  test('a digit run longer than a PDF date zero-fills instead of half-pinning', () => {
+    // Leaving the tail unpinned would leave exactly the churn this kernel exists
+    // to remove. Length is preserved either way.
+    const { out } = pin('/ModDate (D:2026081621374399999)');
+    assert.equal(out, '/ModDate (D:1970010100000000000)');
+  });
+
+  test('the "(" and "D:" guards each hold on their own', () => {
+    // Mutation testing showed each guard was covered only by the other.
+    assert.equal(pin('/ModDate D:20260816213743').pinned, 0, 'no opening paren');
+    assert.equal(pin('/ModDate (20260816213743)').pinned, 0, 'no D: prefix');
+    assert.equal(pin('/ModDate (Date 2026)').pinned, 0, 'D not followed by :');
+  });
+
+  test('any PDF whitespace may sit between the key and its value', () => {
+    for (const ws of [' ', '\n', '\r', '\t', '\f', '\0', '  \n\t']) {
+      const { pinned } = pin(`/ModDate${ws}(D:20260816213743+00'00')`);
+      assert.equal(pinned, 1, `whitespace ${JSON.stringify(ws)} should not hide the value`);
+    }
+  });
+
   test('leaves a date in the document body alone', () => {
     // The deck's own words are not this function's business — only values
     // introduced by the two keys are.
@@ -99,6 +145,27 @@ describe('pinPdfTimestamps', () => {
     assert.ok(src.equals(before), 'pdf-lib holds views onto the buffer it handed us');
   });
 
+  test('does not mutate a raw ArrayBuffer either', () => {
+    // `Buffer.from` copies a view but SHARES a raw ArrayBuffer, so this input
+    // shape would have been edited in place. The one plausible future caller —
+    // the Studio's `pdf.output('arraybuffer')` — produces exactly this.
+    const src = Buffer.from("/ModDate (D:20260816213743+00'00')", 'latin1');
+    const ab = src.buffer.slice(src.byteOffset, src.byteOffset + src.length);
+    const before = Buffer.from(new Uint8Array(ab));
+    const { pinned } = pinPdfTimestamps(ab);
+    assert.equal(pinned, 1, 'an ArrayBuffer should still be readable');
+    assert.ok(Buffer.from(new Uint8Array(ab)).equals(before), "the caller's ArrayBuffer must be untouched");
+  });
+
+  test('honors a typed-array view with a non-zero byteOffset', () => {
+    const padded = Buffer.concat([Buffer.alloc(8, 0xff), Buffer.from("/ModDate (D:20260816213743+00'00')", 'latin1')]);
+    const view = new Uint8Array(padded.buffer, padded.byteOffset + 8, padded.length - 8);
+    const { bytes, pinned } = pinPdfTimestamps(view);
+    assert.equal(pinned, 1);
+    assert.equal(bytes.length, view.length, 'the offset must not drag in the padding');
+    assert.match(bytes.toString('latin1'), /^\/ModDate \(D:19700101000000\+00'00'\)$/);
+  });
+
   test('survives binary stream bytes around the date', () => {
     // The real input is 1.5 MB of Flate streams; a UTF-8 round-trip would
     // mangle them. Bracket the date with every byte value and check they
@@ -123,6 +190,15 @@ describe('SOURCE_DATE_EPOCH', () => {
     for (const env of [{}, { SOURCE_DATE_EPOCH: '' }, { SOURCE_DATE_EPOCH: 'yesterday' }, { SOURCE_DATE_EPOCH: '-5' }]) {
       assert.equal(resolveEpoch(env), DEFAULT_EPOCH, `unexpected epoch for ${JSON.stringify(env)}`);
     }
+  });
+
+  test('rejects a MILLISECOND epoch rather than stamping the year 57616', () => {
+    // The classic mistake, and a finite positive number, so the old guard let it
+    // through — into a 5-digit year that cannot be written as a PDF date at all.
+    assert.equal(resolveEpoch({ SOURCE_DATE_EPOCH: '1755388800000' }), DEFAULT_EPOCH);
+    assert.equal(resolveEpoch({ SOURCE_DATE_EPOCH: '9999999999999999999' }), DEFAULT_EPOCH);
+    // The boundary itself (9999-12-31T23:59:59Z) is still honored.
+    assert.equal(resolveEpoch({ SOURCE_DATE_EPOCH: '253402300799' }), 253402300799);
   });
 
   test('an explicit epoch beats the environment', () => {
@@ -174,6 +250,19 @@ describe('pdfDateDigits', () => {
   test('is always 14 digits, in UTC', () => {
     assert.equal(pdfDateDigits(0), '19700101000000');
     assert.equal(pdfDateDigits(1750000000), '20250615150640');
-    assert.match(pdfDateDigits(1), /^\d{14}$/);
+    assert.equal(pdfDateDigits(253402300799), '99991231235959', 'the four-digit-year ceiling');
+    for (const e of [1, 59, 86399, 951782400, 4102444800]) {
+      assert.match(pdfDateDigits(e), /^\d{14}$/, `epoch ${e}`);
+    }
+  });
+
+  test('clamps an instant that would not fit in 14 digits', () => {
+    // `padStart` pads but never truncates, so without a clamp these return 15
+    // and 19 characters — and a 19-char run would overwrite five bytes of
+    // whatever follows the date.
+    for (const e of [1e15, 1000000000000, Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      assert.match(pdfDateDigits(e), /^\d{14}$/, `epoch ${e} must still be 14 digits`);
+    }
+    assert.equal(pdfDateDigits(Number.NaN), '19700101000000');
   });
 });
