@@ -28,10 +28,10 @@
    * under tritanopia is ΔE 0.190, at the light trio's own 0.188. (Base's trio scores
    * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
    * where these arms stay inert until #1527.) */
-  --pass: light-dark(#006D2F, #5CB772);
+  --pass: light-dark(#007131, #5CB772);
   --warn: light-dark(#B05139, #D7745B);
   --fail: light-dark(#6b1667, #FFADF7);
-  --chart-state-pass: #006D2F;
+  --chart-state-pass: #007131;
   --chart-state-warn: #B05139;
   --chart-state-fail: #6b1667;
   --diagram-critical: #6b1667;

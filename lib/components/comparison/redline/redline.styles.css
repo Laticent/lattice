@@ -218,7 +218,10 @@ section.redline.annotated > .cell-stage > :is(ol, ul) > li::before {
  * At the 0.78 it used to carry, its OLD label was the BINDING constraint on six
  * palettes' curated --fail — they cleared AA on every other redline surface and
  * failed only through this wash. Measured on the render, indaco's struck clause
- * here was 3.21:1 with both washes and is 5.85:1 without them. The card is already tinted, bordered, struck and
+ * here was 4.95:1 with both washes and is 6.34:1 without them, on the DEFAULT variant that
+ * every deck renders. The deepest stack — a <del> inside this card, which the CSS allows
+ * but no deck in the repo writes — went 3.21:1 to 5.85:1 on a probe deck built to reach it.
+ * The card is already tinted, bordered, struck and
  * labeled "OLD — prior text"; the de-emphasis does not need a fifth channel. */
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1) {
   background:color-mix(in srgb, var(--fail) 5%, var(--bg-alt));

@@ -81,12 +81,13 @@
    * garnet to a brighter shade that keeps AA contrast on dark canvas — and the
    * dark arm is solved against redline's own-hue band (a 12% tint OF --fail, so
    * the backdrop moves with the value), which is a stricter surface than the
-   * canvas and is what set #E48197 (#1640, tools/composed-contrast.js). */
-  --fail: light-dark(#7E2F38, #ED87B6);
+   * canvas and is what set #E784B9 — solved jointly with --warn, because clearing
+     that band alone rotated --fail into --warn under tritanopia (#1704). */
+  --fail: light-dark(#7E2F38, #E784B9);
   /* Self-curated semantic trio — warm green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
   --pass: light-dark(#2D6A3F, #6FCC4D);
-  --warn: light-dark(#925800, #F0A848);
+  --warn: light-dark(#925800, #FFC782);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

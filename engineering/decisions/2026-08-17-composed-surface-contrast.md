@@ -120,87 +120,96 @@ legibility for nothing. This is the one component change here, and it is on the 
 rather than beside it: the wash is a *term in the equation* every value below was
 solved through.
 
-## The arms that move — and the trap in the first solve
+## The arms that move — and the two traps on the way
 
-Ten palette×token arms, sixteen rows because six of them move one side of a
-`light-dark()` pair. Each is a step in OKLab with hue and chroma held where that
-was possible, sized so every surface reading the token clears its bar.
+Thirteen arms across eight palettes. Getting here took two wrong turns, and both
+are more instructive than the values.
 
-| palette | token · arm | from | to | move | what bound it |
-|---|---|---|---|---|---|
-| ardesia | `--pass` light | `#1C7A4A` | `#006639` | dL −0.066 | `<ins>` on its own 12% band |
-| ardesia | `--fail` light | `#A81E38` | `#94002A` | dL −0.056 | the CVD floor (below) |
-| brina | `--pass` light | `#1C7A4A` | `#006639` | dL −0.066 | `<ins>` on its own band |
-| brina | `--fail` light | `#A81E38` | `#94002A` | dL −0.056 | the CVD floor |
-| laguna | `--pass` light | `#197848` | `#006438` | dL −0.065 | `<ins>` on its own band |
-| laguna | `--fail` light | `#A81E38` | `#8F0028` | dL −0.066 | the CVD floor |
-| carta | `--pass` light | `#3C6B1E` | `#386618` | dL −0.017 | `<ins>` inside a `.stacked` NEW card |
-| carta | `--fail` light | `#C0283A` | `#AF102D` | dL −0.048 | `<del>` on that band over a 5% card |
-| carta | `--fail` dark | `#FF6B72` | `#FF7486` | dL +0.016, dh −6° | same, and `--warn` under protanopia |
-| magnolia | `--fail` dark | `#D27087` | `#ED87B6` | dL +0.084, dh −14° | same |
-| concrete | `--pass` dark | `#73C77C` | `#81D68A` | dL +0.046 | `<ins>` inside a `.stacked` NEW card |
-| carbone | `--pass` dark | `#5BC772` | `#73DF88` | dL +0.073 | the `kpi` pass pill on the hero tile |
-| a11y-tritanopia | `--pass` light | `#007131` | `#006D2F` | dL −0.012 | `<ins>` inside a `.stacked` NEW card |
-| onyx | `--seq-500` dark | `#B8B8B8` | `#D3D3D3` | dL +0.084 | the DERIVED `--seq-700` word fill |
-| concrete | `--seq-500` light | `#585855` | `#393937` | dL −0.116 | the DERIVED `--seq-400` word fill |
-| concrete | `--seq-500` dark | `#B8B8B5` | `#EDEDE9` | dL +0.163 | the DERIVED `--seq-700` word fill |
+| palette | arm | from | to |
+|---|---|---|---|
+| ardesia | `--pass` · `--fail` light | `#1C7A4A` · `#A81E38` | `#006540` · `#8D0027` |
+| brina | `--pass` · `--fail` light | `#1C7A4A` · `#A81E38` | `#00654A` · `#8D0027` |
+| laguna | `--pass` · `--fail` light | `#197848` · `#A81E38` | `#006647` · `#920029` |
+| carta | `--fail` light | `#C0283A` | `#8B001F` |
+| magnolia | `--fail` · `--warn` dark | `#D27087` · `#F0A848` | `#E784B9` · `#FFC782` |
+| carbone | `--pass` · `--fail` dark | `#5BC772` · `#F87171` | `#73DF88` · `#FF8482` |
+| onyx | `--seq-500` dark | `#B8B8B8` | `#D3D3D3` |
+| concrete | `--seq-500` both | `#585855` / `#B8B8B5` | `#393937` / `#EDEDE9` |
 
-`--chart-state-pass` / `-fail` move in lockstep where a palette declares them as the
-same literal (a11y-tritanopia, carta, carbone).
+`--chart-state-pass` / `--chart-state-fail` move with the trio wherever a palette
+declares them as the same literal (carta, carbone).
 
-Two honest caveats on "smallest". The steps are the smallest found on a 0.001–0.004
-dL search grid that clears **every** surface reading the token with 0.15 of headroom
-over the bar, then satisfies the CVD constraint below. A step 0.005–0.015 smaller
-would clear the regression arm alone on several arms; the headroom is deliberate,
-because the model and the render agree to about 1.5% and a value parked exactly on
-4.50 is not a value that clears.
+### Trap 1: a contrast solve that eroded a CVD pair
 
-### The trap: a contrast solve that collapsed a CVD pair
+The first cut moved each arm alone, along the OKLab lightness axis, by the
+smallest step that cleared its band. Measured afterwards through the repo's own
+`lib/theme/cvd.js` against an `origin/main` worktree, that broke something
+distant: **48 pairs lost deficiency separation and 21 ended below the 0.15
+collapse floor.** The worst was magnolia's, caused by a −14° hue rotation added to
+clear the band without closing on `--warn` in normal vision:
 
-The first version of this change moved `--pass` alone on ardesia, brina and laguna,
-along the lightness axis, by the smallest step that cleared the band. Adversarial
-review measured what that did to the palettes' own status separation, through the
-repo's own `lib/theme/cvd.js`:
+```
+magnolia|dark|warn^fail|tritanopia   0.1209 -> 0.0473   (-61%)
+```
 
-| palette | pass↔fail under protanopia |
-|---|---|
-| ardesia | 0.158 → **0.094** |
-| brina | 0.158 → **0.094** |
-| laguna | 0.152 → **0.087** |
+laguna's shipped `--pass` is recorded in `CHANGELOG.md` as *"chosen so it still
+holds the ≥0.15 protanopia pass↔fail CVD floor"* — the first solve took it to
+0.087. That is the #1181 shape: a re-tune satisfying its own surface and breaking
+a distant one through a shared channel (HARD RULE #18).
 
-The 0.15 floor is `tools/cvd-audit.js`'s own collapse threshold, and laguna's value
-was not an accident — `CHANGELOG.md` records `#197848` as *"chosen so it still holds
-the ≥0.15 protanopia pass↔fail CVD floor — 0.152 — after the AA darkening"*. Nothing
-caught it: `cvd-audit` is a report that exits 0, and `cvd-palette.test.js` covers
-only the four a11y palettes. **This is the #1181 shape exactly** — a re-tune that
-satisfies its own surface and breaks a distant one through a shared channel — and it
-would have shipped.
+**Nothing gated it, including the gate this change added for it.** `cvd-audit`
+exits 0; `cvd-palette.test.js` covers only the four a11y palettes; and the new
+`cvd-trio-floor` gate froze the **set** of pairs above the floor, so a pair
+already below it could decay without limit and a pair at 0.1584 could sit at
+0.1483. That is precisely the hole this same change keyed the contrast baseline to
+close — *"a count says nothing about an existing failure getting worse"* — applied
+to one arm and not the other. The gate now freezes distances (§ The gates).
 
-Two things came out of it. The arms are now solved as **trios**: `--fail` moves with
-`--pass` on the three brand greens (darkening both preserves the luminance gap
-protanopia reads), and where lightness alone could not do it the solve spends
-**hue** — magnolia's `--fail` needed +0.084 L *and* −14° toward magenta, staying in
-the rose family the theme's own comment names, to clear its band without closing on
-`--warn`. And there is now a gate:
-`test/unit/palette/cvd-trio-floor.test.js` freezes the **219** status pairs that are
-CVD-distinct today and fails if any collapses.
+The physical reason the naive solve fails is worth keeping: **lightness is the only
+channel a deficiency preserves.** Under tritanopia a light amber and a light pink
+are the same colour, so on a dark canvas — where the own-hue band forces `--fail`
+lighter — `--warn` has to be lifted with it or the pair closes. A `--fail`-only
+search over lightness, hue *and* chroma has **no solution** on magnolia; the joint
+search finds one immediately. Solving a trio means solving it jointly, not moving
+one token and checking the others afterwards.
 
-After the re-solve, across all 32 palettes × both modes × three deficiencies:
-**0 trio pairs newly collapsed, 8 newly distinct** (ardesia / brina / laguna
-`warn↔fail` under protanopia 0.130–0.136 → 0.181–0.189; concrete `pass↔fail`
-0.130 → 0.170).
+### Trap 2: letting surfaces nothing renders drive brand colour
+
+The deeper error, found by re-scoring every arm against its binding surface: two
+catalog entries — `redline/ins-on-new-card` and `redline/del-on-old-card`, an
+`<ins>`/`<del>` inside a `.stacked`/`.split` card — are **proactive**. The CSS
+produces them, but a scan of every deck in the repo finds **no markup that reaches
+them**. They were nonetheless forcing real, visible palette hues: `del-on-old-card`
+is what demanded magnolia's hue rotation, and `ins-on-new-card` bound most of the
+`--pass` arms.
+
+Re-scored against real surfaces only, with each value reverted to `main`, **seven of
+the original thirteen arms were needed by nothing that ships** and are reverted
+here: ardesia / brina / laguna `--fail`, carta `--pass` and `--fail` dark, concrete
+`--pass`, a11y-tritanopia `--pass` (which is back to `main` entirely). A surface
+nobody renders does not get to move a palette, and the catalog now carries a
+`proactive` flag that keeps such a surface scored and frozen while excluding it
+from the regression arm.
+
+The check that stopped this becoming a third error: `kpi/hero-pass-pill` binds most
+of what remains, and a first pass mistook it for proactive too — no deck marks a
+tile `pass`. It is not. `kpi.styles.css:295` sets `--pill-fg: var(--pass)` on
+*every* tile of the default variant, so the plain `kpi` gallery slide renders it on
+the `--accent-soft` hero. **A component can set state in CSS rather than markup**,
+so "no deck writes it" has to be checked against the stylesheet, not just the
+decks.
 
 ### The `--seq-500` anchors are not the failing value
 
-onyx and concrete are the only two palettes that curate a real gray ramp rather than
-restating base's `var(--accent)`, and both of their anchors were correct
-`light-dark()` pairs — the class #1681 fixed. What fails is `--seq-700`, which base
-derives as 45% of the way from the anchor toward **black, on either canvas**. On a
-near-black canvas that stop lands at 2.60:1 (onyx) and 2.16:1 (concrete). So the
-dark arm has to start *lighter than the ramp's own aesthetic wants*, and concrete's
-light arm has to start *darker*, because concrete's light canvas is a mid gray
-(`#B8B8B5`) that the `--seq-400` tint was washing into at 2.17:1. A pair is not
-enough; the arm has to be solved against the STOP.
+onyx and concrete are the only palettes curating a real gray ramp rather than
+restating `var(--accent)`, and both anchors were already correct `light-dark()`
+pairs. What fails is `--seq-700`, which the base derives 45% of the way toward
+**black on either canvas**: on a near-black canvas it lands at 2.60:1 (onyx) and
+2.16:1 (concrete). The dark arm therefore has to start lighter than the ramp's own
+aesthetic wants, and concrete's light arm darker, because concrete's light canvas
+is a mid gray the `--seq-400` tint was washing into. A pair is not enough; the arm
+has to be solved against the STOP. Neither anchor touches the status trio, so
+neither carries CVD risk.
 
 ## The gates
 
@@ -274,18 +283,23 @@ through `lattice-emulator.js` and measured with `check-slide-contrast.js`'s own
 probe (HARD RULE #15) — **2496 text runs per pass** — plus an independent pixel
 sampler over the 256 `<ins>` / `<del>` runs.
 
-| | probe: runs below their bar | pixels: ins/del below AA |
-|---|---|---|
-| `origin/main` | 388 / 2496 | 130 / 256 |
-| this PR, export path today | **184** | **61** |
-| this PR + the #1527 flip | **127** | **27** |
+| | probe: runs below their bar |
+|---|---|
+| `origin/main` | 388 / 2496 |
+| this change, export path today | **184** |
+| this change + the #1527 flip | **139** |
 
-**0 runs regress in any comparison.** main → this PR: 384 runs move, **204 newly
-clear their bar** (69 of them `<ins>`/`<del>` in the pixel sampler). main → this PR +
-the flip: 838 move, **261 newly clear** (103 in pixels). The worst struck run on
-`main` is concrete-dark's `.stacked` `<del>` at **2.31:1**; it is 3.32 after, 3.54
-with the flip. indaco's `.stacked` clause: **3.21 → 5.85** on the export path today,
-5.14 with the flip.
+**main → this change: 384 runs move, 0 regress, 204 newly clear their bar.** The
+struck clause on the default `redline` variant — the one every deck renders — goes
+**4.95 → 6.34** in sampled pixels on indaco, and a11y-achromatopsia's `.stacked`
+`<del>` goes 3.13 → 5.71.
+
+**Under the #1527 flip: 820 runs move, 53 newly clear, and 8 regress — all of them
+the same proactive pairing**, `<ins>` inside a `.stacked` card on a11y-tritanopia
+(4.70 → 4.45) and concrete (4.79 → 4.17). That pairing is in the frozen baseline
+and needs markup no deck in the repo writes; the probe deck writes it deliberately
+in order to reach the surface. **On every surface a shipped deck renders, nothing
+regresses in either direction.**
 
 Every blocker #1640 named clears under the flip, on the rendered slide: ardesia
 `<ins>` **5.02**, brina **5.04**, laguna **5.04**, carta `<del>` **5.08**, magnolia

@@ -23,11 +23,14 @@
  * under it. Reading computed `color` alone therefore reported an OPTIMISTIC number
  * for every run inside an opacity group, silently: on indaco's `redline .stacked`
  * (`del` at .85 inside a card at .78, both removed in #1640) it said ~5:1 where the
- * rendered pixels were 3.21:1. `resolveStack` below now walks the ink and the
- * backdrop through the SAME group stack, which is the only way the two can be
- * composited consistently. Validated against sampled pixels on that deck: 3.20 vs
- * 3.21, 2.74 vs 2.75, and 4.98 / 5.15 / 3.85 / 6.99 against 4.95 / 5.13 / 3.90 /
- * 6.92 on the un-washed runs. `tools/composed-contrast.js` models the same stack
+ * rendered pixels were 3.21:1. That figure is a `<del>` nested inside the .stacked
+ * card — markup the CSS allows but no shipped deck writes, so it was measured on a
+ * probe deck built to reach it; the DEFAULT variant every deck does render measured
+ * 4.95:1 with the washes and 6.34:1 without. `resolveStack` below now walks the ink
+ * and the backdrop through the SAME group stack, which is the only way the two can
+ * be composited consistently. Validated against sampled pixels: within 0.01 on the
+ * nested-wash runs (3.20 vs 3.21, 2.74 vs 2.75) and within 0.07 across the wider
+ * set (4.98 / 5.15 / 3.85 / 6.99 modelled against 4.95 / 5.13 / 3.90 / 6.92). `tools/composed-contrast.js` models the same stack
  * statically, from the token table rather than a render.
  *
  * KNOWN LIMITATION — OCCLUDED RUNS. It scores every run that is in the DOM and not
@@ -128,6 +131,7 @@ const PROBE = () => {
   // alpha, so it cannot be applied to a foreground and a background independently.
   // Reading computed `color` alone reported ~5:1 for indaco's `redline .stacked`
   // struck clause where the rendered pixels were 3.21:1, two nested washes deep
+  // (probe deck; the shipped default variant measured 4.95:1)
   // (`del` at .85 inside a card at .78, both removed in #1640).
   //
   // The early return on an opaque accumulator is deliberately gone: an ancestor

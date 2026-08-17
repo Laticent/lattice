@@ -91,7 +91,7 @@
    * mode values are safe. Warn is bumped clear of fail in hue and
    * luminance (fixes "warn and fail look alike"). */
   --pass: light-dark(#357849, #73DF88);
-  --fail: light-dark(#A02323, #F87171);
+  --fail: light-dark(#A02323, #FF8482);
   --warn: light-dark(#C2570C, #F97316);
   --pass-bg: color-mix(in srgb, var(--pass) 18%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 18%, transparent);
@@ -287,7 +287,7 @@
    * carbone's own --text-muted (#757A82). */
   --chart-state-pass: #73DF88;   /* electric green — dark-side of --pass */
   --chart-state-warn: #F97316;   /* vivid amber    — dark-side of --warn */
-  --chart-state-fail: #F87171;   /* coral red      — dark-side of --fail */
+  --chart-state-fail: #FF8482;   /* coral red      — dark-side of --fail */
   --chart-state-info: #4A9EE8;       /* vivid sky-blue — ≥3:1 on #1A1A1C */
   --chart-state-mute: #8A8F96;       /* cool mid-gray  — ≥3:1 on #1A1A1C */
 }
