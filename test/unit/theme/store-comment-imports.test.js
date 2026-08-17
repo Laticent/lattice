@@ -6,13 +6,14 @@
  * too, and that is reachable from a real surface: `lib/theme/serialize.js` interpolates
  * a Theme Studio user's free-text description straight into the header comment. A
  * description reading *"a calm blue palette, like @import 'onyx'; but warmer"* spliced
- * all 768 KB of onyx into a theme that declared no parent — and because `composeCss`
+ * onyx — and, through onyx's own `@import 'lattice';`, the base scaffold behind it, 768
+ * KB of composed output — into a theme that declared no parent. And because `composeCss`
  * strips comments AFTERWARDS, stripping ran from the leaf's opener to the first closer
  * inside the spliced palette, leaving the rest of that sentence as live CSS. A CSS
  * parser then read the prose as a selector prelude and swallowed the rule behind it;
  * the theme's own `@font-face` disappeared.
  *
- * The scan runs over `stripCssComments` — quote- and escape-aware, so an opener inside
+ * The scan runs over `maskCssComments` — quote- and escape-aware, so an opener inside
  * a string is not an opener — while the splice applies to the ORIGINAL text, so bytes
  * that are not a directive come back untouched. Both halves are load-bearing and both
  * are pinned below; an earlier cut used a naive comment regex and reintroduced the bug
@@ -27,9 +28,14 @@ const assert = require('node:assert/strict');
 const { ThemeStore } = require('../../../lib/engine/themes.js');
 
 const ONYX = 'ONYX_TOKENS';
+const BASE = 'LATTICE_BASE_SCAFFOLD';
 const store = (leaf) => {
   const s = new ThemeStore();
   s.add('onyx', ONYX);
+  // REGISTERED on purpose. `cssFor` always registers the base, and without it here the
+  // base hand-off arm below is satisfied by the unregistered-name branch instead — it
+  // passed with the hand-off deleted outright.
+  s.add('lattice', BASE);
   s.add('leaf', leaf);
   return s;
 };
@@ -85,9 +91,11 @@ describe('the store does not read comments as imports', () => {
   });
 
   test('text with no theme import comes back BYTE-IDENTICAL, comments included', () => {
-    // The splice applies to the original, not to the stripped copy. An earlier cut
-    // returned the stripped text and inflated every composed sheet with the blanked
-    // comments' whitespace — 12,807 bytes on one palette.
+    // The splice applies to the original, not to the masked copy. An earlier cut
+    // returned the masked text, so every composed sheet came back with its comments
+    // replaced by their own length in spaces. (The byte figure once quoted here did
+    // not reproduce against that defect as described, so it is gone rather than
+    // restated — the arm below is the durable claim.)
     for (const leaf of [
       '/* just prose */\n:root{--a:1}',
       "/* mentions @import 'onyx'; */\n:root{--a:1}",
@@ -113,8 +121,11 @@ describe('the store does not read comments as imports', () => {
     assert.equal(resolved(unknown), unknown, 'an unregistered name must stay for composeCss to hoist');
   });
 
-  test('the base import is handed off to composeCss untouched', () => {
+  test('the base import is handed off to composeCss untouched — even though it IS registered', () => {
     const leaf = "@import 'lattice';\n:root{--a:1}";
     assert.equal(resolved(leaf), leaf);
+    // The load-bearing half: composeCss inlines the base itself, so a store that also
+    // splices it produces a sheet carrying 1.5 MB of scaffold twice.
+    assert.ok(!resolved(leaf).includes(BASE), 'the base must NOT be spliced by the store');
   });
 });

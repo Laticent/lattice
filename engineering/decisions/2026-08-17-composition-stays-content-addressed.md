@@ -167,27 +167,61 @@ The comment fix itself survived all five rounds unchanged. So the scope was cut 
 
 **What that leaves, against `main`:**
 
-- `lib/core/strip-css-comments.mjs` — the quote- and escape-aware comment stripper
-  **promoted out of `tools/check-css-values.js`**, where it already existed carrying a
-  docblock about exactly the failure in #6. A naive copy had been written next to it
-  (HARD RULE #15: reuse, don't reinvent). Both callers now share the one implementation.
+- `maskCssComments` in `lib/core/leading-is.js` — the offset-preserving projection of
+  the comment walk (`eachCssRun`) that file already owned. The first cut of this PR
+  promoted a SECOND copy out of `tools/check-css-values.js` into
+  `lib/core/strip-css-comments.mjs`, citing HARD RULE #15 while breaking it: a
+  same-named, same-directory `stripCssComments` already existed in `leading-is.js`,
+  equally quote- and escape-aware, differing only in delete-vs-blank. A checker fuzzed
+  the two at 337,257 inputs and found **0 disagreements about which bytes are a
+  comment**; esbuild had already had to rename one of them in the bundle. So the walk
+  stays in one place and grew a second projection instead of a second implementation.
+  Both callers — the gate and the store — take it from there.
 - `ThemeStore.resolveThemeImports` scans a comment-MASKED copy and splices against the
-  ORIGINAL, so offsets are exact and non-directive bytes come back untouched. Its
-  grammar is **unchanged from `main`** — no widening, no narrowing, nothing to disagree
-  with `css.js` about.
-- `test/unit/theme/store-comment-imports.test.js`, nine arms. Non-vacuous against all
-  three historical defects: reverting to no comment awareness fails 2, the naive stripper
-  fails 2, returning the stripped text fails 1.
+  ORIGINAL, so offsets are exact and bytes outside a matched directive come back as they
+  went in. The regex **literal** is unchanged from `main`; the effective grammar is
+  slightly wider, because a comment inside the directive now masks to whitespace and
+  `@import/* which parent */'onyx';` therefore resolves where it did not before. That is
+  more CSS-correct, and it is why the browser row in §7 reads as it does. (An earlier
+  draft of this bullet claimed "no widening", which its own §7 table contradicted.)
+- `test/unit/theme/store-comment-imports.test.js`, nine arms, each pinned by a mutant:
+  reverting to no comment awareness fails 2, the naive stripper fails 2, returning the
+  masked text rather than splicing the original fails 2, a non-length-preserving mask
+  fails 1, dropping escape-awareness fails 1, an unterminated comment not running to EOF
+  fails 1. Arm 9 (the base hand-off) was **vacuous when first written** — the fixture
+  never registered `lattice`, so it was satisfied by the unregistered-name branch and
+  survived deleting the hand-off outright; found by the pre-merge checker, fixed here.
 
 **Measured:**
 
 ```
-composed CSS identical: 128/128   (32 palettes x 4 sizes)
-quoted import in a COMMENT:  old LEAKED 770,735 bytes -> new 2,296   <- the fix
+composed CSS identical: 448/448   (32 palettes x all 14 registered size names)
+quoted import in a COMMENT:  old LEAKED 1,530,907 bytes -> new 762,450   <- the fix
 string opener + trailing comment: parent retained (defect #6 closed)
 url() font import, unknown names, the base hand-off: byte-identical
 --css flattener: untouched, so nothing to regress
+mask vs the char-by-char original: byte-identical over 180 repo stylesheets
+  + 300,000 fuzz cases (independently: 1,097,871 inputs, 0 divergences)
 ```
+
+**Performance — a regression this PR created and closed before merge.** The stripper it
+first promoted accumulated `out += c` one character at a time, which is invisible on a
+20 KB palette and not on the 1.5 MB base sheet:
+
+```
+resolveThemeImports, dist/lattice.css (1.5 MB, 58% comment)
+  main                     3.4 ms
+  first cut              122.4 ms      (36x — uncached cssFor('lattice') +248%)
+  shipped                 10.6 ms
+uncached cssFor: indaco 38.9 ms vs main 38.5 ms · lattice 51.2 ms vs main 49.3 ms
+```
+
+Nearly all of it was blanking the comment bytes: `replace(/[^\n]/g, ' ')` costs 132 ms on
+this sheet where a run-at-a-time `indexOf` + cached-spaces slice costs 2.6 ms. No shipped
+palette was affected either way — but `add()` clears the memo, so the Studio pays the
+compose cost per keystroke, and this is the same axis on which the trio rejected an
+earlier cut (defect #3). Caught by the pre-merge checker, which measured it in an
+isolated process after an in-process first attempt gave the wrong sign.
 
 **Not done, deliberately:** the scanners remain un-unified, and `flattenCssImports`
 keeps the naive comment strip it has always had (so the #6 class is still live *there*,
@@ -223,7 +257,7 @@ place and what #1, #4 and #5 each demonstrated concretely.
   | comment *mentions* `@import onyx;` | no ✓ | no ✓ | yes ✓ |
   | comment *mentions* `@import 'onyx';` | no ✓ | no ✓ | yes ✓ |
   | **real** `@import 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
-  | **real** `@import 'onyx.css';` | **yes** ✓ | no ✓ | yes ✓ |
+  | **real** `@import 'onyx.css';` (not a form the grammar takes) | no ✓ | no ✓ | yes ✓ |
   | **real** bare `@import onyx;` (now rejected) | no ✓ | no ✓ | yes ✓ |
   | **real** `@import /* c */ 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
 

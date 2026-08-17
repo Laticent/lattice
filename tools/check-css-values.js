@@ -149,7 +149,7 @@ function listCss(dir, out = []) {
  * shipped today carries `/*` in a string; this is about the gate staying true when
  * something does. (test/unit/tools/check-css-values.test.js pins it.)
  */
-const { stripCssComments: stripComments } = require('../lib/core/strip-css-comments.mjs');
+const { maskCssComments: stripComments } = require('../lib/core/leading-is');
 
 /**
  * Every `prop: value` declaration in a stylesheet, with its line.
