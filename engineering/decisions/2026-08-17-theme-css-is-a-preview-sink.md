@@ -133,17 +133,60 @@ type) and the field, the re-derive and the preview all behave; it simply is not 
 sink lives. The reachable path is the SAVED theme (`saveStudioTheme` → `extraTheme` →
 `addThemes`), which is what §4's table drives.
 
+## 4b. What the adversarial trio changed after the first commit (HARD RULE #25)
+
+The change went in, then red team / inversion / checker ran against the committed diff. They
+found **nine** things, and three of them were defects the first cut created or missed. Recording
+them because the pattern matters more than the list: every one lived in the machinery around
+the fix, and the two-line security primitive itself survived all three passes unchanged.
+
+| # | Finding | Where | Fixed by |
+|---|---|---|---|
+| 1 | **The Export-Webpage path is a live same-origin sink.** `share-export.ts`'s `buildSelfContainedDoc` embeds the same composed sheet in the same `<style>` shape, has NO runtime-`<script>` marker, and its output is mounted in an un-sandboxed same-origin iframe **inside the running docs site** (`player-prune-browser.ts:76`) before it is downloaded. Red team drove `</style><link rel=stylesheet href=…>` in component CSS to a real cross-origin fetch from the docs origin, and the `<link>` was **harvested into the shipped artifact** — a beacon in every copy the recipient opens. It is NOT script execution (the assembler drops `<script>`/`onerror`), so: exfil, not key theft. | the gate's discovery rule | guarded; discovery re-keyed on document assembly |
+| 2 | **Form feed.** The bad-string-token rule stopped at LF/CR but CSS Syntax §3.3 preprocesses **U+000C** to a newline too. A bad-string opened before an FF ran past it and swallowed the next comment — which then was not masked, so a theme's PROSE `@import` resolved. That is #1696's defect, reopened. | `css-comments.mjs` | `\f` added; verified through the real store |
+| 3 | **`commentSafe` DELETED a character** while this note and the commit message both claimed it round-tripped: `"a 2*/3 split"` came back `"a 2*3 split"`, a changed claim rather than an escaped one. Found independently by two of the three. | `serialize.js` | escape with a backslash (inert in a CSS comment) — lossless, and now pinned |
+| 4 | **Six test arms were vacuous.** The regex being replaced is LAZY, so a fixture with no trailing `*/` is satisfied by the broken implementation too. See §6. | the flattener test | `/* tail */` on every fixture; 2 → 7 arms bite |
+| 5 | `url(icons/*)` — an unquoted url-token is a third context where `/*` is not a comment. The shared walk read it as one and DROPPED an import the naive regex resolved: a regression on valid CSS. | `css-comments.mjs` | url-token run type; 0 change over the 267-sheet corpus |
+| 6 | The gate test wrote probe files into the real `docs/src`. `node --test` runs files concurrently, so another check scanning the same tree saw them — it produced a **real 1-in-6589 flake** during a push. | the gate test | `root` injected; probes live in a temp tree |
+| 7 | A second, unguarded `<style>` sink in `deck-preview.js` (`fontCss`). Ours today, but `buildSrcdoc` is exported, and the file-scoped gate cannot tell the difference — so the file stayed green. | `deck-preview.js` | guarded; the guard is free (identity return) |
+| 8 | Two arms named for control-character handling asserted only the `*/` property, which a newline can never violate — all three blanking mutants killed zero tests. Likewise "returned by identity" used value equality. | tests | real assertions added |
+| 9 | "190 repo stylesheets" reproduced as neither 190 nor anything else; and §6's end-to-end prose dropped the trailing comment that makes the claim true. | this note | corrected in place (267, and §6) |
+
+Findings 1, 2, 5 and 6 are defects **this change introduced or left open**, so none of them was
+eligible for a follow-up issue (HARD RULE #18). Findings 3, 8 and 9 are the record being wrong,
+which is the same class of defect in a repo where the record is how the next person decides.
+
 ## 5. The gate: HARD RULE #22 now has two channels
 
 The rule and `checkPreviewHtmlSinks` were both written in terms of the slide-HTML sink, so
 a builder passed the gate while concatenating unsanitized theme CSS two lines above the
 sanitized HTML. That was the live state, not a hypothetical.
 
-The gate now checks both, independently: a sanctioned builder owes `sanitizeSlideHtml`, and
-— **only if it embeds a `<style>` element** — also `sanitizeStyleText`. Keying the second
-obligation on a per-file marker rather than an allowlist field is deliberate: a field would
-need maintaining and could rot into a lie, while the marker is re-derived from the source
-every run.
+The gate now checks both, and — this is the correction finding 1 forced — the two arms have
+**different discovery rules**, because they are about different things:
+
+- **markup**: a sanctioned *preview builder*, recognized by the split runtime-`<script>` idiom,
+  owes `sanitizeSlideHtml`. Unchanged.
+- **stylesheet**: any `docs/src` module that assembles a **whole HTML document** (`<!doctype
+  html`) containing a `<style>` element owes `sanitizeStyleText`.
+
+The first cut keyed BOTH on the preview idiom, and that was wrong on its face once stated
+plainly: "injects a runtime script" marks a live preview frame and has no causal relation to
+"embeds untrusted CSS". It missed `share-export.ts` entirely — the one path here with a real
+author→recipient split, where a preview frame is mostly self-XSS.
+
+Document assembly is the honest marker for the class, and it is also precise: measured over
+`docs/src` it selects exactly **five** files, all genuine document assemblers, no false
+positives. The looser alternative — any `<style>` with an interpolation — selects **22**, mostly
+our own font and chart CSS, and an allowlist that long stops meaning anything.
+
+Its limits are real and worth stating rather than discovering later. The check is file-scoped
+text matching, so it is satisfied by one `sanitizeStyleText(` anywhere in the file: a *second*
+unguarded sink in an otherwise-guarded file passes (that is finding 7, now fixed at the source
+rather than by tightening the gate), as do a call in a comment, a split `'<sty' + 'le>'`, and a
+`<style>` opener hoisted into a shared module. Those weaknesses are inherited — the markup arm
+has had all four since it was written — and closing them needs dataflow, not regex. What the
+gate buys is that a NEW document assembler cannot be added silently.
 
 **The test was written first**, per the standing rule this repo has had violated five times:
 `test/unit/tools/preview-style-sink-gate.test.js`, 15 arms over scratch files in the tree the
@@ -179,7 +222,10 @@ trying to unify them, including a narrowed grammar that silently stopped flatten
 documented CLI form. What is shared here is only the answer to "is this inside a comment",
 which both must agree on and neither owns. §5's item (2) therefore remains open, by choice.
 
-**Evidence:** byte-identical to the old flattener over all 190 repo stylesheets; over 300,000
+**Evidence:** byte-identical to the old flattener over all **267** repo stylesheets — the count is
+the test's own corpus rule, and `dist/` is now IN it, which an earlier draft's "190" was not (that
+figure matched no exclusion set; the first cut of the test skipped `dist`, leaving out
+`dist/lattice.css`, the DEFAULT layout sheet every render flattens). Over 300,000
 fuzzed sheets every divergence is adjudicated against an **independently written** oracle
 (a different code shape, from the CSS Syntax rules) rather than by a heuristic. Both
 divergence classes occur and both are the old regex being wrong — it sometimes MISSED an
@@ -192,10 +238,19 @@ what follows, where the old regex — needing a closer to match at all — treat
 as live code. CSS consumes an unterminated comment to end-of-input, so the walk's answer is
 the correct one, and it is what the engine store already shipped.
 
-**End to end on the real CLI surface:** a `--css` sheet carrying the defect shape
-(`content: "/*"` then `@import 'shared';`) rendered to PDF through `lattice-emulator.js`. The
-old strip found **zero** imports in that file; the new walk resolves it and the imported rule
-reaches the emitted HTML and the PDF.
+**End to end on the real CLI surface:** a `--css` sheet carrying the defect shape rendered to
+PDF through `lattice-emulator.js`. The shape needs all three parts, and the third is easy to
+drop: `content: "/*"`, then `@import 'shared';`, then **a later real comment**. The old regex is
+LAZY — with no closing `*/` anywhere it matches nothing, strips nothing, and finds the import.
+It is the trailing banner that gives the string-borne opener something to pair with. With it,
+the old strip found **zero** imports in that file; the new walk resolves it and the imported
+rule reaches the emitted HTML and the PDF.
+
+That detail cost something. The probe sheet had the trailing comment; the unit-test fixtures
+were written from the prose, which did not — so six arms named for this defect passed under the
+naive regex they existed to catch. Found by the post-commit checker, fixed by adding
+`/* tail */` to every fixture, and now verified in the other direction: reverting `chain.mjs` to
+the naive regex fails seven arms where it previously failed two.
 
 ## 7. Performance
 
@@ -218,12 +273,24 @@ is every real stylesheet.
 
 ## 8. What this note does NOT claim
 
-- **It does not claim the HTML/PPTX EXPORT path is guarded.** `lib/export/html-player.js`
-  builds a self-contained document with its own `<style>`, and the same class applies there.
-  It is deliberately out of this change: an export change alters the bytes of a shipped
-  artifact and needs human sign-off (the QUALITY BAR's one hard stop), and #22's domain is
-  the preview frame. Logged here per HARD RULE #18's off-path rule; `sanitizeStyleText` is
-  sitting in `lib/core/` ready for it.
+- **The EXPORT surface is now PARTLY guarded, and the split needs stating.** The first draft
+  of this bullet scoped all of "export" out on the grounds that export bytes need human
+  sign-off. Finding 1 showed that reasoning does not survive contact with the code: the
+  browser-side assembler (`docs/src/components/studio/share-export.ts`) mounts its document in
+  a same-origin, un-sandboxed frame **inside the running docs site** before anything is
+  downloaded, which is not an artifact-bytes question at all — it is #22's own domain. It is
+  guarded here, along with the embedded-fonts block and the baked-finish `<style>` spliced into
+  the markdown a recipient receives.
+  **Still unguarded, deliberately:** `lib/export/html-player.js` and its browser bundle
+  `docs/src/playground/player-core.generated.js` — the CLI-side export player. The fix belongs
+  at the generator (HARD RULE #2 forbids editing the bundle), and that is the export pipeline
+  proper, so it wants export sign-off rather than a silent edit. It is recorded as the single
+  entry in `SANCTIONED_STYLE_SINK_EXEMPT`, so the gate names it every run instead of
+  overlooking it.
+  **On exported bytes:** the guard returns its input **by identity** unless the CSS contains
+  `</style`, and no stylesheet in the 267-sheet corpus does — so for every real deck the
+  exported file is byte-identical. That is a measurement, not a promise, and it is why this was
+  judged safe to include rather than held.
 - **It does not claim `sanitizeStyleText` makes theme CSS safe.** It neutralizes exactly one
   sequence — the element terminator. CSS reaching a preview frame is the engine's own
   ~1.5 MB composed sheet, and filtering that by allowlist would break the product rather than

@@ -39,9 +39,16 @@ function fsOf(files) {
 const flat = (files, entry = '/d/entry.css') => flattenCssImports(entry, fsOf(files));
 
 describe('the defect: a comment opener inside a string', () => {
+  // EVERY fixture here ends with a `/* tail */`, and that is load-bearing, not decoration.
+  // The regex being replaced is LAZY and needs a CLOSING `*/` to match at all — so without
+  // a later comment it strips nothing, finds the import, and every arm below passes under
+  // the broken implementation it exists to catch. The first cut of this file omitted the
+  // tail and six arms were vacuous; the real `--css` probe had it and caught the bug,
+  // which is how the gap showed up. Verified: reverting chain.mjs to the naive regex now
+  // fails these arms.
   test('an import after `content: "/*"` still inlines its parent', () => {
     const out = flat({
-      '/d/entry.css': 'section::after{content:"/*"}\n@import \'shared\';\nmain{color:red}',
+      '/d/entry.css': 'section::after{content:"/*"}\n@import \'shared\';\nmain{color:red}\n/* tail */',
       '/d/shared.css': '.PARENT{}',
     });
     assert.match(out, /\.PARENT\{\}/, 'the parent was swallowed by a string-borne opener');
@@ -50,7 +57,7 @@ describe('the defect: a comment opener inside a string', () => {
   test('the same for a single-quoted string, and for an opener inside a comment', () => {
     for (const decoy of ["content:'/*'", '/* a banner mentioning /* twice */']) {
       const out = flat({
-        '/d/entry.css': `x{${decoy}}\n@import 'shared';`,
+        '/d/entry.css': `x{${decoy}}\n@import 'shared';\n/* tail */`,
         '/d/shared.css': '.PARENT{}',
       });
       assert.match(out, /\.PARENT\{\}/, `swallowed after: ${decoy}`);
@@ -59,10 +66,48 @@ describe('the defect: a comment opener inside a string', () => {
 
   test('an escaped quote does not end the string early', () => {
     const out = flat({
-      '/d/entry.css': 'x{content:"a\\"/*"}\n@import \'shared\';',
+      '/d/entry.css': 'x{content:"a\\"/*"}\n@import \'shared\';\n/* tail */',
       '/d/shared.css': '.PARENT{}',
     });
     assert.match(out, /\.PARENT\{\}/);
+  });
+
+  // Found by a Munger-inversion pass AFTER the first cut shipped: sharing the walk fixed
+  // the string case and BROKE this one, on valid CSS, in the one path whose input is
+  // caller-supplied. `url(` opens a third context where `/*` is not a comment.
+  test('an unquoted url-token containing `/*` does not swallow the import after it', () => {
+    const out = flat({
+      '/d/entry.css': '.a{background:url(icons/*)}\n@import \'shared\';\n/* tail */',
+      '/d/shared.css': '.PARENT{}',
+    });
+    assert.match(out, /\.PARENT\{\}/, 'a url-token was read as a comment opener');
+  });
+
+  test('…but `url("…/*")` is a plain STRING, which the string branch already handled', () => {
+    for (const decoy of ['.a{background:url("x/*")}', ".a{background:url( 'x/*' )}", '.a{filter:blur(2px)}.b{content:"y"}']) {
+      const out = flat({ '/d/entry.css': `${decoy}\n@import 'shared';\n/* tail */`, '/d/shared.css': '.PARENT{}' });
+      assert.match(out, /\.PARENT\{\}/, `mis-scanned: ${decoy}`);
+    }
+  });
+
+  test('an IDENT merely ENDING in "url" does not open a url-token', () => {
+    // `--myurl(` is not `url(`, so the `/*` after it is a REAL comment — and therefore
+    // really does hide what follows. Asserting the swallow is the only way to prove the
+    // ident guard fired; asserting the import survives would pass with no guard at all.
+    const out = flat({
+      '/d/entry.css': '.a{--myurl(x/*)}\n@import \'shared\';\n/* tail */',
+      '/d/shared.css': '.PARENT{}',
+    });
+    assert.ok(!out.includes('.PARENT{}'), 'a mid-word `url(` was wrongly read as a url-token');
+  });
+
+  test('a string ends at a raw newline (bad-string-token), not at the next quote in the file', () => {
+    // The mistyped quote must not swallow the import on the following lines.
+    const out = flat({
+      '/d/entry.css': 'x{content:"oops\n@import \'shared\';\ny{content:"}\n/* tail */',
+      '/d/shared.css': '.PARENT{}',
+    });
+    assert.match(out, /\.PARENT\{\}/, 'an unterminated string ran past its line');
   });
 
   test('a REAL comment still hides its import — the reason the strip exists at all', () => {
@@ -149,13 +194,23 @@ describe('differential: identical to the old strip wherever the old strip was ri
    */
   function oracleStrip(src) {
     let out = '';
-    let state = 'code'; // 'code' | 'comment' | 'sq' | 'dq'
+    let state = 'code'; // 'code' | 'comment' | 'sq' | 'dq' | 'url'
     for (let i = 0; i < src.length; i++) {
       const c = src[i];
       if (state === 'code') {
         if (c === '/' && src[i + 1] === '*') { state = 'comment'; i++; continue; }
         if (c === "'") state = 'sq';
         else if (c === '"') state = 'dq';
+        // §4.3.6 — `url(` NOT preceded by an ident char and NOT followed by a quote
+        // opens an unquoted url-token, consumed verbatim to `)`. No comments inside.
+        const m = /^url\(\s*/i.exec(src.slice(i, i + 12));
+        const prevIdent = i > 0 && /[A-Za-z0-9_-]/.test(src[i - 1]);
+        if (m && !prevIdent && !/["']/.test(src[i + m[0].length] || '')) {
+          state = 'url';
+          out += src.slice(i, i + m[0].length);
+          i += m[0].length - 1;
+          continue;
+        }
         out += c;
         continue;
       }
@@ -163,7 +218,14 @@ describe('differential: identical to the old strip wherever the old strip was ri
         if (c === '*' && src[i + 1] === '/') { state = 'code'; i++; }
         continue;
       }
-      // inside a string: a backslash escapes the next character, whatever it is
+      if (state === 'url') {
+        out += c;
+        if (c === ')') state = 'code';
+        continue;
+      }
+      // inside a string: a backslash escapes the next character, and a RAW NEWLINE ends
+      // it (§4.3.5 bad-string-token) rather than running on to the next quote.
+      if (c === '\n' || c === '\r') { state = 'code'; out += c; continue; }
       out += c;
       if (c === '\\') { if (i + 1 < src.length) out += src[++i]; continue; }
       if ((state === 'sq' && c === "'") || (state === 'dq' && c === '"')) state = 'code';
@@ -189,13 +251,16 @@ describe('differential: identical to the old strip wherever the old strip was ri
     const sheets = [];
     (function walk(dir) {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (['node_modules', '.git', '.scratch', 'dist'].includes(e.name)) continue;
+        // `dist` is NOT skipped: dist/lattice.css is the DEFAULT layout sheet every
+        // render flattens, so excluding it would omit the one input that always matters.
+        if (['node_modules', '.git', '.scratch'].includes(e.name)) continue;
         const p = path.join(dir, e.name);
         if (e.isDirectory()) walk(p);
         else if (e.name.endsWith('.css')) sheets.push(p);
       }
     })(ROOT);
-    assert.ok(sheets.length > 100, `expected a real corpus, found ${sheets.length}`);
+    assert.ok(sheets.length > 200, `expected a real corpus, found ${sheets.length}`);
+    assert.ok(sheets.some((p) => p.endsWith(`dist${path.sep}lattice.css`)), 'the default layout sheet must be in the corpus');
 
     let diffs = 0;
     for (const p of sheets) {
@@ -223,7 +288,8 @@ describe('differential: identical to the old strip wherever the old strip was ri
     // never once hit the bug it was written to find, and would have "passed" clean.
     const atoms = ['/*', '*/', '"', "'", '\\', '\n', '\r', ' ', '{', '}', ';', '*', '/',
       "@import 'p';", '@import q;', 'content:', 'a', 'p', 'q',
-      'x{content:"/*"}', "x{content:'/*'}", '/* c */'];
+      'x{content:"/*"}', "x{content:'/*'}", '/* c */',
+      'url(i/*)', 'url("i/*")', 'x{content:"oops\n', 'blur(', 'url('];
     const files = { '/d/p.css': 'P{}', '/d/q.css': 'Q{}' };
     let newFound = 0;
     let oldOnly = 0;

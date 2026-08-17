@@ -851,7 +851,7 @@ var require_serialize = __commonJS({
       let out = "";
       for (const ch of String(value)) {
         const c = ch < " " || ch === "\u2028" || ch === "\u2029" ? " " : ch;
-        if (c === "/" && out.endsWith("*")) continue;
+        if (c === "/" && out.endsWith("*")) out += "\\";
         out += c;
       }
       return out;

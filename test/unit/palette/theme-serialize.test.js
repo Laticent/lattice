@@ -135,9 +135,52 @@ describe('theme-serialize', () => {
       assert.match(css, /for boards/);
     });
 
+    test('LOSSLESS — not one character of the description is dropped', () => {
+      // The first cut deleted the slash, so `a 2*/3 split` became `a 2*3 split`: a changed
+      // claim, not an escaped one, while the docs said it round-tripped. Escaping with a
+      // backslash (inert inside a CSS comment) keeps every byte. Pinned as a property so
+      // no future "simplification" can quietly go back to deleting.
+      for (const desc of ['wrap it in /* … */ to hide it', 'a 2*/3 split', '**//', '*/', 'a*/b*/c']) {
+        const css = serializeTheme(map, { name: 'p', description: desc });
+        const header = css.slice(0, css.indexOf('*/'));
+        assert.equal((header.match(/\*\//g) || []).length, 0, `header closed early on ${JSON.stringify(desc)}`);
+        // The ONLY edit allowed is inserted backslashes, so removing them from the emitted
+        // header must restore the description verbatim.
+        assert.ok(header.replace(/\\/g, '').includes(desc),
+          `characters were dropped from ${JSON.stringify(desc)} — header was ${JSON.stringify(header.slice(-90))}`);
+      }
+    });
+
     test('a benign description is byte-for-byte what it always was', () => {
       const d = 'A warm, restrained palette for board decks.';
       assert.ok(serializeTheme(map, { name: 'p', description: d }).includes(` * ${d}\n`));
+    });
+
+    test('a newline in a field cannot break the header\'s one-line-per-field shape', () => {
+      // Named by two arms above but pinned by neither: the "no `*/` in the header"
+      // property a newline can never violate, so all three control-blanking mutants
+      // (drop it entirely, C0 only, U+2028/9 only) used to kill zero tests.
+      for (const [label, payload] of Object.entries({
+        newline: 'line one\nline two',
+        carriageReturn: 'line one\rline two',
+        formFeed: 'line one\fline two',
+        lineSeparator: 'line one\u2028line two',
+        paragraphSeparator: 'line one\u2029line two',
+        tab: 'a\tb',
+      })) {
+        const css = serializeTheme(map, { name: 'p', description: payload });
+        const header = css.slice(0, css.indexOf('*/'));
+        const body = header.split('\n').filter((l) => l.includes('line one') || l.includes('a\tb') || /line two|\bb\b/.test(l));
+        assert.equal(body.length, 1, `${label} split the field across ${body.length} header lines`);
+        assert.ok(/^ \* /.test(body[0]), `${label} produced a header line without the ' * ' prefix: ${JSON.stringify(body[0])}`);
+        // Code points, not a regex literal — a literal control character in a pattern is
+        // both a lint error and unreadable.
+        const stray = [...header].find((ch) => {
+          const n = ch.codePointAt(0);
+          return (n < 0x20 && n !== 0x0a) || n === 0x2028 || n === 0x2029;
+        });
+        assert.equal(stray, undefined, `${label} left U+${stray?.codePointAt(0).toString(16)} in the header`);
+      }
     });
 
     test('the emitted sheet still round-trips through the palette parser', () => {

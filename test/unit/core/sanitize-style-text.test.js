@@ -66,9 +66,13 @@ describe('the element terminator cannot survive', () => {
 });
 
 describe('it changes nothing else', () => {
-  test('CSS with no `</` is returned byte-identical (and by identity)', () => {
+  test('CSS with no `</` is returned byte-identical AND by identity', () => {
     const css = ':root{--a:1}section.lattice > h1{font-size:var(--fs-hero)}/* a banner */';
     assert.equal(sanitizeStyleText(css), css);
+    // Identity, not just equality — the perf claim in the module docblock (and in the
+    // decision note) rests on the no-match path allocating nothing. `assert.equal` alone
+    // passes for a copy, so a mutant that returned `String(text)` killed no test.
+    assert.ok(Object.is(sanitizeStyleText(css), css), 'the no-match path must return the input itself');
   });
 
   test('a `</` that is not a style end tag is untouched', () => {
