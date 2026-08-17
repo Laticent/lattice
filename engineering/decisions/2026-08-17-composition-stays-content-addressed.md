@@ -68,13 +68,16 @@ kernel to a repo-generated artifact that external consumers of `./engine` do not
 
 | | ms |
 |---|---|
-| `resolveThemeImports('indaco-dark')` — what `cssFor` actually calls | **0.028** |
-| `cssFor('indaco-dark')`, uncached | **41.4** |
-| share | **0.07 %** |
+| `resolveThemeImports('indaco-dark')` — what `cssFor` actually calls | **0.05** |
+| `cssFor('indaco-dark')`, uncached | **26 – 31** |
+| share | **~0.2 %** |
 
-(Measured on this machine, 200 iterations, `dist/lattice.css` as the base. The often-quoted
-2.27 ms figure is the scan over the 1 MB *base* sheet — a call `cssFor` never makes: it hands
-`resolveThemeImports` the theme, and `composeCss` inlines the base separately.)
+Quote the ORDER, not the digits: the compose figure swings 25.8–30.8 ms across runs on one
+idle machine, and a checker reproducing this independently measured 29.7 ms where an earlier
+draft of this note said 41.4. The claim that survives that spread is "a fifth of a percent",
+not a decimal. (The often-quoted 2.27 ms figure is the scan over the 1 MB *base* sheet — a call
+`cssFor` never makes: it hands `resolveThemeImports` the theme, and `composeCss` inlines the
+base separately.)
 
 **(b) The one caller that could have needed the fallback does not use it.** Studio-authored
 themes are the concrete case §5 names. `lib/theme/serialize.js:59` emits exactly one import —
@@ -137,40 +140,74 @@ comparison as the equivalence evidence.
 ## 6. What shipped
 
 `lib/theme/chain.mjs` now owns the grammar — `themeNameImports(css)` and
-`replaceThemeNameImports(css, fn)`, over one private regex built fresh per call (a shared
-`/g` literal carries `lastIndex` between callers, which would make one scan resume mid-sheet
-after another's). `flattenCssImports` reads through the first; `ThemeStore.resolveThemeImports`
-rewrites through the second, and `THEME_NAME_IMPORT_RE` is gone from `lib/engine/themes.js`.
+`replaceThemeNameImports(css, fn)` over one regex, **and it skips matches inside comments**.
+`flattenCssImports` reads through the first; `ThemeStore.resolveThemeImports` rewrites through
+the second, and `THEME_NAME_IMPORT_RE` is gone from `lib/engine/themes.js`.
 
-**The widening is not cosmetic.** A theme whose parent import uses the bare form was silently
-composing to scaffold-only CSS — the same failure mode #1680 §2 measured for the `-dark`
-wrappers, from a different cause:
+The grammar is the **union** of what the two accepted, minus the flattener's `url` false
+positive. Be precise about the bare `@import x;` arm, because an earlier draft of the code
+comment was not: it is **not** what `checkThemeRoles` extracts (that gate is quoted-only), and
+it is not valid CSS either, so real Marp ignores it. It is in the union because
+`flattenCssImports` accepted it deliberately — #1680's first cut dropped it and a checker made
+it restore it — and narrowing now would re-break what that review fixed.
 
-```
-@import indaco;  (bare)   before:   2,313 bytes   (scaffold only)
-                          after:  769,370 bytes
-```
+**Two real defects fell out, one of them mine.**
+
+*Mine:* widening the store to the bare form made a theme's own COMMENT resolve. `lib/theme/serialize.js`
+interpolates a Studio user's free-text description into the header comment, so
+`"A calm blue palette. Like @import onyx; but warmer."` spliced 768 KB of `onyx` into a theme
+that declared no parent — and because `composeCss` strips comments *after*, the leaf's remaining
+prose was torn open and read as a selector, silently dropping the rule behind it. A checker
+demonstrated it end to end. It does not ship: the scanner skips comments.
+
+*Pre-existing, found on the way:* the **quoted** form had the same hole, and had it before this
+change. A comment reading `/* … @import 'onyx'; … */` spliced the palette. On the path, so
+fixed in place rather than logged.
+
+**The widening is still not cosmetic.** A theme whose parent import uses the bare form was
+composing to scaffold-only CSS — the failure mode #1680 §2 measured for the `-dark` wrappers,
+from a different cause.
 
 **Equivalence, measured against the shipped old store** loaded out of a worktree at the base
-commit rather than a copy of it, both fed identical bytes:
+commit rather than copied, both fed identical bytes:
 
 ```
 composed CSS identical: 128/128   (32 palettes x 4 sizes: default, hd, story, 4:3)
-positive control (bare import):  2,313 -> 769,370 bytes   — the widening fires
-negative control (url() import): identical, url preserved — both stores leave it alone
+positive control  (bare import):            2,313 -> 769,370 bytes   — the widening fires
+regression control (bare, in a COMMENT):    no leak, byte-identical to the old store
+regression control (quoted, in a COMMENT):  old LEAKED 770,735 bytes -> new 2,296  — pre-existing hole closed
+negative control  (url() font import):      identical, url preserved — both stores leave it alone
 ```
 
-**The gate is `test/unit/theme/import-grammar.test.js`**: fifteen `@import` forms, eight that
-must resolve and seven that must not, driven through BOTH consumers plus the grammar itself.
-Confirmed non-vacuous three ways — restoring the store's old regex fails 4 arms, restoring the
-flattener's old regex fails 4 arms, and splicing a private regex back into the store fails 2.
+**The gate is `test/unit/theme/import-grammar.test.js`**: twenty-two `@import` forms — quoted,
+minified, bare, url(), paths, mismatched quotes, uppercase, and five comment shapes including an
+unterminated one — driven through BOTH consumers plus the grammar itself.
 
-That third mutation is worth recording, because the first version of the agreement test **did
-not catch it.** It derived the store's side by re-reading the bytes through `themeNameImports`,
-so the two sides agreed by construction and it passed with the grammar re-split — a test that
-asserts the invariant it is named for and cannot observe it. It now observes the store by
-registering a uniquely marked stylesheet under every name either grammar could produce and
-reading which markers got spliced. The session's pattern, a seventh time, in the test this time.
+**Non-vacuity, and what the first cut got wrong.** Four mutations, all firing:
+
+| mutation | arms failed |
+|---|---|
+| store's OLD private regex spliced back | 2 |
+| store gets a private regex IDENTICAL to the shared one | 1 |
+| store gets a genuinely DIVERGENT private regex (`/i`, `[^'"]+`) | 2 |
+| comment-awareness removed from the shared scanner | 3 |
+
+The middle two **passed** against the first cut of this test, and a checker found that. The
+agreement arm derived the store's side by re-reading the bytes through `themeNameImports`, so it
+agreed by construction; its candidate list also omitted `a` and `onyx`, which left the
+quoted-path and comment rows guarded by nothing. It now observes the store by registering a
+uniquely marked stylesheet under every name *either* grammar could produce.
+
+The same review killed a second inert arm. It was titled *"a shared `/g` regex cannot leak
+lastIndex between callers"* and could not fail: `matchAll` and `replace` do not advance
+`lastIndex` — only `exec`/`test` do — so it passed with a shared literal spliced in. The stated
+rationale was wrong in the code comment, this note, and the commit message. The fresh regex per
+call stays (it costs nothing and protects a future `exec`-based caller), but it is now described
+as defensive rather than load-bearing, and the arm tests the property that is actually true.
+
+That is the session's pattern an eighth and ninth time, both in the evidence rather than the
+code. Recording the count because it is the finding: on this thread, the tests and harnesses
+have been wrong more often than the changes they were written to check.
 
 ## 7. What this note does NOT claim
 
@@ -181,3 +218,14 @@ reading which markers got spliced. The session's pattern, a seventh time, in the
   here because it still cannot remove the content path, so it also lands at two sites.
 - The divergence in §4 is **not verified as live**. Constructing an input that reaches it
   requires a caller-supplied stylesheet using the bare form, which nothing in this repo emits.
+  Every `@import` in the tree was swept old-grammar vs new (113 files across `themes/ dist/
+  docs/ examples/ tools/`): **0 divergences**, so the widening is inert on everything shipped.
+- **The browser Studio is UNVERIFIED** (HARD RULE #23). The comment-leak defect in §6 was
+  demonstrated and closed against the Node `ThemeStore` — the same source Rollup bundles, and
+  the grammar appears exactly once in each of the three bundles — but nobody built the docs site
+  and drove Fabricate → save → preview to watch the dropped `@font-face` render and stop
+  rendering. The byte evidence is Node-side.
+- **A third narrowing of `flattenCssImports` is not in the §4 table**: `@import indaco` with no
+  terminator at all, and the media-qualified bare `@import indaco screen;`, both resolved before
+  and do not now. Both are invalid CSS and nothing in the repo emits either, but the table did
+  not name them and this bullet does.

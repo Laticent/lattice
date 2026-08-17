@@ -49,6 +49,22 @@ const FORMS = [
   { label: 'mismatched quotes', css: '@import \'indaco";', names: [] },
   { label: 'media-qualified url import', css: '@import url(p.css) screen;', names: [] },
   { label: 'no import at all', css: ':root { --bg: #fff; }', names: [] },
+  // Case: both old regexes were case-sensitive. CSS at-rules are not, so this row
+  // pins PARITY with what shipped, not correctness — and it is what makes a
+  // case-insensitive re-split of the grammar visible to the agreement arm.
+  { label: 'uppercase at-rule', css: "@IMPORT 'indaco';", names: [] },
+  // A name class of `[^'"]+` (what checkThemeRoles extracts with) would read this as
+  // a theme called `indaco.css`. The grammar's `[A-Za-z0-9_-]+` reads nothing.
+  { label: 'quoted filename, dotted', css: "@import 'indaco.css';", names: [] },
+
+  // ── COMMENTS ARE NOT CODE ────────────────────────────────────────────────────
+  // Theme files document their own parent in prose, and lib/theme/serialize.js
+  // interpolates a Studio user's free-text description into the header comment.
+  { label: 'quoted import inside a comment', css: "/* like @import 'onyx'; but warmer */", names: [] },
+  { label: 'bare import inside a comment', css: '/* like @import onyx; but warmer */', names: [] },
+  { label: 'import inside an UNTERMINATED comment', css: "/* trailing prose @import onyx;", names: [] },
+  { label: 'comment mentions one, code imports another', css: "/* unlike @import onyx; */\n@import 'indaco';", names: ['indaco'] },
+  { label: 'real import BEFORE a commented one', css: "@import 'indaco';\n/* not @import onyx; */", names: ['indaco'] },
 ];
 
 describe('theme-name @import grammar', () => {
@@ -116,7 +132,13 @@ describe('theme-name @import grammar', () => {
     // The store's view is observed by registering a UNIQUELY MARKED stylesheet under
     // every name either grammar could produce, then reading which markers the store
     // spliced into its output.
-    const CANDIDATES = ['indaco', 'a11y-base', 'url', 'p', 'fonts', 'b', 'f'];
+    // Every name EITHER grammar could plausibly produce, including the ones only a
+    // WIDER re-split would yield: `a` (from the quoted path `'a/b.css'`), `onyx`
+    // (from a comment), `indaco.css` (from a `[^'"]+` name class), `IMPORT`-case
+    // variants. A candidate missing here is a row the agreement arm cannot see —
+    // `a` and `onyx` were both missing from the first cut, so the quoted-path and
+    // comment rows were guarded by nothing.
+    const CANDIDATES = ['indaco', 'a11y-base', 'onyx', 'url', 'p', 'fonts', 'a', 'b', 'f', 'indaco.css'];
     const marker = (n) => `/*RESOLVED:${n}*/`;
 
     for (const { label, css } of FORMS) {
@@ -146,12 +168,19 @@ describe('theme-name @import grammar', () => {
     }
   });
 
-  test('a shared /g regex cannot leak lastIndex between callers', () => {
-    // The grammar builds a fresh regex per call. If it ever goes back to a shared
-    // literal, the second scan resumes mid-sheet and silently returns less.
-    const css = "@import 'indaco';\n@import 'a11y-base';";
-    assert.deepEqual(themeNameImports(css), ['indaco', 'a11y-base']);
-    assert.deepEqual(themeNameImports(css), ['indaco', 'a11y-base'], 'second call saw fewer imports');
+  test('repeated and interleaved scans are independent', () => {
+    // An earlier version of this arm was titled "a shared /g regex cannot leak
+    // lastIndex" and was VACUOUS: `matchAll` and `replace` do not advance `lastIndex`
+    // (only `exec`/`test` do), so it passed even with a module-level shared literal —
+    // a test asserting an invariant it could not observe, which is the exact defect
+    // this file's neighbours were written to stop. The honest property is the one
+    // below: repeated and interleaved scans return the same thing.
+    const two = "@import 'indaco';\n@import 'a11y-base';";
+    assert.deepEqual(themeNameImports(two), ['indaco', 'a11y-base']);
+    assert.deepEqual(themeNameImports(two), ['indaco', 'a11y-base'], 'second scan differed');
+    // Interleave a rewrite between two reads — the shape a live host actually runs.
+    replaceThemeNameImports(two, () => 'REPLACED');
+    assert.deepEqual(themeNameImports(two), ['indaco', 'a11y-base'], 'a rewrite disturbed a later scan');
     assert.deepEqual(themeNameImports("@import 'indaco';"), ['indaco']);
   });
 
