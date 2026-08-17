@@ -206,3 +206,32 @@ never paints the intermediate state. The persistent `notify` toast in `ShareShee
 right channel (its own comment says so), and wiring it means deciding how the export
 reports back — real work, out of scope here, rather than a no-op that looks like a
 feature.
+
+## Two corrections the final checker made, recorded because of how they happened
+
+**A claim I had already fixed twice, still shipping in a third place.** The byte-identity
+wording was falsified by the red team (a deck with no `corners:` key that opts one slide in
+via `_class: corners-rounded` DOES gain an alpha channel), and I corrected the changelog
+fragment and this note — but missed `lib/base/base.docs.md`, which is the doc HARD RULE #6
+sends authors to. A same-PR internal contradiction survived two review passes because I
+fixed the instances I remembered rather than grepping for the claim.
+
+**A defensive edit justified by a failure mode that cannot occur.** The earlier checker
+flagged that `withCaptureFixups` mutated the corner token OUTSIDE its `try`, reasoning that
+a throw would strand the live preview stripped and poison later exports. I folded that in
+without checking the premise. The premise is false: `section` always comes from
+`sectionsOf(frame)`, every frame is the disposable offscreen iframe `createCaptureFrame`
+builds, and every caller disposes it in its own `finally`. A throw destroys the frame —
+there is no persisted node and no later export to poison.
+
+The restructure stays, because unwinding all of a function's state in one `finally` is
+better than some of it depending on where a throw lands. But the comment now says what is
+actually true. Worth recording as a pattern: a review finding is a claim like any other,
+and folding one in without verifying its reasoning is how a wrong premise gets promoted
+into a code comment that the next reader will trust.
+
+**Also latent, not live:** the `isFlatExportTarget` branch added to the CLI's message is
+unreachable from any CLI input today — `OUT_FORMAT` is a closed ternary and the image-set
+format is clamped to `IMAGE_FORMATS`, so every target that reaches the guard is already
+classified. It is defensive code for a future format, not a fix for a reachable bug, and
+the commit that added it framed it as the latter.

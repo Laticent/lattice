@@ -1192,10 +1192,14 @@ than rounding then flattening:
 This holds identically on the CLI and in the Studio's Share sheet. **Want a rounded
 artifact? Export PNG or WebP.**
 
-Two consequences worth knowing. A deck with no `corners:` is unaffected in every format —
-square is still the default and still stamps no token. And in Lattice's own `--player`
-viewer the backdrop is the deck's own `--bg`, so a rounded corner there is *invisible*
-rather than wrong: the slide and the surface behind it are the same color.
+Two consequences worth knowing. A deck with no rounded **slides** is unaffected in every
+format — square is still the default and still stamps no token. Note that is about slides,
+not about the front-matter key: the transparent capture is gated on a slide actually
+carrying the corner, so a deck that says nothing in its front matter but opts one slide in
+with `_class: corners-rounded` *does* get the alpha channel on that slide, and correctly
+so. And in Lattice's own `--player` viewer the backdrop is the deck's own `--bg`, so a
+rounded corner there is *invisible* rather than wrong: the slide and the surface behind it
+are the same color.
 
 Record, with the per-format measurements on both exporters:
 `engineering/decisions/2026-08-17-corner-export-capability.md`.

@@ -704,12 +704,16 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 	const keepRound = wantsRound && cornerSurvivesExport(cornerTarget);
 	const hadRounded = wantsRound && !keepRound;
 	const prevRadius = section.style.borderRadius;
-	// The mutation itself is INSIDE the try below, not here. Everything else this
-	// function changes self-heals on the next render, but the corner token does not: a
-	// throw between stripping it and entering the try would leave `corners-rounded` off
-	// the LIVE preview node, and every later export of that section would then read
-	// `wantsRound === false` and square a deck whose front matter still says rounded. A
-	// visible artifact would be bad; a wrong DECISION that persists is worse.
+	// The mutation itself is INSIDE the try below, not here — belt-and-braces, so every
+	// state this function changes is unwound by one `finally` rather than some of it
+	// depending on where a throw lands.
+	//
+	// It is NOT protecting the live preview, and an earlier version of this comment
+	// claimed it was. `section` always comes from `sectionsOf(frame)`, and every frame is
+	// the disposable offscreen iframe `createCaptureFrame` builds, which every caller
+	// tears down in its own `finally`. A throw takes the whole frame with it, so there is
+	// no node left behind to be seen and no later export that could read a stripped
+	// `corners-rounded` and square a rounded deck. That failure mode cannot happen here.
 	let restoreVisibility = () => {};
 	let w = 0;
 	let h = 0;
