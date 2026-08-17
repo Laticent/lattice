@@ -59,7 +59,7 @@ try {
 	// Resolve from the repo root via process.cwd() (docs/ at build), NOT
 	// import.meta.url — under `astro build` the page frontmatter is bundled into a
 	// chunk whose URL no longer sits at src/pages/, so the relative walk misses and
-	// the catch silently empties the catalog (disabling Insert). This mirrors the
+	// the catch silently empties the catalog (disabling Add slide). This mirrors the
 	// lintVocab read below, which already resolves from process.cwd().
 	const catalog = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
 	// Variants whose AUTHORING GRAMMAR differs from the base skeleton (e.g.

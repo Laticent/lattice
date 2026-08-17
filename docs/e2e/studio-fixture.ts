@@ -45,6 +45,25 @@ export const CHROME = {
 	/** The version-history sheet trigger. */
 	versionHistory: 'Version history',
 	/**
+	 * The add-slide gallery — ONE door, and as of #1654 one name on every launcher that
+	 * opens it: the preview rail's `+`, the editor header's button, the mobile drawer row
+	 * (Edit pane, behind `moreControls`), the command palette's "Add a slide…", and the
+	 * Compose divider's "Add slide below". They used to read five different things
+	 * ("Add slide" / "Insert component" / "Insert a component…" / "Insert slide below"),
+	 * which is what the issue reported.
+	 *
+	 * Consequence for specs, and it is worse than "two controls share a name". Playwright's
+	 * `getByRole` name option is a SUBSTRING match unless you pass `exact: true`, so
+	 * `'Add slide'` also matches every Compose divider's **"Add slide below"** — one per
+	 * slide. On the 7-slide seed deck in Compose, a bare
+	 * `getByRole('button', { name: CHROME.addSlide })` resolves to NINE elements, and the
+	 * count grows with the deck. Match it `exact: true` (as `openAddSlide` and
+	 * `openAddSlideFromRail` below both do) or scope it, but never bare.
+	 */
+	addSlide: 'Add slide',
+	/** The dialog/sheet the five launchers open — `SlidePicker`'s own title. */
+	addSlideDialog: 'Add a slide',
+	/**
 	 * "Send feedback" — a 1-tap header button on tablet AND desktop, at the same tail
 	 * slot in both headers (directly above Settings in the right-hand run), so it holds
 	 * position across the Read/Write/Craft dial. On MOBILE there is no header button:
@@ -488,6 +507,48 @@ export async function openArchitect(page: Page): Promise<void> {
 export async function openChat(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.chat }).click();
 	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
+}
+
+/** The gallery is up and interactive. Its placeholder differs per breakpoint
+ *  (`Search slides…` vs `Search 61 slides — …`), so the locator covers both. */
+function addSlideReady(page: Page): Promise<void> {
+	return page.getByPlaceholder(/Search slides|Search \d+ slides/).waitFor();
+}
+
+/**
+ * Open the add-slide gallery (`SlidePicker`) and wait for it to be usable.
+ *
+ * There is no header launcher on a phone: the row lives in the StudioDrawer behind "Menu",
+ * and only on the Edit pane — so a desktop-shaped open simply times out at 390px. Pass
+ * `compact` (`testInfo.project.name === 'mobile'`) to take the drawer route.
+ *
+ * `exact: true` keeps this off the Compose divider's "Add slide below" (see `CHROME
+ * .addSlide`); `.first()` then picks between the rail `+` and the editor-header button,
+ * which share the name because they are one door (#1654). Either opens the same gallery,
+ * so which one it lands on is not load-bearing — `openAddSlideFromRail` is there for a spec
+ * that means the rail specifically.
+ */
+export async function openAddSlide(page: Page, compact = false): Promise<void> {
+	if (compact) {
+		await page.getByRole('button', { name: 'Markdown source' }).click();
+		await page.waitForTimeout(600);
+		await page.getByRole('button', { name: CHROME.moreControls }).click();
+	}
+	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).first().click();
+	await addSlideReady(page);
+}
+
+/**
+ * Open the gallery from the PREVIEW RAIL specifically — the launcher the issue reporter
+ * used, and the one `openAddSlide`'s `.first()` does not reach on desktop (the editor
+ * header precedes it in the DOM). Scoped through the rail's own `Duplicate slide` sibling
+ * rather than by index: the rail is the one slide-op group that has one, so the scope
+ * survives a chrome reshuffle that an `.nth()` would not.
+ */
+export async function openAddSlideFromRail(page: Page): Promise<void> {
+	const rail = page.getByRole('button', { name: 'Duplicate slide', exact: true }).locator('..');
+	await rail.getByRole('button', { name: CHROME.addSlide, exact: true }).click();
+	await addSlideReady(page);
 }
 
 /** Open the Lenses (reader-views) panel — a first-class launcher peer of the Architect. */

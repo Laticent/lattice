@@ -263,12 +263,14 @@ describe('Studio — every top-bar control responds', () => {
 		const start = railCount();
 		expect(start).toBeGreaterThan(1);
 		// Add slide opens the unified add-slide gallery (the #1058 "one insert door"); its
-		// Blank tile inserts a blank slide, so the rail grows by one.
+		// Blank tile inserts a blank slide, so the rail grows by one. `setup()` seeds no
+		// component catalog, so the editor header's twin launcher is absent here and the
+		// name resolves to exactly one control.
 		await user.click(screen.getByRole('button', { name: 'Add slide' }));
-		// "Insert a component" — the dialog agrees with BOTH controls that open it (this
-		// "Add slide" button and the palette's "Insert a component…"). It was titled "Add a
-		// slide" on desktop while the phone sheet said the other thing.
-		const addDialog = await screen.findByRole('dialog', { name: /Insert a component/i });
+		// "Add a slide" — every launcher and the gallery they open now say the same thing
+		// (#1654). Five names for one door was the defect; this assertion is what stops it
+		// drifting apart again.
+		const addDialog = await screen.findByRole('dialog', { name: /Add a slide/i });
 		await user.click(within(addDialog).getByRole('button', { name: /Insert Blank/i }));
 		expect(railCount()).toBe(start + 1);
 		// Duplicate → grows again.
@@ -286,9 +288,14 @@ describe('Studio — every top-bar control responds', () => {
 		const user = setupWithCatalog();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
-		// Open the add-slide gallery from the editor header.
-		await user.click(screen.getByRole('button', { name: /Insert/ }));
-		const dialog = await screen.findByRole('dialog', { name: /Insert a component/i });
+		// Open the add-slide gallery from the editor header. With a catalog seeded there are
+		// TWO controls named "Add slide" — the preview rail's `+` and the editor header's
+		// button — because they are one door reached from two places (#1654). Deliberately
+		// `getAllByRole`: asserting both exist is the fix, and either one opens the gallery.
+		const launchers = screen.getAllByRole('button', { name: 'Add slide' });
+		expect(launchers.length).toBe(2);
+		await user.click(launchers[0]);
+		const dialog = await screen.findByRole('dialog', { name: /Add a slide/i });
 		// Search narrows to the quote component; clicking its tile adds a slide.
 		await user.type(within(dialog).getByPlaceholderText(/Search/i), 'quote');
 		await user.click(await within(dialog).findByText('quote'));

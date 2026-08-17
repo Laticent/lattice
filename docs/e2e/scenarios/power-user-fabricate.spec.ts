@@ -1,4 +1,4 @@
-import { expect, gotoStudio, openInspector, railButtons, slideCount, test, toastText } from '../studio-fixture';
+import { expect, gotoStudio, openAddSlide, openInspector, railButtons, slideCount, test, toastText } from '../studio-fixture';
 
 // Persona: a power user extending the system. Goal: fabricate an artifact, save
 // it, and USE it afterward — the saved thing must round-trip into authoring, not
@@ -33,7 +33,7 @@ test('a fabricated component saves and inserts into the deck as a new slide', as
 	// entry — searchable (the local bucket leads the palette), insertable, and the
 	// deck grows a slide carrying it.
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	await page.getByRole('button', { name: 'Insert component' }).click();
+	await openAddSlide(page);
 	const search = page.getByPlaceholder(/Search \d+ slides/);
 	await search.fill('callout');
 	await page.getByRole('button', { name: /^Insert callout/i }).first().click();

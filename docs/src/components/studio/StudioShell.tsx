@@ -194,7 +194,7 @@ const LIB_DEFAULT = 380; // Library docked default — wider than the coach; ass
 // Editor/preview pane MINIMUMS — the width at which the pane's HEADER toolbar stops
 // clipping, so "drag to the minimum" never cuts an icon off (it collapses to the rail
 // instead). Measured on the real surface (a width sweep reading header.scrollWidth vs
-// clientWidth): the editor toolbar floors at ~284px (Insert · Fix all · History ·
+// clientWidth): the editor toolbar floors at ~284px (Add · Fix all · History ·
 // Markdown/Compose · collapse, labels already container-query-hidden), the preview at
 // ~260px (the always-labeled LensPicker + Slide N/M pill). 300 clears both with margin
 // for the editor's conditional Refine/issue controls. Kept ≤ so the 1100px both-panels
@@ -453,7 +453,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		return () => removeEventListener(OPEN_CRASH_REPORT_EVENT, open);
 	}, []);
 	// Mobile StudioDrawer "back" behavior: a row that opens a further sheet (Library,
-	// Reader views, Version history, Search, Feedback, Insert component) used to just
+	// Reader views, Version history, Search, Feedback, Add slide) used to just
 	// close the drawer and open the child — so dismissing the child dropped the user all
 	// the way back to the toolbar, not back to the drawer they came from (reported).
 	// `closeDrawerAndOpen` arms this flag when the drawer navigates away, and the effect
@@ -1695,7 +1695,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setInspectorScope('slide');
 		setInspectorOpen(true);
 	}
-	// The Compose divider's "Insert slide below" — focus that slide, then open the unified
+	// The Compose divider's "Add slide below" — focus that slide, then open the unified
 	// add-slide gallery so the new slide lands after it (its Blank tile keeps a quick blank
 	// insert one tap away). This is the #1058 "one insert door" for the divider control.
 	function openInsertAfter(fullIdx: number) {
@@ -3246,7 +3246,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{insertComponents.length > 0 && <Tip label="Insert component"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button></Tip>}
+				{/* "Add slide" — the same name the preview rail's `+` carries, because it is the
+				    same door (#1654). Two controls sharing one accessible name is correct for one
+				    action reachable from two places, but it makes a bare `getByRole('button',
+				    { name: 'Add slide' })` ambiguous: e2e opens the gallery through
+				    `openAddSlide` in docs/e2e/studio-fixture.ts, never by open-coded name.
+				    The VISIBLE label is the bare verb, and that is a fit constraint rather than a
+				    style choice: this row is `flex … gap-2` with no wrap and no shrink guard, and
+				    it has ~0 slack between the container query that reveals the labels (36rem) and
+				    the width at which they all fit. Spelling this one "Add slide" cost ~18px and
+				    wrapped the whole toolbar onto a second line at editor-pane widths 576-591px —
+				    which is where a 1280x900 laptop sits at the default split (measured: the band
+				    grew 46.19px → 61.38px). "Add" is SHORTER than the "Insert" it replaces, so the
+				    row now has more slack than before, and the accessible name still contains the
+				    visible text (WCAG 2.5.3). */}
+				{insertComponents.length > 0 && <Tip label="Add slide"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Add slide"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button></Tip>}
 				{reshapeVariants.length > 0 && <ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} />}
 				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every

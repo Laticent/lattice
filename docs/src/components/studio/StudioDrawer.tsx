@@ -363,7 +363,7 @@ export function StudioDrawer({
 								<Block>
 									{/* The only row that acts in place, so the only leaf with no chevron. */}
 									<Row icon={<ListChecks className="size-[18px]" />} label="Fix all issues" count={issues} done={!issues} disabled={!issues} travels={false} onClick={act(onFixAll)} />
-									{insertComponents.length > 0 && <Row icon={<Plus className="size-[18px]" />} label="Insert component" onClick={go(onInsert)} />}
+									{insertComponents.length > 0 && <Row icon={<Plus className="size-[18px]" />} label="Add slide" onClick={go(onInsert)} />}
 								</Block>
 							)}
 							<Block>

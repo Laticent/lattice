@@ -80,7 +80,7 @@ export function CommandPalette({
 					<CommandItem onSelect={run(onPresent)}><Play />Present</CommandItem>
 					<CommandItem onSelect={run(onShare)}><Share2 />Share…</CommandItem>
 					<CommandItem onSelect={run(onReshape)}><Sparkles />Reshape for a reader</CommandItem>
-					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Insert a component…</CommandItem>}
+					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Add a slide…</CommandItem>}
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
 					{onLibrary && <CommandItem onSelect={run(onLibrary)}><FileBox />Library — saved themes &amp; components</CommandItem>}

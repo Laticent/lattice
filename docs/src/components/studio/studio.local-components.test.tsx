@@ -57,12 +57,23 @@ function setup() {
 	return user;
 }
 
+/**
+ * Open the add-slide gallery. Since #1654 the preview rail's `+` and the editor
+ * header's button are one door under one name ("Add slide"), so this resolves to
+ * more than one control and a `findByRole` would throw — deliberately `findAll`,
+ * clicking either. The count itself is pinned once, in `studio.controls.test.tsx`.
+ */
+async function openAddSlide(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+	const launchers = await screen.findAllByRole('button', { name: 'Add slide' });
+	await user.click(launchers[0]);
+}
+
 describe('Studio — insert + render a saved local component', () => {
 	it('lists the saved local component in the add-slide gallery under Your components', async () => {
 		const user = setup();
-		// The Insert affordance only appears once there is something to insert; a
+		// The editor-header launcher only appears once there is something to insert; a
 		// saved local component is enough (no built-in catalog in this test).
-		await user.click(await screen.findByRole('button', { name: /Insert/ }));
+		await openAddSlide(user);
 		const dialog = await screen.findByRole('dialog');
 		const d = within(dialog);
 		// Local components sit under a dedicated "Your components" band, previewed as a tile.
@@ -76,7 +87,7 @@ describe('Studio — insert + render a saved local component', () => {
 		const previewBefore = await screen.findByTestId('deck-preview');
 		expect(previewBefore.getAttribute('data-extra-css')).toBe('');
 
-		await user.click(await screen.findByRole('button', { name: /Insert/ }));
+		await openAddSlide(user);
 		await user.click(await screen.findByText('mybox'));
 
 		// A success toast confirms the insert, and the preview now carries the
@@ -88,7 +99,7 @@ describe('Studio — insert + render a saved local component', () => {
 
 	it('threads the local CSS into Share exports once the deck uses the component', async () => {
 		const user = setup();
-		await user.click(await screen.findByRole('button', { name: /Insert/ }));
+		await openAddSlide(user);
 		await user.click(await screen.findByText('mybox'));
 
 		await user.click(screen.getByRole('button', { name: 'Share' }));

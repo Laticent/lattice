@@ -406,10 +406,11 @@ class SlideView {
 		div.setAttribute('aria-hidden', 'true');
 		const actions = document.createElement('div');
 		actions.className = 'cs-sb-actions';
-		// "Insert below" opens the unified add-slide gallery (SlidePicker) for this slide when
+		// "Add slide below" opens the unified add-slide gallery (SlidePicker) for this slide when
 		// wired (onInsertBelow) — the #1058 "one insert door", its Blank tile a tap away — and
-		// falls back to a direct blank insert if it isn't.
-		actions.append(this.btn('Insert slide below', 'plus', () => { const i = this.index(); if (i < 0) return; if (onInsertBelow) onInsertBelow(i); else this.insertBelow(); }, 'cs-pill-btn'));
+		// falls back to a direct blank insert if it isn't. It says "Add", like the other four
+		// launchers and the gallery itself; "below" is the one thing this door adds (#1654).
+		actions.append(this.btn('Add slide below', 'plus', () => { const i = this.index(); if (i < 0) return; if (onInsertBelow) onInsertBelow(i); else this.insertBelow(); }, 'cs-pill-btn'));
 		// Insert a starter table into THIS slide at the caret (distinct from the add-slide `+` and the
 		// in-table edit dropdown). insertStarterTable is a no-op inside an existing table / a locked slide.
 		actions.append(this.btn('Insert table', 'grid-2x2-plus', () => { insertStarterTable(this.view.state, this.view.dispatch); this.view.focus(); }, 'cs-pill-btn cs-insert-table'));
