@@ -248,6 +248,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
+| `gotchas:index` | **TODO: describe `gotchas:index` in tools/build-capabilities.js (SCRIPT_META).** |
+| `gotchas:index:check` | **TODO: describe `gotchas:index:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -357,6 +359,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
+| `tools/build-gotchas-index.js` | build-gotchas-index.js — regenerate the symptom index in engineering/gotchas.md |
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |

@@ -3346,7 +3346,13 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // The rule's own instruction is to lower this as the backlog drops; lowering it to the
 // measured count is what makes the next one fail on the first offence.
 // Re-measure with a temporary `= 0` — the failure message prints the live total.
-const US_ENGLISH_BUDGET = 1307;
+//
+// 1307 → 1303 (2026-08-17): the gotchas split made `engineering/gotchas.md` a generated
+// index that quotes every entry heading, and a heading appears TWICE in its row (link
+// text + anchor), so three headings carrying `grey`/`grey`/`centred` counted six times
+// over and pushed the total to 1312. The headings were corrected rather than the budget
+// raised — which also retired those three from the backlog, hence 1303 and not 1307.
+const US_ENGLISH_BUDGET = 1303;
 
 function checkUsEnglish(errors) {
   const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');
