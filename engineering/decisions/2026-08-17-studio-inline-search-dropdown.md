@@ -392,10 +392,18 @@ layout tier, **not** the keyboard behavior on the device the owner photographed.
 That draft said the list "clears the keyboard". Measured rather than asserted, it
 only just does:
 
-| Orientation | Viewport | Search surface | Keyboard top (≈350pt kbd) | Margin |
+| Orientation | Viewport | Search surface | Keyboard top | Margin |
 |---|---|---|---|---|
-| Landscape (the photo) | 1194×834 | inline list, y=61–**483** | ≈**481** | **≈0px — flush** |
-| Portrait | 834×1194 | overlay dialog, y=422–772 | ≈930 | ≈158px clear |
+| Landscape (the photo) | 1194×834 | inline list, y=61–**483** | ≈**481** (≈350pt kbd) | **≈0px — flush** |
+| Portrait, before round two | 834×1194 | overlay dialog, y=422–772 | ≈930 (≈264pt kbd) | ≈158px clear |
+| Portrait, **after** round two | 834×1194 | inline list, y=61–**483** | ≈930 | **≈447px clear** |
+
+Round two improved portrait substantially without setting out to: the inline list
+hangs from the header at y=61 instead of floating at the viewport's middle, so it
+sits in the top 40% of the screen rather than the band the keyboard rises into.
+**Landscape is unchanged and remains the only tight case** — the list's height is
+capped at a flat 420px regardless of tier, so an 834px-tall viewport is where that
+cap and the keyboard meet.
 
 So in the orientation that prompted this work, the list ends within a couple of
 pixels of where the landscape keyboard begins. It fits; it has no headroom, and a
