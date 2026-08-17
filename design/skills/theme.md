@@ -274,8 +274,8 @@ The **dark variant in full** — this is the whole file:
 
 ## Ship checklist
 
-- [ ] `@theme <name>` matches the filename AND the manifest's `name` exactly, and the
-      file declares no `@size`. Both are `check:ownership` failures now, not conventions:
+- [ ] `@theme <name>` matches the filename AND the manifest's `name` exactly; a variant's
+      `@import '<parent>'` matches the manifest's `extends`; and the file declares no `@size`. All three are `check:ownership` failures now, not conventions:
       the manifest owns the name, geometry lives in `lib/engine/sizes.js`.
 - [ ] All 10 required core tokens declared directly.
 - [ ] Every surface/ink/accent token is a `light-dark()` pair; the universal

@@ -27,7 +27,11 @@
 //
 // jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
 
-import { themeImportNames } from '../../../lib/theme-fetch.ts';
+// The theme graph is DECLARED (manifest `extends`, baked into THEME_EDGES), not
+// re-derived by scanning `@import` — this was the fourth such scanner in the repo.
+// See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+import { themeChain } from '../../../../../lib/theme/chain.mjs';
+import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -225,11 +229,11 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 			// marp-core's scoper cannot handle.
 			dir.file(`themes/${tf}`, marpScopableCss(text));
 			bundledThemes.push(`themes/${tf}`);
-			// Bundle the transitive theme-name @import closure (shared scan helper —
-			// handles the minified no-space form + strips comments so a banner's
-			// literal `@import '<self>'` prose isn't treated as a dep).
-			for (const dep of themeImportNames(text)) {
-				if (dep !== 'lattice') queue.push(`${dep}.css`);
+			// Bundle the whole declared chain: the recipient runs real Marp, which
+			// resolves `@import 'parent'` against its own theme set, so every ancestor
+			// has to be in the bundle or the palette renders stripped on their machine.
+			for (const dep of themeChain(tf.replace(/\.css$/, ''), THEME_EDGES)) {
+				if (dep !== 'lattice' && `${dep}.css` !== tf) queue.push(`${dep}.css`);
 			}
 		}
 		if (bundledThemes.length) { chosen = cand; break; }

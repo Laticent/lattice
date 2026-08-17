@@ -671,6 +671,9 @@ for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatter
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
+// THE theme graph, from the manifests — never re-derived from the stylesheets.
+const { themeChain, flattenCssImports } = require('./lib/theme/chain.mjs');
+const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 // Which band does a slide's diagram bake for — light, dark, or print. Lives in
 // the kernel so it is unit-testable as BEHAVIOR rather than as a source-text
 // assertion on this CLI. THIS PATH IS ITS ONLY CALLER — the preview reads tokens
@@ -720,41 +723,31 @@ const paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteAr
 // unless an a11y theme's CSS references them, so there's no palette-name gate;
 // this matches the Drawing Board's always-on injection (drawing-board.astro).
 const a11yTextureDefs = require('./lib/core/accessibility-textures').texturePatternDefs();
-const palettePath = path.join(PKG_ROOT, 'themes', `${paletteName}.css`);
+const THEMES_DIR   = path.join(PKG_ROOT, 'themes');
+const palettePath = path.join(THEMES_DIR, `${paletteName}.css`);
 if (!fs.existsSync(palettePath)) {
   console.error(`error: palette not found: ${paletteName}`);
   console.error(`       (looked in ${palettePath})`);
   console.error(`available palettes: ${listAvailablePalettes()}`);
   process.exit(1);
 }
-// Load the palette and any sibling palette imports it declares (e.g.
-// cuoio-dark.css imports cuoio.css). The palette parser scans `:root`
-// blocks of this combined string, so the dark variants inherit every
-// token defined in the parent without duplicating declarations.
-function loadPaletteWithImports(filePath, seen = new Set(), label = null) {
-  if (seen.has(filePath)) return '';
-  seen.add(filePath);
-  const content = readFileOrDie(filePath, label ?? `palette '${path.basename(filePath, '.css')}'`);
-  // Match `@import 'name';` and `@import "name";` and `@import name;`.
-  // The lattice palette convention is single-token names (cuoio, indaco)
-  // resolved relative to the themes/ directory.
-  const importRe = /@import\s+["']?([A-Za-z0-9_-]+)["']?\s*;/g;
-  let imported = '';
-  let m;
-  while ((m = importRe.exec(content)) !== null) {
-    const name = m[1];
-    if (name === 'lattice') continue; // layout CSS, loaded separately
-    const importPath = path.join(path.dirname(filePath), `${name}.css`);
-    if (fs.existsSync(importPath)) {
-      imported += loadPaletteWithImports(importPath, seen) + '\n';
-    }
-  }
-  // Parent first so child :root blocks override on identical token names
-  // (matches CSS cascade order).
-  return imported + content;
-}
+// THE theme chain, from the manifest. `themes/<name>.manifest.json` declares the
+// parent as `extends`; the CSS also says `@import 'parent'`, but that copy is
+// MARP's — Lattice reads the manifest and never parses the stylesheet for it.
+//
+// This replaces a hand-rolled flattener with its OWN `@import` regex, the third
+// such resolver in the repo. They had already drifted: the engine's copy was
+// fixed to match a minified `@import"indaco"` (no space) and this one never was,
+// so a minified palette silently lost its parent here while resolving correctly
+// everywhere else. Proven a byte-for-byte drop-in across all 32 palettes.
+// See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+const themeChainFor = (name) => themeChain(name, THEME_EDGES);
+// Parent-first, so a child's `:root` overrides its parent at equal specificity —
+// the cascade order every palette is authored against.
+const paletteChain = themeChainFor(paletteName);
+const paletteFiles = paletteChain.map((n) => path.join(THEMES_DIR, `${n}.css`));
 
-const paletteCSS = loadPaletteWithImports(palettePath);
+const paletteCSS = paletteFiles.map((f) => readFileOrDie(f, `palette '${path.basename(f, '.css')}'`)).join('\n');
 // Does this deck's palette carry its categories by PATTERN rather than hue?
 // Read from the IMPORT-RESOLVED palette, so an `a11y-*` variant inherits the
 // answer from `a11y-base` — a theme allowlist here would rot the first time a
@@ -762,7 +755,16 @@ const paletteCSS = loadPaletteWithImports(palettePath);
 // IS the redundant encoding, and it cannot survive rough.js's stroked hachure
 // (lib/core/diagram-look.js rule 1).
 const PALETTE_USES_TEXTURE = paletteUsesTextureChannel(paletteCSS);
-const layoutCSS  = loadPaletteWithImports(cssFile, new Set(), 'layout CSS');
+// The layout sheet is CALLER-SUPPLIED (`--css` / the positional form, both documented
+// in the usage text above), so it has no manifest and its graph can only come from its
+// own bytes. The default `dist/lattice.css` declares no theme-name import, but a custom
+// sheet may — dropping to a plain read here silently stopped inlining it, which the
+// adversarial trio caught as a real regression. One named helper, not a fourth regex.
+const layoutCSS  = flattenCssImports(cssFile, {
+  read: (f) => readFileOrDie(f, 'layout CSS'),
+  resolve: (from, name) => path.join(path.dirname(from), `${name}.css`),
+  exists: fs.existsSync,
+});
 const css = paletteCSS + '\n' + layoutCSS;
 
 // ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
@@ -1404,7 +1406,7 @@ function preprocessMermaid(source) {
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
   // tall frame instead of shrinking to a thin strip; landscape is untouched.
   const sizeName = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
-  const orientation = orientationFor(resolveSize(sizeName, [paletteCSS, layoutCSS])).name;
+  const orientation = orientationFor(resolveSize(sizeName)).name;
 
   // REAL SLIDES, from the engine's own boundaries (lib/core/slide-class-spans.js).
   // This replaced a scan of `source.slice(0, offset)` for the last `_class:`
@@ -1656,12 +1658,12 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // Slide geometry — ONE registry (HARD RULE #1). The page template needs pixel
 // dimensions for the puppeteer PDF; rather than duplicate a size table (which
 // drifted — it used to omit 16:9 and silently rendered it as hd), resolve the
-// `@size` directive through the engine's own `resolveSize`, the same lookup the
-// scaffold bakes into `@page`. `paletteCSS`/`layoutCSS` carry every theme +
-// base `@size` declaration (theme first, then base — composeCss's source order).
+// `size:` directive through the engine's own `resolveSize`, the same lookup the
+// scaffold bakes into `@page`. It reads the engine's size REGISTRY
+// (lib/engine/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
 // (resolveSize / orientationCss required above, before preprocessMermaid.)
 const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
-const _geom          = resolveSize(deckSizeName, [paletteCSS, layoutCSS]);
+const _geom          = resolveSize(deckSizeName);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);
 // THE SIZE GATE — split runs at `square`, `tall` and `strip`, never at `wide`.
@@ -1802,10 +1804,17 @@ function engineSlides() {
   // wrong for the default path, which is 100% of real usage, so it left the searched
   // form on the one path that did not need it.
   // See engineering/decisions/2026-08-16-theme-identity-ownership.md.
+  // Register the WHOLE CHAIN, parent-first, not just the leaf. Registering only the
+  // leaf left `@import 'indaco'` unresolvable inside the store, so `render().css` for
+  // any `-dark` theme composed to ~2.3 KB of scaffold instead of ~768 KB. That went
+  // unnoticed because this file discards `rendered.css` and inlines its own
+  // `paletteCSS` — but any caller using the engine's composed output from a
+  // CLI-shaped setup got an unstyled deck. The chain comes from the manifests
+  // (lib/theme/chain.mjs); no stylesheet is parsed to find it.
   const layoutCss = readFileOrDie(cssFile, 'layout CSS');
   engine.addThemes([
     cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
-    { name: paletteName, css: fs.readFileSync(palettePath, 'utf8') },
+    ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
   ]);
   // Rewrite `![bg side](url)` to the lattice-bg div (CSS background) BEFORE render
   // so the engine's basic-mode background ruler never collapses the split (lib/engine
@@ -3167,7 +3176,9 @@ async function renderBody(browser, g, closeBrowser) {
           const targetName = lookMode === 'dark' ? `${base}-dark` : base;
           const targetPath = path.join(PKG_ROOT, 'themes', `${targetName}.css`);
           if (fs.existsSync(targetPath)) {
-            lookPaletteCss = loadPaletteWithImports(targetPath, new Set(), 'svg-look palette');
+            lookPaletteCss = themeChainFor(targetName)
+              .map((n) => readFileOrDie(path.join(THEMES_DIR, `${n}.css`), 'svg-look palette'))
+              .join('\n');
             sectionLookClass = lookMode === 'dark' ? 'dark form' : 'form';
             // Resolve Mermaid theme vars from the LOOK palette (not the deck's) — the module-level
             // themeVarsForBand is baked from the deck's resolved palette, which for `--image-mode

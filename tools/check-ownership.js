@@ -777,12 +777,24 @@ function checkThemeRoles(errors, themesDir = THEMES_DIR) {
     // `@import 'carbone';` sit under `@import 'lattice';` and pull in an entirely
     // different palette with the gate green — the declaration would be true about the
     // line it named and silent about the one that mattered.
-    const imports = [...css.matchAll(/@import\s+['"]([^'"]+)['"]/g)].map((x) => x[1]);
+    // `\s*` (not `\s+`) and comment-stripped: the dist palettes ship the import
+    // minified as `@import"indaco";`, which the `\s+` form MISSED — this gate would
+    // then report a correct theme as declaring `extends` while importing nothing. That
+    // divergence is the one the theme-graph work exists to end, so it is fixed here in
+    // G2 rather than duplicated into a second gate.
+    // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+    const imports = [...css.matchAll(/@import\s*(['"])([^'"]+)\1\s*;?/g)].map((x) => x[2]);
+    // COUNT separately from EXTRACT. The strict backreferenced form above cannot read a
+    // mismatched-quote import (`@import "x';`) — correctly, it is not a valid name — but
+    // that also made a SECOND such line invisible to the >1 guard below, which is the one
+    // thing this block's comment calls load-bearing. Count every theme-name-ish import,
+    // `url(…)` excluded, so a smuggled second edge is still reported.
+    const importCount = [...css.matchAll(/@import\s*(?!url\()['"]?[^;\n]*;/g)].length;
     const imp = imports[0] ?? null;
     const shown = imports.length ? imports.map((i) => `'${i}'`).join(' + ') : 'nothing';
     const tokens = parseThemeTokens(cssText).size;
 
-    if (imports.length > 1) {
+    if (imports.length > 1 || importCount > 1) {
       errors.push(
         `theme "${name}" @imports ${shown}. A theme extends exactly one thing — the engine, or one other theme — ` +
         'because that single edge is what `role`/`extends` declares and what every scope decision reads.',
@@ -956,6 +968,96 @@ const SANCTIONED_UNNAMED_THEME_REGISTRATIONS = [
   },
 ];
 
+
+/**
+ * Does this expression provably evaluate to entries that CARRY A NAME?
+ *
+ * The first cut of this helper checked only "is it an object literal", which the
+ * adversarial trio broke immediately: `...xs.map((c) => ({ css: c }))` and even
+ * `...xs.map(() => ({}))` passed. A nameless entry is exactly what sends
+ * `ThemeStore.add` back to regexing `@theme` out of a 1.5 MB sheet — the thing this
+ * gate exists to prevent — so the gate was certifying its own failure mode.
+ *
+ * Two further holes it closed: a NESTED map spreads arrays rather than entries, and
+ * taking only the FIRST `return` let a later bare-CSS return hide behind an early
+ * object literal. Every return is checked now.
+ */
+function hasNameProperty(node, ts) {
+  return node.properties.some((prop) => {
+    if (ts.isShorthandPropertyAssignment(prop)) return prop.name.text === 'name';
+    if (ts.isPropertyAssignment(prop)) {
+      const k = prop.name;
+      return (ts.isIdentifier(k) || ts.isStringLiteral(k)) && k.text === 'name';
+    }
+    // A spread inside the entry (`{ ...entry }`) could carry a name we cannot see;
+    // treat it as unknown rather than assume, and let the caller report it.
+    return false;
+  });
+}
+/** One entry: an object literal that carries a `name`. */
+function producesNamedEntry(node, ts) {
+  if (ts.isParenthesizedExpression(node)) return producesNamedEntry(node.expression, ts);
+  if (ts.isObjectLiteralExpression(node)) return hasNameProperty(node, ts);
+  return false;
+}
+
+/**
+ * An ARRAY of entries — what a spread must produce.
+ *
+ * This helper has been wrong three times, each in the same direction: it answered
+ * "does SOME path look right" when the question is "can ANY path be wrong". The
+ * defects, all found by review rather than by a test, and all now covered by
+ * test/unit/tools/theme-registration-gate.test.js:
+ *
+ *   - it accepted any object literal, so `.map(c => ({ css: c }))` — nameless — passed;
+ *   - it conflated one entry with an array of them, so a NESTED map passed;
+ *   - it took only the FIRST `return`, so a later bare-CSS return hid behind an
+ *     early object literal;
+ *   - it ignored a FALL-THROUGH path: `.map(x => { if (x.ok) return {…}; })` yields
+ *     `undefined` for the else case, which registers nothing and returns a `false`
+ *     nobody checks — the exact silent no-op this gate exists to abolish;
+ *   - it ignored `async`, so `.map(async x => ({…}))` produced an array of PROMISES,
+ *     carrying neither name nor css, and registered zero themes.
+ *
+ * So the rule is now conservative by construction: the callback must be plain (not
+ * async, not a generator), and either an expression body or a block whose LAST
+ * statement is a `return` — a block that can complete without returning is reported,
+ * because that is precisely the fall-through case. Anything unproven is reported.
+ */
+function producesNamedEntryArray(node, ts) {
+  if (ts.isParenthesizedExpression(node)) return producesNamedEntryArray(node.expression, ts);
+  if (ts.isArrayLiteralExpression(node)) {
+    return node.elements.length > 0 && node.elements.every((el) => producesNamedEntry(el, ts));
+  }
+  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)
+      || node.expression.name.text !== 'map') return false;
+  const fn = node.arguments[0];
+  if (!fn || !(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) return false;
+  // `async` yields Promises; a generator yields an iterator. Neither is an entry.
+  if (fn.asteriskToken) return false;
+  if (fn.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword)) return false;
+  if (!ts.isBlock(fn.body)) return producesNamedEntry(fn.body, ts);
+
+  // A block that can finish WITHOUT returning yields `undefined` on that path.
+  const last = fn.body.statements[fn.body.statements.length - 1];
+  if (!last || !ts.isReturnStatement(last)) return false;
+
+  const returns = [];
+  const walk = (n) => {
+    // Do not descend into anything that owns its OWN `return`: nested functions,
+    // and also object METHODS, accessors and class bodies — attributing those to
+    // the callback made the gate fire on correct code.
+    if (n !== fn.body && (ts.isArrowFunction(n) || ts.isFunctionExpression(n)
+        || ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n)
+        || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n)
+        || ts.isClassDeclaration(n) || ts.isClassExpression(n))) return;
+    if (ts.isReturnStatement(n)) returns.push(n);
+    ts.forEachChild(n, walk);
+  };
+  walk(fn.body);
+  return returns.length > 0 && returns.every((r) => r.expression && producesNamedEntry(r.expression, ts));
+}
+
 /**
  * Find theme registrations that hand over a stylesheet without its name.
  *
@@ -1026,11 +1128,12 @@ function checkThemeRegistrationCallSites(errors) {
           const arg = node.arguments[0];
           if (arg && ts.isArrayLiteralExpression(arg)) {
             for (const el of arg.elements) {
-              const inner = ts.isSpreadElement(el) ? el.expression : el;
-              // An object literal is the contract. A spread or identifier MAY hold the
-              // object form; it cannot be proven here, so it is reported rather than
-              // assumed — the gate's job is to make the shape visible at the call.
-              if (!ts.isObjectLiteralExpression(inner)) report(el, 'array element is not a `{ name, css }` object literal');
+              // A SPREAD must produce an array of named entries; a plain element must
+              // BE one. Checking both with one predicate is what let a nested map pass.
+              const ok = ts.isSpreadElement(el)
+                ? producesNamedEntryArray(el.expression, ts)
+                : producesNamedEntry(el, ts);
+              if (!ok) report(el, 'array element does not provably carry a `name` — pass `{ name, css }`');
             }
           } else if (arg && !(ts.isIdentifier(arg) && isEnclosingParam(node, arg.text))) {
             // Not an inline array: the previous gate's regex required `addThemes([`, so
