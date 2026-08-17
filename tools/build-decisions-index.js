@@ -18,6 +18,8 @@
  * GIST_CAP characters. Nothing is lost: the full summary is in the note's own
  * front-matter, one click (or one `head`) away, and the one-line form makes the
  * index GREPPABLE — `grep -i mermaid README.md` now returns lines, not paragraphs.
+ * That grep IS the access pattern `CLAUDE.md` prescribes, and it is what the index is
+ * budgeted against: see `ROW_CAP` below for why the budget is per-row and not per-file.
  *
  * Each note (engineering/decisions/YYYY-MM-DD-*.md, excluding README.md) must
  * carry front-matter:
@@ -317,6 +319,53 @@ function rowFor(note) {
   return `- ${STATUS[note.status].glyph} [${note.file}](${note.file}) — ${gistFor(note.summary)}${tail}`;
 }
 
+/**
+ * THE PER-ROW COST CAP — the budget this index can actually be held to.
+ *
+ * `2026-08-17-context-index-tiering.md` coined a "an index over ~10k tokens has failed"
+ * budget and this file missed it by 2.6x (25,426 tokens of rows, o200k_base). Both exits
+ * that note proposed were re-measured and neither reaches 10k: capping `summary:` at the
+ * source cannot get under the 5,373 tokens the 424 filenames cost before a word of gist,
+ * and a filename-and-status index costs 13,302 — twice what `ls` of this folder gives for
+ * 5,842 and free. The budget was arithmetically unreachable the day it was written.
+ *
+ * WHY A ROW CAP AND NOT A FILE TOTAL. A file total is the one number #1547 already taught
+ * this generator not to assert: it is an aggregate over EVERY note, so the PR that trips
+ * it is being billed for 424 predecessors' contributions and has no local fix. A per-row
+ * cap holds each PR to exactly what it added — the same principle #1547 applied to
+ * correctness, applied to cost. It is also merge-safe by construction: two concurrent PRs
+ * each adding a note both pass, in either order.
+ *
+ * WHAT THE NUMBER IS. Measured over the live corpus, o200k_base: p50 row 214 characters /
+ * 60 tokens, p90 236 / 70, max 281. The cap sits just above today's worst row, so it is a
+ * RATCHET at the corpus, never a target nothing can hit — which is the failure mode this
+ * whole exercise exists to correct. A row's cost is bounded by `2 × filename + GIST_CAP +
+ * 11`, and `gistFor` already caps the second term, so the FILENAME is the lever an author
+ * still controls: it is rendered twice per row (link text + link target) and paid forever.
+ *
+ * The ` → [successor](successor)` pointer is excluded. Its length is set by the SUCCESSOR's
+ * filename, which this note's author did not choose, and it rides on 9 of 424 rows.
+ */
+const ROW_CAP = 285;
+
+const POINTER_TAIL = / → \[[^\]]+\]\([^)]+\)$/;
+
+/** Per-note, per-row: the check a single PR can be held responsible for. */
+function rowCostProblems(notes) {
+  const problems = [];
+  for (const note of notes) {
+    const body = rowFor(note).replace(POINTER_TAIL, '');
+    if (body.length <= ROW_CAP) continue;
+    problems.push(
+      `${note.file}: its index row is ${body.length} characters, over the ${ROW_CAP} cap. ` +
+        'The FILENAME is the lever — it is rendered twice per row (link text + link target) ' +
+        `and paid on every read of the index; shorten the slug. The summary is already capped at ${GIST_CAP} ` +
+        'characters by `gistFor`, so it is not what pushed this row over.',
+    );
+  }
+  return problems;
+}
+
 function render(notes) {
   const lines = [BEGIN, ''];
   for (const [group, heading] of GROUPS) {
@@ -494,6 +543,17 @@ function main(argv) {
     for (const e of errors) process.stderr.write(`  ✗ ${e}\n`);
     return 1;
   }
+
+  // The per-row cost cap fails BOTH modes: write must not emit a row it would then
+  // refuse to certify, and the author needs to hear it from `npm run decisions:index`
+  // rather than from a gate two commands later.
+  const oversize = rowCostProblems(notes);
+  if (oversize.length) {
+    process.stderr.write(`decisions-index: ${oversize.length} row(s) over the ${ROW_CAP}-character cap:\n`);
+    for (const p of oversize) process.stderr.write(`  ✗ ${p}\n`);
+    return 1;
+  }
+
   const readme = fs.readFileSync(README, 'utf8');
 
   // CHECK asserts only what a single PR can be held responsible for (#1547) —
@@ -522,4 +582,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { frontMatter, collect, render, rowFor, gistFor, parseIndex, verify, splice, STATUS, FOOTER, GIST_CAP };
+module.exports = { frontMatter, collect, render, rowFor, gistFor, rowCostProblems, parseIndex, verify, splice, STATUS, FOOTER, GIST_CAP, ROW_CAP };

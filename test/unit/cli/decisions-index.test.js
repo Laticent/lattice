@@ -3,7 +3,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { frontMatter, render, rowFor, gistFor, verify, splice, collect, STATUS, FOOTER, GIST_CAP } = require('../../../tools/build-decisions-index');
+const { frontMatter, render, rowFor, gistFor, rowCostProblems, verify, splice, collect, STATUS, FOOTER, GIST_CAP, ROW_CAP } = require('../../../tools/build-decisions-index');
 
 describe('decisions-index', () => {
   describe('frontMatter', () => {
@@ -113,6 +113,43 @@ describe('decisions-index', () => {
     test('a truncated row still verifies against its own note', () => {
       const note = { file: '2026-06-01-x.md', created: '2026-06-01', status: 'shipped', summary: `${'long '.repeat(80)}tail.` };
       assert.deepEqual(verify(`# R\n\n${render([note])}\n`, [note]), []);
+    });
+  });
+
+  describe('rowCostProblems (the per-row budget)', () => {
+    const note = (file, summary) => ({ file, created: file.slice(0, 10), status: 'shipped', summary });
+
+    test('a row inside the cap is silent', () => {
+      assert.deepEqual(rowCostProblems([note('2026-06-01-short.md', 'A perfectly ordinary summary sentence.')]), []);
+    });
+    test('a long filename trips it — the filename is paid TWICE per row', () => {
+      const long = `2026-06-01-${'a'.repeat(160)}.md`;
+      const [problem] = rowCostProblems([note(long, 'Short.')]);
+      assert.match(problem, /over the 285 cap/);
+      assert.match(problem, /rendered twice per row/);
+    });
+    test('a maximal gist alone cannot trip it — GIST_CAP already bounds that half', () => {
+      const maximal = note('2026-06-01-a-name-of-perfectly-typical-length.md', `${'word '.repeat(80)}end.`);
+      assert.ok(rowFor(maximal).length > GIST_CAP, 'sanity: the gist really is at its cap');
+      assert.deepEqual(rowCostProblems([maximal]), []);
+    });
+    // The pointer's length is set by the SUCCESSOR's filename, which this note's author
+    // did not choose. Billing a note for it would be the same aggregate mistake #1547
+    // taught this generator to stop making, one row down.
+    test('the superseded-by pointer is excluded from the measured cost', () => {
+      const n = note('2026-06-01-a-name-of-perfectly-typical-length.md', `${'word '.repeat(80)}end.`);
+      n.status = 'superseded';
+      n.supersededBy = `2026-06-02-${'b'.repeat(90)}.md`;
+      assert.ok(rowFor(n).length > ROW_CAP, 'sanity: the whole row IS over the cap');
+      assert.deepEqual(rowCostProblems([n]), []);
+    });
+    // The point of a ratchet is that it is set at the corpus, not above it: a cap with
+    // slack is a target nothing has to hit, which is the failure this gate exists to fix.
+    test('the live corpus is inside the cap, and close enough to it to bite', () => {
+      const { notes } = collect();
+      assert.deepEqual(rowCostProblems(notes), []);
+      const widest = Math.max(...notes.map((n) => rowFor(n).replace(/ → \[[^\]]+\]\([^)]+\)$/, '').length));
+      assert.ok(widest > ROW_CAP - 20, `the cap has ${ROW_CAP - widest} characters of slack — it is not a ratchet`);
     });
   });
 

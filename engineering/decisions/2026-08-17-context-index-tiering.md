@@ -78,14 +78,26 @@ never loads the file.
 
 ## The rule this leaves behind
 
-1. **An index over ~10k tokens has failed at being an index.** That is the budget to
-   apply to any future map — and this change only half meets it. `gotchas.md` lands
-   at 7k, inside. `decisions/README.md` lands at 26k, **2.6x over**, because 408
-   filenames and status glyphs cost ~13k before a single word of gist. Calling that
-   "close" would be the kind of rounding this note exists to argue against: the
-   budget is the target, the gist index is a way-station, and the honest next move is
-   either capping `summary:` at the source or dropping to a filename-and-status
-   index (measured at 12.8k). Do not cite this file as precedent for a 2.6x index.
+1. **An index budget is a per-ROW cost, and it binds against the access mode the
+   routing prescribes — not a file total.** *(Restated 2026-08-17, see
+   §"Amendment" below. The original form read "an index over ~10k tokens has failed at
+   being an index", and this file was its counterexample on the day it was written.)*
+   - A **read-whole** index — one the routing tells you to open — holds to **≤10k
+     tokens**. Unchanged, and both such indexes are inside it: `gotchas.md` at 7k,
+     `dist/docs/components.pick.md` at 3.8k.
+   - A **grep-first** index — one whose routing says *skim or grep, then open the two
+     documents it names* — has no meaningful file total. Budget the **row** and check
+     what a query returns. `decisions/README.md` rows measure p50 **60 tokens**, p90 70;
+     eight representative queries return **84–1,214 tokens**, and the broadest term
+     tried (`studio`, 79 of 424 rows) returns 4,724 — every one of them inside the
+     read-whole budget the file as a whole misses.
+   - The **crossover is arithmetic**: at ~60 tokens a row, a whole-corpus index stops
+     fitting 10k past ~165 items. Beyond that the routing must become grep-first, or
+     the map is not one.
+   - **Gate the row, never the total** — `ROW_CAP` in `tools/build-decisions-index.js`,
+     285 characters, ratcheted at the widest row the live corpus has. A file total is
+     the one number rule 4 already forbids: it bills the PR that trips it for 424
+     predecessors' contributions and offers it no local fix.
 2. **Generated or gated — never hand-maintained.** A stale summary is worse than no
    summary: it misdirects confidently and the reader pays for the wrong file anyway.
    `gotchas:index:check` joins `decisions:index:check` in `build:check`.
@@ -96,6 +108,67 @@ never loads the file.
 4. **A new generated index copies the #1547 relaxation**, or it will eject PRs from
    the merge queue: verify each row against its own item, assert nothing about row
    ORDER, and carry no totals. Both index generators now share that shape.
+
+## Amendment (2026-08-17) — why rule 1 was restated
+
+The rule above shipped asserting a 10k target and naming two exits toward it. Both were
+re-measured. **Neither reaches 10k, and one of them is worth less than `ls`.** All figures
+`o200k_base` over the live corpus, 424 notes; the whole file is **27,026 tokens / 97,922
+bytes**, of which the generated block is 25,552 and the rows alone 25,426.
+
+| Shape | tokens | verdict |
+|---|---:|---|
+| Rows as shipped (glyph + linked filename + gist) | **25,426** | 2.5x over |
+| …dropping the markdown link, bare filename kept | 19,205 | 1.9x over |
+| Exit A — cap `summary:` at the source (gist → 0) | ~13,800 | 1.4x over **at best** |
+| Exit B — filename + status only, linked | **13,302** | 1.3x over |
+| Exit B unlinked | 7,504 | inside — and see below |
+| `ls engineering/decisions/` for comparison | 5,842 | free |
+
+Two facts kill the original target:
+
+- **The identifier is the floor, and the markup doubles it.** The 424 filenames cost
+  **5,373 tokens** once. Every row renders the filename **twice** — link text and link
+  target — so the identifier alone is 10,746 tokens, **42% of the block**, before a word
+  of gist (the gists are 11,600, 46%). Exit A deletes the 46% and cannot touch the 42%.
+- **Exit B is a directory listing you pay for.** A filename-and-status index costs 13,302
+  tokens to deliver what `ls` of the same folder gives in 5,842 — the 7,460-token
+  difference is markdown link syntax, and the 1,662 above `ls` is the status column. That
+  is rule 3 ("don't map what `grep` gives free") turned on this note's own proposal.
+
+**Sharding (option (b)) fails on the only key that exists.** Every note is dated; nothing
+carries an `area:` field (6 notes do, out of 424 — a coincidence, not a convention). By
+year the corpus is one shard: **all 424 are 2026**. By month the largest shard is 2026-07
+at 178 rows / **10,866 tokens** — over budget on its own, for the biggest split the data
+supports. Sharding by a *new* `area:` key would mean 424 hand judgments to make a **grep
+target** cheaper for a read pattern nobody uses: `grep` across `README.d/*.md` costs the
+same as `grep` across one file, and a reader who must already know the area to pick the
+shard did not need the index.
+
+**So the shape did not change and the rule did.** The link duplication was measured
+(5,373 tokens, 21% of the block) and **kept**: dropping it lands at 19,205, still 1.9x
+over a target that is the wrong instrument, and it would cost every human reader
+click-through from the rendered README. What ships instead is the per-row cap, gated —
+because per-row is the only budget a generated, always-growing, merge-queue-shared index
+can enforce without violating rule 4.
+
+**Read against its real access mode, this index was never over budget.** `CLAUDE.md`
+routes to it with *"grep it for the topic, then open the 2–3 notes it names"*, and that
+is what a query costs:
+
+| `grep -i …` | rows | tokens |
+|---|---:|---:|
+| `changelog` | 2 | 84 |
+| `margin` | 2 | 133 |
+| `merge queue` | 3 | 199 |
+| `color` | 7 | 423 |
+| `mermaid` | 11 | 619 |
+| `layer` | 19 | 1,123 |
+| `token` | 21 | 1,214 |
+| `studio` | 79 | 4,724 |
+
+The 2.6x was real, and so is the correction: it measured a file nobody was told to read
+whole against a budget written for files that are.
 
 ## Changed by the split, beyond the move
 
@@ -146,6 +219,8 @@ Repo-wide context, same encoder: ~21.9M tokens across all tracked text, of which
 
 ## Removable when
 
-Never — this is structural. The budget in §"The rule this leaves behind" is the
-thing to enforce; if an index creeps past it again, tier it again rather than
-tolerating it.
+Never — this is structural. The thing to enforce is rule 1 as restated: a read-whole
+index holds ≤10k, a grep-first index holds a per-row cap (`ROW_CAP`, gated), and an
+index that crosses ~165 items at 60 tokens a row changes its routing or stops being a
+map. If any of those creeps, tier again rather than tolerating it — and do not restate
+a total that nothing can hit, which is the mistake this note made about itself.
