@@ -1,13 +1,14 @@
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
+import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
-import { editorTheme } from './editor-theme';
+import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
@@ -360,6 +361,20 @@ export const Editor = React.forwardRef<EditorHandle, {
 						history(),
 						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
 						markdown(),
+						// The deck editor was the ONE Studio editing surface with no highlighting at
+						// all: it composed `markdown()` + `editorTheme` and no `syntaxHighlighting(…)`,
+						// so the deck source rendered as bare text nodes with ZERO token spans, while
+						// CodeField (studioHighlight) and the Playground (latticeHighlight) both
+						// highlighted. Found while verifying #1720 — a run pointed at this editor
+						// measures nothing and reports a pass.
+						//
+						// `studioHighlight` rather than a bespoke Markdown-only style, so this surface
+						// and CodeField cannot drift (syntax-highlight-parity.test.ts pins them per
+						// role). CodeMirror's Markdown token set is inherently restrained — heading,
+						// emphasis, link, code span, quote — so this is structural affordance on a
+						// writing surface, not code colorization: it is what makes a deck's
+						// `<!-- _class: X -->` directives and its heading spine visible at a glance.
+						syntaxHighlighting(studioHighlight),
 						acComp.current.of(buildAutocomplete()),
 						lintComp.current.of(buildLint()),
 						lintGutter(),
