@@ -249,7 +249,7 @@ below exists to make that third-party preview show something recognizable:
   `compare-code.styles.css`, `diagram.styles.css` and the chart family, plus a
   standing constraint that theme rules avoid a leading `:is(section…)` because
   Marpit's scoper cannot resolve it.
-- **`engineering/gotchas.md`'s "VS Code / marp-vscode" section** (`:1448-1688`)
+- **`engineering/gotchas/vscode.md`** (the "VS Code / marp-vscode" gotchas)
   — 48 Marp lines, part of the 159 in that file. One entry elsewhere in the file
   (`:312`) ends in "no path works in the marp-vscode preview," after three
   implementation attempts at the `logo:` directive.

@@ -77,6 +77,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |
 | `export:marp` | Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`. |
 | `fonts:emoji` | Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network. |
+| `gotchas:index` | Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file. |
+| `gotchas:index:check` | Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted). |
 | `image-set-core:build` | Bundle the shared image-set contract (lib/export/image-set.js) for the browser — the Studio Share sheet's "Images" (image-set ZIP) export. |
 | `image-set-core:check` | Freshness gate for the image-set-core bundle. |
 | `katex-provider:build` | Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle. |
@@ -248,8 +250,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
-| `gotchas:index` | **TODO: describe `gotchas:index` in tools/build-capabilities.js (SCRIPT_META).** |
-| `gotchas:index:check` | **TODO: describe `gotchas:index:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 

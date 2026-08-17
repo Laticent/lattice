@@ -138,6 +138,8 @@ const SCRIPT_META = {
   'oracle:check':             ['Test & verify', 'Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift.'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted).'],
+  'gotchas:index':            ['Build & bundle', 'Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file.'],
+  'gotchas:index:check':      ['Build & bundle', 'Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted).'],
 
   // Galleries & preview (rendered PDFs)
   'build:galleries':          ['Galleries & preview', 'Rebuild per-component gallery PDFs (light + dark).'],

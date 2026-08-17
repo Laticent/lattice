@@ -1,8 +1,8 @@
 ---
 status: shipped
 summary: >
-  The two docs CLAUDE.md routes to most had both grown past the size where an index
-  is useful — gotchas.md at 75k tokens and the decisions index at 96k — so the
+  The one doc CLAUDE.md routes to most, plus the index it did not route to at all,
+  had both grown past the size where an index is useful — gotchas.md at 75k tokens and the decisions index at 96k — so the
   cheapest question in the repo cost more context than the work it preceded. Both
   are now one line per item (7k and 26k), with the detail one file away, and the
   rule that keeps it that way is an index budget plus generated-or-gated.
@@ -22,9 +22,13 @@ had quietly become the most expensive in the repo:
 | `engineering/gotchas.md` | 290 KB / **75k tokens** | One file, 143 entries, 12 sections |
 | `engineering/decisions/README.md` | 395 KB / **96k tokens** | Generated index of 406 notes, full summaries |
 
-Both are *routing* surfaces. `CLAUDE.md` sends every "something behaving strangely"
-session to `gotchas.md` — the most common trigger there is — and that file's own
-first instruction was **"Read top-to-bottom when something breaks."** Following the
+Only ONE of them was a routing surface, and the difference matters. `CLAUDE.md` sends
+every "something behaving strangely" session to `gotchas.md` — the most common trigger
+there is — and that file's own first instruction was **"Read top-to-bottom when something
+breaks."** `CLAUDE.md` did **not** route to `decisions/README.md` at all; it named the
+note path directly. So half this change shrinks a file nobody was sent to and THEN adds
+the route — which only pays off if the 26k index is cheaper than the notes a reader
+would otherwise hunt blind, and is the weaker half of the case. Following the
 documentation as written cost 75k tokens before any work began. The decisions index
 was worse per unit of value: it rendered all 406 `summary:` fields in full, so
 reading the index cost more than reading the five notes it was supposed to help you
@@ -72,7 +76,13 @@ never loads the file.
 ## The rule this leaves behind
 
 1. **An index over ~10k tokens has failed at being an index.** That is the budget to
-   apply to any future map. Both files here are now inside it or close to it.
+   apply to any future map — and this change only half meets it. `gotchas.md` lands
+   at 7k, inside. `decisions/README.md` lands at 26k, **2.6x over**, because 408
+   filenames and status glyphs cost ~13k before a single word of gist. Calling that
+   "close" would be the kind of rounding this note exists to argue against: the
+   budget is the target, the gist index is a way-station, and the honest next move is
+   either capping `summary:` at the source or dropping to a filename-and-status
+   index (measured at 12.8k). Do not cite this file as precedent for a 2.6x index.
 2. **Generated or gated — never hand-maintained.** A stale summary is worse than no
    summary: it misdirects confidently and the reader pays for the wrong file anyway.
    `gotchas:index:check` joins `decisions:index:check` in `build:check`.
@@ -97,6 +107,13 @@ Repo-wide context, same encoder: ~21.9M tokens across all tracked text, of which
 
 ## Deliberately not done
 
+- **`dist/docs/components.json` (95k tokens) is untouched, and it is the bigger fish.**
+  `CLAUDE.md` and `AGENTS.md` both route agents there, `AGENTS.md` explicitly telling
+  them to read it whole, and HARD RULE #6 makes a component lookup mandatory before
+  authoring any `_class:` slide — so it fires more often than a symptom search does.
+  This change fixed the tractable pair, not the highest-leverage one. That is the next
+  slice, and it is a different shape: a machine catalog whose value is completeness,
+  so the answer there is field pruning or a query tool, not a gist.
 - **`docs/` (4M tokens) is left alone.** It is site content and SVG, rarely read
   during engineering work. Mapping it would spend effort where no tokens are burned.
 - **`gotchas/marp.md` is still 21k tokens** — the largest topic file, and several of
@@ -107,7 +124,7 @@ Repo-wide context, same encoder: ~21.9M tokens across all tracked text, of which
 - **Entry-level files (one per gotcha) were considered and rejected.** 144 files
   would minimize the read further but destroy topic browsing and make every entry
   edit a new-file decision. Topic granularity matches how a human navigates.
-- **`CHANGELOG.md` (1.5 MB, ~536k tokens)** is the largest single authored file and
+- **`CHANGELOG.md` (1.5 MB, 382k tokens)** is the largest single authored file and
   is still all-or-nothing to read. The write side was already fixed by `changelog.d/`
   fragments (#1593); the read side is a separate change.
 

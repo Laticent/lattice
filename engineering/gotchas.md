@@ -11,10 +11,20 @@ or LLM) will thank you.
 ## How to use this file
 
 This page is the **symptom index** — one line per gotcha, grouped by topic, each
-linking into a file under `engineering/gotchas/`. Skim or `grep` it for the symptom
-you are seeing, then open the ONE file it points at. Do not read the topic files
+linking into a file under `engineering/gotchas/`. Do not read the topic files
 top-to-bottom; there are ~144 entries across them and they are a reference, not a
 narrative.
+
+**Two ways in, and picking the wrong one is how you conclude "gotchas has nothing":**
+
+- **You can describe the SYMPTOM** ("the ring lags an edit", "type falls back in the
+  PDF") — skim or `grep` this index, then open the ONE file it points at.
+- **You have a NAME instead** — an API, a CSS property, a selector, a token, an error
+  string (`z-index`, `srcdoc`, `container-type`, `getBoundingClientRect`) — then
+  **`grep -rn <term> engineering/gotchas/`**. Those words are in the entry BODIES,
+  which this index does not carry: it lists headings only. Grepping the index for
+  `z-index` returns nothing while seven entries discuss it. Grep costs the same on
+  the directory as on one file — you pay for the hits, not the haystack.
 
 When fixing or working around something subtle, add an entry **before** committing
 the fix so the commit message can link to it. Add it to the topic file (as a `##`

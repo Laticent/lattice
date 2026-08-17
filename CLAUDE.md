@@ -461,7 +461,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | What a component/modifier/token *is*, catalog shape | `design/design-system.md` |
 | Branching, feature decks, share-the-PDF, rebase, merge, two-renderer rule | `engineering/workflow.md` |
 | Node, npm scripts, tests, lint, hooks, CI, the cloud sandbox setup | `engineering/development.md` |
-| Something behaving strangely (symptom index) | `engineering/gotchas.md` — **skim/grep the index, then open the ONE `engineering/gotchas/<topic>.md` it names.** Never read the topic files top-to-bottom |
+| Something behaving strangely (symptom index) | `engineering/gotchas.md` lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
 | Engine internals, where transform kernels live | `engineering/architecture.md` |
 | Where we stand vs Marp (independence scorecard) | `engineering/marp-independence.md` |
 | The CSS cascade / `@layer` (declared-but-inert; the trap) | `engineering/cascade.md` |
