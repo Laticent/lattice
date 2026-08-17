@@ -33,16 +33,32 @@
  * set (4.98 / 5.15 / 3.85 / 6.99 modelled against 4.95 / 5.13 / 3.90 / 6.92). `tools/composed-contrast.js` models the same stack
  * statically, from the token table rather than a render.
  *
- * KNOWN LIMITATION — OCCLUDED RUNS. It scores every run that is in the DOM and not
- * `display:none` / `visibility:hidden`, including one painted UNDER an opaque
- * sibling and therefore not on screen at all. Such a run is neither a pass nor a
- * failure and there is no threshold that describes it; treat a reported failure on
- * text you cannot find in the render as a layering bug to chase, not a contrast one.
- * Live example: the running header is fully occluded by the left rail on every
- * `split-*` layout (measured — a flat one-color strip where the glyphs should be,
- * against 17 colors on a layout that paints it), so its row here describes ink that
- * never reaches the page. Detecting occlusion needs per-glyph hit-testing this
- * deliberately does not do.
+ * A CORRECTION, KEPT ON PURPOSE. This block used to claim that the running header is
+ * "fully occluded by the left rail on every `split-*` layout … ink that never reaches
+ * the page", and offered a measurement for it. That was FALSE. Rendered, the header is
+ * painted in white on the dark rail and is perfectly legible. The four 1.00:1 rows it
+ * was excusing were real output from a real bug — in THIS FILE, not in the engine:
+ * `underlays()` approximated paint order by DOM order, so it discarded the rail (a
+ * later, in-flow sibling) as a backdrop for out-of-flow chrome emitted before it. That
+ * is fixed below, and those four rows are gone.
+ *
+ * The correction is worth more than the fix. The false claim was adopted as evidence by
+ * a later change without anyone rendering the slide, and it survived review because a
+ * tool's confident self-description reads exactly like a measurement. Treat this header
+ * — including this paragraph — as a claim to re-verify, never as evidence.
+ *
+ * KNOWN LIMITATION — OCCLUDED RUNS. Every run in the DOM and not `display:none` /
+ * `visibility:hidden` is scored, including one painted UNDER an opaque sibling and so
+ * not on screen at all. Such a run is neither a pass nor a failure, and no threshold
+ * describes it; detecting it needs per-glyph hit-testing this deliberately does not do.
+ * Treat a reported failure on text you cannot find in the render as a layering or
+ * backdrop-sampling bug to chase, not a contrast one.
+ *
+ * KNOWN LIMITATION — RASTER BACKDROPS. Backgrounds are read from `backgroundColor`, so
+ * text over a photograph or gradient IMAGE resolves to whatever paint sits behind the
+ * picture, usually the section canvas. Those rows are noise in both directions and are
+ * why `image`-backed slides carry allowlist entries in the invariants gate rather than
+ * a number this tool could ever get right.
  *
  * Usage:  node tools/check-slide-contrast.js <rendered-deck.html> [more.html ...]
  * Exits non-zero if any run falls below its AA threshold. On-demand, not a
@@ -185,37 +201,135 @@ const PROBE = () => {
   // engine sets on several decorative fills. Rects are viewport-relative too, but
   // all of them share that origin, so containment comparisons hold at any scroll.
   //
-  // Paint order is approximated by DOM order: a sibling that PRECEDES the run paints
-  // under it, and the last such sibling is the topmost underlay. A positive-z-index
-  // element earlier in the DOM would fool it; none exists on these surfaces, and the
-  // failure mode is a backdrop that is still closer to the truth than the section
-  // canvas. Ancestors are excluded — the climb above already owns them.
+  // Paint order is approximated by (PAINT LAYER, then DOM order). DOM order ALONE is
+  // not enough, and the gap was not academic: it was the single largest source of
+  // false failures this tool produced.
+  //
+  // The running header is out-of-flow chrome emitted FIRST in the section, and a
+  // split layout's `.panel-left` rail is a later, in-flow sibling. CSS paints in-flow
+  // block backgrounds (CSS 2.2 Appendix E, step 4) BEFORE positioned descendants
+  // (step 8), so the rail really is underneath the header — but "later in the DOM"
+  // said the opposite, so the rail was rejected as an underlay and the climb fell
+  // through to the white section canvas. Measured on the gallery: `.panel-left` is
+  // found, DOES contain the header's text rect, and was discarded on DOM order alone
+  // — scoring four headers at 1.00:1 white-on-white that render in white on a dark
+  // rail and are perfectly legible (p18, p94, p97, p98).
+  //
+  // `paintLayer` therefore ranks a box coarsely by Appendix E, and a node counts as an
+  // underlay when it sits in a LOWER layer, whatever the DOM says. The run's own layer
+  // is the max over itself and its ancestors up to the section, because a run paints
+  // inside its nearest positioned ancestor's layer, not its own. Within one layer, DOM
+  // order still decides — that is the old rule, preserved.
+  //
+  // This is deliberately ADDITIVE: every sibling the DOM-order rule accepted is still
+  // accepted, so it can only recover a backdrop that was being missed, never remove
+  // one that was working.
+  //
+  // Done by GEOMETRY, deliberately not by `document.elementsFromPoint`: that hit-
+  // tests in VIEWPORT coordinates, and a rendered deck is one tall document with
+  // every slide stacked, so it returns [] for every run below the fold (slide 6's
+  // footer sits at y=4281 in a 720px viewport — measured, which is how the first cut
+  // of this silently found nothing). It also skips `pointer-events:none`, which this
+  // engine sets on several decorative fills. Rects are viewport-relative too, but
+  // all of them share that origin, so containment comparisons hold at any scroll.
+  //
+  // Ancestors are excluded — the climb above already owns them.
   // `rect` defaults to the element box, but a caller with a tighter one should pass
   // it: the running header/footer are FULL-SLIDE-WIDTH boxes holding short
   // left-aligned text, so their box center lands on the far side of a split layout
   // from the glyphs. Sampling the box center scored slide 6's footer against the
   // white right half while its text sits on the accent rail — right arithmetic,
   // wrong place. The text loop passes the text node's own Range rect.
-  const underlays = (el, rect) => {
+  //
+  // STILL APPROXIMATE, in two named ways. It does not build real stacking contexts
+  // (an `opacity`/`transform`/`filter` ancestor makes one, and z-index is scoped to
+  // it), and it does not hit-test glyphs, so a box that CONTAINS the run's center but
+  // paints only around it still counts. Both fail toward a backdrop closer to the
+  // truth than the section canvas.
+  const paintLayer = (n) => {
+    const cs = getComputedStyle(n);
+    if (cs.position === 'static') return 0;          // in-flow background (step 4)
+    const z = cs.zIndex === 'auto' ? 0 : (parseInt(cs.zIndex, 10) || 0);
+    if (z < 0) return -1;                            // negative-z positioned (step 3)
+    return z === 0 ? 1 : 1 + z;                      // positioned, z auto/0 then above
+  };
+  /**
+   * Every non-ancestor box in the section that paints UNDER `rect`, topmost first.
+   * `underlays` and `rasterUnder` differ only in which paint they read off it, so the
+   * traversal, the layer rule and the containment test live here once.
+   */
+  const under = (el, rect) => {
     const r = rect?.width ? rect : el.getBoundingClientRect();
     if (!r.width || !r.height) return [];
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const sec = el.closest('section[data-lattice-slide]');
     if (!sec) return [];
+    // The run paints in its nearest positioned ancestor's layer — take the max up
+    // to (but excluding) the section, which is the stacking root here.
+    let elLayer = 0;
+    for (let n = el; n && n !== sec; n = n.parentElement) elLayer = Math.max(elLayer, paintLayer(n));
     const found = [];
+    let idx = 0;
     for (const node of sec.querySelectorAll('*')) {
+      idx += 1;
       if (node === el || node.contains(el) || el.contains(node)) continue;
-      if (!(node.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      const layer = paintLayer(node);
+      const precedes = !!(node.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+      // A lower layer is under the run whatever the DOM order; an equal layer falls
+      // back to the original "must precede" rule.
+      if (!(layer < elLayer || (layer === elLayer && precedes))) continue;
+      const b = node.getBoundingClientRect();
+      if (!b.width || !b.height) continue;
+      if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) continue;
+      found.push({ node, layer, idx });
+    }
+    found.sort((a, b) => (a.layer - b.layer) || (a.idx - b.idx));
+    found.reverse();
+    return found.map((f) => f.node);
+  };
+
+  /**
+   * Does a paint this tool CANNOT SAMPLE lie under the run — a raster
+   * `background-image`, or a gradient? Every backdrop here is read off
+   * `backgroundColor`, so when the answer is yes the reported ratio is not merely
+   * approximate, it is measuring the wrong thing: the climb sails past the picture
+   * and lands on whatever opaque colour sits behind it, usually the section canvas.
+   *
+   * Live case: `image statement` builds its backdrop as `div.lattice-bg` (a
+   * `background-image: url(…)`) with a `div.image-scrim` gradient over it, and paints
+   * white display text on top. Both divs have a fully transparent `backgroundColor`,
+   * so the run scored 1.00:1 white-on-white against the section while rendering as
+   * white on a dark photograph — legible, and nothing like the number.
+   *
+   * The flag is reported rather than acted on: this file keeps listing such runs so a
+   * human can see them, and the invariants gate carries the policy (an explicit,
+   * justified exemption) so the two concerns stay in one place each. Ancestors count
+   * as well as underlays — a scrim on a wrapper is the same problem.
+   */
+  const rasterUnder = (el, rect) => {
+    const hasImage = (n) => {
+      const cs = getComputedStyle(n);
+      return cs.backgroundImage && cs.backgroundImage !== 'none';
+    };
+    for (const n of under(el, rect)) if (hasImage(n)) return true;
+    let node = el;
+    while (node && node !== document.documentElement) {
+      if (hasImage(node)) return true;
+      node = node.parentElement;
+    }
+    return false;
+  };
+
+  // `under()` already yields topmost-first, so composite straight down it until an
+  // opaque paint closes the stack.
+  const underlays = (el, rect) => {
+    const out = [];
+    for (const node of under(el, rect)) {
       const c = parse(getComputedStyle(node).backgroundColor);
       if (!c || c.a <= 0) continue;
-      const b = node.getBoundingClientRect();
-      if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) continue;
-      found.push(c);
+      out.push(c);
+      if (c.a >= 1) break;
     }
-    // Latest in DOM order is topmost; composite downward until opaque.
-    found.reverse();
-    const out = [];
-    for (const c of found) { out.push(c); if (c.a >= 1) break; }
     return out;
   };
 
@@ -295,7 +409,11 @@ const PROBE = () => {
       // `underlays`. Cheap, and exact where the element box is not.
       const tr = document.createRange();
       tr.selectNodeContents(n);
-      const unders = underlays(el, tr.getBoundingClientRect());
+      // #1704's resolveStack (ink and backdrop through the SAME opacity-group
+      // stack) with the run's own rect hoisted, so `rasterUnder` below tests the
+      // glyphs' box rather than the element's.
+      const trect = tr.getBoundingClientRect();
+      const unders = underlays(el, trect);
       const bg  = resolveStack(el, unders);
       const fgc = resolveStack(el, unders, fg);
       const w = parseInt(cs.fontWeight, 10) || 400;
@@ -307,6 +425,7 @@ const PROBE = () => {
         fg: fgc.map(Math.round), bg: bg.map(Math.round),
         r: +ratio(fgc, bg).toFixed(2), need: large ? 3 : 4.5,
         exempt: exemptInks.has(fgc.map(Math.round).join(',')),
+        imgBackdrop: rasterUnder(el, trect),
       });
     }
     // pseudo-elements carry real text in this engine (axis labels, badges)
@@ -340,6 +459,7 @@ const PROBE = () => {
           fg: fgc.map(Math.round), bg: bg.map(Math.round),
           r: +ratio(fgc, bg).toFixed(2), need: large ? 3 : 4.5,
           exempt: exemptInks.has(fgc.map(Math.round).join(',')),
+          imgBackdrop: rasterUnder(el),
         });
       }
     }
@@ -347,7 +467,16 @@ const PROBE = () => {
   return out;
 };
 
-(async () => {
+/**
+ * EXPORTED so the invariants gate measures with EXACTLY this code (HARD RULE #15 /
+ * #1: one source of truth). `test/integration/invariants/slide-contrast.test.js`
+ * requires `{ PROBE }` and evaluates it in its own page — a second, drifting copy of
+ * a WCAG implementation is precisely the "two gates disagreeing about a ratio" that
+ * axe-a11y.test.js disables its own contrast rule to avoid.
+ */
+module.exports = { PROBE };
+
+async function main() {
   const files = process.argv.slice(2);
   const browser = await puppeteer.launch({
     executablePath: process.env.CHROME_PATH,
@@ -370,7 +499,7 @@ const PROBE = () => {
       console.log(
         `  p${String(b.page).padStart(2)} ${b.cls.padEnd(30).slice(0, 30)} ${b.tag.padEnd(14)}` +
         ` ${String(b.fs).padStart(5)}px/${String(b.w).padEnd(3)} ${b.r.toFixed(2)}:1 (need ${b.need})` +
-        `  fg rgb(${b.fg}) on rgb(${b.bg})\n      "${b.text}"`
+        `  fg rgb(${b.fg}) on rgb(${b.bg})${b.imgBackdrop ? '  [image backdrop — ratio not measurable]' : ''}\n      "${b.text}"`
       );
     }
     // font-size report for the matrix axis labels specifically
@@ -384,4 +513,6 @@ const PROBE = () => {
   await browser.close();
   console.log(`\n${'='.repeat(78)}\n${total} runs checked · ${fails} below AA\n`);
   process.exit(fails ? 1 : 0);
-})();
+}
+
+if (require.main === module) main();

@@ -6389,11 +6389,42 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
 
   /* Surfaces */
   --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
-  /* Section bar bg mixes toward --surface-inverse on BOTH canvases → always a dark
-   * surface. --on-accent flips to --surface-inverse in dark mode (same value) giving
-   * near-zero contrast (~2.5:1). Use --on-dark-primary (always-light token)
-   * so section labels remain legible in both light and dark themes. */
-  --journey-stage-fg:   var(--on-dark-primary);
+  /* THE STAGE BAR IS CANVAS-DERIVED, NOT DARK — so its ink is canvas-derived too (#1702).
+   *
+   * The recipe above is `--bg-alt` DEEPENED toward `--surface-inverse`, weighted 70/30
+   * toward the canvas. It therefore tracks whichever canvas it is on, and lands in a
+   * different place on each of the three:
+   *
+   *   light   pale --bg-alt, 30% toward dark navy   → a MID slate (indaco #a9bbcd)
+   *   dark    dark --bg-alt, 30% toward dark navy   → dark
+   *   print   #F5F5F5-ish, 30% toward #ECECEC       → near-white
+   *
+   * An earlier comment here claimed the mix gave "always a dark surface on BOTH
+   * canvases". That was false on the light canvas and on the print band, and pinning
+   * the ink to the always-light `--on-dark-primary` on the strength of it shipped
+   * 92%-white labels on a mid slate: 1.87:1 in indaco against a 3:1 floor, and 31 of
+   * 64 palette x mode pairs below 3:1 — EVERY light-mode pair. Only dark mode was ever
+   * right. (The claim was not baseless: it was fixing a real dark-mode defect, where
+   * `--on-accent` collapses onto `--surface-inverse` at ~2.5:1. It over-corrected past
+   * light mode.)
+   *
+   * `--text-heading` is the ink the canvas already solves for, so it follows the fill
+   * wherever the fill goes: measured 0 of 64 pairs below AA 4.5:1, worst 5.63:1 — not
+   * merely past the 3:1 large-text floor these labels are scored at. It is also the
+   * honest ROLE token, since the stage bar heads the group of task chips beneath it.
+   *
+   * `section.print` ALREADY does exactly this, one layer down — it remaps
+   * `--on-dark-primary: var(--print-text-heading)` (base.modifiers.css) precisely
+   * because its `--surface-inverse` is a light #ECECEC. So print's rendered ink is
+   * unchanged by this edit; the fix generalizes what the print band had already
+   * special-cased.
+   *
+   * Both tokens are declared HERE, at :root, and must stay that way together: a custom
+   * property resolves its var()s at its DECLARATION scope, so a slide-level canvas
+   * register (`color-light`) reaches neither. Move one to section scope and the pair
+   * desynchronizes — a section-scoped ink over a root-scoped fill. Held by
+   * test/unit/palette/journey-stage-contrast.test.js. */
+  --journey-stage-fg:   var(--text-heading);
   --journey-task-bg:      color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
   --journey-task-fg:      var(--text-body);
   --journey-timeline:     color-mix(in srgb, var(--text-body) 55%, transparent);
@@ -6444,7 +6475,11 @@ section.print.journey {
   --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1-deep: var(--cat-6-mark);
   --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
-  --journey-stage-fg:   var(--on-dark-primary);
+  /* Canvas-derived ink for a canvas-derived fill — see the :root block (#1702). On the
+   * print band this re-resolves to `--print-text-heading`, which is what the former
+   * `var(--on-dark-primary)` already resolved to here (section.print remaps it), so the
+   * print output is unchanged. */
+  --journey-stage-fg:   var(--text-heading);
   --journey-task-bg:    color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
   --journey-task-fg:    var(--text-body);
   --journey-timeline:   color-mix(in srgb, var(--text-body) 55%, transparent);

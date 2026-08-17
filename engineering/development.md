@@ -102,7 +102,10 @@ test/integration/export/      export-formats, html-player, present-mode, [PR]
                               marp-kit-render (real marp-cli; kit + export
                               bundle; skips off-CI with no registry, FAILS
                               on CI)
-test/integration/invariants/  component-invariants (semantic gate)      [PR]
+test/integration/invariants/  component-invariants (semantic gate),     [PR]
+                              slide-contrast (rendered-DOM WCAG AA over
+                              three galleries; imports PROBE from
+                              tools/check-slide-contrast.js)
 test/integration/galleries/   emulator.gallery                      [nightly]
 test/integration/components/  component- + bucket-galleries          [nightly]
 test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
