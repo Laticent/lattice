@@ -35,6 +35,21 @@ import type { Posture } from './studio-store';
 // primitive to match — other surfaces depend on its `bg-border` default.
 export const BAR_RULE = 'h-6 bg-[var(--text-muted)]';
 
+// ONE HEIGHT for every control in the top bar, and one for a member inside a bordered
+// group. Before this the row ran SIX heights — launcher 38, appearance box 38, dial 35,
+// ⌘K pill 35 (30 when it collapsed to an icon), deck pill 34, buttons 32 — so the twelve
+// controls sat on top insets scattered across 8-17px in a 54px band. Nothing was aligned
+// to anything; the ⌘K pill was simply the most visible offender because it sat 3px taller
+// than the buttons beside it and shrank 5px at 1100.
+//
+// 32px is not a new number: it is what shadcn's `sm` and `icon-sm` already compute to, so
+// Present, Share and every ghost icon were ALREADY correct and it is the odd ones that
+// move. The controls sized by padding (`py-1.5` + content) are the ones that drifted.
+// 26px is 32 minus the 3px padding a bordered group puts on each side, so a segment inside
+// the dial or the appearance box lands flush inside a 32px container.
+export const BAR_CONTROL = 'h-8';
+export const BAR_SEGMENT = 'h-[26px]';
+
 // The posture dial — the one always-visible, reversible control that replaced the
 // one-way graduation ratchet (2026-07-17-studio-persona-dial.md). Stops are named for
 // what you DO, never who you are, so no stop reads as a rank; the lit segment is the
@@ -56,7 +71,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 	// persist of a segment that merely looked already-selected (red-team finding).
 	const transient = shown !== posture;
 	return (
-		<fieldset className="m-0 inline-flex shrink-0 items-center rounded-lg border border-border bg-background p-[3px]">
+		<fieldset className={cn('m-0 inline-flex shrink-0 items-center rounded-lg border border-border bg-background p-[3px]', BAR_CONTROL)}>
 			<legend className="sr-only">Workspace stop</legend>
 			{POSTURE_STOPS.map((s) => {
 				const lit = shown === s.id;
@@ -92,7 +107,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 						      which is what keeps "your saved home" and "showing now" apart.
 						    This also buys back an accent draw: the bar spends accent on ONE filled object
 						    (Present), and here only on a hairline — a state marker, not a filled control. */}
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm ring-1 ring-inset ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm ring-1 ring-inset ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700

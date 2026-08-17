@@ -44,7 +44,7 @@ import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { type ComposeHandle, ComposeView } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_CONTROL, BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -3593,7 +3593,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    (a flex item's min-content contribution is not reduced by `min-width:0` on the
 				    truncating child), and `contain: inline-size` on the title zeroes its intrinsic
 				    size in BOTH directions — the pill then never grows to show a title at all. */}
-				<button type="button" data-demo="deck-switcher" className={cn('flex items-center gap-2 rounded-md border border-border bg-background py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', compact ? 'min-w-[42px] px-2' : 'min-w-[62px] px-2.5')}>
+				<button type="button" data-demo="deck-switcher" className={cn(BAR_CONTROL, 'flex items-center gap-2 rounded-md border border-border bg-background text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', compact ? 'min-w-[42px] px-2' : 'min-w-[62px] px-2.5')}>
 					{/* The active-deck dot is DESKTOP-ONLY decoration. Below 1100 it cost 16px
 					    (dot + its gap) out of a pill that had 51px to spend at the 700px floor —
 					    so the deck title, the thing this pill exists to show, rendered at ZERO
@@ -3717,7 +3717,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    nowrap, so the deck switcher stays the one item that gives. The slim
 					    header has far more slack, so it never wrapped — matching it here keeps
 					    the two pills from drifting apart the next time one is touched. */}
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
+					<button type="button" onClick={() => setCmdOpen(true)} className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
@@ -3778,7 +3778,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* The real brand mark (not a text tile), and the chevron shows at EVERY
 						    width — without it the phone-width trigger reads as a static logo,
 						    not a menu. */}
-						<button type="button" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
+						<button type="button" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
 							<LatticeMark mode={mode} className="size-7" />
 							{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
 							    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
@@ -3858,7 +3858,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    VERTICAL. With the class the pressure lands where the design says it
 						    should — the deck title truncates a little sooner — and the fix holds for
 						    any deck title length rather than for the one that happened to be open. */}
-						<button type="button" onClick={() => setCmdOpen(true)} className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
+						<button type="button" onClick={() => setCmdOpen(true)} className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
@@ -3870,16 +3870,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    folds into ⋯; the mode toggle stands alone on tablet and joins the ⋯
 				    Appearance tail on phones (below). */}
 				{!compact && (
-					<div className="flex items-center rounded-md border border-border bg-background p-0.5">
+					<div className="flex h-8 items-center rounded-md border border-border bg-background p-[3px]">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon-sm" aria-label="Theme"><Palette className="size-[18px]" /></Button>
+								<Button variant="ghost" size="icon-sm" aria-label="Theme" className="size-[26px]"><Palette className="size-[18px]" /></Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end" className="max-h-[70vh] w-52 overflow-y-auto">
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</DropdownMenuContent>
 						</DropdownMenu>
-						<Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>
+						<Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" className="size-[26px]" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>
 					</div>
 				)}
 

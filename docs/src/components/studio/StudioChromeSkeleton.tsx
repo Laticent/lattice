@@ -97,7 +97,7 @@ function DeckPill({ title }: { title: string }) {
 		<button
 			type="button"
 			data-ssr-demo="deck-switcher"
-			className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
+			className="ssr-deck-pill flex h-8 min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
 		>
 			<span className="hidden size-2 shrink-0 rounded-full bg-[var(--text-body)] min-[1100px]:block" />
 			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
@@ -181,7 +181,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				    re-gates these three spans under `:root[data-ssr-stop="craft"]`; drawing the slim
 				    header's bare mark there instead pushed the deck pill 27px right. */}
 				<span className="ssr-launcher-wrap contents min-[1100px]:hidden">
-					<button type="button" aria-label="Workspace launcher" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 sm:gap-2 sm:px-1.5">
+					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
 						{/* The wordmark rides the launcher only at !compact — the desktop FULL header, which
 							    is what the app renders at Craft. */}
@@ -236,7 +236,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				    rule are in the identity band above, not here.
 				    The ⌘K pill grows its label at Tailwind's `xl`, exactly as the app's does. */}
 				<span className="ssr-desktop-tail hidden min-[1100px]:contents">
-					<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
+					<button type="button" aria-label="Search or run a command" className="hidden h-8 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
@@ -249,13 +249,13 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					    52px activity rail instead). Mirrored control-for-control — the parity spec
 					    compares the two SETS, so an omission here fails rather than ships. */}
 					<span className="ssr-craft-tail hidden min-[1100px]:contents">
-						<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
+						<button type="button" aria-label="Search or run a command" className="hidden h-8 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
-						<span className="flex items-center rounded-md border border-border bg-background p-0.5">
-							<Button variant="ghost" size="icon-sm" aria-label="Theme"><Palette className="size-[18px]" /></Button>
-							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
+						<span className="flex h-8 items-center rounded-md border border-border bg-background p-[3px]">
+							<Button variant="ghost" size="icon-sm" className="size-[26px]" aria-label="Theme"><Palette className="size-[18px]" /></Button>
+							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark size-[26px]"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light size-[26px]"><Sun className="size-[18px]" /></Button>
 						</span>
 						<Separator orientation="vertical" className={BAR_RULE} />
 						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--text-body)]"><MonitorPlay className="size-[18px]" /></Button>
