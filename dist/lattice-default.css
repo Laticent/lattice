@@ -757,8 +757,22 @@
    *   section.title code { --code-inline-fg: var(--on-dark-primary); }
    * and the wash/border follow automatically. The bg/border tokens exist as
    * optional seams for a theme that wants an opaque chip instead of the wash.
-   * See engineering/decisions/2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg:     var(--accent);
+   * See engineering/decisions/2026-06-08-inline-code-contrast.md.
+   *
+   * THE INK IS DELIBERATELY NOT DECLARED HERE. It used to be — `--code-inline-fg: var(--accent)`
+   * sat on this line — and because `packTheme` relocates a theme's `:root` onto `section`, the
+   * two declarations landed on the SAME selector at the SAME specificity, where source order
+   * decides and the engine bundle comes last. The engine default therefore beat every theme's
+   * value, silently: 14 themes carry a `--code-inline-fg` deepened specifically so the chip
+   * clears AA on a CARD rather than only on the canvas, each with its measured pair in a
+   * trailing comment (`indaco` → `#006599`, `L:5.46/5.02`), and not one of them was reaching
+   * the page. Measured in Chromium: the chip shipped `--accent` at 4.36:1 on a card panel,
+   * against a 4.5 floor, while the theme's own value would have cleared it.
+   *
+   * `section code` already spells the fallback — `var(--code-inline-fg, var(--accent))` — so a
+   * theme that sets nothing lands on exactly the same ink it does today, and a theme that has
+   * done the work now gets it. A default that overrides the specific value it is a default FOR
+   * is not a default; leave the seam empty and let the fallback be the default. */
   --code-inline-bg:     color-mix(in srgb, currentColor 10%, transparent);
   --code-inline-border: color-mix(in srgb, currentColor 22%, transparent);
 
@@ -3446,7 +3460,10 @@ section.citation-card > .cell-stage {
 /* align-items (horizontal, this is a flex column) + the h2/p text-align read the headline
  * seam (`headline:` register). `auto`/no register → the fallback `center` — byte-identical to
  * the centered closing bookend. */
-section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+/* `color-scheme: dark` rides with `--surface-inverse` — see the note on `section.title`.
+ * Without it this bookend's own accent heading measured 2.06:1 on indaco (light-canvas
+ * `--accent` on the dark field), and every unnamed inherited ink was equally exposed. */
+section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
 /* The shared sovereign-bookend measures (base.tokens.css), mirroring title.
@@ -5206,6 +5223,10 @@ section.diagram > .cell-stage > blockquote { align-self:stretch; }
  * shorthand, which resets every longhand, so their behavior is unchanged (#1528). */
 section.divider {
   background-color: var(--surface-inverse);
+  /* Rides with the surface — see the note on `section.title`. Measured here before it: the
+   * divider's own lede ran 1.02:1, near-black body ink on the dark canvas. `.light` REPLACES
+   * this canvas below, so it puts the scheme back with it. */
+  color-scheme: dark;
   background-image: var(--spectrum-vertical, var(--spectrum));
   background-position: left;
   background-size: calc(var(--_sec-1cqi,1cqi)*0.46875) 100%;
@@ -5243,7 +5264,7 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
  * orientation. Merged from the standalone subtopic on 2026-06-07. */
 /* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
  * byte-identical while head-left/right still re-anchor it. */
-section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
+section.divider.light { background:var(--bg); color-scheme: light; padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
 /* The light heading keeps `max-width:none` — it renders a tier down (--fs-h2),
  * so the frame is already a sane measure for it and a cap only ever costs a
  * line. It still takes `balance`, which spends no width: measured across the
@@ -17270,7 +17291,21 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
  * the headline-alignment seam (`headline:` register). `auto`/no register → the fallback `center`
  * applies, byte-identical to the centered title bookend. head-left/right re-anchor the whole
  * cluster (heading, eyebrow, hr, dek) as one. */
-section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+/* THE SCHEME TRAVELS WITH THE SURFACE. Painting `--surface-inverse` without also declaring
+ * `color-scheme: dark` leaves every `light-dark()` token on this slide resolving to its
+ * LIGHT-canvas side — light-canvas ink on a dark field. That is a silent, per-element
+ * failure: whatever the base layer did not name explicitly disappears. Measured on indaco
+ * before this line: bold body text 1.61:1, an off-grammar eyebrow 1.65:1, table body cells
+ * 1.02:1, all against a 3:1/4.5:1 floor.
+ *
+ * It used to be answered one element at a time — the eyebrow, bookend tables, the
+ * inline-code chip and the status-stamp pseudo each carry a hand-written rebind, each with
+ * its own measurement, and each found only when somebody noticed a bad slide. That list is
+ * opt-in, so every element nobody has thought of yet is still broken. Declaring the scheme
+ * beside the surface makes the whole class resolve correctly by default and turns those
+ * rebinds into belt-and-braces rather than the only thing holding.
+ * See engineering/decisions/2026-08-17-dark-surface-ink.md. */
+section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
 section.title { border-top: none; }
 /* A measure on the deck title: uncapped, a long title runs the full frame width
  * as one thin line that reads as a banner rather than a title block. Capped, it

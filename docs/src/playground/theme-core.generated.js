@@ -423,7 +423,12 @@ var require_derive = __commonJS({
     }
     var REQUIRED_TOKENS2 = Object.freeze({
       surfaces: ["bg", "bg-alt", "surface-inverse", "border"],
-      ink: ["text-display", "text-heading", "text-body", "text-secondary", "text-label", "text-muted"],
+      // `code-inline-fg` is INK, not an accent container, and that distinction is the whole
+      // reason it is here. It used to be absent, with `section code` reading
+      // `var(--code-inline-fg, var(--accent))` — ink falling back onto an AREA token held to no
+      // text-contrast contract. That is the --cat-N-ink shape, and it shipped the same result:
+      // the chip painted --accent at 4.36:1 on a card against a 4.5 floor.
+      ink: ["text-display", "text-heading", "text-body", "text-secondary", "text-label", "text-muted", "code-inline-fg"],
       accent: ["accent", "accent-soft", "on-accent", "on-accent-soft", "accent-soft-body"],
       semantic: ["pass", "fail", "warn", "pass-bg", "fail-bg", "warn-bg"],
       dark: [
@@ -560,6 +565,10 @@ var require_derive = __commonJS({
         ensureContrast2(darkAccent, darkAccentSoft, AA2, "lighten")
       );
       t["accent-soft-body"] = "var(--text-body)";
+      t["code-inline-fg"] = ld(
+        ensureContrast2(ensureContrast2(e.accent, e.bg, AA2, "darken"), e.bgAlt, AA2, "darken"),
+        ensureContrast2(ensureContrast2(darkAccent, darkBgDeeper, AA2, "lighten"), darkBgAlt, AA2, "lighten")
+      );
       t.pass = ld(ensureContrast2(e.pass, e.bg, AA2, "darken"), ensureContrast2(mix2(e.pass, "#ffffff", 0.3), darkBgDeeper, AA2, "lighten"));
       t.fail = ld(ensureContrast2(e.fail, e.bg, AA2, "darken"), ensureContrast2(mix2(e.fail, "#ffffff", 0.3), darkBgDeeper, AA2, "lighten"));
       t.warn = ld(ensureContrast2(e.warn, e.bg, AA2, "darken"), ensureContrast2(mix2(e.warn, "#ffffff", 0.3), darkBgDeeper, AA2, "lighten"));

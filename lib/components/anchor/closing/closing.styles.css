@@ -11,7 +11,10 @@
 /* align-items (horizontal, this is a flex column) + the h2/p text-align read the headline
  * seam (`headline:` register). `auto`/no register → the fallback `center` — byte-identical to
  * the centered closing bookend. */
-section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+/* `color-scheme: dark` rides with `--surface-inverse` — see the note on `section.title`.
+ * Without it this bookend's own accent heading measured 2.06:1 on indaco (light-canvas
+ * `--accent` on the dark field), and every unnamed inherited ink was equally exposed. */
+section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
 /* The shared sovereign-bookend measures (base.tokens.css), mirroring title.

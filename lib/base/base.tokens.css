@@ -674,8 +674,22 @@
    *   section.title code { --code-inline-fg: var(--on-dark-primary); }
    * and the wash/border follow automatically. The bg/border tokens exist as
    * optional seams for a theme that wants an opaque chip instead of the wash.
-   * See engineering/decisions/2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg:     var(--accent);
+   * See engineering/decisions/2026-06-08-inline-code-contrast.md.
+   *
+   * THE INK IS DELIBERATELY NOT DECLARED HERE. It used to be — `--code-inline-fg: var(--accent)`
+   * sat on this line — and because `packTheme` relocates a theme's `:root` onto `section`, the
+   * two declarations landed on the SAME selector at the SAME specificity, where source order
+   * decides and the engine bundle comes last. The engine default therefore beat every theme's
+   * value, silently: 14 themes carry a `--code-inline-fg` deepened specifically so the chip
+   * clears AA on a CARD rather than only on the canvas, each with its measured pair in a
+   * trailing comment (`indaco` → `#006599`, `L:5.46/5.02`), and not one of them was reaching
+   * the page. Measured in Chromium: the chip shipped `--accent` at 4.36:1 on a card panel,
+   * against a 4.5 floor, while the theme's own value would have cleared it.
+   *
+   * `section code` already spells the fallback — `var(--code-inline-fg, var(--accent))` — so a
+   * theme that sets nothing lands on exactly the same ink it does today, and a theme that has
+   * done the work now gets it. A default that overrides the specific value it is a default FOR
+   * is not a default; leave the seam empty and let the fallback be the default. */
   --code-inline-bg:     color-mix(in srgb, currentColor 10%, transparent);
   --code-inline-border: color-mix(in srgb, currentColor 22%, transparent);
 
