@@ -34,7 +34,8 @@
   lowering the number, and an entry that reaches zero must be deleted. Tracked as #1717.
 - **Changed: `journey`'s mood legend drops an opacity wash.** The PAIN/DELIGHT labels
   carried `opacity: 0.75` over `--text-secondary`, leaving them at 3.07:1 against a 3:1
-  floor — passing by 0.07, on 58 of 64 palette and scheme pairs. Now 5.02:1 worst case.
+  floor at its worst pair — 0.07 of margin, with 58 of 64 pairs under 4.5. Now 5.02:1
+  worst case (indaco's rendered gallery moves 3.78:1 → 6.85:1).
   Small-caps and letter-spacing already carried the de-emphasis the wash was buying.
 - **Fixed: the contrast prober no longer drops pseudo-element glyphs without ASCII
   alphanumerics**, which had hidden 24 painted marks per gallery (`❯ · ✦ › ↻ →` and curly
@@ -44,4 +45,6 @@
   `--text-muted` / `--border` are skipped before every contrast assertion — 21.6% of all
   runs, and an adversarial review softened that token by one line to put 297 runs at
   1.17:1 with every gate still green. The tier is now held to the 3:1 graphical floor,
-  and its size is pinned, so re-pointing real text into it fails the build.
+  and its size may not GROW — so softening a decorative token, or re-pointing real text
+  into the tier, fails the build. A change that moves runs out of the tier and an equal
+  number in stays green; that limit is recorded in the gate rather than claimed away.

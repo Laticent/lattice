@@ -286,12 +286,19 @@ available evidence that the discipline does not come from having read the warnin
 caught it was re-deriving the number from scratch on a *different* deck, because a page
 size that varied between decks looked wrong.
 
-**A real question survives the mistake and is NOT settled here.** Register entry G13
-argues that a 3840px slide displayed smaller scales its type down, so "large" in canvas
-units may not be large to a viewer. That is a presentation-scale argument, not a unit
-conversion, and encoding it would need a decision about what viewing size to normalize
-to. It is a legitimate open question; it is not what the code was doing, and this change
-does not answer it.
+**A real question survives the mistake and is NOT settled here — now tracked as #1722.**
+Register entry G13 argues that a 3840px slide displayed smaller scales its type down, so
+"large" in canvas units may not be large to a viewer. That is a presentation-scale
+argument, not a unit conversion, and encoding it would need a decision about what viewing
+size to normalize to.
+
+The uncomfortable part: G13's `/3` reasoning on a `4k` deck lands on 72px/56px — **exactly
+the thresholds the bad commit shipped**. The numbers were defensible; the derivation used
+to reach them was not, and it would have been wrong on every non-`4k` deck. Arriving at a
+right-looking answer through a broken route is worse than arriving at a wrong one, because
+nothing downstream can tell the difference. The choice moves 68.6% of runs between floors,
+so it deserves a decision rather than a comment; two files in this tree currently enforce
+different floors on the same labels, and both now point at #1722.
 
 ### A fifth of all runs were excluded before any assertion ran
 
@@ -353,6 +360,33 @@ Two objections the inversion was sent to make and could not sustain, worth recor
 because they were my own worries: the **CI cost** (48s standalone inside a 617s tier whose
 critical path is 371s — marginal wall clock ≈ 0) and **gallery churn** (`gallery.md`: 1
 commit in 12 months; `agenda`/`kanban` styles: 0 in 6).
+
+### The final pre-merge check, and the one thing it blocked on
+
+The trio-fix batch went out for one more independent read, because the previous
+un-reviewed fix batch had introduced a regression. It confirmed the mechanical fixes are
+correct and move zero live ratios (`paintLayer`'s `-1` is live again on 9 nodes with a
+multiset diff of every measured field showing zero changes; the flex `z-index` change is
+spec-right and currently inert; the pseudo filter admits exactly 24 real painted marks per
+gallery and no `content: ""`, counter or whitespace pseudo), reproduced every recorded
+number, and independently reached the threshold error before seeing the revert.
+
+It blocked on one thing, and it was a claim rather than code. `EXEMPT_TIER_FLOOR.size`
+compares a TOTAL, so a change that moves N runs OUT of the exempt tier buys silent room to
+move N different runs IN. Demonstrated and reproduced here: pointing `glossary td` at
+`--text-muted` (+13) while pointing `logo-wall` back at `--text-body` (−16) leaves 13 real
+body runs unmeasured with all eight assertions green — and the gate helpfully prints that
+the tier shrank. The isolated attack IS caught. The changelog, however, said "its size is
+pinned, so re-pointing real text into it fails the build", which is user-visible release
+copy asserting something demonstrably false. Corrected to say GROWTH fails, with the
+swap added to the file's own does-not-cover list and tracked on #1717. Closing it properly
+needs a per-tag census of ~333 exempt runs, whose churn would cost more than it buys.
+
+Four measurement corrections came with it: "14 body runs" was 13; "31 components" was 20
+(44 sites across 24 files); "0.07 of margin on 58 of 64 pairs" fused two different
+statistics (3.07:1 is the WORST pair, 58 is the count below 4.5); and the mood legend's
+3.78:1 was a REAL rendered measurement — only its classification as a violation was wrong,
+so calling the number itself mis-derived over-corrected.
 
 ## What the first independent checker found (HARD RULE #25 maker-checker)
 

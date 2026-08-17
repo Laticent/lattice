@@ -6581,16 +6581,20 @@ section.journey .journey-mood-key {
 /* "PAIN" / "DELIGHT" — the mood ramp's end labels.
  *
  * NO `opacity` HERE, and that is the point. These carried `opacity: 0.75` over
- * `--text-secondary`. At this size they are WCAG "large text" (3:1), and the wash left
- * them at **3.07:1 worst case across 32 palettes x both schemes — 0.07 of margin, on 58
- * of the 64 pairs.** Not a violation; a rounding error away from one, on the label that
- * tells the reader which end of the ramp is which. Without the wash the same worst case
- * is 5.02:1.
+ * `--text-secondary`. The prober scores them as WCAG "large text" (3:1 — see `isLarge`),
+ * and the wash left the WORST pair across 32 palettes x both schemes at **3.07:1: 0.07
+ * of margin**, with 58 of the 64 pairs under 4.5 and 4 pairs within 0.1 of the 3:1 floor
+ * itself. In indaco's rendered gallery it measures 3.78:1. Not a violation at the floor
+ * the prober applies; a rounding error away from one, on the label that tells the reader
+ * which end of the ramp is which. Without the wash the worst pair is 5.02:1 and indaco
+ * renders 6.85:1.
  *
- * (An intermediate commit on this branch called it a 3.78:1 AA violation. That came from
- * a mis-derived unit conversion that made the prober 3x too strict, since reverted. The
- * wash is still worth removing — the margin was real — but it was never a defect, and
- * the record should not claim it was.)
+ * (An intermediate commit on this branch called the 3.78:1 an AA violation. The RATIO was
+ * real and reproduces; the classification came from a mis-derived unit conversion that
+ * made the prober 3x too strict, since reverted. Removing the wash is still right — the
+ * margin was genuinely thin — but it was never a defect, and neither number should be
+ * described as invented. Whether 3:1 is the correct floor here at all is the open
+ * presentation-scale question in `2026-07-03-semantic-html-accessibility.md` G13.)
  *
  * These are the scale's only verbal anchors: without them the ramp is five colored
  * chips in an unnamed direction. De-emphasis is already carried by small-caps, the

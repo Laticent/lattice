@@ -44,6 +44,13 @@
  *     Playground, or a real device.
  *   · A same-surface, same-tag swap inside one matcher (fix one `image` `<h2>` while
  *     regressing another) keeps a cell unchanged and is not caught.
+ *   · The same shape on the exempt tier: `EXEMPT_TIER_FLOOR.size` compares a TOTAL, so a
+ *     change that moves N runs out of the tier buys silent room to move N different runs
+ *     in. Demonstrated — pointing `glossary td` at `--text-muted` (+13) while pointing
+ *     `logo-wall` back at `--text-body` (−16) leaves 13 real body runs unmeasured with
+ *     all assertions green. The isolated version of that attack IS caught. Closing the
+ *     swap needs a per-tag census of ~333 exempt runs, whose churn would cost more than
+ *     it buys (see the backlog's ceiling-only note); tracked on #1717 instead.
  *   · Occluded runs, raster backdrops, and the `absorb()` compositing error — see the
  *     tool's own header, which names each.
  */
@@ -90,8 +97,8 @@ const SURFACES = [
  *
  * Deliberately NOT here, because they were fixed instead of excused: the four `split-*`
  * running headers at 1.00:1 (a paint-order bug in the prober), the three `journey` stage
- * labels at 1.87:1 (#1702), and the `journey` mood legend, which sat 0.07 above its floor
- * on 58 of 64 palette pairs and now clears it by 2.
+ * labels at 1.87:1 (#1702), and the `journey` mood legend, whose worst pair sat 0.07 above
+ * the 3:1 floor and now clears it by 2.
  */
 const SANCTIONED_CONTRAST_EXEMPTIONS = [
   {
@@ -215,7 +222,7 @@ const PREEXISTING_CONTRAST_BACKLOG = [
  * ("pagination/header/footer"); measured on `gallery @ indaco`, **136 of 330 exempt runs
  * are real content** — `logo-wall` company names, `wifi` `dt` labels, `pricing` and
  * `checklist` copy, chart axis numbers, `word-cloud` words. 44 `color: var(--text-muted)`
- * sites exist across 31 components.
+ * sites exist across 20 components (24 files).
  *
  * WHY A FLOOR RATHER THAN A COUNT OF SUB-AA RUNS. The whole tier sits just under AA by
  * design (median 4.10:1, max 4.19:1 — that is what "WCAG-exempt by palette contract"
@@ -230,7 +237,7 @@ const PREEXISTING_CONTRAST_BACKLOG = [
  * review's second attack needs no theme edit at all: point a COMPONENT's ink at
  * `--text-muted` (one `var()` swap, HARD RULE #3-clean) and its runs become exempt at
  * ~4.10:1 — above the floor, so the floor never fires, and they leave the measured
- * population entirely. Reproduced: `glossary td` → `--text-muted` drops 14 body runs out
+ * population entirely. Reproduced: `glossary td` → `--text-muted` drops 13 body runs out
  * of the gate with every assertion green.
  *
  * So the exempt tier is treated as what it is: an OPT-OUT FROM MEASUREMENT. Its size is a
@@ -452,10 +459,12 @@ describe('slide contrast — the rendered galleries, against written-down exclus
   });
 
   /**
-   * The tier is an opt-out from measurement, so its SIZE is pinned. Pointing a component's
-   * ink at `--text-muted` moves its runs above the floor and out of the gate in one
-   * `var()` swap — no theme edit, no allowlist entry, no reviewer signal. That may be a
-   * correct change; it may not; it must not be an invisible one.
+     * The tier is an opt-out from measurement, so its SIZE may not grow. Pointing a
+   * component's ink at `--text-muted` moves its runs out of the gate in one `var()` swap
+   * — no theme edit, no allowlist entry, no reviewer signal. That may be a correct
+   * change; it may not; it must not be an invisible one. NOTE the limit: this compares a
+   * total, so it catches an isolated adoption but NOT a net-zero swap that moves an equal
+   * number of other runs out. Disclosed at the top of this file; tracked on #1717.
    */
   test('the WCAG-exempt ink tier has not grown', () => {
     const problems = [];

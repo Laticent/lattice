@@ -25,12 +25,25 @@
  * a fact about the component, so it is asserted independently below and the recipe is
  * pinned. The ink is then read from the real stylesheet and scored against it.
  *
- * THE FLOOR IS AA 4.5:1, not the 3:1 the rendered prober applies. The prober classes
- * these labels as WCAG "large text" because they compute to ~45px — but only in canvas
- * units, on a nominally 3840px-wide slide. At any size a human looks at, `--fs-meta`
- * is small text. Holding the honest floor here costs nothing (the shipped ink clears
- * it with 1.13:1 of headroom, worst pair) and stops the ratio drifting into the gap
- * between the two thresholds.
+ * THE FLOOR IS AA 4.5:1, DELIBERATELY STRICTER THAN THE RENDERED PROBER'S 3:1 — and the
+ * two are not in conflict, they are answering different questions.
+ *
+ * `tools/check-slide-contrast.js` is right by the letter of WCAG: 18pt is 24 CSS px
+ * (1pt = 1.333px), these labels compute to ~45px, so they are large text and 3:1 applies.
+ * That conversion is exact and does not vary with deck size — a branch that "fixed" it to
+ * 72px cost a full revert to establish.
+ *
+ * The open question is whether the LETTER is the right test here, and the repo has not
+ * settled it. Register entry G13 in `2026-07-03-semantic-html-accessibility.md` argues
+ * that a nominally 3840px-wide slide shown smaller scales its type down, so canvas-unit
+ * "large" may be nothing of the kind to a viewer — a presentation-scale argument that
+ * would need a decision about what viewing size to normalize to before any threshold
+ * could encode it (#1722).
+ *
+ * Until it is settled, this tier holds the stricter floor, because holding it costs
+ * nothing — the shipped ink clears 4.5:1 with 1.13:1 of headroom at its worst pair — and
+ * it keeps the ratio out of the gap between the two thresholds, which is exactly where a
+ * label lands when nobody has decided which one governs.
  */
 
 const { test, describe } = require('node:test');
