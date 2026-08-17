@@ -1283,7 +1283,9 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		// PNG tier — rasterize the chart slide via the shared html-to-image path.
 		if (onStatus) onStatus('Rasterizing chart…');
 		const { fontEmbedCSS } = await sectionsOf(frame);
-		const dataUrl = await rasterizeSection(sec, fontEmbedCSS);
+		// Destination is a `.png`, so the corner survives — the same slide must not come out
+		// rounded through the image set and square through this door.
+		const dataUrl = await rasterizeSection(sec, fontEmbedCSS, 'png');
 		download(dataUrlToBlob(dataUrl), `${safeName(name)}-chart.png`);
 		if (onStatus) onStatus('Chart downloaded as PNG.');
 	} finally { dispose(); }

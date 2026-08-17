@@ -20694,6 +20694,30 @@ section.corners-square {
   clip-path: none;
   border-radius: 0;
 }
+/* PRINT SQUARES THE CORNER. A printed page is paper: a rounded corner there is a hole
+   that fills with white, so the slide reads as four pale notches rather than a card.
+   The export pipelines already evict `corners-rounded` before they capture — see
+   lib/core/corner-export-capability.mjs — but this covers the paths where there IS no
+   capture to evict from, because the document stays LIVE all the way to the printer:
+   the Studio's Print button (`exportPrint`, which calls `win.print()` on the preview
+   frame and hands Chromium's own vector engine the live DOM), and any human printing
+   the `.html` sidecar or the `--player` viewer straight from a browser.
+
+   Declarative rather than a JS lifecycle on purpose. Squaring around `win.print()` would
+   mean mutating the live preview and restoring it on `afterprint` — an event that is not
+   guaranteed to fire, and whose failure mode is a preview left visibly squared. A print
+   media block cannot strand the UI in a wrong state, and it reaches every printer path at
+   once instead of one button. Both properties, because both carry the corner (clip-path
+   does the real rounding; border-radius rides along for consumers to read back).
+
+   Record: engineering/decisions/2026-08-17-corner-export-capability.md */
+@media print {
+  section.corners-rounded {
+    --slide-radius: 0px;
+    clip-path: none;
+    border-radius: 0;
+  }
+}
 
 /* === lib/integrations/highlight-js/highlight-js.css === */
 /* _syntax-highlight.css — highlight.js token theme.
