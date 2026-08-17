@@ -848,16 +848,24 @@
    * a font size. This group is canonical (universal-token flip, group 1 —
    * 2026-06-11 ADR §11); the old --scale-* names are retired.
    *
-   * THE ANCHOR IS A CONTRACT TOKEN, and the fallback below is a LAST RESORT
-   * rather than a supported configuration. `--seq-500: var(--accent)` keeps an
+   * THE ANCHOR IS A CONTRACT TOKEN, and this fallback is a LAST RESORT rather
+   * than a supported configuration. `--seq-500: var(--accent)` keeps an
    * anchorless palette painting a ramp, but it paints the collapsed one: a dark
    * --accent is near-white on a near-black canvas by design, so the stops that
    * climb toward the high pole start from a value already there. That is why
-   * --seq-500 is in `REQUIRED_TOKENS` (lib/theme/derive.js, so the Studio emits
-   * a solved anchor), in the token-parity contract (so no committed palette can
-   * lean on this line), and on tools/new-theme.js's author checklist. A
-   * consumer palette written from scratch outside this repo is the one case the
-   * fallback still serves, and it inherits the collapse — see
+   * --seq-500 is in `REQUIRED_TOKENS` (lib/theme/derive.js, so a generated theme
+   * carries a solved anchor), in the token-parity contract (so no committed
+   * palette DECLARES nothing here), and on tools/new-theme.js's author checklist.
+   *
+   * WHO STILL RESOLVES THIS LINE — and it is not only an out-of-repo consumer.
+   * Until #1527's concat flip, the export bundle loads this sheet AFTER the
+   * theme, so on the PDF/PPTX/player path THIS declaration beats every committed
+   * palette's hand-solved anchor: indaco's --seq-700 sits 1.34:1 from --seq-500
+   * there against 1.65:1 on the engine path. Declaring the token is what makes
+   * the flip turn on a solved value rather than an absent one; it does not by
+   * itself take the export off this line. What remains after the flip is the
+   * genuinely unreachable case — a palette hand-authored outside this repo,
+   * which no gate here can see. See
    * engineering/decisions/2026-08-17-sequential-anchor-in-the-contract.md.
    *
    * THE POLES ARE CANVAS-RELATIVE, and that pair is the whole mechanism. On a

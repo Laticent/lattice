@@ -218,7 +218,16 @@ is the fallback for any palette that declares none — a Studio-generated theme,
 That reproduces exactly the collapse this note argues against (contrast is fine,
 since the poles live in the base; separation is the 1.08–1.90:1 span above), and
 nothing gates it: `--seq-500` is not in `lib/theme/derive.js`'s `REQUIRED_TOKENS`
-nor in the scorecard's 91-token contract. Deriving a mid-range anchor in the base
+nor in the scorecard's 91-token contract.
+
+> **Resolved 2026-08-17.** Both halves of that last sentence are now false —
+> `--seq-500` is in `REQUIRED_TOKENS`, in the token-parity contract and in the
+> scorecard's, and `deriveTheme` emits a solved anchor rather than leaving the
+> generator to fall through. See
+> `2026-08-17-sequential-anchor-in-the-contract.md`, which also corrects one thing
+> stated here: the fallback is not only reached by anchorless palettes. Until
+> #1527's concat flip the export bundle resolves it for **every** committed
+> palette too, which is the paragraph below. Deriving a mid-range anchor in the base
 would need relative colour syntax (`oklch(from …)`), which `resolve-token-expr`
 cannot evaluate and the player's WebKit floor may not support — so it is a slice
 with its own kernel work, not a rider here.

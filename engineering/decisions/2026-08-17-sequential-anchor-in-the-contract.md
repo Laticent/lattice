@@ -14,17 +14,22 @@ summary: >
   also changes the base's own default, which changes exported bytes for every theme while the
   export path still resolves the base's anchor (#1527), putting a small slice behind the QUALITY
   BAR's export gate. So the anchor becomes part of the theme CONTRACT instead: `deriveTheme` emits
-  it (light arm the brand accent, dark arm the same hue and chroma at OKLab L 0.68 — the mid-range
-  the fourteen curated arms were re-solved to), `serializeTheme` writes it, and token-parity +
-  the scorecard hold every committed palette to it. Measured on eight Studio-generated seeds
-  spanning the hue wheel, in real Chromium under the engine's own cascade order: the tightest
-  adjacent step on the dark arm goes 0.082-0.096 -> 0.120-0.141 OKLab and the --seq-700 vs
-  --seq-500 pair 1.36-1.42:1 -> 1.64-1.75:1, while the worst stop against the canvas falls
-  5.04-5.51:1 -> 3.56-4.02:1 and still clears its 3:1 bar on all sixteen theme-modes. The light
-  canvas is byte-identical (both orders resolve the same brand accent) — verified by SHA, not
-  asserted. NOT closed, and stated rather than hidden: a consumer palette hand-authored outside
-  this repo still reaches the fallback and still inherits the collapse. Only the base can fix
-  that, and the base cannot yet.
+  it (light arm restating --accent's own light arm, as ten of the fourteen committed palettes do;
+  dark arm that hue at OKLab L 0.68 — the mid-range the thirteen curated dark arms were re-solved
+  to, with chroma held only where the gamut allows, since oklchToHex gamut-maps by reducing it),
+  `serializeTheme` writes it, and token-parity + the scorecard hold every committed palette to it.
+  Measured on eight Studio-generated seeds spanning the hue wheel, in real Chromium under the
+  engine's own cascade order: the tightest adjacent step on the dark arm goes 0.082-0.096 ->
+  0.120-0.141 OKLab and the --seq-700 vs --seq-500 pair 1.36-1.42:1 -> 1.64-1.75:1, while the
+  worst stop against the canvas falls 5.04-5.51:1 -> 3.56-4.02:1 and still clears its 3:1 bar on
+  all sixteen theme-modes; 1.36 is the MEDIAN of the shipped corpus's 1.08-1.90 range, not its
+  loose end. The light canvas is byte-identical (both orders resolve the same accent light arm) —
+  verified by SHA per slide, not asserted. NOT closed, and stated rather than hidden: until
+  #1527's concat flip EVERY committed palette still resolves this fallback on the export path
+  (indaco 1.34:1 there against 1.65:1 on the engine path), so what this buys the PDF is that the
+  flip will turn on a solved value rather than an absent one; and after the flip a palette
+  hand-authored outside this repo still reaches it. Only the base can close that, and the base
+  cannot yet.
 ---
 
 # The ramp anchor joins the theme contract
@@ -92,14 +97,23 @@ is told to do.
 ## What landed
 
 - **`deriveTheme` emits it.** `t['seq-500'] = ld(accent, withLightness(accent, 0.68))`.
-  The light arm is the brand accent — what ten of the fourteen committed palettes
-  use, and a value authored to clear AA on a light canvas, so it sits well below
-  the white pole with room in both directions. The dark arm is that same hue and
-  chroma at **OKLab L 0.68**: the mid-range #1697 re-solved all thirteen curated
-  dark arms to, where the weaker of the two adjacent perceptual steps is largest
-  subject to every painted stop clearing 3:1 on its own canvas. It is not a
-  coincidence that this reproduces `onyx`'s hand-solved `#989898` exactly from an
-  achromatic seed.
+  The light arm restates `--accent`'s own light arm — what ten of the fourteen
+  committed palettes do (nine by `var(--brand-accent)`, atelier by
+  `var(--brand-canvas)`, which is atelier's accent light arm) — and it is a value
+  authored to clear AA on a light canvas, so it sits well below the white pole
+  with room in both directions. The dark arm is that hue at **OKLab L 0.68**: the
+  mid-range #1697 re-solved all thirteen curated dark arms to, where the weaker of
+  the two adjacent perceptual steps is largest subject to every painted stop
+  clearing 3:1 on its own canvas. It is not a coincidence that this reproduces
+  `onyx`'s hand-solved `#989898` exactly from an achromatic seed.
+
+  **Chroma is held only where the gamut allows**, and the shorthand "hue and
+  chroma untouched" would have been wrong. `oklchToHex` gamut-maps by reducing
+  chroma, so a high-chroma accent arrives with less of it: `#6D28D9`, one of the
+  eight seeds measured below, goes C 0.241 -> 0.186 (-23%) with its hue held to
+  within 0.1 degree. Clipping chroma to preserve hue is the right map — a brand is
+  recognized by its hue — but it is a reduction, and this note is not going to
+  describe it as a preservation.
 - **`serializeTheme` writes it.** `REQUIRED_TOKENS` groups are emitted by an
   explicitly enumerated list of `rootBlock` calls, so a new group is silently
   dropped unless it is added there too. `theme-serialize.test.js` catches that,
@@ -113,8 +127,9 @@ is told to do.
   verbatim, so a new palette inherits
   `--seq-500: light-dark(var(--brand-accent), #5DA3BF)`: the light arm tracks the
   new brand correctly *by reference*, and the dark arm is indaco's blue. That is
-  consistent with the template's design — it is one of 124 literal hexes the
-  author is expected to replace — but it was on none of the eight checklist
+  consistent with the template's design — it is one of well over a hundred literal
+  hexes the author is expected to replace, and no counting rule reproduces a clean
+  figure for them worth quoting — but it was on none of the eight checklist
   items. It is item 9 now, with the L 0.68 rule and
   `node tools/composed-contrast.js <name>` as the check. A drift assertion in
   `transformPalette` fails loudly if indaco ever stops pairing the anchor that
@@ -148,13 +163,21 @@ stop loses contrast against it. The floor for these tiers is 3:1 (large text),
 and the worst case lands at 3.56:1 — margin, not a squeak. Separation is bought
 with contrast that was surplus.
 
-**Monotonicity does not move, and the "before" was never as bad here as it was
-for the shipped palettes.** #1697 measured 1.08–1.90:1 across the committed
-corpus; the generator's dark accent is `withLightness(accent, 0.78)`, milder than
-the curated dark accents that sat at L 0.85+, so an anchorless generated theme
-started at 1.36–1.42:1 — the loose end of that documented range, not the tight
-one. The improvement is real and it is moderate. Claiming the generator was
-shipping `concrete`'s 1.08:1 would be false.
+**Monotonicity does not move, and the "before" here sits in the MIDDLE of the
+shipped corpus rather than at its worst.** #1697 measured 1.08–1.90:1 across the
+committed palettes; sorted, those thirteen are 1.08 · 1.14 · 1.20 · 1.21 · 1.24 ·
+1.34 · 1.36 · 1.38 · 1.40 · 1.46 · 1.54 · 1.54 · 1.90, so the median is 1.36 and
+the generator's anchorless 1.36–1.42:1 straddles it. The improvement is real and
+it is moderate. Claiming the generator was shipping `concrete`'s 1.08:1 would be
+false; so would calling 1.36 the loose end of the range.
+
+*A first draft of this paragraph explained the milder before-state by saying the
+generator's `withLightness(accent, 0.78)` is "milder than the curated dark accents
+that sat at L 0.85+". That was invented. Measured, the committed dark `--accent`
+arms run L 0.63–1.00, only three are ≥ 0.85, and six sit BELOW 0.78. The
+empirical numbers were right and the story attached to them was not:
+`--seq-700`'s headroom depends on where the anchor sits relative to the pole AND
+on the canvas underneath it, not on one lightness threshold.*
 
 **The light canvas is byte-identical**, because both cascade orders resolve to
 the same brand accent. Verified rather than argued: the `word-cloud spectrum`
@@ -166,12 +189,28 @@ easy to walk into twice).
 
 ## Not closed
 
-**A consumer palette written from scratch outside this repo still reaches the
-fallback and still inherits the collapse.** No gate in this repo can see a file
-that is not in it, and the only fix that would reach it is the one in the base —
-which needs the evaluator work above. `base.tokens.css` now says so at the
-declaration rather than describing the fallback as merely something "every theme
-should set deliberately."
+**Every committed palette still resolves the base's fallback on the EXPORT path,
+and declaring the token does not change that.** Until #1527's concat flip the
+export bundle loads the base AFTER the theme, so `--seq-500: var(--accent)` beats
+each palette's hand-solved anchor on every PDF, PPTX and exported player rendered
+today — indaco's `--seq-700` sits 1.34:1 from `--seq-500` there against 1.65:1 on
+the engine path. What this change buys on that path is that the value the flip
+turns on is a solved one rather than an absent one. An earlier draft of this
+section — and of the comment that shipped into `base.tokens.css` — scoped the
+fallback to out-of-repo consumers only, while § "The two exits" three screens up
+said the opposite; the wrong half was the one in the shipped bundle. An
+independent checker caught it.
+
+**After the flip, a consumer palette written from scratch outside this repo is
+what is left.** No gate here can see a file that is not in the repo, and the only
+fix that reaches it is the one in the base — which needs the evaluator work above.
+`base.tokens.css` now states both cases at the declaration, rather than describing
+the fallback as merely something "every theme should set deliberately."
+
+**`themes/burgundy.css` carried the same stale duplicated comment as indaco**, and
+it is fixed here rather than logged: the diff's own cleanup is the deletion of that
+construction, so a second copy of it is on this path (HARD RULE #18). Those two were
+the only occurrences in the corpus.
 
 **The generator has unrelated composed-surface defects, found in passing and not
 fixed here.** Scoring the eight generated palettes with `composed-contrast`
@@ -181,3 +220,25 @@ eight (6.1–6.8 → 3.4–3.7:1), plus `policy-recommendation`'s stance badges 
 identical with and without this change, and they are the generated-theme face of
 #1698 (the status trios on their own-hue tints). Off this path, and logged here
 because a null result is only as strong as the scope of the search.
+
+## Not verified
+
+- **The real Theme Studio was not driven.** The claim "a generated theme carries a
+  solved anchor" is verified against `deriveTheme`, `serializeTheme` and the
+  bundled `docs/src/playground/theme-core.generated.js` — which does carry both the
+  `sequential` group and `t["seq-500"]` — plus renders through `lib/engine`. Nobody
+  clicked through the React Studio and watched it emit one. Under HARD RULE #23
+  that claim rests on the module, not on the surface, and it is stated that way.
+- **`engineering/mermaid.md`'s contract count is a fifth hand-maintained copy with
+  no gate behind it.** It was corrected here (91 → 96), but `checkSkillFreshness`
+  only reads `design/skills/*.md`, so nothing stops it drifting again. #1459 already
+  tracks the multiplication of these lists; this is one more instance of it, not a
+  new problem, and it is not fixed here.
+- **`design/skills/theme.md:209` was missed on the first pass and the gate could not
+  see it.** The freshness check matches `/(\d+)-token contract/`, and that line read
+  "95-token **per-theme** contract" — the intervening words defeat the marker. Both
+  the number and the phrasing are fixed; the marker's fragility is not.
+- **No `examples/<slug>.md` demo deck** (HARD RULE #9). Nothing in this change
+  renders differently for any committed palette, and the artifact that would show
+  the effect is a *generated* theme, which is not a committed file. #1724's
+  `examples/seq-ramp-canvas-aware.md` is still the deck for this ramp.
