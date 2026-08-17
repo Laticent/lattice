@@ -185,20 +185,34 @@ export function CommandPalette({
 			);
 		}
 		return (
-			// `min-w-0 flex-1` is the expansion: the field takes the flex spacer's slack rather
-			// than pushing anything, so at 1440 it grows into ~144px of dead space and at 1920
-			// into ~624px. `min-w-[320px]` is the FLOOR, and it is load-bearing: the row still
-			// carries its `flex-1` spacer, so without a floor the field and the spacer split the
-			// slack and the field opened NARROWER THAN THE PILL — measured 101px at 1440 against
-			// a 180px idle pill. 320 is what the pill's own width plus the 1440 gap can pay
-			// (180 + 144), so at the tightest desktop width the field is usable and the deck
-			// title still does not have to give. `max-w-[720px]` is the stop — past that the
-			// field stops growing and
-			// the row keeps its balance instead of the input running the full width of a wide
-			// display. The deck title is NOT allowed to pay for this: the pill next door is the
-			// row's shock absorber, so without a ceiling the field would eat the title on the
-			// way out. Measured before the ceiling went in: `Markdown for the boardroom` fell to
-			// `Mar…` at 1920.
+			// THE EXPANSION is `flex-[1_1_720px]`, and the basis is the whole trick: the row also
+			// carries a `flex-1` spacer (basis 0), and with a plain `flex-1` here the two split the
+			// slack and the field opened NARROWER THAN THE PILL — measured 101px at 1440 against a
+			// 180px idle pill. A 720px basis wins the slack when there is any, and absorbs the
+			// compression when there is not, which is the right way round: the field gives, never
+			// the pinned Present/Share/feedback tail.
+			//
+			// `min-w-[220px]` is the FLOOR, and 220 is measured, not chosen. It has to satisfy two
+			// bounds at once. Lower bound: the field must never be narrower than the 180px pill it
+			// replaces. Upper bound: THE FLOOR MUST NOT BE ABLE TO BURST THE ROW. This shipped at
+			// 320 and did burst it — at 1100 and 1160 in Craft (the tightest desktop configuration,
+			// where the header carries its full control set) the open row needed 1200px, so
+			// `scrollWidth` exceeded `clientWidth` by 100px and 40px. That is not a cosmetic
+			// overflow: the header's scroll valve is LIFTED while the field is open (it has to be,
+			// or the dropdown is clipped — see below), so the row cannot be scrolled and the
+			// overflowing tail simply leaves the screen with no way to reach it. That is precisely
+			// the failure #1381 added the valve to prevent, reintroduced through the one state the
+			// valve is off. Measured break-even at 1100/Craft: floor 240 → 20px over, floor 220 →
+			// 0px over. 220 it is.
+			// The floor is a floor and not a driver — the field's NATURAL flex width already beats
+			// it nearly everywhere: 187px @1100, 232 @1160, 263 @1200, 304 @1280, 418 @1440-Craft,
+			// 600 @1440-Write, 720 @1920. It binds only at ≤1160 in Craft.
+			//
+			// `max-w-[720px]` is the stop — past it the field stops growing, so the row keeps its
+			// balance instead of the input running the full width of a wide display. The deck title
+			// is NOT allowed to pay for the growth: the pill next door is the row's shock absorber,
+			// and without a ceiling the field ate the title on the way out (measured before it went
+			// in: `Markdown for the boardroom` fell to `Mar…` at 1920).
 			<Command
 				ref={inlineRef}
 				label="Search or run a command"
@@ -207,7 +221,7 @@ export function CommandPalette({
 					// stacking context, which traps the dropdown's `z-50` INSIDE this control — so the
 					// card rendered but painted underneath the editor pane below the bar. The z-index
 					// has to resolve against an ancestor that actually sits above the content.
-					'relative min-w-[320px] max-w-[720px] flex-[1_1_720px]',
+					'relative min-w-[220px] max-w-[720px] flex-[1_1_720px]',
 					// `overflow-visible` IS THE FIX, and it is why this dropdown never painted through
 					// three earlier attempts. `Command`'s own base class in components/ui/command.tsx
 					// is `flex h-full w-full flex-col overflow-hidden rounded-md bg-popover …` — the

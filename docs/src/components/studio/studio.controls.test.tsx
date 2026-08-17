@@ -323,14 +323,24 @@ describe('Studio — every top-bar control responds', () => {
 
 	it('⌘K runs a command (Fabricate) and a theme', async () => {
 		const user = setup();
+		// AT DESKTOP ⌘K IS NO LONGER A DIALOG (#1707). The header's search pill expands in
+		// place into a combobox and drops its list beneath itself, so there is no
+		// `role="dialog"` named "Studio commands" to scope to any more — `matchMedia` is
+		// polyfilled to 'desktop' in this suite, which is the tier that gets the inline
+		// transport. The overlay still exists below 1100 and is covered by the tablet/mobile
+		// cases; what this test is actually about is that ⌘K RUNS COMMANDS, so it now scopes
+		// to the command list itself (cmdk gives it `role="listbox"`) rather than to the
+		// container that happened to hold it.
 		await user.keyboard('{Meta>}k{/Meta}');
-		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
-		await user.click(within(dialog).getByText(/Fabricate/));
+		// The transport swap, asserted rather than implied — if a future change puts the
+		// dialog back at desktop, that is a decision, and it should fail here first.
+		expect(await screen.findByPlaceholderText(/Search or run a command/i)).toBeInTheDocument();
+		expect(screen.queryByRole('dialog', { name: /Studio commands/i })).toBeNull();
+		await user.click(within(await screen.findByRole('listbox')).getByText(/Fabricate/));
 		expect(await screen.findByPlaceholderText(/Describe a look/i)).toBeInTheDocument();
 		// Re-open and pick a theme command.
 		await user.keyboard('{Meta>}k{/Meta}');
-		const d2 = await screen.findByRole('dialog', { name: /Studio commands/i });
-		await user.click(within(d2).getByText('cuoio'));
+		await user.click(within(await screen.findByRole('listbox')).getByText('cuoio'));
 		expect(document.documentElement.getAttribute('data-palette')).toBe('cuoio');
 	});
 });

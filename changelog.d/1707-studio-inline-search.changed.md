@@ -15,6 +15,14 @@
 - The open field sits on the row's 32px control line (`BAR_CONTROL`) rather than
   11px above it, and no longer paints an opaque slab across its span of the
   translucent header.
+- **Fixed: opening the field could push the Present/Share tail off-screen.** Its
+  minimum width was wider than the narrowest desktop row could pay, so at 1100 and
+  1160 in Craft the row overflowed by 100px and 40px — and because the header's
+  scroll valve is lifted while the field is open, that overflow could not be
+  scrolled back into reach. The floor is now the measured break-even, and the field
+  is still never narrower than the pill it replaces. `studio-header-fit` gained a
+  guard that opens the search at six widths × three stops, since every previous
+  overflow check measured the header idle.
 - Below 1100 the search keeps its existing homes — the `CommandDialog` at tablet,
   the bottom-docked `PanelSheet` on mobile — so exactly one search surface exists
   at every width.

@@ -155,6 +155,63 @@ Also unchanged and pre-existing: cmdk does not set `aria-activedescendant` on it
 input even while an item carries `data-selected`. That is shared by all three
 transports (they mount the same `CommandInput`), so it is not introduced here.
 
+## A third defect, self-inflicted, caught by widening my own probe
+
+The first verification pass measured only the **Write** stop. #1707 quotes "369px at 1440"
+where that pass measured 600px, and chasing the discrepancy to **Craft** — the tightest
+desktop configuration, where the header carries its full control set — found a regression
+this change introduced.
+
+**With the field open at 1100 and 1160 in Craft, the row burst**: it needed 1200px, so
+`scrollWidth` exceeded `clientWidth` by **100px and 40px**. The cause was the field's
+`min-w-[320px]` floor. And this is worse than a cosmetic overflow, because the header's
+`overflow-x-auto` scroll valve is deliberately **lifted while the field is open** — it has
+to be, or the dropdown is clipped. So the row cannot be scrolled and the pinned
+Present/Share/feedback tail simply leaves the screen unreachable. **That is precisely the
+failure #1381 added the valve to prevent, reintroduced through the one state in which the
+valve is off.**
+
+**The floor was doing nothing except bursting the row.** Its stated purpose was "the field
+must never open narrower than the pill", and `flex-[1_1_720px]` already guarantees that on
+its own — measured natural widths with no floor at all: **187px @1100, 232 @1160, 263
+@1200, 304 @1280**, every one wider than the 180px pill. (The "101px collapse" the floor
+was written for belongs to an earlier revision that used a plain `flex-1`, which loses the
+slack to the row's spacer.) Measured break-even at 1100/Craft: floor 240 → 20px over,
+**floor 220 → 0px over**. The floor is now 220 — still above the pill, unable to burst the
+row, and binding only at ≤1160 in Craft.
+
+**Why no gate caught it, and the gate that does now.** Every existing guard measures the
+header **idle** — `check:overflow` and `studio-header-fit.spec.ts` both assert
+`scrollWidth <= clientWidth` on a row whose search is a closed pill. This is the same shape
+of blind spot #1687 closed when a width-only oracle missed a *vertical* burst, and the same
+remedy applies: when a guard misses a state, teach it the state. `studio-header-fit.spec.ts`
+gains **"the inline search does not burst the row when it opens"** — it opens the field at
+1100 / 1160 / 1200 / 1280 / 1440 / 1920 × all three stops and asserts self-overflow within
+tolerance, no control taller than the header, and **every tail control still inside the
+viewport** (the consequence that actually hurts a user, and one that can diverge from
+`over`). 1160 is in that list precisely because it burst and is absent from the spec's own
+`WIDTHS`.
+
+**Verified able to fail:** rebuilt with the old 320px floor, the new test fails with
+`the open search bursts the row at 1100px on Craft by 101px` — matching the 100px measured
+independently by hand. A guard that has never failed is not known to work.
+
+## A fourth: a unit test that encoded the old transport
+
+`studio.controls.test.tsx` — "⌘K runs a command (Fabricate) and a theme" — scoped its
+clicks to `role="dialog"` named "Studio commands". `matchMedia` is polyfilled to `desktop`
+in that suite, which is now the inline tier, so there is no such dialog. It now asserts the
+transport swap explicitly (the field is present, the dialog is **not**) and scopes to the
+command list's own `role="listbox"`. What the test is about — that ⌘K *runs commands* — is
+unchanged and still covered.
+
+**This was missed on the first pass because `npm run build:e2e` is not what CI runs.**
+`build:e2e` is `astro build` only; the `docs-build` job runs the **full** docs Vitest suite
+(3159 tests) plus `npm run build`, which additionally runs `check-studio-shell.mjs`.
+Running one test file (`StudioShell.test.tsx`, 92 tests) and `build:e2e` left both gaps
+open, and CI found them. Run `cd docs && npx vitest run && npm run build` before claiming
+the docs tier is green.
+
 ## Verification (HARD RULE #23)
 
 Real headless Chromium driving the real Studio at `localhost:4321` against a
@@ -168,10 +225,15 @@ build (the trap that inverted a flake conclusion in the 2026-08-16 pass).
   bottom is 54, so `cardTop >= headerBottom` holds. 34 items.
 - **The field is on the control line.** field `y=10.5 h=32` — byte-identical to
   Present (`10.5/32`) and the posture dial (`10.5/32`) in all four captures.
-- **Expansion.** 600px at 1440, 720px at 1920 (the `max-w-[720px]` ceiling), from
-  a 180px idle pill. The known, accepted cost holds and is unchanged: the deck
-  title truncates to `Markdown for the b…` at 1440 while open, restoring on close.
-  At 1920 it does not truncate.
+- **Expansion, at BOTH stops** (the coverage gap that hid the burst): Write —
+  486px @1280, 600 @1440, 720 @1920; Craft — 320 @1280, 418 @1440, 720 @1920;
+  narrow desktop — 220 @1100-Craft (the floor), 232 @1160-Craft, 380 @1100-Write.
+  Every one above the 180px idle pill. The known, accepted cost holds and is
+  unchanged: the deck title truncates to `Markdown for the b…` at 1440 while open,
+  restoring on close. At 1920 it does not truncate.
+- **The row does not burst in any of them.** `scrollWidth === clientWidth` at
+  1100 / 1160 / 1200 / 1280 / 1440 / 1920 × Write and Craft with the field open,
+  and the field holds `y=10.5 h=32` in all of them.
 - **The tail does not move.** Present at x=1200 and Share at x=1301, *identical*
   open and closed at 1440, so no click target shifts under the pointer when the
   field collapses (the #1371 invariant, and the reason a capture-phase dismissal
@@ -186,9 +248,12 @@ build (the trap that inverted a flake conclusion in the 2026-08-16 pass).
 - **Owner's width.** 1194px: inline, card `y: 61, h: 422`, list wholly in the top
   483px of an 834px-tall viewport.
 - **Gates.** `npm run lint` clean · docs `tsc --noEmit` clean · `npm run
-  build:check` clean · `StudioShell.test.tsx` **92/92** · `studio-shell-parity` +
-  `studio-header-fit` **17/17** (so the idle pill still matches the SSR skeleton
-  control-for-control, and no control outgrows the header).
+  build:check` clean · docs `npm run build` clean (including
+  `check-studio-shell.mjs`) · the **full** docs Vitest suite **3159/3159 across 240
+  files** · `studio-shell-parity` + `studio-header-fit` **18/18**, the 18th being
+  the new open-state guard (so the idle pill still matches the SSR skeleton
+  control-for-control, no control outgrows the header, and the open field cannot
+  push the tail off-screen) · `npm run test:e2e:smoke` **17/17**.
 
 **UNVERIFIED:** real touch on a physical iPad, and iOS Safari — neither is
 reachable from this sandbox. The 1194px result above is a desktop Chromium

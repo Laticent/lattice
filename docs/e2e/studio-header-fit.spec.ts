@@ -451,3 +451,80 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		}
 	}
 });
+
+/**
+ * THE OPEN STATE OF THE INLINE SEARCH (#1707).
+ *
+ * Everything above measures the header IDLE, and that blind spot is exactly how the
+ * inline search shipped a burst row: with the field open at 1100 and 1160 in Craft, its
+ * `min-width` floor made the row need 1200px, so `scrollWidth` exceeded `clientWidth` by
+ * 100px and 40px. The floor was lowered to the measured break-even (220px), and this is
+ * the guard that keeps it there — the same shape of fix #1687 applied when a width-only
+ * oracle missed a VERTICAL burst: when a guard misses a state, teach it the state.
+ *
+ * Why an overflowing row matters MORE in this state, not less: the header's
+ * `overflow-x-auto` scroll valve (#1381) is deliberately LIFTED while the field is open,
+ * because `overflow-x: auto` computes `overflow-y: auto` and would clip the dropdown into
+ * the 54px band. So an overflow here cannot be scrolled back into reach — the
+ * Present/Share/feedback tail just leaves the screen. That is the precise failure the
+ * valve exists to prevent, reintroduced through the one state in which it is off.
+ *
+ * 1160 is in this list and not in `WIDTHS` on purpose: it is the top of the
+ * narrow-desktop band (`useNarrowDesktop`) and it was one of the two widths that burst.
+ * Desktop only — the pill renders at ≥1100, and below that ⌘K opens an overlay instead.
+ */
+const OPEN_SEARCH_WIDTHS = [1100, 1160, 1200, 1280, 1440, 1920];
+
+test('the inline search does not burst the row when it opens', async ({ page }) => {
+	test.slow(); // 6 widths x up to 3 stops, each with an open/close cycle
+	await gotoStudio(page);
+	await page.evaluate(() => document.fonts.ready);
+	const header = page.locator('[data-studio-root] header');
+
+	for (const width of OPEN_SEARCH_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		// Desktop is the only tier with a pill to expand — assert that rather than assume
+		// it, so a tier change cannot turn this whole test into a silent no-op.
+		await expect(header.getByRole('button', { name: CHROME.moreControls, exact: true })).toHaveCount(0);
+
+		for (const stop of STOPS) {
+			const button = header.getByRole('button', { name: stop.name }).first();
+			await button.click();
+			await expect(button, `${stop.word} @ ${width}px should be the lit stop`).toHaveAttribute('aria-pressed', 'true');
+
+			// The pill is absent at desktop Read (the calm slim header draws the deck as a
+			// label) — nothing to open there, and that exception is asserted above.
+			const pill = header.getByRole('button', { name: 'Search or run a command' });
+			if ((await pill.count()) === 0) continue;
+
+			await pill.first().click();
+			// Wait on the OBSERVABLE consequence of opening, never a sleep: the field replaces
+			// the pill, so the pill going away IS the open transition having committed.
+			await expect(header.getByPlaceholder('Search or run a command…')).toBeVisible();
+			await expect(pill).toHaveCount(0);
+
+			const open = await readHeaderSettled(page, TAIL, CHROME.moreControls);
+			expect(
+				open.over,
+				`the open search bursts the row at ${width}px on ${stop.word} by ${open.over}px — the scroll valve is lifted while the field is open, so this overflow CANNOT be scrolled and the tail is unreachable. Lower the field's min-width in CommandPalette.tsx; do not raise this tolerance.`,
+			).toBeLessThanOrEqual(TOLERANCE);
+			// The tail must still be ON SCREEN, which is the consequence that actually hurts
+			// a user. `over` and this can diverge: a row can fit its own scroll width while a
+			// pinned child sits past the viewport edge.
+			for (const name of TAIL) {
+				const x = open.x[name];
+				if (x === undefined) continue;
+				expect(x, `${name} sits at x=${x} with the search open at ${width}px on ${stop.word} — off the ${width}px viewport`).toBeLessThan(width);
+			}
+			expect(
+				open.tall,
+				`a header control is taller than the header with the search open at ${width}px on ${stop.word} (${open.tall.map((c) => `${c.name} ${c.h}px`).join(', ')})`,
+			).toEqual([]);
+
+			// Close it, so the next stop/width starts from the idle row rather than
+			// inheriting an open field — the state leak that would make later widths lie.
+			await page.keyboard.press('Escape');
+			await expect(pill).toHaveCount(1);
+		}
+	}
+});
