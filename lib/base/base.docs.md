@@ -1107,6 +1107,79 @@ left panel) never lift, even when `lift` is on. Toggle it from the **Deck Settin
 (a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
 matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
 
+### The slide's corner — `corners:`
+
+Whether the slide's own surface is square or rounded. A sibling register of the ones
+above (`lib/core/resolve-corners.js`), propagated to every section, overridable per
+slide.
+
+| `corners:` value | Token | Effect |
+|---|---|---|
+| `square` | *(none)* | Hard corners. **The default** (omit the key). |
+| `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
+
+Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
+`<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the
+layout too, e.g. `_class: cards-grid corners-square`).
+
+**One token, and it is the engine's.** `--slide-radius` is `0` unless the register turns
+it on; `section.corners-rounded` (`base.modifiers.css`) is the single place that gives it
+a length — `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd. It is a **different tier**
+from `--radius-sm/md/lg`, which round things *inside* a slide (cards, images, code
+panels) and are wrong for this job.
+
+There is deliberately **no theme-facing radius token**. An earlier cut shipped one, on the
+engine-owns-names / theme-owns-values reading of
+`engineering/decisions/2026-08-09-color-theme-ownership.md` — but that charter is about
+*color*. A corner has no per-palette answer worth varying, no theme in the tree wanted
+one, and a theme that ever does is CSS: redeclare `--slide-radius` under
+`section.corners-rounded`.
+
+Two implementation notes worth knowing before you touch either:
+
+- **It clips with `clip-path`, not `border-radius`.** The brand bar is the section's own
+  `border-top` painted with `border-image-source: var(--spectrum)`, and a border image
+  does **not** honor `border-radius` — the bar keeps square corners and pokes past the
+  rounded surface. `clip-path: inset(0 round R)` clips the whole element, border image
+  included, so one property covers the top bar and all four `spectrum-edge` rails.
+- **The rounded value is anchored to `--_sec-1cqi`.** It is consumed by the section's own
+  clip, and a section cannot query its own container — a bare `cqi` there escapes to the
+  host viewport, so the corner would scale with the browser window instead of the slide.
+
+The Studio's live preview follows the rendered slide rather than guessing: it reads the
+radius back off the frame (`docs/src/lib/deck-corner.ts`) as a *fraction* of the slide's
+width, so the corner holds its proportion at every split position and screen size. Before
+this register it clipped at a fixed 12px of its own, which is what made a preview disagree
+with its own export (#1649). The gallery tiles, navigator thumbnails and Fabricate
+specimens deliberately keep their own card corner — a tile is a frame around a slide, not
+the slide — and `DeckPreview` touches no host that has not asked via `onCorner`.
+
+**What sits behind the slide in a preview is the APP, not a stray gray.** The frame's own
+`html, body` is `transparent` (`docs/src/lib/single-slide-render.ts`); it used to paint a
+fixed `#e7e7ea` / `#0c0c0c` belonging to neither the deck nor the app, which a rounded
+corner would have exposed at all four corners by construction. Be precise about what
+replaced it, because "nothing" would be wrong: `iframe.live` still carries
+`background: var(--bg)` (`docs/src/styles/landing.css`) as the pre-paint white-flash guard,
+so the opaque layer behind the slide is the **app's** `--bg`. Under a `paletteOverride` —
+which is the Studio previewing a deck whose theme differs from the app's — that is a
+foreign palette one layer down. It is invisible while the host box and the slide clip to
+the same shape, and it is why they are kept in step rather than left to coincide.
+
+**The corner berths move with it.** The overflow / illegible / fix-me author-warning flags
+sit in the slide's corners, inside the arc a rounded deck cuts, so they inset by a fraction
+of `--slide-radius` — an alarm surface must not go quiet because a deck chose a shape. The
+token is typed `0px` rather than `0` precisely so that inset resolves to a length on a
+square deck: a unitless zero inside `calc()` is a `<number>`, which makes the whole
+declaration invalid and drops the marker into flow. Gated by an absolute-distance
+assertion in `test/integration/parity/content-clipped-pill.test.js`.
+
+**In an EXPORT there is no app behind the slide — there is the page.** A rounded corner
+exposes it, so on a dark deck every page shows white paper at all four corners, and on a
+light deck the corner reads only on the dark bookends (`title`, `divider`, `closing`) and
+is invisible on body slides. That is not a defect to be fixed downstream; it is what
+rounding a page means. Decide whether a deck wants it before setting `corners: rounded` on
+something destined for print.
+
 | Token / class | Effect |
 |---|---|
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |

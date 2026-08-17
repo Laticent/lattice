@@ -6,6 +6,7 @@ import { createPresenterController } from '@/components/studio/present/presenter
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
+import { cornerRadiusCss } from '@/lib/deck-corner';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
@@ -133,6 +134,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
 	// routed through the presenter key handler. The card is the positioning stage; the frame lives in it.
 	const cardRef = React.useRef<HTMLDivElement>(null);
+	// The presented deck's own corner, measured off the render by DeckPreview. The card is
+	// unconditionally `aspect-video`, so the pair is built against 16/9 — the CARD's aspect,
+	// which is what the percentages resolve against.
+	const [deckCorner, setDeckCorner] = React.useState(0);
 	const dialogRef = React.useRef<HTMLDivElement>(null);
 	const chartDetailRef = React.useRef<ChartDetailHandle>(null);
 
@@ -1281,8 +1286,16 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						<div ref={cardRef} style={pointerHidden ? { cursor: 'none' } : undefined} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
-							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+						// The card's CORNER follows the deck, like the editor preview's box (#1649). A
+						// fixed `rounded-2xl` here was 16px, while a rounded slide's own corner is 1.5%
+						// of its width — the two cross over at ~1067px of card width, and this card is
+						// `min(100cqw, 100cqh*16/9)`, so on any desktop Present the SLIDE is rounder
+						// than its card and each corner shows a crescent of `bg-card` between the two
+						// arcs. That is the reported defect exactly — the app's palette poking past the
+						// slide's shape — on the surface an audience is looking at. Found by the Munger
+						// inversion pass, from the arithmetic, before it was ever driven.
+						<div ref={cardRef} style={{ ...(pointerHidden ? { cursor: 'none' } : {}), borderRadius: cornerRadiusCss(deckCorner, 16 / 9) }} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+							<DeckPreview focused onCorner={setDeckCorner} options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open} />

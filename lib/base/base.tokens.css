@@ -234,6 +234,31 @@
    * are fitted at 1.40x-2.17x (median 1.64), and 7 x 1.64 = 11.5px against
    * --radius-md's 10.8px at hd. Consumed by lib/integrations/mermaid/mermaid.css. */
   --diagram-cluster-radius:7px;
+
+  /* THE SLIDE'S OWN CORNER — a different tier from the three radii above, which round
+   * things INSIDE a slide (cards, images, code panels). This one rounds the slide.
+   *
+   * `0` by default: square, which is what every deck rendered and exported at before this
+   * register existed, so nothing moves for a deck that says nothing. A deck opts in with
+   * `corners: rounded` in its front matter, and `section.corners-rounded`
+   * (base.modifiers.css) is the ONE place that gives it a length —
+   * `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd.
+   *
+   * THERE IS NO SECOND, THEME-FACING TOKEN, and that is deliberate. An earlier cut of this
+   * shipped a `--slide-radius-rounded` seam on the reasoning that the engine owns names and
+   * a theme owns values (2026-08-09-color-theme-ownership.md). But that charter is about
+   * COLOR, and a corner is not a color: there is no per-palette answer a designer would
+   * want to vary, no theme in the tree set it, and a theme that ever wants its own corner is
+   * CSS — it can redeclare `--slide-radius` under `section.corners-rounded` without a
+   * dedicated token existing to be discovered. One token, declared here, resolved there. */
+  /* `0px`, NOT `0`, and that is load-bearing rather than pedantic. A unitless zero is a
+   * <number> inside `calc()`, so `calc(var(--slide-radius) * 0.45)` — how the corner
+   * berths inset the author-warning tabs — is INVALID at computed-value time and the
+   * property falls back to `auto`. Typed here, that multiply is a length on every deck.
+   * The same trap is recorded a few hundred lines down for `--corner-stack` / `--clip-stack`
+   * ("THE FALLBACKS ARE TYPED (0%, not 0) AND THAT IS LOAD-BEARING"); this declaration
+   * fell into it anyway, which is why the guard is now a test and not a comment. */
+  --slide-radius:0px;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
@@ -978,6 +1003,7 @@
   --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi));
   --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
+
 }
 
 /* ── The slide's DEPTH axis — seven named planes ────────────────────────

@@ -302,6 +302,31 @@
    * are fitted at 1.40x-2.17x (median 1.64), and 7 x 1.64 = 11.5px against
    * --radius-md's 10.8px at hd. Consumed by lib/integrations/mermaid/mermaid.css. */
   --diagram-cluster-radius:7px;
+
+  /* THE SLIDE'S OWN CORNER — a different tier from the three radii above, which round
+   * things INSIDE a slide (cards, images, code panels). This one rounds the slide.
+   *
+   * `0` by default: square, which is what every deck rendered and exported at before this
+   * register existed, so nothing moves for a deck that says nothing. A deck opts in with
+   * `corners: rounded` in its front matter, and `section.corners-rounded`
+   * (base.modifiers.css) is the ONE place that gives it a length —
+   * `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd.
+   *
+   * THERE IS NO SECOND, THEME-FACING TOKEN, and that is deliberate. An earlier cut of this
+   * shipped a `--slide-radius-rounded` seam on the reasoning that the engine owns names and
+   * a theme owns values (2026-08-09-color-theme-ownership.md). But that charter is about
+   * COLOR, and a corner is not a color: there is no per-palette answer a designer would
+   * want to vary, no theme in the tree set it, and a theme that ever wants its own corner is
+   * CSS — it can redeclare `--slide-radius` under `section.corners-rounded` without a
+   * dedicated token existing to be discovered. One token, declared here, resolved there. */
+  /* `0px`, NOT `0`, and that is load-bearing rather than pedantic. A unitless zero is a
+   * <number> inside `calc()`, so `calc(var(--slide-radius) * 0.45)` — how the corner
+   * berths inset the author-warning tabs — is INVALID at computed-value time and the
+   * property falls back to `auto`. Typed here, that multiply is a length on every deck.
+   * The same trap is recorded a few hundred lines down for `--corner-stack` / `--clip-stack`
+   * ("THE FALLBACKS ARE TYPED (0%, not 0) AND THAT IS LOAD-BEARING"); this declaration
+   * fell into it anyway, which is why the guard is now a test and not a comment. */
+  --slide-radius:0px;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
@@ -1046,6 +1071,7 @@
   --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi));
   --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
+
 }
 
 /* ── The slide's DEPTH axis — seven named planes ────────────────────────
@@ -19490,8 +19516,24 @@ section.clip-marked > .overflow-tab {
    * marker must never take flow space it is reporting on), not because the old rule is
    * still there. */
   position: absolute !important;
-  top: 0;
-  right: 0;
+  /* Inset by a fraction of the slide's own corner, so the flag clears the arc on a
+     `corners: rounded` deck instead of being sliced by it — an author alarm must not go
+     quiet because a deck chose a shape (the #1181 shape, HARD RULE #18). On a square deck
+     `--slide-radius` is `0px`, so this resolves to `0px` and nothing moves.
+
+     THE TOKEN'S UNIT IS LOAD-BEARING, and this rule is why. A unitless `0` is a <number>
+     inside `calc()`, so `calc(0 * 0.45)` is not a length — the declaration is invalid at
+     computed-value time and `top`/`right` fall back to `auto`, dropping the marker out of
+     the corner and into flow on EVERY square deck. That shipped once. `--slide-radius` is
+     declared `0px` for exactly this, and the guard is now an absolute-distance assertion
+     in test/integration/parity/content-clipped-pill.test.js rather than a comment — the
+     same typed-fallback trap is recorded below for `--corner-stack`, and this rule fell
+     into it anyway.
+
+     0.45 has margin over the geometric touch point (a corner marker meets the arc at
+     ~0.29 x radius along the diagonal); a warning surface errs toward clearance. */
+  top: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
   z-index: var(--z-alarm);
   background: #d4351c;
   color: #fff;
@@ -19650,8 +19692,10 @@ section.illegible {
    2026-08-12-slide-plane-model.md */
 section.illegible > .illegible-tab {
   position: absolute;
-  top: 0;
-  right: 0;
+  /* Same corner, same reason as `.overflow-tab` above — see its note, including why the
+     token is typed `0px`. This berth stacks one tab-height below that one. */
+  top: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
   z-index: var(--z-alarm);
   background: #b8730a;
   color: #fff;
@@ -19803,8 +19847,11 @@ section.fit-marked > .fixme-tab {
    * the stage height it is reporting on. That rule is gone (the plane model deleted it);
    * the `!important` stays because the invariant does. */
   position: absolute !important;
-  bottom: 0;
-  right: 0;
+  /* Same corner treatment as the two berths above — the BOTTOM-right is rounded by the
+     same clip, so this one insets too. See `.overflow-tab`'s note, including why the
+     token is typed `0px`. */
+  bottom: calc(var(--slide-radius, 0px) * 0.45);
+  right: calc(var(--slide-radius, 0px) * 0.45);
   z-index: var(--z-alarm);
   /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
    * the same exception the overflow red and the type-floor amber take: an
@@ -20444,6 +20491,69 @@ section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.card
 section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
   > .lat-split-note > .below-note > p:has(> em:only-child) {
   font-size: var(--fs-body-compact);
+}
+
+
+/* ── THE SLIDE'S CORNER — the `corners:` register ──────────────────────────────
+   Whether the slide's own surface is square or rounded. `corners: square` (the
+   default and the whole prior behavior) → nothing here applies; `corners: rounded`
+   → the deck stamps `corners-rounded` on every section and the slide rounds.
+   Kernel + why the register exists: lib/core/resolve-corners.js.
+
+   WHY `clip-path` AND NOT `border-radius`. The slide's brand bar is the section's
+   own `border-top` painted with `border-image-source: var(--spectrum)`, and a
+   BORDER-IMAGE DOES NOT HONOR `border-radius` — the corners of the bar stay square
+   and poke past the rounded surface, which is a worse artifact than the one this
+   register exists to fix. Measured in this repo's Chromium, not recalled from the
+   spec: a `border-radius` box draws a hard rectangular bar over a rounded body,
+   while `clip-path: inset(0 round R)` clips the WHOLE element — border image
+   included — so the bar hugs the corner exactly. That holds for the four
+   `spectrum-edge-*` rails too, which are the same border-image on another side, so
+   one property covers every placement with no per-edge repaint to keep in step.
+
+   Everything else on the slide is already inside the clip for free: `section` is
+   `overflow: hidden`, so a full-bleed `image` backdrop, the finish `.backdrop`
+   layer, and the divider's background rail are all clipped to the same shape
+   without a rule of their own.
+
+   APPLIED ONLY WHEN ROUNDED. `inset(0 round 0)` is a no-op SHAPE, but `clip-path`
+   establishes a stacking context where `container-type: size` alone does not — so an
+   unconditional declaration would change what CAN reorder, for a deck that asked for
+   nothing. Worth being precise about the size of that risk, because an earlier draft
+   of this note overstated it: rendering the 117-slide baseline gallery with and
+   without an unconditional `inset(0 round 0)` and pixel-diffing every page found ZERO
+   differing pages, including the twelve most exposed (`split-panel watermark`, the
+   `image` variants, `math`). So the corpus is provably unaffected either way; the
+   narrow form is kept because a property a deck did not ask for should not be there,
+   not because a regression was observed.
+
+   `border-radius` rides alongside because a CONSUMER needs to read the resolved
+   value. `getComputedStyle(section).borderRadius` reports a real px length in the
+   frame's own scale, where a `clip-path` shape does not parse back usefully — that
+   is how the Studio's preview chrome follows the deck's corner instead of imposing
+   a fixed 12px of its own (#1649). It also rounds the surface a second time, which
+   is harmless and identical. */
+section.corners-rounded {
+  /* The one place the corner gets a length. Anchored to `--_sec-1cqi` and declared HERE,
+     on a section selector, for the reason `--slide-radius`'s own note gives: the value is
+     consumed by the section's own clip, and a section cannot query its own container, so a
+     bare `cqi` would escape to the host viewport and scale the corner with the browser
+     window. A theme wanting its own corner redeclares this line; there is no separate
+     theme-facing token to keep in step. */
+  --slide-radius: calc(1.5 * var(--_sec-1cqi, 1cqi));
+  clip-path: inset(0 round var(--slide-radius));
+  border-radius: var(--slide-radius);
+}
+/* A slide opting OUT of a rounded deck. The propagation kernels already EVICT the
+   deck's `corners-rounded` when a slide names `corners-square`, so this rule
+   normally has nothing to undo — it is here for the hand-written section that
+   carries both, where the two would otherwise resolve by source order. */
+section.corners-square {
+  /* `0px`, not `0` — see the token's own note. A unitless zero here would break the
+     corner-berth insets on exactly the slides that opted OUT of rounding. */
+  --slide-radius: 0px;
+  clip-path: none;
+  border-radius: 0;
 }
 
 /* === lib/integrations/highlight-js/highlight-js.css === */

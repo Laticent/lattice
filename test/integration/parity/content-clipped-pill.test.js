@@ -431,4 +431,51 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     );
   });
 
+
+  // ── The corner berths sit ON the corner, on a SQUARE deck ────────────────────────
+  //
+  // The gate this file needed and did not have. Every assertion above is RELATIVE —
+  // tabs disjoint from each other, clear of the logo, stacked in order — so all 13
+  // passed while both tabs had fallen out of the corner entirely and were printing
+  // across the headline, 92px down and 1040px in from the right.
+  //
+  // The cause was a unitless `--slide-radius: 0` reaching `calc(var(--slide-radius) *
+  // 0.45)` in the berth insets (#1649): a unitless zero is a <number> inside calc(),
+  // so the length was invalid at computed-value time and `top`/`right` fell back to
+  // `auto`. That is the SAME typed-fallback trap this file's own `--corner-stack` note
+  // records, re-created in the rule block below it — which is why the guard has to be
+  // an absolute measurement and not another comment.
+  //
+  // SQUARE is the case under test, deliberately: it is the default, every deck that
+  // predates the corners register, and the one a rounded-deck check cannot see.
+  // The RIGHT edge is the assertion that carries both markers, because both are pinned to
+  // it: the defect drove them to `right: 1040px`, a fifth of the way across the slide.
+  // Only the FIRST berth is also pinned to the top — the illegible tab deliberately stacks
+  // one tab-height below it (`--clip-stack`), which the ordering tests above already cover.
+  const CORNER_SQUARE_TOL = 12; // the berths inset 0 on square; allow the tab's own padding
+  for (const [name, cls, pinnedToTop] of [
+    ['overflow', 'clip', true],
+    ['illegible', 'leg', false],
+  ]) {
+    test(`the ${name} berth stays on the frame's right edge on a square deck`, async () => {
+      const v = await corners('', `berth-square-${cls}`);
+      const tab = v[cls];
+      assert.ok(tab, `expected the ${name} tab to render`);
+      // A section renders at the viewport origin here, so the frame's right edge is the
+      // viewport width.
+      const fromRight = 1280 - tab.right;
+      assert.ok(
+        fromRight <= CORNER_SQUARE_TOL,
+        `${name} tab is ${fromRight}px in from the frame's right edge on a SQUARE deck — it should be on it. ` +
+          'A berth inset that resolves to an invalid length falls back to `auto` and drops the marker into flow.',
+      );
+      if (pinnedToTop) {
+        assert.ok(
+          tab.top <= CORNER_SQUARE_TOL,
+          `${name} tab is ${tab.top}px below the frame top on a SQUARE deck — it should be on the corner.`,
+        );
+      }
+    });
+  }
+
 });
