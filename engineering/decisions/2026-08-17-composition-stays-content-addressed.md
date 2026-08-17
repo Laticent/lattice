@@ -6,11 +6,16 @@ summary: >
   against the store's actual contract, that follow-up inverts its own thesis. The store serves
   callers who have no manifest and never will, so the content scan cannot be deleted — a
   manifest-driven path would sit IN FRONT of it, making two derivation sites where there is one.
-  There is no performance case either: the scan is 0.028 ms of a 41.4 ms uncached compose, 0.07%.
+  There is no performance case either: the scan is a fifth of a percent of an uncached compose.
   What the investigation DID find is a live-shaped divergence the thread created and did not
   notice: the two surviving content scanners — the store's `THEME_NAME_IMPORT_RE` and
   `chain.mjs`'s `flattenCssImports` — disagree on two `@import` forms. That is the same defect
-  the whole thread is about, one level down, and it is what should be fixed instead.
+  the whole thread is about, one level down, and it is what should be fixed instead. The
+  adversarial trio then found the FIRST cut of that fix wrong in five ways — a third reader
+  nobody had counted, two self-inflicted regressions (a stray comment sequence silently
+  dropping every later import; an O(n^2) scan costing 20 s on a 1 MB sheet), a divergence
+  between the two consumers it claimed to unify, and a silently broken `--css` CLI form.
+  All five are recorded in §6 and fixed.
 ---
 
 # Composition stays content-addressed; the divergence to fix is the one we made
@@ -137,79 +142,77 @@ Estimated blast radius for (2): `lib/engine/themes.js` plus one export in `lib/t
 — a shared kernel, so maker-checker minimum under HARD RULE #25, with the 4224-render corpus
 comparison as the equivalence evidence.
 
-## 6. What shipped
+## 6. What shipped, and what the trio changed about it
 
-`lib/theme/chain.mjs` now owns the grammar — `themeNameImports(css)` and
-`replaceThemeNameImports(css, fn)` over one regex, **and it skips matches inside comments**.
-`flattenCssImports` reads through the first; `ThemeStore.resolveThemeImports` rewrites through
-the second, and `THEME_NAME_IMPORT_RE` is gone from `lib/engine/themes.js`.
+`lib/theme/chain.mjs` owns one content-side grammar — `themeNameImports(css)` and
+`replaceThemeNameImports(css, fn)` — and BOTH consumers scan **comment-stripped** text
+through it. `THEME_NAME_IMPORT_RE` is gone from `lib/engine/themes.js`;
+`flattenCssImports` no longer strips separately before calling.
 
-The grammar is the **union** of what the two accepted, minus the flattener's `url` false
-positive. Be precise about the bare `@import x;` arm, because an earlier draft of the code
-comment was not: it is **not** what `checkThemeRoles` extracts (that gate is quoted-only), and
-it is not valid CSS either, so real Marp ignores it. It is in the union because
-`flattenCssImports` accepted it deliberately — #1680's first cut dropped it and a checker made
-it restore it — and narrowing now would re-break what that review fixed.
+**The first cut of this change was wrong in five ways, and the adversarial trio
+(HARD RULE #25) found all five.** Recording them, because the pattern is the finding.
 
-**Two real defects fell out, one of them mine.**
+| # | what | found by |
+|---|---|---|
+| 1 | There is a **THIRD** content-side reader — `THEME_IMPORT_RE` in `lib/engine/css.js`, which resolves the base `@import 'lattice'`. It is quoted-only. Widening this grammar to a bare `@import x;` therefore made `@import lattice;` resolve here, get handed off at `BASE_THEME`, and compose to **2 KB of scaffold**. The changelog's headline "fixed unquoted imports" was false for the only import most themes have. The first cut also **deleted the comment that pointed at that third reader.** | red team + inversion |
+| 2 | Comment RANGE-SKIPPING read a comment closer followed by `*` — the `/*!banner*/*{…}` minified-reset idiom — and an opener inside a string or `url()` as comment OPENERS, so one stray sequence silently dropped every later import: a parent lost, an unstyled deck, no error. **A regression the change itself created.** | red team |
+| 3 | `inComment` was O(matches × ranges) per compose: **12.5 ms → 1,945 ms** on 440 KB, **20.3 s on 1 MB**. The Studio re-registers its theme on every render and `add()` clears the whole cache, so a large pasted theme froze the tab per keystroke. **Also self-inflicted.** | red team |
+| 4 | The two consumers **still disagreed** — the flattener pre-stripped comments, the store range-skipped, so `@import /* c */ 'onyx';` (valid CSS) resolved in one and not the other. 129 divergences in 300,000 fuzzed inputs. The central claim of the change was false. | red team + inversion |
+| 5 | `@import "extra.css";` in a `--css` layout sheet — valid CSS, the documented CLI form — **silently stopped being flattened**. Driven end to end through the real emulator: canary present on the base commit, absent on the branch. The old flattener resolved it by accident (its `['"]?` bookends captured the stem and stopped at the dot); the rework dropped it while the note claimed a pure union. | checker |
 
-*Mine:* widening the store to the bare form made a theme's own COMMENT resolve. `lib/theme/serialize.js`
-interpolates a Studio user's free-text description into the header comment, so
-`"A calm blue palette. Like @import onyx; but warmer."` spliced 768 KB of `onyx` into a theme
-that declared no parent — and because `composeCss` strips comments *after*, the leaf's remaining
-prose was torn open and read as a selector, silently dropping the rule behind it. A checker
-demonstrated it end to end. It does not ship: the scanner skips comments.
+**What the rework does instead.** The grammar is **quoted-only** — matching CSS itself,
+`checkThemeRoles`' extractor, real Marp, and `css.js` — with an explicit optional `.css`
+suffix so the `--css` form in (5) is supported deliberately rather than accidentally.
+The bare arm is **dropped**: it is not valid CSS, nothing in the tree emits it, and
+keeping it is what caused (1) and (2). Comment handling is a single shared
+`stripComments`, the same shape `composeCss` and `css.js` already use, which is what
+finally makes (4) true — and it removes the range machinery behind (2) and (3) entirely.
 
-*Pre-existing, found on the way:* the **quoted** form had the same hole, and had it before this
-change. A comment reading `/* … @import 'onyx'; … */` spliced the palette. On the path, so
-fixed in place rather than logged.
-
-**The widening is still not cosmetic.** A theme whose parent import uses the bare form was
-composing to scaffold-only CSS — the failure mode #1680 §2 measured for the `-dark` wrappers,
-from a different cause.
-
-**Equivalence, measured against the shipped old store** loaded out of a worktree at the base
-commit rather than copied, both fed identical bytes:
+**Byte figures, re-measured after the rework:**
 
 ```
-composed CSS identical: 128/128   (32 palettes x 4 sizes: default, hd, story, 4:3)
-positive control  (bare import):            2,313 -> 769,370 bytes   — the widening fires
-regression control (bare, in a COMMENT):    no leak, byte-identical to the old store
-regression control (quoted, in a COMMENT):  old LEAKED 770,735 bytes -> new 2,296  — pre-existing hole closed
-negative control  (url() font import):      identical, url preserved — both stores leave it alone
+composed CSS identical: 128/128   (32 palettes x 4 sizes)
+  — a checker re-ran it across all 17 REAL size names: 544/544 identical.
+    Worth knowing: '', hd and 4:3 compose byte-identically ('4:3' is not even a
+    registered size), so the maker's "4 sizes" was really 2 distinct compositions.
+
+quoted import in a COMMENT:  old LEAKED 770,735 bytes -> new 2,296   <- the real fix
+bare import (now rejected):  old 2,313 -> new 2,313                  <- widening withdrawn
+url() font import:           identical, url preserved
+--css sibling sheet:         inlined on main, inlined again after the rework
+@import lattice; (bare):     2,302 both here and in css.js — consistent, no hand-off gap
+DoS input 440 KB:            1,945 ms -> 9.9 ms
+1 MB all-comment:           20,267 ms -> 11.2 ms
 ```
 
-**The gate is `test/unit/theme/import-grammar.test.js`**: twenty-two `@import` forms — quoted,
-minified, bare, url(), paths, mismatched quotes, uppercase, and five comment shapes including an
-unterminated one — driven through BOTH consumers plus the grammar itself.
+**Corpus sweep, re-derived** (the first cut cited "113 files, 0 divergences", which a
+checker could not reproduce from the stated inputs — neither the count nor the zero).
+Honest numbers, over `themes/ dist/ docs/ examples/ tools/ lib/ test/`:
 
-**Non-vacuity, and what the first cut got wrong.** Four mutations, all firing:
+```
+files scanned 2,293  ·  containing @import 191
+differ from the OLD STORE grammar:      31
+differ from the OLD FLATTENER grammar:  60
+```
 
-| mutation | arms failed |
-|---|---|
-| store's OLD private regex spliced back | 2 |
-| store gets a private regex IDENTICAL to the shared one | 1 |
-| store gets a genuinely DIVERGENT private regex (`/i`, `[^'"]+`) | 2 |
-| comment-awareness removed from the shared scanner | 3 |
+Every one is comment-borne — that is, every one *is* the comment fix — and every one
+involves `lattice`, which both consumers special-case, so composed output is unchanged.
+The conclusion the old number was reaching for holds; the number did not.
 
-The middle two **passed** against the first cut of this test, and a checker found that. The
-agreement arm derived the store's side by re-reading the bytes through `themeNameImports`, so it
-agreed by construction; its candidate list also omitted `a` and `onyx`, which left the
-quoted-path and comment rows guarded by nothing. It now observes the store by registering a
-uniquely marked stylesheet under every name *either* grammar could produce.
+**The gate is `test/unit/theme/import-grammar.test.js`** — 28 forms across both
+consumers and the grammar itself, including every attack above. Three arms were
+hardened after the checker showed them inert: the "fresh regex" arm could not fail even
+against a shared literal driven through `exec`; arms 3 and 4 asserted "nothing extra"
+only on rows expecting nothing, so a consumer splicing an EXTRA theme passed every other
+row; and the agreement arm's candidate list omitted `lattice` and a full quoted URL.
 
-The same review killed a second inert arm. It was titled *"a shared `/g` regex cannot leak
-lastIndex between callers"* and could not fail: `matchAll` and `replace` do not advance
-`lastIndex` — only `exec`/`test` do — so it passed with a shared literal spliced in. The stated
-rationale was wrong in the code comment, this note, and the commit message. The fresh regex per
-call stays (it costs nothing and protects a future `exec`-based caller), but it is now described
-as defensive rather than load-bearing, and the arm tests the property that is actually true.
+**Deliberate narrowings, disclosed** (the first cut called itself "a union minus one
+false positive" and was not): the flattener no longer follows `@import 'a/b.css';`
+(which resolved the stem `a`), mismatched quotes, the media-qualified bare form, the
+bare form with no terminator, or the bare form at all. Nothing in the tree emits any of
+them; `@import "name.css";` — the one that had a real user — is restored explicitly.
 
-That is the session's pattern an eighth and ninth time, both in the evidence rather than the
-code. Recording the count because it is the finding: on this thread, the tests and harnesses
-have been wrong more often than the changes they were written to check.
-
-## 7. What this note does NOT claim
+## 7. What this note does NOT claim## 7. What this note does NOT claim
 
 - It does not claim `resolveThemeImports` is optimal, only that replacing its SOURCE with the
   manifest is a net loss. Unifying its regex with `chain.mjs`'s is a separate, positive change.
@@ -240,7 +243,15 @@ have been wrong more often than the changes they were written to check.
   carries `@import 'lattice';`, so the base inlines either way and both arms sat at ~762 KB.
   **Still not driven:** the Fabricate UI click-path itself (type a description → save → preview).
   What is verified is the bundled store through the API that path calls.
-- **A third narrowing of `flattenCssImports` is not in the §4 table**: `@import indaco` with no
-  terminator at all, and the media-qualified bare `@import indaco screen;`, both resolved before
-  and do not now. Both are invalid CSS and nothing in the repo emits either, but the table did
-  not name them and this bullet does.
+- **The narrowings are now enumerated in §6**, after a checker showed the "union minus one
+  false positive" framing was false in five places.
+- **`lib/theme/serialize.js` still interpolates a Studio user's description into a CSS comment
+  without escaping `*/`** — so a description containing those two characters closes the comment
+  and everything after it becomes live CSS. Red team drove it to **script execution in a real
+  Chromium** (`window.top.__PWNED` set) via the composed sheet's path into the same-origin,
+  un-sandboxed preview `srcdoc`: `docs/src/lib/single-slide-render.ts:663` concatenates theme
+  CSS raw, and HARD RULE #22's gate covers the slide-HTML sink only, not the CSS one. This is
+  **PRE-EXISTING** — untouched by this change, present on `main` — but it is on this change's
+  path and it is why the comment fix alone is not the end of the story. Logged here rather than
+  fixed, because closing it properly means escaping at the serializer AND deciding whether the
+  #22 gate should cover the CSS sink, which is a separate change.

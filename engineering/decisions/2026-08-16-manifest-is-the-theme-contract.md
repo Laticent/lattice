@@ -149,8 +149,8 @@ decorative.
 content-addressed **by design**, not by omission: the store serves `addThemes([{name, css}])`
 callers who have no manifest and never will, so a manifest-driven path could only sit in FRONT
 of the content scan, making two derivations of one fact inside the component that was correct
-all along. It also costs nothing worth reclaiming — 0.028 ms of a 41.4 ms uncached compose,
-0.07%. What the investigation did find is that the two SURVIVING content scanners had already
+all along. It also costs nothing worth reclaiming — about a fifth of a percent of an uncached
+compose (quote the order, not the digits: the compose swings 26-31 ms run to run). What the investigation did find is that the two SURVIVING content scanners had already
 drifted apart (the bare `@import x;` form resolved in `flattenCssImports` and was invisible to
 the store), which is this note's own thesis one level down. They now share one grammar. See
 `2026-08-17-composition-stays-content-addressed.md`.
