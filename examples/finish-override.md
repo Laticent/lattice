@@ -14,7 +14,7 @@ section.finish.finish-recede {
   --fin-repeat:repeat, repeat, no-repeat;
   --fin-mark:none;
   --fin-mark-text:"";
-  --fin-edge:radial-gradient(78% 78% at 50% 50%, transparent 60%, color-mix(in srgb, var(--ink, var(--accent)) 10%, transparent) 100%);
+  --fin-edge:radial-gradient(78% 78% at 50% 50%, transparent 60%, color-mix(in srgb, var(--text-heading) 10%, transparent) 100%);
   --fin-edge-position:center;
   --fin-edge-size:cover;
   --fin-backdrop-mask: var(--backdrop-clear-mask);
@@ -24,7 +24,7 @@ section.finish.finish-recede {
   section.finish.finish-recede {
   --fin-wash:none;
   --fin-texture:repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px);
-  --fin-edge:radial-gradient(78% 78% at 50% 50%, var(--bg) 62%, color-mix(in srgb, var(--ink, var(--accent)) 8%, var(--bg)) 100%);
+  --fin-edge:radial-gradient(78% 78% at 50% 50%, var(--bg) 62%, color-mix(in srgb, var(--text-heading) 8%, var(--bg)) 100%);
   --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
@@ -32,7 +32,7 @@ section.finish.finish-recede {
 section.finish.finish-recede.lattice-exporting {
   --fin-wash:none;
   --fin-texture:repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px);
-  --fin-edge:radial-gradient(78% 78% at 50% 50%, var(--bg) 62%, color-mix(in srgb, var(--ink, var(--accent)) 8%, var(--bg)) 100%);
+  --fin-edge:radial-gradient(78% 78% at 50% 50%, var(--bg) 62%, color-mix(in srgb, var(--text-heading) 8%, var(--bg)) 100%);
   --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
 }
 section.finish.finish-beam {

@@ -54,7 +54,7 @@ describe('check-chart-responsiveness — findViolations', () => {
   test('does NOT flag px in an SVG-context rule (SVG-only property in the block)', () => {
     // The font-size sits on a sibling line to `fill` — rule-BLOCK detection,
     // not per-line, is what excludes it (the quadrant `.quadrant-label` case).
-    const css = `.quadrant-label {\n  fill: var(--ink);\n  font-size: 11px;\n}`;
+    const css = `.quadrant-label {\n  fill: var(--text-heading);\n  font-size: 11px;\n}`;
     assert.deepEqual(props(css), []);
   });
 

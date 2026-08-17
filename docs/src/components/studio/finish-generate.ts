@@ -458,8 +458,8 @@ function edgeImage(type: EdgeType, i: number, face: FinishFace): string {
 			// RICH: clear center → low-alpha ink rim. OPAQUE: bg center → ink-in-bg rim.
 			const rim =
 				face === 'rich'
-					? `color-mix(in srgb, var(--ink, var(--accent)) ${Math.round(Math.min(22, i + 2))}%, transparent)`
-					: `color-mix(in srgb, var(--ink, var(--accent)) ${Math.round(i)}%, var(--fin-canvas, var(--bg)))`;
+					? `color-mix(in srgb, var(--text-heading) ${Math.round(Math.min(22, i + 2))}%, transparent)`
+					: `color-mix(in srgb, var(--text-heading) ${Math.round(i)}%, var(--fin-canvas, var(--bg)))`;
 			const center = face === 'rich' ? 'transparent 60%' : 'var(--fin-canvas, var(--bg)) 62%';
 			return `radial-gradient(78% 78% at 50% 50%, ${center}, ${rim} 100%)`;
 		}

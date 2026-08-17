@@ -7966,7 +7966,10 @@ const KNOWN_CONTRACT_DROPS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `--cat-${n}-ink → --cat-${n}-mark`),
   // (b) → --accent, unaudited. Text tier.
   '--code-inline-fg → --accent',
-  '--ink → --accent',
+  // '--ink → --accent' was here until #1715. It was not merely a floor drop: `--ink` was
+  // declared NOWHERE, so the fallback won on every theme forever. The four reads now point
+  // straight at `--text-heading`, a REQUIRED_TOKENS contract token that needs no fallback,
+  // and `checkPhantomFallbackTokens` below stops the class from recurring.
   '--jur-ink → --accent',
   '--lane-ink → --accent',
   '--on-dark-watermark → --accent',
@@ -8178,6 +8181,233 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
       'The drop was fixed — delete the row. A stale entry is how a list stops covering what it was written for, ' +
       'and here it would also hide the fact that the backlog is draining.',
     );
+  }
+}
+
+// ─── Phantom token reads (#1715) ───────────────────────────────────────────
+//
+// A token READ that no palette declares and no code writes. `--ink` was read four
+// times in `lib/base/base.finish.css` as `var(--ink, var(--accent))` from #1606
+// until #1715, and `git log -S"--ink:" -- lib themes` is empty: it was phantom
+// from the moment the reads were written. The fallback therefore won on every
+// theme forever, so a rule whose own comment says "a neutral text-colored rim"
+// shipped in the BRAND hue.
+//
+// WHY NEITHER EXISTING GATE SAW IT, which is the whole reason this one exists:
+//
+//   `checkNoSafeDefaultTokens`'s `fallbackOnlyTokens` arm opens with
+//   `if (!themeTokens.has(token) …) continue;` — its population is limited to
+//   tokens SOME shipped palette declares. No palette declares `--ink`, so a
+//   phantom falls outside the arm entirely. A phantom is invisible to the gate
+//   built to police fallbacks precisely BECAUSE it is a phantom.
+//
+//   `checkDanglingTokenReads` scans `docs/src` and accepts a token declared
+//   ANYWHERE it looked, `docs/src` included. Seven page-local `.astro` prototypes
+//   (cadenza, vetrina, lente, suono, the two proto pages) carry their own private
+//   `--paper/--stage/--ink/--muted` palette, and those declarations rescued
+//   `--ink` for the whole repo — including `chart-anima.ts`, a module whose output
+//   renders inside a SLIDE, where a docs page's `:root` block does not exist.
+//
+// So the rule here is "declared in the ENGINE, or provably WRITTEN at runtime",
+// and the writer must be a WRITE the scanner can see rather than a ledger row
+// somebody asserted.
+//
+/**
+ * Custom properties the ENGINE itself declares — `lib/**.css`, `dist/**.css`,
+ * `themes/**.css`. Deliberately NARROWER than `checkDanglingTokenReads`'s set,
+ * for the `.astro`-prototype reason above; the same narrowing
+ * `checkAnimaColorVocabulary` already makes, and shared with it (HARD RULE #15).
+ *
+ * Names are stored WITHOUT the leading `--`, because that is the form
+ * `bareVarReads` returns. Both sides normalize through `bareName`; an earlier cut
+ * of this gate compared `--`-prefixed declarations against bare read names, so
+ * every hop was skipped and the gate reported a clean tree on a tree that still
+ * had `--ink` in it.
+ */
+function engineDeclaredTokens() {
+  const out = new Set();
+  const files = [
+    ...listFilesByExt(LIB_DIR, ['.css']),
+    ...listFilesByExt(path.join(ROOT, 'dist'), ['.css']),
+    ...listFilesByExt(path.join(ROOT, 'themes'), ['.css']),
+  ];
+  const into = new Set();
+  for (const f of files) declaredCustomProps(fs.readFileSync(f, 'utf8'), into);
+  for (const t of into) out.add(bareName(t));
+  return { tokens: out, fileCount: files.length };
+}
+
+/** `--foo` / `foo` → `foo`. The one normalization both sides of this gate use. */
+function bareName(t) { return String(t).replace(/^--/, ''); }
+
+/**
+ * Custom properties something WRITES at render time. Three idioms, and all three
+ * are live in this repo — which is the point: runtime-set is proven by a write,
+ * never asserted by a ledger entry that nothing re-checks.
+ *
+ *   1. `--x:` inside a JS/TS template literal (generated CSS text) — how
+ *      `--fin-backdrop-mask-opaque` is set, by `finish-generate.ts`.
+ *   2. `setProperty('--x', …)` — how `--stat-emphasis` and `--safe-bottom` are set.
+ *   3. `['--x', value]` PAIR ARRAYS — how `plugins.js` emits the five `--logo-*`
+ *      placement tokens into an inline `style`. `declaredCustomProps` does not
+ *      recognize this form, and without it two real writers read as phantoms.
+ *
+ * SOURCED FROM CODE, NOT FROM PAGES: `lib/**.{js,mjs}` plus `docs/src`
+ * TypeScript/JavaScript emitters, and deliberately NOT `.astro` or `.css` under
+ * `docs/src` — a page-local prototype palette is not a writer of engine tokens,
+ * and treating it as one is exactly the hole that hid `--ink`. Tests are excluded
+ * for the same reason (`test/unit/export/html-player.test.js` declares `--ink:`
+ * in a fixture).
+ */
+function runtimeWrittenTokens() {
+  const out = new Set();
+  const files = [
+    ...listFilesByExt(LIB_DIR, ['.js', '.mjs']),
+    ...listFilesByExt(path.join(ROOT, 'docs', 'src'), ['.ts', '.tsx', '.js', '.mjs']),
+  ].filter((f) => !/\.test\./.test(path.basename(f)));
+  for (const f of files) {
+    const src = fs.readFileSync(f, 'utf8');
+    const into = new Set();
+    declaredCustomProps(src, into);
+    for (const t of into) out.add(bareName(t));
+    for (const m of src.matchAll(/\[\s*['"`](--[A-Za-z0-9_-]+)['"`]\s*,/g)) out.add(bareName(m[1]));
+  }
+  return { tokens: out, fileCount: files.length };
+}
+
+/**
+ * Tokens read in engine CSS that NOTHING in this repo declares or writes, because
+ * a DECK sets them. These are real and there are two of them — not the 43-entry
+ * allowlist a naive "every bare read in lib/" gate would need, which is why this
+ * gate's arm A is scoped to FALLBACK CHAINS (`fallbackHops`) rather than every
+ * bare read: a bare `var(--x, auto)` with a literal default is the normal shape of
+ * an author knob, and policing it would be all allowlist and no signal.
+ *
+ * Fails on a STALE entry too, so the list cannot rot.
+ */
+const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
+  { token: 'fill', why: 'progress: "Authors pin a categorical hue with `--fill`" (progress.styles.css:87). '
+    + 'A deck-set knob; the engine only ever reads it, and --chart-cat-1-hue is the default.' },
+  { token: 'font', why: 'base.finish: `var(--font-display, var(--font, serif))` — a defensive hop for a '
+    + 'consumer theme that sets a generic --font. Ends on a literal, so the rim always resolves.' },
+]);
+
+/**
+ * #1715's gate. Two arms, ONE rule, budget 0.
+ *
+ * ARM A — every fallback chain in `lib/`. `fallbackHops()` is the only scanner
+ * that enumerates `var(--a, var(--b))` with NO `themeTokens` restriction, so it is
+ * the only arm that can see a token no palette declares. Both ends of every hop
+ * must be engine-declared, runtime-written, or author-set.
+ *
+ * ARM B — the docs modules that emit CSS/SVG destined for a SLIDE, where
+ * `bareVarReads` is run over the WHOLE file so a BARE read is caught too. Arm A
+ * would have missed `chart-anima.ts:216` entirely: `'var(--ink)'` has no fallback
+ * at all, and it is the DEFAULT emphasis stroke that `chart-anima-hydrate.ts`
+ * uses in production (`highlightMarks: worstMarks(svg)`, no `highlightColor`).
+ * `resolveColor` (anima/backends/paint.ts) sets that value on a probe span
+ * parented to the host and reads `getComputedStyle`; `color` is INHERITED, so an
+ * undeclared property made the declaration invalid at computed-value time and the
+ * probe returned the HOST's own text color. Wrong, not absent — the same
+ * correction #1720 §7 had to make about this exact mechanism.
+ *
+ * The emitter list fails on a stale entry, so a renamed or deleted module is a
+ * red build rather than an arm that quietly stops scanning.
+ */
+const SLIDE_BOUND_DOCS_EMITTERS = Object.freeze([
+  { file: 'docs/src/lib/chart-anima.ts',
+    why: 'emits the inline `stroke:` baked into the chart asset an Anima scene mounts INSIDE a slide.' },
+  { file: 'docs/src/components/studio/finish-generate.ts',
+    why: 'generates the CSS text of every Studio-fabricated finish, applied to a slide section.' },
+]);
+
+function checkPhantomTokenReads(errors) {
+  const declared = engineDeclaredTokens();
+  const runtime = runtimeWrittenTokens();
+  const authorSet = new Set(AUTHOR_SET_ENGINE_TOKENS.map((r) => bareName(r.token)));
+
+  // FAIL CLOSED. Every input is an intersection term: an empty one makes this gate
+  // pass while measuring nothing, which is the failure mode it exists to prevent.
+  if (declared.fileCount === 0 || declared.tokens.size < 100) {
+    errors.push(
+      `checkPhantomTokenReads scanned ${declared.fileCount} engine stylesheet(s) and found `
+      + `${declared.tokens.size} declared token(s) — the engine ships hundreds, so this is a broken `
+      + 'scan, not a clean tree.');
+    return;
+  }
+  if (runtime.fileCount === 0 || runtime.tokens.size === 0) {
+    errors.push(
+      `checkPhantomTokenReads found ${runtime.tokens.size} runtime-written token(s) across `
+      + `${runtime.fileCount} module(s) — the engine writes dozens, so the writer scan is broken.`);
+    return;
+  }
+  const resolves = (t) => declared.tokens.has(t) || runtime.tokens.has(t) || authorSet.has(t);
+
+  // ── Arm A: fallback chains in lib/ ────────────────────────────────────────
+  const hops = fallbackHops();
+  if (!hops.length) {
+    errors.push('checkPhantomTokenReads: fallbackHops() returned no chains from lib/ — a broken scan.');
+    return;
+  }
+  const phantom = new Map(); // bare token -> Set(where)
+  for (const h of hops) {
+    for (const end of [h.token, h.target]) {
+      const t = bareName(end);
+      if (resolves(t)) continue;
+      if (!phantom.has(t)) phantom.set(t, new Set());
+      phantom.get(t).add(h.where);
+    }
+  }
+
+  // ── Arm B: slide-bound docs emitters, BARE reads included ─────────────────
+  for (const { file } of SLIDE_BOUND_DOCS_EMITTERS) {
+    const abs = path.join(ROOT, file);
+    if (!fs.existsSync(abs)) {
+      errors.push(
+        `checkPhantomTokenReads: SLIDE_BOUND_DOCS_EMITTERS names ${file}, which does not exist. `
+        + 'Re-point or delete the entry rather than leaving an arm that scans nothing.');
+      continue;
+    }
+    const src = stripCodeComments(fs.readFileSync(abs, 'utf8'));
+    const reads = bareVarReads(src, file);
+    if (!reads.size) {
+      errors.push(
+        `checkPhantomTokenReads: ${file} is listed as a slide-bound emitter but yielded ZERO var() `
+        + 'reads. Either it stopped emitting CSS (drop the entry) or the scan broke.');
+      continue;
+    }
+    for (const [token, rs] of reads) {
+      const t = bareName(token);
+      if (resolves(t)) continue;
+      if (!phantom.has(t)) phantom.set(t, new Set());
+      for (const r of rs) phantom.get(t).add(r.where);
+    }
+  }
+
+  if (phantom.size) {
+    const shown = [...phantom].sort()
+      .map(([t, w]) => `--${t} (${[...w].slice(0, 4).join(', ')})`).join('\n      ');
+    errors.push(
+      `${phantom.size} PHANTOM token read(s): read in engine CSS or a slide-bound emitter, but no `
+      + 'palette declares them and nothing writes them at render time, so the fallback (or the '
+      + "inherited value) wins on every theme forever. That is how --ink shipped a 'neutral ink' "
+      + `vignette rim in the brand hue from #1606 to #1715:\n      ${shown}\n`
+      + '      Fix: point the read at a token that exists (a REQUIRED_TOKENS contract token needs no '
+      + 'fallback at all), or — if a DECK is meant to set it — add it to AUTHOR_SET_ENGINE_TOKENS '
+      + 'with the reason.');
+  }
+
+  // The author-set list is LOGGED, not blessed: a stale entry is an error, so the
+  // list shrinks visibly rather than rotting.
+  const everRead = new Set();
+  for (const h of hops) { everRead.add(bareName(h.token)); everRead.add(bareName(h.target)); }
+  const stale = AUTHOR_SET_ENGINE_TOKENS
+    .filter((r) => !everRead.has(bareName(r.token)) || declared.tokens.has(bareName(r.token)));
+  if (stale.length) {
+    errors.push(
+      `${stale.length} AUTHOR_SET_ENGINE_TOKENS entr(ies) are stale — no longer read as a fallback `
+      + `chain in lib/, or now declared by the engine: ${stale.map((r) => `--${r.token}`).join(', ')}. `
+      + 'Delete them; a list that outlives what it excuses stops describing the tree.');
   }
 }
 
@@ -8867,6 +9097,7 @@ function run() {
   checkSyntaxInkContrast(errors);
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
+  checkPhantomTokenReads(errors);
   return {
     errors,
     counts: {
@@ -8925,6 +9156,11 @@ module.exports = {
   checkFallbackContracts,
   ledgerContractProblems,
   fallbackHops,
+  checkPhantomTokenReads,
+  engineDeclaredTokens,
+  runtimeWrittenTokens,
+  AUTHOR_SET_ENGINE_TOKENS,
+  SLIDE_BOUND_DOCS_EMITTERS,
   KNOWN_CONTRACT_DROPS,
   SANCTIONED_TOKEN_CONTRACTS,
   auditPdfOwnership,

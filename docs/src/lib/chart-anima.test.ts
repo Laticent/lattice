@@ -65,15 +65,25 @@ describe('chartToScene', () => {
   });
 
   it('highlights a flagged mark: an inline emphasis stroke + a highlight verb', () => {
-    const out = chartToScene(FUNNEL, { highlightMarks: [0], highlightColor: 'var(--ink)' });
+    const out = chartToScene(FUNNEL, { highlightMarks: [0], highlightColor: 'var(--cat-3-mark)' });
     const bar0 = out?.scene.elements.find((e) => e.id === 'bar-0');
     expect(bar0?.motion?.some((m) => m.verb === 'highlight')).toBe(true);
     // the inline stroke override is baked into the asset (wins over the chart's CSS stroke)
     expect(out?.asset).toContain('id="bar-0"');
-    expect(out?.asset).toMatch(/stroke:\s*var\(--ink\)/);
+    expect(out?.asset).toMatch(/stroke:\s*var\(--cat-3-mark\)/);
     // a non-highlighted band gets NO highlight verb
     const bar1 = out?.scene.elements.find((e) => e.id === 'bar-1');
     expect(bar1?.motion?.some((m) => m.verb === 'highlight')).toBe(false);
+  });
+
+  // The DEFAULT is what production uses: chart-anima-hydrate.ts calls chartToScene with
+  // `highlightMarks: worstMarks(svg)` and NO highlightColor. It defaulted to `var(--ink)` — a
+  // token no palette declares and nothing writes at render time — and nothing tested it, because
+  // the test above passed the phantom in explicitly and asserted it came back out (#1715).
+  it('defaults the emphasis stroke to a DECLARED token, not a phantom', () => {
+    const out = chartToScene(FUNNEL, { highlightMarks: [0] });
+    expect(out?.asset).toMatch(/stroke:\s*var\(--text-heading\)/);
+    expect(out?.asset).not.toMatch(/var\(--ink[),]/);
   });
 
   it('namespaces renderer-emitted defs ids + their url() references (gradient-filled charts)', () => {
@@ -172,7 +182,7 @@ describe('chartToScene', () => {
   it('falls back to a token when highlightColor is not palette-blind (#3)', () => {
     const out = chartToScene(FUNNEL, { highlightMarks: [0], highlightColor: '#ff0000' });
     expect(out?.asset).not.toMatch(/stroke:\s*#ff0000/); // the raw hex was rejected
-    expect(out?.asset).toMatch(/stroke:\s*var\(--ink\)/); // fell back to the default token
+    expect(out?.asset).toMatch(/stroke:\s*var\(--text-heading\)/); // fell back to the default token
   });
 
   it('treats a non-numeric / empty data-mark as unindexed (never mark 0)', () => {
