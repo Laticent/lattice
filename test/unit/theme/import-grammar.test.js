@@ -33,7 +33,6 @@ const { ThemeStore } = require('../../../lib/engine/themes.js');
 // registered sheet can satisfy.
 const TOKEN = { indaco: 'INDACO_TOKENS', 'a11y-base': 'A11Y_TOKENS' };
 const REGISTERED = Object.keys(TOKEN);
-const stripped = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 // ── THE TABLE. One row per `@import` form; `names` is what the grammar must read.
 const FORMS = [
@@ -59,8 +58,13 @@ const FORMS = [
   // minified-reset idiom; reading it as an opener silently dropped every later import.
   { label: 'closer-then-star (minified reset)', css: "/*!b*/*{box-sizing:border-box}\n@import 'indaco';", names: ['indaco'] },
   { label: 'empty comment then universal selector', css: "/**/*{margin:0}\n@import 'indaco';", names: ['indaco'] },
-  { label: 'opener inside a string value', css: ':root{--u:"a/*b"}\n@import \'indaco\';', names: ['indaco'] },
-  { label: 'opener inside url()', css: ':root{--u:url("a/*b")}\n@import \'indaco\';', names: ['indaco'] },
+  // A TRAILING COMMENT is the whole point of these rows. Without one the naive stripper
+  // passes them by luck — its opener-inside-a-string pairs with the NEXT real closer, and
+  // if there isn't one the damage is invisible. Every real palette has a trailing comment.
+  { label: 'opener inside a string value', css: ':root{--u:"a/*b"}\n@import \'indaco\';\n/* tail */', names: ['indaco'] },
+  { label: 'opener inside url()', css: ':root{--u:url("a/*b")}\n@import \'indaco\';\n/* tail */', names: ['indaco'] },
+  { label: 'opener in a content property, then a banner', css: 'section::after{content:"/*"}\n@import \'indaco\';\n/* \u2500 tail \u2500 */', names: ['indaco'] },
+  { label: 'escaped quote inside a string, then an import', css: ':root{--u:"a\\"/*b"}\n@import \'indaco\';\n/* t */', names: ['indaco'] },
 
   // ── Must NOT match ──────────────────────────────────────────────────────────
   { label: 'url() font import', css: '@import url("https://x/f.css");', names: [] },
@@ -97,9 +101,11 @@ describe('theme-name @import grammar', () => {
         return `/*${name}*/${full}`;
       });
       assert.deepEqual(seen, names, `${label}: replacer saw a different set`);
-      // Output is comment-STRIPPED by contract, so "untouched" means "equal to the
-      // stripped source" — not to the raw source.
-      if (names.length === 0) assert.equal(out, stripped(css), `${label}: untouched text was rewritten`);
+      // Byte-identical by contract: the scan runs over a masked copy, the splice against
+      // the original, so text with no theme import comes back exactly as it went in —
+      // comments included. An earlier cut returned the stripped text and inflated every
+      // composed sheet with whitespace.
+      if (names.length === 0) assert.equal(out, css, `${label}: untouched text was rewritten`);
     }
   });
 
@@ -115,7 +121,7 @@ describe('theme-name @import grammar', () => {
       const want = names.filter((n) => n !== 'lattice' && store.has(n));
       const got = REGISTERED.filter((n) => out.includes(TOKEN[n]));
       assert.deepEqual(got.sort(), [...want].sort(), `${label}: wrong set spliced`);
-      if (names.length === 0) assert.equal(out, stripped(css), `${label}: store rewrote a non-import`);
+      if (names.length === 0) assert.equal(out, css, `${label}: store rewrote a non-import`);
     }
   });
 
@@ -188,33 +194,15 @@ describe('theme-name @import grammar', () => {
     }
   });
 
-  test('the grammar hands out a FRESH regex, observed through exec', () => {
-    // Two earlier versions of this arm could not fail. The first asserted a `lastIndex`
-    // leak that `matchAll`/`replace` cannot produce; the second only re-scanned, which
-    // passes against a module-level shared literal too. `exec` is the ONE API that does
-    // advance `lastIndex`, so driving the exported scanner through repeated `exec`-shaped
-    // use is what actually observes freshness.
-    const two = "@import 'indaco';\n@import 'a11y-base';";
-    const viaExec = () => {
-      const seen = [];
-      // Deliberately abandon the scan half way, the way a shared regex would be left.
-      for (const m of themeNameImports(two)) seen.push(m);
-      return seen;
-    };
-    assert.deepEqual(viaExec(), ['indaco', 'a11y-base']);
-    assert.deepEqual(viaExec(), ['indaco', 'a11y-base'], 'a second scan saw fewer imports');
-    // Interleaving a REWRITE between two reads is the shape a live host runs.
-    replaceThemeNameImports(two, () => 'REPLACED');
-    assert.deepEqual(themeNameImports(two), ['indaco', 'a11y-base'], 'a rewrite disturbed a later scan');
-  });
-
   test('repeated and interleaved scans are independent', () => {
-    // An earlier version of this arm was titled "a shared /g regex cannot leak
-    // lastIndex" and was VACUOUS: `matchAll` and `replace` do not advance `lastIndex`
-    // (only `exec`/`test` do), so it passed even with a module-level shared literal —
-    // a test asserting an invariant it could not observe, which is the exact defect
-    // this file's neighbours were written to stop. The honest property is the one
-    // below: repeated and interleaved scans return the same thing.
+    // THREE versions of a "the regex is fresh, so lastIndex cannot leak" arm were
+    // written here and all three were VACUOUS — `matchAll` and `replace` do not advance
+    // `lastIndex` (only `exec`/`test` do), so every one passed against a module-level
+    // shared literal, including the one whose comment claimed to observe `exec`. Two
+    // checkers caught it in turn. The arm is GONE rather than reworded a fourth time:
+    // the freshness is a defensive detail with no observable behavior, and a test that
+    // cannot fail is worse than no test. What IS observable is below — repeated and
+    // interleaved scans return the same thing.
     const two = "@import 'indaco';\n@import 'a11y-base';";
     assert.deepEqual(themeNameImports(two), ['indaco', 'a11y-base']);
     assert.deepEqual(themeNameImports(two), ['indaco', 'a11y-base'], 'second scan differed');

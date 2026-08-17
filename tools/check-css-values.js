@@ -149,31 +149,7 @@ function listCss(dir, out = []) {
  * shipped today carries `/*` in a string; this is about the gate staying true when
  * something does. (test/unit/tools/check-css-values.test.js pins it.)
  */
-function stripComments(css) {
-  const s = String(css || '');
-  let out = '', quote = null, i = 0;
-  while (i < s.length) {
-    const c = s[i];
-    if (quote) {
-      if (c === '\\' && i + 1 < s.length) { out += c + s[i + 1]; i += 2; continue; }
-      out += c;
-      if (c === quote) quote = null;
-      i++;
-      continue;
-    }
-    if (c === '"' || c === "'") { quote = c; out += c; i++; continue; }
-    if (c === '/' && s[i + 1] === '*') {
-      const end = s.indexOf('*/', i + 2);
-      const stop = end === -1 ? s.length : end + 2; // an unterminated comment runs to EOF, as CSS says
-      for (let k = i; k < stop; k++) out += s[k] === '\n' ? '\n' : ' ';
-      i = stop;
-      continue;
-    }
-    out += c;
-    i++;
-  }
-  return out;
-}
+const { stripCssComments: stripComments } = require('../lib/core/strip-css-comments.mjs');
 
 /**
  * Every `prop: value` declaration in a stylesheet, with its line.

@@ -195,16 +195,33 @@ differ from the OLD STORE grammar:      31
 differ from the OLD FLATTENER grammar:  60
 ```
 
-Every one is comment-borne — that is, every one *is* the comment fix — and every one
-involves `lattice`, which both consumers special-case, so composed output is unchanged.
-The conclusion the old number was reaching for holds; the number did not.
+Every one is comment-borne — that is, every one *is* the comment fix. Most involve
+`lattice`, which both consumers special-case; a later checker reconstructed the sweep and
+could not reproduce these counts either (it measured 32 and 31 over a differently-drawn
+file set) and showed that "every one involves `lattice`" is FALSE — a handful name `onyx`,
+`a11y-base` or `carbone`, all inside prose or test fixtures rather than a registered
+stylesheet. **Treat the counts as indicative, not reproducible: the file set is not pinned
+and the script is not committed.** What IS independently reproducible, and what the sweep
+was reaching for, is the composed-output comparison above — a checker re-derived it at
+480/480 identical from a worktree at the base commit.
 
-**The gate is `test/unit/theme/import-grammar.test.js`** — 28 forms across both
-consumers and the grammar itself, including every attack above. Three arms were
-hardened after the checker showed them inert: the "fresh regex" arm could not fail even
-against a shared literal driven through `exec`; arms 3 and 4 asserted "nothing extra"
-only on rows expecting nothing, so a consumer splicing an EXTRA theme passed every other
-row; and the agreement arm's candidate list omitted `lattice` and a full quoted URL.
+**The gate is `test/unit/theme/import-grammar.test.js`** — 30 forms across both consumers
+and the grammar itself, including every attack above. Arms 3 and 4 now assert the EXACT
+spliced set on every row rather than "nothing extra" only where nothing was expected, and
+the agreement arm's candidate list covers `lattice` and a full quoted URL.
+
+**One arm was DELETED rather than hardened a third time.** Three versions of a "the regex
+is fresh, so `lastIndex` cannot leak" arm were written, and all three were vacuous —
+`matchAll` and `replace` do not advance `lastIndex`, so every version passed against a
+module-level shared literal, including the one whose comment claimed to observe `exec`.
+Two checkers caught it in turn. Freshness is a defensive detail with no observable
+behavior; a test that cannot fail is worse than no test.
+
+**Two of the string rows were passing by luck.** The "opener inside a string" fixtures had
+no TRAILING comment, and the naive stripper's failure mode is to pair the string's opener
+with the NEXT real closer — so with nothing after it, the damage was invisible. Every real
+palette has a trailing comment. The rows now carry one, and a checker's version of that
+input is what proved the naive stripper had not fixed the bug at all.
 
 **Deliberate narrowings, disclosed** (the first cut called itself "a union minus one
 false positive" and was not): the flattener no longer follows `@import 'a/b.css';`
@@ -212,7 +229,7 @@ false positive" and was not): the flattener no longer follows `@import 'a/b.css'
 bare form with no terminator, or the bare form at all. Nothing in the tree emits any of
 them; `@import "name.css";` — the one that had a real user — is restored explicitly.
 
-## 7. What this note does NOT claim## 7. What this note does NOT claim
+## 7. What this note does NOT claim
 
 - It does not claim `resolveThemeImports` is optimal, only that replacing its SOURCE with the
   manifest is a net loss. Unifying its regex with `chain.mjs`'s is a separate, positive change.
@@ -220,22 +237,27 @@ them; `@import "name.css";` — the one that had a real user — is restored exp
   — the caller declaring what it read from the manifest — is a coherent design; it was rejected
   here because it still cannot remove the content path, so it also lands at two sites.
 - The divergence in §4 is **not verified as live**. Constructing an input that reaches it
-  requires a caller-supplied stylesheet using the bare form, which nothing in this repo emits.
-  Every `@import` in the tree was swept old-grammar vs new (113 files across `themes/ dist/
-  docs/ examples/ tools/`): **0 divergences**, so the widening is inert on everything shipped.
+  requires a caller-supplied stylesheet using the bare form, which nothing in this repo emits —
+  though "nothing in the tree emits it" is not evidence about `--css` sheets and `addThemes`
+  payloads, which are caller-supplied by construction and unknowable from here. The sweep
+  numbers are in §6; an earlier draft of this bullet cited "113 files, 0 divergences", which
+  did not reproduce and which §6 retracts.
 - **The browser surface is VERIFIED** (HARD RULE #23) — a real Chromium against the served
   docs site, registering through the real public API (`window.LatticePlayground.addThemes`) and
-  reading back `render().css` from the shipped Rollup bundle
-  (`/playground/v/<hash>/lattice-playground.js`). Four cases, discriminating in both directions,
-  with `onyx` carrying a token nothing else declares so the answer cannot be faked by the
-  legitimately-inlined base:
+  reading back `render().css` from the shipped Rollup bundle. **Re-driven after the grammar
+  changed** — the first version of this table was produced against the bare-accepting cut and
+  its last row asserted the opposite of what now ships, which is precisely what HARD RULE #23
+  forbids. Six cases, discriminating in both directions, with `onyx` carrying a token nothing
+  else declares so the answer cannot be faked by the legitimately-inlined base:
 
   | leaf theme | onyx spliced? | prose leaked? | own `--accent` survives? |
   |---|---|---|---|
-  | comment *mentions* `@import onyx;` (bare) | no ✓ | no ✓ | yes ✓ |
-  | comment *mentions* `@import 'onyx';` (quoted) | no ✓ | no ✓ | yes ✓ |
+  | comment *mentions* `@import onyx;` | no ✓ | no ✓ | yes ✓ |
+  | comment *mentions* `@import 'onyx';` | no ✓ | no ✓ | yes ✓ |
   | **real** `@import 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
-  | **real** bare `@import onyx;` | **yes** ✓ | no ✓ | yes ✓ |
+  | **real** `@import 'onyx.css';` | **yes** ✓ | no ✓ | yes ✓ |
+  | **real** bare `@import onyx;` (now rejected) | no ✓ | no ✓ | yes ✓ |
+  | **real** `@import /* c */ 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
 
   762,454 bytes for the comment cases against 1,530,948 for the real-import ones, and
   `indaco-dark` still composes with its categorical tokens on the same surface. The first cut of
