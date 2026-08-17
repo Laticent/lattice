@@ -2,18 +2,31 @@
  * A DARK BOOKEND'S EYEBROW STAYS LEGIBLE AT EITHER HEADING LEVEL — measured in real
  * Chromium against the real bundle.
  *
- * `title`, `closing`, and a non-`light` `divider` paint `--surface-inverse` while
- * deliberately keeping `color-scheme: light`, so every ink on them has to be named
- * explicitly (base.modifiers.css § the on-dark bindings). The inline-code eyebrow was
- * named per-component AND per-heading-level — `title h1`, `divider h2`, `closing h2` —
- * which is each component's grammar-correct level and nothing else. Write the OTHER
- * level and the selector stopped matching, so the eyebrow fell through to
+ * `title`, `closing`, and a non-`light` `divider` paint `--surface-inverse`. The inline-code
+ * eyebrow was named per-component AND per-heading-level — `title h1`, `divider h2`,
+ * `closing h2` — which is each component's grammar-correct level and nothing else. Write
+ * the OTHER level and the selector stopped matching, so the eyebrow fell through to
  * `--text-secondary`: a light-canvas ink on a dark panel, 1.65:1 where the correct
  * pairing gives 7.19:1.
  *
  * The ink must follow the SURFACE, not the heading the author happened to type. An
  * off-grammar heading is an authoring slip the deck lint already flags; it should not
- * also silently erase the label. Found while auditing what this branch left behind.
+ * also silently erase the label.
+ *
+ * WHY THOSE BOOKENDS USED TO NEED NAMING AT ALL, and why this file now checks a whole
+ * class instead of one label: they painted the dark surface while leaving
+ * `color-scheme: light`, so every `light-dark()` token resolved to its LIGHT side and any
+ * ink not named explicitly landed light-on-dark. The eyebrow above was one of FOUR
+ * hand-written rebinds papering over that, and the list was opt-in — bold body text was
+ * never on it and shipped at 1.61:1 (2026-08-17-dark-surface-ink.md). Those components now
+ * declare `color-scheme: dark` in the same rule that paints the surface, so the whole class
+ * resolves by default.
+ *
+ * That fix is exactly the kind that rots quietly: delete the one-line declaration and every
+ * ink goes back to being wrong, with the four explicit rebinds still passing their own
+ * tests. So the second suite below sweeps the ORDINARY inline treatments an author writes —
+ * plain body, bold, italic, a link, inline code — on every dark bookend, and fails if any of
+ * them cannot be read. It is the closed check the enumerated list could never be.
  *
  * WCAG 1.4.3 wants 4.5:1 for body text; the eyebrow is a small-caps label, so the bar
  * here is the same 4.5 rather than the 3.0 large-text allowance.
@@ -93,6 +106,71 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
       .filter((r) => r.ratio < AA)
       .map((r) => `  ${r.cls}: ${r.ratio.toFixed(2)}:1 — ${r.ink} on ${r.surface}`);
     assert.deepEqual(failures, [], `an eyebrow disappears into its bookend:\n${failures.join('\n')}`);
+  });
+
+  /* The ordinary inline vocabulary, on every dark bookend.
+   *
+   * Not a list of the things that broke — a list of what an author actually types. `strong`
+   * is here because it is what was REPORTED (1.61:1, three bold words all but gone on a
+   * title slide); the rest are here because nothing distinguished them from `strong` except
+   * that nobody had looked yet. If a future treatment is added to the base layer and lands
+   * light-on-dark, the right response is to add it to this array. */
+  const INLINE = [
+    ['plain body text', (t) => t],
+    ['bold', (t) => `<strong>${t}</strong>`],
+    ['italic', (t) => `<em>${t}</em>`],
+    ['a link', (t) => `<a href="#">${t}</a>`],
+    ['inline code', (t) => `<code>${t}</code>`],
+  ];
+
+  test('every ordinary inline treatment stays readable on every dark bookend', async () => {
+    const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
+    const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
+    const probe = await browser.newPage();
+    const combos = [];
+    for (const c of BOOKENDS) for (const [label] of INLINE) combos.push([c, label]);
+    const html =
+      `<style>${theme}\n${bundle}</style><article class="lattice">` +
+      BOOKENDS.map(
+        (c, ci) =>
+          `<section id="b${ci}" class="${c}"><h2>Heading</h2>` +
+          INLINE.map(([, wrap], ii) => `<p id="t${ci}-${ii}">${wrap('Readable body copy')}</p>`).join('') +
+          '</section>',
+      ).join('') +
+      '</article>';
+    await probe.setContent(html);
+
+    const rows = await probe.evaluate(
+      (nB, nI) => {
+        const out = [];
+        for (let ci = 0; ci < nB; ci++) {
+          const surface = getComputedStyle(document.getElementById(`b${ci}`)).backgroundColor;
+          for (let ii = 0; ii < nI; ii++) {
+            const p = document.getElementById(`t${ci}-${ii}`);
+            // Read the INNERMOST element — a <strong>/<code> carries its own color.
+            const el = p.firstElementChild || p;
+            out.push({ ci, ii, ink: getComputedStyle(el).color, surface });
+          }
+        }
+        return out;
+      },
+      BOOKENDS.length,
+      INLINE.length,
+    );
+    await probe.close();
+
+    assert.equal(rows.length, combos.length, 'every bookend × treatment pair must be measured');
+    const failures = rows
+      .map((r) => ({ ...r, ratio: contrast(r.ink, r.surface) }))
+      .filter((r) => r.ratio < AA)
+      .map((r) => `  ${BOOKENDS[r.ci]} · ${INLINE[r.ii][0]}: ${r.ratio.toFixed(2)}:1 — ${r.ink} on ${r.surface}`);
+    assert.deepEqual(
+      failures,
+      [],
+      'ink on a dark bookend resolved to its light-canvas value — the surface is painted ' +
+        'dark but something is not reading it as dark:\n' +
+        `${failures.join('\n')}`,
+    );
   });
 
   test('divider.light keeps the muted light-canvas ink, not the on-dark one', async () => {
