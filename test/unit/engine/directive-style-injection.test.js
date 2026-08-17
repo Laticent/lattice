@@ -73,6 +73,13 @@ describe('a custom property cannot carry a second declaration', () => {
     ['angle bracket, for a downstream serializer', '<script>;--z-canvas:9'],
     ['a non-plane property entirely', 'x; position: fixed'],
     ['trailing backslash, to escape the terminator', 'Acme\\'],
+    ['v4 — a RAW NEWLINE, which a CSS string may not contain', 'a\nx;--z-canvas:9;y'],
+    ['v4 — carriage return', 'a\rx;--z-canvas:9'],
+    ['v4 — form feed', 'a\fx;--z-canvas:9'],
+    ['v4 — line separator U+2028', 'a\u2028x;--z-canvas:9'],
+    ['v4 — odd backslash run, the unquoted-path bypass', '"\\\\\\"'],
+    ['v4 — odd run of five', '"\\\\\\\\\\"'],
+    ['v4 — odd run after text', '"a\\\\\\"'],
   ];
 
   for (const [label, value] of INJECTIONS) {
@@ -184,6 +191,64 @@ describe('the whole attribute, as the pipeline actually builds it', () => {
         `\`${value}\` produced ${JSON.stringify(decls)} from \`${attr}\` — every engine ` +
         'declaration must survive, in order, with nothing added.',
       );
+    });
+  }
+});
+
+describe('nothing re-parses a serialization we produced', () => {
+  // The background-image pass used to do `new InlineStyle(token.attrGet('style'))` on the
+  // attribute the directive pass had just written. The constructor splits on `;` with no
+  // string awareness, so it cut inside a quoted value and any fragment carrying a `:` came
+  // back out as a real declaration — resurrecting the original injection on any slide with a
+  // `![bg]` image, needing no newline, backslash or quote.
+  //
+  // `styleFor` stashes the map on the token so the second pass continues the first. This
+  // asserts the round-trip is gone, not that the splitter got smarter.
+  test('a second pass continues the first instead of re-reading the attribute', () => {
+    const { styleFor } = require('../../../lib/engine/slides');
+    const token = { meta: {}, attrs: {}, attrGet(k) { return this.attrs[k] ?? null; },
+      attrSet(k, v) { this.attrs[k] = v; } };
+
+    // Pass 1 — the directive applier writes a hostile author value.
+    const first = styleFor(token);
+    first.set('--footer', 'Acme;position:fixed;x');
+    token.attrSet('style', first.toString());
+
+    // Pass 2 — the background rule adds its declarations.
+    const second = styleFor(token);
+    second.set('background-image', 'url(photo.png)');
+    token.attrSet('style', second.toString());
+
+    assert.equal(second, first, 'the second pass must reuse the first map, not rebuild it');
+    assert.deepEqual(
+      declarationsIn(token.attrs.style),
+      ['--footer', 'background-image'],
+      `re-parsing our own output let the payload back in: ${token.attrs.style}`,
+    );
+  });
+});
+
+describe('the value survives, and the oracle can tell', () => {
+  // A declaration count alone cannot distinguish "the value came through" from "the browser
+  // threw the whole declaration away" — css-tree accepts a raw newline in a string where
+  // Chromium drops the declaration entirely. So assert the text too.
+  const ROUND_TRIP = [
+    'Acme Q3 Board Pack',
+    'a\nx;--z-canvas:9;y',
+    "Ladder's move",
+    'She said "hello"',
+    '"lattice"',
+  ];
+  for (const value of ROUND_TRIP) {
+    test(`preserved: ${JSON.stringify(value).slice(0, 34)}`, () => {
+      const attr = emit('--footer', value);
+      assert.deepEqual(declarationsIn(attr), ['--footer'], 'exactly one declaration');
+      // Decode the emitted CSS string: `\X ` hex escapes and `\c` literals.
+      const raw = attr.slice('--footer:'.length, -1);
+      const decoded = raw.slice(1, -1)
+        .replace(/\\([0-9a-f]{1,6}) /gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+        .replace(/\\(.)/g, '$1');
+      assert.equal(decoded, value, 'the author text must survive the escaping exactly');
     });
   }
 });
