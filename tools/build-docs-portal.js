@@ -148,7 +148,8 @@ const PALETTE_PRIORITY = ['indaco', 'cuoio'];
 
 // ── Theme token resolution ────────────────────────────────────────────────
 //
-// Each base palette (themes/<name>.css that `@import 'lattice'`) declares
+// Each base palette (a theme that declares no parent — it sits at the root of
+// its chain) declares
 // the portal tokens either directly (carbone — inherently dark) or via the
 // CSS light-dark(L, R) function with the dark side referencing --dark-*
 // vars in the same file. We resolve each token to a concrete {light, dark}
@@ -262,28 +263,43 @@ function resolveToken(map, tokenName) {
   return { light: expanded, dark: expanded };
 }
 
-/** Ordered list of selectable base palettes (those importing lattice). */
+/** Ordered list of selectable base palettes (those that declare no parent).
+ *
+ *  `edges` is injectable so a test can hand in the OTHER encoding of the same
+ *  graph — `edgesFromManifests`, which keeps root keys with an undefined value
+ *  where the generated map omits them. The answer must not depend on which one
+ *  it gets; see test/unit/theme/base-palette-predicate.test.js. Only the default
+ *  is memoized. */
 let _basePalettes = null;
-function listBasePalettes() {
-  if (_basePalettes) return _basePalettes;
+function listBasePalettes(edges = THEME_EDGES) {
+  if (_basePalettes && edges === THEME_EDGES) return _basePalettes;
   const names = [];
   for (const file of fs.readdirSync(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    // A brand palette declares no parent — it sits at the root of its chain and
-    // imports the engine base directly. (Asked of the MANIFEST via `THEME_EDGES`,
-    // not of the CSS: `@import 'lattice'` is Marp's copy of that same fact.) The
-    // a11y palettes DO have a parent (a11y-* → a11y-base → onyx) yet are first-class
-    // selectable themes too — so a deck/site set to one restyles everywhere.
-    // a11y-base is a shared partial (not selectable); -dark isn't a base palette.
+    // A brand palette declares no parent — a chain of ONE, itself. (Asked of the
+    // MANIFEST, not of the CSS: `@import 'lattice'` is Marp's copy of that same
+    // fact.) Asked through `themeChain` rather than by probing the edge map
+    // directly, because the two representations of that map differ on root
+    // palettes and only the resolver reconciles them: `edgesFromManifests` writes
+    // `{indaco: undefined}` (key present) while the generated `THEME_EDGES` omits
+    // the key entirely, so `Object.hasOwn` answers "has a parent" correctly for
+    // one and backwards for the other. `themeChain` also guards the prototype
+    // chain, which a bare `THEME_EDGES[name]` would not.
+    //
+    // The a11y palettes DO have a parent (a11y-* → a11y-base → onyx) yet are
+    // first-class selectable themes too — so a deck/site set to one restyles
+    // everywhere. a11y-base is a shared partial (not selectable); -dark isn't a
+    // base palette.
     const a11ySelectable = name.startsWith('a11y-') && name !== 'a11y-base' && !name.endsWith('-dark');
-    if (Object.hasOwn(THEME_EDGES, name) && !a11ySelectable) continue;
+    if (themeChain(name, edges).length > 1 && !a11ySelectable) continue;
     names.push(name);
   }
   const priority = PALETTE_PRIORITY.filter((p) => names.includes(p));
   const rest = names.filter((p) => !priority.includes(p)).sort();
-  _basePalettes = [...priority, ...rest];
-  return _basePalettes;
+  const ordered = [...priority, ...rest];
+  if (edges === THEME_EDGES) _basePalettes = ordered;
+  return ordered;
 }
 
 /** Resolve every palette's portal tokens to {light, dark} sets. */
