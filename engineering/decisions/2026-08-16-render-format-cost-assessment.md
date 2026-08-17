@@ -423,6 +423,13 @@ rebuild — so a re-render with zero visual change still writes a full new blob
 for every file. That is why `golden-diff.mjs` has to rasterize and pixel-diff
 before it can tell a reviewer whether anything actually moved.
 
+> **Corrected, and FIXED — see §9 rows 13–14.** "Font-subset ordering" was never
+> measured; it does not churn. Two renders of `examples/sketch.md` on one machine
+> produce 1,502,729 bytes of which **exactly four differ**, all digits inside
+> `/CreationDate` and `/ModDate`. Pinning those two fields is the whole of L0, and
+> it has shipped. What remains — and is NOT fixed — is that Skia rasterizes
+> differently on different hosts, so a golden blessed elsewhere still differs.
+
 **This is the real "PDF is heavy" cost, and it is a storage/history cost, not a
 render cost.**
 
@@ -475,7 +482,7 @@ divided by a factor that was never measured.
 
 | # | Lever | Measured size | Risk |
 |---|---|---|---|
-| **L0** | **Make the exported PDF byte-reproducible** (pin the timestamp, stabilize font-subset ordering — and note #1677 already removed the *largest* source, random hand-drawn diagrams) | Kills the bulk of the ~150 MB / 65% history growth **without touching goldens at all** — a re-bless would write blobs only for files that actually changed, and `golden-diff.mjs` would stop needing to rasterize to answer "did anything move" | Low-ish and self-contained. **Dominates L4** on cost, risk, and reversibility |
+| ~~L0~~ | ~~**Make the exported PDF byte-reproducible**~~ — **DONE.** Pinning `/CreationDate` + `/ModDate` was the entire job; font-subset ordering never churned (§9 row 13) | A no-op re-bless of an unchanged deck now adds **zero** bytes to git, where it used to add the full file. Same-machine only: `golden-diff.mjs` still rasterizes, because a golden blessed on another host still differs (§9 row 13) | Landed. Smaller than written up here: one pure kernel + two write sites, no goldens touched |
 | ~~L1~~ | ~~**Batch or memoize `mmdc`**~~ — **DONE, #1677.** One invocation per deck | Was ~2.9s × diagram count (40.7s of a 44.3s render). Now `1.86s + 1.09s × N`; corpus 454.5s → 245.5s, **−46%** | Landed. Memoization was measured and *dropped*: 118 fences, 111 distinct — 7 redundant renders, not worth a cache |
 | **L2** | **Try `waitUntil: 'load'`** on the three `page.goto` calls, keeping the existing explicit force-load | **~1.7s per navigation**, 1–3 navigations per render, hit on most but not all runs (§2a) | Lower than first stated — the render's font correctness rests on the explicit force-load at `:2421`, not on `waitUntil` (§2a-bis). Test against the overflow corpus |
 | **L3** | **Audit integration assertions for layout-dependence.** Several render a whole browser to assert a string fact — `deck-class-fm`, `deck-mode-fm`, `deck-logo` say so in their own headers | 100% of those renders, not 1.8%. The root is that the emulator's front-matter post-process is a second implementation of the shared kernel — converge it (HARD RULE #1) and the assertions become unit tests | Per-assertion work; **only a minority qualify** (see the non-lever below) |
@@ -556,6 +563,8 @@ timing signature, and the measurements themselves all held.**
 | 10 | `.html`'s justification is the 17.8% | Its real customer is `--player`/`--fluid`, which previously forced an unwanted PDF encode. Size-independent, and the honest headline | Munger inversion |
 | 11 | The goldens are un-reproducible because of font-subset ordering and timestamps (§5) | **A third cause, and the largest: the diagrams themselves were random.** `look: handDrawn` paints through rough.js, seeded from `handDrawnSeed`, which Mermaid defaults to `0` — read as "use `Math.random()`". 32 of 161 SVG lines differed between back-to-back renders of `examples/sketch.md`. Fixed in #1677 by pinning the seed | Building the diagram oracle for #1677 |
 | 12 | `mmdc` costs "2.9–3.2s per deck with a diagram" (§2b, already corrected once to per-diagram) | Confirmed per-diagram and now **fixed**: #1677 batches a deck's fences into one invocation. Corpus render 454.5s → 245.5s (−46%). The lever table below describes the state *before* that landed | #1677 |
+| 13 | Goldens churn from "font-subset ordering **and** timestamps" (§5, and four comments in `golden-diff.mjs` / `regression-gate.mjs` that had repeated it for months) | **Only the timestamps.** Two renders of `examples/sketch.md` on one machine: 1,502,729 bytes each, **exactly 4 differ**, every one a digit inside `/CreationDate` or `/ModDate`. Font subsets, object order and xref offsets are already stable. Nobody had ever byte-compared two renders; the font-subset half was inherited, not measured. Fixed by pinning two fields — L0 turned out to be a pure kernel and two call sites, not the multi-part job it was scoped as | Building L0 |
+| 14 | Pinning the dates in the written bytes covers every path | **Half the paths.** It covers the Skia-only render, whose dates are in the clear. The four pdf-lib post-passes (`--notes` / `--present` / `--embed-source` / `--raster`) re-save through `PDFDocument.save()`, which defaults to `useObjectStreams: true` and packs the Info dictionary into a **Flate-compressed** object stream — the timestamp is still there, invisible to a byte scan, and because deflate output length tracks its input the FILE LENGTH moved too (`--embed-source`: 2,903 bytes differing, 28,194 vs 28,195). Caught by testing each post-pass instead of assuming the vector result generalized; fixed by pinning at the document level before `save()` as well | Measuring the fix |
 
 The red team's findings were defects in the shipping code rather than in this
 document — the `--strip-notes` sidecar leak, the `.HTML` case mismatch, the

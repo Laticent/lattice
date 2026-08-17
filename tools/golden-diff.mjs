@@ -9,9 +9,14 @@
 // before │ after │ overlay montage PDF plus a markdown summary CI posts as a PR
 // comment.
 //
-// WHY pixel-diff and not the git diff alone: committed gallery PDFs are NOT
-// byte-reproducible (timestamps, font-subset ordering churn every rebuild), so a
-// re-bless with no visual change still shows up in `git diff`. We use the git
+// WHY pixel-diff and not the git diff alone: a re-bless with no visual change can
+// still show up in `git diff`. As of the timestamp pin (lib/core/pdf-timestamps.js)
+// two renders on ONE machine are byte-identical, so same-machine clock churn is
+// gone — but a golden blessed on a different machine still differs, because Skia's
+// rasterization is CPU-dispatched and not bit-identical across hosts. That band is
+// WIDE on the deck scope — most decks under 2%, but 29 over 5% and one at 64% with
+// a page-count flip; see 2026-06-12-p4-regression-gate-retire-marp.md §0a before
+// reading any drift number as a regression. We use the git
 // diff only as the cheap candidate filter, then rasterize and pixel-diff (the
 // same comparator + tolerance the gate uses) so the report counts only slides
 // that actually moved. A rebuild-only golden → 0 changed slides → "no visual

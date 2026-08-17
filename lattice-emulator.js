@@ -693,6 +693,10 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
+// Pin /CreationDate + /ModDate on the way out, so re-rendering an unchanged deck
+// writes byte-identical bytes and git stores nothing new (HARD RULE #1: both PDF
+// write sites below call the one kernel).
+const { pinPdfTimestamps, pinPdfLibDates } = require('./lib/core/pdf-timestamps');
 const {
   OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
@@ -3054,7 +3058,7 @@ async function renderBody(browser, g, closeBrowser) {
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
-    fs.writeFileSync(outFile, finalBytes);
+    fs.writeFileSync(outFile, pinPdfTimestamps(finalBytes).bytes);
     const noteCount = materializedNotes.filter(Boolean).length;
     if (!QUIET) {
       const tags = [];
@@ -3088,7 +3092,7 @@ async function renderBody(browser, g, closeBrowser) {
     finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
-    fs.writeFileSync(outFile, finalBytes);
+    fs.writeFileSync(outFile, pinPdfTimestamps(finalBytes).bytes);
     const noteCount = slideNotes.filter(Boolean).length;
     if (!QUIET) {
       const tags = [];
@@ -4023,7 +4027,7 @@ async function embedNotesInPdf(pdfBytes, notes) {
       }
       annots.push(ref);
     });
-    return await doc.save();
+    return await pinPdfLibDates(doc).save();
   } catch (e) {
     console.warn(`  ⚠ Could not embed speaker notes into the PDF (${e.message}); writing deck without note annotations.`);
     return pdfBytes;
@@ -4062,7 +4066,7 @@ async function assembleRasterPdf(jpegBuffers, sheet) {
       pg.drawImage(img, { x: 0, y: 0, width: slideW * PT, height: slideH * PT });
     }
   }
-  return await doc.save();
+  return await pinPdfLibDates(doc).save();
 }
 
 // pdf-lib's white (avoids importing `rgb` at module top just for this one call).
@@ -4090,7 +4094,7 @@ async function embedSourceInPdf(pdfBytes) {
       mimeType: 'text/markdown',
       description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',
     });
-    return await doc.save();
+    return await pinPdfLibDates(doc).save();
   } catch (e) {
     console.warn(`  ⚠ Could not attach the Markdown source to the PDF (${e.message}); writing deck without it.`);
     return pdfBytes;
@@ -4129,7 +4133,7 @@ async function applyPresentMode(pdfBytes) {
         D: 0.4,
       }));
     }
-    return await doc.save();
+    return await pinPdfLibDates(doc).save();
   } catch (e) {
     console.warn(`  ⚠ Could not mark the PDF for presentation mode (${e.message}); writing deck without it.`);
     return pdfBytes;

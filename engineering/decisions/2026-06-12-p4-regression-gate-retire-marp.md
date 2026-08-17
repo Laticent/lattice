@@ -70,6 +70,47 @@ CI gate. (2) layer-3 semantic invariants for the components that have a
 distinctive truth (charts especially). (3) Step 3: delete marp + `engine-parity`;
 the invariant suite is the sole visual-correctness gate.
 
+### 0a. The cross-machine band is far wider than "0.4–2%" on the DECK scope (2026-08-16)
+
+The ~0.4–2% above was measured on the **gallery** scope. The deck scope (added
+later, #1379) behaves much worse, and anyone triaging a red local run needs the
+real numbers before deciding what to re-bless. A full `--scope decks` run on the
+cloud sandbox — a machine that blessed none of these goldens — against a tree
+whose only change was a PDF-timestamp pin (no pixel could move):
+
+| worst-page drift | decks | |
+|---|---:|---|
+| clean | 14 | |
+| < 2% | 124 | the documented band |
+| 2–5% | 24 | |
+| **> 5%** | **29** | **up to 64.1%**, and one **page-count flip** |
+
+`examples/portrait-roadmap` renders **5 pages here against the golden's 8** —
+auto-split is height-driven, so once font metrics differ by a hair the split
+decisions flip and the whole deck re-paginates. A percentage cannot distinguish
+that from a real regression.
+
+**Three controls establish that every bit of this is environmental**, run in a
+worktree at `94d043d` (before that day's merges) — the drift is *identical to two
+decimals*, which also rules out the random hand-drawn diagram seed #1677 pinned,
+since randomness would vary run to run:
+
+| deck | on the branch | at `94d043d` |
+|---|---:|---:|
+| `test/integration/baseline-decks/gallery` | 18.13% | **18.13%** |
+| `exemplars/government-public/rfp-response` | 13.13% | **13.13%** |
+| `examples/state-chart` | 13.22% | **13.22%** |
+
+And the confirming case: `examples/sketch`, the one golden re-blessed *in this
+environment* (#1679), is the deck that comes back **clean**.
+
+**So "worst > 5% ⇒ probably a real change" is wrong here** — following it would
+have re-blessed 29 decks and baked one sandbox's rasterization and pagination
+into goldens the whole team renders against. **A drift number is evidence of
+nothing until it is reproduced at a commit that predates the suspected cause.**
+Run that control first; open the montage second; re-bless only what survives
+both.
+
 **PR #239** is repurposed to land this pivot: it drops the `regression` CI job,
 keeps `golden-diff` (inline) + the shared montage helpers, records this pivot, and
 seeds the invariant suite. The sections below are retained as the historical
