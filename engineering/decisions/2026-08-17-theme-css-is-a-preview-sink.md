@@ -376,16 +376,24 @@ caller's own `--sink-probe: 1` declared immediately after it.
 
 | | **PRE-FIX** | **POST-FIX** |
 |---|---|---|
-| deck `<style>` element text (`--css` probe) | **20,396 bytes**, ending mid-word at `PAYLOAD BEGINS ` | 24,002 bytes, ending at the intended last rule |
+| deck `<style>` element text (`--css` probe) | **21,903 bytes**, ending mid-word at `PAYLOAD BEGINS ` | 25,535 bytes, ending at the intended last rule |
 | stray `<link href=evil…>` in the parsed DOM | **1** | 0 |
 | stray injected `<span>` | **1** | 0 |
 | cross-origin request on open | **1 (fired)** | 0 |
 | the caller's own rule after the payload | **lost** | applies |
 | slides rendered | 2 | 2 |
 
-3,606 bytes of the *engine's own* layout rules — the geometry vars, the Marp system block,
-the skip link, the `main#deck` rules — were silently dropped, and the remainder became
-markup. The front-matter `style:` probe reproduces the same result on the same surface.
+3,632 bytes were silently dropped and the remainder became markup — about 3,400 of them the
+*engine's own* layout rules (the geometry vars, the Marp system block, the skip link, the
+`main#deck` rules), the rest the tail of the caller's own sheet. The front-matter `style:`
+probe reproduces the same result on the same surface.
+
+**Those are BYTES, and the first cut of this table said so while measuring something else.**
+`textContent.length` is UTF-16 code units, and this table is full of `—` and `’`; the honest
+byte figures (`new TextEncoder().encode(…).length`) are 21,903 → 25,535, against 20,396 →
+24,002 code units. Nothing qualitative moves, and that is exactly why it was worth fixing:
+this repo spent a CI failure on 190-vs-179 in §6 for the same reason — a number reported in
+a unit nobody checked. Caught by the independent checker, not by the author.
 
 **The `--player` export is the one with a real author→recipient split, and it is worse
 there:** the injected `<link>` was **harvested into the shipped file** — `assemblePlayer`
@@ -403,26 +411,51 @@ breakout is already resolved before it can see it. `lattice-emulator.js` is Comm
 guard is ESM; `require()` of an `.mjs` is native on the pinned engines and already the house
 idiom (`leading-is.js`, `comment-directive.js`, `boundary-parser.js`, `math-block-rule.js`).
 
-Four sites in all, and only the first is the defect:
+Four guarded sites in the emulator, and **two of them are real breakouts, not one.** The
+first draft of this section called sites 3+4 "depth"; the inversion pass proved otherwise and
+the correction is the more interesting half of this record:
 
 1. the `htmlDoc` deck `<style>` — hoisted into one `deckStyleText` string so the *whole*
-   element body is guarded at the point of embedding, not each piece separately;
+   element body is guarded at the point of embedding, not each piece separately. **The
+   defect §9.2 measures.**
 2. the look-diagram **scratch page**, whose `<style>` also takes `layoutCSS`. Nothing it
-   emits ships, but a script node there reads and writes the browser this process drives;
+   emits ships, but a script node there reads and writes the browser this process drives.
+   **Depth.**
 3. + 4. the `--player` **prune re-wrap**, which puts CSS back into a fresh `<style>` after
-   css-tree's parse→generate — a serializer is entitled to normalize an escape away, and the
-   document's own guard has no say over a string that left it and came back.
+   `prunePlayerCss` — and that is a css-tree parse→generate, which does not merely *risk*
+   normalizing the escape, it **does**:
+   ```
+   IN   section::after{content:"<\/style>"}
+   OUT  section::after{content:"</style>"}
+   ```
+   So the document's own guard is *undone* here and the re-wrap owns the terminator outright.
+   **A second real breakout**, demonstrated end to end on the CLI: with site 3 unguarded, a
+   deck whose front-matter `style:` puts the payload in a `content:` string ships a player
+   carrying a live `<link href=evil…>`. Site 4's input is the base64 `@font-face` block from a
+   fixed manifest and cannot carry `<`, so that one is depth.
 
-`player-core.mjs` is guarded too, at the two places it *re-serializes* transformed CSS into a
-fresh element (`themeDualMode` + `minifyCss` on the deck block; the dual-mode block). **That
-is depth, not a fix, and the difference is worth stating:** no reachable breakout through
-`player-core` was found. The parse closes every path that arrives in `docHtml`, and the one
-path that survives a parse — `hoistInlineLightDark`, which lifts an inline `style=`
-**attribute** (not RAWTEXT, so a `</style>` in it is preserved intact) into the dual-mode
-block — is closed one layer earlier: DOMPurify drops the whole attribute when its value
-carries the payload, measured through the real `createSlideSanitizer`. The guard is there
-because the transforms could stop preserving the escape and nothing would notice, and it is
-free (identity return).
+The fifth `<style>` in the file (`embeddedFontsStyle`, the base64 block) is deliberately
+unguarded for the same reason as site 4 — a fixed face manifest plus base64, neither of which
+can contain `<`. Saying "all four `<style>` sites" would be a claim about the file's total and
+would be wrong; there are five, and one needs nothing.
+
+`player-core.mjs` is guarded at the three places it *re-serializes* transformed CSS into a
+fresh element (the KaTeX block; `themeDualMode` + `minifyCss` on the deck block; the dual-mode
+block). **That one really is depth, and the difference is worth stating:** no reachable
+breakout through `player-core` was found, by the author, the red team, or the checker
+independently. The parse closes every path that arrives in `docHtml`; `minifyCss` stashes
+strings and urls verbatim and drops comments, so it preserves the escape rather than undoing
+it; and the one path that survives a parse — `hoistInlineLightDark`, which lifts an inline
+`style=` **attribute** (not RAWTEXT, so a `</style>` in it is preserved intact) into the
+dual-mode block — is closed one layer earlier, because DOMPurify drops the whole attribute
+when its value carries the payload. That last claim was flagged as the weakest thing in this
+record and was then attacked specifically: measured through the real `createSlideSanitizer`
+with DOMPurify 3.4.11 against raw, uppercase `</STYLE>`, `</style/`, `</style\t`, entity-
+encoded, and payloads inside `content:`, `font-family:`, `url()` and a custom property — every
+one dropped, with a benign `light-dark()` attribute surviving as the control. The mechanism is
+DOMPurify's `SAFE_FOR_XML` attribute-value check, not a CSS filter. The guard stays because
+`darkStyle` is where that hoisted text lands and nothing but the guard stands between the two
+if DOMPurify's rule ever loosens.
 
 `playerCss` is this file's own chrome and interpolates nothing but the canvas numbers, so it
 carries no #22 channel. Style elements copied through verbatim as `outerHTML` need nothing
@@ -467,10 +500,12 @@ in silence. The roots are now `DOC_STYLE_SINK_ROOTS` — `docs/src`, `lib/export
 `lattice-emulator.js` — which is the line at "ships", not at "exists". Measured before
 committing to it, per the same discipline that set the `docs/src` marker at 5 files rather
 than 22: the document-assembler marker selects **2** files outside `docs/src` under these
-roots, both genuine, where a whole-repo walk selects **13** — the other 11 being `dist/`
-build products (which HARD RULE #2 forbids hand-editing, so a gate demanding a fix there
-would demand the one fix that is never allowed), frozen decision-doc probes, and local
-measurement tools whose output reaches nobody.
+roots, both genuine, where a whole-repo walk selects **14** outside `docs/src` — the other 12
+being `dist/` build products (which HARD RULE #2 forbids hand-editing, so a gate demanding a
+fix there would demand the one fix that is never allowed), frozen decision-doc probes, a
+bench, and local measurement tools whose output reaches nobody. (The first draft said 13;
+that figure quietly excluded `.test.mjs`, which the gate does not. Corrected by the checker,
+same class as §6's 190-vs-179.)
 
 **`SANCTIONED_STYLE_SINK_EXEMPT` is now empty.** Its single entry excused the generated
 player bundle because "the fix belongs at its generator" — true when written, and false the
@@ -479,28 +514,152 @@ been a sanction for a fix that had already landed: the exact stale lie the list'
 exists to catch.
 
 **The gate test was written first** and failed **6** arms before the gate moved: the root set
-(pinned by value, so widening #22 cannot happen quietly), the emulator firing as a *file*
-root rather than a directory, `lib/export` firing, `dist/` staying unscanned, the exemption
-excusing and a stale one still failing, and the live tree. Each was then re-checked by
+(pinned by value, so widening #22 cannot happen quietly), the emulator firing as a *file* root
+rather than a directory, `lib/export` firing, the exemption excusing a file under a new root
+while a stale one still fires, and **two** live-tree arms. Each was then re-checked by
 mutation — dropping either new root, adding `dist`, and resolving a file root through
 `listSourceFiles` each kill 3–4 arms.
 
-**What the gate cannot catch, said plainly.** Un-guarding the emulator's `<style>` kills
-**zero** gate arms, because the check is file-scoped text matching and the file still calls
-`sanitizeStyleText` at its three other sites. That is §5's inherited weakness, not a new one,
-and it is why the real defense here is behavioral: `test/integration/export/style-sink-breakout.test.js`
-renders the actual CLI and asserts on the parsed artifact, and all **three** of its arms fail
-when the guard is removed. `test/unit/export/html-player.test.js` pins the round trip through
-the assembler — where the safe outcomes are **two**, the escape surviving *or* the text being
-deleted outright (`minifyCss` strips comments), so each case declares which it expects rather
-than asserting the first and going vacuous on the second.
+An earlier draft listed *"`dist/` staying unscanned"* among the six. It is not: that arm
+**passes** under the old gate too, vacuously, because a `docs/src`-only walk never reaches
+`dist/` either. The count was right and the list was wrong — the negative controls are worth
+having, but they were never part of what the test proved. Caught by the checker.
 
-### 9.6 A hook gap, closed alongside
+**A third shape the document marker cannot see, and the gate that closes it.** A module that
+assembles no document at all, takes CSS back OUT of one, prunes it, and re-wraps it is invisible
+to `checkDocumentStyleSinks`. There were **two** such sites and they are twins — the CLI's
+(`lattice-emulator.js`) and the browser's (`player-prune-browser.ts`). The first cut of this
+work guarded one of the two; §9.7 is what that cost. `checkCssTreeRewrapSinks` now checks both,
+and — unlike every other arm of #22 — it checks **per site, not per file**. That is the point of
+adding a check rather than widening one: both files rebuild two elements each and call the guard
+elsewhere besides, so a file-scoped rule certifies either twin with its CSS re-wrap stripped.
+Measured: with the per-site rule, all **four** re-wraps are individually caught; with a
+file-scoped one, **none** is.
+
+**What the gate still cannot catch, said plainly.** Un-guarding the emulator's page `<style>`
+kills **zero** gate arms — the document arm is file-scoped text matching and the file still
+calls `sanitizeStyleText` at its other sites. That is §5's inherited weakness, not a new one,
+and it is why the real defense there is behavioral:
+`test/integration/export/style-sink-breakout.test.js` renders the actual CLI and asserts on the
+parsed artifact, and all **three** of its arms fail when that guard is removed. Its `--player`
+arm renders **without** `--css` on purpose: the prune only engages on a target block ≥ 50 KB, so
+the tiny hostile sheet skips the re-wrap entirely — a first cut used `--css` there and left both
+prune guards deletable with everything green.
+
+**Still killed by nothing, and named rather than papered over:** the emulator's look-diagram
+scratch page (site 2 — it needs a mermaid `look` render, which no fixture has) and
+`player-core.mjs`'s three. The player-core arms in `test/unit/export/html-player.test.js` pin
+that the *transforms* preserve an escape, not that the *guards* fire, and removing all three
+guards leaves them green — measured, by two of the three reviewers independently. They are
+depth per §9.3, so that is the honest state, not a coverage claim.
+
+Where those unit arms are careful is a different axis: the safe outcomes are **two**, the escape
+surviving *or* the text being deleted outright (`minifyCss` strips comments), so each case
+declares which it expects rather than asserting the first and going vacuous on the second.
+
+### 9.6 A hook gap, closed alongside — and the root cause under it
 
 §4b logged `test:diagnostics` and `test:runtime` as missing `test:<scope>` scripts —
 `tools/affected-tests.js` maps `test/unit/<scope>/` to one, so staging only a file in either
 directory fails pre-commit with `Missing script`. Both are added here (HARD RULE #14: a hook
 failure is a root cause, never a `--no-verify`), with their `SCRIPT_META` entries, because the
-HARD RULE #15 capabilities gate fails `build:check` on an undescribed script. It rode along
-rather than becoming its own PR because it unblocks the same hook this change's own test files
-trip — the same reasoning that added `test:theme` in #1718.
+HARD RULE #15 capabilities gate fails `build:check` on an undescribed script.
+
+**Why it rode along, stated correctly.** A first draft of this paragraph said it "unblocks the
+same hook this change's own test files trip". **That is false**, and the checker caught it: this
+change's test files are under `test/unit/export/`, `test/unit/tools/` and
+`test/integration/export/`, none of which is `runtime` or `diagnostics`, and integration paths
+are skipped by `affected-tests.js` outright. The hook could not have tripped. The real reason is
+plainer and does not need dressing up: the handoff that commissioned this work directed both
+items into one PR as hook-unblocking infra, and said so. §4b had logged them as off-path, which
+under HARD RULE #18 means logged rather than pulled in; the instruction to pull them in was
+explicit, so they are here, and the PR body says which half is which.
+
+**The root cause is that the mapping is hand-maintained.** `test:theme` was added by hand in
+#1718 and two more by hand here — three patches to one gap. A unit arm now asserts that **every**
+`test/unit/<dir>` has a matching `test:<dir>` script, so the fourth instance fails a test instead
+of someone's commit.
+
+### 9.7 What the adversarial trio found — one of them a live hole this change had walked past
+
+Red team, Munger inversion and an independent checker ran against the committed diff (HARD
+RULE #25). The pattern from §4b repeated exactly: **the two-line security primitive survived
+all three passes unchanged, and everything they found was in the machinery and the record
+around it.**
+
+**The one that mattered.** Site 3+4's own reasoning — *css-tree normalizes the escape away, so
+the re-wrap owns it* — is true of **two** identical twins, and the first cut guarded one:
+
+| | site | first cut |
+|---|---|---|
+| CLI | `lattice-emulator.js` prune re-wrap | guarded |
+| browser | `docs/src/components/studio/player-prune-browser.ts` | **not** |
+
+The browser twin's own header calls it "the app-side twin of the CLI emulator's
+`prunePlayerCssInPage`". It runs the same `prunePlayerCss` on the same block, and its output is
+what `share-export.ts` mounts in a same-origin frame and then downloads to a recipient. Red team
+drove it end to end against a **real `docs/` build** — the shipped `player-prune-browser.<hash>.js`
+chunk, imported in the running Studio page in Chromium 131 — and observed a **real cross-origin
+request fired when the downloaded artifact is opened**, with the assembler's own guard present
+and correct two modules upstream. So: the change fixed the CLI and left the Studio's
+Export-Webpage shipping the beacon it had just closed on the other path.
+
+That is not a pre-existing defect to log. This change *established* the mechanism, guarded one
+twin, and wrote a record saying the class was handled — HARD RULE #18's "a window YOU created"
+covers a fix that stops halfway as squarely as a regression. It is guarded here, and
+`checkCssTreeRewrapSinks` (§9.5) exists so a third twin cannot be written unguarded.
+
+**Also folded in from the three passes, each verified before acting:**
+
+- the integration fixture's payload lived only in a CSS *comment*, which `minifyCss` and
+  css-tree both delete — so the `--player` arm was structurally incapable of failing on the
+  prune guards. A `content:`-string payload and a no-`--css` render fixed it; the CSS re-wrap
+  mutant now dies.
+- the byte figures were UTF-16 code units (§9.2), the "13" excluded `.test.mjs` (§9.5), the
+  six failing arms were mis-listed (§9.5), "all four `<style>` sites" was a wrong claim about a
+  file with five (§9.3), and §9.6 rested on a premise that was not true. Five record defects,
+  zero code defects, which is the ratio §4b predicts.
+- `sanitizeStyleText` itself held: 300,000 fuzz cases against an independently written oracle,
+  seeded with `</styl`, `</styles`, `<</style`, `</style/`, `<\/style`, lone surrogates — zero
+  divergences, zero non-idempotent results, no overlap hole in the `indexOf('</', i + 2)` step.
+  And it does not corrupt valid CSS: a deck legitimately carrying the terminator in a
+  `content:` string and inside a `url(data:image/svg+xml,…<style>…</style>…)` was rendered and
+  opened in real Chromium — computed values identical to the author's, the SVG still decodes
+  and paints, no truncation.
+- every other round trip between guard and shipped bytes was checked and holds: `minifyCss`,
+  `themeDualMode`, `resolveLightDark`, jsdom parse→`outerHTML`, `subsetEmbeddedFonts`,
+  `inlineAssets` (which `encodeURIComponent`s `<` to `%3C`), Chromium's `outerHTML` player bake,
+  and the `textContent =` writes. **Only css-tree reproduces a live terminator.**
+
+**Logged, off-path, not pulled into this diff** (HARD RULE #18's other half):
+
+- **`.astro` is invisible to the stylesheet arm.** `listSourceFiles` matches
+  `.js/.ts/.tsx/.mjs/.cjs`, and `docs/src` is majority `.astro`; eleven committed `.astro` files
+  carry both a doctype and a `<style>`, including `docs/src/pages/studio.astro`'s
+  `<style is:inline set:html={SHELL_CHROME_CSS + …}>`. Those constants are internal today, so it
+  is latent — but §5's "a NEW document assembler cannot be added silently" is false for the
+  commonest file type in the root it walks. Widening the extension list changes what **every**
+  gate sharing that helper sees, which is not a change to make inside a security PR.
+- **The document marker is evadable** — a split doctype literal, no doctype at all (a quirks-mode
+  document is still same-origin and still runs script), a doctype hoisted into a shared constant,
+  a split `<style>` opener, or DOM-API assembly all pass. The marker tracks a proxy for the
+  security property, not the property.
+- **Three more second-sinks in already-guarded files**, where the *unguarded* value is the more
+  caller-influenced one: `deck-preview.js` (`bg` from `getComputedStyle(…).getPropertyValue`),
+  `presenter-window.js` (`bg`), and `deck-export.js` (`theme.css` + `theme.name` spliced into a
+  `<style>` in markdown handed to a recipient, and `theme.name` additionally into a `/* … */`
+  header — the #1709 shape at a second serializer). No live payload path was found for any of
+  the three; they are #1718's files, not this change's.
+- **`lib/core/marp-bundle.js`** hands the deck (front-matter `style:` intact) and theme CSS to
+  marp-cli, which inlines them into a `<style>` in *its* renderer. Same class, different engine,
+  and it will never match a "assembles a document" marker because it does not assemble one.
+- **The fail-open shape of the root list.** The inversion's strongest structural argument is that
+  a security gate enumerating three roots fails open by construction, and that inverting it —
+  walk everything, exclude by allowlist — costs about four entries and fails closed. The
+  commissioning handoff weighed exactly this trade and chose roots, with the reason stated
+  ("rather than bolting on an allowlist nobody will maintain"), so it is recorded here as the
+  live alternative rather than taken unilaterally. Its longer-term form is a single
+  `assembleDocument()` chokepoint in `lib/core` — the only way anything in the repo turns strings
+  into a document, with both channels inside it. That is where this class actually closes, and it
+  is a coordinated pass across CJS/ESM/TS/Astro that would move exported bytes on every surface at
+  once. Named as the destination, deliberately not attempted here.

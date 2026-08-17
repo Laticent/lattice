@@ -5201,6 +5201,7 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
     }
   }
   checkDocumentStyleSinks(errors, exempt, root);
+  checkCssTreeRewrapSinks(errors, root);
 }
 
 /**
@@ -5264,6 +5265,88 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
       );
     }
   }
+}
+
+/**
+ * HARD RULE #22, STYLESHEET channel, THIRD shape — the css-tree RE-WRAP.
+ *
+ * `checkDocumentStyleSinks` keys on document assembly, which structurally cannot see a
+ * module that assembles no document and instead takes CSS back OUT of one, runs it through
+ * `prunePlayerCss` / `prunePlayerFontFaces`, and puts it back in a FRESH `<style>` element.
+ * That round trip is a css-tree parse→generate, and css-tree normalizes the escape into a
+ * live terminator again:
+ *
+ *     IN   section::after{content:"<\/style>"}
+ *     OUT  section::after{content:"</style>"}
+ *
+ * So whatever guarded the document upstream is undone at the re-wrap, and the re-wrap owes
+ * the call itself. There are two such sites and they are twins: the CLI's
+ * (`lattice-emulator.js`) and the browser's (`player-prune-browser.ts`, whose output
+ * `share-export.ts` mounts in a same-origin frame and then hands to a recipient). The
+ * first cut of this work guarded one of the two, and a red-team pass drove the other to a
+ * real cross-origin fetch from the shipped artifact — which is exactly the kind of
+ * one-twin fix a gate exists to stop happening a third time.
+ *
+ * Scope is `DOC_STYLE_SINK_ROOTS`, and the marker is the MECHANISM: a file that calls a
+ * prune AND rebuilds a `<style>` element. A prune consumer that only reads sizes owes
+ * nothing, and a `<style>` re-wrap with no prune is the document guard's business, not
+ * this one's.
+ *
+ * PER SITE, not per file — and that difference is the whole point of adding a check rather
+ * than widening an existing one. Every other arm of #22 is satisfied by one call anywhere
+ * in the file (§5 of the governing note lists that weakness; §4b finding 7 is a second
+ * unguarded sink hiding behind a guarded one). Both re-wrap files rebuild TWO elements and
+ * call the guard elsewhere besides, so a file-scoped rule here would have certified either
+ * twin with its CSS re-wrap stripped — measured, not assumed. Each `<style…>` rebuild
+ * therefore has to carry the call between its own opener and its own closer.
+ *
+ * Returns the discovered files, so its test can assert the known two are still found
+ * rather than trusting a green run over an empty set.
+ */
+function checkCssTreeRewrapSinks(errors, root = ROOT) {
+  const PRUNE_CALL = /\bprunePlayer(?:Css|FontFaces)\s*\(/;
+  // One `<style…>` rebuild: the opener, then everything up to the matching closer. Both
+  // the template-literal (`${…}`) and the concatenation (`' + x + '`) forms land here.
+  const REWRAP_SITE = /<style[^>]*>((?:(?!<\/style)[\s\S]){0,400}?)<\/style/gi;
+  // …but ONLY where the element is being swapped back into an existing document, which is
+  // what a re-wrap is: `html.replace(target.full, () => `<style>…`)`. Without this, a file
+  // that happens to contain a prune anywhere also owes the call for every unrelated
+  // `<style>` it builds — `lattice-emulator.js`'s base64 font block (a fixed manifest that
+  // cannot carry `<`) was the false positive that forced the distinction.
+  const REPLACE_LEAD = /\.replace\s*\([\s\S]{0,160}$/;
+  const files = [];
+  for (const r of DOC_STYLE_SINK_ROOTS) {
+    const abs = path.join(root, r);
+    if (!fs.existsSync(abs)) continue;
+    if (fs.statSync(abs).isDirectory()) listSourceFiles(abs, files);
+    else files.push(abs);
+  }
+  const seen = [];
+  for (const file of files) {
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    if (!PRUNE_CALL.test(src)) continue;
+    let found = false;
+    for (const m of src.matchAll(REWRAP_SITE)) {
+      const body = m[1];
+      // A literal body (no interpolation, no concatenation) is our own static CSS.
+      if (!/\$\{|['"`]\s*\+|\+\s*['"`]/.test(body)) continue;
+      if (!REPLACE_LEAD.test(src.slice(0, m.index))) continue;
+      found = true;
+      if (SANITIZE_STYLE_CALL.test(body)) continue;
+      errors.push(
+        `${rel} rebuilds a <style> element from css-tree-pruned CSS without sanitizeStyleText ` +
+        `(HARD RULE #22, stylesheet channel): \`${m[0].slice(0, 70).replace(/\s+/g, ' ')}…\`. ` +
+        `css-tree's parse→generate normalizes \`<\\/style\` back into a live element terminator, ` +
+        `so the guard applied where the document was assembled is undone here — and the result ` +
+        `is downloaded by a recipient. Re-sanitize the pruned CSS at THIS re-wrap; a call ` +
+        `elsewhere in the file does not cover it.`,
+      );
+    }
+    if (found) seen.push(rel);
+  }
+  return seen;
 }
 
 // HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
@@ -8819,6 +8902,7 @@ module.exports = {
   SANCTIONED_CLASS_ATTR_READS,
   checkPreviewHtmlSinks,
   checkDocumentStyleSinks,
+  checkCssTreeRewrapSinks,
   DOC_ASSEMBLER_MARKER,
   SANCTIONED_STYLE_SINK_EXEMPT,
   DOC_STYLE_SINK_ROOTS,

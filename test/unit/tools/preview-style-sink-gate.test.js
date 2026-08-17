@@ -27,6 +27,7 @@ const {
   SANCTIONED_PREVIEW_BUILDERS,
   SANCTIONED_STYLE_SINK_EXEMPT,
   DOC_STYLE_SINK_ROOTS,
+  checkCssTreeRewrapSinks,
 } = require('../../../tools/check-ownership.js');
 
 // The gate walks `<root>/docs/src`, and `root` is injectable — so probes live in a
@@ -259,6 +260,74 @@ describe('the export roots — the CLI half the docs/src walk never saw', () => 
     const errors = [];
     checkDocumentStyleSinks(errors, [{ file: 'lib/export/gone.mjs', why: 'not here' }], TMP);
     assert.ok(errors.some((e) => /stale style-sink exemption/.test(e)), 'the exemption list must not be allowed to rot under the new roots either');
+  });
+});
+
+// ── The css-tree RE-WRAP arm ────────────────────────────────────────────────────
+// A third shape the document-assembler marker structurally cannot see: a module that
+// does not assemble a document at all, but takes CSS back OUT of one, runs it through
+// `prunePlayerCss` (a css-tree parse→generate), and puts it back in a fresh `<style>`.
+// css-tree NORMALIZES the escape into a live terminator —
+//     IN  section::after{content:"<\/style>"}   OUT  section::after{content:"</style>"}
+// — so whatever guarded the document upstream is undone at the re-wrap, and the re-wrap
+// owes the call itself. There were two such sites; the CLI's was guarded and the browser
+// twin (`player-prune-browser.ts`, whose output is downloaded by a recipient) was not,
+// which a red-team pass drove to a real cross-origin fetch from the shipped artifact.
+describe('the css-tree re-wrap arm', () => {
+  const REWRAP_RAW =
+    "import { prunePlayerCss } from './p.js';\nexport function f(h, t){ const r = prunePlayerCss(t.css, u); return h.replace(t.full, () => '<style>' + r.css + '</style>'); }";
+  const REWRAP_SAFE = REWRAP_RAW.replace("'<style>' + r.css", "'<style>' + sanitizeStyleText(r.css)");
+
+  function gateAt(rel, src) {
+    const abs = path.join(TMP, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, src);
+    const errors = [];
+    try {
+      checkCssTreeRewrapSinks(errors, TMP);
+    } finally {
+      fs.rmSync(abs, { force: true });
+    }
+    return errors.filter((e) => e.includes(rel.split(path.sep).join('/')));
+  }
+
+  test('fires on an unguarded re-wrap in docs/src (the browser twin\'s shape)', () => {
+    const errs = gateAt(path.join('docs', 'src', 'prune-browser.ts'), REWRAP_RAW);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `a css-tree re-wrap must owe the guard; got: ${errs.join(' | ')}`);
+  });
+
+  test('fires on an unguarded re-wrap at a file root (the CLI\'s shape)', () => {
+    const errs = gateAt('lattice-emulator.js', REWRAP_RAW);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `the CLI re-wrap must owe the guard; got: ${errs.join(' | ')}`);
+  });
+
+  test('quiet once the re-wrap sanitizes', () => {
+    assert.deepEqual(gateAt(path.join('docs', 'src', 'prune-browser.ts'), REWRAP_SAFE), []);
+  });
+
+  test('a prune CONSUMER that never re-wraps into a <style> owes nothing', () => {
+    // Reading the pruned size, logging it, returning it — no element is rebuilt, so the
+    // terminator never re-enters markup.
+    const errs = gateAt(path.join('docs', 'src', 'stats.ts'),
+      "import { prunePlayerCss } from './p.js';\nexport const size = (css) => prunePlayerCss(css, () => true).css.length;");
+    assert.deepEqual(errs, []);
+  });
+
+  test('a <style> re-wrap with no css-tree round trip is out of scope', () => {
+    // Without the prune there is no serializer to normalize the escape away, so the
+    // document's own guard still holds and this arm must not pile on.
+    const errs = gateAt(path.join('docs', 'src', 'plain.ts'),
+      "export function f(h, t){ return h.replace(t.full, () => '<style>' + t.css + '</style>'); }");
+    assert.deepEqual(errs, []);
+  });
+
+  test('the live tree passes, and both known re-wrap sites are discovered', () => {
+    const errors = [];
+    const seen = checkCssTreeRewrapSinks(errors);
+    assert.deepEqual(errors, [], `unguarded css-tree re-wrap on the live tree:\n${errors.join('\n')}`);
+    for (const must of ['lattice-emulator.js', 'docs/src/components/studio/player-prune-browser.ts']) {
+      assert.ok(seen.includes(must), `${must} is no longer discovered as a css-tree re-wrap — did the prune move?`);
+    }
   });
 });
 
