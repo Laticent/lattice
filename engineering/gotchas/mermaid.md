@@ -322,3 +322,37 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Removable when:** Puppeteer / mmdc release without the race.
   Realistically: never; retries are cheap.
 - **Commits:** Original renderer commit.
+
+## KaTeX math extractor splices error spans into inlined Mermaid SVG CSS
+
+- **Symptom:** Mermaid diagrams in the produced PDF render as raw
+  stylesheet text — `.actorPopupMenu{position:absolute;}` etc. printed
+  inline in the slide body instead of the rendered diagram. Most
+  visible on sequence / class / state diagrams; flowcharts may
+  partially render. The `<svg>` and `<style>` tags are present in the
+  HTML but contain `<span class="katex-error" title="…">` injected
+  inside CSS selectors, which makes the `<style>` block invalid and
+  Chromium's PDF renderer treats the content as text. Unit tests pass;
+  page counts unchanged.
+- **Cause:** The build pipeline runs `preprocessMermaid(md)` BEFORE
+  `extractMath(raw)` — Mermaid SVG is inlined into the markdown as
+  `<div class="mermaid-svg"><svg>…<style>…</style></svg></div>`. Then
+  `extractMath` walks the source looking for `$…$` math delimiters
+  and skips fenced code blocks — but does NOT skip the inlined SVG.
+  Mermaid stylesheets contain CSS attribute selectors like
+  `[id$="-sequencenumber"]{…}` whose `$` characters match as math
+  delimiters; KaTeX is asked to render the captured content (which is
+  CSS, not LaTeX), throws errors, and emits
+  `<span class="katex-error">…</span>` back into the SVG's `<style>`
+  block.
+- **Mitigation:** Add `<div class="mermaid-svg">…</div>` to the skip
+  pattern in `extractMath` so math extraction does not reach inside
+  inlined SVG. See
+  [lattice-emulator.js extractMath](../lattice-emulator.js).
+- **Triggered by:** Any deck containing both a `$…$` candidate AND a
+  Mermaid diagram with a CSS attribute selector using `$`. Latent
+  since main's KaTeX-for-math feature landed; only surfaces visually
+  (page-count regression test does not catch it).
+- **Removable when:** Never — `$` is a meaningful CSS operator (ends-
+  with attribute match) and a meaningful KaTeX delimiter; extractor
+  must treat HTML blocks injected before math extraction as opaque.

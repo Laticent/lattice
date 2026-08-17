@@ -60,7 +60,6 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A long press on a button selects its label on iOS (Copy / Look Up callout)](gotchas/browser-engine.md#a-long-press-on-a-button-selects-its-label-on-ios-copy--look-up-callout)
 - [Tapping an input zooms the page on iOS (sub-16px text controls)](gotchas/browser-engine.md#tapping-an-input-zooms-the-page-on-ios-sub-16px-text-controls)
 - [Tapping an in-slide link blanks the live preview on iOS](gotchas/browser-engine.md#tapping-an-in-slide-link-blanks-the-live-preview-on-ios)
-- [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/browser-engine.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)
 
 ### [Charts](gotchas/charts.md)
 
@@ -91,7 +90,6 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [CSS `ul > li` matches nested sublists — chain `> ul > li` for top-level-only styling](gotchas/css.md#css-ul--li-matches-nested-sublists--chain--ul--li-for-top-level-only-styling)
 - [`:where(:root)` zero-specificity defaults](gotchas/css.md#whereroot-zero-specificity-defaults)
 - [`font-size: 0` collapses `em` width/height on the same element](gotchas/css.md#font-size-0-collapses-em-widthheight-on-the-same-element)
-- [KaTeX math extractor splices error spans into inlined Mermaid SVG CSS](gotchas/css.md#katex-math-extractor-splices-error-spans-into-inlined-mermaid-svg-css)
 - [`100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered](gotchas/css.md#100dvw100vw-includes-the-scrollbar--a-full-width-child-of-a-scroll-container-clips-when-centered)
 - [A CSS reset declaration silently does nothing — the value doesn't exist](gotchas/css.md#a-css-reset-declaration-silently-does-nothing--the-value-doesnt-exist)
 - [The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back](gotchas/css.md#the-same-declaration-but-it-dies-at-computed-value-time--and-does-not-fall-back)
@@ -186,6 +184,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`:where(:root)` token blocks are dropped from every rendered slide](gotchas/mermaid.md#whereroot-token-blocks-are-dropped-from-every-rendered-slide)
 - [Mermaid had `layout: 'tidy-tree'` — silent diagram loss](gotchas/mermaid.md#mermaid-had-layout-tidy-tree--silent-diagram-loss)
 - [`mmdc` / Puppeteer flakes intermittently on cold starts](gotchas/mermaid.md#mmdc--puppeteer-flakes-intermittently-on-cold-starts)
+- [KaTeX math extractor splices error spans into inlined Mermaid SVG CSS](gotchas/mermaid.md#katex-math-extractor-splices-error-spans-into-inlined-mermaid-svg-css)
 
 ### [Overflow detection and the Fit Spine](gotchas/overflow.md)
 
@@ -224,6 +223,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The Present rail is completely invisible under `forced-colors: active`](gotchas/studio-playground.md#the-present-rail-is-completely-invisible-under-forced-colors-active)
 - [A multi-line toast renders as a giant lozenge with its last line cut off](gotchas/studio-playground.md#a-multi-line-toast-renders-as-a-giant-lozenge-with-its-last-line-cut-off)
 - [A control's own icon renders sliced/outside its button, and every overflow guard is green](gotchas/studio-playground.md#a-controls-own-icon-renders-slicedoutside-its-button-and-every-overflow-guard-is-green)
+- [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/studio-playground.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)
 
 ### [VS Code / marp-vscode](gotchas/vscode.md)
 

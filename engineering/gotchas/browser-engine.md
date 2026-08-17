@@ -229,30 +229,3 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `single-slide-render.ts`, scales the iframe ELEMENT rather than each section, but
   is the same class — add the guard there if a linked component surfaces the blank
   in Studio).
-
-## A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device
-
-- **Symptom:** Touch-only sizes declared in a CodeMirror `EditorView.theme`
-  silently never apply. The lint popup's fix button measured **28px** on a
-  genuine coarse pointer where the theme asks for 44px — while
-  `matchMedia('(pointer: coarse)').matches` reported `true`, the theme object
-  was valid, both surfaces built, and every unit test passed.
-- **Cause:** A theme object is a flat map that `style-mod` compiles to a
-  stylesheet **in key order**, and a coarse-pointer rule usually targets the
-  SAME selector as the base rule it overrides — so the two have equal
-  specificity and later-in-the-object wins. Put the `@media` block above the
-  base rules (or above a `...spread` that contributes them) and it loses to the
-  very declarations it exists to override.
-- **Fix:** Keep `'@media (pointer: coarse)'` **last** in the theme object, below
-  every spread that contributes base rules.
-- **Second trap, same cause:** a shared module must NOT carry its own
-  `'@media (pointer: coarse)'` key. Spreading it into a theme that already has
-  one *replaces* that block wholesale — in this codebase that would drop the
-  16px `.cm-content` lift that stops iOS Safari auto-zooming on focus. Export
-  the coarse rules separately (`lintThemeCoarse`) and merge them explicitly.
-- **Why no cheap guard catches it:** nothing about it is a type error or a
-  failing assertion on the object; only a real coarse pointer shows the defect.
-  Pinned by an ordering test in `docs/src/lib/lint-theme.test.ts` that asserts
-  the `@media` key appears after the `...lintTheme` spread in both consumers.
-- **Triggered by:** the lint-popup redesign,
-  `engineering/decisions/2026-08-16-lint-popup-finding-card.md`.

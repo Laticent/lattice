@@ -451,8 +451,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   spacing collapses (cards/list rows overlap with ~0 gap),
   `list-criteria`/`list principles` counters vanish, title/KPI slides don't centre
   with breathing room. The SAME engine output renders perfectly in headless
-  Chromium and on desktop WebKit. Looks like the foreignObject WebKit class above,
-  but the engine already renders `inlineSVG:false` plain sections — so that's not it.
+  Chromium and on desktop WebKit. Looks like the scaled-`foreignObject` WebKit class
+  ("Playground renders broken in mobile Safari/WebKit" in `studio-playground.md`), but
+  the engine already renders `inlineSVG:false` plain sections — so that's not it.
 - **Cause:** Lattice declares its cqi spacing/radius scale on `:root`
   (`dist/lattice.css` `:root { --sp-md:1.875cqi; … }`). A `cqi` unit resolves
   against the element's nearest `container-type` ancestor; `:root` has none, so

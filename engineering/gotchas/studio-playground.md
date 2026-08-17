@@ -13,9 +13,12 @@ Chromium — every CI gate — cannot reproduce** (it handles `foreignObject`, d
 iframe touch, and re-resolves `cqi` under `zoom`; real iOS does none of these). So
 "CI green" is NOT verification of preview behavior on a device (HARD RULE #23). This
 is the index; each row names its detailed entry as `§ "…"`. Those entries are spread
-across several topic files (this one, `browser-engine.md`, `lattice-internals.md`,
-`overflow.md`, `fonts.md`), so find one by grepping its title:
-`grep -rn '<phrase>' engineering/gotchas/`.
+across several topic files (this one, `browser-engine.md`, `docs-site.md`,
+`lattice-internals.md`, `overflow.md`, `fonts.md`), so find one by grepping its
+title: `grep -rn '<phrase>' engineering/gotchas/`. Every fragment of a `§` phrase is
+a literal substring of the heading it names (`…` marks an elision between fragments),
+so the grep hits — if you add a row, keep it that way rather than paraphrasing. A `§`
+that FOLLOWS a document name points at a section of that document, not at an entry.
 
 **The preview builders** (`SANCTIONED_PREVIEW_BUILDERS`, `tools/check-ownership.js`):
 `deck-preview.js` (Playground + Studio filmstrip — scales each `<section>`),
@@ -34,7 +37,7 @@ own traps, flagged where relevant.
 | **A section-own `cq*` resolves against the ICB = the HOST VIEWPORT** → the slide's own padding/gaps track the preview pane, and the filmstrip and the Studio disagree about which slides overflow | filmstrip vs single-slide hosts | anchor to the slide: `calc(var(--_sec-1cqi, 1cqi) * N)` / `--_sec-1cqh` (§ "The Playground and the Studio disagree about which slides overflow"; gated by `checkSectionCqAnchoring`) |
 | **A transform-scaled section makes `getBoundingClientRect()` disagree with `scrollHeight`** → measured overflow shrinks with the pane's scale | any scaled | the probe normalizes to layout px (rect ÷ offsetHeight); never compare a rect delta to a scroll dim raw (§ same entry) |
 | Scaled `foreignObject` breaks CSS counters / cqi / mask (WebKit) → "00", overlaps, dropped marks | any `inlineSVG` path | render `inlineSVG:false` plain sections (§ "renders broken in mobile Safari/WebKit") |
-| 4K decks render oversized / cropped | docs-site, VS Code | `GEOM` globals + fixed-box FIT scale (§ "4K decks oversized"; "Mermaid HD in 4K") |
+| 4K decks render oversized / cropped | docs-site, VS Code | `GEOM` globals + fixed-box FIT scale (§ "4K decks oversized"; "HD size inside 4K slides") |
 | **Pane-splitter drag over the preview** — the iframe swallows `pointermove` mid-drag, and every drag frame that resizes the iframe re-runs the FIT agent per section (a 60Hz reflow storm on large decks); a pane expanded from a 0-width collapse hits the FIT bail like the mobile-tab reveal | Playground + Studio (`ui/split.tsx`) | `setPointerCapture` on the handle (`lostpointercapture` = authoritative end-of-drag) + `[data-split-dragging] iframe { pointer-events: none }` belt; the parent calls `__latticeFitSuspend()` during drag and `__latticeFitResume()` (one fit) on release; expands re-fit via the proven reveal path + `onFrameLoad`; renders DEFER while the preview is collapsed (decision `2026-07-02-resizable-editor-preview-panes.md`) |
 
 **B. Interaction — touch / tap / scroll (iOS Safari)**
@@ -872,3 +875,30 @@ never turn "passed in headless" into "works on iOS."
   child zeroes its intrinsic size in BOTH directions, so the parent never
   grows to show a title at all, at any width.
 - **Triggered by:** #1417.
+
+## A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device
+
+- **Symptom:** Touch-only sizes declared in a CodeMirror `EditorView.theme`
+  silently never apply. The lint popup's fix button measured **28px** on a
+  genuine coarse pointer where the theme asks for 44px — while
+  `matchMedia('(pointer: coarse)').matches` reported `true`, the theme object
+  was valid, both surfaces built, and every unit test passed.
+- **Cause:** A theme object is a flat map that `style-mod` compiles to a
+  stylesheet **in key order**, and a coarse-pointer rule usually targets the
+  SAME selector as the base rule it overrides — so the two have equal
+  specificity and later-in-the-object wins. Put the `@media` block above the
+  base rules (or above a `...spread` that contributes them) and it loses to the
+  very declarations it exists to override.
+- **Fix:** Keep `'@media (pointer: coarse)'` **last** in the theme object, below
+  every spread that contributes base rules.
+- **Second trap, same cause:** a shared module must NOT carry its own
+  `'@media (pointer: coarse)'` key. Spreading it into a theme that already has
+  one *replaces* that block wholesale — in this codebase that would drop the
+  16px `.cm-content` lift that stops iOS Safari auto-zooming on focus. Export
+  the coarse rules separately (`lintThemeCoarse`) and merge them explicitly.
+- **Why no cheap guard catches it:** nothing about it is a type error or a
+  failing assertion on the object; only a real coarse pointer shows the defect.
+  Pinned by an ordering test in `docs/src/lib/lint-theme.test.ts` that asserts
+  the `@media` key appears after the `...lintTheme` spread in both consumers.
+- **Triggered by:** the lint-popup redesign,
+  `engineering/decisions/2026-08-16-lint-popup-finding-card.md`.
