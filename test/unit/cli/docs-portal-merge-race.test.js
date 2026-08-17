@@ -57,7 +57,7 @@ const path = require('node:path');
 
 const { loadAll } = require('../../../lib/components');
 const {
-  renderPortalMd, renderPortalJson, renderGrammarJson,
+  renderPortalMd, renderPortalJson, renderGrammarJson, renderPickMd,
 } = require('../../../tools/build-docs-portal.js');
 
 // Each pair is two components in DIFFERENT buckets, so their entries insert at
@@ -78,6 +78,7 @@ const RENDERERS = [
   ['dist/docs/components.md', renderPortalMd],
   ['dist/docs/components.json', renderPortalJson],
   ['dist/docs/grammar.json', renderGrammarJson],
+  ['dist/docs/components.pick.md', renderPickMd],
 ];
 
 for (const [X, Y] of PAIRS) {

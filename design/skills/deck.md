@@ -59,9 +59,11 @@ about Form directly — the component already selected it.
 ## Where it lives
 
 - **Your deck**: a single `.md` file anywhere (put demo decks in `examples/`).
-- **The catalog** you pick components from: `dist/docs/components.json` (machine
-  catalog — axes, tags, slots, skeletons, `capacity`, `density`, whenToUse,
-  antiPatterns) and each `lib/components/<bucket>/<name>/<name>.docs.md`.
+- **The catalog** you pick components from: `dist/docs/components.pick.md` (one line
+  per component — axes, tags, `capacity` + escalation target, neighbors, purpose;
+  the whole catalog in ~3k tokens). `dist/docs/components.json` is the full machine
+  record for tools — don't load it to choose. Once picked, each
+  `lib/components/<bucket>/<name>/<name>.docs.md` is how you author inside it.
 - **Commands**:
   - `npm run new:slide -- --list` — browse all components grouped by function.
   - `npm run new:slide -- <name>` — print a component's skeleton.
@@ -97,7 +99,8 @@ about Form directly — the component already selected it.
    the argument.
 
 3. **Per slide, pick the component by intent + capacity.** Match the author's
-   intent words to a component's tags/`whenToUse` in `dist/docs/components.json`.
+   intent words to a component's tags in `dist/docs/components.pick.md` (`grep` it),
+   and use the `see also` column to check the neighbors it is confused with.
    Then **count your content** and check the component's `capacity` — if the count
    exceeds `hard`, use the `escalateTo` target or split across slides. Before you
    author a `<!-- _class: X -->`, open `lib/components/<bucket>/X/X.docs.md` and
@@ -268,4 +271,5 @@ A 12-slide board update:
 - `spec/LFM-1.0.md` — the markdown dialect and front-matter surface.
 - `AGENTS.md` — the agent authoring loop (count → capacity → density → lint →
   render).
-- `dist/docs/components.json` — the machine catalog you select components from.
+- `dist/docs/components.pick.md` — the pick list you select components from.
+- `dist/docs/components.json` — the full machine record, for tools.

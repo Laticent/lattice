@@ -98,6 +98,11 @@ const DESCRIPTIONS = {
     purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component.',
     consume: 'load as JSON / `@workwel/lattice/dist/docs/components.json`',
   },
+  'docs/components.pick.md': {
+    purpose:
+      'The component PICK list — one line per component (bucket, axes, capacity + escalation target, tags, neighbors, purpose). Skim or grep it to CHOOSE a component; components.json is the full machine record, and the component\'s own docs.md is for authoring inside it.',
+    consume: 'read directly / grep',
+  },
   'docs/components.md': {
     purpose: 'Canonical single-file component reference (plain Markdown): every component\'s slots, variants, when/why, anti-patterns. The browsable edition — live previews + an in-browser editor — is the docs-site component pages.',
     consume: 'read directly / link from docs',

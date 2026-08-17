@@ -30,7 +30,7 @@ pick list** — the other two are bigger and answer later questions:
 
 - **`dist/docs/components.pick.md`** — **the one to read when choosing.** One line
   per component: axes, **search tags**, **`capacity`**, its escalation target, and a
-  one-line purpose. The whole 61-component catalog is ~3k tokens, so you can hold all
+  one-line purpose. The whole 61-component catalog is ~3.8k tokens, so you can hold all
   of it, and one line per component means `grep -i comparison` returns rows rather
   than a walk through a 95k-token JSON document.
 - **`dist/docs/components.json`** — the full machine record: slots, authoring
@@ -80,7 +80,8 @@ See `engineering/decisions/2026-06-30-prose-density-budget.md`.
 
 ## Once you've picked one — read its agent contract
 
-`components.json` is for *picking*; each component's generated
+`components.pick.md` is for *picking* and `components.json` is the full machine
+record behind it; each component's generated
 `lib/components/<bucket>/<name>/<name>.docs.md` is for *authoring inside* the
 one you picked (HARD RULE #6 in `CLAUDE.md`: open it before writing or editing
 that slide). Its `## Agent contract` section, right after the header, is the

@@ -335,7 +335,8 @@ lattice/
   area" table in [`CLAUDE.md`](CLAUDE.md).
 - **Every script/tool that exists** → [`engineering/capabilities.md`](engineering/capabilities.md)
   (generated from `package.json` + `tools/`).
-- **The component/theme/token catalog** → `dist/docs/components.json` and
+- **The component/theme/token catalog** → `dist/docs/components.pick.md` (pick a
+  component), `dist/docs/components.json` (the full machine record) and
   [`design/design-system.md`](design/design-system.md).
 
 ## Testing

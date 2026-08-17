@@ -590,11 +590,15 @@ chips + a live filter facet on the docs-site component pages.
 
 AI agents authoring decks get a discovery surface and a validation loop:
 
-- **`dist/docs/components.json`** — a machine-readable catalog: every
-  component's axes, tags, slots, skeleton, **`capacity`**, and
-  when/anti/related prose, plus the controlled vocabularies, in one
-  deterministic document an agent loads in a single read. Generated alongside
-  `components.md/.html` by `tools/build-docs-portal.js`.
+- **`dist/docs/components.pick.md`** — the PICK surface: one line per component
+  (bucket, axes, tags, **`capacity`** + escalation target, neighbors, purpose), the
+  whole catalog in ~3k tokens. Skim or `grep` it to choose, then read the picked
+  component's `.docs.md` to author inside it.
+- **`dist/docs/components.json`** — the full machine-readable record behind it: every
+  component's axes, tags, slots, skeleton, **`capacity`**, and when/anti/related prose,
+  plus the controlled vocabularies. This is what TOOLS load; at 95k tokens it is not a
+  document to read for a pick. Both are generated alongside `components.md/.html` by
+  `tools/build-docs-portal.js`.
 - **Capacity — pick by content shape.** A layout overflows when it holds more
   elements than it's built for — the most common authoring slip. A component's
   optional `capacity` block (`{ axis, sweet, soft, hard, escalateTo }`) declares

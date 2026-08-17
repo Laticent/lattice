@@ -757,66 +757,131 @@ function renderGrammarJson(manifests) {
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
+const PURPOSE_CAP = 160;
+
+// Endings that look like a sentence stop but are not. Carried over from
+// build-decisions-index.js, where the same summarizer shipped first: without it
+// "Use for tabular data, e.g. specs or key/value pairs." cuts at `e.g.` and renders a
+// nonsense row that ends in a period, so nothing downstream can tell it was cut.
+const ABBREVIATION = /\b(vs|e\.g|i\.e|etc|cf|approx|fig|no|vol|ch|st|dr|mr|ms|jr|sr|inc|ltd|al)\.$/i;
+
 /**
- * Project the manifests into dist/docs/components.pick.md — the PICK surface: one
- * line per component, the whole catalog in ~3k tokens.
+ * The capacity cell.
+ *
+ * A budget is only meaningful WITH the deck size it was measured at. `capacityEntry`
+ * attaches `family: 'wide'` for exactly this reason, and its comment warns that a
+ * consumer sizing a portrait deck against a family-blind number "would be reading the
+ * wrong box's number" — which is what the first cut of this projection did by dropping
+ * the marker. Measured against the real linter, `list item:5/6/6` is the wide budget
+ * while a `size: mobile` deck warns at 5 and a `tall` deck tolerates 7: the one column
+ * both understated and overstated the truth depending on the deck.
+ *
+ * So a budget that varies across families is marked `*`, and the legend says the number
+ * shown is the wide/default one. Components whose families all agree (`matrix-2x2`'s
+ * four quadrants, `split-compare`'s two sides) need no marker — and they DO have a
+ * count budget even though their `axis` was deliberately retired, so they render their
+ * numbers rather than the `—` that used to claim they had none.
+ */
+function capacityCell(m) {
+  const flat = capacityEntry(m).capacity;
+  const fam = m.adapt?.capacity;
+  const families = fam ? ['wide', 'square', 'tall', 'strip'].map((k) => fam[k]).filter(Boolean) : [];
+  const varies =
+    families.length > 1 &&
+    families.some((f) => f.sweet !== families[0].sweet || f.soft !== families[0].soft || f.hard !== families[0].hard);
+  const mark = varies ? '*' : '';
+  if (flat) return `${flat.axis}:${flat.sweet}/${flat.soft}/${flat.hard}${mark}`;
+  if (families.length) {
+    const f = fam.wide ?? families[0];
+    // No axis: the count is real, the SPLIT axis was retired (a 2x2 read is destroyed
+    // by splitting between quadrants). Render the count without an axis label.
+    return `${fam.axis ? `${fam.axis}:` : ''}${f.sweet}/${f.soft}/${f.hard}${mark}`;
+  }
+  return '—';
+}
+
+/**
+ * Project the manifests into dist/docs/components.pick.md — the PICK surface: one line
+ * per component, the whole catalog in ~3.5k tokens.
  *
  * Why a fourth projection rather than a smaller components.json. AGENTS.md draws the
  * line itself — "components.json is for *picking*; each component's docs.md is for
- * *authoring inside* the one you picked" — but the file it points at carries the
- * authoring detail too, so picking cost 95k tokens: slots, skeletons, effective
- * variants and anti-pattern prose for all 61 components, to answer "which one?".
- * HARD RULE #6 makes that read mandatory before every `_class:` slide, which made it
- * the most-repeated read in the repo.
+ * *authoring inside* the one you picked" — but the file it pointed at carried the
+ * authoring detail too, so picking cost 95k tokens. Worse, that file is 11,437 lines:
+ * a default read surfaces the alphabetical front and stops, so the practical outcome
+ * was a pick biased toward `actors`…`code` rather than an expensive-but-correct one.
  *
  * Nothing is dropped: components.json keeps every field (the Studio's SlidePicker,
- * deck-export, the playground bundle and the LFM spec all read it, and a projection
- * they consume is not a document to trim), and the authoring detail is in the
- * per-component docs.md that #6 already sends you to. This file is only the layer
- * that was missing between "61 components exist" and "read all of them".
- *
- * One line per component is also what makes it GREPPABLE — `grep comparison` returns
- * rows, not a paginated JSON walk. Capacity rides along because AGENTS.md requires
- * counting content against it BEFORE committing to a component: the pick surface has
- * to carry everything the pick actually needs, or it just adds a hop.
+ * deck-export, the playground bundle and the LFM spec all read it), and the authoring
+ * detail is in the per-component docs.md that HARD RULE #6 already sends you to.
  */
 function renderPickMd(manifests) {
-  // Backslash FIRST, then pipe — escaping the pipe alone is incomplete (CodeQL
-  // caught it). The demonstrated consequence is not a broken row, which is what I
-  // assumed first and could not reproduce against a real parser: it is that the cell
-  // silently MISREPORTS the manifest. A purpose of `a \| b` rendered as `a | b`, and
-  // `a \\ b` as `a \ b` — the backslash was consumed as an escape, so the pick list
-  // showed prose the manifest never wrote. Escaping in the other order is
-  // self-defeating for the same reason: it would re-escape the backslashes the pipe
-  // rule just added.
+  // EVERY cell is escaped, not just the prose one. `escalateTo`, tags and `related` are
+  // free-form manifest strings, and markdown-it silently TRUNCATES an over-long row to
+  // the header's column count — so one stray pipe in a tag shifts every later fact
+  // under the wrong header and drops the last column entirely, with no error anywhere.
   const cell = (s) =>
     String(s ?? '')
       .replace(/\s+/g, ' ')
       .replace(/\\/g, '\\\\')
       .replace(/\|/g, '\\|')
       .trim();
-  const clamp = (s, n) => (s.length <= n ? s : `${s.slice(0, n - 1).replace(/\s+\S*$/, '')}…`);
 
+  // First sentence, capped. A cut is ALWAYS marked — including when the first sentence
+  // fits, because manifest purposes are written head-first ("Use for X…") and tail-last
+  // ("…for Y, use `Z` instead"), so stopping at the sentence boundary silently drops the
+  // discriminating half and renders as a confident complete claim. The marker is the
+  // difference between "this is the whole story" and "open the docs.md".
+  const summarize = (full) => {
+    let sentence = full.match(/^(.{20,}?[.!?])(\s|$)/)?.[1] ?? full;
+    while (sentence.length < full.length && ABBREVIATION.test(sentence)) {
+      const rest = full.slice(sentence.length).replace(/^\s+/, '');
+      if (!rest) break;
+      sentence = `${sentence} ${rest.match(/^(.{20,}?[.!?])(\s|$)/)?.[1] ?? rest}`;
+    }
+    let cutByCap = false;
+    if (sentence.length > PURPOSE_CAP) {
+      let cut = sentence.slice(0, PURPOSE_CAP);
+      const space = cut.lastIndexOf(' ');
+      if (space > PURPOSE_CAP * 0.6) cut = cut.slice(0, space);
+      sentence = cut.replace(/[\s,;:.—-]+$/, '');
+      cutByCap = true;
+    }
+    // Marked only when the CAP cut it. Every purpose has more prose than its first
+    // sentence, so marking that case would put an ellipsis on all 61 rows and mean
+    // nothing; the first-sentence contract is stated once in the header instead.
+    return cutByCap ? `${sentence} …` : sentence;
+  };
+
+  const known = new Set(manifests.map((m) => m.name));
   const rows = manifests.map((m) => {
     const cap = capacityEntry(m).capacity;
-    // `axis:sweet/soft/hard` — ideal / crowds past / overflows past. The escalation
-    // target matters at pick time precisely when the count blows the budget.
-    const capacity = cap ? `${cap.axis}:${cap.sweet}/${cap.soft}/${cap.hard}` : '—';
-    const escalate = cap && Array.isArray(cap.escalateTo) && cap.escalateTo.length ? cap.escalateTo.join(', ') : '';
-    const purpose = clamp(cell(m.purpose || m.description), 96);
+    const escalate = cap && Array.isArray(cap.escalateTo) ? cap.escalateTo : [];
+    // A relation naming a component that does not exist would be laundered onto the
+    // primary pick surface, where it reads as a peer — `q-and-a` still points at a
+    // long-gone `faq`, and following it earns an `unknown-class` lint error whose fix
+    // text sends you to the very file this surface exists to avoid loading.
+    const related = (Array.isArray(m.related) ? m.related : [])
+      .map((r) => (typeof r === 'string' ? r : r?.name))
+      .filter((n) => n && known.has(n));
     return [
-      m.name,
-      manifestBucket(m),
-      `${m.form}/${m.function}/${m.substance}`,
-      capacity,
-      escalate,
-      (Array.isArray(m.tags) ? m.tags : []).join(' '),
-      purpose,
+      cell(m.name),
+      cell(manifestBucket(m)),
+      cell(`${m.form}/${m.function}/${m.substance}`),
+      cell(capacityCell(m)),
+      cell(escalate.join(', ')),
+      cell((Array.isArray(m.tags) ? m.tags : []).join(' ')),
+      cell(related.join(' ')),
+      summarize(cell(m.purpose || m.description)),
     ];
   });
-  rows.sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
+  // Canonical bucket order — the narrative sequence CLAUDE.md, components.md and the
+  // docs site all read in. Alphabetical would scramble the taxonomy on the one surface
+  // an agent reads top to bottom.
+  const bucketRank = new Map(BUCKETS.map((b, i) => [b, i]));
+  rows.sort((a, b) => (bucketRank.get(a[1]) ?? 99) - (bucketRank.get(b[1]) ?? 99) || a[0].localeCompare(b[0], 'en'));
 
-  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'escalates to', 'tags', 'purpose'];
+  const head = ['component', 'bucket', 'form/function/substance', 'capacity', 'escalates to', 'tags', 'see also', 'purpose'];
   const table = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((r) => `| ${r.join(' | ')} |`)];
 
   return `# Component pick list
@@ -830,14 +895,36 @@ by hand. One line per component: enough to CHOOSE one, and nothing more.
 anti-patterns — HARD RULE #6 requires that before you write the slide. Tools that need
 the full machine record read \`components.json\`; this file is not a substitute for it.
 
+**A zero-hit \`grep\` means read the 61 rows, not that no component fits.** Rows carry
+names, tags and a one-line purpose — not the full \`whenToUse\` prose — so a search for
+\`swot\`, \`screenshot\` or \`bullet\` can miss a component that handles it. The whole table
+is ~60 lines; skimming it is the fallback.
+
+**Every \`purpose\` here is the FIRST SENTENCE of the manifest’s.** Manifest prose is
+written head-first ("Use for X…") and tail-last ("…for Y, use \`Z\` instead"), so the
+half telling you when NOT to use a component is deliberately not on this surface — it
+is in the component’s \`.docs.md\`, which HARD RULE #6 requires you to open before
+writing the slide anyway. Check the \`see also\` column before committing. A \`…\` marks
+a first sentence long enough to be cut as well.
+
 **\`capacity\`** is \`axis:sweet/soft/hard\` — the ideal count, the count past which it
 crowds, and the count past which it overflows. **Count your content before committing
 to a component**: if your count exceeds \`hard\`, pick something from *escalates to* or
 split across slides. \`npm run lint:deck\` warns after the fact (\`capacity-crowd\` /
 \`capacity-overflow\`); this column is how you avoid the rework.
 
-A \`—\` capacity means the component holds no repeating axis (a title, a big number) —
-its budget is prose length, documented in its \`.docs.md\`.
+**A \`*\` means the budget VARIES BY DECK SIZE**, and the number shown is the wide
+(16:9) one. A \`mobile\`/\`strip\` deck holds fewer, a \`tall\` deck often more — \`list\` is
+5/6/6 wide but crowds at 5 on mobile. For any deck that is not wide, read the
+per-family numbers in the component's \`.docs.md\` before counting.
+
+A \`—\` capacity means **no count budget is published** for this component — not that it
+holds unlimited items. Where the budget is a prose length rather than a count (a title,
+a big number), the component's \`.docs.md\` is the record.
+
+**\`escalates to\`** is where to go when your count blows the budget; **\`see also\`** is
+where to go when the SHAPE is wrong — the components this one is most often confused
+with. Each relation's \`when\` clause is in this component's \`.docs.md\`.
 
 ${table.join('\n')}
 `;
@@ -903,6 +990,7 @@ module.exports = {
   renderPortalJson,
   renderGrammarJson,
   renderPickMd,
+  capacityEntry,
   resolvePalettes,
   listBasePalettes,
   paletteCss,
