@@ -258,7 +258,18 @@ with FLAT hexes. "Base wins" was accidentally protecting dark mode:
   `a11y-achromatopsia`, where `main` renders it at AA.
 
 So the cascade fix needs those flat tokens given dark companions FIRST, as its own
-change. Tracked on `claude/cascade-theme-wins`, not merged.
+change. The cascade flip itself is still tracked on `claude/cascade-theme-wins`, not
+merged (#1527).
+
+**Update 2026-08-16 — the prerequisite has landed** (#1640 item 1,
+`2026-08-16-flat-palette-dark-companions.md`). Every one of those flat overrides now
+carries a dark arm, measured on the real render both ways, and a unit gate
+(`test/unit/palette/paired-token-parity.test.js`) fails the next one. Two numbers
+above are worth correcting from that work: it is **11** palettes that diverge on
+`--seq-500`, not 12 — carbone's `--accent` is mode-invariant, so its flat anchor
+already resolves the same in both modes and needed no change; and the a11y trio's
+dark-mode floor was **1.25:1**, measured on the real render, rather than the 1.50:1
+estimated here.
 
 ## Logged, not fixed here
 

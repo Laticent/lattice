@@ -130,7 +130,14 @@
 
   /* Sequential ramp anchor — indaco's brand mid-blue. The 9 derivative
    * stops auto-derive in lattice.css :root via OKLab color-mix. */
-  --seq-500: var(--brand-accent);
+  /* Anchored on --accent BY REFERENCE, which is a light-dark() pair, so a dark
+   * canvas gets a value that reads there. A flat anchor leaves --seq-700/500/400
+   * (word-cloud `spectrum`) at 1–3:1 on dark. Deliberately not a hand-written
+   * pair: this palette's flat anchor was already, exactly, --accent's light arm,
+   * so copying --accent's dark hex here would duplicate a literal that nothing
+   * gates — re-tune --accent and the ramp would silently keep the stale one.
+   * See base.tokens.css § Sequential ramp. */
+  --seq-500: var(--accent);
 
   /* Tag (status badge) defaults to --chart-2 (warm vermilion) via
    * lattice.css; indaco doesn't need to override. */

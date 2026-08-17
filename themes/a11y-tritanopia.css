@@ -13,9 +13,22 @@
 @import 'a11y-base';
 
 :root {
-  --pass: #007131;
-  --warn: #B05139;
-  --fail: #6b1667;
+  /* PAIRED for the reason spelled out in a11y-deuteranopia.css: the `:root:root`
+   * scheme pin reaches neither a per-slide `_class: dark` (#1323) nor the
+   * status-marker pseudo on a title / closing / dark divider, and on both the
+   * flat light-tuned trio landed at 2.60 / 3.05 / 1.56:1 on redline's 12% band
+   * and 1.94:1 (Confidential) / 4.08:1 (WIP·Draft) on the stamp. Each curated hue
+   * is lifted up the OKLab lightness axis, hue kept, by the smallest amount that
+   * clears AA on the
+   * surface it lands on — pass 5.78:1, warn 4.62:1, fail 8.06:1 on redline's
+   * 12% band, fail 6.36:1 through the strike-through opacity (sampled off the
+   * rendered pixels — the .85 fades the band as well as the ink). Separation
+   * under tritanopia is ΔE 0.190, at the light trio's own 0.188. (Base's trio scores
+   * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
+   * where these arms stay inert until #1527.) */
+  --pass: light-dark(#007131, #5CB772);
+  --warn: light-dark(#B05139, #D7745B);
+  --fail: light-dark(#6b1667, #FFADF7);
   --chart-state-pass: #007131;
   --chart-state-warn: #B05139;
   --chart-state-fail: #6b1667;

@@ -559,8 +559,16 @@
    * Themes override one or all of these with their own brand-toned
    * variants (indaco picks --pass = brand-green-deep; magnolia picks
    * --fail = brand-garnet-deep; cuoio and carbone re-tune the trio).
-   * Each override SHOULD use light-dark() pairs so dark canvases keep
-   * AA contrast — the universal default above is the example to follow.
+   * Each override MUST use light-dark() pairs so dark canvases keep AA
+   * contrast — the universal default above is the example to follow. That
+   * includes the mode-invariant a11y palettes: their `:root:root` scheme pin
+   * makes the deck-wide toggle inert but reaches neither a per-slide `_class:
+   * dark`, which sets color-scheme on the SECTION (#1323), nor the status-marker
+   * pseudo, which base.variants.css pins to `color-scheme: dark` on every title /
+   * closing / non-light divider. A flat override was
+   * survivable only while this base won the cascade over the palette in the
+   * export path, quietly lending its dark arm back; it is not once the palette
+   * wins (#1527). See engineering/decisions/2026-08-16-flat-palette-dark-companions.md.
    *
    * Background soft-tints (--pass-bg, --warn-bg, --fail-bg) live in
    * each theme and derive from these via color-mix with 10% alpha. */
@@ -756,7 +764,17 @@
    * 2026-06-11 ADR §11); the old --scale-* names are retired.
    *
    * Default --seq-500 falls back to --accent so unstyled themes still
-   * have a usable ramp, but every theme should set it deliberately. */
+   * have a usable ramp, but every theme should set it deliberately.
+   *
+   * A THEME'S ANCHOR MUST BE A light-dark() PAIR unless the palette has only
+   * one canvas (carbone). The derivation above is canvas-blind — 600-900 shade
+   * toward black either way — so a single light-tuned anchor puts --seq-700 /
+   * -500 / -400, the three stops `word-cloud spectrum` paints as word fills, at
+   * 1-3:1 on a dark canvas. The fallback here is a pair (--accent is), which is
+   * what masked flat anchors for as long as this base won the cascade over the
+   * palette in the export path; it does not once the palette wins (#1527).
+   * Anchor the dark arm on the palette's own dark --accent.
+   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md. */
   --seq-500: var(--accent);
   --seq-50:  color-mix(in oklab, var(--seq-500)  8%, white);
   --seq-100: color-mix(in oklab, var(--seq-500) 18%, white);

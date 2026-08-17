@@ -14,10 +14,37 @@
 @import 'a11y-base';
 
 :root {
-  /* Status as luminance-separated greys — fail darkest, warn lightest. */
-  --pass: #4d4d4d;
-  --warn: #6E6E6E;
-  --fail: #2e2e2e;
+  /* Status as luminance-separated grays — on the light arm, fail darkest.
+   *
+   * PAIRED even though this palette is mode-invariant. The `:root:root` pin in
+   * a11y-base makes the deck-wide dark TOGGLE inert, but TWO seams reach past it:
+   * a per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
+   * and the status-marker pseudo, which base.variants.css pins to
+   * `color-scheme: dark` on every title / closing / non-light divider — so the
+   * dark arm also paints the Confidential / WIP stamp on an otherwise LIGHT
+   * slide. Both seams were broken, with different numbers, so each is given its
+   * own: on redline's 12% band the flat light grays landed at pass/warn/fail
+   * 1.92 / 3.04 / 1.25:1; on the stamp, against the bookend's black, the
+   * Confidential marker (--fail) sat at 1.55:1 and WIP/Draft (--warn) at 4.12:1.
+   *
+   * The dark arm is each gray lifted until it clears AA on the surface it
+   * actually lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN
+   * over --bg-alt, so the background moves with the value, and `del` renders at
+   * opacity .85 on top of that. Measured on that band: pass 6.56:1, warn
+   * 4.61:1, fail 9.23:1, and fail again at 7.15:1 once the strike-through
+   * opacity composites it — that last one sampled off the rendered pixels, since
+   * the .85 fades the band as well as the ink and a model of it does not. Fail
+   * takes the loudest rung, as on the light arm.
+   * The pairwise separation an achromat reads meaning from is 1.50:1 (light arm
+   * 1.61:1, gate floor 1.25).
+   *
+   * NOT to be confused with the EXPORT path's problem: there the base still
+   * wins the cascade, so a dark slide gets base's own trio
+   * (#4ADE80/#F97316/#F87171 — 1.01:1 for an achromat, fully collapsed) and
+   * these arms are inert until #1527 flips the order. */
+  --pass: light-dark(#4d4d4d, #B2B2B2);
+  --warn: light-dark(#6E6E6E, #909090);
+  --fail: light-dark(#2e2e2e, #D9D9D9);
   --chart-state-pass: #4d4d4d;
   --chart-state-warn: #6E6E6E;
   --chart-state-fail: #2e2e2e;
