@@ -119,8 +119,10 @@ The gallery's remaining 11 are not this class and are not all defects:
   ink that never reaches the page. Two are a 440px decorative watermark letter.
   Two are text over a background photograph the prober cannot sample.
 - **3 are a genuine, unrelated bug** — `journey` step labels at 1.87:1, white on
-  a pale blue-gray pill. Ink-on-fill, not ink-on-surface; logged separately
-  rather than pulled into this diff (HARD RULE #18, found-not-caused, off-path).
+  a pale blue-gray pill: `--on-accent` ink used against a fill that is not the
+  accent. Ink-on-fill, not ink-on-surface — logged as #1702 rather than pulled
+  into this diff (HARD RULE #18, found-not-caused, off-path). They are the last
+  genuine failures standing between the gallery and a clean gallery-wide gate.
 
 ## The part that prevents recurrence
 
