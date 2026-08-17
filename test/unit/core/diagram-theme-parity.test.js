@@ -16,8 +16,10 @@
  * one map, so a key exists on both paths or on neither. What this file guards is
  * the seam that remains — each path still supplies its own `readToken`, and each
  * still assembles the object at its own call site. Feed BOTH the same fake
- * reader and the results must be identical, key for key and value for value,
- * except for the enumerated `DIVERGENT_KEYS`.
+ * reader and the results must be identical, key for key and value for value —
+ * with NO exception set at all since #1674, when the last sanctioned divergence
+ * (`fontFamily`, forced by mermaid's directive sanitizer) was retired along with the
+ * directive transport that caused it.
  *
  * NON-VACUOUS BY DESIGN. Mutate one entry in the map, or make one adapter stop
  * routing through it, and `both paths agree` goes red. The two `mutating …`
@@ -34,8 +36,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   MERMAID_VAR_MAP,
-  MERMAID_DIAGRAM_FONT,
-  DIVERGENT_KEYS,
   buildDiagramTheme,
   diagramThemeTokens,
 } = require('../../../lib/core/mermaid-theme-map');
@@ -152,7 +152,7 @@ function flatten(obj, prefix = '') {
 }
 
 describe('diagram theme parity — both render paths, one map', () => {
-  test('both paths agree on every key outside DIVERGENT_KEYS', () => {
+  test('both paths agree on EVERY key — there is no sanctioned divergence left', () => {
     const pdf = flatten(pdfThemeVars(fakeReadToken));
     const preview = flatten(previewThemeVars(fakeReadToken));
 
@@ -162,27 +162,40 @@ describe('diagram theme parity — both render paths, one map', () => {
       'the two paths must expose the SAME themeVariables keys — a key on one path only is the #511 drift returning',
     );
 
-    const divergent = new Set(DIVERGENT_KEYS);
+    // NO EXCEPTION SET (#1674). This assertion used to skip `DIVERGENT_KEYS`, whose sole
+    // entry was `fontFamily`: the export shipped its config inside a `%%{init}%%`
+    // directive, mermaid's `sanitizeDirective` allow-list has no hyphen, and a real font
+    // stack could not survive it — so the export bought a monospace stack and the two
+    // paths were licensed to disagree. The export renders in an engine-owned page now
+    // and configures Mermaid through `initialize`, so the constraint is gone and so is
+    // the license. Comparing every key with no filter is the point: an exception set
+    // that still existed, even empty, is how the next divergence arrives pre-authorized.
     const mismatches = Object.keys(pdf)
-      .filter((k) => !divergent.has(k) && pdf[k] !== preview[k])
+      .filter((k) => pdf[k] !== preview[k])
       .map((k) => `${k}: pdf=${JSON.stringify(pdf[k])} preview=${JSON.stringify(preview[k])}`);
     assert.deepEqual(mismatches, [], 'these keys resolve differently on the two render paths');
   });
 
-  test('DIVERGENT_KEYS is exactly the sanctioned list, and each entry really does differ', () => {
-    // A divergence that stops diverging should be DELETED from the list, not left
-    // as a standing licence for the next one. The gate fails in both directions.
-    assert.deepEqual([...DIVERGENT_KEYS], ['fontFamily']);
-
+  test('fontFamily follows --font-body on BOTH paths — the retired divergence', () => {
+    // The specific key #1674 closed, pinned so a regression names itself rather than
+    // showing up as an anonymous mismatch above.
     const pdf = flatten(pdfThemeVars(fakeReadToken));
     const preview = flatten(previewThemeVars(fakeReadToken));
-    for (const key of DIVERGENT_KEYS) {
-      assert.notEqual(pdf[key], preview[key], `${key} is sanctioned as divergent but the two paths now agree — retire the sanction`);
-    }
-    // …and the divergence is the one documented: monospace for the directive
-    // filter, the deck's body font for the in-process initializer.
-    assert.equal(pdf.fontFamily, MERMAID_DIAGRAM_FONT);
+    assert.equal(pdf.fontFamily, '#font-body');
     assert.equal(preview.fontFamily, '#font-body');
+    // And the map really does read a TOKEN rather than carrying a literal — a literal
+    // would tie both paths together at the wrong value and still pass the test above.
+    assert.deepEqual(MERMAID_VAR_MAP.fontFamily, { var: 'font-body' });
+  });
+
+  test('the retired sanction is not quietly reintroduced', () => {
+    // `DIVERGENT_KEYS` is gone from the module. Asserting its ABSENCE keeps the
+    // retirement deliberate: re-exporting it — even as an empty list — would restore the
+    // "some keys may differ" affordance this change removed.
+    const map = require(path.join(REPO, 'lib', 'core', 'mermaid-theme-map.js'));
+    assert.equal('DIVERGENT_KEYS' in map, false,
+      'DIVERGENT_KEYS was retired in #1674 — a divergence that stops diverging is deleted, '
+      + 'not left as a standing license. Re-adding one needs its own decision record.');
   });
 
   test('mutating ONE map entry breaks parity — the test is not vacuous', () => {
@@ -289,8 +302,12 @@ describe('neither path keeps a private copy', () => {
     assert.equal((EMULATOR_SRC.match(/buildDiagramTheme\(/g) || []).length, 1,
       'the PDF path must keep exactly one palette-assembly site (resolveMermaidThemeVars, '
       + 'for the image-set look re-bake) — every other palette comes from the kernel');
-    assert.match(EMULATOR_SRC, /function resolveMermaidThemeVars\(paletteVars\) \{\n\s*return buildDiagramTheme\(/);
-    assert.match(EMULATOR_SRC, /function themeVarsForBand\(band\)/);
+    // The signature grew a `hand` argument in #1674 — the sketch re-point of
+    // `--font-body`, which this path's OFFLINE reader cannot see in the cascade the way
+    // the preview's `getComputedStyle` can. Match the shape loosely enough to survive
+    // that, and tightly enough that the one assembly site still routes through the map.
+    assert.match(EMULATOR_SRC, /function resolveMermaidThemeVars\(paletteVars[^)]*\) \{\n\s*return buildDiagramTheme\(/);
+    assert.match(EMULATOR_SRC, /function themeVarsForBand\(band, hand = false\)/);
   });
 
   test('the runtime no longer points at the emulator for an explanation', () => {

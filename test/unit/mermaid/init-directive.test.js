@@ -18,24 +18,12 @@ const fs     = require('fs');
 const path   = require('path');
 
 const {
-  DIRECTIVE_VALUE_OK,
-  DIAGRAM_FONT_STACK,
   readAuthorInit,
   authorPinsTheme,
-  engineInitConfig,
-  engineInitDirective,
-  withEngineInit,
 } = require('../../../lib/integrations/mermaid/init-directive');
 
-const VARS = { primaryColor: 'rgb(1, 2, 3)', clusterBkg: '#F2F5FA' };
-const ENGINE = engineInitConfig(VARS);
-
-// The payload of the FIRST `%%{init: …}%%` in a string, parsed.
-function firstPayload(src) {
-  const m = /%%\{\s*init:\s*([\s\S]*?)\}%%/.exec(src);
-  assert.ok(m, `expected an init directive in:\n${src}`);
-  return JSON.parse(m[1]);
-}
+// `VARS` / `ENGINE` / `firstPayload` are gone with the directive transport they served
+// (#1674) — there is no emitted payload left to parse.
 
 describe('mermaid init-directive: readAuthorInit', () => {
   test('reports absent when the source has no directive', () => {
@@ -144,7 +132,6 @@ describe('mermaid init-directive: readAuthorInit', () => {
     const src = `%%{init: ${deep}}%%\n%%{init: ${deep}}%%\nflowchart TB`;
     assert.deepEqual(readAuthorInit(src), { present: true, config: null });
     assert.doesNotThrow(() => authorPinsTheme(src));
-    assert.doesNotThrow(() => withEngineInit(src, ENGINE));
   });
 
   test('`initfoo:` is not an init directive', () => {
@@ -153,7 +140,8 @@ describe('mermaid init-directive: readAuthorInit', () => {
     // direction: an undetected directive means we inject ours FIRST and mermaid
     // still lets the author's win, so the palette lands either way.
     assert.equal(readAuthorInit('%%{initfoo: {"theme":"forest"}}%%').present, false);
-    assert.match(withEngineInit('%%{initfoo: {"theme":"forest"}}%%', ENGINE), /^%%\{init: /);
+    // …and it is therefore not a theme pin either, so the engine keeps the diagram.
+    assert.equal(authorPinsTheme('%%{initfoo: {"theme":"forest"}}%%'), false);
   });
 
   test('payload whitespace is trimmed in code, since the regex no longer does it', () => {
@@ -201,9 +189,7 @@ describe('mermaid init-directive: authorPinsTheme', () => {
     // a diagram whose author kept nothing.
     for (const bogus of ['', 'Forest', 'FOREST', 'nonsense', 'Dark']) {
       assert.equal(authorPinsTheme(`%%{init: {"theme":"${bogus}"}}%%\nflowchart TB`), false,
-        `theme:"${bogus}" is not resolvable by Mermaid, so it must not stand the engine down`);
-      assert.match(withEngineInit(`%%{init: {"theme":"${bogus}"}}%%\nflowchart TB`, ENGINE),
-        /^%%\{init: /, 'the engine directive still goes in');
+        `theme:"${bogus}" is not resolvable by Mermaid, so it must not read as an opt-out`);
     }
   });
 
@@ -226,161 +212,60 @@ describe('mermaid init-directive: authorPinsTheme', () => {
     assert.equal(authorPinsTheme("%%{INIT: {'theme':'forest'}}%%\nflowchart TB"), false);
     assert.equal(readAuthorInit("%%{INIT: {'theme':'forest'}}%%\nflowchart TB").present, false);
     assert.equal(authorPinsTheme("%%{Init: {'theme':'forest'}}%%\nflowchart TB"), false);
-    // …and the engine directive still goes in, so the palette lands.
-    assert.match(withEngineInit("%%{INIT: {'theme':'forest'}}%%\nflowchart TB", ENGINE), /^%%\{init: /);
   });
 });
 
-describe('mermaid init-directive: engineInitDirective', () => {
-  test('emits no single quotes — one would break mermaid\'s JSON.parse of the payload', () => {
-    // detectDirective swaps EVERY ' for " across the text before parsing, so a
-    // quoted font name inside a value invalidates the payload and mermaid drops
-    // every directive in the diagram — palette included. (Hyphen-free stack, so
-    // the charset filter isn't what's under test here.)
-    const out = engineInitDirective(engineInitConfig({
-      fontFamily: "'JetBrains Mono', monospace",
-    }));
-    assert.equal(out.includes("'"), false, 'no apostrophe survives into the directive');
-    assert.equal(firstPayload(out).themeVariables.fontFamily, 'JetBrains Mono, monospace');
-  });
-
-  test('the emitted payload survives mermaid\'s quote-swap + JSON.parse round trip', () => {
-    const out = engineInitDirective(engineInitConfig({
-      fontFamily: "'JetBrains Mono', monospace", clusterBkg: '#E8F0F7',
-    }));
-    const payload = /%%\{\s*init:\s*([\s\S]*?)\}%%/.exec(out)[1];
-    assert.doesNotThrow(() => JSON.parse(payload.replace(/'/g, '"')));
-  });
-
-  test('drops empty values so Mermaid falls back to its own default, not to ""', () => {
-    const payload = firstPayload(engineInitDirective(engineInitConfig({
-      primaryColor: 'rgb(1, 2, 3)', lineColor: '', textColor: '   ',
-    })));
-    assert.deepEqual(payload.themeVariables, { primaryColor: 'rgb(1, 2, 3)' });
-  });
-
-  test("drops a value mermaid's sanitizeDirective would blank — a hyphenated font stack", () => {
-    // /^[\d "#%(),.;A-Za-z]+$/ has no hyphen, so `Outfit, system-ui, sans-serif`
-    // becomes "" inside mermaid. A blank fontFamily is worse than none: mermaid
-    // MEASURES labels in the host default font while the page RENDERS them in the
-    // inherited one, so nodes come out too narrow and labels clip mid-word.
-    const payload = firstPayload(engineInitDirective(engineInitConfig({
-      fontFamily: "'Outfit', system-ui, sans-serif",
-      clusterBkg: '#E8F0F7',
-    })));
-    assert.equal('fontFamily' in payload.themeVariables, false,
-      'the hyphenated stack is dropped, not shipped to be blanked');
-    assert.equal(payload.themeVariables.clusterBkg, '#E8F0F7', 'clean values still ship');
-  });
-
-  test('the shared diagram font stack DOES survive the directive charset', () => {
-    // The reason diagrams are monospace is partly this: quotes, spaces and
-    // letters are allowed, hyphens are not.
-    assert.match(DIAGRAM_FONT_STACK, DIRECTIVE_VALUE_OK);
-    const payload = firstPayload(engineInitDirective(engineInitConfig({
-      fontFamily: DIAGRAM_FONT_STACK,
-    })));
-    assert.equal(payload.themeVariables.fontFamily, DIAGRAM_FONT_STACK);
-  });
-
-  test('every color form the engine actually emits survives the charset', () => {
-    for (const v of ['#E8F0F7', 'rgb(242, 245, 250)', 'rgba(0, 0, 0, 0.5)', '14px']) {
-      assert.match(v, DIRECTIVE_VALUE_OK, `${v} must survive sanitizeDirective`);
+describe('mermaid init-directive: the retired directive transport', () => {
+  // TWO WHOLE DESCRIBES LIVED HERE — `engineInitDirective` (14 assertions about the
+  // emitted payload surviving mermaid's quote swap, its value allow-list, and its
+  // empty-value trap) and `withEngineInit` (placement relative to YAML front matter and
+  // an author's own directive).
+  //
+  // #1674 deleted the functions, because it deleted the reason for them. They existed
+  // to carry the engine's config INTO the diagram source, which was the only channel
+  // available while the export shelled out to the `mmdc` binary. The export renders in a
+  // page the engine owns now and calls `mermaid.initialize`, so the config never becomes
+  // text and none of those hazards are on the engine's path.
+  //
+  // The coverage did not evaporate — it moved to where the behavior went:
+  //   - both paths send one config          → init-config-parity.test.js
+  //   - both paths resolve one palette      → ../core/diagram-theme-parity.test.js
+  //   - an author directive still wins      → the merge is Mermaid's own, exercised end
+  //                                           to end by test/integration/mermaid/
+  //   - the worker's page and isolation     → render-worker.test.js
+  //
+  // What remains here is the one assertion worth keeping: the transport stays retired.
+  test('the retired exports are gone, and no path rebuilds a directive', () => {
+    const mod = require('../../../lib/integrations/mermaid/init-directive');
+    for (const gone of ['engineInitDirective', 'withEngineInit', 'DIRECTIVE_VALUE_OK', 'DIAGRAM_FONT_STACK']) {
+      assert.equal(gone in mod, false, `${gone} was retired in #1674`);
+    }
+    // The reading half stays — an author's `theme:` pin is still an opt-out the export's
+    // look re-bake reports on, and Mermaid honors it natively.
+    for (const kept of ['readAuthorInit', 'authorPinsTheme', 'engineInitConfig', 'scanInitDirectives']) {
+      assert.equal(typeof mod[kept] === 'function', true, `${kept} must survive the retirement`);
     }
   });
-
-  test('drops themeVariables entirely when nothing resolved', () => {
-    const payload = firstPayload(engineInitDirective(engineInitConfig({ primaryColor: '', lineColor: '' })));
-    assert.equal('themeVariables' in payload, false);
-    assert.equal(payload.theme, 'base');
-  });
-
-  test('keeps non-string leaves (numbers, booleans, nested objects)', () => {
-    const payload = firstPayload(engineInitDirective(engineInitConfig({
-      fontSize: '14px', xyChart: { backgroundColor: '#fff', showTitle: false, plotReservedSpacePercent: 0 },
-    })));
-    assert.deepEqual(payload.themeVariables.xyChart, {
-      backgroundColor: '#fff', showTitle: false, plotReservedSpacePercent: 0,
-    });
-    assert.equal(payload.c4.c4ShapeInRow, 3);
-  });
 });
 
-describe('mermaid init-directive: withEngineInit', () => {
-  test('prepends the engine directive when the author wrote none', () => {
-    const out = withEngineInit('flowchart TB\n  A --> B', ENGINE);
-    assert.match(out, /^%%\{init: /);
-    assert.equal(firstPayload(out).themeVariables.clusterBkg, '#F2F5FA');
-    assert.match(out, /\nflowchart TB\n {2}A --> B$/);
-  });
-
-  test('the engine directive goes AFTER YAML front matter, never before it', () => {
-    // Mermaid requires front matter to be the first thing in the source.
-    const out = withEngineInit('---\ntitle: T\n---\nflowchart TB\n  A --> B', ENGINE);
-    assert.match(out, /^---\ntitle: T\n---\n%%\{init: /);
-  });
-
-  test('#1311: a color-neutral author directive keeps the engine palette', () => {
-    const src = '%%{init: {"flowchart": {"curve": "linear"}}}%%\nflowchart TB\n  A --> B';
-    const out = withEngineInit(src, ENGINE);
-    // Engine directive FIRST, author's second: mermaid merges init directives in
-    // source order with the later one winning, so the author's `curve` overrides
-    // ours and every key they did not set keeps the palette.
-    const engineAt = out.indexOf('%%{init: {"theme":"base"');
-    const authorAt = out.indexOf('"curve": "linear"');
-    // Both must be PRESENT: `indexOf` returns -1 for a missing needle, so a bare
-    // `a < b` would pass when the engine directive was never emitted at all.
-    assert.ok(engineAt >= 0, 'engine directive is present');
-    assert.ok(authorAt >= 0, 'author directive is present');
-    assert.ok(engineAt < authorAt, 'engine directive precedes the author directive');
-    assert.ok(out.includes(src), 'the author source is preserved verbatim');
-    assert.equal(firstPayload(out).themeVariables.clusterBkg, '#F2F5FA');
-  });
-
-  test('front matter AND an author directive: engine directive lands between them', () => {
-    const out = withEngineInit('---\ntitle: T\n---\n%%{init: {"layout":"elk"}}%%\nflowchart TB', ENGINE);
-    assert.match(out, /^---\ntitle: T\n---\n%%\{init: \{"theme":"base"/);
-    const engineAt = out.indexOf('"theme":"base"');
-    const authorAt = out.indexOf('"layout":"elk"');
-    assert.ok(engineAt >= 0 && authorAt >= 0, 'both directives are present');
-    assert.ok(engineAt < authorAt, 'engine directive precedes the author directive');
-  });
-
-  test('an author-pinned theme is left completely alone', () => {
-    const src = "%%{init: {'theme':'forest'}}%%\nflowchart TB\n  A --> B";
-    assert.equal(withEngineInit(src, ENGINE), src);
-  });
-
-  test('a non-string definition degrades to the engine directive alone', () => {
-    assert.match(withEngineInit(undefined, ENGINE), /^%%\{init: /);
-  });
-});
-
-/**
- * Structural guards on the two render paths.
- *
- * These are SOURCE assertions, not behavioral proof — they pin the wiring
- * decisions that make the two paths agree, which is exactly the kind of thing a
- * later edit undoes by accident without any test going red. Neither engine file
- * can be `require()`d in-process (both have side-effecting top levels; see
- * test/unit/parsing/source-parse.test.js), so they are read as text.
- *
- * The behavior itself is covered by
- * test/integration/mermaid/mermaid-init-merge.test.js (PDF path, through mmdc).
- * The live-preview path is exercised by hand against the real Playground —
- * there is no automated coverage of it here.
- */
 describe('mermaid init-directive: render-path wiring', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
   const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
-  test('the PDF path builds its Mermaid source through the kernel', () => {
+  test('the PDF path hands its config to the worker, and leaves the source alone', () => {
     const src = read('lattice-emulator.js');
     assert.match(src, /require\('\.\/lib\/integrations\/mermaid\/init-directive'\)/);
-    assert.match(src, /withEngineInit\(definition, engineInitConfig\(themeVars[^)]*\)\)/,
-      'renderMermaidOne composes its themed source via withEngineInit');
+    // #1674: the config is DATA in the worker job, not text prepended to the diagram.
+    assert.match(src, /config: engineInitConfig\(r\.themeVars, \{ look: r\.look \}\)/,
+      'the worker job carries the engine config per diagram');
+    assert.doesNotMatch(src, /withEngineInit/,
+      'the export must not compose a %%{init}%% directive again — that reintroduces the '
+      + 'sanitizer allow-list that forced DIVERGENT_KEYS');
     assert.doesNotMatch(src, /const hasInit = definition\.includes/,
       'the old all-or-nothing "has an init directive" skip is gone');
+    // And the definition reaches Mermaid AS AUTHORED, which is what makes the author's
+    // own directive the only one in the source.
+    assert.match(src, /definition: r\.definition,/);
   });
 
   test('the look re-bake asks whether the author PINNED a theme, not whether a directive exists', () => {
@@ -394,11 +279,10 @@ describe('mermaid init-directive: render-path wiring', () => {
   });
 
   test('the runtime keeps the palette on the GLOBAL config, not in the diagram source', () => {
-    // The runtime is in-process, so mermaid's own `updateCurrentConfig` merges an
-    // author `%%{init}%%` OVER siteConfig on every render — the #1311 guarantee
-    // comes free, with no per-diagram injection. Only the PDF path needs the
-    // kernel, because mmdc is a separate process and its config has to travel in
-    // the diagram source. Injecting into runtime sources too was tried and
+    // Both paths are now in-process with respect to Mermaid — the runtime in the
+    // preview frame, the export in the worker's page — so mermaid's own
+    // `updateCurrentConfig` merges an author `%%{init}%%` OVER siteConfig on every
+    // render and the #1311 guarantee comes free on both, with no per-diagram injection. Injecting into runtime sources too was tried and
     // reverted: a directive's themeVariables go through mermaid's much stricter
     // `sanitizeDirective`, which blanked the hyphenated font stack and left
     // Mermaid measuring in one font while the page rendered in another.
@@ -425,15 +309,19 @@ describe('mermaid init-directive: render-path wiring', () => {
     // the docs Studio's same-origin, un-sandboxed preview frame (HARD RULE #22).
     // strict is also mermaid's own default, which the PDF path never overrode.
     const src = read('lib/runtime/index.js');
-    // Quoted either way — it moved into PREVIEW_ONLY_CONFIG with #1347, where it lives
-    // BECAUSE it is one of Mermaid's secure keys and so cannot be shared through a
-    // %%{init}%% directive at all.
-    assert.match(src, /securityLevel: ['"]strict['"]/);
-    assert.doesNotMatch(src, /securityLevel: ['"]loose['"]/);
+    // It moved into PREVIEW_ONLY_CONFIG with #1347 (a Mermaid secure key could not ride
+    // a directive, so the export could not share it) and moved OUT again with #1674,
+    // into `engineInitConfig`, once the export got its own page and called `initialize`.
+    // So the value is now asserted where it lives: the shared config, sent by BOTH paths.
+    assert.doesNotMatch(src, /securityLevel: ['"]loose['"]/,
+      'the runtime must never reintroduce loose — it was a live XSS in the Studio frame');
+    const { engineInitConfig: cfg } = require('../../../lib/integrations/mermaid/init-directive');
+    assert.equal(cfg({}).securityLevel, 'strict',
+      'strict must be stated in the SHARED config, so the export carries it too');
     const { DIVERGENT_CONFIG } = require('../../../lib/integrations/mermaid/init-directive');
-    assert.ok(DIVERGENT_CONFIG.includes('securityLevel'),
-      'securityLevel must stay enumerated as divergent — a Mermaid secure key cannot ride a '
-      + 'directive, so "share it" would emit a key Mermaid silently drops');
+    assert.equal(DIVERGENT_CONFIG.includes('securityLevel'), false,
+      'securityLevel is SHARED since #1674 — leaving it enumerated as divergent would '
+      + 'license the export to drop back to Mermaid\'s default without a gate noticing');
   });
 
   test('both paths read the cluster fill from the containment token', () => {

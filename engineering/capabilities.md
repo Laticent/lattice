@@ -392,6 +392,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-css-values.js` | check-css-values — does the browser actually ACCEPT every value we ship? |
+| `tools/check-diagram-labels.js` | tools/check-diagram-labels.js — #1674's verification harness. |
 | `tools/check-family-tiers.js` | check-family-tiers — does each adaptive family tier actually FIRE at each deck |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
 | `tools/check-geometry-parity.js` | geometry-parity — does a slide measure the SAME on every surface it renders on? |

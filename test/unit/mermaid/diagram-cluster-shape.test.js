@@ -29,8 +29,6 @@ const path = require('node:path');
 const {
   DIAGRAM_NODE_PADDING,
   engineInitConfig,
-  engineInitDirective,
-  withEngineInit,
   readAuthorInit,
 } = require('../../../lib/integrations/mermaid/init-directive');
 
@@ -100,12 +98,18 @@ describe('node padding — one constant, both render paths', () => {
     assert.equal(cfg.flowchart.padding, DIAGRAM_NODE_PADDING);
   });
 
-  test('it survives serialization into the emitted %%{init}%% directive', () => {
-    // `prune()` drops empty values, and `directiveSafe` filters themeVariables —
-    // a number in a nested block has to come through both untouched, or the PDF
-    // path silently falls back to Mermaid's built-in 8.
-    const directive = engineInitDirective(engineInitConfig({ primaryColor: '#fff' }));
-    const parsed = JSON.parse(directive.replace(/^%%\{init:\s*/, '').replace(/\}%%$/, ''));
+  test('it survives the trip to the worker as JSON', () => {
+    // It used to have to survive SERIALIZATION INTO A DIRECTIVE, where `prune()` dropped
+    // empty values and `directiveSafe` filtered themeVariables — a number in a nested
+    // block had to come through both untouched or the export silently fell back to
+    // Mermaid's built-in 8. #1674 replaced that transport with a JSON job file handed to
+    // the render worker, which has no filters at all. The round trip is still worth
+    // pinning: the config crosses a process boundary, so anything unserializable (a
+    // function, an undefined, a symbol) would vanish silently here exactly as it used to
+    // vanish in the directive.
+    const cfg = engineInitConfig({ primaryColor: '#fff' });
+    const parsed = JSON.parse(JSON.stringify(cfg));
+    assert.deepEqual(parsed, cfg, 'the engine config must survive a JSON round trip intact');
     assert.equal(parsed.flowchart.padding, DIAGRAM_NODE_PADDING);
   });
 
@@ -125,16 +129,21 @@ describe('node padding — one constant, both render paths', () => {
   });
 
   test("an author's own flowchart block still wins, and keeps the padding it did not set", () => {
-    // The #1311 guarantee, now applying to geometry as well as colour: mermaid
-    // merges init directives in source order with the later winning, and the merge
-    // is deep — so naming `curve` overrides `curve` alone.
-    const authored = withEngineInit(
-      '%%{init: {"flowchart":{"curve":"linear"}}}%%\nflowchart LR\n A-->B',
-      engineInitConfig({ primaryColor: '#fff' }),
-    );
-    const { config } = readAuthorInit(authored);
-    assert.equal(config.flowchart.curve, 'linear', "the author's key wins");
-    assert.equal(config.flowchart.padding, DIAGRAM_NODE_PADDING, 'and everything they did not set is kept');
+    // The #1311 guarantee, now applying to geometry as well as color. It used to be OUR
+    // merge — the engine directive placed ahead of the author's, mermaid combining them
+    // in source order. Since #1674 the engine config goes to `mermaid.initialize` and
+    // the author's directive is the only one in the source, so the merge is mermaid's
+    // `updateCurrentConfig` layering a directive over siteConfig. Deep either way, and
+    // the OBSERVABLE contract is unchanged: naming `curve` overrides `curve` alone.
+    //
+    // Asserted on the shape both sides actually hand over, rather than on a directive
+    // string that no longer exists: the engine's block supplies the padding, and an
+    // author's block deep-merges over it.
+    const engine = engineInitConfig({ primaryColor: '#fff' });
+    const { config: authored } = readAuthorInit('%%{init: {"flowchart":{"curve":"linear"}}}%%\nflowchart LR\n A-->B');
+    const merged = { ...engine, ...authored, flowchart: { ...engine.flowchart, ...authored.flowchart } };
+    assert.equal(merged.flowchart.curve, 'linear', "the author's key wins");
+    assert.equal(merged.flowchart.padding, DIAGRAM_NODE_PADDING, 'and everything they did not set is kept');
   });
 });
 
