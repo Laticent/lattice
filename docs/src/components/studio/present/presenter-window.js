@@ -23,6 +23,7 @@
 //     Studio (React, via a thin wrapper) both pass closures into their state.
 
 import { createWheelGate, createZoomGesture, fitScale, keyAction, PRESENT_KEYMAP, padInset, swipeAction, zoomStep } from '../../../../../lib/core/present-transport.mjs';
+import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
 
@@ -116,7 +117,11 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'#latt-film{position:relative;transform-origin:top left;}' +
 		'#latt-film .lattice{margin:0;padding:0;}' +
 		slideBox(sw, sh) +
-		css + '</style></head><body>' +
+		// HARD RULE #22, stylesheet channel — the deck's composed sheet is caller
+		// influenced (a Studio theme's label/description sit in its comment header), and
+		// a `</style>` in it would end this element and turn the remainder into markup in
+		// the stage window. Everything above is ours; `css` is not.
+		sanitizeStyleText(css) + '</style></head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-fit"><div id="latt-film">' + html + '</div></div></div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +

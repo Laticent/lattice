@@ -354,18 +354,26 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `CHANGELOG` ledger, and generated bundles are exempt — but a **`changelog.d/`
   fragment is in scope**, so a new entry is gate-visible where the old one was not
   (#1366's new-entry half).)*
-- **#22 — Untrusted slide HTML reaches a preview frame ONLY through
-  `sanitizeSlideHtml`.** The docs-site Studio renders untrusted markdown (shared /
-  AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed `srcdoc`
-  iframe; un-sanitized engine HTML there is XSS → OpenRouter-key theft
-  (`engineering/decisions/2026-06-29-component-transformer-threat-model.md` §5.1, #616).
-  Every preview-frame BUILDER — any `docs/src` module that assembles a live preview
-  document, marked by the split runtime-`<script>` injection idiom — must run its slide
-  HTML through `sanitizeSlideHtml` (`docs/src/lib/sanitize-slide-html.js`, DOMPurify)
-  before it enters the frame. Add a new builder to the allowlist with its justification;
-  the gate fails on an un-listed builder, a builder that drops the call, AND a stale
-  entry. *(gated — `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS` in
-  `tools/check-ownership.js`, via `build:check`; `engineering/gotchas.md`.)*
+- **#22 — Untrusted content reaches a preview frame ONLY through a sanitizer, and the
+  frame has TWO channels: markup and stylesheet.** The docs-site Studio renders untrusted
+  markdown (shared / AI-generated decks + component skeletons) into a SAME-ORIGIN,
+  un-sandboxed `srcdoc` iframe; un-sanitized engine output there is XSS → OpenRouter-key
+  theft (`engineering/decisions/2026-06-29-component-transformer-threat-model.md` §5.1,
+  #616). Every preview-frame BUILDER — any `docs/src` module that assembles a live preview
+  document, marked by the split runtime-`<script>` injection idiom — owes **both**:
+  - **markup** → `sanitizeSlideHtml` (`docs/src/lib/sanitize-slide-html.js`, DOMPurify);
+  - **stylesheet** → `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`), owed by any
+    builder that embeds a `<style>` element. A `<style>`'s content is HTML **RAWTEXT**,
+    which ends at the first `</style` and knows nothing about CSS comments or strings — so
+    a `</style>` carried in theme or author CSS ends the element and the remainder is
+    parsed as markup in the live frame, *however well the HTML beside it was sanitized*.
+    The rule and the gate were markup-only until 2026-08-17, and a builder passed while
+    concatenating unsanitized theme CSS two lines above the sanitized HTML (#1709).
+  Add a new builder to the allowlist with its justification; the gate fails on an un-listed
+  builder, a builder that drops **either** call it owes, AND a stale entry. *(gated —
+  `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS` in `tools/check-ownership.js`,
+  via `build:check`; `engineering/gotchas.md`,
+  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md`.)*
 - **#23 — A verification claim names its surface and carries an artifact from it.**
   "Verified" / "works" / "done" is a claim about a specific running surface — the
   real Playground, the real export, the actual device — and it needs proof from

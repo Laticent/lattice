@@ -53,6 +53,7 @@ import {
 	PRINT_SHEETS,
 	resolvePrintSheet,
 } from '../../../lib/core/print-sheet.mjs';
+import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
@@ -332,7 +333,12 @@ export function buildSrcdoc({
 		slideBox(gw, gh) +
 		sectionRule +
 		activeRule +
-		css +
+		// HARD RULE #22, stylesheet channel. The engine sheet carries a theme's own
+		// comment header, and a Studio theme's label/description ride in it — so this
+		// string is caller-influenced. A `</style>` anywhere in it would end the element
+		// here (RAWTEXT does not care about CSS comments) and turn the rest into markup
+		// in this same-origin frame. `fontCss` and `printCss` are ours; `css` is not.
+		sanitizeStyleText(css) +
 		// printCss LAST so its `@page` wins. CSS merges same-named `@page` rules with
 		// the LATER declaration winning per-descriptor, and the engine `css` carries its
 		// own `@page{size:<slide-px>;margin:0}` (one-slide-per-page for the colour PDF).
