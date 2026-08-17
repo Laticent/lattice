@@ -182,11 +182,22 @@ The gallery's remaining 11 are not this class and are not all defects:
 way worth naming.** It repeated the prober's own comment — that the header is
 "fully occluded by the left rail, ink that never reaches the page" — without
 looking. Rendered, the header is plainly visible in white on the dark rail. The
-runs are still false positives, but for a different reason: the header box spans
-the full slide while the rail is a **sibling, not an ancestor**, so the prober
-climbs to `section` and samples white-on-white. The tool's comment is stale, and
-adopting a tool's self-description as evidence is the same error as trusting a
-single rasterizer.
+tool's comment is stale, and adopting a tool's self-description as evidence is the
+same error as trusting a single rasterizer.
+
+> **SECOND CORRECTION (2026-08-17, `2026-08-17-journey-stage-ink-and-contrast-gate.md`).**
+> The replacement explanation printed above this note — that the rail is "a
+> **sibling, not an ancestor**, so the prober climbs to `section`" — was ALSO wrong,
+> and was also written without probing the DOM. `underlays()` does look at siblings,
+> it *did* find `.panel-left`, and the rail *does* contain the header's text rect.
+> The rejection was on DOM ORDER: the rail is a later, in-flow sibling, the header is
+> out-of-flow chrome emitted first, and the prober approximated paint order by DOM
+> order. CSS paints in-flow backgrounds before positioned descendants, so the rail
+> really is underneath. That made these four runs a bug in the prober rather than an
+> inherent limitation, and they are now FIXED, not allowlisted. Two consecutive
+> records explained the same four rows with two different plausible mechanisms,
+> neither verified — which is the whole reason the follow-through below insists on
+> adjudicating each row against the rendered pixel.
 
 ## The part that prevents recurrence
 
@@ -199,3 +210,10 @@ The follow-through is to run it as a gate over the galleries so a new sub-AA run
 fails the build. That needs a decision on the WCAG-exempt decorative tier and on
 the occluded-run artifacts above, which are not fixable by any contrast change
 and would otherwise pin the budget above zero permanently.
+
+**LANDED (2026-08-17) — `2026-08-17-journey-stage-ink-and-contrast-gate.md`.** The
+gate runs in `test/integration/invariants/`, per-PR, over three rendered galleries.
+The #1702 `journey` defect above is fixed. The adjudication that gate required
+found that half the "artifacts" were not artifacts: four of the eight were the
+prober's own DOM-order paint approximation and were fixed, so the allowlist is two
+structural entries, not eight, and genuine failures are zero.
