@@ -17,6 +17,24 @@ import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Posture } from './studio-store';
 
+// The top bar's band rule. ONE constant because the app header and the pre-paint
+// skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two
+// copies would drift silently.
+//
+// It is `--text-muted`, not the `bg-border` a shadcn `Separator` defaults to. Measured
+// on the rendered bar in cuoio light, `--border` against the header ground is **1.32:1**
+// (1.42:1 dark) — a rule that faint cannot carry the banding it is there for, which is
+// why a visual review recommended deleting all three separators outright and letting
+// proximity do the work. The owner's call was the other way: keep the device, make it
+// readable. `--text-muted` is **2.64:1** — visible at a glance, and still well short of
+// `--text-body` (5.95:1), which at 1px reads as a border around a region rather than a
+// seam between bands. `h-6` over `h-5` for the same reason: a 24px rule in a 54px bar
+// reads as deliberate where 20px read as incidental.
+//
+// This is the ONLY place the weight is set. Do not restyle the shared `Separator`
+// primitive to match — other surfaces depend on its `bg-border` default.
+export const BAR_RULE = 'h-6 bg-[var(--text-muted)]';
+
 // The posture dial — the one always-visible, reversible control that replaced the
 // one-way graduation ratchet (2026-07-17-studio-persona-dial.md). Stops are named for
 // what you DO, never who you are, so no stop reads as a rank; the lit segment is the

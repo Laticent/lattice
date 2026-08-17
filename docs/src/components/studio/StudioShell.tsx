@@ -44,7 +44,7 @@ import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { type ComposeHandle, ComposeView } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -3696,6 +3696,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
 					</>
 				) : deckSwitcher}
+				{/* IDENTITY BAND: app · deck · view-of-the-deck (2026-08-16, owner's ordering).
+				    The dial sits WITH the deck rather than out in the action cluster, so the
+				    row's left-to-right reads as descending scope — which app, which deck, which
+				    view of it — and only then utilities and verbs. The rule is what makes that
+				    legible: without it the dial reads as a stray third object rather than the
+				    close of a band (measured, it also pulls the row's largest gap 144 → 130px).
+				    Cost, accepted knowingly: the dial no longer holds a fixed x. It now sits
+				    behind a content-sized, truncating deck pill, so its position moves with the
+				    deck's NAME and with the stop (Read renders a plain label, Write a switcher)
+				    — measured at 171px of travel across the three stops. That is the cheapest
+				    stability in the row to spend: this repo's own 2026-07-03 review found the
+				    mode control is "the least-used control on the bar". Present, Share and
+				    feedback keep their pinned x — see the tail note below. */}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 				<div className="flex-1" />
 				<Tip label="Search or run a command (⌘K)">
 					{/* Same contract as the full header's pill (see the note there): shrink-0 +
@@ -3707,25 +3722,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
 				</Tip>
-				{/* THE DIAL SITS INBOARD OF THE VERBS (2026-08-16). It used to follow them, so
-				    a three-segment LABELED mode control — plus the feedback icon — sat outboard
-				    of the bar's filled CTA. Across 17 comparable tools the accent CTA is the
-				    last LABELED action, with only icon-only utilities and the avatar outboard
-				    of it; the eye's terminal fixation landed on "Craft" rather than on the
-				    thing the bar exists to do. Moving the dial in front of Present/Share is the
-				    smallest edit that fixes it, and it keeps Present-before-Share — the reading
-				    the plurality of tools use and the one this bar already had.
+				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
+				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
+				    and Craft (#1371). It survives the dial moving to the identity band precisely
+				    BECAUSE the trailing run is what the invariant is about: everything the full
+				    header carries that this one doesn't (appearance, tours, their rules) sits
+				    LEFT of these three and is absorbed by the flex spacer, so the run's
+				    right-gaps are identical in both. Move or drop one element in this trailing
+				    run without doing the same in the full header and the whole cluster slides on
+				    every dial step. `studio-header-fit.spec.ts` asserts the x-stability but NOT
+				    the order, so the mirror is on you.
 				    Present/Share stay reachable at EVERY stop, never hidden behind a posture
-				    (2026-07-17-studio-persona-dial.md, T5 graft). */}
-				<Separator orientation="vertical" className="h-5" />
-				<PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />
-				{/* The tail — dial · verbs · feedback — mirrors the full header's tail EXACTLY,
-				    and that is the point: the dial, Present, Share and feedback all sit at the
-				    SAME x at Read, Write and Craft (#1371). The mirroring is what makes that
-				    true, so this order and the full header's must be changed together, always —
-				    drop or move one element here and the whole cluster slides on every dial
-				    step. `studio-header-fit.spec.ts` asserts the x-stability, but NOT the
-				    order, so the mirror is on you. */}
+				    (2026-07-17-studio-persona-dial.md, T5 graft), and the accent CTA is still
+				    the last LABELED control — only the icon-only feedback button sits outboard,
+				    which is what the comparable set does. */}
 				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{feedbackButton}
@@ -3805,9 +3815,30 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    desktop this row reads as a wider phone header, not a squeezed desktop one)
 				    and is the same source of truth as every other gate here: the app's 1100px
 				    boundary, never Tailwind's `sm`/`lg`. */}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 
 				{deckSwitcher}
+
+				{/* IDENTITY BAND — the twin of the slim header's; see the long note there for
+				    the ordering rationale and the x-drift it knowingly costs. Both headers must
+				    carry this pair, or the two rows disagree about where the dial lives and the
+				    stop change becomes a jump.
+				    Unlike the rule above it, this one is NOT `!compact`: the tablet renders this
+				    Gated `!compact`, NOT `!mobile`, and that is a budget fact rather than a taste
+				    one: a rule costs 7px here (1px + one 6px gap) and `studio-header-fit.spec.ts`
+				    measures ~19px of spare at the 700px floor against a ratcheted floor of 16 —
+				    so the tablet has about 3px to spend and this does not fit. Shipped at
+				    `!mobile` it took that floor to 9px and turned the guard red, which is the
+				    guard doing its job. Below desktop the row already does without the other two
+				    rules and reads as a wider phone header (#1408), so the band closes on
+				    proximity there instead.
+				    The dial keeps its WORDS at every width it renders at (≥700) — why, and what
+				    that width is bought with, is on the dial itself in `chrome-parts.tsx`; the
+				    short version is #1401: icon-only made the stops unreachable on touch, and
+				    the row pays for the labels by keeping tours in ⋯ and running at the phone's
+				    density below desktop. */}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 
 				<div className="flex-1" />
 
@@ -3855,7 +3886,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* Desktop dividers band the right cluster by altitude — utilities |
 				    deliverable verbs | session panels | app surfaces — so global and
 				    deck controls don't read as one interleaved run (2026-07-03). */}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),
@@ -3920,32 +3951,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. At ≥1100
-				    this still renders in BOTH headers at the same slot, so the #1371 tail-x
-				    invariant (the dial / Present / Share / feedback hold their x across the
-				    dial) is untouched; below 1100 all three stops render THIS header, so there
-				    is no second row for it to disagree with. */}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
-				{/* The posture dial — the always-visible, reversible way to any stop. Present
-				    at every stop (never a buried setting), so no stop can read as a room you
-				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
-				{/* IT SITS BEFORE THE VERBS (2026-08-16) — the mirror of the slim header's tail,
-				    which is what makes the #1371 x-stability true. See the long note there; the
-				    short version is that a labeled three-way mode control outboard of the bar's
-				    filled CTA took the eye's terminal fixation, and no comparable tool puts a
-				    labeled action outboard of its accent CTA. Change one header's order without
-				    the other and the cluster slides on every dial step. */}
-				{/* WORDS AT EVERY WIDTH THIS RENDERS AT (≥700px). The dial shipped icon-only
-				    below 1100 for one release and that was the wrong trade (#1401): on a touch
-				    tablet the words became UNREACHABLE, not merely hidden — Radix's tooltip
-				    returns early on `pointerType === 'touch'` and the tablet ⋯ menu has no
-				    Read/Write/Craft rows — and unlike ▶ Present or the share glyph, a three-way
-				    MODE control whose icons are book / pencil / layers has no conventional
-				    reading. The width it costs is bought elsewhere in this row instead: the
-				    tours moved into ⋯ and the row runs at the phone's density below desktop.
-				    Below 700 the dial is not in the header at all (`!mobile`) — the phone
-				    carries the density on its own pane bar. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
+				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. It closes
+				    the utilities band; the verbs open after it. */}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{/* The dial used to sit HERE, between this rule and the verbs. It moved up to
+				    the identity band beside the deck (2026-08-16) — the note is on its new site.
+				    What stayed behind is the rule, which now reads as "utilities end, actions
+				    begin" instead of "…and now a mode control". */}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width

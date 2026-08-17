@@ -1,4 +1,4 @@
-import { expect, test } from './studio-fixture';
+import { CHROME, expect, test } from './studio-fixture';
 
 // SHELL ↔ APP CONTROL PARITY (#1438 follow-up).
 //
@@ -183,8 +183,20 @@ for (const c of CASES) {
 			expect(shellOnes.length, `control count differs for "${name}"`).toBe(appOnes.length);
 			for (const [i, a] of appOnes.entries()) {
 				const s = shellOnes[i];
-				const tol = name.toLowerCase().includes('deck') ? PILL_TOL : TOL;
+				const isPill = name.toLowerCase().includes('deck');
+				// The dial moved into the identity band, directly downstream of the deck pill
+				// (2026-08-16). Its LEFT is therefore a function of the pill's width, so it
+				// inherits the pill's structural variance — the reserved slide-count slot the
+				// shell must not draw. Measured in a production build: 3px, while a dev build
+				// shows 0.19px, which is exactly the font-metric seam PILL_TOL already exists
+				// for. Widening `left` here is inheritance, not a fudge: the drift has one
+				// cause and it is already conceded one control upstream.
+				// Deliberately NOT widened for width/height — the dial's own size is fixed by
+				// its content, owes nothing to the pill, and a real size divergence must still
+				// fail at TOL.
+				const inheritsPillDrift = (CHROME.postureStops as readonly string[]).includes(name);
 				for (const [axis, k] of (['left', 'top', 'width', 'height'] as const).entries()) {
+					const tol = isPill || (inheritsPillDrift && k === 'left') ? PILL_TOL : TOL;
 					expect(
 						Math.abs(s.box[axis] - a.box[axis]),
 						`${name} ${k} @${c.w}/${c.stop}: shell ${s.box[axis]} vs app ${a.box[axis]}`,

@@ -6,7 +6,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 
@@ -196,11 +196,21 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				{/* The rule between the launcher and the deck pill — `!compact` in the app, so it
 				    exists ONLY in the desktop full header, which is the Craft stop. */}
 				<span className="ssr-craft-lead hidden">
-					<Separator orientation="vertical" className="h-5" />
+					<Separator orientation="vertical" className={BAR_RULE} />
 				</span>
 
 				<DeckPill title={deckTitle} />
 				<ReadTitle title={deckTitle} />
+				{/* IDENTITY BAND — the rule + dial the app renders right after the deck at every
+				    width from 700 up (`!mobile`). It lived in the three tails below until
+				    2026-08-16; the app moved it up here, so this must too or the parity spec
+				    fails on every control right of the deck pill. */}
+				<span className="hidden min-[1100px]:contents">
+					<Separator orientation="vertical" className={BAR_RULE} />
+				</span>
+				<span className="hidden min-[700px]:contents">
+					<StopDial />
+				</span>
 				<div className="flex-1" />
 
 				{/* PHONE tail: mode · workspace settings · menu. */}
@@ -210,9 +220,8 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* TABLET tail: the dial · Present · Share · Coach · Chat · feedback · Settings · mode · Menu. */}
+				{/* TABLET tail: Present · Share · Coach · Chat · feedback · Settings · mode · Menu. */}
 				<span className="hidden min-[700px]:max-[1100px]:contents">
-					<StopDial />
 					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Coach"><Gauge className="size-[18px]" /></Button>
@@ -223,15 +232,14 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* DESKTOP tail (slim header): ⌘K · rule · dial · Present · Share · feedback.
+				{/* DESKTOP tail (slim header): ⌘K · Present · Share · feedback. The dial and its
+				    rule are in the identity band above, not here.
 				    The ⌘K pill grows its label at Tailwind's `xl`, exactly as the app's does. */}
 				<span className="ssr-desktop-tail hidden min-[1100px]:contents">
 					<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
-					<Separator orientation="vertical" className="h-5" />
-					<StopDial />
 					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
@@ -249,10 +257,13 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 							<Button variant="ghost" size="icon-sm" aria-label="Theme"><Palette className="size-[18px]" /></Button>
 							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
 						</span>
-						<Separator orientation="vertical" className="h-5" />
+						<Separator orientation="vertical" className={BAR_RULE} />
 						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--text-body)]"><MonitorPlay className="size-[18px]" /></Button>
-						<Separator orientation="vertical" className="h-5" />
-						<StopDial />
+						{/* The seam the dial used to sit behind. The dial moved to the identity band in
+						    2026-08-16 but this rule did NOT — in the app it still closes the utilities
+						    band before the verbs, so dropping it here left the shell one rule short and
+						    shifted every control after it. */}
+						<Separator orientation="vertical" className={BAR_RULE} />
 						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 						<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>

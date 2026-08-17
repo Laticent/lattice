@@ -239,6 +239,84 @@ to **"Workspace stop"**, the product's own vocabulary.
   shadcn's `has-[>svg]:px-2.5` outranks both. Remove the icon from either button
   and the headers silently diverge, breaking the tail invariant.
 
+## Round two — the owner's ordering, and the rule that makes it legible
+
+After seeing the first cut, the owner proposed a different order —
+**logo · deck · dial · … ** — and separately asked to keep a divider. Both
+shipped. The reasoning, and the two things it cost:
+
+**Why the order.** It reads as **descending scope**: which app, which deck, which
+view of that deck, and only then utilities and actions. Nothing in the original
+five-lens review proposed it — all three lenses that ruled put the dial in the
+right cluster — but the constraints audit had already found that the dial's old
+position *"sits after Present/Share rather than before. No doc says why,"* i.e.
+it was accreted, not decided. Prior art also corrected the brief's premise:
+*"the reliable constraint is inboard-of-CTA, not left,"* and **Figma Slides puts
+its slides/design mode toggle on the left of the toolbar** — so the head of the
+row is precedented, not novel.
+
+**Why the rule earns its place, measured.** Ordering alone changed nothing
+compositionally — max gap 144 → 143px, identical ink, identical island count. It
+is the **divider** that does the work: with it the row's largest gap drops to
+**130px**, because the left group gains a real terminal edge instead of letting
+the dial float against open space. Without it the dial reads as a stray third
+object; with it, `logo │ deck │ dial` reads as three deliberate bands.
+
+**And the rule had to get heavier to be worth having.** The visual lens measured
+`--border` against the bar ground at **1.32:1** (light) / 1.42:1 (dark) and
+recommended deleting all three separators, on the grounds that a hairline that
+faint cannot carry banding. The owner's call went the other way — keep the
+device, make it readable. `--text-muted` measures **2.64:1**: visible at a
+glance, still short of `--text-body` (5.95:1), which at 1px reads as a border
+around a region rather than a seam between bands. Weight lives in one exported
+constant, `BAR_RULE`, because the app header and the pre-paint skeleton both draw
+it and the parity spec compares their boxes.
+
+### The two costs, both real, both accepted knowingly
+
+**1. The dial no longer holds a fixed x** — measured **171px** of travel across
+the three stops at 1440. It now sits behind a content-sized, truncating deck
+pill, so its position moves with the deck's *name* and with the stop (Read
+renders a plain label, Write a switcher). This is the cheapest stability in the
+row to spend: the 2026-07-03 review found the mode control is *"the least-used
+control on the bar."* Present, Share and feedback keep their pinned x — the
+#1371 invariant survives because it is about the **trailing run**, and everything
+the full header carries that the slim one doesn't still sits left of those three,
+absorbed by the flex spacer.
+
+**2. The rule is DESKTOP-ONLY, and that is a budget fact.** A rule costs 7px here
+(1px + one 6px gap). `studio-header-fit.spec.ts` measures ~19px of spare at the
+700px floor against a ratcheted floor of 16 — about **3px to spend**. Shipped at
+`!mobile` it took that floor to **9px** and turned the guard red, which is the
+guard working exactly as its own comment promised (*"the answer is to free width
+in the row, NOT to lower this number"*). Below desktop the row already does
+without the other two rules and reads as a wider phone header (#1408), so the
+band closes on proximity there instead. **The tablet needed no change at all** —
+it already ordered the row logo · deck · dial · verbs, which is precisely why the
+owner liked the tablet rendition and asked desktop to match it.
+
+### Two failures this caused, and what they taught
+
+**A missing rule in the skeleton.** Removing the dial from the SSR craft tail
+also removed the rule that preceded it — but in the app that rule stayed, now
+reading as "utilities end, actions begin". The shell rendered **3** rules where
+the app rendered **4**, shifting every control after it. Caught by
+`studio-shell-parity`, fixed by restoring the rule. The lesson is the one the
+skeleton's own header comment already states: it mirrors control-for-control, and
+an omission fails rather than ships.
+
+**A 3px drift that only exists in production.** With the dial downstream of the
+deck pill, `studio-shell-parity` failed on the dial's `left` by 3px at 1440 — in
+a **preview build only**; a dev build measures **0.19px**. The cause is the seam
+`PILL_TOL` already exists for and the spec already names: *"the deck pill reserves
+a slot for a per-deck slide count the shell must not draw, so a few px there is
+structural."* The dial now inherits that variance positionally, so `PILL_TOL`
+extends to its `left` — and **only** its `left`. Its width and height stay at
+`TOL`, because the dial's own size owes nothing to the pill and a real size
+divergence must still fail. This is inheritance of a conceded drift, not a
+widened guard; anything placed downstream of that pill in future inherits it too,
+which is worth knowing before putting anything else there.
+
 ## The prior-art survey the reorder rests on
 
 Recorded here because two load-bearing claims in the source comments cite it, and
