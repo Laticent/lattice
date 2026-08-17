@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The `journey` stage ribbon painted 92%-white labels on a fill that is only dark on one of the three canvases it renders on — 1.87:1 in indaco, and 31 of 64 palette x scheme pairs below the 3:1 floor, EVERY light-mode pair. Two fixes were legitimate (darken the ink, or push the fill dark); the ink won, because the fill is canvas-derived by construction and `section.print` had already made exactly this fix one layer down by remapping `--on-dark-primary` to print's heading ink. Then the follow-through from `2026-08-17-dark-surface-ink.md` - `tools/check-slide-contrast.js` becomes a per-PR gate over three rendered galleries, with a two-entry allowlist that fails both ways. Adjudicating the 8 "prober artifacts" that gate was scoped to absorb found that 4 were a bug IN THE PROBER, not an inherent limit - it approximated paint order by DOM order and discarded a split rail as the backdrop for chrome emitted before it. Fixed instead of allowlisted; the allowlist is 2 entries, not 8. The predecessor record's explanation of those 4 runs (sibling-not-ancestor) was ALSO wrong and is corrected there.
+summary: The `journey` stage ribbon painted 92%-white labels on a fill that is only dark on one of the three canvases it renders on — 1.87:1 in indaco, and 31 of 64 palette x scheme pairs below the 3:1 floor, EVERY light-mode pair. Two fixes were legitimate (darken the ink, or push the fill dark); the ink won, because the fill is canvas-derived by construction and `section.print` had already made exactly this fix one layer down by remapping `--on-dark-primary` to print's heading ink. Print output is byte-identical (verified on a real print render); dark mode was never the defect but is NOT unchanged either - 17 palettes now use their own tinted heading ink and 10 of 64 rows lose a little contrast at an altitude where it cannot matter (worst 15.26 -> 14.09, lowest dark row 11.30). Then the follow-through from `2026-08-17-dark-surface-ink.md` - `tools/check-slide-contrast.js` becomes a per-PR gate over three rendered galleries, with a two-entry allowlist that fails both ways. Adjudicating the 8 "prober artifacts" that gate was scoped to absorb found that 4 were a bug IN THE PROBER, not an inherent limit - it approximated paint order by DOM order and discarded a split rail as the backdrop for chrome emitted before it. Fixed instead of allowlisted; the allowlist is 2 entries, not 8. The predecessor record's explanation of those 4 runs (sibling-not-ancestor) was ALSO wrong and is corrected there.
 builds-on: 2026-08-17-dark-surface-ink.md, 2026-08-11-on-dark-ink-tiers.md, 2026-07-03-semantic-html-accessibility.md
 ---
 
@@ -83,8 +83,31 @@ band.
 
 **Print output is byte-identical.** In the print block the old
 `var(--on-dark-primary)` already resolved to `--print-text-heading`; the new
-`var(--text-heading)` resolves to the same token. The fix is invisible there by
+`var(--text-heading)` resolves to the same token. Verified on a rendered print-mode
+deck rather than reasoned: `--text-heading`, `--on-dark-primary` and
+`--print-text-heading` all compute to `rgb(0,0,0)` there, and the stage label paints
+black on the near-white print fill. The fix is invisible on that canvas by
 construction, which is the strongest evidence it is the right one.
+
+**Dark mode is NOT unchanged, and the first draft of this record said it was.**
+The two tokens are different values on every palette: `--on-dark-primary` is white
+at 92% alpha, `--text-heading` on a dark canvas is the theme's own heading ink —
+pure white on 15 palettes and a deliberately tinted off-white on 17 (burgundy
+`#f0e2ce`, mustard `#f0e5c8`, brina `#e6edf4`, …). So 17 palettes now ink the stage
+label with the same colour as every other heading on the slide instead of neutral
+white, which is a small improvement in theme coherence rather than a cost.
+
+Ten of the 64 rows lose a little contrast as a result. Measured, worst first:
+burgundy 15.26 → 14.09, mustard 14.89 → 13.92, laguna 13.45 → 12.85, concrete
+11.54 → 11.30, brina 13.59 → 13.47. The lowest dark-mode row after the change is
+**11.30:1**, two and a half times the AA floor, so none of this is a regression in
+any sense that matters — but "renders unchanged" was simply false and is the kind
+of claim this whole record exists to stop being written unverified.
+
+Preserving dark mode exactly would mean `light-dark(var(--text-heading),
+var(--on-dark-primary))`, which was considered and rejected: it re-pins the ink to a
+canvas, which is the defect, and `light-dark()` in a `:root` custom property resolves
+against the ROOT scheme, so a per-slide register would not reach it anyway.
 
 ### Both declaration sites, and why there are two
 
