@@ -1,0 +1,1 @@
+- The page-count label in `tools/pixel-check.js` and `tools/preview.js` reported the wrong direction: a page the committed golden had and the fresh render did **not** was labeled `new page added` rather than `page removed`, and vice versa. A render that dropped three pages therefore read as one that added three. Both copies now share one `pageDeltaNote` definition.

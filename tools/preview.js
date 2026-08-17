@@ -266,6 +266,23 @@ function _pageCount(pdf) {
   } catch { return 0; }
 }
 
+// Which side of a page-count change a page fell on. `baseline` is the page from
+// the COMMITTED golden, `fresh` the one from the render under test; each is a
+// path or null. A page only the baseline has was REMOVED by the render; a page
+// only the fresh render has was ADDED.
+//
+// This read BACKWARDS in both copies of it until #1686's follow-on. Investigating
+// examples/portrait-roadmap — a deck whose fresh render is 5 pages against an
+// 8-page golden — the report labeled the three DROPPED pages "new page added",
+// which is precisely the wrong steer for the question the gate exists to answer:
+// did this render lose content? One definition now, imported by pixel-check.js,
+// so the two cannot drift apart again (HARD RULE #1).
+function pageDeltaNote(baseline, fresh) {
+  if (baseline && !fresh) return 'page removed';
+  if (!baseline && fresh) return 'new page added';
+  return null;
+}
+
 function diffPages(committedPdf, freshPdf, deck) {
   if (!fs.existsSync(committedPdf) || !fs.existsSync(freshPdf)) {
     return { ok: false, error: 'PDF missing for diff' };
@@ -284,7 +301,7 @@ function diffPages(committedPdf, freshPdf, deck) {
     const oldP = oldPngs[i] ? path.join(tmpDir, oldPngs[i]) : null;
     const newP = newPngs[i] ? path.join(tmpDir, newPngs[i]) : null;
     if (!oldP || !newP) {
-      diffs.push({ page: i + 1, pixels: -1, note: oldP ? 'new page added' : 'page removed' });
+      diffs.push({ page: i + 1, pixels: -1, note: pageDeltaNote(oldP, newP) });
       continue;
     }
     const diffPng = path.join(tmpDir, `diff-${String(i + 1).padStart(2, '0')}.png`);
@@ -496,5 +513,6 @@ module.exports = {
   SCOPE_LEVELS,
   detectScope,
   decksUsingComponent,
+  pageDeltaNote,
   preview,
 };
