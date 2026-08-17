@@ -40,7 +40,7 @@ logo-scale: 1.0                  # optional — size multiplier, default 1
 
 | Directive | Values | Behavior |
 |---|---|---|
-| `logo:` | image path | **Required to activate.** Path is resolved relative to the deck source. SVG and PNG both work. |
+| `logo:` | image path or URL | **Required to activate.** A relative path resolves against the deck source (but see the output-directory gotcha below). An absolute `https://`, protocol-relative `//` or `data:` value is used verbatim and works cross-origin — nothing in the engine, the sanitizer or the docs site filters it. A site-relative `/mark.svg` is re-based onto the render's asset origin on the web-preview path (`resolveInlineImageSrcs`), which on the shipped Studio is the page's own origin. SVG and PNG both work. |
 | `logo-style:` | `auto` (default), `brand` | `auto` → faint grayscale watermark, brightness-inverted on dark canvases. `brand` → original colors on a soft surface plate. Use `brand` only for marks whose colors carry meaning (government insignia, university crests). |
 | `logo-on:` | `all` (default), `title` | `all` → logo on every slide. `title` → only on the title slide. |
 | `logo-x:` | `0`–`100` | The mark's **center**, as a percentage of the slide width. Unset → the mark hugs the top-right corner at the frame inset. Setting either axis switches the mark from corner-hugging to centered-on-its-point. |
@@ -76,15 +76,43 @@ Three render paths, one contract:
 
 | Path | Parser | Location |
 |---|---|---|
-| engine (HTML) | `applyDeckLogoToHtml` | `lib/integrations/markdown-it/plugins.js` |
-| lattice-emulator | the SAME function, `require`d | `lattice-emulator.js:1809` |
-| browser (preview pane) | `applyDeckLogoFromFrontMatter` | `lattice-runtime.js` |
+| engine (HTML) — CLI, emulator, Studio, playground | `applyDeckLogoToHtml` | `lib/integrations/markdown-it/plugins.js` |
+| browser (a document the engine did not inject into) | `applyDeckLogoFromFrontMatter` | `lattice-runtime.js` |
 
-There are **two** implementations, not three: the emulator imports the engine's, so
-only the runtime is a genuine mirror and only it can drift. (This table used to
-describe an "inline implementation, same shape" in the emulator; there has never been
-one.) A change to `deckLogoVars` or `deckLogoInCorner` must land in the runtime's
-`applyLogoPlacement` in the same commit (HARD RULE #1).
+There are **two** implementations, and the emulator is not one of them: it renders
+through `lib/engine`, which runs the engine's pass, so only the runtime is a genuine
+mirror and only it can drift. (The emulator used to re-run the engine's pass a second
+time, post-stamp; that call is gone — see below.) A change to `deckLogoVars` or
+`deckLogoInCorner` must land in the runtime's `applyLogoPlacement` in the same commit
+(HARD RULE #1).
+
+**Until 2026-08-16 the engine row of that table was a claim, not a behavior** (#1652).
+`applyDeckLogoToHtml` selected slides by `data-lattice-slide` — an attribute only the
+Marp/emulator re-tag writes, and one the owned `lib/engine` never emits — so on the
+canonical render path the function matched nothing and returned its input unchanged.
+Every export still showed a logo, which is why it went unnoticed for so long: there the
+emulator re-ran the pass after stamping the attribute. On a browser surface nothing
+stamps it, there is no baked front-matter block and no `.md` URL for the runtime mirror
+to fetch, so both injectors no-oped — and the Studio, the playground and every live
+preview showed no logo at all, for any value. It now selects slides with
+`splitSections`, the shared depth-aware walker the marker berths and the
+progress/watermark Tiles already use at that stage, so ONE pass inside `engine.render`
+serves every render path and the emulator's second call is gone.
+
+**The mark is the section's first child, and that is load-bearing for the injectors, not
+for the CSS.** `applyDeckLogoToHtml` therefore runs LAST of the section-level chrome
+injectors — after `applyImageStructure` (which would otherwise fold the mark into
+`.image-text`) and after `applyBackdropToHtml` (whose finish wrapper would otherwise sit
+in front of it). The first draft of this change ran it first and identified "already has
+a mark" by position, which on a `finish` slide is exactly where the backdrop wrapper
+lands: the emulator's second pass looked, saw a backdrop, and stacked a SECOND logo at
+~0.70 composite opacity on three of the six committed decks that use `logo:`. Both
+guards are position-independent now, and `test/fixtures/deck-logo.md` carries a finish
+slide so the parity test counts marks instead of only looking at the front.
+
+Exports are unchanged, measured rather than argued: all five committed logo decks
+(`finish-backdrops`, `marp-export-fidelity`, `frame-chrome-and-notes`, `marker-corner`,
+`logo.gallery`) render **0 changed pixels** against a fresh `main` render, page by page.
 
 Each path emits two things: the `<img class="deck-logo">` as the section's first
 child, and — **on the `<section>`, not on the img** — the `--logo-*` placement

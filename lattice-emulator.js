@@ -2094,19 +2094,23 @@ function applyHighlighting(html) {
 
 const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 
-// Deck-logo (`logo:`). The Form toggle + the masthead-meta / progress-rail /
-// watermark injectors already ran inside engine.render (they match on section
-// class). deck-logo is the ONE injector that keys off `data-lattice-slide` — which
-// engineSlides() stamps AFTER engine.render — so the engine's own logo pass
-// no-ops and the emulator runs it here, post-stamp. Same fn the owned engine's
-// render hook uses. Called on the joined HTML (not slide-by-slide) so the "first
-// slide" check in the logo rewriter (`logo-on: title`) sees source order.
-// NB: the `.backdrop` wrapper is NOT injected here — the engine's class-matching
-// applyBackdropToHtml already ran inside engine.render (like the watermark pass).
-// Only deck-logo re-runs, because it keys off the data-lattice-slide attribute
-// the emulator stamps after the engine pass.
-const { applyDeckLogoToHtml } = require('./lib/integrations/markdown-it/plugins');
-const slidesWithMeta2 = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
+// Deck-logo (`logo:`) USED TO BE RE-RUN HERE, and deleting that call is the fix for
+// #1652's own regression rather than a tidy-up.
+//
+// The claim it stood on: "deck-logo is the ONE injector that keys off
+// `data-lattice-slide` — which engineSlides() stamps AFTER engine.render — so the
+// engine's own logo pass no-ops and the emulator runs it here, post-stamp." The first
+// half was true and was the bug: keying on an attribute `lib/engine` never writes made
+// the injector dead on the canonical render path, so `logo:` produced nothing in the
+// Studio, the playground and every live preview. The engine's pass selects slides with
+// the shared section walker now, so it does the work inside engine.render — and this
+// second pass became a DUPLICATE. It was not a harmless one: `applyBackdropToHtml` puts
+// the finish wrapper ahead of the mark, so the re-run's first-child guard missed and
+// stacked a second logo on every finish slide of a logo deck.
+//
+// One injector, one call site. Nothing to re-run post-stamp, because nothing in the
+// logo path reads `data-lattice-slide` any more.
+const slidesWithMeta2 = highlightedSlides.join('\n');
 // `data-lattice-slide-bake` USED TO BE STAMPED HERE, and its removal is the
 // acceptance test #1332 set for the inversion above: "a correct fix should let us
 // DELETE the reconciliation devices, not accumulate more."

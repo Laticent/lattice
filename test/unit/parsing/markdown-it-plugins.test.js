@@ -19,6 +19,10 @@ const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { installSlidePipeline } = require('../../../lib/engine/slides');
 const plugins = require('../../../lib/integrations/markdown-it/plugins');
+const fitBerth = require('../../../lib/core/fit-berth');
+
+/** Marker berths the engine emits per slide (overflow / illegible / fixme). */
+const BERTHS_PER_SLIDE = 3;
 
 describe('markdown-it-plugins', () => {
   // Apply ONE plugin in isolation on the owned slide pipeline (markdown-it +
@@ -653,17 +657,81 @@ describe('markdown-it-plugins', () => {
     assert.match(halfMoved, /data-logo-corner=""/, 'a lone axis does not move the logo, so the corner is still claimed');
   });
 
-  test('applyDeckLogoToHtml: ignores literal <section> text inside code blocks (no `data-lattice-slide`)', () => {
+  test('applyDeckLogoToHtml: ignores literal <section> text inside code blocks', () => {
+    // The realistic shape: markdown-it escapes fenced/inline code, so a slide that
+    // TALKS about `<section>` carries `&lt;section&gt;` and must not confuse the walker.
     const html = [
       '<section id="1" data-lattice-slide="1"><code>&lt;section&gt;</code></section>',
-      // Marp parses unescaped `<section>` in source as a real DOM element,
-      // but it won't have `data-lattice-slide`. Make sure we leave it alone.
-      '<section id="2" data-lattice-slide="2"><p>before <code><section><img></code> after</p></section>',
+      '<section id="2" data-lattice-slide="2"><p>before <code>&lt;section&gt;&lt;img&gt;</code> after</p></section>',
     ].join('');
     const md = '---\nlogo: ./acme.svg\n---\n';
     const out = plugins.applyDeckLogoToHtml(html, md);
     const imgs = [...out.matchAll(/<img[^>]*class="deck-logo[^"]*"/g)];
-    assert.equal(imgs.length, 2, `expected exactly 2 deck-logo imgs (one per real Marp section); got ${imgs.length}`);
+    assert.equal(imgs.length, 2, `expected exactly 2 deck-logo imgs (one per real slide); got ${imgs.length}`);
+    assert.equal((out.match(/<code>&lt;section&gt;/g) || []).length, 2, 'the escaped code text is untouched');
+  });
+
+  test('applyDeckLogoToHtml: an UNBALANCED raw <section> in slide content stops the walk — the same way every sibling pass at this stage stops', () => {
+    // A raw, unescaped `<section>` inside slide content (only reachable through an
+    // author HTML block) opens a nesting the depth-aware walker never sees closed, so
+    // `splitSections` returns the remainder as an opaque gap and every section-scoped
+    // pass at this pipeline stage leaves it alone. That is a property of the SHARED
+    // walker, not of this transform: `fit-berth.applyToHtml` berths exactly the same
+    // one section on exactly this input.
+    //
+    // It is asserted rather than merely tolerated because the transform used to key on
+    // `data-lattice-slide` — an attribute the owned `lib/engine` never writes, which is
+    // why `logo:` rendered nothing at all on every browser surface (#1652). Keying on
+    // the shared walker instead is what fixed that, and it inherits the walker's
+    // behavior here; a future change that makes the walker forgiving should make this
+    // test read `2`, for the berths and the Tiles too.
+    const html = [
+      '<section id="1" data-lattice-slide="1"><p>first</p></section>',
+      '<section id="2" data-lattice-slide="2"><p>before <section> after</p></section>',
+    ].join('');
+    const md = '---\nlogo: ./acme.svg\n---\n';
+    const out = plugins.applyDeckLogoToHtml(html, md);
+    assert.equal((out.match(/<img[^>]*class="deck-logo[^"]*"/g) || []).length, 1, 'only the balanced section is reached');
+    const berthed = fitBerth.applyToHtml(html);
+    assert.equal(
+      (berthed.match(/data-lattice-berth/g) || []).length, BERTHS_PER_SLIDE,
+      'the sibling berth pass reaches exactly the same one section — one walker, one behavior',
+    );
+  });
+
+  test('applyDeckLogoToHtml: injects on the OWNED engine\'s sections, which carry no `data-lattice-slide` (#1652)', () => {
+    // The regression this pins. The matcher used to require `data-lattice-slide`, an
+    // attribute only the Marp/emulator re-tag writes — so on `lib/engine`, the canonical
+    // render path behind the Studio, the playground and the CLI, this function was dead
+    // code and `logo:` produced nothing for ANY value: an external `https:` URL, a
+    // site-relative path and a `data:` URI all rendered no logo at all.
+    const engineHtml = [
+      '<article class="lattice">',
+      '<section id="1" class="content form" style="--theme: indaco;"><div class="cell-stage"><h1>One</h1></div></section>',
+      '<section id="2" class="content form" style="--theme: indaco;"><div class="cell-stage"><h1>Two</h1></div></section>',
+      '</article>',
+    ].join('\n');
+    for (const src of ['https://lattice.style/lattice-mark.svg', '/lattice-mark.svg', 'data:image/svg+xml,%3Csvg/%3E']) {
+      const out = plugins.applyDeckLogoToHtml(engineHtml, `---\nlogo: ${src}\nlogo-on: all\n---\n`);
+      assert.equal((out.match(/class="deck-logo"/g) || []).length, 2, `both slides get a logo for ${src}`);
+      assert.match(out, /<section[^>]*><img class="deck-logo"/, 'the logo is the FIRST child, as the CSS corner rules require');
+      assert.equal((out.match(/data-logo-corner=""/g) || []).length, 2, 'and both claim the corner the marker tabs share');
+    }
+    // The author's existing inline style survives — it is prepended to, not replaced.
+    const moved = plugins.applyDeckLogoToHtml(engineHtml, '---\nlogo: ./a.svg\nlogo-scale: 2\n---\n');
+    assert.match(moved, /style="--logo-scale:2;--theme: indaco;"/, 'logo vars prepend onto the engine\'s own style');
+  });
+
+  test('applyDeckLogoToHtml: idempotent — a section that already carries the logo is left alone', () => {
+    // The runtime's DOM mirror re-injects on every transform pass and skips a section
+    // that already has one; the HTML pass has to converge the same way, or a document
+    // that goes through the engine twice grows a second `<img class="deck-logo">`.
+    const html = '<section id="1" data-lattice-slide="1"><p>body</p></section>';
+    const md = '---\nlogo: ./acme.svg\n---\n';
+    const once = plugins.applyDeckLogoToHtml(html, md);
+    const twice = plugins.applyDeckLogoToHtml(once, md);
+    assert.equal(once, twice, 're-running the pass must be a no-op');
+    assert.equal((twice.match(/class="deck-logo/g) || []).length, 1, 'exactly one logo');
   });
 
   test('applyDeckLogoToHtml: `logo-on: title` injects only on the first slide and on `title`-classed slides', () => {
