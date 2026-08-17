@@ -1,6 +1,7 @@
 import { HighlightStyle } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
+import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.js';
 
 // The shared CodeMirror 6 visual theme for every Studio code surface — the deck
 // Editor (markdown) and the Component studio's CSS + skeleton fields (CodeField).
@@ -21,14 +22,9 @@ export const editorTheme = EditorView.theme({
 		lineHeight: '1.85',
 		caretColor: 'var(--text-body)',
 	},
-	// iOS Safari auto-zooms the page when you focus an editable surface whose
-	// font computes under 16px. The landing.css global net can't reach
-	// CodeMirror's contenteditable (this scoped theme out-specifies it), so bump
-	// the content to 16px on coarse pointers, matching playground/editor.js;
-	// desktop keeps the denser 13px set on `&` above.
-	'@media (pointer: coarse)': {
-		'.cm-content': { fontSize: '16px' },
-	},
+	// (Coarse-pointer rules — including the 16px `.cm-content` lift that keeps iOS
+	// from auto-zooming on focus — live in the `@media` block at the END of this
+	// object; see the note there for why the position is load-bearing.)
 	'.cm-gutters': { backgroundColor: 'var(--bg)', color: 'var(--text-muted)', border: 'none', fontFamily: 'var(--font-mono)' },
 	'.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--accent) 5%, transparent)' },
 	'.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)' },
@@ -39,17 +35,17 @@ export const editorTheme = EditorView.theme({
 	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
 		backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)',
 	},
-	'.cm-lintRange-error': { textDecorationColor: '#b42318' },
-	// Autocomplete popup — palette-aware so the dropdown tracks the active theme +
-	// mode (CodeMirror's default is a fixed light chrome that clashes on dark/tinted
-	// palettes). Every color a token; the matched substring + selected row use accent.
-	'.cm-tooltip': {
-		backgroundColor: 'var(--bg)',
-		color: 'var(--text-body)',
-		border: '1px solid color-mix(in srgb, var(--text-heading) 18%, transparent)',
-		borderRadius: '8px',
-		boxShadow: '0 8px 28px color-mix(in srgb, var(--text-heading) 22%, transparent)',
-	},
+	// Every lint surface — the squiggle, the gutter disc, the hover card, the
+	// panel — comes from the shared module, so this editor and the Playground's
+	// cannot drift apart. It also retires the lone `#b42318` hex literal that
+	// used to color the error squiggle here.
+	...lintTheme,
+	// The floating shell both the lint popup and the autocomplete dropdown wear —
+	// now shared with the Playground so the two surfaces cannot diverge again
+	// (CodeMirror's default is a fixed light chrome that clashes on dark/tinted
+	// palettes). The autocomplete interior follows; every color a token, with the
+	// matched substring + selected row on accent.
+	...tooltipShell,
 	'.cm-tooltip.cm-tooltip-autocomplete > ul': {
 		fontFamily: 'var(--font-mono, ui-monospace, monospace)',
 		maxHeight: '16em',
@@ -67,6 +63,23 @@ export const editorTheme = EditorView.theme({
 		border: '1px solid color-mix(in srgb, var(--text-heading) 18%, transparent)',
 		borderRadius: '6px',
 		padding: '6px 8px',
+	},
+	// LAST on purpose, and it must stay last. A theme object is a flat map that
+	// compiles to a stylesheet in key order, and these rules target the same
+	// selectors as the base ones at the same specificity — so placed earlier they
+	// lose to the very rules they exist to override, and the touch sizes silently
+	// never apply. (Measured: the fix pill stayed 28px on a real coarse pointer
+	// until this block moved below `...lintTheme`.)
+	//
+	// It is also the ONE place coarse-pointer rules may live here — the lint module
+	// exports its own separately rather than carrying a second `@media` key that
+	// would replace this one on spread, taking the iOS zoom guard with it.
+	'@media (pointer: coarse)': {
+		// iOS Safari auto-zooms the page when you focus an editable surface whose
+		// font computes under 16px; landing.css's global net can't reach
+		// CodeMirror's contenteditable because this scoped theme out-specifies it.
+		'.cm-content': { fontSize: '16px' },
+		...lintThemeCoarse,
 	},
 });
 
