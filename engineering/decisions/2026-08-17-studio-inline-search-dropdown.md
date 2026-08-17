@@ -142,14 +142,16 @@ Exactly one surface mounts per width (`cmdInline` and `cmdPalette` are mutually
 exclusive in `StudioShell.tsx`), so ⌘K never has two homes. Verified at the
 boundary: 1100 → inline, 1099 → overlay.
 
-**Logged, not fixed here (off-path, HARD RULE #18):** the *tablet* tier still
-opens a centered dialog, which on an iPad in **portrait** (834px) reproduces
-exactly the keyboard-occlusion the owner photographed — the tier below the one
-their screenshot was taken at. Extending the inline treatment there is a genuine
-design question, not a port: there is no pill in the tablet row to expand, so it
-would mean either giving that tier a pill or anchoring a dropdown to a ⋯ menu
-item. It is named in the handback rather than folded into this PR, which is
-already one feature (#17).
+**Logged, not fixed here (off-path, HARD RULE #18):** the *tablet* tier still opens
+a centered dialog. Measured at iPad portrait (834×1194) that dialog sits y=422–772
+with roughly 158px of clearance above the keyboard — so it is **not** a reproduction
+of the photographed failure, contrary to what the first draft of this record said
+(see the Verification section for the correction and the numbers). Extending the
+inline treatment there remains a genuine design question rather than a port — there
+is no pill in the tablet row to expand, so it would mean either giving that tier a
+pill or anchoring a dropdown to a ⋯ menu item — but it is a **lower** priority than
+the keyboard-aware height cap the same measurement surfaced. Both are named in the
+handback rather than folded into this PR, which is already one feature (#17).
 
 Also unchanged and pre-existing: cmdk does not set `aria-activedescendant` on its
 input even while an item carries `data-selected`. That is shared by all three
@@ -293,6 +295,34 @@ build (the trap that inverted a flake conclusion in the 2026-08-16 pass).
 reachable from this sandbox. The 1194px result above is a desktop Chromium
 viewport at the iPad's CSS width with a mouse; it establishes the geometry and the
 layout tier, **not** the keyboard behavior on the device the owner photographed.
-The claim that the list clears the keyboard is geometric: the list ends at y=483
-and iPadOS's landscape keyboard occupies roughly the bottom 40% of an 834px
-viewport. Worth a tap on the real device before the issue is called closed.
+
+**And the keyboard margin is thinner than the first draft of this record claimed.**
+That draft said the list "clears the keyboard". Measured rather than asserted, it
+only just does:
+
+| Orientation | Viewport | Search surface | Keyboard top (≈350pt kbd) | Margin |
+|---|---|---|---|---|
+| Landscape (the photo) | 1194×834 | inline list, y=61–**483** | ≈**481** | **≈0px — flush** |
+| Portrait | 834×1194 | overlay dialog, y=422–772 | ≈930 | ≈158px clear |
+
+So in the orientation that prompted this work, the list ends within a couple of
+pixels of where the landscape keyboard begins. It fits; it has no headroom, and a
+keyboard carrying a predictive or emoji row would cover the last rows. The list's
+height is capped by `max-h-[min(60vh,420px)]`, which at 834px tall resolves to the
+**420px absolute arm** — a number chosen for laptop viewports, with no awareness
+that a touch device raises a keyboard under it.
+
+**This also corrects a second overstatement:** the first draft said tablet PORTRAIT
+"reproduces exactly the occlusion the owner photographed". It does not — portrait
+has 1194px of height and ~158px of clearance. The photo was landscape, and that
+generalized from one screenshot to a tier that had not been measured. The
+portrait/tablet follow-up is therefore **weaker** than first logged, and a
+different question is stronger: **should the inline list's cap be aware of a
+software keyboard at all?** The repo already has `hasFinePointer()` for exactly
+this kind of coarse-pointer gating, and `visualViewport` is the API that actually
+reports the keyboard. Deliberately NOT changed here: it cannot be verified from
+this sandbox, and shipping an unverifiable CSS change to a touch surface is the
+move HARD RULE #23 exists to prevent. It belongs with the touch/tablet work, with
+this measurement attached.
+
+Worth a tap on the real device before the issue is called closed.
