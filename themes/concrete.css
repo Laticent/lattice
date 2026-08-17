@@ -80,14 +80,20 @@
    * each palette can pick its own alpha. */
   /* Self-curated semantic trio — neutral green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --pass: light-dark(#214F26, #73C77C);
+  --pass: light-dark(#214F26, #81D68A);
   --warn: light-dark(#683C00, #DCAA4C);
   --fail: light-dark(#8E0B13, #EC8585);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
 
-  --seq-500: light-dark(#585855, #B8B8B5);
+  /* The ramp anchor. Both arms are solved against `word-cloud spectrum`, the
+     only surface that paints the derived stops: the base derivation is
+     canvas-blind (600-900 always shade toward BLACK), so on concrete's mid-gray
+     LIGHT canvas the --seq-400 tint has to start dark enough not to wash into it,
+     and on the near-black DARK canvas the anchor has to start light enough that
+     --seq-700 -- 45% of the way to black -- still clears 3:1. #1640. */
+  --seq-500: light-dark(#393937, #EDEDE9);
 
   /* Tag uses --chart-2 (oxblood) — Concrete's signature accent break. */
 
@@ -95,7 +101,11 @@
   --bg-warm-mid:   #0F0F0F;
   --code-text:     #D5D5D2;
 
-  /* ── Spectrum — jet → mid-gray → oxblood pop ─────────────────────── */
+  /* ── Spectrum — jet → mid-gray → oxblood pop ───────────────────────
+   * The mid stop is concrete's brand gray. It used to equal --seq-500 by
+   * coincidence, not by contract; #1640 re-solved the ramp anchor against
+   * `word-cloud spectrum` and the two are independent now. Decorative chrome —
+   * do not re-link them. */
   --spectrum: linear-gradient(90deg, #0F0F0F 0%, #585855 55%, var(--brand-alt) 100%);
   --spectrum-vertical: linear-gradient(180deg, #0F0F0F 0%, #585855 55%, var(--brand-alt) 100%);
   --spectrum-end: var(--brand-alt);

@@ -29,12 +29,13 @@
    *
    * The dark arm is each gray lifted until it clears AA on the surface it
    * actually lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN
-   * over --bg-alt, so the background moves with the value, and `del` renders at
-   * opacity .85 on top of that. Measured on that band: pass 6.56:1, warn
-   * 4.61:1, fail 9.23:1, and fail again at 7.15:1 once the strike-through
-   * opacity composites it — that last one sampled off the rendered pixels, since
-   * the .85 fades the band as well as the ink and a model of it does not. Fail
-   * takes the loudest rung, as on the light arm.
+   * over --bg-alt, so the background moves with the value. Measured on that band:
+   * pass 6.59:1, warn 4.62:1, fail 9.22:1 — and 8.06:1 for the deepest stack the
+   * component ships, that band on a .stacked card's own 5% tint. (`del` also
+   * carried `opacity:.85` when these were chosen, which fades the band as well as
+   * the ink; #1640 removed it, so the ink is no longer composited back toward the
+   * band and the figures here are the plain ones.) Fail takes the loudest rung,
+   * as on the light arm.
    * The pairwise separation an achromat reads meaning from is 1.50:1 (light arm
    * 1.61:1, gate floor 1.25).
    *

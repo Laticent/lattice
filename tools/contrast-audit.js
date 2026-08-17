@@ -263,11 +263,19 @@ const PAIRS = [
   //     the large KPI number (kpi.ops, --fs-h1), whose bar is large-text 3:1, which
   //     these ambers clear with margin. We still hold it to 4.5 here, on purpose,
   //     so a future small warn-on-card is covered ahead of need.
-  // NOT audited (deliberately): status ink over its OWN-hue tint — policy-recommendation
-  // `--stance` on `--stance-bg`, redline ins/del on `--pass-bg`/`--fail-bg`,
-  // obligation-matrix `--state-color` as a mark FILL. A same-hue decorative wash isn't
-  // a distinct background; that bar was reviewed and reverted (it can't be met without
-  // damaging the curated hues). NB `--bg-alt` is a touch DARKER than `--bg` on light
+  // NOT audited HERE, but no longer unaudited: status ink over its OWN-hue tint —
+  // policy-recommendation `--stance` on `--stance-bg`, redline ins/del on
+  // `--pass-bg`/`--fail-bg`, obligation-matrix's `.heat` cell washes. This table
+  // scores an ink against the opaque canvases a PALETTE declares, and a same-hue
+  // wash is not one of those; the bar was proposed here once and reverted on the
+  // ground that it could not be met without damaging the curated hues. #1640
+  // measured that claim and it was half right: the dominant cost was not the hues
+  // but two `opacity` washes in redline, which dragged the ink and its own-hue band
+  // toward the backdrop together (removing them cleared 39 composed runs and cut the
+  // curated re-tunes roughly in half). Those surfaces now have their own gate —
+  // `tools/composed-contrast.js` + test/unit/palette/composed-surface-contrast.test.js
+  // — which composes the stack, resolves base-derived inks, and scores both cascade
+  // orders. One gate per invariant, no drift (HARD RULE #15). NB `--bg-alt` is a touch DARKER than `--bg` on light
   // themes (indaco #F2F5FA vs #FFFFFF), so it is the stricter of the two backdrops.
   ['pass', 'bg',     'slide: pass status ink on canvas'],
   ['warn', 'bg',     'slide: warn status ink on canvas'],

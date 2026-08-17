@@ -78,8 +78,11 @@
    * palette, light-dark() pairs). --fail is overridden with magnolia's
    * brand-convergent garnet so the alarm tone stays in the rose family
    * rather than clashing with the warm accent. Dark mode lifts the
-   * garnet to a brighter shade that keeps AA contrast on dark canvas. */
-  --fail: light-dark(#7E2F38, #D27087);
+   * garnet to a brighter shade that keeps AA contrast on dark canvas — and the
+   * dark arm is solved against redline's own-hue band (a 12% tint OF --fail, so
+   * the backdrop moves with the value), which is a stricter surface than the
+   * canvas and is what set #E48197 (#1640, tools/composed-contrast.js). */
+  --fail: light-dark(#7E2F38, #ED87B6);
   /* Self-curated semantic trio — warm green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
   --pass: light-dark(#2D6A3F, #6FCC4D);

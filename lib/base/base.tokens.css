@@ -823,7 +823,19 @@
    * what masked flat anchors for as long as this base won the cascade over the
    * palette in the export path; it does not once the palette wins (#1527).
    * Anchor the dark arm on the palette's own dark --accent.
-   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md. */
+   *
+   * A PAIR IS NOT ENOUGH ON ITS OWN — the arm has to be solved against the STOP,
+   * not against the anchor. Because 600-900 always shade toward black, a dark arm
+   * that reads beautifully itself can still leave --seq-700 (45% of the way to
+   * black) under 3:1 on a near-black canvas: onyx and concrete both shipped
+   * correct pairs and both failed there. `tools/composed-contrast.js` scores the
+   * derived stops, so a new anchor is checked where it lands.
+   * The canvas-blind derivation itself is a live defect on ELEVEN palettes whose
+   * anchor is `var(--accent)` — --seq-700 sits at 1.66-3.19:1 on their dark
+   * canvases in BOTH cascade orders, so it is not a #1527 blocker and not fixed
+   * here; making the ramp canvas-relative is its own slice.
+   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md and
+   * engineering/decisions/2026-08-17-composed-surface-contrast.md. */
   --seq-500: var(--accent);
   --seq-50:  color-mix(in oklab, var(--seq-500)  8%, white);
   --seq-100: color-mix(in oklab, var(--seq-500) 18%, white);

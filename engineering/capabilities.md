@@ -391,6 +391,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-slide-contrast.js` | check-slide-contrast — WCAG AA audit of the ACTUALLY RENDERED slide, not the |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |
 | `tools/component-gen-eval.mjs` | AI component-generation evaluator — runs the FROZEN, held-out adversarial prompt |
+| `tools/composed-contrast.js` | composed-contrast — WCAG audit of the surfaces a COMPONENT composes, not the |
 | `tools/cvd-audit.js` | Colour-vision-deficiency (CVD) collapse audit for Lattice themes. |
 | `tools/derive-cat-ink.js` | Generate the curated `--cat-1-ink … --cat-12-ink` block for every palette. |
 | `tools/derive-chart-cat-ink.js` | Generate the curated `--chart-cat1-ink … --chart-cat8-ink` block for every |

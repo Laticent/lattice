@@ -36,7 +36,7 @@ export const PALETTE_DOTS: Record<string, string> = {
 	'a11y-achromatopsia': '#4D4D4D',
 	'a11y-deuteranopia': '#004982',
 	'a11y-protanopia': '#9C6900',
-	'a11y-tritanopia': '#007131',
+	'a11y-tritanopia': '#006D2F',
 };
 
 /**

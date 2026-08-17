@@ -3,6 +3,42 @@
 One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
 this file is the detail. Entry shape and the rule for adding one are in the index.
 
+## An ink passes every contrast gate and still renders sub-AA (own-hue band · element opacity)
+
+- **Symptom:** `node tools/contrast-audit.js` reports 0 failures,
+  `tools/check-slide-contrast.js` reports the run comfortably above AA, `npm test`
+  is green — and the rendered slide is hard to read. Most visible on `redline`'s
+  struck clause and on `word-cloud spectrum`'s mid-weight words.
+- **Cause:** two blind spots, either sufficient on its own.
+  1. **The background moves with the ink.** `contrast-audit` scores each ink
+     against `--bg` / `--bg-alt`, the opaque canvases a palette declares. Several
+     components paint the ink on a tint OF ITSELF instead — `--pass-bg` /
+     `--fail-bg` are `color-mix(in srgb, var(--pass) 12%, transparent)`,
+     `--stance-bg` is 12% of `--stance`. Re-tuning the hue moves the band with it,
+     so a value can be pushed a long way and gain almost nothing, and no
+     canvas-based number describes what is on screen. Same class: an ink the BASE
+     derives from a palette anchor (`--seq-700` is 45% of the way from `--seq-500`
+     to black, in OKLab) — `contrast-audit` skips the `lattice` @import, so it has
+     never scored one at all.
+  2. **`check-slide-contrast.js` cannot see `opacity`.** It reads computed `color`
+     and the ancestor paints. A CSS opacity composites the whole subtree buffer —
+     ink and background together — so the ink moves much further than its band.
+     Its number for a run inside an opacity group is optimistic by construction:
+     measured on indaco's `redline .stacked`, it reported ~5:1 where the rendered
+     pixels were **3.21:1**, two nested washes deep (`del` at .85 inside a card at
+     .78).
+- **Fix / check:** score the surface, not the token —
+  `node tools/composed-contrast.js [theme…]` composes the real stack (own-hue
+  bands, nested cards, group opacity, base-derived stops) in both cascade orders,
+  and is gated by `test/unit/palette/composed-surface-contrast.test.js`. For
+  anything carrying an opacity, sample the rendered PIXELS; do not trust a
+  computed-style reading. And prefer not to spend alpha at all —
+  `base.tokens.css`'s own rule is "spend size or weight, not alpha."
+- **Triggered by:** curating a status hue against the canvas; adding an `opacity`
+  for de-emphasis on text; setting a `--seq-500` anchor without checking the STOPS
+  the ramp derives from it.
+- **Commits:** the surface gate + the redline/palette fixes it found (#1640).
+
 ## `margin` corrupts measured layout (virtual lists, the Fit Spine) — HARD RULE #20
 
 - **Symptom:** A measuring layout places boxes wrong — rows in a virtualised /

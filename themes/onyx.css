@@ -87,7 +87,12 @@
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
 
-  --seq-500: light-dark(#666666, #B8B8B8);
+  /* The ramp anchor — a real gray ramp rather than base's `var(--accent)`, which
+     on onyx is pure black/white. The dark arm is set by `word-cloud spectrum`:
+     --seq-700 is 45% of the way from this anchor to BLACK (the base derivation is
+     canvas-blind), so on a black canvas the anchor must start light enough for
+     that stop to clear 3:1. #1640. */
+  --seq-500: light-dark(#666666, #D3D3D3);
 
   /* Tag uses --chart-2 (saturated red) — Onyx's signature pop. */
 
