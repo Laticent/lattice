@@ -62,10 +62,15 @@ not what the fix touched. Ten topics became fourteen.
 | `ci.md` | 7 → 2 | CodeQL, and the sandbox's `CHROME_PATH`. |
 | `memory-profiling.md` | 3 → 3 | Unchanged. |
 
-Every count above is this change measured against `main` at `91913c5`, and they are
-a **record, not a live total** — #1704 landed a 146th entry in `css.md` in the same
-window, which is the ordinary way these numbers drift and the reason neither the
-index nor this tool carries a count it would have to keep true (#1547).
+Every count above is what **this change** moved, measured against the `main` it was
+written on (`d990d28`). They are a **record, not a live total**: while this branch
+was open, #1704 added an entry to `css.md` and #1718 added one to `docs-site.md`, so
+the tree already holds 147. That is the ordinary drift, and the reason neither the
+index nor its generator carries a count it would have to keep true (#1547). Both
+incoming entries landed in the file the new taxonomy would have chosen for them —
+the `sanitizeStyleText` gate failure sits beside its sibling `build:check` entry in
+`docs-site.md` — which is a small piece of evidence that the topics hold up for
+entries nobody re-filed by hand.
 
 The largest topic file drops from 21.0k tokens (`marp.md`) to 17.2k
 (`studio-playground.md`). The index itself grows **70 tokens**, 7,347 → 7,417,
