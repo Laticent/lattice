@@ -47,8 +47,8 @@ Neither file had a size budget, and both grew by the same increment that made th
 valuable — one more entry, one more note. `gotchas.md` grew 143 entries deep with no
 structural pressure to split, because markdown does not care. The decisions index
 rendered whatever `summary:` contained, and summaries grew from a line to a
-paragraph (the median first sentence alone is 135 characters; the longest summary is
-1.5 KB).
+paragraph (the median first sentence alone is 135 characters, the longest summary is
+3.9 KB, and 76 of them exceed 1.5 KB).
 
 ## Fix
 
@@ -61,7 +61,10 @@ missing layer was L1, and that is all this change adds.
   per gotcha, deep-linked to the entry. **75k → 7k tokens** on the landing read; the
   reader then opens ONE topic file (median 7k, worst `marp.md` at 21k).
 - **`engineering/decisions/README.md`** — each row renders a gist (first sentence,
-  capped at 140 characters, `…` marking a cut) instead of the whole summary.
+  capped at 140 characters, `…` marking a cut) instead of the whole summary. Two
+  guards keep that honest: a "sentence" ending on an abbreviation (`vs.`) or too short
+  to identify anything reads on to the next boundary, because an unmarked cut under the
+  cap renders as a complete claim that is not one.
   **96k → 26k tokens.** Nothing is lost: the full summary is in the note's own
   front-matter, which is where a reader who opened the note was going to see it
   anyway. The index duplicated it.
@@ -93,6 +96,15 @@ never loads the file.
 4. **A new generated index copies the #1547 relaxation**, or it will eject PRs from
    the merge queue: verify each row against its own item, assert nothing about row
    ORDER, and carry no totals. Both index generators now share that shape.
+
+## Changed by the split, beyond the move
+
+- **Topic order is now alphabetical**, not the monolith's curated order (Charts → Marp →
+  Mermaid → …). `collect()` reads `readdirSync().sort()`, which is self-maintaining and
+  cannot rot; the editorial sequence is the cost.
+- **`gotchas/ci.md` carries six Playground/Studio entries** filed under "CI (GitHub
+  Actions / code scanning)" — a pre-existing mis-filing, inherited by the move and worse
+  than `marp.md`'s. Off-path per HARD RULE #18: logged here, not swept into this diff.
 
 ## Measurement
 

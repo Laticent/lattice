@@ -86,35 +86,101 @@ function slugify(heading, slugger = new GithubSlugger()) {
     .trim();
   return slugger.slug(rendered);
 }
+// The same renderer the docs are rendered by. Heading extraction has to agree with a
+// real parser about what a heading IS — fences, HTML comments, indentation, setext
+// underlines, closing sequences — and the cheapest way to agree with a parser is to
+// be one (HARD RULE #15).
+const MarkdownIt = require('markdown-it');
+// `html: true` matters: with HTML off, markdown-it treats an <!-- HTML comment --> as
+// ordinary text, so a `##` line INSIDE a commented-out block parses as a heading and the
+// index grows a row for an entry no reader can ever see. GitHub renders raw HTML, so the
+// comment swallows it. Matching the real renderer is the whole point of parsing here.
+const md = new MarkdownIt({ html: true });
+
 /**
- * Read every topic file into { slug, title, entries[] }. A topic file with no h1
- * or no entries is an ERROR: it would render an empty group, and a heading with
- * nothing under it reads as "nothing known about this" rather than "malformed".
+ * Every ATX/setext heading in a document, in order, as { level, text }.
+ *
+ * Each heading carries TWO strings, because the index needs different ones for
+ * different jobs. `raw` is the markdown source — it becomes the row LABEL, so
+ * `\`foreignObject\`` still renders as code in the index. `text` is the RENDERED text,
+ * which is what GitHub SLUGS: a [link](url) contributes only its label, `code`
+ * contributes its content, emphasis markers are gone, an inline HTML tag contributes
+ * nothing. Feeding the slugger anything else mints anchors GitHub never generates.
  */
-function collect() {
+function parseHeadings(text) {
+  const tokens = md.parse(text, {});
+  const out = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const open = tokens[i];
+    if (open.type !== 'heading_open') continue;
+    const inline = tokens[i + 1];
+    if (!inline || inline.type !== 'inline') continue;
+    out.push({ level: Number(open.tag.slice(1)), raw: inline.content.trim(), text: renderInline(inline) });
+  }
+  return out;
+}
+
+/** Flatten one inline token to the plain text a renderer would show. */
+function renderInline(inline) {
+  let text = '';
+  for (const child of inline.children ?? []) {
+    if (child.type === 'text' || child.type === 'code_inline') text += child.content;
+    else if (child.type === 'softbreak' || child.type === 'hardbreak') text += ' ';
+    // html_inline, *_open, *_close contribute nothing — the renderer consumes them.
+  }
+  return text.trim();
+}
+
+/**
+ * Read every topic file into { slug, title, entries[], anchors }.
+ *
+ * Headings come from MARKDOWN-IT, not from scanning lines, because the index is the
+ * only route to these files now and a heading this function misses is a gotcha that
+ * no longer exists. The line-scanning version shipped with a parity-based fence
+ * toggle, and an adversarial pass broke it in one line: a fenced example containing
+ * an ORPHANED closing fence — which is exactly the shape a gotcha about a swallowed
+ * fence quotes — flipped the toggle for the rest of the file and silently dropped
+ * every entry after it, while `--check` exited 0. The same scan also disagreed with
+ * the real renderer about `## ` inside an HTML comment (phantom row), an indented
+ * ATX heading (missed), a setext `---` heading (missed), and a closing-sequence
+ * `## Foo ##` (wrong anchor). Parsing with the renderer the docs are rendered by
+ * makes that whole class impossible rather than fixing five cases of it.
+ */
+function collect(dir = DIR) {
   const topics = [];
   const errors = [];
-  if (!fs.existsSync(DIR)) return { topics, errors: [`missing ${path.relative(ENG, DIR)}/`] };
-  for (const file of fs.readdirSync(DIR).sort()) {
+  if (!fs.existsSync(dir)) return { topics, errors: [`missing ${path.relative(ENG, dir)}/`] };
+  for (const file of fs.readdirSync(dir).sort()) {
     if (!file.endsWith('.md')) continue;
-    const text = fs.readFileSync(path.join(DIR, file), 'utf8').replace(/\r\n/g, '\n');
-    const lines = text.split('\n');
-    const h1 = lines.find((l) => l.startsWith('# '));
+    // A folder README documents the folder; it is not a topic of gotchas. Without
+    // this the tool hard-fails `npm run build` the day someone adds one.
+    if (file === 'README.md') continue;
+    const text = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n');
+
+    const headings = parseHeadings(text); // [{ level, text }], document order
+    // The row template is `- [label](target)`, so a label can carry brackets only while
+    // they stay balanced and never form a `](` — otherwise the link ends early and the
+    // rest of the heading spills into the page as literal text with a URL beside it. A
+    // heading containing a markdown LINK is the realistic shape; balanced brackets in a
+    // code span (`:root[…]`) are fine and keep their formatting.
+    const rowSafe = (raw) => {
+      if (raw.includes('](')) return false;
+      let depth = 0;
+      for (const ch of raw) {
+        if (ch === '[') depth += 1;
+        else if (ch === ']' && --depth < 0) return false;
+      }
+      return depth === 0;
+    };
+    const labelFor = (h) => (rowSafe(h.raw) ? h.raw : h.text);
+    const h1 = headings.find((h) => h.level === 1);
     if (!h1) {
       errors.push(`${file}: no \`# \` title — the index has nothing to group its entries under`);
       continue;
     }
     // Strip the shared `Gotchas — ` prefix: the index already says these are gotchas.
-    const title = h1.slice(2).trim().replace(/^Gotchas\s*[—-]\s*/, '');
-    // Entries only — never a heading inside a fenced code block, which is a `#`
-    // comment in shell/python far more often than it is a heading.
-    const entries = [];
-    let fenced = false;
-    for (const line of lines) {
-      if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
-      if (fenced || !line.startsWith('## ')) continue;
-      entries.push(line.slice(3).trim());
-    }
+    const title = labelFor(h1).replace(/^Gotchas\s*[—-]\s*/, '');
+    const entries = headings.filter((h) => h.level === 2).map(labelFor);
     if (!entries.length) {
       errors.push(`${file}: no \`## \` entries — every topic file needs at least one`);
       continue;
@@ -124,13 +190,39 @@ function collect() {
       errors.push(`${file}: duplicate entry heading(s) — they would collide on one anchor: ${[...new Set(dupes)].join(' | ')}`);
       continue;
     }
-    // Anchors are computed HERE, once per file, in document order and seeded with the
-    // h1 — the same sequence GitHub sees. Both `render` and `verify` read this map, so
-    // they cannot drift; and a per-row slugger would have reset the dedup counter that
-    // makes two colliding headings resolve to `x` and `x-1`.
+    // An entry heading that quotes an index marker would be spliced into the index and
+    // then re-spliced against ITSELF on the next run, corrupting the file a little more
+    // every time. `build-decisions-index.js` guards the same shape for summaries.
+    const marker = entries.find((e) => e.includes(BEGIN) || e.includes(END));
+    if (marker) {
+      errors.push(`${file}: an entry heading contains an index marker comment — rename it: ${marker.slice(0, 80)}`);
+      continue;
+    }
+
+    // Anchors are computed HERE, once per file, feeding the slugger EVERY heading in
+    // document order — the exact sequence GitHub sees, so a body `###` that collides
+    // with an entry cannot hand the entry an anchor that belongs to the `###`.
     const slugger = new GithubSlugger();
-    slugify(h1.slice(2), slugger);
-    const anchors = new Map(entries.map((entry) => [entry, slugify(entry, slugger)]));
+    const anchors = new Map();
+    let collision = null;
+    for (const h of headings) {
+      const want = slugify(h.text); // what this heading slugs to ALONE
+      const got = slugify(h.text, slugger); // what it gets in page context
+      if (want !== got && !collision) collision = { text: h.text, want, got };
+      if (h.level === 2) anchors.set(labelFor(h), got);
+    }
+    // GitHub resolves a collision by appending -1, -2 in document order — correct, but
+    // POSITIONAL: inserting an entry above a colliding sibling silently re-anchors the
+    // sibling and rots every deep link to it. Refusing the collision keeps every anchor
+    // a pure function of its own heading. There are none today; this keeps it that way.
+    if (collision) {
+      errors.push(
+        `${file}: two headings slug to the same anchor, so GitHub would disambiguate them positionally ` +
+          `(\`${collision.want}\` → \`${collision.got}\`) and inserting an entry above one would silently ` +
+          `move the other's link. Reword: ${collision.text.slice(0, 80)}`,
+      );
+      continue;
+    }
     topics.push({ slug: file.replace(/\.md$/, ''), file, title, entries, anchors });
   }
   return { topics, errors };
@@ -194,9 +286,31 @@ function parseIndex(indexText) {
  * The CHECK assertion — every entry answerable for its own row, nothing about order.
  * Returns human-readable problems; empty means the index is faithful.
  */
+// Headings this file is allowed to carry OUTSIDE the generated block. Anything else is
+// someone authoring a gotcha into the index itself.
+const INDEX_OWN_HEADINGS = new Set(['# Gotchas', '## How to use this file', '## Symptom index']);
+
 function verify(indexText, topics) {
   const { headings, rows, stray, footer, footers, blankRuns } = parseIndex(indexText);
   const problems = [];
+
+  // An entry written INTO this generated file is destroyed on the next regeneration —
+  // silently, because the generator only rewrites between the markers and never reads
+  // what surrounds them. Two docs used to tell authors to add entries here, and the
+  // failure had no symptom: the gate stayed green and the gotcha simply did not exist.
+  // Catching it turns data loss into a message naming where the entry belongs.
+  const outside = indexText.replace(/<!-- gotchas-index:begin -->[\s\S]*?<!-- gotchas-index:end -->/, '');
+  let fenced = false;
+  for (const line of outside.split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    if (fenced || !/^#{1,3} /.test(line)) continue;
+    if (INDEX_OWN_HEADINGS.has(line.trim())) continue;
+    problems.push(
+      `a gotcha was written into engineering/gotchas.md itself: "${line.trim().slice(0, 70)}" — this file is ` +
+        'GENERATED and everything outside the index block is invisible to it. Move the entry into the matching ' +
+        'engineering/gotchas/<topic>.md as a level-2 heading, then run `npm run gotchas:index`.',
+    );
+  }
 
   for (const line of stray) problems.push(`unrecognized line inside the index block: ${line.slice(0, 120)}`);
 
@@ -301,4 +415,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { slugify, collect, render, rowFor, headingFor, parseIndex, verify, splice, FOOTER };
+module.exports = { slugify, parseHeadings, collect, render, rowFor, headingFor, parseIndex, verify, splice, FOOTER };

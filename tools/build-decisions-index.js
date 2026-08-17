@@ -252,22 +252,58 @@ const GIST_CAP = 140;
 // a summary opening with an abbreviation from cutting to three words.
 const FIRST_SENTENCE = /^(.{20,}?[.!?])(\s|$)/;
 
+// Endings that look like a sentence stop but are not. A first sentence ending here has
+// been cut mid-thought, and the row would present half a clause as a whole claim.
+const ABBREVIATION = /\b(vs|e\.g|i\.e|etc|cf|approx|fig|no|vol|ch|st|dr|mr|ms|jr|sr|inc|ltd|al)\.$/i;
+
+// Below this, a "first sentence" identifies nothing — "G8 Studio performance." (22
+// chars) is a label, not a gist, and a reader cannot choose a note from it. Set just
+// above that and no higher: "The root cause was a stale token." (33) is short but does
+// identify its note, and a floor that swallows sentences like it makes rows longer for
+// no gain. Measured against the live corpus at 30, three rows read on.
+const MIN_INFORMATIVE = 30;
+
+/**
+ * Close a code span the cut opened. `gistFor` slices by characters, so it can land
+ * between a pair of backticks and ship a row with an odd count. One live row read
+ * "…binding ONE axis — `height:100cqh" with a dangling tick, which renders as a
+ * literal backtick and can swallow following text into a code span.
+ */
+function balanceCodeSpans(text) {
+  const ticks = (text.match(/`/g) ?? []).length;
+  if (ticks % 2 === 0) return text;
+  return text.slice(0, text.lastIndexOf('`')).replace(/[\s,;:.—-]+$/, '');
+}
+
 /**
  * One line of summary for a row: the first sentence, hard-capped at GIST_CAP.
  *
- * A cut is always MARKED with `…` — a truncation the reader can't see is a
- * sentence that lies about being complete. Cuts land on a word boundary when one
- * is reasonably close (past 60% of the cap), otherwise mid-word rather than
- * throwing away half a row's information.
+ * A cut is always MARKED with an ellipsis — a truncation the reader can't see is a
+ * sentence that lies about being complete. Cuts land on a word boundary when one is
+ * reasonably close (past 60% of the cap), otherwise mid-word rather than throwing away
+ * half a row's information.
+ *
+ * The two guards below exist because the naive "first sentence" broke that contract in
+ * the quiet direction. A summary reading "…a reduced newcomer surface vs. the full
+ * surface…" cut at `vs.` — and, being under the cap, got NO ellipsis, so it rendered as
+ * a complete and ungrammatical claim. "G8 Studio performance." was a 22-character row
+ * that told the reader nothing. In both cases the honest move is to keep reading to the
+ * next boundary, or to the cap where the marker applies.
  */
 function gistFor(summary) {
   const text = String(summary).trim().replace(/\s+/g, ' ');
-  const sentence = text.match(FIRST_SENTENCE)?.[1] ?? text;
-  if (sentence.length <= GIST_CAP) return sentence;
+  let sentence = text.match(FIRST_SENTENCE)?.[1] ?? text;
+  while (sentence.length < text.length && (ABBREVIATION.test(sentence) || sentence.length < MIN_INFORMATIVE)) {
+    const rest = text.slice(sentence.length).replace(/^\s+/, '');
+    if (!rest) break;
+    const next = rest.match(FIRST_SENTENCE)?.[1] ?? rest;
+    sentence = `${sentence} ${next}`;
+  }
+  if (sentence.length <= GIST_CAP) return balanceCodeSpans(sentence);
   let cut = sentence.slice(0, GIST_CAP);
   const space = cut.lastIndexOf(' ');
   if (space > GIST_CAP * 0.6) cut = cut.slice(0, space);
-  return `${cut.replace(/[\s,;:.—-]+$/, '')}…`;
+  return `${balanceCodeSpans(cut.replace(/[\s,;:.—-]+$/, ''))}…`;
 }
 
 /**

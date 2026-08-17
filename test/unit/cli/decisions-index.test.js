@@ -71,9 +71,28 @@ describe('decisions-index', () => {
       );
     });
     test('a mid-sentence period is not a sentence end', () => {
-      // `v1.2` and `#1547.` mid-clause both used to be tempting cut points.
-      assert.equal(gistFor('Pinned mermaid v1.2 because the v2 parser drops init blocks'),
-        'Pinned mermaid v1.2 because the v2 parser drops init blocks');
+      // The period must sit PAST the {20,} floor, or the floor alone carries the test and
+      // it passes with the sentence-end guard deleted — which is how it shipped first.
+      // Without `(\\s|$)`, this cuts to "…mermaid v1." — 48 live rows depend on the guard.
+      const summary = 'The renderer pins mermaid v1.2 because the v2 parser drops init blocks';
+      assert.equal(gistFor(summary), summary);
+      assert.ok(summary.indexOf('.') > 20, 'the fixture must exercise the guard, not the floor');
+    });
+
+    // A first sentence that ends on an abbreviation, or is too short to identify a note,
+    // used to be accepted — and being under the cap it got NO ellipsis, so a half-clause
+    // rendered as a complete claim. Both live rows are named in the tool's comment.
+    test('a sentence ending on an abbreviation reads on', () => {
+      const out = gistFor('The Studio sorts people into a reduced newcomer surface vs. the full surface with a hidden boolean.');
+      assert.ok(out.startsWith('The Studio sorts people into a reduced newcomer surface vs. the full surface'), out);
+    });
+    test('an uninformatively short first sentence reads on', () => {
+      const out = gistFor('G8 Studio performance. Profiling overturned the premise about where the time went.');
+      assert.match(out, /Profiling overturned/);
+    });
+    test('a cut never leaves an unbalanced code span', () => {
+      const out = gistFor(`A chart binds ONE axis — \`height:100cqh\` ${'and more text '.repeat(20)}end.`);
+      assert.equal((out.match(/`/g) ?? []).length % 2, 0, `odd backtick count: ${out}`);
     });
     test('caps an over-long first sentence and MARKS the cut', () => {
       const long = `${'word '.repeat(60)}end.`;

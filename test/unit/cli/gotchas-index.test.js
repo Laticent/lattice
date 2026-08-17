@@ -3,7 +3,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { slugify, collect, render, rowFor, headingFor, verify, splice, FOOTER } = require('../../../tools/build-gotchas-index');
+const { slugify, parseHeadings, collect, render, rowFor, headingFor, verify, splice, FOOTER } = require('../../../tools/build-gotchas-index');
 
 // A fixture topic, shaped like what collect() returns — including the anchor map,
 // which is what rowFor reads.
@@ -40,15 +40,10 @@ describe('gotchas-index', () => {
       assert.equal(slugify('See [the note](../decisions/2026-01-01-x.md) first'), 'see-the-note-first');
     });
 
-    // GitHub dedupes repeated anchors per PAGE, so the slugger is stateful and one
-    // instance must cover exactly one file.
-    test('a shared slugger dedupes, which is why collect() uses one per file', () => {
-      const shared = require('github-slugger');
-      const Slugger = shared.default ?? shared;
-      const s = new Slugger();
-      assert.equal(slugify('Same heading', s), 'same-heading');
-      assert.equal(slugify('Same heading', s), 'same-heading-1');
-    });
+    // A shared slugger dedupes; collect() therefore uses one per file AND rejects any
+    // collision outright, so no anchor is ever positional. Both halves are exercised on
+    // fixtures in 'collect — on fixture corpora' below, rather than asserted here about
+    // the library.
   });
 
   describe('render', () => {
@@ -194,13 +189,157 @@ describe('gotchas-index', () => {
         assert.equal(new Set(anchors).size, anchors.length, `${t.file}: two entries share an anchor`);
       }
     });
-    // The index is the ONLY route to these files now, so a row pointing at a file
-    // that does not exist is worse than the monolith it replaced.
-    test('every row points at a topic file that exists', () => {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const dir = path.join(__dirname, '../../../engineering/gotchas');
-      for (const t of topics) assert.ok(fs.existsSync(path.join(dir, t.file)), `${t.file} is missing`);
+    // The index is the ONLY route to these files now, so every row must resolve. This
+    // re-derives each anchor from the topic file INDEPENDENTLY of the row-building path
+    // (re-parse the file, re-slug its headings) — the previous version of this test
+    // compared collect() against itself and could not fail.
+    test('every committed row resolves to a real heading in a real file', () => {
+      const fs2 = require('node:fs');
+      const path2 = require('node:path');
+      const root = path2.join(__dirname, '../../../engineering');
+      const index = fs2.readFileSync(path2.join(root, 'gotchas.md'), 'utf8');
+      const rows = [...index.matchAll(/^- \[(.+)\]\(gotchas\/([^)#]+)#([^)]+)\)$/gm)];
+      assert.ok(rows.length >= 100, `expected the full index, parsed ${rows.length} rows`);
+      const anchorsOf = new Map();
+      for (const [, , file] of rows) {
+        if (anchorsOf.has(file)) continue;
+        const full = path2.join(root, 'gotchas', file);
+        assert.ok(fs2.existsSync(full), `${file}: row points at a file that does not exist`);
+        const Slugger = require('github-slugger').default ?? require('github-slugger');
+        const slugger = new Slugger();
+        const set = new Set();
+        for (const h of parseHeadings(fs2.readFileSync(full, 'utf8'))) set.add(slugger.slug(h.text));
+        anchorsOf.set(file, set);
+      }
+      for (const [, label, file, anchor] of rows) {
+        assert.ok(anchorsOf.get(file).has(anchor), `${file}#${anchor} does not exist (row: ${label.slice(0, 60)})`);
+      }
     });
   });
+  // Heading extraction has to agree with a REAL parser about what a heading is. Every
+  // case here is one an adversarial pass broke in the line-scanning version that shipped
+  // first — and each one failed SILENTLY, with `--check` exiting 0.
+  describe('parseHeadings — agreeing with the renderer', () => {
+    const h2s = (text) => parseHeadings(text).filter((h) => h.level === 2).map((h) => h.text);
+
+    // The break that mattered: an orphaned closing fence — exactly what a gotcha about a
+    // swallowed fence quotes — flipped a parity toggle and deleted the REST OF THE FILE
+    // from the index.
+    test('an unbalanced fence inside an example does not swallow later entries', () => {
+      const doc = ['# T', '', '## A', '', '````md', '```mermaid', 'graph TD; A-->B', '````', '', '## B', '', '## C'].join('\n');
+      assert.deepEqual(h2s(doc), ['A', 'B', 'C']);
+    });
+    test('a heading inside a fence is not an entry', () => {
+      assert.deepEqual(h2s(['# T', '', '## Real', '', '```sh', '## not a heading', '```'].join('\n')), ['Real']);
+    });
+    test('a heading inside an HTML comment is not an entry', () => {
+      assert.deepEqual(h2s(['# T', '', '## Real', '', '<!--', '## commented out', '-->'].join('\n')), ['Real']);
+    });
+    test('a setext heading IS an entry — the renderer says so', () => {
+      assert.deepEqual(h2s(['# T', '', 'Underlined heading', '---', '', 'body', '', '## Atx'].join('\n')), ['Underlined heading', 'Atx']);
+    });
+    test('a closing sequence is not part of the text', () => {
+      assert.deepEqual(h2s(['# T', '', '## Closing sequence ##'].join('\n')), ['Closing sequence']);
+    });
+    test('text is the RENDERED text — code, emphasis and link markup are consumed', () => {
+      const [h] = parseHeadings('## A `code` and **bold** and [a link](x.md)\n').filter((x) => x.level === 2);
+      assert.equal(h.text, 'A code and bold and a link', 'what GitHub slugs');
+      assert.equal(h.raw, 'A `code` and **bold** and [a link](x.md)', 'what the row label keeps');
+    });
+  });
+
+  // Every guard below was unreachable from the live corpus, so each is exercised on a
+  // fixture directory. `collect(dir)` exists for exactly this reason.
+  describe('collect — on fixture corpora', () => {
+    const os = require('node:os');
+    const fsx = require('node:fs');
+    const pathx = require('node:path');
+    const withCorpus = (files, fn) => {
+      const dir = fsx.mkdtempSync(pathx.join(os.tmpdir(), 'gotchas-fixture-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fsx.writeFileSync(pathx.join(dir, name), body);
+        return fn(dir);
+      } finally {
+        fsx.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    test('an entry after an unbalanced fence still reaches the index', () => {
+      const { topics, errors } = withCorpus(
+        { 'f.md': ['# Gotchas — F', '', '## A', '', '````md', '```x', '````', '', '## B'].join('\n') },
+        (d) => collect(d),
+      );
+      assert.deepEqual(errors, []);
+      assert.deepEqual(topics[0].entries, ['A', 'B']);
+    });
+
+    test('two headings that slug alike are REJECTED, so no anchor is positional', () => {
+      // GitHub would mint `dup` and `dup-1` in document order — correct, but inserting an
+      // entry above one silently re-anchors the other and rots every deep link to it.
+      const { errors } = withCorpus(
+        { 'f.md': ['# Gotchas — F', '', '## Dup!', '', 'body', '', '## Dup', '', 'body'].join('\n') },
+        (d) => collect(d),
+      );
+      assert.equal(errors.length, 1, errors.join('\n'));
+      assert.match(errors[0], /slug to the same anchor/);
+    });
+
+    test('a body heading that collides with an entry is caught too', () => {
+      const { errors } = withCorpus(
+        { 'f.md': ['# Gotchas — F', '', '### Shared name', '', '## Shared name'].join('\n') },
+        (d) => collect(d),
+      );
+      assert.match(errors.join('\n'), /slug to the same anchor/);
+    });
+
+    test('an entry heading quoting an index marker is rejected, not spliced', () => {
+      const { errors } = withCorpus(
+        { 'f.md': ['# Gotchas — F', '', '## A heading quoting <!-- gotchas-index:end --> in prose'].join('\n') },
+        (d) => collect(d),
+      );
+      assert.match(errors.join('\n'), /contains an index marker/);
+    });
+
+    test('a folder README is skipped, not treated as a malformed topic', () => {
+      const { topics, errors } = withCorpus(
+        { 'README.md': '# What this folder is\n\nProse, no entries.\n', 'f.md': '# Gotchas — F\n\n## A\n' },
+        (d) => collect(d),
+      );
+      assert.deepEqual(errors, [], 'a README must not hard-fail the build');
+      assert.deepEqual(topics.map((t) => t.file), ['f.md']);
+    });
+
+    test('a topic file with no entries is still an error', () => {
+      const { errors } = withCorpus({ 'f.md': '# Gotchas — F\n\nprose only\n' }, (d) => collect(d));
+      assert.match(errors.join('\n'), /no .* entries/);
+    });
+
+    test('the h1 is taken from the document, not from a fenced comment', () => {
+      const { topics } = withCorpus(
+        { 'f.md': ['```sh', '# not the title', '```', '', '# Gotchas — Real Title', '', '## A'].join('\n') },
+        (d) => collect(d),
+      );
+      assert.equal(topics[0].title, 'Real Title');
+    });
+  });
+
+  // An entry written INTO the generated index is invisible to the generator and is
+  // destroyed on the next run. Two docs used to instruct exactly that.
+  describe('verify — an entry authored into the generated index', () => {
+    const topics = [topic('charts.md', 'Charts', ['Pie wedges misalign'])];
+    test('fails, naming where the entry belongs', () => {
+      const withStray = `# Gotchas\n\n## Symptom index\n\n${render(topics)}\n\n## A gotcha someone appended here\n\n- **Symptom:** it vanishes.\n`;
+      const problems = verify(withStray, topics);
+      assert.equal(problems.length, 1, problems.join('\n'));
+      assert.match(problems[0], /written into engineering\/gotchas\.md itself/);
+    });
+    test('the file\'s own headings are not mistaken for entries', () => {
+      assert.deepEqual(verify(`# Gotchas\n\n## How to use this file\n\nprose\n\n## Symptom index\n\n${render(topics)}\n`, topics), []);
+    });
+    test('a heading inside a fenced example in the prose is not an entry', () => {
+      const doc = `# Gotchas\n\n## How to use this file\n\n\`\`\`md\n## an example heading\n\`\`\`\n\n## Symptom index\n\n${render(topics)}\n`;
+      assert.deepEqual(verify(doc, topics), []);
+    });
+  });
+
 });

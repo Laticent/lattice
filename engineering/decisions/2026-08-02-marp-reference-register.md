@@ -288,9 +288,9 @@ One thing is still worth knowing, and one no longer is:
    `lattice-runtime.js` does anything at all on that surface. The disagreement
    is **internal to `engineering/gotchas.md`**, which is the part an earlier
    draft of this section got wrong by framing it as a two-file contradiction:
-   - `gotchas.md:1578-1587` states the CSS-only reading **flatly** — the webview
+   - `engineering/gotchas/vscode.md` states the CSS-only reading **flatly** — the webview
      has "a strict Content Security Policy that disallows script execution."
-   - `gotchas.md:1551` then says of that same claim: *"Status of this claim:
+   - the same file then says of that same claim: *"Status of this claim:
      UNVERIFIED and contested … has never been tested against a real VS Code,"*
      and cites a 2026-07-29 field report describing structural components
      rendering correctly there — which would require the runtime to run.
@@ -555,7 +555,7 @@ them. It now finds them.
   deck in a real VS Code with the Marp extension and look. It decides whether
   `lib/runtime/index.js`'s 2,182-line mirror does anything on that surface, and
   therefore what §5's 293 files actually buy. Three passages move when it lands:
-  `gotchas.md:1578-1587` (asserts CSS-only flatly), `gotchas.md:1551` (says that
+  `engineering/gotchas/vscode.md` (asserts CSS-only flatly, then says that
   assertion is untested), and `marp-independence.md:116` (agrees with the
   unhedged half). **Unreachable from a headless sandbox.**
 - **There is no scheduled re-evaluation of §5(b), by design.** Do not wait for

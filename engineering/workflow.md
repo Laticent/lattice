@@ -263,7 +263,7 @@ graduates from "new" to "documented". Treat them like
 
 - Small, focused units. One logical change per commit.
 - Message format: `area(scope): short summary` — follow `git log` for the established pattern.
-- If a fix is non-obvious, add a `engineering/gotchas.md` entry **before** committing. The commit message then links to it.
+- If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, then run `npm run gotchas:index` — `engineering/gotchas.md` is GENERATED and anything written into it is deleted on the next regeneration.
 - Gallery edits: rebuild the PDF (`npm run preview -- <deck>` during dev; include the rebuilt PDF in the PR's final commit).
 - Feature decks: rebuild `examples/<slug>.pdf` and include it in the same commit as the `.md` change.
 
