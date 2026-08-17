@@ -152,13 +152,19 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - name: Playground bundle freshness gate (byte-diff, no render)
-        # The docs-site playground bundle (docs/public/playground/
-        # lattice-playground.js) is generated from lib/playground + its imports
-        # but lives outside dist/, so build:check doesn't cover it. Gate it here
-        # so an engine/plugin change can't ship a stale bundle to the live site.
-        if: matrix.node-version == 22
-        run: npm run playground:check
+      # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
+      # checkout does not have them and everything below that loads the engine
+      # needs them on disk. ~16s, no browser.
+      #
+      # It must come AFTER the freshness gate in the `lint` job and nowhere before
+      # one: building first makes every generated file on disk fresh, so a
+      # `--check` after it passes vacuously and stops being a gate at all.
+      - name: Build the generated bundles
+        run: npm run build
+      # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
+      # bundle stale?" — a question with no meaning now that the bundle is built
+      # rather than committed. The staleness it guarded against is gone at the
+      # root: every job and the docs deploy build the bundle from current source.
       - name: Unit tests (full suite)
         if: matrix.node-version == 22
         run: npm test
@@ -208,6 +214,15 @@ jobs:
         # reliably than an @font-face one. See engineering/gotchas.md.
         run: sudo apt-get update && sudo apt-get install -y poppler-utils fonts-noto-color-emoji
       - run: npm ci
+      # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
+      # checkout does not have them and everything below that loads the engine
+      # needs them on disk. ~16s, no browser.
+      #
+      # It must come AFTER the freshness gate in the `lint` job and nowhere before
+      # one: building first makes every generated file on disk fresh, so a
+      # `--check` after it passes vacuously and stops being a gate at all.
+      - name: Build the generated bundles
+        run: npm run build
       - name: Integration tests (PR slice)
         run: npm run test:integration:pr
       - name: Upload Marp renders on failure
@@ -278,6 +293,15 @@ jobs:
       - name: Allow ImageMagick PDF coder (for the montage PDF)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
+      # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
+      # checkout does not have them and everything below that loads the engine
+      # needs them on disk. ~16s, no browser.
+      #
+      # It must come AFTER the freshness gate in the `lint` job and nowhere before
+      # one: building first makes every generated file on disk fresh, so a
+      # `--check` after it passes vacuously and stops being a gate at all.
+      - name: Build the generated bundles
+        run: npm run build
       - name: Compute golden before/after
         run: node tools/golden-diff.mjs --base ${{ github.event.pull_request.base.sha }}
       - name: Upload montage artifact
@@ -428,6 +452,12 @@ jobs:
       # resolution path of a require() from lib/core.
       - name: Install root deps (for the @workwel/cadenza workspace link)
         run: npm ci
+      # dist/ and the docs bundles are BUILT, not committed (.gitignore). The docs
+      # site imports dist/docs/*.json and loads the playground bundles, and the
+      # workspace libs' dist/ is what `tsc` typechecks against, so build before
+      # either. ~16s, no browser.
+      - name: Build the generated bundles
+        run: npm run build
       - name: Install docs deps
         run: npm ci
         working-directory: docs
@@ -493,6 +523,10 @@ jobs:
         run: npm ci
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1' # this job never renders; skip the ~150MB Chrome
+      # dist/ and the docs bundles are BUILT, not committed (.gitignore); the Studio
+      # loads them, so build before the preview server starts. ~16s, no browser.
+      - name: Build the generated bundles
+        run: npm run build
       - name: Install docs deps
         run: npm ci
         working-directory: docs

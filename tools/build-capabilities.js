@@ -61,7 +61,8 @@ const FRAMEWORKS = [
 const SCRIPT_META = {
   // Build & bundle
   'build':                    ['Build & bundle', 'Regenerate every generated artifact in dependency order, behind the ownership gate.'],
-  'build:check':              ['Build & bundle', 'Freshness gate: regenerate in memory and byte-diff every artifact; fail on drift (CI/pre-push).'],
+  'build:check':              ['Build & bundle', 'Freshness gate for the COMMITTED generated artifacts: regenerate in memory and diff, skipping the bundles that are built-not-committed (CI/pre-push).'],
+  'build:check:all':          ['Build & bundle', 'The same gate without the scope: every artifact, including the built-not-committed bundles. Needs dist/ present, so run it after npm run build.'],
   'css:build':                ['Build & bundle', 'Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet.'],
   'css:check':                ['Build & bundle', 'Freshness gate for dist/lattice.css.'],
   'default:build':            ['Build & bundle', 'Build dist/lattice-default.css — the flattened zero-config drop-in (engine + cuoio).'],

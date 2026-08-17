@@ -148,15 +148,20 @@ function render() {
 
 # \`dist/\` — Lattice distribution artifacts
 
-This folder holds the **generated, committed** build outputs that Lattice
-ships. They are produced by \`npm run build\` (each behind the ownership
-gate) and verified fresh by \`npm run build:check\`. **Do not hand-edit
-anything in this folder** — including this README; edit the generators in
-\`tools/\` instead.
+This folder holds the **generated** build outputs that Lattice ships. They are
+produced by \`npm run build\` (~16s, no browser), each behind the ownership gate.
+**Do not hand-edit anything in this folder** — including this README; edit the
+generators in \`tools/\` instead.
 
-What decks and consumers actually load lives here: the README's jsdelivr / raw
-URLs point into \`dist/\`, and the package \`exports\` map most named subpaths to these
-files. See the repo \`README.md\` for the full entry-point table.
+**\`dist/\` is NOT COMMITTED.** It is in \`.gitignore\`: two PRs that both regenerated
+these files conflicted in the merge queue with certainty, and the loser was ejected
+with its auto-merge flag silently cleared. Build it; don't expect a checkout to have
+it. The npm package is unaffected — \`files\` in package.json whitelists \`dist/\`,
+which takes precedence over \`.gitignore\`, and \`prepack\` builds it at publish time.
+See \`engineering/decisions/2026-08-17-generated-bundles-uncommitted.md\`.
+
+The package \`exports\` map most named subpaths to these files — see the repo
+\`README.md\` for the full entry-point table.
 
 | File | Purpose | Consume via |
 |---|---|---|

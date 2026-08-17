@@ -69,7 +69,8 @@
   "scripts": {
     "build:gallery-jargon": "node lattice-emulator.js examples/gallery-jargon.md examples/gallery-jargon.pdf",
     "build": "node tools/build.js",
-    "build:check": "node tools/build.js --check",
+    "build:check": "node tools/build.js --check --exclude-uncommitted",
+    "build:check:all": "node tools/build.js --check",
     "new:theme": "node tools/new-theme.js",
     "new:slide": "node tools/new-slide.js",
     "new:component": "node tools/new-component.js",
@@ -251,6 +252,7 @@
     "sync:labels": "node tools/sync-labels.js",
     "clean:scratch": "find .scratch -mindepth 1 -mtime +14 -print -delete",
     "prepare": "lefthook install || true",
+    "prepack": "npm run build",
     "prepublishOnly": "npm test"
   },
   "dependencies": {

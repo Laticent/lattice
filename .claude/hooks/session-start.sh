@@ -27,6 +27,14 @@ cd "$CLAUDE_PROJECT_DIR"
 #    the pre-commit / pre-push gates are actually active in this session.
 npm install --no-audit --no-fund
 
+# 1b. The generated bundles. dist/ and the docs-site bundles are BUILT, not
+#     committed (.gitignore, 2026-08-17), so a fresh container has neither. Almost
+#     everything here needs them: `node dist/lattice-emulator.js`, the unit and
+#     integration suites, the docs site, and the agent-facing catalog
+#     dist/docs/components.pick.md that CLAUDE.md tells you to grep. ~16s, no
+#     browser. Idempotent — a no-op when they are already current.
+npm run build --silent >/dev/null 2>&1 || npm run build
+
 # 2. System deps for the PDF pipeline. A fresh container's apt index is often
 #    stale, so refresh it once before installing — a stale index 404s on the
 #    pinned .deb and silently leaves pdfinfo missing, which fails the integration

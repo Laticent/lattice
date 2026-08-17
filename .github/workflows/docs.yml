@@ -40,6 +40,16 @@ jobs:
         run: npm ci
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
+      # dist/ and the docs bundles are BUILT, not committed (.gitignore), so the
+      # deploy must generate them rather than read them out of the checkout.
+      #
+      # This also FIXES a staleness the committed arrangement had: the site used to
+      # deploy whatever bundle happened to be committed, so an engine change that
+      # landed without a rebuild shipped a fresh server-rendered shell against a
+      # stale client bundle — the drift docs.yml's own note warns about. Building
+      # here makes the deployed bundle match the deployed engine by construction.
+      - name: Build the generated bundles
+        run: npm run build
       - name: Build with Astro
         uses: withastro/action@v3
         with:

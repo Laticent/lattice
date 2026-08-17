@@ -318,7 +318,7 @@ indexed elsewhere; follow the pointers.
 ```text
 lattice/
 ├── lattice-emulator.js   # the owned engine (CLI renderer; esbuild entry)
-├── dist/                 # GENERATED, committed build artifacts — never hand-edit
+├── dist/                 # GENERATED, NOT committed — `npm run build` (~16s); never hand-edit
 │                         #   (lattice.css, the runtime/emulator bundles, docs/).
 │                         #   Regenerate: npm run build · index: dist/README.md
 ├── lib/                  # engine source: core kernels, transformers, components/, theme/, forms/

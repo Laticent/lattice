@@ -1,8 +1,0 @@
-{
-  "markdown.marp.themes": [
-    "./lattice.min.css",
-    "./cuoio.min.css",
-    "./cuoio-dark.min.css"
-  ],
-  "markdown.marp.enableHtml": true
-}

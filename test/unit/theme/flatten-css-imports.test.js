@@ -258,8 +258,24 @@ describe('differential: identical to the old strip wherever the old strip was ri
     // are what ship. `dist/` IS included — `dist/lattice.css` is committed, and it is the
     // DEFAULT layout sheet every render flattens, so leaving it out would omit the one
     // input that always matters.
-    const sheets = execFileSync('git', ['ls-files', '*.css'], { cwd: ROOT, encoding: 'utf8' })
+    //
+    // UPDATE (2026-08-17): `dist/` is no longer committed, so `git ls-files` alone
+    // silently dropped the one sheet the paragraph above calls "the one input that
+    // always matters". The fix keeps BOTH properties — a corpus identical on every
+    // machine, and the default layout sheet in it — by adding the generated sheets
+    // BY NAME rather than reverting to a directory walk. An explicit list cannot
+    // vary with what happens to have been built, which is what made the walk
+    // machine-dependent.
+    const GENERATED_SHEETS = ['dist/lattice.css', 'dist/lattice-default.css'];
+    const tracked = execFileSync('git', ['ls-files', '*.css'], { cwd: ROOT, encoding: 'utf8' })
       .split('\n').filter(Boolean).map((p) => path.join(ROOT, p));
+    for (const rel of GENERATED_SHEETS) {
+      assert.ok(
+        fs.existsSync(path.join(ROOT, rel)),
+        `${rel} is missing — it is generated, not committed. Run \`npm run build\` first.`,
+      );
+    }
+    const sheets = [...tracked, ...GENERATED_SHEETS.map((p) => path.join(ROOT, p))];
     assert.ok(sheets.length > 100, `expected a real corpus, found ${sheets.length}`);
     assert.ok(sheets.some((p) => p.endsWith(`dist${path.sep}lattice.css`)), 'the default layout sheet must be in the corpus');
 
