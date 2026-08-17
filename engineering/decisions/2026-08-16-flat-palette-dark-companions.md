@@ -61,10 +61,13 @@ to say. Concrete and onyx already declare pairs.
 **One flat-over-pair case is deliberately left standing, and the first draft of this
 table wrongly said there were none.** Carbone overrides `--on-accent` (a base pair,
 `light-dark(#FFFFFF, var(--surface-inverse, #000))`) with a flat
-`var(--surface-inverse)`, and four `--on-accent-*` tiers derive from it. It is
+`var(--surface-inverse)`. Three `--on-accent-*` tiers derive from it, so four tokens
+move in total (`--on-accent-soft` reads `--accent` and does not). It is
 structurally the same shape, and it is excluded on purpose rather than by oversight:
 #1640 item 3 already measured it as an IMPROVEMENT under the flip (white on carbone's
-bright lime → its curated near-black, 10.95:1). It survives here because the sweep's
+bright lime → its curated near-black, 12.15:1 where base's white was 1.59:1 — NOT the
+10.95:1 that `themes/carbone.css:83` annotates, which is `--accent` on `--bg`). It
+survives here because the sweep's
 first filter was "does the DARK value move", and carbone's flat override happens to
 equal base's dark arm — so it moves only in LIGHT, which is why it is an improvement
 rather than a regression. Recorded so #1527 inherits an accurate list.
@@ -184,7 +187,7 @@ a11y-tritanopia    dark  --pass rgb(0,113,49)  --warn rgb(176,81,57)   --fail rg
 Those are the palettes' own LIGHT hexes on a dark canvas. The CVD-collapse numbers are
 real and worth recording, but they describe the surface this PR leaves alone. What this
 PR fixes on the engine path is legibility: `--fail` on redline's band goes 1.25 → 9.22
-(achromatopsia), 1.59 → 5.91 (deutan/protan), 1.55 → 8.04 (tritan).
+(achromatopsia), 1.59 → 5.91 (deutan/protan), 1.56 → 8.04 (tritan).
 
 ## Proven both ways, on the real render
 
