@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The `journey` stage ribbon painted 92%-white labels on a fill that is only dark on one of the three canvases it renders on — 1.87:1 in indaco, and 31 of 64 palette x scheme pairs below the 3:1 floor, EVERY light-mode pair. Two fixes were legitimate (darken the ink, or push the fill dark); the ink won, because the fill is canvas-derived by construction and `section.print` had already made exactly this fix one layer down by remapping `--on-dark-primary` to print's heading ink. Print output is byte-identical (verified on a real print render); dark mode was never the defect but is NOT unchanged either - 17 palettes now use their own tinted heading ink and 10 of 64 rows lose a little contrast at an altitude where it cannot matter (worst 15.26 -> 14.09, lowest dark row 11.30). Then the follow-through from `2026-08-17-dark-surface-ink.md` - `tools/check-slide-contrast.js` becomes a per-PR gate over three rendered galleries, with a two-entry allowlist that fails both ways. Adjudicating the 8 "prober artifacts" that gate was scoped to absorb found that 4 were a bug IN THE PROBER, not an inherent limit - it approximated paint order by DOM order and discarded a split rail as the backdrop for chrome emitted before it. Fixed instead of allowlisted; the allowlist is 2 entries, not 8. The predecessor record's explanation of those 4 runs (sibling-not-ancestor) was ALSO wrong and is corrected there. Then the adversarial trio found the gate did NOT measure what its title claimed, twice over: WCAG's large-text line was being applied in DECK pixels (a 3840px slide exports to a 960pt page, so 24px was a 6pt cutoff), grading 68.6% of runs at 3:1 instead of 4.5:1 and passing 14 real AA failures - one of them `journey`'s own mood legend at 3.78:1, which the repo had ALREADY withdrawn this reasoning for in register entry G13. And 21.6% of runs were skipped before any assertion because their ink matched the `--text-muted`/`--border` tier, which a red team exploited two ways (soften the token: 297 runs to 1.17:1; or just point a component's ink at it) with every gate in the repo green. Both closed; the tier is now held to a 3:1 floor AND its size pinned. The backlog ratchet was reversed to ceiling-only after the inversion measured that failing-downward would red unrelated PRs for improving the repo.
+summary: The `journey` stage ribbon painted 92%-white labels on a fill that is only dark on one of the three canvases it renders on — 1.87:1 in indaco, and 31 of 64 palette x scheme pairs below the 3:1 floor, EVERY light-mode pair. Two fixes were legitimate (darken the ink, or push the fill dark); the ink won, because the fill is canvas-derived by construction and `section.print` had already made exactly this fix one layer down by remapping `--on-dark-primary` to print's heading ink. Print output is byte-identical (verified on a real print render); dark mode was never the defect but is NOT unchanged either - 17 palettes now use their own tinted heading ink and 10 of 64 rows lose a little contrast at an altitude where it cannot matter (worst 15.26 -> 14.09, lowest dark row 11.30). Then the follow-through from `2026-08-17-dark-surface-ink.md` - `tools/check-slide-contrast.js` becomes a per-PR gate over three rendered galleries, with a two-entry allowlist that fails both ways. Adjudicating the 8 "prober artifacts" that gate was scoped to absorb found that 4 were a bug IN THE PROBER, not an inherent limit - it approximated paint order by DOM order and discarded a split rail as the backdrop for chrome emitted before it. Fixed instead of allowlisted; the allowlist is 2 entries, not 8. The predecessor record's explanation of those 4 runs (sibling-not-ancestor) was ALSO wrong and is corrected there. Then the adversarial trio found a REAL hole and I invented a fake one chasing it. The real one: 21.6% of runs were skipped before any assertion because their ink matched the `--text-muted`/`--border` tier, which a red team exploited two ways (soften the token: 297 runs to 1.17:1; or just point a component's ink at it) with every gate in the repo green - now closed by holding the tier to a 3:1 floor AND pinning its size. The fake one: acting on a reported "4 deck-px per point", I raised the WCAG large-text threshold 3x and wrote a cascade of derived claims ("68.6% mis-graded", "14 real AA failures") into the code, the changelog, this record and the PR. The ratio is 1.333 on every deck size - it is just the CSS unit conversion - and the number came from dividing one deck's page size by another deck's canvas. Reverted; two phantom backlog entries deleted. The gate had gone GREEN on the bad threshold because its ledger was retuned to match, which is the sharpest illustration in this record of why CI green is not verification. The backlog ratchet was also reversed to ceiling-only after the inversion measured that failing-downward would red unrelated PRs for improving the repo.
 builds-on: 2026-08-17-dark-surface-ink.md, 2026-08-11-on-dark-ink-tiers.md, 2026-07-03-semantic-html-accessibility.md
 ---
 
@@ -241,32 +241,57 @@ The single checker below found four defects, one of which was that the gate's ow
 exemption could absorb a real regression. **A lens finding "this gate can be fooled" is
 the trigger for more lenses, not fewer** — so the work escalated to the full trio (red
 team · Munger inversion · a second independent checker), scoped to the gate and the
-prober rather than the one-token CSS fix. It found that the gate, as first written,
-**did not measure what its title claimed**, in two large ways that two independent lenses
-reached from opposite directions.
+prober rather than the one-token CSS fix. It found one large way the gate did not measure what its title
+claimed — and my attempt to fix a second, reported one introduced a worse error than the
+problem it chased. Both are below, the mistake first, because it is the more useful half.
 
-### The large-text threshold was off by 4×
+### A threshold "fix" that was itself the error — kept here because it is the lesson
 
-`PROBE` applied WCAG's large-text line — 18pt, or 14pt bold — to a font size read off a
-slide that lays out at **3840 CSS px** and exports to a **960pt** page (`pdfinfo` on any
-deck: `Page size: 960 x 540 pts`). That is **4 deck-px per point**, so the file's `fs >= 24`
-was a **6pt** cutoff. Measured: **2667 of 3888 runs (68.6%)** were graded at 3:1 where
-WCAG requires 4.5:1, and **14 runs that genuinely fail AA were passing** — including
-`journey`'s own mood legend at **3.78:1**. The gate built to stop `journey` contrast
-regressions was passing a live `journey` AA failure sitting beside the one it fixed.
+The red team reported that WCAG's large-text line was being applied in deck pixels: a
+slide lays out at 3840 CSS px and `pdfinfo` on an exported deck says `960 x 540 pts`, so
+**4 deck-px per point**, making the file's `fs >= 24` a 6pt cutoff. I confirmed it, raised
+the threshold to 72px/56px, and wrote the consequences into the code, the changelog, this
+record and the PR body: *68.6% of runs mis-graded, 14 real AA failures passing.*
 
-**The repo had already ruled on this and the ruling was not applied.** Register entry
-**G13** in `2026-07-03-semantic-html-accessibility.md` withdraws exactly this reasoning:
-*"that reassurance is a page-box artifact and IS WITHDRAWN … the slide canvas is nominally
-3840 CSS px wide, so the chrome's 43.4px clears WCAG's 24px large-text line ONLY in canvas
-units … Nothing about the way a human sees it is 'large'."* This change edits the register
-row directly beneath G13 and cites G13 by number — and imported half of it. Now fixed:
-`isLarge` converts 18pt/14pt-bold into deck units.
+**All of it was wrong.** The `pdfinfo` reading came from the **demo** deck (a 960pt page);
+the 3840px canvas came from the **gallery**. Two different decks, two incompatible
+numbers, one confident conclusion. Measured properly, the ratio is the same on every
+shipped size, because it is just the CSS unit conversion (96dpi / 72pt):
 
-Of the 14 runs it surfaced, one is `journey`'s and was fixed here (the mood legend carried
-`opacity: 0.75` over `--text-secondary`; small-caps and letter-spacing already carry the
-de-emphasis, so the wash was buying nothing and costing legibility). The other three
-components go to the backlog.
+| deck | slide CSS px | PDF page | px per pt |
+|---|---|---|---|
+| default 16:9 | 1280 | 960 × 540 pt | 1.333 |
+| `story` portrait | 1080 | 810 × 1440 pt | 1.333 |
+| `4k` landscape | 3840 | 2880 × 1620 pt | 1.333 |
+
+18pt is therefore 24 CSS px and 14pt bold is 18.67 — **the original code was textbook
+correct**, and the "fix" was 3× too strict. It is reverted. `compare-prose` and `redline`
+were deleted from the backlog (they only failed under the bad threshold), `kanban`'s
+counts came back down, and `journey`'s mood legend turns out to have been at **3.07:1
+against a 3:1 floor** — 0.07 of margin on 58 of 64 pairs, not the 3.78:1 violation
+claimed. The wash is still removed (5.02:1 now); the framing was false.
+
+**Two things make this worth writing down rather than quietly reverting.**
+
+First, **the gate went green on the wrong threshold**, because the recorded ledger had
+been retuned to match it. Full CI — lint, unit, integration, docs-build, CodeQL — passed
+on the bad commit. That is HARD RULE #23 demonstrated on this branch's own work: a gate
+confirms what it exercises, and a gate whose expectations are derived from the code it
+checks confirms nothing at all.
+
+Second, this record had already spent three paragraphs warning that a confident
+measurement is not a verified one, and had already corrected two prior authors and three
+of my own claims for exactly this. Writing a fourth, one commit later, is the strongest
+available evidence that the discipline does not come from having read the warning. What
+caught it was re-deriving the number from scratch on a *different* deck, because a page
+size that varied between decks looked wrong.
+
+**A real question survives the mistake and is NOT settled here.** Register entry G13
+argues that a 3840px slide displayed smaller scales its type down, so "large" in canvas
+units may not be large to a viewer. That is a presentation-scale argument, not a unit
+conversion, and encoding it would need a decision about what viewing size to normalize
+to. It is a legitimate open question; it is not what the code was doing, and this change
+does not answer it.
 
 ### A fifth of all runs were excluded before any assertion ran
 

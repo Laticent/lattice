@@ -32,14 +32,14 @@
   rather than part of this change, so the new gate carries them as an itemized ratchet
   with per-surface, per-tag ceilings: growth fails the build, progress prints and invites
   lowering the number, and an entry that reaches zero must be deleted. Tracked as #1717.
-- **Fixed: the contrast prober applied WCAG's large-text line in DECK pixels.** A slide
-  lays out at 3840px and exports to a 960pt page — 4 deck-px per point — so the 24px
-  cutoff was really 6pt, and 68.6% of runs were held to 3:1 where WCAG requires 4.5:1.
-  It now converts 18pt/14pt-bold into deck units. That surfaced a real `journey` defect
-  (the mood legend's PAIN/DELIGHT labels at 3.78:1, fixed by dropping an opacity wash)
-  and three pre-existing ones now tracked on #1717. The prober also stopped dropping
-  pseudo-element glyphs with no ASCII alphanumerics, which had hidden 24 painted marks
-  per gallery.
+- **Changed: `journey`'s mood legend drops an opacity wash.** The PAIN/DELIGHT labels
+  carried `opacity: 0.75` over `--text-secondary`, leaving them at 3.07:1 against a 3:1
+  floor — passing by 0.07, on 58 of 64 palette and scheme pairs. Now 5.02:1 worst case.
+  Small-caps and letter-spacing already carried the de-emphasis the wash was buying.
+- **Fixed: the contrast prober no longer drops pseudo-element glyphs without ASCII
+  alphanumerics**, which had hidden 24 painted marks per gallery (`❯ · ✦ › ↻ →` and curly
+  quotes) plus any non-Latin label. Their ink could previously be regressed to any ratio
+  unmeasured.
 - **Added: the WCAG-exempt decorative ink tier is no longer invisible.** Runs inked with
   `--text-muted` / `--border` are skipped before every contrast assertion — 21.6% of all
   runs, and an adversarial review softened that token by one line to put 297 runs at

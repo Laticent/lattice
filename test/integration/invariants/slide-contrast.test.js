@@ -90,8 +90,8 @@ const SURFACES = [
  *
  * Deliberately NOT here, because they were fixed instead of excused: the four `split-*`
  * running headers at 1.00:1 (a paint-order bug in the prober), the three `journey` stage
- * labels at 1.87:1 (#1702), and the `journey` mood legend at 3.78:1 — which only became
- * visible once the large-text threshold was corrected.
+ * labels at 1.87:1 (#1702), and the `journey` mood legend, which sat 0.07 above its floor
+ * on 58 of 64 palette pairs and now clears it by 2.
  */
 const SANCTIONED_CONTRAST_EXEMPTIONS = [
   {
@@ -145,15 +145,17 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
  * ratcheted. NOT a second exemption list: an entry above is something no contrast change
  * could satisfy; an entry HERE is a debt with a number on it.
  *
- * WHERE THEY CAME FROM. Two waves, both pre-existing, both reproduced at `91913c5` in a
- * clean worktree before this branch touched anything:
- *   · #1704 taught the prober to read element `opacity` (which composites ink AND
- *     background together) but never re-measured the RENDERED galleries, so the
- *     `agenda progress-*` and `kanban` de-emphasis washes have been failing on `main`
- *     unseen since that merge.
- *   · Correcting the large-text threshold in this change — it applied WCAG's 18pt line in
- *     DECK pixels, a 6pt cutoff, grading 68.6% of runs at 3:1 instead of 4.5:1 — surfaced
- *     `compare-prose` and `redline` too.
+ * WHERE THEY CAME FROM. #1704 taught the prober to read element `opacity` (which
+ * composites ink AND background together) but never re-measured the RENDERED galleries,
+ * so the `agenda progress-*` and `kanban` de-emphasis washes have been failing on `main`
+ * unseen since that merge. Reproduced at `91913c5` in a clean worktree before this branch
+ * touched anything.
+ *
+ * A SECOND WAVE WAS BRIEFLY LISTED HERE AND WAS NOT REAL. An intermediate commit raised
+ * the large-text threshold 3x on a mis-derived unit conversion, which made `compare-prose`
+ * and `redline` appear to fail and inflated `kanban`. The threshold is reverted and those
+ * entries are deleted — recorded because the gate went GREEN on the bad threshold, its
+ * ledger having been retuned to match, which is exactly how a wrong number survives.
  *
  * Fixing any of them is a design call on a component unrelated to `journey`: how much
  * emphasis may a de-emphasized row keep, how loud may a struck clause be. HARD RULE #18
@@ -188,32 +190,9 @@ const PREEXISTING_CONTRAST_BACKLOG = [
       + 'column-header span. Same design call, different component.',
     match: (r) => /\bkanban\b/.test(r.cls),
     counts: {
-      'gallery @ indaco': { span: 2, code: 2 },
-      'gallery @ indaco-dark': { span: 2, code: 2 },
-      'gallery-jargon @ indaco': { span: 3 },
-    },
-  },
-  {
-    id: 'compare-prose-decision-ink',
-    why: 'The `decision` verdict chip on `compare-prose` paints its label on a mid accent '
-      + 'fill: 3.24:1 light, 4.06:1 dark. Surfaced by the large-text threshold correction, '
-      + 'not by any code change — it has always been below AA for text this size.',
-    match: (r) => /\bcompare-prose\b/.test(r.cls),
-    counts: {
-      'gallery @ indaco': { strong: 1 },
-      'gallery @ indaco-dark': { strong: 1 },
-      'gallery-jargon @ indaco': { strong: 1 },
-    },
-  },
-  {
-    id: 'redline-strike-ink',
-    why: 'The struck clause on `redline` in dark mode reads 4.25:1 against a 4.5 floor. '
-      + 'Also surfaced by the threshold correction. A struck clause is still content.',
-    match: (r) => /\bredline\b/.test(r.cls),
-    counts: {
-      'gallery @ indaco': {},
-      'gallery @ indaco-dark': { del: 2 },
-      'gallery-jargon @ indaco': {},
+      'gallery @ indaco': { code: 2 },
+      'gallery @ indaco-dark': { code: 2 },
+      'gallery-jargon @ indaco': { span: 2 },
     },
   },
 ];

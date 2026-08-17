@@ -134,32 +134,35 @@ const PROBE = () => {
   const over = (fg, bg, a) => fg.map((c, i) => c * a + bg[i] * (1 - a));
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 
-  // WCAG "LARGE TEXT", IN THE UNITS A HUMAN ACTUALLY SEES — not in deck pixels.
+  // WCAG "LARGE TEXT" — 18pt, or 14pt when bold (>= 700), expressed in CSS px.
   //
-  // This engine lays a slide out at 3840 CSS px and exports it to a 960pt PDF page
-  // (`pdfinfo` on any exported deck: `Page size: 960 x 540 pts`), so there are exactly
-  // **4 deck-px per point**. WCAG's large-text line is 18pt (14pt when bold >= 700),
-  // which is 72 deck-px and 56 deck-px here.
+  // 1pt is 1.333 CSS px by definition (96dpi / 72pt), so the thresholds are 24px and
+  // 18.67px. That is the textbook conversion and it does NOT vary with deck size.
+  // Measured across all three shipped sizes, the CSS-px-to-PDF-point ratio is the same
+  // 1.333 every time — the page grows with the canvas:
   //
-  // This file used the raw CSS numbers — `fs >= 24 || (fs >= 18.66 && w >= 700)` — which
-  // in deck units is a 6pt cutoff. Measured on the gated galleries that graded 2667 of
-  // 3888 runs (68.6%) as "large" and held them to 3:1 when WCAG requires 4.5:1, and it
-  // passed 14 runs that genuinely fail AA — including `journey`'s own mood legend at
-  // 3.78:1, on the component whose contrast defect this gate was built for.
+  //     default 16:9   1280 CSS px  ->   960 x 540 pt
+  //     story portrait 1080 CSS px  ->   810 x 1440 pt
+  //     4k landscape   3840 CSS px  ->  2880 x 1620 pt
   //
-  // The repo had already ruled on this and the ruling was not applied here. Register
-  // entry G13 in `2026-07-03-semantic-html-accessibility.md`: an earlier draft's claim
-  // that chrome "passes AA as LARGE text at export scale" is "a page-box artifact and
-  // IS WITHDRAWN … the slide canvas is nominally 3840 CSS px wide, so the chrome's
-  // 43.4px clears WCAG's 24px large-text line ONLY in canvas units. Nothing about the
-  // way a human sees it is 'large'."
+  // A PREVIOUS VERSION OF THIS BLOCK GOT THAT WRONG AND IS WORTH RECORDING, because it
+  // is the exact failure the rest of this header warns about. An adversarial review
+  // reported "4 deck-px per point", and it was confirmed by running `pdfinfo` on the
+  // DEMO deck (a 960pt page) and dividing by the GALLERY's 3840px canvas — two different
+  // decks, two incompatible numbers, one confident conclusion. On the strength of it the
+  // cutoff was raised to 72px/56px, i.e. 3x too strict, and a whole cascade of derived
+  // claims was written into the changelog, a decision record and a PR body: "68.6% of
+  // runs mis-graded", "14 real AA failures passing". None of it was true. The gate went
+  // GREEN on the wrong threshold, because the recorded ledger had been retuned to match
+  // it — CI confirms only what it actually exercises.
   //
-  // NOT parameterised on the deck's real size, deliberately: every gated deck is a
-  // 4K-canvas landscape slide, and a wrong ratio is far worse than a conservative one.
-  // A deck that genuinely lays out at a different scale would need this derived from
-  // the section's own computed width — worth doing when such a deck exists to test it.
-  const PX_PER_PT = 3840 / 960;
-  const isLarge = (fs, w) => fs >= 18 * PX_PER_PT || (fs >= 14 * PX_PER_PT && w >= 700);
+  // A REAL question hides behind the mistake and is NOT settled here. Register entry G13
+  // in `2026-07-03-semantic-html-accessibility.md` argues that a 3840px-wide slide shown
+  // at a smaller size scales its type down, so "large" in canvas units may not be large
+  // to the viewer. That is a PRESENTATION-SCALE argument, not a unit conversion, and it
+  // would need a decision about what viewing size to normalize to before any threshold
+  // could encode it. Whatever it lands on, it is not what the code above was doing.
+  const isLarge = (fs, w) => fs >= 24 || (fs >= 18.66 && w >= 700);
 
   // Climb ancestors, compositing every translucent paint and every element
   // `opacity`, down to the page. `from` seeds the stack with paints that are NOT
