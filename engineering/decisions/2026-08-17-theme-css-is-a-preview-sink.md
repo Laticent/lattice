@@ -609,6 +609,23 @@ twin, and wrote a record saying the class was handled — HARD RULE #18's "a win
 covers a fix that stops halfway as squarely as a regression. It is guarded here, and
 `checkCssTreeRewrapSinks` (§9.5) exists so a third twin cannot be written unguarded.
 
+**Fix verified on the same surface the exploit was demonstrated on** (HARD RULE #23) — the
+built `docs/dist`, the shipped `player-prune-browser.<hash>.js` chunk imported inside the
+running Studio page, Chromium 131, same payload and same harness:
+
+| | **PRE-FIX** | **POST-FIX** |
+|---|---|---|
+| live `</style><link` in the artifact's bytes | **yes** | no |
+| stray `<link href=BEACON>` in the parsed artifact | **1** | 0 |
+| stray injected `<span id=pwn>` | **1** | 0 |
+| the deck's own rule still inside a `<style>` | **no** (truncated) | yes |
+| **beacon requested when a recipient opens the file** | **`OPENED:…/BEACON.css`** | **none** |
+
+And in the shipped bytes themselves, the same read §4 did of the deployed artifact: the
+re-wrap is `` `<style>${fe(y.css)}</style>` ``, where `fe` is imported from
+`deck-preview.<hash>.js` and resolves to the guard verbatim — the `[115,116,121,108,101]`
+charcode table and the hop-by-hop `indexOf("</")` scan, minified to `I` and exported `as s`.
+
 **Also folded in from the three passes, each verified before acting:**
 
 - the integration fixture's payload lived only in a CSS *comment*, which `minifyCss` and
