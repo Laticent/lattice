@@ -1,0 +1,135 @@
+{
+  "_design": "PRE-REGISTERED before any agent ran. 12 authoring briefs in AUTHOR voice — the words a person writing a deck would use, deliberately NOT the manifests' vocabulary, because a brief phrased in manifest prose hands the full-catalog condition a verbatim string match and measures nothing. Ground truth is a SET: `expect` is the component the manifest's own whenToUse points at, `ok` are alternatives a competent author could defend. Scored on `expect` (strict) and `expect ∪ ok` (lenient). Bias risk, stated: the same person wrote these and both surfaces, so a brief could unconsciously favour vocabulary the pick row happens to carry. Mitigation is only partial — briefs were written from whenToUse SITUATIONS, then the ground truth locked, before either agent was spawned.",
+  "briefs": [
+    {
+      "id": 1,
+      "brief": "Closing slide of a board update. I want the quarter's revenue number to hit hard and nothing else on the slide to compete with it.",
+      "expect": [
+        "big-number"
+      ],
+      "ok": [
+        "kpi",
+        "premise"
+      ]
+    },
+    {
+      "id": 2,
+      "brief": "Four metrics for the monthly ops review — each needs a label, the value, and whether it's on track or slipping.",
+      "expect": [
+        "kpi"
+      ],
+      "ok": [
+        "stats",
+        "verdict-grid"
+      ]
+    },
+    {
+      "id": 3,
+      "brief": "Onboarding deck. Six things a new hire does in their first week, in order, each needing a sentence of explanation.",
+      "expect": [
+        "list-steps"
+      ],
+      "ok": [
+        "checklist",
+        "timeline-list"
+      ]
+    },
+    {
+      "id": 4,
+      "brief": "We evaluated five vendors against seven criteria — price, support, SLA, integrations, and so on. The audience wants to scan the whole grid.",
+      "expect": [
+        "compare-table"
+      ],
+      "ok": [
+        "verdict-grid",
+        "matrix-grid"
+      ]
+    },
+    {
+      "id": 5,
+      "brief": "Plot our twelve product lines by growth rate against margin so the room can see which quadrant each falls in.",
+      "expect": [
+        "quadrant"
+      ],
+      "ok": [
+        "matrix-2x2"
+      ]
+    },
+    {
+      "id": 6,
+      "brief": "The delivery plan: three workstreams across four quarters, with some tasks overlapping and a couple of milestones.",
+      "expect": [
+        "roadmap",
+        "gantt"
+      ],
+      "ok": [
+        "timeline-list",
+        "kanban"
+      ]
+    },
+    {
+      "id": 7,
+      "brief": "This deck is full of internal acronyms. I want one slide defining about ten of them, term on the left, meaning on the right.",
+      "expect": [
+        "glossary"
+      ],
+      "ok": [
+        "list-tabular"
+      ]
+    },
+    {
+      "id": 8,
+      "brief": "End of an investor pitch — the four questions we always get asked, each with our answer.",
+      "expect": [
+        "q-and-a"
+      ],
+      "ok": [
+        "list",
+        "cards-stack"
+      ]
+    },
+    {
+      "id": 9,
+      "brief": "Credibility slide: show the eight customer brands that use us. The names are the whole argument.",
+      "expect": [
+        "logo-wall"
+      ],
+      "ok": [
+        "cards-grid"
+      ]
+    },
+    {
+      "id": 10,
+      "brief": "Engineering deep-dive. I need to show a fifteen-line function and walk through why it's written that way.",
+      "expect": [
+        "code"
+      ],
+      "ok": [
+        "compare-code"
+      ]
+    },
+    {
+      "id": 11,
+      "brief": "Compliance deck. One statute passage needs to sit on its own slide with the citation, because everything after it depends on that exact wording.",
+      "expect": [
+        "citation-card"
+      ],
+      "ok": [
+        "quote",
+        "premise"
+      ]
+    },
+    {
+      "id": 12,
+      "brief": "A slide that just marks the transition into the second half of the deck. No content, just a clean break.",
+      "expect": [
+        "divider"
+      ],
+      "ok": [
+        "title",
+        "premise"
+      ]
+    }
+  ],
+  "_correction": "Ground truth initially listed `statement` three times — that is a BUCKET, not a component. Caught by validating every name against loadAll() BEFORE running, the same check the pick surface now applies to its see-also column. Replaced with real members (premise/quote/kpi/title)."
+}

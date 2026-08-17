@@ -78,6 +78,7 @@
     "equiv": "node tools/slice-equivalence.mjs",
     "intent:bakeoff": "node tools/intent-bakeoff/bakeoff.mjs",
     "intent:fit": "node tools/intent-bakeoff/fit-bakeoff.mjs",
+    "intent:pick-eval": "node tools/intent-bakeoff/pick-surface-eval.mjs",
     "intent:judge": "node tools/intent-bakeoff/judge-eval.mjs",
     "intent:tune": "node tools/intent-bakeoff/tune-fit.mjs",
     "equiv:bless": "node tools/slice-equivalence.mjs --bless",

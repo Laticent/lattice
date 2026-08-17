@@ -149,6 +149,85 @@ published, so downstream consumers get the pick surface too), and it is readable
 agents and tools that cannot shell out. The CLI keeps its job — scaffolding a slide —
 and gains nothing from carrying a second one.
 
+## Measured after the fact: what the thin row costs
+
+The artifacts were verified before merge; the OUTCOME was not. `npm run intent:pick-eval`
+now measures it against the repo's own FIT corpus (264 cases — every `whenToUse` body is
+a described task whose component is ground truth, every redirecting `antiPattern` names a
+better component), scored by the repo's own lexical ranker over two evidence sets:
+
+|  | top-1 | top-3 |
+|---|---|---|
+| FULL catalog (`components.json` prose) | 59.8% | 78.8% |
+| PICK surface (a pick row's text) | **42.0%** | **62.1%** |
+| PICK + `whenToUse` titles | 42.0% | 63.3% |
+| PICK + first `whenToUse` sentence | 42.4% | 62.1% |
+
+**The row is worth 17.8 points of top-1 less than the full prose, and no cheap addition
+recovers it.** That is the honest cost of the change, and it belongs on the record beside
+the 25x saving.
+
+Two things keep it from being a verdict:
+
+- **It measures a lexical ranker answering one query, which is not how the pick surface
+  is used.** The list is 61 rows an agent reads WHOLE (3.8k tokens), then follows
+  `see also` and opens the chosen component's `.docs.md` — a two-step flow this
+  single-shot ranking cannot model. The number is best read as the cost of the removed
+  TEXT, which is the same fact the grep-recall note records, not as "agents pick worse".
+- **No shipped surface ranks over the pick list.** The Studio's component search indexes
+  `components.json`, which this change did not touch, so there is no production
+  regression here to find.
+
+**The leakage trap is why the last two rows exist.** A corpus query is `title + body` of a
+`whenToUse` entry, so any index containing that entry scores string equality.
+`fit-corpus.mjs` supplies `excludeKey` for leave-one-out. Measured WITHOUT it, indexing
+`whenToUse` titles reads **71.6%** — better than the full catalog, and entirely false.
+With the guard applied it is 42.0%, identical to carrying no `whenToUse` at all. The
+first run of this experiment made exactly that mistake, and the corpus file's own header
+had warned that such a result "should be disbelieved on sight".
+
+What this does NOT justify is padding the row: the two obvious remedies were measured and
+buy nothing. If picking accuracy ever proves to be a real problem, the answer is a better
+retrieval step, not more prose per line.
+
+## Then measured with agents, which reverses the reading
+
+The ranker number above is a proxy, and the proxy was pessimistic. Four agents (Opus)
+were each given **one surface and nothing else** — no manifests, no `.docs.md`, no
+grep — and asked to name the `_class` for 12 authoring briefs written in author voice
+("four metrics for the monthly ops review, each needs a label, the value, and whether
+it's on track"). Ground truth was locked in a pre-registered file before any agent ran.
+
+| condition | strict (the manifest's own answer) | defensible | tokens per agent | tool calls |
+|---|---|---|---|---|
+| PICK surface | 22/24 — **92%** | 24/24 — 100% | ~48k | 1 |
+| FULL catalog | 24/24 — 100% | 24/24 — 100% | 61k–216k | 8–9 |
+
+**The two surfaces agreed on 11 of 12 briefs.** The single disagreement is brief #3 —
+six onboarding steps, in order, a sentence each: the full-catalog agents said
+`list-steps`, the pick agents said `timeline-list`, which is in the same confusable
+cluster and is a choice an author could defend. Both conditions flagged the same two
+briefs as low-confidence, unprompted.
+
+So the lexical proxy's **-17.8 points overstated the loss**: it models one-shot TF-IDF
+retrieval over a row, while the real flow is an agent reading all 61 rows — 3.8k tokens
+fits comfortably — and reasoning across them. Retrieval signal and decision signal are
+not the same quantity, and this surface was built for the second.
+
+The cost side is the sharper finding. One full-catalog agent burned **216k tokens across
+8 paginated reads** to reach the same 12 answers a pick-surface agent reached in **48k
+with a single read** — which is also the mechanism behind the "11,437 lines, a default
+read stops at `code`" defect above: the full catalog is not one read, it is six, and an
+agent that does not pay for all six is choosing from a fraction of the catalog.
+
+**Limits, stated plainly.** Twelve briefs, two runs per condition, and the briefs were
+written to have defensible ground truth — which makes them easier than a real confusable
+case. The 8-point strict gap is literally one brief. A discriminating follow-up would use
+briefs drawn from the confusable clusters (`list` / `cards-stack` / `list-tabular`,
+`matrix-grid` / `matrix-2x2` / `roadmap`) where the `see also` column is supposed to
+earn its place. And the same person wrote the briefs and both surfaces, so unconscious
+favouring of pick-row vocabulary cannot be ruled out.
+
 ## Deliberately not done
 
 - **`components.json` must NOT be pruned, and the first draft of this note was wrong to
