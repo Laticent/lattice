@@ -15,18 +15,37 @@
  * `text-transform: uppercase`, `letter-spacing: 0.04em`) against the shipped
  * woff2s in headless Chromium.
  *
- * WHAT THIS TEST DOES NOT CATCH, stated plainly because an earlier draft of this
- * comment claimed otherwise: **it cannot see a change to the shipped faces.**
- * Both the table and these "measurements" are frozen literals in the repo, so
- * bumping `assets/fonts/outfit-700.woff2` moves the painted width while both
- * sides of this comparison sit still, and the suite stays green. What the test
- * DOES catch is the table drifting from these recorded measurements — an edit to
- * `GLYPH_UPPER`, to `upperAdvance`, or to the rules' size/tracking.
+ * WHAT THIS TEST CATCHES — and it is NARROWER than an earlier draft of this
+ * paragraph claimed, in two ways worth stating exactly, because the whole point
+ * of the file is not to overstate its own cover (HARD RULE #23).
  *
- * Closing the font-drift channel needs a gate that re-derives from the woff2
- * (the `tools/derive-*` / `calibrate-*` precedent) or pins the font files' hashes
- * beside the table. Tracked as a follow-up rather than done here, and called out
- * so nobody reads this file as protection it does not provide (HARD RULE #23).
+ * It catches an edit to `GLYPH_UPPER` or to `upperAdvance` — the estimator
+ * drifting from these recorded numbers. That is all.
+ *
+ * It does NOT see a change to the shipped faces, and never will: both the table
+ * and these "measurements" are frozen literals in the repo, so bumping
+ * `assets/fonts/outfit-700.woff2` moves the painted width while both sides of
+ * THIS comparison sit still.
+ *
+ * It also does NOT see a change to the labels' CSS, which the earlier draft said
+ * it did. Nothing here reads a stylesheet: `TRACK` below is a hardcoded 0.04 and
+ * `upperAdvance` is called directly. Verified, not assumed — re-tuning
+ * `.quadrant-label` to `font-weight: 400; letter-spacing: 0.12em` leaves this
+ * file passing 39/39.
+ *
+ * So, precisely, the three arms and what each one actually covers:
+ *   · estimator-vs-record — HERE.
+ *   · did-the-fonts-move — `checkFontMetricsPin` (tools/check-ownership.js, via
+ *     `npm run build:check`, every PR). `GLYPH_UPPER_FONTS` beside the table
+ *     records the sha256 of every hand-maintained supply of each face, and the
+ *     gate fails the build the moment one moves. It does not re-derive anything;
+ *     it makes a silent font swap impossible, which is what the hole was.
+ *   · record-vs-reality — `npm run fonts:measure`, run by a human in real
+ *     Chromium against the shipped faces at the labels' own CSS. Its `--strings`
+ *     output regenerates the MEASURED rows below.
+ * The labels' CSS and the `--font-body` theme-override seam are covered by NONE
+ * of the three; that gap is written down on `GLYPH_UPPER_FONTS` rather than
+ * papered over here.
  *
  * THE ASSERTION IS TWO-SIDED, because both directions are defects and they are
  * different defects — see the derivation comment in svg-label.js. Short and the

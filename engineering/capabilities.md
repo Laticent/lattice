@@ -207,6 +207,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `check:render:bless` | Rewrite the scoped-render black-fill baseline (test/viz-render/black-baseline.json) after an intentional change; justify the delta in the PR. |
 | `check:responsive` | Static lint: no fixed-px layout in chart CSS (responsive contract). |
 | `fonts:check` | Font parity gate: the canonical face manifest (lib/fonts/text-faces.js), assets/fonts/, and the web-export supply must agree, with no Google-Fonts CDN URL — the library self-hosts its type (zero network). |
+| `fonts:measure` | Re-measure GLYPH_UPPER (the per-glyph advance table behind uppercase tracked chart labels) against the shipped woff2s in real Chromium, at the labels' own CSS. On-demand, never writes: the remediation path when checkFontMetricsPin reports font drift. `--strings` also re-derives the unit suite's MEASURED array. |
 | `lint` | Biome over the JS tree (read-only). NEVER `npx biome`. |
 | `lint:coverage` | Gate what Biome ACTUALLY checks: coverage baseline + scanned-vs-checked + a teeth probe per directory. Also a build:check preflight. |
 | `lint:coverage:bless` | Re-record the lint-coverage baseline after a deliberate exclusion. The diff is the record. |
@@ -304,6 +305,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/complexity-report.js` | Complexity report — cyclomatic complexity + lines-of-code per function, aggregated per file, across lib/ and tools/. |
 | `tools/contrast-audit.js` | Contrast audit for all Lattice themes. |
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
+| `tools/measure-glyph-advances.js` | Re-measure the per-glyph advance table `GLYPH_UPPER` against the shipped |
 | `tools/mutate-guide-gestures.mjs` | mutate-guide-gestures — break what each test NAMES, and watch it go red. |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |

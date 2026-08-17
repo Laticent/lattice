@@ -53,6 +53,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
 const {
@@ -70,6 +71,9 @@ const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
 const { contractDrop, contractOf, SANCTIONED_TOKEN_CONTRACTS } = require('../lib/tokens/contracts');
+// font-metrics pin: the table and the digests live together, beside what they
+// describe — this gate only compares them against the bytes on disk.
+const { GLYPH_UPPER, GLYPH_UPPER_FONTS } = require('../lib/components/chart/_chart-family/svg-label');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -7861,6 +7865,121 @@ function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
 }
 
+// ─── Font-metrics pin ──────────────────────────────────────────────────────
+// `GLYPH_UPPER` (lib/components/chart/_chart-family/svg-label.js) is a per-glyph
+// advance table for the two faces uppercase tracked chart labels paint in. It
+// decides how wide a quadrant corner name or a radar sector name is ESTIMATED to
+// be, which decides where the line breaks AND the box `deCollideLabels`/
+// `placeLabels` route other labels around.
+//
+// It is a measurement of two specific woff2 files, frozen as literals — and so
+// are the browser measurements the unit suite compares it against (`MEASURED` in
+// test/unit/transformers/svg-label.test.js). BOTH SIDES OF THAT COMPARISON SIT
+// IN THIS REPO and neither is derived from the font. Bump
+// assets/fonts/outfit-700.woff2 and the painted width moves while the table and
+// the recorded "measurements" hold still: the unit suite stays green,
+// `build:check` stays green, and labels start overrunning their boxes silently.
+// A label that overruns also hands the de-collision pass a box narrower than the
+// painted glyphs, so a neighboring name prints straight through it.
+//
+// That is the defect class this gate exists for — not "the table is wrong" but
+// "nothing can notice the table going wrong." It fails the build the moment a
+// pinned face's bytes move. It does NOT re-derive the table: re-deriving needs a
+// real browser, and putting one inside `build:check` would make artifact
+// freshness depend on the installed Chromium, so a CI browser bump could redden
+// the gate with nothing wrong in the tree. `npm run fonts:measure` is the
+// on-demand re-derivation (tools/measure-glyph-advances.js), following the
+// `tools/calibrate-*` precedent rather than the `tools/derive-*` one.
+//
+// KEY PARITY IS ENFORCED BOTH WAYS: a face with a table but no pin fails, and a
+// pin naming a face the table dropped fails as stale — the same two-directional
+// contract SANCTIONED_MARGINS and SANCTIONED_MONO_FONTS carry, so a third face
+// cannot be added un-pinned and the pin cannot rot.
+//
+// AND EVERY SUPPLY OF EACH FACE, not just the first. Each face ships twice from
+// source — `assets/fonts/` for the engine and the export, and a separately
+// vendored `docs/src/playground/fonts/` copy that `font-embed.js` inlines into
+// the Studio's live preview, which paints these labels through this same kernel.
+// Pinning only `assets/` would leave the Studio's supply free to move under a
+// green build. `dist/**` copies are generated from `assets/` and already
+// byte-diffed by `build:check`, so they are deliberately not listed.
+function checkFontMetricsPin(errors, opts = {}) {
+  const { fontsRoot = ROOT, tables = GLYPH_UPPER, pins = GLYPH_UPPER_FONTS } = opts;
+  const faces = Object.keys(tables);
+  const pinned = Object.keys(pins);
+
+  // A gate that scans nothing is also a claim. With both sides empty every loop
+  // below is a no-op and this reports green having verified nothing — the exact
+  // shape of failure it was written to remove.
+  if (!faces.length && !pinned.length) {
+    errors.push(
+      'font-metrics pin verified nothing — both GLYPH_UPPER and GLYPH_UPPER_FONTS are empty in ' +
+      'lib/components/chart/_chart-family/svg-label.js. Either the table was gutted or the export ' +
+      'broke; a green result here would be a claim about zero faces.',
+    );
+    return;
+  }
+
+  for (const face of faces) {
+    if (pins[face]) continue;
+    errors.push(
+      `GLYPH_UPPER has a "${face}" face but GLYPH_UPPER_FONTS does not pin one ` +
+      '(lib/components/chart/_chart-family/svg-label.js). An unpinned face is a table of ' +
+      'measurements no gate can tie to any bytes: swap that face\'s woff2 and every check stays ' +
+      'green while its labels overrun. Add a { family, file, sha256 } entry for it.',
+    );
+  }
+  for (const face of pinned) {
+    if (tables[face]) continue;
+    errors.push(
+      `stale font-metrics pin in lib/components/chart/_chart-family/svg-label.js — ` +
+      `GLYPH_UPPER_FONTS pins "${face}" but GLYPH_UPPER has no such face. Drop the entry so the ` +
+      'pin keeps naming exactly the faces the table measures.',
+    );
+  }
+
+  for (const face of pinned) {
+    const pin = pins[face];
+    // EVERY hand-maintained supply of the face, not just the first. A face that
+    // ships from two source trees (assets/ for the engine, docs/src/playground/
+    // for the Studio's inlined preview fonts) is only pinned when BOTH are — the
+    // unpinned one is a silent swap channel exactly like the one this closes.
+    const sources = pin.sources || [];
+    if (!sources.length) {
+      errors.push(
+        `GLYPH_UPPER_FONTS.${face} pins no source files — \`sources\` is empty or missing, so this ` +
+        'gate would verify nothing for that face and report green. List every hand-maintained ' +
+        'woff2 the face ships from as { file, sha256 }.',
+      );
+      continue;
+    }
+    for (const src of sources) {
+      const abs = path.join(fontsRoot, src.file);
+      if (!fs.existsSync(abs)) {
+        errors.push(
+          `font-metrics pin points at a missing file — GLYPH_UPPER_FONTS.${face} names ` +
+          `\`${src.file}\`, which is not on disk. The ${face} face's advance table is measured ` +
+          'against bytes that no longer exist; re-point the pin or restore the file.',
+        );
+        continue;
+      }
+      const actual = crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex');
+      if (actual === src.sha256) continue;
+      errors.push(
+        `font drift — \`${src.file}\` (${pin.family}, the ${face} face) no longer matches the ` +
+        `bytes GLYPH_UPPER was measured against.\n      pinned ${src.sha256}\n      actual ${actual}\n` +
+        '    The per-glyph advance table in lib/components/chart/_chart-family/svg-label.js is a ' +
+        'measurement of the OLD file, and so is the MEASURED array in ' +
+        'test/unit/transformers/svg-label.test.js — neither moves on its own, so without this gate ' +
+        'the whole suite would stay green while quadrant and radar labels overran their boxes. ' +
+        'Re-measure with `npm run fonts:measure` (real Chromium, the shipped faces, the labels\' own ' +
+        'CSS), paste the rows it prints into GLYPH_UPPER, update the MEASURED array from its ' +
+        '`--strings` output, then update this sha256. Do NOT just update the sha256.',
+      );
+    }
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -7919,6 +8038,7 @@ function run() {
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
   checkChangelogFragments(errors);
+  checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
   return {
     errors,
@@ -7973,6 +8093,7 @@ module.exports = {
   collectZIndexDeclarations,
   checkCommittedPdfs,
   checkChangelogFragments,
+  checkFontMetricsPin,
   checkFallbackContracts,
   ledgerContractProblems,
   fallbackHops,
