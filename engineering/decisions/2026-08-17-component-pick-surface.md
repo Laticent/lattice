@@ -127,14 +127,14 @@ never to delete the detail — it is to give the cheap job its own surface and r
 it.
 
 The pick list lands at 3.8k against the ~10k index budget, comfortably inside, which is
-worth stating after the decisions index missed that budget by 2.6×. The difference is
-what the row has to carry: 424 decision notes need a sentence each to be
+worth stating after the decisions index missed that budget by 2.5× on its rows. The difference is
+what the row has to carry: 425 decision notes need a sentence each to be
 distinguishable; 61 components are distinguishable by name, axes and tags.
 
 *(Amended 2026-08-17.* That budget has since been restated — see
 `2026-08-17-context-index-tiering.md` §"Amendment". The ~10k figure survives for
 **read-whole** surfaces, which is exactly what this one is: 61 rows an agent loads in a
-single call. The decisions index turned out to be a **grep-first** surface, budgeted
+single call (3,844 tokens after this change adds two `see also` names). The decisions index turned out to be a **grep-first** surface, budgeted
 per-row instead, so it was never over budget under the access mode its routing actually
 prescribes. Nothing about the pick list's number changes; only the class it belongs to
 is now named.)
@@ -253,9 +253,14 @@ condition, one surface each and nothing else.
 | PICK surface | 22/24 — **92%** | 22/24 — 92% | 50.9k | 1 |
 | FULL catalog | 24/24 — 100% | 24/24 — 100% | 218.8k | 9 |
 
-**The gap did not widen on the cases chosen to widen it.** 92% against 100%, and the two
-surfaces agreed on **11 of 12** — the same score and the same agreement as the easy set.
-The cost gap did widen: **4.3x the tokens and 9 reads against 1**, with both full-catalog
+**The STRICT gap did not widen on the cases chosen to widen it** — 92% against 100%, and
+the two surfaces still agreed on **11 of 12**, the same as the easy set. **The DEFENSIBLE
+gap did widen, from 0 points to 8**, and that is the honest headline of the table: on the
+easy set the pick agents' one miss (`timeline-list` for brief 3) sat inside the `ok` set,
+so both surfaces scored 100% lenient; here the miss falls outside both `expect` and `ok`.
+A confusable brief costs you a defensible answer, not just a strict one.
+
+The cost gap widened too: **4.3x the tokens and 9 reads against 1**, with both full-catalog
 agents paying for all nine pages this time rather than one of them getting lucky at eight.
 
 **The one miss is worth more than the score.** Brief 12 — six compliance dates, each
@@ -275,10 +280,18 @@ was built to test never got a chance to fire. The missing edge is added here, bo
 with its `when` clause — which is the fix this note predicted ("a richer `see also` or a
 discriminating clause in the row, not reverting to the 95k catalog").
 
+**Be precise about what that fix reaches, though.** The pick row's `see also` column
+renders NAMES only, so a pick-only agent — the exact condition that missed — now sees the
+bare token `timeline-list` in `regulatory-update`'s row and vice versa. That is what the
+column is for ("where to go when the SHAPE is wrong"), and it is more than the nothing
+that was there. **The `when` clause itself is not on that surface**; it lands in the two
+`.docs.md` files and the galleries, which HARD RULE #6 sends you to *after* the pick. So
+the fix gives the failing condition a pointer, not the discriminator.
+
 **Rendering every `see also`'s `when` clause on the row was measured and rejected**:
-241 links across 61 components cost **+2,851 tokens — 3,840 → 6,691, a 74% increase** —
-and would blow the 24 KB size pin `build-pick-list.test.js` holds. The answer to a
-missing edge is the edge, not a fatter row.
+243 links across 61 components cost **+2,883 tokens — 3,844 → 6,727, a 74% increase** —
+and would take the file past the 24 KB pin `build-pick-list.test.js` holds (16,992 →
+~30,300 characters). The answer to a missing edge is the edge, not a fatter row.
 
 **What this result does NOT establish.** The `see also` fix was derived from the single
 observed miss, so re-running these same twelve briefs would be circular; **it is not

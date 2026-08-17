@@ -244,9 +244,9 @@ function collect() {
 }
 
 // How many characters of summary a row may carry. Sized from the corpus: at 140,
-// 220 of 406 first sentences land whole, and the file totals 90 KB (26k tokens)
+// 220 of 425 first sentences land whole, and the file totals 98 KB (27.1k tokens)
 // against 395 KB (96k) for the full summaries. Raising it buys little — the
-// distribution has a long tail — and every character is paid 406 times.
+// distribution has a long tail — and every character is paid 425 times.
 const GIST_CAP = 140;
 
 // A sentence end is punctuation followed by whitespace or end-of-string, so `v1.2`,
@@ -322,29 +322,36 @@ function rowFor(note) {
 /**
  * THE PER-ROW COST CAP — the budget this index can actually be held to.
  *
- * `2026-08-17-context-index-tiering.md` coined a "an index over ~10k tokens has failed"
- * budget and this file missed it by 2.6x (25,426 tokens of rows, o200k_base). Both exits
- * that note proposed were re-measured and neither reaches 10k: capping `summary:` at the
- * source cannot get under the 5,373 tokens the 424 filenames cost before a word of gist,
- * and a filename-and-status index costs 13,302 — twice what `ls` of this folder gives for
- * 5,842 and free. The budget was arithmetically unreachable the day it was written.
+ * `2026-08-17-context-index-tiering.md` coined an "an index over ~10k tokens has failed"
+ * budget and this file missed it by 2.5x (25,500 tokens of rows, o200k_base, 425 notes).
+ * Both exits that note proposed were re-measured and neither reaches 10k: capping
+ * `summary:` at the source cannot get under the 5,387 tokens the filenames cost before a
+ * word of gist, and a filename-and-status index costs 13,336 — more than twice what `ls`
+ * of this folder prints for 5,811. The budget was unreachable the day it was written.
  *
  * WHY A ROW CAP AND NOT A FILE TOTAL. A file total is the one number #1547 already taught
  * this generator not to assert: it is an aggregate over EVERY note, so the PR that trips
  * it is being billed for 424 predecessors' contributions and has no local fix. A per-row
  * cap holds each PR to exactly what it added — the same principle #1547 applied to
  * correctness, applied to cost. It is also merge-safe by construction: two concurrent PRs
- * each adding a note both pass, in either order.
+ * each adding a note both pass, in either order. Nothing here — and nothing in this file's
+ * TESTS — may assert an aggregate over the corpus, including "the widest row is still
+ * close to the cap": a PR that shortens or deletes the longest note would fail it for
+ * doing exactly what the cap's own error message asks for.
  *
  * WHAT THE NUMBER IS. Measured over the live corpus, o200k_base: p50 row 214 characters /
  * 60 tokens, p90 236 / 70, max 281. The cap sits just above today's worst row, so it is a
  * RATCHET at the corpus, never a target nothing can hit — which is the failure mode this
  * whole exercise exists to correct. A row's cost is bounded by `2 × filename + GIST_CAP +
- * 11`, and `gistFor` already caps the second term, so the FILENAME is the lever an author
- * still controls: it is rendered twice per row (link text + link target) and paid forever.
+ * 12` (`gistFor` may add an ellipsis to its 140), so with the second term already capped
+ * the FILENAME is the lever an author still controls — 285 leaves room for 66 characters
+ * of it. It is rendered twice per row (link text + link target) and paid forever.
  *
- * The ` → [successor](successor)` pointer is excluded. Its length is set by the SUCCESSOR's
- * filename, which this note's author did not choose, and it rides on 9 of 424 rows.
+ * The ` → [successor](successor)` pointer is excluded, on the 7 rows that carry one. Its
+ * length is set by the SUCCESSOR's filename, which this note's author did not choose.
+ * The strip is keyed on `supersededBy` and NOT on the row's shape: a regex anchored at
+ * end-of-row cannot tell a pointer from a GIST that happens to end in a markdown link,
+ * and would silently unbill up to a whole gist's worth of characters.
  */
 const ROW_CAP = 285;
 
@@ -354,7 +361,8 @@ const POINTER_TAIL = / → \[[^\]]+\]\([^)]+\)$/;
 function rowCostProblems(notes) {
   const problems = [];
   for (const note of notes) {
-    const body = rowFor(note).replace(POINTER_TAIL, '');
+    const row = rowFor(note);
+    const body = note.supersededBy ? row.replace(POINTER_TAIL, '') : row;
     if (body.length <= ROW_CAP) continue;
     problems.push(
       `${note.file}: its index row is ${body.length} characters, over the ${ROW_CAP} cap. ` +

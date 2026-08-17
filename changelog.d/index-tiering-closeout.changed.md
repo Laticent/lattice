@@ -2,8 +2,11 @@
   and `decisions:index:check` fail a note whose index row exceeds `ROW_CAP` (285
   characters) — the filename is rendered twice per row and paid on every read, so an
   over-long slug is the lever the message names. A file total is deliberately not
-  gated: it would bill the PR that trips it for 424 predecessors' contributions,
+  gated: it would bill the PR that trips it for 425 predecessors' contributions,
   which is the aggregate mistake #1547 already removed from this generator.
+- **New decision notes: keep the filename to 66 characters or fewer** (past that it
+  depends on your summary's first sentence). `engineering/decisions/README.md`
+  § Convention carries the rule.
 - `2026-08-17-context-index-tiering.md` rule 1 restated with measurements. The old form
   ("an index over ~10k tokens has failed") was unreachable for a 424-note corpus and
   neither exit it proposed reached the target; the budget now depends on the access

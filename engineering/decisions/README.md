@@ -10,6 +10,14 @@ later, it lives here.
 - Filename: `YYYY-MM-DD-topic.md` (e.g. `2026-04-30-mermaid-theming.md`).
   Date is when the investigation/note was first authored, not when
   it was last edited. ISO order keeps `ls` chronological.
+  **66 characters or fewer always fits**; past that it depends on your
+  summary. The index renders the filename TWICE per row (link text + link
+  target), so it is the one part of a row's cost the author controls, and it
+  is paid on every read forever. A row over `ROW_CAP` (285 characters, in
+  `tools/build-decisions-index.js`) makes `npm run decisions:index` refuse to
+  run and name the note; the summary side is already capped by `GIST_CAP`, so
+  the filename is the lever. Today's longest is 69 characters and clears the
+  cap only because its gist is short.
 - One root cause or one decision per file. Don't merge unrelated
   investigations.
 - Lead with the symptom, then the root cause, then the fix. Future
@@ -69,7 +77,7 @@ grouping makes the ~70% that are historical skippable at a glance. See
 front-matter summary at whatever length the note deserves — but put the
 identifying claim FIRST, because the first sentence is what the index shows.
 
-**That cuts both ways, so read a row as an OPENING, not a verdict.** 294 of 408
+**That cuts both ways, so read a row as an OPENING, not a verdict.** 205 of 425
 rows are truncated, and a `…` means only "there is more" — it cannot tell you that
 the sense *flips* after it. A note that opens by quoting the bug report it goes on
 to refute will advertise the refuted claim. Two such rows were found by an
@@ -84,12 +92,17 @@ gists, search the notes themselves — `grep -rln <term> engineering/decisions/`
 costs the same, because you pay for the hits, not the haystack.
 
 This index is a **pick-list**: it exists to get you to the right note, and the
-note is where the record lives. Rendering all 406 summaries in full made this
-file 395 KB (96k tokens) — more expensive to read than the handful of notes
-anyone actually wanted, so the corpus went unfound. At one line per note it is
-90 KB (26k tokens) and, more usefully, **greppable**: `grep -i mermaid
-engineering/decisions/README.md` returns lines rather than paragraphs. Start
-there, then open the two or three notes it names.
+note is where the record lives. Rendering every summary in full made this file
+395 KB (96k tokens) — more expensive to read than the handful of notes anyone
+actually wanted, so the corpus went unfound. At one line per note it is 98 KB
+(27.1k tokens) and, more usefully, **greppable**: `grep -i mermaid` returns 9
+rows for ~560 tokens rather than nine paragraphs. Start there, then open the
+two or three notes it names.
+
+**Grep is the access mode, and it is what this file is budgeted against.** The
+whole-file total is not the number that matters — a row is
+(`2026-08-17-context-index-tiering.md` §"Amendment", which restated the index
+budget after this file missed its first form of it by 2.5x).
 
 ## What does **not** belong here
 

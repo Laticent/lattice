@@ -143,13 +143,20 @@ describe('decisions-index', () => {
       assert.ok(rowFor(n).length > ROW_CAP, 'sanity: the whole row IS over the cap');
       assert.deepEqual(rowCostProblems([n]), []);
     });
-    // The point of a ratchet is that it is set at the corpus, not above it: a cap with
-    // slack is a target nothing has to hit, which is the failure this gate exists to fix.
-    test('the live corpus is inside the cap, and close enough to it to bite', () => {
-      const { notes } = collect();
-      assert.deepEqual(rowCostProblems(notes), []);
-      const widest = Math.max(...notes.map((n) => rowFor(n).replace(/ → \[[^\]]+\]\([^)]+\)$/, '').length));
-      assert.ok(widest > ROW_CAP - 20, `the cap has ${ROW_CAP - widest} characters of slack — it is not a ratchet`);
+    // The exclusion is keyed on `supersededBy`, NOT on the row's shape. A regex anchored
+    // at end-of-row cannot tell a pointer from a gist that ends in a markdown link, and
+    // would unbill it — letting an oversize row through by up to a whole gist.
+    test('a gist that ENDS in a link is billed in full — only a real pointer is excluded', () => {
+      const n = note(`2026-06-01-${'a'.repeat(100)}.md`, `The chain ends at → [${'x'.repeat(40)}](y)`);
+      assert.ok(!n.supersededBy, 'sanity: this note has no successor');
+      assert.equal(rowCostProblems([n]).length, 1);
+    });
+    // NO aggregate over the corpus here — not even "the widest row is still near the cap".
+    // A PR that shortens or deletes the longest note would fail such an assertion for doing
+    // exactly what the cap's error message asks of it. Per-note is the only safe shape
+    // (#1547); the cap's ratchet value is a design fact, recorded in the tool's header.
+    test('every note in the live corpus is inside the cap', () => {
+      assert.deepEqual(rowCostProblems(collect().notes), []);
     });
   });
 

@@ -72,8 +72,8 @@ missing layer was L1, and that is all this change adds.
   grep the index, then open the one or two documents it names.
 
 The second-order win matters more than the byte count: **one line per item makes an
-index greppable.** `grep -i mermaid engineering/decisions/README.md` returns eight
-lines (~200 tokens) instead of eight paragraphs. The cheapest read is the one that
+index greppable.** `grep -i mermaid engineering/decisions/README.md` returns nine
+rows (564 tokens) instead of nine paragraphs. The cheapest read is the one that
 never loads the file.
 
 ## The rule this leaves behind
@@ -88,15 +88,15 @@ never loads the file.
    - A **grep-first** index — one whose routing says *skim or grep, then open the two
      documents it names* — has no meaningful file total. Budget the **row** and check
      what a query returns. `decisions/README.md` rows measure p50 **60 tokens**, p90 70;
-     eight representative queries return **84–1,214 tokens**, and the broadest term
-     tried (`studio`, 79 of 424 rows) returns 4,724 — every one of them inside the
+     eight representative queries return **66–1,169 tokens**, and the broadest term
+     tried (`studio`, 79 of 425 rows) returns 4,724 — every one of them inside the
      read-whole budget the file as a whole misses.
    - The **crossover is arithmetic**: at ~60 tokens a row, a whole-corpus index stops
      fitting 10k past ~165 items. Beyond that the routing must become grep-first, or
      the map is not one.
    - **Gate the row, never the total** — `ROW_CAP` in `tools/build-decisions-index.js`,
      285 characters, ratcheted at the widest row the live corpus has. A file total is
-     the one number rule 4 already forbids: it bills the PR that trips it for 424
+     the one number rule 4 already forbids: it bills the PR that trips it for 425
      predecessors' contributions and offers it no local fix.
 2. **Generated or gated — never hand-maintained.** A stale summary is worse than no
    summary: it misdirects confidently and the reader pays for the wrong file anyway.
@@ -113,17 +113,20 @@ never loads the file.
 
 The rule above shipped asserting a 10k target and naming two exits toward it. Both were
 re-measured. **Neither reaches 10k, and one of them is worth less than `ls`.** All figures
-`o200k_base` over the live corpus, 424 notes; the whole file is **27,026 tokens / 97,922
-bytes**, of which the generated block is 25,552 and the rows alone 25,426.
+`o200k_base` over the live corpus **as of 2026-08-17, at 425 notes** — a dated snapshot,
+not a constant, since the index grows ~60 tokens per note. The whole file is **27,100
+tokens / 98,168 bytes**, of which the generated block is 25,626 and the rows alone 25,500.
+Reproduce with `npm i gpt-tokenizer` in a scratch directory and its `o200k_base` encoding;
+it is deliberately not a repo dependency.
 
 | Shape | tokens | verdict |
 |---|---:|---|
-| Rows as shipped (glyph + linked filename + gist) | **25,426** | 2.5x over |
-| …dropping the markdown link, bare filename kept | 19,205 | 1.9x over |
-| Exit A — cap `summary:` at the source | ≥ **13,302** | 1.3x over **at its floor** |
-| Exit B — filename + status only, linked | **13,302** | 1.3x over |
-| Exit B unlinked | 7,504 | inside — and see below |
-| the 424 note filenames alone (what `ls` prints) | 5,796 | free |
+| Rows as shipped (glyph + linked filename + gist) | **25,500** | 2.5x over |
+| …dropping the markdown link, bare filename kept | 19,263 | 1.9x over |
+| Exit A — cap `summary:` at the source | ≥ **13,336** | 1.3x over **at its floor** |
+| Exit B — filename + status only, linked | **13,336** | 1.3x over |
+| Exit B unlinked | 7,523 | inside — and see below |
+| the 425 note filenames alone (what `ls` prints) | 5,811 | free |
 
 Exit A's floor **is** Exit B's number: the most a source-side summary cap can remove is
 every character of gist, which lands on exactly the filename-and-status index Exit B
@@ -133,25 +136,25 @@ in place.
 Two facts kill the original target:
 
 - **The identifier is the floor, and the markup doubles it.** The 424 filenames cost
-  **5,373 tokens** once. Every row renders the filename **twice** — link text and link
-  target — so the identifier alone is 10,746 tokens, **42% of the rows**, before a word
-  of gist (the gists are 11,600, 46%). Exit A deletes the 46% and cannot touch the 42%.
-- **Exit B is a directory listing you pay for.** A filename-and-status index costs 13,302
-  tokens to deliver what `ls` of the same folder prints for **5,796**. Of the 7,506-token
-  difference, **5,798 is markdown link syntax** and 1,708 is the status column and bullet.
+  **5,387 tokens** once. Every row renders the filename **twice** — link text and link
+  target — so the identifier alone is 10,774 tokens, **42% of the rows**, before a word
+  of gist (the gists are 11,459, 45%). Exit A deletes the 45% and cannot touch the 42%.
+- **Exit B is a directory listing you pay for.** A filename-and-status index costs 13,336
+  tokens to deliver what `ls` of the same folder prints for **5,811**. Of the 7,525-token
+  difference, **5,813 is markdown link syntax** and 1,712 is the status column and bullet.
   That is rule 3 ("don't map what `grep` gives free") turned on this note's own proposal.
 
 **Sharding (option (b)) fails on the only key that exists.** Every note is dated; nothing
-carries an `area:` field (6 notes do, out of 424 — a coincidence, not a convention). By
-year the corpus is one shard: **all 424 are 2026**. By month the largest shard is 2026-07
+carries an `area:` field (6 notes do, out of 425 — a coincidence, not a convention). By
+year the corpus is one shard: **all 425 are 2026**. By month the largest shard is 2026-07
 at 178 rows / **10,866 tokens** — over budget on its own, for the biggest split the data
-supports. Sharding by a *new* `area:` key would mean 424 hand judgments to make a **grep
+supports. Sharding by a *new* `area:` key would mean 425 hand judgments to make a **grep
 target** cheaper for a read pattern nobody uses: `grep` across `README.d/*.md` costs the
 same as `grep` across one file, and a reader who must already know the area to pick the
 shard did not need the index.
 
 **So the shape did not change and the rule did.** The link duplication was measured
-(5,373 tokens, 21% of the block) and **kept**: dropping it lands at 19,205, still 1.9x
+(5,387 tokens, 21% of the block) and **kept**: dropping it lands at 19,263, still 1.9x
 over a target that is the wrong instrument, and it would cost every human reader
 click-through from the rendered README. What ships instead is the per-row cap, gated —
 because per-row is the only budget a generated, always-growing, merge-queue-shared index
@@ -161,16 +164,20 @@ can enforce without violating rule 4.
 routes to it with *"grep it for the topic, then open the 2–3 notes it names"*, and that
 is what a query costs:
 
-| `grep -i …` | rows | tokens |
+| `grep -i …` | index rows | tokens |
 |---|---:|---:|
-| `changelog` | 2 | 84 |
-| `margin` | 2 | 133 |
-| `merge queue` | 3 | 199 |
+| `changelog` | 1 | 66 |
+| `margin` | 2 | 132 |
+| `merge queue` | 3 | 198 |
 | `color` | 7 | 423 |
-| `mermaid` | 11 | 619 |
-| `layer` | 19 | 1,123 |
-| `token` | 21 | 1,214 |
+| `mermaid` | 9 | 564 |
+| `token` | 19 | 1,169 |
+| `layer` | 19 | 1,122 |
 | `studio` | 79 | 4,724 |
+
+Counted as **rows inside the generated block**, which is what a reader pays for. A plain
+`grep` on `README.md` returns a few more lines for some terms (`mermaid` 11, `token` 21);
+the extras are that file's own hand-written prose around the block, not index entries.
 
 The 2.6x was real, and so is the correction: it measured a file nobody was told to read
 whole against a budget written for files that are.
