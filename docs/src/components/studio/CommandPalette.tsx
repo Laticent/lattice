@@ -97,6 +97,43 @@ export function CommandPalette({
 		document.addEventListener('pointerdown', onDown, true);
 		return () => document.removeEventListener('pointerdown', onDown, true);
 	}, [inline, open, onOpenChange]);
+	/**
+	 * FOCUS COMES BACK TO THE PILL WHEN THE FIELD CLOSES — the one thing the overlays got
+	 * for free that a header-resident combobox does not. Radix restores focus to a dialog's
+	 * trigger on close; replacing the dialog with an inline field that UNMOUNTS while focused
+	 * dropped focus to `<body>` instead. Measured on the real surface: after Escape,
+	 * `document.activeElement` was BODY, so Escape-then-Enter did nothing and a screen reader
+	 * lost its place in the row. Tab appeared to work only by luck — Chromium resumes from the
+	 * removed element's sequential-focus position, which happens to be where the pill
+	 * re-renders. APG's combobox pattern asks for Escape to return focus to the combobox, and
+	 * the collapsed pill IS the combobox.
+	 *
+	 * ONLY WHEN FOCUS WAS ORPHANED. The three ways this closes do not want the same answer,
+	 * and the condition below distinguishes them without having to be told which happened:
+	 *   - Escape             → activeElement is BODY  → reclaim. (measured)
+	 *   - outside-click      → activeElement is what you clicked → LEAVE IT. Stealing focus
+	 *                          back to the header after a click into the editor would fight
+	 *                          the user. (measured: MAIN)
+	 *   - ran a command      → BODY for a command that opens nothing → reclaim; a command that
+	 *                          opens a dialog has already taken focus → leave it. Same test,
+	 *                          both outcomes correct, which is why it keys on where focus IS
+	 *                          rather than on why we closed.
+	 * `wasOpen` keeps this from firing on mount, where nothing was dismissed and the pill
+	 * grabbing focus would steal it from the page on every Studio load.
+	 */
+	const pillRef = React.useRef<HTMLButtonElement | null>(null);
+	const wasOpen = React.useRef(false);
+	React.useEffect(() => {
+		if (!inline) return;
+		if (open) {
+			wasOpen.current = true;
+			return;
+		}
+		if (!wasOpen.current) return;
+		wasOpen.current = false;
+		const a = document.activeElement;
+		if (a === null || a === document.body) pillRef.current?.focus();
+	}, [inline, open]);
 	const run = (fn: () => void) => () => {
 		onRun?.();
 		onOpenChange(false);
@@ -169,6 +206,7 @@ export function CommandPalette({
 			// combobox trigger rather than a button that happens to open something.
 			return (
 				<button
+					ref={pillRef}
 					type="button"
 					onClick={() => onOpenChange(true)}
 					aria-label="Search or run a command"
@@ -265,8 +303,10 @@ export function CommandPalette({
 					// short enough that it never runs off a laptop viewport.
 					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px)]',
 				)}
-				// Escape closes and hands focus back; the caller re-renders the pill, which is
-				// where the eye already is. cmdk owns arrow keys and Enter within the list.
+				// Escape closes; the caller re-renders the pill and the effect above puts focus
+				// back ON it — that hand-back is not automatic, and this comment used to claim it
+				// while the field was in fact dropping focus to `<body>`. cmdk owns arrow keys and
+				// Enter within the list.
 				// The handler sits on the Command ROOT rather than a wrapper `div`: a bare div
 				// carrying a key handler is a static interactive element
 				// (`lint/a11y/noStaticElementInteractions`), and the root is the widget container

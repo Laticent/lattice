@@ -212,6 +212,40 @@ Running one test file (`StudioShell.test.tsx`, 92 tests) and `build:e2e` left bo
 open, and CI found them. Run `cd docs && npx vitest run && npm run build` before claiming
 the docs tier is green.
 
+## A fifth: the field dropped focus on the floor
+
+Radix restores focus to a dialog's trigger when the dialog closes. Replacing that dialog
+with an inline field that **unmounts while focused** dropped focus to `<body>` instead —
+so Escape-then-Enter did nothing and a screen reader lost its place in the row. APG's
+combobox pattern asks for Escape to return focus to the combobox, and the collapsed pill
+*is* the combobox.
+
+Tab appeared to work, which is what made this easy to miss: Chromium resumes sequential
+navigation from the removed element's position, and the pill re-renders at exactly that
+position. That is luck, not behavior — and the source comment already *claimed* the
+hand-back ("Escape closes and hands focus back"), which made the code read as correct.
+An inaccurate comment is its own defect; it is corrected in place.
+
+**Focus is reclaimed only when it was orphaned**, which is what makes one rule serve three
+different dismissals correctly. Measured on the real surface, before → after:
+
+| Dismissed by | `activeElement` before | after | Right answer |
+|---|---|---|---|
+| Escape | `BODY` | the pill | reclaim — nothing else asked for focus |
+| Click into the editor | `MAIN` | `MAIN` (unchanged) | leave it — the user moved focus on purpose |
+| Running a command | `BODY` / the command's own target | the pill / the command's target | reclaim only if orphaned |
+
+Keying on *where focus is* rather than on *why we closed* is what makes the third row work
+in both directions: a command that opens nothing leaves focus orphaned and gets the pill
+back, while a command that opens a dialog has already taken focus and is left alone.
+`wasOpen` keeps the effect from firing on mount, where the pill would otherwise steal focus
+from the page on every Studio load.
+
+Guarded in `command-palette.spec.ts` — both directions, in the real browser, because focus
+is exactly what jsdom models loosely. **Verified able to fail:** with only the `focus()`
+call removed, it reports `Escape must return focus to the collapsed combobox (APG), not
+drop it on <body>`.
+
 ## Verification (HARD RULE #23)
 
 Real headless Chromium driving the real Studio at `localhost:4321` against a

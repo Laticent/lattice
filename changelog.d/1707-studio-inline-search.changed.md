@@ -23,6 +23,11 @@
   is still never narrower than the pill it replaces. `studio-header-fit` gained a
   guard that opens the search at six widths × three stops, since every previous
   overflow check measured the header idle.
+- **Fixed: dismissing the search left focus nowhere.** The old overlay restored focus to
+  its trigger on close; the inline field unmounted while focused and dropped focus to the
+  document body, so Escape-then-Enter did nothing and a screen reader lost its place in the
+  row. Escape now hands focus back to the pill — while a click elsewhere, or a command that
+  moves focus itself, still keeps it where the user put it.
 - Below 1100 the search keeps its existing homes — the `CommandDialog` at tablet,
   the bottom-docked `PanelSheet` on mobile — so exactly one search surface exists
   at every width.
