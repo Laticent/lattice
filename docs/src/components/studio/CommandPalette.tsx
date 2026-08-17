@@ -126,9 +126,22 @@ export function CommandPalette({
 	 *
 	 * SAFE BY CONSTRUCTION, which matters because a real iPad is not reachable from this
 	 * sandbox (HARD RULE #23). The new arm sits inside `min()`, so it can only ever make the
-	 * list SHORTER, never taller, and with no keyboard up `--vvh` is the full viewport and
-	 * the 420px arm still wins — the desktop geometry is unchanged (verified: 422px card at
-	 * 1440 and 1920, before and after). The device behavior itself stays UNVERIFIED.
+	 * list SHORTER, never taller. At 100% zoom with no keyboard, `--vvh` is the full viewport
+	 * and the 420px arm still wins — geometry unchanged (verified: 422px card at 1440, 1920
+	 * and 1194). The device behavior itself stays UNVERIFIED.
+	 *
+	 * IT ALSO SHRINKS UNDER PAGE ZOOM, and that is intended rather than tolerated. The visual
+	 * viewport is what is VISIBLE, so it shrinks for a pinch exactly as it does for a keyboard
+	 * — measured at 1194×834, page scale 2: `--vvh` 834→417px, cap 420→339px. A 420px list at
+	 * 2× would not fit the 417px band and would have to be panned to read, so a list that fits
+	 * is the right answer, not a regression. What it means for the reader of this code: this
+	 * cap tracks VISIBLE HEIGHT, not "the keyboard" — do not re-derive it from `--kb`.
+	 *
+	 * (Under zoom the hook also publishes a `--kb` that is not a keyboard — `innerHeight -
+	 * vv.height` is the whole shrink, whatever caused it. Pre-existing to that hook, and inert
+	 * here: no consumer of `--kb` mounts above the phone tier. Left alone deliberately, because
+	 * correcting it means changing the arithmetic every mobile sheet depends on, on devices this
+	 * sandbox cannot test. Logged in the 2026-08-17 record.)
 	 *
 	 * Inline only. The mobile sheet already caps against the same hook through `PanelSheet`,
 	 * and mounting a second copy of the listener under it would be the duplication this
@@ -369,14 +382,37 @@ export function CommandPalette({
 					//   420px                 — the flat laptop ceiling
 					//   --vvh - 54px - 24px   — what is actually VISIBLE below the card's top edge
 					// `--vvh` is the visual viewport's height, so it shrinks under the keyboard
-					// where `vh`/`dvh` do not. 3.375rem IS the 54px header (spelled as the same
-					// literal `panel.tsx` uses, because Tailwind scans source text and an
-					// interpolated class name generates no rule at all), +8px for the card's own
-					// gap below the bar and +16px so the last row does not sit flush on the
-					// keyboard the way the measured landscape case did.
-					// `_-_` NOT `-`: these become the spaces `calc()` requires around an operator.
-					// `calc(var(--vvh)-78px)` is invalid CSS and would drop the whole declaration.
-					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px,calc(var(--vvh)_-_3.375rem_-_24px))]',
+					// where `vh`/`dvh` do not. 54px = the header's own `h-[54px]` (StudioShell,
+					// both stops) + 8px for the card's gap below the bar, then +16px so the last
+					// row does not sit flush on the keyboard the way the measured landscape case
+					// did.
+					// `54px` AND NOT `3.375rem`, which is what this shipped as for one commit and
+					// is the same 54px only at the default root font size. The header is a fixed
+					// `h-[54px]`; `rem` follows the browser's font-size setting, so at Chrome's
+					// "Small" (12px root) the term subtracted 40.5px instead of 54 and the card
+					// bottom came back to 483 — the exact flush-with-the-keyboard number this arm
+					// exists to remove. `panel.tsx` spells the same header `3.375rem` because it
+					// composes with `dvh` there; here the whole expression is px, so px it is.
+					// (The `minfont` e2e project cannot catch this: it raises Blink's MINIMUM font
+					// size, which does not move `getComputedStyle(html).fontSize`, so `3.375rem`
+					// still measures 54px under it.)
+					// `_-_` is the house spelling for the spaces `calc()` requires around an
+					// operator. It is CONVENTION here, not a guard: measured on this toolchain,
+					// `calc(var(--vvh)-54px-24px)` builds to byte-identical CSS, because Tailwind
+					// v4 normalizes the operators itself. An earlier version of this comment (and
+					// of the test written from it) claimed the un-spaced form was invalid CSS that
+					// would drop the declaration. It isn't. Keep the underscores for readability;
+					// do not rely on them for correctness, and do not write a test that assumes
+					// the un-spaced form fails.
+					//
+					// WHAT IS REAL, and what the test actually guards: if this declaration is ever
+					// dropped, the fallback is NOT `max-height: none` — it is `CommandList`'s own
+					// base `max-h-[300px]` (command.tsx). A silent 120px SHRINK at every desktop
+					// width, not an obvious break. So `command-palette.spec.ts` asserts the cap by
+					// VALUE (>400, which 300 fails) and by RESPONSE (force `--vvh` to 484px and the
+					// cap must become 406px, which only a live `calc()` can do). Both were verified
+					// able to fail against real mutants.
+					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px,calc(var(--vvh)_-_54px_-_24px))]',
 				)}
 				// Escape closes; the caller re-renders the pill and the effect above puts focus
 				// back ON it — that hand-back is not automatic, and this comment used to claim it

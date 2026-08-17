@@ -50,11 +50,15 @@ test('"Present" opens the present overlay', async ({ page }) => {
  * immune to both clips by construction, so the only thing it really bought over two
  * utility classes was never having to think about them again. Buy that here instead.
  *
- * Four assertions, because "the element exists" is what a clipped card also satisfies:
- * the box is real, it starts at or below the header's bottom edge, it is HIT-TESTABLE
- * at its own top rows (a clipped card still reports a rect), and the widget above it has
- * not been scrolled — "the list draws inside the bar, scrolled" was the reported symptom,
- * and a root scrolled to 73px is what produced it.
+ * Assertions are about PAINT, not existence, because "the element exists" is what a clipped
+ * card also satisfies: the box is real, it starts at or below the header's bottom edge, it is
+ * HIT-TESTABLE at its own top rows (a clipped card still reports a rect), and the widget above
+ * it has not been scrolled — "the list draws inside the bar, scrolled" was the reported
+ * symptom, and a root scrolled to 73px is what produced it.
+ *
+ * It then covers the keyboard-aware cap, for the same reason and in the same style: by value
+ * and by response, never by shape. See the note at that assertion for why a shape check is
+ * worse than no check here.
  */
 test('the inline dropdown paints below the header, not clipped inside it', async ({ page }) => {
 	await page.keyboard.press('ControlOrMeta+k');
@@ -86,9 +90,34 @@ test('the inline dropdown paints below the header, not clipped inside it', async
 	expect(g.cardTop, 'the dropdown must clear the header, not draw inside the 54px bar').toBeGreaterThanOrEqual(g.headerBottom);
 	expect(g.hitIsInsideCard, 'the dropdown has a box but nothing of it is painted there — it is being clipped').toBe(true);
 	expect(g.rootScrollTop, 'the Command root has been scrolled to reveal the active item — it is clipping again').toBe(0);
-	// The keyboard-aware cap: the third arm must survive Tailwind's scan and resolve to a
-	// real length. A dropped declaration reads as `none`, and nothing else would notice.
-	expect(g.listMaxHeight, 'the list cap did not generate — check the calc() spacing').toMatch(/^\d+(\.\d+)?px$/);
+	// THE KEYBOARD-AWARE CAP, asserted by VALUE and by RESPONSE — never by shape.
+	//
+	// The obvious test ("max-height is some px value") is worthless here, and it shipped that
+	// way for one commit. `CommandList` carries its OWN `max-h-[300px]` base class
+	// (components/ui/command.tsx), so a dropped declaration does not read as `none` — it
+	// silently falls back to 300px. That is a visible 120px shrink at every desktop width
+	// that a shape check waves straight through. Verified: with the cap class removed, the
+	// old assertion passed on `max-height: 300px` and a 302px card.
+	expect(
+		parseFloat(g.listMaxHeight),
+		`the cap resolved to ${g.listMaxHeight} — 300px means the declaration was dropped and CommandList's base class took over (check the calc() spacing)`,
+	).toBeGreaterThan(400);
+
+	// And the `--vvh` arm must actually be LIVE, not merely present in the class string: force
+	// the visible band down to what a ~350pt iPad keyboard leaves and the cap must follow it.
+	// This is the only assertion here that would notice the arm being edited out entirely —
+	// verified against that exact mutant, which reports `got 420px`.
+	const capped = await page.evaluate(() => {
+		document.documentElement.style.setProperty('--vvh', '484px');
+		const list = document.querySelector('[data-slot=command-list]') as HTMLElement;
+		const v = getComputedStyle(list).maxHeight;
+		document.documentElement.style.removeProperty('--vvh');
+		return v;
+	});
+	expect(
+		parseFloat(capped),
+		`with the visible band at 484px the list must cap to 406px (484 - 54 header - 8 gap - 16 gutter), got ${capped}`,
+	).toBeCloseTo(406, 0);
 });
 
 /**

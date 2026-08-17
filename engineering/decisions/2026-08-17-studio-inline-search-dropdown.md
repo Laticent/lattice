@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header. Round three (2026-08-18) closes the two items that handback left open: the dropdown's height cap now knows about the software keyboard — it takes a third arm from `--vvh` via the same `useKeyboardInset` every mobile sheet caps against, turning the ≈0px margin measured on an iPad in landscape into 12px, with the no-keyboard geometry unchanged — and the hand-rolled dropdown container is re-litigated against the shared Radix `Popover` (HARD RULE #15) by BUILDING the non-portalled variant and measuring it: it paints, and even removes both clip workarounds, but it has to be told the offset the CSS derives, runs a measurement pipeline for a static position, wraps the listbox in `role="dialog"`, and needs seven props to switch its own behavior off. Rejected — and the one thing it would have bought, never thinking about the clips again, is bought instead as a regression test that fails if either clip returns.
+summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header. Round three (2026-08-18) closes the two items that handback left open: the dropdown's height cap now knows about the software keyboard — it takes a third arm from `--vvh` via the same `useKeyboardInset` every mobile sheet caps against, turning the ≈0px margin computed at an iPad's landscape geometry into 12px, with the no-keyboard geometry unchanged at 100% zoom — and the hand-rolled dropdown container is re-litigated against the shared Radix `Popover` (HARD RULE #15) by BUILDING the non-portalled variant and measuring it: it paints, and even removes both clip workarounds, but it has to be told the offset the CSS derives, runs a measurement pipeline for a static position, wraps the listbox in `role="dialog"`, and needs seven props to switch its own behavior off. Rejected — and the one thing it would have bought, never thinking about the clips again, is bought instead as a regression test that fails if either clip returns.
 ---
 
 # The Studio's inline expanding search, and the clip nobody had looked at
@@ -447,14 +447,36 @@ measurement: `useKeyboardInset` (`components/ui/panel.tsx`) already publishes `-
 already caps against it. The inline field mounts the same hook while it is open:
 
 ```
-max-h-[min(60vh, 420px, calc(var(--vvh) - 3.375rem - 24px))]
+max-h-[min(60vh, 420px, calc(var(--vvh) - 54px - 24px))]
 ```
 
-`3.375rem` is the 54px header, spelled as the same literal `panel.tsx` uses (Tailwind
-scans source text; an interpolated class name generates **no rule at all**), +8px for
-the card's gap below the bar and +16px so the last row is not flush against the
-keyboard the way the measured case was. `_-_` in the source is not decoration:
-`calc(var(--vvh)-24px)` is invalid CSS and would drop the whole declaration silently.
+`54px` is the header's own `h-[54px]`, +8px for the card's gap below the bar and +16px so
+the last row is not flush against the keyboard the way the measured case was. `_-_` in the
+source is not decoration: `calc(var(--vvh)-24px)` is invalid CSS and the declaration is
+dropped silently.
+
+**Two numbers here shipped wrong for one commit and a checker caught both.** Worth recording,
+because each was invisible in a different way.
+
+**`3.375rem` was not 54px.** It was written to mirror `panel.tsx`, which spells the same
+header that way — but that file composes it with `dvh`, while here the whole expression is px
+against a header that is a fixed `h-[54px]` (`StudioShell.tsx`, both stops). `rem` follows the
+browser's font-size setting, so at Chrome's **"Small" (12px root)** the term subtracted 40.5px
+instead of 54 and **the card bottom returned to 483 — the exact flush-with-the-keyboard number
+this arm exists to remove.** Measured across the setting, with `--vvh` forced to 484px:
+
+| root font | cap | card bottom | clearance |
+|---|---|---|---|
+| 12px ("Small") | 419.5px | **483** | **1px** |
+| 16px (default) | 406px | 469 | 15px |
+| 20px ("Large") | 392.5px | 456 | 28px |
+| 24px ("Very large") | 379px | 442 | 42px |
+
+Direction was safe for large fonts and wrong for small ones. It is now `54px`. The `minfont`
+e2e project could never have caught it: that project raises Blink's *minimum* font size, which
+does not move `getComputedStyle(html).fontSize`, so `3.375rem` still measures 54px under it.
+
+**The test written to catch the `_-_` typo could not catch it.** See §Tests below.
 
 **Measured in real Chromium, before → after:**
 
@@ -469,11 +491,35 @@ So the landscape case goes from ≈0px of margin to **12px**, and it scales: a k
 carrying a predictive row shrinks `--vvh` further and the cap follows it down.
 
 **Safe by construction, which is what makes it shippable without an iPad.** The new
-arm sits inside `min()`, so it can only ever make the list SHORTER. With no keyboard
-up `--vvh` is the full viewport and the 420px arm still wins — which is why all three
+arm sits inside `min()`, so it can only ever make the list SHORTER. At 100% zoom with no
+keyboard, `--vvh` is the full viewport and the 420px arm still wins — which is why all three
 no-keyboard rows above are byte-identical to what round two measured. The worst case
 on a device this sandbox cannot reach is a slightly shorter list, never a worse
 occlusion.
+
+**IT ALSO SHRINKS UNDER PAGE ZOOM, and the first draft of this record said it did not.**
+`visualViewport.height` is in CSS px, so it halves at 2× — it reports what is VISIBLE, and a
+pinch shrinks that exactly as a keyboard does. Measured at 1194×834 with
+`Emulation.setPageScaleFactor: 2` (the mechanism iPad Safari's pinch drives): `--vvh`
+834→417px, cap 420→**339px**, card h 422→341. So "with no keyboard up the geometry is
+unchanged at every width" — which was in the changelog, the source comment AND this record —
+was false. All three now say what actually happens.
+
+**Kept rather than fixed, because it is the right behavior.** A 420px list inside a 417px
+visible band would have to be panned to read; a list that fits the band is correct. The rule
+for anyone editing this: **the cap tracks VISIBLE HEIGHT, not "the keyboard"** — do not
+re-derive it from `--kb`.
+
+**One consequence left alone deliberately.** Under zoom the hook also publishes a `--kb` that
+is not a keyboard — `innerHeight - vv.height` is the whole shrink, whatever caused it
+(measured 417px at 2× with no keyboard present). That is pre-existing to `useKeyboardInset`
+and inert here: an exhaustive grep of `docs/src`, `docs/public` and `lib/` found the only
+consumers of `--kb`/`--vvh` are `MOBILE_OFFSET`, `MOBILE_HEIGHT` and `PINNED_FIELD_ROW`,
+every one of them applied under a phone gate (`useIsPhone()`, a `mobile &&` call site, or a
+`max-[699px]:` prefix), and none can mount at desktop/tablet. Correcting the arithmetic means
+changing what every mobile sheet depends on, on devices this sandbox cannot test — a bigger
+and far less verifiable change than the one it would fix. **Logged, not fixed** (HARD RULE
+#18: pre-existing, off-path).
 
 **Still UNVERIFIED (HARD RULE #23):** whether iPadOS reports *this* keyboard through
 `visualViewport` at all. Headless Chromium raises no keyboard, so the arm that matters
@@ -481,13 +527,45 @@ never binds in the browser test either. What each surface can actually hold, and
 
 - `command-palette-keyboard.test.tsx` — the WIRING: the listener mounts while the field
   is open, tracks the viewport, is REMOVED on close (a stale `--vvh` would cap every
-  later surface against a keyboard that has closed), the mobile sheet does not mount a
-  second copy, and the cap still names `--vvh`. Verified able to fail: with the hook
-  commented out and the arm dropped, all three fail.
-- `command-palette.spec.ts` — that the cap RESOLVES to a real length in a real browser.
-  A dropped Tailwind declaration reads as `max-height: none`, and nothing else notices.
-- the table above — the arithmetic, by forcing `--vvh` to the band a 350pt keyboard
-  leaves.
+  later surface against a keyboard that has closed), the mobile sheet mounts exactly one
+  hook's worth of listeners and not two, and the cap still NAMES `--vvh`. Verified able to
+  fail: with the hook commented out and the arm dropped, all three fail.
+- `command-palette.spec.ts` — that the cap RESOLVES correctly in a real browser: its
+  resting value, and its RESPONSE to `--vvh` being forced down to the band a 350pt keyboard
+  leaves (484 → the list must cap to 406).
+- the table above — the arithmetic, by forcing `--vvh` to that same band.
+
+**The first cut of those two tests could not catch the one typo they were written for, and
+that is the most useful thing in this section.** Both were shape checks:
+
+- the e2e asserted `max-height` matched `/^\d+px$/`, on the reasoning that *"a dropped
+  declaration reads as `none`, and nothing else would notice"*. **It does not read as
+  `none`.** `CommandList` carries its own `max-h-[300px]` base class (`command.tsx`), so a
+  dropped declaration falls back to **300px** — a silent 120px shrink at every desktop width
+  that matches the regex perfectly. Measured on the branch build: with the cap class removed,
+  `max-height: 300px`, `cardHeight: 302`, and every assertion in the guard still passed.
+- the unit test matched `max-h-[min(…var(--vvh)…)]` against the class STRING, which cannot
+  distinguish a live arm from a dead one — jsdom never resolves the value.
+
+**And a correction to the correction, which is worth more than either.** Both the source
+comment and the first draft of this section claimed the load-bearing hazard was the `_-_` →
+`-` typo: *"`calc(var(--vvh)-78px)` is invalid CSS and would drop the whole declaration."*
+**That is false on this toolchain.** Built with the un-spaced form, the generated CSS is
+byte-identical — `calc(var(--vvh) - 54px - 24px)` — because Tailwind v4 normalizes the
+operators itself. The underscores are convention and readability, not a correctness guard,
+and a test written to catch that typo would be testing nothing. Two rounds of reasoning
+rested on a hazard nobody had built; one build settled it.
+
+So the regression both tests advertised passed both tests. The e2e now asserts by **value**
+(`> 400`) and by **response** (force `--vvh: 484px`, the cap must become 406px, which only a
+live `calc()` can do); the unit test's claim is narrowed to what it can actually hold — the
+arm cannot be *removed* unnoticed.
+
+**Both assertions verified able to fail, against real mutants, rebuilt each time:** delete
+the cap class → `the cap resolved to 300px …`; delete just the `--vvh` arm → `with the
+visible band at 484px the list must cap to 406px …, got 420px`. **The lesson generalizes past this file: when asserting that a Tailwind
+declaration survived, assert the resolved VALUE, never its shape — the fallback is whatever
+base class sits underneath, and base classes are exactly what this whole record is about.**
 
 `useKeyboardInset` was documented as phone-only ("no keyboard to subtract anywhere
 else"). That is now false and the comment says so: the second caller is a desktop-and-
@@ -561,3 +639,34 @@ The shadcn combobox recipe the repo already has (`ComponentPicker.tsx`: `Popover
 `PopoverTrigger` wrapping the whole `Command`) stays the pattern for a picker whose
 field lives *inside* the popup. It cannot express this one, where the field is the
 header row's own control and grows the row — that is the feature.
+
+## 3. Logged in passing, not fixed here (HARD RULE #18: pre-existing, off-path)
+
+Three things a checker surfaced that this change neither caused nor worsens. Recorded so
+they are not re-discovered, and deliberately kept out of the diff so #17 (one feature, one
+PR) and #8 (gallery isolation) stay intact.
+
+- **A LANDSCAPE PHONE gets neither transport's keyboard handling.** `CommandPalette`'s own
+  `mobile` is `useBreakpoint() === 'mobile'`, which EXCLUDES a landscape phone — so the
+  `PanelSheet` branch (bottom-docked field, the solved keyboard case) does not apply there
+  and it falls through to the `CommandDialog`, whose list keeps the base `max-h-[300px]` and
+  has no keyboard awareness of any kind. `StudioShell` separately gates `inline` on a
+  phone-INCLUSIVE `mobile`, so the inline field with its new cap does not apply either. The
+  shortest viewport in the whole matrix (~390px tall, keyboard guaranteed) is the one with
+  the least keyboard-aware search. Pre-existing since the sheet branch was written.
+- **`--kb` is not a keyboard under zoom.** See the round-three §1 note; inert today because
+  no consumer of `--kb` mounts above the phone tier.
+- **`StudioShell.test.tsx` › "reaches Fabricate from the launcher (not a deck mode)" is
+  flaky under parallel load** — it passes in isolation and timed out on roughly half of the
+  full-suite runs on this machine (both this round's checker and an earlier session hit it).
+  It has nothing to do with this diff — it does not use ⌘K at all — but it means any
+  "3181/3181" claim about the full docs suite is a coin-flip reproduction, and it is worth
+  knowing that before it is read as evidence of a regression somewhere.
+
+## 4. Coverage this round did NOT add
+
+The new paint + cap guard carries no project tag, so it runs on the **desktop** Playwright
+project only. The tablet widths that justify the feature (820, 1194) have no paint guard of
+their own. Not added here because the spec file's project membership is a config-level
+change with its own blast radius; named so the gap is a known one rather than an assumed
+cover.

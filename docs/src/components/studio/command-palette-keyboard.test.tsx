@@ -21,7 +21,9 @@ import { CommandPalette } from './CommandPalette';
  *     still CARRIES the `--vvh` arm — Tailwind scans source text, so a rewrite that drops
  *     it generates no rule and nothing on screen explains the difference (`panel.tsx` has
  *     the scars);
- *   - `command-palette.spec.ts`: that the cap resolves to a real length in a real browser.
+ *   - `command-palette.spec.ts`: that the cap RESOLVES correctly in a real browser — both its
+ *     resting value and its response to a shrinking `--vvh`. That is where a malformed arm is
+ *     caught; jsdom never resolves the value, so it cannot tell valid CSS from invalid.
  * The device behavior itself — does iPadOS report this keyboard through visualViewport —
  * is UNVERIFIED and owed a tap on real hardware (HARD RULE #23).
  */
@@ -101,7 +103,7 @@ describe('the inline search caps its dropdown against the software keyboard', ()
 		expect(vv.listenerCount).toBe(0);
 	});
 
-	it('the cap still names --vvh — a dropped arm generates no rule and shows no symptom', async () => {
+	it('the cap still names --vvh — the arm cannot be removed without a test noticing', async () => {
 		vi.stubGlobal('innerHeight', 834);
 		fakeViewport(834);
 		render(<CommandPalette inline open={true} {...props} />);
@@ -109,8 +111,15 @@ describe('the inline search caps its dropdown against the software keyboard', ()
 
 		const root = document.querySelector('[cmdk-root]');
 		expect(root, 'the inline transport did not render its Command root').not.toBeNull();
-		// The cap is a `min()` on the command list with a `--vvh` arm. Deliberately matched
-		// by SHAPE, not byte-for-byte: retuning 420px is fine, losing the keyboard arm is not.
+		// The cap is a `min()` on the command list with a `--vvh` arm. Matched by SHAPE, not
+		// byte-for-byte: retuning 420px is fine, losing the keyboard arm is not.
+		//
+		// WHAT THIS DOES NOT CATCH, deliberately: a MALFORMED arm. `calc(var(--vvh)-54px)`
+		// without the `_-_` spacing still contains `var(--vvh)` inside `min(…)`, so it passes
+		// here while the generated CSS is invalid and the declaration is dropped. jsdom cannot
+		// know — it never resolves the value. That hazard belongs to `command-palette.spec.ts`,
+		// which asserts the RESOLVED length in a real browser. Two tests, one for "the source
+		// still says it", one for "the browser still does it"; neither is sufficient alone.
 		expect(
 			root?.className ?? '',
 			'the command list lost its keyboard-aware height arm — see the useKeyboardInset note in CommandPalette.tsx',
@@ -134,9 +143,22 @@ describe('the inline search caps its dropdown against the software keyboard', ()
 		// panel against the same variable. The inline hook must stay inert here — two hooks
 		// writing one `--vvh` would race on cleanup, and the loser's surface is capped against
 		// a keyboard that has closed (the class of bug panel.tsx carries the scars from).
-		window.matchMedia = (query: string) =>
-			({ matches: query.includes('699px'), media: query, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false }) as MediaQueryList;
-		render(<CommandPalette open={true} {...props} />);
-		expect(vv.listenerCount, 'the mobile sheet mounted the inline transport’s keyboard hook as well as its own').toBeLessThanOrEqual(oneHook);
+		//
+		// Restored in `finally`, NOT left to `vi.unstubAllGlobals()` — this is a raw assignment,
+		// which that does not undo. It only happens to be harmless because this is the last test
+		// in the file; a phone-width `matchMedia` leaking into a later one would render every
+		// desktop component as mobile and the failure would point anywhere but here.
+		const realMatchMedia = window.matchMedia;
+		try {
+			window.matchMedia = (query: string) =>
+				({ matches: query.includes('699px'), media: query, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false }) as MediaQueryList;
+			render(<CommandPalette open={true} {...props} />);
+			// EXACTLY one hook's worth — `toBeLessThanOrEqual` also passes at zero, which cannot
+			// tell "the inline hook stayed inert" from "neither hook mounted at all", and the
+			// second would mean the sheet lost its own keyboard handling with no test noticing.
+			expect(vv.listenerCount, 'the mobile sheet must mount its own keyboard hook and ONLY its own').toBe(oneHook);
+		} finally {
+			window.matchMedia = realMatchMedia;
+		}
 	});
 });
