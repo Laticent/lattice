@@ -31,7 +31,12 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 // Plus the invariant #1371 shipped: the tail controls hold their x across the three
 // dial stops, so stepping the dial never slides the row under your finger.
 
-const WIDTHS = [700, 720, 760, 820, 1024, 1099, 1100, 1440];
+// 1280 is in this list because it is where the row broke and nothing saw it. `XL` was
+// declared below as a threshold the assertions reason ABOUT, while the viewport list
+// stepped 1100 → 1440 straight over it — so the one width where Tailwind's `xl` turns on
+// the ⌘K label AND the Craft row is at its tightest was never actually rendered. A
+// breakpoint this file already names is a width it should visit.
+const WIDTHS = [700, 720, 760, 820, 1024, 1099, 1100, 1280, 1440];
 const DESKTOP = 1100; // the app's own boundary (use-breakpoint.ts), not Tailwind's `lg`
 const XL = 1280; // Tailwind's `xl` — where the deck pill grows its slide-count meta
 const TOLERANCE = 2; // sub-pixel rounding, same as check:overflow
@@ -108,7 +113,7 @@ const STOPS = CHROME.postureStops.map((name) => ({ name, word: name.split(' —'
  *  different control — so they stay literal here. */
 const TAIL = ['Present', 'Share', CHROME.feedback, 'Settings', CHROME.moreControls];
 
-type HeaderShape = { over: number; menu: { x: number; right: number } | null; x: Record<string, number> };
+type HeaderShape = { over: number; menu: { x: number; right: number } | null; x: Record<string, number>; tall: { name: string; h: number }[] };
 
 async function readHeader(page: import('@playwright/test').Page, tail: string[], menuName: string): Promise<HeaderShape> {
 	return page.evaluate(([names, menuLabel]) => {
@@ -133,10 +138,24 @@ async function readHeader(page: import('@playwright/test').Page, tail: string[],
 			const r = at(n);
 			if (r) x[n] = Math.round(r.x);
 		}
+		// The VERTICAL oracle. Everything else in this file measures the row's WIDTH, so a
+		// control that runs out of horizontal room and resolves it by WRAPPING is invisible
+		// to all of it: `scrollWidth === clientWidth` the whole time, because the row did
+		// fit — the control just got taller than the bar. That is exactly how the ⌘K pill
+		// shipped two-line and 56px tall inside a 54px header at 1280 in Craft, in both
+		// color modes, with every horizontal guard green. A control taller than the bar it
+		// sits in is clipped by definition, so this needs no tolerance past rounding.
+		const tall = [...h.querySelectorAll('button')]
+			.map((b) => ({
+				name: b.getAttribute('aria-label') || (b.textContent || '').trim().slice(0, 40) || '<button>',
+				h: Math.round(b.getBoundingClientRect().height),
+			}))
+			.filter((c) => c.h > h.clientHeight + 1);
 		return {
 			over: h.scrollWidth - h.clientWidth,
 			menu: menu ? { x: Math.round(menu.x), right: Math.round(menu.right) } : null,
 			x,
+			tall,
 		};
 	}, [tail, menuName] as const);
 }
@@ -355,6 +374,10 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 
 			const shape = await readHeaderSettled(page, TAIL, CHROME.moreControls);
 			expect(shape.over, `header self-overflow at ${width}px on ${stop.word}`).toBeLessThanOrEqual(TOLERANCE);
+			expect(
+				shape.tall,
+				`a header control is taller than the header at ${width}px on ${stop.word} — it wrapped instead of fitting, so it is clipped (${shape.tall.map((c) => `${c.name} ${c.h}px`).join(', ')})`,
+			).toEqual([]);
 
 			// #1417 — the pill vs. itself. Read AFTER the row has settled, for the same
 			// reason every other geometry read here is: the pill is what reflows on a

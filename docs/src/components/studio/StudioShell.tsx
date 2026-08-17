@@ -44,7 +44,7 @@ import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { type ComposeHandle, ComposeView } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_CONTROL, BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -3593,18 +3593,33 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    (a flex item's min-content contribution is not reduced by `min-width:0` on the
 				    truncating child), and `contain: inline-size` on the title zeroes its intrinsic
 				    size in BOTH directions — the pill then never grows to show a title at all. */}
-				<button type="button" data-demo="deck-switcher" className={cn('flex items-center gap-2 rounded-md border border-border bg-background py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', compact ? 'min-w-[42px] px-2' : 'min-w-[62px] px-2.5')}>
+				<button type="button" data-demo="deck-switcher" className={cn(BAR_CONTROL, 'flex items-center gap-2 rounded-md border border-border bg-background text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', compact ? 'min-w-[42px] px-2' : 'min-w-[62px] px-2.5')}>
 					{/* The active-deck dot is DESKTOP-ONLY decoration. Below 1100 it cost 16px
 					    (dot + its gap) out of a pill that had 51px to spend at the 700px floor —
 					    so the deck title, the thing this pill exists to show, rendered at ZERO
 					    width while a decorative dot held its ground. Same trade the wordmark in
 					    the launcher beside it already makes, and the same boundary (`compact`,
 					    the app's own 1100px line, never Tailwind's `lg`). */}
-					{!compact && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+					{/* …and it is `--text-body`, not `bg-primary`. `--primary` IS `--accent`
+					    (tailwind.css maps them), so a self-declared decoration was drawing in
+					    the bar's scarcest signal color — accent is a pointer, and this one
+					    pointed at nothing. Decoration in the pointer color is a false pointer;
+					    the accent budget is spent once, on Present.
+					    `--text-body` rather than `--text-muted`, though: muted took this dot from
+					    5.96:1 to 2.64:1 in cuoio, which is the site's DEFAULT palette — trading a
+					    false pointer for a dot nobody can see is not the fix. Body keeps it
+					    legible while leaving accent to mean one thing. */}
+					{!compact && <span className="size-2 shrink-0 rounded-full bg-[var(--text-body)]" />}
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
 					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
 					    desktop/tablet the deck title takes priority. */}
-					<span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground xl:inline">{metaFor(source)}</span>
+					{/* `--text-body`, not `--text-muted`, for the same reason as the dial labels
+					    and the ⌘K placeholder: this is READ TEXT (the deck's slide count), and
+					    `--text-muted` is the theme's declared-decorative, WCAG-exempt channel —
+					    2.64:1 measured here at 11px, where 1.4.3 wants 4.5:1. Found while
+					    verifying the other two; same root cause, same header, so it is fixed
+					    here rather than logged. */}
+					<span className="hidden shrink-0 font-mono text-[11px] text-[var(--text-body)] xl:inline">{metaFor(source)}</span>
 					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 				</button>
 			</DropdownMenuTrigger>
@@ -3681,23 +3696,48 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
 					</>
 				) : deckSwitcher}
+				{/* IDENTITY BAND: app · deck · view-of-the-deck (2026-08-16, owner's ordering).
+				    The dial sits WITH the deck rather than out in the action cluster, so the
+				    row's left-to-right reads as descending scope — which app, which deck, which
+				    view of it — and only then utilities and verbs. The rule is what makes that
+				    legible: without it the dial reads as a stray third object rather than the
+				    close of a band (measured, it also pulls the row's largest gap 144 → 130px).
+				    Cost, accepted knowingly: the dial no longer holds a fixed x. It now sits
+				    behind a content-sized, truncating deck pill, so its position moves with the
+				    deck's NAME and with the stop (Read renders a plain label, Write a switcher)
+				    — measured at 171px of travel across the three stops. That is the cheapest
+				    stability in the row to spend: this repo's own 2026-07-03 review found the
+				    mode control is "the least-used control on the bar". Present, Share and
+				    feedback keep their pinned x — see the tail note below. */}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 				<div className="flex-1" />
 				<Tip label="Search or run a command (⌘K)">
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
+					{/* Same contract as the full header's pill (see the note there): shrink-0 +
+					    nowrap, so the deck switcher stays the one item that gives. The slim
+					    header has far more slack, so it never wrapped — matching it here keeps
+					    the two pills from drifting apart the next time one is touched. */}
+					<button type="button" onClick={() => setCmdOpen(true)} className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
 				</Tip>
-				{/* Present + Share are deliverable verbs — they stay reachable at EVERY stop,
-				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
-				<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
-				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
-				{/* The tail — separator · dial · feedback — mirrors the full header's tail
-				    exactly, and that is the point: Present, Share, the dial and feedback all
-				    sit at the SAME x at Read, Write and Craft. Drop either the divider or the
-				    feedback button here and the whole cluster slides on every dial step. */}
-				<Separator orientation="vertical" className="h-5" />
-				<PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />
+				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
+				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
+				    and Craft (#1371). It survives the dial moving to the identity band precisely
+				    BECAUSE the trailing run is what the invariant is about: everything the full
+				    header carries that this one doesn't (appearance, tours, their rules) sits
+				    LEFT of these three and is absorbed by the flex spacer, so the run's
+				    right-gaps are identical in both. Move or drop one element in this trailing
+				    run without doing the same in the full header and the whole cluster slides on
+				    every dial step. `studio-header-fit.spec.ts` asserts the x-stability but NOT
+				    the order, so the mirror is on you.
+				    Present/Share stay reachable at EVERY stop, never hidden behind a posture
+				    (2026-07-17-studio-persona-dial.md, T5 graft), and the accent CTA is still
+				    the last LABELED control — only the icon-only feedback button sits outboard,
+				    which is what the comparable set does. */}
+				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
+				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{feedbackButton}
 			</header>
 			) : (
@@ -3738,7 +3778,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* The real brand mark (not a text tile), and the chevron shows at EVERY
 						    width — without it the phone-width trigger reads as a static logo,
 						    not a menu. */}
-						<button type="button" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
+						<button type="button" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
 							<LatticeMark mode={mode} className="size-7" />
 							{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
 							    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
@@ -3775,9 +3815,30 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    desktop this row reads as a wider phone header, not a squeezed desktop one)
 				    and is the same source of truth as every other gate here: the app's 1100px
 				    boundary, never Tailwind's `sm`/`lg`. */}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 
 				{deckSwitcher}
+
+				{/* IDENTITY BAND — the twin of the slim header's; see the long note there for
+				    the ordering rationale and the x-drift it knowingly costs. Both headers must
+				    carry this pair, or the two rows disagree about where the dial lives and the
+				    stop change becomes a jump.
+				    Unlike the rule above it, this one is NOT `!compact`: the tablet renders this
+				    Gated `!compact`, NOT `!mobile`, and that is a budget fact rather than a taste
+				    one: a rule costs 7px here (1px + one 6px gap) and `studio-header-fit.spec.ts`
+				    measures ~19px of spare at the 700px floor against a ratcheted floor of 16 —
+				    so the tablet has about 3px to spend and this does not fit. Shipped at
+				    `!mobile` it took that floor to 9px and turned the guard red, which is the
+				    guard doing its job. Below desktop the row already does without the other two
+				    rules and reads as a wider phone header (#1408), so the band closes on
+				    proximity there instead.
+				    The dial keeps its WORDS at every width it renders at (≥700) — why, and what
+				    that width is bought with, is on the dial itself in `chrome-parts.tsx`; the
+				    short version is #1401: icon-only made the stops unreachable on touch, and
+				    the row pays for the labels by keeping tours in ⋯ and running at the phone's
+				    density below desktop. */}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 
 				<div className="flex-1" />
 
@@ -3785,7 +3846,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    inside ⋯ is the search affordance; the ⌘K shortcut stays always-bound. */}
 				{!compact && (
 					<Tip label="Search or run a command (⌘K)">
-						<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
+						{/* `shrink-0 whitespace-nowrap` is not decoration — it is this row's stated
+						    contract. The deck switcher is the ONE shrinkable item (`min-w-0` + a
+						    truncating title) and "every sibling is shrink-0"; this pill was the
+						    sibling that never got the class. Without it the pill shrinks below its
+						    own intrinsic width at 1280 in Craft — the width where `xl:` turns the
+						    label + ⌘K Kbd on but the full header has only ~24px of slack — and the
+						    label wraps to two lines, rendering the pill 56px tall inside a 54px
+						    header (measured, both modes). `check:overflow` and `studio-header-fit`
+						    never saw it: they assert `scrollWidth <= clientWidth`, and this burst is
+						    VERTICAL. With the class the pressure lands where the design says it
+						    should — the deck title truncates a little sooner — and the fix holds for
+						    any deck title length rather than for the one that happened to be open. */}
+						<button type="button" onClick={() => setCmdOpen(true)} className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
@@ -3797,28 +3870,47 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    folds into ⋯; the mode toggle stands alone on tablet and joins the ⋯
 				    Appearance tail on phones (below). */}
 				{!compact && (
-					<div className="flex items-center rounded-md border border-border bg-background p-0.5">
+					<div className="flex h-8 items-center rounded-md border border-border bg-background p-[3px]">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon-sm" aria-label="Theme"><Palette className="size-[18px]" /></Button>
+								<Button variant="ghost" size="icon-sm" aria-label="Theme" className="size-[26px]"><Palette className="size-[18px]" /></Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end" className="max-h-[70vh] w-52 overflow-y-auto">
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</DropdownMenuContent>
 						</DropdownMenu>
-						<Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>
+						<Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" className="size-[26px]" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>
 					</div>
 				)}
 
 				{/* Desktop dividers band the right cluster by altitude — utilities |
 				    deliverable verbs | session panels | app surfaces — so global and
 				    deck controls don't read as one interleaved run (2026-07-03). */}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
+				{/* WHICH VERB WEARS THE FILL IS NOW A DECISION, not a default
+				    (2026-08-16-studio-toolbar-placement.md). It used to be neither: Share
+				    rendered `<Button size="sm">` with no `variant`, i.e. shadcn's default
+				    solid, while Present was EXPLICITLY demoted to `variant="outline"`. That
+				    arrived fully formed in this file's first commit (c9ecdae) and was never
+				    argued anywhere — then 2026-07-03-studio-brand-mark-toolbar.md:39 cited
+				    "Share is the bar's only filled CTA" as a PREMISE, and the phone bar
+				    copied the tone split. An omitted prop had become a rule.
+				    Present carries the fill now: it is the more frequent verb for every
+				    persona, it repeats within a session where Share is once per deck
+				    lifecycle, its real-world trigger is time-pressured ("we're starting"),
+				    and it is the terminal act of a *presentation* engine. Share publishes —
+				    the least reversible thing on the bar should not also be the most
+				    attractive target 12px from a quiet outline.
+				    The rule that outranks the choice: EXACTLY ONE full-strength fill. Zero
+				    of 17 comparable tools run two, and this row already lost most of its
+				    pop-out to spending accent five times over (Share's fill, the lit dial
+				    segment, the tours glyph, the deck dot, the mark). Whichever verb wins,
+				    the other is `variant="outline"` — never both filled. */}
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
 				{/* DESKTOP ONLY. Below 1100 the tours ride the ⋯ overflow instead (tablet) or the
@@ -3835,7 +3927,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
+									{/* NOT accent-colored any more. Measured, this glyph was the loudest thing in
+								    the row relative to its importance: the only saturated icon in the run (a
+								    1.44:1 luminance step plus a large chroma step off its neighbors), the
+								    largest clear space of any control, and more accent ink than the deck's own
+								    identity dot — for a once-per-session detour this repo already judged cheap
+								    enough to bury one tap deeper on tablet (#1401). Accent is a pointer and the
+								    bar was spending it five times; a hover tint keeps the affordance without
+								    competing with the CTA two slots away. */}
+								<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('text-[var(--text-body)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
 								</DropdownMenuTrigger>
 							</TooltipTrigger>
 							<TooltipContent>Show me — a guided tour that drives itself</TooltipContent>
@@ -3851,29 +3951,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{!mobile && <Tip label="Present"><Button variant="outline" size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
-				{!mobile && <Tip label="Share"><Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
-
-				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. At ≥1100
-				    this still renders in BOTH headers at the same slot, so the #1371 tail-x
-				    invariant (Present / Share / dial / feedback hold their x across the dial)
-				    is untouched; below 1100 all three stops render THIS header, so there is no
-				    second row for it to disagree with. */}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
-				{/* The posture dial — the always-visible, reversible way to any stop. Present
-				    at every stop (never a buried setting), so no stop can read as a room you
-				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
-				{/* WORDS AT EVERY WIDTH THIS RENDERS AT (≥700px). The dial shipped icon-only
-				    below 1100 for one release and that was the wrong trade (#1401): on a touch
-				    tablet the words became UNREACHABLE, not merely hidden — Radix's tooltip
-				    returns early on `pointerType === 'touch'` and the tablet ⋯ menu has no
-				    Read/Write/Craft rows — and unlike ▶ Present or the share glyph, a three-way
-				    MODE control whose icons are book / pencil / layers has no conventional
-				    reading. The width it costs is bought elsewhere in this row instead: the
-				    tours moved into ⋯ and the row runs at the phone's density below desktop.
-				    Below 700 the dial is not in the header at all (`!mobile`) — the phone
-				    carries the density on its own pane bar. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
+				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. It closes
+				    the utilities band; the verbs open after it. */}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{/* The dial used to sit HERE, between this rule and the verbs. It moved up to
+				    the identity band beside the deck (2026-08-16) — the note is on its new site.
+				    What stayed behind is the rule, which now reads as "utilities end, actions
+				    begin" instead of "…and now a mode control". */}
+				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -4040,7 +4126,29 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   drawer — HARD RULE per the round-1 postmortem: those six stay one tap, inline,
 				   always, full stop. */
 				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
-					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-stretch border-b border-border bg-card transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+					{/* `role="group"`, NOT `role="toolbar"` (2026-08-16). This shipped as a
+					    toolbar, and a toolbar is a PROMISE OF BEHAVIOR, not a label: the ARIA
+					    pattern obliges one tab stop into the widget plus arrow-key roving focus.
+					    This bar implemented none of it — measured at 390px, eight buttons, zero
+					    `tabindex` management, no `onKeyDown` — so AT announced "Deck actions,
+					    toolbar" and the user's learned model was then wrong in both directions:
+					    arrows did nothing, and the widget ate eight tab stops. That is the
+					    textbook 4.1.2 role-misuse failure.
+					    `group` keeps the accessible name (the reason the attribute was added)
+					    and promises nothing that isn't implemented. Implementing the real
+					    pattern is the better end state and is worth doing — it would take these
+					    eight stops to one — but it is a keyboard-behavior change that has to
+					    land with its own spec updates, not ride along in a placement pass. It is
+					    filed rather than half-built here; a half-built toolbar is what we just
+					    removed. */}
+					{/* A real `<fieldset>`, so the group role is the ELEMENT's, not an attribute
+					    bolted onto a div — the same idiom PostureDial already uses, and what
+					    `lint/a11y/useSemanticElements` asks for. The resets matter: a fieldset
+					    ships a groove border, padding, and an intrinsic `min-width` that would
+					    each break this flex row, so `m-0 p-0 min-w-0 border-x-0 border-t-0` take
+					    them off and leave only the `border-b` this bar actually wants. (`m-0` is
+					    a bare reset — it adds no space, so HARD RULE #20 is satisfied.) */}
+					<fieldset aria-label="Deck actions" className={cn('m-0 flex min-w-0 shrink-0 items-stretch border-x-0 border-t-0 border-b border-border bg-card p-0 transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 						<BarIcon variant="bar" label="Markdown source" hint="Markdown source" caption="Source" active={effPane === 'edit' && editMode === 'markdown'} demo={editMode === 'markdown' ? 'pane-edit' : undefined} badge={issues} describedBy={issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('markdown'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><FileText className="size-[17px]" /></BarIcon>
 						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
 						<BarIcon variant="bar" label="Compose — rich editor" hint="Compose — rich editor" caption="Compose" active={effPane === 'edit' && editMode === 'compose'} demo={editMode === 'compose' ? 'pane-edit' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('compose'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><Sparkles className="size-[17px]" /></BarIcon>
@@ -4050,9 +4158,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" variant="bar" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><ChatIcon className="size-[17px]" /></BarIcon>
 						<BarIcon label="Settings" hint="Settings — deck & slide" caption="Settings" variant="bar" active={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))}><SlidersHorizontal className="size-[17px]" /></BarIcon>
 						<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
-						<BarIcon label="Present" hint="Present" caption="Present" variant="bar" tone="outline" demo="present" onClick={openPresent}><Play className="size-[17px]" /></BarIcon>
-						<BarIcon label="Share" hint="Share" caption="Share" variant="bar" tone="solid" demo="share" onClick={() => setShareOpen(true)}><Share2 className="size-[17px]" /></BarIcon>
-					</div>
+						<BarIcon label="Present" hint="Present" caption="Present" variant="bar" tone="solid" demo="present" onClick={openPresent}><Play className="size-[17px]" /></BarIcon>
+						<BarIcon label="Share" hint="Share" caption="Share" variant="bar" tone="outline" demo="share" onClick={() => setShareOpen(true)}><Share2 className="size-[17px]" /></BarIcon>
+					</fieldset>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
 					    INSTANT: no iframe remount, no reload, no blank flash (the pane jank that made

@@ -6,7 +6,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 
@@ -63,8 +63,8 @@ function ActionBar() {
 			<BarIcon variant="bar" label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" onClick={NOOP}><ChatIcon className="size-[17px]" /></BarIcon>
 			<BarIcon variant="bar" label="Settings" hint="Settings — deck & slide" caption="Settings" onClick={NOOP}><SlidersHorizontal className="size-[17px]" /></BarIcon>
 			<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
-			<BarIcon variant="bar" tone="outline" label="Present" hint="Present" caption="Present" onClick={NOOP}><Play className="size-[17px]" /></BarIcon>
-			<BarIcon variant="bar" tone="solid" label="Share" hint="Share" caption="Share" onClick={NOOP}><Share2 className="size-[17px]" /></BarIcon>
+			<BarIcon variant="bar" tone="solid" label="Present" hint="Present" caption="Present" onClick={NOOP}><Play className="size-[17px]" /></BarIcon>
+			<BarIcon variant="bar" tone="outline" label="Share" hint="Share" caption="Share" onClick={NOOP}><Share2 className="size-[17px]" /></BarIcon>
 		</div>
 	);
 }
@@ -97,9 +97,9 @@ function DeckPill({ title }: { title: string }) {
 		<button
 			type="button"
 			data-ssr-demo="deck-switcher"
-			className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
+			className="ssr-deck-pill flex h-8 min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
 		>
-			<span className="hidden size-2 shrink-0 rounded-full bg-primary min-[1100px]:block" />
+			<span className="hidden size-2 shrink-0 rounded-full bg-[var(--text-body)] min-[1100px]:block" />
 			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
 			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
 			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be
@@ -181,7 +181,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				    re-gates these three spans under `:root[data-ssr-stop="craft"]`; drawing the slim
 				    header's bare mark there instead pushed the deck pill 27px right. */}
 				<span className="ssr-launcher-wrap contents min-[1100px]:hidden">
-					<button type="button" aria-label="Workspace launcher" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 sm:gap-2 sm:px-1.5">
+					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
 						{/* The wordmark rides the launcher only at !compact — the desktop FULL header, which
 							    is what the app renders at Craft. */}
@@ -196,11 +196,21 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				{/* The rule between the launcher and the deck pill — `!compact` in the app, so it
 				    exists ONLY in the desktop full header, which is the Craft stop. */}
 				<span className="ssr-craft-lead hidden">
-					<Separator orientation="vertical" className="h-5" />
+					<Separator orientation="vertical" className={BAR_RULE} />
 				</span>
 
 				<DeckPill title={deckTitle} />
 				<ReadTitle title={deckTitle} />
+				{/* IDENTITY BAND — the rule + dial the app renders right after the deck at every
+				    width from 700 up (`!mobile`). It lived in the three tails below until
+				    2026-08-16; the app moved it up here, so this must too or the parity spec
+				    fails on every control right of the deck pill. */}
+				<span className="hidden min-[1100px]:contents">
+					<Separator orientation="vertical" className={BAR_RULE} />
+				</span>
+				<span className="hidden min-[700px]:contents">
+					<StopDial />
+				</span>
 				<div className="flex-1" />
 
 				{/* PHONE tail: mode · workspace settings · menu. */}
@@ -210,11 +220,10 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* TABLET tail: Present · Share · the dial · Coach · Chat · feedback · Settings · mode · Menu. */}
+				{/* TABLET tail: Present · Share · Coach · Chat · feedback · Settings · mode · Menu. */}
 				<span className="hidden min-[700px]:max-[1100px]:contents">
-					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-					<StopDial />
+					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Coach"><Gauge className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Chat"><ChatIcon className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
@@ -223,17 +232,16 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* DESKTOP tail (slim header): ⌘K · Present · Share · rule · dial · feedback.
+				{/* DESKTOP tail (slim header): ⌘K · Present · Share · feedback. The dial and its
+				    rule are in the identity band above, not here.
 				    The ⌘K pill grows its label at Tailwind's `xl`, exactly as the app's does. */}
 				<span className="ssr-desktop-tail hidden min-[1100px]:contents">
-					<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
+					<button type="button" aria-label="Search or run a command" className="hidden h-8 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
-					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-					<Separator orientation="vertical" className="h-5" />
-					<StopDial />
+					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 				</span>
 					{/* DESKTOP at CRAFT: the app swaps its slim header for the FULL one, which regains
@@ -241,20 +249,23 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					    52px activity rail instead). Mirrored control-for-control — the parity spec
 					    compares the two SETS, so an omission here fails rather than ships. */}
 					<span className="ssr-craft-tail hidden min-[1100px]:contents">
-						<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
+						<button type="button" aria-label="Search or run a command" className="hidden h-8 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
 							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 						</button>
-						<span className="flex items-center rounded-md border border-border bg-background p-0.5">
-							<Button variant="ghost" size="icon-sm" aria-label="Theme"><Palette className="size-[18px]" /></Button>
-							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
+						<span className="flex h-8 items-center rounded-md border border-border bg-background p-[3px]">
+							<Button variant="ghost" size="icon-sm" className="size-[26px]" aria-label="Theme"><Palette className="size-[18px]" /></Button>
+							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark size-[26px]"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light size-[26px]"><Sun className="size-[18px]" /></Button>
 						</span>
-						<Separator orientation="vertical" className="h-5" />
-						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--accent)]"><MonitorPlay className="size-[18px]" /></Button>
-						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-						<Separator orientation="vertical" className="h-5" />
-						<StopDial />
+						<Separator orientation="vertical" className={BAR_RULE} />
+						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--text-body)]"><MonitorPlay className="size-[18px]" /></Button>
+						{/* The seam the dial used to sit behind. The dial moved to the identity band in
+						    2026-08-16 but this rule did NOT — in the app it still closes the utilities
+						    band before the verbs, so dropping it here left the shell one rule short and
+						    shifted every control after it. */}
+						<Separator orientation="vertical" className={BAR_RULE} />
+						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 						<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 					</span>
 			</div>
