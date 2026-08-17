@@ -23,3 +23,10 @@
   Paint order is now ranked by CSS painting layer first, DOM order within a layer. Runs
   sitting over a raster or gradient backdrop are flagged rather than silently scored
   against the paint behind the picture.
+- **Changed: two pre-existing contrast defects are now tracked instead of invisible.**
+  #1704 taught the prober to read element `opacity` but never re-measured the rendered
+  galleries, so `agenda progress-*` and `kanban` de-emphasis washes have been putting
+  real text below AA on `main` unseen. They are a design call on those components
+  rather than part of this change, so the new gate carries them as an itemized ratchet
+  with exact per-surface counts that fail if the backlog grows AND if it shrinks
+  without the number being lowered. Tracked as #1717.

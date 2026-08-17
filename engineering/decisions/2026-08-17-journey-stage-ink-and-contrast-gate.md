@@ -180,7 +180,41 @@ errors as stale. A fourth test caps the share of runs the exemptions may absorb,
 broadening a matcher cannot quietly restore the budget behaviour the allowlist
 exists to avoid.
 
-**Genuine failures on the gated galleries today: zero.**
+**Genuine failures attributable to any change on this branch: zero.**
+
+### The backlog the gate walked into, and why it is a ratchet rather than an exemption
+
+Rebasing onto `main` mid-change picked up **#1704**, which taught the same prober to
+read element `opacity`. A CSS `opacity` composites ink *and* background together, so
+every run inside an opacity group had been scored optimistically; #1704 fixed the tool
+and gated *composed surfaces* at the unit tier, but nothing re-measured the **rendered
+galleries**. Ten runs have therefore been failing on `main` since that merge, unseen.
+Reproduced at `91913c5` in a clean worktree before this branch touched anything —
+identical rows, identical ratios — so they are found-not-caused.
+
+They are one design pattern, not ten bugs:
+`section.agenda[class*="progress-"] ol > li { opacity: 0.45 }` dims every non-current
+agenda item (and its `::before` counter), and `kanban` dims card meta the same way.
+Raising the opacity to clear 3:1 weakens the "you are here" emphasis those modifiers
+exist to create — a design call on `agenda` and `kanban`, which have nothing to do with
+`journey`. HARD RULE #18 says log an off-path pre-existing defect rather than sweep it
+in; HARD RULE #17 says do not bolt a second feature onto this PR.
+
+But a gate that cannot go green is not a gate, so they cannot simply be ignored either.
+`PREEXISTING_CONTRAST_BACKLOG` resolves that with the shape HARD RULE #21's US-English
+gate already uses for a tracked migration backlog: **exact per-surface counts that fail
+in both directions.** Up means a regression. Down means someone fixed one and left the
+ceiling high, which would let the next regression slip in underneath it — so that fails
+too, with an instruction to lower the number. An entry at zero must be deleted.
+
+This is deliberately *not* the "bare numeric budget" the handoff ruled out. Nothing is
+absorbed anonymously: each entry names its component, its CSS rule, the design question
+blocking it, and its exact count. The distinction from the exemption list above is the
+one that matters — an exemption is permanent because no contrast change could satisfy
+it; a backlog entry is a debt with a number on it.
+
+Tracked as **#1717**. It is the obvious next slice, and it is now impossible to
+forget, because the gate recites it on every run.
 
 ### The correction that matters more than the fix
 

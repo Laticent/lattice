@@ -22,7 +22,14 @@
  * WHY any row is tolerated. Following `SANCTIONED_MARGINS` (#20) and
  * `SANCTIONED_PREVIEW_BUILDERS` (#22), the exemptions below are explicit, individually
  * justified, and FAIL BOTH WAYS: an un-exempt failure errors, AND an exemption that
- * matches nothing errors as stale. Genuine failures today: ZERO.
+ * matches nothing errors as stale.
+ *
+ * TWO LISTS, AND THE DIFFERENCE MATTERS. `SANCTIONED_CONTRAST_EXEMPTIONS` is permanent:
+ * runs no contrast change could ever satisfy. `PREEXISTING_CONTRAST_BACKLOG` is a
+ * ratchet over real defects that predate this gate and belong to other components —
+ * exact per-surface counts that fail if they rise AND if they fall without the number
+ * being lowered. Nothing is absorbed anonymously in either. New defects introduced by
+ * a change: ZERO is the only passing answer.
  *
  * WHAT THIS DOES NOT COVER, stated so the green is not read as more than it is:
  *   · THREE surfaces (below), not the 32-palette matrix. A palette-wide ink defect is
@@ -119,6 +126,58 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
   },
 ];
 
+/**
+ * PREEXISTING_CONTRAST_BACKLOG — real defects that predate this gate, itemized and
+ * ratcheted. This is NOT a second exemption list, and the distinction is the whole
+ * point: an entry above is something no contrast change could ever satisfy; an entry
+ * HERE is something that should be fixed and is only tolerated because fixing it is a
+ * different change from the one that installed the gate.
+ *
+ * WHERE THESE CAME FROM. #1704 taught the prober to read element `opacity` — a CSS
+ * `opacity` composites ink AND background together, so every run inside an opacity
+ * group had been scored optimistically. It landed the tool fix and a unit-tier gate
+ * over composed surfaces, but nothing re-measured the RENDERED galleries, so these
+ * runs have been failing on `main` since that merge, unseen. Reproduced at
+ * `91913c5` before this branch touched anything: identical rows, identical ratios.
+ *
+ * BOTH ARE THE SAME DESIGN PATTERN, not two bugs: `opacity: 0.45` on the non-current
+ * items of an `agenda progress-N` (and the equivalent dimming in `kanban`), which
+ * de-emphasizes everything except "you are here". Raising the opacity to clear 3:1
+ * weakens the emphasis that modifier exists to create, so the fix is a DESIGN call on
+ * two components that have nothing to do with this change — exactly the off-path work
+ * HARD RULE #18 says to log rather than sweep into the diff, and HARD RULE #17 says
+ * not to bolt onto another feature's PR. Tracked, not ignored.
+ *
+ * THE RATCHET, which is the part that keeps this honest. Counts are per surface and
+ * EXACT. Going UP fails (a new defect, or one of these spreading). Going DOWN also
+ * fails, with an instruction to lower the number — so the backlog can only shrink and
+ * cannot silently re-absorb a regression after a partial fix. An entry that reaches
+ * zero must be deleted. Same shape as HARD RULE #21's US-English ratchet, for the same
+ * reason: a pre-existing backlog is a real number, and pretending it is zero is worse
+ * than writing it down.
+ *
+ * Tracked as #1717, which is closed by lowering every count below to zero and deleting
+ * the entries.
+ */
+const PREEXISTING_CONTRAST_BACKLOG = [
+  {
+    id: 'agenda-progress-dimming',
+    why: 'section.agenda[class*="progress-"] ol > li { opacity: 0.45 } dims every ' +
+      'non-current agenda item, including its ::before counter. Fixing it means deciding ' +
+      'how much emphasis the "you are here" row may keep — a design call on `agenda`, ' +
+      'not on `journey`.',
+    match: (r) => /\bagenda\b/.test(r.cls),
+    counts: { 'gallery @ indaco': 8, 'gallery @ indaco-dark': 4, 'gallery-jargon @ indaco': 8 },
+  },
+  {
+    id: 'kanban-dimming',
+    why: 'The same de-emphasis wash on `kanban` card meta — the inline code chip and the ' +
+      'column-header span. Same design call, different component.',
+    match: (r) => /\bkanban\b/.test(r.cls),
+    counts: { 'gallery @ indaco': 2, 'gallery @ indaco-dark': 2, 'gallery-jargon @ indaco': 2 },
+  },
+];
+
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
   for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
@@ -175,12 +234,13 @@ describe('slide contrast — every text run clears WCAG AA on the rendered galle
     }
   });
 
-  test('no un-exempt text run falls below its AA threshold', () => {
+  test('no un-exempt, un-backlogged text run falls below its AA threshold', () => {
     const offenders = [];
     for (const m of measured) {
       for (const r of m.rows) {
         if (r.r >= r.need || r.exempt) continue;
         if (SANCTIONED_CONTRAST_EXEMPTIONS.some((e) => e.match(r))) continue;
+        if (PREEXISTING_CONTRAST_BACKLOG.some((e) => e.match(r))) continue;
         offenders.push(`  ${m.surface}: ${fmt(r)}`);
       }
     }
@@ -189,6 +249,35 @@ describe('slide contrast — every text run clears WCAG AA on the rendered galle
       'Fix the contrast. Only add a SANCTIONED_CONTRAST_EXEMPTIONS entry if NO contrast\n' +
       'change could ever satisfy the run (decorative by contract, or unmeasurable):\n' +
       `${offenders.join('\n')}\n`);
+  });
+
+  /**
+   * The ratchet. Exact per-surface counts, failing in BOTH directions — up means a new
+   * defect, down means someone fixed one and left the number lying, which would let the
+   * next regression slip back in under the old ceiling.
+   */
+  test('the pre-existing backlog has not grown — and has not silently shrunk', () => {
+    const problems = [];
+    for (const e of PREEXISTING_CONTRAST_BACKLOG) {
+      let total = 0;
+      for (const m of measured) {
+        const n = m.rows.filter((r) => r.r < r.need && !r.exempt && e.match(r)).length;
+        total += n;
+        const expected = e.counts[m.surface] ?? 0;
+        if (n > expected) {
+          problems.push(`${e.id} on ${m.surface}: ${n} sub-AA runs, expected ${expected} — ` +
+            'this backlog GREW. Something regressed; do not raise the number to match.');
+        } else if (n < expected) {
+          problems.push(`${e.id} on ${m.surface}: ${n} sub-AA runs, expected ${expected} — ` +
+            `progress! Lower the count to ${n} in PREEXISTING_CONTRAST_BACKLOG so the ` +
+            'ratchet holds the new floor.');
+        }
+      }
+      if (total === 0) {
+        problems.push(`${e.id} is fully fixed — DELETE the entry rather than leaving it at zero.`);
+      }
+    }
+    assert.deepEqual(problems, [], `contrast backlog ratchet:\n  ${problems.join('\n  ')}`);
   });
 
   /**
@@ -220,6 +309,9 @@ describe('slide contrast — every text run clears WCAG AA on the rendered galle
    * plausible real regression.
    */
   test('exemptions stay narrow — they absorb a negligible share of all runs', () => {
+    // Counts the PERMANENT exemptions only. The backlog above is ratcheted by exact
+    // count, so it needs no share cap; folding it in here would let a broadened
+    // exemption matcher hide behind the backlog's own volume.
     let total = 0, absorbed = 0;
     for (const m of measured) {
       total += m.rows.length;
