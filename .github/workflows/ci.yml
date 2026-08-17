@@ -121,7 +121,21 @@ jobs:
       # cheap to always run and never false-positives. Root deps suffice (it built
       # fine in the old `unit` home with root-only `npm ci`).
       # See engineering/decisions/2026-07-22-freshness-gate-always-on.md.
-      - name: Artifact freshness gate (build --check, no render)
+      # BOOTSTRAP, and the order is the whole point. The ownership guard inside
+      # build:check reads dist/ CSS to know which tokens are declared, and a
+      # generated docs bundle for the style-sink check — but dist/ is built, not
+      # committed, so a checkout has neither and the guard fails on the absence of
+      # the files the build exists to produce.
+      #
+      # This generates ONLY the built-not-committed half. Running the FULL build
+      # here would rewrite the committed artifacts too, and the freshness check
+      # after it would then compare fresh against fresh and pass vacuously — a gate
+      # that cannot fail. Generating only the uncommitted half gives the guard its
+      # inputs while leaving the committed half exactly as checked out.
+      - name: Bootstrap the built-not-committed artifacts (no render)
+        run: npm run build:uncommitted
+
+      - name: Artifact freshness gate (committed artifacts, no render)
         run: npm run build:check
 
   # ── Unit — code changes only ────────────────────────────────────────────

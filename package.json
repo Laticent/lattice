@@ -69,6 +69,7 @@
   "scripts": {
     "build:gallery-jargon": "node lattice-emulator.js examples/gallery-jargon.md examples/gallery-jargon.pdf",
     "build": "node tools/build.js",
+    "build:uncommitted": "node tools/build.js --only-uncommitted",
     "build:check": "node tools/build.js --check --exclude-uncommitted",
     "build:check:all": "node tools/build.js --check",
     "new:theme": "node tools/new-theme.js",

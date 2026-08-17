@@ -210,22 +210,46 @@ async function main(argv) {
   // build-theme-catalog.js was caught writing on both sides of the line.
   // test/unit/tools/uncommitted-steps.test.js re-asserts the partition.
   const excludeUncommitted = check && argv.includes('--exclude-uncommitted');
-  const steps = excludeUncommitted ? STEPS.filter((s) => !s.uncommitted) : STEPS;
+
+  // --only-uncommitted: generate ONLY the built-not-committed artifacts, and skip
+  // the guard and preflight entirely. This exists to break a real chicken-and-egg
+  // a cold checkout hits: the ownership guard reads dist/ CSS to know which tokens
+  // are declared, and reads a generated docs bundle for the style-sink check — so
+  // on a tree that has never been built it fails on the absence of the very files
+  // this script exists to produce.
+  //
+  // CI uses it as a bootstrap: `build:uncommitted` then `build:check`. That order
+  // matters and is the whole point — building EVERYTHING first would rewrite the
+  // committed artifacts too, so the freshness check after it would compare fresh
+  // against fresh and pass vacuously. Generating only the uncommitted half gives
+  // the guard its inputs while leaving the committed half exactly as checked out,
+  // which is the state the gate needs to judge.
+  const onlyUncommitted = argv.includes('--only-uncommitted');
+
+  const steps = onlyUncommitted
+    ? STEPS.filter((s) => s.uncommitted)
+    : excludeUncommitted
+      ? STEPS.filter((s) => !s.uncommitted)
+      : STEPS;
   const mode = check ? 'check' : 'build';
   const scope = excludeUncommitted
     ? `${steps.length} PR-owned artifacts (${STEPS.length - steps.length} bot-owned skipped)`
     : `${steps.length} artifacts`;
   process.stdout.write(`Lattice ${mode}: ${scope} behind the ownership gate.\n\n`);
 
-  // Gate first — a collision fails before anything is (re)generated.
+  // Gate first — a collision fails before anything is (re)generated. Skipped under
+  // --only-uncommitted, which runs precisely to give this guard the files it reads.
+  if (!onlyUncommitted) {
   process.stdout.write(`▸ ${GUARD.label}\n`);
   if (!runStep(GUARD, false)) {
     process.stderr.write('\nbuild aborted: ownership guard failed.\n');
     return 1;
   }
 
+  }
+
   // Read-only preflight gates (font parity, …) — fail before generating.
-  for (const gate of PREFLIGHT) {
+  for (const gate of onlyUncommitted ? [] : PREFLIGHT) {
     process.stdout.write(`▸ ${gate.label}\n`);
     if (!runStep(gate, false)) {
       process.stderr.write(`\nbuild aborted: ${gate.label} failed.\n`);
