@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The SECOND #1527 prerequisite — a palette's curated value being worse, on a surface a COMPONENT composes, than the base default it overrides. #1681 closed the flat-over-pair class and logged this one as unfixed; measuring it with a gate that models the composite found 102 such regressions across 32 palettes, not the 7 the ticket listed, and none was visible to any gate because `contrast-audit.js` scores an ink against `--bg` and never against the `-bg` mix a component paints it on. The dominant cause was not the curated hues but TWO `opacity` washes in `redline` — `del` at .85 and `.stacked`'s OLD card at .78. A CSS opacity composites the subtree buffer, ink AND band together, so it drags the ink toward the backdrop while the 12%-of-itself band under it barely moves; removing both took the sub-bar population from 313 to 231 before a single palette value changed, and roughly halved the moves the rest needed (carta's `--fail` wanted OKLab dL -0.090 with them, -0.048 without). Ten palette arms then move. The first solve took the smallest step along the OKLab lightness axis and adversarial review found it had broken something distant: pass^fail under PROTANOPIA went 0.158 -> 0.094 on ardesia and 0.152 -> 0.087 on laguna, straight through the 0.15 collapse floor — and laguna's shipped value is recorded in CHANGELOG.md as chosen for exactly that floor. Nothing gated it: cvd-audit exits 0, and cvd-palette.test.js covers only the four a11y palettes. The arms were re-solved as TRIOS, spending hue where lightness alone could not (magnolia's --fail needed +0.084 L and -14deg to clear its band without closing on --warn), and a new gate freezes the 219 status pairs that are CVD-distinct today. Zero trio pairs collapse; eight become distinct that were not. The composed-surface gate is `tools/composed-contrast.js`: 24 surfaces across five components, resolved through the engine's own resolveTokenExpr and the canonical themeChain, scored in BOTH cascade orders, with a budget-0 regression arm and a keyed frozen baseline (313 -> 166) that fails on a new failure, an existing one getting worse, and a stale entry alike. `check-slide-contrast.js` now reads element opacity too, validated against sampled pixels to within 0.01. Proven both ways on the real render across all 32 palettes x 6 slides: with the #1527 one-liner applied locally, 0 of 2496 runs regress and 261 newly clear their bar; without it the token changes are inert but the opacity removals are not — 204 runs newly clear on the export path today, and indaco's struck clause goes 3.21 -> 5.85:1 in sampled pixels. Logged, NOT fixed: the canvas-blind sequential ramp (#1697) and the status trios on their own-hue tints (#1698), both failing identically before and after the flip.
+summary: The SECOND #1527 prerequisite — a palette's curated value being worse, on a surface a COMPONENT composes, than the base default it overrides. #1681 closed the flat-over-pair class and logged this one as unfixed; no gate could see it, because `contrast-audit.js` scores an ink against `--bg` and never against the `-bg` mix a component paints it on. Measured with the new gate, `origin/main` carries 42 such regressions and 200 composed pairs below their bar; this change takes both to 0 and 147. The dominant cause was not the curated hues but TWO `opacity` washes in `redline` — `del` at .85 and `.stacked`'s OLD card at .78. A CSS opacity composites the subtree buffer, ink AND band together, so it drags the ink toward the backdrop while the 12%-of-itself band under it barely moves; removing both cleared 82 composed pairs before a single palette value changed, and roughly halved the moves the rest needed. Thirteen arms across eight palettes then move. TWO WRONG TURNS ON THE WAY, both found by a delta review of the rework that followed the adversarial trio (the trio judged an earlier draft; ~40% of the gate code was written after it). FIRST, the arms were solved one token at a time along the OKLab lightness axis, plus a -14deg rotation on magnolia's dark --fail: measured against an origin/main worktree that closed on --warn under TRITANOPIA, 0.1209 -> 0.0473, with 48 pairs losing separation and 21 ending below the 0.15 floor. Nothing gated it INCLUDING THE GATE THIS CHANGE ADDED FOR IT, which froze the binary SET of pairs above the floor — verbatim the hole the same change keyed its contrast baseline to close. It freezes DISTANCES now, floor-relative. Lightness is the only channel a deficiency preserves, so a --fail-only search over lightness, hue and chroma has NO solution on magnolia; the joint search finds one at once. SECOND, and the root cause: two catalog surfaces (`redline/ins-on-new-card`, `redline/del-on-old-card`) model markup NO deck in the repo writes, and they were forcing real brand hues — 7 of the original 13 arms were over-fitted to them and are reverted, a11y-tritanopia entirely. Proactive surfaces are now scored and frozen but never gate. A first pass nearly made that a third error by calling `kpi/hero-pass-pill` proactive too: it is not, because kpi sets the pass pill in CSS on every default tile rather than in markup. Result: 0 CVD floor crossings, 10 pairs newly distinct, one 0.0008 erosion on a pair unreadable either way; on the render 0 of 2496 runs regress and 204 newly clear on the export path, 53 more under the flip, with the only 8 flip regressions the same proactive pairing. Logged, NOT fixed: the canvas-blind sequential ramp (#1697) and the status trios on their own-hue tints (#1698), both failing identically before and after the flip.
 ---
 
 # The composed surface, and the gate that could see it
@@ -45,14 +45,17 @@ Measured with the new gate on `origin/main`, over 32 palettes × 2 modes × 24
 surfaces = **1536 pairs**, scored in both cascade orders, with `redline`'s two
 washes modelled as the `groups[].opacity` they are:
 
-| | main (base wins) → palette wins |
-|---|---|
-| surfaces that regress across the flip | **102** |
-| surfaces below their bar at all | **313** |
+| | `origin/main` | this change |
+|---|---|---|
+| surfaces that regress across the flip | **42** | **0** |
+| surfaces below their bar at all | **200** | **147** |
+
+Both columns are `node tools/composed-contrast.js` run against a worktree of the
+respective commit with the shipped catalog — reproducible, not a remembered figure.
 
 #1640 listed seven regressions (five brand palettes' redline runs, and the
 word-cloud spectrum on onyx / concrete / the four a11y palettes). The seven are in
-the 102, at the numbers it quoted. It missed the rest for three reasons, all
+that set, at the numbers it quoted. It missed the rest for three reasons, all
 reusable:
 
 1. **It measured two components' default variants.** The `.stacked` / `.split`
@@ -90,27 +93,26 @@ renders at an effective 0.663.
 
 Measured on `origin/main`'s own palettes, changing nothing but the model:
 
-| | regressions | below their bar |
-|---|---|---|
-| `origin/main`, both washes | 102 | 313 |
-| same palettes, washes removed | **65** | **231** |
-| washes removed + the ten arms re-solved (**this change**) | **0** | **166** |
-
-That is 82 composed pairs cleared by deleting two declarations, before a single
-curated hue moved. And what the washes cost the palettes that *did* need
+Removing the two declarations — and changing nothing else — cleared **82 composed
+pairs** before a single curated hue moved. That is the measurement that answers the
+old objection: the hues were not the dominant cost, the alpha was. And what the washes cost the palettes that *did* need
 re-tuning — the same solve, run with and without them:
 
 | palette · token | with the washes | without them |
 |---|---|---|
-| carta `--fail` (light) | dL −0.090 → `#9D0024` | dL −0.048 → `#AF102D` |
+| carta `--fail` (light) | dL −0.090 | dL −0.048 |
 | magnolia `--fail` (dark) | dL +0.151 | dL +0.084 |
 
-The middle row of that table understates the `.78` card, and the reason is worth
-recording: with the wash present, the `.stacked` OLD **label** (`--fail` on the 5%
-card, through the 0.78) is a distinct surface; once the wash is gone it is
-arithmetically identical to `redline/old-label`, so the shipped catalog carries one
-surface where `main` needs two. The label's real cost shows up in the render
-instead — indaco's `.stacked` struck clause at **3.21:1**, sampled off pixels.
+One accounting note, because it is a trap for the next reader: with the wash
+present, the `.stacked` OLD **label** (`--fail` on the 5% card, through the 0.78) is
+a distinct surface; once the wash is gone it is arithmetically identical to
+`redline/old-label`, so the shipped catalog carries one surface where `main` needs
+two. The wash's real cost shows up in the render instead. On the DEFAULT variant
+every deck renders, indaco's struck clause is **4.95:1 with the washes and 6.34:1
+without**, sampled off pixels. The often-quoted 3.21:1 is the same measurement on a
+`<del>` nested inside the `.stacked` card — reachable markup that no shipped deck
+writes, so it was measured on a probe deck built to reach it. Both numbers are real;
+only one describes something a reader will see.
 
 `base.tokens.css` already states the rule this follows, one tier up: **"If you need
 a quieter label here, spend size or weight, not alpha."** A struck clause in a legal
@@ -239,7 +241,7 @@ whole compound, so `dist/lattice.css`'s `:root[data-lattice-view="fluid"] body {
    default it overrides. Both #1640 findings are exactly this shape, and it survives
    the flip as a palette-curation rule: `base.tokens.css` is the reference standard
    an override is meant to improve on.
-2. **A FROZEN BASELINE — 166 keys, target zero.** Not a count. A count says "no more
+2. **A FROZEN BASELINE — 147 keys, target zero.** Not a count. A count says "no more
    failures" and says nothing about an existing failure getting worse — a palette
    could take a 1.66:1 word fill to 1.03:1 with the gate green. Keyed with its
    ratio, the gate fails on a below-bar pair that is not listed, a listed pair that
@@ -260,7 +262,8 @@ describes the CSS.
 
 ### `test/unit/palette/cvd-trio-floor.test.js`
 
-219 frozen keys: every `theme|mode|pair|deficiency` where the status trio is
+576 frozen keys — every `theme|mode|pair|deficiency`, its DISTANCE rather than its
+membership of a set. Where the status trio is
 distinct (OKLab ΔE ≥ 0.15) today. It asserts only *what is distinct stays distinct* —
 the brand palettes are not CVD-curated and many pairs have always sat below the
 floor; demanding they all clear it is a different change, and the a11y palettes
@@ -341,7 +344,7 @@ can neither grow nor degrade.
    canvases. It cannot be fixed per palette: lifting the stop needs a near-white
    anchor, which collapses the three tiers the variant exists to separate.
    **#1697.**
-2. **The status trios are sub-AA on their own-hue tints** on 166 composed pairs —
+2. **The status trios are sub-AA on their own-hue tints** on 147 composed pairs —
    the largest single block being `--warn` on a 12% amber wash (33 in `kpi`'s pill,
    23 in `policy-recommendation`'s `.amend` badge, 21 in `checklist`'s warn row).
    Amber is the hardest hue on an own-hue wash; this is a status-trio re-curation,
@@ -356,13 +359,14 @@ Recorded on **#1698** rather than pulled into this diff.
 
 ## Verification
 
-- `npm run lint` clean · `npm test` **6411 pass, 0 fail** · `npm run build:check`
-  clean. The branch adds 10 tests: 7 composed-surface, 3 CVD floor.
+- `npm run lint` clean · `npm test` **6521 pass, 0 fail** · `npm run build:check`
+  clean. The branch adds 12 tests: 7 composed-surface, 5 CVD floor.
 - `node tools/composed-contrast.js` — 0 cascade regressions · 0 unlisted · 0
-  degraded · 0 stale · 0 unresolved · 166 of 1536 pairs below their bar
+  degraded · 0 stale · 0 unresolved · 147 of 1536 pairs below their bar
 - `node tools/contrast-audit.js` — 0 failures, 736 pairs across 32 themes
-- `node --test test/unit/palette/*.test.js` — 612 pass
-- CVD: 0 trio pairs newly collapsed, 8 newly distinct, across every palette, both
+- `node --test test/unit/palette/*.test.js` — 614 pass
+- CVD vs an `origin/main` worktree: 0 floor crossings, 10 newly distinct, one
+  0.0008 erosion on a pair unreadable either way — across every palette, both
   modes, three deficiencies
 - 32 probe decks × 6 slides × 3 states = 7488 measured text runs, plus 768
   pixel-sampled `<ins>`/`<del>` runs
