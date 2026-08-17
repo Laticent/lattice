@@ -878,7 +878,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									<OnDeviceTier status={ai} notify={notify} />
 									{ai.openRouterReady && (
 										<div className="mt-2.5 flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
-											<span className="grid size-[30px] place-items-center rounded-lg bg-[color-mix(in_srgb,var(--muted-foreground)_12%,transparent)] text-muted-foreground"><Cloud className="size-4" /></span>
+											<span className="grid size-[30px] place-items-center rounded-lg bg-[color-mix(in_srgb,var(--text-muted)_12%,transparent)] text-muted-foreground"><Cloud className="size-4" /></span>
 											<span><div className="text-[13px] font-semibold text-muted-foreground">OpenRouter — connected, dormant</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left · ` : ''}stays linked while you run on-device</div></span>
 											<button type="button" onClick={pickCloud} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Use Cloud</button>
 										</div>

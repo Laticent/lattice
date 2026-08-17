@@ -32,12 +32,12 @@ export const STARTER_CSS = `section.callout {
 section.callout h2 {
   margin: 0;
   color: var(--accent);
-  font-size: var(--fs-display);
+  font-size: var(--fs-h2);
 }
 section.callout p {
   margin: 0;
   color: var(--text-body);
-  font-size: var(--fs-lead);
+  font-size: var(--fs-emphasis);
 }`;
 export const STARTER_SKELETON = `<!-- _class: callout -->
 
@@ -99,7 +99,7 @@ export function LayoutStudio({
 				</div>
 				<div className="px-4 py-3.5">
 					<div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-						{ok ? <ShieldCheck className="size-3.5 text-[var(--chart-3,#2e6f00)]" /> : <TriangleAlert className="size-3.5 text-[var(--chart-2,#9c3f00)]" />}
+						{ok ? <ShieldCheck className="size-3.5 text-[var(--pass)]" /> : <TriangleAlert className="size-3.5 text-[var(--fail)]" />}
 						{ok ? (warnings.length ? `Gate — ${warnings.length} note${warnings.length === 1 ? '' : 's'}` : 'Gate — all clear') : `Gate — ${errors.length} to fix`}
 					</div>
 					{findings.length === 0 ? (
@@ -108,7 +108,7 @@ export function LayoutStudio({
 						<ul className="space-y-1.5">
 							{findings.map((f) => {
 								const isErr = f.level === 'error';
-								const color = isErr ? 'var(--chart-2,#9c3f00)' : 'var(--chart-4,#9a6a00)';
+								const color = isErr ? 'var(--fail)' : 'var(--warn)';
 								return (
 									<li key={`${f.rule}:${f.line ?? ''}:${f.message}`} className="flex items-start gap-2 text-[12px] leading-snug text-foreground">
 										<span className="mt-px shrink-0" style={{ color }}><TriangleAlert className="size-3.5" /></span>
@@ -128,7 +128,7 @@ export function LayoutStudio({
 					<div className="grid aspect-video w-full max-w-[620px] place-content-center rounded-xl border border-dashed border-border bg-background text-center text-[13px] text-muted-foreground">Name your component to preview it.</div>
 				)}
 				{nameOk && cssBlocked && (
-					<p role="status" className="flex items-center gap-1.5 self-start text-[12px] text-[var(--chart-2,#9c3f00)]"><TriangleAlert className="size-3.5 shrink-0" />Preview paused: the CSS has a blocked remote reference. Fix the <span className="font-mono text-[11px]">css-</span> finding above to restore it.</p>
+					<p role="status" className="flex items-center gap-1.5 self-start text-[12px] text-[var(--warn)]"><TriangleAlert className="size-3.5 shrink-0" />Preview paused: the CSS has a blocked remote reference. Fix the <span className="font-mono text-[11px]">css-</span> finding above to restore it.</p>
 				)}
 			</div>
 			{manifest && <aside className="shrink-0 border-t border-border bg-card md:overflow-y-auto md:border-l md:border-t-0">{manifest}</aside>}

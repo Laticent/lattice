@@ -189,7 +189,7 @@ export function Joystick({ onNudge, label, axis = 'both', disabled = false, size
 			>
 				{/* the knob — slides toward the push and lifts in Z */}
 				<div
-					className="rounded-full border border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] bg-[radial-gradient(circle_at_38%_30%,color-mix(in_srgb,var(--accent)_30%,var(--card)),color-mix(in_srgb,var(--accent)_8%,var(--card)))]"
+					className="rounded-full border border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] bg-[radial-gradient(circle_at_38%_30%,color-mix(in_srgb,var(--accent)_30%,var(--bg-alt)),color-mix(in_srgb,var(--accent)_8%,var(--bg-alt)))]"
 					style={{
 						width: size * 0.42,
 						height: size * 0.42,

@@ -1378,7 +1378,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						{rehearse && (
 							<>
 								<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{fmt(elapsed)} / {fmt(target)}</span>
-								<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
+								<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--warn)_45%,transparent)] text-[var(--warn)]' : 'border-[color-mix(in_srgb,var(--pass)_45%,transparent)] text-[var(--pass)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
 							</>
 						)}
 					</div>

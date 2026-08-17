@@ -492,7 +492,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										<button type="button" aria-label={`Select .${c.name}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
 										<div className="grid h-[88px] w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)]"><span className="rounded-lg border border-border bg-card px-3 py-1.5 font-mono text-[12px] font-semibold text-[var(--accent)] shadow-sm">.{c.name}</span></div>
 										<div className="p-2.5">
-											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">.{c.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_30%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--chart-3,#2e6f00)]">Component</span></div>
+											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">.{c.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--text-muted)_30%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--text-muted)]">Component</span></div>
 											<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{c.bucket || 'local'} · scoped · palette-blind</div>
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onInsert(c.skeleton, c.name); notify(`Inserted .${c.name}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
@@ -545,7 +545,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 
 				{busy && <div className="border-t border-border bg-[var(--accent-soft)] px-4 py-2 text-[12px] font-semibold text-[var(--accent)]">{busy}</div>}
 				{selCount > 0 && !busy && (
-					<div className="flex items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--accent)_7%,var(--card))] px-4 py-2.5">
+					<div className="flex items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--accent)_7%,var(--bg-alt))] px-4 py-2.5">
 						<Button size="sm" className="gap-1.5" onClick={bulkExport}><Package className="size-4" />Export {selCount} as .zip</Button>
 						<button type="button" className="ml-auto text-[12px] font-semibold text-[var(--accent)]" onClick={() => setSel(new Set())}>Clear selection</button>
 					</div>
@@ -576,7 +576,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			    `dragleave` with it, so the panel never learns the drag ended and the overlay
 			    sticks. The real handlers are on the frame; this is only the sign. */}
 			{dragging && (
-				<div className="pointer-events-none absolute inset-2 z-50 grid place-items-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--card))]">
+				<div className="pointer-events-none absolute inset-2 z-50 grid place-items-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-alt))]">
 					<div className="flex flex-col items-center gap-2 text-center">
 						<Upload className="size-7 text-[var(--accent)]" />
 						<div className="text-[13px] font-bold text-[var(--text-heading)]">Drop to add</div>

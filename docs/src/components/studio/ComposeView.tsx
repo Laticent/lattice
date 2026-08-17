@@ -1123,7 +1123,7 @@ function ComposeStyles() {
 				.cs-host .selectedCell{background:color-mix(in oklab,var(--accent,#006fa8),transparent 86%)}
 				/* view-only badge chips for the four LFM state markers in a cell — literal text, just tinted */
 				.cs-host .cs-cellmark{font-family:var(--font-mono,ui-monospace,monospace);font-size:.82em;font-weight:700;padding:.04em .34em;border-radius:5px;letter-spacing:-.02em}
-				.cs-host .cs-cellmark-pass{color:var(--ok,#1a7f5a);background:color-mix(in oklab,var(--ok,#1a7f5a),transparent 88%)}
+				.cs-host .cs-cellmark-pass{color:var(--pass);background:color-mix(in oklab,var(--pass),transparent 88%)}
 				.cs-host .cs-cellmark-warn{color:var(--warn,#b7791f);background:color-mix(in oklab,var(--warn,#b7791f),transparent 86%)}
 				.cs-host .cs-cellmark-skip{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--text-muted,#6b7f9a),transparent 88%);text-decoration:line-through}
 				.cs-host .cs-cellmark-todo{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--border,#e4eaf2),transparent 40%)}
@@ -1141,7 +1141,7 @@ function ComposeStyles() {
 				.cs-tblc-mark{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s}
 				.cs-tblc-mark svg{width:13px;height:13px}
 				.cs-tblc-mark:hover{background:color-mix(in oklab,currentColor,transparent 86%)}
-				.cs-mk-pass{color:var(--ok,#1a7f5a)}
+				.cs-mk-pass{color:var(--pass)}
 				.cs-mk-warn{color:var(--warn,#b7791f)}
 				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}

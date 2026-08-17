@@ -8005,6 +8005,232 @@ function checkFontMetricsPin(errors, opts = {}) {
   }
 }
 
+// ── Dangling token reads in docs-site chrome (#1688) ───────────────────────────
+//
+// A `var(--X)` whose `--X` is declared NOWHERE is not a theming bug you can see
+// coming. It has two endings and both are quiet:
+//   · WITH a fallback — `var(--chart-2, #9c3f00)` — the hex wins on every palette
+//     and every mode, forever. The surface looks fine. It simply never themes,
+//     and the `var()` is what makes it look like it does.
+//   · WITHOUT one — `color-mix(in srgb, var(--accent) 7%, var(--card))` — the
+//     custom property is invalid at computed-value time, which invalidates the
+//     WHOLE declaration, so the element falls to its initial value rather than to
+//     the previous rule. That is the mechanism that rendered a divider slide
+//     white-on-white at 1.0:1 (2026-08-10-no-safe-default-token-contract.md §1).
+//
+// Twice now this shipped and was found only by reading: `--db-sev-error` /
+// `--db-sev-warning` in the lint popup (#1684), then `--chart-2` / `--chart-3` /
+// `--chart-4` across 15 Studio files on all 36 palette x mode rows (#1688). Both
+// were cheap to catch mechanically and expensive to notice by eye, because the
+// failure renders. This gate closes that.
+//
+// WHY IT IS SAFE TO BE BROAD. The definition set is the union of every custom
+// property declared in `docs/src/**` (CSS, CSS-in-JS, inline-style object keys,
+// `setProperty`) AND every one the engine declares in `lib/**.css` / `dist/**.css`
+// — the latter because the playground bundles and starter decks run INSIDE the
+// slide iframe where engine CSS is loaded, so `--fs-body` there is a real read.
+// A token defined anywhere reachable is never reported. What survives that union
+// is genuinely undeclared.
+//
+// EXCLUSIONS, and why each is not a hole:
+//   · `*.test.*` — tests assert on deliberately fake tokens (`--nope`, `--fg`).
+//   · `**/dist/**` under docs/src — vendored build output (Vetrina), not authored
+//     here; HARD RULE #2's "never hand-edit generated" cuts both ways.
+//   · Comments are stripped, so a record like this one that NAMES a retired token
+//     does not trip the gate it documents.
+//   · Third-party namespaces (`--sl-` Starlight, `--radix-`, `--tw-`) are declared
+//     by packages we do not scan; their absence here says nothing.
+//
+// Everything else either gets fixed or gets a row below with a justification —
+// same idiom as SANCTIONED_MARGINS (#20) and SANCTIONED_PREVIEW_BUILDERS (#22),
+// and, like those, a STALE row is an error too, so the ledger cannot rot.
+const SANCTIONED_DANGLING_TOKEN_READS = [
+  {
+    token: '--token',
+    why:
+      'not a CSS read at all — the literal string "var(--token)" as PROSE. It appears in landing copy ' +
+      'teaching the palette-blind rule, in Studio helper text, and inside the Architect/Anima LLM ' +
+      'prompts that tell a model to emit palette tokens rather than hex. There is no element whose ' +
+      'color depends on it, so there is nothing to resolve.',
+  },
+  {
+    token: '--text',
+    why:
+      'the same prose case, in `architect.ts`\'s Anima scene prompt ("Colors MUST be palette tokens — ' +
+      '\\"var(--accent)\\", \\"var(--text)\\" …"). Worth noting the prompt is teaching a token name the ' +
+      'engine does NOT define (it has --text-body / --text-heading), so a model that follows the ' +
+      'example emits a dead color — a real defect, but in the prompt corpus rather than in a ' +
+      'stylesheet, and off this change\'s path (HARD RULE #18). Logged, not smuggled in here.',
+  },
+  {
+    token: '--font-serif',
+    why:
+      'an OPTIONAL host hook whose fallback is a complete font stack, not a color: ' +
+      '`var(--font-serif, Georgia, "Times New Roman", serif)` in the Compose editor. The fallback IS ' +
+      'the intended rendering — the editor wants a serif reading surface regardless of palette — so ' +
+      'nothing degrades when no theme names one. The engine\'s font vocabulary is --font-body / ' +
+      '-display / -label / -mono; whether Compose should adopt one of those is a typography decision, ' +
+      'not a token defect.',
+  },
+  {
+    token: '--font-heading',
+    why:
+      'guided-tour.css reads `var(--font-heading, var(--font-body, inherit))` — the chain terminates ' +
+      'on --font-body, which the ENGINE does declare, so this degrades onto a real token rather than ' +
+      'onto a literal. Same optional-hook shape as --font-serif, one rung safer.',
+  },
+  {
+    token: '--pg-deck-aspect',
+    why:
+      'a structural (non-color) playground hook with a literal fallback that is the shipping value: ' +
+      '`aspect-ratio: var(--pg-deck-aspect, 16 / 9)`. Nothing sets it today, so the fallback is not a ' +
+      'degraded path — it is the only path, and 16/9 is the deck aspect. Kept as a named seam for a ' +
+      'future non-16/9 deck rather than deleted.',
+  },
+  {
+    token: '--pg-topbar-h',
+    why:
+      'the same shape: `top: calc(var(--pg-topbar-h, 56px) + 10px)` positions the focus-restore ' +
+      'affordance. A length with a literal fallback cannot invalidate a color or silently stop ' +
+      'theming; the worst case is an offset measured against a stale constant.',
+  },
+];
+
+/**
+ * Strip comments so a record ABOUT a dangling token is not itself reported.
+ *
+ * Block comments go wholesale (this also covers JSX `{/* … *\/}` and the CSS
+ * comments inside `.astro` style blocks). Line comments are removed only when the
+ * `//` opens the line, which is where every false positive in this repo actually
+ * lives — a conservative rule that cannot eat a `https://` inside a string, at the
+ * cost of missing a trailing `// var(--x)` after code. That residue is a false
+ * POSITIVE (over-reporting), never a miss, so it fails toward the safe side and is
+ * sanctionable if it ever appears.
+ */
+function stripCodeComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n')
+    .map((line) => (/^\s*\/\//.test(line) ? '' : line))
+    .join('\n');
+}
+
+function listFilesByExt(dir, exts, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listFilesByExt(p, exts, out);
+    else if (exts.some((x) => e.name.endsWith(x))) out.push(p);
+  }
+  return out;
+}
+
+/** Every custom property this source DECLARES — CSS rules, CSS-in-JS strings,
+ *  inline-style object keys (`'--tone': …`), and `el.style.setProperty('--x', …)`. */
+function declaredCustomProps(src, into) {
+  for (const m of src.matchAll(/(--[A-Za-z0-9_-]+)\s*['"`]?\s*:/g)) into.add(m[1]);
+  for (const m of src.matchAll(/setProperty\(\s*['"`](--[A-Za-z0-9_-]+)/g)) into.add(m[1]);
+  return into;
+}
+
+const DANGLING_SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.astro', '.css'];
+const DANGLING_THIRD_PARTY = [/^--sl-/, /^--radix-/, /^--tw-/];
+
+function checkDanglingTokenReads(errors, dirs = {}) {
+  const docsSrc = dirs.docsSrc ?? path.join(ROOT, 'docs', 'src');
+  const libDir = dirs.libDir ?? LIB_DIR;
+  const distDir = dirs.distDir ?? path.join(ROOT, 'dist');
+
+  const docsFiles = listFilesByExt(docsSrc, DANGLING_SCAN_EXTS);
+  const engineCss = [...listFilesByExt(libDir, ['.css']), ...listFilesByExt(distDir, ['.css'])];
+
+  const defined = new Set();
+  for (const f of [...docsFiles, ...engineCss]) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
+
+  const authored = docsFiles.filter((f) => {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    return !/\.test\./.test(rel) && !/(^|\/)dist\//.test(rel);
+  });
+
+  const reads = new Map();   // token -> [where]
+  for (const f of authored) {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    stripCodeComments(fs.readFileSync(f, 'utf8')).split('\n').forEach((line, i) => {
+      for (const m of line.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) {
+        const t = m[1];
+        if (defined.has(t) || DANGLING_THIRD_PARTY.some((r) => r.test(t))) continue;
+        if (!reads.has(t)) reads.set(t, []);
+        reads.get(t).push(`${rel}:${i + 1}`);
+      }
+    });
+  }
+
+  // FAIL LOUD ON AN EMPTY SCAN — each input is an intersection term, so a moved
+  // directory or a regex that stopped matching would make this gate report clean
+  // while checking nothing. A gate is also a claim.
+  if (!docsFiles.length || !engineCss.length || defined.size < 100) {
+    errors.push(
+      `checkDanglingTokenReads scanned successfully but came back nearly empty (docs sources ${docsFiles.length}, ` +
+      `engine CSS ${engineCss.length}, declared tokens ${defined.size}) — every one of those is an intersection ` +
+      'term, so an empty one silently makes this gate pass. Fix the scan rather than trusting the green.',
+    );
+    return;
+  }
+
+  const sanctioned = new Map(SANCTIONED_DANGLING_TOKEN_READS.map((s) => [s.token, s]));
+  if (sanctioned.size !== SANCTIONED_DANGLING_TOKEN_READS.length) {
+    const seen = new Set();
+    const dupes = new Set();
+    for (const { token } of SANCTIONED_DANGLING_TOKEN_READS) {
+      if (seen.has(token)) dupes.add(token);
+      seen.add(token);
+    }
+    errors.push(
+      `duplicate SANCTIONED_DANGLING_TOKEN_READS entries in tools/check-ownership.js: ${[...dupes].join(', ')}. ` +
+      'One row per token, or the justifications can disagree with each other.',
+    );
+  }
+
+  const unlisted = [...reads.entries()].filter(([t]) => !sanctioned.has(t));
+  if (unlisted.length) {
+    const shown = unlisted
+      .slice(0, 6)
+      .map(([t, where]) => `${t} (${where.length}x, e.g. ${where[0]})`)
+      .join(', ');
+    errors.push(
+      `${unlisted.length} token(s) are READ by docs-site chrome and DECLARED NOWHERE — not in docs/src, not in the ` +
+      `engine's lib/ or dist/ CSS: ${shown}${unlisted.length > 6 ? `, +${unlisted.length - 6} more` : ''}. ` +
+      'A read like this does not fail loudly. With a fallback the literal wins on every palette AND every mode, so ' +
+      'the surface looks themed and never is (--chart-2 did this across 15 files and 36 palette x mode rows, #1688); ' +
+      'without one the undefined property invalidates the WHOLE declaration at computed-value time, so the element ' +
+      'drops to its initial value rather than to the previous rule. Point the read at a token that exists — the ' +
+      'palette trio is --pass/--warn/--fail (and --pass-fill/--warn-fill/--fail-fill under white text), the neutrals ' +
+      'are --text-heading/--text-body/--text-muted, and Tailwind BRIDGE names (--card, --muted-foreground) are ' +
+      'spelled --color-* in styles/tailwind.css so they work in a CLASS but not in a raw var(). If the read is ' +
+      'deliberate, add it to SANCTIONED_DANGLING_TOKEN_READS with what the fallback lands on and why that is the ' +
+      'intended rendering rather than a degraded one.',
+    );
+  }
+
+  // Scoped to the REAL tree. The ledger is a global constant describing docs/src as
+  // shipped, so comparing it against a synthetic `docsSrc` would report every row as
+  // stale purely because that fixture does not contain the read — which is exactly
+  // what the `--chart-2` bite below hit, and it would drown the one error that
+  // matters. The seam exists so this gate can be bitten with synthetic input; keep it
+  // usable, the same way checkNoSafeDefaultTokens guards its own ledger.
+  if (docsSrc !== path.join(ROOT, 'docs', 'src')) return;
+
+  const stale = SANCTIONED_DANGLING_TOKEN_READS.filter((s) => !reads.has(s.token)).map((s) => s.token);
+  if (stale.length) {
+    errors.push(
+      `${stale.length} stale SANCTIONED_DANGLING_TOKEN_READS entr(y/ies) in tools/check-ownership.js — ` +
+      `${stale.join(', ')} no longer reaches this gate (the read was fixed, removed, or the token is now declared). ` +
+      'Delete the row so the ledger keeps describing the tree it claims to describe.',
+    );
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -8063,6 +8289,7 @@ function run() {
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
   checkChangelogFragments(errors);
+  checkDanglingTokenReads(errors);
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
   return {
@@ -8201,6 +8428,10 @@ module.exports = {
   SANCTIONED_OPENROUTER_WORKFLOWS,
   checkVoiceSampleAssets,
   listSourceFiles,
+  checkDanglingTokenReads,
+  SANCTIONED_DANGLING_TOKEN_READS,
+  stripCodeComments,
+  listFilesByExt,
   SANCTIONED_PREVIEW_BUILDERS,
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,

@@ -34,7 +34,7 @@ export function ChatCodeBlock({ code, lang }: { code: string; lang: string }) {
 					aria-label={copied ? 'Copied' : 'Copy code'}
 					className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-muted-foreground transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
 				>
-					{copied ? <Check className="size-3 text-[var(--chart-3,#2e6f00)]" /> : <Copy className="size-3" />}
+					{copied ? <Check className="size-3 text-[var(--pass)]" /> : <Copy className="size-3" />}
 					{copied ? 'Copied' : 'Copy'}
 				</button>
 			</div>

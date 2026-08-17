@@ -134,7 +134,7 @@ export function useReferenceDoc(notify?: (msg: string) => void, onManage?: () =>
 												// same-named docs, while search still matches the filename. onSelect TOGGLES
 												// membership (multi-select) and keeps the popover open.
 												<CommandItem key={rec.id} value={rec.id} keywords={[rec.name]} onSelect={() => toggleSaved(rec)} className="group gap-2.5">
-													<span className={cn('grid size-6 shrink-0 place-items-center rounded-md border border-border bg-card font-mono text-[8.5px] font-bold', rec.docKind === 'pdf' ? 'text-[var(--chart-3,#2e6f00)]' : 'text-[var(--accent)]')}>{typeLabel(rec)}</span>
+													<span className={cn('grid size-6 shrink-0 place-items-center rounded-md border border-border bg-card font-mono text-[8.5px] font-bold', rec.docKind === 'pdf' ? 'text-[var(--text-heading)]' : 'text-[var(--accent)]')}>{typeLabel(rec)}</span>
 													<span className="min-w-0 flex-1">
 														<span className="block truncate text-[12.5px] font-medium text-[var(--text-heading)]">{rec.name}</span>
 														<span className="block font-mono text-[10px] text-muted-foreground">{rec.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(rec.bytes)} · {fmtAdded(rec.addedAt)}</span>

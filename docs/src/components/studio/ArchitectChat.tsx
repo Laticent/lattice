@@ -264,7 +264,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							</div>
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
 							{m.applied && (
-								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]">
+								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
 									<Check className="size-3" />
 									{m.refused ? `Applied ${m.appliedCount} of ${(m.appliedCount ?? 0) + m.refused}` : 'Applied'}
 								</span>
@@ -521,7 +521,7 @@ export function DiffCard({ before, after, rows, onApply, onDiscard }: { before?:
 						</div>
 					) : (
 						// biome-ignore lint/suspicious/noArrayIndexKey: static diff snapshot.
-						<div key={i} className={cn('whitespace-pre-wrap', r.type === 'add' ? 'text-[var(--chart-3,#2e6f00)]' : r.type === 'del' ? 'text-[var(--fail,#b3261e)] line-through opacity-70' : 'text-muted-foreground')}>
+						<div key={i} className={cn('whitespace-pre-wrap', r.type === 'add' ? 'text-[var(--pass)]' : r.type === 'del' ? 'text-[var(--fail,#b3261e)] line-through opacity-70' : 'text-muted-foreground')}>
 							{r.type === 'add' ? '+ ' : r.type === 'del' ? '− ' : '  '}
 							{r.text}
 						</div>

@@ -31,10 +31,12 @@
 // They already differ in three ways worth knowing before you assume kinship:
 // FindingCard's meta slot 2 carries scope ("Slide 4") where this carries severity;
 // its FILLED accent pill means "apply this drafted change" while its QUIET pill is
-// the default, which is the opposite weighting to the one action here; and its
-// warning glyph resolves to `var(--chart-2, …)`, a token this repo never defines
-// (tracked separately in issue #1688 — 25 such references across 14 files). Restyle one and you must
-// restyle the other by hand.
+// the default, which is the opposite weighting to the one action here. (The third
+// difference is gone: FindingCard's warning glyph used to resolve to
+// `var(--chart-2, …)`, a token this repo never defined, so it painted a hardcoded
+// orange while this file already used `--warn`. #1688 moved it onto `--warn` too,
+// and added `checkDanglingTokenReads` so a phantom token cannot come back.)
+// Restyle one and you must restyle the other by hand.
 //
 // THE ONE ASSUMPTION THIS CANNOT SURVIVE BEING WRONG ABOUT
 // The child order and class names above are package internals with no stability

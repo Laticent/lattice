@@ -487,7 +487,7 @@ function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name:
 			aria-label={`${name} looks — ${looksCount} variant${looksCount === 1 ? '' : 's'}${matchCount ? `, ${matchCount} matching` : ''}`}
 			className={cn(
 				'inline-flex shrink-0 items-center gap-0.5 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-colors',
-				isOpen || matchCount ? 'border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-[color-mix(in_srgb,var(--card)_85%,transparent)] text-muted-foreground hover:text-foreground',
+				isOpen || matchCount ? 'border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-[color-mix(in_srgb,var(--bg-alt)_85%,transparent)] text-muted-foreground hover:text-foreground',
 			)}
 		>
 			<Layers className="size-3" />
@@ -606,7 +606,7 @@ function LooksPanel({ item, looksFilter, onInsertLook, options, frontMatter, pal
 		return () => cancelAnimationFrame(id);
 	}, []);
 	return (
-		<div ref={panelRef} className="col-span-full scroll-mt-2 rounded-xl border border-[color-mix(in_srgb,var(--accent)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_4%,var(--card))] p-3">
+		<div ref={panelRef} className="col-span-full scroll-mt-2 rounded-xl border border-[color-mix(in_srgb,var(--accent)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_4%,var(--bg-alt))] p-3">
 			<div className="mb-2 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--accent)]">
 				<Layers className="size-3" />
 				{item.name} › looks

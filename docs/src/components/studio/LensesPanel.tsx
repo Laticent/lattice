@@ -51,9 +51,14 @@ function lensStatus(slides: string[], reg: LensRegistry, lens: LensDef): { statu
 // lens name from wrapping in the collapsed row.
 const STATUS_COPY: Record<LensStatus, { label: string; full: string; tone: string }> = {
 	empty: { label: 'Empty', full: 'No slides yet — nothing to show a reader.', tone: 'text-muted-foreground border-border' },
-	draft: { label: 'Draft', full: 'Draft — hidden from readers until you approve it.', tone: 'text-[var(--chart-4,#9a6a00)] border-[color-mix(in_srgb,var(--chart-4,#9a6a00)_40%,transparent)]' },
-	approved: { label: 'Approved', full: 'Approved — readers can open this view.', tone: 'text-[var(--chart-3,#2e6f00)] border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_40%,transparent)]' },
-	drifted: { label: 'Edited', full: 'Edited since approval — hidden from readers until you re-approve.', tone: 'text-[var(--chart-2,#9c3f00)] border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_40%,transparent)]' },
+	// Three states, three registers: `draft` is not a PROBLEM (nothing is wrong, it
+	// simply isn't published yet) so it reads NEUTRAL, and `drifted` — the one state
+	// that wants the author to act — keeps the palette's warning hue to itself. Giving
+	// draft `--warn` too would collapse the pair to one color and leave the label text
+	// as the only difference between "not yet approved" and "approval went stale".
+	draft: { label: 'Draft', full: 'Draft — hidden from readers until you approve it.', tone: 'text-[var(--text-muted)] border-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]' },
+	approved: { label: 'Approved', full: 'Approved — readers can open this view.', tone: 'text-[var(--pass)] border-[color-mix(in_srgb,var(--pass)_40%,transparent)]' },
+	drifted: { label: 'Edited', full: 'Edited since approval — hidden from readers until you re-approve.', tone: 'text-[var(--warn)] border-[color-mix(in_srgb,var(--warn)_40%,transparent)]' },
 	hidden: { label: 'Staged', full: 'Staged (hidden) — not offered to readers even once approved.', tone: 'text-muted-foreground border-border' },
 };
 
@@ -305,7 +310,7 @@ function LensRow({
 						<button type="button" onClick={onPreview} disabled={members === 0} title={members === 0 ? 'Tag at least one slide into this view to preview it.' : undefined} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><PreviewIcon className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
 						{(status === 'draft' || status === 'drifted') &&
 							(previewedOk ? (
-								<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] bg-[color-mix(in_srgb,var(--chart-3,#2e6f00)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
+								<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--pass)_45%,transparent)] bg-[color-mix(in_srgb,var(--pass)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--pass)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
 							) : (
 								<span title="Preview this view first — you approve what you've seen." className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"><ShieldCheck className="size-3" />Preview to approve</span>
 							))}
@@ -317,7 +322,7 @@ function LensRow({
 
 					{status === 'empty' && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">No slides yet. {catalogReady ? 'Suggest a starting set, or tag slides by hand below' : 'Tag slides by hand below'} — then preview and approve.</p>}
 					{status === 'hidden' && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">This view is staged (hidden) — readers aren’t offered it even once approved. It’s here for you to build and preview.</p>}
-					{status === 'drifted' && <p className="mt-2 text-[11px] leading-snug text-[var(--chart-2,#9c3f00)]">The deck changed since you approved this view, so readers can’t see it until you re-approve.</p>}
+					{status === 'drifted' && <p className="mt-2 text-[11px] leading-snug text-[var(--warn)]">The deck changed since you approved this view, so readers can’t see it until you re-approve.</p>}
 					{singleOverflow && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">Readers see the first tagged slide in deck order; the others below stay tagged but unshown.</p>}
 
 					{/* Suggestions the author hasn't reflected yet — each with its rationale. Accept all, or tap one. */}

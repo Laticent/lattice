@@ -58,11 +58,14 @@ export function tokenize(code: string, lang: string): CodeToken[] {
 export function tokenColor(cls: string | null): string | undefined {
 	if (!cls) return undefined;
 	if (cls.includes('tok-comment')) return 'var(--text-muted)';
-	if (cls.includes('tok-string')) return 'var(--chart-3, #2e6f00)';
-	if (cls.includes('tok-number') || cls.includes('tok-bool') || cls.includes('tok-null') || cls.includes('tok-atom')) return 'var(--chart-2, #9c3f00)';
+	if (cls.includes('tok-string')) return 'var(--pass)';
+	if (cls.includes('tok-number') || cls.includes('tok-bool') || cls.includes('tok-null') || cls.includes('tok-atom')) return 'var(--warn)';
 	if (cls.includes('tok-keyword')) return 'var(--accent)';
 	if (cls.includes('tok-heading') || cls.includes('tok-tagName') || cls.includes('tok-typeName') || cls.includes('tok-className')) return 'var(--accent)';
-	if (cls.includes('tok-propertyName') || cls.includes('tok-attributeName') || cls.includes('tok-variableName')) return 'var(--chart-2, #9c3f00)';
+	// `--text-heading`, matching studioHighlight's propertyName row. This line read
+	// `var(--chart-2, …)` — the NUMBER color — so the parity the comment above
+	// claims was already broken here on top of the token being undefined (#1688).
+	if (cls.includes('tok-propertyName') || cls.includes('tok-attributeName') || cls.includes('tok-variableName')) return 'var(--text-heading)';
 	if (cls.includes('tok-link') || cls.includes('tok-url')) return 'var(--accent)';
 	if (cls.includes('tok-meta') || cls.includes('tok-punctuation') || cls.includes('tok-operator') || cls.includes('tok-processingInstruction')) return 'var(--text-muted)';
 	if (cls.includes('tok-emphasis')) return 'var(--text-body)';
