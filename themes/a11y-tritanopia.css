@@ -20,15 +20,21 @@
    * and 1.94:1 (Confidential) / 4.08:1 (WIP·Draft) on the stamp. Each curated hue
    * is lifted up the OKLab lightness axis, hue kept, by the smallest amount that
    * clears AA on the
-   * surface it lands on — pass 5.76:1, warn 4.61:1, fail 8.04:1 on redline's
+   * surface it lands on — pass 6.09:1, warn 4.90:1, fail 8.04:1 on redline's
    * 12% band, and 7.24:1 on the deepest stack the component ships (that band on a
    * .stacked card's own 5% tint; redline's `del` no longer carries an opacity,
    * #1640). Separation
-   * under tritanopia is ΔE 0.190, at the light trio's own 0.188. (Base's trio scores
+   * under tritanopia is ΔE 0.177. (Base's trio scores
    * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
-   * where these arms stay inert until #1527.) */
-  --pass: light-dark(#007131, #5CB772);
-  --warn: light-dark(#B05139, #D7745B);
+   * where these arms stay inert until #1527.)
+   *
+   * #1698 lifted pass and warn another dL +0.016, jointly, for the surface the
+   * catalog was missing: `kpi.attention` puts the warn pill on the HERO tile
+   * (--accent-soft, not --bg-alt), where this palette's curated coral scored
+   * 4.37:1 against base's 4.96:1 — a cascade regression, which has no exemption.
+   * It is 4.58:1 now, and --fail did not need to move. */
+  --pass: light-dark(#007131, #61BC77);
+  --warn: light-dark(#B05139, #DC7960);
   --fail: light-dark(#6b1667, #FFADF7);
   --chart-state-pass: #007131;
   --chart-state-warn: #B05139;

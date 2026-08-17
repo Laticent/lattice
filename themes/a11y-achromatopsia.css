@@ -30,22 +30,29 @@
    * The dark arm is each gray lifted until it clears AA on the surface it
    * actually lands on: redline paints its ink on a 12% tint OF THE SAME TOKEN
    * over --bg-alt, so the background moves with the value. Measured on that band:
-   * pass 6.59:1, warn 4.62:1, fail 9.22:1 — and 8.06:1 for the deepest stack the
+   * pass 6.87:1, warn 4.86:1, fail 9.53:1 — and 8.45:1 for the deepest stack the
    * component ships, that band on a .stacked card's own 5% tint. (`del` also
    * carried `opacity:.85` when these were chosen, which fades the band as well as
    * the ink; #1640 removed it, so the ink is no longer composited back toward the
    * band and the figures here are the plain ones.) Fail takes the loudest rung,
    * as on the light arm.
-   * The pairwise separation an achromat reads meaning from is 1.50:1 (light arm
+   * The pairwise separation an achromat reads meaning from is 1.49:1 (light arm
    * 1.61:1, gate floor 1.25).
+   *
+   * #1698 lifted all three another dL +0.014-0.016, JOINTLY so the separation
+   * above is preserved. `kpi.attention` puts the warn pill on the HERO tile,
+   * whose fill is --accent-soft rather than --bg-alt — a surface the catalog did
+   * not model, where this palette's own gray scored 4.31:1 against base's 4.96:1.
+   * That is the one thing the regression arm has no exemption for: a curated
+   * value worse than the default it overrides. It is 4.60:1 now.
    *
    * NOT to be confused with the EXPORT path's problem: there the base still
    * wins the cascade, so a dark slide gets base's own trio
    * (#4ADE80/#F97316/#F87171 — 1.01:1 for an achromat, fully collapsed) and
    * these arms are inert until #1527 flips the order. */
-  --pass: light-dark(#4d4d4d, #B2B2B2);
-  --warn: light-dark(#6E6E6E, #909090);
-  --fail: light-dark(#2e2e2e, #D9D9D9);
+  --pass: light-dark(#4d4d4d, #B7B7B7);
+  --warn: light-dark(#6E6E6E, #959595);
+  --fail: light-dark(#2e2e2e, #DEDEDE);
   --chart-state-pass: #4d4d4d;
   --chart-state-warn: #6E6E6E;
   --chart-state-fail: #2e2e2e;

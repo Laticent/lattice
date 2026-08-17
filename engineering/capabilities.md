@@ -221,6 +221,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `lint:deck` | Author-facing footgun checks on one deck (card-style title, ordered-list bold, unknown _class). |
 | `lint:deck:all` | Repo-wide strict deck lint (always-on CI gate). |
 | `lint:fix` | Biome check --write (includes import sorting + unsafe fixes). |
+| `palette:bless` | Rewrite the two frozen palette baselines from a live measurement — KNOWN_SUB_THRESHOLD in tools/composed-contrast.js and CVD_FROZEN in test/unit/palette/cvd-trio-floor.test.js. RATCHET-ONLY: an entry may move up, never down by any margin, and a key the audit no longer produces is dropped. Taking a number down stays a manual, argued edit; a table it cannot parse exactly is refused rather than half-read. `--dry-run` prints the delta and writes nothing. |
 | `quality` | Codebase quality assessment: coupling, boundaries, cycles, change coupling, complexity, duplication, dead code — see engineering/quality-assessment.md. |
 | `quality:bless` | Write the committed quality-assessment baseline (test/quality/baseline.json) from a fresh run — the ratchet a quality-improving PR updates. |
 | `quality:check` | Re-run the quality assessment and compare vs the committed baseline; flags any metric that got worse. On-demand, not a blocking CI gate. |
@@ -360,6 +361,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/audit-capacity-basis.js` | audit-capacity-basis — what words-per-element does each component ACTUALLY get |
 | `tools/bench-preview-diagrams.mjs` | bench-preview-diagrams — how long the LIVE PREVIEW takes to bake a deck's diagrams. |
+| `tools/bless-palette-baselines.js` | bless-palette-baselines — rewrite the two frozen palette baselines, RATCHET-ONLY. |
 | `tools/bless-split-oracle.js` | bless-split-oracle — write the STANDING ORACLE record (§8 rule 5). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
 | `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |

@@ -63,9 +63,16 @@
   /* The light --fail is solved against redline's deepest own-hue stack — a 12%
      --fail band on a .stacked card's own 5% --fail tint — not against the canvas,
      because that background moves with the value (#1640). */
-  --pass: light-dark(#3C6B1E, #7FC85A);
-  --fail: light-dark(#8B001F, #FF6B72);
-  --warn: light-dark(#8F5E00, #E3A93C);
+  /* The LIGHT arms are re-solved JOINTLY (#1698). `kpi`'s status pill and
+   * `policy-recommendation`'s stance badge ink the trio on a 10-12% tint OF THE
+   * SAME token, so the band moves with the value and a canvas-only reading
+   * overstates it. Solved along the OKLab lightness axis, hue kept, all three
+   * arms at once: moving --warn alone closes its deficiency separation from
+   * --pass and --fail, and lightness is the only channel a deficiency preserves
+   * (tools/composed-contrast.js, test/unit/palette/cvd-trio-floor.test.js). */
+  --pass: light-dark(#316010, #7FC85A);
+  --fail: light-dark(#7A001A, #FF6B72);
+  --warn: light-dark(#835600, #E3A93C);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
