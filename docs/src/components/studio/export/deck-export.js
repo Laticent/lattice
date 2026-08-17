@@ -940,7 +940,15 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, pageFormat));
+			// The corner target is `'pdf'`, NOT `pageFormat`. Those are different axes and this
+			// is the third place conflating them would have gone wrong (see the underlay note in
+			// rasterizeSectionToBlob): `pageFormat` is how each slide image is ENCODED for
+			// embedding, while the DESTINATION of every image this function produces is a PDF —
+			// both callers (`renderPdfBlob`'s sheet lane and the Print drawer) hand the result
+			// straight to `assembleSheetPdf`. Passing 'png' here would keep the rounded corner
+			// and composite its transparency onto the page, which is the pale-notch artifact the
+			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
+			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf'));
 			// Yield a macrotask between slides so the progress line paints (see the note
 			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
 			await new Promise((r) => setTimeout(r));
