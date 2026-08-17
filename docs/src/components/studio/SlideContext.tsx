@@ -196,7 +196,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  */
 const autoHead = (resolved: string): string =>
 	!resolved.trim() || /^auto$/i.test(resolved.trim()) ? 'Auto' : `Auto — ${resolved}`;
-const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--muted-foreground,#888)' };
+const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--text-muted)' };
 
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
@@ -770,7 +770,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 				</div>
 
 				{/* The emitted directive — teach the grammar. Inherited deck tokens ghosted. */}
-				<div className="border-t border-border bg-[color-mix(in_srgb,var(--accent-soft)_50%,var(--background))] px-4 py-2.5">
+				<div className="border-t border-border bg-[color-mix(in_srgb,var(--accent-soft)_50%,var(--bg))] px-4 py-2.5">
 					<div className="font-mono text-[11px] leading-relaxed text-[var(--text-heading)]">
 						{tokens.length || inheritedGhost.length ? (
 							<>

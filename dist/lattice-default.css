@@ -27234,8 +27234,9 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
    * See base.tokens.css § Sequential ramp. */
   --seq-500: var(--accent);
 
-  /* Tag uses --chart-2 (deep teal) by default — the saddle/teal duotone
-   * gives cuoio's corner tags a complementary cool pop. */
+  /* Tag uses --chart-cat2 (deep teal) by default — the saddle/teal duotone
+   * gives cuoio's corner tags a complementary cool pop. (Named `--chart-2`
+   * here until #1688; no such token has ever existed.) */
 
   /* ── Dark-panel ramp ──────────────────────────────────────────────── */
   --bg-warm-mid:   #3A2E20;     /* divider panels (deep) — decorative     */

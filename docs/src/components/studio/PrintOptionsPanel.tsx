@@ -5,8 +5,8 @@
 //
 // ON-DEMAND, NOT EAGER. The heavy work — rasterizing every slide into a PDF — happens
 // ONLY when the user clicks Print or Download, never on a config change. The live
-// preview is cheap engine HTML (re-rendered only on a colour change; paper/orientation
-// just re-fit the same render via CSS), so flipping paper/orientation/colour is free.
+// preview is cheap engine HTML (re-rendered only on a color change; paper/orientation
+// just re-fit the same render via CSS), so flipping paper/orientation/color is free.
 // A built PDF is cached by (render, paper, orientation), so a second Print/Download with
 // the same settings reuses it instead of re-rasterizing.
 //
@@ -116,20 +116,20 @@ export function PrintOptionsPanel({
 	const [sections, setSections] = React.useState<string[]>([]);
 	const [slide, setSlide] = React.useState(0);
 	const [status, setStatus] = React.useState('Rendering the deck…');
-	// `rendering` = the deck is (re-)rendering (colour / source / theme change); readiness
+	// `rendering` = the deck is (re-)rendering (color / source / theme change); readiness
 	// drops the instant any render input changes so a stale preview is never treated fresh.
 	const [rendering, setRendering] = React.useState(true);
 	// Which action (if any) is mid-build — the button spinner + a re-entrancy guard.
 	const [building, setBuilding] = React.useState<'print' | 'download' | null>(null);
 	// The one built PDF, keyed by the exact inputs that change its bytes (the render identity
-	// carries colour/theme; paper + orientation set the sheet). Kept in STATE so the iOS
+	// carries color/theme; paper + orientation set the sheet). Kept in STATE so the iOS
 	// button can flip to "Open PDF" the moment a build for the current settings exists; a
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
 	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; url: string; blob: Blob } | null>(null);
 	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
-	// jsPDF geometry) with no re-rasterize; a colour/source/theme change makes a new `render`
+	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
 	// object → the key misses → we rasterize once more. Cleared when the deck re-renders below.
 	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: string[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
 	// Platform is stable per device; decide the print path once.
@@ -160,7 +160,7 @@ export function PrintOptionsPanel({
 		return () => ro.disconnect();
 	}, []);
 
-	// ── Render the deck whenever the colour changes (B&W remaps class tokens). This is the
+	// ── Render the deck whenever the color changes (B&W remaps class tokens). This is the
 	// only re-render; paper/orientation just re-fit the SAME render via the CSS math below. ──
 	React.useEffect(() => {
 		let alive = true;
@@ -373,7 +373,7 @@ export function PrintOptionsPanel({
 	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint, notify]);
 
 	// A fresh render (no re-render in flight) is all either action needs to START — the PDF
-	// is built on click, not up front. Both drop the instant a colour change begins.
+	// is built on click, not up front. Both drop the instant a color change begins.
 	const ready = !!render && !!sections.length && !rendering;
 	// iOS Print is a two-step affordance: build (tap 1) → open (tap 2, once armed).
 	const printReadyToOpen = ios && cachedForCurrent;
@@ -485,6 +485,16 @@ function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string;
 // matches both the tab it replaces AND the rest of the Share sheet. Colors that are a
 // presentation SURFACE (the navy stage, the white paper) are literal, exactly as the
 // tab page's scoped CSS was — docs/src component styles are outside the layout hex gate.
+//
+// The THEMED colors here are palette tokens (`--text-muted`, `--bg-alt`, `--border`,
+// `--accent`), NOT the shadcn bridge names. This block read `var(--muted-foreground)`
+// and `var(--card)`, which exist only as Tailwind `@theme` entries spelled
+// `--color-muted-foreground` / `--color-card` (styles/tailwind.css) — so in raw CSS
+// like this they resolved to nothing, and with no fallback the whole declaration was
+// invalid at computed-value time: the pager and segmented control inherited their
+// color instead of taking one. Bridge names work in a Tailwind CLASS
+// (`text-muted-foreground`); raw `var()` needs the palette token the bridge points at.
+// Found and fixed with #1688; `checkDanglingTokenReads` now blocks the reintroduction.
 const STYLE = `
 .pod-stage{position:relative;height:180px;border-radius:12px;padding:16px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),#0b1c33;box-shadow:inset 0 0 0 1px color-mix(in srgb,#ffffff 6%,transparent);}
 .pod-sheet{background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);transition:width .3s ease,height .3s ease;}
@@ -496,14 +506,14 @@ const STYLE = `
 .pod-bar{width:100%;max-width:190px;height:4px;border-radius:4px;background:color-mix(in srgb,#ffffff 12%,transparent);overflow:hidden;}
 .pod-bar i{display:block;height:100%;width:30%;background:var(--accent);border-radius:4px;animation:podslide 1.1s ease-in-out infinite;}
 @keyframes podslide{0%{transform:translateX(-120%);}100%{transform:translateX(430%);}}
-.pod-pager{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;color:var(--muted-foreground);font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;}
+.pod-pager{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;color:var(--text-muted);font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;}
 .pod-pager>span{white-space:nowrap;}
-.pod-pager button{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;}
+.pod-pager button{border:1px solid var(--border);background:var(--bg-alt);color:var(--text-muted);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;}
 .pod-pager button:not(:disabled):hover{border-color:var(--accent);color:var(--text-heading);}
 .pod-pager button:disabled{opacity:.5;cursor:default;}
-.pod-dims{color:var(--muted-foreground);}
-.pod-seg{display:inline-flex;width:100%;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card);}
-.pod-seg button{flex:1;border:0;background:transparent;color:var(--muted-foreground);padding:7px 4px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;border-left:1px solid var(--border);}
+.pod-dims{color:var(--text-muted);}
+.pod-seg{display:inline-flex;width:100%;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg-alt);}
+.pod-seg button{flex:1;border:0;background:transparent;color:var(--text-muted);padding:7px 4px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;border-left:1px solid var(--border);}
 .pod-seg button:first-child{border-left:0;}
 .pod-seg button[aria-checked="true"]{background:var(--accent);color:var(--on-accent,#fff);}
 .pod-seg button:not([aria-checked="true"]):hover{color:var(--text-heading);background:var(--accent-soft);}
@@ -515,7 +525,7 @@ const STYLE = `
 .pod-ghost{background:transparent;color:var(--text-heading);border-color:var(--border);}
 .pod-ghost:not(:disabled):hover{border-color:var(--accent);background:var(--accent-soft);}
 .pod-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.pod-plat{font-size:10.5px;color:var(--muted-foreground);text-align:center;line-height:1.5;}
+.pod-plat{font-size:10.5px;color:var(--text-muted);text-align:center;line-height:1.5;}
 .pod-dot{color:#4bbd8b;}
 @media(prefers-reduced-motion:reduce){.pod-bar i{animation:none;width:100%;}.pod-sheet,.pod-frame{transition:none;}}
 `;

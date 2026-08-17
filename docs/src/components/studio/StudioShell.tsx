@@ -2734,8 +2734,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const architectCards = (
 		<>
 			{issues > 0 && (
-				<div className="mx-2.5 mt-2.5 flex items-center gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_28%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_7%,transparent)] px-3 py-2">
-					<AlertTriangle className="size-4 text-[var(--chart-2,#9c3f00)]" />
+				<div className="mx-2.5 mt-2.5 flex items-center gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--warn)_28%,transparent)] bg-[color-mix(in_srgb,var(--warn)_7%,transparent)] px-3 py-2">
+					<AlertTriangle className="size-4 text-[var(--warn)]" />
 					<span className="text-xs font-semibold text-[var(--text-heading)]">{issues} inline issue{issues > 1 ? 's' : ''}</span>
 					<button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>
 				</div>
@@ -2788,7 +2788,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</button>
 					))}
 				</div>
-				<p className="mt-1.5 text-[9.5px] font-bold uppercase tracking-widest text-[var(--chart-3,#2e6f00)]">Free · no model</p>
+				<p className="mt-1.5 text-[9.5px] font-bold uppercase tracking-widest text-[var(--pass)]">Free · no model</p>
 				{coachCard && (
 					<div className="mt-2 rounded-lg border border-border bg-background px-2.5 py-2">
 						<div className="flex items-center justify-between gap-2">
@@ -3218,7 +3218,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Edit
 				<span className="flex-1" />
-				{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</span>}
+				{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</span>}
 				{hasSelection && (
 					<DropdownMenu>
 						<Tooltip>
@@ -3464,7 +3464,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{!previewChromeless && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
-				<span className="inline-flex shrink-0 items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
+				<span className="inline-flex shrink-0 items-center gap-1 text-[var(--pass)]">● Live</span>
 				<span className="truncate">{palette} · {mode}</span>
 				{/* Ratio + count hide on a NARROW PANE (container query, not the sm: viewport —
 				    a wide iPad viewport with a dragged-narrow pane would otherwise keep showing
@@ -3495,7 +3495,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 			<span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">Edit</span>
 			{issues > 0 && (
-				<span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>
+				<span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--warn)]"><AlertTriangle className="size-3" />{issues}</span>
 			)}
 		</button>
 	);

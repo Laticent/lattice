@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
 export type Intent = 'pass' | 'review' | 'fix' | 'info';
 
 const MAP: Record<Intent, { Icon: typeof CheckCircle2; label: string; cls: string }> = {
-	pass: { Icon: CheckCircle2, label: 'READY', cls: 'text-[var(--chart-3,#2e6f00)] border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)]' },
-	review: { Icon: TriangleAlert, label: 'REVIEW', cls: 'text-[var(--chart-2,#9c3f00)] border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)]' },
+	pass: { Icon: CheckCircle2, label: 'READY', cls: 'text-[var(--pass)] border-[color-mix(in_srgb,var(--pass)_45%,transparent)]' },
+	review: { Icon: TriangleAlert, label: 'REVIEW', cls: 'text-[var(--warn)] border-[color-mix(in_srgb,var(--warn)_45%,transparent)]' },
 	fix: { Icon: OctagonX, label: 'FIX', cls: 'text-[#b42318] border-[color-mix(in_srgb,#b42318_45%,transparent)] dark:text-[#f97066]' },
 	info: { Icon: Info, label: 'INFO', cls: 'text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_45%,transparent)]' },
 };

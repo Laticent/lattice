@@ -17,7 +17,7 @@ export type FindingFixState =
 	// "re-draft" card rather than vanishing, so the panel still shows what it owes.
 	| { phase: 'stale'; slide?: number };
 
-const sevColor = (sev: string) => (sev === 'error' ? 'var(--fail,#b3261e)' : sev === 'warning' ? 'var(--chart-2,#9c3f00)' : 'var(--text-muted)');
+const sevColor = (sev: string) => (sev === 'error' ? 'var(--fail)' : sev === 'warning' ? 'var(--warn)' : 'var(--text-muted)');
 const sevIcon = (sev: string) => (sev === 'error' ? OctagonAlert : sev === 'warning' ? AlertTriangle : Info);
 
 /**

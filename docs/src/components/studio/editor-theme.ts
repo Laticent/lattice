@@ -5,7 +5,7 @@ import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.j
 
 // The shared CodeMirror 6 visual theme for every Studio code surface — the deck
 // Editor (markdown) and the Component studio's CSS + skeleton fields (CodeField).
-// Palette-blind: every colour is a token, so it tracks the active theme/mode.
+// Palette-blind: every color is a token, so it tracks the active theme/mode.
 // Extracted here so the two editors share ONE look (#15 — reuse, don't fork).
 export const editorTheme = EditorView.theme({
 	'&': { backgroundColor: 'var(--bg)', color: 'var(--text-body)', height: '100%', fontSize: '13px' },
@@ -83,18 +83,41 @@ export const editorTheme = EditorView.theme({
 	},
 });
 
-// Palette-cohesive syntax highlighting — every colour a theme token, so the code
+// Palette-cohesive syntax highlighting — every color a theme token, so the code
 // editors track the active studio theme + mode (no fixed light-only defaults that
 // wash out in dark). Shared by CodeField (CSS / skeleton) and any future surface.
+//
+// WHY THE STATUS TRIO CARRIES THE STRING / NUMBER / INVALID ROLES (#1688). These
+// three rows read `var(--chart-3, #2e6f00)` / `var(--chart-2, #9c3f00)` — tokens
+// defined NOWHERE in the repo, so the hardcoded hex won on all 36 palette x mode
+// rows and the "every color a theme token" claim above was false for exactly the
+// rows that carried a hue. Three candidate homes, and why this one:
+//   · `--hljs-string` / `--hljs-number` ARE the repo's real code-token colors and
+//     would be the ideal fit — but the four a11y-* base palettes declare none, and
+//     `resolveToken` THROWS if any base palette lacks a token on PORTAL_TOKENS
+//     (engineering/gotchas/css.md). Authoring a syntax palette for the palettes
+//     that deliberately collapse hue is a design decision, not a mechanical
+//     fill-in, so it is logged rather than smuggled in here.
+//   · `--chart-cat2` / `--chart-cat3` are the categorical MARK tier, repaired to
+//     the 3:1 GRAPHICAL floor. Measured over the generated sheet, 12 of the 24
+//     hex rows fall under 4.5:1 against `--bg`/`--bg-alt` (worst 3.09:1) — painting
+//     them as text is the exact `--cat-N-ink` construction the no-safe-default
+//     record exists to prevent.
+//   · `--pass` / `--warn` / `--fail` clear AA as text on all 36 rows (worst 4.52:1),
+//     and they are already the hues these rows were hand-picking: #2e6f00 IS a
+//     green and #9c3f00 IS an amber. `t.invalid` is not a stretch at all — invalid
+//     input is what `--fail` names. So the appearance is preserved and it now
+//     tracks the palette. On a11y-achromatopsia the trio is grayscale and syntax
+//     stops separating by hue, which is that palette's whole point.
 export const studioHighlight = HighlightStyle.define([
 	{ tag: [t.keyword, t.modifier, t.operatorKeyword], color: 'var(--accent)' },
 	{ tag: [t.propertyName, t.attributeName, t.definition(t.propertyName)], color: 'var(--text-heading)' },
-	{ tag: [t.string, t.special(t.string), t.attributeValue], color: 'var(--chart-3, #2e6f00)' },
-	{ tag: [t.number, t.unit, t.bool, t.atom, t.color], color: 'var(--chart-2, #9c3f00)' },
+	{ tag: [t.string, t.special(t.string), t.attributeValue], color: 'var(--pass)' },
+	{ tag: [t.number, t.unit, t.bool, t.atom, t.color], color: 'var(--warn)' },
 	{ tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--text-muted)', fontStyle: 'italic' },
 	{ tag: [t.tagName, t.heading], color: 'var(--accent)', fontWeight: '600' },
 	{ tag: [t.variableName, t.className, t.typeName], color: 'var(--text-body)' },
 	{ tag: [t.punctuation, t.bracket, t.brace, t.separator], color: 'var(--text-muted)' },
 	{ tag: [t.link, t.url], color: 'var(--accent)', textDecoration: 'underline' },
-	{ tag: t.invalid, color: 'var(--chart-2, #9c3f00)' },
+	{ tag: t.invalid, color: 'var(--fail)' },
 ]);

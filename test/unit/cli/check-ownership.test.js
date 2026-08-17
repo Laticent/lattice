@@ -75,6 +75,9 @@ const {
   SANCTIONED_OPENROUTER_WORKFLOWS,
   checkVoiceSampleAssets,
   listSourceFiles,
+  checkDanglingTokenReads,
+  SANCTIONED_DANGLING_TOKEN_READS,
+  stripCodeComments,
   SANCTIONED_PREVIEW_BUILDERS,
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,
@@ -3172,5 +3175,127 @@ describe('check-ownership: checkFontMetricsPin (font drift)', () => {
       errors.some((e) => e.includes('font-metrics pin points at a missing file')),
       `run() did not report the font pin — the gate is not wired in:\n${errors.join('\n')}`,
     );
+  });
+});
+
+describe('check-ownership: checkDanglingTokenReads (#1688)', () => {
+  // Build a throwaway docs/src + engine-CSS pair. The engine side declares the real
+  // palette trio so a correct read resolves; `pad.css` pushes the declared-token count
+  // past the empty-scan floor, which exists precisely so a broken scan cannot report
+  // clean.
+  function mkTree(files) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-dangling-'));
+    const docsSrc = path.join(root, 'docs', 'src');
+    const libDir = path.join(root, 'lib');
+    const distDir = path.join(root, 'dist');
+    for (const d of [docsSrc, libDir, distDir]) fs.mkdirSync(d, { recursive: true });
+    const engine = ':root{--bg:#fff;--bg-alt:#eee;--text-body:#111;--text-muted:#666;--pass:#2f6b12;--warn:#956500;--fail:#a81e38;}';
+    fs.writeFileSync(path.join(libDir, 'a.css'), engine);
+    fs.writeFileSync(path.join(distDir, 'a.css'), engine);
+    fs.writeFileSync(
+      path.join(docsSrc, 'pad.css'),
+      `:root{${Array.from({ length: 120 }, (_, i) => `--pad${i}:0;`).join('')}}`,
+    );
+    for (const [name, body] of Object.entries(files)) {
+      const full = path.join(docsSrc, name);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, body);
+    }
+    return { root, dirs: { docsSrc, libDir, distDir } };
+  }
+
+  function errorsFor(files) {
+    const { root, dirs } = mkTree(files);
+    const errors = [];
+    checkDanglingTokenReads(errors, dirs);
+    fs.rmSync(root, { recursive: true, force: true });
+    return errors;
+  }
+
+  test('the live tree passes', () => {
+    const errors = [];
+    checkDanglingTokenReads(errors);
+    assert.deepEqual(errors, []);
+  });
+
+  test('CATCHES the #1688 defect — an undefined token behind a hex fallback', () => {
+    // The shape that shipped: it renders, on every palette and mode, and never themes.
+    const errors = errorsFor({ 'X.tsx': 'export const a = <p className="text-[var(--chart-2,#9c3f00)]" />;' });
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /--chart-2/);
+    assert.match(errors[0], /DECLARED NOWHERE/);
+  });
+
+  test('CATCHES a bare undefined read — the invalid-at-computed-value-time arm', () => {
+    const errors = errorsFor({ 'X.tsx': 'export const s = `.x{background:color-mix(in srgb,var(--accent) 7%,var(--card))}`;' });
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /--card/);
+  });
+
+  test('a token declared by the ENGINE resolves — playground bundles run inside the slide iframe', () => {
+    assert.deepEqual(errorsFor({ 'X.tsx': 'export const s = `.x{color:var(--text-muted)}`;' }), []);
+  });
+
+  test('an inline-style object key counts as a declaration', () => {
+    // `style={{ '--tone': … }}` is how the Studio scopes a per-element custom property.
+    assert.deepEqual(
+      errorsFor({ 'X.tsx': "export const a = <p style={{ '--tone': 'red' }} className=\"text-[var(--tone)]\" />;" }),
+      [],
+    );
+  });
+
+  test('setProperty counts as a declaration', () => {
+    assert.deepEqual(
+      errorsFor({ 'X.ts': "el.style.setProperty('--pg-x', '1px');\nconst s = `.a{width:var(--pg-x)}`;" }),
+      [],
+    );
+  });
+
+  test('a record ABOUT a retired token does not trip the gate documenting it', () => {
+    // Both comment forms — this file, lint-theme.js, and editor-theme.ts all name
+    // `var(--chart-2, …)` in prose explaining the fix.
+    assert.deepEqual(errorsFor({ 'X.ts': '// this used to read var(--chart-2, #9c3f00)\nexport const a = 1;' }), []);
+    assert.deepEqual(errorsFor({ 'Y.ts': '/* var(--chart-2, #9c3f00) */\nexport const a = 1;' }), []);
+  });
+
+  test('third-party namespaces are not ours to resolve', () => {
+    assert.deepEqual(errorsFor({ 'X.tsx': 'export const a = <p className="text-[var(--sl-color-text)]" />;' }), []);
+  });
+
+  test('tests and vendored dist are excluded', () => {
+    assert.deepEqual(
+      errorsFor({
+        'X.test.ts': "assert.equal(c, 'var(--nope)');",
+        'lib/vetrina/dist/index.mjs': 'const s = `.a{color:var(--vt-caption-ink)}`;',
+      }),
+      [],
+    );
+  });
+
+  test('an EMPTY scan fails loud rather than reporting clean', () => {
+    // Every input is an intersection term; a moved directory must read as broken.
+    const { root, dirs } = mkTree({ 'X.tsx': 'export const a = <p className="text-[var(--chart-2,#9c3f00)]" />;' });
+    const errors = [];
+    checkDanglingTokenReads(errors, { ...dirs, libDir: path.join(root, 'gone'), distDir: path.join(root, 'gone') });
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /came back nearly empty/);
+  });
+
+  test('stripCodeComments keeps a URL inside a string', () => {
+    // The conservative line-comment rule: only a `//` that OPENS the line is a comment,
+    // so a protocol in a string cannot be eaten (which would hide a real read after it).
+    const src = "const u = 'https://x.test'; const s = `.a{color:var(--card)}`;";
+    assert.match(stripCodeComments(src), /var\(--card\)/);
+    assert.match(stripCodeComments(src), /https:\/\/x\.test/);
+  });
+
+  test('every sanction names a token that still reaches the gate, and justifies itself', () => {
+    for (const s of SANCTIONED_DANGLING_TOKEN_READS) {
+      assert.ok(s.token.startsWith('--'), `${s.token} should be a full token name`);
+      assert.ok(s.why && s.why.length > 40, `${s.token} needs a real justification, not a label`);
+    }
+    // Staleness itself is gated in checkDanglingTokenReads against the real tree; the
+    // live-tree test above is what proves no row here has rotted.
   });
 });
