@@ -248,6 +248,16 @@ labels against `quadrant`'s continuous data, `roadmap`'s workstream×phase cells
 `gantt`'s overlapping spans. Same design as before: four agents on Opus, two per
 condition, one surface each and nothing else.
 
+**How this record was made, because it bears on how far to trust it.**
+`pick-surface-agent-runs.json` is a **hand-transcribed** record of what four subagents
+returned — as is the first bake-off above. There is no committed harness, no run log, no
+replay: the briefs and the ground truth are gated artifacts, the *picks* are not. Every
+derived figure in the table below recomputes from that JSON, which verifies the
+arithmetic and nothing about provenance. Under HARD RULE #23 the surface is "four Opus
+subagents" and the artifact is self-reported, so read the numbers as an honest report
+rather than a reproducible measurement. Making them reproducible means a committed
+harness, which is a different change from this one.
+
 | condition | strict | defensible | tokens per agent | tool calls |
 |---|---|---|---|---|
 | PICK surface | 22/24 — **92%** | 22/24 — 92% | 50.9k | 1 |
