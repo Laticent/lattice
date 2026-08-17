@@ -258,7 +258,7 @@ place and what #1, #4 and #5 each demonstrated concretely.
   | comment *mentions* `@import 'onyx';` | no ✓ | no ✓ | yes ✓ |
   | **real** `@import 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
   | **real** `@import 'onyx.css';` (not a form the grammar takes) | no ✓ | no ✓ | yes ✓ |
-  | **real** bare `@import onyx;` (now rejected) | no ✓ | no ✓ | yes ✓ |
+  | **real** bare `@import onyx;` (not a form the grammar takes) | no ✓ | no ✓ | yes ✓ |
   | **real** `@import /* c */ 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
 
   762,710 bytes for the comment cases against 1,531,460 for the real-import ones (re-driven
