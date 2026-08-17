@@ -448,7 +448,7 @@ async function main() {
 
   if (!under) {
     process.stdout.write(
-      `\nglyph metrics OK — no entry under-counts${loose ? `; ${loose} carry slack above the tightest step` : ''}.\n`,
+      `\nglyph metrics OK — no entry under-counts${loose ? `; ${loose} ${loose === 1 ? 'carries' : 'carry'} slack above the tightest step` : ''}.\n`,
     );
     return 0;
   }
