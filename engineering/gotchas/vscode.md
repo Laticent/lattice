@@ -217,7 +217,8 @@ means "no gap logged for the runtime route", never "the preview is complete.
   dual-surface head `:is(section.x, figure.x)` is not a literal `section`, so
   marp-core emits `… > section :is(section.x, …)` — a slide nested inside a
   slide, which cannot exist. Roughly **835 rules** died this way. Same root
-  cause as the `:where(:root)` entry above.
+  cause as "`:where(:root)` token blocks are dropped from every rendered slide"
+  in `mermaid.md`.
 - **Mitigation:** the distribution runs at BUILD time —
   `tools/build-css.js` `bundle()` pipes the assembled sheet through
   `distributeLeadingIs` (`lib/core/leading-is.js`), so **every stylesheet dist/
@@ -246,6 +247,38 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Commits:** #1256 (export-only, incomplete) → #1259 follow-up (build-time,
   every shipped stylesheet); engine-side fix predates both (the `--map-base` bug).
 
+## Custom `logo:` front-matter directive shows nothing in marp-vscode preview
+
+- **Symptom:** A deck with `logo: ./acme-logo.svg` in front matter
+  builds a correct PDF (logo visible top-right of every slide) and
+  appears correctly in exported HTML viewed in a browser, but the
+  marp-vscode preview pane shows no logo at all.
+- **Cause:** The convenience `logo:` directive is handled by
+  `applyDeckLogoToHtml` in `lib/integrations/markdown-it/plugins.js`
+  (run by the owned engine) plus the post-render hook in
+  [lattice-emulator.js](../lattice-emulator.js) and the runtime
+  mirror `applyDeckLogoFromFrontMatter` in
+  [lattice-runtime.js](../dist/lattice-runtime.js). The owned-engine and
+  emulator paths run at build time; the runtime path fetches the
+  source `.md` from the same origin as the rendered HTML. The VS Code
+  Marp preview runs marp-core directly, without Lattice's markdown-it
+  plugins, so the build-time hook never fires there, AND the runtime's
+  `fetch()` can't reach workspace files in
+  the `vscode-webview://` sandbox — same limitation
+  `applyDeckClassFromFrontMatter` documents at
+  [lattice-runtime.js:3463-3465](../dist/lattice-runtime.js#L3463-L3465).
+  Net result: no path works in the marp-vscode preview.
+- **Mitigation:** None inside marp-vscode preview today. The author
+  sees the logo only when they build the PDF or view the exported
+  HTML in a browser. Authors who need live-preview validation can
+  manually add `<img class="deck-logo" src="…" style="--deck-logo-src:url('…')">`
+  as the first child of a single slide for spot-checking.
+- **Triggered by:** Any `logo: <path>` in deck front matter when
+  authoring inside marp-vscode.
+- **Removable when:** marp-vscode adds workspace-config plugin
+  loading. Unlikely in the near term.
+- **Commits:** This branch.
+
 ## marp-cli timeouts under load (60-90s on small fixtures)
 
 - **Symptom:** Rendering an Export-to-Marp bundle with `npx marp ...`
@@ -254,8 +287,8 @@ means "no gap logged for the runtime route", never "the preview is complete.
   Playfair / Outfit / JetBrains-Mono imports we use). Slow network or
   DNS resolution makes this multiply. The lattice-emulator pre-emits
   the font links the same way but doesn't block on them at render time
-  (and self-hosts the woff2 for offline renders — see the offline-font
-  entry above), so the owned engine doesn't hit this.
+  (and self-hosts the woff2 for offline renders — see "A rendered PDF shows
+  serif/fallback type" in `fonts.md`), so the owned engine doesn't hit this.
 - **Mitigation:** Run with longer timeouts (`timeout 90`) when testing a
   marp-cli render. For a deterministic owned-engine render, the fonts are
   already vendored and inlined.

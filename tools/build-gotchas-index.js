@@ -10,7 +10,7 @@
  * behaving strangely — so the cheapest question in the repo cost more context than
  * the change that prompted it, and the honest alternative was to grep blind.
  *
- * The split: 144 entries live in 10 topic files; this file's index is one line per
+ * The split: 145 entries live in 14 topic files; this file's index is one line per
  * entry (7k tokens), linking straight to the entry. Skim or grep the index, open
  * the ONE topic file it names.
  *
