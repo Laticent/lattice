@@ -11,6 +11,7 @@ import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { SCENE_COLOR_TOKENS } from '@/lib/anima/scene-palette';
 import { parseScene } from '@/lib/anima/schema';
 import type { Scene } from '@/lib/anima/types';
 import { AXES, MOTION_VERBS, PRIMITIVES, VERB_SOURCE } from '@/lib/anima/vocabulary';
@@ -680,7 +681,14 @@ const SCENE_SYSTEM = [
 	'Element: { "id": "<unique-kebab>", "shape": <primitive>, "color"?: "var(--token)", "props"?: {geometry}, "transform"?: {"at":[x,y,z],"rotate":[x,y,z-radians],"scale":n}, "motion"?: [<Motion>], "children"?: [<Element>...] }',
 	`Primitives: ${PRIMITIVES.join(', ')}. A "group" draws nothing — it is a transform node; put shapes in its "children" (e.g. a rotor spinning inside a housing = a group carrying the spin, containing the parts).`,
 	`Motion verbs: ${BUILT_VERBS.join(', ')}. spin/orbit take {"axis":"${AXES.join('|')}","period":<ms-per-turn, >=800 so a viewer can follow it>}. explode takes {"distance":<n>=0>}. fill takes {"to":<0..1>}. reveal/sequence/explode/fill also accept a window {"at":<0..1>,"span":<0..1>,"easing":"linear|ease-in|ease-out|ease-in-out"}.`,
-	'Colors MUST be palette tokens — "var(--accent)", "var(--cat-2-mark)", "var(--text)", "var(--cat-1-mark)" — never hex or CSS names, so the scene recolors with the deck theme.',
+	// Built FROM `SCENE_COLOR_TOKENS`, never a hand-copied sample of it. The hand-copied version
+	// taught `var(--text)` — a token the engine does not declare (it has --text-body /
+	// --text-heading) — and nothing could notice, because `validateColor` checks only the SHAPE
+	// and the prompt was not generated from anything a gate could see. An undeclared custom
+	// property is invalid at computed-value time, and `color`/`fill` INHERIT, so the part came
+	// out in the host's text color: wrong, not invisible (#1688). The gate on that array now
+	// holds every name here to the engine's own declarations.
+	`Colors MUST be palette tokens so the scene recolors with the deck theme — never hex, never a CSS color name. Use these: ${SCENE_COLOR_TOKENS.map((c) => `"${c}"`).join(', ')}.`,
 	'Example (a rotor spinning inside a ring): {"source":"built","duration":3000,"hero":0.5,"elements":[{"id":"rig","shape":"group","motion":[{"verb":"spin","axis":"y","period":3000}],"children":[{"id":"ring","shape":"ellipse","color":"var(--cat-2-mark)","props":{"diameter":150,"stroke":10},"transform":{"rotate":[1.5708,0,0]}},{"id":"rotor","shape":"cone","color":"var(--accent)","props":{"diameter":74,"length":96}}]}]}',
 ].join('\n');
 

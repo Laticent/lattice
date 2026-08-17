@@ -3368,7 +3368,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // text + anchor), so three headings carrying `grey`/`grey`/`centred` counted six times
 // over and pushed the total to 1312. The headings were corrected rather than the budget
 // raised — which also retired those three from the backlog, hence 1303 and not 1307.
-const US_ENGLISH_BUDGET = 1303;
+const US_ENGLISH_BUDGET = 1293;
 
 function checkUsEnglish(errors) {
   const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');
@@ -8156,15 +8156,6 @@ const SANCTIONED_DANGLING_TOKEN_READS = [
       'color depends on it, so there is nothing to resolve.',
   },
   {
-    token: '--text',
-    why:
-      'the same prose case, in `architect.ts`\'s Anima scene prompt ("Colors MUST be palette tokens — ' +
-      '\\"var(--accent)\\", \\"var(--text)\\" …"). Worth noting the prompt is teaching a token name the ' +
-      'engine does NOT define (it has --text-body / --text-heading), so a model that follows the ' +
-      'example emits a dead color — a real defect, but in the prompt corpus rather than in a ' +
-      'stylesheet, and off this change\'s path (HARD RULE #18). Logged, not smuggled in here.',
-  },
-  {
     token: '--font-serif',
     why:
       'an OPTIONAL host hook whose fallback is a complete font stack, not a color: ' +
@@ -8333,6 +8324,278 @@ function checkDanglingTokenReads(errors, dirs = {}) {
   }
 }
 
+/**
+ * Every token in Anima's closed scene-color vocabulary must be declared by the ENGINE.
+ *
+ * WHY THIS IS NOT COVERED BY `checkDanglingTokenReads`, which scans the same directory for
+ * the same `var(--x)` literals. That gate accepts a token declared ANYWHERE it looked —
+ * including in `docs/src` itself, where `lattice-tokens.generated.css` declares the docs
+ * chrome's own tier. An Anima scene does not render in the docs chrome. It renders inside
+ * a SLIDE, against the deck's theme, so a docs-only token resolves to nothing there and
+ * the part's `fill:` is dropped at computed-value time. This gate narrows the search to
+ * `lib/**.css` + `dist/**.css` — the CSS a rendered deck actually carries.
+ *
+ * The vocabulary is the validator's allow-set AND the source of the Architect prompt's
+ * examples (`SCENE_COLOR_TOKENS`, docs/src/lib/anima/scene-palette.ts), so one wrong entry
+ * both teaches a model a dead color and green-lights it on the way back in. That pairing
+ * is what shipped `var(--text)` in the prompt for months (#1688).
+ */
+function checkAnimaColorVocabulary(errors) {
+  const file = path.join(ROOT, 'docs', 'src', 'lib', 'anima', 'scene-palette.ts');
+  if (!fs.existsSync(file)) {
+    errors.push(`checkAnimaColorVocabulary: ${path.relative(ROOT, file)} is missing — the gate cannot run.`);
+    return;
+  }
+  // COMMENTS STRIPPED FIRST. The scan looks for `var(--x)` literals, so a commented-out entry
+  // — `// 'var(--text)',  // tried this, it is a phantom, see #1688` — was matched and turned
+  // the build RED for a token that is not in the runtime array. Recording why a token was
+  // rejected, right where the rejection lives, is exactly what a future author should do.
+  const src = stripCodeComments(fs.readFileSync(file, 'utf8'));
+  const block = /export const SCENE_COLOR_TOKENS\s*=\s*\[([\s\S]*?)\]\s*as const;/.exec(src);
+  if (!block) {
+    errors.push(
+      'checkAnimaColorVocabulary: could not find `export const SCENE_COLOR_TOKENS = [ … ] as const;` in ' +
+      'docs/src/lib/anima/scene-palette.ts. The list moved or changed shape — re-point this gate rather than ' +
+      'leaving it silently matching nothing.',
+    );
+    return;
+  }
+  // THE ARRAY BODY MUST BE STRING LITERALS AND NOTHING ELSE, or this gate is one level of
+  // indirection away from useless. A spread (`...EXTRA_TOKENS,`) or a template literal
+  // (`` `var(--${'text'})` ``) puts entries into SCENE_COLOR_TOKENS — and therefore into the
+  // Architect prompt, which is generated from it — that the scan never sees. That is not a
+  // theoretical hole: `...['var(--syntax-keyword-ink)']` would smuggle THIS CHANGE'S OWN
+  // docs-only tier into the scene vocabulary, where `checkDanglingTokenReads` would also pass
+  // it (that gate accepts a token declared anywhere, docs/src included) and a slide would render
+  // it as an undeclared property. The #1688 defect, reintroduced through the gate written to
+  // stop it. So: reject any body element that is not a quoted string.
+  const body = block[1];
+  const residue = body.replace(/'[^']*'|"[^"]*"|,|\s/g, '');
+  if (residue.length) {
+    errors.push(
+      'checkAnimaColorVocabulary: SCENE_COLOR_TOKENS contains something other than plain string ' +
+      `literals (leftover: ${JSON.stringify(residue.slice(0, 60))}). A spread, a template literal or ` +
+      'a computed entry puts tokens into the list — and into the Architect prompt built from it — ' +
+      'that this gate cannot see, which is the #1688 defect coming back through its own gate. ' +
+      'Write the entries out as quoted literals.',
+    );
+    return;
+  }
+  const tokens = [...body.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)\s*\)/g)].map((m) => m[1]);
+  if (!tokens.length) {
+    errors.push('checkAnimaColorVocabulary: SCENE_COLOR_TOKENS parsed to zero entries — a broken scan, not a clean tree.');
+    return;
+  }
+  const engineDeclared = new Set();
+  const engineCss = [...listFilesByExt(LIB_DIR, ['.css']), ...listFilesByExt(path.join(ROOT, 'dist'), ['.css'])];
+  for (const f of engineCss) declaredCustomProps(fs.readFileSync(f, 'utf8'), engineDeclared);
+  if (!engineCss.length || engineDeclared.size < 100) {
+    errors.push(
+      `checkAnimaColorVocabulary scanned ${engineCss.length} engine stylesheet(s) and found ${engineDeclared.size} ` +
+      'declared tokens — both are intersection terms, so an empty one makes this gate pass while checking nothing.',
+    );
+    return;
+  }
+  const missing = tokens.filter((t) => !engineDeclared.has(t));
+  if (missing.length) {
+    errors.push(
+      `${missing.length} Anima scene color token(s) are NOT declared in the engine's CSS: ${missing.join(', ')}. ` +
+      'A scene painted with one renders in the WRONG color, not in none: an undeclared custom ' +
+      'property is invalid at computed-value time, and `color`/`fill` INHERIT, so the part takes the ' +
+      "host's inherited color — `backends/paint.ts` resolves it through getComputedStyle, which makes " +
+      'that concrete. Measured in real Chromium; an earlier cut of #1688 built a coercion on the ' +
+      'opposite premise ("it renders with no color") and had to revert it as a self-inflicted ' +
+      'regression, so the premise is spelled out here rather than left to be re-derived. Either the ' +
+      'name is wrong (the engine has --text-body / --text-heading, never --text) or the token needs ' +
+      'declaring in lib/base/base.tokens.css. Remove it from SCENE_COLOR_TOKENS in ' +
+      'docs/src/lib/anima/scene-palette.ts rather than shipping a vocabulary entry the renderer ' +
+      'cannot honor.',
+    );
+  }
+}
+
+/**
+ * The Studio editor's derived SYNTAX INK tier must be legible on the editor canvas and
+ * tellable apart from the colors the same editor paints from other tokens.
+ *
+ * WHY A SECOND GATE AND NOT `checkHljsContrast`. That gate holds `--hljs-*` to AA against
+ * `--code-bg`, the slide's dark code PANEL. This tier is the same hues on a different
+ * surface — the Studio editor's `--bg` / `--bg-alt` — and the two answers are not related:
+ * 21 of 36 palette-modes put a raw `--hljs-*` below AA on the editor canvas while passing
+ * the panel gate, worst 1.01:1. Extending `checkHljsContrast` to a second surface would
+ * make it fail on values that are correct for the panel they are tuned for, so the tier
+ * gets its own floor against its own surface.
+ *
+ * IT READS THE COMMITTED STYLESHEET, not `resolvePalettes()`. The first cut called the
+ * producer's own function and its docblock claimed to read the emitted values — which was
+ * simply false, and it mattered twice over: a hand-edit to
+ * `docs/src/styles/lattice-tokens.generated.css` was invisible to it, and "asserts
+ * properties of what shipped" was a claim about a computation, not about the file. It now
+ * parses the `html[data-palette][data-mode]` blocks out of that file.
+ *
+ * ITS FLOORS ARE PINNED LITERALS, NOT IMPORTS — and that is the whole reason it can bite.
+ * The first cut reused `CAT_TEXT_FLOOR` (4.5) and `CAT_INK_COLLAPSE_DIST` (0.010) while the
+ * recipe targets AA + 0.15 = 4.65 and `MIN_DIST` = 0.035. Measured: dropping `MARGIN` to 0
+ * in `lib/theme/cat-ink.js` emits 4.5005:1 and the gate PASSED; weakening `MIN_DIST` from
+ * 0.035 to 0.011 emitted 0.0110 and the gate PASSED. So it tolerated a 3.2x weakening of
+ * the separation target and the complete removal of the contrast margin, while its own
+ * comment advertised both as bites. Importing the constants would be worse still — lower
+ * `MIN_DIST` and the gate lowers with it, which is the same trap as recomputing with the
+ * producer's function.
+ *
+ * So the floors below are what the tier PROMISES, written down here independently:
+ *
+ *   AA_ABSOLUTE   4.5    the accessibility floor. Below this the value is a defect.
+ *   AA_MARGIN     4.6    the recipe solves to 4.65 deliberately, so "a later rounding or
+ *                        regeneration cannot land under the floor" (cat-ink.js). A value
+ *                        between 4.5 and 4.6 is still accessible but means the margin was
+ *                        SPENT — which is the defect one regeneration before it is visible.
+ *   SEPARATION    0.030  under the 0.035 target, far above the 0.010 generic collapse floor.
+ *
+ * Every operand is hex-guarded before it is measured. `catContrast` returns NaN on a value
+ * it cannot parse and `NaN < 4.5` is `false`, so an unparseable canvas or text role would
+ * have made this gate pass while measuring nothing — fail-open, in a gate. The generated
+ * file already carries `color-mix(...)` values for other token families, so that is a live
+ * shape rather than a hypothetical one.
+ */
+const SYNTAX_INK_AA_ABSOLUTE = 4.5;
+const SYNTAX_INK_AA_MARGIN = 4.6;
+const SYNTAX_INK_SEPARATION = 0.030;
+const SYNTAX_INK_GENERATED_CSS = path.join(ROOT, 'docs', 'src', 'styles', 'lattice-tokens.generated.css');
+
+/** The `html[data-palette][data-mode]` token blocks, parsed out of the committed sheet. */
+function parseGeneratedPaletteBlocks(file) {
+  const css = fs.readFileSync(file, 'utf8');
+  const blocks = new Map();
+  for (const m of css.matchAll(/html\[data-palette="([^"]+)"\]\[data-mode="(light|dark)"\]\{([^}]*)\}/g)) {
+    const set = {};
+    for (const d of m[3].matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)) set[d[1]] = d[2].trim();
+    blocks.set(`${m[1]}/${m[2]}`, set);
+  }
+  return blocks;
+}
+
+function checkSyntaxInkContrast(errors) {
+  let TOKENS;
+  try {
+    ({ SYNTAX_INK_TOKENS: TOKENS } = require('./build-docs-portal'));
+  } catch (e) {
+    errors.push(
+      `checkSyntaxInkContrast could not load SYNTAX_INK_TOKENS from tools/build-docs-portal.js: ${e.message}. ` +
+      'A renamed export takes this gate down silently otherwise — fix the import rather than deleting the check.',
+    );
+    return;
+  }
+  if (!Array.isArray(TOKENS) || !TOKENS.length) {
+    errors.push('checkSyntaxInkContrast: SYNTAX_INK_TOKENS is empty — a broken scan, not a clean tree.');
+    return;
+  }
+  if (!fs.existsSync(SYNTAX_INK_GENERATED_CSS)) {
+    errors.push(`checkSyntaxInkContrast: ${path.relative(ROOT, SYNTAX_INK_GENERATED_CSS)} is missing — run \`npm run docs:landing-tokens\`.`);
+    return;
+  }
+  const blocks = parseGeneratedPaletteBlocks(SYNTAX_INK_GENERATED_CSS);
+  if (blocks.size < 20) {
+    errors.push(
+      `checkSyntaxInkContrast parsed only ${blocks.size} palette-mode blocks out of ` +
+      `${path.relative(ROOT, SYNTAX_INK_GENERATED_CSS)} — 18 base palettes x 2 modes is 36, so this is a ` +
+      'broken parse, not a clean tree.',
+    );
+    return;
+  }
+  // The editor roles this tier lands among and cannot move (studioHighlight in
+  // docs/src/components/studio/editor-theme.ts): `--text-heading` for property names,
+  // `--text-body` for identifiers, `--text-muted` for comments AND punctuation.
+  //
+  // `--text-muted` is measured here for SEPARATION only, never for CONTRAST, and the
+  // distinction is load-bearing: it is below AA on 44 of 72 palette-mode-surface pairs
+  // (worst 2.11:1). This tier does not own that token and does not repair it — see
+  // `editor-theme.ts` for why pulling those rows into the tier was tried and reverted.
+  const FIXED = ['text-heading', 'text-body', 'text-muted'];
+  // `keyword` is `--accent` made legible and is deliberately allowed to coincide with
+  // `--text-heading`: on 13 palette-modes across seven palettes (`onyx`, `concrete`, the four
+  // `a11y-*`, `atelier`/light) the two tokens are BYTE-IDENTICAL, because a monochrome palette
+  // chose its ink as its accent. See `deriveSyntaxInks`.
+  //
+  // THE COST, stated rather than left implicit: `keyword` is therefore never separation-checked
+  // at all, so a keyword ink that collided with `--text-body` (identifiers) would go unflagged.
+  // None does today — the nearest is well clear — but the surface is unguarded, and "worst dE
+  // 0.0350" is a claim about the REPELLED roles only.
+  const REPELLED = new Set(['syntax-string-ink', 'syntax-number-ink']);
+  const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+  const failures = [];
+  const unreadable = [];
+  let evaluated = 0;
+  for (const [key, set] of blocks) {
+    const operands = [...TOKENS, ...FIXED, 'bg', 'bg-alt'];
+    for (const name of operands) {
+      const v = set[name];
+      if (v == null) { unreadable.push(`${key} --${name} is absent from the block`); continue; }
+      if (!HEX.test(String(v).trim())) unreadable.push(`${key} --${name} = ${v} is not a hex literal`);
+    }
+    for (const token of TOKENS) {
+      const ink = set[token];
+      if (!ink || !HEX.test(String(ink).trim())) continue;   // already reported above
+      for (const surface of ['bg', 'bg-alt']) {
+        const bg = set[surface];
+        if (!bg || !HEX.test(String(bg).trim())) continue;
+        evaluated += 1;
+        const ratio = catContrast(ink, bg);
+        if (!Number.isFinite(ratio)) { unreadable.push(`${key} --${token} vs --${surface}: contrast did not compute`); continue; }
+        if (ratio < SYNTAX_INK_AA_ABSOLUTE) {
+          failures.push(`${key} --${token} ${ink} on --${surface} ${bg} = ${ratio.toFixed(2)}:1, BELOW the ${SYNTAX_INK_AA_ABSOLUTE}:1 AA floor`);
+        } else if (ratio < SYNTAX_INK_AA_MARGIN) {
+          failures.push(
+            `${key} --${token} ${ink} on --${surface} ${bg} = ${ratio.toFixed(2)}:1 — above AA but the recipe's ` +
+            `margin is gone (it solves to 4.65; anything under ${SYNTAX_INK_AA_MARGIN} means MARGIN was spent or dropped)`,
+          );
+        }
+      }
+      if (!REPELLED.has(token)) continue;
+      const others = [
+        ...FIXED.map((f) => [`--${f}`, set[f]]),
+        ...TOKENS.filter((t) => t !== token).map((t) => [`--${t}`, set[t]]),
+      ];
+      for (const [label, other] of others) {
+        if (!other || !HEX.test(String(other).trim())) continue;
+        evaluated += 1;
+        const dist = oklabDistance(ink, other);
+        if (!Number.isFinite(dist)) { unreadable.push(`${key} --${token} vs ${label}: distance did not compute`); continue; }
+        if (dist < SYNTAX_INK_SEPARATION) {
+          failures.push(
+            `${key} --${token} ${ink} sits ${dist.toFixed(4)} from ${label} ${other} in OKLab — under the ` +
+            `${SYNTAX_INK_SEPARATION} the repulsion pass exists to hold (it targets 0.035)`,
+          );
+        }
+      }
+    }
+  }
+  if (unreadable.length) {
+    errors.push(
+      `${unreadable.length} syntax-ink operand(s) could not be measured, so they were NOT checked: ` +
+      `${unreadable.slice(0, 6).join('; ')}${unreadable.length > 6 ? `, +${unreadable.length - 6} more` : ''}. ` +
+      'An unmeasurable value is an UNCHECKED value, not a passing one — this gate fails closed on purpose.',
+    );
+  }
+  // A gate that cannot fail is also a claim. 36 blocks x 3 tokens x (2 surfaces + 4 separation
+  // pairs for the two repelled roles) is well over 200 measurements.
+  if (evaluated < 200) {
+    errors.push(
+      `checkSyntaxInkContrast made only ${evaluated} measurements across ${blocks.size} blocks — ` +
+      'that is a broken scan, not a clean tree.',
+    );
+    return;
+  }
+  if (failures.length) {
+    errors.push(
+      `${failures.length} Studio syntax ink value(s) fail on the editor canvas: ${failures.slice(0, 8).join('; ')}` +
+      `${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. The tier is derived by deriveSyntaxInks ` +
+      'in tools/build-docs-portal.js — fix the recipe (or the palette seed it reads) rather than the emitted ' +
+      'value, which `npm run docs:landing-tokens` regenerates over.',
+    );
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -8392,6 +8655,8 @@ function run() {
   checkCommittedPdfs(errors);
   checkChangelogFragments(errors);
   checkDanglingTokenReads(errors);
+  checkAnimaColorVocabulary(errors);
+  checkSyntaxInkContrast(errors);
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
   return {
@@ -8534,6 +8799,8 @@ module.exports = {
   checkVoiceSampleAssets,
   listSourceFiles,
   checkDanglingTokenReads,
+  checkAnimaColorVocabulary,
+  checkSyntaxInkContrast,
   SANCTIONED_DANGLING_TOKEN_READS,
   stripCodeComments,
   listFilesByExt,

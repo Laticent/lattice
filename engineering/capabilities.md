@@ -410,3 +410,4 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player's TOUCH input (#1558). |
+| `tools/verify-studio-syntax.js` | Verify the Studio's derived syntax ink tier against the REAL built Studio — every |
