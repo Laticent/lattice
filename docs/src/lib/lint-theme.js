@@ -143,7 +143,11 @@ export const tooltipShell = {
  * weight as CodeMirror's own base theme (both compile to a single generated
  * class), so they win on load order without a single `!important`.
  *
- * @type {Record<string, Record<string, string>>}
+ * Values are declaration maps, EXCEPT the `@media` key, whose value is itself a
+ * map of selector -> declarations. That is why the type is a union rather than a
+ * flat `Record<string, Record<string, string>>`.
+ *
+ * @type {Record<string, Record<string, string> | Record<string, Record<string, string>>>}
  */
 export const lintTheme = {
 	// ── The list ────────────────────────────────────────────────────────────
@@ -154,14 +158,41 @@ export const lintTheme = {
 		listStyle: 'none',
 		margin: '0',
 		padding: '0',
-		borderRadius: '7px', // the shell's 8px less its 1px border, so corners stay round
+		// NOTE: no border-radius here — see the `:not(.cm-tooltip)` rule below.
 		// Narrow enough to sit BESIDE the code it describes rather than blanket it,
 		// and never wider than a 390px viewport can hold.
 		maxWidth: 'min(340px, calc(100vw - 28px))',
 		maxHeight: 'min(46vh, 320px)',
 		overflowY: 'auto',
-		overscrollBehavior: 'contain',
+		// `overscroll-behavior: contain` was here and is deliberately gone: it blocks
+		// the scroll chain once this box is exhausted, which is the wrong default for
+		// a transient popup sitting over the thing the reader actually wants to move.
+		//
+		// HONEST LIMITATION, measured and NOT fixed by that removal: with the pointer
+		// over a genuinely overflowing card (41px of internal range on a 193px box),
+		// 20 wheel ticks scroll the card to its end and the editor beneath does not
+		// move — in a fresh gesture either. The likely cause is that CodeMirror
+		// positions this tooltip `position: fixed`, so it is not in `.cm-scroller`'s
+		// scroll chain at all and `overscroll-behavior` was never the deciding
+		// factor. The content stays reachable (the card scrolls), and moving the
+		// pointer off the card restores editor scrolling, so this is a friction, not
+		// a trap. Removing `contain` is still correct on its own terms; fixing the
+		// chain properly would mean not making this box a scroll container, which
+		// needs a different geometry decision than a max-height.
 	},
+	// The inner list's radius, and ONLY when the list is inside the shell.
+	//
+	// `@codemirror/lint` mounts this `<ul>` two different ways: on the SQUIGGLE
+	// hover it sits inside a `.cm-tooltip` wrapper (so it needs the shell's 8px
+	// less the shell's 1px border to stay flush), and on the GUTTER-MARKER path the
+	// `<ul>` IS the `.cm-tooltip` (so it needs the shell's own 8px, not an inset).
+	// Written unconditionally, this rule collided with `tooltipShell`'s 8px at equal
+	// specificity on that second path, and the winner was decided by the order the
+	// two objects happened to be spread in — which differed between the consumers,
+	// so the same shared module produced a 7px popup on one surface and 8px on the
+	// other. The `:not()` states the actual intent and makes the outcome
+	// order-independent.
+	'.cm-tooltip-lint:not(.cm-tooltip)': { borderRadius: '7px' },
 	// Two findings on one span share a popup; stacked hover tooltips are separate
 	// sections. Both get the popup's own divider instead of the base theme's #bbb.
 	'.cm-tooltip-lint > li + li': { borderTop: HAIRLINE },
@@ -342,16 +373,42 @@ export const lintTheme = {
 	// ── The gutter marker ───────────────────────────────────────────────────
 	// A brand-colored disc in place of CodeMirror's fixed-color SVG glyph, so
 	// the gutter, the squiggle, and the card read as one system.
+	//
+	// `content: none` is the load-bearing line, NOT `backgroundImage`. The package
+	// draws this marker with `content: url(<svg …>)` carrying hardcoded `#f87` /
+	// `#fe8` fills (@codemirror/lint's baseTheme, `.cm-lint-marker-{error,warning,
+	// info}`), which makes the div a REPLACED element — so a background paints
+	// BEHIND the stock glyph rather than instead of it, and the result is a colored
+	// ring around an untouched salmon circle. `backgroundImage` is the right lever
+	// for `.cm-lintRange-*` (the squiggle really is a background image) and the
+	// wrong one here; both are kept because each clears its own surface.
 	'.cm-gutter-lint': { width: '0.9em' },
 	'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px' },
-	'.cm-lint-marker': { width: '0.7em', height: '0.7em', backgroundImage: 'none', borderRadius: '50%' },
-	'.cm-lint-marker-error': { backgroundColor: 'var(--fail)' },
-	'.cm-lint-marker-warning': { backgroundColor: 'var(--warn)' },
-	'.cm-lint-marker-info': { backgroundColor: MUTED_INK },
+	'.cm-lint-marker': {
+		width: '0.7em',
+		height: '0.7em',
+		content: 'none',
+		backgroundImage: 'none',
+		borderRadius: '50%',
+	},
+	'.cm-lint-marker-error': { content: 'none', backgroundColor: 'var(--fail)' },
+	'.cm-lint-marker-warning': { content: 'none', backgroundColor: 'var(--warn)' },
+	'.cm-lint-marker-info': { content: 'none', backgroundColor: MUTED_INK },
 
 	// ── The lint panel (Ctrl-Shift-M) ───────────────────────────────────────
-	// The third view of the same stream; same severity tokens so it cannot drift
-	// from the card and the gutter.
+	// Kept for the surface that can reach it, but do NOT read these as "the third
+	// view of the same stream" — measured, they largely do not render:
+	//   · The STUDIO has no lint panel at all. `Editor.tsx` registers defaultKeymap
+	//     + historyKeymap + completionKeymap and no `lintKeymap`, and no control
+	//     calls `openLintPanel`, so every rule here is dead on that surface.
+	//   · On the PLAYGROUND the panel opens, but the selected-row rule below loses:
+	//     it is (0,4,0) and the package ships `&:focus [aria-selected]` at (0,5,0),
+	//     while `openLintPanel` focuses the list — so the selection paints raw
+	//     system Highlight blue. The panel also carries no glyph, no severity word,
+	//     and the stock `#444` action button.
+	// Bringing the panel up to the card's treatment is real work on a surface with
+	// no entry point in the Studio; it is deliberately NOT in this change's scope,
+	// and the honest state is recorded here rather than implied away.
 	'.cm-panel.cm-panel-lint': {
 		backgroundColor: 'var(--bg-alt)',
 		borderTop: '1px solid var(--border)',
@@ -363,6 +420,30 @@ export const lintTheme = {
 	'.cm-panel.cm-panel-lint .cm-diagnostic-error': { borderLeftColor: 'var(--fail)' },
 	'.cm-panel.cm-panel-lint .cm-diagnostic-warning': { borderLeftColor: 'var(--warn)' },
 	'.cm-panel.cm-panel-lint button[name="close"]': { color: 'var(--text-muted)' },
+
+	// ── Forced colors / Windows High Contrast ───────────────────────────────
+	// SHAPE is this design's primary severity channel, and it is carried by
+	// `background-color` — on a masked pseudo-element in the card, and on the disc
+	// in the gutter. Forced-colors mode overrides `background-color` to the system
+	// Canvas, so both silhouettes go the same color as what they sit on and vanish.
+	// The card degrades gracefully (the WORD is a third channel), but the gutter has
+	// no third channel — and since the marker's stock `content:` SVG is cleared
+	// above, without this block the gutter would be EMPTY under High Contrast, which
+	// is worse than what the package shipped.
+	//
+	// System color KEYWORDS are honored in forced-colors mode (that is the escape
+	// hatch the mode provides), so painting the silhouettes in `CanvasText` keeps
+	// shape working as the channel the design claims it is. Severity hue is gone —
+	// which is correct; under forced colors the user has asked for exactly that —
+	// and the octagon / triangle / circle plus the word still separate the three.
+	'@media (forced-colors: active)': {
+		'.cm-tooltip-lint > li.cm-diagnostic::before': { backgroundColor: 'CanvasText' },
+		'.cm-lint-marker': { backgroundColor: 'CanvasText' },
+		// The pill's fill is forced to Canvas, so its transparent border is what
+		// would read as the control's edge; make it explicit rather than relying on
+		// the UA to promote it.
+		'.cm-tooltip-lint .cm-diagnosticAction': { borderColor: 'ButtonText' },
+	},
 };
 
 /**
@@ -379,10 +460,19 @@ export const lintTheme = {
  * On a phone the card gets reading sizes and the fix becomes a full-width 44px
  * target instead of a 28px pill.
  *
+ * These are POINTER rules, not width rules, and the distinction matters: a coarse
+ * pointer means fingers, which is a target-size and type-size argument at any
+ * width. It is NOT a licence to widen the card — an earlier cut also relaxed
+ * `max-width` to `calc(100vw - 24px)` here, which on every touchscreen laptop,
+ * Surface and landscape tablet produced an 893px full-bleed banner with a
+ * half-screen-wide fix button, the exact opposite of the 340px "sit beside the
+ * code, don't blanket it" rule it was meant to serve. The narrow cap already has
+ * `calc(100vw - 28px)` in it, so a real phone is handled without any override.
+ * Anything genuinely width-conditional belongs in a width media query.
+ *
  * @type {Record<string, Record<string, string>>}
  */
 export const lintThemeCoarse = {
-	'.cm-tooltip-lint': { maxWidth: 'calc(100vw - 24px)' },
 	'.cm-tooltip-lint > li.cm-diagnostic': { padding: '12px 14px', rowGap: '9px' },
 	'.cm-tooltip-lint > li.cm-diagnostic::before': { width: '17px', height: '17px' },
 	'.cm-tooltip-lint > li.cm-diagnostic::after': { fontSize: '13px' },

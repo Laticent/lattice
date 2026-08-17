@@ -126,6 +126,72 @@ describe('lintTheme', () => {
 		expect(lintThemeCoarse['.cm-tooltip-lint .cm-diagnosticAction'].minHeight).toBe('44px');
 	});
 
+	it('clears the gutter marker with content, not just backgroundImage', () => {
+		// The package draws this marker as `content: url(<svg>)` with a hardcoded
+		// #f87 / #fe8 fill, which makes the div a REPLACED element — a background
+		// then paints BEHIND the stock glyph instead of replacing it, giving a
+		// two-tone bullseye. `backgroundImage` is the right lever for the squiggle
+		// (genuinely a background image) and the wrong one here.
+		for (const sev of ['error', 'warning', 'info']) {
+			expect(lintTheme[`.cm-lint-marker-${sev}`].content, `${sev} marker must clear content`).toBe('none');
+		}
+		expect(lintTheme['.cm-lint-marker'].content).toBe('none');
+	});
+
+	it('keeps the severity silhouettes visible under forced colors', () => {
+		// Shape is this design's primary severity channel and it is carried by
+		// background-color — which forced-colors mode overrides to Canvas, making
+		// both the card glyph and the gutter disc the same color as what they sit
+		// on. The gutter has no second channel, and its stock `content:` SVG (which
+		// forced-colors WOULD have preserved) is cleared above, so without this the
+		// gutter is empty in High Contrast — worse than the package shipped.
+		// The @media value is a selector map, not a declaration map — narrow it.
+		const fc = lintTheme['@media (forced-colors: active)'] as Record<string, Record<string, string>>;
+		expect(fc).toBeDefined();
+		// System color keywords are the sanctioned escape hatch and ARE honored.
+		expect(fc['.cm-lint-marker'].backgroundColor).toBe('CanvasText');
+		expect(fc['.cm-tooltip-lint > li.cm-diagnostic::before'].backgroundColor).toBe('CanvasText');
+	});
+
+	it('does not block the scroll chain with overscroll-behavior', () => {
+		// `contain` blocks chaining once this box is exhausted, which is the wrong
+		// default for a transient popup over the thing the reader wants to move.
+		// NOTE the honest scope: removing it did NOT by itself make the editor scroll
+		// under the pointer (measured — the tooltip is position:fixed and so is not in
+		// .cm-scroller's chain at all). This pins the declaration, not a behavior; see
+		// the comment on `.cm-tooltip-lint` in lint-theme.js.
+		expect(lintTheme['.cm-tooltip-lint'].overscrollBehavior).toBeUndefined();
+	});
+
+	it('keeps coarse-pointer rules to target and type size, never width', () => {
+		// A coarse pointer means fingers — a target-size argument at ANY width. It is
+		// not a licence to widen the card: relaxing max-width here produced an 893px
+		// full-bleed banner on every touchscreen laptop and landscape tablet, the
+		// opposite of the 340px "sit beside the code" rule. The narrow cap already
+		// carries `calc(100vw - 28px)`, so real phones need no override.
+		// Sizing the GLYPH up on touch is fine and expected; what must never appear
+		// is a width override on the popup container itself.
+		for (const [selector, decls] of Object.entries(lintThemeCoarse)) {
+			for (const prop of ['width', 'maxWidth', 'minWidth']) {
+				expect(Object.keys(decls), `${selector} must not size the popup container in a pointer query`).toSatisfy(
+					(keys: string[]) => !keys.includes(prop) || !selector.replace(/::?[a-z-]+$/, '').endsWith('.cm-tooltip-lint'),
+				);
+			}
+		}
+		// Stated positively: the container carries no coarse-pointer rule at all.
+		expect(lintThemeCoarse['.cm-tooltip-lint']).toBeUndefined();
+	});
+
+	it('scopes the inner-list radius so the two spread orders cannot disagree', () => {
+		// On the gutter path the <ul> IS the .cm-tooltip, so an unconditional 7px on
+		// .cm-tooltip-lint collided with tooltipShell's 8px at equal specificity and
+		// the winner depended on which object each consumer spread first — which
+		// differed, producing 7px on one surface and 8px on the other from ONE
+		// shared module.
+		expect(lintTheme['.cm-tooltip-lint'].borderRadius).toBeUndefined();
+		expect(lintTheme['.cm-tooltip-lint:not(.cm-tooltip)'].borderRadius).toBe('7px');
+	});
+
 	it('gives BOTH consumers the tooltip shell', () => {
 		// The lint card styles only the popup's interior and lets `.cm-tooltip` carry
 		// the fill — which works only if every consuming surface actually themes that
