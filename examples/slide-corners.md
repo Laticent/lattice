@@ -69,6 +69,22 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
+<!-- _class: cards-grid -->
+<!-- _footer: "Card grid · cards-grid" -->
+
+## The export decides whether it survives
+
+- A corner is a hole
+  - the slide stops painting, so something behind must show
+- PNG and WebP keep it
+  - an alpha channel can carry a real hole
+- PDF and PPTX square it
+  - a page is paper; a PPTX corner takes the reader's template
+- This very PDF is square
+  - which is why you are reading a full-bleed page right now
+
+---
+
 <!-- _class: closing -->
 <!-- _paginate: false -->
 <!-- _footer: "Closing slide · closing" -->

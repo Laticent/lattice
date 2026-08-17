@@ -30,6 +30,7 @@
 // The theme graph is DECLARED (manifest `extends`, baked into THEME_EDGES), not
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
@@ -621,7 +622,7 @@ export function forceSectionVisibleForCapture(section) {
 // finish face, lazy-render gates forced open), run `capture(width, height,
 // pixelRatio)`, and restore — shared by the PNG (PPTX) and canvas (PDF worker)
 // rasterizers so the fixups can never drift apart.
-async function withCaptureFixups(section, capture, pixelRatioOverride) {
+async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTarget) {
 	// The spectrum ribbon is a `border-top` whose `border-image-source` is a
 	// linear-gradient. html-to-image inlines that computed border-image and
 	// MIS-RENDERS it — filling the gradient across the whole element instead of
@@ -670,18 +671,66 @@ async function withCaptureFixups(section, capture, pixelRatioOverride) {
 	// a root-only class would be dropped in the clone. Removed in the finally.
 	const hadExporting = section.classList.contains('lattice-exporting');
 	if (!hadExporting) section.classList.add('lattice-exporting');
-	// Defeat the preview's lazy-render gates (content-visibility virtualization +
-	// the `.lattice` visibility reveal) so html-to-image rasterizes a laid-out,
-	// painted slide even when the preview was never shown (phone Edit-tab export).
-	const restoreVisibility = forceSectionVisibleForCapture(section);
-	const { w, h } = slideGeom(section);
+	// SQUARE THE CORNER when this target cannot hold it. A rounded corner is a HOLE —
+	// the slide stops painting and whatever is behind shows through — so it only reads
+	// as a corner in an artifact that can carry "nothing". A `.pdf` page is paper; a
+	// `.pptx` image sits on the RECIPIENT's slide background (neither exporter writes
+	// `<p:bg>`), so the corner color would be a property of their template; `jpeg` has
+	// no alpha channel at all. Those three square. png/webp keep the real hole.
+	//
+	// This EVICTS the token rather than undoing the clip. The predecessor of this line
+	// was a `borderRadius: '0'` in captureOptions, which flattened nothing: `clip-path`
+	// does the actual rounding (a border-image will not honor border-radius, which is
+	// why the register uses clip-path at all) and `border-radius` only rides along for
+	// consumers to read back. Naming one and not the other is how the Studio shipped
+	// transparent corners into PPTX while the CLI baked white into the same deck.
+	// Capability table + per-format measurements: lib/core/corner-export-capability.mjs.
+	//
+	// TWO properties carry a corner into the clone and BOTH have to be handled, which is
+	// the trap the previous code fell into from the other side:
+	//   · `clip-path`  — the deck's real corner, from `section.corners-rounded`. Evicting
+	//                    the token is what clears it; resetting border-radius does not.
+	//   · `border-radius` — html-to-image DOES honor this when it inlines computed style,
+	//                    and the capture frame's own chrome sets `border-radius:6px` on
+	//                    every section (deck-preview.js — the card look, with its box
+	//                    shadow). That 6px belongs to the PREVIEW, not to the deck, so it
+	//                    must never reach an artifact. A bare `borderRadius:'0'` in
+	//                    captureOptions used to strip it, which is why exports looked
+	//                    square before the corners register existed — but it also could
+	//                    not clear the real clip, which is how the Studio ended up
+	//                    shipping transparent PPTX corners while the CLI baked white.
+	// So: evict the token, and zero the radius unless this is a corner we are KEEPING.
+	const wantsRound = section.classList.contains('corners-rounded');
+	const keepRound = wantsRound && cornerSurvivesExport(cornerTarget);
+	const hadRounded = wantsRound && !keepRound;
+	const prevRadius = section.style.borderRadius;
+	// The mutation itself is INSIDE the try below, not here — belt-and-braces, so every
+	// state this function changes is unwound by one `finally` rather than some of it
+	// depending on where a throw lands.
+	//
+	// It is NOT protecting the live preview, and an earlier version of this comment
+	// claimed it was. `section` always comes from `sectionsOf(frame)`, and every frame is
+	// the disposable offscreen iframe `createCaptureFrame` builds, which every caller
+	// tears down in its own `finally`. A throw takes the whole frame with it, so there is
+	// no node left behind to be seen and no later export that could read a stripped
+	// `corners-rounded` and square a rounded deck. That failure mode cannot happen here.
+	let restoreVisibility = () => {};
+	let w = 0;
+	let h = 0;
 	// Cap the device-pixel multiplier so a 4K box (3840) rasterizes near its
 	// native 3840 rather than a 7680 canvas that risks an OOM in the browser;
 	// HD keeps the 2× retina capture it always had. The image-set export passes an
 	// explicit ratio (its size preset / thumbnail scale, already OOM-capped by the
 	// shared kernel), which wins over this default.
-	const pixelRatio = pixelRatioOverride != null ? pixelRatioOverride : (w > 2048 ? 1 : 2);
 	try {
+		if (hadRounded) section.classList.remove('corners-rounded');
+		if (!keepRound) section.style.borderRadius = '0';
+		// Defeat the preview's lazy-render gates (content-visibility virtualization +
+		// the `.lattice` visibility reveal) so html-to-image rasterizes a laid-out,
+		// painted slide even when the preview was never shown (phone Edit-tab export).
+		restoreVisibility = forceSectionVisibleForCapture(section);
+		({ w, h } = slideGeom(section));
+		const pixelRatio = pixelRatioOverride != null ? pixelRatioOverride : (w > 2048 ? 1 : 2);
 		return await capture(w, h, pixelRatio);
 	} finally {
 		section.style.borderImageSource = prev.borderImageSource;
@@ -692,6 +741,8 @@ async function withCaptureFixups(section, capture, pixelRatioOverride) {
 		section.style.backgroundSize = prev.backgroundSize;
 		restoreVisibility();
 		if (!hadExporting) section.classList.remove('lattice-exporting');
+		if (hadRounded) section.classList.add('corners-rounded');
+		if (!keepRound) section.style.borderRadius = prevRadius;
 	}
 }
 
@@ -704,7 +755,11 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS) {
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
-		style: { transform: 'none', margin: '0', boxShadow: 'none', outline: 'none', borderRadius: '0' },
+		// No `borderRadius` here: it is set on the SECTION in withCaptureFixups, which is
+		// the only place that knows whether this corner is being kept or squared. A blanket
+		// reset at this layer is what used to flatten the preview chrome's 6px AND the
+		// deck's own corner indiscriminately — see the note there.
+		style: { transform: 'none', margin: '0', boxShadow: 'none', outline: 'none' },
 		filter: (n) => !(n.classList?.contains('db-active')),
 	};
 }
@@ -714,21 +769,21 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS) {
 // every font itself rather than chasing the cross-origin Google-Fonts @import.
 // The data-URL flavor — PPTX and chart export consume it directly. The PDF path
 // uses rasterizeSectionToBitmap below so the PNG encode never runs on this thread.
-async function rasterizeSection(section, fontEmbedCSS) {
+async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
 	const { toPng } = await import('html-to-image');
-	return withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)));
+	return withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)), undefined, cornerTarget);
 }
 
 // Rasterize one rendered slide to a transferable ImageBitmap. Same clone + draw
 // as rasterizeSection (that part needs the DOM and stays here), but it stops at
 // the canvas: the expensive PNG deflate (canvas.toDataURL) and jsPDF's re-encode
 // move to the export worker, which receives the bitmap zero-copy.
-async function rasterizeSectionToBitmap(section, fontEmbedCSS) {
+async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget) {
 	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pixelRatio) => {
 		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
 		return await createImageBitmap(canvas);
-	});
+	}, undefined, cornerTarget);
 }
 
 // ── PDF (one-click image PDF) ─────────────────────────────────────────────────
@@ -807,7 +862,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 				await Promise.race([done, new Promise((r) => { wake = r; })]);
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS);
+			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf');
 			worker.postMessage({ type: 'slide', index: i, bitmap }, [bitmap]);
 			// Yield a macrotask between slides so the clone/draw work (which must stay
 			// on this thread) never runs back-to-back without a paint.
@@ -825,8 +880,13 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // BLACK), encoded on this thread. NOT html-to-image's toJpeg — its
 // `backgroundColor` option overrides the slide's own background (see the header
 // warning), so we composite ourselves, exactly like the worker lane does.
-async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat) {
-	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS);
+// Forwards `cornerTarget` on BOTH branches. Today every caller passes 'pdf', which squares
+// either way, so letting the JPEG branch drop it was inert — and inert is exactly how a
+// wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
+// would read this signature, pass 'png', and silently get a square corner. The kernel's
+// fail-safe default would mask that rather than catch it.
+async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget) {
+	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget);
 	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pixelRatio) => {
 		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
@@ -838,7 +898,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat) {
 		ctx.fillRect(0, 0, out.width, out.height);
 		ctx.drawImage(canvas, 0, 0);
 		return out.toDataURL('image/jpeg', 0.95);
-	});
+	}, undefined, cornerTarget);
 }
 
 // Legacy lane: the original all-main-thread jsPDF build — the full-bleed colour PDF
@@ -855,7 +915,7 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 	pdf.setProperties(pdfProps(name, meta, sections.length));
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat);
+		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf');
 		if (i > 0) pdf.addPage([pageW, pageH], orientation);
 		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
 		// Review comments for this slide → sticky notes on the page just drawn (same
@@ -898,7 +958,15 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat));
+			// The corner target is `'pdf'`, NOT `pageFormat`. Those are different axes and this
+			// is the third place conflating them would have gone wrong (see the underlay note in
+			// rasterizeSectionToBlob): `pageFormat` is how each slide image is ENCODED for
+			// embedding, while the DESTINATION of every image this function produces is a PDF —
+			// both callers (`renderPdfBlob`'s sheet lane and the Print drawer) hand the result
+			// straight to `assembleSheetPdf`. Passing 'png' here would keep the rounded corner
+			// and composite its transparency onto the page, which is the pale-notch artifact the
+			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
+			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf'));
 			// Yield a macrotask between slides so the progress line paints (see the note
 			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
 			await new Promise((r) => setTimeout(r));
@@ -1105,7 +1173,7 @@ export async function exportPptx(render, name, onStatus, meta) {
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const png = await rasterizeSection(sections[i], fontEmbedCSS);
+		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx');
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -1233,7 +1301,9 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		// PNG tier — rasterize the chart slide via the shared html-to-image path.
 		if (onStatus) onStatus('Rasterizing chart…');
 		const { fontEmbedCSS } = await sectionsOf(frame);
-		const dataUrl = await rasterizeSection(sec, fontEmbedCSS);
+		// Destination is a `.png`, so the corner survives — the same slide must not come out
+		// rounded through the image set and square through this door.
+		const dataUrl = await rasterizeSection(sec, fontEmbedCSS, 'png');
 		download(dataUrlToBlob(dataUrl), `${safeName(name)}-chart.png`);
 		if (onStatus) onStatus('Chart downloaded as PNG.');
 	} finally { dispose(); }
@@ -1251,10 +1321,12 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS));
 		const meta = FORMAT_META[format] || FORMAT_META.png;
 		let canvas = src;
-		if (meta.lossy) {
-			// JPEG/WebP have no alpha — a bare encode composites any stray transparency onto BLACK
-			// (the PDF lane's rasterizeSectionToDataUrl does this for the same reason). Paint an
-			// opaque white underlay first so a transparent slide region reads white, not black.
+		// The underlay is about ALPHA, not about lossiness — those are different axes and
+		// conflating them is what would flatten WebP's corner. JPEG genuinely has no alpha
+		// channel, so a bare encode composites stray transparency onto BLACK and it needs an
+		// opaque underlay. WebP is lossy but DOES carry alpha, so it keeps the corner the
+		// capability table says it can hold (lib/core/corner-export-capability.mjs).
+		if (!cornerSurvivesExport(format)) {
 			const flat = document.createElement('canvas');
 			flat.width = src.width;
 			flat.height = src.height;
@@ -1274,7 +1346,7 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 			throw new Error(`This browser can't encode ${meta.mime}. Try PNG.`);
 		}
 		return blob;
-	}, pixelRatio);
+	}, pixelRatio, format);
 }
 
 // Export the whole deck as an image set — a .zip of one raster per slide plus

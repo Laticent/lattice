@@ -1173,12 +1173,36 @@ square deck: a unitless zero inside `calc()` is a `<number>`, which makes the wh
 declaration invalid and drops the marker into flow. Gated by an absolute-distance
 assertion in `test/integration/parity/content-clipped-pill.test.js`.
 
-**In an EXPORT there is no app behind the slide — there is the page.** A rounded corner
-exposes it, so on a dark deck every page shows white paper at all four corners, and on a
-light deck the corner reads only on the dark bookends (`title`, `divider`, `closing`) and
-is invisible on body slides. That is not a defect to be fixed downstream; it is what
-rounding a page means. Decide whether a deck wants it before setting `corners: rounded` on
-something destined for print.
+**In an EXPORT the corner is a capability of the FORMAT, and a format that cannot hold it
+renders square.** A rounded corner is a hole — the slide stops painting and whatever is
+behind shows through — so it only reads as a corner where the artifact can carry
+"nothing". Where it cannot, the hole fills with something we do not control, and you get
+four pale notches rather than a rounded slide. So the engine squares those formats rather
+than rounding then flattening:
+
+| Export | Corner | Why |
+|---|---|---|
+| `.png`, `.zip` PNG / WebP (slides **and** thumbnails) | **rounded** | an alpha channel carries a real hole |
+| `.html`, `--player` / `--fluid` — **on screen** | **rounded** | a live document; the host paints behind it |
+| the same documents, **printed** | square | a printer's page is paper too, so `@media print` squares them |
+| `.zip` JPEG | square | the format has no alpha channel |
+| `.pdf` (vector and `--raster`) | square | a page is paper |
+| `.pptx` | square | the image sits on the **recipient's** slide background, so the corner would take the color of their PowerPoint template |
+
+This holds identically on the CLI and in the Studio's Share sheet. **Want a rounded
+artifact? Export PNG or WebP.**
+
+Two consequences worth knowing. A deck with no rounded **slides** is unaffected in every
+format — square is still the default and still stamps no token. Note that is about slides,
+not about the front-matter key: the transparent capture is gated on a slide actually
+carrying the corner, so a deck that says nothing in its front matter but opts one slide in
+with `_class: corners-rounded` *does* get the alpha channel on that slide, and correctly
+so. And in Lattice's own `--player` viewer the backdrop is the deck's own `--bg`, so a
+rounded corner there is *invisible* rather than wrong: the slide and the surface behind it
+are the same color.
+
+Record, with the per-format measurements on both exporters:
+`engineering/decisions/2026-08-17-corner-export-capability.md`.
 
 | Token / class | Effect |
 |---|---|
