@@ -51,12 +51,23 @@ function lensStatus(slides: string[], reg: LensRegistry, lens: LensDef): { statu
 // lens name from wrapping in the collapsed row.
 const STATUS_COPY: Record<LensStatus, { label: string; full: string; tone: string }> = {
 	empty: { label: 'Empty', full: 'No slides yet — nothing to show a reader.', tone: 'text-muted-foreground border-border' },
-	// Three states, three registers: `draft` is not a PROBLEM (nothing is wrong, it
-	// simply isn't published yet) so it reads NEUTRAL, and `drifted` — the one state
-	// that wants the author to act — keeps the palette's warning hue to itself. Giving
-	// draft `--warn` too would collapse the pair to one color and leave the label text
-	// as the only difference between "not yet approved" and "approval went stale".
-	draft: { label: 'Draft', full: 'Draft — hidden from readers until you approve it.', tone: 'text-[var(--text-muted)] border-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]' },
+	// Three states, three registers, on TWO axes — alarm and weight.
+	//
+	// ALARM: `drifted` is the only state that wants the author to act, so it keeps the
+	// palette's warning hue to itself. `draft` is not a PROBLEM — nothing is wrong, it
+	// simply isn't published yet — so it must not borrow `--warn`; doing so would
+	// collapse the pair to one color and leave the label text as the only difference
+	// between "not yet approved" and "approval went stale". (It used to read a hardcoded
+	// amber through an undefined `--chart-4`, which is exactly that false alarm, on every
+	// palette at once — #1688.)
+	//
+	// WEIGHT: neutral is not the same as quiet. `draft` is the PRIMARY state of a lens
+	// nobody has approved yet, and it shares the row with the `Starter` provenance tag
+	// and sits in a list beside `empty`/`hidden` — all of which are muted. At
+	// `--text-muted` it flattened into them and the row lost its scan order. So it takes
+	// `--text-heading`: the same no-alarm register, one step up in weight, which is what
+	// puts the state marker above the tags again.
+	draft: { label: 'Draft', full: 'Draft — hidden from readers until you approve it.', tone: 'text-[var(--text-heading)] border-[color-mix(in_srgb,var(--text-heading)_40%,transparent)]' },
 	approved: { label: 'Approved', full: 'Approved — readers can open this view.', tone: 'text-[var(--pass)] border-[color-mix(in_srgb,var(--pass)_40%,transparent)]' },
 	drifted: { label: 'Edited', full: 'Edited since approval — hidden from readers until you re-approve.', tone: 'text-[var(--warn)] border-[color-mix(in_srgb,var(--warn)_40%,transparent)]' },
 	hidden: { label: 'Staged', full: 'Staged (hidden) — not offered to readers even once approved.', tone: 'text-muted-foreground border-border' },
