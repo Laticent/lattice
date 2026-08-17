@@ -703,6 +703,20 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
+// HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
+// — the `--css` layout sheet and the palette file are caller-supplied by construction,
+// and a deck's own front-matter `style:` block rides in the same element. A `<style>`'s
+// content is HTML RAWTEXT: it ends at the first `</style`, from inside a well-formed CSS
+// comment or string just the same, and everything after it is parsed as MARKUP. In the
+// emitted `.html` and in `--player` that markup ships to whoever opens the file (a
+// `<link rel=stylesheet>` becomes a beacon in every copy); in the render page it runs in
+// the browser this process drives. The guard escapes ONLY the element terminator, is
+// idempotent, and returns its input BY IDENTITY when there is nothing to escape — which
+// is every real stylesheet, so exported bytes are unmoved. `require()` of an `.mjs` is
+// native on this repo's pinned engines (>=22.12) and the house idiom here (leading-is.js,
+// comment-directive.js, boundary-parser.js, math-block-rule.js all do it).
+// See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md.
+const { sanitizeStyleText } = require('./lib/core/sanitize-style-text.mjs');
 // Pin /CreationDate + /ModDate on the way out, so re-rendering an unchanged deck
 // writes byte-identical bytes and git stores nothing new (HARD RULE #1: both PDF
 // write sites below call the one kernel).
@@ -2232,13 +2246,13 @@ const deckTitle =
   'Lattice deck';
 
 // ── HTML document ─────────────────────────────────────────────────────────────
-const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
-<title>${escapeHtml(deckTitle)}</title>
-${embeddedFonts}
-${katexCssLink}
-<style>
-@page { size: ${slideW}px ${slideH}px; margin: 0; }
+// The page's single deck `<style>`, assembled as ONE string so the whole element body
+// goes through `sanitizeStyleText` at the point it is embedded, rather than each
+// caller-influenced piece being remembered separately. Three of the pieces below are
+// caller-supplied — `css` (the palette chain + the `--css` layout sheet) and
+// `globalStyle` (the deck's own front-matter `style:` block) — and a `</style>` in any
+// of them ends the element for the parser, comment or no comment (HARD RULE #22).
+const deckStyleText = `@page { size: ${slideW}px ${slideH}px; margin: 0; }
 body  { margin: 0; padding: 0; }
 ${css}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
@@ -2271,7 +2285,15 @@ main#deck{margin:0;padding:0;display:block}
    Fix: make <main> transparent to the flex column — same axis, full width — so the
    slides resolve their percentage against the same box they did before. */
 :root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
-${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}
+${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}`;
+
+const htmlDoc = `<!DOCTYPE html>
+<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<title>${escapeHtml(deckTitle)}</title>
+${embeddedFonts}
+${katexCssLink}
+<style>
+${sanitizeStyleText(deckStyleText)}
 </style></head><body>
 <a class="lat-skip-link" href="#deck">Skip to the slides</a>
 ${a11yTextureDefs}
@@ -3336,7 +3358,12 @@ async function renderBody(browser, g, closeBrowser) {
               // scratch page is trusted for COLOR only — its `@font-face` urls are relative to about:blank
               // so text renders in a fallback font, but glyph geometry is baked by mmdc and font bytes are
               // embedded post-hoc (standaloneFontFaceCss), so only the flattened COLORS are ever read here.
-              const scratchDoc = `<!DOCTYPE html><html style="color-scheme:${lookMode === 'dark' ? 'dark' : 'light'}"><head><meta charset="utf-8"><style>${layoutCSS}\n${lookPaletteCss}</style></head><body><section class="${sectionLookClass}" data-lattice-slide="1">${parts.join('')}</section></body></html>`;
+              // Same `<style>` RAWTEXT rule as the deliverable document (HARD RULE #22), and
+              // `layoutCSS` is the caller's `--css` sheet: a `</style>` here would end the
+              // element and hand the remainder to the parser as markup in a live page THIS
+              // process drives. Nothing in the scratch page ships, but a script node in it
+              // reads and writes the render browser all the same — and the guard is free.
+              const scratchDoc = `<!DOCTYPE html><html style="color-scheme:${lookMode === 'dark' ? 'dark' : 'light'}"><head><meta charset="utf-8"><style>${sanitizeStyleText(`${layoutCSS}\n${lookPaletteCss}`)}</style></head><body><section class="${sectionLookClass}" data-lattice-slide="1">${parts.join('')}</section></body></html>`;
               const scratch = await g(() => page.browser().newPage(), 'look-diagram scratch page');
               try {
                 await g(() => scratch.setContent(scratchDoc, { waitUntil: 'networkidle0', timeout: 60000 }), 'load look scratch');
@@ -3820,10 +3847,15 @@ async function prunePlayerCssInPage(playerHtml) {
 
     // Apply whichever prunes survived. Replacer FUNCTIONS, not strings — else a
     // `$&`/`$1`/backtick in the CSS or a data-URI would be interpreted by replace().
+    // Re-sanitized on the way back in (HARD RULE #22): both strings have been through
+    // css-tree's parse→generate since the document guarded them, and a serializer is
+    // entitled to normalize an escape away. The document's own guard cannot cover CSS
+    // that left the document and came back, so the re-wrap owns it — and it is free,
+    // since the guard returns its input by identity for every real stylesheet.
     let html = playerHtml;
-    if (cssOk) html = html.replace(target.full, () => `<style>${cssResult.css}</style>`);
+    if (cssOk) html = html.replace(target.full, () => `<style>${sanitizeStyleText(cssResult.css)}</style>`);
     if (fontResult.applied) {
-      html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${fontResult.css}</style>`);
+      html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${sanitizeStyleText(fontResult.css)}</style>`);
     }
     return {
       applied: true,

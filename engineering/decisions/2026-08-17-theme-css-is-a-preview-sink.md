@@ -321,6 +321,9 @@ is every real stylesheet.
   proper, so it wants export sign-off rather than a silent edit. It is recorded as the single
   entry in `SANCTIONED_STYLE_SINK_EXEMPT`, so the gate names it every run instead of
   overlooking it.
+  **CLOSED, 2026-08-17 — see §9.** The carve-out held for the length of one PR. The CLI sink
+  was measured, guarded and gated; `SANCTIONED_STYLE_SINK_EXEMPT` is now **empty**, and the
+  paragraph above is kept as written because it is the record of what was true at the time.
   **On exported bytes:** the guard returns its input **by identity** unless the CSS contains
   `</style`, and no stylesheet in the 179-sheet committed corpus does — so for every real deck the
   exported file is byte-identical. That is a measurement, not a promise, and it is why this was
@@ -338,3 +341,151 @@ is every real stylesheet.
   those characters round-trips as readable prose rather than throwing mid-derive. `label` is
   escaped alongside `description` — #1709 named only the latter, but both are free text, both
   are seeded from the same model reply, and both land in the same comment block.
+
+---
+
+## 9. Closing the export carve-out (2026-08-17, same day)
+
+§8 held the CLI export path out of scope because a change there moves the bytes of a shipped
+artifact, and that needs the human's sign-off rather than a silent edit. That was the right
+call about *process*. It was not a claim the path was safe, and this section is what
+measuring it found.
+
+### 9.1 The sink, and the reachable input nobody had named
+
+`lattice-emulator.js` assembles the page's one deck `<style>` from three caller-influenced
+strings, and embedded all three raw:
+
+| source | supplied by | reached the frame |
+|---|---|---|
+| the palette chain (`themes/<name>.css`) | `-p` / front matter; a Studio-saved theme is model-populated | yes |
+| the `--css` layout sheet | the caller, by construction — it is a file path argument | yes |
+| the deck's front-matter `style:` block | **the deck author** | yes |
+
+The third is the one §8 never considered, and it is the most reachable thing here: it needs
+no custom stylesheet and no flag, only a shared `.md`. That one document feeds **three**
+outputs — the emitted `.html`, the PDF render, and the `--player` file a recipient opens.
+
+### 9.2 Measured, pre-fix and post-fix, on the real surface (HARD RULE #23)
+
+**Surface:** `node lattice-emulator.js <deck>.md out.html`, the emitted file then opened in
+the real Chromium at `$CHROME_PATH` (131.0.6778.204) — the artifact a recipient
+double-clicks, not a harness. Payload: `</style><link rel="stylesheet"
+href="https://evil.example/beacon.css">`, inside a **well-formed CSS comment**, with the
+caller's own `--sink-probe: 1` declared immediately after it.
+
+| | **PRE-FIX** | **POST-FIX** |
+|---|---|---|
+| deck `<style>` element text (`--css` probe) | **20,396 bytes**, ending mid-word at `PAYLOAD BEGINS ` | 24,002 bytes, ending at the intended last rule |
+| stray `<link href=evil…>` in the parsed DOM | **1** | 0 |
+| stray injected `<span>` | **1** | 0 |
+| cross-origin request on open | **1 (fired)** | 0 |
+| the caller's own rule after the payload | **lost** | applies |
+| slides rendered | 2 | 2 |
+
+3,606 bytes of the *engine's own* layout rules — the geometry vars, the Marp system block,
+the skip link, the `main#deck` rules — were silently dropped, and the remainder became
+markup. The front-matter `style:` probe reproduces the same result on the same surface.
+
+**The `--player` export is the one with a real author→recipient split, and it is worse
+there:** the injected `<link>` was **harvested into the shipped file** — `assemblePlayer`
+reuses `s.outerHTML` of each `head style`, and by then the parser has resolved the breakout
+into a real element — so the beacon rides in every copy, and the player was 27 KB *smaller*
+because the deck's own stylesheet had been truncated. This is finding 1's shape again,
+reached from the CLI: exfil in each opened copy, not key theft (the player's
+`default-src 'none'` CSP blocks the fetch; the artifact still carries the node).
+
+### 9.3 Where the fix goes, and where it deliberately does not
+
+At the emulator's **assembly**, upstream of `caps.parseHtml`. Fixing it inside
+`lib/export/player-core.mjs` cannot work: that assembler receives a parsed DOM, so the
+breakout is already resolved before it can see it. `lattice-emulator.js` is CommonJS and the
+guard is ESM; `require()` of an `.mjs` is native on the pinned engines and already the house
+idiom (`leading-is.js`, `comment-directive.js`, `boundary-parser.js`, `math-block-rule.js`).
+
+Four sites in all, and only the first is the defect:
+
+1. the `htmlDoc` deck `<style>` — hoisted into one `deckStyleText` string so the *whole*
+   element body is guarded at the point of embedding, not each piece separately;
+2. the look-diagram **scratch page**, whose `<style>` also takes `layoutCSS`. Nothing it
+   emits ships, but a script node there reads and writes the browser this process drives;
+3. + 4. the `--player` **prune re-wrap**, which puts CSS back into a fresh `<style>` after
+   css-tree's parse→generate — a serializer is entitled to normalize an escape away, and the
+   document's own guard has no say over a string that left it and came back.
+
+`player-core.mjs` is guarded too, at the two places it *re-serializes* transformed CSS into a
+fresh element (`themeDualMode` + `minifyCss` on the deck block; the dual-mode block). **That
+is depth, not a fix, and the difference is worth stating:** no reachable breakout through
+`player-core` was found. The parse closes every path that arrives in `docHtml`, and the one
+path that survives a parse — `hoistInlineLightDark`, which lifts an inline `style=`
+**attribute** (not RAWTEXT, so a `</style>` in it is preserved intact) into the dual-mode
+block — is closed one layer earlier: DOMPurify drops the whole attribute when its value
+carries the payload, measured through the real `createSlideSanitizer`. The guard is there
+because the transforms could stop preserving the escape and nothing would notice, and it is
+free (identity return).
+
+`playerCss` is this file's own chrome and interpolates nothing but the canvas numbers, so it
+carries no #22 channel. Style elements copied through verbatim as `outerHTML` need nothing
+either: the parser's guarantee is that their text contains no `</style`.
+
+### 9.4 The exported bytes did not move — measured, not asserted
+
+The corpus is `git ls-files '*.css'` — **179** sheets, identical on every machine (§6 records
+what a working-tree walk cost). **None contains `</style`.** So the guard returns its input by
+identity for every real deck, and:
+
+| artifact (`examples/build.md`, light + dark) | before → after |
+|---|---|
+| `.html` | **byte-identical** |
+| `.pdf` | **byte-identical** |
+| `--player` `.html` | identical except `generatedAt` in the base64 envelope |
+
+That last row is not a hedge: two runs of the **unchanged** code differ in exactly the same
+field, at the same byte offsets, and with `generatedAt` normalized the before/after files
+compare equal. The noise floor was measured first precisely so the claim would mean something.
+
+### 9.5 The gate now walks the export pipeline
+
+`checkDocumentStyleSinks` walked `docs/src` and nothing else, so neither
+`lattice-emulator.js` nor `lib/export/**` was scanned at all and this gap could have recurred
+in silence. The roots are now `DOC_STYLE_SINK_ROOTS` — `docs/src`, `lib/export`,
+`lattice-emulator.js` — which is the line at "ships", not at "exists". Measured before
+committing to it, per the same discipline that set the `docs/src` marker at 5 files rather
+than 22: the document-assembler marker selects **2** files outside `docs/src` under these
+roots, both genuine, where a whole-repo walk selects **13** — the other 11 being `dist/`
+build products (which HARD RULE #2 forbids hand-editing, so a gate demanding a fix there
+would demand the one fix that is never allowed), frozen decision-doc probes, and local
+measurement tools whose output reaches nobody.
+
+**`SANCTIONED_STYLE_SINK_EXEMPT` is now empty.** Its single entry excused the generated
+player bundle because "the fix belongs at its generator" — true when written, and false the
+moment the generator was guarded, since the bundle inherits the call. Leaving it would have
+been a sanction for a fix that had already landed: the exact stale lie the list's rot check
+exists to catch.
+
+**The gate test was written first** and failed **6** arms before the gate moved: the root set
+(pinned by value, so widening #22 cannot happen quietly), the emulator firing as a *file*
+root rather than a directory, `lib/export` firing, `dist/` staying unscanned, the exemption
+excusing and a stale one still failing, and the live tree. Each was then re-checked by
+mutation — dropping either new root, adding `dist`, and resolving a file root through
+`listSourceFiles` each kill 3–4 arms.
+
+**What the gate cannot catch, said plainly.** Un-guarding the emulator's `<style>` kills
+**zero** gate arms, because the check is file-scoped text matching and the file still calls
+`sanitizeStyleText` at its three other sites. That is §5's inherited weakness, not a new one,
+and it is why the real defense here is behavioral: `test/integration/export/style-sink-breakout.test.js`
+renders the actual CLI and asserts on the parsed artifact, and all **three** of its arms fail
+when the guard is removed. `test/unit/export/html-player.test.js` pins the round trip through
+the assembler — where the safe outcomes are **two**, the escape surviving *or* the text being
+deleted outright (`minifyCss` strips comments), so each case declares which it expects rather
+than asserting the first and going vacuous on the second.
+
+### 9.6 A hook gap, closed alongside
+
+§4b logged `test:diagnostics` and `test:runtime` as missing `test:<scope>` scripts —
+`tools/affected-tests.js` maps `test/unit/<scope>/` to one, so staging only a file in either
+directory fails pre-commit with `Missing script`. Both are added here (HARD RULE #14: a hook
+failure is a root cause, never a `--no-verify`), with their `SCRIPT_META` entries, because the
+HARD RULE #15 capabilities gate fails `build:check` on an undescribed script. It rode along
+rather than becoming its own PR because it unblocks the same hook this change's own test files
+trip — the same reasoning that added `test:theme` in #1718.

@@ -21,7 +21,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { checkPreviewHtmlSinks, checkDocumentStyleSinks, SANCTIONED_PREVIEW_BUILDERS, SANCTIONED_STYLE_SINK_EXEMPT } = require('../../../tools/check-ownership.js');
+const {
+  checkPreviewHtmlSinks,
+  checkDocumentStyleSinks,
+  SANCTIONED_PREVIEW_BUILDERS,
+  SANCTIONED_STYLE_SINK_EXEMPT,
+  DOC_STYLE_SINK_ROOTS,
+} = require('../../../tools/check-ownership.js');
 
 // The gate walks `<root>/docs/src`, and `root` is injectable — so probes live in a
 // TEMP tree, never in the real one. Writing them into `docs/src` (the first shape of this
@@ -188,6 +194,74 @@ describe('the document-assembler arm — the one the runtime-<script> marker mis
   });
 });
 
+// ── The EXPORT roots ────────────────────────────────────────────────────────────
+// The stylesheet arm shipped walking `docs/src` alone, which left the CLI export
+// pipeline — the emulator's own `htmlDoc` scaffold and `lib/export/**` — unscanned
+// entirely, so the same `</style>` breakout could recur there silently. The roots
+// are now the three SHIPPED document assemblers; `dist/` is generated from them
+// (HARD RULE #2) and must stay out, or the gate would demand an edit to a file
+// nobody may hand-edit.
+describe('the export roots — the CLI half the docs/src walk never saw', () => {
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const RAW_DOC = "function d(p){ return `<!DOCTYPE html><html><head><style>${p.css}</style></head><body>${p.slides}</body></html>`; }";
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const SAFE_DOC = "function d(p){ return `<!DOCTYPE html><html><head><style>${sanitizeStyleText(p.css)}</style></head><body>${p.slides}</body></html>`; }";
+
+  /** Write `src` at `rel` under the temp root, run just the stylesheet arm, clean up. */
+  function gateAt(rel, src, exempt = []) {
+    const abs = path.join(TMP, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, src);
+    const errors = [];
+    try {
+      checkDocumentStyleSinks(errors, exempt, TMP);
+    } finally {
+      fs.rmSync(abs, { force: true });
+    }
+    return errors.filter((e) => e.includes(rel));
+  }
+
+  test('the roots are exactly the three shipped document assemblers', () => {
+    assert.deepEqual(
+      [...DOC_STYLE_SINK_ROOTS].sort(),
+      ['docs/src', 'lattice-emulator.js', 'lib/export'].sort(),
+      'changing this set changes what HARD RULE #22 covers — update the note with it',
+    );
+  });
+
+  test('fires on the emulator scaffold (a ROOT FILE, not a directory)', () => {
+    const errs = gateAt('lattice-emulator.js', RAW_DOC);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `the CLI scaffold must owe the stylesheet channel; got: ${errs.join(' | ')}`);
+  });
+
+  test('quiet once the emulator scaffold sanitizes', () => {
+    assert.deepEqual(gateAt('lattice-emulator.js', SAFE_DOC), []);
+  });
+
+  test('fires on an unguarded assembler under lib/export', () => {
+    const errs = gateAt(path.join('lib', 'export', 'probe-player.mjs'), RAW_DOC);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `lib/export must be walked; got: ${errs.join(' | ')}`);
+  });
+
+  test('quiet once lib/export sanitizes', () => {
+    assert.deepEqual(gateAt(path.join('lib', 'export', 'probe-player.mjs'), SAFE_DOC), []);
+  });
+
+  test('the GENERATED dist/ copy is NOT scanned — HARD RULE #2 forbids editing it', () => {
+    // dist/lattice-emulator.js is a build product of the very file above. Scanning it would
+    // demand a hand-edit to a generated artifact, which is the one fix that is never allowed.
+    assert.deepEqual(gateAt(path.join('dist', 'lattice-emulator.js'), RAW_DOC), []);
+  });
+
+  test('an exemption excuses a file under a new root, and a stale one still fires', () => {
+    const rel = path.join('lib', 'export', 'probe-player.mjs');
+    assert.deepEqual(gateAt(rel, RAW_DOC, [{ file: rel, why: 'probe' }]), [], 'a listed file must be excused');
+    const errors = [];
+    checkDocumentStyleSinks(errors, [{ file: 'lib/export/gone.mjs', why: 'not here' }], TMP);
+    assert.ok(errors.some((e) => /stale style-sink exemption/.test(e)), 'the exemption list must not be allowed to rot under the new roots either');
+  });
+});
+
 describe('the live tree', () => {
   test('passes the gate with both channels enforced', () => {
     const errors = [];
@@ -195,11 +269,52 @@ describe('the live tree', () => {
     assert.deepEqual(errors, [], `HARD RULE #22 violations on the live tree:\n${errors.join('\n')}`);
   });
 
-  test('every exemption names a file that really is still a document style sink', () => {
+  // The list is EMPTY by design: the export player's generated bundle was its one entry,
+  // excused on the grounds that "the fix belongs at its generator". The generator
+  // (lib/export/player-core.mjs) is now guarded, so the bundle inherits the call and the
+  // entry would be a stale sanction — which this gate is built to fail on. The loop below
+  // is kept, not deleted, so a FUTURE entry still has to name a real sink and a real reason.
+  test('the exemption list is empty, and any future entry names a real sink', () => {
+    assert.deepEqual(SANCTIONED_STYLE_SINK_EXEMPT, [], 'a new exemption needs its reason recorded in the governing note too');
     for (const e of SANCTIONED_STYLE_SINK_EXEMPT) {
       const src = fs.readFileSync(path.join(REAL_ROOT, e.file), 'utf8');
       assert.match(src, /<!doctype html/i, `${e.file} no longer assembles a document`);
       assert.ok(e.why && e.why.length > 40, `${e.file} needs a real justification, not a placeholder`);
+    }
+  });
+
+  // Asserted independently of the gate — a gate that silently stopped walking a root
+  // would still leave this failing. Every shipped document assembler, enumerated from
+  // the roots themselves, has to carry the call.
+  test('every document assembler under the roots really calls sanitizeStyleText', () => {
+    const excused = new Set(SANCTIONED_STYLE_SINK_EXEMPT.map((e) => e.file));
+    const seen = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(?:js|ts|tsx|mjs|cjs)$/.test(e.name)) check(p);
+      }
+    };
+    const check = (p) => {
+      const rel = path.relative(REAL_ROOT, p).split(path.sep).join('/');
+      if (/\.test\.(?:ts|js)$/.test(rel)) return;
+      const src = fs.readFileSync(p, 'utf8');
+      if (!/<!doctype html/i.test(src) || !/<style[\s>]/i.test(src)) return;
+      seen.push(rel);
+      if (excused.has(rel)) return;
+      assert.match(src, /sanitizeStyleText\s*\(/, `${rel} assembles a document with a <style> and must sanitize it`);
+    };
+    for (const root of DOC_STYLE_SINK_ROOTS) {
+      const abs = path.join(REAL_ROOT, root);
+      if (fs.statSync(abs).isDirectory()) walk(abs);
+      else check(abs);
+    }
+    // The CLI scaffold, the export player, and its generated browser bundle are the three
+    // this change added; the docs-site assemblers #1718 already covered are the rest.
+    for (const must of ['lattice-emulator.js', 'lib/export/player-core.mjs', 'docs/src/playground/player-core.generated.js']) {
+      assert.ok(seen.includes(must), `${must} is no longer discovered as a document style sink — did a root move?`);
     }
   });
 

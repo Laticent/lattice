@@ -291,6 +291,57 @@ test('produces a self-contained file — no file:// survives', async () => {
 	assert.doesNotMatch(html, /file:\/\//, 'no file:// references may remain');
 });
 
+// ── HARD RULE #22, stylesheet channel — the ROUND TRIP the assembler owns ────────
+// What arrives here is a PARSED DOM, so a raw `</style>` in `docHtml` was already
+// resolved by the parser: the assembler cannot un-break it, which is why the CLI's fix
+// lives at the emulator's assembly (upstream of parseHtml) and the browser's at
+// share-export's `buildSelfContainedDoc`. What this file DOES own is the CSS it takes
+// back out of that DOM, runs through themeDualMode + minifyCss, and re-serializes into a
+// FRESH <style> element — a transform is entitled to normalize an escape away, and the
+// document that guarded the text has no say over a string that left it. These pin the
+// property that actually matters on the way out: no style element's text ever carries a
+// LIVE terminator, so an upstream guard is not silently undone here.
+//
+// The safe outcomes are two, not one, and asserting only the first is how a test like this
+// goes vacuous: the escape may survive (a string, a declaration) OR the text may be deleted
+// outright (a comment — `minifyCss` strips comments in the same pass). Both leave nothing
+// live; what is NOT safe is the sequence reappearing unescaped. So each case declares which
+// outcome it expects, and every case asserts the invariant.
+{
+	// Every context the guard's docblock claims `<\/` is inert in.
+	const cases = [
+		{ where: 'a CSS comment', outcome: 'dropped', css: 'section{color:red}/* theme note <\\/style><img src=x> */section{outline:0}' },
+		{ where: 'a content string', outcome: 'escaped', css: 'section::after{content:"<\\/style>"}section{outline:0}' },
+		{ where: 'a dual-mode declaration (themeDualMode rewrites this line)', outcome: 'escaped', css: 'section{--t:light-dark(#fff,#000);--n:"<\\/style>"}section{outline:0}' },
+	];
+	for (const { where, outcome, css } of cases) {
+		test(`no live </style survives assembly from inside ${where} (HARD RULE #22)`, async () => {
+			const doc = docHtml.replace('<style>section[data-lattice-slide]{color:red}', `<style>${css}`);
+			const { html } = await buildPlayerHtml({ docHtml: doc, source, now: 0 });
+			// THE invariant: every `</style` in the output is an element closer and nothing
+			// more. An unescaped terminator inside a block adds one closer with no opener.
+			const openers = (html.match(/<style[\s>]/gi) || []).length;
+			const terminators = (html.match(/<\/style/gi) || []).length;
+			assert.equal(terminators, openers, `a live </style broke out of a <style> element (${where})`);
+			if (outcome === 'escaped') {
+				assert.match(html, /<\\\/style/, `the escape was normalized away rather than kept (${where})`);
+			} else {
+				assert.doesNotMatch(html, /<\\?\/style>?<img/, `the payload text should have been dropped with its comment (${where})`);
+			}
+			assert.match(html, /section\{outline:0\}/, 'the declarations after it must still ship — safety must not cost the stylesheet');
+		});
+	}
+
+	test('assembly is identity for CSS that does not carry the terminator — the export bytes are unmoved', async () => {
+		// The whole reason this was safe to land without changing a single shipped artifact:
+		// no stylesheet in the 179-sheet committed corpus contains `</style`.
+		const { html: a } = await buildPlayerHtml({ docHtml, source, now: 0 });
+		const { html: b } = await buildPlayerHtml({ docHtml, source, now: 0 });
+		assert.equal(a, b, 'assembly is deterministic at now: 0');
+		assert.doesNotMatch(a, /<\\\/style/, 'nothing in the ordinary fixture should have been escaped');
+	});
+}
+
 test('sanitizes the slide DOM — hostile onerror is stripped (the #616 gate)', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.doesNotMatch(html, /onerror/i, 'onerror handler must be stripped');

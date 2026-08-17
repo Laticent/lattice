@@ -4363,17 +4363,37 @@ const SANITIZE_STYLE_CALL = /sanitizeStyleText\s*\(/;
 // no false positives — where a looser "embeds a `<style>` with an interpolation" marker
 // selects 22, most of them our own font/chart CSS.
 const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
+// The roots the STYLESHEET arm walks — every SHIPPED surface that assembles a whole
+// HTML document a human then opens. A root is a directory or a single file.
+//
+// It shipped as `docs/src` alone, and that was half the class: the CLI export pipeline
+// assembles the same document from the same caller CSS (`lattice-emulator.js`'s `htmlDoc`
+// scaffold takes a `--css` layout sheet and a theme file, both caller-supplied by
+// construction) and was not scanned at ALL, so the same breakout could recur there in
+// silence. Measured over the repo, the marker selects 2 files outside `docs/src` under
+// these roots — both genuine — where a whole-repo walk selects 13, the other 11 being
+// `dist/` build products, frozen decision-doc probes, and local measurement tools that
+// never reach a recipient. So the line is drawn at "ships", not at "exists":
+//
+//   · `dist/` is GENERATED from these very files, and HARD RULE #2 forbids hand-editing
+//     it — a gate demanding a fix there would demand the one fix that is never allowed.
+//     `listSourceFiles` skips it, and no root names it.
+//   · `tools/` and `test/` build documents to MEASURE something on this machine; nothing
+//     they emit is handed to anyone.
+//
+// Widening this set widens HARD RULE #22. Its test pins the set by value, so it cannot
+// move without saying so out loud.
+const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice-emulator.js'];
 // A document assembler that legitimately does not call the sanitizer, with the reason.
 // Same anti-rot shape as the other allowlists: a stale entry fails.
-const SANCTIONED_STYLE_SINK_EXEMPT = [
-  {
-    file: 'docs/src/playground/player-core.generated.js',
-    why: 'GENERATED from lib/export/player-core.mjs (HARD RULE #2 — never hand-edited). It is the '
-      + 'EXPORT player, so the same `</style>` class applies to it, but the fix belongs at its '
-      + 'generator and changes the bytes of a shipped artifact — which needs export sign-off, not a '
-      + 'silent edit here. Tracked in engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §8.',
-  },
-];
+//
+// EMPTY BY DESIGN. Its one entry was `docs/src/playground/player-core.generated.js`,
+// excused because "the fix belongs at its generator" and that generator is the export
+// pipeline, which wants export sign-off rather than a silent edit. The generator
+// (`lib/export/player-core.mjs`) is guarded as of the change that added the export roots
+// above, so the bundle inherits the call and the entry became a sanction for a fix that
+// had already landed — exactly the stale lie this list's rot check exists to catch.
+const SANCTIONED_STYLE_SINK_EXEMPT = [];
 const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path); the theme/component CSS bakes into the document <style>.' },
   { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview; themeStyleContent() is the one place theme + author CSS is baked, and the RESTYLE fast path re-swaps it.' },
@@ -5196,13 +5216,26 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
  *
  * A `<style>`'s content is HTML RAWTEXT: it ends at the first `</style`, inside a CSS
  * comment or string just the same, and the remainder is parsed as markup.
+ *
+ * Scope is `DOC_STYLE_SINK_ROOTS` — the docs site AND the CLI export pipeline. See that
+ * constant for why the roots stop where they do.
  */
 function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, root = ROOT) {
-  const DOCS_SRC = path.join(root, 'docs', 'src');
   const excused = new Map(exempt.map((e) => [e.file, e]));
   const seen = new Set();
-  for (const file of listSourceFiles(DOCS_SRC)) {
-    const rel = path.relative(root, file);
+  // A root is a directory to walk or a single file to read; `lattice-emulator.js` is the
+  // latter, and resolving it by `listSourceFiles` would silently scan nothing.
+  const files = [];
+  for (const r of DOC_STYLE_SINK_ROOTS) {
+    const abs = path.join(root, r);
+    if (!fs.existsSync(abs)) continue;
+    if (fs.statSync(abs).isDirectory()) listSourceFiles(abs, files);
+    else files.push(abs);
+  }
+  for (const file of files) {
+    // Compare and REPORT in posix form: the allowlist and the tests are written with `/`,
+    // and `path.relative` hands back `\` on Windows.
+    const rel = path.relative(root, file).split(path.sep).join('/');
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
     const src = fs.readFileSync(file, 'utf8');
     if (!DOC_ASSEMBLER_MARKER.test(src) || !STYLE_SINK_MARKER.test(src)) continue;
@@ -8786,6 +8819,7 @@ module.exports = {
   checkDocumentStyleSinks,
   DOC_ASSEMBLER_MARKER,
   SANCTIONED_STYLE_SINK_EXEMPT,
+  DOC_STYLE_SINK_ROOTS,
   checkSnapshotHtmlSinks,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,

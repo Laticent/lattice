@@ -180,6 +180,8 @@ const SCRIPT_META = {
   'test:release':             ['Test & verify', 'Unit scope: the release tooling.'],
   'test:theme':               ['Test & verify', 'Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet).'],
   'test:tokens':              ['Test & verify', 'Unit scope: the universal token system.'],
+  'test:runtime':             ['Test & verify', 'Unit scope: lib/runtime/* — the pure decisions behind the in-page runtime (fluid-view policy, the diagram queue, per-slide mermaid bands, the axis DOM catalog).'],
+  'test:diagnostics':         ['Test & verify', 'Unit scope: lib/diagnostics/* — the pure core shared by the headless preview-fidelity sweep (`npm run equiv`) and the Studio overlay.'],
   'test:tools':               ['Test & verify', 'Unit scope: author tools (export-marp, …).'],
   'test:integration':         ['Test & verify', 'The FULL integration tier (every suite — PR slice + nightly slice). What pre-push runs under LATTICE_FULL_PUSH=1.'],
   'test:integration:pr':      ['Test & verify', 'PR-blocking integration slice (the required CI gate): cross-path wiring (parity) + export pipeline + per-component semantic invariants.'],
