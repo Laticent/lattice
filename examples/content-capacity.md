@@ -98,7 +98,7 @@ footer: "Pick the layout by content shape"
 1. Count
    - How many items, rows, columns, or code lines does the content have?
 2. Check
-   - Read the component's capacity in components.json — sweet, soft, hard.
+   - Read the component's capacity in components.pick.md — sweet/soft/hard.
 3. Choose
    - Within capacity, keep it; over hard, take an escalateTo target or split.
 

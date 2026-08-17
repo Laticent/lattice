@@ -300,6 +300,24 @@ describe('gotchas-index', () => {
       assert.match(errors.join('\n'), /contains an index marker/);
     });
 
+    // A heading ending in an ODD run of backslashes escapes the row template's closing
+    // bracket: the link never forms and the row renders as literal text with the URL
+    // beside it. Verified by RENDERING, because the source looks fine either way — and
+    // note the first fix attempt (reject the raw label, fall back to rendered text)
+    // could not work, since the fallback ends in the same backslash.
+    test('a heading ending in a backslash still renders as a link', () => {
+      const MarkdownIt = require('markdown-it');
+      const md = new MarkdownIt();
+      const bs = String.fromCharCode(92);
+      const { topics, errors } = withCorpus(
+        { 'f.md': ['# Gotchas — F', '', `## A windows path C:${bs}`, '', 'body'].join('\n') },
+        (d) => collect(d),
+      );
+      assert.deepEqual(errors, []);
+      const row = render(topics).split('\n').find((l) => l.startsWith('- '));
+      assert.match(md.render(row), /<a href="gotchas\/f\.md#/, `row did not render as a link: ${row}`);
+    });
+
     test('a folder README is skipped, not treated as a malformed topic', () => {
       const { topics, errors } = withCorpus(
         { 'README.md': '# What this folder is\n\nProse, no entries.\n', 'f.md': '# Gotchas — F\n\n## A\n' },

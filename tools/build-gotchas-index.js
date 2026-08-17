@@ -172,7 +172,8 @@ function collect(dir = DIR) {
       }
       return depth === 0;
     };
-    const labelFor = (h) => (rowSafe(h.raw) ? h.raw : h.text);
+    const padTrailingEscape = (s) => s.replace(/\\+$/, (run) => (run.length % 2 ? `${run}\\` : run));
+    const labelFor = (h) => padTrailingEscape(rowSafe(h.raw) ? h.raw : h.text);
     const h1 = headings.find((h) => h.level === 1);
     if (!h1) {
       errors.push(`${file}: no \`# \` title — the index has nothing to group its entries under`);
@@ -322,7 +323,7 @@ function verify(indexText, topics) {
 
   // Key on file + entry text: the same symptom heading may legitimately exist in two
   // topic files, and each owes its own row.
-  const key = (file, entry) => `${file} ${entry}`;
+  const key = (file, entry) => `${file}\u0000${entry}`;
   const byKey = new Map();
   for (const row of rows) {
     const k = key(row.file, row.entry);
