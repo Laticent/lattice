@@ -220,11 +220,26 @@ have been wrong more often than the changes they were written to check.
   requires a caller-supplied stylesheet using the bare form, which nothing in this repo emits.
   Every `@import` in the tree was swept old-grammar vs new (113 files across `themes/ dist/
   docs/ examples/ tools/`): **0 divergences**, so the widening is inert on everything shipped.
-- **The browser Studio is UNVERIFIED** (HARD RULE #23). The comment-leak defect in §6 was
-  demonstrated and closed against the Node `ThemeStore` — the same source Rollup bundles, and
-  the grammar appears exactly once in each of the three bundles — but nobody built the docs site
-  and drove Fabricate → save → preview to watch the dropped `@font-face` render and stop
-  rendering. The byte evidence is Node-side.
+- **The browser surface is VERIFIED** (HARD RULE #23) — a real Chromium against the served
+  docs site, registering through the real public API (`window.LatticePlayground.addThemes`) and
+  reading back `render().css` from the shipped Rollup bundle
+  (`/playground/v/<hash>/lattice-playground.js`). Four cases, discriminating in both directions,
+  with `onyx` carrying a token nothing else declares so the answer cannot be faked by the
+  legitimately-inlined base:
+
+  | leaf theme | onyx spliced? | prose leaked? | own `--accent` survives? |
+  |---|---|---|---|
+  | comment *mentions* `@import onyx;` (bare) | no ✓ | no ✓ | yes ✓ |
+  | comment *mentions* `@import 'onyx';` (quoted) | no ✓ | no ✓ | yes ✓ |
+  | **real** `@import 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
+  | **real** bare `@import onyx;` | **yes** ✓ | no ✓ | yes ✓ |
+
+  762,454 bytes for the comment cases against 1,530,948 for the real-import ones, and
+  `indaco-dark` still composes with its categorical tokens on the same surface. The first cut of
+  this probe used BYTE COUNT as the discriminator and was worthless: a serialized Studio theme
+  carries `@import 'lattice';`, so the base inlines either way and both arms sat at ~762 KB.
+  **Still not driven:** the Fabricate UI click-path itself (type a description → save → preview).
+  What is verified is the bundled store through the API that path calls.
 - **A third narrowing of `flattenCssImports` is not in the §4 table**: `@import indaco` with no
   terminator at all, and the media-qualified bare `@import indaco screen;`, both resolved before
   and do not now. Both are invalid CSS and nothing in the repo emits either, but the table did
