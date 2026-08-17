@@ -357,13 +357,14 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   line-height: 1;
 }
 
-/* Non-flipping dark bookends (title / closing / a dark divider) paint a dark surface
-   via --surface-inverse but deliberately KEEP color-scheme:light so their explicit
-   --text-display headings hold (base.modifiers.css, inline-code note). That would leave
-   the marker's light-dark() --stamp-color resolving to its faint LIGHT value on the dark
-   field. Flip the marker PSEUDO's own color-scheme so the label picks the bright on-dark
-   side — the same targeted rebind the inline-code chip uses. divider.light is bright, so
-   it is excluded. */
+/* HISTORICAL, and now redundant — kept because it is harmless and states the same intent
+   the section does. These bookends USED to paint --surface-inverse while keeping
+   color-scheme:light, which left the marker's light-dark() --stamp-color resolving to its
+   faint LIGHT value on the dark field; flipping the marker PSEUDO's own scheme was the
+   targeted fix. The sections now declare `color-scheme: dark` themselves
+   (2026-08-17-dark-surface-ink.md), so the pseudo inherits dark and this rule changes
+   nothing. Removing it is safe but unverified, so it stays until someone measures it.
+   divider.light is bright, so it is excluded. */
 section:is(.title, .closing)::before,
 section.divider:not(.light)::before {
   color-scheme: dark;

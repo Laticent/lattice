@@ -123,52 +123,100 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     ['inline code', (t) => `<code>${t}</code>`],
   ];
 
-  test('every ordinary inline treatment stays readable on every dark bookend', async () => {
+  /* THE THREE SECTIONS, and deliberately NOT the split rails — the distinction is the
+   * substance of this fix, not a scoping convenience.
+   *
+   * `--surface-inverse` is painted in five places: these three sections, plus
+   * `split-panel .panel-left`, `split-panel.metric .panel-right` and
+   * `split-compare .compare-left`. Only a SECTION can be fixed by declaring the scheme,
+   * because `light-dark()` in a custom property resolves at computed-value time WHERE THE
+   * PROPERTY IS DECLARED — and the ink tokens are declared on `section`. A rail is a
+   * descendant, so by the time it could flip its own scheme the tokens it inherits are
+   * already resolved sRGB values from the section's scheme. Measured: giving the rails
+   * `color-scheme: dark` changes `getComputedStyle(rail).colorScheme` to `dark` and leaves
+   * the body ink at 1.02:1, unchanged. That is why the rails carry explicit `--on-dark-*`
+   * inks instead, and why base.modifiers.css rebinds their chip ink by hand.
+   *
+   * So the rails are out of scope HERE, not out of mind: their un-named inks are a real,
+   * pre-existing 1.61:1 (found-not-caused, HARD RULE #18) and are logged separately. */
+  const DARK_SURFACES = [
+    ['title', (inner) => `<section class="title"><h2>Heading</h2>${inner}</section>`],
+    ['closing', (inner) => `<section class="closing"><h2>Heading</h2>${inner}</section>`],
+    ['divider', (inner) => `<section class="divider"><h2>Heading</h2>${inner}</section>`],
+  ];
+
+  /* THE CANVAS REGISTERS ARE THE AXIS THAT ACTUALLY BREAKS THIS, and leaving them out is
+   * what let the first fix ship believing it had closed the class.
+   *
+   * `section.title` and `section.color-light` are both (0,1,1) and the bundle emits the
+   * registers LAST, so each register silently outranked the component's own scheme. A deck
+   * with `color-mode: light|system|inherited`, or a slide written `_class: title light`,
+   * rendered the reported 1.61:1 while every test here passed — because every test here used
+   * a bare class name.
+   *
+   * Borrowed verbatim from finish-canvas-matrix.test.js, which already sweeps this axis for
+   * the same trap on the same components (#1656). Reusing its list rather than writing a
+   * third one means a register added there is covered here too. `print` is included and is
+   * EXPECTED to flip the surface to the ink-on-white band — the assertion below reads the
+   * surface it finds rather than assuming dark, so print passes on its own terms. */
+  const REGISTERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system', 'color-inherited'];
+
+  test('every inline treatment stays readable on every dark surface, under every canvas register', async () => {
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
     const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8');
     const probe = await browser.newPage();
-    const combos = [];
-    for (const c of BOOKENDS) for (const [label] of INLINE) combos.push([c, label]);
-    const html =
-      `<style>${theme}\n${bundle}</style><article class="lattice">` +
-      BOOKENDS.map(
-        (c, ci) =>
-          `<section id="b${ci}" class="${c}"><h2>Heading</h2>` +
-          INLINE.map(([, wrap], ii) => `<p id="t${ci}-${ii}">${wrap('Readable body copy')}</p>`).join('') +
-          '</section>',
-      ).join('') +
-      '</article>';
-    await probe.setContent(html);
 
-    const rows = await probe.evaluate(
-      (nB, nI) => {
-        const out = [];
-        for (let ci = 0; ci < nB; ci++) {
-          const surface = getComputedStyle(document.getElementById(`b${ci}`)).backgroundColor;
-          for (let ii = 0; ii < nI; ii++) {
-            const p = document.getElementById(`t${ci}-${ii}`);
-            // Read the INNERMOST element — a <strong>/<code> carries its own color.
-            const el = p.firstElementChild || p;
-            out.push({ ci, ii, ink: getComputedStyle(el).color, surface });
-          }
+    const combos = [];
+    for (const [surf] of DARK_SURFACES) for (const reg of REGISTERS) for (const [label] of INLINE) combos.push([surf, reg, label]);
+
+    let n = 0;
+    const blocks = [];
+    for (const [, wrapSurface] of DARK_SURFACES) {
+      for (const reg of REGISTERS) {
+        const paras = INLINE.map(([, wrap]) => `<p id="p${n++}">${wrap('Readable body copy')}</p>`).join('');
+        // The register rides on the SECTION, which is where a deck actually writes it.
+        blocks.push(wrapSurface(paras).replace(/^<section class="/, `<section class="${reg} `));
+      }
+    }
+    // DOCTYPE is required: without it the probe runs in quirks mode, where the UA applies
+    // `-internal-quirk-inherit` to table ink and a measurement here stops describing the
+    // shipped document. Every real render writes a doctype (lattice-emulator.js).
+    await probe.setContent(`<!DOCTYPE html><style>${theme}\n${bundle}</style><article class="lattice">${blocks.join('')}</article>`);
+
+    const mode = await probe.evaluate(() => document.compatMode);
+    assert.equal(mode, 'CSS1Compat', 'the probe must render in standards mode, as the engine does');
+
+    const rows = await probe.evaluate((count) => {
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const p = document.getElementById(`p${i}`);
+        const el = p.firstElementChild || p;
+        // Climb to the nearest ancestor that actually paints, so a rail's own fill is used
+        // rather than the section behind it.
+        let surface = 'rgba(0, 0, 0, 0)';
+        for (let node = p; node; node = node.parentElement) {
+          const bg = getComputedStyle(node).backgroundColor;
+          if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) { surface = bg; break; }
         }
-        return out;
-      },
-      BOOKENDS.length,
-      INLINE.length,
-    );
+        out.push({ i, ink: getComputedStyle(el).color, surface });
+      }
+      return out;
+    }, combos.length);
     await probe.close();
 
-    assert.equal(rows.length, combos.length, 'every bookend × treatment pair must be measured');
+    assert.equal(rows.length, combos.length, 'every surface × register × treatment must be measured');
     const failures = rows
       .map((r) => ({ ...r, ratio: contrast(r.ink, r.surface) }))
       .filter((r) => r.ratio < AA)
-      .map((r) => `  ${BOOKENDS[r.ci]} · ${INLINE[r.ii][0]}: ${r.ratio.toFixed(2)}:1 — ${r.ink} on ${r.surface}`);
+      .map((r) => {
+        const [surf, reg, label] = combos[r.i];
+        return `  ${surf} · ${reg || 'no register'} · ${label}: ${r.ratio.toFixed(2)}:1 — ${r.ink} on ${r.surface}`;
+      });
     assert.deepEqual(
       failures,
       [],
-      'ink on a dark bookend resolved to its light-canvas value — the surface is painted ' +
-        'dark but something is not reading it as dark:\n' +
+      'ink on a dark surface resolved to its light-canvas value. Either the surface lost its ' +
+        '`color-scheme: dark`, or a canvas register outranked it by source order:\n' +
         `${failures.join('\n')}`,
     );
   });

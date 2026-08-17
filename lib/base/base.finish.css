@@ -266,9 +266,14 @@ section.finish {
  * for free. Nothing here changes that.
  *
  * The THREE INVERSE BOOKENDS are the hole. `title`, `closing`, and a non-`light`
- * `divider` paint `--surface-inverse` — a dark panel on a light deck — and they
- * deliberately KEEP `color-scheme: light` so the on-dark inks they set explicitly
- * stay predictable (base.modifiers.css § Bookend tables). So `--bg` on those
+ * `divider` paint `--surface-inverse` — a dark panel on a light deck. They used to KEEP
+ * `color-scheme: light` deliberately, which is the state this note was written against;
+ * as of 2026-08-17-dark-surface-ink.md they declare `color-scheme: dark` instead, because
+ * keeping light meant every ink not named explicitly resolved light-canvas onto the dark
+ * panel (bold body text measured 1.61:1). THE HOLE THIS BLOCK DESCRIBES IS UNCHANGED by
+ * that: `--fin-canvas` still has to be told the surface is inverse, because the finish
+ * layers mix toward `--bg`, and `--bg` is a deck-canvas token that the scheme flip does not
+ * repoint at the panel. So `--bg` on those
  * slides is the LIGHT deck canvas while the surface beneath the finish is dark,
  * and every layer mixed toward the wrong end. The clearance mask was the visible
  * casualty: it painted a light ellipse across the middle of a dark bookend, and a

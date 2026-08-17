@@ -77,11 +77,19 @@ paper. Both are derived now, and the gate is what keeps the next one from
 becoming a render bug. See
 `engineering/decisions/2026-08-10-no-safe-default-token-contract.md`.
 
+`--code-inline-fg` joined them on 2026-08-17, and it is worth knowing why it was
+on the *other* list for so long. It was filed under "decorative extras" — but the
+inline-code chip is TEXT, held to 4.5:1, and the engine default it leaned on was
+`var(--accent)`, an area token held to the 3:1 graphical floor with no text
+contract at all. That is the `--cat-N-ink` shape exactly: an ink degrading onto a
+value repaired for a weaker purpose. It shipped a chip at 4.36:1 on a card. Being
+"decorative" is a claim about the element, not about the contrast contract its ink
+has to meet. See `engineering/decisions/2026-08-17-dark-surface-ink.md`.
+
 **Still deliberately outside the contract:** the purely *decorative* extras a
-hand-tuned palette adds on its own initiative — `--code-inline-fg`, the
-`--on-dark-*` tiers, the Marp chrome mappings, `--spectrum-quiet`. Each of those
-has a default the engine's own CSS supplies, so a generated theme without them
-renders exactly as intended. Note that "a default" is not always a `:root` one:
+hand-tuned palette adds on its own initiative — the `--on-dark-*` tiers, the Marp
+chrome mappings, `--spectrum-quiet`. Each of those has a default the engine's own
+CSS supplies, so a generated theme without them renders exactly as intended. Note that "a default" is not always a `:root` one:
 `--spectrum-quiet` is declared on the bare `section` slide root, which is a real
 default for a CSS `var()` read and *not* one for the Mermaid map, whose reader
 parses `:root` blocks out of the palette text. The gate splits those cases; a
