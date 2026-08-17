@@ -125,6 +125,19 @@ Handed CSS that already carries the terminator, through the shipped kernel:
 Every row keeps `section{color:red}` applying, so the guard is not buying safety by
 breaking the stylesheet.
 
+**Confirmed on the DEPLOYED artifact, not just a local build.** The tables above were taken
+against a locally built `docs/dist`, which is a fair reading of "the shipped bundle" but not the
+strongest one. The Cloudflare preview of this branch was then fetched directly and its 59 JS
+chunks read: the guard is present verbatim in `deck-preview.<hash>.js` — minified to `I(t)`, with
+the `[115,116,121,108,101]` charcode table and the hop-by-hop `indexOf("</")` scan intact — and it
+is **wired at both sinks**, `"<style>"+I(l)+"</style>"` for the font block and `…+I(e)+"</style>
+</head><body>"` for the composed sheet. So the guard is in the bytes a browser actually downloads,
+not only in the bytes this machine built.
+
+That check was done with `curl`, because a real browser could NOT reach the preview host from this
+sandbox (the egress proxy resets the connection for Chromium; `--ignore-certificate-errors` is not
+an acceptable workaround). So: the deployed BYTES are verified, the deployed PAGE was not driven.
+
 **NOT verified, and named as such:** the Fabricate *live specimen* path. The description
 does not reach that frame's `<style>` in either build — the specimen renders through the
 packer, which strips the header — so that surface is inert for this defect and cannot
