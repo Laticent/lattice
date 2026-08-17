@@ -58,6 +58,8 @@ const { blocksFor } = require('../lib/core/authoring-blocks');
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
+const { themeChain } = require('../lib/theme/chain.mjs');
+const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
 const { ensureContrast } = require('../lib/theme/color.js');
 
 // The capacity to publish, matching what `tools/build-component-docs.js` prints in
@@ -189,27 +191,23 @@ function parseThemeVars(css) {
   return merged;
 }
 
-/** Theme-name @imports a stylesheet declares (comments stripped so a banner's
- *  literal `@import '<self>'` prose can't self-match; minified no-space form
- *  handled). `lattice` (the base) is excluded — it carries no tokens. */
-function themeImports(css) {
-  return [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@import\s*['"]([A-Za-z0-9_-]+)['"]/g)]
-    .map((m) => m[1])
-    .filter((n) => n !== 'lattice');
-}
-
-/** Flatten a theme's var map across its @import chain (deps first, self last),
- *  so a thin palette that inherits most tokens (e.g. a11y-deuteranopia →
- *  a11y-base → onyx) resolves the FULL contract, not just its own overrides. */
-function flattenThemeVars(name, seen = new Set()) {
-  if (seen.has(name)) return new Map();
-  seen.add(name);
-  const css = fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8');
+/** Flatten a theme's var map across its chain (parents first, self last), so a thin
+ *  palette that inherits most tokens (e.g. a11y-deuteranopia → a11y-base → onyx)
+ *  resolves the FULL contract, not just its own overrides.
+ *
+ *  The chain comes from the MANIFEST (`extends`, baked into `THEME_EDGES`), not from
+ *  regexing `@import` out of the stylesheet — the CSS directive is Marp's copy of the
+ *  same edge, and this file's copy of that regex was one of five left in tools/. See
+ *  engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md. (`parseThemeVars`
+ *  still STRIPS the directive from the text; that is a separate concern — see its
+ *  docblock for the `:root` block it would otherwise swallow.) `lattice` (the engine
+ *  base) is not a theme edge and is absent from the graph — it carries no tokens here. */
+function flattenThemeVars(name) {
   const merged = new Map();
-  for (const imp of themeImports(css)) {
-    for (const [k, v] of flattenThemeVars(imp, seen)) merged.set(k, v);
+  for (const n of themeChain(name, THEME_EDGES)) {
+    const css = fs.readFileSync(path.join(THEMES_DIR, `${n}.css`), 'utf8');
+    for (const [k, v] of parseThemeVars(css)) merged.set(k, v);
   }
-  for (const [k, v] of parseThemeVars(css)) merged.set(k, v);
   return merged;
 }
 
@@ -271,14 +269,15 @@ function listBasePalettes() {
   const names = [];
   for (const file of fs.readdirSync(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
-    const css = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
     const name = file.replace(/\.css$/, '');
-    // Brand palettes import lattice directly. The a11y palettes import it
-    // transitively (a11y-* → a11y-base → onyx → lattice) and are first-class
+    // A brand palette declares no parent — it sits at the root of its chain and
+    // imports the engine base directly. (Asked of the MANIFEST via `THEME_EDGES`,
+    // not of the CSS: `@import 'lattice'` is Marp's copy of that same fact.) The
+    // a11y palettes DO have a parent (a11y-* → a11y-base → onyx) yet are first-class
     // selectable themes too — so a deck/site set to one restyles everywhere.
     // a11y-base is a shared partial (not selectable); -dark isn't a base palette.
     const a11ySelectable = name.startsWith('a11y-') && name !== 'a11y-base' && !name.endsWith('-dark');
-    if (!/@import\s*['"]lattice['"]/.test(css) && !a11ySelectable) continue;
+    if (Object.hasOwn(THEME_EDGES, name) && !a11ySelectable) continue;
     names.push(name);
   }
   const priority = PALETTE_PRIORITY.filter((p) => names.includes(p));

@@ -72,6 +72,16 @@ that regex `@import` for their own purposes: `tools/build-docs-portal.js`,
 source-form themes off disk, where the whitespace divergence cannot bite. Converting them
 is worth a follow-up; this note does not.
 
+**FOLLOW-UP LANDED (2026-08-17): the five `tools/` flatteners are converted.** All five now
+call `themeChain(name, THEME_EDGES)` — `require()`d from CJS, which Node ≥22.12 (the engines
+floor, and both CI matrix legs) supports — and `build-docs-portal.js` also asks the manifest,
+rather than a `@import 'lattice'` probe, which palettes are selectable. The replacement was
+proved byte-for-byte identical to each old flattener across all 32 palettes by extracting the
+OLD functions out of `git show HEAD:<tool>` rather than copying them, with reversed-order and
+leaf-only negative controls firing 18/18; every tool's own report is unchanged and
+`npm run build` moved nothing. **Still outstanding:** `checkThemeRoles` (which must read the
+CSS — comparing the two encodings is its whole job) and the six palette tests' private copies.
+
 ## 2. The latent defect this hides
 
 The emulator does not use the engine's theme resolution at all. It flattens imports itself
