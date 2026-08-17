@@ -187,6 +187,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:parsing` | Unit scope: source-parse, splitter, slot-label-lift, marp plugins. |
 | `test:playground` | Unit scope: the playground bundle/core. |
 | `test:release` | Unit scope: the release tooling. |
+| `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |
 | `test:transform-dsl` | Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl). |

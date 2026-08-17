@@ -22,6 +22,7 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import {
 	alignmentFailure,
 	classifyDivergence,
@@ -642,6 +643,24 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		);
 	}
 
+	/**
+	 * The same string, safe to embed in a `<style>` element (HARD RULE #22, stylesheet
+	 * channel). Both caller-influenced halves pass through it — the composed theme CSS
+	 * (which carries a Studio theme's label + description in its comment header, and the
+	 * description is model-populated) and `extraCss` (the author's live component styles).
+	 *
+	 * Sanitizing the ASSEMBLED string rather than each part is deliberate: one call site
+	 * for both channels, and a `</style` cannot be assembled across the join because the
+	 * separator between them is a comment we emit ourselves.
+	 *
+	 * The RESTYLE fast path sets this via `.textContent`, which is a DOM write and cannot
+	 * be broken out of — it takes the sanitized string anyway so the two paths produce a
+	 * byte-identical resident `<style>`, and so no future caller has to know which is which.
+	 */
+	function styleElementText(css: string, mode: 'light' | 'dark', geom: Geom, extraCss = ''): string {
+		return sanitizeStyleText(themeStyleContent(css, mode, geom, extraCss));
+	}
+
 	// Render the slide at its INTRINSIC `@size` box and scale the iframe ELEMENT
 	// (never the SVG) to fit the host — sidesteps the Safari foreignObject scaling
 	// bug (see frame-css.js + index.astro srcdoc note). `geom` is the render's
@@ -661,7 +680,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + '><head><meta charset="utf-8"><style id="lattice-theme">' +
-			themeStyleContent(css, mode, geom, extraCss) +
+			styleElementText(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;
 		if (mermaid) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
@@ -1229,7 +1248,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Swap the theme <style> in place FIRST, then the body — the new palette applies
 					// atomically with the new section, so a viewer never sees the old theme on the new
 					// body (or vice-versa) for a frame.
-					themeStyleEl.textContent = themeStyleContent(out.css, mode, geom, extraCss);
+					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
 					if (patchSlideBody(live, safe)) {
 						(host as LiveHost).__latticeFrameSig = sig;
 						(host as LiveHost).__latticeRestyleSig = restyleSig;

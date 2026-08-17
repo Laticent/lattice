@@ -55,6 +55,34 @@ justification. The same gate also fires if a *listed* builder drops its
 that only assigns a builder's output to `.srcdoc` (no `<script>` injection of its
 own) is not a builder and needs no entry.
 
+## `build:check` fails: "embeds a `<style>` element but does not call `sanitizeStyleText`" (HARD RULE #22)
+
+The **stylesheet** channel of the same frame. A preview builder assembles one
+document out of two caller-influenced strings, and sanitizing only the markup half
+leaves the other half open:
+
+```
+'…<style id="lattice-theme">' + themeCss + '</style></head><body>' + slideHtml
+                                ^ this one                          ^ sanitizeSlideHtml
+```
+
+A `<style>` element's content is HTML **RAWTEXT**, which ends at the first `</style`
+and knows nothing about CSS comments or strings. So a `</style>` carried in theme or
+author CSS — sitting inside a perfectly well-formed CSS comment, even — ends the
+element, and everything after it is parsed as **markup** in the live, same-origin,
+un-sandboxed frame. Measured in Chromium 131: `</style>` alone runs script; closing
+the CSS comment with `*/` alone does not. The input is untrusted by construction: a
+Studio theme's `description` rides in that sheet's comment header and is
+model-populated (Fabricate seeds it from the reply).
+
+**Fix:** pass the stylesheet text through `sanitizeStyleText`
+(`lib/core/sanitize-style-text.mjs`) before it enters the frame. It escapes only the
+element terminator (`<\/style`, a valid CSS escape that computes identically), is
+idempotent, and returns the input by identity when there is nothing to escape — it is
+**not** a CSS sanitizer and must not become one. Builders with no `<style>` element
+owe nothing here. See
+`engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md`.
+
 ## Docs build fails `stale: <name>.<mood>: gallery PDF changed since the WebP was generated`
 
 - **Symptom:** `docs-build` (and the Cloudflare `preview` job) go red on

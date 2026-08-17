@@ -1,0 +1,42 @@
+[
+  {
+    "case": "raw </style> (guard OFF)",
+    "guard": false,
+    "styleIntact": false,
+    "strayNodes": 1,
+    "scriptRan": "raw",
+    "ruleApplies": "rgb(255, 0, 0)"
+  },
+  {
+    "case": "raw </style> (guard ON)",
+    "guard": true,
+    "styleIntact": true,
+    "strayNodes": 0,
+    "scriptRan": null,
+    "ruleApplies": "rgb(255, 0, 0)"
+  },
+  {
+    "case": "inside a well-formed CSS comment (guard ON)",
+    "guard": true,
+    "styleIntact": true,
+    "strayNodes": 0,
+    "scriptRan": null,
+    "ruleApplies": "rgb(255, 0, 0)"
+  },
+  {
+    "case": "inside a CSS string (guard ON)",
+    "guard": true,
+    "styleIntact": true,
+    "strayNodes": 0,
+    "scriptRan": null,
+    "ruleApplies": "rgb(255, 0, 0)"
+  },
+  {
+    "case": "uppercase </STYLE> (guard ON)",
+    "guard": true,
+    "styleIntact": true,
+    "strayNodes": 0,
+    "scriptRan": null,
+    "ruleApplies": "rgb(255, 0, 0)"
+  }
+]

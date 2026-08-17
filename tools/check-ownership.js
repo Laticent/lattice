@@ -4328,10 +4328,56 @@ function checkRenderNature(manifests, errors) {
 // a listed builder that drops the call fails, and a stale entry fails.
 const PREVIEW_BUILDER_MARKER = /['"]<scr['"]\s*\+\s*['"]ipt/;
 const SANITIZE_CALL = /sanitizeSlideHtml\s*\(/;
+
+// A preview builder assembles ONE document out of TWO caller-influenced strings, and
+// until 2026-08-17 this gate only knew about the second:
+//
+//     '…<style id="lattice-theme">' + themeCss + '</style></head><body>' + slideHtml
+//                                     ^ STYLE_SINK_MARKER                  ^ SANITIZE_CALL
+//
+// The stylesheet channel is a script-execution path in its own right. A `<style>`
+// element's content is HTML RAWTEXT, which ends at the first `</style` and knows nothing
+// about CSS comments or strings — so a `</style>` carried in theme CSS ends the element
+// and everything after it is parsed as MARKUP in the live, same-origin, un-sandboxed
+// frame, no matter how well the slide HTML beside it was sanitized. Measured in Chromium
+// 131: `</style>` alone runs script; closing the CSS comment with `*​/` alone does not.
+// A theme's `description` reaches this string model-populated (Fabricate seeds it from
+// the reply), so the input is untrusted by construction.
+//
+// The gate therefore checks BOTH channels, and they are independent: a builder with no
+// `<style>` element owes nothing here, and one that has both owes both calls. See
+// engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md.
+const STYLE_SINK_MARKER = /<style[\s>]/i;
+const SANITIZE_STYLE_CALL = /sanitizeStyleText\s*\(/;
+
+// DISCOVERY for the stylesheet channel, and it is deliberately NOT the runtime-`<script>`
+// idiom the markup arm keys on. That idiom marks a live PREVIEW frame; it has no causal
+// relation to "assembles a document containing untrusted CSS", and keying on it missed
+// `share-export.ts` — whose `buildSelfContainedDoc` embeds the same composed sheet in the
+// same `<style>` shape, into a file that is DOWNLOADED AND SHARED. That one has a real
+// author→recipient split, where the preview frame is mostly self-XSS. Found by a
+// Munger-inversion pass on the first cut of this gate.
+//
+// The honest marker for the class is "assembles a whole HTML document". Measured over
+// `docs/src`: it selects exactly five files, all of them real document assemblers, with
+// no false positives — where a looser "embeds a `<style>` with an interpolation" marker
+// selects 22, most of them our own font/chart CSS.
+const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
+// A document assembler that legitimately does not call the sanitizer, with the reason.
+// Same anti-rot shape as the other allowlists: a stale entry fails.
+const SANCTIONED_STYLE_SINK_EXEMPT = [
+  {
+    file: 'docs/src/playground/player-core.generated.js',
+    why: 'GENERATED from lib/export/player-core.mjs (HARD RULE #2 — never hand-edited). It is the '
+      + 'EXPORT player, so the same `</style>` class applies to it, but the fix belongs at its '
+      + 'generator and changes the bytes of a shipped artifact — which needs export sign-off, not a '
+      + 'silent edit here. Tracked in engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §8.',
+  },
+];
 const SANCTIONED_PREVIEW_BUILDERS = [
-  { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path).' },
-  { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview.' },
-  { file: 'docs/src/components/studio/present/presenter-window.js', why: 'buildStageDoc — the Studio\'s dual-screen presenter AND rehearsal stage.' },
+  { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path); the theme/component CSS bakes into the document <style>.' },
+  { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview; themeStyleContent() is the one place theme + author CSS is baked, and the RESTYLE fast path re-swaps it.' },
+  { file: 'docs/src/components/studio/present/presenter-window.js', why: 'buildStageDoc — the Studio\'s dual-screen presenter AND rehearsal stage; embeds the deck\'s composed CSS in the stage <style>.' },
 ];
 
 function listSourceFiles(dir, out = []) {
@@ -5094,12 +5140,17 @@ function checkClassAttrReads(errors) {
   }
 }
 
-function checkPreviewHtmlSinks(errors) {
-  const DOCS_SRC = path.join(ROOT, 'docs', 'src');
-  const sanctioned = new Map(SANCTIONED_PREVIEW_BUILDERS.map((s) => [s.file, s]));
+// `root`/`sanctions` are injected ONLY so the gate's own test can drive it over a scratch
+// tree. Writing probe files into the real `docs/src` — the first shape of that test — is a
+// self-inflicted red build: `node --test` runs files concurrently, so a probe present for
+// one test is seen by every other check scanning the same tree, and a crash between write
+// and cleanup leaves a file that fails `build:check` outright. It did exactly that once.
+function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, root = ROOT, exempt = SANCTIONED_STYLE_SINK_EXEMPT) {
+  const DOCS_SRC = path.join(root, 'docs', 'src');
+  const sanctioned = new Map(sanctions.map((s) => [s.file, s]));
   const seen = new Set();
   for (const file of listSourceFiles(DOCS_SRC)) {
-    const rel = path.relative(ROOT, file);
+    const rel = path.relative(root, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests assert payloads, not preview frames
     const src = fs.readFileSync(file, 'utf8');
     if (!PREVIEW_BUILDER_MARKER.test(src)) continue;
@@ -5112,18 +5163,69 @@ function checkPreviewHtmlSinks(errors) {
         `(lib/core/sanitize-slide-html.js, re-exported by docs/src/lib/sanitize-slide-html.js) before it enters the frame, then add this file to ` +
         `SANCTIONED_PREVIEW_BUILDERS in tools/check-ownership.js with a justification.`,
       );
-    } else if (!SANITIZE_CALL.test(src)) {
+      continue;
+    }
+    if (!SANITIZE_CALL.test(src)) {
       errors.push(
         `${rel} is a sanctioned preview builder but no longer calls sanitizeSlideHtml (HARD RULE #22) — ` +
         `restore the call or its srcdoc reopens the #616 XSS hole.`,
       );
     }
   }
-  for (const s of SANCTIONED_PREVIEW_BUILDERS) {
+  for (const s of sanctions) {
     if (!seen.has(s.file)) {
       errors.push(
         `stale preview-builder sanction in tools/check-ownership.js — ${s.file} no longer builds a ` +
         `preview frame (HARD RULE #22). Remove the SANCTIONED_PREVIEW_BUILDERS entry so the allowlist stays honest.`,
+      );
+    }
+  }
+  checkDocumentStyleSinks(errors, exempt, root);
+}
+
+/**
+ * HARD RULE #22, STYLESHEET channel — every `docs/src` module that assembles a WHOLE HTML
+ * document containing caller CSS must run that CSS through `sanitizeStyleText`.
+ *
+ * Discovery is by document assembly, NOT by the preview-builder marker, and that is the
+ * whole point: the runtime-`<script>` idiom marks a live preview frame and has no causal
+ * relation to "embeds untrusted CSS". Keying the stylesheet arm on it missed
+ * `share-export.ts`, whose `buildSelfContainedDoc` puts the same composed sheet in the same
+ * `<style>` shape into a file that is DOWNLOADED AND SHARED — the one path here with a real
+ * author-to-recipient split, where a preview frame is mostly self-XSS.
+ *
+ * A `<style>`'s content is HTML RAWTEXT: it ends at the first `</style`, inside a CSS
+ * comment or string just the same, and the remainder is parsed as markup.
+ */
+function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, root = ROOT) {
+  const DOCS_SRC = path.join(root, 'docs', 'src');
+  const excused = new Map(exempt.map((e) => [e.file, e]));
+  const seen = new Set();
+  for (const file of listSourceFiles(DOCS_SRC)) {
+    const rel = path.relative(root, file);
+    if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    if (!DOC_ASSEMBLER_MARKER.test(src) || !STYLE_SINK_MARKER.test(src)) continue;
+    seen.add(rel);
+    if (excused.has(rel)) continue;
+    if (!SANITIZE_STYLE_CALL.test(src)) {
+      errors.push(
+        `${rel} assembles a complete HTML document with a <style> element but does not call ` +
+        `sanitizeStyleText (HARD RULE #22, stylesheet channel). A <style>'s content is HTML RAWTEXT — ` +
+        `a \`</style>\` carried in theme or author CSS ends the element even from inside a CSS comment ` +
+        `or string, and everything after it is parsed as markup. In a same-origin preview frame that is ` +
+        `script execution and OpenRouter-key theft (#616, HARD RULE #24); in a downloaded export it is ` +
+        `the same, aimed at whoever opens the file. Pass the stylesheet through sanitizeStyleText ` +
+        `(lib/core/sanitize-style-text.mjs), or add this file to SANCTIONED_STYLE_SINK_EXEMPT with a reason.`,
+      );
+    }
+  }
+  for (const e of exempt) {
+    if (!seen.has(e.file)) {
+      errors.push(
+        `stale style-sink exemption in tools/check-ownership.js — ${e.file} no longer assembles a ` +
+        `document with a <style> element (HARD RULE #22). Remove the SANCTIONED_STYLE_SINK_EXEMPT entry ` +
+        `so the allowlist stays honest.`,
       );
     }
   }
@@ -8416,6 +8518,9 @@ module.exports = {
   classAttrOffences,
   SANCTIONED_CLASS_ATTR_READS,
   checkPreviewHtmlSinks,
+  checkDocumentStyleSinks,
+  DOC_ASSEMBLER_MARKER,
+  SANCTIONED_STYLE_SINK_EXEMPT,
   checkSnapshotHtmlSinks,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
@@ -8435,6 +8540,8 @@ module.exports = {
   SANCTIONED_PREVIEW_BUILDERS,
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,
+  STYLE_SINK_MARKER,
+  SANITIZE_STYLE_CALL,
   checkHexLiterals,
   checkSplitOracle,
   LAYOUT_HEX_BUDGET,

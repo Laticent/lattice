@@ -178,6 +178,7 @@ const SCRIPT_META = {
   'test:core':                ['Test & verify', 'Unit scope: lib/core/* (token resolver, splits, marp bundle, …).'],
   'test:export':              ['Test & verify', 'Unit scope: the owned export writers (PPTX, …).'],
   'test:release':             ['Test & verify', 'Unit scope: the release tooling.'],
+  'test:theme':               ['Test & verify', 'Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet).'],
   'test:tokens':              ['Test & verify', 'Unit scope: the universal token system.'],
   'test:tools':               ['Test & verify', 'Unit scope: author tools (export-marp, …).'],
   'test:integration':         ['Test & verify', 'The FULL integration tier (every suite — PR slice + nightly slice). What pre-push runs under LATTICE_FULL_PUSH=1.'],

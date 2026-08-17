@@ -67,6 +67,128 @@ describe('theme-serialize', () => {
     });
   }
 
+  /**
+   * #1709 — `label` and `description` are free text (the description is MODEL-populated:
+   * Fabricate seeds it from the reply) and land inside the header's `/* … *​/` block.
+   * Unescaped, two characters end that comment and the remainder of the field is live CSS
+   * in a sheet that composes straight into the Studio's preview frame.
+   *
+   * The assertion is a PROPERTY — "the header comment is closed by us, not by the field" —
+   * because a payload list only ever proves the payloads on it. Each arm is pinned:
+   * reverting either `commentSafe` call fails its own field's rows, and testing the
+   * terminator against the SOURCE instead of the emitted bytes fails the `**​//` row.
+   *
+   * NOTE what this does NOT buy, and it is why it is only half the fix: it closes the
+   * live-CSS channel, not the script one. `<​/style>` in this same field still ends the
+   * preview frame's `<style>` element — HTML RAWTEXT does not read CSS comments — which
+   * is handled at the frame by `sanitizeStyleText`, and is covered by
+   * test/unit/core/sanitize-style-text.test.js. See
+   * engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md.
+   */
+  describe('the header comment cannot be closed by caller text (#1709)', () => {
+    const map = deriveTheme(STARTERS[0].essentials);
+    /** Where the FIRST `*​/` sits — i.e. where the header ends. */
+    const headerEnd = (css) => css.indexOf('*/');
+    const benign = headerEnd(serializeTheme(map, { name: 'p', label: 'L', description: 'D' }));
+
+    const payloads = {
+      'bare terminator': '*/',
+      'terminator then a rule': '*/ :root{--pwned:1} /*',
+      // Escaping by scanning the SOURCE leaves this one live: dropping the first slash
+      // pushes the second against the same star.
+      'adjacent terminators': '**//',
+      'an opener only (comments do not nest — must pass through)': '/*',
+      'a newline that would break the header shape': 'line one\nline two',
+      'a directive that would resolve if it escaped': '*/ @import \'onyx\'; /*',
+      'unicode line separator': 'a b',
+    };
+
+    for (const field of ['label', 'description']) {
+      for (const [label, payload] of Object.entries(payloads)) {
+        test(`${field}: ${label}`, () => {
+          const css = serializeTheme(map, { name: 'p', label: 'L', description: 'D', [field]: payload });
+          const end = headerEnd(css);
+          assert.ok(end > 0, 'the header must still be a closed comment');
+          const header = css.slice(0, end);
+          assert.equal(
+            (header.match(/\*\//g) || []).length, 0,
+            `caller text closed the header early: ${JSON.stringify(header.slice(-80))}`,
+          );
+          // The header must still be the header — not a truncated stub that merely
+          // happens to contain no terminator.
+          assert.ok(end >= benign - 8, `the header collapsed (ended at ${end}, benign ends at ${benign})`);
+          assert.match(css, /@import 'lattice';/);
+          // The payload text may (and should) survive as inert prose inside the comment —
+          // this neutralizes, it does not censor. What must NOT survive is the payload as
+          // a LIVE declaration, so the check is on the parsed sheet, not on the bytes.
+          assert.ok(
+            !Object.hasOwn(parsePaletteVars(css, 'light'), 'pwned'),
+            'the injected declaration parsed as a real token',
+          );
+        });
+      }
+    }
+
+    test('the field text itself survives — this neutralizes, it does not censor', () => {
+      const css = serializeTheme(map, { name: 'p', description: 'Warm 60/30/10 palette */ for boards' });
+      assert.match(css, /Warm 60\/30\/10 palette/);
+      assert.match(css, /for boards/);
+    });
+
+    test('LOSSLESS — not one character of the description is dropped', () => {
+      // The first cut deleted the slash, so `a 2*/3 split` became `a 2*3 split`: a changed
+      // claim, not an escaped one, while the docs said it round-tripped. Escaping with a
+      // backslash (inert inside a CSS comment) keeps every byte. Pinned as a property so
+      // no future "simplification" can quietly go back to deleting.
+      for (const desc of ['wrap it in /* … */ to hide it', 'a 2*/3 split', '**//', '*/', 'a*/b*/c']) {
+        const css = serializeTheme(map, { name: 'p', description: desc });
+        const header = css.slice(0, css.indexOf('*/'));
+        assert.equal((header.match(/\*\//g) || []).length, 0, `header closed early on ${JSON.stringify(desc)}`);
+        // The ONLY edit allowed is inserted backslashes, so removing them from the emitted
+        // header must restore the description verbatim.
+        assert.ok(header.replace(/\\/g, '').includes(desc),
+          `characters were dropped from ${JSON.stringify(desc)} — header was ${JSON.stringify(header.slice(-90))}`);
+      }
+    });
+
+    test('a benign description is byte-for-byte what it always was', () => {
+      const d = 'A warm, restrained palette for board decks.';
+      assert.ok(serializeTheme(map, { name: 'p', description: d }).includes(` * ${d}\n`));
+    });
+
+    test('a newline in a field cannot break the header\'s one-line-per-field shape', () => {
+      // Named by two arms above but pinned by neither: the "no `*/` in the header"
+      // property a newline can never violate, so all three control-blanking mutants
+      // (drop it entirely, C0 only, U+2028/9 only) used to kill zero tests.
+      for (const [label, payload] of Object.entries({
+        newline: 'line one\nline two',
+        carriageReturn: 'line one\rline two',
+        formFeed: 'line one\fline two',
+        lineSeparator: 'line one\u2028line two',
+        paragraphSeparator: 'line one\u2029line two',
+        tab: 'a\tb',
+      })) {
+        const css = serializeTheme(map, { name: 'p', description: payload });
+        const header = css.slice(0, css.indexOf('*/'));
+        const body = header.split('\n').filter((l) => l.includes('line one') || l.includes('a\tb') || /line two|\bb\b/.test(l));
+        assert.equal(body.length, 1, `${label} split the field across ${body.length} header lines`);
+        assert.ok(/^ \* /.test(body[0]), `${label} produced a header line without the ' * ' prefix: ${JSON.stringify(body[0])}`);
+        // Code points, not a regex literal — a literal control character in a pattern is
+        // both a lint error and unreadable.
+        const stray = [...header].find((ch) => {
+          const n = ch.codePointAt(0);
+          return (n < 0x20 && n !== 0x0a) || n === 0x2028 || n === 0x2029;
+        });
+        assert.equal(stray, undefined, `${label} left U+${stray?.codePointAt(0).toString(16)} in the header`);
+      }
+    });
+
+    test('the emitted sheet still round-trips through the palette parser', () => {
+      const css = serializeTheme(map, { name: 'p', label: '*/x', description: '*/y' });
+      assert.ok(Object.keys(parsePaletteVars(css, 'light')).length > 40, 'tokens survived the escape');
+    });
+  });
+
   describe('themeAsset', () => {
     test('shapes a library-scoped kind:theme record carrying css + essentials', () => {
       const essentials = STARTERS[0].essentials;

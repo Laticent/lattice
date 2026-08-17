@@ -221,6 +221,7 @@
     "test:core": "node --test 'test/unit/core/*.test.js'",
     "test:export": "node --test 'test/unit/export/*.test.js'",
     "test:release": "node --test 'test/unit/release/*.test.js'",
+    "test:theme": "node --test 'test/unit/theme/*.test.js'",
     "test:tokens": "node --test 'test/unit/tokens/*.test.js'",
     "test:tools": "node --test 'test/unit/tools/*.test.js'",
     "test:adaptive": "node --test 'test/unit/adaptive/*.test.js'",

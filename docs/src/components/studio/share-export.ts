@@ -14,6 +14,7 @@ import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
+import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { BakeVoice } from './read-aloud';
 import type { OverflowMarker } from './studio-store';
@@ -133,12 +134,12 @@ function buildSelfContainedDoc(p: {
 	return `<!DOCTYPE html>
 <html lang="${escAttr(p.lang)}"><head><meta charset="utf-8">
 <title>${escHtml(p.title)}</title>
-<style id="lattice-embedded-fonts">${p.fontCss}</style>
+<style id="lattice-embedded-fonts">${sanitizeStyleText(p.fontCss)}</style>
 ${p.katexLink}
 <style>
 @page { size: ${p.w}px ${p.h}px; margin: 0; }
 body { margin: 0; padding: 0; }
-${p.css}
+${sanitizeStyleText(p.css)}
 section[data-lattice-slide] { width: ${p.w}px !important; height: ${p.h}px !important; }
 </style></head><body>
 ${p.a11yDefs}
@@ -640,7 +641,10 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 	// the sender's YAML comments, `_class:`, `style: |` body and flow sequences deleted from a
 	// copy they never see, with no Undo on the far side (#1256).
 	const classed = finishClass ? writeFrontMatterLine(mergeClassTokens(source, finishClass), 'finish', null) : source;
-	const block = `<style>\n/* Lattice Studio — embedded finish (self-contained: this deck keeps its surface\n   finish even where the saved finish is not installed). Generated on export. */\n${finishCss.trim()}\n</style>\n`;
+	// #22 stylesheet channel — a SAVED FINISH is user- or model-authored CSS, and this
+	// splices it into a `<style>` in the markdown handed to a RECIPIENT. A `</style>` in it
+	// would end the element on their machine.
+	const block = `<style>\n/* Lattice Studio — embedded finish (self-contained: this deck keeps its surface\n   finish even where the saved finish is not installed). Generated on export. */\n${sanitizeStyleText(finishCss.trim())}\n</style>\n`;
 	const fm = /^(---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$))/.exec(classed);
 	if (fm) return classed.slice(0, fm[0].length) + '\n' + block + '\n' + classed.slice(fm[0].length);
 	return block + '\n' + classed;

@@ -53,6 +53,7 @@ import {
 	PRINT_SHEETS,
 	resolvePrintSheet,
 } from '../../../lib/core/print-sheet.mjs';
+import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
@@ -313,7 +314,14 @@ export function buildSrcdoc({
 	return (
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
 		(needsKatex ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
-		(fontCss ? '<style>' + fontCss + '</style>' : '') +
+		// Guarded too, though `fontCss` is ours (previewFontFaceCss over a static table of
+		// bundled .woff2). `buildSrcdoc` is EXPORTED and has external callers, so "ours" is
+		// a property of today's call sites, not of this function — and the #22 gate is
+		// file-scoped, so a second unguarded sink here would keep the file green. Two
+		// independent review passes both landed on this line; the guard is free (it returns
+		// by identity when there is nothing to escape) and it makes the file's own
+		// accounting true rather than a comment asking to be trusted.
+		(fontCss ? '<style>' + sanitizeStyleText(fontCss) + '</style>' : '') +
 		'<style>html,body{margin:0;padding:' + padding + 'px;background:' + bg + ';}' +
 		// Center a short deck in the viewport instead of pinning it to the top with a
 		// large void below (a single-component preview should sit centered, like the
@@ -332,7 +340,12 @@ export function buildSrcdoc({
 		slideBox(gw, gh) +
 		sectionRule +
 		activeRule +
-		css +
+		// HARD RULE #22, stylesheet channel. The engine sheet carries a theme's own
+		// comment header, and a Studio theme's label/description ride in it — so this
+		// string is caller-influenced. A `</style>` anywhere in it would end the element
+		// here (RAWTEXT does not care about CSS comments) and turn the rest into markup
+		// in this same-origin frame. `fontCss` and `printCss` are ours; `css` is not.
+		sanitizeStyleText(css) +
 		// printCss LAST so its `@page` wins. CSS merges same-named `@page` rules with
 		// the LATER declaration winning per-descriptor, and the engine `css` carries its
 		// own `@page{size:<slide-px>;margin:0}` (one-slide-per-page for the colour PDF).
