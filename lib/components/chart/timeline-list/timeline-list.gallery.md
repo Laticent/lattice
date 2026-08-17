@@ -143,6 +143,7 @@ Four milestones show the shape; the date chips carry the when.
 
 `Related components`
 
+- `regulatory-update` — the dated entries are regulatory changes and every row carries a citation
 - `gantt` — milestones occupy date ranges, not single moments
 - `list-steps` — the sequence has no dates, just an order
 - `journey` — stage-by-stage progress without calendar dates

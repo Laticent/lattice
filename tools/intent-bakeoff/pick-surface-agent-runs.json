@@ -1,4 +1,5 @@
 {
+  "_note": "Two bake-offs. The four unprefixed keys are the FIRST run, scored against tools/intent-bakeoff/pick-surface-briefs.json (12 general authoring briefs). The four `confusable*` keys are the DISCRIMINATING follow-up that note named as missing, scored against tools/intent-bakeoff/pick-surface-briefs-confusable.json (12 briefs drawn only from the confusable clusters). Same design both times: 4 agents on Opus, 2 per condition, each given ONE surface and nothing else — no manifests, no .docs.md, no grep. `subagent_tokens` and `tool_uses` are the harness's own accounting for that agent.",
   "pickA": {
     "surface": "dist/docs/components.pick.md",
     "subagent_tokens": 48087,
@@ -26,5 +27,41 @@
     "tool_uses": 9,
     "picks": {"1": "big-number", "2": "kpi", "3": "list-steps", "4": "compare-table", "5": "quadrant", "6": "gantt", "7": "glossary", "8": "q-and-a", "9": "logo-wall", "10": "code", "11": "citation-card", "12": "divider"},
     "low_confidence": [1, 3]
+  },
+  "confusablePickA": {
+    "briefs": "tools/intent-bakeoff/pick-surface-briefs-confusable.json",
+    "surface": "dist/docs/components.pick.md",
+    "subagent_tokens": 50909,
+    "tool_uses": 1,
+    "picks": {"1": "cards-stack", "2": "cards-grid", "3": "list", "4": "checklist", "5": "list-tabular", "6": "actors", "7": "inventory", "8": "matrix-2x2", "9": "matrix-grid", "10": "roadmap", "11": "gantt", "12": "regulatory-update"},
+    "low_confidence": [7, 12],
+    "runner_up_named_for_12": "timeline-list — 'reads as past milestone history rather than upcoming obligations'"
+  },
+  "confusablePickB": {
+    "briefs": "tools/intent-bakeoff/pick-surface-briefs-confusable.json",
+    "surface": "dist/docs/components.pick.md",
+    "subagent_tokens": 50917,
+    "tool_uses": 1,
+    "picks": {"1": "cards-stack", "2": "cards-grid", "3": "list", "4": "checklist", "5": "list-tabular", "6": "actors", "7": "inventory", "8": "matrix-2x2", "9": "matrix-grid", "10": "roadmap", "11": "gantt", "12": "regulatory-update"},
+    "low_confidence": [1, 7, 12],
+    "runner_up_named_for_12": "timeline-list — 'annotated dated milestones'"
+  },
+  "confusableFullA": {
+    "briefs": "tools/intent-bakeoff/pick-surface-briefs-confusable.json",
+    "surface": "dist/docs/components.json",
+    "subagent_tokens": 218777,
+    "tool_uses": 9,
+    "picks": {"1": "cards-stack", "2": "cards-grid", "3": "list", "4": "checklist", "5": "list-tabular", "6": "actors", "7": "inventory", "8": "matrix-2x2", "9": "matrix-grid", "10": "roadmap", "11": "gantt", "12": "timeline-list"},
+    "low_confidence": [1, 7, 12],
+    "runner_up_named_for_12": "regulatory-update — 'rejected because it demands a citation per row'"
+  },
+  "confusableFullB": {
+    "briefs": "tools/intent-bakeoff/pick-surface-briefs-confusable.json",
+    "surface": "dist/docs/components.json",
+    "subagent_tokens": 218910,
+    "tool_uses": 9,
+    "picks": {"1": "cards-stack", "2": "cards-grid", "3": "list", "4": "checklist", "5": "list-tabular", "6": "actors", "7": "inventory", "8": "matrix-2x2", "9": "matrix-grid", "10": "roadmap", "11": "gantt", "12": "timeline-list"},
+    "low_confidence": [5, 7, 12],
+    "runner_up_named_for_12": "regulatory-update — 'rejected because it demands a citation per row'"
   }
 }

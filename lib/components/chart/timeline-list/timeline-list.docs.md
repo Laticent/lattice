@@ -75,6 +75,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 ## Related components
 
+- [`regulatory-update`](../../legal/regulatory-update/regulatory-update.docs.md) — the dated entries are regulatory changes and every row carries a citation
 - [`gantt`](../../chart/gantt/gantt.docs.md) — milestones occupy date ranges, not single moments
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — the sequence has no dates, just an order
 - [`journey`](../../chart/journey/journey.docs.md) — stage-by-stage progress without calendar dates

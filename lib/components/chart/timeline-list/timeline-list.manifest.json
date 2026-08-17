@@ -82,6 +82,10 @@
   ],
   "related": [
     {
+      "name": "regulatory-update",
+      "when": "the dated entries are regulatory changes and every row carries a citation"
+    },
+    {
       "name": "gantt",
       "when": "milestones occupy date ranges, not single moments"
     },

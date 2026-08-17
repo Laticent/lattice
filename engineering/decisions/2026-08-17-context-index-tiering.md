@@ -120,21 +120,26 @@ bytes**, of which the generated block is 25,552 and the rows alone 25,426.
 |---|---:|---|
 | Rows as shipped (glyph + linked filename + gist) | **25,426** | 2.5x over |
 | …dropping the markdown link, bare filename kept | 19,205 | 1.9x over |
-| Exit A — cap `summary:` at the source (gist → 0) | ~13,800 | 1.4x over **at best** |
+| Exit A — cap `summary:` at the source | ≥ **13,302** | 1.3x over **at its floor** |
 | Exit B — filename + status only, linked | **13,302** | 1.3x over |
 | Exit B unlinked | 7,504 | inside — and see below |
-| `ls engineering/decisions/` for comparison | 5,842 | free |
+| the 424 note filenames alone (what `ls` prints) | 5,796 | free |
+
+Exit A's floor **is** Exit B's number: the most a source-side summary cap can remove is
+every character of gist, which lands on exactly the filename-and-status index Exit B
+proposes. There is no arrangement of the two exits that reaches 10k with the link syntax
+in place.
 
 Two facts kill the original target:
 
 - **The identifier is the floor, and the markup doubles it.** The 424 filenames cost
   **5,373 tokens** once. Every row renders the filename **twice** — link text and link
-  target — so the identifier alone is 10,746 tokens, **42% of the block**, before a word
+  target — so the identifier alone is 10,746 tokens, **42% of the rows**, before a word
   of gist (the gists are 11,600, 46%). Exit A deletes the 46% and cannot touch the 42%.
 - **Exit B is a directory listing you pay for.** A filename-and-status index costs 13,302
-  tokens to deliver what `ls` of the same folder gives in 5,842 — the 7,460-token
-  difference is markdown link syntax, and the 1,662 above `ls` is the status column. That
-  is rule 3 ("don't map what `grep` gives free") turned on this note's own proposal.
+  tokens to deliver what `ls` of the same folder prints for **5,796**. Of the 7,506-token
+  difference, **5,798 is markdown link syntax** and 1,708 is the status column and bullet.
+  That is rule 3 ("don't map what `grep` gives free") turned on this note's own proposal.
 
 **Sharding (option (b)) fails on the only key that exists.** Every note is dated; nothing
 carries an `area:` field (6 notes do, out of 424 — a coincidence, not a convention). By
