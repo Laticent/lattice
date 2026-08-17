@@ -190,6 +190,44 @@ What this does NOT justify is padding the row: the two obvious remedies were mea
 buy nothing. If picking accuracy ever proves to be a real problem, the answer is a better
 retrieval step, not more prose per line.
 
+## Then measured with agents, which reverses the reading
+
+The ranker number above is a proxy, and the proxy was pessimistic. Four agents (Opus)
+were each given **one surface and nothing else** — no manifests, no `.docs.md`, no
+grep — and asked to name the `_class` for 12 authoring briefs written in author voice
+("four metrics for the monthly ops review, each needs a label, the value, and whether
+it's on track"). Ground truth was locked in a pre-registered file before any agent ran.
+
+| condition | strict (the manifest's own answer) | defensible | tokens per agent | tool calls |
+|---|---|---|---|---|
+| PICK surface | 22/24 — **92%** | 24/24 — 100% | ~48k | 1 |
+| FULL catalog | 24/24 — 100% | 24/24 — 100% | 61k–216k | 8–9 |
+
+**The two surfaces agreed on 11 of 12 briefs.** The single disagreement is brief #3 —
+six onboarding steps, in order, a sentence each: the full-catalog agents said
+`list-steps`, the pick agents said `timeline-list`, which is in the same confusable
+cluster and is a choice an author could defend. Both conditions flagged the same two
+briefs as low-confidence, unprompted.
+
+So the lexical proxy's **-17.8 points overstated the loss**: it models one-shot TF-IDF
+retrieval over a row, while the real flow is an agent reading all 61 rows — 3.8k tokens
+fits comfortably — and reasoning across them. Retrieval signal and decision signal are
+not the same quantity, and this surface was built for the second.
+
+The cost side is the sharper finding. One full-catalog agent burned **216k tokens across
+8 paginated reads** to reach the same 12 answers a pick-surface agent reached in **48k
+with a single read** — which is also the mechanism behind the "11,437 lines, a default
+read stops at `code`" defect above: the full catalog is not one read, it is six, and an
+agent that does not pay for all six is choosing from a fraction of the catalog.
+
+**Limits, stated plainly.** Twelve briefs, two runs per condition, and the briefs were
+written to have defensible ground truth — which makes them easier than a real confusable
+case. The 8-point strict gap is literally one brief. A discriminating follow-up would use
+briefs drawn from the confusable clusters (`list` / `cards-stack` / `list-tabular`,
+`matrix-grid` / `matrix-2x2` / `roadmap`) where the `see also` column is supposed to
+earn its place. And the same person wrote the briefs and both surfaces, so unconscious
+favouring of pick-row vocabulary cannot be ruled out.
+
 ## Deliberately not done
 
 - **`components.json` must NOT be pruned, and the first draft of this note was wrong to
