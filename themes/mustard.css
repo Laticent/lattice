@@ -87,14 +87,21 @@
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
 
-  /* Anchored on --accent BY REFERENCE, which is a light-dark() pair, so a dark
-   * canvas gets a value that reads there. A flat anchor leaves --seq-700/500/400
-   * (word-cloud `spectrum`) at 1–3:1 on dark. Deliberately not a hand-written
-   * pair: this palette's flat anchor was already, exactly, --accent's light arm,
-   * so copying --accent's dark hex here would duplicate a literal that nothing
-   * gates — re-tune --accent and the ramp would silently keep the stale one.
+  /* The ramp anchor — a pair, solved ARM BY ARM against the derived stops, and
+   * the one palette in the set where BOTH arms had to leave --accent behind.
+   *   light  mustard's canvas is CREAM (#F5EFD8), and --seq-50..400 recede toward
+   *          pure WHITE, which is lighter than that canvas — so the low stops run
+   *          out of canvas before they run out of ramp. On --accent's light arm
+   *          --seq-400 landed at 2.86:1, the only sub-3:1 stop on any light
+   *          canvas in the set. #7B5A00 is that hue two OKLab-L steps deeper
+   *          (0.544 → 0.49), which lifts --seq-400 to 3.41:1.
+   *   dark   --accent's dark arm is near-white, and with canvas-relative poles
+   *          (#1697) --seq-600..900 climb toward WHITE on a dark canvas, so an
+   *          anchor parked up there leaves --seq-700 within 1.5:1 of --seq-500
+   *          and `word-cloud spectrum`'s three tiers stop reading as three.
+   *          #BC912D is --accent's dark hue and chroma at OKLab L 0.68.
    * See base.tokens.css § Sequential ramp. */
-  --seq-500: var(--accent);
+  --seq-500: light-dark(#7B5A00, #BC912D);
 
   /* Tag uses --chart-2 (oxblood) — the apothecary alarm/label pop. */
 

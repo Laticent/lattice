@@ -18,8 +18,11 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
      so a value can be pushed a long way and gain almost nothing, and no
      canvas-based number describes what is on screen. Same class: an ink the BASE
      derives from a palette anchor (`--seq-700` is 45% of the way from `--seq-500`
-     to black, in OKLab) — `contrast-audit` skips the `lattice` @import, so it has
-     never scored one at all.
+     to `--seq-pole-high`, in OKLab) — `contrast-audit` skips the `lattice`
+     @import, so it has never scored one at all. The derived stop is where a
+     ramp anchor fails, not the anchor: an arm that reads beautifully itself can
+     still land `--seq-700` under 3:1, or land it so close to `--seq-500` that
+     the two tiers stop being two (#1697).
   2. **`check-slide-contrast.js` cannot see `opacity`.** It reads computed `color`
      and the ancestor paints. A CSS opacity composites the whole subtree buffer —
      ink and background together — so the ink moves much further than its band.
@@ -37,7 +40,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Triggered by:** curating a status hue against the canvas; adding an `opacity`
   for de-emphasis on text; setting a `--seq-500` anchor without checking the STOPS
   the ramp derives from it.
-- **Commits:** the surface gate + the redline/palette fixes it found (#1640).
+- **Commits:** the surface gate + the redline/palette fixes it found (#1640); the
+  canvas-relative ramp + the fifteen re-anchored dark arms (#1697).
 
 ## `margin` corrupts measured layout (virtual lists, the Fit Spine) — HARD RULE #20
 

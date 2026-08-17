@@ -199,13 +199,17 @@ const SURFACES = [
     requires: [/\.stacked\.stacked > \.cell-stage > blockquote:nth-of-type\(1\)\s*\{/],
   },
   // ── word-cloud spectrum · the base-derived sequential ramp as word fills ──
-  // The three stops the heat ramp paints, keyed off weight (>=3.5 / >=2.5 / >=1.5).
-  // Measured on the component's own gallery slide they render at 56px / 38.3px /
-  // 23.5px at weight 700 — WCAG large text on all three, so the bar is 3:1. The
-  // variant's `sizeSpread` is [14, 76], so a cloud whose weight->size mapping put a
-  // ramp tier under 18.66px would owe 4.5 instead; no shipped deck does, and the
-  // sizes above are from a render rather than from the config.
-  ...['700', '500', '400'].map((stop) => ({
+  // The four stops the heat ramp paints, keyed off weight (>=4.5 / >=3.5 / >=2.5 /
+  // >=1.5). Measured on the component's own gallery slide the lower three render at
+  // 56px / 38.3px / 23.5px at weight 700 and the top tier larger still — WCAG large
+  // text on all four, so the bar is 3:1. The variant's `sizeSpread` is [14, 76], so a
+  // cloud whose weight->size mapping put a ramp tier under 18.66px would owe 4.5
+  // instead; no shipped deck does, and the sizes above are from a render rather than
+  // from the config. `--seq-900` joined the set with #1697, which moved the top tier
+  // off `var(--accent)` and onto the ramp — while that tier was a brand hue this
+  // gate could not score it as a ramp stop, and contrast-audit scores --accent
+  // against the canvas anyway.
+  ...['900', '700', '500', '400'].map((stop) => ({
     id: `word-cloud/seq-${stop}`,
     ctx: `word-cloud spectrum: the --seq-${stop} word fill on the canvas`,
     base: '--bg', groups: [], ink: `--seq-${stop}`, min: 3,
@@ -284,8 +288,13 @@ const SURFACES = [
 // it scores. This is a real backlog, not a set of individually justified
 // exemptions: status ink on a 12% tint of ITSELF is a surface most curated hues do
 // not clear, and re-curating fifteen palettes' status trios is a slice of its own
-// (#1698; the canvas-blind sequential ramp behind the `word-cloud/seq-*` rows is
-// #1697). Recorded here so it is visible and bounded rather than invisible.
+// (#1698). Recorded here so it is visible and bounded rather than invisible.
+//
+// It is a SHRINKING baseline, and it has shrunk once: the 24 `word-cloud/seq-*`
+// rows left when this file landed were the canvas-blind sequential ramp, and #1697
+// made the ramp's poles canvas-relative and re-anchored every palette's dark arm
+// mid-range. All 24 are gone — deleted, not re-frozen, which is what the stale arm
+// below exists to force.
 //
 // It is a keyed map rather than a count, and the difference is load-bearing. A
 // count says "no MORE failures"; it says nothing about an existing failure getting
@@ -445,32 +454,6 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['carbone|light|redline/old-label', 1.95],
   ['concrete-dark|dark|redline/old-label', 4.26],
   ['concrete|dark|redline/old-label', 4.26],
-  // ── word-cloud/seq-400 ── 2
-  ['mustard-dark|light|word-cloud/seq-400', 2.86],
-  ['mustard|light|word-cloud/seq-400', 2.86],
-  // ── word-cloud/seq-700 ── 22
-  ['atelier-dark|dark|word-cloud/seq-700', 2.96],
-  ['atelier|dark|word-cloud/seq-700', 2.96],
-  ['brina-dark|dark|word-cloud/seq-700', 2.35],
-  ['brina|dark|word-cloud/seq-700', 2.35],
-  ['burgundy-dark|dark|word-cloud/seq-700', 1.66],
-  ['burgundy|dark|word-cloud/seq-700', 1.66],
-  ['carbone|dark|word-cloud/seq-700', 2.51],
-  ['carbone|light|word-cloud/seq-700', 2.51],
-  ['carta-dark|dark|word-cloud/seq-700', 2.11],
-  ['carta|dark|word-cloud/seq-700', 2.11],
-  ['crepuscolo-dark|dark|word-cloud/seq-700', 1.98],
-  ['crepuscolo|dark|word-cloud/seq-700', 1.98],
-  ['cuoio-dark|dark|word-cloud/seq-700', 2.01],
-  ['cuoio|dark|word-cloud/seq-700', 2.01],
-  ['indaco-dark|dark|word-cloud/seq-700', 2.21],
-  ['indaco|dark|word-cloud/seq-700', 2.21],
-  ['laguna-dark|dark|word-cloud/seq-700', 2.10],
-  ['laguna|dark|word-cloud/seq-700', 2.10],
-  ['magnolia-dark|dark|word-cloud/seq-700', 2.47],
-  ['magnolia|dark|word-cloud/seq-700', 2.47],
-  ['mustard-dark|dark|word-cloud/seq-700', 2.26],
-  ['mustard|dark|word-cloud/seq-700', 2.26],
 ]);
 
 // ── Color compositing ──────────────────────────────────────────────────────

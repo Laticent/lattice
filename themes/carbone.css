@@ -97,7 +97,25 @@
   --fail-bg: color-mix(in srgb, var(--fail) 18%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 18%, transparent);
 
-  --seq-500: var(--brand-accent);
+  /* The ramp anchor, and the ramp's two POLES with it — carbone is the palette
+   * that has to state both, because it is the one whose canvas does not follow
+   * `color-scheme`. Base derives 50-400 toward --seq-pole-low and 600-900 toward
+   * --seq-pole-high, and defaults that pair to `light-dark()` so the ramp tracks
+   * the canvas (#1697). Carbone pins `color-scheme: dark` at zero specificity, so
+   * that default would ALREADY resolve dark here — but only for as long as
+   * nothing below :root flips the scheme, and `section.light` / `.color-light` do
+   * exactly that on a slide whose canvas stays graphite regardless. Literal poles
+   * make the ramp scheme-proof, which is the contract the rest of this palette
+   * already keeps.
+   * The anchor is not --brand-accent any more: at OKLab L 0.83 the electric lime
+   * sits hard against the high pole, leaving --seq-700 1.24:1 from --seq-500 —
+   * `word-cloud spectrum` painted three weights in two readable colors, and the
+   * weight-5 tier (`var(--accent)`, the lime itself) in a third that matched
+   * --seq-500 exactly. #4AB15B is that lime's hue and chroma at L 0.68: the
+   * spectrum reads as four distinct tiers, all clear of the graphite canvas. */
+  --seq-pole-low: black;
+  --seq-pole-high: white;
+  --seq-500: #4AB15B;
 
   /* Tag uses --chart-2 (amber) — the lime/amber duotone gives carbone's
    * status badges a cyber-warm pop against the cold graphite. */

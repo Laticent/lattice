@@ -88,11 +88,15 @@
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
 
   /* The ramp anchor — a real gray ramp rather than base's `var(--accent)`, which
-     on onyx is pure black/white. The dark arm is set by `word-cloud spectrum`:
-     --seq-700 is 45% of the way from this anchor to BLACK (the base derivation is
-     canvas-blind), so on a black canvas the anchor must start light enough for
-     that stop to clear 3:1. #1640. */
-  --seq-500: light-dark(#666666, #D3D3D3);
+     on onyx is pure black/white. Both arms are set by `word-cloud spectrum`, the
+     only surface that paints the derived stops, and both are MID-RANGE on their
+     own canvas: the ramp's poles follow the canvas now (#1697), so --seq-700
+     climbs toward WHITE on onyx's black one. The old #D3D3D3 dark arm was
+     solved when the derivation was canvas-blind and --seq-700 shaded toward
+     black; carried over unchanged it sat 1.21:1 from --seq-500 — three tiers
+     painted, two distinguishable. #989898 is the same neutral at OKLab L 0.68.
+     Inherited by all five a11y-* palettes. #1640, #1697. */
+  --seq-500: light-dark(#666666, #989898);
 
   /* Tag uses --chart-2 (saturated red) — Onyx's signature pop. */
 

@@ -221,7 +221,10 @@ describe('word-cloud', () => {
 
   test('colorForWord: heat-ramp maps weight bands to seq-N', () => {
     const opts = VARIANT_OPTS.spectrum;
-    assert.equal(colorForWord(1, 5, opts),   'var(--accent)');
+    // Tiers 5-2 are ramp stops, so the encoding is ordered by construction; only
+    // the quiet floor sits off the ramp. A `var(--accent)` here would be the
+    // pre-#1697 map, whose top tier was a brand hue of arbitrary lightness.
+    assert.equal(colorForWord(1, 5, opts),   'var(--seq-900)');
     assert.equal(colorForWord(1, 4, opts),   'var(--seq-700)');
     assert.equal(colorForWord(1, 3, opts),   'var(--seq-500)');
     assert.equal(colorForWord(1, 2, opts),   'var(--seq-400)');

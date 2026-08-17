@@ -88,12 +88,16 @@
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
 
   /* The ramp anchor. Both arms are solved against `word-cloud spectrum`, the
-     only surface that paints the derived stops: the base derivation is
-     canvas-blind (600-900 always shade toward BLACK), so on concrete's mid-gray
-     LIGHT canvas the --seq-400 tint has to start dark enough not to wash into it,
-     and on the near-black DARK canvas the anchor has to start light enough that
-     --seq-700 -- 45% of the way to black -- still clears 3:1. #1640. */
-  --seq-500: light-dark(#393937, #EDEDE9);
+     only surface that paints the derived stops. On concrete's mid-gray LIGHT
+     canvas the --seq-400 stop has to start dark enough not to wash into it, so
+     #393937 stands. The dark arm does NOT: it was solved when the derivation was
+     canvas-blind (600-900 shaded toward BLACK either way), where a near-white
+     anchor was the only way to keep --seq-700 above 3:1. The poles follow the
+     canvas now (#1697) and that stop climbs toward WHITE instead, which left
+     #EDEDE9 just 1.08:1 from --seq-700 — the tightest tier collapse in the set,
+     three word weights painted in two distinguishable colors. #989895 is the same
+     neutral at OKLab L 0.68. #1640, #1697. */
+  --seq-500: light-dark(#393937, #989895);
 
   /* Tag uses --chart-2 (oxblood) — Concrete's signature accent break. */
 
