@@ -128,6 +128,9 @@ const STEPS = [
   { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },
   // Decision-doc index — reads each note's front-matter; order-independent.
   { label: 'decision index (engineering/decisions/README.md)', script: 'build-decisions-index.js' },
+  // Gotchas symptom index — reads the entry headings in engineering/gotchas/;
+  // order-independent, same as the decision index above.
+  { label: 'gotchas index (engineering/gotchas.md)', script: 'build-gotchas-index.js' },
   // Last — it indexes the finished dist/ folder, so every other artifact
   // must already be (re)written before it runs.
   // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice.min.css,

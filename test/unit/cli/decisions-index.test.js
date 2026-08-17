@@ -3,7 +3,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { frontMatter, render, rowFor, verify, splice, collect, STATUS, FOOTER } = require('../../../tools/build-decisions-index');
+const { frontMatter, render, rowFor, gistFor, verify, splice, collect, STATUS, FOOTER, GIST_CAP } = require('../../../tools/build-decisions-index');
 
 describe('decisions-index', () => {
   describe('frontMatter', () => {
@@ -53,6 +53,66 @@ describe('decisions-index', () => {
         const fm = frontMatter('---\nstatus: shipped\nsummary: a > b, and b > c\n---\n');
         assert.equal(fm.summary, 'a > b, and b > c');
       });
+    });
+  });
+
+  // A row carries a one-line GIST, not the whole summary. Rendering all 406
+  // summaries in full made README.md 390 KB (~137k tokens) — an index that cost
+  // more to read than the notes it points at, so it went unread and the corpus
+  // went unfound. Nothing is lost: the full summary stays in the note.
+  describe('gistFor', () => {
+    test('a short summary passes through untouched', () => {
+      assert.equal(gistFor('did a thing'), 'did a thing');
+    });
+    test('keeps only the first sentence when a summary runs on', () => {
+      assert.equal(
+        gistFor('The root cause was a stale token. Then four more paragraphs of detail followed.'),
+        'The root cause was a stale token.',
+      );
+    });
+    test('a mid-sentence period is not a sentence end', () => {
+      // The period must sit PAST the {20,} floor, or the floor alone carries the test and
+      // it passes with the sentence-end guard deleted — which is how it shipped first.
+      // Without `(\\s|$)`, this cuts to "…mermaid v1." — 48 live rows depend on the guard.
+      const summary = 'The renderer pins mermaid v1.2 because the v2 parser drops init blocks';
+      assert.equal(gistFor(summary), summary);
+      assert.ok(summary.indexOf('.') > 20, 'the fixture must exercise the guard, not the floor');
+    });
+
+    // A first sentence that ends on an abbreviation, or is too short to identify a note,
+    // used to be accepted — and being under the cap it got NO ellipsis, so a half-clause
+    // rendered as a complete claim. Both live rows are named in the tool's comment.
+    test('a sentence ending on an abbreviation reads on', () => {
+      const out = gistFor('The Studio sorts people into a reduced newcomer surface vs. the full surface with a hidden boolean.');
+      assert.ok(out.startsWith('The Studio sorts people into a reduced newcomer surface vs. the full surface'), out);
+    });
+    test('an uninformatively short first sentence reads on', () => {
+      const out = gistFor('G8 Studio performance. Profiling overturned the premise about where the time went.');
+      assert.match(out, /Profiling overturned/);
+    });
+    test('a cut never leaves an unbalanced code span', () => {
+      const out = gistFor(`A chart binds ONE axis — \`height:100cqh\` ${'and more text '.repeat(20)}end.`);
+      assert.equal((out.match(/`/g) ?? []).length % 2, 0, `odd backtick count: ${out}`);
+    });
+    test('caps an over-long first sentence and MARKS the cut', () => {
+      const long = `${'word '.repeat(60)}end.`;
+      const out = gistFor(long);
+      assert.ok(out.length <= GIST_CAP + 1, `got ${out.length} chars`);
+      assert.ok(out.endsWith('…'), 'a truncation the reader cannot see is a sentence that lies');
+    });
+    test('cuts on a word boundary when one is close enough', () => {
+      const source = `${'alpha beta '.repeat(20)}gamma.`;
+      const body = gistFor(source).slice(0, -1); // drop the … marker
+      assert.ok(source.startsWith(body), 'the gist must be a prefix of the summary');
+      assert.equal(source[body.length], ' ', 'the cut landed mid-word instead of on a space');
+    });
+    test('folds whitespace so a block-scalar summary renders as one row', () => {
+      assert.equal(gistFor('  one\n  two   three  '), 'one two three');
+    });
+    // The row is what `verify` compares, so a truncated gist must still round-trip.
+    test('a truncated row still verifies against its own note', () => {
+      const note = { file: '2026-06-01-x.md', created: '2026-06-01', status: 'shipped', summary: `${'long '.repeat(80)}tail.` };
+      assert.deepEqual(verify(`# R\n\n${render([note])}\n`, [note]), []);
     });
   });
 

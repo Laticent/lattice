@@ -23,7 +23,7 @@ Open the relevant file before starting work. Only load what the current task nee
 | Adding a Mermaid diagram | [mermaid.md](../engineering/mermaid.md) |
 | Running the render pipeline (PDF/HTML/PPTX) | [pipeline.md](../engineering/pipeline.md) |
 | Verifying render correctness (semantic-invariant suite, visual review) | [visual-review.md](../engineering/visual-review.md) |
-| Hitting an unexpected behavior, hack, or browser/Marp/Mermaid quirk | [gotchas.md](../engineering/gotchas.md) — read first when something breaks in an unfamiliar way; add an entry when you find a new one |
+| Hitting an unexpected behavior, hack, or browser/Marp/Mermaid quirk | [gotchas.md](../engineering/gotchas.md) — the symptom index; skim it, then open the ONE `engineering/gotchas/<topic>.md` it names (searching by API or property name instead? `grep -rn <term> engineering/gotchas/`). Found a new one? Add it as a `##` entry to the topic file — never to the generated index — then `npm run gotchas:index` |
 
 **Do not load all files at once.** Load only what the task requires.
 
