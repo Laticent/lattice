@@ -1,5 +1,7 @@
 import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings as SettingsCog, Share2, Sparkles } from 'lucide-react';
+import * as React from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { Kbd } from '@/components/ui/kbd';
 import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -9,8 +11,31 @@ import { FeedbackIcon } from './icons';
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
 	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
-	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
+	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit, inline,
 }: {
+	/**
+	 * THE THIRD TRANSPORT (2026-08-16). `inline` renders the palette as a header-resident
+	 * combobox rather than an overlay: the ⌘K pill IS the field, it grows into the row's
+	 * free space when opened, and the list drops beneath it anchored to the input.
+	 *
+	 * It is a third presentation of ONE command list, not a second list — the `field` and
+	 * `list` below are shared by all three, which is the whole reason this file already
+	 * split them. That split existed because mobile docks the field at the bottom; inline
+	 * is the same trick again.
+	 *
+	 * DESKTOP ONLY, and the caller enforces it. The pill only renders at ≥1100; tablet
+	 * reaches search through the ⋯ menu and mobile through the drawer, and neither has an
+	 * inline field to grow. So the caller mounts exactly one instance per tier — inline at
+	 * desktop, overlay below it — which keeps "one action, one home" true at every width
+	 * even though the presentation differs. That is the same tier-split this file already
+	 * makes for `PanelSheet` vs `CommandDialog`, not a new pattern.
+	 *
+	 * CLOSED, IT MUST BE THE PILL, byte-for-byte. `studio-shell-parity.spec.ts` compares
+	 * every control's box against the pre-paint skeleton, which draws a plain pill button —
+	 * so the idle branch below reproduces that markup exactly. Change its padding, border or
+	 * label here and the shell has to change in the same commit.
+	 */
+	inline?: boolean;
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	/**
@@ -58,6 +83,20 @@ export function CommandPalette({
 	// On mobile it is now a PanelSheet, which owns the keyboard listener — so there is
 	// nothing to mount here.
 	const mobile = useBreakpoint() === 'mobile';
+	// DISMISSAL for the inline transport. The overlays get this free — a dialog and a sheet
+	// both own a backdrop — but a header-resident combobox has none, so without this the
+	// dropdown stays open until Escape and follows you around the app. Capture phase, so a
+	// click on some other control closes this BEFORE that control runs and the two do not
+	// both fire on one press. Inert unless inline AND open.
+	const inlineRef = React.useRef<HTMLDivElement | null>(null);
+	React.useEffect(() => {
+		if (!inline || !open) return;
+		const onDown = (e: PointerEvent) => {
+			if (inlineRef.current && !inlineRef.current.contains(e.target as Node)) onOpenChange(false);
+		};
+		document.addEventListener('pointerdown', onDown, true);
+		return () => document.removeEventListener('pointerdown', onDown, true);
+	}, [inline, open, onOpenChange]);
 	const run = (fn: () => void) => () => {
 		onRun?.();
 		onOpenChange(false);
@@ -71,7 +110,11 @@ export function CommandPalette({
 	// `data-focus-ring="container"` — the box paints the focus ring, so the input must
 	// not paint a second one inside it. See native-widgets.css for why a class cannot do
 	// this job.
-	const field = <CommandInput data-focus-ring="container" placeholder="Search or run a command…" />;
+	// A FACTORY, not a constant, purely so the inline transport can autofocus. The dialog and
+	// the sheet must NOT: `CommandDialog` focuses its own field, and autofocusing the mobile
+	// sheet would raise the keyboard before the sheet finished animating in.
+	const mkField = (autoFocus?: boolean) => <CommandInput autoFocus={autoFocus} data-focus-ring="container" placeholder="Search or run a command…" />;
+	const field = mkField();
 	const list = (
 		<>
 			<CommandList>
@@ -115,6 +158,135 @@ export function CommandPalette({
 			</CommandList>
 		</>
 	);
+
+	// INLINE (desktop): the header's own combobox. Closed it is the pill; open it is the
+	// field, grown into the row's free space with the list hanging beneath it.
+	if (inline) {
+		if (!open) {
+			// The idle pill, reproduced EXACTLY — `studio-shell-parity` measures this against
+			// the skeleton's copy, and `shrink-0 whitespace-nowrap` is the row's contract (the
+			// deck switcher is the one item that gives). `aria-expanded` is what makes this a
+			// combobox trigger rather than a button that happens to open something.
+			return (
+				<button
+					type="button"
+					onClick={() => onOpenChange(true)}
+					aria-label="Search or run a command"
+					aria-expanded={false}
+					// `h-8` NOT `py-1.5` — #1687 normalized every header control to one 32px
+					// height (`BAR_CONTROL` in chrome-parts.tsx) and the skeleton draws the pill
+					// at that height. Padding-derived heights are what the alignment pass removed.
+					className="hidden h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3"
+				>
+					<Search className="size-4 shrink-0" />
+					<span className="hidden xl:inline">Search or run…</span>
+					<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+				</button>
+			);
+		}
+		return (
+			// `min-w-0 flex-1` is the expansion: the field takes the flex spacer's slack rather
+			// than pushing anything, so at 1440 it grows into ~144px of dead space and at 1920
+			// into ~624px. `min-w-[320px]` is the FLOOR, and it is load-bearing: the row still
+			// carries its `flex-1` spacer, so without a floor the field and the spacer split the
+			// slack and the field opened NARROWER THAN THE PILL — measured 101px at 1440 against
+			// a 180px idle pill. 320 is what the pill's own width plus the 1440 gap can pay
+			// (180 + 144), so at the tightest desktop width the field is usable and the deck
+			// title still does not have to give. `max-w-[720px]` is the stop — past that the
+			// field stops growing and
+			// the row keeps its balance instead of the input running the full width of a wide
+			// display. The deck title is NOT allowed to pay for this: the pill next door is the
+			// row's shock absorber, so without a ceiling the field would eat the title on the
+			// way out. Measured before the ceiling went in: `Markdown for the boardroom` fell to
+			// `Mar…` at 1920.
+			<Command
+				ref={inlineRef}
+				label="Search or run a command"
+				className={cn(
+					// NO `isolate` here. It was tried and it is exactly wrong: `isolate` opens a new
+					// stacking context, which traps the dropdown's `z-50` INSIDE this control — so the
+					// card rendered but painted underneath the editor pane below the bar. The z-index
+					// has to resolve against an ancestor that actually sits above the content.
+					'relative min-w-[320px] max-w-[720px] flex-[1_1_720px]',
+					// `overflow-visible` IS THE FIX, and it is why this dropdown never painted through
+					// three earlier attempts. `Command`'s own base class in components/ui/command.tsx
+					// is `flex h-full w-full flex-col overflow-hidden rounded-md bg-popover …` — the
+					// widget clips ITSELF, so an absolutely-positioned child hanging below the field
+					// was cut away by the control it hangs from, one level BELOW the header everyone
+					// was looking at. Measured live at 1920: the root computed `overflow: hidden` on
+					// both axes at 53px tall, the card sat at `top: 61px` inside it, and the root had
+					// even been SCROLLED to 73px trying to reveal the active item — which is exactly
+					// the reported symptom ("the list draws inside the bar, scrolled"). That symptom
+					// was read as the header's clip; the header's clip is real and also has to lift
+					// (see StudioShell), but it was never the last one in the chain.
+					// The rounded-corner clipping `overflow-hidden` exists for is not lost: the card
+					// below carries its own `overflow-hidden rounded-xl`, which is where it belongs —
+					// on the thing with corners, not on the field's wrapper.
+					'overflow-visible',
+					// `justify-center`, and NOT an `h-8` override, so the field lands on the row's
+					// baseline. The base class's `h-full` makes this root as tall as the header's
+					// content box (53px), which does two useful things at once: the h-8 field centers
+					// vertically like every other control (top-aligned it sat 11px high of them), and
+					// the card's `top: calc(100% + 8px)` then measures from the HEADER'S bottom edge
+					// rather than the field's, so the dropdown clears the bar with no magic offset and
+					// nothing to re-derive if the 54px header height ever moves.
+					'justify-center',
+					// The base class also ships `bg-popover`, which is `var(--bg)` — fully opaque
+					// against a header that is deliberately 92% `--bg`. Left on, the open field drew
+					// an opaque slab across its own span of the bar. The field's own wrapper carries
+					// the surface it needs (`bg-card`, below), so the root wants none.
+					'bg-transparent',
+					// The field has to read as a HEADER control, not a dialog field: cmdk ships its
+					// input wrapper with a `border-b` meant for a palette sitting on its own card.
+					// Left alone that draws a single underline across the row. These spellings are
+					// literal for the same reason the mobile branch's are — Tailwind scans source
+					// text, so an interpolated class name generates no rule at all.
+					// h-8 = the one 32px control height #1687 normalized the row to. The open
+					// field is a header control like every other, so it takes the same height —
+					// this was `h-[34px]` when the WIP was written, before that pass landed.
+					'[&_[data-slot=command-input-wrapper]]:h-8 [&_[data-slot=command-input-wrapper]]:rounded-md [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] [&_[data-slot=command-input-wrapper]]:bg-card [&_[data-slot=command-input-wrapper]]:px-2',
+					'[&_[data-slot=command-input]]:h-auto [&_[data-slot=command-input]]:text-[13px] [&_[data-slot=command-input]]:text-[var(--text-heading)]',
+					'[&_[data-slot=command-input-wrapper]>svg]:size-4 [&_[data-slot=command-input-wrapper]>svg]:opacity-100 [&_[data-slot=command-input-wrapper]>svg]:text-[var(--text-body)]',
+					// The dropdown is a fixed, scrollable band — tall enough to be worth opening,
+					// short enough that it never runs off a laptop viewport.
+					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px)]',
+				)}
+				// Escape closes and hands focus back; the caller re-renders the pill, which is
+				// where the eye already is. cmdk owns arrow keys and Enter within the list.
+				// The handler sits on the Command ROOT rather than a wrapper `div`: a bare div
+				// carrying a key handler is a static interactive element
+				// (`lint/a11y/noStaticElementInteractions`), and the root is the widget container
+				// anyway — so this is where a key listener belongs, not a lint dodge.
+				onKeyDown={(e) => {
+					if (e.key === 'Escape') {
+						e.stopPropagation();
+						onOpenChange(false);
+					}
+				}}
+			>
+				{mkField(true)}
+				{/* The card hangs from this Command's own box, so it tracks the field's width and
+				    left edge with no measuring and no portal.
+				    ESCAPING THE BAR TAKES TWO CLIPS, and missing either one paints nothing:
+				    this root's own `overflow-hidden` (see `overflow-visible` above — that is the one
+				    that went unfound through three attempts) AND the header's, which is
+				    `overflow-x-auto` so a squeezed row stays reachable (#1381) and therefore computes
+				    `overflow-y: auto` as well. StudioShell drops the header's while the field is open;
+				    see the note there for why that is safe.
+				    `overflow-hidden` HERE is deliberate and different: it clips the card's own
+				    `rounded-xl` corners, which is the job the base class's clip was doing before it
+				    was moved down to the element that actually has corners.
+				    A Radix `Popover` would also escape both clips, and was tried — but it portals the
+				    list out of the Command's DOM subtree, and while cmdk's context still reaches it,
+				    its items stopped responding to clicks under jsdom, taking three unit tests with
+				    them. With the real cause found, that trade is not needed: one DOM tree, one source
+				    of truth for the anchor, and the three tests stay unit tests. */}
+				<div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-border bg-[var(--bg)] shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+					{list}
+				</div>
+			</Command>
+		);
+	}
 
 	// MOBILE: a PanelSheet, like every other overlay. This was a `CommandDialog` with
 	// mobile overrides, and it was the last surface in the app on a different primitive

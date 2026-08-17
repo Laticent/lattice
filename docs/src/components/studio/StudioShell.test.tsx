@@ -241,8 +241,12 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		// Summon "Reshape for a reader" (a Craft faculty) from ⌘K.
 		await user.keyboard('{Meta>}k{/Meta}');
-		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
-		await user.click(within(dialog).getByText(/Reshape for a reader/));
+		// ⌘K serves the SAME command list through different surfaces by width (2026-08-16):
+		// the header's inline combobox at desktop, the dialog/sheet on compact. These tests are
+		// about what the COMMAND does, not which transport carried it, so they wait for the
+		// field and then target the command itself wherever it rendered.
+		await screen.findByPlaceholderText(/Search or run a command/i);
+		await user.click(screen.getByText(/Reshape for a reader/));
 		// The surface transiently REVEALS Craft — the launcher appears and the Lenses
 		// panel (its own first-class panel now) opens, since "Reshape for a reader"
 		// targets reader views directly.
@@ -271,8 +275,12 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
 		await user.keyboard('{Meta>}k{/Meta}');
-		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
-		await user.click(within(dialog).getByText(/Reshape for a reader/));
+		// ⌘K serves the SAME command list through different surfaces by width (2026-08-16):
+		// the header's inline combobox at desktop, the dialog/sheet on compact. These tests are
+		// about what the COMMAND does, not which transport carried it, so they wait for the
+		// field and then target the command itself wherever it rendered.
+		await screen.findByPlaceholderText(/Search or run a command/i);
+		await user.click(screen.getByText(/Reshape for a reader/));
 		expect(await screen.findByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'true');
 		// Esc recedes the transient reveal — back to Write (launcher gone), posture untouched.
 		await user.keyboard('{Escape}');
@@ -293,8 +301,12 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		render(<StudioShell options={options} />);
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		await user.keyboard('{Meta>}k{/Meta}');
-		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
-		await user.click(within(dialog).getByText(/Library — saved themes/));
+		// ⌘K serves the SAME command list through different surfaces by width (2026-08-16):
+		// the header's inline combobox at desktop, the dialog/sheet on compact. These tests are
+		// about what the COMMAND does, not which transport carried it, so they wait for the
+		// field and then target the command itself wherever it rendered.
+		await screen.findByPlaceholderText(/Search or run a command/i);
+		await user.click(screen.getByText(/Library — saved themes/));
 		// Craft is revealed (launcher present) and the Library slot is open (its launcher lit).
 		expect(await screen.findByRole('button', { name: 'Open Library' })).toHaveAttribute('aria-pressed', 'true');
 		// …with the saved posture still Write (revealing Craft never persists it).
