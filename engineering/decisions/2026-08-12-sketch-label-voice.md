@@ -744,7 +744,67 @@ wrong the worst available error here.
   comment already said. A theme re-pointing `--font-body` / `--sketch-font-body`
   paints a face this table never measured, and nothing bills for it.
 
-#### Found, not fixed — five table entries are in NEITHER woff2
+#### Found, and now CLOSED for three of five — the sub-fallback entries are gone
+
+**Update, 2026-08-17.** The three entries this section left as found — `―`
+(1.05), `→` (0.90), `　` (1.05) — have been **dropped from both faces**, so they
+bill `GLYPH_UPPER_MAX` (1.10) like any other unmapped character. `⸺` and `⸻`
+stay mapped, for the reason this section already gives. What follows is the
+measurement that unblocked it; the original text is kept below, because the
+mechanism it records is still the mechanism.
+
+The blocker was never the safety argument — that direction was always right (a
+mapping *narrower* than the fallback is the thing that under-counts). It was that
+a wider advance breaks lines earlier, which can change wrapping and push
+`placeLabels` into dropping a name. That is rendered geometry, and it needed
+measuring rather than asserting.
+
+**What was measured**, on the real render path (emulator → HTML sidecar, then the
+sidecar in headless Chromium — HARD RULE #23):
+
+| Subject | Result |
+|---|---|
+| 24 shipped decks carrying a quadrant or radar slide, current table vs dropped | **byte-identical HTML**, all 24 |
+| Label strings those decks actually bill | 66 strings, 37 distinct characters, **zero non-ASCII** — the three characters never reach the table at all |
+| `test/fixtures/glyph-sub-fallback-labels.md` — a fixture whose labels DO carry all three, both faces, all three tracked rules (0.04 / 0.06 / 0.08em) | **byte-identical HTML** — 24 labels, 0 re-wraps, 0 placement shifts, 0 drops |
+| Advance change on the 55 fixture strings that carry one | **+0.20% to +3.79%** (worst: `'→ Arrow'`, clean, 0.04em) |
+| Control — the same three billed at **3.00** instead of 1.10 | **19 of 24 labels re-wrapped** |
+
+The control is the part that makes the null result mean anything: a harness that
+cannot see a wrap change would report "no change" either way. It sees one.
+
+**Why the null result is not luck.** `upperAdvance` returns a per-character
+average over the *whole* string. Re-billing one character of a 16–33 character
+label moves that average by a few percent, and `charBudget` is a `floor()` — so
+it takes a much larger shift to change how many characters fit on a line. The
+control's 3.00 is that larger shift.
+
+**Painted-vs-estimated, same fixture, measured in Chromium** (`getComputedTextLength()`
+per line against the width the kernel broke it to, in viewBox user units): 46
+lines, **zero painting wider than their box**, worst-case fill 93.9% (`'Quick Wins ― Bar'`,
+hand face, 131.39u of 140u), and **zero neighbour overlaps**. Computed
+`font-family` resolved to `Outfit` off-sketch and `Shantell Sans` under sketch —
+the estimate and the paint were looking at the same face, which is the failure
+this whole area exists to prevent.
+
+`npm run fonts:measure` now reports **2 unpinned** (`⸺` `⸻`), 0 under-counts, and
+no longer prints its "consider dropping the entry" note — that note was the tool
+asking for exactly this change, on every run since #1699.
+
+**Still true, and still the honest limit:** this is ONE host — a Linux container,
+Chromium 131, one `system-ui`. macOS (SF Pro) and Windows (Segoe UI) remain
+unreachable from here. That limit is now *less* load-bearing than it was, which
+is the point of the change: the three characters no longer depend on a
+host-specific reading at all, because they bill the fallback that was always
+meant to cover them.
+
+**Also found (pre-existing, logged not fixed — HARD RULE #18, off-path):** the
+`hand` half of `GLYPH_UPPER` has **no shipped-deck coverage**. Across all 24
+decks with a quadrant or radar slide, every billed label resolved to the `clean`
+face — no shipped deck combines `sketch` with either chart. The hand table is
+exercised only by the unit suite and by `test/fixtures/glyph-sub-fallback-labels.md`. Worth a gallery slide; not this change.
+
+#### The original section — five table entries are in NEITHER woff2
 
 `―` `⸺` `⸻` `→` `　` are not in Outfit or Shantell Sans. The HOST paints them,
 so **their numbers are readings of the host's fonts and no digest here pins
