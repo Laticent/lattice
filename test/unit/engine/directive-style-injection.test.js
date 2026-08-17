@@ -149,6 +149,20 @@ describe('a real declaration is validated, not quoted', () => {
     ['an unbalanced function, which swallows later declarations', 'color', 'myurl('],
     ['a comment carrying a separator', 'color', '/*url(*/;position:fixed'],
     ['a plain separator', 'color', 'red;position:fixed'],
+    // NO SEMICOLON IN THESE TWO, deliberately. Every other comment case above also carries a
+    // `;`, so the older punctuation ban rejects them first and the comment guard never runs —
+    // deleting that guard left the whole suite green. A bare comment opener needs no
+    // separator to do damage: it runs to the end of the attribute and deletes every
+    // declaration the engine writes after it (measured in Chromium: `color:red/*` reduced a
+    // six-declaration attribute to two).
+    ['a bare comment opener, which eats the rest of the attribute', 'color', 'red/*'],
+    ['a bare comment closer', 'color', 'red*/'],
+    // A QUOTED url() is a function-token plus a STRING, not a url-token, so a raw newline
+    // inside the quotes makes a bad-string-token; the `)` is swallowed into the next string
+    // and the function block never closes. It walks around the paren-balance check below by
+    // never presenting an unbalanced paren — measured in Chromium eating four declarations.
+    ['a newline inside a quoted url, which never closes the function', 'background-image', 'url("a\nb")'],
+    ['the same with single quotes', 'background-image', "url('a\nb')"],
   ];
 
   for (const [label, prop, value] of KEEP) {
@@ -204,6 +218,42 @@ describe('nothing re-parses a serialization we produced', () => {
   //
   // `styleFor` stashes the map on the token so the second pass continues the first. This
   // asserts the round-trip is gone, not that the splitter got smarter.
+
+  /* THIS TEST DRIVES THE REAL PIPELINE, AND THAT IS THE POINT.
+   *
+   * The unit test below pins `styleFor` against a hand-made token. It does not import
+   * lib/engine/background-image.js — the module that actually had the bug — so reverting
+   * that module's single line to `new InlineStyle(slide.attrGet('style'))` leaves it green,
+   * leaves the entire 6,000-test suite green, and puts the injection back on every deck
+   * carrying a `![bg]` image. An independent check proved exactly that by doing it.
+   *
+   * A regression test that is not attached to the code it guards is decoration. This one
+   * renders markdown through the real engine and reads the real `<section>`, so the only way
+   * to make it pass is for the second pass to genuinely continue the first. */
+  test('the real engine: a hostile footer beside a `![bg]` image stays one declaration', () => {
+    const engine = require('../../../lib/engine');
+    const { html } = engine.render(
+      '<!-- _footer: Acme;position:fixed;--z-canvas:9;x -->\n\n# Quarterly Review\n\n![bg](photo.png)\n',
+    );
+    const attr = /<section[^>]*\sstyle="([^"]*)"/.exec(html)?.[1];
+    assert.ok(attr, 'the slide section must carry a style attribute');
+
+    // The attribute is HTML-escaped on the way out; css-tree needs the CSS text.
+    const css = attr
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+    const decls = declarationsIn(css);
+    assert.deepEqual(
+      decls,
+      ['--footer', '--background-image', 'background-image', 'background-position',
+       'background-repeat', 'background-size'],
+      `the background pass re-parsed the directive pass's output: ${css}`,
+    );
+    assert.ok(!decls.includes('position'), '`position:fixed` was injected');
+    assert.ok(!decls.includes('--z-canvas'), 'a slide plane was injected');
+  });
+
   test('a second pass continues the first instead of re-reading the attribute', () => {
     const { styleFor } = require('../../../lib/engine/slides');
     const token = { meta: {}, attrs: {}, attrGet(k) { return this.attrs[k] ?? null; },
