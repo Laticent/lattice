@@ -39,11 +39,13 @@ That is this note. `tools/contrast-audit.js` checks each ink against `--bg` and
 - **element `opacity`.** Neither audit read it, and neither did
   `tools/check-slide-contrast.js` — see § The wash.
 
-## The scope was an order of magnitude bigger than the ticket's
+## The scope was much bigger than the ticket's
 
-Measured with the new gate on `origin/main`, over 32 palettes × 2 modes × 24
-surfaces = **1536 pairs**, scored in both cascade orders, with `redline`'s two
-washes modelled as the `groups[].opacity` they are:
+Measured with the new gate over 32 palettes × 2 modes × 24 surfaces = **1536
+pairs**, scored in both cascade orders. The shipped catalog models redline without
+a group alpha, because this change removes both washes; run against a `main`
+worktree it therefore scores `main`'s palettes on the surfaces as they will be, not
+as `main` composites them, which is the comparison that matters for the flip:
 
 | | `origin/main` | this change |
 |---|---|---|
@@ -91,12 +93,11 @@ only 12% covering to begin with, the wash moves the ink a long way and the band
 almost not at all. The two nest: a struck clause inside a `.stacked` OLD card
 renders at an effective 0.663.
 
-Measured on `origin/main`'s own palettes, changing nothing but the model:
-
-Removing the two declarations — and changing nothing else — cleared **82 composed
-pairs** before a single curated hue moved. That is the measurement that answers the
-old objection: the hues were not the dominant cost, the alpha was. And what the washes cost the palettes that *did* need
-re-tuning — the same solve, run with and without them:
+Removing the two declarations — and changing nothing else, no palette value touched
+— cleared **82 composed pairs**. That is the measurement that answers the old
+objection: the hues were not the dominant cost, the alpha was. And here is what the
+washes cost the palettes that *did* still need re-tuning, the same solve run with
+and without them:
 
 | palette · token | with the washes | without them |
 |---|---|---|
