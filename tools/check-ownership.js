@@ -5234,7 +5234,9 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
   }
   for (const file of files) {
     // Compare and REPORT in posix form: the allowlist and the tests are written with `/`,
-    // and `path.relative` hands back `\` on Windows.
+    // and `path.relative` hands back `\` on Windows. The markup arm above is deliberately
+    // left as it was — its non-normalization is pre-existing and off this change's path
+    // (HARD RULE #18), and it is inert on every platform CI runs.
     const rel = path.relative(root, file).split(path.sep).join('/');
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
     const src = fs.readFileSync(file, 'utf8');

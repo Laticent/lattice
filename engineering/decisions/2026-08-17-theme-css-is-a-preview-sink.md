@@ -434,7 +434,11 @@ The corpus is `git ls-files '*.css'` — **179** sheets, identical on every mach
 what a working-tree walk cost). **None contains `</style`.** So the guard returns its input by
 identity for every real deck, and:
 
-| artifact (`examples/build.md`, light + dark) | before → after |
+Two decks, each in light and dark — `examples/build.md` (8 slides) and
+`examples/kaizen-craftsmanship.md` (17 slides across cards-grid, split-panel, cycle,
+glossary and quote), because one deck is an anecdote:
+
+| artifact | before → after |
 |---|---|
 | `.html` | **byte-identical** |
 | `.pdf` | **byte-identical** |
@@ -443,6 +447,17 @@ identity for every real deck, and:
 That last row is not a hedge: two runs of the **unchanged** code differ in exactly the same
 field, at the same byte offsets, and with `generatedAt` normalized the before/after files
 compare equal. The noise floor was measured first precisely so the claim would mean something.
+
+**One trap, worth the sentence it costs.** The first A/B was taken against `git show
+main:lattice-emulator.js` and showed the PDF shrinking by 26 bytes AND turning from
+nondeterministic to deterministic — which reads exactly like a real byte-identity violation,
+and cost an hour of bisecting four hunks to chase. It was the *reference* that was wrong:
+local `main` was stale by a long way, and decompressing the one differing PDF object stream
+showed a live `D:20260817…` `/CreationDate` on the "before" side against a pinned epoch on
+the "after" side — the stale ref predates `lib/core/pdf-timestamps.js` existing at all. **The
+pre-change reference for a branch is `HEAD~1` / `origin/main`, never a local `main` nobody
+has fast-forwarded.** The bisect was not wasted, though: it is what proved each hunk's effect
+individually, and it is how the wrong reference was caught rather than shipped as a claim.
 
 ### 9.5 The gate now walks the export pipeline
 
