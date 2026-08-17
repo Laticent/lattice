@@ -46,8 +46,16 @@ const {
 const FS_LABEL = 12;    // .quadrant-label
 const FS_ZONE = 11.5;   // .quadrant-label--zone
 const FS_ITEM = 9.5;    // .quadrant-dot-label / .quadrant-bubble-label
-const ADV_UPPER = 0.68; // uppercase + tracked, as the emitter measures it
 const ADV = 0.6;
+// The uppercase estimate is a per-STRING glyph sum, not a constant, so this
+// helper asks the kernel for it rather than holding a copy (#1672). That is the
+// right call here even though the sizes above are duplicated on purpose: the
+// question these tests ask is whether two labels the DE-COLLISION PASS thought
+// were clear actually are, so the box has to be the one the pass reasoned
+// about. Whether that box matches the painted glyphs is a different question,
+// asked against real browser measurements in
+// test/unit/transformers/svg-label.test.js.
+const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
 
 /**
  * Rebuild the boxes a `<text class="…">` set actually paints, honoring both
@@ -57,9 +65,11 @@ const ADV = 0.6;
  */
 const TEXT_EL_RE = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
 
-function textBoxes(html, className, fontSize) {
+function textBoxes(html, className, fontSize, hand = false) {
   const upper = /quadrant-label/.test(className);
-  const adv = upper ? ADV_UPPER : ADV;
+  // Tracking follows the rule the class actually matches, as cornerSpec does.
+  const tracking = /--magic/.test(className) ? 0.08 : /--zone/.test(className) ? 0.06 : 0.04;
+  const advOf = upper ? (s) => upperAdvance(s, { hand, tracking }) : () => ADV;
   // Match every <text>, then filter on its class LIST. Testing the class inside
   // the element pattern would need two unbounded runs around a literal
   // (`[^"]*\bfoo\b[^"]*`), which backtracks polynomially — CodeQL flags it, and
@@ -73,7 +83,9 @@ function textBoxes(html, className, fontSize) {
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
     const lines = [...m[2].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
       .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
-    const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * fontSize * adv;
+    // Widest by PAINTED width, not character count — with a per-string advance
+    // the two disagree, and it is the painted one that collides.
+    const widest = lines.reduce((w, l) => Math.max(w, l.text.length * advOf(l.text)), 0) * fontSize;
     const x0 = lines[0].x;
     const left = anchor === 'middle' ? x0 - widest / 2 : anchor === 'end' ? x0 - widest : x0;
     return {
@@ -83,6 +95,31 @@ function textBoxes(html, className, fontSize) {
       bottom: Math.max(...lines.map((l) => l.y)) + fontSize * below,
     };
   });
+}
+
+/**
+ * The `<tspan>` texts of every `<text>` carrying `className`, in document order.
+ *
+ * Reuses TEXT_EL_RE and filters on the class LIST in code rather than baking the
+ * class into the pattern — the same reason spelled out on `textBoxes` above, and
+ * the reason CodeQL flags the baked form: `<text class="foo"[^>]*>([\s\S]*?)`
+ * backtracks polynomially over a document with many such tags.
+ *
+ * The tspan pattern is the file's existing one, anchored on the literal `x="`
+ * and `y="` the emitter always writes. An earlier cut of this helper used
+ * `<tspan[^>]*>` and a comment claiming that ending at `<` rather than a
+ * `</tspan>` literal kept it linear. It does not: the UNBOUNDED `[^>]*` run is
+ * what backtracks, and CodeQL flagged it again. Bounded classes, no unbounded
+ * run, is the property that matters.
+ */
+const TSPAN_RE = /<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g;
+
+function labelLines(html, className) {
+  const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
+    .split(/\s+/).includes(className);
+  return [...html.matchAll(TEXT_EL_RE)]
+    .filter((m) => wanted(m[1]))
+    .map((m) => [...m[2].matchAll(TSPAN_RE)].map((t) => t[3]));
 }
 
 // ── Fixtures ───────────────────────────────────────────────────────────
@@ -510,6 +547,86 @@ describe('quadrant', () => {
     assert.match(html, /data-ty="75"/);
     // Eyebrow stays in the DOM as `.chart-eyebrow`.
     assert.match(html, /class="chart-eyebrow"/);
+  });
+});
+
+// The dispatcher is the seam where the slide's class reaches the builder, and a
+// break here is invisible: the labels still render, just measured for the wrong
+// face. Keyed on the `sketch` TOKEN because that is what the CSS keys on, so a
+// per-slide `_class: boardroom` opt-out lands on both sides at once — the same
+// contract the gantt axis uses (see gantt.test.js).
+describe('quadrant — the sketch token reaches the builder', () => {
+  // A corner name whose two faces straddle a word break — `COMMITMENT WAVE`
+  // fits one line in Outfit and needs two in Shantell Sans. Most names do NOT
+  // straddle one (the gallery's are short and wrap identically in both, which
+  // is why the shipped corpus renders byte-identically), so this fixture is
+  // deliberately picked to make the seam observable at all (#1672).
+  const inner = '<h2>X</h2><ul>' +
+    '<li>Commitment Wave<ul><li>A <code>2, 82</code></li></ul></li>' +
+    '<li>Quick Wins<ul><li>B <code>8, 88</code></li></ul></li>' +
+    '</ul>';
+  const labelsOf = (cls) => labelLines(transformChartSection(inner, cls).html, 'quadrant-label');
+
+  test('a `sketch` slide measures the hand face; a plain slide measures the clean one', () => {
+    assert.notDeepEqual(labelsOf('quadrant sketch'), labelsOf('quadrant'),
+      'the hand sans is wider here — identical output means `hand` never reached buildQuadrant');
+  });
+
+  // THROUGH THE REAL TRANSFORM, not through measureLabel. The previous cut of
+  // this coverage exercised the per-line tighten by calling `measureLabel` with
+  // a FUNCTION advance — while all three production call sites passed the
+  // RESULT of `upperAdvance`, i.e. a number. `advanceFor` then returned the same
+  // constant for every line, the loop exited on its first pass having done
+  // nothing, and the emitted lines overran their box by up to 15% on ordinary
+  // two-word author names. Two tests, zero coverage of the shipped path — the
+  // exact "test that cannot fail for the thing it exists to catch" shape this
+  // repo keeps re-learning. Asserting on the emitted SVG is what closes it.
+  const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
+  // The box the corner label is wrapped to, from the transform rather than a
+  // literal — a retune of LW.corner must move this test, not slip past it.
+  const { LW: QLW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const overrunsIn = (cls, name, hand) => {
+    const html = transformChartSection(
+      `<h2>X</h2><ul><li>${name}<ul><li>A <code>2, 82</code></li></ul></li>`
+      + '<li>Other<ul><li>B <code>8, 88</code></li></ul></li></ul>', cls).html;
+    return labelLines(html, 'quadrant-label')[0]
+      .filter((line) => line.length * FS_LABEL * upperAdvance(line, { hand, tracking: 0.04 }) > QLW.corner + 0.01);
+  };
+
+  for (const [name, cls, hand] of [
+    ['Visibility Workflow Workflow', 'quadrant', false],
+    ['Momentum Window Illinois', 'quadrant sketch', true],
+    // A narrow run subsidizing a wide word — the shape the tighten loop exists
+    // for. `Workflow Workflow` was here and does NOT discriminate: the string
+    // average already buys a budget that wraps it to two 8-char lines, so it
+    // never overran even with the loop disabled. Verified against the real
+    // pre-fix commit, not a mutant.
+    ['Il Ili Ili Il Workflow Workflow', 'quadrant', false],
+  ]) {
+    test(`no emitted line overruns its box: ${JSON.stringify(name)} (${cls})`, () => {
+      assert.deepEqual(overrunsIn(cls, name, hand), [],
+        'a line was emitted wider than the width it was wrapped to');
+    });
+  }
+
+  test('`sketch-clean` measures the CLEAN face — it reverts --font-body', () => {
+    // `mode: sketch-clean` resolves to `sketch sketch-clean-body`, and
+    // base.sketch.css puts `--font-body` back to the clean stack while leaving
+    // `--font-display` / `--font-label` on the hand. These labels are
+    // `--font-body`, so they paint CLEAN there — unlike `.gantt-tick`, which is
+    // `--font-label` and stays hand. Testing the bare `sketch` token (as the
+    // gantt correctly does) measured the hand while the CSS painted the clean
+    // face, under-counting by up to 11% on C/O-heavy names. #1672.
+    assert.deepEqual(labelsOf('quadrant sketch sketch-clean-body'), labelsOf('quadrant'),
+      'a sketch-clean slide must be measured exactly as a clean slide is');
+    assert.notDeepEqual(labelsOf('quadrant sketch sketch-clean-body'), labelsOf('quadrant sketch'),
+      'and must NOT be measured as a full-sketch slide');
+  });
+
+  test('the hand face breaks the wide name into more lines', () => {
+    const lines = (cls) => labelsOf(cls)[0].length;
+    assert.ok(lines('quadrant sketch') > lines('quadrant'),
+      'the wider face must wrap sooner, not later');
   });
 });
 

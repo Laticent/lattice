@@ -343,6 +343,170 @@ describe('chart-family.applyToDom', () => {
 // builder itself (detailNote) is unit-tested in mark-detail.test.js; here we
 // assert the pie wires it through transformChartSection on the SHARED substrate
 // (chart-detail / data-mark), the same as the other SVG charts.
+/**
+ * The rebuild guard (#1673). `transformChartSection` early-returns on a section
+ * already carrying `chart-frame`, and this adapter replaced `innerHTML` on the
+ * first pass — so the authored list was gone and no later pass could rebuild a
+ * chart, whatever changed about it. The adapter now keeps the source, which
+ * makes a rebuild possible; these tests pin BOTH halves of when it happens,
+ * because either one being wrong is a defect:
+ *
+ *   - it must NOT rebuild when nothing that affects the build moved. The runtime
+ *     runs this pass repeatedly and cheaply on purpose (every transform is an
+ *     idempotent no-op), and a chart that rebuilt every pass would throw away
+ *     its own `data-mark` popover targets and anima nodes on each one.
+ *   - it MUST rebuild when the class list changes, which is how a deck-wide
+ *     register landing late (the fetch fallback) reaches a chart whose geometry
+ *     keys on it.
+ */
+describe('chart-family.applyToDom — the rebuild guard', () => {
+  const GANTT = `
+    <section class="gantt">
+      <h2>Plan</h2>
+      <p><code>2026-01-01 .. 2027-03-31</code></p>
+      <ul><li>Framework<ul>
+        <li>Taxonomy <code>2026-01-01..2026-04-30</code> <code>done</code></li>
+        <li>Weighting <code>2026-10-01..2027-02-28</code> <code>at-risk</code></li>
+      </ul></li></ul>
+    </section>`;
+  const ticks = (sec) => sec.querySelectorAll('text.gantt-tick').length;
+
+  test('a second pass with an unchanged class list does not rebuild', () => {
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    // A sentinel a rebuild would destroy — standing in for the popover targets
+    // and anima nodes a real slide carries by this point.
+    sec.querySelector('svg').setAttribute('data-sentinel', 'kept');
+    chartFamily.applyToDom(doc);
+    chartFamily.applyToDom(doc);
+    assert.equal(sec.querySelector('svg').getAttribute('data-sentinel'), 'kept',
+      'the chart was rebuilt on a pass where nothing about it had changed');
+  });
+
+  test('a deck-wide token landing late DOES rebuild, with the new face\'s geometry', () => {
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    const mono = ticks(sec);
+    // What the fetch fallback does once the source `.md` resolves.
+    sec.classList.add('sketch');
+    chartFamily.applyToDom(doc);
+    assert.notEqual(ticks(sec), mono,
+      'the axis kept its mono tick count while the CSS moved to the hand face');
+    assert.equal(ticks(sec), engine.buildGanttChart(
+      engine.extractFirstList(GANTT.match(/<ul>[\s\S]*<\/ul>/)[0]).inner,
+      '<p><code>2026-01-01 .. 2027-03-31</code></p>', undefined, true,
+    ).match(/class="gantt-tick"/g).length, 'the rebuild must match what the engine builds');
+  });
+
+  test('the rebuild replaces the figure rather than stacking a second one', () => {
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    sec.classList.add('sketch');
+    chartFamily.applyToDom(doc);
+    assert.equal(sec.querySelectorAll('.chart-body').length, 1);
+    assert.equal(sec.querySelectorAll('svg').length, 1);
+  });
+
+  test('rebuilding twice settles — the source survives its own rebuild', () => {
+    // The rebuild feeds `transformChartSection` the STORED source, not the built
+    // DOM, so a second class change must still find an authored list. Storing
+    // the post-build HTML instead would work exactly once.
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    sec.classList.add('sketch');
+    chartFamily.applyToDom(doc);
+    const hand = ticks(sec);
+    sec.classList.remove('sketch');
+    chartFamily.applyToDom(doc);
+    assert.notEqual(ticks(sec), hand, 'dropping the token must return the mono geometry');
+    assert.ok(ticks(sec) > 0, 'the source list was consumed — a rebuild found nothing to build');
+  });
+
+  test('an engine diagnostic class flipping is NOT a change', () => {
+    // The overflow / fit / legibility watchers toggle these onto and off top-level
+    // sections as live state, and they land on chart sections for real — the
+    // type-floor alarm's own note records it firing on 7 of 11 slides of the
+    // state-chart gallery, and state-chart is a chart layout. No builder reads
+    // them, so a flip must not buy a destructive rebuild: the output would be
+    // identical and the chart would lose its popover and motion targets for
+    // nothing. Found by the checker on this diff (#1673).
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    for (const cls of ['overflow', 'clip-marked', 'illegible', 'fit-marked']) {
+      sec.querySelector('svg').setAttribute('data-sentinel', 'kept');
+      sec.classList.add(cls);
+      chartFamily.applyToDom(doc);
+      assert.equal(sec.querySelector('svg').getAttribute('data-sentinel'), 'kept',
+        `adding \`${cls}\` rebuilt the chart`);
+      sec.classList.remove(cls);
+      chartFamily.applyToDom(doc);
+      assert.equal(sec.querySelector('svg').getAttribute('data-sentinel'), 'kept',
+        `removing \`${cls}\` rebuilt the chart`);
+    }
+  });
+
+  test('a diagnostic class alongside a REAL change still rebuilds', () => {
+    // The filter must not swallow a genuine trigger that happens to arrive in the
+    // same pass as a watcher flip.
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    const mono = ticks(sec);
+    sec.classList.add('overflow');
+    sec.classList.add('sketch');
+    chartFamily.applyToDom(doc);
+    assert.notEqual(ticks(sec), mono, 'the deck token was ignored because a watcher class rode with it');
+  });
+
+  test('re-authored content wins over the stored source — the map cannot go stale', () => {
+    // A previewer that reuses the same <section> across an edit rewrites the
+    // content AND re-stamps the class list from `_class:`, dropping chart-frame.
+    // Without a check for that marker, the rebuild ran from the stored source and
+    // resurrected the OLD chart over the new authoring — a regression against the
+    // pre-change code, which had no memory and so could not be stale. #1673.
+    const doc = makeDoc(GANTT);
+    const sec = doc.querySelector('section.gantt');
+    chartFamily.applyToDom(doc);
+    sec.innerHTML = '<h2>New deck.</h2><ul><li>Zulu<ul>'
+      + '<li>New work <code>2030-01-01..2030-06-30</code></li></ul></li></ul>';
+    sec.className = 'gantt';
+    chartFamily.applyToDom(doc);
+    assert.match(sec.innerHTML, /Zulu/, 'the newly authored lane is missing');
+    assert.doesNotMatch(sec.innerHTML, /Framework/, 'the previous deck was resurrected');
+  });
+
+  test('a changed data-orientation rebuilds — the class list is not the only build input', () => {
+    // transformChartSection takes (source, cls, orientation). Keying only on the
+    // class list left a chart built for landscape sitting on a section the
+    // runtime had since re-stamped portrait. #1673, found by the inversion lens.
+    const doc = makeDoc(GANTT);
+    const sec = doc.querySelector('section.gantt');
+    sec.setAttribute('data-orientation', 'landscape');
+    chartFamily.applyToDom(doc);
+    const landscape = sec.innerHTML;
+    sec.setAttribute('data-orientation', 'portrait');
+    chartFamily.applyToDom(doc);
+    assert.notEqual(sec.innerHTML, landscape,
+      'the section became portrait and the chart kept its landscape geometry');
+  });
+
+  test('class order alone is not a change', () => {
+    const doc = makeDoc(GANTT);
+    chartFamily.applyToDom(doc);
+    const sec = doc.querySelector('section.gantt');
+    sec.querySelector('svg').setAttribute('data-sentinel', 'kept');
+    sec.className = sec.className.split(/\s+/).reverse().join(' ');
+    chartFamily.applyToDom(doc);
+    assert.equal(sec.querySelector('svg').getAttribute('data-sentinel'), 'kept',
+      'a reordered class list is the same list — rebuilding on it is pure churn');
+  });
+});
+
 describe('piechart per-slice detail → speaker-note comment', () => {
   test('a pie with NO detail emits no comment (byte-identical export preserved)', () => {
     const html = engine.transformChartSection(

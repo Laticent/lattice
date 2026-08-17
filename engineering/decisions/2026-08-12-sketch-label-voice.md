@@ -272,30 +272,351 @@ runtime's re-run AND make the chart axis rebuildable, which would give that path
 hand geometry *and* hand paint. That is a bootstrap-and-chart-family change across
 all 14 chart components, and belongs in its own PR with its own checker.
 
-### Found, not fixed — ADVANCE_UPPER under-bounds the hand face
+#### Closed — the proper fix landed (#1673, 2026-08-16)
 
-`ADVANCE_UPPER` (0.68, `svg-label.js`) is calibrated for uppercase + 0.04em
+The paragraph above named the two defects and deferred them. Both are now gone,
+and the residue it measured with them.
+
+**The re-run was gated on the wrong question.** `if (applyDefaultComponent())
+runAllContentTransforms();` asked whether the DEFAULT-COMPONENT stamp had
+changed — a signal with no relationship to whether the deck's own registers had
+landed. For a deck whose every slide names its own component it is permanently
+false, so those decks never re-ran and the convergence the bootstrap comment
+claimed was simply not happening. The gate is now the union of that signal and a
+new one: `deckClassStampedSincePass`, set by `applyCachedDeckClass` when it
+actually changes a section's class list, and cleared by `runAllContentTransforms`
+the instant it has applied the classes for the pass it is about to run.
+
+That clear-point is the whole design, and it is what keeps the cost story
+intact. On the baked path the block primes synchronously *inside* pass 1, so the
+stamp belongs to that pass and is cleared before the transforms run — both gate
+signals are false and the deck pays nothing, which is the property the old gate
+was reaching for and the reason not to just drop it. Only the fetch fallback,
+where the answer genuinely cannot arrive before first paint, buys a second pass.
+
+**A chart could not be rebuilt even when the re-run fired.**
+`transformChartSection` early-returns on a section already carrying
+`chart-frame`, and the DOM adapter had replaced `innerHTML` on pass 1, so the
+authored `<ul>` the builder needs was gone. The adapter now keeps that source in
+a `WeakMap` keyed by the section, alongside the class list it built for, and
+rebuilds from it when — and only when — that class list changes.
+
+Two choices inside that worth keeping:
+
+- **A `WeakMap`, not a `data-` attribute.** An attribute would ride into every
+  exported bundle, inflating the artifact and changing its bytes, to serve a
+  re-run that only ever happens live in a page session. The map is exactly that
+  scope, and it lets a previewer replacing a section wholesale on an edit drop
+  the entry with it. **No exported byte changes.**
+- **The comparison is order-independent** (tokens sorted before joining), and
+  the *absence* of a change is what buys the free pass. The runtime runs this
+  transform repeatedly and cheaply on purpose — every transform is an idempotent
+  no-op — so a chart that rebuilt on every pass would throw away its own
+  `data-mark` popover targets and anima nodes each time. Both halves are pinned
+  by test, because either being wrong is a defect.
+
+Verified the way #1664's fix was: the parity test drives the real shipped
+`dist/lattice-runtime.js` in jsdom, and now covers the fetch fallback (no baked
+block, an `https://` origin, a stubbed `fetch` that resolves on a later turn than
+the synchronous first pass). **Confirmed to fail without the fix** — 1 of 9
+assertions, the tick count, exactly the one that reads which advance the builder
+used. The five baked-path assertions are unchanged and still pass.
+
+**The cost, measured on the real runtime rather than argued.** Two different
+numbers, and it is worth keeping them apart — CHART BUILDS (observed as
+`.chart-body` insertions) and TRANSFORM PASSES (counted inside
+`runAllContentTransforms`):
+
+| path | chart builds | transform passes | ticks |
+|---|---|---|---|
+| baked block + `mode: sketch` | **1** | **1** | 8 (hand) |
+| fetch fallback + `mode: sketch`, plain slide | — | **2** | — |
+| fetch fallback + `mode: sketch`, chart slide | **2** | **3** | 8 (hand — converged) |
+| fetch fallback, no `mode:` | 1 | 1 | 13 (mono) |
+
+The baked path pays nothing, which is the property the old gate was reaching for
+and the whole reason the gate survived rather than being deleted. The fetch
+fallback buys a second pass, and on a CHART deck a third — the rebuild's own
+`innerHTML` write returning through the MutationObserver. An earlier draft of
+this note said "the second pass" flatly; that undercounted the chart case.
+
+Steady state is clean on both paths: after the deck settles, further transform
+passes leave the SVG node IDENTITY unchanged. That mattered enough to measure
+rather than reason about — a rebuild-every-pass bug looks completely correct in
+the rendered output while quietly discarding each chart's `data-mark` popover
+targets and anima nodes on every tick of the preview.
+
+#### What the adversarial trio caught (HARD RULE #25 tier 2)
+
+The ladder was mis-applied at first. #1673 was scoped to maker-checker, and
+#1672 got no independent eyes at all — self-review plus the gates — despite
+changing a shared kernel whose `measureLabel` / `widestOf` serve every
+chart-family label. The tier-1/tier-2 question turns on *novel*, and keeping a
+source snapshot so a transform can rebuild a section is machinery no other
+transformer in this repo has. Escalating found three defects the gates could
+not, two of them in the half that had already been reviewed.
+
+**`mode: sketch-clean` measured the hand and painted the clean face.** The
+worst of the three, because it is the exact defect class this whole line of work
+exists to close, reintroduced by the fix for it. `sketch-clean` resolves to
+`sketch sketch-clean-body`, and that rule puts `--font-body` BACK to the clean
+stack while leaving `--font-display` and `--font-label` on the hand. The three
+labels here are `--font-body`; `.gantt-tick` is `--font-label`. So the gantt's
+`classTokens.includes('sketch')` predicate is correct for the gantt and wrong
+here — and it was copied without re-asking which token the rule names. Measured,
+the hand table is NARROWER than the clean one for `C`, `D`, `O`, `Q`, so
+`C`/`O`-heavy names under-count by up to 11% (`LOCO` 0.703 estimated against
+0.790 painted) — the direction that lets a line past its box. Now
+`readsHandBody()`, with a test on the seam.
+
+Latent in precisely the way the original bug was: no shipped deck pairs
+`sketch-clean` with a quadrant or radar, so the byte-identical corpus proves
+nothing about it. **The generalizable lesson: ask which TOKEN a rule names,
+never which mode looks hand-drawn.**
+
+**`data-orientation` is a build input that the rebuild key ignored.**
+`transformChartSection` takes three arguments and the class list is one of them.
+Orientation is re-stamped at runtime from measured aspect, and builders key on it
+(the funnel's portrait viewBox, `GANTT_GEOM_TALL`) — so a chart built for
+landscape could sit on a section that had since become portrait. Same
+measure-versus-paint disagreement, different channel. Now part of the key.
+
+**Two false claims in this change's own comments.** `svg-label.js`'s header still
+said "NO FONT METRICS. A pure kernel has no DOM and no font tables" — the
+sentence that was the *argument* for why an estimate was acceptable — while the
+file had grown a 92-entry font table. And the new test's header claimed that "a
+change to the glyph table, to the shipped faces, or to those rules has to face
+these again": false for the middle one, since both the table and the recorded
+measurements are frozen literals in the same repo, so bumping a woff2 moves the
+paint while both sides sit still and the suite stays green. Both corrected.
+Closing that drift channel properly — a generator following the
+`tools/derive-*` / `calibrate-*` precedent, or a font-file hash pin gated by
+`build:check` — is a real follow-up, and is now stated as missing rather than
+implied to exist (HARD RULE #23).
+
+#### What the red team caught — the tighten loop was dead code
+
+The worst finding of the three lenses, and the most instructive, because the
+mechanism was correct and *unreachable*.
+
+`measureLabel`'s per-line tighten loop only engages when `advance` is a
+FUNCTION. All three consumers passed `advance: upperAdvance(name, {...})` —
+which **calls** it, yielding a number. `advanceFor` then returned that same
+constant for every line, `tighter >= budget` on the first pass, and the loop
+exited having done nothing. So the safety property the whole change rests on was
+off in every shipping caller, and the string-average hazard the loop exists to
+prevent was live:
+
+| slide | line emitted | box | actually painted |
+|---|---|---|---|
+| clean | `WORKFLOW WORKFLOW` | 140u | **154.3u** (+10.2%) |
+| sketch | `MOMENTUM WINDOW` | 140u | **146.8u** (+4.9%) |
+
+The estimator's own model agreed those lines were over budget and emitted them
+anyway, and `widestOf` handed `placeLabels` boxes 6–9.5% narrower than the
+painted glyphs — the exact under-count this change documents as the box-breaking
+defect. Fixed by passing the function: `advance: (s) => upperAdvance(s, {...})`.
+(`cornerSpec`'s `name` parameter became dead in the process and is gone.)
+
+**Why no test caught it, and this is the part worth carrying forward.** The test
+written for this property called `measureLabel` directly with the FUNCTION form
+— the shape production does not use — so it exercised a path nothing reached.
+Its companion asserted a hypothetical rather than the emitted wrap. Two tests,
+zero coverage of the shipped path: the "test that cannot fail for the thing it
+exists to catch" shape, self-inflicted. The replacement asserts on the SVG that
+`transformChartSection` actually emits, and fails when the call sites regress to
+a number.
+
+**`toUpperCase()` expansion broke the char-count ↔ advance contract.**
+`upperAdvance` returns a PER-CHARACTER number and both consumers multiply it
+back by a count of the SOURCE string, but it divided by the UPPERCASED length.
+`ß`→`SS` is 1→2 and the ligatures a paste out of a PDF carries (`ﬄ`→`FFL`) are
+1→3, while CSS `text-transform: uppercase` performs the same mapping — so the
+paint expanded and the count did not, diluting the advance by exactly the
+expansion factor. Measured on a real render: a corner name of 16 `ﬄ` painted
+**356.97u into a 140u box**, ran off the left edge of the viewBox and printed
+through its neighbor. Now billed against the source length, so `STRASSE` and
+`STRAßE` estimate the same total, which is what they paint.
+
+**The rebuild could resurrect a deleted deck.** `built` cached the source from
+the first pass with no invalidation, so a previewer reusing a `<section>` across
+an edit — new content, class list re-stamped from `_class:` — rebuilt from the
+stale source and painted a chart the deck no longer contained. A regression
+against the pre-change code, which had no memory and so could not be stale. The
+fix keys on `chart-frame`: it is the marker saying "this section holds built
+output", and a re-stamp drops it. Deliberately **not** `innerHTML !== prior.html`
+— transforms after this one restructure these children (masthead-lift hoists the
+chrome into cells), so that test reads every section as stale on every later pass
+and would disable rebuilding entirely. That was tried, and the suite caught it.
+
+Also fixed: an explicit `null` options object threw (`= {}` defaults only
+`undefined`), and one British spelling in new prose that the `checkUsEnglish`
+curated list does not carry (HARD RULE #21 says that class rides on review).
+
+**What the red team could not break**, which is worth recording as covered
+ground: the per-glyph table itself (all 51 mapped glyphs re-measured against the
+real shipped woff2s in both faces — **zero entries below the real advance**); the
+re-run gate under a slow, 404, garbage and never-responding fetch (all converge,
+no unbounded pass loop, no lost wakeup); cross-path parity on the real
+fetch-fallback surface (all 35 geometry nodes byte-identical to the engine's);
+backdrop and Form survival across a rebuild; `cloneNode` of a built chart; and
+hostile author names (empty, whitespace, NBSP, a 4000-character unbreakable
+token, ZWJ emoji, RTL, CJK, and markup-injection attempts, which are stripped to
+text before reaching the emitter).
+
+#### What the checker caught, and why the first cut was wrong
+
+Two defects survived the maker's own testing, both found by the independent
+checker required here (HARD RULE #25), both reproduced before being accepted.
+
+**The rebuild dropped the finish backdrop.** `injectBackdrops()` runs at the TOP
+of a pass (inside `applyCachedDeckClass`), and the `.backdrop` wrapper is the
+section's FIRST CHILD rather than part of any transform's output — so a rebuild
+writing `innerHTML` later in the same pass took it with it, and nothing restored
+it until the MutationObserver's 150 ms debounce brought the next pass around. A
+finish visibly popped in late, on chart slides only. This is a regression the
+change itself introduced, so HARD RULE #18 gives it no exit — filing it would
+have been the prohibited move. Fixed at the ordering, by re-injecting after the
+registry as well: the hazard belongs to any transform that rebuilds a section's
+children, and a transformer has no business knowing what a finish is.
+
+**Engine diagnostic classes forced rebuilds.** The trigger was "the class list
+changed", but the overflow / fit / legibility watchers toggle `overflow`,
+`clip-marked`, `illegible` and `fit-marked` onto sections as live state — and
+they land on chart sections for real, as the type-floor alarm's own note records
+(7 of 11 slides of the state-chart gallery). Every flip re-minted a chart to
+identical output while discarding its popover and motion targets. `classKey` now
+excludes them.
+
+The two fixes are deliberately layered: a missing entry in that exclusion list
+costs wasted work rather than a broken slide, because the backdrop is restored
+either way.
+
+A third finding was a test defect, and the useful kind. The assertion written to
+prove the rebuild "replaces rather than stacks" counted `.chart-frame` — which is
+a class on the `<section>` itself, so it was always exactly 1 and could not fail
+for the thing it existed to catch. It counts `.chart-body` and `svg` inside the
+section now. The backdrop test needed the same correction in a different form:
+read at the end of startup it passed with the fix reverted, because the debounce
+had already repaired the document. It samples throughout and asserts on the
+worst moment seen.
+
+### Closed later — ADVANCE_UPPER under-bounded BOTH faces (#1672, 2026-08-16)
+
+`ADVANCE_UPPER` (0.68, `svg-label.js`) was calibrated for uppercase + 0.04em
 tracking in the CLEAN face. Its three consumers — `quadrant.transform.js:624` and
 `:1093`, `radar.transform.js:772` — style their labels `--font-body`, which
-`base.sketch.css` re-points to the hand sans. Measured there, the hand exceeds
-0.68 by up to ~9.6%:
+`base.sketch.css` re-points to the hand sans, where the hand exceeded 0.68 by up
+to ~9.6% (`Wide moat` 0.745, `Emerging challengers` 0.723, `Operational maturity`
+0.706, `Quick Wins` 0.692).
 
-| label | hand |
+**Re-measuring first changed what the bug was.** Those four strings reproduced
+exactly, but the vocabulary was widened from four gallery names to 42 strings
+spanning `IL ILI` to `WWWWWWWWWW`, at each rule's real CSS (weight **700** — the
+shipped rules say 700, not the 600 the issue assumed), and that showed the clean
+face already broke its own bound on ordinary author text: `WORKFLOW` 0.790,
+`AUTOMATE` 0.737, `COST` 0.702, `DEFER` 0.685. **This was never a sketch defect.**
+Sketch widened an estimate that was already wrong, and a second per-face
+CONSTANT — the shape the gantt tick used, and the shape this issue was drafted
+around — would have carried the same class of error into both faces.
+
+The reason the gantt answer does not transfer is the one the issue named: the
+tick's vocabulary is CLOSED, so a measured maximum is a real bound. These labels
+are author text, and no single average describes both `IL ILI` and `WORKFLOW` —
+the two differ by more than 2× per character in the same face.
+
+**Real measurement was not available.** `state-chart.transform.js:882` solves the
+same problem with a canvas because its whole architecture is browser-measured
+layout: it computes NO geometry at build time and installs a layout pass on all
+three render paths. Quadrant and radar do the opposite — every box, wrap and
+de-collision decision is made in a pure string transform, deliberately, so the
+export and the runtime cannot disagree and the anima clone has a stable target
+(`svg-label.js` header). Reaching for a canvas here means rewriting both charts,
+not calling a different function.
+
+**What shipped instead: a per-glyph table per face.** `upperAdvance(text, {hand,
+tracking})` sums a measured advance per character and adds the rule's tracking,
+so the estimate follows the STRING and the FACE. The table holds glyphs at
+`letter-spacing: 0`, which is what lets one table serve all four tracked rules
+(0.04 / 0.06 / 0.08em). Each entry is rounded UP to the nearest 0.05 — that
+rounding is what buys the "never short" property. Predicted ÷ actually-painted,
+over the 42-string vocabulary in both faces:
+
+| estimator | ratio |
 |---|---|
-| `Wide moat` | 0.745 |
-| `Emerging challengers` | 0.723 |
-| `Operational maturity` | 0.706 |
-| `Quick Wins` | 0.692 |
+| flat 0.68 | 0.61 … 2.04 |
+| glyph table | 1.02 … 1.11 |
 
-Unlike the gantt tick these are **open vocabulary** (author text), and the same
-estimate feeds `placeLabels` / `deCollideLabels`, so an under-count is a placement
-error as well as a wrap error. Latent: rendered the sketch quadrant and radar and
-saw no clipping on the gallery's own data.
+Those endpoints describe the VOCABULARY, not any one string. An independent
+re-measurement over a different 49-string set (the trio's verification lens) put
+the table's upper end at 1.098 on fully-mapped text and 1.114 once an unmapped
+script is in the string — so the "at most 8% generous" this section first claimed
+was a property of the first vocabulary, not of the estimator. **The claim that
+survives both sets is the lower wall: it never under-counts.** The same lens
+caught the −39% / +104% ends being attributed to `WORKFLOW` and `IL ILI`
+specifically, which the recorded per-string numbers contradict (13.9% short and
+68.3% over respectively); they are the extremes of the set.
 
-**Pre-existing** — it arrived with the `--font-body` re-point in #1647, not with
-#1663 — and off the path of a change scoped to three specific rules with a
-different constant. Recorded here rather than pulled into that diff, per HARD RULE
-#18's pre-existing/off-path branch.
+Three things are worth carrying forward:
+
+1. **Both ends of that range are defects, and they are different defects.** An
+   under-count lets the line past its box AND makes `placeLabels` /
+   `deCollideLabels` guard a box narrower than the painted glyphs, so an item
+   label routes through a corner name. An over-count is not the safe direction:
+   inflated boxes wrap text that fits and shove neighbors until the hide-overlap
+   rule DROPS a name from the artifact. The goal is a tight bound, not a
+   generous one — the same lesson `ADVANCE_HAND_TRACKED`'s ceiling records.
+2. **A per-string average needs a per-LINE check.** `IL ILI WORKFLOW` averages
+   well under what the line `WORKFLOW` alone paints, and it is the line that has
+   to fit. `measureLabel` now re-asks with the widest line's own advance and
+   re-wraps until the budget stops shrinking. A NUMERIC advance is unaffected —
+   every line returns the same number, so the loop exits on its first pass and
+   the legend, funnel and gantt callers are byte-identical.
+3. **An unmapped character bills a fallback — and "the widest glyph in the
+   table" was the wrong fallback.** It sounds safe and is not: the table's widest
+   glyph is only the widest we happened to MEASURE, while what an author can type
+   is unbounded. Measured, a three-em dash paints 3.00em — three times the widest
+   letter — so a label of them was estimated at **0.34×** its painted width, and
+   an astral emoji at 0.81× because one glyph spans two UTF-16 units while the
+   consumers count units. The em-quad dashes are mapped explicitly now, astral
+   code points bill per unit, and the fallback is pinned at 1.10 against the
+   widest unmapped thing measured (CJK and fullwidth Latin, both exactly 1.00em,
+   which the old fallback cleared by exactly zero). The residual is stated on the
+   constant rather than implied away: a character neither in the table nor under
+   1.10em still under-counts, and only real measurement could close that.
+
+Verified on the real surface, not by eye: a stress deck of deliberately wide
+author names rendered through the real pipeline in both modes, then read in
+headless Chromium — computed `font-family` confirms Outfit clean / Shantell Sans
+sketch, and every line's `getComputedTextLength()` is compared against the width
+it was wrapped to. **One overrun before (`MMMM WWWW MMMM`, 12.9% past its box in
+the hand face), zero after; zero painted-box overlaps either way.** Across all **24** shipped
+decks carrying a quadrant or radar (48 renders, clean and sketch), the rendered
+HTML is **byte-identical** before and after. (22 in the first sweep — the
+corpus glob missed `design/forms.gallery.md` and
+`exemplars/academic/conference-talk.md`, both of which ship committed PDFs. Both
+were rendered afterwards and are identical too, so the conclusion held; the
+count did not.)
+
+That last number was only readable because #1677 landed first. Measured against
+the base before it, five sketch decks showed whole-file diffs that had nothing to
+do with this change — re-rendering twice with identical code produced the same
+five, because their Mermaid SVG was nondeterministic run to run. Rebasing onto
+the deterministic bake turned a result that needed a paragraph of explanation
+into a clean zero. Worth remembering the next time a corpus diff looks alarming:
+**run the control — render twice with the same code — before attributing a diff
+to your own change.**
+
+*A note on the gallery names.* Most do NOT straddle a word break between the two
+faces, which is why the corpus renders identically and why the unit tests pick
+`COMMITMENT WAVE` and `MAXIMUM COMMITMENT` deliberately — the seam where the
+`sketch` token reaches the builder is unobservable on the shipped fixtures, so a
+test written against them would pass with the token unplumbed.
+
+Originally recorded here as *found, not fixed*: it arrived with the `--font-body`
+re-point in #1647, not with #1663, and was off the path of a change scoped to
+three specific rules with a different constant (HARD RULE #18's
+pre-existing/off-path branch).
 
 ## Known gap — Mermaid diagram labels (NOT closed here)
 

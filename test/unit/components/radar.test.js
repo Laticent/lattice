@@ -328,6 +328,39 @@ describe('radar', () => {
     assert.match(html, /class="radar-sector"/);
   });
 
+  // The dispatcher seam — the same contract the quadrant and the gantt axis
+  // use. `.radar-sector-label` is `--font-body`, which `mode: sketch` re-points
+  // at the hand sans, and its wrap + de-collision boxes are estimated at build
+  // time; if the token stops reaching buildRadar the labels still render, just
+  // measured for the wrong face. `MAXIMUM COMMITMENT` is chosen because the two
+  // faces straddle a word break on it — most sector names do not (#1672).
+  test('chart-family: the sketch token reaches the radar builder', () => {
+    const inner = '<h2>Cap</h2><ul><li>Our capability<ul>' +
+      '<li>Maximum Commitment<ul><li>Hiring <code>4</code></li>' +
+      '<li>Retention <code>3</code></li></ul></li>' +
+      '<li>Process<ul><li>Cadence <code>5</code></li>' +
+      '<li>Rigor <code>4</code></li></ul></li>' +
+      '</ul></li></ul>';
+    // Match every <text>, then filter on its class LIST. Baking the class into
+    // the pattern (`<text class="foo"[^>]*>([\s\S]*?)`) backtracks polynomially
+    // over a document with many such tags, which CodeQL flags and rightly. The
+    // tspan pattern anchors on the literal `x="`/`y="` the emitter always writes
+    // for the same reason — an unbounded `[^>]*` run is what backtracks, so
+    // `<tspan[^>]*>` is flagged even though it ends at a bare `<`.
+    const TEXT_EL = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
+    const TSPAN = /<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g;
+    const labels = (cls) => [...transformChartSection(inner, cls).html.matchAll(TEXT_EL)]
+      .filter((m) => ((m[1].match(/class="([^"]*)"/) || [])[1] || '')
+        .split(/\s+/).includes('radar-sector-label'))
+      .map((m) => [...m[2].matchAll(TSPAN)].map((t) => t[3]));
+    const clean = labels('radar quadrant');
+    const hand = labels('radar quadrant sketch');
+    assert.notDeepEqual(clean, hand,
+      'identical output means `hand` never reached buildRadar');
+    const tspans = (set) => set.flat().length;
+    assert.ok(tspans(hand) > tspans(clean), 'the wider face must wrap sooner, not later');
+  });
+
   test('chart-family: eyebrow scale override is honoured', () => {
     const inner = '<p><code>0–10</code></p><h2>Skills</h2>' + UL_TWO;
     const { html } = transformChartSection(inner, 'radar');
