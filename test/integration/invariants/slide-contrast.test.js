@@ -92,6 +92,16 @@ const SURFACES = [
  * Both were on the list this gate was scoped to absorb. An allowlist is where a
  * fixable bug goes to become permanent, so the bar for adding an entry is that no
  * contrast change could ever satisfy it.
+ *
+ * EVERY ENTRY ALSO CARRIES EXACT PER-SURFACE, PER-TAG COUNTS, and that is not
+ * belt-and-braces. A review demonstrated the hole: the first cut of `raster-backdrop`
+ * matched any non-`none` `background-image`, which is 13.5% of all runs on this gallery
+ * (this engine draws RULES with two-stop gradients), and an injected 1.11:1 regression
+ * on `glossary th` was absorbed with the gate still green. The matcher has since been
+ * narrowed to `url()` — 0.4% of runs, `image` layouts only — but breadth is the wrong
+ * thing to rely on twice. A count cannot be broadened by accident, and pinning the TAG
+ * as well as the surface means a swap (one run fixed, another regressing inside the
+ * same matcher) cannot hide behind an unchanged total.
  */
 const SANCTIONED_CONTRAST_EXEMPTIONS = [
   {
@@ -104,16 +114,21 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
       'It cannot be brought to 3:1 without ceasing to be a watermark: at any alpha that',
       'passes, it stops reading as a wash and competes with the copy in front of it.',
       'NOT routed through the tool\'s `exemptInks` tier, which matches on the RESOLVED',
-      'composited colour — the watermark composites over whatever rail it sits on, so',
-      'that set cannot recognise it.',
+      'composited color — the watermark composites over whatever rail it sits on, so',
+      'that set cannot recognize it.',
     ].join(' '),
     match: (r) => /(^|\s)watermark(\s|$)/.test(r.cls) && r.tag === 'div' && r.fs >= 200 && r.text.trim().length <= 2,
+    counts: {
+      'gallery @ indaco': { div: 2 },
+      'gallery @ indaco-dark': { div: 2 },
+      'gallery-jargon @ indaco': { div: 2 },
+    },
   },
   {
     id: 'raster-backdrop',
     why: [
-      'Text over a photograph or gradient on the `image` layouts. Every backdrop in the',
-      'prober is read off `backgroundColor`, and the picture (`div.lattice-bg`, a',
+      'Text over a photograph on the `image` layouts. Every backdrop in the prober is',
+      'read off `backgroundColor`, and the picture (`div.lattice-bg`, a `url()`',
       '`background-image`) plus its `div.image-scrim` gradient are both transparent to',
       'that read — so the climb sails past them onto the section canvas and reports',
       'white-on-white. The number is not a pessimistic measurement, it is a measurement',
@@ -121,8 +136,15 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
       'legible. Flagged structurally by the prober as `imgBackdrop`, so this matches the',
       'MECHANISM rather than a slide. Making it a real measurement needs per-pixel',
       'sampling of the decoded image behind each glyph, which the prober does not do.',
+      'The flag counts `url()` paint ONLY — see rasterUnder, which was narrowed after a',
+      'review showed a gradient-inclusive net absorbing an injected regression.',
     ].join(' '),
     match: (r) => r.imgBackdrop === true,
+    counts: {
+      'gallery @ indaco': { h2: 1, p: 1 },
+      'gallery @ indaco-dark': {},
+      'gallery-jargon @ indaco': {},
+    },
   },
 ];
 
@@ -167,14 +189,22 @@ const PREEXISTING_CONTRAST_BACKLOG = [
       'how much emphasis the "you are here" row may keep — a design call on `agenda`, ' +
       'not on `journey`.',
     match: (r) => /\bagenda\b/.test(r.cls),
-    counts: { 'gallery @ indaco': 8, 'gallery @ indaco-dark': 4, 'gallery-jargon @ indaco': 8 },
+    counts: {
+      'gallery @ indaco': { li: 4, 'li::before': 4 },
+      'gallery @ indaco-dark': { 'li::before': 4 },
+      'gallery-jargon @ indaco': { li: 4, 'li::before': 4 },
+    },
   },
   {
     id: 'kanban-dimming',
     why: 'The same de-emphasis wash on `kanban` card meta — the inline code chip and the ' +
       'column-header span. Same design call, different component.',
     match: (r) => /\bkanban\b/.test(r.cls),
-    counts: { 'gallery @ indaco': 2, 'gallery @ indaco-dark': 2, 'gallery-jargon @ indaco': 2 },
+    counts: {
+      'gallery @ indaco': { code: 2 },
+      'gallery @ indaco-dark': { code: 2 },
+      'gallery-jargon @ indaco': { span: 2 },
+    },
   },
 ];
 
@@ -252,53 +282,56 @@ describe('slide contrast — every text run clears WCAG AA on the rendered galle
   });
 
   /**
-   * The ratchet. Exact per-surface counts, failing in BOTH directions — up means a new
-   * defect, down means someone fixed one and left the number lying, which would let the
-   * next regression slip back in under the old ceiling.
+   * THE COUNT LEDGER, applied identically to both lists. For every entry, on every
+   * surface, the number of sub-AA runs it matches PER TAG must equal what is written
+   * down — no more (a regression, or a matcher quietly widening) and no less (someone
+   * fixed one and left the ceiling high, which would let the next regression slip back
+   * in underneath it).
+   *
+   * This is the half an allowlist usually forgets. An entry that stops matching is a
+   * claim the repo no longer supports: the surface was fixed (delete it) or it moved
+   * (repair the matcher). Leaving it is how an allowlist rots into a place real
+   * failures hide.
    */
-  test('the pre-existing backlog has not grown — and has not silently shrunk', () => {
+  test('every exemption and backlog entry matches EXACTLY what is written down', () => {
     const problems = [];
-    for (const e of PREEXISTING_CONTRAST_BACKLOG) {
-      let total = 0;
-      for (const m of measured) {
-        const n = m.rows.filter((r) => r.r < r.need && !r.exempt && e.match(r)).length;
-        total += n;
-        const expected = e.counts[m.surface] ?? 0;
-        if (n > expected) {
-          problems.push(`${e.id} on ${m.surface}: ${n} sub-AA runs, expected ${expected} — ` +
-            'this backlog GREW. Something regressed; do not raise the number to match.');
-        } else if (n < expected) {
-          problems.push(`${e.id} on ${m.surface}: ${n} sub-AA runs, expected ${expected} — ` +
-            `progress! Lower the count to ${n} in PREEXISTING_CONTRAST_BACKLOG so the ` +
-            'ratchet holds the new floor.');
+    const lists = [
+      ['SANCTIONED_CONTRAST_EXEMPTIONS', SANCTIONED_CONTRAST_EXEMPTIONS],
+      ['PREEXISTING_CONTRAST_BACKLOG', PREEXISTING_CONTRAST_BACKLOG],
+    ];
+    for (const [listName, list] of lists) {
+      for (const e of list) {
+        let total = 0;
+        for (const m of measured) {
+          const actual = {};
+          for (const r of m.rows) {
+            if (r.r >= r.need || r.exempt || !e.match(r)) continue;
+            actual[r.tag] = (actual[r.tag] || 0) + 1;
+            total += 1;
+          }
+          const expected = e.counts[m.surface];
+          if (!expected) {
+            problems.push(`${listName}/${e.id}: no counts recorded for surface "${m.surface}"`);
+            continue;
+          }
+          for (const tag of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
+            const exp = expected[tag] || 0;
+            const got = actual[tag] || 0;
+            if (got === exp) continue;
+            problems.push(
+              `${listName}/${e.id} · ${m.surface} · <${tag}>: ${got} sub-AA runs, recorded ${exp}. ` +
+              (got > exp
+                ? 'This GREW — something regressed, or the matcher widened. Do not raise the number to match.'
+                : `Progress — lower the recorded count to ${got} so the ratchet holds the new floor.`));
+          }
+        }
+        if (total === 0) {
+          problems.push(`${listName}/${e.id} matches nothing at all — it is stale. ` +
+            'Delete the entry rather than leaving it in place.');
         }
       }
-      if (total === 0) {
-        problems.push(`${e.id} is fully fixed — DELETE the entry rather than leaving it at zero.`);
-      }
     }
-    assert.deepEqual(problems, [], `contrast backlog ratchet:\n  ${problems.join('\n  ')}`);
-  });
-
-  /**
-   * The other direction, which is the half an allowlist usually forgets. An entry that
-   * stops matching is a claim the repo no longer supports — either the surface was
-   * fixed (delete the entry) or it moved (fix the matcher). Leaving it is how an
-   * allowlist rots into a place real failures can hide.
-   */
-  test('every exemption still matches at least one run (no stale entries)', () => {
-    const counts = new Map(SANCTIONED_CONTRAST_EXEMPTIONS.map((e) => [e.id, 0]));
-    for (const m of measured) {
-      for (const r of m.rows) {
-        if (r.r >= r.need || r.exempt) continue;
-        for (const e of SANCTIONED_CONTRAST_EXEMPTIONS) if (e.match(r)) counts.set(e.id, counts.get(e.id) + 1);
-      }
-    }
-    const stale = [...counts].filter(([, n]) => n === 0).map(([id]) => id);
-    assert.deepEqual(stale, [],
-      `SANCTIONED_CONTRAST_EXEMPTIONS entries matching nothing: ${stale.join(', ')}.\n` +
-      'The surface was fixed or moved. Delete the entry, or repair its matcher — do not\n' +
-      `leave it.\n  counts: ${JSON.stringify(Object.fromEntries(counts))}`);
+    assert.deepEqual(problems, [], `contrast ledger:\n  ${problems.join('\n  ')}`);
   });
 
   /**

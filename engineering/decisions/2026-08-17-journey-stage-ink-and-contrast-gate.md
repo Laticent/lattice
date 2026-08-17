@@ -233,6 +233,49 @@ measurement, and so does a decision record's. Both have now been corrected in
 place, and the prober's header says outright that it should not be trusted over a
 render — including that paragraph.
 
+## What the independent checker found (HARD RULE #25 maker-checker)
+
+Four real defects, all in work this branch authored, all fixed here. Worth listing
+because two of them were *over-claims in prose that the code did not support* — the
+exact failure this record spends its length arguing against.
+
+1. **The `raster-backdrop` exemption was wide enough to hide a real defect.**
+   `rasterUnder` flagged ANY non-`none` `background-image`, and this engine draws rules
+   with two-stop same-color gradients — so the flag hit **205 of 1518 runs (13.5%)**,
+   not "text over a photograph". The checker injected a 1.11:1 regression on
+   `glossary th` and a 1.2:1 one on twelve `divider` headlines and watched the gate stay
+   green. Fixed twice over: the flag now counts `url()` paint only (**6 of 1518, 0.4%**,
+   `image` layouts only), and every exemption carries exact per-surface, per-tag counts
+   so breadth is never the only thing between a defect and a green build. Re-tested with
+   the checker's own scenario: a `divider` ink collapsed to 1.00:1 now produces 23
+   offenders and fails.
+
+2. **"The change is strictly additive" was false.** A node that PRECEDES the run but
+   sits in a higher layer was accepted by the old DOM-order rule and is rejected now.
+   That is *correct* — a `z-index: 1` rail really does paint over in-flow text that
+   follows it — but it is not the guarantee the sentence made, and a reader would have
+   used it to skip re-measuring an ungated deck. Comment and record both corrected;
+   measured on the gated galleries, 0 rows lose a backdrop and 16 gain one.
+
+3. **`paintLayer` ignored `z-index` on flex and grid items**, which applies even at
+   `position: static` — a census found 179 such boxes on one gallery (`.cell-masthead`,
+   `FOOTER`, `.tile-progress` at z=30). Under-ranking them drops the run back onto the
+   DOM-order fallback, which is the very bug this function exists to fix. Now honored,
+   and candidate boxes are ranked ancestor-aware on both sides rather than by their own
+   box. No live misfires either way; this closes a latent hole, not an observed one.
+
+4. **`absorb()` is not true source-over** for two differently-colored translucent
+   layers, and its comment claimed general validation against Chromium. Pre-existing,
+   and provably not live — of 1518 runs only 12 have any sibling underlay and **zero**
+   composite two — so it is logged on #1717 and the over-claiming comment is corrected,
+   rather than fixed blind against a case the galleries cannot exercise.
+
+The checker also confirmed, independently: the print byte-identity on a real print
+render; that the `color-light` desync worry was unfounded (the pre-change code was the
+one that broke there); the palette numbers to four decimals; that the analytic model
+matches Chromium's oklab mix exactly; that no `.reverse()` was inverted; and that all
+four unit assertions bite.
+
 ## What this does not cover
 
 - **Three surfaces, not the 32-palette matrix.** A palette-wide ink defect is the

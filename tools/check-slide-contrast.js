@@ -156,6 +156,17 @@ const PROBE = () => {
   // saturated accumulator is a no-op, so the full walk costs nothing but is right.
   const resolveStack = (el, from = [], ink = null) => {
     let acc = ink && ink.a > 0 ? { rgb: ink.rgb.slice(), a: ink.a } : null;
+    // KNOWN WRONG for two DIFFERENTLY-COLORED translucent layers, and stated here
+    // rather than left to be rediscovered: this applies `over(acc.rgb, c.rgb, acc.a)`
+    // without weighting the lower layer by its own alpha or renormalizing by the output
+    // alpha, so it is not true source-over. Same-color stacks (the case the note below
+    // reproduces) come out right; mixed ones do not — measured, white under 20% black
+    // under 50% red paints rgb(229,101,101) and this computes rgb(179,102,102).
+    // Pre-dates the gate and is not live on any gated surface: of 1518 runs only 12 have
+    // ANY sibling underlay and ZERO composite two. Left alone deliberately — fixing it
+    // is off-path here and there is no multi-layer case in the galleries to verify a fix
+    // against (#1717).
+    //
     // Accumulated coverage must COMPOUND — `a + c.a * (1 - a)` — not snap to 1 on the
     // second layer. Stamping `a: 1` there truncates the stack at two paints and never
     // reaches the opaque base, so two stacked 20%-black washes on white resolved to a
@@ -221,9 +232,14 @@ const PROBE = () => {
   // inside its nearest positioned ancestor's layer, not its own. Within one layer, DOM
   // order still decides — that is the old rule, preserved.
   //
-  // This is deliberately ADDITIVE: every sibling the DOM-order rule accepted is still
-  // accepted, so it can only recover a backdrop that was being missed, never remove
-  // one that was working.
+  // NOT "strictly additive", though an earlier draft of this comment said so and that
+  // was wrong. A node that PRECEDES the run but sits in a HIGHER layer was accepted by
+  // the old DOM-order rule and is rejected now — correctly, because a `z-index: 1` rail
+  // really does paint OVER in-flow text that follows it, and calling it a backdrop was
+  // the old rule's mistake. A review built the counterexample and rendered it: an
+  // absolutely-positioned z-1 panel before an in-flow `<p>` scored 7.17:1 under the old
+  // filter and 1.58:1 under this one. Direction defensible, guarantee overstated.
+  // Measured on the three gated galleries: 0 rows lose a backdrop, 16 gain one.
   //
   // Done by GEOMETRY, deliberately not by `document.elementsFromPoint`: that hit-
   // tests in VIEWPORT coordinates, and a rendered deck is one tall document with
@@ -246,12 +262,28 @@ const PROBE = () => {
   // it), and it does not hit-test glyphs, so a box that CONTAINS the run's center but
   // paints only around it still counts. Both fail toward a backdrop closer to the
   // truth than the section canvas.
+  // `z-index` applies to a positioned box AND to a flex/grid ITEM, which may be
+  // `position: static` — a census of a rendered gallery found 179 such boxes
+  // (`.cell-masthead` and `FOOTER` at z=30, `.tile-progress` at z=30,
+  // `.journey-lane-dot` at z=1), every one of which an earlier cut of this ranked as
+  // layer 0. That under-estimates the run's own layer and drops it back onto the
+  // DOM-order fallback — the same shape as the bug this whole function fixes.
   const paintLayer = (n) => {
     const cs = getComputedStyle(n);
-    if (cs.position === 'static') return 0;          // in-flow background (step 4)
+    const parent = n.parentElement;
+    const zApplies = cs.position !== 'static'
+      || (parent && /\b(flex|grid)\b/.test(getComputedStyle(parent).display));
+    if (!zApplies) return 0;                         // in-flow background (step 4)
     const z = cs.zIndex === 'auto' ? 0 : (parseInt(cs.zIndex, 10) || 0);
-    if (z < 0) return -1;                            // negative-z positioned (step 3)
+    if (z < 0) return -1;                            // negative-z (step 3)
+    if (cs.position === 'static' && z === 0) return 0; // a flex item with z:auto is in-flow
     return z === 0 ? 1 : 1 + z;                      // positioned, z auto/0 then above
+  };
+  /** A box paints in the highest layer it or any ancestor up to `stop` establishes. */
+  const stackLayer = (n, stop) => {
+    let best = 0;
+    for (let x = n; x && x !== stop; x = x.parentElement) best = Math.max(best, paintLayer(x));
+    return best;
   };
   /**
    * Every non-ancestor box in the section that paints UNDER `rect`, topmost first.
@@ -266,14 +298,16 @@ const PROBE = () => {
     if (!sec) return [];
     // The run paints in its nearest positioned ancestor's layer — take the max up
     // to (but excluding) the section, which is the stacking root here.
-    let elLayer = 0;
-    for (let n = el; n && n !== sec; n = n.parentElement) elLayer = Math.max(elLayer, paintLayer(n));
+    const elLayer = stackLayer(el, sec);
     const found = [];
     let idx = 0;
     for (const node of sec.querySelectorAll('*')) {
       idx += 1;
       if (node === el || node.contains(el) || el.contains(node)) continue;
-      const layer = paintLayer(node);
+      // Ancestor-aware on BOTH sides: a static child of a high-z wrapper paints in the
+      // wrapper's layer, and comparing its own box against `elLayer` would admit it as
+      // an underlay while it actually paints above.
+      const layer = stackLayer(node, sec);
       const precedes = !!(node.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
       // A lower layer is under the run whatever the DOM order; an equal layer falls
       // back to the original "must precede" rule.
@@ -293,7 +327,7 @@ const PROBE = () => {
    * `background-image`, or a gradient? Every backdrop here is read off
    * `backgroundColor`, so when the answer is yes the reported ratio is not merely
    * approximate, it is measuring the wrong thing: the climb sails past the picture
-   * and lands on whatever opaque colour sits behind it, usually the section canvas.
+   * and lands on whatever opaque color sits behind it, usually the section canvas.
    *
    * Live case: `image statement` builds its backdrop as `div.lattice-bg` (a
    * `background-image: url(…)`) with a `div.image-scrim` gradient over it, and paints
@@ -305,11 +339,24 @@ const PROBE = () => {
    * human can see them, and the invariants gate carries the policy (an explicit,
    * justified exemption) so the two concerns stay in one place each. Ancestors count
    * as well as underlays — a scrim on a wrapper is the same problem.
+   *
+   * `url()` ONLY, DELIBERATELY — NOT every `background-image`. The first cut of this
+   * flagged any non-`none` background-image, and a review measured what that actually
+   * caught: 205 of 1518 runs on the gallery (13.5%), because this engine paints RULES
+   * with two-stop same-color `linear-gradient`s — a `glossary` row, `divider`, `code`,
+   * `compare-table`. An exemption keyed on that flag stopped meaning "over a photograph"
+   * and started meaning "one run in eight", wide enough to swallow an injected 1.11:1
+   * regression on `glossary th` and a 1.2:1 one on twelve `divider` headlines while the
+   * gate stayed green. A gradient is at least COMPOSED of colors this tool could in
+   * principle sample; a decoded raster is not, and the raster is the case that motivated
+   * the flag. So the net is the narrow one, and the invariants gate additionally pins the
+   * exact count — breadth alone is never the only thing standing between a real defect
+   * and a green build.
    */
   const rasterUnder = (el, rect) => {
     const hasImage = (n) => {
-      const cs = getComputedStyle(n);
-      return cs.backgroundImage && cs.backgroundImage !== 'none';
+      const bi = getComputedStyle(n).backgroundImage;
+      return !!bi && bi !== 'none' && /(^|[\s,])url\(/.test(bi);
     };
     for (const n of under(el, rect)) if (hasImage(n)) return true;
     let node = el;

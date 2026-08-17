@@ -7,7 +7,7 @@
   The print band renders byte-identically (`section.print` already remapped the old
   token to the same value). Dark mode was never the defect and stays far clear of the
   floor, but it does shift: 17 palettes now ink the label with their own tinted heading
-  colour instead of neutral 92% white, and 10 of 64 rows lose a little contrast at a
+  color instead of neutral 92% white, and 10 of 64 rows lose a little contrast at a
   height where it does not matter (worst 15.26:1 → 14.09:1; lowest dark row 11.30:1).
 - **Added: slide contrast is now a per-PR gate.** `tools/check-slide-contrast.js` has
   measured the rendered DOM since #1207 and found every contrast defect this repo has
