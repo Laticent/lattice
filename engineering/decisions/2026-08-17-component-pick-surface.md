@@ -4,7 +4,7 @@ summary: >
   The component catalog cost 95k tokens to read and HARD RULE #6 makes reading it
   mandatory before every _class: slide, so it was the most-repeated read in the repo
   — while AGENTS.md itself said the file is only for PICKING and the authoring detail
-  belongs in each component's docs.md. A one-line-per-component pick list (3k tokens)
+  belongs in each component's docs.md. A one-line-per-component pick list (3.8k tokens)
   now carries what a pick needs; components.json is untouched for the tools that read
   it. Third application of the index-tiering rule, and the one with the highest hit rate.
 ---
@@ -72,14 +72,14 @@ contract from 171 lines to zero — the exact regression
 from grepping the consumers I had already found rather than the tree, which is what
 makes a wrong “verified” claim worse than no claim at all.
 
-"Read by app code" was checked, not assumed: the Studio's `SlidePicker.tsx` reads
+What the narrower consumers read, verified: the Studio’s `SlidePicker.tsx` takes
 `name`, `bucket`, `description`, `purpose`, `form`, `function`, `substance`, `tags`,
-`variants`, `skeleton`; `deck-export.js` reads `name`/`description`; `lente/suggest.ts`
-reads `name`/`form`/`function`/`bucket`/`tags`; the playground bundle contains zero
-references to `effectiveVariants` or `slots`. The docs-site component pages render
-`whenToUse`/`antiPatterns` from the **manifests directly** (`lib/components/index.js`
-`loadAll()`), not from this file. And all 61 per-component `.docs.md` files carry
-Slots / When-to-use / Anti-patterns — the detail is already at L2, where #6 sends you.
+`variants`, `skeleton`; `lente/suggest.ts` takes `name`/`form`/`function`/`bucket`;
+`deck-export.js` does not parse the catalog at all — it fetches the file and drops the
+blob into the zip. The docs-site component pages render `whenToUse`/`antiPatterns` from
+the **manifests directly** (`lib/components/index.js` `loadAll()`), not from this file.
+And all 61 per-component `.docs.md` files carry Slots / When-to-use / Anti-patterns —
+the detail is already at L2, where #6 sends you.
 
 ## Fix
 
@@ -126,7 +126,7 @@ jobs gets sized for the larger one, and the cheaper job silently pays.** The fix
 never to delete the detail — it is to give the cheap job its own surface and route to
 it.
 
-The pick list lands at 3k against the ~10k index budget, comfortably inside, which is
+The pick list lands at 3.8k against the ~10k index budget, comfortably inside, which is
 worth stating after the decisions index missed that budget by 2.6×. The difference is
 what the row has to carry: 411 decision notes need a sentence each to be
 distinguishable; 61 components are distinguishable by name, axes and tags.
