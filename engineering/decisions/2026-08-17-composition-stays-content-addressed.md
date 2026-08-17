@@ -261,7 +261,9 @@ place and what #1, #4 and #5 each demonstrated concretely.
   | **real** bare `@import onyx;` (now rejected) | no ✓ | no ✓ | yes ✓ |
   | **real** `@import /* c */ 'onyx';` | **yes** ✓ | no ✓ | yes ✓ |
 
-  762,454 bytes for the comment cases against 1,530,948 for the real-import ones, and
+  762,710 bytes for the comment cases against 1,531,460 for the real-import ones (re-driven
+  against the rebased head, so the digits move with `main`; an independent checker reading the
+  pre-rebase build got 762,449 / 1,530,941 — quote the ratio, not the digits), and
   `indaco-dark` still composes with its categorical tokens on the same surface. The first cut of
   this probe used BYTE COUNT as the discriminator and was worthless: a serialized Studio theme
   carries `@import 'lattice';`, so the base inlines either way and both arms sat at ~762 KB.
