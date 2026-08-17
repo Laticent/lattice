@@ -58,7 +58,7 @@ const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const SNAPSHOT_ROOT = path.join(ROOT, '.scratch', 'pixel-check');
 
-const { ALL_DECKS } = require('./preview');
+const { ALL_DECKS, pageDeltaNote } = require('./preview');
 
 function ensureChrome() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return;
@@ -157,7 +157,9 @@ function pixelDiff(baselinePdf, currentPdf, deck, opts = {}) {
     const oldP = oldPngs[i] ? path.join(tmpDir, oldPngs[i]) : null;
     const newP = newPngs[i] ? path.join(tmpDir, newPngs[i]) : null;
     if (!oldP || !newP) {
-      perPage.push({ page: i + 1, pixels: -1, note: oldP ? 'new page added' : 'page removed', oldPng: oldP, newPng: newP });
+      // Direction matters and read backwards here until #1686's follow-on — see
+      // pageDeltaNote's header in tools/preview.js for what it cost.
+      perPage.push({ page: i + 1, pixels: -1, note: pageDeltaNote(oldP, newP), oldPng: oldP, newPng: newP });
       totalPx += 1;
       continue;
     }
