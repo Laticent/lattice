@@ -62,6 +62,11 @@ not what the fix touched. Ten topics became fourteen.
 | `ci.md` | 7 → 2 | CodeQL, and the sandbox's `CHROME_PATH`. |
 | `memory-profiling.md` | 3 → 3 | Unchanged. |
 
+Every count above is this change measured against `main` at `91913c5`, and they are
+a **record, not a live total** — #1704 landed a 146th entry in `css.md` in the same
+window, which is the ordinary way these numbers drift and the reason neither the
+index nor this tool carries a count it would have to keep true (#1547).
+
 The largest topic file drops from 21.0k tokens (`marp.md`) to 17.2k
 (`studio-playground.md`). The index itself grows **70 tokens**, 7,347 → 7,417,
 measured with `o200k_base` over both files. Essentially all of that is the four new

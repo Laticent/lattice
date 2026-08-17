@@ -12,8 +12,10 @@ or LLM) will thank you.
 
 This page is the **symptom index** — one line per gotcha, grouped by topic, each
 linking into a file under `engineering/gotchas/`. Do not read the topic files
-top-to-bottom; there are ~145 entries across them and they are a reference, not a
-narrative.
+top-to-bottom; they hold ~150 entries between them and they are a reference, not a
+narrative. (No exact count here on purpose — a hand-maintained total in prose goes
+stale the first time someone adds an entry, and nothing regenerates this paragraph.
+The generated index below is the live list.)
 
 **Two ways in, and picking the wrong one is how you conclude "gotchas has nothing":**
 
