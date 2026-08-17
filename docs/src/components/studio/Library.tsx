@@ -54,6 +54,46 @@ function fmtDate(ts: number): string {
 	}
 }
 
+/** The reference-file extensions the picker accepts, as a lower-cased set. */
+const REF_DOC_EXTS = new Set(
+	REF_DOC_ACCEPT.split(',').map((e) => e.trim().toLowerCase()).filter((e) => e.startsWith('.')),
+);
+
+const extOf = (name: string) => (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerCase();
+
+/**
+ * Split a dropped set into the Library's two existing ingests, plus what neither takes.
+ *
+ * Keyed on EXTENSION, not on the picker that would have been used: dropping is one
+ * gesture for every kind, so a `.zip` imports and a `.md` attaches regardless of which
+ * filter tab happens to be showing. Exported so the routing is testable without a DOM —
+ * the drag wiring around it is verified on the real Studio, but which file goes where
+ * is plain logic and belongs in a unit test.
+ */
+export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; rejected: File[] } {
+	const zips: File[] = [];
+	const docs: File[] = [];
+	const rejected: File[] = [];
+	for (const f of files) {
+		const ext = extOf(f.name);
+		if (ext === '.zip') zips.push(f);
+		else if (REF_DOC_EXTS.has(ext)) docs.push(f);
+		else rejected.push(f);
+	}
+	return { zips, docs, rejected };
+}
+
+/**
+ * What to say about files the Library cannot take. Named rather than counted, and
+ * capped at three so a stray folder-drop of fifty does not become a wall of toast — a
+ * drop that silently does nothing reads as broken, which is the failure this avoids.
+ */
+export function rejectedMessage(names: string[]): string {
+	const shown = names.slice(0, 3).join(', ');
+	const rest = names.length > 3 ? ` and ${names.length - 3} more` : '';
+	return `Can't add ${shown}${rest} — drop a .zip or ${REF_DOC_ACCEPT}.`;
+}
+
 // A few representative swatches for a theme card: the picked essentials, or the
 // accent as a fallback when a legacy record has none.
 function themeSwatches(t: StudioTheme): string[] {
@@ -66,17 +106,22 @@ function themeSwatches(t: StudioTheme): string[] {
 // (compact) — a right sheet at tablet, a bottom sheet on a phone. The inner content
 // is identical across all three; `PanelHeader` absorbs the one difference that used
 // to need a fork (a bare `h2` when docked vs `SheetTitle` inside the portal).
-function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (o: boolean) => void; children: React.ReactNode }) {
+function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { docked?: boolean; open: boolean; onOpenChange: (o: boolean) => void; dropProps?: React.HTMLAttributes<HTMLDivElement>; children: React.ReactNode }) {
 	// [container-type:inline-size]: the docked column is a size container so its header
 	// controls (the Import label, the filter-tab count) collapse on PANE width when it's
 	// dragged narrow — the Sheet is viewport-wide, so it doesn't need it.
-	if (docked) return <div className="flex h-full min-h-0 flex-col [container-type:inline-size]">{children}</div>;
+	//
+	// `dropProps` lands on the element that fills the panel in BOTH transports, so a file
+	// dropped anywhere in the Library is caught — not only over the card grid. Inside the
+	// Sheet that needs its own filling div: PanelSheet owns its root, and a drop target
+	// that covers only part of the panel is one an author finds by accident.
+	if (docked) return <div className="relative flex h-full min-h-0 flex-col [container-type:inline-size]" {...dropProps}>{children}</div>;
 	// PanelSheet, not a hand-rolled SheetContent: it is what makes this a bottom sheet
 	// on a phone (and keeps the 720px right sheet at tablet) — one framing decision,
 	// made once, for every panel the drawer can open (#1211).
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg">
-			{children}
+			<div className="relative flex h-full min-h-0 flex-col" {...dropProps}>{children}</div>
 		</PanelSheet>
 	);
 }
@@ -123,7 +168,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		});
 	}, []);
 	// Load (and refresh) whenever the drawer opens; honor a requested initial tab
-	// (the picker's "Manage in Library" link opens straight to Docs).
+	// (the picker's "Manage in Library" link opens straight to Files).
 	React.useEffect(() => {
 		if (open) {
 			reload();
@@ -140,6 +185,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
 	const total = themes.length + components.length + finishes.length + docs.length;
+	// Only the reference files carry a byte size (a theme/component/finish is CSS + a
+	// recipe, measured in kilobytes nobody budgets), so the status bar reports the one
+	// number a browser-storage shelf can genuinely run out of rather than a made-up total.
+	const docBytes = docs.reduce((n, d) => n + (d.bytes || 0), 0);
 
 	const tKey = (t: StudioTheme) => `theme:${t.id}`;
 	const cKey = (c: StudioComponent) => `comp:${c.id}`;
@@ -259,6 +308,60 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			if (fileRef.current) fileRef.current.value = '';
 		}
 	}
+	// ── Drop a file on the Library ──────────────────────────────────────────────
+	// The Library already had two ingests behind two buttons — a `.zip` of lattice
+	// assets and a reference file — and no way to drop either (#1655). Drop routes to
+	// the SAME two functions rather than growing a third ingest: `unpackBundle` already
+	// normalizes a component skeleton's line endings on the way in
+	// (SANCTIONED_EOL_BOUNDARIES), and `readReferenceDoc` already owns the size/kind
+	// rules. A second parser here would be a second set of both.
+	//
+	// The kind is decided by EXTENSION, not by the picker that would have been used:
+	// dropping is one gesture for every kind, so a `.zip` imports and a `.md` attaches
+	// regardless of which filter tab happens to be showing. Anything else is named in
+	// the toast rather than silently ignored — a drop that does nothing reads as broken.
+	async function acceptDropped(files: File[]) {
+		const { zips, docs, rejected } = classifyDropped(files);
+		// A FileList is what both ingests take; rebuild one per group rather than
+		// widening their signatures for this one caller.
+		const asList = (fs: File[]) => {
+			const dt = new DataTransfer();
+			for (const f of fs) dt.items.add(f);
+			return dt.files;
+		};
+		if (zips.length) await importFiles(asList(zips));
+		if (docs.length) await addDocFiles(asList(docs));
+		if (rejected.length) notify(rejectedMessage(rejected.map((f) => f.name)));
+	}
+	// A counter, not a boolean: `dragleave` fires every time the pointer crosses into a
+	// CHILD element, so a boolean flickers the overlay off while the pointer is still
+	// plainly inside the panel.
+	const dragDepth = React.useRef(0);
+	const [dragging, setDragging] = React.useState(false);
+	const dropProps: React.HTMLAttributes<HTMLDivElement> = {
+		onDragEnter: (e) => {
+			if (!e.dataTransfer?.types?.includes('Files')) return;
+			dragDepth.current += 1;
+			setDragging(true);
+		},
+		onDragOver: (e) => {
+			if (!e.dataTransfer?.types?.includes('Files')) return;
+			e.preventDefault(); // without this the browser refuses the drop and opens the file instead
+			e.dataTransfer.dropEffect = 'copy';
+		},
+		onDragLeave: () => {
+			dragDepth.current = Math.max(0, dragDepth.current - 1);
+			if (dragDepth.current === 0) setDragging(false);
+		},
+		onDrop: (e) => {
+			if (!e.dataTransfer?.files?.length) return;
+			e.preventDefault();
+			dragDepth.current = 0;
+			setDragging(false);
+			void acceptDropped(Array.from(e.dataTransfer.files));
+		},
+	};
+
 	function removeTheme(t: StudioTheme) {
 		deleteStudioTheme(t.id).then(() => { reload(); onChanged(); notify(`Deleted ${t.label}.`); });
 	}
@@ -283,7 +386,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			value={query}
 			onChange={setQuery}
 			onClear={() => setQuery('')}
-			placeholder="Search themes, components, finishes & docs…"
+			placeholder="Search themes, components, finishes & files…"
 			label="Search library"
 			className={phone ? undefined : 'ml-1 flex-1'}
 		/>
@@ -292,7 +395,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const headerControls = (
 		<>
 			{phone ? null : searchField}
-					{/* Contextual add: the Docs tab attaches .txt/.md/.pdf reference docs; every
+					{/* Contextual add: the Files tab attaches .txt/.md/.pdf reference files; every
 					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
 					{filter === 'refdoc' ? (
 						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Add file</span></Button></Tip>
@@ -313,7 +416,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		<PanelHeader
 			icon={<FileBox />}
 			title="Library"
-			srDescription="Saved themes, components, and finishes — search, filter, apply, or import a .zip."
+			srDescription="Saved themes, components, finishes, and files — search, filter, apply, or drop a file in."
 			actions={headerControls}
 			onClose={docked ? () => onOpenChange(false) : undefined}
 			showClose={!docked}
@@ -321,7 +424,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	);
 
 	return (
-		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange}>
+		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange} dropProps={dropProps}>
 			{header}
 
 				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
@@ -339,15 +442,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						onValueChange={(v) => setFilter(v as Filter)}
 						tabs={(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => ({
 							value: f,
-							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f[0].toUpperCase()}${f.slice(1)}s`,
+							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Files' : f === 'finish' ? 'Finishes' : `${f[0].toUpperCase()}${f.slice(1)}s`,
 						}))}
 					/>
-					{/* The count hides on a narrow docked pane (container query) AND on a phone
-					    (media query). Five pills need ~340px; at 390px the count stole just
-					    enough that "Docs" clipped mid-word to "Doc" and sat flush against
-					    "0 total", which reads as a collision rather than as a scroller (#1211).
-					    The count is secondary — the filters are the control. */}
-					<span className={cn('shrink-0 whitespace-nowrap font-mono text-[11px] text-muted-foreground', docked ? 'hidden @[22rem]:inline' : 'hidden sm:inline')}>{selCount > 0 ? `${selCount} selected · ` : ''}{total} total</span>
+					{/* The count MOVED to the status bar at the foot of the panel (#1655). It sat
+					    here competing with the filters for the same row, which is why it had to
+					    hide on a narrow pane and on a phone at all — five pills need ~340px, and
+					    at 390px the count stole just enough that "Files" clipped mid-word and sat
+					    flush against "0 total" (#1211). A status bar has the row to itself, so the
+					    count is legible at every width instead of disappearing at the two where a
+					    shelf is hardest to read. */}
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
@@ -426,7 +530,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 								<div key={`refdoc:${d.id}`} className="relative overflow-hidden rounded-xl border border-border bg-card">
 									<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card font-mono text-[11px] font-bold text-[var(--accent)]">{d.docKind === 'pdf' ? 'PDF' : (/\.([a-z0-9]+)$/i.exec(d.name)?.[1] || 'txt').slice(0, 4).toUpperCase()}</span></div>
 									<div className="p-2.5">
-										<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Doc</span></div>
+										<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">File</span></div>
 										<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
 										<div className="mt-2.5 flex items-center gap-1.5">
 											<button type="button" onClick={() => downloadDoc(d)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-1.5 text-[11.5px] font-semibold text-foreground"><Download className="size-3.5" />Download</button>
@@ -446,8 +550,40 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						<button type="button" className="ml-auto text-[12px] font-semibold text-[var(--accent)]" onClick={() => setSel(new Set())}>Clear selection</button>
 					</div>
 				)}
+				{/* The status bar — what the shelf HOLDS, always visible, at every width. The
+				    breakdown is what "N total" could never say from inside the filter row: which
+				    kinds you actually have, and how much disk the files are using (the one number
+				    a browser-storage shelf can genuinely run out of). Both are read off the same
+				    loaded lists, so the bar cannot disagree with the cards above it. */}
+				<div className="flex items-center gap-2 border-t border-border bg-card px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
+					<span className="shrink-0 font-semibold text-foreground">{total} {total === 1 ? 'item' : 'items'}</span>
+					<span className={cn('min-w-0 truncate', docked ? 'hidden @[18rem]:inline' : 'hidden xs:inline')}>
+						{[
+							themes.length && `${themes.length} theme${themes.length === 1 ? '' : 's'}`,
+							components.length && `${components.length} component${components.length === 1 ? '' : 's'}`,
+							finishes.length && `${finishes.length} finish${finishes.length === 1 ? '' : 'es'}`,
+							docs.length && `${docs.length} file${docs.length === 1 ? '' : 's'}`,
+						].filter(Boolean).join(' · ') || 'nothing saved yet'}
+					</span>
+					<span className="ml-auto shrink-0 whitespace-nowrap">
+						{selCount > 0 ? `${selCount} selected` : docBytes > 0 ? formatBytes(docBytes) : ''}
+					</span>
+				</div>
 			{/* Phone: the search field docks here, above the keyboard. */}
 			{phone && <PanelDock>{searchField}</PanelDock>}
+			{/* The drop target, made visible only while something is over it. `pointer-events-
+			    none` is load-bearing: an overlay that swallows pointer events takes the
+			    `dragleave` with it, so the panel never learns the drag ended and the overlay
+			    sticks. The real handlers are on the frame; this is only the sign. */}
+			{dragging && (
+				<div className="pointer-events-none absolute inset-2 z-50 grid place-items-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--card))]">
+					<div className="flex flex-col items-center gap-2 text-center">
+						<Upload className="size-7 text-[var(--accent)]" />
+						<div className="text-[13px] font-bold text-[var(--text-heading)]">Drop to add</div>
+						<div className="font-mono text-[10.5px] text-muted-foreground">a lattice-asset .zip, or {REF_DOC_ACCEPT}</div>
+					</div>
+				</div>
+			)}
 		</LibraryFrame>
 	);
 }

@@ -20,10 +20,15 @@ export type StudioTheme = {
 	label: string; // human-facing name
 	css: string; // the serialized themes/*.css
 	essentials: Record<string, string> | null; // the 10 picked colors (for re-editing)
+	/** The per-token nudges pinned on top of the derivation, and the categorical ramp
+	 *  it was derived through. Both are needed to REPRODUCE `css` from `essentials`;
+	 *  without them a saved theme reloads as a different theme from the one saved. */
+	overrides: Record<string, unknown> | null;
+	rampStrategy: string | null;
 };
 
 // The asset record as asset-store persists it (themeAsset shape).
-type ThemeAssetRecord = { id: string; name: string; label?: string; text?: string; essentials?: Record<string, string> | null };
+type ThemeAssetRecord = { id: string; name: string; label?: string; text?: string; essentials?: Record<string, string> | null; overrides?: Record<string, unknown> | null; rampStrategy?: string | null };
 
 /**
  * Turn arbitrary text into a valid engine theme slug (`^[a-z][a-z0-9-]*$`), or
@@ -42,7 +47,7 @@ export function slugify(text: string): string {
 }
 
 function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
-	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', essentials: a.essentials ?? null };
+	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', essentials: a.essentials ?? null, overrides: a.overrides ?? null, rampStrategy: a.rampStrategy ?? null };
 }
 
 /**
@@ -51,8 +56,16 @@ function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
  * slug the label, then fall back to the given name. Re-saving the same name
  * UPDATES in place (asset-store keys on kind+name) rather than piling up dupes.
  * Resolves to the stored Studio theme; rejects if the store is unavailable.
+ *
+ * `id` PINS THE RECORD, and is what makes editing a saved theme safe. Without it
+ * the store finds the record to update by NAME — so renaming while editing looks
+ * like a save and is really a create: the edited theme lands as a second record
+ * and every deck saying `theme: <old name>` still points at the untouched first
+ * one. Pass the id you loaded and the same record is rewritten whatever the name
+ * becomes. Omit it and the name-keyed behavior above is unchanged, which is what
+ * every save-a-new-theme caller wants.
  */
-export async function saveStudioTheme(input: { name: string; label: string; essentials: Record<string, string>; css: string }): Promise<StudioTheme> {
+export async function saveStudioTheme(input: { id?: string; name: string; label: string; essentials: Record<string, string>; css: string; overrides?: Record<string, unknown>; rampStrategy?: string }): Promise<StudioTheme> {
 	// The invariant the feature rests on: the stored record name MUST equal the
 	// name the CSS was serialized under (its `@theme <name>`), or the engine
 	// registers the theme under the CSS name while the deck renders by record name
@@ -60,8 +73,8 @@ export async function saveStudioTheme(input: { name: string; label: string; esse
 	// `input.name`, so TRUST it when it's a valid slug; only fall back (to the
 	// label slug, then a stamped form) when it isn't.
 	const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
-	const asset = themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css });
-	const stored = (await putAsset(asset)) as ThemeAssetRecord;
+	const asset = themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
+	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }
 

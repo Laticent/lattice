@@ -858,7 +858,7 @@ ${head}${lines.join("\n")}
       return `${blocks.join("\n\n")}
 `;
     }
-    function themeAsset2({ name, label, essentials, css } = {}, { id, deckId = null, provenance = "studio" } = {}) {
+    function themeAsset2({ name, label, essentials, css, overrides, rampStrategy } = {}, { id, deckId = null, provenance = "studio" } = {}) {
       if (!name || !/^[a-z][a-z0-9-]*$/.test(name)) {
         throw new Error(`theme name must be a lowercase slug, got: ${name}`);
       }
@@ -870,6 +870,10 @@ ${head}${lines.join("\n")}
         label: label || name,
         text: String(css || ""),
         essentials: essentials || null,
+        // Written only when there is something to write, so an untouched theme's record
+        // is byte-identical to what it was before these existed.
+        ...overrides && Object.keys(overrides).length ? { overrides } : {},
+        ...rampStrategy ? { rampStrategy } : {},
         provenance,
         addedAt: Date.now()
       };
