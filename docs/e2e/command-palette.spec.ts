@@ -35,6 +35,63 @@ test('"Present" opens the present overlay', async ({ page }) => {
 });
 
 /**
+ * THE DROPDOWN PAINTS OUTSIDE THE BAR — the invariant that took three attempts to land
+ * (#1707) and shipped with no test at all.
+ *
+ * The card hangs from the header on plain CSS, so ANY ancestor that clips can make it
+ * vanish, and the two that already did are still one careless edit away: the `Command`
+ * root's own base-class `overflow-hidden` (neutralized in CommandPalette.tsx) and the
+ * header's `overflow-x: auto` scroll valve, #1381, which computes `overflow-y: auto`
+ * with it (lifted in StudioShell.tsx while the field is open). Clearing only one paints
+ * nothing, which is what made the third attempt read as a dead end.
+ *
+ * This is also the test that lets the hand-rolled container keep its place against the
+ * shared Radix `Popover` (HARD RULE #15): a Popover is `position: fixed` and would be
+ * immune to both clips by construction, so the only thing it really bought over two
+ * utility classes was never having to think about them again. Buy that here instead.
+ *
+ * Four assertions, because "the element exists" is what a clipped card also satisfies:
+ * the box is real, it starts at or below the header's bottom edge, it is HIT-TESTABLE
+ * at its own top rows (a clipped card still reports a rect), and the widget above it has
+ * not been scrolled — "the list draws inside the bar, scrolled" was the reported symptom,
+ * and a root scrolled to 73px is what produced it.
+ */
+test('the inline dropdown paints below the header, not clipped inside it', async ({ page }) => {
+	await page.keyboard.press('ControlOrMeta+k');
+	await expect(page.getByPlaceholder('Search or run a command…')).toBeFocused();
+
+	const geom = await page.evaluate(() => {
+		const list = document.querySelector('[data-slot=command-list]');
+		const card = list?.parentElement;
+		const root = card?.parentElement; // the Command widget — the clip that hid this for three attempts
+		const header = document.querySelector('header');
+		if (!list || !card || !root || !header) return null;
+		const c = card.getBoundingClientRect();
+		const h = header.getBoundingClientRect();
+		// What is actually on screen 24px into the card? A clipped card still has a rect.
+		const hit = document.elementFromPoint(c.x + c.width / 2, c.y + 24);
+		return {
+			cardTop: Math.round(c.y), cardHeight: Math.round(c.height), cardWidth: Math.round(c.width),
+			headerBottom: Math.round(h.bottom),
+			hitIsInsideCard: !!hit && card.contains(hit),
+			rootScrollTop: Math.round(root.scrollTop),
+			listMaxHeight: getComputedStyle(list).maxHeight,
+		};
+	});
+
+	expect(geom, 'the inline dropdown did not render at all').not.toBeNull();
+	const g = geom as NonNullable<typeof geom>;
+	expect(g.cardHeight, 'the dropdown collapsed — a clipping ancestor is back').toBeGreaterThan(100);
+	expect(g.cardWidth, 'the dropdown must span the field it hangs from').toBeGreaterThan(200);
+	expect(g.cardTop, 'the dropdown must clear the header, not draw inside the 54px bar').toBeGreaterThanOrEqual(g.headerBottom);
+	expect(g.hitIsInsideCard, 'the dropdown has a box but nothing of it is painted there — it is being clipped').toBe(true);
+	expect(g.rootScrollTop, 'the Command root has been scrolled to reveal the active item — it is clipping again').toBe(0);
+	// The keyboard-aware cap: the third arm must survive Tailwind's scan and resolve to a
+	// real length. A dropped declaration reads as `none`, and nothing else would notice.
+	expect(g.listMaxHeight, 'the list cap did not generate — check the calc() spacing').toMatch(/^\d+(\.\d+)?px$/);
+});
+
+/**
  * FOCUS RETURNS TO THE PILL ON DISMISSAL (#1707).
  *
  * At desktop the palette is the header's own combobox, not a dialog, and that swap cost a

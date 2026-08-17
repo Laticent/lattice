@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header.
+summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header. Round three (2026-08-18) closes the two items that handback left open: the dropdown's height cap now knows about the software keyboard — it takes a third arm from `--vvh` via the same `useKeyboardInset` every mobile sheet caps against, turning the ≈0px margin measured on an iPad in landscape into 12px, with the no-keyboard geometry unchanged — and the hand-rolled dropdown container is re-litigated against the shared Radix `Popover` (HARD RULE #15) by BUILDING the non-portalled variant and measuring it: it paints, and even removes both clip workarounds, but it has to be told the offset the CSS derives, runs a measurement pipeline for a static position, wraps the listbox in `role="dialog"`, and needs seven props to switch its own behavior off. Rejected — and the one thing it would have bought, never thinking about the clips again, is bought instead as a regression test that fails if either clip returns.
 ---
 
 # The Studio's inline expanding search, and the clip nobody had looked at
@@ -426,3 +426,138 @@ move HARD RULE #23 exists to prevent. It belongs with the touch/tablet work, wit
 this measurement attached.
 
 Worth a tap on the real device before the issue is called closed.
+
+---
+
+# Round three (2026-08-18): the keyboard cap, and `Popover` re-litigated properly
+
+Two items came back from the handback above. Both are settled here.
+
+## 1. The cap now knows about the keyboard
+
+The measurement in the Verification section is the whole argument: at the width this
+feature was reported from — iPad Pro 11" landscape, 1194×834, ~350pt keyboard — the
+list ran y=61→483 against a keyboard topping out at ≈481. **It fit by ≈0px.**
+`min(60vh, 420px)` had no way to know, because neither arm shrinks for a keyboard:
+`vh` is the LARGE viewport unit, and 420px is a number picked for laptop viewports.
+
+The fix takes a third arm from the visual viewport rather than inventing a
+measurement: `useKeyboardInset` (`components/ui/panel.tsx`) already publishes `--vvh`
+— the height that is actually VISIBLE, keyboard subtracted — and every mobile sheet
+already caps against it. The inline field mounts the same hook while it is open:
+
+```
+max-h-[min(60vh, 420px, calc(var(--vvh) - 3.375rem - 24px))]
+```
+
+`3.375rem` is the 54px header, spelled as the same literal `panel.tsx` uses (Tailwind
+scans source text; an interpolated class name generates **no rule at all**), +8px for
+the card's gap below the bar and +16px so the last row is not flush against the
+keyboard the way the measured case was. `_-_` in the source is not decoration:
+`calc(var(--vvh)-24px)` is invalid CSS and would drop the whole declaration silently.
+
+**Measured in real Chromium, before → after:**
+
+| Viewport | `--vvh` | list cap | card | bottom edge |
+|---|---|---|---|---|
+| 1440×900 | 900px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
+| 1920×1080 | 1080px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
+| 1194×834 | 834px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
+| any | 484px (~350pt keyboard) | **406px** | y=61 h=408 | **469** |
+
+So the landscape case goes from ≈0px of margin to **12px**, and it scales: a keyboard
+carrying a predictive row shrinks `--vvh` further and the cap follows it down.
+
+**Safe by construction, which is what makes it shippable without an iPad.** The new
+arm sits inside `min()`, so it can only ever make the list SHORTER. With no keyboard
+up `--vvh` is the full viewport and the 420px arm still wins — which is why all three
+no-keyboard rows above are byte-identical to what round two measured. The worst case
+on a device this sandbox cannot reach is a slightly shorter list, never a worse
+occlusion.
+
+**Still UNVERIFIED (HARD RULE #23):** whether iPadOS reports *this* keyboard through
+`visualViewport` at all. Headless Chromium raises no keyboard, so the arm that matters
+never binds in the browser test either. What each surface can actually hold, and does:
+
+- `command-palette-keyboard.test.tsx` — the WIRING: the listener mounts while the field
+  is open, tracks the viewport, is REMOVED on close (a stale `--vvh` would cap every
+  later surface against a keyboard that has closed), the mobile sheet does not mount a
+  second copy, and the cap still names `--vvh`. Verified able to fail: with the hook
+  commented out and the arm dropped, all three fail.
+- `command-palette.spec.ts` — that the cap RESOLVES to a real length in a real browser.
+  A dropped Tailwind declaration reads as `max-height: none`, and nothing else notices.
+- the table above — the arithmetic, by forcing `--vvh` to the band a 350pt keyboard
+  leaves.
+
+`useKeyboardInset` was documented as phone-only ("no keyboard to subtract anywhere
+else"). That is now false and the comment says so: the second caller is a desktop-and-
+tablet surface. The two callers are mutually exclusive by tier, so last-writer-wins is
+still safe — **if a third caller ever overlaps one of them, this has to become
+refcounted**, and that is written at the hook.
+
+## 2. `Popover` vs. the hand-rolled container (HARD RULE #15)
+
+Round two's answer was *"a Radix `Popover` was tried, it portals the list out of the
+`Command` subtree, three unit tests broke."* That is an argument against **one spelling
+of it**, not against the primitive — the honest question, and the one #15 actually
+asks, is whether a NON-portalled `PopoverContent` should replace the div. So it was
+built and measured rather than argued.
+
+**It works.** `PopoverContent` gained a `portal={false}` mode, the inline branch was
+rewired to `Popover` + `PopoverAnchor`, and on the real Studio at 1440 the card painted
+at y=51 h=422 w=720 with 34 items, hit-testable, and clicking an item ran its command.
+Better than that: Radix positions with `strategy: "fixed"`, which escapes overflow
+clipping outright — so the spike painted **with both clip workarounds deleted**, the
+`overflow-visible` on the `Command` root AND StudioShell's valve lift. Measured with
+the header back on `overflow: auto` throughout.
+
+**It was still rejected, and here is the honest ledger.**
+
+For:
+- deletes both clip workarounds and the coupling between `CommandPalette.tsx` and
+  `StudioShell.tsx` that they create;
+- outside-click dismissal and Escape come free from `DismissableLayer`;
+- it is the shared primitive, which is what #15 asks for on its face.
+
+Against, all measured:
+- **It has to be TOLD the offset the CSS derives.** Anchored to the field, the card
+  landed at **y=51 against a header bottom of 54** — three pixels *inside* the bar. The
+  full-height root plus `top: calc(100% + 8px)` yields 61 with no number to maintain
+  and nothing to re-derive if the header height ever moves. Moving the anchor up to the
+  `Command` root fixes the offset and then breaks dismissal, because the content now
+  sits inside the anchor and a click into the field reads as "outside".
+- **It is a measurement pipeline for a static position.** floating-ui + ResizeObserver
+  + rAF, to compute *directly under the field, exactly its width* — which is what
+  `inset-x-0` and `top: calc(100% + 8px)` already say, synchronously and for free.
+  (`--radix-popper-anchor-width` reported `0px` under jsdom, where every rect is 0×0.)
+- **It wraps the listbox in a dialog.** `PopoverContent` renders `role="dialog"`
+  (confirmed in `@radix-ui/react-popover` and live: `cardRole: "dialog"`). A combobox's
+  popup *is* its listbox; cmdk already gives it `role="listbox"` and wires
+  `aria-controls`. Not a demonstrated break — focus never enters the wrapper, so a
+  screen reader is unlikely to announce it — but it is semantics pointing the wrong way.
+- **Fitting it took seven props whose only job is switching Popover behavior off**:
+  `portal={false}`, `avoidCollisions={false}`, `onOpenAutoFocus`, `onCloseAutoFocus`,
+  `p-0`, `w-[var(--radix-popper-anchor-width)]`, and `onInteractOutside` — plus a new
+  mode on a shared primitive that no other caller wants.
+
+**The test that made the decision cheap.** Popover's one real win was never having to
+think about the clips again. That is buyable directly, and it should have been bought
+in round two: `command-palette.spec.ts` now asserts the card's box is real, starts at
+or below the header's bottom edge, is HIT-TESTABLE at its own top rows (a clipped card
+still reports a rect), and that the `Command` root has not been scrolled — *"the list
+draws inside the bar, scrolled"* was the reported symptom, produced by a root scrolled
+to 73px. **Verified able to fail, once per clip:** re-arming the `Command` root's
+`overflow-hidden` fails it, and separately, removing StudioShell's valve lift fails it
+— each with `the dropdown must clear the header, not draw inside the 54px bar`. Three
+attempts missed this bug; nothing shipped in round two could have caught a fourth.
+
+**What would change the answer.** A second surface needing an inline listbox anchored
+to a bar control — then there is a widget to share, and the question becomes which
+primitive it is built on, not whether five utility classes are a fork. As it stands the
+primitive's value is computing a position we already know, and #15's target — *don't
+fork a widget per surface* — is not what one `<div>` with `inset-x-0` is.
+
+The shadcn combobox recipe the repo already has (`ComponentPicker.tsx`: `Popover` +
+`PopoverTrigger` wrapping the whole `Command`) stays the pattern for a picker whose
+field lives *inside* the popup. It cannot express this one, where the field is the
+header row's own control and grows the row — that is the feature.

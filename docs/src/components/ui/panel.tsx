@@ -179,12 +179,26 @@ export const MOBILE_HEIGHT =
 	'h-[calc(var(--vvh)-3.375rem)] [&:has(input:focus,textarea:focus)]:h-[var(--vvh)]';
 
 /**
- * Publishes the on-screen keyboard's height as `--kb` on <html>.
+ * Publishes the on-screen keyboard's height as `--kb`, and the VISIBLE height as
+ * `--vvh`, on <html>.
  *
  * `visualViewport.height` shrinks when the keyboard opens; `innerHeight` does not.
- * The difference IS the keyboard. Mounted only while a mobile sheet is open, and
- * only on a phone — there is no keyboard to subtract anywhere else, and a resize
- * listener that runs for the life of the page is a cost with no payer.
+ * The difference IS the keyboard. Mounted only while a surface that can raise a
+ * keyboard is open — a resize listener that runs for the life of the page is a cost
+ * with no payer.
+ *
+ * NOT PHONE-ONLY ANY MORE. It was, because the only caller was the mobile sheet. The
+ * Studio's inline search (`CommandPalette`, the header combobox that desktop AND
+ * TABLET get) is the second caller, and it needs `--vvh` at tablet width for exactly
+ * the same reason the sheet needs it at phone width: an iPad raises a software
+ * keyboard under a dropdown whose height was picked for laptops. Measured on the
+ * owner's device width — 1194×834 landscape, ~350pt keyboard — the list ended flush
+ * with the keyboard's top edge, 0px to spare.
+ *
+ * The two callers cannot both be mounted (the sheet is `mobile`, the inline field is
+ * `!mobile`), so there is no question of one's cleanup pulling `--kb`/`--vvh` out from
+ * under the other. Keep it that way: if a third caller ever overlaps one of these,
+ * this has to become refcounted rather than last-writer-wins.
  */
 export function useKeyboardInset(active: boolean): void {
 	React.useEffect(() => {

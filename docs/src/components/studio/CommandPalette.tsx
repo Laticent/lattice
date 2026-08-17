@@ -2,7 +2,7 @@ import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClos
 import * as React from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
-import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelHeader, PanelSheet, useKeyboardInset } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
@@ -106,6 +106,35 @@ export function CommandPalette({
 	// On mobile it is now a PanelSheet, which owns the keyboard listener — so there is
 	// nothing to mount here.
 	const mobile = useBreakpoint() === 'mobile';
+	/**
+	 * THE DROPDOWN'S HEIGHT HAS TO KNOW ABOUT THE SOFTWARE KEYBOARD, because the surface
+	 * this opens on is a tablet as often as a laptop, and a tablet raises one under it.
+	 *
+	 * Measured at the width this feature was reported from — iPad Pro 11" LANDSCAPE,
+	 * 1194×834, ~350pt keyboard — the list ran y=61→483 against a keyboard topping out at
+	 * ≈481. It fit by ≈0px. A keyboard carrying a predictive or emoji row covers the last
+	 * rows outright, and there is nothing in `min(60vh,420px)` that could know: `vh` is the
+	 * LARGE viewport unit and does not shrink for a keyboard, and 420px was a number picked
+	 * for laptop viewports. Portrait is not the tight case (≈447px of clearance) — landscape
+	 * is, because 834px of height is exactly where a flat 420px cap and a keyboard meet.
+	 *
+	 * `useKeyboardInset` is the repo's ONE answer to "how much of the viewport is left"
+	 * (`panel.tsx`) — the same hook every mobile sheet caps against. It publishes `--vvh`
+	 * (the VISIBLE height, keyboard subtracted) and the list's cap takes it as a third arm.
+	 * Reused rather than re-derived: a second visualViewport listener with its own arithmetic
+	 * is how the `--kb` bugs in that file's history got written twice.
+	 *
+	 * SAFE BY CONSTRUCTION, which matters because a real iPad is not reachable from this
+	 * sandbox (HARD RULE #23). The new arm sits inside `min()`, so it can only ever make the
+	 * list SHORTER, never taller, and with no keyboard up `--vvh` is the full viewport and
+	 * the 420px arm still wins — the desktop geometry is unchanged (verified: 422px card at
+	 * 1440 and 1920, before and after). The device behavior itself stays UNVERIFIED.
+	 *
+	 * Inline only. The mobile sheet already caps against the same hook through `PanelSheet`,
+	 * and mounting a second copy of the listener under it would be the duplication this
+	 * reuses the hook to avoid.
+	 */
+	useKeyboardInset(!!inline && open);
 	// DISMISSAL for the inline transport. The overlays get this free — a dialog and a sheet
 	// both own a backdrop — but a header-resident combobox has none, so without this the
 	// dropdown stays open until Escape and follows you around the app. Capture phase, so a
@@ -332,9 +361,22 @@ export function CommandPalette({
 					'[&_[data-slot=command-input-wrapper]]:h-8 [&_[data-slot=command-input-wrapper]]:rounded-md [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] [&_[data-slot=command-input-wrapper]]:bg-card [&_[data-slot=command-input-wrapper]]:px-2',
 					'[&_[data-slot=command-input]]:h-auto [&_[data-slot=command-input]]:text-[13px] [&_[data-slot=command-input]]:text-[var(--text-heading)]',
 					'[&_[data-slot=command-input-wrapper]>svg]:size-4 [&_[data-slot=command-input-wrapper]>svg]:opacity-100 [&_[data-slot=command-input-wrapper]>svg]:text-[var(--text-body)]',
-					// The dropdown is a fixed, scrollable band — tall enough to be worth opening,
-					// short enough that it never runs off a laptop viewport.
-					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px)]',
+					// The dropdown is a scrollable band — tall enough to be worth opening, short
+					// enough that it never runs off a laptop viewport OR under a tablet's software
+					// keyboard. Three arms, and the third is the keyboard-aware one (see the
+					// `useKeyboardInset` note at the top of this component for the measurement):
+					//   60vh                  — proportional, for a short window
+					//   420px                 — the flat laptop ceiling
+					//   --vvh - 54px - 24px   — what is actually VISIBLE below the card's top edge
+					// `--vvh` is the visual viewport's height, so it shrinks under the keyboard
+					// where `vh`/`dvh` do not. 3.375rem IS the 54px header (spelled as the same
+					// literal `panel.tsx` uses, because Tailwind scans source text and an
+					// interpolated class name generates no rule at all), +8px for the card's own
+					// gap below the bar and +16px so the last row does not sit flush on the
+					// keyboard the way the measured landscape case did.
+					// `_-_` NOT `-`: these become the spaces `calc()` requires around an operator.
+					// `calc(var(--vvh)-78px)` is invalid CSS and would drop the whole declaration.
+					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px,calc(var(--vvh)_-_3.375rem_-_24px))]',
 				)}
 				// Escape closes; the caller re-renders the pill and the effect above puts focus
 				// back ON it — that hand-back is not automatic, and this comment used to claim it
@@ -363,11 +405,30 @@ export function CommandPalette({
 				    `overflow-hidden` HERE is deliberate and different: it clips the card's own
 				    `rounded-xl` corners, which is the job the base class's clip was doing before it
 				    was moved down to the element that actually has corners.
-				    A Radix `Popover` would also escape both clips, and was tried — but it portals the
-				    list out of the Command's DOM subtree, and while cmdk's context still reaches it,
-				    its items stopped responding to clicks under jsdom, taking three unit tests with
-				    them. With the real cause found, that trade is not needed: one DOM tree, one source
-				    of truth for the anchor, and the three tests stay unit tests. */}
+				    WHY THIS DIV AND NOT THE SHARED `Popover` (HARD RULE #15) — re-litigated properly
+				    on 2026-08-18, because the first answer ("Popover portals, the portal broke three
+				    unit tests") was an argument against ONE spelling of it, not against the primitive.
+				    A non-portalled `PopoverContent` was then built and measured on the real Studio:
+				    it works. Radix positions with `strategy: "fixed"`, which escapes BOTH clips, so
+				    that variant even paints with the `overflow-visible` above and StudioShell's valve
+				    lift removed. It was still rejected, on three measured grounds:
+				      - IT HAS TO BE TOLD THE OFFSET THIS CSS DERIVES. Anchored to the field, the card
+				        landed at y=51 against a header bottom of 54 — three pixels INSIDE the bar. The
+				        full-height root + `top: calc(100% + 8px)` gets 61 with no number to maintain.
+				      - IT IS A MEASUREMENT PIPELINE FOR A STATIC POSITION. floating-ui + ResizeObserver
+				        + rAF, to compute "directly under the field, exactly its width" — which is what
+				        `inset-x-0` and `top: calc(100% + 8px)` already say, for free and synchronously.
+				      - IT WRAPS THE LISTBOX IN A DIALOG. `PopoverContent` renders `role="dialog"`
+				        (measured live: `cardRole: "dialog"`). A combobox's popup is its listbox; cmdk
+				        already gives it `role="listbox"` and wires `aria-controls`.
+				    Making it fit needed a new `portal={false}` mode on the shared primitive plus six
+				    props whose only job is switching Popover behavior back off (portal, collisions,
+				    open/close autofocus, padding, anchor-width) — and a seventh, `onInteractOutside`,
+				    once the anchor wraps the field, or clicking into your own input dismisses you.
+				    That is not reuse; the primitive's value is computing a position we already know.
+				    The one thing it WOULD have bought — never having to think about the clips again —
+				    is bought instead by the regression test in `command-palette.spec.ts`, which fails
+				    if either clip comes back. See the 2026-08-17 decision record. */}
 				<div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-border bg-[var(--bg)] shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
 					{list}
 				</div>
