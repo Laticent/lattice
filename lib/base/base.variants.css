@@ -338,7 +338,7 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   position: absolute;
   /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
    * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
-   * (--z-mark 50 over --z-alarm 40), preserving the order the engine has always shipped.
+   * (--z-mark 100 over --z-alarm 90), preserving the order the engine has always shipped.
    *
    * That reads backwards and it was briefly written the other way, on the argument that an
    * author must be able to see the overflow tab even on a stamped slide. It broke delivered

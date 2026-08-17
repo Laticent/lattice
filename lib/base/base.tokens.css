@@ -1112,8 +1112,9 @@
                           * natural resting plane and needs no help to get there */
   --z-chrome:       30;  /* header, footer, pagination, meta, status, kicker, title, the
                           * progress rail. NOT the deck logo — the deck mark's KIND is chrome
-                          * but its PLANE is atmosphere, because a mark must never cover the
-                          * author's words. See the rule in base.modifiers.css. */
+                          * but its PLANE is content, because a mark must never cover the
+                          * author's words and the content plane is where it already painted.
+                          * See the rule in base.modifiers.css for the measurement. */
   --z-alarm:        90;  /* engine-drawn signals about the slide: the overflow / illegible /
                           * fix-me tabs, debug boxes. Above chrome, BELOW a stamp.
                           *

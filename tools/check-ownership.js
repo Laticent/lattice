@@ -2725,10 +2725,12 @@ function registeredPlaneTokens() {
     const body = m[2];
     const initial = /initial-value\s*:\s*(-?\d+)/.exec(body);
     const syntax = /syntax\s*:\s*["']([^"']+)["']/.exec(body);
+    const inherits = /inherits\s*:\s*(true|false)/.exec(body);
     out.push({
       name: m[1],
       initial: initial ? Number(initial[1]) : null,
       syntax: syntax ? syntax[1].trim() : null,
+      inherits: inherits ? inherits[1] === 'true' : null,
     });
   }
   return out;
@@ -2839,6 +2841,16 @@ function checkZPlanes(errors) {
         `lib/base/base.tokens.css: \`@property ${t.name}\` declares \`syntax: "${r.syntax}"\`. ` +
         'A plane is an integer; any other syntax lets a non-integer through, which is the ' +
         'flattening this registration exists to prevent.',
+      );
+    }
+    if (r.inherits !== true) {
+      errors.push(
+        `lib/base/base.tokens.css: \`@property ${t.name}\` declares \`inherits: ${r.inherits}\`. ` +
+        'A plane must inherit. The scale is declared on `:root, section`, and every element that ' +
+        'reads a plane is a DESCENDANT of the section — a non-inheriting registration would hand ' +
+        'them the initial value instead of the declared one, which is the same flattening the ' +
+        'registration exists to prevent. It is also the one descriptor the fallback reasoning in ' +
+        'base.tokens.css argues from at length, so a silent flip there makes that comment false.',
       );
     }
     if (r.initial !== t.value) {

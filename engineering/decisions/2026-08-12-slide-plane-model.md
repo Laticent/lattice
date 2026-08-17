@@ -371,7 +371,7 @@ Verified on real renders (HARD RULE #23), not inferred:
   IS `-1`, so the two are indistinguishable to it. That case is caught by the STATIC gates
   instead (`checkZPlanes` rejects the bare integer; §4.3 demands the token). The test file's
   own docstring says so; this line used to claim otherwise.
-- Full unit suite (6,108 tests at the time of writing), the 338-test integration
+- Full unit suite (6,108 tests at the time of writing), the 339-test integration
   invariants tier, `lint`,
   `build:check` and `check:ownership` green.
 
@@ -457,8 +457,8 @@ Two decks discriminate, each measured against the merge-base:
 
 | logo plane | `marker-corner` p3 | citation-card + brand logo, off-corner |
 |---|---|---|
-| `--z-chrome` | 0 px | **2,124 px** — the opaque brand plate erased four words of a pull-quote |
-| `--z-atmosphere` | **932 px** — the mark vanished under a split panel | 0 px |
+| `--z-chrome` | **0 px** | **differs** — the opaque brand plate paints over the pull-quote, erasing four words |
+| `--z-atmosphere` | **differs** — the mark vanishes under the split panel | **0 px** |
 | `--z-content` | 0 px | 0 px |
 
 A positioned element at `z-index: 0` paints at step 8 — above the plain in-flow content it
