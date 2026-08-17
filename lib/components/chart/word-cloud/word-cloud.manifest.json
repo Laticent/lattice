@@ -31,7 +31,7 @@
     "words": {
       "selector": "ul > li",
       "required": true,
-      "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent."
+      "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size and the loudest ink the variant has."
     }
   },
   "skeleton": "<!-- _class: word-cloud -->\n\n## What the team called out this quarter.\n\n- velocity `12`\n- ownership `9`\n- handoffs `7`\n- review `5`\n",
@@ -144,7 +144,7 @@
     },
     {
       "variant": "spectrum",
-      "useWhen": "Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel."
+      "useWhen": "Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel. The four loud tiers are stops on the theme's sequential ramp (`--seq-900/700/500/400`), so they stay ordered on a light and a dark canvas alike; the quietest tier is `--text-muted`."
     },
     {
       "variant": "focal",

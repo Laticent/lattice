@@ -867,9 +867,10 @@
    * sequential / quantitative encoding: heatmap intensity, progress
    * intensity ramps, hover/active states, faint grid lines.
    *
-   * Each theme sets --seq-500 (its anchor — typically the brand mid).
-   * The other nine stops auto-derive from the anchor via OKLab color-mix.
-   * 50-400 are tints toward white; 600-900 are shades toward black.
+   * Each theme sets --seq-500 (its anchor — typically the brand mid). The
+   * other nine stops auto-derive from the anchor via OKLab color-mix, toward
+   * the two POLES declared below: 50-400 recede toward --seq-pole-low, the
+   * quiet end; 600-900 advance toward --seq-pole-high, the loud end.
    *
    * Distinct from the categorical --cat-N-fill/--cat-N-mark cycle. The ramp
    * is for ORDERED data; the categorical cycle is for UNORDERED groups.
@@ -883,37 +884,64 @@
    * Default --seq-500 falls back to --accent so unstyled themes still
    * have a usable ramp, but every theme should set it deliberately.
    *
-   * A THEME'S ANCHOR MUST BE A light-dark() PAIR unless the palette has only
-   * one canvas (carbone). The derivation above is canvas-blind — 600-900 shade
-   * toward black either way — so a single light-tuned anchor puts --seq-700 /
-   * -500 / -400, the three stops `word-cloud spectrum` paints as word fills, at
-   * 1-3:1 on a dark canvas. The fallback here is a pair (--accent is), which is
-   * what masked flat anchors for as long as this base won the cascade over the
-   * palette in the export path; it does not once the palette wins (#1527).
-   * Anchor the dark arm on the palette's own dark --accent.
+   * THE POLES ARE CANVAS-RELATIVE, and that pair is the whole mechanism. On a
+   * light canvas quiet is white and loud is black; on a dark canvas BOTH flip,
+   * because a stop that walks toward black on a near-black canvas walks toward
+   * the BACKGROUND. The derivation used to be canvas-blind — 600-900 shaded
+   * toward black either way — which left --seq-700/-500/-400, the three stops
+   * `word-cloud spectrum` paints as word fills, at 1.66-3.19:1 on eleven dark
+   * canvases (#1697). Flipping the poles keeps the ramp's MEANING fixed (a
+   * higher stop is always the louder one) and lets its lightness follow the
+   * canvas, which is the only way both can hold on two canvases.
    *
-   * A PAIR IS NOT ENOUGH ON ITS OWN — the arm has to be solved against the STOP,
-   * not against the anchor. Because 600-900 always shade toward black, a dark arm
-   * that reads beautifully itself can still leave --seq-700 (45% of the way to
-   * black) under 3:1 on a near-black canvas: onyx and concrete both shipped
-   * correct pairs and both failed there. `tools/composed-contrast.js` scores the
-   * derived stops, so a new anchor is checked where it lands.
-   * The canvas-blind derivation itself is a live defect on ELEVEN palettes whose
-   * anchor is `var(--accent)` — --seq-700 sits at 1.66-3.19:1 on their dark
-   * canvases in BOTH cascade orders, so it is not a #1527 blocker and not fixed
-   * here; making the ramp canvas-relative is its own slice.
-   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md and
-   * engineering/decisions/2026-08-17-composed-surface-contrast.md. */
+   * The poles read `color-scheme`, like every other dual-canvas token, so a
+   * `_class: dark` slide inside a light deck gets the dark ramp for free. A
+   * surface whose canvas does NOT follow color-scheme has to pin them, and two
+   * do: carbone (one dark canvas in both schemes, by contract) and the
+   * `section.print` band (always light paper, whatever the deck's scheme).
+   *
+   * A THEME'S ANCHOR MUST BE A light-dark() PAIR unless the palette has only
+   * one canvas (carbone) — AND BOTH ARMS MUST SIT MID-RANGE ON THEIR OWN
+   * CANVAS. Canvas-relative poles fix the ramp's DIRECTION, not its HEADROOM:
+   * an anchor parked near a pole has nowhere left to travel, so the tiers
+   * collapse into each other while every one of them still clears the canvas.
+   * Every palette's dark arm used to restate the dark --accent, which sits high on
+   * a near-black canvas by design, and --seq-500/-700 landed 1.08-1.90:1 apart
+   * there (OKLab 0.025-0.173) — legible, and barely told apart at the tight end.
+   * The curated dark arms sit at OKLab L≈0.68 with hue and chroma untouched,
+   * which is where the weaker of the two perceptual steps is largest subject to
+   * every painted stop clearing 3:1. Solve an arm against the STOPS, never
+   * against the anchor: `tools/composed-contrast.js` scores the derived stops on
+   * the real canvas, so a new anchor is checked where it LANDS.
+   * See engineering/decisions/2026-08-17-canvas-relative-sequential-ramp.md,
+   * 2026-08-16-flat-palette-dark-companions.md and
+   * 2026-08-17-composed-surface-contrast.md.
+   *
+   * THE ANCHOR AND THE POLES ARE DEFAULTS THAT A PALETTE REPLACES, and they are
+   * plain `:root` declarations anyway — NOT `:where(:root)`, for the reason spelled
+   * out at the --on-dark-* block below: Marpit's root-replacement only fires for a
+   * bare `:root`, so a `:where()`-wrapped block is scoped as a section INSIDE a
+   * section, matches nothing, and leaves every token in it undefined on the engine
+   * path. On that path a palette wins anyway — a theme `@import 'lattice'` first, so
+   * the base is inlined ABOVE the palette's own `:root` and equal specificity is
+   * settled by source order. The EXPORT bundle concatenates the other way and the
+   * base wins there until #1527's concat flip, which is why concrete and onyx have
+   * carried hand-solved anchors no PDF has rendered; `--hljs-*` and `--cat-N-ink`
+   * sit in the same state, and the repo's answer is to curate and gate the value
+   * BEFORE the flip rather than after it. The poles are unaffected either way —
+   * they live in the base, which wins on both paths. */
+  --seq-pole-low:  light-dark(white, black);
+  --seq-pole-high: light-dark(black, white);
   --seq-500: var(--accent);
-  --seq-50:  color-mix(in oklab, var(--seq-500)  8%, white);
-  --seq-100: color-mix(in oklab, var(--seq-500) 18%, white);
-  --seq-200: color-mix(in oklab, var(--seq-500) 35%, white);
-  --seq-300: color-mix(in oklab, var(--seq-500) 55%, white);
-  --seq-400: color-mix(in oklab, var(--seq-500) 78%, white);
-  --seq-600: color-mix(in oklab, var(--seq-500) 78%, black);
-  --seq-700: color-mix(in oklab, var(--seq-500) 55%, black);
-  --seq-800: color-mix(in oklab, var(--seq-500) 35%, black);
-  --seq-900: color-mix(in oklab, var(--seq-500) 18%, black);
+  --seq-50:  color-mix(in oklab, var(--seq-500)  8%, var(--seq-pole-low));
+  --seq-100: color-mix(in oklab, var(--seq-500) 18%, var(--seq-pole-low));
+  --seq-200: color-mix(in oklab, var(--seq-500) 35%, var(--seq-pole-low));
+  --seq-300: color-mix(in oklab, var(--seq-500) 55%, var(--seq-pole-low));
+  --seq-400: color-mix(in oklab, var(--seq-500) 78%, var(--seq-pole-low));
+  --seq-600: color-mix(in oklab, var(--seq-500) 78%, var(--seq-pole-high));
+  --seq-700: color-mix(in oklab, var(--seq-500) 55%, var(--seq-pole-high));
+  --seq-800: color-mix(in oklab, var(--seq-500) 35%, var(--seq-pole-high));
+  --seq-900: color-mix(in oklab, var(--seq-500) 18%, var(--seq-pole-high));
 
   /* ── Tag (--tag-bg / --tag-text) ───────────────────────────────────────
    * Secondary accent for status badges / brand-status pills. Distinct
@@ -18841,6 +18869,18 @@ section.print {
   --chart-state-info: var(--print-text-secondary);
   --chart-state-mute: var(--print-text-muted);
   --seq-500: var(--print-seq-500);
+  /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp
+   * follows the canvas (#1697), and this band ALREADY pins `color-scheme: light`
+   * above — so a dark-mode deck's poles resolve paper-correct on their own. The
+   * pin is for the other case: a palette whose canvas ignores `color-scheme` states
+   * LITERAL poles at :root (carbone does), and a literal cannot be re-resolved by a
+   * scheme flip. Without this, a carbone slide carrying `class: print` derives
+   * --seq-600..900 toward WHITE on white paper. Effective on the engine path, where
+   * Marpit packs :root onto the same <section> this band targets; on the export path
+   * :root is <html> and the stops are already substituted there, so the pin is inert
+   * and carbone's own `color-scheme: dark` is what the base pair resolves against. */
+  --seq-pole-low: white;
+  --seq-pole-high: black;
   /* Chrome: inline-code chips + the Marp header/footer are theme-accent-tinted;
    * ink them so nothing but content carries tone. */
   --code-inline-fg: var(--print-text-body);

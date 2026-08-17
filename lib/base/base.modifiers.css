@@ -576,6 +576,18 @@ section.print {
   --chart-state-info: var(--print-text-secondary);
   --chart-state-mute: var(--print-text-muted);
   --seq-500: var(--print-seq-500);
+  /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp
+   * follows the canvas (#1697), and this band ALREADY pins `color-scheme: light`
+   * above — so a dark-mode deck's poles resolve paper-correct on their own. The
+   * pin is for the other case: a palette whose canvas ignores `color-scheme` states
+   * LITERAL poles at :root (carbone does), and a literal cannot be re-resolved by a
+   * scheme flip. Without this, a carbone slide carrying `class: print` derives
+   * --seq-600..900 toward WHITE on white paper. Effective on the engine path, where
+   * Marpit packs :root onto the same <section> this band targets; on the export path
+   * :root is <html> and the stops are already substituted there, so the pin is inert
+   * and carbone's own `color-scheme: dark` is what the base pair resolves against. */
+  --seq-pole-low: white;
+  --seq-pole-high: black;
   /* Chrome: inline-code chips + the Marp header/footer are theme-accent-tinted;
    * ink them so nothing but content carries tone. */
   --code-inline-fg: var(--print-text-body);

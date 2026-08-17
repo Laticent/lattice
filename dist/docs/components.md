@@ -7164,14 +7164,14 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the cloud. |
-| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
+| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size and the loudest ink the variant has. |
 
 ##### Variant decision rule
 
 - **default (no modifier).** The standard spiral pack — the plainest read for a moderate-sized cloud.
 - **`constellation`.** The words should scatter like a starfield rather than pack tightly — a lighter, more open composition.
 - **`dense`.** The corpus is large (15-20 items) and needs to pack tightly to fit without shrinking below legibility.
-- **`spectrum`.** Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel.
+- **`spectrum`.** Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel. The four loud tiers are stops on the theme's sequential ramp (`--seq-900/700/500/400`), so they stay ordered on a light and a dark canvas alike; the quietest tier is `--text-muted`.
 - **`focal`.** One single term dominates the theme and deserves an outsized size ceiling — every variant already centers the top-weight word at the spiral's origin; `focal` widens the size range so the leader dwarfs the rest, rather than changing where it sits.
 
 ##### Common mistakes
