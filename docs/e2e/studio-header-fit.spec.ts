@@ -492,10 +492,18 @@ test('the inline search does not burst the row when it opens', async ({ page }) 
 			await button.click();
 			await expect(button, `${stop.word} @ ${width}px should be the lit stop`).toHaveAttribute('aria-pressed', 'true');
 
-			// The pill is absent at desktop Read (the calm slim header draws the deck as a
-			// label) — nothing to open there, and that exception is asserted above.
+			// The search pill is in the header at EVERY desktop stop, Read included — measured
+			// at 1440: one pill at Read, Write and Craft, each opening to a card at y=61 with
+			// zero self-overflow. (Not to be confused with the DECK switcher pill, which IS
+			// absent at desktop Read and whose exception the test above asserts both ways.)
+			//
+			// So this is an ASSERTION, not a skip. A `count() === 0 → continue` here would be
+			// the disguised-coverage failure this file has closed twice already: if the pill
+			// ever stopped rendering at some stop, the loop would quietly measure nothing and
+			// report green. Making it fail instead means the burst guard cannot be hollowed
+			// out without someone noticing.
 			const pill = header.getByRole('button', { name: 'Search or run a command' });
-			if ((await pill.count()) === 0) continue;
+			await expect(pill, `the search pill should be in the header at ${width}px on ${stop.word} — if this is now a deliberate omission, the open-state guard below has nothing to measure at this stop and needs its own exception`).toHaveCount(1);
 
 			await pill.first().click();
 			// Wait on the OBSERVABLE consequence of opening, never a sleep: the field replaces

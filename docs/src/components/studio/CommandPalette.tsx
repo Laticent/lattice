@@ -202,8 +202,14 @@ export function CommandPalette({
 		if (!open) {
 			// The idle pill, reproduced EXACTLY — `studio-shell-parity` measures this against
 			// the skeleton's copy, and `shrink-0 whitespace-nowrap` is the row's contract (the
-			// deck switcher is the one item that gives). `aria-expanded` is what makes this a
-			// combobox trigger rather than a button that happens to open something.
+			// deck switcher is the one item that gives).
+			// `aria-expanded={false}` makes this a DISCLOSURE button — "I expand something, and
+			// right now I am collapsed" — which is what it is. It is deliberately NOT
+			// `role="combobox"`: the combobox is cmdk's input, which carries the role (verified
+			// live: `role="combobox"`, `aria-expanded="true"`, populated `aria-controls`, over a
+			// `role="listbox"`) once this expands. Two comboboxes in sequence for one control
+			// would announce worse, not better. The pair reads as: a button that opens a
+			// combobox, and Escape hands focus back here (see the effect above).
 			return (
 				<button
 					ref={pillRef}
