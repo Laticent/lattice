@@ -149,6 +149,47 @@ published, so downstream consumers get the pick surface too), and it is readable
 agents and tools that cannot shell out. The CLI keeps its job — scaffolding a slide —
 and gains nothing from carrying a second one.
 
+## Measured after the fact: what the thin row costs
+
+The artifacts were verified before merge; the OUTCOME was not. `npm run intent:pick-eval`
+now measures it against the repo's own FIT corpus (264 cases — every `whenToUse` body is
+a described task whose component is ground truth, every redirecting `antiPattern` names a
+better component), scored by the repo's own lexical ranker over two evidence sets:
+
+|  | top-1 | top-3 |
+|---|---|---|
+| FULL catalog (`components.json` prose) | 59.8% | 78.8% |
+| PICK surface (a pick row's text) | **42.0%** | **62.1%** |
+| PICK + `whenToUse` titles | 42.0% | 63.3% |
+| PICK + first `whenToUse` sentence | 42.4% | 62.1% |
+
+**The row is worth 17.8 points of top-1 less than the full prose, and no cheap addition
+recovers it.** That is the honest cost of the change, and it belongs on the record beside
+the 25x saving.
+
+Two things keep it from being a verdict:
+
+- **It measures a lexical ranker answering one query, which is not how the pick surface
+  is used.** The list is 61 rows an agent reads WHOLE (3.8k tokens), then follows
+  `see also` and opens the chosen component's `.docs.md` — a two-step flow this
+  single-shot ranking cannot model. The number is best read as the cost of the removed
+  TEXT, which is the same fact the grep-recall note records, not as "agents pick worse".
+- **No shipped surface ranks over the pick list.** The Studio's component search indexes
+  `components.json`, which this change did not touch, so there is no production
+  regression here to find.
+
+**The leakage trap is why the last two rows exist.** A corpus query is `title + body` of a
+`whenToUse` entry, so any index containing that entry scores string equality.
+`fit-corpus.mjs` supplies `excludeKey` for leave-one-out. Measured WITHOUT it, indexing
+`whenToUse` titles reads **71.6%** — better than the full catalog, and entirely false.
+With the guard applied it is 42.0%, identical to carrying no `whenToUse` at all. The
+first run of this experiment made exactly that mistake, and the corpus file's own header
+had warned that such a result "should be disbelieved on sight".
+
+What this does NOT justify is padding the row: the two obvious remedies were measured and
+buy nothing. If picking accuracy ever proves to be a real problem, the answer is a better
+retrieval step, not more prose per line.
+
 ## Deliberately not done
 
 - **`components.json` must NOT be pruned, and the first draft of this note was wrong to
