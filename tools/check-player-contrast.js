@@ -37,7 +37,13 @@
  * KNOWN LIMITATIONS, inherited and added:
  *   · a pseudo-element has no rect in CSS, so its row keeps the MODELLED backdrop
  *     (`rectIsOwner`) — a sample taken from the owner's box may land beside the
- *     pseudo rather than under it, and a wrong number is worse than a modelled one;
+ *     pseudo rather than under it, and a wrong number is worse than a modelled one.
+ *     THAT MODEL CAN STILL BE WRONG, and those rows are the ones to distrust first: 10 of
+ *     the 285 oracle entries are pseudo-elements, and a spot audit found the `scene`
+ *     play-control glyph (`button::before`, the ⏸) scored 1.00:1 while rendering as light
+ *     grey on a dark circular button, plainly legible. The modelled backdrop misses a
+ *     translucent control floating over a canvas. Treat a pseudo row as a lead, not a
+ *     measurement, until someone has looked at the slide;
  *   · an occluded run is still scored, exactly as in `check-slide-contrast` — with
  *     one improvement: because the sample is taken from pixels, a run painted under
  *     an opaque sibling now reads against that sibling rather than against whatever
@@ -72,6 +78,8 @@ const { PNG } = require('pngjs');
 const { PROBE } = require('./check-slide-contrast.js');
 
 const ROOT = path.join(__dirname, '..');
+/** Grid points sampled per glyph box — see `sampleBackdrop`. */
+const SAMPLE_POINTS = 24;
 /** Where `--bless` writes and `--baseline` reads when neither is given a path. */
 const DEFAULT_BASELINE = path.join(ROOT, 'test', 'oracle', 'player-contrast.json');
 
@@ -89,6 +97,29 @@ const ratio = (a, b) => {
 };
 
 /**
+ * Every scratch directory this run made, so the run can take them away again.
+ *
+ * One directory per deck, each holding a player that is only read while the deck is being
+ * audited. A full-corpus sweep is 135 of them; leaving them behind cost about 225 MB of
+ * `/tmp` across four sweeps before anyone noticed. Cleared in the `main()` `finally` and
+ * again on `exit`, because the exit handler is the only one that runs if the process is
+ * killed mid-sweep.
+ */
+const TEMP_DIRS = [];
+
+function cleanupTempDirs() {
+	while (TEMP_DIRS.length) {
+		// Best effort: a scratch directory that has already gone (a shared `/tmp` reaper, a
+		// second cleanup pass) is not a reason to fail a sweep that otherwise succeeded.
+		try {
+			fs.rmSync(TEMP_DIRS.pop(), { recursive: true, force: true });
+		} catch {}
+	}
+}
+
+process.on('exit', cleanupTempDirs);
+
+/**
  * Export a deck to a player if given markdown; pass a `.html` through untouched.
  *
  * The output path is `.html`, NOT `.pdf`. Both produce a byte-identical player — the
@@ -101,6 +132,7 @@ const ratio = (a, b) => {
 function playerFor(input) {
 	if (input.endsWith('.html')) return path.resolve(input);
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-player-contrast-'));
+	TEMP_DIRS.push(dir);
 	const out = path.join(dir, `${path.basename(input, '.md')}.html`);
 	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), input, out, '--quiet', '--player'], {
 		cwd: ROOT,
@@ -116,6 +148,15 @@ function playerFor(input) {
  * Make every glyph in the document paint nothing, so a screenshot shows only what the
  * text was sitting ON.
  *
+ * `fill` / `stroke` are erased ONLY on `text` / `tspan` / `textPath`, never globally, and
+ * that scoping is the whole correctness of the sample inside an SVG. A blanket
+ * `*{fill:transparent}` erases the SHAPES too — the boxes of an ER diagram, the wedges of a
+ * pie, the bars of a chart — so the "backdrop" screenshotted is whatever sits behind the
+ * erased geometry rather than the surface the glyphs are actually on. Measured on
+ * `mermaid-sketch-labels` p5 after a toggle: white labels on hatched blue boxes sampled as
+ * pure WHITE and scored 1.00:1, because the blue boxes had been erased along with the text.
+ * Six confident, wrong rows on the first deck that exercised it.
+ *
  * `color` alone is not enough. SVG text is painted by `fill`, the engine draws label
  * halos and chart ink through `stroke`, and `-webkit-text-fill-color` outranks `color`
  * where it is set. `text-shadow` has to go too or a blurred copy of the glyph tints the
@@ -123,7 +164,8 @@ function playerFor(input) {
  * puts real content there.
  */
 const HIDE_INK = `*,*::before,*::after{color:transparent!important;-webkit-text-fill-color:transparent!important;
-	text-shadow:none!important;fill:transparent!important;stroke:transparent!important;caret-color:transparent!important}`;
+	text-shadow:none!important;caret-color:transparent!important}
+	text,tspan,textPath{fill:transparent!important;stroke:transparent!important}`;
 
 /**
  * Sample a run's backdrop from a decoded screenshot.
@@ -221,6 +263,18 @@ async function auditState(page, label) {
 				r: +ratio(fg, bg.mode).toFixed(2),
 				worst: +worst.toFixed(2),
 				gradient: bg.distinct > 2,
+				// PATTERNED, not merely uneven. A hatch, a dot screen or any of the
+				// `--cat-N-texture` a11y fills is many distinct colors inside one glyph box, and
+				// the MODE of a grid over it is whichever stripe the grid happened to land on —
+				// not the field the eye integrates. Measured on `mermaid-sketch-labels` p5 after a
+				// toggle: white labels on hatched blue boxes reported as pure white on pure white,
+				// 1.00:1, on text that is legible-if-marginal in the render. Six such rows, and
+				// they would have been the first thing the nightly ever said.
+				//
+				// Reported in its own bucket rather than scored, for the same reason
+				// check-slide-contrast excludes a raster backdrop: a confident wrong number is
+				// worse than an admitted gap. WCAG has no ratio for text on a pattern either.
+				patterned: bg.distinct > SAMPLE_POINTS / 3,
 			});
 		}
 	}
@@ -317,14 +371,18 @@ function diffBaseline(rows, baseline) {
 }
 
 function report(name, rows) {
-	const failing = rows.filter((x) => !x.exempt && x.r < x.need);
+	const failing = rows.filter((x) => !x.exempt && !x.patterned && x.r < x.need);
 	const exempt = rows.filter((x) => x.exempt && x.r < x.need);
+	const patterned = rows.filter((x) => !x.exempt && x.patterned && x.r < x.need);
 	const byState = new Map();
 	for (const row of failing) {
 		if (!byState.has(row.state)) byState.set(row.state, []);
 		byState.get(row.state).push(row);
 	}
-	const head = `${name} — ${rows.length} runs · ${failing.length} below AA${exempt.length ? ` (+${exempt.length} muted-chrome, exempt)` : ''}`;
+	const head =
+		`${name} — ${rows.length} runs · ${failing.length} below AA` +
+		`${exempt.length ? ` (+${exempt.length} muted-chrome, exempt)` : ''}` +
+		`${patterned.length ? ` (+${patterned.length} over a patterned fill, not measurable)` : ''}`;
 	console.log(`\n${'='.repeat(90)}\n${head}\n${'='.repeat(90)}`);
 	for (const [state, list] of byState) {
 		console.log(`\n  ── ${state} ── ${list.length} below AA`);
@@ -379,13 +437,14 @@ async function main() {
 			}
 			const rows = await auditPlayer(browser, file);
 			const name = path.basename(input).replace(/\.(md|html)$/, '');
-			const bad = quiet ? rows.filter((x) => !x.exempt && x.r < x.need) : report(name, rows);
+			const bad = quiet ? rows.filter((x) => !x.exempt && !x.patterned && x.r < x.need) : report(name, rows);
 			failed += bad.length;
 			for (const row of bad) findings.push({ ...row, deck: name });
 			all.push({ deck: name, rows });
 		}
 	} finally {
 		await browser.close();
+		cleanupTempDirs();
 	}
 	if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify(all, null, '\t')}\n`);
 	const runs = all.reduce((n, d) => n + d.rows.length, 0);
