@@ -1,7 +1,39 @@
 import { Check, Copy } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { type CodeToken, tokenColor, tokenize } from './chat-highlight';
+import type { CodeToken } from './chat-highlight';
+
+// The lezer highlighter is loaded ON DEMAND, not statically (2026-08-17 loading audit §4).
+// `chat-highlight.ts` statically imports six `@codemirror/lang-*` grammars; imported
+// eagerly here it anchored the WHOLE CodeMirror stack (~202KB gz) onto the Studio's
+// cold path — where Rollup merged it with the very chunk `Editor`'s React.lazy split
+// was written to defer, cutting that split's saving from ~196KB gz to 20KB. Chat code
+// blocks only exist AFTER a model reply, so nothing on a cold load needs the grammars.
+// The module handle is cached at module scope, so the first block pays the import and
+// every later one renders highlighted on its first paint (no repeated flash).
+type Highlighter = typeof import('./chat-highlight');
+let highlighter: Highlighter | null = null;
+let highlighterLoad: Promise<Highlighter> | null = null;
+function loadHighlighter(): Promise<Highlighter> {
+	if (!highlighterLoad) {
+		highlighterLoad = import('./chat-highlight').then(
+			(m) => {
+				highlighter = m;
+				return m;
+			},
+			(err) => {
+				// DROP a rejected load from the memo. A cached rejection would wedge every
+				// chat code block in the document for the rest of its life — and the common
+				// cause is a stale tab whose chunk 404s after a deploy (#1242), which a later
+				// attempt in a fresh navigation would survive. `theme-fetch.ts` drops
+				// transient rejections for exactly this reason.
+				highlighterLoad = null;
+				throw err;
+			},
+		);
+	}
+	return highlighterLoad;
+}
 
 // A fenced code block in an Architect reply. Rendered as a REACT component (NOT inside
 // the sanitized prose innerHTML) for two reasons the adversarial trio surfaced:
@@ -14,7 +46,25 @@ import { type CodeToken, tokenColor, tokenize } from './chat-highlight';
 // var()s — no highlight.js, no injected stylesheet.
 export function ChatCodeBlock({ code, lang }: { code: string; lang: string }) {
 	const [copied, setCopied] = React.useState(false);
-	const tokens: CodeToken[] = React.useMemo(() => tokenize(code, lang), [code, lang]);
+	// `null` until the grammars land; the block renders as one unstyled token meanwhile,
+	// so the code is READABLE from the first paint and merely gains color a frame later.
+	const [hl, setHl] = React.useState<Highlighter | null>(highlighter);
+	React.useEffect(() => {
+		if (hl) return;
+		let alive = true;
+		loadHighlighter().then(
+			(m) => {
+				if (alive) setHl(m);
+			},
+			() => {
+				/* highlighting is decorative — a failed load leaves plain text */
+			},
+		);
+		return () => {
+			alive = false;
+		};
+	}, [hl]);
+	const tokens: CodeToken[] = React.useMemo(() => (hl ? hl.tokenize(code, lang) : [{ text: code, cls: null }]), [hl, code, lang]);
 	const copy = async () => {
 		try {
 			await navigator.clipboard.writeText(code);
@@ -42,7 +92,7 @@ export function ChatCodeBlock({ code, lang }: { code: string; lang: string }) {
 				<code>
 					{tokens.map((t, i) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: static token list for one render.
-						<span key={i} style={tokenColor(t.cls) ? { color: tokenColor(t.cls) } : undefined}>
+						<span key={i} style={hl?.tokenColor(t.cls) ? { color: hl.tokenColor(t.cls) } : undefined}>
 							{t.text}
 						</span>
 					))}

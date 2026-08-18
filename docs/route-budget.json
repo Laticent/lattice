@@ -1,0 +1,16 @@
+{
+  "_comment": "Per-route payload ledger. Enforced by scripts/check-route-budget.mjs in the docs build (blocking in CI via docs-build). Fails when a route EXCEEDS its budget and when it drops far enough below that the budget has gone stale \u2014 see that script's header, and engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md \u00a79.7.",
+  "_units": "bytes. eagerJsGz = gzip(level 6) of every /_astro/*.js referenced in the route's HTML. htmlRaw = the HTML document itself. Budgets carry ~3% headroom above the measured build; the gate also fails if a route drops more than 5% BELOW its budget, which means the number here is stale and must be ratcheted down.",
+  "routes": {
+    "studio": {
+      "html": "studio/index.html",
+      "eagerJsGz": 677200,
+      "htmlRaw": 185400
+    },
+    "playground": {
+      "html": "playground/index.html",
+      "eagerJsGz": 597900,
+      "htmlRaw": 483700
+    }
+  }
+}

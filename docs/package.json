@@ -10,7 +10,7 @@
     "showcase:check": "node scripts/rasterize-showcase.mjs --check",
     "dev": "npm run sync:portal && npm run sync:playground && astro dev",
     "start": "npm run sync:portal && npm run sync:playground && astro dev",
-    "build": "npm run showcase:check && npm run sync:portal && npm run sync:playground && astro build && node scripts/check-studio-shell.mjs && node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs",
+    "build": "npm run showcase:check && npm run sync:portal && npm run sync:playground && astro build && node scripts/check-studio-shell.mjs && node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs && node scripts/check-route-budget.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro sync && tsc --noEmit",
@@ -35,7 +35,8 @@
     "test:e2e:smoke": "playwright test --project=desktop --grep @smoke",
     "test:e2e:bless": "playwright test --update-snapshots --grep @visual",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "check:route-budget": "node scripts/check-route-budget.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",

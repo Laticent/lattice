@@ -15,6 +15,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
+import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { BakeVoice } from './read-aloud';
 import type { OverflowMarker } from './studio-store';
@@ -55,8 +56,17 @@ export type ExtraTheme = { name: string; css: string };
  * (`extra`) has no on-disk CSS, so we register the raw CSS into the engine; a
  * built-in palette is fetched (+ its dark companion) by name as before.
  */
-async function ensureTheme(options: SingleSlideOptions, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme): Promise<string> {
+async function ensureTheme(options: SingleSlideOptions, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, source?: string): Promise<string> {
 	const PG = pg();
+	// KaTeX's faces are stripped from the registered base until something asks for them
+	// (2026-08-17 loading audit §9.6). The EXPORT path composes from that same registered
+	// base — `renderMarkdown` → `ThemeStore.cssFor` → `byName.get('lattice')` — so without
+	// this an exported PDF/PPTX/player could carry math laid out in FALLBACK metrics. That
+	// is a change to exported artifact BYTES, which CLAUDE.md makes a stop-and-show gate,
+	// so it must not depend on a live preview having happened to warm the faces first.
+	if (source && sourceHasMath(source)) {
+		await createThemeFetcher(options.themeBase).ensureKatexFaces().catch(() => {});
+	}
 	if (extra) {
 		// ALWAYS (re-)register so an edited theme re-saved under the same name
 		// exports with the current CSS (addThemes overwrites by name); a hasTheme
@@ -76,7 +86,7 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
  */
 export async function buildDeckRender(options: SingleSlideOptions, source: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<DeckRender> {
 	const PG = await ensureReady(options);
-	const theme = await ensureTheme(options, palette, mode, extra);
+	const theme = await ensureTheme(options, palette, mode, extra, source);
 	const out = await renderMarkdown(PG, source, theme);
 	const { previewFontFaceCss } = await import('@/playground/font-embed.js');
 	return {
@@ -305,7 +315,7 @@ export async function shareHtmlPlayer(
 ): Promise<string | undefined> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
-	const theme = await ensureTheme(options, palette, mode, extra);
+	const theme = await ensureTheme(options, palette, mode, extra, source);
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Embedding fonts…');
@@ -850,7 +860,7 @@ export async function shareCaptions(
 ): Promise<void> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
-	const theme = await ensureTheme(options, palette, mode, extra);
+	const theme = await ensureTheme(options, palette, mode, extra, source);
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');

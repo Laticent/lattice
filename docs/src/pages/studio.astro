@@ -22,8 +22,8 @@ import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
+import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
-import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from '../components/studio/preview-rect';
@@ -54,76 +54,12 @@ const options = {
 // The component catalog, read from the committed machine manifest at build time
 // and trimmed to what the insert palette needs (name / bucket / description /
 // the authored insert skeleton). Serialized into the island as a prop.
-let components = [];
-try {
-	// Resolve from the repo root via process.cwd() (docs/ at build), NOT
-	// import.meta.url — under `astro build` the page frontmatter is bundled into a
-	// chunk whose URL no longer sits at src/pages/, so the relative walk misses and
-	// the catch silently empties the catalog (disabling Add slide). This mirrors the
-	// lintVocab read below, which already resolves from process.cwd().
-	const catalog = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
-	// Variants whose AUTHORING GRAMMAR differs from the base skeleton (e.g.
-	// `list-tabular metric` → ``1. Name `value```) are not in components.json — they are
-	// derived from the live manifest by `pickGrammarVariants`. The Lattice primer's own
-	// authoring rules TELL the model to match a variant's own skeleton when one is shown,
-	// so shipping the primer without these instructs it to look for content that is never
-	// there (succession doc §2.3; the primer is fed from this payload).
-	let variantSkeletonsByName = {};
-	try {
-		const req = createRequire(import.meta.url);
-		const { loadAll } = req(join(process.cwd(), '..', 'lib/components', 'index.js'));
-		for (const m of loadAll()) {
-			const picked = pickGrammarVariants(m);
-			if (picked?.length) variantSkeletonsByName[m.name] = picked;
-		}
-	} catch {
-		variantSkeletonsByName = {};
-	}
-	components = (catalog.components || [])
-		.map((c) => ({
-			name: c.name,
-			bucket: c.bucket,
-			// The semantic role axes the reader-lens suggester keys off (function/form). Present
-			// in components.json; carried through so the Lenses panel can build a ComponentCatalog.
-			function: c.function || '',
-			form: c.form || '',
-			// The add-slide gallery (SlidePicker) filters on these + shows `purpose` in its
-			// detail rail; without them the shared search core throws on undefined `tags`.
-			substance: c.substance || '',
-			tags: Array.isArray(c.tags) ? c.tags : [],
-			purpose: c.purpose || '',
-			description: c.description || '',
-			// The Lattice primer (architect-knowledge.js `layoutBlock`) reads `summary`,
-			// `slots`, `capacity` and `variantSkeletons` — none of which reached it when the
-			// Studio took the chat over, so the model was told every layout's NAME with none of
-			// the contract it needs to author one. `slots` needs reshaping: components.json
-			// keys it by slot name, the primer walks an array.
-			summary: c.description || '',
-			...(c.capacity ? { capacity: c.capacity } : {}),
-			slots: Object.entries(c.slots || {}).map(([slotName, v]) => ({
-				name: slotName,
-				required: !!v.required,
-				description: String(v.description || '').slice(0, 240),
-			})),
-			...(variantSkeletonsByName[c.name] ? { variantSkeletons: variantSkeletonsByName[c.name] } : {}),
-			// Prose-density budget (axis/soft/hard). The engine review's density findings
-			// key off it via `densityOf`; without it those findings silently vanish from the
-			// Coach's assessment (succession doc §2.1). Present in components.json.
-			...(c.density ? { density: c.density } : {}),
-			skeleton: String(c.skeleton || ''),
-			// Per-component validity data for the per-slide drawer: which variants /
-			// family modifiers / axes this layout actually accepts, so the drawer only
-			// offers controls that resolve at render time (never a disabled graveyard).
-			variants: Array.isArray(c.variants) ? c.variants : [],
-			...(Array.isArray(c.variantAxes) && c.variantAxes.length ? { variantAxes: c.variantAxes } : {}),
-			effectiveVariants: Array.isArray(c.effectiveVariants) ? c.effectiveVariants : [],
-			familyModifiers: Array.isArray(c.familyModifiers) ? c.familyModifiers : [],
-			...(Array.isArray(c.focusAxes) && c.focusAxes.length ? { focusAxes: c.focusAxes } : {}),
-		}))
-		.filter((c) => c.name && c.skeleton);
-} catch (e) {
-	components = [];
-}
+// Built by the SHARED builder (src/lib/studio-catalog.mjs), which also backs the
+// static `/studio/component-catalog.json` endpoint the island fetches. Only the NAME
+// list is inlined here — the editor's lint needs it from the first frame, and it is
+// ~1KB against the full payload's ~180KB (2026-08-17 loading audit §5, §9.3).
+const components = buildStudioCatalog();
+const componentNames = components.map((c) => c.name);
 
 // The per-class HEADING register for Compose: a `_class` name → the heading level(s) its GRAMMAR
 // anchors ('h1' for the title family, 'h2' for body classes, both where the slot lists both), read from
@@ -922,7 +858,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		</div>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioIsland client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} />
+		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}

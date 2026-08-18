@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { embedFinishInMarkdown } from './share-export';
 
 // The source-handoff finish embed (Markdown / Marp share). A saved finish renders
@@ -61,5 +61,61 @@ describe('embedFinishInMarkdown', () => {
 		const out = embedFinishInMarkdown(src, '', combined);
 		expect(out).toContain('finish-shu');
 		expect(out).toContain('finish-oct'); // both finishes' CSS present
+	});
+});
+
+// ── The export path must ask for KaTeX's faces itself ────────────────────────────
+//
+// The KaTeX faces are stripped from the registered base theme until something asks for
+// them (2026-08-17 loading audit §9.6). The EXPORT path composes from that SAME registered
+// base — `renderMarkdown` → `ThemeStore.cssFor` → `byName.get('lattice')` — so if it does
+// not ask, an exported PDF/PPTX/player can carry math laid out in FALLBACK metrics. That is
+// a change to exported artifact BYTES, which CLAUDE.md makes a stop-and-show gate, and it
+// must not depend on a live preview having happened to warm the faces first.
+//
+// The trio's red team found this gap by reading the call graph; this pins it.
+describe('buildDeckRender — KaTeX faces on the export path', () => {
+	const options = { themeBase: '/themes/', engineUrl: '/e.js', runtimeUrl: '/r.js' } as never;
+
+	async function exportWith(source: string) {
+		const ensureKatexFaces = vi.fn(async () => {});
+		// `ensureReady` throws without the engine global, which would short-circuit the
+		// theme handshake this test is about.
+		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = {
+			addThemes: () => {},
+			hasTheme: () => true,
+		};
+		vi.resetModules();
+		vi.doMock('@/lib/theme-fetch', () => ({
+			createThemeFetcher: () => ({
+				ensure: async () => {},
+				ensureBase: async () => {},
+				ensureKatexFaces,
+				katexFacesActive: () => false,
+				fetch: async () => '',
+				has: () => true,
+			}),
+		}));
+		vi.doMock('@/lib/load-engine', () => ({ ensureEngine: async () => {} }));
+		vi.doMock('@/lib/render-engine', () => ({ renderMarkdown: async () => ({ html: '<section></section>', css: '' }) }));
+		vi.doMock('@/playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
+		const mod = await import('./share-export');
+		try {
+			await mod.buildDeckRender(options, source, 'cuoio', 'light');
+		} catch {
+			/* the engine stubs are partial — we assert the theme handshake, not the render */
+		}
+		delete (window as unknown as { LatticePlayground?: unknown }).LatticePlayground;
+		return ensureKatexFaces;
+	}
+
+	it('ensures the faces when the deck contains math', async () => {
+		const ensureKatexFaces = await exportWith('# Title\n\nInline $E = mc^2$ here.\n');
+		expect(ensureKatexFaces).toHaveBeenCalled();
+	});
+
+	it('does NOT ensure them for a deck with no math — the export pays nothing extra', async () => {
+		const ensureKatexFaces = await exportWith('# Title\n\nNo math at all, just prose.\n');
+		expect(ensureKatexFaces).not.toHaveBeenCalled();
 	});
 });

@@ -41,9 +41,9 @@ import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineAc
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import { type ComposeHandle, ComposeView } from './ComposeView';
+import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { BAR_CONTROL, BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -120,6 +120,16 @@ const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default:
 // Mirrors the Fabricate lazy split above. See
 // engineering/decisions/2026-07-19-defer-editor-hydration.md.
 const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Editor })));
+
+// ComposeView is the OTHER half of the editor pane, and the heaviest thing left on the
+// cold path after the Editor split: ~69KB of its own source plus the whole ProseMirror
+// stack (13 vendor modules, ~693KB of source) — for a pane that is NOT the default.
+// `editMode` starts at 'markdown', and the toggle that reaches Compose is a deliberate
+// user action, so nothing on a cold load needs it. Already conditionally rendered, so
+// this is the same drop-in the Fabricate and Editor splits were. A React.lazy over a
+// forwardRef component still forwards `ref` in React 19, so `composeRef` reaches its
+// useImperativeHandle. See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.4.
+const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
 
 
 // Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
@@ -210,9 +220,46 @@ const PREVIEW_MIN = PREVIEW_CHROME.splitPreviewMin;
 // drive through `data-palette`.
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
+type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
 
-export default function StudioShell({ options, components = [], lintVocab, slideHeadings, slideBlocks }: Props) {
+export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks }: Props) {
+	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
+	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
+	// parsed before hydration on every launch to serve a gallery the user may never open.
+	// `seedComponents` still seeds it, so a caller that passes the array directly (every
+	// unit test does) behaves exactly as before and never fetches.
+	const [components, setComponents] = React.useState<ComponentEntry[]>(seedComponents);
+	// RETRY, because the degraded state is silent and wide. A failed fetch leaves the
+	// catalog empty, and an empty catalog does not throw — it removes the Add-slide
+	// launcher entirely, empties the per-slide drawer's variant controls, and makes the
+	// Coach's density/bucket findings vanish so it reports a BETTER grade than the truth.
+	// Offline is a supported state here (this is an installed PWA), so a single failure
+	// must not be permanent for the tab. `componentNames` keeps LINT honest throughout,
+	// but it covers only lint.
+	const [catalogAttempt, setCatalogAttempt] = React.useState(0);
+	React.useEffect(() => {
+		if (components.length || !catalogUrl || catalogAttempt > 3) return;
+		let alive = true;
+		let timer = 0;
+		const retry = () => {
+			if (!alive) return;
+			// Back off 1s, 2s, 4s — enough to ride out a flaky connection or a service
+			// worker revalidating, without hammering a genuinely offline device.
+			timer = window.setTimeout(() => alive && setCatalogAttempt((n) => n + 1), 1000 * 2 ** catalogAttempt);
+		};
+		fetch(catalogUrl)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((rows) => {
+				if (!alive) return;
+				if (Array.isArray(rows) && rows.length) setComponents(rows as ComponentEntry[]);
+				else retry();
+			})
+			.catch(retry);
+		return () => {
+			alive = false;
+			if (timer) window.clearTimeout(timer);
+		};
+	}, [components.length, catalogUrl, catalogAttempt]);
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
@@ -936,7 +983,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// `components` prop) plus your saved local components — never the stale hardcoded
 	// subset, which would false-flag valid components on the welcome deck and beyond.
 	// Falls back to KNOWN only if the catalog failed to load.
-	const catalogNames = React.useMemo(() => (components.length ? components.map((c) => c.name) : KNOWN), [components]);
+	// Name list first, catalog second: `componentNames` is inlined by studio.astro (~1KB)
+	// precisely so the editor's lint never falls back to the stale hardcoded KNOWN subset
+	// during the window before the fetched catalog arrives — that subset false-flags valid
+	// components on the welcome deck.
+	const catalogNames = React.useMemo(
+		() => (components.length ? components.map((c) => c.name) : componentNames?.length ? componentNames : KNOWN),
+		[components, componentNames],
+	);
 	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	const issues = React.useMemo(() => unknownComponents(source, lintKnown).length, [source, lintKnown]);
@@ -3280,7 +3334,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</div>
 			)}
 			{editMode === 'compose' ? (
+				<React.Suspense fallback={<ComposeSkeleton />}>
 				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
+				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
