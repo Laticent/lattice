@@ -10,6 +10,10 @@ export type HeadlineEntry = {
 	/** the `headline:` register value (and engine HEADLINE_NAMES member) */
 	name: string;
 	label: string;
+	/** For an entry whose own label is "Auto": what auto RESOLVES to, for the
+	 *  `Auto — <resolved>` head. Without it that head reads "Auto — Auto"
+	 *  (see autoHeadLabel in auto-mark.tsx). */
+	autoLabel?: string;
 	blurb: string;
 	/** CSS for the preview chip — stacked bars anchored to the value's edge, miming alignment */
 	swatch: { background: string; backgroundSize?: string; backgroundPosition?: string; backgroundRepeat?: string };
@@ -29,7 +33,7 @@ const bars = (pos: string) =>
 // Ordered as the picker shows them. `auto` is the named baseline (the component's own default).
 export const HEADLINES: HeadlineEntry[] = [
 	{
-		name: 'auto', label: 'Auto',
+		name: 'auto', label: 'Auto', autoLabel: 'component',
 		blurb: "Respect the component — left masthead, centered title. The default.",
 		// A split chip: left bar over a centered bar, hinting "each component decides."
 		swatch: { background: `linear-gradient(${INK}, ${INK}) left 38% / 55% 2.5px no-repeat, linear-gradient(${INK}, ${INK}) center 62% / 38% 2px no-repeat, var(--bg)` },

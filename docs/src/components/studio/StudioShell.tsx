@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import DeckPreview from '@/components/DeckPreview';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
+import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -40,7 +41,7 @@ import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoo
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
-import { AUTO_LABEL, AutoIcon } from './auto-mark';
+import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
@@ -3100,24 +3101,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect
 						ariaLabel="Choose deck theme"
 						swatchShape="round"
-						className="min-w-[116px]"
+						className="w-full"
 						value={deckThemeBase || '__auto__'}
 						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
-						groups={[{ options: [{ value: '__auto__', label: AUTO_LABEL, icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+						// The head names what Auto RESOLVES to (the website theme), not just the
+						// word — the same shape every auto head in both scopes now uses. It is
+						// safe to be this long again because the control owns a fixed half of
+						// its row and truncates (SETTING_ROW); it used to widen the whole row.
+						groups={[{ options: [{ value: '__auto__', label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 					/>
-					{savedThemes.length > 0 && (
-						<div className="mt-2 space-y-0.5">
-							<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>
-							{savedThemes.map((t) => (
-								<div key={t.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
-									<span className="size-3 shrink-0 rounded-full border border-border" style={{ background: t.essentials?.accent ?? 'var(--accent)' }} />
-									<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-heading)]">{t.label}</span>
-									<button type="button" onClick={() => removeTheme(t)} aria-label={`Delete ${t.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
-								</div>
-							))}
-						</div>
-					)}
 				</Field>
+				{/* The saved-theme manager is a SIBLING of the Field, not a child: the Field's
+				    control column is a right-aligned half-row, so a full-width list inside it
+				    would sit beside the dropdown instead of beneath the setting. (The saved
+				    FINISH list below was already shaped this way.) */}
+				{savedThemes.length > 0 && (
+					<div className="mt-2 space-y-0.5">
+						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>
+						{savedThemes.map((t) => (
+							<div key={t.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
+								<span className="size-3 shrink-0 rounded-full border border-border" style={{ background: t.essentials?.accent ?? 'var(--accent)' }} />
+								<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-heading)]">{t.label}</span>
+								<button type="button" onClick={() => removeTheme(t)} aria-label={`Delete ${t.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
+							</div>
+						))}
+					</div>
+				)}
 				<Field label="Color mode" desc="Light, dark, or follow something." help={<>The mode the deck opens in <strong>everywhere</strong> it's rendered. <strong>Light</strong> / <strong>Dark</strong> pin it. <strong>System</strong> follows the viewer's OS. <strong>Match site</strong> adopts the host — the website toggle here, the OS in a shared file. <strong>Theme default</strong> uses the theme's own mode. <strong>Print</strong> is ink on white, for paper.</>}>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -3146,14 +3155,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
 					    owns `style:` for inline CSS, so the axis is named "mode"). */}
-					<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="min-w-[116px]" groups={[{ options: catalogOptions(MODES) }]} />
+					<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="w-full" groups={[{ options: catalogOptions(MODES) }]} />
 				</Field>
 				<Field label="Finish" desc="A backdrop behind every slide." help={<>A palette-blind layer stack — a soft gradient, wash or grain — painted behind the content. It follows whatever palette the deck is on, so it never fights the theme. Tune one in Fabricate to save your own.</>}>
 					<CatalogSelect
 						ariaLabel="Choose finish"
 						value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
 						onValueChange={setFinish}
-						className="min-w-[116px]"
+						className="w-full"
 						groups={finishSelectGroups({
 							heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
 							saved: savedFinishMenu,
@@ -3178,10 +3187,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Card lift" desc="A soft shadow under card surfaces." help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				<More label="More look settings">
 					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
-						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="min-w-[116px]" groups={[{ options: catalogOptions(CORNERS) }]} />
+						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />
 					</Field>
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
-						<CatalogSelect ariaLabel="Choose claim" value={activeClaim(claim).name} onValueChange={setClaim} className="min-w-[116px]" groups={[{ options: catalogOptions(CLAIMS) }]} />
+						<CatalogSelect ariaLabel="Choose claim" value={activeClaim(claim).name} onValueChange={setClaim} className="w-full" groups={[{ options: catalogOptions(CLAIMS) }]} />
 					</Field>
 				</More>
 			</div>
@@ -3199,10 +3208,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{logo.trim() !== '' && (
 					<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						<Field label="Show on" desc="Every slide, or just the cover.">
-							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="min-w-[116px]" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
+							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
 						</Field>
 						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
-							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="min-w-[116px]" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
+							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
 						</Field>
 						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. Clamped to 0.2–3; anything outside that is ignored rather than applied.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
 						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
@@ -3229,11 +3238,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						ariaLabel="Choose deck language"
 						includeAuto
 						autoLabel={`Automatic — ${langDisplay(workspaceLang)}`}
+						resolvedAuto={langDisplay(workspaceLang)}
 						onValueChange={setDeckLang}
 					/>
 				</Field>
 				<Field label="New slide on" desc="Headings, or --- dividers." help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
-					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="min-w-[116px]" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
+					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
 				</Field>
 				<Field label="Deck chrome" desc="The masthead band and status bay." help={<>The Form composition model — the masthead band, the meta/status bay and the progress rail. On for every deck by default; turning it off strips all three, leaving bare slides.</>}><Toggle label="Deck chrome" on={formOn} onClick={toggleForm} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
@@ -3273,32 +3283,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* The white-label spectrum — the rainbow bar on the top border / divider
 					    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 					    the theme accent to a client's brand and Solid follows. */}
-					<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRA) }]} />
+					<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="w-full" groups={[{ options: catalogOptions(SPECTRA) }]} />
 				</Field>
 				{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
 				    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
 				<Field label="Bar placement" desc="Which edge the bar sits on." help={<>Top by default. <strong>Off</strong> drops only the bar — table rails and rules keep their color.</>}>
-					<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
+					<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
 				</Field>
 				<Field label="Card rail" desc="A spectrum rail on card surfaces." help={<>Tunable independently of the brand bar. Off by default; <strong>Auto</strong> follows the bar, or pin Solid / Duo / Mono / Rainbow.</>}>
-					<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
+					<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
 				</Field>
 				{spectrumCard !== 'off' && (
 					<Field label="Card rail placement" desc="Which edge of each card." help={<>Left by default.</>}>
-						<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
+						<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
 					</Field>
 				)}
 				<Field label="Structural trim" desc="Accent on in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the brand bar.</>}>
-					<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
+					<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
 				</Field>
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
-					<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="min-w-[116px]" groups={[{ options: catalogOptions(RULES) }]} />
+					<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="w-full" groups={[{ options: catalogOptions(RULES) }]} />
 				</Field>
 				<Field label="Eyebrow" desc="The mark on the kicker line." help={<>The kicker is the small mono-caps line above a heading. This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
-					<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="min-w-[116px]" groups={[{ options: catalogOptions(EYEBROWS) }]} />
+					<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="w-full" groups={[{ options: catalogOptions(EYEBROWS) }]} />
 				</Field>
 				<Field label="Headline alignment" desc="Auto, or pin left / center / right." help={<>Aligns the whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps each component's own default.</>}>
-					<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="min-w-[116px]" groups={[{ options: catalogOptions(HEADLINES) }]} />
+					<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="w-full" groups={[{ options: catalogOptions(HEADLINES) }]} />
 				</Field>
 				<More label="More accent settings">
 					{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0) && (
@@ -3307,7 +3317,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								ariaLabel="Choose stamp shape"
 								value={stampStyleFM || DEFAULT_SENTINEL}
 								onValueChange={setStampStyleFM}
-								className="min-w-[116px]"
+								className="w-full"
 								groups={[
 									{ options: [{ value: DEFAULT_SENTINEL, label: 'Default — tab' }] },
 									{ label: 'Boardroom', options: stampVocab.boardroom.map((n) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) })) },
@@ -3322,7 +3332,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								ariaLabel="Choose tone shape"
 								value={toneStyleFM || DEFAULT_SENTINEL}
 								onValueChange={setToneStyleFM}
-								className="min-w-[116px]"
+								className="w-full"
 								groups={[{ options: [
 									{ value: DEFAULT_SENTINEL, label: 'Default — rail' },
 									...toneVocab.map((t) => { const n = t.replace('tone-', ''); return { value: n, label: n.charAt(0).toUpperCase() + n.slice(1) }; }),
@@ -3340,10 +3350,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Toggle label="Chart motion" on={motionPlay} onClick={toggleMotionPlay} />
 				</Field>
 				<Field label="Style" desc="How a chart moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
-					<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="min-w-[116px]" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
+					<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="w-full" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
 				</Field>
 				<Field label="Speed" desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
-					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="min-w-[116px]" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
 				</Field>
 			</div>
 			)}
@@ -3351,7 +3361,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div>
 				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
-					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="min-w-[116px]" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : '') })) }]} />
+					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="w-full" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : '') })) }]} />
 				</Field>
 				<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
 					<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
@@ -4907,7 +4917,11 @@ function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNod
 // Inspector state change. Doing it per render made the docs suite time out under load
 // (`studio.theme-depth.test.tsx`, 5s, a different case each run) while every file still
 // passed in isolation — the signature of a render-path cost, not a logic break.
-const FIELD_ROW = cn('flex items-center justify-between gap-2.5', PINNED_FIELD_ROW);
+const FIELD_ROW = cn(SETTING_ROW, PINNED_FIELD_ROW);
+// Merged once, for the reason spelled out above FIELD_ROW: `cn` is twMerge(clsx(...)) and
+// `Field` renders ~20 times per Inspector state change, so a per-render merge here is a
+// measurable cost — it is what timed the docs suite out twice in this change alone.
+const FIELD_LABEL = cn(SETTING_LABEL_COL, 'text-[12.5px] text-foreground');
 
 // The one-line framing that opens each Inspector tab — says what the whole group is FOR
 // before the individual rows explain themselves. (The slide Inspector's TabIntro, same job,
@@ -4962,29 +4976,16 @@ function Field({ label, desc, help, htmlFor, descId, children }: { label: string
 				{/* The ⓘ sits WITH the label, not at the row's end: it explains the setting, so
 				    it reads as part of its name rather than as a second control. It is INLINE
 				    (see HelpTip) — a flex sibling took its own 20px of the row and wrapped
-				    "Color mode" onto two lines. */}
-				{htmlFor ? (
-					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
-					// without it the flex algorithm takes the space out of the label and
-					// "Deck name" wraps to two lines. The dropdown rows have no growing child,
-					// so adding it there would change nothing except their overflow behavior
-					// at the narrowest widths — left alone.
-					<span className="shrink-0 text-[12.5px] text-foreground">
-						<label htmlFor={htmlFor}>{label}</label>
-						{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
-					</span>
-				) : (
-					// `shrink-0` here too, for the same reason the field branch has it: the row
-					// is a no-wrap flex, and a wide trigger ("Theme default", with two icons)
-					// otherwise squeezes the label to its content width and orphans the ⓘ on a
-					// second line. The trigger is the one that should give — it already
-					// truncates ("Theme def…") and has a 116px floor.
-					<span className="shrink-0 text-[12.5px] text-foreground">
-						{label}
-						{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
-					</span>
-				)}
-				{children}
+				    "Color mode" onto two lines.
+				    The label owns its HALF of the row (SETTING_LABEL_COL) rather than shrinking
+				    to fit whatever the control wants; that is what aligns every control in the
+				    column, and it is why an option label can carry its resolved value again
+				    without widening its row. */}
+				<span className={FIELD_LABEL}>
+					{htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
+					{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
+				</span>
+				<span className={SETTING_CONTROL_COL}>{children}</span>
 			</div>
 			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 		</div>
@@ -4992,7 +4993,7 @@ function Field({ label, desc, help, htmlFor, descId, children }: { label: string
 }
 // Forwards ref + props so it can be a Radix `asChild` trigger (the Size menu).
 const Control = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(({ children, ...props }, ref) => (
-	<button ref={ref} type="button" {...props} className="inline-flex min-w-[116px] items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
+	<button ref={ref} type="button" {...props} className="inline-flex w-full items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-left text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
 ));
 Control.displayName = 'Control';
 // Thin adapter over the shared ui/switch primitive, preserving this file's
@@ -5035,7 +5036,7 @@ function TextRow({ label, desc, help, value, placeholder, onCommit }: { label: s
 				// `h-9` (36px), NOT the `h-8` this had while it was a full-width field of its
 				// own: that is `Control`'s height, so the field and the dropdowns it now sits
 				// among share a baseline instead of missing it by 4px on every row.
-				className="h-9 min-w-[116px] flex-1 text-[12.5px]"
+				className="h-9 w-full text-[12.5px]"
 			/>
 		</Field>
 	);

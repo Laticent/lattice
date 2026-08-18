@@ -78,7 +78,12 @@ async function pickOption(comboName: RegExp, optionName: RegExp | string) {
 async function selectedOptionText(comboName: RegExp): Promise<string> {
 	const user = userEvent.setup();
 	await user.click(screen.getByRole('combobox', { name: comboName }));
-	return (await screen.findByRole('option', { selected: true })).textContent ?? '';
+	const text = (await screen.findByRole('option', { selected: true })).textContent ?? '';
+	// Close it again. Radix renders the open listbox in a portal and makes the rest of the
+	// panel inert, so leaving one open hides every OTHER combobox from the next query — a
+	// caller reading two axes in a row would fail on the second for the wrong reason.
+	await user.keyboard('{Escape}');
+	return text;
 }
 
 describe('SlideContextBody controls', () => {
@@ -153,12 +158,26 @@ describe('SlideContextBody controls', () => {
 	});
 
 	// Four catalogs (heading rule, headline alignment, card rail, motion speed) carry a
-	// value that is ITSELF labeled "Auto". Naming the head "Auto" too would render
-	// "Auto — Auto"; the stutter collapses to a bare "Auto" (#1293).
-	it('collapses the head to a bare "Auto" when the value it resolves to is also Auto', async () => {
+	// value that is ITSELF labeled "Auto", which would render "Auto — Auto". That used to
+	// collapse to a bare "Auto" — but then some heads carried their resolved value and
+	// some didn't, for a reason no reader could see. Each of those four now supplies an
+	// `autoLabel` naming what its auto LANDS ON, so every head reads one shape.
+	it('resolves the head past a value that is itself "Auto", instead of collapsing to a bare word', async () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		goTab('Accent');
-		expect(await selectedOptionText(/heading rule/i)).toBe('Auto');
+		// `rule`'s auto entry is labeled "Auto" and carries autoLabel 'masthead default'.
+		expect(await selectedOptionText(/heading rule/i)).toBe('Auto — hairline');
+	});
+
+	// The whole point of the rework: NO head is a bare "Auto" any more. A reader can tell
+	// what a slide will get without opening the deck Inspector, on every axis alike.
+	it('every Accent head carries what it resolves to', async () => {
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		goTab('Accent');
+		for (const axis of [/brand bar/i, /bar placement/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
+			const label = await selectedOptionText(axis);
+			expect(label, `${axis} head`).toMatch(/^Auto — .+/);
+		}
 	});
 
 	it('overrides the stamp SHAPE from the Stamp style picker', async () => {

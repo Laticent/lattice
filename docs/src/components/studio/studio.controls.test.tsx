@@ -753,28 +753,39 @@ describe('Studio — Inspector controls respond', () => {
 		expectFrontMatterIntact('Section rail');
 	});
 
-	it('a text field shares its row with its label, like every dropdown in the column', async () => {
-		// jsdom has no layout, so this asserts the STRUCTURE the geometry rests on: the label
-		// and the input are siblings in one flex row, not stacked with the help line between
-		// them. The measured version (one row, right edges aligned, 36px tall, at 390/820/1440)
-		// runs against the built site — see the decision note. This is the part that fails if
-		// someone reverts TextRow to its own layout instead of routing through `Field`.
+	it('a text field shares its row with its label, in the same two columns every control uses', async () => {
+		// jsdom has no layout, so this asserts the STRUCTURE the geometry rests on: label
+		// column and control column as siblings in ONE row, with the help line beneath —
+		// not stacked with the help line between them. The measured version (columns at a
+		// shared x, right edges aligned, at 390/820/1440) runs against the built site.
+		// This is what fails if someone reverts TextRow to a layout of its own instead of
+		// routing through `Field`.
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		const field = await screen.findByRole('textbox', { name: /Deck name/ });
 		const label = document.querySelector(`label[for="${field.id}"]`);
 		expect(label).not.toBeNull();
-		// ONE row, not two. The label now sits in a span beside its ⓘ HelpTip, so the
-		// identity to check is the nearest ROW — `closest('div')` — not the immediate
-		// parent. A stacked TextRow still fails this: there the label's nearest div is
-		// the text block, which is a SIBLING of the input rather than its parent.
-		expect(label?.closest('div')).toBe(field.parentElement);
+
+		// ONE row: the label's column and the field's column are siblings of the same row.
+		const labelCol = label?.parentElement;
+		const controlCol = field.parentElement;
+		const row = labelCol?.parentElement;
+		expect(controlCol?.parentElement).toBe(row);
+
+		// The 45/45 split is what aligns every control in the column at one x — without it
+		// each row sizes to its own label and the column is a ragged edge. Both columns
+		// carry it, so neither can drift alone.
+		for (const col of [labelCol, controlCol]) {
+			expect(col?.className, 'both columns share the row geometry').toMatch(/basis-\[45%\]/);
+			expect(col?.className).toMatch(/flex-1/);
+		}
+
 		// …and the help line is BELOW that row, where every `Field` puts it — not between the
 		// label and the input, which is what pushed the field under the keyboard.
 		const desc = document.getElementById(field.getAttribute('aria-describedby') ?? '');
 		expect(desc).not.toBeNull();
-		expect(desc?.parentElement).toBe(field.parentElement?.parentElement);
+		expect(desc?.parentElement).toBe(row?.parentElement);
 	});
 
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
@@ -845,8 +856,11 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		// open this tab on four dead rows.
 		expect(screen.queryByRole('combobox', { name: 'Choose which slides carry the logo' })).not.toBeInTheDocument();
 		const field = await screen.findByRole('textbox', { name: 'Logo' });
+		// `paste`, not `type`: every keystroke re-renders the whole Inspector, so typing a
+		// 16-character path is ~16 full renders and made this the slowest case in the file —
+		// enough to time out under a loaded suite. The commit path is the same (blur).
 		await user.click(field);
-		await user.type(field, './brand/mark.svg');
+		await user.paste('./brand/mark.svg');
 		await user.tab();
 		await waitFor(() => expect(source()).toMatch(/logo: \.\/brand\/mark\.svg/));
 		// …and now they appear.
@@ -859,7 +873,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await openDeckTab(user, 'Chrome');
 		const field = await screen.findByRole('textbox', { name: 'Meta line' });
 		await user.click(field);
-		await user.type(field, 'Q3 FY26 · Board review');
+		await user.paste('Q3 FY26 · Board review');
 		await user.tab();
 		await waitFor(() => expect(source()).toMatch(/meta: "Q3 FY26 · Board review"/));
 		await user.clear(screen.getByRole('textbox', { name: 'Meta line' }));

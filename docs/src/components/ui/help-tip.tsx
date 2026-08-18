@@ -17,17 +17,27 @@ import { cn } from '@/lib/utils';
 // it for free. `Tip` keeps its job: naming an icon-only control. This one carries a
 // paragraph.
 //
+// LAZY BY DEFAULT, and this is not a micro-optimization. A settings tab renders ~20 of
+// these, and the Inspector re-renders on every keystroke in the deck source. Mounting a
+// Radix Popover Root per row — each with its own context, id and Presence — cost 44% of
+// the StudioShell test file's runtime when measured (63.9s → 92.0s), and tipped a
+// lazy-panel test past its budget. Until a tip is first asked for it is a PLAIN BUTTON;
+// the Popover mounts on the gesture that opens it and stays for the rest of the session.
+// The two branches render the same markup, so nothing shifts when one arms.
+//
 // FOCUS. A hover-opened popover must NOT move focus — the pointer is somewhere else and
 // stealing focus mid-hover would yank the caret out of whatever field the author is
 // typing in. A tap/keyboard-opened one MUST move focus, or a keyboard user opens content
 // they cannot then read or dismiss. `openedByHover` tells the two apart at open time.
 
+/** Hover-intent delay (ms) — long enough that sweeping the pointer across a column of
+ *  rows doesn't strobe popovers open, short enough to feel like a tooltip. */
+const HOVER_DELAY = 320;
+
 // The trigger's classes, merged ONCE at module scope. `cn` is `twMerge(clsx(...))`, and
 // parsing arbitrary-variant names (`data-[state=open]:bg-[var(--accent-soft)]`) is not
-// free — a settings panel renders ~20 of these per Inspector state change, and the same
-// per-render `cn` cost in `Field` is what once timed the docs suite out under load
-// (see the note on FIELD_ROW in StudioShell.tsx). A caller-supplied `className` still
-// merges, but that is the rare path.
+// free at ~20 rows per Inspector state change — the same per-render `cn` cost that
+// `FIELD_ROW` in StudioShell.tsx exists to avoid.
 //
 // INLINE, not a flex sibling. As a flex item beside the label the icon took its own 20px
 // of a no-wrap row, which pushed a two-word label ("Color mode") onto a second line and
@@ -40,12 +50,10 @@ const TRIGGER_CLASS = cn(
 	'data-[state=open]:bg-[var(--accent-soft)] data-[state=open]:text-[var(--accent)]',
 );
 
-// The content's classes, merged once for the same reason.
+// The content's classes, merged once for the same reason. Narrower + tighter than the
+// default popover: this is a help note beside a row, not a panel. `w-72 p-4` would
+// overhang a docked 300px Inspector.
 const CONTENT_CLASS = 'w-[248px] p-3 text-[11.5px] leading-relaxed text-muted-foreground [&_code]:rounded [&_code]:bg-[var(--accent-soft)] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[11px] [&_strong]:font-semibold [&_strong]:text-[var(--text-heading)]';
-
-/** Hover-intent delay (ms) — long enough that sweeping the pointer across a column of
- *  rows doesn't strobe popovers open, short enough to feel like a tooltip. */
-const HOVER_DELAY = 320;
 
 export function HelpTip({
 	label,
@@ -63,6 +71,8 @@ export function HelpTip({
 	side?: React.ComponentProps<typeof PopoverContent>['side'];
 	align?: React.ComponentProps<typeof PopoverContent>['align'];
 }) {
+	// `armed` = has this tip ever been asked for? Until then there is no Popover at all.
+	const [armed, setArmed] = React.useState(false);
 	const [open, setOpen] = React.useState(false);
 	// Which gesture opened it — decides whether the content takes focus (see FOCUS above).
 	const openedByHover = React.useRef(false);
@@ -79,7 +89,7 @@ export function HelpTip({
 	const hoverOpen = (e: React.PointerEvent) => {
 		if (e.pointerType !== 'mouse' || open) return;
 		clear();
-		timer.current = setTimeout(() => { openedByHover.current = true; setOpen(true); }, HOVER_DELAY);
+		timer.current = setTimeout(() => { openedByHover.current = true; setArmed(true); setOpen(true); }, HOVER_DELAY);
 	};
 	const hoverClose = (e: React.PointerEvent) => {
 		if (e.pointerType !== 'mouse') return;
@@ -88,6 +98,25 @@ export function HelpTip({
 		// keyboard-opened stays until they dismiss it.
 		if (openedByHover.current) setOpen(false);
 	};
+
+	const triggerProps = {
+		type: 'button' as const,
+		'aria-label': label,
+		onPointerEnter: hoverOpen,
+		onPointerLeave: hoverClose,
+		className: className ? cn(TRIGGER_CLASS, className) : TRIGGER_CLASS,
+	};
+	const glyph = <CircleHelp className="size-[13px]" />;
+
+	// Not yet asked for: a plain button, no Radix. Clicking it arms AND opens, so the
+	// first gesture behaves exactly like every later one.
+	if (!armed) {
+		return (
+			<button {...triggerProps} onClick={() => { clear(); openedByHover.current = false; setArmed(true); setOpen(true); }}>
+				{glyph}
+			</button>
+		);
+	}
 
 	return (
 		<Popover
@@ -99,23 +128,13 @@ export function HelpTip({
 			}}
 		>
 			<PopoverTrigger asChild>
-				<button
-					type="button"
-					aria-label={label}
-					onPointerEnter={hoverOpen}
-					onPointerLeave={hoverClose}
-					className={className ? cn(TRIGGER_CLASS, className) : TRIGGER_CLASS}
-				>
-					<CircleHelp className="size-[13px]" />
-				</button>
+				<button {...triggerProps}>{glyph}</button>
 			</PopoverTrigger>
 			<PopoverContent
 				side={side}
 				align={align}
 				sideOffset={6}
 				onOpenAutoFocus={(e) => { if (openedByHover.current) e.preventDefault(); }}
-				// Narrower + tighter than the default popover: this is a help note beside a
-				// row, not a panel. `w-72 p-4` would overhang a docked 300px Inspector.
 				className={CONTENT_CLASS}
 			>
 				{children}

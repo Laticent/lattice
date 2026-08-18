@@ -45,15 +45,26 @@ describe('LanguageSelect', () => {
 		expect((await screen.findByRole('option', { selected: true })).textContent).toBe('fr-FR (unsupported)');
 	});
 
-	it('shows a COMPACT "Auto" inherit row when includeAuto is on, full meaning in the title', async () => {
+	it('names what Auto resolves to in the row itself, with the fuller sentence in the title', async () => {
+		// The row used to read a bare "Auto", with the resolved language demoted to the
+		// tooltip, because a long label widened the whole control (the trigger mirrors the
+		// selected row). The control now owns a fixed half of its row and truncates
+		// (SETTING_ROW in ui/panel), so the value is back where it can be read at a glance —
+		// which is the point of an Auto row: what do I get if I leave this alone?
+		render(<LanguageSelect value={LANG_AUTO} includeAuto resolvedAuto="English (United States)" autoLabel="Automatic — English (United States)" onValueChange={() => {}} ariaLabel="Deck language" />);
+		await open('Deck language');
+		expect(optionLabels()).toContain('Auto — English (United States)');
+		// …and the fuller sentence still rides in the row's title (hover + a11y description).
+		expect(screen.getByRole('option', { name: 'Auto — English (United States)' })).toHaveAttribute('title', 'Automatic — English (United States)');
+		expect((await screen.findByRole('option', { selected: true })).textContent).toBe('Auto — English (United States)');
+	});
+
+	it('falls back to the tail of autoLabel when no resolvedAuto is passed', async () => {
+		// A caller that only knows the old prop still reads correctly rather than showing a
+		// bare "Auto" — the inconsistency this change exists to remove.
 		render(<LanguageSelect value={LANG_AUTO} includeAuto autoLabel="Automatic — English (United States)" onValueChange={() => {}} ariaLabel="Deck language" />);
 		await open('Deck language');
-		// The visible label is the compact "Auto" (so the trigger doesn't overflow)…
-		expect(optionLabels()).toContain('Auto');
-		expect(optionLabels().some((l) => /Automatic/.test(l))).toBe(false);
-		// …while the full resolved meaning rides in the row's title (hover + a11y description).
-		expect(screen.getByRole('option', { name: 'Auto' })).toHaveAttribute('title', 'Automatic — English (United States)');
-		expect((await screen.findByRole('option', { selected: true })).textContent).toBe('Auto');
+		expect(optionLabels()).toContain('Auto — English (United States)');
 	});
 
 	it('reports the picked code — the Automatic sentinel and a concrete language', async () => {

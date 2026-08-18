@@ -7,6 +7,10 @@
 export type MotionEntry = {
 	name: string;
 	label: string;
+	/** For an entry whose own label is "Auto": what auto RESOLVES to, for the
+	 *  `Auto — <resolved>` head. Without it that head reads "Auto — Auto"
+	 *  (see autoHeadLabel in auto-mark.tsx). */
+	autoLabel?: string;
 	blurb: string;
 	swatch: { background: string; backgroundSize?: string };
 };
@@ -22,7 +26,7 @@ export const MOTION_STYLE_ENTRIES: MotionEntry[] = [
 
 /** SPEED — how FAST. `auto` scales to the chart's mark count. */
 export const MOTION_SPEED_ENTRIES: MotionEntry[] = [
-	{ name: 'auto', label: 'Auto', blurb: 'Paced to the chart — a bigger chart takes a little longer, so each mark keeps a steady beat.', swatch: { background: A(28) } },
+	{ name: 'auto', label: 'Auto', autoLabel: 'by size', blurb: 'Paced to the chart — a bigger chart takes a little longer, so each mark keeps a steady beat.', swatch: { background: A(28) } },
 	{ name: 'slow', label: 'Slow', blurb: 'A calm, deliberate build (~5s).', swatch: { background: A(16) } },
 	{ name: 'normal', label: 'Normal', blurb: 'The standard pace (~3.6s).', swatch: { background: A(34) } },
 	{ name: 'fast', label: 'Fast', blurb: 'A quick build (~2s).', swatch: { background: A(52) } },

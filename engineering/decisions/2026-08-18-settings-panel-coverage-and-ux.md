@@ -331,6 +331,56 @@ took its own 20px of a no-wrap row, which broke "Color mode" onto two lines and 
 orphaned the icon on a line of its own — visible in the first real-surface screenshot,
 invisible to every unit test.
 
+### 7.1 The second pass: one row geometry, and the resolved value everywhere
+
+Three follow-on asks landed in the same PR, and the first two turn out to be one change.
+
+**Every control now owns an equal half of its row.** `SETTING_ROW` /
+`SETTING_LABEL_COL` / `SETTING_CONTROL_COL` (`docs/src/components/ui/panel.tsx`) split a
+setting into `label | control` at 45/45 with the help line beneath, and both Inspector
+scopes use them. Because the two columns are `flex-1 min-w-0`, the free space divides
+evenly: every control starts at the same x whatever its label's length, and a filling
+control (dropdown, text input, segmented control) takes `w-full` and TRUNCATES rather
+than growing. Each control previously sized to its own content, so a column of them was
+a ragged edge. The row still `flex-wrap`s, so a control whose min-content cannot fit its
+half drops to its own full-width line instead of overflowing the panel.
+
+The docked Inspector is already clamped to **260–420px** (`SET_MIN` / `PANEL_MAX` in
+`StudioShell.tsx`) — so the max width the ask wondered about exists, and the narrowest
+column this geometry has to survive is ~108px. That is the number the labels below are
+written against.
+
+**The resolved value is back in every "Auto".** It had been removed on purpose: a long
+`Automatic — English (United States)` label widened its whole control, because the
+trigger mirrors the selected row and every control sized to its content. That trade is
+exactly what the geometry above dissolves, so the rule is now uniform — **wherever the
+word Auto appears, what it resolves to follows it**:
+
+| Where | Before | After |
+|---|---|---|
+| Deck ▸ Theme | `Auto` | `Auto — Cuoio` |
+| Deck ▸ Language | `Auto` (value in the tooltip) | `Auto — English (United States)` |
+| Deck ▸ Heading rule | `Auto` | `Auto — hairline` |
+| Slide ▸ Brand bar (deck sets nothing) | `Rainbow` | `Auto — Rainbow` |
+| Slide ▸ Heading rule | `Auto` (collapsed) | `Auto — hairline` |
+
+Three shapes had been in play — a bare `Auto`, an `Auto — <value>`, and a bare `<value>`
+— and no reader could see the rule that picked between them. The collapse to a bare
+`Auto` existed to avoid an `Auto — Auto` echo on the four catalogs whose own value is
+labeled "Auto"; those entries now carry an `autoLabel` naming what their auto LANDS on
+(`hairline`, `component`, `by size`, `bar`), which `catalogOptions` and `autoHeadLabel`
+both read. Keep those to one short word: the control truncates, and `Auto — masthead d…`
+has spent the width and said nothing.
+
+**A performance note, because it was nearly shipped twice.** Mounting a Radix Popover per
+row for the ⓘ cost **44% of the StudioShell test file's runtime** (63.9s → 92.0s) and
+tipped a lazy-panel test past its budget. `HelpTip` is now lazy — a plain button until the
+tip is first asked for, the Popover mounting on the gesture that opens it. Re-measured
+back-to-back, twice each: mine 69.8s / 63.2s, baseline 64.6s / 66.9s — parity. The first
+two attempts to read this from a single run each gave a wrong answer (one contaminated by
+a browser running alongside, one by run-to-run variance of ±14%), which is worth knowing
+before anyone reads a single timing here as signal.
+
 **Not done, and deliberately:** `style:`, the Marp `background*` / `color` directives,
 `captions:`, and the per-slide `_focus` / `_focusSteps` / `_build` grammar. The first
 group is an escape hatch the editor (with autocomplete) serves better; the last needs an

@@ -15,6 +15,7 @@
 import { Captions, Check, Cloud, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
+import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch as UISwitch } from '@/components/ui/switch';
@@ -22,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
+import { autoHeadLabel } from './auto-mark';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
@@ -78,6 +80,10 @@ export type SlideContextBodyProps = {
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
 
+// Merged ONCE — `cn` is twMerge(clsx(...)), and this renders on every keystroke while the
+// panel is open. Same cost the deck Inspector's FIELD_LABEL avoids.
+const ROW_LABEL = cn(SETTING_LABEL_COL, 'text-[12.5px] text-foreground');
+
 // `desc` is a CLAUSE — what the control does, in a line. The longer explanation (what
 // the values mean, how the deck default interacts) goes in `help`, behind the ⓘ, so a
 // tab of eight controls isn't a wall of prose the eye skips. Same split as the deck
@@ -85,15 +91,17 @@ export type SlideContextBodyProps = {
 function Row({ label, hint, desc, help, children }: { label: string; hint?: string; desc?: string; help?: React.ReactNode; children: React.ReactNode }) {
 	return (
 		<div className="my-1.5">
-			{/* flex-wrap: on a narrow pane the control (a segmented Seg, a dropdown) drops
-			    below the label instead of overflowing the row — so the inspector stays usable
-			    when the Settings panel is dragged narrow. */}
-			<div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5">
-				<span className="text-[12.5px] text-foreground">
+			{/* The SAME 45/45 geometry the deck Inspector uses (SETTING_ROW in ui/panel) —
+			    every control in the column starts at one x, whatever its label's length, and
+			    a filling control truncates rather than growing. It still wraps: if a control's
+			    min-content can't fit its half, it drops to its own full-width line instead of
+			    overflowing a narrow panel. */}
+			<div className={SETTING_ROW}>
+				<span className={ROW_LABEL}>
 					{label}{hint && <span className="ml-1.5 text-[11px] text-muted-foreground">{hint}</span>}
 					{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
 				</span>
-				{children}
+				<span className={SETTING_CONTROL_COL}>{children}</span>
 			</div>
 			{desc && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 		</div>
@@ -146,13 +154,15 @@ function Seg({ options, value, onChange, ariaLabel }: { options: { label: string
 			aria-label={ariaLabel}
 			value={value ?? SEG_DEFAULT}
 			onValueChange={(v) => onChange(v === SEG_DEFAULT ? null : v)}
-			className="overflow-hidden rounded-md border border-border"
+			className="w-full overflow-hidden rounded-md border border-border"
 		>
 			{options.map((o, i) => (
 				<RadioGroupItem
 					key={o.value ?? SEG_DEFAULT}
 					value={o.value ?? SEG_DEFAULT}
-					className={cn('px-2.5 py-1 text-[12px] text-foreground hover:bg-[var(--accent-soft)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground', i > 0 && 'border-l border-border')}
+					// `flex-1` + a `min-w-0` so the segments share the column evenly and the row
+					// lines up with every dropdown, rather than the control sizing to its labels.
+					className={cn('min-w-0 flex-1 px-2 py-1 text-center text-[12px] text-foreground hover:bg-[var(--accent-soft)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground', i > 0 && 'border-l border-border')}
 				>
 					{o.label}
 				</RadioGroupItem>
@@ -208,14 +218,18 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * #1293).
  *
  * `resolved` is what Auto currently lands on, so the head reads "Auto — Rainbow"
- * and the author can see the consequence without opening the deck Inspector.
- * Four catalogs (spectrum-card, motion-speed, rule, headline) carry a value that
- * is ITSELF labeled "Auto"; naming the head Auto too would render "Auto — Auto".
- * That stutter collapses to a bare "Auto" — which is not a fudge but the honest
- * reading: whichever of the two you mean, the answer is auto.
+ * and the author sees the consequence without opening the deck Inspector. It is
+ * ALWAYS shown now: the head used to collapse to a bare "Auto" whenever the deck's
+ * value was itself labeled "Auto" (spectrum-card, motion-speed, rule, headline),
+ * which made the panel inconsistent — some heads carried their value and some did
+ * not, for a reason no reader could see. Those four catalogs supply an `autoLabel`
+ * naming what their auto resolves to ("follows the bar", "by chart size"), and
+ * `entryAuto` below passes it, so every head reads the same shape.
  */
-const autoHead = (resolved: string): string =>
-	!resolved.trim() || /^auto$/i.test(resolved.trim()) ? 'Auto' : `Auto — ${resolved}`;
+const autoHead = autoHeadLabel;
+/** The display value for an axis's head: an entry's `autoLabel` if it has one (its own
+ *  label is "Auto"), else its capitalized label. */
+const entryAuto = (entry: { label: string; autoLabel?: string }): string => entry.autoLabel ?? entry.label;
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--text-muted)' };
 
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
@@ -339,7 +353,10 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const spectrumOptions: CatalogOption[] = [
 		spectrum.inheritable
 			? { label: autoHead(cap(spectrum.deckValue ?? '')), value: '__inherit__', swatch: activeSpectrum(spectrum.deckValue ?? 'on').swatch }
-			: { label: 'Rainbow', value: '__inherit__', swatch: activeSpectrum('on').swatch },
+			// `autoHead`, not a bare "Rainbow": every other axis's head reads "Auto — <value>"
+			// in BOTH arms, and this one alone said just the value when the deck set nothing.
+			// Three shapes across one panel is what the reader was decoding.
+			: { label: autoHead('Rainbow'), value: '__inherit__', swatch: activeSpectrum('on').swatch },
 		{ label: 'Solid accent', value: 'solid', swatch: activeSpectrum('solid').swatch },
 		{ label: 'Duo', value: 'duo', swatch: activeSpectrum('duo').swatch },
 		{ label: 'Mono', value: 'mono', swatch: activeSpectrum('mono').swatch },
@@ -354,11 +371,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		prov: ReturnType<typeof spectrumEdgeProvenance>,
 		entries: { name: string; label: string; swatch: CatalogOption['swatch'] }[],
 		defaultName: string,
-		active: (v: string | null | undefined) => { label: string; swatch: NonNullable<CatalogOption['swatch']> },
+		active: (v: string | null | undefined) => { label: string; autoLabel?: string; swatch: NonNullable<CatalogOption['swatch']> },
 	): { value: string; options: CatalogOption[] } => {
+		// `entryAuto`, not the raw label: `rule` and `headline` both have an entry LABELED
+		// "Auto", and a head built from that would read "Auto — Auto".
 		const head: CatalogOption = prov.inheritable
-			? { label: autoHead(cap(prov.deckValue ?? '')), value: '__inherit__', swatch: active(prov.deckValue).swatch }
-			: { label: autoHead(active(defaultName).label), value: '__inherit__', swatch: active(defaultName).swatch };
+			? { label: autoHead(entryAuto(active(prov.deckValue))), value: '__inherit__', swatch: active(prov.deckValue).swatch }
+			: { label: autoHead(entryAuto(active(defaultName))), value: '__inherit__', swatch: active(defaultName).swatch };
 		const options = [head, ...entries.filter((e) => e.name !== defaultName).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }))];
 		return { value: prov.state === 'on' ? (prov.value ?? '__inherit__') : '__inherit__', options };
 	};
@@ -384,7 +403,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		: has('spectrum-card-off') ? 'off' : '__inherit__';
 	const cardOptions: CatalogOption[] = [
 		cardProv.inheritable
-			? { label: autoHead(cap(cardProv.deckValue ?? '')), value: '__inherit__', swatch: activeSpectrumCard(cardProv.deckValue).swatch }
+			? { label: autoHead(entryAuto(activeSpectrumCard(cardProv.deckValue))), value: '__inherit__', swatch: activeSpectrumCard(cardProv.deckValue).swatch }
 			: { label: autoHead('None'), value: '__inherit__', swatch: activeSpectrumCard('off').swatch },
 		...SPECTRUM_CARDS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
@@ -403,7 +422,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		: has('spectrum-trim-off') ? 'off' : '__inherit__';
 	const trimOptions: CatalogOption[] = [
 		trimProv.inheritable
-			? { label: autoHead(activeSpectrumTrim(trimProv.deckValue).label), value: '__inherit__', swatch: activeSpectrumTrim(trimProv.deckValue).swatch }
+			? { label: autoHead(entryAuto(activeSpectrumTrim(trimProv.deckValue))), value: '__inherit__', swatch: activeSpectrumTrim(trimProv.deckValue).swatch }
 			: { label: autoHead('Quiet'), value: '__inherit__', swatch: activeSpectrumTrim('off').swatch },
 		...SPECTRUM_TRIMS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
@@ -419,7 +438,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const motionStyleValue = motionStyleProv.state === 'on' ? (motionStyleProv.value ?? '__inherit__') : '__inherit__';
 	const motionStyleOptions: CatalogOption[] = [
 		motionStyleProv.inheritable
-			? { label: autoHead(activeMotionStyle(motionStyleProv.deckValue).label), value: '__inherit__', swatch: activeMotionStyle(motionStyleProv.deckValue).swatch }
+			? { label: autoHead(entryAuto(activeMotionStyle(motionStyleProv.deckValue))), value: '__inherit__', swatch: activeMotionStyle(motionStyleProv.deckValue).swatch }
 			: { label: autoHead('Build'), value: '__inherit__', swatch: activeMotionStyle('build').swatch },
 		...MOTION_STYLE_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
@@ -427,8 +446,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const motionSpeedValue = motionSpeedProv.state === 'on' ? (motionSpeedProv.value ?? '__inherit__') : '__inherit__';
 	const motionSpeedOptions: CatalogOption[] = [
 		motionSpeedProv.inheritable
-			? { label: autoHead(activeMotionSpeed(motionSpeedProv.deckValue).label), value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch }
-			: { label: autoHead('Auto'), value: '__inherit__', swatch: activeMotionSpeed('auto').swatch },
+			? { label: autoHead(entryAuto(activeMotionSpeed(motionSpeedProv.deckValue))), value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch }
+			: { label: autoHead(entryAuto(activeMotionSpeed('auto'))), value: '__inherit__', swatch: activeMotionSpeed('auto').swatch },
 		...MOTION_SPEED_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
 	const onMotionSpeed = (v: string) => onMutate((c) => setMotionSpeed(c, v === '__inherit__' ? null : v));
@@ -663,7 +682,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								/>
 							</Row>
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="The backdrop behind this slide." help={<>A soft gradient or grain painted behind the content. It comes from the deck unless you override it here.</>}>
-								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} />
+								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
 							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
 							{accepts('compact') && (

@@ -7,3 +7,11 @@
   meaning. Low-traffic rows in each tab move behind a **More** disclosure.
 - **Row descriptions are one clause.** The paragraph each row used to carry moved behind
   its ⓘ — nothing was deleted.
+- **Every settings control is the same width, aligned in one column.** Each row is now
+  `label | control` at an even split with the help line beneath, so dropdowns, text fields
+  and segmented controls all start at the same point and share one right edge instead of
+  each sizing to its own content. Switches stay right-aligned; a control too wide for its
+  half drops to its own line rather than overflowing a narrow panel.
+- **"Auto" always names what it resolves to** — `Auto — Cuoio`, `Auto — English`,
+  `Auto — hairline`. Three different shapes were in play (a bare `Auto`, `Auto — value`,
+  and a bare value), picked by a rule no reader could see.
