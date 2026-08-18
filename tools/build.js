@@ -264,7 +264,18 @@ async function main(argv) {
   const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js'];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
-    for (const step of STEPS.filter((x) => x.uncommitted)) {
+    // BACKGROUND_LABELS first, and this is a dependency, not a speed-up. The main
+    // pipeline starts the four workspace-library dists in the background early and
+    // joins them at build-read-along-core.js; a naive in-order serial loop here
+    // instead ran build-player-core.js BEFORE build-cadenza-lib.js, and player-core
+    // bundles `@workwel/cadenza`, whose entry IS that dist. It failed with
+    // `Could not resolve "@workwel/cadenza"` on a genuinely cold tree — and only
+    // there, because any previously-built dist/ hid it.
+    const bootstrapOrder = [
+      ...STEPS.filter((x) => x.uncommitted && BACKGROUND_LABELS.has(x.label)),
+      ...STEPS.filter((x) => x.uncommitted && !BACKGROUND_LABELS.has(x.label)),
+    ];
+    for (const step of bootstrapOrder) {
       if (!runStep(step, false)) {
         process.stderr.write(`\nbuild aborted: bootstrap step ${step.label} failed.\n`);
         return 1;
