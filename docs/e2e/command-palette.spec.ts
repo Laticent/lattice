@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // The ⌘K command palette: opens on the keyboard shortcut, and each command runs
 // its action and closes the dialog.
@@ -118,6 +118,52 @@ test('the inline dropdown paints below the header, not clipped inside it', async
 		parseFloat(capped),
 		`with the visible band at 484px the list must cap to 416px (484 - 54 header - 14 for the card's gap, borders and breathing), got ${capped}`,
 	).toBeCloseTo(416, 0);
+});
+
+/**
+ * THE ROW KEEPS ITS RIGHT EDGE WHILE THE SEARCH IS OPEN (2026-08-18).
+ *
+ * Opening the field used to make the trailing cluster vanish outright, and on a real iPad
+ * that read wrong: *"it looks really odd that it takes up all the space."* The width is
+ * still reclaimed — the cluster now collapses into ONE hamburger carrying everything it
+ * displaced, instead of into nothing.
+ *
+ * The assertion that matters most here is the third one, and it guards a trap this feature
+ * walked straight into: the hamburger is a SIBLING of the Command widget, not a descendant,
+ * so the field's capture-phase outside-click dismissal closed the search on the very
+ * pointerdown that opens the menu — unmounting the trigger mid-press, so the menu never
+ * appeared. `[data-inline-search-keep-open]` is the exception that fixes it, and nothing
+ * else would notice if it were removed: the button still renders, still has its name, and
+ * the only symptom is that pressing it does nothing.
+ */
+test('the open search collapses the row into one menu, and that menu can actually be opened', async ({ page }) => {
+	// Closed: the tail is the row's right edge, and there is no overflow hamburger.
+	await expect(page.getByRole('button', { name: 'Present' })).toBeVisible();
+	await expect(page.getByRole('button', { name: CHROME.searchOverflow })).toHaveCount(0);
+
+	await page.keyboard.press('ControlOrMeta+k');
+	await expect(page.getByPlaceholder('Search or run a command…')).toBeFocused();
+
+	// Open: the tail has collapsed, and the hamburger stands where it was.
+	const burger = page.getByRole('button', { name: CHROME.searchOverflow });
+	await expect(burger, 'the open search must leave a control on the row’s right edge, not an empty bar').toBeVisible();
+	await expect(page.getByRole('button', { name: 'Present' }), 'the tail should have collapsed INTO the menu').toHaveCount(0);
+
+	// It must survive its own press. Without the dismissal exception the search closes on
+	// pointerdown, the button unmounts, and this click opens nothing.
+	await burger.click();
+	await expect(page.getByRole('menuitem', { name: 'Present' }), 'the overflow menu did not open — the search dismissed itself on the press').toBeVisible();
+	await expect(page.getByPlaceholder('Search or run a command…'), 'pressing the row’s own menu must not dismiss the field').toBeVisible();
+
+	// And running something from it leaves the search behind rather than stranding it open.
+	// The light/dark row on purpose: it opens NOTHING, so what is asserted afterwards is the
+	// row restoring, not a modal covering it. (Workspace settings was the first choice and
+	// made this test lie — its dialog marks the row inert, so "Present is not visible" said
+	// nothing about whether the row came back.)
+	await page.getByRole('menuitem', { name: /Switch to (light|dark) mode/ }).click();
+	await expect(page.getByPlaceholder('Search or run a command…'), 'running a row must close the search, not strand it open behind the result').toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Present' }), 'closing the search must restore the row').toBeVisible();
+	await expect(page.getByRole('button', { name: CHROME.searchOverflow }), 'the hamburger belongs to the open state only').toHaveCount(0);
 });
 
 /**

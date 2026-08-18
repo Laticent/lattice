@@ -3559,6 +3559,89 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		</Tip>
 	);
 
+	/**
+	 * THE ROW'S RIGHT-HAND SIDE, COLLAPSED INTO ONE CONTROL WHILE THE SEARCH IS OPEN.
+	 *
+	 * Opening the inline ⌘K field used to make the trailing cluster VANISH — the row
+	 * reclaimed its right-hand side and gave the width to the field. The owner tapped
+	 * that on a real iPad: *"it looks really odd that it takes up all the space. i would
+	 * much rather we collapse the icons to the right into a hamburger menu."* The
+	 * reclaimed width is still right (at tablet the row has 0px of spare, so the field
+	 * could not otherwise open at all); what was wrong is that the row's right edge
+	 * disappeared with it, and a bar with nothing on one end reads as broken rather than
+	 * as focused.
+	 *
+	 * So the width is still reclaimed — the cluster just collapses into one 26px button
+	 * instead of into nothing, and every control it displaces is inside it.
+	 *
+	 * WHAT GOES IN IS "EVERYTHING THE ROW HIDES", the owner's call over a narrower
+	 * Present/Share/feedback set. That differs by tier, which is why the gates below are
+	 * not decoration:
+	 *   desktop → theme, light/dark, tours, Present, Share, feedback, Workspace
+	 *   tablet  → the above MINUS the desktop-only appearance segment and tours button,
+	 *             PLUS Coach, Chat, Settings, and the contents of the ⋯ menu the row
+	 *             carries there (Library, Lenses) — because the row hides that ⋯ too, so
+	 *             everything reachable THROUGH it is also displaced.
+	 * `bp === 'tablet'` rather than `compact`, matching the gates on the controls this
+	 * stands in for; `searchExpanded` is already `!mobile`, so no phone branch is owed.
+	 *
+	 * NOT the "Search / commands" row the tablet ⋯ carries. It opens the very field this
+	 * menu only exists underneath.
+	 *
+	 * `data-inline-search-keep-open` is load-bearing: this button is a SIBLING of the
+	 * Command widget, and the field's capture-phase outside-click dismissal would
+	 * otherwise close the search on the pointerdown that opens this menu, unmounting the
+	 * trigger mid-press. See the note at that effect in CommandPalette.tsx.
+	 *
+	 * Every row closes the search on its way out (`fromOverflow`), because running one of
+	 * these is leaving the search, and a field left open behind a Share dialog is the
+	 * transport bug #1198 is about in a different costume.
+	 */
+	const fromOverflow = (fn: () => void) => () => {
+		setCmdOpen(false);
+		fn();
+	};
+	const searchOverflowMenu = (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant="ghost" size="icon-sm" aria-label="More controls" data-inline-search-keep-open="" className="shrink-0"><MenuIcon className="size-[18px]" /></Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" data-inline-search-keep-open="" className="w-56 overflow-hidden p-0">
+				<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
+					<DropdownMenuItem onSelect={fromOverflow(openPresent)}><Play className="size-4" />Present</DropdownMenuItem>
+					<DropdownMenuItem onSelect={fromOverflow(() => setShareOpen(true))}><Share2 className="size-4" />Share…</DropdownMenuItem>
+					{bp === 'tablet' && (
+						<>
+							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach')))}><Gauge className="size-4" />Coach</DropdownMenuItem>
+							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat')))}><ChatIcon className="size-4" />Chat</DropdownMenuItem>
+							<DropdownMenuItem onSelect={fromOverflow(() => setActiveSettings((p) => (p ? null : 'deck')))}><SlidersHorizontal className="size-4" />Settings — deck &amp; slide</DropdownMenuItem>
+							<DropdownMenuItem onSelect={fromOverflow(() => setLibraryOpen(true))}><FileBox className="size-4" />Library</DropdownMenuItem>
+							<DropdownMenuItem onSelect={fromOverflow(() => setLensesOpen(true))}><LensIcon className="size-4" />Lenses — reader views</DropdownMenuItem>
+						</>
+					)}
+					<DropdownMenuItem onSelect={fromOverflow(() => setWorkspaceOpen(true))}><SettingsCog className="size-4" />Workspace settings</DropdownMenuItem>
+					<DropdownMenuItem onSelect={fromOverflow(() => setFeedbackOpen(true))}><FeedbackIcon className="size-4" />Send feedback</DropdownMenuItem>
+					{toursOn && !demoActive && (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
+							{TOURS.map((t) => (
+								<DropdownMenuItem key={t.id} onSelect={fromOverflow(() => startDemo(t.id))} className="flex-col items-start gap-0.5 py-2">
+									<span className="font-medium">{t.label}</span>
+									<span className="text-[12px] text-muted-foreground">{t.description}</span>
+								</DropdownMenuItem>
+							))}
+						</>
+					)}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onSelect={fromOverflow(toggleMode)}>{mode === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}{mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
+				</ScrollFade>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
 	// The deck switcher — deck identity + CRUD (Switch / Rename / New). SHARED by the
 	// full header (Craft / compact) AND the slim Write header: deck-switching and
 	// New deck are the Write persona's most basic navigation, not strippable chrome,
@@ -3801,7 +3884,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    moved — they are GONE — so there is no x to disagree about, and the width they
 				    were holding goes to the field instead of coming out of the deck title.
 				    `studio-header-fit`'s open-state guard asserts exactly that. */}
-				{!searchExpanded && (<>
+				{searchExpanded ? searchOverflowMenu : (<>
 				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
 				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
 				    and Craft (#1371). It survives the dial moving to the identity band precisely
@@ -3950,7 +4033,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    you are not using while searching are the right ones to spend.
 				    Idle is untouched, so `studio-shell-parity` and the SSR skeleton do not
 				    move; the open state is guarded by `studio-header-fit`'s open-state test. */}
-				{!searchExpanded && (<>
+				{searchExpanded ? searchOverflowMenu : (<>
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,
 				    the mode toggle kept a direct 1-tap button. On compact the theme picker

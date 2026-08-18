@@ -157,7 +157,17 @@ export function CommandPalette({
 	React.useEffect(() => {
 		if (!inline || !open) return;
 		const onDown = (e: PointerEvent) => {
-			if (inlineRef.current && !inlineRef.current.contains(e.target as Node)) onOpenChange(false);
+			if (!inlineRef.current) return;
+			const target = e.target as Node;
+			if (inlineRef.current.contains(target)) return;
+			// THE ONE SANCTIONED EXCEPTION, and without it the header's overflow menu cannot
+			// be opened at all. While the field is open the row collapses its right-hand side
+			// into a single hamburger (StudioShell), which is a SIBLING of this widget, not a
+			// descendant — so a plain "outside" test closes the search on the very pointerdown
+			// that is trying to open that menu, unmounting the button mid-press. Anything the
+			// row marks as belonging to the open-search state counts as inside.
+			if (target instanceof Element && target.closest('[data-inline-search-keep-open]')) return;
+			onOpenChange(false);
 		};
 		document.addEventListener('pointerdown', onDown, true);
 		return () => document.removeEventListener('pointerdown', onDown, true);

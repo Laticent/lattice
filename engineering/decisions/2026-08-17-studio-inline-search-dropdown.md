@@ -680,7 +680,60 @@ PR) and #8 (gallery isolation) stay intact.
   "3181/3181" claim about the full docs suite is a coin-flip reproduction, and it is worth
   knowing that before it is read as evidence of a regression somewhere.
 
-## 4. Coverage this round did NOT add
+## 4. The row keeps its right edge (2026-08-18, from the same iPad session)
+
+**Ask:** *"it looks really odd that it takes up all the space. i would much rather we
+collapse the icons to the right into a hamburger menu even though it will be non
+functional once the search loses focus."*
+
+Round two had the row's trailing cluster VANISH while the field is open — `searchExpanded`
+simply dropped it — and the width that freed is genuinely needed: at tablet the row measures
+**0px of spare** from 700 through 834, so without reclaiming it the field cannot open at all.
+What was wrong is not the reclaim; it is that the row's right EDGE went with it, and a bar
+with nothing on one end reads as broken rather than as focused.
+
+So the cluster now collapses into ONE 26px hamburger pinned where it used to end, instead of
+into nothing. Measured on the built site with the field open: the button sits at x=1394 of
+1440 (right edge 1426, i.e. the header's own 14px padding) at desktop and x=778 of 820 at
+tablet, and `scrollWidth === clientWidth` at both — the reclaim is intact.
+
+**What goes in is "everything the row hides"** — the owner's call over a narrower
+Present/Share/feedback set. That is a different list per tier, and the gates are load-bearing:
+desktop displaces theme, light/dark, tours, Present, Share, feedback and Workspace; tablet
+displaces Coach, Chat, Settings and the ⋯ menu itself, so everything reachable THROUGH that ⋯
+(Library, Reader views) is displaced too and belongs in here. Measured: 28 rows at desktop,
+33 at tablet. The one row deliberately omitted is the ⋯ menu's "Search / commands" — it opens
+the very field this menu only exists underneath.
+
+### The trap: a sibling control cannot survive its own press
+
+The hamburger is a SIBLING of the `Command` widget, not a descendant, and the field's
+dismissal is a **capture-phase** `pointerdown` listener that closes on any target outside
+`inlineRef`. So the search closed on the very press that opens the menu, unmounting the
+trigger mid-gesture: the button rendered, had its accessible name, and did nothing.
+
+`[data-inline-search-keep-open]` is the exception — anything the row marks as belonging to
+the open-search state counts as inside. **Nothing else would have caught its removal**, which
+is why the guard is explicit: `command-palette.spec.ts` presses the button and requires the
+menu to appear. Verified able to fail — with the exception deleted and the site rebuilt, it
+reports `the overflow menu did not open — the search dismissed itself on the press`.
+
+A second, smaller lesson from writing that guard: its last assertion first ran a row that
+opens a **modal** (Workspace settings), which marks the row inert — so "Present is not
+visible" afterwards said nothing about whether the row had come back. It now runs the
+light/dark row, which opens nothing, so the assertion is about the row and not about an
+overlay sitting on top of it.
+
+### Naming
+
+The button is **"More controls"**, deliberately not `CHROME.moreControls` ('Menu') which the
+tablet ⋯ already uses. Same idiom, different door: this one's contents are a superset. Same
+name with different contents is the drift #1654 is about, in the direction the map cannot
+catch — and a third `aria-label="Menu"` would also make `back-gesture.spec.ts`'s bare `'Menu'`
+locator ambiguous, since the SSR skeleton ships two inert ones already. Registered as
+`CHROME.searchOverflow`.
+
+## 5. Coverage this round did NOT add
 
 The new paint + cap guard carries no project tag, so it runs on the **desktop** Playwright
 project only. The tablet widths that justify the feature (820, 1194) have no paint guard of
