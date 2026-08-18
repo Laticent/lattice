@@ -326,3 +326,100 @@ somewhere durable.
 - Whether atlas concatenation preserves per-deck front matter faithfully — the
   20-gallery spike produced 219 pages from 221 slide markers and emitted an
   overflow warning. A real atlas would be generated, not concatenated.
+
+---
+
+## 9. Scoring the options
+
+Added 2026-08-18 in response to "evaluate and score each option."
+
+**The options are nested, not exclusive:** Option 1 ⊂ Option 2 ⊂ Option 3. The real
+question is how far along one path to walk, and the walk can stop anywhere.
+
+### 9.1 The measurement that decides it — git growth per re-bless
+
+One gallery, one real CSS change, committed twice into a scratch repo and `gc`'d:
+
+| Medium | `.git` after v1 | after re-bless | **growth** |
+|---|---:|---:|---:|
+| PDF | 192,990 B | 206,958 B | **13,968 B** |
+| Text snapshot | 31,391 B | 32,153 B | **762 B** |
+
+**18.3× less history growth per re-bless.** Note this also *corrects* the 2026-08-16
+assessment's claim that a re-render "writes a full new blob": git delta-compresses
+PDFs better than that (13,968 B, not 197,994 B). The 18× ratio is the robust
+finding; the absolute per-commit total scales with how much the change actually
+moved.
+
+Corpus split, for scaling: **150 gallery PDFs = 1,334 pages / 48 MB**;
+**examples + exemplars = 2,095 pages / 73 MB**.
+
+### 9.2 Criteria and weights
+
+| Criterion | Weight | Why this weight |
+|---|---:|---|
+| Re-bless burden removed | 30% | the stated pain |
+| Detection quality | 20% | D1 — the gate currently cannot fail; a fast wrong gate is worth nothing |
+| Review-diff integrity | 15% | #1730 — authors explaining pixels they did not move |
+| Speed of the loop | 15% | paid on every PR |
+| Storage / history | 10% | 67% of the tree, 65% of recent growth |
+| Build cost & risk (inverse) | 10% | effort, blast radius, reversibility |
+
+### 9.3 Scores
+
+| | Burden .30 | Detect .20 | Review .15 | Speed .15 | Storage .10 | Risk .10 | **Total** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **Today** (baseline) | 0 | 0 | 0 | 3 | 0 | 10 | **1.45** |
+| **1 — quick wins** | 2 | 9 | 4 | 7 | 1 | 9 | **5.05** |
+| **2 — snapshots for galleries** | 6 | 9 | 8 | 8 | 6 | 5 | **7.10** |
+| **3 — + amend HARD RULE #9** | 9 | 9 | 9 | 8.5 | 9 | 2 | **8.23** |
+
+Detection is 0 today because `build:galleries:check` is structurally incapable of
+failing on staleness committed into HEAD — verified: it reported 122 green while
+`quote.gallery.light` carried 17,044 drifted pixels.
+
+### 9.4 Marginal value, and why the ranking is not the recommendation
+
+| Step | Total | **Marginal gain** | Marginal risk |
+|---|---:|---:|---|
+| → 1 | 5.05 | **+3.60** | negligible, reversible |
+| → 2 | 7.10 | **+2.05** | contained (one tool), reversible |
+| → 3 | 8.23 | **+1.13** | rule amendment, 107 referencing files, breaks the raw-URL review link |
+
+**Value falls while risk rises.** Option 3 wins on total and loses on marginal
+economics.
+
+**Sensitivity.** Re-weighting risk 10% → 25% (from burden and storage):
+
+| | Total (risk-averse) |
+|---|---:|
+| 1 | 5.90 |
+| 2 | 6.85 |
+| 3 | **7.20** |
+
+Option 3 still leads, but the gap over 2 narrows from 1.13 to 0.35 — inside the
+noise of a judged scoring exercise. **The 2-vs-3 ranking is weight-sensitive; the
+1-vs-2 ranking is not.** That asymmetry is the finding: walking to 2 is robustly
+right, walking on to 3 is a genuine judgment call about how much the
+`raw.githubusercontent.com` review link is worth.
+
+### 9.5 The design competition, scored honestly
+
+It does not belong in the table — it produces a *decision*, not an outcome, and
+would score ~1 on axes it does not act on. Judge it as expected value instead: it
+pays only if there is a real chance the architecture is wrong. The measurements
+have already settled the load-bearing facts (cost is per-deck not per-slide; the
+medium is the lever; the gate cannot fail), so the residual uncertainty is
+implementation detail — coordinate scheme, property set, where the pixel backstop
+sits — which is cheaper to resolve by building than by deliberating. **Estimated
+EV: negative against its fan-out cost.** The adversarial budget is better spent on
+maker-checker review of the actual snapshot tool, which is where a mistake would
+really hurt.
+
+### 9.6 Recommendation
+
+**Walk to 2, stop, and re-evaluate 3 with evidence.** Sequence: M2 first (it is the
+only thing that stops the bleeding and is a precondition for everything), then M1
+(free speed, never wasted), then M3, then snapshots for the galleries. Hold the
+HARD RULE #9 amendment until snapshots have earned trust on the corpus that was
+designed for them.
