@@ -389,8 +389,20 @@ high-value check a weekly tier exists for.
   night teaches everyone to ignore its color, which is the failure mode
   `2026-08-10-nightly-invalid-and-silent.md` already recorded once.
 
-Pre-existing and off the path of this catalog, so logged rather than pulled into it
-(HARD RULE #18).
+- **The invariant suite's overflow assertion cannot fail.** Found while vacuity-testing
+  lever A: `universal: slide does not overflow its frame` compares `scrollHeight` to
+  `clientHeight` on the slide `<section>`, which is `overflow-y: hidden` — so the two are
+  always equal. Probed with an `agenda` sample widened to 24 stops, a slide the emulator
+  itself prints `⚠ OVERFLOW … CLIPPED` for and stamps `overflow clip-marked` on: the
+  section reads 716 === 716 while its `.cell-stage` holds a 1,760px list in a 435px box.
+  **Pre-existing, established by control run rather than by assertion** — the unchanged
+  suite from before the batching commit scores 265/265 on the same mutant, the batched
+  one 266/266. Filed as #1750. It pairs with lever F: `overflow:check`, the corpus
+  ratchet that WOULD have caught this, is on no cadence either, so neither gate has been
+  watching.
+
+Both are pre-existing and off the path of this catalog, so logged rather than pulled into
+it (HARD RULE #18).
 
 ---
 
