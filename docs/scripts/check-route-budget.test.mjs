@@ -1,55 +1,51 @@
-// The route-budget gate's own tests. A gate is only worth its noise if it fails in BOTH
-// directions, so both are asserted here against a real built dist/ — over budget (growth
-// that must be reviewed) and far under it (a budget that has gone stale and must ratchet).
-import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
-import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+// Unit tests for the pure budget comparison behind scripts/check-route-budget.mjs.
+// No build, no dist — plain numbers. (The docs test tier runs BEFORE `npm run build`,
+// so a dist-dependent test here would silently skip in CI and gate nothing.)
+//
+// The property that matters is not "it reports a number". It is that the gate fails in
+// BOTH directions: over budget (growth that must be reviewed where it happened) and far
+// under it (a budget that has gone stale-loose, so a hard-won reduction cannot be
+// silently re-spent). A gate that only catches one direction rots into a number nobody
+// has to respect — which is exactly how the drift this gate exists to stop happened.
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const LEDGER = path.join(HERE, '..', 'route-budget.json');
-const GATE = path.join(HERE, 'check-route-budget.mjs');
-const DIST = path.join(HERE, '..', 'dist', 'studio', 'index.html');
+import { describe, expect, it } from 'vitest';
+import { evaluateRoute } from './check-route-budget.mjs';
 
-/** Run the gate against a temporarily-perturbed ledger; returns { code, stderr }. */
-function runWith(mutate) {
-	const original = fs.readFileSync(LEDGER, 'utf8');
-	try {
-		const led = JSON.parse(original);
-		mutate(led);
-		fs.writeFileSync(LEDGER, JSON.stringify(led, null, 2));
-		try {
-			execFileSync('node', [GATE], { encoding: 'utf8', stdio: 'pipe' });
-			return { code: 0, stderr: '' };
-		} catch (e) {
-			return { code: e.status, stderr: String(e.stderr || '') };
-		}
-	} finally {
-		fs.writeFileSync(LEDGER, original);
-	}
-}
+const SLACK = { eagerJsGz: 12 * 1024, htmlRaw: 20 * 1024 };
+const budget = { eagerJsGz: 660_000, htmlRaw: 192_000 };
 
-// The gate reads a built artifact; without one there is nothing to assert.
-const built = fs.existsSync(DIST);
-
-test('passes on the committed ledger', { skip: !built && 'needs a built dist/' }, () => {
-	assert.equal(runWith(() => {}).code, 0);
-});
-
-test('FAILS when a route exceeds its budget', { skip: !built && 'needs a built dist/' }, () => {
-	const r = runWith((led) => {
-		led.routes.studio.eagerJsGz = 1000;
+describe('evaluateRoute', () => {
+	it('passes a route sitting just inside its budget', () => {
+		expect(evaluateRoute('studio', { eagerJsGz: 659_000, htmlRaw: 191_000 }, budget, SLACK)).toEqual([]);
 	});
-	assert.equal(r.code, 1, 'growth past the budget must be a non-zero exit');
-	assert.match(r.stderr, /EXCEEDS its budget/);
-});
 
-test('FAILS when a budget has gone stale-loose', { skip: !built && 'needs a built dist/' }, () => {
-	const r = runWith((led) => {
-		led.routes.studio.eagerJsGz = 99_000_000;
+	it('FAILS when eager JS exceeds the budget, and names the file to edit', () => {
+		const problems = evaluateRoute('studio', { eagerJsGz: 700_000, htmlRaw: 191_000 }, budget, SLACK);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatch(/EXCEEDS its budget/);
+		expect(problems[0]).toMatch(/route-budget\.json/);
 	});
-	assert.equal(r.code, 1, 'a budget nobody has to respect must be a non-zero exit');
-	assert.match(r.stderr, /STALE/);
+
+	it('FAILS when the HTML document exceeds the budget', () => {
+		const problems = evaluateRoute('studio', { eagerJsGz: 659_000, htmlRaw: 250_000 }, budget, SLACK);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatch(/htmlRaw/);
+		expect(problems[0]).toMatch(/EXCEEDS/);
+	});
+
+	it('FAILS when a budget has gone stale-loose, and says to ratchet it down', () => {
+		const problems = evaluateRoute('studio', { eagerJsGz: 400_000, htmlRaw: 191_000 }, budget, SLACK);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatch(/STALE/);
+		expect(problems[0]).toMatch(/Ratchet it down/);
+	});
+
+	it('tolerates ordinary churn just inside the slack, so routine PRs need no ledger edit', () => {
+		const actual = { eagerJsGz: budget.eagerJsGz - SLACK.eagerJsGz + 1, htmlRaw: budget.htmlRaw - SLACK.htmlRaw + 1 };
+		expect(evaluateRoute('studio', actual, budget, SLACK)).toEqual([]);
+	});
+
+	it('reports BOTH metrics when both drift', () => {
+		expect(evaluateRoute('studio', { eagerJsGz: 700_000, htmlRaw: 250_000 }, budget, SLACK)).toHaveLength(2);
+	});
 });

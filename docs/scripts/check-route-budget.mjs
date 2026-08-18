@@ -74,6 +74,36 @@ function measure(routeHtml) {
 
 const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
 
+/**
+ * Compare one route's measurement against its budget. PURE — no fs, no dist — so the
+ * property that matters (it fails in BOTH directions) is unit-testable without a built
+ * site. The docs test tier runs before `npm run build`, so a dist-dependent test would
+ * silently skip in CI and gate nothing.
+ *
+ * Returns a list of human-readable problems; empty means within budget.
+ */
+export function evaluateRoute(route, actual, budget, slack = SLACK) {
+	const problems = [];
+	for (const metric of ['eagerJsGz', 'htmlRaw']) {
+		const cap = budget[metric];
+		const got = actual[metric];
+		if (typeof cap !== 'number' || typeof got !== 'number') continue;
+		if (got > cap) {
+			problems.push(
+				`${route} ${metric}: ${kb(got)} EXCEEDS its budget ${kb(cap)} (+${kb(got - cap)}).\n` +
+					`    Give the bytes back, or raise "${metric}" for "${route}" in docs/route-budget.json\n` +
+					`    IN THIS PR — so the growth is reviewable where it happened.`,
+			);
+		} else if (got < cap - slack[metric]) {
+			problems.push(
+				`${route} ${metric}: ${kb(got)} is ${kb(cap - got)} under its budget ${kb(cap)} — the budget is STALE.\n` +
+					`    Ratchet it down to ${kb(got)} in docs/route-budget.json so the win is banked and cannot be silently re-spent.`,
+			);
+		}
+	}
+	return problems;
+}
+
 function main() {
 	if (!fs.existsSync(DIST)) {
 		process.stderr.write('check-route-budget: no dist/ — run `npm run build` first.\n');
@@ -85,23 +115,9 @@ function main() {
 
 	for (const [route, budget] of Object.entries(ledger.routes)) {
 		const actual = measure(budget.html);
+		problems.push(...evaluateRoute(route, actual, budget));
 		for (const metric of ['eagerJsGz', 'htmlRaw']) {
-			const cap = budget[metric];
-			const got = actual[metric];
-			const slack = SLACK[metric];
-			if (got > cap) {
-				problems.push(
-					`${route} ${metric}: ${kb(got)} EXCEEDS its budget ${kb(cap)} (+${kb(got - cap)}).\n` +
-						`    Give the bytes back, or raise "${metric}" for "${route}" in docs/route-budget.json\n` +
-						`    IN THIS PR — so the growth is reviewable where it happened.`,
-				);
-			} else if (got < cap - slack) {
-				problems.push(
-					`${route} ${metric}: ${kb(got)} is ${kb(cap - got)} under its budget ${kb(cap)} — the budget is STALE.\n` +
-						`    Ratchet it down to ${kb(got)} in docs/route-budget.json so the win is banked and cannot be silently re-spent.`,
-				);
-			}
-			lines.push(`  ${route.padEnd(12)} ${metric.padEnd(10)} ${kb(got).padStart(9)} / ${kb(cap).padStart(9)}`);
+			lines.push(`  ${route.padEnd(12)} ${metric.padEnd(10)} ${kb(actual[metric]).padStart(9)} / ${kb(budget[metric]).padStart(9)}`);
 		}
 		lines.push(`  ${route.padEnd(12)} ${'chunks'.padEnd(10)} ${String(actual.chunks).padStart(9)}`);
 	}
@@ -116,4 +132,7 @@ function main() {
 	process.stdout.write(lines.join('\n') + '\n');
 }
 
-main();
+// Only run the gate when INVOKED, not when imported by its tests.
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+	main();
+}
