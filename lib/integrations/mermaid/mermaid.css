@@ -740,12 +740,24 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) g.node-labels text, :is(section, figure) g.nodes text {
   fill: var(--cat-on-fill) !important;
 }
+:is(section, figure) g.link {
+  /* MERMAID PAINTS EVERY RIBBON THROUGH `mix-blend-mode: multiply`, inline on the
+   * group. Multiply is a LIGHT-CANVAS assumption: it darkens toward the backdrop,
+   * which is exactly right on a white page and drives the ribbon to black on a
+   * dark one. On a `color-mode: dark` deck the whole flow — the diagram's entire
+   * payload — rendered as a near-black smudge on near-black while the node bars
+   * beside it stayed correctly colored. Inline styles only yield to `!important`. */
+  mix-blend-mode: normal !important;
+}
 :is(section, figure) g.link path, :is(section, figure) g.links path {
   /* Ribbons are connective tissue tied to c1 at reduced opacity — a flat COLOR,
    * NOT the texture channel: a pattern paint-server sampled through a thin,
-   * variable-width stroke reads as speckle, not a tint. So stay on --cat-1-fill. */
+   * variable-width stroke reads as speckle, not a tint. So stay on --cat-1-fill.
+   * Opacity raised 0.4 → 0.55 with multiply gone: multiply had been doing part of
+   * the darkening work on the light canvas, so removing it alone would have left
+   * the ribbons weaker there than they were. */
   stroke: var(--cat-1-fill) !important;
-  stroke-opacity: 0.4 !important;
+  stroke-opacity: 0.55 !important;
   fill: none !important;
 }
 

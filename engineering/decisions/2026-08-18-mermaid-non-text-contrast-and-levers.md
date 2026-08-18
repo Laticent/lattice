@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   An audit of what Mermaid actually paints across all 32 palettes in both schemes, prompted by
   three worries: diagrams are not AA, the xy chart lost its on-brand styling, and Mermaid's color
@@ -23,15 +23,22 @@ summary: >
   xy chart's brand gap is real but is NOT a contrast or a font problem: its type is correct (all
   344 gallery labels render in Outfit, verified on the export), and mermaid genuinely offers no
   gridline or plot-frame lever — what it does offer and we do not use is `xyChart.dataLabelColor`
-  and `sankey.linkColor`, the latter being why the dark sankey's ribbons are invisible. Records the
-  reality per palette and the order to fix it in; changes nothing yet.
+  and `xyChart.dataLabelColor`. THE REPAIR THEN LANDED IN THE SAME CHANGE (§8): twelve palettes
+  retuned, a gate added (`diagram-nontext-contrast.test.js`) and mutation-tested, three keys moved
+  off the wrong tier, and 36 previously-unstated levers pulled — 159 to 196 set — taking every
+  measured row to 0/64. Two of this note's own claims did not survive implementation and are
+  corrected in §8: the dark sankey's invisible ribbons were NOT `sankey.linkColor` (whose default
+  is already `gradient`) but Mermaid's inline `mix-blend-mode: multiply`, a light-canvas
+  assumption; and the xy chart's gridlines are not deliverable in CSS at all, because the rendered
+  SVG contains no gridline elements to restyle.
 ---
 
 # Mermaid diagrams: the non-text contrast tier, and the levers we are not pulling
 
-**Status:** proposed — an audit, not a change. Nothing in this note changes a rendered pixel. It adds one
-on-demand audit tool (`tools/audit-diagram-contrast.mjs`) and records what it measured, so
-the follow-up work argues from numbers instead of from impressions.
+**Status:** shipped. This began as an audit that changed no pixel; the repair landed in the
+same change. **§§1–6 are the measurement exactly as taken, before the fix** — they are the
+"before" column and are deliberately not rewritten. **§8 records what shipped and corrects two
+claims the implementation disproved.** Read §8 before quoting §1 or §4.
 
 ## 0. The three worries, judged
 
@@ -305,3 +312,78 @@ Not started; this note only argues the sequence.
 
 Steps 1 and 2 are one change and should land together: the gate is what stops step 1 from
 silently regressing, and it is what turns a tier nothing currently measures into one that cannot silently rot.
+
+---
+
+## 8. What shipped, and two claims this note got wrong
+
+The audit's recommended order (§7) was carried out in full in the same change. Two of its
+statements did not survive contact with the implementation, and both are corrected here
+rather than edited away above, because the reasoning that produced them is the useful part.
+
+### 8.1 CORRECTED — the sankey's ribbons were not `linkColor`
+
+§1 said `sankey.linkColor` is unset "so the ribbons take Mermaid's default", implying the
+default was the problem. **Mermaid's default IS `gradient`** (`conf?.linkColor ?? "gradient"`,
+`sankeyDiagram-*.mjs`), and the ribbons were already being overridden to `--cat-1-fill` by
+`mermaid.css` besides. Neither was the defect.
+
+Reading the rendered SVG instead of the config surface found it: Mermaid paints every link
+group through an inline **`mix-blend-mode: multiply`**. Multiply darkens toward the backdrop
+— exactly right on a white page, and on a dark canvas it drives the ribbon to black. That is
+why the flows vanished while the node bars beside them stayed correctly colored. Fixed in
+`mermaid.css` with `mix-blend-mode: normal !important` (inline styles yield to nothing less)
+and the ribbon opacity raised 0.4 → 0.55, because multiply had been doing part of the
+darkening work on the light canvas.
+
+The general lesson is the one this note already argues elsewhere and then failed to apply to
+itself: **a config surface tells you what is settable, not what is painted.** Only the
+rendered output tells you that.
+
+### 8.2 CORRECTED — the xy chart's gridlines are not deliverable in CSS
+
+§7 step 5 proposed "the xy chart's frame and gridlines in `mermaid.css`". The first half
+landed; the second is **not possible**, and the note should not have proposed it.
+
+Verified against the rendered SVG: an xychart emits `g.main > rect.background`, `g.plot`
+(with `g.bar-plot-N` / `g.line-plot-N`), and `g.bottom-axis` / `g.left-axis`, each carrying
+`g.axis-line`, `g.ticks` and `g.label`. **There are no gridline elements.** A stylesheet can
+restyle an element; it cannot create one. Closing this needs an upstream Mermaid feature or
+post-render injection in `lib/runtime` — which is a HARD RULE #22 markup sink with its own
+census gate, and its own piece of work.
+
+What DID land for the xy chart: its axis rules and ticks are on-palette and clear 3:1 in all
+64 contexts (they were at 1.00:1 on the a11y family), and `xyChart.dataLabelColor` is stated
+for the first time.
+
+### 8.3 What landed
+
+| § | Recommended | Shipped |
+|---|---|---|
+| 7.1 | re-curate `--diagram-stroke` per palette | 12 of 14 palettes retuned to a mid-tone; `cuoio` and `carbone` already cleared and were left alone; only `concrete` needed `light-dark()`. Also `--diagram-today` (13 palettes) and `cuoio`'s `--diagram-line`. |
+| 7.2 | gate the non-text tier | `test/unit/palette/diagram-nontext-contrast.test.js` + `test/helpers/diagram-surfaces.js`, shared with the audit tool. Mutation-tested against the original values. |
+| 7.3 | pull the levers | 36 keys stated: the stateDiagram set, requirementDiagram set, architecture, `venn1`–`venn8`, C4 `personBkg`, ER row bands, `nodeBkg`/`border2`/`arrowheadColor`, `xyChart.dataLabelColor`. 159 → 196 set. |
+| 7.4 | `sankey.linkColor` | superseded — see §8.1. |
+| 7.5 | xy frame + gridlines | frame/axes yes, gridlines not deliverable — see §8.2. |
+
+**Three keys turned out to be reading the wrong tier**, which §1–6 had not separated from the
+`--diagram-stroke` story: `gridColor` (a pale gantt BAR FILL used as a LINE), `noteBorderColor`
+(the gantt TODAY MARKER's hue used as a note border) and the quadrant divider/points (a
+SIBLING of the fills they sit on). The first two undo a *documented* value reuse in
+`base.tokens.css` group 3 — a dedup that equated a surface with a line, which cannot be
+correct for both.
+
+### 8.4 One regression, caught and fixed inside the change
+
+Repointing `quadrantInternalBorderStrokeFill` to `--diagram-stroke` looked right — it is
+structural chrome — and made that row **worse**, 4/64 → 40/64, because the divider is drawn
+on the quadrant FILLS, not on the canvas, and `--diagram-stroke` is curated against the
+canvas. It now reads `--cat-on-fill`, the tier gated legible against exactly those fills
+(worst 5.11:1). The audit's own per-row output is what caught it, which is the argument for
+having built the measurement before the fix.
+
+A second scare was not a regression: the three `--diagram-*-mark` tokens measured 60/64 below
+3:1 against their own fills after the retune, against 33/26/37 before. Judged the way the gate
+actually judges a shape — does it have ANY visible edge — the three gantt lifecycle bars went
+from 29/14/25 failing to **0/0/0**. Border-vs-fill in isolation is not the question, which is
+precisely why the discernibility rule exists.

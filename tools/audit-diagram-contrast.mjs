@@ -140,38 +140,13 @@ const setD = (o, d, v) => {
   c[ps.at(-1)] = v;
 };
 
-/**
- * The graphical objects judged, and WHAT COUNTS AS THEIR EDGE.
- *
- * Each SHAPE lists its three candidate edges; clearing 3:1 on any one of them is
- * enough. Each LINE is judged on its single pair, because a line has no fill to
- * fall back on. The pairings state where mermaid actually draws the thing —
- * a fact about mermaid, not about our map, exactly as the ink gate's SITES table
- * is — so they are written out rather than derived from `MERMAID_VAR_MAP`.
- */
-const SHAPES = [
-  ['flowchart node', ['mainBkg', 'background'], ['nodeBorder', 'background'], ['nodeBorder', 'mainBkg']],
-  ['gantt task bar', ['taskBkgColor', 'background'], ['taskBorderColor', 'background'], ['taskBorderColor', 'taskBkgColor']],
-  ['pie slice', ['pie1', 'background'], ['pieOuterStrokeColor', 'background'], ['pieStrokeColor', 'pie1']],
-  ['sequence actor', ['actorBkg', 'background'], ['actorBorder', 'background'], ['actorBorder', 'actorBkg']],
-  ['sequence note', ['noteBkgColor', 'background'], ['noteBorderColor', 'background'], ['noteBorderColor', 'noteBkgColor']],
-  ['subgraph cluster', ['clusterBkg', 'background'], ['clusterBorder', 'background'], ['clusterBorder', 'clusterBkg']],
-];
-const LINES = [
-  ['flowchart edge', 'lineColor', 'background'],
-  ['sequence signal arrow', 'signalColor', 'background'],
-  ['sequence lifeline', 'actorLineColor', 'background'],
-  ['gantt grid line', 'gridColor', 'background'],
-  ['gantt today marker', 'todayLineColor', 'background'],
-  ['quadrant frame', 'quadrantExternalBorderStrokeFill', 'background'],
-  ['quadrant divider', 'quadrantInternalBorderStrokeFill', 'quadrant1Fill'],
-  ['xy x-axis rule', 'xyChart.xAxisLineColor', 'xyChart.backgroundColor'],
-  ['xy y-axis rule', 'xyChart.yAxisLineColor', 'xyChart.backgroundColor'],
-  ['xy x-axis tick', 'xyChart.xAxisTickColor', 'xyChart.backgroundColor'],
-  ['xy y-axis tick', 'xyChart.yAxisTickColor', 'xyChart.backgroundColor'],
-];
+// The surface tables live with the GATE that enforces them
+// (`test/helpers/diagram-surfaces.js`), not here. This tool is the on-demand
+// report over the same tables; a second copy is how a report and its gate come
+// apart while both stay green.
+const { SHAPES, LINES, NON_TEXT_FLOOR } = require(path.join(ROOT, 'test/helpers/diagram-surfaces.js'));
 
-const FLOOR = 3;
+const FLOOR = NON_TEXT_FLOOR;
 
 async function main() {
   const themes_default = await loadMermaidThemes();

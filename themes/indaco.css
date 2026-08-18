@@ -229,7 +229,7 @@
    * Universal stroke for any band fill; reads on every pale tint
    * including white. Line is for edges/arrows; light-dark() picks
    * near-black on light canvas and muted light on dark. */
-  --diagram-stroke: #1F4A6E;  /* saturated brand navy */
+  --diagram-stroke: #5580A7;  /* saturated brand navy */
   --diagram-line:   light-dark(#1A1A1A, var(--scheme-dark-text-body));
 
   /* Cross-deck contrast accent — radar's second curve, where a single
@@ -304,7 +304,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#A91C2A, #F87171);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#D8BE1E, #796900);
+  --diagram-today:        light-dark(#A18C00, #796900);
   --diagram-note:        light-dark(#D7D2B1, #71640B);
 
   /* Containment tier — two nested structural surfaces. A monotonic

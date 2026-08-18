@@ -129,7 +129,7 @@
   --scheme-dark-text-display: #FFFFFF;
 
   /* ── Mermaid extensions kept on-theme ──────────────────────────────── */
-  --diagram-stroke:          #3F2A5C;
+  --diagram-stroke:          #836EA6;
   --diagram-accent-warm:     #BD5000;
   /* cScale / gitgraph — slot 0 anchors band-1 lavender (BRAND violet).
    * Slot 1 reframed from amber to sage so the cycle echoes band-2's
@@ -222,7 +222,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#D15A62, #9A2735);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#ECB417, #856300);
+  --diagram-today:        light-dark(#AC8200, #856300);
   --diagram-note:        light-dark(#DDD0B0, #7B5F06);
 
   /* Containment tier — two nested structural surfaces. A monotonic

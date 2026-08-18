@@ -125,7 +125,7 @@
   --scheme-dark-text-display: #F0EDE6;
 
   /* ── Mermaid extensions — amber pop on second curve ────────────────── */
-  --diagram-stroke:          #38332A;
+  --diagram-stroke:          #787268;
   --diagram-accent-warm:     var(--brand-alt); /* the amber pop */
   /* cScale / gitgraph — warm achromatic with amber pop */
 }
@@ -211,7 +211,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#D36145, #9A2C0E);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#E4B916, #806600);
+  --diagram-today:        light-dark(#9D7E00, #806600);
   --diagram-note:        light-dark(#DBD1B0, #776107);
 
   /* Containment tier — two nested structural surfaces. A monotonic

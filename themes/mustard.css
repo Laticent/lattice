@@ -128,7 +128,7 @@
   --scheme-dark-text-display: #F0E5C8;
 
   /* ── Mermaid extensions — oxblood pop on second curve ──────────────── */
-  --diagram-stroke:          #3D2D14;
+  --diagram-stroke:          #827055;
   --diagram-accent-warm:     var(--brand-alt);
   /* cScale / gitgraph — slot 0 anchors band-1 mustard (BRAND); slot 1 sage
    * echoes band-2; slot 2 terracotta echoes band-3 peach. Slots 3-7 carry
@@ -217,7 +217,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#D66448, #9A2C0E);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#DEBB18, #786400);
+  --diagram-today:        light-dark(#998000, #786400);
   --diagram-note:        light-dark(#D9D2B0, #746208);
 
   /* Containment tier — two nested structural surfaces. A monotonic

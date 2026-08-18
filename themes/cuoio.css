@@ -278,7 +278,7 @@
    * Universal stroke for any band fill; deep taupe reads on every
    * cream tint. Line is for edges/arrows — warm brown ink. */
   --diagram-stroke: #8B7E6D;  /* deep taupe */
-  --diagram-line:   #6B5D4F;  /* warm brown ink */
+  --diagram-line:   light-dark(#6B5D4F, #786A5B);  /* warm brown ink */
 
   /* Cross-deck contrast accent — radar's second curve, where a single
    * warm hue against the cream band reads better than a second pale
