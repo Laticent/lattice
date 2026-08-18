@@ -179,10 +179,87 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   The arms stay ON the element deliberately — their inner `var()`s (`--chart-fill-top-l`,
   `--fill-hue`) are declared on `.chart-frame`, so lifting the whole expression to a `:root`
   token makes it invalid at computed-value time and every gradient renders BLACK. An
-  integration test now fails on any inline `light-dark()` in a shipped player.
+  integration test now fails on ANY `light-dark()` anywhere in a shipped player, not only in
+  an attribute — a count over the whole file, because each of this contract's three holes was
+  invisible to a gate written for the previous one.
 - **The general shape:** an export that rewrites CSS has to answer for every place CSS can
   hide. A `<style>` sweep misses attributes, and the miss is invisible until the one signal
   that was silently holding it together stops holding.
+
+## A player's dark toggle moved every color except the ones written in a real property
+
+- **Symptom:** In an exported `.html` player, tapping the light/dark toggle re-themes the
+  deck — canvas, ink, chart fills — but a handful of surfaces never move: kanban cards keep
+  their light drop-shadow and hairline on a near-black slide, the progress fill and its
+  percentage chip stay pale, the state-chart nodes and index disc keep their light gradient,
+  and the spectrum ribbon on a `title` / `closing` bookend keeps the light ramp. Nothing
+  looks broken; it looks like those components simply were not themed for dark.
+- **Cause:** `themeDualMode` rebuilds the dark side of the player from CUSTOM-PROPERTY
+  declarations only — it scans for `--x: …light-dark(…)` and re-emits those under the scheme
+  scopes, which is complete for TOKENS because every dual-mode token is a `:root` custom
+  property. The base beside it is the whole sheet with every pair collapsed to its LIGHT arm.
+  A pair written straight into a real property (`box-shadow`, `background`,
+  `background-image`, `border`, `fill`) is in neither set: the base keeps the light arm and
+  nothing anywhere restores the dark one. 18 such declarations across 14 rules in
+  `dist/lattice.css`. The kanban card is the clearest case — its four-layer elevation recipe
+  uses DIFFERENT layers per canvas (a contact shadow in light, an inset top rim in dark, the
+  inapplicable layer resolving to `transparent`), so the light-only export ships a card with
+  the shadow that does not read on near-black and without the rim that does.
+- **Reproduce it anywhere:** export `examples/kanban-chart-redesign.md` with `--player`, open
+  it, read `getComputedStyle(document.querySelector('.kanban-card')).boxShadow`, click
+  `#lp-mode`, read it again — byte-identical. The reference is the same deck with
+  `color-mode: dark` in front matter, which shares none of the four layers.
+- **Fix:** `hoistRuleLightDark` (`lib/export/player-core.mjs`) leaves the declaration in its
+  own rule and moves only its VALUE, through a private custom property:
+  `.kanban-card{box-shadow:var(--lp-ld-7-0,<light>)}` in the base, plus
+  `:root[data-lp-scheme=dark] .kanban-card{--lp-ld-7-0:<dark>}` in the dual-mode block, under
+  the same scheme scopes the token block uses.
+- **Do NOT re-emit the rule itself under the scheme scope.** That is the obvious shape and it
+  is wrong: the copy gains SPECIFICITY as well as a scheme condition, so every rule that
+  legitimately beat the original by less than the prefix is worth now loses to it, in dark
+  mode only. Measured on the first deck tried — `section.kanban.keyline .kanban-card
+  {box-shadow:none}` (0,3,1) is what makes a keyline card flat, and the scoped copy of the
+  base card's shadow (0,4,1) outranked it, so every keyline card came back elevated. There is
+  no prefix small enough to be safe in general; any positive delta jumps SOME rule. Wrapping the
+  scope in `:where()` would cost zero specificity and would work on a current engine — the
+  engine sheet uses `:where()` freely — but the dual-mode block holds to the same
+  pre-selector-list vocabulary as its sibling rules on purpose: an engine that cannot PARSE
+  `:where()` drops the whole rule, and a dropped rule here is silently un-themed dark mode (see
+  the `:is()`/`:not(a,b)` note in `themeDualMode`). Nothing else declares
+  `--lp-ld-*`, so the indirection's own specificity is uncontested and the cascade for the
+  real property is untouched.
+- **The general shape:** when a transform has to make one declaration conditional, move its
+  VALUE, not its RULE. Re-scoping a selector changes who wins, everywhere that selector
+  applied — a much larger blast radius than the one declaration you meant to change.
+
+## An exported player quietly dropped every `X :is(…)` rule the deck renders
+
+- **Symptom:** A rule the PDF honors does nothing in the exported `.html` player. On a
+  `split-panel watermark` slide the running header and footer paint the CANVAS's muted ink
+  while sitting on the accent rail — 1.45:1 on `examples/gallery-jargon.md` p14 after the
+  toggle, invisible — even though `section.split-panel.watermark :is(header, footer) {color:
+  var(--on-accent)}` is right there in `dist/lattice.css` and the PDF obeys it. The same
+  silence covers the `code`/`pre` chip inside a section and the list styling on `cards-grid`,
+  `cards-stack` and `closing`.
+- **Cause:** `minifyCss` tightened whitespace on BOTH sides of every `:`. To the left of a
+  colon that opens a PSEUDO, that whitespace is a descendant combinator — so
+  `section.split-panel.watermark :is(header, footer)` minified to
+  `section.split-panel.watermark:is(header, footer)`, a compound asking for a section that is
+  also a header. Still valid CSS, still parses, matches nothing. 59 rules in the bundle were
+  re-meant this way. The CSS prune then removed them as unused — correctly, because by then
+  they genuinely matched nothing — so the shipped file carried no trace of the rule at all,
+  and the surface fell through to whatever generic rule was left.
+- **Reproduce it anywhere:**
+  `node -e "import('./lib/export/player-core.mjs').then(({minifyCss})=>console.log(minifyCss('.a :is(b){c:1}')))"`
+  — the space is the whole bug.
+- **Fix:** `:` now tightens on the RIGHT everywhere, and on the left only where a declaration's
+  property name proves it is a declaration (the token immediately after a `{` or `;`). The
+  selector side keeps its space. What it costs is nothing authored CSS here writes.
+- **The general shape:** a minifier's contract is that meaning is preserved, and whitespace in
+  a selector IS meaning. A transform that is "obviously safe" on declarations is not
+  automatically safe on the other half of the grammar it runs over — and this one failed
+  silently in both directions, because the output parsed and the prune then made the evidence
+  disappear.
 
 ## A baked diagram label went dark-on-dark after the player's toggle
 

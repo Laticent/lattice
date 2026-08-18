@@ -245,6 +245,31 @@ const PROBE = () => {
     return acc ? over(acc.rgb, [255, 255, 255], acc.a) : [255, 255, 255];
   };
 
+  /**
+   * The ink as it reaches the pixel: its own color, and the alpha it actually paints at
+   * after every enclosing `opacity` group has scaled it.
+   *
+   * `resolveStack` composites the ink all the way down to an opaque triple against the
+   * MODELLED backdrop, which is the right answer for this file and the wrong one for a
+   * caller that sampled the backdrop from the rendered pixels instead. A translucent ink
+   * composited over one backdrop and then scored against another is a number describing no
+   * pixel anywhere — and translucent ink is not an edge case here: the whole
+   * `--on-*-secondary` / `-ghost` / `-watermark` ramp is `color-mix(… N%, transparent)`.
+   * Ancestor BACKGROUNDS are deliberately not folded in: a pixel sample already contains
+   * them, so absorbing them here would apply them twice.
+   */
+  const inkAsPainted = (el, ink) => {
+    if (!ink || ink.a <= 0) return null;
+    let a = ink.a;
+    let node = el;
+    while (node && node !== document.documentElement) {
+      const o = parseFloat(getComputedStyle(node).opacity);
+      if (!Number.isNaN(o) && o < 1) a *= o;
+      node = node.parentElement;
+    }
+    return { rgb: ink.rgb.map(Math.round), a: +a.toFixed(4) };
+  };
+
   // BLIND SPOT 2: a paint that is a SIBLING, not an ancestor. This engine
   // absolutely positions the running header/footer at the slide's inset, where a
   // split layout's dark rail is a separate element underneath them — and it paints
@@ -550,6 +575,11 @@ const PROBE = () => {
         r: +ratio(fgc, bg).toFixed(2), need: AA,
         exempt: exemptInks.has(fgc.map(Math.round).join(',')),
         imgBackdrop: rasterUnder(el, trect),
+        // The glyphs' own box in viewport coordinates, carried so a caller that samples
+        // the backdrop from RENDERED PIXELS rather than from the ancestor chain knows
+        // where to look (tools/check-player-contrast.js). Costs nothing here.
+        rect: { x: trect.x, y: trect.y, w: trect.width, h: trect.height },
+        ink: inkAsPainted(el, fg),
       });
     }
     // pseudo-elements carry real text in this engine (axis labels, badges)
@@ -590,6 +620,13 @@ const PROBE = () => {
           r: +ratio(fgc, bg).toFixed(2), need: AA,
           exempt: exemptInks.has(fgc.map(Math.round).join(',')),
           imgBackdrop: rasterUnder(el),
+          // The OWNER's box, not the pseudo's — CSS exposes no rect for a pseudo-element.
+          // Flagged as such so a pixel-sampling caller knows this one box is an
+          // approximation and can keep the modelled backdrop instead of trusting a sample
+          // that may land beside the pseudo rather than under it.
+          rect: (() => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })(),
+          rectIsOwner: true,
+          ink: inkAsPainted(el, fg),
         });
       }
     }

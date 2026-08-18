@@ -116,6 +116,54 @@ test/helpers/                 render.js, pdf.js, palette.js
 test/fixtures/                small .md decks for integration
 ```
 
+### Contrast: two tools, one probe
+
+`tools/check-slide-contrast.js` scores the rendered DOM of a deck: fast, one scheme,
+backdrops resolved by climbing the ancestor chain. It is the one the invariants gate
+imports, and its `PROBE` is the single source of truth for which runs exist, what ink
+they carry, and which AA threshold applies.
+
+`tools/check-player-contrast.js` reuses that same `PROBE` and changes three things it
+structurally cannot do: it drives the real `--player` EXPORT rather than a plain render,
+it scores BOTH scheme states (as exported, and after clicking `#lp-mode`), and it samples
+each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so a
+gradient, an image, a translucent overlay or a z-ordered rail resolves correctly because
+it is simply there. That split is what makes its report actionable: an "as exported"
+failure is in the PDF too (a deck or theme defect), while an "after the toggle" failure
+exists only in the player (a scheme defect).
+
+```bash
+node tools/check-player-contrast.js examples/a11y.md            # a deck, exported first
+node tools/check-player-contrast.js --json out.json exported.html
+npm run contrast:player                                         # the corpus, vs the baseline
+npm run contrast:player:bless                                   # re-record the baseline
+```
+
+**Where each one runs, and why there.** The two static tools are ~0.3s for the whole repo
+and read the SOURCE — `contrast-audit.js` a palette's own token matrix, `composed-contrast.js`
+the surfaces a component composes, both through the engine's own token evaluator. Between them
+they cover token and composition drift cheaply, and they should stay the first thing you reach
+for. Their blind spot is everything the export PIPELINE does to correct CSS on the way out: a
+`light-dark()` pair collapsed to one arm, a selector re-meant by the minifier and then removed
+by the prune. In both cases (#1645, #1642) the source was right, a static reading of it would
+have reported a PASS, and the shipped artifact was wrong.
+
+That pipeline half is gated **per-PR**, cheaply, by the real-surface test in
+`test/integration/export/html-player.test.js` — it drives ONE deck's player in Chromium, clicks
+the toggle, and asserts a computed value lands where the deck's own dark render puts it. Drift
+in a transform is a property of the transform, so one deck catches it.
+
+The CORPUS sweep runs **nightly** (`integration-nightly.yml`), because that part genuinely
+costs: ~24s per deck — 16s to export the player, 8s to audit it — so `examples/` is roughly
+55 minutes. The PDF is not the cost and is no longer written; the browser render, the
+dynamic-component bake and the CSS prune are, and the player needs all three. It compares
+against `test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with
+every theme and contrast change and a baseline blessed on a branch is stale before that branch
+merges — and fails only on a finding that is **new** or has got **worse** — the corpus's known sub-AA runs are tracked in #1745, and a nightly that
+re-lists them is one people learn to skim. Re-bless with `npm run contrast:player:bless` once
+a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
+contract and is reported in its own bucket, never as a failure.
+
 `[PR]` suites gate every `code` PR via `test:integration:pr`; `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style

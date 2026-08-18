@@ -27,8 +27,28 @@ let playerCss;
 let playerJs;
 let resolveCanvas;
 let hoistInlineLightDark;
+let hoistRuleLightDark;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark } = await import('../../../lib/export/player-core.mjs'));
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark } =
+		await import('../../../lib/export/player-core.mjs'));
+});
+
+test('minifyCss never collapses a descendant combinator into a compound', () => {
+	// Whitespace to the LEFT of a `:` is a descendant combinator wherever the colon opens a
+	// pseudo, and tightening it re-means the selector into a compound that can never match —
+	// silently, because the output is still valid CSS. 59 rules in dist/lattice.css were
+	// re-meant this way, so they did not apply in ANY exported player: the code/pre chip
+	// inside a section, list styling on cards-grid / cards-stack / closing, and the
+	// split-panel chrome ink, which is how a `watermark` slide's running header ended up
+	// painting the canvas's muted ink on the accent rail at 1.45:1 (#1642). The CSS prune
+	// then dropped them as unused — correctly, since by then they matched nothing.
+	assert.equal(minifyCss('section.split-panel.watermark :is(header, footer) { color: red; }'), 'section.split-panel.watermark :is(header,footer){color:red}');
+	assert.equal(minifyCss('.a :not(.b){color:red}'), '.a :not(.b){color:red}');
+	assert.equal(minifyCss('.a ::before{color:red}'), '.a ::before{color:red}');
+	// A compound that was ALREADY compound stays compound — the gap is what carries meaning.
+	assert.equal(minifyCss('.a:hover{color:red}'), '.a:hover{color:red}');
+	// The right side of a `:` still tightens, in declarations and in at-rule preludes alike.
+	assert.equal(minifyCss('@media (min-width: 100px){a{color: red}}'), '@media (min-width:100px){a{color:red}}');
 });
 
 // ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
@@ -168,6 +188,121 @@ test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
 	assert.equal(doc.querySelector('i').getAttribute('class'), doc.querySelector('b').getAttribute('class'));
 	assert.notEqual(doc.querySelector('i').getAttribute('class'), doc.querySelector('u').getAttribute('class'));
 	assert.equal((css.match(/:root\[data-lp-scheme=dark\] \.lp-sd-\d\{/g) || []).length, 2, 'one rule per distinct pair');
+});
+
+// ── light-dark() in a REAL property of a rule (#1645) ───────────────────────────
+// The third sink. `themeDualMode` rebuilds dark from CUSTOM-PROPERTY declarations only and
+// the base is everything collapsed to the light arm, so a pair in `box-shadow` / `fill` /
+// `background-image` kept light and lost dark with nothing to restore it.
+
+test('hoistRuleLightDark routes a real-property pair through a private token, in place', () => {
+	const { css, darkBlock } = hoistRuleLightDark('.card{color:red;box-shadow:0 1px light-dark(#eee,#111)}');
+	// The declaration does not move and does not change property — only its VALUE gains an
+	// indirection, with the LIGHT-resolved whole value as the var() fallback, so light mode
+	// reads no token at all. The whole value, not just the pair: the two arms of a `box-shadow`
+	// can differ in layer count and geometry, not only in color.
+	assert.match(css, /\.card\{color:red;box-shadow:var\(--lp-ld-0-0,0 1px #eee\)\}/);
+	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:0 1px #111\}/);
+	// Untouched: a custom property is themeDualMode's job, not this one's.
+	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
+});
+
+test('hoistRuleLightDark emits no COPY of the rule — the cascade for that property is untouched', () => {
+	// The whole reason for the indirection. A scoped copy (`:root[…=dark] .card{box-shadow:…}`)
+	// gains specificity as well as a scheme condition, so every rule that legitimately beat the
+	// original by less than the prefix is worth loses to it in dark mode only. Measured on
+	// `examples/kanban-chart-redesign.md`: `section.kanban.keyline .kanban-card{box-shadow:none}`
+	// is what makes a keyline card FLAT, and a copy under the pinned-dark scope outranked it, so
+	// every keyline card came back elevated on a dark slide — a defect the fix would introduce.
+	const { darkBlock } = hoistRuleLightDark('.card{box-shadow:0 1px light-dark(#eee,#111)}');
+	assert.doesNotMatch(darkBlock, /box-shadow/, 'the scoped rules carry the token, never the property');
+});
+
+test('hoistRuleLightDark splices a slide pin INTO a section-subject selector, not above it', () => {
+	// `section.title.spectrum::before` has no section ancestor to hang `.dark` on, so a
+	// descendant prefix would ask for a section inside a section and match nothing. Same trap
+	// one step along: `section.kanban .card` would look for a kanban section nested in a dark one.
+	const { darkBlock } = hoistRuleLightDark('section.title.spectrum::before{background:light-dark(#eee,#111)}');
+	assert.match(darkBlock, /section\[data-lattice-slide\]\.dark:not\(\.print\)\.title\.spectrum::before\{/);
+	assert.doesNotMatch(darkBlock, /\.dark:not\(\.print\) section\.title/, 'never a section inside a section');
+	// An arm that does NOT open on `section` keeps the descendant form — which is also what
+	// themes a figure Read·Article re-hosts outside any section.
+	const { darkBlock: descendant } = hoistRuleLightDark('.card{background:light-dark(#eee,#111)}');
+	assert.match(descendant, /section\[data-lattice-slide\]\.dark:not\(\.print\) \.card\{/);
+});
+
+test('hoistRuleLightDark restores the light arm on a slide pinned against the player scheme', () => {
+	const { darkBlock } = hoistRuleLightDark('.card{background:light-dark(#eee,#111)}');
+	for (const pin of ['.light', '.color-light', '.print']) {
+		assert.ok(
+			darkBlock.includes(`:root[data-lp-scheme=dark] section[data-lattice-slide]${pin} .card{--lp-ld-0-0:#eee}`),
+			`a ${pin} slide keeps the light arm while the player is dark`,
+		);
+	}
+	// And the no-JS system fallback carries the same pair of rules inside the media query.
+	assert.match(darkBlock, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\] \.card\{--lp-ld-0-0:#111\}\}/);
+});
+
+test('hoistRuleLightDark re-emits a conditional rule INSIDE its own at-rule, not hoisted out', () => {
+	// Hoisting a conditional rule to top level is the failure mode that would be invisible: it
+	// would apply everywhere, always. Nothing in the bundle needs this today — which is exactly
+	// why it has to be pinned before something does.
+	const { darkBlock } = hoistRuleLightDark('@media print{.card{background:light-dark(#eee,#111)}}');
+	assert.match(darkBlock, /^@media print\{:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:#111\}\}/);
+	assert.match(darkBlock, /@media print\{@media \(prefers-color-scheme:dark\)\{/, 'the scheme query nests inside the original condition');
+});
+
+test('hoistRuleLightDark leaves a one-armed pair, a comment, and a string alone', () => {
+	// `light-dark(x)` switches nothing, so it costs no token and no rule.
+	assert.equal(hoistRuleLightDark('.card{color:light-dark(red)}').darkBlock, '');
+	// A comment between two rules is glued to the front of the next prelude unless it is
+	// dropped before the scan — `/* … */ .card` is not a selector, and prefixing it yields one
+	// that matches nothing.
+	const { darkBlock } = hoistRuleLightDark('/* a light-dark( in prose */\n.card{color:light-dark(red,blue)}');
+	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:blue\}/);
+	// A `{`/`;` inside a quoted string must not split a rule or a declaration.
+	const quoted = hoistRuleLightDark('.card::after{content:"a;b{c";color:light-dark(red,blue)}');
+	assert.match(quoted.css, /content:"a;b\{c"/, 'the string survives the scan verbatim');
+	assert.match(quoted.darkBlock, /\.card::after\{--lp-ld-0-0:blue\}/);
+});
+
+test('hoistRuleLightDark splits a selector list on TOP-LEVEL commas only', () => {
+	// A functional pseudo-class takes a selector list of its own, so a naive `split(',')` makes
+	// two invalid arms — and the second silently drops out of the re-scoped rule.
+	const { darkBlock } = hoistRuleLightDark(':is(section.kanban, figure.kanban).keyline .card{color:light-dark(red,blue)}');
+	assert.match(darkBlock, /^:root\[data-lp-scheme=dark\] :is\(section\.kanban, figure\.kanban\)\.keyline \.card\{/);
+});
+
+test('hoistRuleLightDark keeps a url() intact in a value that also carries a pair', () => {
+	// `resolveLightDark` masks its own input and strips stray placeholder sentinels first, so
+	// handing it ALREADY-masked text erases the fences and leaves bare index digits where the
+	// url used to be.
+	const { css, darkBlock } = hoistRuleLightDark('.a{background:url("x;y{z.png") light-dark(red,blue)}');
+	assert.equal(css, '.a{background:var(--lp-ld-0-0,url("x;y{z.png") red)}');
+	assert.match(darkBlock, /--lp-ld-0-0:url\("x;y\{z\.png"\) blue/);
+});
+
+test('hoistRuleLightDark names one token per declaration, so two pairs in a rule stay independent', () => {
+	const { css, darkBlock } = hoistRuleLightDark('.card{background:light-dark(#eee,#111);fill:light-dark(#ddd,#222)}');
+	assert.match(css, /background:var\(--lp-ld-0-0,#eee\);fill:var\(--lp-ld-0-1,#ddd\)/);
+	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:#111;--lp-ld-0-1:#222\}/);
+});
+
+test('themeDualMode flattens a real-property dark arm through the same :root map the tokens use', () => {
+	// No shipped value may resolve one custom property through another (the pre-17.5 WebKit
+	// failure this whole machine exists for), so the arms take the same deepFlatten the token
+	// block takes: a `:root` token becomes a literal, and a token the dark block ITSELF
+	// redefines stays a reference — it has to, or the arm would freeze at the light value.
+	const { base, darkBlock } = themeDualMode(
+		':root{--ink:light-dark(#111,#eee);--edge:#808080}.card{box-shadow:0 1px light-dark(var(--edge),var(--edge));background:light-dark(#fff,var(--ink))}',
+	);
+	assert.match(base, /background:var\(--lp-ld-0-0,#fff\)/, 'the light arm rides the fallback in the base');
+	assert.match(darkBlock, /--lp-ld-0-0:var\(--ink\)/, 'a token the dark block redefines stays a reference');
+	assert.doesNotMatch(base, /light-dark\(/, 'nothing shipped in the base depends on the function');
+	// `--edge` is scheme-blind, so both arms flatten to the same value: the pair costs no token,
+	// and its declaration is left in the base exactly as the plain light collapse left it.
+	assert.match(base, /box-shadow:0 1px var\(--edge\)/, 'a pair whose arms resolve alike emits no token');
+	assert.equal((darkBlock.match(/--lp-ld-/g) || []).length, 9, 'one token per scheme scope: dark, three light pins, the dark-slide pin, and the first four again under the system media query');
 });
 
 test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark()', () => {
