@@ -37,12 +37,12 @@ import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 // cost, audit 2026-07-20-studio-degradation-audit). The CSS for a given (themeBase, name) is
 // identical across hosts, so sharing is safe; the engine-side registry (PG.addThemes/hasTheme)
 // was already globally deduped — this closes the docs-side duplication the audit measured.
-type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null; katexWanted: boolean; katexReady: Promise<void> | null };
+type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null; katexWanted: boolean; katexActive: boolean; katexReady: Promise<void> | null };
 const sharedState = new Map<string, FetcherState>();
 function stateFor(themeBase: string): FetcherState {
 	let s = sharedState.get(themeBase);
 	if (!s) {
-		s = { fetched: {}, registering: {}, latticeReady: null, katexWanted: false, katexReady: null };
+		s = { fetched: {}, registering: {}, latticeReady: null, katexWanted: false, katexActive: false, katexReady: null };
 		sharedState.set(themeBase, s);
 	}
 	return s;
@@ -134,14 +134,23 @@ export function createThemeFetcher(themeBase: string) {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.reject(new Error('engine not ready'));
 		if (state.katexWanted && state.katexReady) return state.katexReady;
+		// `katexWanted` gates what `latticeCssFor` emits, so it must be set BEFORE the
+		// fetch resolves — any registration racing this one has to carry the faces too.
+		// `katexActive` is what `katexFacesActive()` reports, and it must flip only AFTER
+		// `addThemes` has actually landed: it feeds other hosts' patch signature, and a
+		// host that stamps `K` onto a frame still composed from the STRIPPED base will
+		// later patch math into it without rewriting the <style> — fallback metrics, the
+		// exact failure the signature exists to prevent.
 		state.katexWanted = true;
 		state.katexReady = fetchTheme('lattice')
 			.then((css) => {
 				// addThemes overwrites by name, so this replaces the stripped registration.
 				PG.addThemes([{ name: 'lattice', css }]);
+				state.katexActive = true;
 			})
 			.catch((e) => {
 				state.katexReady = null; // let a later math render retry
+				state.katexActive = false;
 				throw e;
 			});
 		return state.katexReady;
@@ -156,7 +165,7 @@ export function createThemeFetcher(themeBase: string) {
 	 * metrics. Measured exactly that way before this was threaded through.
 	 */
 	function katexFacesActive(): boolean {
-		return state.katexWanted && Boolean(state.katexReady);
+		return state.katexActive;
 	}
 
 	/** True once the engine reports the named theme is registered. */

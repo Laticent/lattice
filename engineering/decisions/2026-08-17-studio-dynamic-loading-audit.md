@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: SHIPPED — all seven fixes landed in #1727. Studio eager JS 976.1 -> 648.7KB gz (-33%), raw parse weight 2833 -> 1869KB (-964KB per launch), the HTML document 432 -> 188KB, preview fonts 43 -> 19 files on a math-free deck, and a blocking per-route byte ledger now stops it drifting back. Originally: a cold Studio load pulled ~2.83MB across 117 requests, and no per-PR gate watched any of it. The three findings that survived adversarial review - fonts (1.17MB, 43 files, 254KB of it KaTeX for a slide with no math), CodeMirror riding the eager path via one chat-syntax-highlighting import, and 312KB of JSON inlined into the HTML - are real and independently reproduced. But the service worker serves every hashed asset cache-first, so these are FIRST-VISIT costs; the cost that repeats on every launch is parse and hydrate, which reorders the fix list. Route-level splitting is genuinely excellent; the Studio island is the monolith.
+summary: SHIPPED — all seven fixes landed in #1727, then a second adversarial-trio pass found four defects in them and corrected the numbers. Measured base-vs-head in one session: Studio eager JS 983 -> 642KB gz (-34.7%), raw parse weight 2833 -> 1843KB (-990KB per launch), the HTML document 433 -> 188KB, preview fonts 43 -> 19 files on a math-free deck, and a blocking per-route byte ledger now stops it drifting back. Originally: a cold Studio load pulled ~2.83MB across 117 requests, and no per-PR gate watched any of it. The three findings that survived adversarial review - fonts (1.17MB, 43 files, 254KB of it KaTeX for a slide with no math), CodeMirror riding the eager path via one chat-syntax-highlighting import, and 312KB of JSON inlined into the HTML - are real and independently reproduced. But the service worker serves every hashed asset cache-first, so these are FIRST-VISIT costs; the cost that repeats on every launch is parse and hydrate, which reorders the fix list. Route-level splitting is genuinely excellent; the Studio island is the monolith.
 ---
 
 # The Studio's loading budget: what is eager, what is lazy, and what it costs
@@ -393,15 +393,24 @@ measurement artifact.
 Every figure below is the same measurement the baseline used — gzip level 6 over every
 `/_astro/*.js` referenced in `dist/studio/index.html`, on a real `npm run build`.
 
-| Metric | Before | After | Δ |
+| Metric | Before (`8ec6f9d`) | After | Δ |
 |---|---:|---:|---:|
-| Eager JS (gz) | 976.1KB | **648.7KB** | **−327.4KB (−34%)** |
-| Eager JS (raw ≈ parse) | 2833.0KB | **1869.1KB** | **−964KB per launch** |
-| HTML document (raw) | 432.2KB | **188.0KB** | −244.2KB (−56%) |
-| Inlined props blob | 312.0KB (72% of HTML) | **67.7KB (36%)** | −244.3KB |
-| CodeMirror on the eager path | 202.6KB gz | **1.6KB gz** | −201.0KB |
-| Preview fonts, math-free deck | 43 files / 1174KB | **19 files / ~694KB** | −24 files |
+| Eager JS (gz) | 983.0KB | **642.0KB** | **−341.0KB (−34.7%)** |
+| Eager JS (raw ≈ parse) | 2833.2KB | **1843.1KB** | **−990.1KB per launch** |
+| HTML document (raw) | 433.1KB | **188.2KB** | −244.9KB (−56.5%) |
+| Inlined props blob | 312.0KB (72% of HTML) | **67.8KB (36%)** | −244.2KB |
+| CodeMirror on the eager path | ~205KB gz | **0.9KB gz** | −204KB |
+| Preview fonts, math-free deck | 43 files / 1174KB | **19 files** | −24 files |
 | `@font-face` rules in the frame | 54 | **17** | −37 |
+
+**On reproducing these.** The before-column was measured by checking out `8ec6f9d`,
+building, measuring, then restoring and rebuilding — an interleaved same-session A/B,
+because the absolute figures are NOT stable across sessions: the docs build consumes
+generated artifacts (`docs/src/playground/*.generated.js`, `docs/public/playground/*`)
+that a `tools/build.js` run regenerates, and independent measurements of this same base
+landed at 971.7KB, 976.1KB and 983.0KB gz depending on that state. **Raw bytes are
+stable** (2833.0 / 2833.2 across runs) and gzip is not. Trust the deltas and the raw
+column; treat any single absolute gz figure as good to about ±1%.
 
 The parse figure is the one that matters. Because `/_astro/` is service-worker
 cache-first, the byte columns are a first-visit cost — but the **raw** column is re-paid
@@ -430,6 +439,43 @@ how they drifted:
 because its copy contains a literal `` `$math$` `` inside a code span and the engine
 matches math in code spans on purpose. So a first-run visitor still pays the KaTeX faces;
 the §9.6 win lands on real decks, not the tour.
+
+## 12. The second trio pass — four defects in the fixes themselves
+
+HARD RULE #25 says the trio applies to *what will actually ship*. The first pass ran
+against the audit document; once the seven fixes existed, a second pass ran against the
+code. It found four real defects, all since fixed in this PR:
+
+| Defect | Why it mattered |
+|---|---|
+| **`theme-core` was still eager.** The census was *three* eager importers, not two — `theme-library.ts:14` was missed, and `theme-core.generated.js` is an esbuild CommonJS registry, so one import pulls all 7 `lib/theme/*` modules | The fix's own changelog claimed the leak was closed when half of it was open. Worth another −11KB gz |
+| **`katexFacesActive()` reported `true` before the faces were registered.** Both flags were set synchronously, ahead of the `addThemes` inside the `.then` | A second preview host would stamp `K` into its patch signature over a stylesheet still composed from the STRIPPED base — then patch math into it without rewriting the `<style>`. Fallback metrics: the exact failure the signature was added to prevent |
+| **The export path never asked for the faces.** `share-export.ts` composes from the same registered base via `renderMarkdown → cssFor → byName.get('lattice')`, and called `themes.ensure()` only | An exported PDF/PPTX/player could carry math in fallback metrics — a change to exported artifact BYTES, which CLAUDE.md makes a stop-and-show gate. It was masked only by a live preview happening to warm the faces first, an undocumented and untested invariant |
+| **The byte gate could silently vanish or launder a broken build.** `process.argv[1]` does not resolve symlinks where `import.meta.url` does, so a checkout under a symlinked path ran nothing and exited 0; and `measure()` skipped a referenced-but-missing chunk, under-counting a broken build into a *smaller* budget | A merge gate that quietly stops running is worse than no gate, because the build still looks clean |
+
+Two further corrections came out of it:
+
+- **The KaTeX commit itself added ~11KB gz of eager JS** through Rollup re-chunking (the
+  island chunk split, and more-but-smaller chunks compress worse). It shipped measuring
+  only font counts; the aggregate was never re-measured after it. That is precisely the
+  accretion this audit is about, occurring inside the PR that adds the gate against it.
+- **"Typing `$E = mc^2$` fetches only the 2 files the glyphs need" was wrong.** A real
+  math deck pays all 20 KaTeX faces, because `settleFonts` force-loads every declared
+  face — the mechanism §3 documents. The saving is per-*deck*, not per-glyph, and math
+  anywhere in the deck trips it even while viewing a math-free slide.
+
+**The gate proved itself during this pass.** Removing `theme-core` dropped eager JS below
+the ledger's stale floor and the build went red demanding the budget be ratcheted down —
+working exactly as designed, on the first real improvement after it landed. That also
+exposed the first cut's band as too tight (~4KB of room below budget), so the stale slack
+is now proportional (5%) and justified from the ~0.4%/day drift this audit measured,
+rather than from a round number.
+
+**Off-path, logged not fixed** (HARD RULE #18): `EditorSkeleton` in `chrome-parts.tsx` has
+the same inert-`sr-only` bug the new `ComposeSkeleton` shipped with and has now fixed —
+an `aria-hidden` wrapper removes its own `sr-only` status from the accessibility tree, so
+"Loading the editor…" announces nothing. Pre-existing, and its fix belongs with an
+accessibility pass rather than a loading one.
 
 ## What this audit does not cover
 

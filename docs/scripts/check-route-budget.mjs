@@ -45,10 +45,20 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
 const LEDGER_PATH = path.join(HERE, '..', 'route-budget.json');
 
-// Slack below the budget before it counts as stale-loose. Absorbs ordinary churn (a
-// dependency bump, a few KB of new UI) without demanding a ledger edit on every PR,
-// while staying far under any win worth banking.
-const SLACK = { eagerJsGz: 12 * 1024, htmlRaw: 20 * 1024 };
+// How far BELOW its budget a route may drift before the budget counts as stale-loose.
+//
+// PROPORTIONAL, and sized from measured behavior rather than taste. Three inputs:
+//   • the audit measured ~0.4%/day of real drift on this route (~2.6KB/day at today's
+//     weight), so a 5% floor is roughly a fortnight of ordinary churn — frequent enough
+//     to catch accretion, rare enough that most PRs never touch the ledger;
+//   • gzip output is implementation-dependent, so a CI Node/zlib bump can move the total
+//     by more than a percent on its own. An absolute few-KB band would red-build on a
+//     runtime upgrade that changed nothing about the app;
+//   • the first cut of this gate used 12KB/20KB absolute, which left the studio route
+//     ~4KB of room below budget — and the very next real improvement (taking theme-core
+//     off the eager path, −10.7KB) tripped it. A gate that fires on its own wins is a
+//     gate people learn to silence.
+const STALE_SLACK_PCT = 0.05;
 
 /**
  * A route's EAGER JS: every `/_astro/*.js` referenced in its HTML, gzipped.
@@ -66,7 +76,13 @@ function measure(routeHtml) {
 	let eagerJsGz = 0;
 	for (const ref of refs) {
 		const file = path.join(DIST, ref.replace(/^\//, ''));
-		if (!fs.existsSync(file)) continue;
+		// A referenced chunk that is not on disk is a BROKEN BUILD, and skipping it would
+		// under-count — which this gate would then report as "STALE, ratchet it down",
+		// laundering the breakage into a smaller committed budget that the next correct
+		// build exceeds. Fail loudly instead.
+		if (!fs.existsSync(file)) {
+			throw new Error(`check-route-budget: ${routeHtml} references ${ref}, which is not in dist/ — the build is broken, not smaller.`);
+		}
 		eagerJsGz += zlib.gzipSync(fs.readFileSync(file), { level: 6 }).length;
 	}
 	return { eagerJsGz, htmlRaw: Buffer.byteLength(html), chunks: refs.length };
@@ -82,7 +98,7 @@ const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
  *
  * Returns a list of human-readable problems; empty means within budget.
  */
-export function evaluateRoute(route, actual, budget, slack = SLACK) {
+export function evaluateRoute(route, actual, budget, slackPct = STALE_SLACK_PCT) {
 	const problems = [];
 	for (const metric of ['eagerJsGz', 'htmlRaw']) {
 		const cap = budget[metric];
@@ -94,10 +110,10 @@ export function evaluateRoute(route, actual, budget, slack = SLACK) {
 					`    Give the bytes back, or raise "${metric}" for "${route}" in docs/route-budget.json\n` +
 					`    IN THIS PR — so the growth is reviewable where it happened.`,
 			);
-		} else if (got < cap - slack[metric]) {
+		} else if (got < cap - Math.round(cap * slackPct)) {
 			problems.push(
 				`${route} ${metric}: ${kb(got)} is ${kb(cap - got)} under its budget ${kb(cap)} — the budget is STALE.\n` +
-					`    Ratchet it down to ${kb(got)} in docs/route-budget.json so the win is banked and cannot be silently re-spent.`,
+					`    Ratchet it down to ${got} (${kb(got)}) in docs/route-budget.json so the win is banked and cannot be silently re-spent.`,
 			);
 		}
 	}
@@ -133,6 +149,14 @@ function main() {
 }
 
 // Only run the gate when INVOKED, not when imported by its tests.
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+//
+// realpathSync on BOTH sides: Node's ESM loader resolves symlinks in `import.meta.url`
+// but `process.argv[1]` keeps the path as typed. A checkout reached through a symlinked
+// parent (macOS /tmp → /private/tmp, some CI cache mounts) made these two disagree, and
+// the gate then exited 0 having printed nothing — a merge gate that silently vanishes is
+// worse than no gate, because the build still looks clean.
+const invokedAs = process.argv[1] ? fs.realpathSync(process.argv[1]) : '';
+const selfPath = fs.realpathSync(fileURLToPath(import.meta.url));
+if (invokedAs === selfPath) {
 	main();
 }

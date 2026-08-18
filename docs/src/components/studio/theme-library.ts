@@ -11,7 +11,20 @@
 // throws — it just returns an empty shelf.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
-import { themeAsset } from '@/playground/theme-core.generated.js';
+
+// Loaded ON DEMAND (2026-08-17 loading audit §9.2). StudioShell imports this module
+// EAGERLY, and `theme-core.generated.js` is an esbuild __commonJS registry — importing
+// one export pulls all 7 `lib/theme/*` modules, so a static import here kept the whole
+// core on the cold path even after architect.ts and component-library.ts were converted.
+// This was the THIRD eager importer; the first pass missed it and the changelog claimed
+// theme-core had come off the eager path when it had not. `themeAsset` is only called
+// while SAVING a theme, which is a user action.
+type ThemeCore = typeof import('@/playground/theme-core.generated.js');
+let themeCoreLoad: Promise<ThemeCore> | null = null;
+function loadThemeCore(): Promise<ThemeCore> {
+	if (!themeCoreLoad) themeCoreLoad = import('@/playground/theme-core.generated.js');
+	return themeCoreLoad;
+}
 
 /** A saved theme as the Studio uses it (render with `extraTheme={name,css}`). */
 export type StudioTheme = {
@@ -73,7 +86,7 @@ export async function saveStudioTheme(input: { id?: string; name: string; label:
 	// `input.name`, so TRUST it when it's a valid slug; only fall back (to the
 	// label slug, then a stamped form) when it isn't.
 	const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
-	const asset = themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
+	const asset = (await loadThemeCore()).themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
 	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }

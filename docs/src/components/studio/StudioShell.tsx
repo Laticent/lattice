@@ -229,21 +229,37 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `seedComponents` still seeds it, so a caller that passes the array directly (every
 	// unit test does) behaves exactly as before and never fetches.
 	const [components, setComponents] = React.useState<ComponentEntry[]>(seedComponents);
+	// RETRY, because the degraded state is silent and wide. A failed fetch leaves the
+	// catalog empty, and an empty catalog does not throw — it removes the Add-slide
+	// launcher entirely, empties the per-slide drawer's variant controls, and makes the
+	// Coach's density/bucket findings vanish so it reports a BETTER grade than the truth.
+	// Offline is a supported state here (this is an installed PWA), so a single failure
+	// must not be permanent for the tab. `componentNames` keeps LINT honest throughout,
+	// but it covers only lint.
+	const [catalogAttempt, setCatalogAttempt] = React.useState(0);
 	React.useEffect(() => {
-		if (components.length || !catalogUrl) return;
+		if (components.length || !catalogUrl || catalogAttempt > 3) return;
 		let alive = true;
+		let timer = 0;
+		const retry = () => {
+			if (!alive) return;
+			// Back off 1s, 2s, 4s — enough to ride out a flaky connection or a service
+			// worker revalidating, without hammering a genuinely offline device.
+			timer = window.setTimeout(() => alive && setCatalogAttempt((n) => n + 1), 1000 * 2 ** catalogAttempt);
+		};
 		fetch(catalogUrl)
 			.then((r) => (r.ok ? r.json() : null))
 			.then((rows) => {
-				if (alive && Array.isArray(rows) && rows.length) setComponents(rows as ComponentEntry[]);
+				if (!alive) return;
+				if (Array.isArray(rows) && rows.length) setComponents(rows as ComponentEntry[]);
+				else retry();
 			})
-			.catch(() => {
-				/* offline / stale deploy — `componentNames` still keeps lint honest below */
-			});
+			.catch(retry);
 		return () => {
 			alive = false;
+			if (timer) window.clearTimeout(timer);
 		};
-	}, [components.length, catalogUrl]);
+	}, [components.length, catalogUrl, catalogAttempt]);
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());

@@ -16,10 +16,21 @@ let highlighter: Highlighter | null = null;
 let highlighterLoad: Promise<Highlighter> | null = null;
 function loadHighlighter(): Promise<Highlighter> {
 	if (!highlighterLoad) {
-		highlighterLoad = import('./chat-highlight').then((m) => {
-			highlighter = m;
-			return m;
-		});
+		highlighterLoad = import('./chat-highlight').then(
+			(m) => {
+				highlighter = m;
+				return m;
+			},
+			(err) => {
+				// DROP a rejected load from the memo. A cached rejection would wedge every
+				// chat code block in the document for the rest of its life — and the common
+				// cause is a stale tab whose chunk 404s after a deploy (#1242), which a later
+				// attempt in a fresh navigation would survive. `theme-fetch.ts` drops
+				// transient rejections for exactly this reason.
+				highlighterLoad = null;
+				throw err;
+			},
+		);
 	}
 	return highlighterLoad;
 }
