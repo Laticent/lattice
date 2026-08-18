@@ -43,7 +43,77 @@
 /* ── base = featured heading + findings (former split-brief) ─────────────── */
 section.split-panel { padding:0; flex-direction:row; }
 section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
-section.split-panel .panel-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
+/* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
+ * A sovereign split frame owns its own top edge. `base.elements.css` paints the
+ * spectrum as a `border-top` on the SECTION, which a sovereign frame cannot
+ * suppress (it is not a Cell or a Tile, so `suppresses` in the frame manifest
+ * cannot name it) — so the section ribbon used to sit directly on top of this
+ * component's own 3px accent bar: a 7px two-tone stripe over the panel that
+ * stepped down to 4px at the seam. Measured in cuoio at 2560x1440: rows 0-7
+ * `#677EBB` (ribbon) over rows 8-13 `#7A5A10` (bar), two unrelated hues.
+ *
+ * The border is dropped and the edge is rebuilt as ONE bar of the ribbon's own
+ * weight, in two segments that meet exactly at the panel seam: the panel's mark
+ * over the panel, the deck ribbon over the supporting zone.
+ *
+ * ANCHOR THE SEGMENTS TO THE PANEL BOXES, never to a width percentage. An
+ * earlier version hung both off the section and computed the boundary from
+ * `--panel-w: 38` (the declared `width:38%`). `.panel-left` is NOT border-box,
+ * so its rendered width is `38% + 2*var(--sp-lg)` and every variant landed
+ * 128 raster px short of its seam — a CONSTANT error across different
+ * `--panel-w` values, which is what identifies it as the padding rather than
+ * the percentage. Anchoring each segment to its own panel BOX is correct by
+ * construction, needs no token, and makes `.mirror` free: the panels row-reverse
+ * and their segments go with them.
+ *
+ * The mark uses `::after` because `.pullquote` owns `::before` for its
+ * oversized quote glyph.
+ * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+section.split-panel { border-top: none; }
+section.split-panel .panel-left::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: calc(var(--_sec-1cqi, 1cqi) * 0.3125); /* section-OWN cqi: route through --_sec-1cqi */
+  /* `--panel-mark` (cat-N, proof/capstone) wins; then the palette's own edge value;
+   * then `--accent`. The middle rung exists because on an ACHROMATIC palette
+   * `--accent` IS the panel fill — onyx measured `#000000` on `#000000`, i.e. the
+   * panel half silently loses its top edge. Gated: composed-contrast surface
+   * `split-panel/edge-mark`. */
+  background: var(--panel-mark, var(--panel-edge-mark));
+  z-index: 3; /* local 0-9 band (design/forms.md 5.2): over the panel's own fill, under nothing */
+}
+/* The supporting zone carries the deck ribbon — as a BACKGROUND on the panel box,
+ * not an absolutely-positioned pseudo. `<footer>` is a CHILD of `.panel-right`
+ * (lib/core/split-panels.js), so `position: relative` here would make the panel its
+ * containing block: measured, the running footer jumped out of the panel it used to
+ * span and wrapped to two lines. A background needs no containing block, no z-index,
+ * and no stacking interaction, and it is sized to the panel's own box for free.
+ *
+ * `background-size` is ONE SLIDE WIDTH and the image is anchored to the far edge, so
+ * the visible slice is exactly what a full-width bar would show at those x — a split
+ * slide does not read as recolored beside its neighbors (measured `#5CB135` vs
+ * `#5DB133`). LONGHANDS only (#1528): a `var()` in a multi-layer `background`
+ * shorthand invalidates the whole declaration if the token is missing. */
+section.split-panel .panel-right {
+  background-image: var(--spectrum);
+  background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
+  background-position: right top;
+  background-repeat: no-repeat;
+}
+/* `.mirror` row-reverses the panels, so the ribbon anchors to the OTHER edge. */
+section.split-panel.mirror .panel-right { background-position: left top; }
+/* The ribbon segment IS this frame's section-edge bar, so it obeys the same five
+ * registers that clear the section border (base.variants.css). The panel mark is a
+ * STRUCTURAL accent and survives `spectrum: off` — the white-label baseline. */
+section.split-panel:is(.spectrum-off, .spectrum-edge-left, .spectrum-edge-right,
+                       .spectrum-edge-bottom, .spectrum-edge-off) .panel-right {
+  background-image: none;
+}
+/* `accent` replaces the rainbow with a solid accent line. On a split frame the edge
+ * lives on the panels, so it recolors the ribbon segment; shared.styles.css excludes
+ * split frames from re-adding a section border. */
+section.split-panel.accent .panel-right {
+  background-image: linear-gradient(var(--accent), var(--accent));
+}
 section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
 section.split-panel .panel-left h2 { font-size:var(--fs-h1); color:var(--on-dark-primary); line-height:var(--lh-tight); padding:0 0 var(--sp-sm); margin:0; font-weight:800; }
 section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-dark-secondary); line-height:var(--lh-snug); margin:0; }
@@ -51,7 +121,7 @@ section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-
  * a flex child defaults to min-height:auto (refuses to shrink), so without these
  * an over-stuffed right zone bleeds past the panel wall. The left panel already
  * clips (overflow:hidden, line above); this walls the supporting zone to match. */
-section.split-panel .panel-right { flex:1; min-height:0; overflow:clip; background:var(--bg); display:flex; flex-direction:column; padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
+section.split-panel .panel-right { flex:1; min-height:0; overflow:clip; background-color:var(--bg); display:flex; flex-direction:column; padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
 section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:1px solid var(--border); }
 section.split-panel .panel-right > ul { display:flex; flex-direction:column; flex:1; justify-content:space-evenly; list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; }
 section.split-panel .panel-right > ul > li { padding-left:var(--sp-md); border-left:3px solid var(--accent); }
@@ -61,12 +131,13 @@ section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--f
 
 /* ── .metric — light-left polarity + hero number (former split-metric) ───── */
 section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:safe center; align-items:flex-start; }
-section.split-panel.metric .panel-left::before { content:none; }
 section.split-panel.metric .panel-eyebrow { color:var(--text-secondary); padding-bottom:var(--sp-xs); }
 section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--text-heading); line-height:1; padding:0 0 var(--sp-sm); margin:0; }
 section.split-panel.metric .panel-left h2 em { font-size:var(--fs-h1); font-weight:700; font-style:normal; color:var(--text-secondary); }
 section.split-panel.metric .panel-left p { font-size:var(--fs-meta); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-snug); max-width:26ch; margin:0; padding-top:var(--sp-sm); border-top:1px solid var(--border); }
-section.split-panel.metric .panel-right { background:var(--surface-inverse); }
+/* background-COLOR, not the shorthand: the shorthand resets `background-image` and
+ * would silently erase this frame's ribbon segment (see the top-edge note above). */
+section.split-panel.metric .panel-right { background-color:var(--surface-inverse); }
 /* Both rules take --on-dark-ghost, the rule/divider rung. They used to name
  * --on-dark-watermark — 12% white, documented as the "large-glyph backdrop,
  * near-invisible" tier — for a 2px row accent and a heading hairline: measured
@@ -92,7 +163,6 @@ section.split-panel.pullquote .panel-left cite { font-size:var(--fs-message); fo
 
 /* ── .steps — numbered step-timeline right zone (former split-steps) ─────── */
 section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:safe center; }
-section.split-panel.steps .panel-left::before { content:none; }
 section.split-panel.steps .panel-eyebrow { position:absolute; top:var(--sp-lg); left:var(--sp-lg); margin:0; font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--border); line-height:1; letter-spacing:0; text-transform:none; pointer-events:none; z-index:0; }
 section.split-panel.steps .panel-left h2 { font-size:var(--fs-h2); color:var(--text-heading); font-weight:800; position:relative; z-index:1; }
 section.split-panel.steps .panel-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); position:relative; z-index:1; }
@@ -214,7 +284,9 @@ section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2)
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
 section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:safe flex-end; }
-section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
+/* The panel fill IS `--accent` here, so a `--accent` mark is invisible
+ * (measured `#7A5A10` on `#7A5A10`). Take the on-accent rung instead. */
+section.split-panel.watermark .panel-left::after { background: var(--on-accent-watermark); }
 section.split-panel.watermark .panel-left h2 { font-size:var(--fs-emphasis); color:var(--on-accent); margin:0; font-weight:800; }
 section.split-panel.watermark .panel-left .watermark { position:absolute; font-family:var(--font-display); font-size:calc(11.46cqi * var(--fs-scale)) /* cqi-ok: decorative watermark numeral */; font-weight:700; color:var(--on-accent-watermark); top:3.125cqi; left:1.5625cqi; line-height:1; pointer-events:none; }
 /* The eyebrow and the h5 watermark label take --on-accent, the CURATED rung, not
@@ -442,7 +514,7 @@ section.split-panel > .cell-stage {
  * panel with dark-red labels, or a green panel with navy labels. This is deliberate
  * and it is the better of the two available readings: it makes the SUPPORTING ZONE
  * internally consistent — each label now matches the border and rules directly
- * around it, which all take `--panel-mark` (`.panel-left::before`, and `capstone`'s
+ * around it, which all take `--panel-mark` (`.panel-left::after`, and `capstone`'s
  * quote border + pillar rules) — where before the labels clashed with those same
  * rules. Two hues used consistently beats one hue used half the time. */
 section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink, var(--cat-1-mark)); }
@@ -455,9 +527,6 @@ section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(-
 section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink, var(--cat-8-mark)); }
 section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
   background: var(--panel-fill);
-}
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
-  background: var(--panel-mark);
 }
 /* EVERY text run on the tinted panel takes `--cat-on-fill` — the one ink the
  * categorical token contract guarantees against any `--cat-N-fill` (>=4.5:1,

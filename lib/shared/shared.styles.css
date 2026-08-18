@@ -37,7 +37,12 @@ section.compact {
  * Replaces the rainbow spectrum top-border with a solid accent stripe and
  * tints the slide heading. Used when a slide carries a single editorial
  * argument — the accent stripe signals "this is the point". */
-section.accent {
+/* The split frames own their top edge on the PANELS, not on the section border
+ * (2026-08-18) — re-adding a section border here would restore the double this
+ * removed, and the tie on specificity (both `section.<class>`) would be settled by
+ * source order in this file's favor. They honor `accent` by recoloring their own
+ * ribbon segment instead; see each component's styles file. */
+section.accent:not(.split-panel, .split-compare) {
   border-top: calc(0.3125 * var(--_sec-1cqi, 1cqi)) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image: none;
 }
