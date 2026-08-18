@@ -53,7 +53,7 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 - Palette-blind by contract
   - Every stroke resolves through `var(--token)`, so the finish inherits the active theme's hue.
 - PDF-safe by design
-  - Pure type and border geometry; no SVG filters, which collapse Marp's print scaling.
+  - Type, border geometry, and real rough.js strokes — plain SVG paths. No SVG *filter*, which is the thing that collapses print scaling.
 - Opt body back to clean
   - Add `sketch-clean-body` to keep the hand headings and boxes while prose stays crisp.
 
@@ -86,7 +86,7 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 ## The frame is drawn; the data is exact.
 
-Because the finish is CSS and fonts, it reskins the heading, the legend labels and their values — but a chart's SVG wedges keep their own precise geometry, so the numbers never wobble.
+The finish draws the lines a slide rules for itself, and reskins the heading and the legend — but a chart's SVG wedges keep their own precise geometry, so the numbers never wobble.
 
 - Deck production `46%`
 - Meetings about meetings `22%`
@@ -187,15 +187,15 @@ flowchart LR
 
 ## The grid is hand-ruled too.
 
-| Surface       | Hand type | Drawn line     |
-| ------------- | --------- | -------------- |
-| Cards         | ✓         | box + tilt     |
-| Tables        | ✓         | frame + rules  |
-| Blockquotes   | ✓         | drawn box      |
-| Bordered rows | ✓         | hand corners   |
-| Photos & code | ✗         | left untouched |
+| Surface       | Drawn by   | Line               |
+| ------------- | ---------- | ------------------ |
+| This table    | rough.js   | frame + row rules  |
+| Heading rule  | rough.js   | the masthead↔stage |
+| Dividers      | rough.js   | one stroke         |
+| Cards         | CSS radius | box + tilt         |
+| Photos & code | nothing    | left untouched     |
 
-_The finish roughens every line the deck draws itself — and stops at content it merely contains._
+_Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards convert next._
 
 ---
 
@@ -235,10 +235,10 @@ _The finish roughens every line the deck draws itself — and stops at content i
 
 ## Go-live checklist for the sketch finish.
 
-- [x] Tables, blockquotes, and rows take the drawn box
+- [x] Every rule is a real rough.js stroke, seeded so renders repeat
+- [x] Table frames, ledger rules, dividers, the masthead rule
 - [x] Display numerals and labels ride the hand face
-- [x] Pagination, header, and footer go hand
-- [-] Hand-drawn bullet marks, landing now
+- [-] Boxes still bend a CSS radius; they convert next
 - [ ] Hand-drawn chart marks, deferred with the SVG work
 
 ---
@@ -250,10 +250,10 @@ _The finish roughens every line the deck draws itself — and stops at content i
 
 ## Every structure that draws its own line.
 
-1. Cards and the card family — the drawn box with a per-card tilt
-2. Tables and ledgers — a hand frame and inked rules
-3. Blockquotes and bordered rows — hand corners, colours kept
-4. Bullets, labels, and pagination — all on the hand face
+1. Table frames and their row rules — one stroke per boundary, edge to edge
+2. The list-tabular ledger and the `list.principles` rules
+3. The masthead rule, the `hr` divider, an agenda's active row
+4. Cards, blockquotes and bordered rows — still CSS, converting next
 
 ---
 

@@ -711,6 +711,8 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
+const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
+const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
 // HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
 // — the `--css` layout sheet and the palette file are caller-supplied by construction,
 // and a deck's own front-matter `style:` block rides in the same element. A `<style>`'s
@@ -3061,6 +3063,56 @@ async function renderBody(browser, g, closeBrowser) {
       for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
     }
   }, level), 'apply overflow marker level');
+
+  // ── Rough ink — the sketch finish's drawn lines ──────────────────────────
+  // Measure in the page → generate in Node → paint back in the page. Rough.js
+  // never enters the browser context on this path: `pathsForPlan` is a plain
+  // `require` here, so there is no 28KB script to inject per render and no
+  // second copy of the library to keep in step with the runtime's.
+  //
+  // POSITION IS LOAD-BEARING, and it is pinned between two things:
+  //   · AFTER every overflow/clip probe above. The overlay is an absolutely
+  //     positioned child of `<section>` whose frame paths deliberately
+  //     overshoot the slide box; a probe that ran after it would read that
+  //     overshoot as content spilling the frame and flag a red ring on a
+  //     perfectly fine slide.
+  //   · BEFORE the player bake below. The player ships no runtime (it strips
+  //     every inline script), so whatever the DOM holds at this instant is
+  //     what a shared `--player` file shows forever. Painting after the bake
+  //     would give the PDF its ink and the player none — the same class of
+  //     split-path bug the overflow marker had before it moved here.
+  const inkPlans = await g(() => page.evaluate(({ structures, measureSrc }) => {
+    const measure = new Function('return (' + measureSrc + ')')();
+    return measure(structures);
+  }, { structures: ROUGH_INK_STRUCTURES, measureSrc: MEASURE_ROUGH_INK_SRC }), 'measure rough ink');
+  if (inkPlans.length) {
+    // Wrapped, and deliberately: the ink is DECORATION. A finish that cannot
+    // draw a wobbly line must never take a whole export down with it — the
+    // deck still renders, the CSS fallback still draws rules, and the author
+    // gets a warning instead of a stack trace where a PDF should have been.
+    // `shiftPath` in particular throws by design on a path command it cannot
+    // translate, which is the right call for a bug report and the wrong one
+    // for someone's board pack.
+    try {
+      const bySection = new Map();
+      for (const plan of inkPlans) {
+        const paths = pathsForPlan(plan);
+        if (!paths.length) continue;
+        const prev = bySection.get(plan.sectionIndex);
+        if (prev) prev.push(...paths);
+        else bySection.set(plan.sectionIndex, paths.slice());
+      }
+      const paints = [...bySection].map(([sectionIndex, paths]) => ({ sectionIndex, paths }));
+      await g(() => page.evaluate(({ p, paintSrc }) => {
+        const paint = new Function('return (' + paintSrc + ')')();
+        paint(p);
+      }, { p: paints, paintSrc: PAINT_ROUGH_INK_SRC }), 'paint rough ink');
+    } catch (e) {
+      console.warn(`  ⚠ sketch ink skipped — ${e && e.message ? e.message : e}`);
+      console.warn('    The slides render with the CSS fallback rules instead of drawn strokes.');
+    }
+  }
+
   // Bake the player's DOM NOW — after the level above is applied, before the raster's
   // SVG-image swap mutates the page. One capture carries two things:
   //

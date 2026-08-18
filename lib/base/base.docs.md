@@ -13,7 +13,7 @@ that any component can opt into.
 | `base.modifiers.css` | Auto-detected chrome — eyebrow, subtitle, key-insight panel, below-note, annotation. Triggered by markdown patterns the author writes (no class needed). |
 | `base.variants.css` | Universal opt-in variants — `dark`, `mirror`, `numbered`, `silent`, state markers, tone tokens. Composed via `_class:`. |
 | `base.treatments.css` | 27 treatment utility classes — 12 tints (`tint-corner at-tl`, `tint-vignette`, etc.) and 11 marks (`mark-orbit`, `mark-seeds`, etc.) plus `treatment-none` — for peripheral atmospheric accents. |
-| `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type + drawn boxes). Palette-blind; set via `mode:` or `class:` / `_class:`. |
+| `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type, drawn boxes, and rough.js-drawn lines). Palette-blind; set via `mode:` or `class:` / `_class:`. |
 | `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `finish-none` (or back-compat `backdrop-none`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the three inverse bookends, which is what keeps a finish from washing out a title/closing/divider (#1656). Selected deck-wide via the `finish:` register or per-slide via `_class: finish finish-<name>`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
 
 ---
@@ -630,17 +630,21 @@ Equivalent to writing all three Marp suppression directives
 
 The hand-drawn **finish** — a deck-wide skin that swaps Lattice into a
 hand-drawn register: felt-tip headings (`--sketch-font-display`, Caveat),
-a legible hand-sans for prose (`--sketch-font-body`, Shantell Sans), a
-wobbly accent underline on the slide heading, and the card surface of
+a legible hand-sans for prose (`--sketch-font-body`, Shantell Sans), and
+the card surface of
 **every card-style layout** (`cards-grid`, `cards-stack`, `verdict-grid`,
 `decision`, `matrix-2x2`, `pricing`, `compare-prose`,
 `citation-card`) redrawn as a sketched box — an asymmetric corner radius,
 an offset "ink" stroke, and a fractional per-card tilt on the multi-card
 grids. The same hand treatment reaches **every other structure that draws
-its own lines**: table frames + cell rules (`compare-table`, `glossary`,
-`obligation-matrix`, `list-tabular`), boxed blockquotes (`quote`,
-`redline`), bordered/ruled row layouts (`actors`, `list`, `checklist`,
-`agenda`), and the `<hr>` divider rule. The
+its own lines**, and the LINES among them are real
+[rough.js](https://roughjs.com) strokes rather than bent CSS: table frames +
+row rules (`compare-table`, `glossary`, `obligation-matrix`, `list-tabular`),
+the `list.principles` rules, the `<hr>` divider, an agenda ledger's active
+row, and — in place of a bespoke heading underline — the **masthead↔stage
+divider** every Form slide already draws. Boxed blockquotes (`quote`,
+`redline`) and bordered rows (`actors`, `list`, `checklist`, `agenda` cards
+and rings) still bend a `border-radius`; they convert next. The
 governing rule is *roughen the lines the deck draws, never invent a box* —
 so structures that draw none (`big-number`, `stats` — pure centred type)
 stay font-only, and content the slide merely contains (photos, real
@@ -1214,16 +1218,26 @@ Record, with the per-format measurements on both exporters:
 | `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavour the whole finish in one line. |
 | `--pill-font` | Re-pointed at the hand body face under `sketch` so label chips/badges read hand-drawn; override per theme to restore a clean label font. |
 | `--font-label` | The label voice (eyebrows, table headers, stat sub-labels, header/footer, pagination); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
-| `--sketch-wave` | The hand-drawn rule — a near-straight pen-waver as a tiling SVG mask, worn by table cell rules, ledger/agenda row rules, and `<hr>`. |
+| `--rough-ink-stroke` | **Enrollment.** A structure with a non-empty value gets its lines drawn in rough.js, in this colour. Set it (and `--rough-ink-width`) to opt a new structure in. |
+| `--rough-ink-width` | Stroke weight for that structure's ink, in px. The frame is drawn a little heavier than the rules it encloses. |
+| `--rough-ink-cols` | Set to `1` to also ink a table's COLUMN boundaries. Off by default, and nothing ships it on — no table component rules columns, and inking them unasked turns a comparison table into a spreadsheet. |
+| `--sketch-wave` | The old tiled pen-waver, now the **no-script fallback only**. Every rule it draws is switched off under `:root.rough-inked`. Don't add callers. |
 
-**PDF-safe by design.** Boxes are `border-radius` geometry (asymmetric
-per-corner curves read as freehand); the lines a deck draws wear
-`--sketch-wave`, a near-straight pen-waver carried as a tiling SVG **mask**
-(shape in the mask, colour via `background-color: var(--sketch-ink)` — so it
-stays palette-blind). Both are static; the SVG `feTurbulence` +
-`feDisplacementMap` **filter** "roughen" pass was prototyped and rejected —
-it survives on screen but collapses Marp's print-scale transform, shrinking
-the slide in the PDF. A mask is not a filter, so it ships clean. See
+**PDF-safe by design.** Boxes are still `border-radius` geometry; lines are
+rough.js `<path>` data, painted into one SVG overlay per slide after layout
+settles. What was prototyped and rejected in June was an SVG **filter**
+(`feTurbulence` + `feDisplacementMap`) — it survives on screen but collapses
+Marp's print-scale transform, shrinking the slide in the PDF. **A plain
+`<path>` is not a filter**, which is why rough.js was available all along:
+Mermaid's `look: 'handDrawn'` has been shipping the same primitive through
+this pipeline since 2026-08-13. Strokes are seeded from each structure's key,
+so two renders of a deck are byte-identical.
+
+The ink is painted by script, so a document that never runs the runtime — a
+raw `.html` sidecar opened with JS off — falls back to the old
+`--sketch-wave` rules rather than showing none. PDF, PNG, PPTX and `--player`
+exports all carry the ink. See
+`engineering/decisions/2026-08-18-rough-ink.md` and
 `engineering/decisions/2026-06-11-sketch-finish.md`.
 
 **Charts/diagrams.** The finish reskins the heading, the HTML legend, and
