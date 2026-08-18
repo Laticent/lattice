@@ -73,10 +73,39 @@ rendering, and `mmdc` exposes no option to put one there.
 **the same page and the same bundles the CLI does** and adds exactly two things before
 rendering: Lattice's `@font-face` rules, and an `await` on the faces actually loading.
 Everything else is the CLI's own sequence, kept deliberately identical, so this is a
-change of FONTS and CONFIG DELIVERY rather than a change of renderer. Reusing the
-CLI's `dist/index.html` is load-bearing: that page's vite bundle registers zenuml and
-the elk layout loaders and preloads the KaTeX and FontAwesome faces a diagram can
-reference. A hand-rolled page would drop all of it silently.
+change of FONTS and CONFIG DELIVERY rather than a change of renderer.
+
+**Getting "identical" right took a correction, and it is the most useful thing in this
+note.** An earlier draft claimed the CLI's `dist/index.html` "registers zenuml and the
+elk layout loaders". It does not. The page's vite bundle carries the *code* — and the
+KaTeX and FontAwesome faces, which is a real reason to reuse it — but the two
+REGISTRATIONS live in the CLI's own JavaScript, in the `$eval` in `src/index.js`:
+
+```js
+await mermaid.registerExternalDiagrams([zenuml])
+mermaid.registerLayoutLoaders(elkLayouts)
+```
+
+The worker reimplemented that prologue and dropped both. Measured against `mmdc` on the
+same input: a `zenuml` diagram failed outright ("No diagram type detected matching given
+configuration") where mmdc rendered it, and `%%{init: {"layout":"elk"}}%%` came back
+`viewBox="0 0 320.69 67"` — plain dagre — where mmdc gives elk's `viewBox="4 4 324.92 70"`.
+Two diagram capabilities, silently lost, in a change whose own justification was that
+nothing about the renderer changed.
+
+Neither failure is loud. A failed diagram degrades to a `<pre>`, and a diagram laid out
+by the wrong engine just looks like a diagram. The verification harness could not see
+either: `tools/check-diagram-labels.js` walks `.mermaid-svg` wrappers, and a diagram that
+never rendered has none — it is a missing row, not a red one.
+
+So the lesson is not "we forgot two lines", it is that **owning the page means owning an
+undocumented compatibility contract with the CLI's prologue**, and a contract with no
+test is a comment. `test/unit/mermaid/render-worker.test.js` now reads the CLI's real
+`src/index.js`, extracts every `mermaid.register*` call it makes, and fails when the
+worker does not make it — with `registerIconPacks` on a named exception list, because its
+loader fetches from unpkg at render time and the engine renders offline. A mermaid-cli
+upgrade that adds a prologue step is now a red build rather than a feature that quietly
+stops existing.
 
 Measured on the same flowchart, label-box widths:
 
@@ -207,9 +236,12 @@ The third row is the texture contract holding: hand type, machine-drawn shapes.
 - **It does not make the legacy renderers hand-DRAWN.** Mermaid honors `look` only in
   its unified renderer (flowchart, state, class, ER). Those families get hand type and
   keep crisp shapes until Mermaid migrates them; that is upstream.
-- **It does not register elk.** `layout: 'elk'` still falls back to dagre with a
-  `log.warn` nobody sees. The worker inherits the CLI page's loader registration
-  unchanged — no better, no worse.
+- **It does not CHANGE elk's status, but it very nearly removed it.** `layout: 'elk'`
+  works on the export — the CLI's bundle carries the elk loaders and the worker now
+  registers them, as the CLI does. The worker did not, for the first two commits of this
+  branch, and elk silently degraded to dagre; see the correction above. The engine still
+  does not *ship* elk as its own dependency, and the runtime still does not register it,
+  so `layout: 'elk'` remains export-only.
 - **It does not touch `flowchart.useMaxWidth`.** The surviving sanctioned divergence,
   left alone deliberately: sharing it would change exported SVG attributes with no
   measured visual effect, which is churn taken on faith.
@@ -248,3 +280,54 @@ runtime's diagram queue, not to the config plumbing — a different subsystem fr
 this change touches, and pulling it in would blur what the diff is for (HARD RULE #18,
 pre-existing and off-path). Recorded here and in `engineering/mermaid.md` §5.3 rather
 than left implicit.
+
+## What the adversarial trio caught (HARD RULE #25 tier 3)
+
+This replaced both export render paths in a shared kernel and is architecturally novel,
+so it escalated past maker-checker to the full trio. The **Munger inversion** produced
+the finding of the branch, and it is worth recording how, because the shape generalizes.
+
+It did not look for a bug. It asked what would make shipping this the wrong call, took
+the change's own load-bearing premise — *"this is a change of FONTS and CONFIG DELIVERY
+rather than a change of renderer"* — and tested it in the one dimension nobody had:
+renderer **capability**. Every deletion here (`DIVERGENT_KEYS`, `finishTheme`, the
+directive kernel) was justified by "the two paths are the same thing now", and that
+premise was false on day one — the worker had dropped two of the CLI's four prologue
+steps. The change deleted the repo's entire vocabulary for "the paths differ" at the
+precise moment the paths acquired a new, ungated difference.
+
+Both regressions are fixed above. Three of its other findings were adopted:
+
+- **`mermaid` and `@mermaid-js/mermaid-zenuml` are now declared dependencies.** The
+  worker `require.resolve`s both from Lattice's own module location; the CLI resolves its
+  copies from its own (`import-meta-resolve`), so it never needed them declared here. Left
+  undeclared they resolved only because npm hoists — under pnpm's isolated layout or Yarn
+  PnP, `resolveBundles` throws and EVERY diagram in every deck degrades to a `<pre>`.
+  `mmdc` had no such exposure, because a bin-link works under any layout. That is a
+  portability regression the change would have shipped invisibly on this machine.
+- **The prologue-drift gate**, described above.
+- **Characterization tests for the two directive hazards**
+  (`test/unit/mermaid/directive-hazards.test.js`). The inversion's argument: prose cannot
+  hold a claim about a dependency's behavior, because prose does not re-evaluate. The
+  allow-list and the apostrophe trap still govern every directive an AUTHOR writes, on
+  both paths, and deleting their defense left those claims with nothing re-checking them.
+  Writing that test also caught a mistake in the first draft of the test itself — it
+  grepped the allow-list source for `-`, which is always present as a range separator in
+  `A-Za-z`. It now builds the expression and asks whether a hyphenated value passes.
+
+One finding was **rejected on measurement**: the inversion reported 24 stale committed
+example PDFs. They were stale when it looked; they were regenerated in the same session,
+and the claim is left here rather than quietly dropped because the underlying point —
+that a typeface flip makes every committed diagram artifact stale — is the real cost of
+the "always inject" decision and was correctly identified as such.
+
+One recommendation was **declined, deliberately**: splitting the mono → body-face flip
+into its own PR. The inversion is right that it is a house typographic decision arriving
+inside a font-loading repair, and right that it was bundled with the single-code-path
+argument when the two are separable. It stays because `DIVERGENT_KEYS` cannot retire
+without it — the export reading `--font-body` IS the convergence — and splitting would
+mean shipping a change whose stated purpose is unification while leaving the one key that
+diverges in place. The typographic case, stated plainly since the record did not make it:
+a diagram label is prose about the system, not notation *of* it, and it should read in
+the same voice as the slide around it. Mono was a workaround for a measurement
+constraint, and the constraint is gone.

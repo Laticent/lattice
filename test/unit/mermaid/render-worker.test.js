@@ -86,6 +86,53 @@ describe('render worker: contract', () => {
       'declaring a face does not load it; each family/weight has to be requested');
   });
 
+  test('the worker makes every registration mermaid-cli\'s own prologue makes', () => {
+    // THE COUPLING THIS CHANGE ACTUALLY TOOK ON. Loading the CLI's `dist/index.html` gets
+    // its vite bundle — the KaTeX and FontAwesome faces, and `globalThis.elkLayouts` —
+    // but the REGISTRATIONS live in the CLI's own JavaScript, inside the `$eval` in
+    // `src/index.js`. A page that only loads the bundle has the code and none of the
+    // wiring, and the failure is silent in both directions: a zenuml diagram degrades to
+    // a `<pre>`, and `layout: elk` just renders as dagre and looks fine.
+    //
+    // Both of those shipped in an earlier draft of this branch. So this reads the CLI's
+    // real source and fails when it names a `mermaid.register*` call the worker does not
+    // make — which is what turns "we own the page" from an undocumented compatibility
+    // contract into a red build on upgrade.
+    const cliSrc = fs.readFileSync(
+      path.join(REPO, 'node_modules', '@mermaid-js', 'mermaid-cli', 'src', 'index.js'), 'utf8');
+    const workerSrc = fs.readFileSync(WORKER, 'utf8');
+    const cliCalls = [...cliSrc.matchAll(/mermaid\.(register\w+)\s*\(/g)].map((m) => m[1]);
+    assert.ok(cliCalls.length, 'could not read any mermaid.register* call from mermaid-cli');
+    // `registerIconPacks` is deliberately NOT made: the CLI registers packs named by its
+    // `--iconPacks` CLI flag, which nothing here passes, and its loader FETCHES from
+    // unpkg.com at render time. The engine renders offline (HARD RULE: the library loads
+    // type from its own bytes, zero network), so an icon pack would have to be vendored
+    // before it could be registered. Listed here so the omission is a decision on the
+    // record rather than another silently dropped step.
+    const NOT_OWED = new Set(['registerIconPacks']);
+    const missing = [...new Set(cliCalls)]
+      .filter((c) => !NOT_OWED.has(c))
+      .filter((c) => !new RegExp(`mermaid\\.${c}\\s*\\(`).test(workerSrc));
+    assert.deepEqual(missing, [],
+      `mermaid-cli's render prologue calls these and the worker does not: ${missing.join(', ')}. `
+      + 'Each one is a diagram capability the export silently loses — add the call, or add it '
+      + 'to NOT_OWED with the reason.');
+  });
+
+  test('mermaid and zenuml are DECLARED dependencies, not hoisting luck', () => {
+    // The worker `require.resolve`s both from Lattice's own module location. mermaid-cli
+    // resolves its copies from its OWN location (`import-meta-resolve` against
+    // `import.meta.url`), so it never needed them declared here — we do. Undeclared, they
+    // resolve only because npm hoists: under pnpm's isolated layout or Yarn PnP,
+    // `resolveBundles` throws and EVERY diagram in every deck degrades to a `<pre>`.
+    // `mmdc` did not have that exposure, because a bin-link works under any layout.
+    const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+    for (const dep of ['mermaid', '@mermaid-js/mermaid-zenuml']) {
+      assert.ok(pkg.dependencies[dep],
+        `${dep} is require.resolve'd by the render worker but is not a declared dependency`);
+    }
+  });
+
   test('it does not shell out to mmdc, and nothing else does either', () => {
     // An INVOCATION, not a mention: both files keep prose explaining what `mmdc` was and
     // why it was replaced, and that history is the most useful thing in them.

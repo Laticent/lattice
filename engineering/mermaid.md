@@ -247,8 +247,8 @@ changes.
 `engineInitConfig` (`lib/integrations/mermaid/init-directive.js`) holds the shared
 **non-palette** options, and the preview builds its `mermaid.initialize` argument from
 it rather than hand-rolling a second copy. It always claimed to be shared; the runtime
-did not call it, so eight keys diverged with nothing watching — `DIVERGENT_KEYS` covers
-`themeVariables` only.
+did not call it, so eight keys diverged with nothing watching — the `themeVariables`
+gate of the day could not see them.
 
 The one that bit was `flowchart.wrappingWidth`: 480 in the preview against Mermaid's
 default 200 in the export. Wrapping width decides where a label breaks and a label
@@ -364,13 +364,17 @@ injected palette entirely, and the diagram silently fell back to Mermaid stock
 diagram with a directive in it, that regression is what
 `test/integration/mermaid/mermaid-init-merge.test.js` guards.
 
-**`layout: 'elk'` still does nothing — and says so only in a log.** The directive
-now survives the merge, but elk ships as a separate package
-(`@mermaid-js/layout-elk`) that neither render path's bundle registers.
-Mermaid does not fail on an unregistered algorithm: `getRegisteredLayoutAlgorithm`
-falls back to dagre with a `log.warn` you never see, so the diagram renders
-on-palette, laid out by dagre, looking like the directive worked. Verified on
-Mermaid 11.14. Installing elk is separate work from #1311.
+**`layout: 'elk'` works on the EXPORT and does nothing in the preview.** The directive
+survives the merge on both. `@mermaid-js/layout-elk` ships inside mermaid-cli's bundle,
+which the export's render page loads and the worker registers (as the CLI does); the
+runtime bundle carries no elk at all.
+So a diagram pinning elk lays out differently in the two places, and the preview is the
+one that is wrong. Mermaid does not fail on an unregistered algorithm:
+`getRegisteredLayoutAlgorithm` falls back to dagre with a `log.warn` you never see, so
+the preview renders on-palette, laid out by dagre, looking like the directive worked.
+Measured on Mermaid 11.14 — export `viewBox="4 4 324.92 70"` against dagre's
+`viewBox="0 0 320.69 67"` on the same fence. Registering elk in the runtime bundle is
+separate work from #1311.
 
 ---
 
@@ -538,21 +542,25 @@ Neither path assembles a palette any more. `renderDiagrams`
 `themeVariables` from the one map, and calls the path back:
 
 ```js
-renderDiagrams(deck, { readToken, renderOne, scopeKey, beginRun, finishTheme })
+renderDiagrams(deck, { readToken, renderOne, scopeKey, beginRun })
 ```
 
 A `scope` is whatever a path needs in order to read a token for one slide, and the
 two hand in genuinely different things — the PDF path a resolved band
-(`'light' | 'dark' | 'print'`), the preview the `<section>` element itself.
+(`{ band, hand }` — the band decides the palette, `hand` whether `--font-body` resolves
+through the sketch re-point the offline reader cannot see in the cascade), the preview
+the `<section>` element itself.
 `scopeKey(scope)` names the palette that scope resolves, so the theme is built once
 per distinct palette rather than once per slide: the band string on the PDF path, the
 section's class signature (`lib/core/diagram-scope.js`) on the preview. Two spellings
 of "these slides paint the same", which is all the kernel needs.
 
-`finishTheme` is the ONE place a path may differ from the other inside the palette,
-and its only licensed use is `DIVERGENT_KEYS` — today `fontFamily`, per §5.3. The
-parity gate fails on any other key that comes apart, and on a sanctioned key that
-stops diverging.
+There is **no `finishTheme` port**, and there is no key a path may differ on. Both
+used to exist for one reason — `fontFamily`, which could not survive mermaid's
+directive sanitizer on the export — and #1674 removed the cause by taking the export
+off directives entirely (§5.3). The parity gate now compares every key with no
+exception set at all; a hook kept "just in case" is how the next divergence arrives
+pre-authorized.
 
 **The acceptance test was a deletion.** #1332 stated it: *"a correct fix should let us
 DELETE the reconciliation devices, not accumulate more."* `data-lattice-slide-bake` —
