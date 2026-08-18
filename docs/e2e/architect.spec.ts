@@ -28,8 +28,14 @@ test('the Coach score card scores the seeded deck', async ({ page }) => {
 	// (Structure/Clarity are always-present categories). The toy 3-check heuristic
 	// (Components valid / Opens with a title / Variety, scored / 10) was deleted.
 	await expect(page.getByText(/\/ 100/)).toBeVisible();
-	await expect(page.getByText('Structure')).toBeVisible();
-	await expect(page.getByText('Clarity')).toBeVisible();
+	// Scope the per-dimension read to the Board readiness card. Bare
+	// `getByText('Structure')` is a case-INSENSITIVE SUBSTRING match, so it also
+	// caught the card's own disclaimer prose ("…authoring hygiene (structure,
+	// clarity, contract)") and the "Structure" quick-read chip in the sibling
+	// "Ask the deck" card — three matches, a strict-mode violation.
+	const readiness = page.getByText('Board readiness').locator('..');
+	await expect(readiness.getByText('Structure', { exact: true })).toBeVisible();
+	await expect(readiness.getByText('Clarity', { exact: true })).toBeVisible();
 });
 
 test('offline chat degrades honestly and points to Workspace', async ({ page }) => {

@@ -21,7 +21,10 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 	await expect(fixAll(page)).toBeEnabled();
 
 	// Turning inline validation off makes nothing "unknown" → Fix-all disabled again.
+	// The two authoring aids sit in the Inspector's collapsed "Developer" footer
+	// disclosure (#1048), so the switch is out of the a11y tree until it is opened.
 	await openInspector(page);
+	await page.getByText('Developer', { exact: true }).click();
 	await page.getByRole('switch', { name: 'Inline validation' }).click();
 	await expect(fixAll(page)).toBeDisabled();
 });

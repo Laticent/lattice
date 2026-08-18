@@ -65,11 +65,16 @@ test('the Show Me menu lists every tour, and a tour builds a deck and completes'
 test('the walkthrough reskin drives the REAL deck Inspector (not a phantom point)', async ({ page }) => {
 	// Regression guard: the reskin beat points at the theme picker, which lives INSIDE the
 	// deck-scope Inspector. If the tour forgets to open it, the cursor points at nothing and the
-	// deck reshades with no visible cause. Assert the docked <aside> at deck scope actually opens.
+	// deck reshades with no visible cause. Assert the deck-scope Inspector actually opens.
+	//
+	// This asserts the panel's deck-scope HEADER, not its element type. It used to read
+	// `locator('aside').filter(...)`, which has been unmatchable since #1116 (e2bc5558c)
+	// swapped the docked Inspector's <aside> for a react-resizable-panels <ResizablePanel>
+	// — a div. The guard therefore could not fail for the reason it was written to catch.
 	await gotoStudio(page);
 	await startTour(page); // the full walkthrough
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect(page.locator('aside').filter({ hasText: 'Editing the whole deck' })).toBeVisible({ timeout: 100_000 });
+	await expect(page.getByText('Editing the whole deck')).toBeVisible({ timeout: 100_000 });
 });
 
 // The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours
