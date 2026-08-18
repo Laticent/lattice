@@ -134,6 +134,22 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
       + 'to perDiagramFonts (C4 shape kinds go in C4_FONT_KINDS).');
   });
 
+  test('a pinned Mermaid theme stands the font keys down too', () => {
+    // The stand-down is all-or-nothing. A `theme:` pin opts out of the deck's PALETTE,
+    // and the font is part of that palette — it rides `themeVariables.fontFamily` for
+    // every other family. Sending the per-diagram font keys while standing
+    // `themeVariables` down gave a pinned diagram stock colors wearing the deck's type,
+    // which is neither answer: before #1674 a pinned diagram got no engine config at all.
+    const pinned = engineInitConfig({ fontFamily: 'HAND' }, { omitPalette: true });
+    assert.equal('themeVariables' in pinned, false, 'the palette must be stood down');
+    assert.equal(pinned.journey, undefined, 'journey font keys must go with it');
+    assert.equal(pinned.sequence, undefined, 'sequence font keys must go with it');
+    assert.equal(pinned.timeline, undefined, 'timeline font keys must go with it');
+    assert.equal(pinned.c4.personFontFamily, undefined, 'c4 font keys must go with it');
+    // …but the NON-palette c4 layout keys stay, exactly as the rest of the config does.
+    assert.equal(pinned.c4.c4ShapeInRow, 3, 'opting out of the palette is not opting out of the layout');
+  });
+
   test('the C4 kind list matches the shapes mermaid actually ships', () => {
     // Twenty-two, not the six an obvious reading finds: every shape has an `external_`
     // twin, and containers/components/systems each have `_db` and `_queue` variants. The
