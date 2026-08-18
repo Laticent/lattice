@@ -25,8 +25,8 @@
    * .stacked card's own 5% tint; redline's `del` no longer carries an opacity,
    * #1640). Separation
    * under tritanopia is ΔE 0.190, at the light trio's own 0.188. (Base's trio scores
-   * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
-   * where these arms stay inert until #1527.) */
+   * 0.019 here — fully collapsed — and that is what the EXPORT path USED to render,
+   * with these arms inert; #1527's concat flip, 2026-08-17, made them live there.) */
   --pass: light-dark(#007131, #5CB772);
   --warn: light-dark(#B05139, #D7745B);
   --fail: light-dark(#6b1667, #FFADF7);

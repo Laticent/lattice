@@ -195,8 +195,9 @@
    * Ghost tracked the base lift from 30% → 40%. It is the rule/divider rung, so
    * it owes WCAG 1.4.11's 3:1, and 30% gave only 2.72:1 on this panel (#1E1A15)
    * — a rule nobody could see. 40% gives 3.82:1. That mattered because these
-   * values apply on the ENGINE render path even while the export path's
-   * composition order lets the base ramp win; both paths now clear the floor.
+   * values applied on the ENGINE render path while the export path's composition
+   * order let the base ramp win — #1527's concat flip (2026-08-17) ended that split,
+   * and these are what both paths paint. Both clear the floor.
    * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
   --on-dark-primary:   color-mix(in srgb, white 90%, transparent);
   --on-dark-secondary: color-mix(in srgb, white 65%, transparent);

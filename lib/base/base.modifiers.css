@@ -582,12 +582,39 @@ section.print {
    * pin is for the other case: a palette whose canvas ignores `color-scheme` states
    * LITERAL poles at :root (carbone does), and a literal cannot be re-resolved by a
    * scheme flip. Without this, a carbone slide carrying `class: print` derives
-   * --seq-600..900 toward WHITE on white paper. Effective on the engine path, where
-   * Marpit packs :root onto the same <section> this band targets; on the export path
-   * :root is <html> and the stops are already substituted there, so the pin is inert
-   * and carbone's own `color-scheme: dark` is what the base pair resolves against. */
+   * --seq-600..900 toward WHITE on white paper.
+   *
+   * RE-DERIVING THE STOPS HERE IS WHAT MAKES THE PIN WORK, and it is the whole
+   * reason this block is longer than three lines. A custom property is substituted
+   * at the element that DECLARES it: `--seq-900` is declared at `:root`, so it
+   * bakes `:root`'s anchor and `:root`'s poles and every descendant inherits that
+   * finished stream. Re-pinning `--seq-pole-*` (or `--seq-500`) on this band
+   * therefore changes nothing about `--seq-50…900` unless the stops are re-declared
+   * where the new inputs live. On the ENGINE path Marpit packs `:root` onto the same
+   * `<section>` this band targets, so the old three-line form happened to work; on
+   * the EXPORT path `:root` is `<html>` and it was inert.
+   *
+   * It was ALSO invisible, because the base's poles are `light-dark()`: the
+   * unresolved function rode inside the inherited stream and re-resolved against
+   * this band's `color-scheme: light`, landing paper-correct by luck rather than by
+   * the pin. #1527's concat flip removed the luck — carbone's LITERAL poles now win
+   * at `:root` and a literal cannot re-resolve — and a `word-cloud spectrum` on
+   * carbone printed its two loudest tiers at 1.18:1 and 1.67:1 on white paper.
+   * Re-declaring the stops fixes that and, with it, the same latency in
+   * `--print-seq-500`: the grayscale print anchor above never reached the derived
+   * stops on the export path either. Formulas mirror
+   * `base.tokens.css` § Sequential ramp — if that curve moves, this moves with it. */
   --seq-pole-low: white;
   --seq-pole-high: black;
+  --seq-50:  color-mix(in oklab, var(--seq-500)  8%, var(--seq-pole-low));
+  --seq-100: color-mix(in oklab, var(--seq-500) 18%, var(--seq-pole-low));
+  --seq-200: color-mix(in oklab, var(--seq-500) 35%, var(--seq-pole-low));
+  --seq-300: color-mix(in oklab, var(--seq-500) 55%, var(--seq-pole-low));
+  --seq-400: color-mix(in oklab, var(--seq-500) 78%, var(--seq-pole-low));
+  --seq-600: color-mix(in oklab, var(--seq-500) 78%, var(--seq-pole-high));
+  --seq-700: color-mix(in oklab, var(--seq-500) 55%, var(--seq-pole-high));
+  --seq-800: color-mix(in oklab, var(--seq-500) 35%, var(--seq-pole-high));
+  --seq-900: color-mix(in oklab, var(--seq-500) 18%, var(--seq-pole-high));
   /* Chrome: inline-code chips + the Marp header/footer are theme-accent-tinted;
    * ink them so nothing but content carries tone. */
   --code-inline-fg: var(--print-text-body);

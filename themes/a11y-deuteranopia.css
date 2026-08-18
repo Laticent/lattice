@@ -43,9 +43,9 @@
    * That separation is why these are curated rather than inherited, but it is
    * NOT what was broken on this path: with the palette winning the engine
    * cascade a dark slide already got THESE hues, just at 1.6:1. Base's trio
-   * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) is
-   * what the EXPORT path renders, and these arms are inert there until #1527
-   * flips the order. */
+   * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) is what
+   * the EXPORT path USED to render, with these arms inert there; #1527's concat
+   * flip (2026-08-17) closed that gap and these arms now paint on both paths. */
   --pass: light-dark(#004982, #7CBBFC);
   --warn: light-dark(#946400, #FFDBA9);
   --fail: light-dark(#800613, #FC827A);

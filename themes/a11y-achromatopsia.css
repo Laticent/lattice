@@ -39,10 +39,11 @@
    * The pairwise separation an achromat reads meaning from is 1.50:1 (light arm
    * 1.61:1, gate floor 1.25).
    *
-   * NOT to be confused with the EXPORT path's problem: there the base still
-   * wins the cascade, so a dark slide gets base's own trio
-   * (#4ADE80/#F97316/#F87171 — 1.01:1 for an achromat, fully collapsed) and
-   * these arms are inert until #1527 flips the order. */
+   * NOT to be confused with the EXPORT path's problem, now closed: the base used
+   * to win the cascade there, so a dark slide got base's own trio
+   * (#4ADE80/#F97316/#F87171 — 1.01:1 for an achromat, fully collapsed) and these
+   * arms were inert. #1527's concat flip (2026-08-17) made the palette win on that
+   * path too, so these arms are what a PDF paints now. */
   --pass: light-dark(#4d4d4d, #B2B2B2);
   --warn: light-dark(#6E6E6E, #909090);
   --fail: light-dark(#2e2e2e, #D9D9D9);

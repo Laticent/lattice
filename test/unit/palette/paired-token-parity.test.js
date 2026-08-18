@@ -152,7 +152,8 @@ describe('paired-token parity: no flat override of a base light-dark() pair', ()
       // var(--surface-inverse)`, which moves 4 tokens (itself plus the three
       // `--on-accent-*` tiers derived from it; `--on-accent-soft` reads --accent and
       // does not move). That one is deliberate and already adjudicated: #1640 item 3
-      // measured it as an IMPROVEMENT under the #1527 flip — carbone's curated
+      // measured it as an IMPROVEMENT under the #1527 flip, which has since landed —
+      // carbone's curated
       // near-black on its bright lime is 12.15:1 where base's white was 1.59:1.
       // The cost of the exemption is that a FUTURE flat override in carbone is
       // invisible here; revisit if carbone ever grows a real light face.

@@ -526,12 +526,24 @@
    * label in one color: measured 8 distinct row borders, 1 distinct row term.
    *
    * The fallback for that lives at the CONSUMERS, as `var(--cat-N-ink,
-   * var(--cat-N-mark))`, NOT as a default here. A `:root` default cannot be ordered
-   * safely: the emulator/export bundle concatenates the theme BEFORE this file, so a
-   * default declared here wins on equal specificity and silently reverts every
-   * curated ink to its mark — measured on a real render, premise dropped from 4.68:1
-   * back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no such
-   * ordering hazard: it applies only when the token is genuinely absent. */
+   * var(--cat-N-mark))`, NOT as a default here. The original reason was an ordering
+   * hazard: the export bundle concatenated the theme BEFORE this file, so a `:root`
+   * default declared here would have won on equal specificity and silently reverted
+   * every curated ink to its mark — measured on a real render, premise dropped from
+   * 4.68:1 back to the 4.25:1 that change existed to fix.
+   *
+   * #1527's concat flip (2026-08-17) REMOVED that hazard, and this comment is kept
+   * rather than deleted because the distinction is easy to lose: because there has
+   * never been a `:root` default here, `--cat-N-ink` was NOT one of the families
+   * that went dead on the export path. No order could beat a palette's value when
+   * nothing in the base competed with it. (The only base declaration is scoped to
+   * `section.print`, which outranks a palette `:root` on specificity in either
+   * order.) So the base COULD now declare an ink default safely — but choosing that
+   * value is a palette decision with its own blast radius, and
+   * `2026-08-10-palette-concat-order.md` §5 asked specifically that the exemption
+   * not be removed in the same change as the flip. The justification is historical;
+   * the exemption stands. `var()`'s own fallback never had the ordering hazard
+   * either: it applies only when the token is genuinely absent. */
 
   /* ── Print band · categorical ink ──
    * The print marks are already dark enough to carry text on paper (worst 4.96:1
@@ -945,7 +957,9 @@
    * carried hand-solved anchors no PDF had ever rendered, and 13 curated dark arms
    * went live in export the day the flip landed — sub-3:1 ramp tiers 3 -> 0 and
    * strict monotonicity 25/38 -> 38/38 across the 19 palettes x 2 canvases.
-   * `--hljs-*` and `--cat-N-ink` were in the same state and came live with them.
+   * `--hljs-*` was in the same state and came live with them. `--cat-N-ink` was
+   * NOT — the base declares no `:root` default for it, so nothing competed with a
+   * palette's value in either order (see the --cat-N-ink block below).
    * The poles were unaffected either way FOR EVERY PALETTE BUT ONE, because they
    * live in the base and no palette overrode them — except carbone, which pins
    * `--seq-pole-low: black; --seq-pole-high: white;` literally so its one dark
@@ -18902,12 +18916,39 @@ section.print {
    * pin is for the other case: a palette whose canvas ignores `color-scheme` states
    * LITERAL poles at :root (carbone does), and a literal cannot be re-resolved by a
    * scheme flip. Without this, a carbone slide carrying `class: print` derives
-   * --seq-600..900 toward WHITE on white paper. Effective on the engine path, where
-   * Marpit packs :root onto the same <section> this band targets; on the export path
-   * :root is <html> and the stops are already substituted there, so the pin is inert
-   * and carbone's own `color-scheme: dark` is what the base pair resolves against. */
+   * --seq-600..900 toward WHITE on white paper.
+   *
+   * RE-DERIVING THE STOPS HERE IS WHAT MAKES THE PIN WORK, and it is the whole
+   * reason this block is longer than three lines. A custom property is substituted
+   * at the element that DECLARES it: `--seq-900` is declared at `:root`, so it
+   * bakes `:root`'s anchor and `:root`'s poles and every descendant inherits that
+   * finished stream. Re-pinning `--seq-pole-*` (or `--seq-500`) on this band
+   * therefore changes nothing about `--seq-50…900` unless the stops are re-declared
+   * where the new inputs live. On the ENGINE path Marpit packs `:root` onto the same
+   * `<section>` this band targets, so the old three-line form happened to work; on
+   * the EXPORT path `:root` is `<html>` and it was inert.
+   *
+   * It was ALSO invisible, because the base's poles are `light-dark()`: the
+   * unresolved function rode inside the inherited stream and re-resolved against
+   * this band's `color-scheme: light`, landing paper-correct by luck rather than by
+   * the pin. #1527's concat flip removed the luck — carbone's LITERAL poles now win
+   * at `:root` and a literal cannot re-resolve — and a `word-cloud spectrum` on
+   * carbone printed its two loudest tiers at 1.18:1 and 1.67:1 on white paper.
+   * Re-declaring the stops fixes that and, with it, the same latency in
+   * `--print-seq-500`: the grayscale print anchor above never reached the derived
+   * stops on the export path either. Formulas mirror
+   * `base.tokens.css` § Sequential ramp — if that curve moves, this moves with it. */
   --seq-pole-low: white;
   --seq-pole-high: black;
+  --seq-50:  color-mix(in oklab, var(--seq-500)  8%, var(--seq-pole-low));
+  --seq-100: color-mix(in oklab, var(--seq-500) 18%, var(--seq-pole-low));
+  --seq-200: color-mix(in oklab, var(--seq-500) 35%, var(--seq-pole-low));
+  --seq-300: color-mix(in oklab, var(--seq-500) 55%, var(--seq-pole-low));
+  --seq-400: color-mix(in oklab, var(--seq-500) 78%, var(--seq-pole-low));
+  --seq-600: color-mix(in oklab, var(--seq-500) 78%, var(--seq-pole-high));
+  --seq-700: color-mix(in oklab, var(--seq-500) 55%, var(--seq-pole-high));
+  --seq-800: color-mix(in oklab, var(--seq-500) 35%, var(--seq-pole-high));
+  --seq-900: color-mix(in oklab, var(--seq-500) 18%, var(--seq-pole-high));
   /* Chrome: inline-code chips + the Marp header/footer are theme-accent-tinted;
    * ink them so nothing but content carries tone. */
   --code-inline-fg: var(--print-text-body);
@@ -27449,8 +27490,9 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
    * Ghost tracked the base lift from 30% → 40%. It is the rule/divider rung, so
    * it owes WCAG 1.4.11's 3:1, and 30% gave only 2.72:1 on this panel (#1E1A15)
    * — a rule nobody could see. 40% gives 3.82:1. That mattered because these
-   * values apply on the ENGINE render path even while the export path's
-   * composition order lets the base ramp win; both paths now clear the floor.
+   * values applied on the ENGINE render path while the export path's composition
+   * order let the base ramp win — #1527's concat flip (2026-08-17) ended that split,
+   * and these are what both paths paint. Both clear the floor.
    * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
   --on-dark-primary:   color-mix(in srgb, white 90%, transparent);
   --on-dark-secondary: color-mix(in srgb, white 65%, transparent);

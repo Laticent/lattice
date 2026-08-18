@@ -804,9 +804,13 @@ const layoutCSS  = flattenCssImports(cssFile, {
 // so `base.tokens.css`'s plain `:root` block landed later at equal specificity
 // and won. 925 declarations across 37 distinct tokens were dead on this path,
 // on all 32 selectable themes (measured today; the 2026-08-10 note's 932 across
-// 36 was the same corpus six days earlier). `--hljs-*`, `--cat-N-ink` and
-// `--seq-500` are the curated families that never painted, which is why concrete
-// and onyx shipped hand-solved ramp anchors no PDF had ever rendered.
+// 36 was the same corpus six days earlier). `--hljs-*`, the `--diagram-*` state
+// family and `--seq-500` are the curated families that never painted, which is
+// why concrete and onyx shipped hand-solved ramp anchors no PDF had ever
+// rendered.
+// NOT `--cat-N-ink`: the base declares no `:root` default for that tier, so
+// nothing competed with a palette's value in either order and it was never dead
+// here. Its exemption's JUSTIFICATION is what this line retires, not the tier.
 //
 // The other three sites that order these two stylesheets already agreed with the
 // themes: the Mermaid var reader below (which cites this same `@import`
@@ -818,6 +822,16 @@ const layoutCSS  = flattenCssImports(cssFile, {
 // resolved there exactly as this line now does, and none as it used to. This
 // makes the export agree with the preview rather than swapping which one is
 // wrong.
+//
+// ONE CONSEQUENCE ON THE PUBLIC CLI, called out because the reasoning above does
+// not cover it. `--css` / `-c` (and the positional form) name a CALLER-SUPPLIED
+// layout sheet, and the `@import 'lattice'` argument is about the BUNDLED base —
+// a theme's import still refers to the bundled sheet, not to the caller's. This
+// file already knows that: `engine.addThemes` registers a custom layout sheet
+// ANONYMOUSLY for exactly that reason. So a `:root` override in a hand-passed
+// stylesheet used to win and now loses to the theme. That is a behavior change on
+// a documented surface, it is in the changelog as breaking, and the answer for a
+// caller who wants to override tokens is a theme rather than a layout sheet.
 //
 // There is no selector that wins in BOTH orders, which is what made this a
 // concat change rather than a specificity one: `:where(:root)` on the base's

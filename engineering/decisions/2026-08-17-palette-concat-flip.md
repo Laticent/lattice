@@ -21,7 +21,7 @@ summary: >
   defect #1697 could not close. TWO PREMISES IN THE BRIEF ARE WRONG AND ARE CORRECTED HERE:
   `composed-contrast`'s two arms do NOT collapse (both are built by `mergedVars` from the same
   two files; the tool never read the emulator, so its output is byte-identical before and after
-  and KNOWN_SUB_THRESHOLD does not move), and the a11y dark-mode status greys are not a
+  and KNOWN_SUB_THRESHOLD does not move), and the a11y dark-mode status grays are not a
   regression to repair — #1681 already gave them curated dark arms, which now render at
   5.88-13.12:1 where the base's hue-coded trio used to leak in and mean nothing to an achromat.
   NOT closed, and it is the owner's call: all 355 committed PDFs are now stale, NO gate says so
@@ -29,7 +29,7 @@ summary: >
   --check does exit 1 on 122 stale gallery PDFs but lefthook.yml records that it runs in no
   workflow, no hook and no build step), and the cost lands on other people — the pre-commit
   build-staged-pdfs hook regenerates a touched deck's PDF, so the next deck PR carries this
-  change's colour delta fused into its own diff. Regenerating here is not free either: a rebuild
+  change's color delta fused into its own diff. Regenerating here is not free either: a rebuild
   of the UNCHANGED tree already differs on 6 of 6 sampled decks, so the pass would commit
   environmental rasterization drift alongside the real change. Also unmeasured: the eight
   --diagram-* fills (non-text, so the 9,600-run gate cannot see them), and the fact that
@@ -49,7 +49,7 @@ Two notes precede this one and neither shipped the change:
 QUALITY BAR gate; `2026-08-11-palette-concat-signoff.md` produced the sign-off
 package and ended with *"Then flip `lattice-emulator.js:691`, with the sweep
 re-run as the proof."* This is that step. The line had drifted to **:782** before
-this change, and sits at **:814** after it — the comment above it is longer than
+this change, and sits at **:816** after it — the comment above it is longer than
 the statement.
 
 ## The change
@@ -61,7 +61,7 @@ the statement.
 
 One line, one consumer (`${css}` in the document shell). Everything else in this
 change is comments that described the old world, and the deliberate decision
-about what to do with a tool that modelled both orders.
+about what to do with a tool that modeled both orders.
 
 ## What the sweep says
 
@@ -70,7 +70,7 @@ slides — `divider`, `code`, `roadmap`, `list takeaway`, `gantt`, `kanban`,
 `piechart`, `checklist`, `closing accent` — rendered PNG-per-slide across all 32
 selectable themes in both `color-mode:`s, before and after. 1,152 renders,
 compared by SHA-256. `--no-split` throughout, on both sides, so page N stays
-slide N and a pagination difference cannot masquerade as a colour one.
+slide N and a pagination difference cannot masquerade as a color one.
 
 | | |
 |---|---|
@@ -91,14 +91,14 @@ not about those palettes — they declare the same status trio and this deck pai
 nothing that separates them.) So the honest corpus is 36 states, and the earlier
 note's "16 of the 32 theme files are `-dark` wrappers" is off: there are 13.
 
-By slide, which tracks the token families exactly:
+By slide:
 
 | slide | theme-modes changed |
 |---|---|
 | `code` (the twelve `--hljs-*`) | 64 |
 | `checklist` (`--pass`/`--warn`/`--fail`) | 64 |
-| `gantt` (`--diagram-*`) | 28 |
-| `kanban` (`--diagram-*`) | 28 |
+| `gantt` (`--pass`, not `--diagram-*` — see below) | 28 |
+| `kanban` (`--pass`) | 28 |
 | `divider` | 4 |
 | `closing accent` | 4 |
 | `list takeaway` | 2 |
@@ -107,6 +107,20 @@ By slide, which tracks the token families exactly:
 
 Worst is `cuoio` in dark mode at 8 of 9; mildest is `onyx` at 2 of 9. **No theme
 is unaffected in either mode.**
+
+**The `gantt` and `kanban` rows are NOT the `--diagram-*` family, and an earlier
+draft of this table said they were.** Those eight state tokens have **zero
+`var()` consumers** in the engine's CSS: their only reader is
+`lib/core/mermaid-theme-map.js`, fed by `PALETTE_VARS`, which
+`lattice-emulator.js` has always built as `layoutCSS + '\n' + paletteCSS` — the
+flipped order, on `origin/main` too. So the baked Mermaid SVG is byte-identical
+across this change and those eight tokens move no pixel anywhere. **Eight of the
+37 tokens, and 256 of the 925 declarations, are a paper change.** The gantt on
+this deck is the native SVG component, and what moves it is `--pass`: concrete's
+bar goes `rgb(45,106,63)` (the base's `#2D6A3F`) to `rgb(33,79,38)` (concrete's
+own `#214F26`). Found by a red-team pass asking who actually *reads* each family
+the change claims to revive — which is the question the token count does not
+answer.
 
 ### The delta against the sign-off's baseline, explained rather than waved at
 
@@ -142,9 +156,16 @@ sidecar of every deck in the sweep, both sides — **9,600 text runs per side**:
 
 The two fixed are `concrete` and `concrete-dark`, light mode, the kanban "Done"
 column label: `rgb(45,106,63)` on `rgb(184,184,181)`, 3.25:1, now painted from
-concrete's own value and clearing the floor. **Not one run regressed anywhere in
-the corpus.** That is a per-run diff, not a net count — a net could hide a
-one-for-one swap, and this does not.
+concrete's own value and clearing the floor. That is a per-run diff, not a net
+count — a net could hide a one-for-one swap, and this does not.
+
+**What that says is that nothing CROSSED a floor, and it must not be read as
+"nothing moved".** Diffing every run by identity rather than only the failures:
+**1,764 runs change ratio, 1,390 of them for the worse**, and none of those 1,390
+lands below 4.5 or below 3.0. The largest single drop is an `a11y-*` code span,
+14.86:1 → 6.61:1. An earlier draft of this paragraph said "not one run regressed
+anywhere in the corpus", which is false and contradicted the section immediately
+below it; an independent checker caught it.
 
 ### What that measurement structurally cannot see
 
@@ -161,9 +182,10 @@ the 4.5 floor, and no crossing count would ever have mentioned it.
 The rest of the blind spots, from the tool's own header and its source:
 
 - **Everything that is not text.** Rails, chips, borders, gantt bars, kanban
-  fills, chart series, gradients, table rules. The eight `--diagram-*` tokens
-  change `gantt` and `kanban` on 28 theme-modes and nothing here measures those
-  fills — they were looked at on contact sheets, which is not the same claim.
+  fills, chart series, gradients, table rules. The gantt bars and kanban chips
+  that move on 28 theme-modes are `--pass` painted as a *fill*, which no text
+  check reaches — they were looked at on contact sheets, which is not the same
+  claim.
 - **Distinguishability.** Two categories collapsing onto one color is invisible to
   a background-contrast check; every tier can clear AA while the encoding dies.
   Ties are measured for the four `word-cloud` ramp stops and nowhere else.
@@ -181,8 +203,9 @@ The rest of the blind spots, from the tool's own header and its source:
 `gallery.md` and `gallery-jargon.md` through the flipped export path and holds
 exact per-surface exemption counts — far wider component coverage than nine
 slides, and it is green. But its corpus is `indaco` and `indaco-dark` only, and
-indaco carries **17 of the 37** disputed tokens, the second-lightest in the set.
-`cuoio`, the heaviest at 34, is covered by the nine-slide sweep alone.
+indaco carries **17 of the 37** disputed tokens — the **lightest** in the set
+(carta is next at 18). `cuoio`, the heaviest at 34, is covered by the nine-slide
+sweep alone.
 
 ## The ramp claims #1724 made, measured
 
@@ -196,18 +219,21 @@ combinations), on the four stops `word-cloud spectrum` paints:
 | tiers below their 3:1 bar | 3 | **0** |
 | combinations carrying one | 2 / 38 | **0 / 38** |
 | strictly monotonic encodings | 25 / 38 | **38 / 38** |
-| combinations with a TIE (two tiers one colour) | 12 | **0** |
+| combinations with a TIE (two tiers one color) | 12 | **0** |
 | tightest adjacent step (OKLab) | 0.000 | **0.096** |
 | worst tier vs canvas | 1.13:1 | **3.17:1** |
 
-Every one of those "before" figures reproduces #1697's published export-path
-table exactly, which is what gives the "after" column its weight — the harness
-was validated against a measurement written by someone else before it was used
-to make a claim.
+Four of those "before" figures — tiers 3, combinations 2/38, strict monotonicity
+25/38, ties 12 — reproduce #1697's published export-path table **exactly**. The
+other two reproduce figures that note states outside that table: the 1.13:1 worst
+tier appears in its prose, and 0.000 is this run's own measurement of a step the
+note only tabulates for the engine arm. That is what gives the "after" column its
+weight — the harness was validated against a measurement written by someone else
+before it was used to make a claim.
 
 The 12 ties were `onyx` and the five `a11y-*` palettes in both modes, where the
 base's `var(--accent)` anchor is pure black or white and weights 5, 4 and 3
-therefore painted **one colour**. They resolve to distinct tiers now.
+therefore painted **one color**. They resolve to distinct tiers now.
 
 And the single deck-visible defect #1697 could not close:
 
@@ -245,7 +271,7 @@ the only check that a re-tune moved a composed surface the wrong way. The header
 now says so, and reframes the arm as a REFERENCE rather than a second cascade the
 repo ships.
 
-### The a11y dark-mode status greys are not a repair this change owes
+### The a11y dark-mode status grays are not a repair this change owes
 
 The sign-off's §4 found `a11y-achromatopsia`'s dark checklist losing its rails and
 icons under the flip, then corrected itself: the a11y palettes declare
@@ -276,19 +302,69 @@ The base's dark status arms:
 | `--warn` | `#F97316` | 0.325 |
 | `--fail` | `#F87171` | 0.330 |
 
-**`--warn` and `--fail` are 1.01:1 apart — amber and red were literally one grey**,
+**`--warn` and `--fail` are 1.01:1 apart — amber and red were literally one gray**,
 and `--pass` vs `--warn` is 1.61:1, below any distinguishability bar. So before the
 flip an achromatopsia deck's dark checklist painted green and amber rails that
 carried, at best, one bit. After it, the palette's curated arms
 (`#B2B2B2` / `#909090` / `#D9D9D9`) give warn 0.279 < pass 0.445 < fail 0.694 —
-ordered, no collapsed pair, adjacent separations 1.50:1 / 1.50:1 / 2.26:1 — plus
+ordered, no collapsed pair, adjacent separations 1.51:1 / 1.50:1 / 2.26:1 — plus
 four distinct glyph shapes (✓ − ○ ⊘), which is what that palette leans on. Note the
-best-separated pair gets slightly *worse* (1.61 → 1.50): the after wins because it
-is complete and ordered, not because any pair widened. The colour did not
-disappear; the *pretence* of colour did.
+best-separated pair gets slightly *worse* (1.61 → 1.51): the after wins because it
+is complete and ordered, not because any pair widened. The color did not
+disappear; the *pretence* of color did.
 
 **The reachable-unsupported-mode gap is filed rather than fixed**, as #18 requires
 for a pre-existing defect found off-path: **#1736**.
+
+## The one thing the flip broke, and the fix it forced
+
+**A red-team pass found a real, self-inflicted, HIGH-severity regression on a
+canvas the sweep never touched: `section.print`.** Recorded in full because the
+mechanism generalizes.
+
+`themes/carbone.css` pins **literal** poles — `--seq-pole-low: black;
+--seq-pole-high: white;` — because carbone's canvas stays graphite whatever
+`color-scheme` says, and `section.light` / `.color-light` flip the scheme below
+`:root`. Pre-flip the base's `light-dark(white, black)` pair won at `:root`, and a
+`light-dark()` inside a custom property is **not resolved where it is declared** —
+it rides along in the inherited token stream and resolves at the element that
+finally uses it. The print band pins `color-scheme: light`, so the ramp came out
+paper-correct. Post-flip carbone's literals win, and **a literal cannot re-resolve**.
+Measured on the real print export of `word-cloud.gallery.md`, against white paper:
+
+| tier | pre-flip | post-flip, pre-fix | after the fix |
+|---|---|---|---|
+| weight 5 | 19.62:1 | **1.18:1** | **20.75:1** |
+| weight 4 | 6.93:1 | **1.67:1** | **15.72:1** |
+| weight 2 | 1.42:1 | 5.00:1 | **6.90:1** |
+
+`check-slide-contrast` on that deck went 2 runs below AA → **3**, the new worst
+being the slide's largest word at 76px.
+
+**Why every gate missed it.** `composed-contrast` merges only `:root` and is
+order-blind by construction, so it cannot see a `section.print` band at all. The
+render sweep is nine slides with no `word-cloud` and no print mode. And the print
+band's own three-line pole pin was **already inert on the export path** — its
+comment said so — but that inertness had never mattered, because the base's
+`light-dark()` poles resolved late and landed right *by luck rather than by the pin*.
+
+**The fix is in the base, not in carbone** (HARD RULE #1: the print band is shared
+kernel). A custom property is substituted at the element that DECLARES it, so
+`--seq-900`, declared at `:root`, bakes `:root`'s anchor and `:root`'s poles;
+re-pinning the poles on a descendant band changes nothing unless the **stops** are
+re-declared where the new inputs live. `base.modifiers.css`'s print band now
+re-declares all nine. That removes the regression and clears two failures that
+were there before it: the band's own `--seq-500: var(--print-seq-500)` grayscale
+anchor had never reached the derived stops on the export path either, which is why
+weight 2 sat at 1.42:1 on paper before any of this. Re-checked across
+`carbone onyx concrete mustard indaco cuoio a11y-achromatopsia magnolia` in print:
+**0 of 210 runs below AA on every one.**
+
+The transferable part: **`light-dark()` in a custom property is a late-resolving
+token, and a literal is not.** A palette that replaces one with the other changes
+where in the tree the value is decided, not just what it is — and every band that
+remaps the inputs of a derived token has to re-derive the token, or its remap is
+decoration.
 
 ## What is not verified, and one thing that is now worse
 
@@ -296,22 +372,28 @@ for a pre-existing defect found off-path: **#1736**.
   onto other people.** This is the sharpest open question in the change and it is
   the owner's, so it is set out in full.
 
-  *Nothing catches it.* `checkCommittedPdfs` audits ownership, not freshness. The
-  CI visual regression gate is retired (`.github/workflows/ci.yml`, Skia
-  rasterization flake). `golden-diff` diffs **this PR's committed goldens** against
-  the base branch, and this PR commits none — so the PR that changes 36 of 36
-  distinct theme-modes will post *"nothing changed"*. `build:galleries --check`
-  does detect it and exits 1 (**122 gallery PDFs stale**, naming
-  `dist/lattice-emulator.js`), but `lefthook.yml` says in as many words that it
-  *"is invoked by no workflow, no hook and no build step"* — it is on-demand only,
-  disabled deliberately because a full rebuild is ~30 minutes.
+  *Nothing catches it — including the one script that appeared to.*
+  `checkCommittedPdfs` audits ownership, not freshness. The CI visual regression
+  gate is retired (`.github/workflows/ci.yml`, Skia rasterization flake).
+  `golden-diff` diffs **this PR's committed goldens** against the base branch, and
+  this PR commits none — so the PR that changes 36 of 36 distinct theme-modes will
+  post *"nothing changed"*. `build:galleries --check` detected it **only while the
+  tree was dirty**: it compares `git status --porcelain` against HEAD, so the
+  moment the flip was committed it went back to exit 0 and *"122 gallery PDFs: no
+  render input changed since HEAD"*. `tools/lib/render-inputs.js` documents exactly
+  that hole — *"It cannot see a change that was committed WITHOUT rebuilding the
+  PDFs"*. And `lefthook.yml` says the script *"is invoked by no workflow, no hook
+  and no build step"* anyway. In the shipped state the detection does not exist,
+  on-demand or otherwise. (An earlier draft of this note cited that exit-1 as the
+  one thing that would catch it; an independent checker re-ran it post-commit and
+  it passed.)
 
   *How the cost lands.* The pre-commit hook `tools/build-staged-pdfs.js`
   regenerates the PDF for any deck markdown in a commit. So the next person to
-  touch any deck gets their intended change **fused** with this flip's colour
+  touch any deck gets their intended change **fused** with this flip's color
   delta for that deck, and `golden-diff` attributes all of it to them. That
   repeats, deck by deck, until all 355 are drained. The failure mode is not "the
-  colours are wrong"; it is "nobody can tell what a deck PR changed any more".
+  colors are wrong"; it is "nobody can tell what a deck PR changed any more".
 
   *Why they are not regenerated here.* Rebuilding six sampled decks from the
   **unchanged** tree at `44af457` already produces different bytes in **6 of 6**
@@ -347,9 +429,15 @@ for a pre-existing defect found off-path: **#1736**.
   sign-off called them UNVERIFIED. They are not a separate path: `lattice-emulator.js`
   navigates the browser to the same `outHtml` that embeds `${css}`, and the PNG
   buffers that navigation produces are what `writePptx` packs and what the `.png`
-  output writes. The 576 PNGs in the "after" sweep *are* the PPTX's slide images.
-  The `.html` deliverable is that same shell. No sweep drove a `.pptx` or a player
-  end-to-end, so this is a code-path argument, not an artifact — stated as such.
+  output writes; the `.html` deliverable is that same shell. The sweep's PNGs are
+  not byte-identical to the PPTX's images — `OMIT_BG` differs between the two arms,
+  so the `.png` path renders transparent where `.pptx` stays opaque — so this is a
+  same-code-path argument, not the same artifact. No sweep drove a `.pptx` or a
+  player end-to-end.
+- **The sweep harness and its deck are committed** (`tools/sweep-concat-order/`),
+  which is the defect this note criticized the two prior passes for: neither
+  recorded which gallery slide instances its deck used, so neither number can be
+  re-derived. This one can.
 - **Nine slides, not the whole gallery.** Unchanged from the sign-off. A component
   reading a dead token that this deck does not paint would not appear here. The
   token-level measurement (925 declarations, 37 tokens) is exhaustive; the render

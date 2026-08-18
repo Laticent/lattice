@@ -443,12 +443,24 @@
    * label in one color: measured 8 distinct row borders, 1 distinct row term.
    *
    * The fallback for that lives at the CONSUMERS, as `var(--cat-N-ink,
-   * var(--cat-N-mark))`, NOT as a default here. A `:root` default cannot be ordered
-   * safely: the emulator/export bundle concatenates the theme BEFORE this file, so a
-   * default declared here wins on equal specificity and silently reverts every
-   * curated ink to its mark — measured on a real render, premise dropped from 4.68:1
-   * back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no such
-   * ordering hazard: it applies only when the token is genuinely absent. */
+   * var(--cat-N-mark))`, NOT as a default here. The original reason was an ordering
+   * hazard: the export bundle concatenated the theme BEFORE this file, so a `:root`
+   * default declared here would have won on equal specificity and silently reverted
+   * every curated ink to its mark — measured on a real render, premise dropped from
+   * 4.68:1 back to the 4.25:1 that change existed to fix.
+   *
+   * #1527's concat flip (2026-08-17) REMOVED that hazard, and this comment is kept
+   * rather than deleted because the distinction is easy to lose: because there has
+   * never been a `:root` default here, `--cat-N-ink` was NOT one of the families
+   * that went dead on the export path. No order could beat a palette's value when
+   * nothing in the base competed with it. (The only base declaration is scoped to
+   * `section.print`, which outranks a palette `:root` on specificity in either
+   * order.) So the base COULD now declare an ink default safely — but choosing that
+   * value is a palette decision with its own blast radius, and
+   * `2026-08-10-palette-concat-order.md` §5 asked specifically that the exemption
+   * not be removed in the same change as the flip. The justification is historical;
+   * the exemption stands. `var()`'s own fallback never had the ordering hazard
+   * either: it applies only when the token is genuinely absent. */
 
   /* ── Print band · categorical ink ──
    * The print marks are already dark enough to carry text on paper (worst 4.96:1
@@ -862,7 +874,9 @@
    * carried hand-solved anchors no PDF had ever rendered, and 13 curated dark arms
    * went live in export the day the flip landed — sub-3:1 ramp tiers 3 -> 0 and
    * strict monotonicity 25/38 -> 38/38 across the 19 palettes x 2 canvases.
-   * `--hljs-*` and `--cat-N-ink` were in the same state and came live with them.
+   * `--hljs-*` was in the same state and came live with them. `--cat-N-ink` was
+   * NOT — the base declares no `:root` default for it, so nothing competed with a
+   * palette's value in either order (see the --cat-N-ink block below).
    * The poles were unaffected either way FOR EVERY PALETTE BUT ONE, because they
    * live in the base and no palette overrode them — except carbone, which pins
    * `--seq-pole-low: black; --seq-pole-high: white;` literally so its one dark
