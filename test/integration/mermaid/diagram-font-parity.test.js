@@ -15,8 +15,14 @@
  *
  * So this renders REAL DECKS through the REAL CLI and, for each slide, compares the
  * font-family baked into the SVG against `getComputedStyle(section).--font-body` in the
- * exported page — the same cascade the live preview's reader reads. Same question, both
- * paths, one artifact.
+ * EXPORTED page. Both readings come from the export, which is the point — it asks whether
+ * the offline bake agrees with the cascade of the artifact it produced.
+ *
+ * IT IS NOT THE PREVIEW'S CASCADE, and an earlier version of this note said it was. The
+ * preview rescopes `:lattice-root` onto the section (`composeCss`), so a token that
+ * resolves in one can fail in the other — which is exactly how a sketch-clean
+ * custom-property cycle survived this gate. `preview-diagram-face.test.js` is the one
+ * that reads the preview.
  *
  * The `sketch-clean` row is the one that caught a shipped bug: that register wants hand
  * SHAPES and a clean body FACE, and an earlier cut resolved the type from
@@ -99,40 +105,71 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
   // from the installed mermaid and fails when it does.
   const { engineInitConfig, C4_FONT_KINDS } = require('../../../lib/integrations/mermaid/init-directive');
 
-  /** Every `*FontFamily` key in mermaid's shipped default config, grouped by its block. */
+  /**
+   * The object a source offset sits directly inside, by BRACE DEPTH — walk backwards to
+   * the first `{` that is not already closed, then read the key in front of it. Returns
+   * null at the top level.
+   *
+   * The first version took "the last `\"name\": {` within 6000 characters", which is a
+   * guess, and it guessed wrong on the one key that matters: mermaid's TOP-LEVEL
+   * `config.fontFamily` was attributed to `venn`, purely because `venn` happens to be the
+   * last block declared before the top-level scalars in the bundle. That produced a
+   * `venn.fontFamily` that does not exist, and the gate carried an exemption for it whose
+   * stated justification ("the block's own general key, and it follows the global theme
+   * variable") was false on both halves.
+   */
+  function enclosingBlock(src, at) {
+    let depth = 0;
+    for (let i = at - 1; i >= 0; i--) {
+      const c = src[i];
+      if (c === '}') depth++;
+      else if (c === '{') {
+        if (depth === 0) return (src.slice(Math.max(0, i - 80), i).match(/"([a-zA-Z0-9_]+)"\s*:\s*$/) || [])[1] || null;
+        depth--;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Every `*FontFamily` key in mermaid's shipped default config, grouped by its block.
+   * Top-level keys land under `TOP_LEVEL` rather than being dropped — that is where the
+   * misattributed one actually lives, and the engine sets it.
+   */
+  const TOP_LEVEL = '(top-level)';
   function schemaFontKeys() {
     const dir = path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'chunks', 'mermaid.core');
     const out = {};
     for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.mjs'))) {
       const src = fs.readFileSync(path.join(dir, f), 'utf8');
       for (const m of src.matchAll(/"([a-zA-Z0-9_]*[Ff]ontFamily)":/g)) {
-        const before = src.slice(Math.max(0, m.index - 6000), m.index);
-        const parents = [...before.matchAll(/"([a-zA-Z0-9_]+)":\s*\{/g)].map((x) => x[1]);
-        const parent = parents.length ? parents[parents.length - 1] : null;
-        if (!parent) continue;
+        const parent = enclosingBlock(src, m.index) || TOP_LEVEL;
         (out[parent] = out[parent] || new Set()).add(m[1]);
       }
     }
     return out;
   }
 
-  test('every block-scoped font key mermaid defines is one the engine sets', () => {
+  test('every font key mermaid defines is one the engine sets — with no exemptions', () => {
     const schema = schemaFontKeys();
+    // A SCRAPER THAT FINDS NOTHING PASSES EVERY ASSERTION BELOW. Pin the blocks it must
+    // find, so a bundle reshuffle that hides `sequence` degrades to a red test rather
+    // than to a vacuous green one. (A TOTAL scraper failure is already caught by the C4
+    // set-difference test; this catches losing one block.)
+    assert.deepEqual(Object.keys(schema).sort(), ['(top-level)', 'c4', 'journey', 'sequence', 'timeline'],
+      'the config scraper no longer finds the blocks it is written against');
     const cfg = engineInitConfig({ fontFamily: 'X' });
     const missing = [];
     for (const [block, keys] of Object.entries(schema)) {
-      // `venn.fontFamily` is the block's own general key, not a per-element override, and
-      // it follows the global themeVariable — verified by the face census, which shows no
-      // venn label in a mermaid default.
-      if (block === 'venn') continue;
       for (const key of keys) {
-        if (cfg[block]?.[key] !== 'X') missing.push(`${block}.${key}`);
+        const got = block === TOP_LEVEL ? cfg[key] : cfg[block]?.[key];
+        if (got !== 'X') missing.push(block === TOP_LEVEL ? key : `${block}.${key}`);
       }
     }
     assert.deepEqual(missing.sort(), [],
-      'mermaid defines these per-element font keys and engineInitConfig does not set them, so '
-      + 'those labels render in Open Sans / trebuchet ms however the deck is themed. Add them '
-      + 'to perDiagramFonts (C4 shape kinds go in C4_FONT_KINDS).');
+      'mermaid defines these font keys and engineInitConfig does not set them, so those labels '
+      + 'render in Open Sans / trebuchet ms however the deck is themed. Add them to '
+      + 'perDiagramFonts (C4 shape kinds go in C4_FONT_KINDS).');
   });
 
   test('a pinned Mermaid theme stands the font keys down too', () => {
@@ -147,6 +184,7 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
     assert.equal(pinned.sequence, undefined, 'sequence font keys must go with it');
     assert.equal(pinned.timeline, undefined, 'timeline font keys must go with it');
     assert.equal(pinned.c4.personFontFamily, undefined, 'c4 font keys must go with it');
+    assert.equal(pinned.fontFamily, undefined, 'and the top-level font key must go with it');
     // …but the NON-palette c4 layout keys stay, exactly as the rest of the config does.
     assert.equal(pinned.c4.c4ShapeInRow, 3, 'opting out of the palette is not opting out of the layout');
   });

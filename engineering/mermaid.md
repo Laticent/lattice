@@ -182,9 +182,11 @@ random commit hash and an Iconify element id respectively — no rough geometry.
 re-deriving this table by diffing SVGs needs to count rough nodes, not compare bytes.
 
 Everything in the right column stays crisp on a sketch deck until Mermaid migrates it —
-but every family gets the hand TYPE, because `fontFamily` is a global theme variable. A
-sketch deck therefore speaks in one voice everywhere and draws by hand wherever Mermaid
-can (#1674).
+but every family gets the hand TYPE. Not from one lever: `themeVariables.fontFamily` is
+the global one, and it is joined by mermaid's separate TOP-LEVEL `fontFamily` and by the
+28 per-block `*FontFamily` keys that c4 / journey / sequence / timeline read instead
+(§5.3e). A sketch deck therefore speaks in one voice everywhere and draws by hand wherever
+Mermaid can (#1674).
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
@@ -329,12 +331,27 @@ twenty-two**, not the six an obvious reading finds: every shape has an `external
 and systems/containers/components each have `_db` and `_queue` variants, so a first cut
 that set six left every `System_Ext` label in Open Sans.
 
+There is a **twenty-ninth** key, and it is not in a block: mermaid's own top-level
+`config.fontFamily`, which is separate from `themeVariables.fontFamily` and does not
+follow it. Setting it is not cosmetic — mermaid measures SEQUENCE layout with it, so a
+sketch deck spaced its lifelines for trebuchet ms and then painted the messages in the
+hand face: `price(lane, equipment, readyAt)` overran its own arrow and crossed the next
+lifeline. Same measure/paint split as #1674's headline bug, one level up.
+
 The list has to be enumerated in the kernel (it is pure and fs-free, so it cannot read
 mermaid's schema), which means it can rot — so
 `test/integration/mermaid/diagram-font-parity.test.js` derives the truth from the
-installed mermaid and fails when a key it defines is one the engine does not set.
-`tools/check-diagram-labels.js` fails on any label rendered in a mermaid default face,
-which is the same defect caught from the other end.
+installed mermaid and fails when a key it defines is one the engine does not set. That
+derivation carries **no exemptions**: an earlier cut skipped a `venn.fontFamily` that does
+not exist, an artifact of a parent-guessing heuristic that attributed the top-level key to
+whichever block the bundle happened to declare last.
+
+`tools/check-diagram-labels.js` catches the same defect from the other end, and it asks
+the question against the deck rather than against a list of famous names: every label is
+compared to `--font-body` on its OWN `<section>`, so a face that is merely wrong fails
+exactly like `Open Sans` does, and a `_class: diagram boardroom` opt-out is judged by what
+that slide asked for. A fence whose author pinned a theme is exempt by fact, not by guess
+— the emulator stamps `data-author-theme` on it.
 
 **A warning about apostrophes in your own directive**, from the same measurement:
 Mermaid runs a blanket `'` → `"` swap over a directive payload before `JSON.parse`, so

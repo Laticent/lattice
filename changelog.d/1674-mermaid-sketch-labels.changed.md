@@ -47,3 +47,10 @@
 - **Fixed: `autonumber` bubbles in a sequence diagram stayed in a generic sans-serif.**
   Mermaid writes that one label with a hard-coded `font-family` presentation attribute,
   past every config key, so it was the last text on a hand-drawn slide still machine-faced.
+- **Fixed: sequence diagrams were laid out in Mermaid's font and painted in the deck's.**
+  Mermaid keeps a top-level `fontFamily` that is a different key from
+  `themeVariables.fontFamily` and does not follow it, and sequence layout is measured with
+  it — so a hand-drawn deck spaced its lifelines for trebuchet ms, then painted the
+  messages in the hand face and let them overrun their own arrows. The engine sets it now.
+  **This resizes existing sequence diagrams** (measured: 929×498 → 992×534 on the demo
+  deck) — wider, because the diagram is finally sized for the type it is drawn in.

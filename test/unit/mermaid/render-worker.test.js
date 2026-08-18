@@ -25,7 +25,9 @@ const { resolveBundles } = require(WORKER);
 const { fontFaceCss, fontFamilies } = require('../../../lib/fonts/face-css.js');
 const { engineInitConfig } = require('../../../lib/integrations/mermaid/init-directive');
 
-const CHROME = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null;
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
+
+const CHROME = resolveChrome();
 
 function runWorker(diagrams) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-test-'));
@@ -42,6 +44,21 @@ function runWorker(diagrams) {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Source with `//` and block comments removed, so a gate that matches on text cannot be
+ * satisfied by a comment that MENTIONS the call it is looking for. Deliberately simple:
+ * the input is one file we own, with no regex literals or strings carrying comment
+ * markers, and the caller asserts the strip did not eat the file.
+ */
+function stripComments(src) {
+  const out = src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  assert.ok(out.length > src.length * 0.3,
+    'the comment stripper ate the file — it is too naive for this source');
+  return out;
 }
 
 describe('render worker: contract', () => {
@@ -100,7 +117,11 @@ describe('render worker: contract', () => {
     // contract into a red build on upgrade.
     const cliSrc = fs.readFileSync(
       path.join(REPO, 'node_modules', '@mermaid-js', 'mermaid-cli', 'src', 'index.js'), 'utf8');
-    const workerSrc = fs.readFileSync(WORKER, 'utf8');
+    // CODE ONLY. This matched the raw file until a red team deleted BOTH registrations,
+    // left their names in the prose above them, and watched all thirteen tests pass while
+    // zenuml stopped rendering. The worker's comments are long and name every call they
+    // explain, so a text gate over them certifies the documentation, not the behavior.
+    const workerSrc = stripComments(fs.readFileSync(WORKER, 'utf8'));
     const cliCalls = [...cliSrc.matchAll(/mermaid\.(register\w+)\s*\(/g)].map((m) => m[1]);
     assert.ok(cliCalls.length, 'could not read any mermaid.register* call from mermaid-cli');
     // `registerIconPacks` is deliberately NOT made, and skipping it is EXACTLY what mmdc
@@ -200,7 +221,7 @@ describe('render worker: a dead page is not a diagram error', () => {
   });
 });
 
-describe('render worker: behavior', { skip: CHROME ? false : 'no CHROME_PATH — set it to run the real render' }, () => {
+describe('render worker: behavior', { skip: skipWithoutChrome(CHROME) }, () => {
   const FLOW = 'flowchart TB\n  A["Raw Signals from the field"] --> B["Decision Log"]';
 
   test('a render that produced no SVG is a failure, not a silent hole', () => {
@@ -230,6 +251,30 @@ describe('render worker: behavior', { skip: CHROME ? false : 'no CHROME_PATH —
     assert.equal(out.results[1].ok, false, 'a malformed fence must report its own failure');
     assert.equal(out.results[2].ok, true, 'and must not cost the diagrams after it');
     assert.match(out.results[0].svg, /^<svg/);
+  });
+
+  test('the two registrations have their EFFECT, not just their call site', () => {
+    // The drift gate above reads source text; this renders. Both are needed: text catches
+    // a registration mermaid-cli ADDS that the worker never picks up, and only a render
+    // catches one that is present but inert. Each assertion below was checked against a
+    // worker with the registration removed — the first goes ok:false, the second collapses
+    // to byte-identical dagre output.
+    const cfg = engineInitConfig({ fontFamily: '"Outfit", sans-serif', fontSize: '14px' });
+    const FLOW_4 = 'flowchart TB\n  A["Alpha"] --> B["Beta"]\n  A --> C["Gamma"]\n  B --> D["Delta"]\n  C --> D';
+    const out = runWorker([
+      { definition: 'zenuml\n  title Order\n  Broker->Router.tender()\n  Router->Broker.quote()', config: cfg },
+      { definition: FLOW_4, config: cfg },
+      { definition: FLOW_4, config: { ...cfg, layout: 'elk' } },
+    ]);
+    assert.equal(out.results[0].ok, true,
+      `registerExternalDiagrams is inert — zenuml did not render: ${out.results[0].error}`);
+    // ELK's silent failure mode is the dangerous one: an unregistered layout loader does
+    // not error, it renders as dagre and looks perfectly fine. The only observable is that
+    // the two layouts stop differing.
+    assert.equal(out.results[1].ok && out.results[2].ok, true, 'both flowcharts must render');
+    const body = (svg) => svg.split('</style>').pop();
+    assert.notEqual(body(out.results[2].svg), body(out.results[1].svg),
+      'registerLayoutLoaders is inert — `layout: elk` produced byte-identical dagre output');
   });
 
   test('config does not leak between diagrams in the shared page', () => {
