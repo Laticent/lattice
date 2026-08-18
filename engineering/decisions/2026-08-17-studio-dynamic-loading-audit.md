@@ -1,11 +1,12 @@
 ---
-status: proposed
-summary: A cold Studio load pulls ~2.83MB across 117 requests, and no per-PR gate watches any of it. The three findings that survived adversarial review - fonts (1.17MB, 43 files, 254KB of it KaTeX for a slide with no math), CodeMirror riding the eager path via one chat-syntax-highlighting import, and 312KB of JSON inlined into the HTML - are real and independently reproduced. But the service worker serves every hashed asset cache-first, so these are FIRST-VISIT costs; the cost that repeats on every launch is parse and hydrate, which reorders the fix list. Route-level splitting is genuinely excellent; the Studio island is the monolith.
+status: shipped
+summary: SHIPPED — all seven fixes landed in #1727. Studio eager JS 976.1 -> 648.7KB gz (-33%), raw parse weight 2833 -> 1869KB (-964KB per launch), the HTML document 432 -> 188KB, preview fonts 43 -> 19 files on a math-free deck, and a blocking per-route byte ledger now stops it drifting back. Originally: a cold Studio load pulled ~2.83MB across 117 requests, and no per-PR gate watched any of it. The three findings that survived adversarial review - fonts (1.17MB, 43 files, 254KB of it KaTeX for a slide with no math), CodeMirror riding the eager path via one chat-syntax-highlighting import, and 312KB of JSON inlined into the HTML - are real and independently reproduced. But the service worker serves every hashed asset cache-first, so these are FIRST-VISIT costs; the cost that repeats on every launch is parse and hydrate, which reorders the fix list. Route-level splitting is genuinely excellent; the Studio island is the monolith.
 ---
 
 # The Studio's loading budget: what is eager, what is lazy, and what it costs
 
-**Status:** audit. Nothing here is implemented.
+**Status:** shipped. All seven items in §9 landed in #1727, each as its own commit with
+its own measurement. §11 records the result.
 
 **On the numbers.** Measured on the real built site (`npm run build` → `astro preview` →
 a headless Chromium trace, plus a walk of Rollup's own `chunk-graph.json`). Text assets
@@ -331,25 +332,27 @@ than proposing it.
 
 ---
 
-## 9. If this is picked up: ordered by *recurring* cost
+## 9. The fix list, ordered by *recurring* cost — all shipped
 
 Re-ordered from an earlier draft, which ranked by wire bytes and so led with the one
 category the service worker already makes free.
 
-1. **Defer `chat-highlight.ts`** (§4). ~200KB gz of CodeMirror **parse**, every launch.
-   Restores a split that already shipped; chat code blocks appear after a model reply, so
-   no cold-load behaviour changes.
-2. **Close the Fabricate core leak** (§6). The lazy boundary exists; two imports bypass it.
-3. **Move the component catalog out of the HTML** (§5). ~45KB gz of parse-blocking JSON
-   and a 60% smaller document.
-4. **Split `ComposeView` + ProseMirror** (§6). ~111KB (est), largest remaining, already
-   conditionally rendered — but design the skeleton first, per the Editor precedent.
-5. **Delete the vestigial `previewFontFaceCss()`** (§3) — `single-slide-render.ts:620`,
-   one line, docs-side, no export impact. Removes a stale weight-collapsed font supply.
-6. **Gate the KaTeX faces** at `theme-fetch.ts:100-106`, the seam that already
-   special-cases KaTeX URLs — **not** in `lattice.css`. ~254KB, docs-side.
-7. **Add a per-route byte ledger** in the `check-ownership.js` idiom (§7), not a naive
-   threshold. Without it, 1-6 regress silently.
+1. ☑ **Defer `chat-highlight.ts`** (§4) — **−201.2KB gz**, and CodeMirror's eager
+   footprint fell 202.6 → 1.6KB (the residual is the dependency-free
+   `editor-diagnostics.js`). Restored a split that had already shipped.
+2. ☑ **Close the Fabricate core leak** (§6) — **−34.2KB gz**. Two eager imports, not the
+   three the draft claimed; `gateDraft()` became async to carry the await.
+3. ☑ **Move the component catalog out of the HTML** (§5) — **HTML 432.2 → 188.0KB raw
+   (−56%)**. The NAME list stays inlined (~1KB) so lint is correct from the first frame.
+4. ☑ **Split `ComposeView` + ProseMirror** (§6) — **−92.2KB gz**, with a prose-shaped
+   `ComposeSkeleton` rather than the code-editor one.
+5. ☑ **Delete the vestigial `previewFontFaceCss()`** (§3) — **−226KB of duplicate woff2**.
+   The two supplies declared the identical 17 family/weight/style combinations.
+6. ☑ **Gate the KaTeX faces** at the `theme-fetch.ts` seam — **20 → 0 font files on a
+   math-free deck**. The published `dist/lattice.css` is untouched, so exports still
+   render math with zero network.
+7. ☑ **Add a per-route byte ledger** (§7) — `docs/scripts/check-route-budget.mjs` +
+   `docs/route-budget.json`, blocking in the docs build.
 
 **Deliberately demoted:** "scope `@font-face` to the active theme," which an earlier draft
 ranked first as the cheapest win. It is the **most** governed item on the list, not the
@@ -384,6 +387,49 @@ not re-litigated: the service worker does **not** perturb a first-load trace (bl
 allowed are byte-identical, 117 requests each), and `authoring-core.generated.js` is
 genuinely statically imported (`PrintOptionsPanel.tsx:36`, `architect.ts:18`), not a
 measurement artifact.
+
+## 11. What shipped, measured
+
+Every figure below is the same measurement the baseline used — gzip level 6 over every
+`/_astro/*.js` referenced in `dist/studio/index.html`, on a real `npm run build`.
+
+| Metric | Before | After | Δ |
+|---|---:|---:|---:|
+| Eager JS (gz) | 976.1KB | **648.7KB** | **−327.4KB (−34%)** |
+| Eager JS (raw ≈ parse) | 2833.0KB | **1869.1KB** | **−964KB per launch** |
+| HTML document (raw) | 432.2KB | **188.0KB** | −244.2KB (−56%) |
+| Inlined props blob | 312.0KB (72% of HTML) | **67.7KB (36%)** | −244.3KB |
+| CodeMirror on the eager path | 202.6KB gz | **1.6KB gz** | −201.0KB |
+| Preview fonts, math-free deck | 43 files / 1174KB | **19 files / ~694KB** | −24 files |
+| `@font-face` rules in the frame | 54 | **17** | −37 |
+
+The parse figure is the one that matters. Because `/_astro/` is service-worker
+cache-first, the byte columns are a first-visit cost — but the **raw** column is re-paid
+on every launch, and the Studio's own discard loop makes launches frequent.
+
+**What did not change:** `dist/lattice.css` (a published export artifact — exports still
+render math with zero network), the `previewFontFaceCss()` export (`share-export.ts`
+still needs it for standalone decks), and the engine's `settleFonts` contract.
+
+**Verification.** 3179 docs unit tests; the @smoke e2e tier against the real built
+Studio; and for the two riskiest changes, direct real-surface checks rather than a
+harness — the ComposeView chunk confirmed absent from the cold load and fetched only on
+the Compose click with ProseMirror mounting and accepting typed text, and the KaTeX gate
+driven both ways with a screenshot showing real math type rather than fallback metrics.
+
+**Two pre-existing e2e failures were found and deliberately NOT fixed** (HARD RULE #18
+off-path). Both reproduce identically before any change here, and both are selector drift
+rather than broken behavior — the Studio e2e suite is nightly, off the PR gate, which is
+how they drifted:
+- `architect.spec.ts` "the Coach score card scores the seeded deck" — `getByText('Structure')`
+  now resolves to 3 elements. The card itself renders.
+- `editor-lint.spec.ts` "an unknown component makes Fix-all actionable" — times out finding
+  the Inspector's "Inline validation" switch. The lint assertion before it passes.
+
+**One thing the fixes revealed:** the shipped welcome deck trips the math detector itself,
+because its copy contains a literal `` `$math$` `` inside a code span and the engine
+matches math in code spans on purpose. So a first-run visitor still pays the KaTeX faces;
+the §9.6 win lands on real decks, not the tour.
 
 ## What this audit does not cover
 
