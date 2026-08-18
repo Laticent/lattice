@@ -268,14 +268,33 @@ variance stops mattering, which also removes the fuzz tolerance that currently
 hides small real regressions.
 
 **M5 — collapse J3 to atlases, generated not committed.** Galleries become a few
-on-demand atlas PDFs (5.7× cheaper) for browsing. Committed PDFs shrink to the
-HARD RULE #9 feature decks — **356 → ~20**.
+on-demand atlas PDFs (5.7× cheaper) for browsing.
+
+**How far M5 can go is capped by HARD RULE #9, and that cap is the real fork.**
+An earlier draft of this note claimed committed PDFs could shrink "356 → ~20."
+That was wrong. Measured: **109 of the 148 `examples/` decks carrying a committed
+PDF are the 6–10 slide HARD RULE #9 shape**, and 107 files across `changelog.d/`
+and `engineering/` reference them. `examples/` *is* HARD RULE #9 territory.
+
+So there are two different ceilings:
+
+| | Committed PDFs after | Requires |
+|---|---:|---|
+| Stop committing the **150 galleries** | 356 → **~206** | no rule change |
+| Also generate HARD RULE #9 feature decks at PR/release time instead of committing them | 356 → **~20** | **amending HARD RULE #9** |
+
+The second is a genuine trade, not a free win: HARD RULE #9's committed `.pdf` is
+what makes the `raw.githubusercontent.com` review link work for an external
+reviewer with no checkout. Generating on demand buys ~57 MB and the end of
+documentation re-blessing, and costs that link unless CI publishes the artifact
+somewhere durable.
 
 ### Answering the three questions directly
 
 - **Why do we need them?** For J3/J4 we need *a few, current*. For J1 — the job
   driving the churn — we do not need them at all.
 - **Too many?** Yes, and mis-aimed: 330 renders of `content`, zero of 16 themes.
+  But the count is only reducible to ~206 without amending HARD RULE #9 — see M5.
 - **One comprehensive PDF?** Directionally right and measurably cheaper (5.7×), and
   it is the right answer for *browsing*. But as a **regression** golden it inherits
   every flaw of the medium: still binary, still host-unstable, still silent about
@@ -291,6 +310,7 @@ HARD RULE #9 feature decks — **356 → ~20**.
 | 1 | The per-deck fixed cost is browser launch + re-parsing the 1.5 MB inlined CSS; a persistent browser pool is the big win | **Refuted.** Browser launch is 207 ms and page reuse is worth 3%. `waitUntil` is 82%. The warm-page result that suggested otherwise had changed two variables at once |
 | 2 | A component CSS edit leaves unrelated decks byte-identical, so incremental re-bless is the answer | **Half right, and not the answer.** The scoping holds under a controlled test (potent `quote` edit → quote gallery moves, `cycle` deck byte-identical). But history says it barely helps: of 17 PDF-rewriting commits in the last 50, **10 were cross-cutting base/theme** and only 2 component-scoped |
 | 3 | My first negative control proved CSS scoping | **Invalid** — the probe selector (`.quote-spike-probe`) matched no element, so it proved nothing. Re-run with real selectors after the positive control failed and exposed it |
+| 4 | Committed PDFs could shrink 356 → ~20 by keeping only HARD RULE #9 feature decks | **Wrong by an order of magnitude.** 109 of 148 `examples/` decks *are* HARD RULE #9 decks. Without amending that rule the floor is ~206, not ~20 (M5) |
 
 ---
 
