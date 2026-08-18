@@ -51,6 +51,7 @@
  */
 
 const { spawn, spawnSync } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -236,6 +237,34 @@ async function main(argv) {
     ? `${steps.length} PR-owned artifacts (${STEPS.length - steps.length} bot-owned skipped)`
     : `${steps.length} artifacts`;
   process.stdout.write(`Lattice ${mode}: ${scope} behind the ownership gate.\n\n`);
+
+  // SELF-BOOTSTRAP. The ownership guard below reads dist/ CSS to know which tokens
+  // are declared, and a generated docs bundle for the HARD RULE #22 style-sink
+  // check. Those are built, not committed — so on a tree that has never been built
+  // the guard fails on the ABSENCE of the very files this script exists to produce,
+  // and its error tells you to delete a security allowlist entry rather than to
+  // build.
+  //
+  // This was originally handled by making every caller run `build:uncommitted`
+  // first. That was the wrong shape and it shipped broken: five CI jobs, the
+  // pre-push hook, the release workflow and the SessionStart hook all call plain
+  // `npm run build` or `npm run build:check`, and every one of them was red on a
+  // cold checkout. An ordering invariant spread across ten surfaces, enforced by
+  // nobody, is a defect generator. It lives here instead, once.
+  //
+  // Only the UNCOMMITTED steps run: generating the committed artifacts too would
+  // make a subsequent --check compare fresh against fresh and pass vacuously.
+  const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js'];
+  if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
+    process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
+    for (const step of STEPS.filter((x) => x.uncommitted)) {
+      if (!runStep(step, false)) {
+        process.stderr.write(`\nbuild aborted: bootstrap step ${step.label} failed.\n`);
+        return 1;
+      }
+    }
+    process.stdout.write('\n');
+  }
 
   // Gate first — a collision fails before anything is (re)generated. Skipped under
   // --only-uncommitted, which runs precisely to give this guard the files it reads.

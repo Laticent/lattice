@@ -33,7 +33,12 @@ npm install --no-audit --no-fund
 #     integration suites, the docs site, and the agent-facing catalog
 #     dist/docs/components.pick.md that CLAUDE.md tells you to grep. ~16s, no
 #     browser. Idempotent — a no-op when they are already current.
-npm run build --silent >/dev/null 2>&1 || npm run build
+# `|| true` is deliberate under `set -euo pipefail`: a build failure must NOT abort
+# the hook, because everything below it — poppler-utils and CHROME_PATH — is what
+# the render pipeline needs, and losing those to a build error would strand the
+# session with a far more confusing failure than a missing dist/. The build also
+# self-bootstraps a cold tree, so this is a no-op on a warm one.
+npm run build >/dev/null 2>&1 || echo "  (build failed — run 'npm run build' to see why; continuing)" 
 
 # 2. System deps for the PDF pipeline. A fresh container's apt index is often
 #    stale, so refresh it once before installing — a stale index 404s on the
