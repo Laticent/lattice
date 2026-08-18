@@ -495,6 +495,19 @@ Which is exactly the shape the issue predicted and could not confirm: the repair
 a hued accent and a no-op where the accent is already near-achromatic. Small in magnitude, real
 in direction.
 
+**The front-matter repair, verified on the real Studio after the trio.** A red team found
+that deck front matter parses as a CommonMark SETEXT HEADING — the closing `---` is the
+underline — so `marp: true / theme: …` rendered bold in the accent color, indistinguishable
+from `# Title`, as the first thing an author sees on opening any deck. Re-measured on the
+rebuilt Studio after wrapping the language in `yamlFrontmatter`, by typing a deck with front
+matter into the real editor:
+
+| span | computed | |
+|---|---|---|
+| `marp`, `theme` (keys) | `rgb(30,26,21)` = `--text-heading`, weight **400** | no longer a heading |
+| `:` (separators) | `rgb(118,104,84)` = `--text-muted` | |
+| `# A heading` | `rgb(122,90,16)` = `--syntax-keyword-ink`, weight **600** | still a heading |
+
 **Responsive review at 1440 / 820 / 390** (QUALITY BAR). The deck editor's highlighting reads
 as structural affordance rather than colorization at every width; at 390 the Studio defaults to
 the Preview pane, so the Source tab was tapped to put the editor on screen — no jank, wrapping
