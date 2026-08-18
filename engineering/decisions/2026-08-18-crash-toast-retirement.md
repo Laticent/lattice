@@ -125,13 +125,63 @@ is exactly what that guard exists for — and neither moves `RECORD_VERSION`, si
 a bump would discard every record already sitting in a user's browser and older
 code simply ignores a field it does not know.
 
+## What an independent checker found, and what changed because of it
+
+Maker-checker (CLAUDE.md) on the first cut. Every finding below was a real defect
+in code that had already passed lint, both unit suites, `build:check` and a green
+e2e run — which is the argument for the rung.
+
+1. **The console write path skipped `catchUpOnWipe()`.** Every other write in the
+   module re-reads the durable wipe mark first, on the stated reasoning that the
+   wake path nobody has thought of yet is the one that resurrects deleted data. A
+   console error is exactly such a path: a tab that slept through another tab's
+   "Delete Everything" hears no event, and one library log would have persisted
+   the record — deck title and all — back under the key the wipe had just removed.
+   Now guarded, and pinned by a test that fails without the guard.
+2. **A chatty console erased the trail.** Folding stopped a *repeating* message
+   from filling the 60-crumb ring, but `find` only looks among the first six
+   groups — so from the seventh *distinct* message on, nothing folded and every
+   one took a crumb. Measured: 200 distinct console errors left 60 error crumbs
+   and no boot, nav or lifecycle context, which is the exact failure folding was
+   introduced to fix. A distinct message past the cap now takes no crumb either,
+   and the report states how many errors it could not list.
+3. **"Nothing to do" covered a browser-confirmed reclaim.** A record with
+   `wasDiscarded` set and a 9x heap rise printed its own evidence and then told
+   the reader not to bother reporting it. The step now excludes `confirmedDiscard`
+   and any record whose heap climbed >=1.5x or hit the ceiling; both instead ask
+   for the report, naming the memory figures.
+4. **An orphaned patch kept recording.** After start -> third-party wrap -> stop
+   -> start, `stop()` correctly declines to restore (tearing out someone else's
+   function would be worse) — but the first patch stayed alive inside their
+   wrapper while the second sat on top, and one `console.error` was counted twice.
+   `stop()` now switches the patch inert as well, so an orphan is a pass-through.
+5. **A throwing `message` getter dropped the whole call.** `describeValue` read
+   the duck-typed properties *above* its `try`, so a hostile argument lost the
+   label logged beside it. Every property read on a caller-controlled object is
+   inside the guard now, and read once (a logging getter was running twice);
+   `formatConsoleError`'s stack lookup got the same treatment.
+6. **The wipe scrubs missed `errorGroups` and `failedLoads`.** Pre-existing, and
+   squarely on this change's path — the console is what makes those fields carry
+   uncontrolled text. Fixed in place (HARD RULE #18) rather than logged.
+7. **`hidden` was latched on events only**, so it could not support the sentence
+   "the tab was in the background when the recording stopped" on a path that skips
+   `visibilitychange`. It is latched on the heartbeat now — the one thing that runs
+   on every path — plus `pagehide` and `freeze`.
+8. Smaller: a `RECORD_VERSION` comment still naming the deleted `reported` field;
+   the throttle docblock claiming a 1s worst case when it is a `BEAT_MS` one;
+   unclipped string arguments building full-size intermediates.
+
+The checker also could not reach a real browser from its own sandbox and said so
+rather than assuming — the e2e and real-Studio evidence below is the maker's.
+
 ## Verification
 
 - Unit: `docs/src/lib/crash-sentinel.test.ts` — console capture (record contents,
   pass-through, restore, later-patcher, no recursion), `formatConsoleError`
   (specifiers, stacks, unserializable arguments), the background headline and its
   absent chore, error-first ordering, console labeling, visibility tracking, and
-  the guard's two new fields. 84 passing.
+  the guard's two new fields, plus one test per checker finding above — each
+  verified to FAIL against the pre-fix code, not merely pass after it. 94 passing.
 - E2E (`docs/e2e/crash-sentinel.spec.ts`, real browser — HARD RULE #23): the
   report is offered in Workspace and reads well on desktop AND WebKit-at-phone
   (clipping on both axes per text layer, contrast composited from the deepest

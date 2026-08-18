@@ -16,6 +16,7 @@ import {
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
+	MAX_ERROR_GROUPS,
 	newRecord,
 	noteError,
 	noteFailedLoad,
@@ -1088,5 +1089,180 @@ describe('a backgrounded tab that the browser unloaded is not a crash', () => {
 		Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
 		document.dispatchEvent(new Event('visibilitychange'));
 		expect((liveSession() as SessionRecord).hidden).toBe(false);
+	});
+});
+
+/**
+ * What an independent checker found once the console became a source. Each of
+ * these is a real defect that shipped in the first cut of that change, so each
+ * test is written to FAIL against it rather than merely pass against the fix.
+ */
+describe('the console channel cannot undo the module’s other promises', () => {
+	const sessionCount = () => Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX)).length;
+
+	// Every other write path re-reads the durable wipe mark before writing,
+	// because the wake path nobody has thought of is the one that resurrects
+	// deleted data. A console error was exactly such a path.
+	it('a console error in a tab that slept through a wipe does not bring the record back', () => {
+		const original = console.error;
+		try {
+			// The spy goes UNDER the patch, not over it: it is what the patch must
+			// still call through to, so it has to be installed before `start`.
+			const seen: unknown[][] = [];
+			console.error = (...args: unknown[]) => { seen.push(args); };
+			startCrashSentinel();
+			setCrashContext({ Deck: 'Confidential' });
+			expect(sessionCount()).toBe(1);
+			// Another tab wiped while this document was not running: only the durable
+			// mark is left behind, no live event was heard.
+			localStorage.clear();
+			localStorage.setItem(WIPE_MARK_KEY, String(Date.now()));
+			console.error('a library complains after the wipe');
+			expect(sessionCount()).toBe(0);
+			// AND THE CONSOLE STILL WORKS. The first cut of this guard used a bare
+			// `return`, which exits the patch before the pass-through — so a wipe
+			// silently started swallowing every console error for the rest of the
+			// page's life. A recorder may stop recording; it may never eat the console.
+			expect(seen).toHaveLength(1);
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	// Folding stopped a REPEATING message from filling the ring. `find` only looks
+	// among the first six groups, so from the seventh DISTINCT message on nothing
+	// folded and every one took a crumb — 60 errors and no context.
+	it('a chatty console cannot evict the trail', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			breadcrumb('nav', 'deck: The Seven Steps');
+			for (let i = 0; i < 200; i++) console.error(`distinct failure ${i}`);
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(200);
+			expect(live.errorGroups).toHaveLength(MAX_ERROR_GROUPS);
+			// The narrative survives: boot and nav are still the start of the trail.
+			expect(live.crumbs[0].k).toBe('boot');
+			expect(live.crumbs.some((c) => c.m.startsWith('deck: '))).toBe(true);
+			expect(live.crumbs.filter((c) => c.k === 'error')).toHaveLength(MAX_ERROR_GROUPS);
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	it('says how many errors it could not list, rather than implying six was all of them', () => {
+		const many = rec({
+			errorCount: 200,
+			errorGroups: [{ message: 'first', n: 1, firstT: 0, lastT: 0 }],
+		});
+		expect(describeSession(many, { sameTab: true }).facts.join(' ')).toMatch(/199 further error\(s\)/);
+	});
+
+	// An orphaned patch left recording inside someone else's wrapper counted every
+	// console error twice — "2x" in a public issue for one occurrence.
+	it('a patch someone else wrapped goes inert on stop instead of double-counting', () => {
+		const original = console.error;
+		try {
+			const stop1 = startCrashSentinel();
+			const theirs = console.error; // a third party wraps ours
+			const wrapper = (...args: unknown[]) => (theirs as (...a: unknown[]) => unknown)(...args);
+			console.error = wrapper;
+			stop1(); // cannot restore — wrapper is not ours — so it must go inert
+			__resetSentinelForTest();
+			startCrashSentinel();
+			console.error('one message');
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(1);
+			expect(live.errorGroups?.[0].n).toBe(1);
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	// The first cut read `.message` before the try, so a throwing getter dropped
+	// the whole call — including the perfectly recordable label beside it.
+	it('records the label even when an argument refuses to be read', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			const hostile = { get message(): never { throw new Error('nope'); } };
+			expect(() => console.error('context that matters', hostile)).not.toThrow();
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(1);
+			expect(live.lastError?.message).toContain('context that matters');
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	// The wipe scrubs cleared five fields and missed the two that now carry text
+	// from the channel this module does not control.
+	it('a wipe scrubs the error groups and failed loads, not just the last error', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			console.error('something a library printed');
+			noteFailedLoad('/_astro/gone.js');
+			expect((liveSession() as SessionRecord).errorGroups).toHaveLength(1);
+			dispatchEvent(Object.assign(new Event('storage'), { key: WIPE_SIGNAL_KEY, newValue: '1' }));
+			const live = liveSession() as SessionRecord;
+			expect(live.errorGroups).toBeUndefined();
+			expect(live.failedLoads).toBeUndefined();
+			expect(live.lastError).toBeUndefined();
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+});
+
+/**
+ * The report must not talk its reader out of the one report worth having. A
+ * browser-CONFIRMED reclaim, or a heap that climbed through the session, is the
+ * strongest signal this recorder produces — and the first cut answered both with
+ * "nothing to do — normal behavior on every browser", directly under its own
+ * evidence of a 9x rise.
+ */
+describe('"nothing to do" is for the ordinary case only', () => {
+	const climbing = (over: Partial<SessionRecord> = {}) =>
+		rec({ mem: [{ t: 0, used: 200_000_000, limit: 2_000_000_000 }, { t: 2_400_000, used: 1_800_000_000, limit: 2_000_000_000 }], ...over });
+
+	it('asks for a report when the browser said it reclaimed the tab', () => {
+		const { steps } = describeSession(climbing(), { sameTab: true, tabDiscarded: true });
+		expect(steps.join(' ')).toMatch(/Report this on GitHub/);
+		expect(steps.join(' ')).not.toMatch(/Nothing to do/);
+	});
+
+	it('asks for a report when the heap climbed, even on a background unload', () => {
+		const { headline, steps } = describeSession(climbing({ hidden: true }), { sameTab: true });
+		expect(headline).toBe('The Studio stopped while the tab was in the background');
+		expect(steps.join(' ')).toMatch(/memory figures above/);
+		expect(steps.join(' ')).not.toMatch(/Nothing to do/);
+	});
+
+	it('still says "nothing to do" for a quiet background unload', () => {
+		const { steps } = describeSession(rec({ hidden: true, mem: [{ t: 0, used: 5e6, limit: 4e9 }] }), { sameTab: true });
+		expect(steps.join(' ')).toMatch(/Nothing to do/);
+	});
+
+	// `hidden` is read by a sentence that claims the tab was in the background when
+	// recording STOPPED, and an event-only latch cannot support that on a path
+	// where the document goes away without a `visibilitychange` first.
+	it('latches visibility on the heartbeat, not only on the events', () => {
+		vi.useFakeTimers();
+		try {
+			startCrashSentinel();
+			Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+			// No `visibilitychange` dispatched on purpose — the tick is the oracle.
+			vi.advanceTimersByTime(BEAT_MS + 1_000);
+			expect((liveSession() as SessionRecord).hidden).toBe(true);
+		} finally {
+			Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+			vi.useRealTimers();
+		}
 	});
 });

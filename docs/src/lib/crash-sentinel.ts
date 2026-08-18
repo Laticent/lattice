@@ -75,13 +75,26 @@
  * `docs/src` log a label plus an Error — none passes deck text. Keep it that way;
  * if you must log a value, log its shape, not the value.
  *
+ * The library half of that is NOT hypothetical, and the example is worth knowing
+ * because it is in-tree: KaTeX runs in the Studio's own realm (not the preview
+ * iframe) whenever a deck has math, and TeX's `\errmessage` macro passes the
+ * author's own text straight to `console.error` — measured against the pinned
+ * copy. So a deck can put its own words in this record. What bounds it is the
+ * 300-character clip, the fact that nothing is transmitted, and the panel showing
+ * the recorded error above the "Report on GitHub" button. What is NOT bounded is
+ * the at-rest copy: like every other field here it sits in `localStorage` for up
+ * to seven days, readable by any same-origin script, with no human in the loop.
+ * That is the considered trade — a recorder that cannot see the console could not
+ * report the failures people actually hit — and it is written down so the next
+ * person weighs it rather than rediscovers it.
+ *
  * COST. One `setInterval(1000)` that writes ~4-8KB every 5th tick, plus four
  * passive listeners. Records are capped, pruned to the newest few, and expire —
  * this must not become the storage-accumulation problem it exists to diagnose
  * (engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md).
  */
 
-export const RECORD_VERSION = 2; // bumped: `bfcached`/`reported` added, and `closed` changed meaning
+export const RECORD_VERSION = 2; // bumped when `bfcached` was added and `closed` changed meaning
 
 /** `localStorage` key prefix — one record per session. Prefixed `lattice-studio-` like every other Studio key. */
 export const SESSION_PREFIX = 'lattice-studio-session-';
@@ -177,8 +190,13 @@ export const CONSOLE_SOURCE = 'console.error';
 /**
  * How often a console error may force a write. `console.error` is cheap to call
  * and libraries call it in loops; persisting 4-8KB of JSON on every one would
- * make the recorder the stall it exists to observe. The 5s heartbeat carries the
- * rest, so the worst case is one second of console history lost to a crash.
+ * make the recorder the stall it exists to observe.
+ *
+ * The worst case is a HEARTBEAT, not this interval: a suppressed write waits for
+ * the next `persist()`, and the guaranteed one is `tick`'s every-5th-tick beat.
+ * So a console error logged just after a write and followed immediately by a
+ * crash can be lost for up to `BEAT_MS`. That is the price of not making the
+ * recorder the stall, and it is stated rather than rounded down.
  */
 const CONSOLE_PERSIST_MS = 1_000;
 
@@ -585,6 +603,14 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 			`${opaqueCount} error(s) the browser would not describe — reported only as "Script error." with no file, line or stack. That is what a browser shows for a script it will not let the page read, and the Studio's own scripts are not in that category, so these most likely came from a browser extension or an injected script rather than from the Studio.`,
 		);
 	}
+	// THE CAP IS DECLARED, NOT HIDDEN. `noteError` keeps six distinct messages and
+	// counts the rest, and a report printing six while the counter said 200 would
+	// read as "six errors" — the same wall-of-noise misreading that grouping was
+	// introduced to fix.
+	const listed = groups.reduce((n, g) => n + g.n, 0);
+	if (groups.length && rec.errorCount > listed) {
+		facts.push(`${rec.errorCount - listed} further error(s) were recorded whose messages are not listed here — this report keeps the first ${MAX_ERROR_GROUPS} distinct messages and counts the rest.`);
+	}
 	if (!groups.length && rec.lastError) {
 		// A record written before errors were grouped. Read it the old way rather
 		// than showing nothing.
@@ -627,10 +653,15 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	// (DOM, the preview iframe, workers, export buffers) that `usedJSHeapSize`
 	// does not count, so "92% of the limit" essentially never happens while
 	// "grew 9x in 40 minutes" happens every time there is a leak.
+	// Captured, not merely printed: the steps below have to know whether the heap
+	// was doing something interesting, or they end up telling the reader to ignore
+	// a report whose own facts show a 9x rise.
+	let memoryLooksInteresting = false;
 	if (last && first && last.t > first.t) {
 		const growth = first.used > 0 ? last.used / first.used : 1;
 		const line = `Memory went from ${mb(first.used)} to ${mb(last.used)} over ${stamp(last.t - first.t)}`;
 		facts.push(growth >= 1.5 ? `${line} — a ${growth.toFixed(1)}x rise.` : `${line}.`);
+		memoryLooksInteresting = growth >= 1.5;
 	} else if (last) {
 		facts.push(`Memory was ${mb(last.used)} at the last reading.`);
 	} else {
@@ -638,6 +669,7 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	}
 	if (last?.limit && last.used / last.limit >= MEM_PRESSURE) {
 		facts.push(`The JavaScript heap was near this browser's own ceiling (${mb(last.used)} of ${mb(last.limit)}).`);
+		memoryLooksInteresting = true;
 	}
 
 	// ── FREEZES. A gap longer than any credible task is a sleeping device, not a
@@ -674,14 +706,28 @@ export function describeSession(rec: SessionRecord, ctx: boolean | ClassifyConte
 	}
 	// THE MOST COMMON ANSWER IS "nothing", AND IT HAS TO BE SAYABLE. A report whose
 	// every branch hands out a chore teaches its reader that the report is noise.
-	if (confirmedDiscard || evicted || parked || background) {
+	//
+	// TWO EXCLUSIONS, both earned in review. `confirmedDiscard` is NOT in this
+	// branch: the browser stating it reclaimed the tab to free memory is the single
+	// highest-value signal this recorder can produce, and answering it with
+	// "nothing to do — normal behavior on every browser" both discouraged the one
+	// report worth having and contradicted the fact printed two lines above it.
+	// And a background unload whose heap had been climbing is not the ordinary case
+	// either, whatever the ending says.
+	if ((evicted || parked || background) && !memoryLooksInteresting) {
 		steps.push(
 			realGroups.length
 				? 'Beyond that error, there is nothing to fix here: the browser unloaded a tab that was in the background, which it is entitled to do. Your decks were already saved on this device.'
 				: 'Nothing to do. The browser unloaded a tab that was in the background — normal behavior on every browser, and your decks were already saved on this device. This is worth reporting only if it happens while you are actually working in the Studio.',
 		);
+	} else if (confirmedDiscard || memoryLooksInteresting) {
+		steps.push(
+			memoryLooksInteresting
+				? 'Report this on GitHub, with the memory figures above. A heap that climbs through a session is the one thing here we can chase directly, and it is the likeliest reason a browser takes a tab back.'
+				: 'Report this on GitHub. The browser stated outright that it reclaimed this tab to free memory, which is a stronger signal than most reports carry — the deck, and how long it had been open, are what we need alongside it.',
+		);
 	}
-	if (!rec.mem.length && !background && !evicted && !parked) {
+	if (!rec.mem.length && !background && !evicted && !parked && !confirmedDiscard) {
 		// The iOS/Firefox case. Saying "no memory readings" and stopping is what
 		// made the report feel inert. Not offered for a plain background unload —
 		// asking someone to reproduce an ordinary tab unload in a second browser is
@@ -1097,6 +1143,13 @@ export function clearAllSessions(): void {
 		live.mem.length = 0;
 		live.context = {};
 		live.lastError = undefined;
+		// `errorGroups` and `failedLoads` were missed by every earlier scrub, and the
+		// console made that matter: these now hold text from the one channel this
+		// module does not control, so a "Delete Everything" that left them on the
+		// live record left exactly the content a wipe is for. (`catchUpOnWipe`
+		// already cleared both; these two paths did not, one tab-depth apart.)
+		live.errorGroups = undefined;
+		live.failedLoads = undefined;
 		live.errorCount = 0;
 	}
 }
@@ -1235,38 +1288,61 @@ export function noteError(err: unknown, source?: string, where?: { file?: string
 	if (hit) {
 		hit.n++;
 		hit.lastT = t;
-	} else if (groups.length < MAX_ERROR_GROUPS) {
-		groups.push({ message, n: 1, firstT: t, lastT: t, file, line, opaque: opaque || undefined, source });
+		return; // the group carries the repeat count; the trail keeps its narrative
 	}
-	// Only the FIRST of a repeating message gets a breadcrumb. The group carries
-	// the repeat count, so the trail keeps its narrative instead of becoming a log.
-	if (!hit) breadcrumb('error', source ? `${source}: ${message}` : message);
+	// A DISTINCT message past the group cap gets NO breadcrumb either, and that
+	// pairing is the whole point. Folding stopped a REPEATING error from filling
+	// the 60-crumb ring — but `find` only looks among the first six groups, so
+	// from the seventh distinct message on, nothing folded and every one took a
+	// crumb. Harmless while the only source was `window.onerror`; with the console
+	// as a source, 200 distinct messages evicted the boot, nav and lifecycle
+	// crumbs and left a trail that was 60 lines of error and no context — the
+	// exact failure the folding was written to prevent, one door over. `errorCount`
+	// still counts them all, and `describeSession` says how many went unlisted.
+	if (groups.length >= MAX_ERROR_GROUPS) return;
+	groups.push({ message, n: 1, firstT: t, lastT: t, file, line, opaque: opaque || undefined, source });
+	breadcrumb('error', source ? `${source}: ${message}` : message);
 }
+
+/** Longest any one `console.error` argument may contribute. `noteError` clips the whole message again. */
+const ARG_MAX_CHARS = 400;
 
 /** One `console.error` argument, as a short readable string. */
 function describeValue(v: unknown): string {
-	if (typeof v === 'string') return v;
+	// CLIPPED HERE TOO, not only at `noteError`. A caller is free to log a
+	// megabyte; without this the format pass builds two or three full-size copies
+	// of it before anything trims, which is real work on the main thread for a
+	// string that is about to become 300 characters.
+	if (typeof v === 'string') return v.slice(0, ARG_MAX_CHARS);
 	if (v === null) return 'null';
 	if (v === undefined) return 'undefined';
-	if (v instanceof Error) return v.message ? `${v.name}: ${v.message}` : String(v);
-	if (typeof v === 'object') {
-		// Duck-typed too: an Error thrown across a realm boundary — the preview
-		// iframe, a worker — fails `instanceof`, and serializing it lands
-		// `{"message":"…","stack":"…"}` in the report where the message belongs.
-		const e = v as { message?: unknown; stack?: unknown; name?: unknown };
-		if (typeof e.message === 'string' && typeof e.stack === 'string') {
-			return typeof e.name === 'string' && e.name ? `${e.name}: ${e.message}` : e.message;
-		}
+	if (typeof v === 'object' || typeof v === 'function') {
+		// EVERY PROPERTY READ IS INSIDE THE TRY. A getter that throws is the whole
+		// reason this guard exists, and the first cut read `.message`/`.stack`
+		// ABOVE it — so a `{ get message() { throw } }` argument escaped, and the
+		// outer handler dropped the entire call, including the perfectly
+		// recordable label logged beside it.
 		try {
-			// A getter that throws, a circular structure, a BigInt — every one of
-			// these makes `JSON.stringify` throw, and a recorder that throws inside
-			// the console it borrowed breaks the app rather than reporting on it.
+			if (v instanceof Error) return v.message ? `${v.name}: ${v.message}`.slice(0, ARG_MAX_CHARS) : String(v);
+			// Duck-typed too: an Error thrown across a realm boundary — the preview
+			// iframe, a worker — fails `instanceof`, and serializing it lands
+			// `{"message":"…","stack":"…"}` in the report where the message belongs.
+			const e = v as { message?: unknown; stack?: unknown; name?: unknown };
+			// READ ONCE. These are the caller's properties and may be getters with
+			// side effects — re-reading `message` for the test and again for the
+			// value ran a logging getter twice, which is visible in devtools.
+			const message = e.message;
+			const name = e.name;
+			if (typeof message === 'string' && typeof e.stack === 'string') {
+				return (typeof name === 'string' && name ? `${name}: ${message}` : message).slice(0, ARG_MAX_CHARS);
+			}
+			// A circular structure or a BigInt makes `JSON.stringify` throw too.
 			return JSON.stringify(v)?.slice(0, 200) ?? Object.prototype.toString.call(v);
 		} catch {
-			return Object.prototype.toString.call(v);
+			return '[unreadable value]';
 		}
 	}
-	return String(v);
+	return String(v).slice(0, ARG_MAX_CHARS);
 }
 
 /** Does this string carry printf-style specifiers the console would substitute? */
@@ -1304,10 +1380,21 @@ export function formatConsoleError(args: readonly unknown[]): { message: string;
 	// The STACK is the whole reason this path is worth having: it names the code.
 	// Duck-typed as well as `instanceof`, because an Error thrown across a realm
 	// boundary (the preview iframe, a worker) fails the instance check.
-	const err = args.find(
-		(a): a is Error => a instanceof Error || (!!a && typeof (a as Error).stack === 'string' && typeof (a as Error).message === 'string'),
-	);
-	return { message: message || err?.message || 'console.error (no arguments)', stack: err?.stack };
+	// Guarded for the same reason `describeValue` is: this reads properties off an
+	// object the caller controls, and a throwing getter here would lose the whole
+	// call rather than just its stack.
+	let stack: string | undefined;
+	let fallbackMessage = '';
+	try {
+		const err = args.find(
+			(a): a is Error => a instanceof Error || (!!a && typeof (a as Error).stack === 'string' && typeof (a as Error).message === 'string'),
+		);
+		stack = err?.stack;
+		fallbackMessage = err?.message ?? '';
+	} catch {
+		/* an argument that will not be inspected — the message above still stands */
+	}
+	return { message: message || fallbackMessage || 'console.error (no arguments)', stack };
 }
 
 /**
@@ -1442,6 +1529,12 @@ export function startCrashSentinel(): () => void {
 		}
 		lastTick = t;
 		lastVisible = visible;
+		// LATCHED ON THE HEARTBEAT TOO, not only on the events. The report says "the
+		// tab was in the background when the recording stopped", and an event-only
+		// latch cannot support that on any path where the document is torn down
+		// without a `visibilitychange` first. The tick is the one thing that runs on
+		// every path, so it is where the claim earns itself.
+		live.hidden = !visible;
 		ticks++;
 		if (ticks % (BEAT_MS / TICK_MS) !== 0) return;
 
@@ -1524,17 +1617,41 @@ export function startCrashSentinel(): () => void {
 	const consoleObj = globalThis.console;
 	const originalConsoleError = consoleObj?.error;
 	let inConsoleCapture = false;
+	/**
+	 * `stop()` cannot always take the patch back out — if someone wrapped it in the
+	 * meantime, restoring would tear THEIR function away — so it switches this
+	 * instead, and an orphaned patch becomes a pure pass-through.
+	 *
+	 * Without it, a start → third-party wrap → stop → start sequence leaves the
+	 * first patch alive INSIDE the third party's wrapper while the second patch
+	 * sits on top: two live recorders, separate re-entrancy closures, so a single
+	 * `console.error` was counted twice and the report printed "2x" for one
+	 * occurrence — a false statement in a public issue.
+	 */
+	let disposedConsole = false;
 	let lastConsolePersist = 0;
 	const patchedConsoleError = (...args: unknown[]) => {
-		if (!inConsoleCapture) {
+		if (!disposedConsole && !inConsoleCapture) {
 			inConsoleCapture = true;
 			try {
-				const { message, stack } = formatConsoleError(args);
-				noteError({ message, stack }, CONSOLE_SOURCE);
-				const t = Date.now();
-				if (t - lastConsolePersist > CONSOLE_PERSIST_MS) {
-					lastConsolePersist = t;
-					persist();
+				// THE WIPE CHECK EVERY OTHER WRITE PATH PAYS. `tick`, `onResume` and
+				// `onPageShow` all re-read the durable wipe mark before writing, on the
+				// stated reasoning that the wake path nobody has thought of yet is the
+				// one that resurrects deleted data. A console error IS such a path: a
+				// tab that slept through another tab's "Delete Everything" hears no
+				// event, and one library log would otherwise `persist()` the record —
+				// deck title and all — back under the key the wipe had just removed.
+				// NOT `return` — that would exit the whole function and skip the
+				// pass-through below, i.e. a wipe would start SWALLOWING the console.
+				// The only thing a wipe may stop is the recording.
+				if (!catchUpOnWipe()) {
+					const { message, stack } = formatConsoleError(args);
+					noteError({ message, stack }, CONSOLE_SOURCE);
+					const t = Date.now();
+					if (t - lastConsolePersist > CONSOLE_PERSIST_MS) {
+						lastConsolePersist = t;
+						persist();
+					}
 				}
 			} catch {
 				/* a recorder must never break the console it borrowed */
@@ -1570,6 +1687,7 @@ export function startCrashSentinel(): () => void {
 	// may come back — close it anyway; `pageshow` reopens it if it does.
 	const onPageHide = (ev: PageTransitionEvent) => {
 		if (!live) return;
+		noteVisibility();
 		live.lastBeat = Date.now();
 		live.closed = true;
 		// `persisted` means the page went into the back/forward cache and MAY come
@@ -1606,6 +1724,9 @@ export function startCrashSentinel(): () => void {
 	// then discarded reports as a discard rather than vanishing silently.
 	const onFreeze = () => {
 		if (!live) return;
+		// A frozen tab is by definition not the one in front of you, but the flag is
+		// read rather than assumed — this module states what it observed.
+		noteVisibility();
 		live.frozen = true;
 		live.lastBeat = Date.now();
 		breadcrumb('lifecycle', 'freeze (tab discard-eligible)');
@@ -1636,6 +1757,8 @@ export function startCrashSentinel(): () => void {
 			live.mem.length = 0;
 			live.context = {};
 			live.lastError = undefined;
+			live.errorGroups = undefined;
+			live.failedLoads = undefined;
 			live.errorCount = 0;
 		}
 		safeRemove(ls(), SESSION_PREFIX + (liveId ?? ''));
@@ -1654,7 +1777,10 @@ export function startCrashSentinel(): () => void {
 
 	stop = () => {
 		clearInterval(timer);
-		// Only if it is still ours — see the patch above.
+		// Inert first, THEN restore if it is still ours. The order matters: when a
+		// third party has wrapped us the restore is skipped, and the flag is the only
+		// thing that stops the orphan from going on recording.
+		disposedConsole = true;
 		if (consoleObj && consoleObj.error === patchedConsoleError && typeof originalConsoleError === 'function') consoleObj.error = originalConsoleError;
 		removeEventListener('storage', onStorage);
 		removeEventListener('error', onError);
