@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -24,7 +24,7 @@ test('@smoke size control writes the size front-matter', async ({ page }) => {
 // (The tab was called "Marks" until 2026-08-18; the slide Inspector had always
 // called the same four controls Chrome, and one vocabulary won.)
 async function openChromeTab(page: Page): Promise<void> {
-	await page.getByRole('tab', { name: 'Chrome' }).click();
+	await page.getByRole('tab', { name: CHROME.deckTab.chrome }).click();
 }
 
 test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
