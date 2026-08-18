@@ -446,3 +446,59 @@ supports the change: a grid line at 1.17:1 was not subtle, it was absent. Whethe
 `#6E6E6E` is heavier than a printed gantt wants is a curation question for the print
 band, not a contrast one, and it is left as-is rather than tuned blind — no print
 artifact was rendered in this pass, so this is a token-chain reading, not a render.
+
+### 8.7 CORRECTED — 96% of this PR's artifact churn was never this change
+
+§8.3 and the PR body both reported "1016 slides move in the golden diff" as the cost
+of re-curating the diagram tokens. **That number was wrong by more than an order of
+magnitude, and the error was not in the arithmetic — it was in the attribution.**
+
+The tell was a size asymmetry nothing in the diff explained. `big-number`,
+`quote` and `content` have no diagram on any slide, yet their *light* gallery PDFs
+grew ~8% while their *dark* ones changed by a single byte. Three tokens moved in this
+change — `--diagram-stroke`, `--diagram-today`, `--diagram-line` — and a
+`var()` census finds exactly two non-Mermaid readers between them, both in
+`state-chart`. Nothing that could reach a code chip or an eyebrow.
+
+So the render was done from a clean `origin/main` worktree, with none of this change
+present:
+
+```
+main's COMMITTED big-number.gallery.light.pdf   161,319 bytes
+main-only FRESH render                          174,979 bytes
+this branch's committed PDF                     174,979 bytes   ← byte-identical
+```
+
+Repeated across every changed artifact as a three-way classification — main's
+committed bytes vs. a main-only fresh render vs. this branch — the split is:
+
+| | gallery PDFs | showcase WebP |
+|---|---|---|
+| **backlog** (main-only render reproduces this branch's bytes exactly) | 114 | 28 |
+| **this change** | 4 | 2 |
+
+The four are `diagram` and `state-chart`, light and dark — precisely the two
+components the `var()` census predicted, which is the census confirmed at the
+rendered-artifact level rather than the token level.
+
+**Main is carrying stale committed gallery PDFs.** An earlier merged PR changed engine
+CSS without re-rendering them, so main's committed artifacts no longer match what
+main's own CSS produces. This PR's mass rebuild silently folded that backlog in.
+
+`build-galleries.js --check` cannot see it: it compares the WORKING TREE to HEAD, so on
+a clean checkout it reports "no render input changed since HEAD" — true, and unrelated
+to whether the committed PDFs match the committed sources. That is the same shape as
+the near miss in §2 (a gate that covers one member of a family reads like a gate that
+covers the family), one level up: a gate that answers a NEIGHBORING question reads
+like a gate that answers this one.
+
+**What was done.** The 114 backlog PDFs and 28 backlog WebP were restored to main's
+committed bytes, per HARD RULE #18's on-path/off-path split — a pre-existing defect
+this change did not cause and does not worsen is logged, not pulled into the diff,
+which is also what keeps #8 and #17 intact. The binary footprint went from **146 files
+to 6**, and the real movement is **76 slides across 84**, not 1016. The golden diff is
+now a review surface for this change alone.
+
+The staleness itself is filed separately. It is a real defect — main's committed
+galleries misrepresent main — but it belongs to the change that caused it, not to this
+one.
