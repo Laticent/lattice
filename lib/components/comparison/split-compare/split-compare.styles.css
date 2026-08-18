@@ -10,7 +10,37 @@
 
 section.split-compare { padding:0; flex-direction:row; }
 section.split-compare .compare-left { width:30%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:center; padding:var(--sp-xl) var(--sp-lg); position:relative; }
-section.split-compare .compare-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
+/* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
+ * Same defect and same fix as `split-panel` (see the long note in
+ * lib/components/statement/split-panel/split-panel.styles.css): the section's
+ * spectrum `border-top` sat on top of this component's own 3px accent bar,
+ * because a sovereign frame cannot suppress a mark that is a border rather than
+ * a Tile. The border is dropped and the edge is rebuilt as ONE bar in two
+ * segments, anchored to the PANEL BOXES so the transition lands on the real
+ * seam whatever `width` + padding resolve to.
+ * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+section.split-compare { border-top: none; }
+section.split-compare .compare-left::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: calc(var(--_sec-1cqi, 1cqi) * 0.3125); /* section-OWN cqi: route through --_sec-1cqi */
+  background: var(--panel-mark, var(--accent));
+  z-index: 3; /* local 0-9 band (design/forms.md 5.2) */
+}
+/* Background, not a positioned pseudo: `<footer>` is a CHILD of `.compare-right`, so
+ * `position: relative` here would re-parent it (see the long note in split-panel). */
+section.split-compare .compare-right {
+  background-image: var(--spectrum);
+  background-size: calc(var(--_sec-1cqi, 1cqi) * 100) calc(var(--_sec-1cqi, 1cqi) * 0.3125);
+  background-position: right top;
+  background-repeat: no-repeat;
+}
+section.split-compare:is(.spectrum-off, .spectrum-edge-left, .spectrum-edge-right,
+                         .spectrum-edge-bottom, .spectrum-edge-off) .compare-right {
+  background-image: none;
+}
+section.split-compare.accent .compare-right {
+  background-image: linear-gradient(var(--accent), var(--accent));
+}
 section.split-compare .compare-left .frame-label { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-sm); }
 section.split-compare .compare-left h2 { font-size:var(--fs-h3); color:var(--on-dark-primary); font-weight:800; line-height:var(--lh-tight); margin:0; padding-bottom:var(--sp-md); }
 section.split-compare .compare-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--on-dark-secondary); line-height:var(--lh-snug); margin:0; }
@@ -19,7 +49,7 @@ section.split-compare .compare-left p { font-size:var(--fs-body); font-family:va
 /* overflow:clip completes the flex cell-tree contract (2026-06-26): min-height:0
  * lets the body row shrink, overflow:clip walls an over-stuffed options grid at
  * the panel edge instead of bleeding past it. */
-section.split-compare .compare-right { flex:1; min-height:0; overflow:clip; background:var(--bg); display:flex; flex-direction:column; padding:var(--sp-lg) var(--sp-xl) var(--sp-xl) var(--sp-lg); gap:var(--sp-sm); }
+section.split-compare .compare-right { flex:1; min-height:0; overflow:clip; background-color:var(--bg); display:flex; flex-direction:column; padding:var(--sp-lg) var(--sp-xl) var(--sp-xl) var(--sp-lg); gap:var(--sp-sm); }
 section.split-compare .options { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-sm); flex:1; }
 section.split-compare .option { background:var(--bg-alt); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-sm); border:1px solid var(--border); position:relative; }
 section.split-compare .option > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.12em; color:var(--text-secondary); font-weight:700; padding-bottom:var(--sp-xs); border-bottom:2px solid var(--border); margin:0; }
