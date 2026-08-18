@@ -49,8 +49,8 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'logo-on', info: 'Which slides carry the logo — all (default) / title.' },
 	{ key: 'logo-style', info: 'Logo treatment — auto (default) / brand.' },
 	{ key: 'logo-scale', info: 'Logo size multiplier — 1 is default, clamped 0.2–3.' },
-	{ key: 'logo-x', info: 'Logo centre across the slide, 0–100 (%).' },
-	{ key: 'logo-y', info: 'Logo centre down the slide, 0–100 (%).' },
+	{ key: 'logo-x', info: 'Logo center across the slide, 0–100 (%).' },
+	{ key: 'logo-y', info: 'Logo center down the slide, 0–100 (%).' },
 	// Accent
 	{ key: 'spectrum', info: 'Brand bar — on (rainbow, default) / solid / duo / mono / off.' },
 	{ key: 'spectrum-edge', info: 'Which edge the brand bar sits on — top (default) / left / right / bottom / off.' },

@@ -22,6 +22,27 @@ import { cn } from '@/lib/utils';
 // typing in. A tap/keyboard-opened one MUST move focus, or a keyboard user opens content
 // they cannot then read or dismiss. `openedByHover` tells the two apart at open time.
 
+// The trigger's classes, merged ONCE at module scope. `cn` is `twMerge(clsx(...))`, and
+// parsing arbitrary-variant names (`data-[state=open]:bg-[var(--accent-soft)]`) is not
+// free — a settings panel renders ~20 of these per Inspector state change, and the same
+// per-render `cn` cost in `Field` is what once timed the docs suite out under load
+// (see the note on FIELD_ROW in StudioShell.tsx). A caller-supplied `className` still
+// merges, but that is the rare path.
+//
+// INLINE, not a flex sibling. As a flex item beside the label the icon took its own 20px
+// of a no-wrap row, which pushed a two-word label ("Color mode") onto a second line and
+// then orphaned the icon below it. `inline-grid` + `align-middle` puts it in the TEXT
+// flow, so it follows the last word and wraps with it. 18px box around a 13px glyph:
+// tappable without adding height to a 12.5px row.
+const TRIGGER_CLASS = cn(
+	'ml-0.5 inline-grid size-[18px] shrink-0 place-items-center rounded-full align-middle text-muted-foreground transition-colors',
+	'hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]',
+	'data-[state=open]:bg-[var(--accent-soft)] data-[state=open]:text-[var(--accent)]',
+);
+
+// The content's classes, merged once for the same reason.
+const CONTENT_CLASS = 'w-[248px] p-3 text-[11.5px] leading-relaxed text-muted-foreground [&_code]:rounded [&_code]:bg-[var(--accent-soft)] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[11px] [&_strong]:font-semibold [&_strong]:text-[var(--text-heading)]';
+
 /** Hover-intent delay (ms) — long enough that sweeping the pointer across a column of
  *  rows doesn't strobe popovers open, short enough to feel like a tooltip. */
 const HOVER_DELAY = 320;
@@ -83,19 +104,7 @@ export function HelpTip({
 					aria-label={label}
 					onPointerEnter={hoverOpen}
 					onPointerLeave={hoverClose}
-					className={cn(
-						// INLINE, not a flex sibling. As a flex item beside the label it took its
-						// own 20px of the row, which pushed a two-word label ("Color mode") onto a
-						// second line with the icon floating beside the wrap. `inline-grid` +
-						// `align-middle` puts it in the TEXT flow, so it follows the last word and
-						// wraps with it — the label breaks only when the label itself is too long.
-						// 18px box around a 13px glyph: tappable without adding height to a
-						// 12.5px row.
-						'ml-0.5 inline-grid size-[18px] shrink-0 place-items-center rounded-full align-middle text-muted-foreground transition-colors',
-						'hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]',
-						'data-[state=open]:bg-[var(--accent-soft)] data-[state=open]:text-[var(--accent)]',
-						className,
-					)}
+					className={className ? cn(TRIGGER_CLASS, className) : TRIGGER_CLASS}
 				>
 					<CircleHelp className="size-[13px]" />
 				</button>
@@ -107,7 +116,7 @@ export function HelpTip({
 				onOpenAutoFocus={(e) => { if (openedByHover.current) e.preventDefault(); }}
 				// Narrower + tighter than the default popover: this is a help note beside a
 				// row, not a panel. `w-72 p-4` would overhang a docked 300px Inspector.
-				className="w-[248px] p-3 text-[11.5px] leading-relaxed text-muted-foreground [&_code]:rounded [&_code]:bg-[var(--accent-soft)] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[11px] [&_strong]:font-semibold [&_strong]:text-[var(--text-heading)]"
+				className={CONTENT_CLASS}
 			>
 				{children}
 			</PopoverContent>
