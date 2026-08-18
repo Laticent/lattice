@@ -21,15 +21,16 @@
  * That blind spot is the root cause this file exists to close. It was measured on
  * #1640: five brand palettes' `redline` runs and the `word-cloud` spectrum on
  * onyx / concrete / the four a11y palettes fell sub-threshold the moment the
- * palette wins the cascade (#1527), and every gate in the repo stayed green
- * because no gate looks at a composed surface.
+ * palette wins the cascade (#1527, flipped 2026-08-17), and every gate in the
+ * repo stayed green because no gate looks at a composed surface.
  *
  * ── What it resolves ──────────────────────────────────────────────────────────
  * The merged token map is `dist/lattice.css`'s `:root` defaults with the palette
  * chain's `:root` on top — PALETTE WINS. That is the order `lib/engine/css.js`
- * `composeCss` has always used (Studio, docs Playground) and the order the export
- * path takes once #1527 lands, so this gate is truthful for the engine path today
- * and for both paths after the flip. Evaluation is delegated to
+ * `composeCss` has always used (Studio, docs Playground) and, since #1527's
+ * concat flip, the order `lattice-emulator.js` builds the export bundle in too.
+ * So this gate is now truthful for EVERY render path rather than for the engine
+ * path with a promise attached. Evaluation is delegated to
  * `lib/core/resolve-token-expr` — the engine's own custom-property evaluator
  * (var() with fallback, light-dark() arms, color-mix() in oklab/srgb, a
  * `transparent` stop reduced to rgba) — so this gate cannot disagree with the
@@ -52,9 +53,24 @@
  *   1. REGRESSION (budget 0, no exemptions). A palette's own curated value must
  *      not be WORSE than the base default it overrides, on a surface a component
  *      composes: base-wins clears the bar, palette-wins does not. This is the
- *      invariant #1527 needs — both #1640 findings are exactly this shape — and it
- *      outlives the flip as a palette-curation rule, since `base.tokens.css` is
- *      the reference standard an override is meant to improve on.
+ *      invariant #1527 needed — both #1640 findings are exactly this shape.
+ *
+ *      WHAT THE FLIP CHANGED HERE, AND WHAT IT DID NOT. Nothing about the numbers.
+ *      Both arms are built by `mergedVars` out of the SAME two files, so this
+ *      file's output is byte-identical before and after the concat change — it
+ *      never read `lattice-emulator.js` and does not now. What changed is what the
+ *      base-wins arm MEANS: until the flip it described a shipping path (the
+ *      export bundle really did resolve the base's value), and now it describes no
+ *      render anywhere.
+ *
+ *      It is kept deliberately, and the header said why before the flip made the
+ *      question live: `base.tokens.css` is the reference standard an override is
+ *      meant to IMPROVE on, so "the curated value is worse than the default it
+ *      replaces" is a palette-curation defect whether or not any path paints the
+ *      default. Deleting the arm would delete the only check that a re-tune moved
+ *      a composed surface the wrong way — which is precisely the #1640 shape, and
+ *      the reason this gate had to exist at all. Read the arm as a REFERENCE, not
+ *      as a second cascade the repo ships.
  *
  *   2. ABSOLUTE (a frozen baseline, target zero). Which composed pairs are below
  *      their bar at all, and at what ratio. This population is large and mostly
@@ -600,11 +616,14 @@ function bundleVars() {
 /**
  * Merged token map for one palette.
  *
- * `baseWins` composes the OTHER way — the order `lattice-emulator.js` uses for
- * the document shell until #1527 flips it, where `base.tokens.css`'s universal
- * defaults override everything a palette curated. The REGRESSION arm needs both
- * so it can ask whether the palette's own value is worse than the default it
- * replaces.
+ * `baseWins` composes the OTHER way, so `base.tokens.css`'s universal defaults
+ * override everything a palette curated. The REGRESSION arm needs both so it can
+ * ask whether the palette's own value is worse than the default it replaces.
+ *
+ * That order was the export path's until #1527's concat flip; it is now no path's,
+ * and the arm is a REFERENCE rather than a second cascade (see § The two arms).
+ * Both maps are still built here, from the same two files — this function is why
+ * the flip moved none of this gate's numbers.
  */
 function mergedVars(theme, { baseWins = false } = {}) {
   const palette = {};
@@ -835,7 +854,7 @@ if (require.main === module) {
 
   console.log('\n  Lattice · Composed-surface contrast');
   console.log('  ══════════════════════════════════════════════════════════════');
-  console.log('  Palette wins the cascade (engine order / post-#1527 export order)\n');
+  console.log('  Palette wins the cascade — every render path, since #1527\'s concat flip\n');
 
   if (showAll) {
     for (const r of res.rows) {

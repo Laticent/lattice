@@ -12,7 +12,8 @@
  *
  * Born from #1640. Five brand palettes' redline runs and the word-cloud spectrum
  * on onyx / concrete / the four a11y palettes fell sub-threshold the moment the
- * palette wins the cascade (#1527) — and every gate in the repo stayed green,
+ * palette won the cascade (#1527, flipped 2026-08-17) — and every gate in the repo
+ * stayed green,
  * because contrast-audit checks each ink against `--bg` and never against the
  * `-bg` mix a component paints it on.
  *

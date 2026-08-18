@@ -6596,12 +6596,15 @@ function catInkCollapsePairs(inks, marks) {
  *
  * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
  * the one large token family the categorical gate above does not reach. That gap
- * hid a real defect: `cuoio`'s `--hljs-literal` sits at 4.05:1 on its own
+ * hid a real defect: `cuoio`'s `--hljs-literal` sat at 4.05:1 on its own
  * `--code-bg`, under the AA floor for code text. Nobody saw it because the export
- * bundle concatenates the theme BEFORE the base, so the base's `#ff5874` has been
- * painting instead of the theme's value — which is exactly why #1527's concat flip
- * needs this gate to land with it. A curated value nobody has ever rendered is a
- * value nobody has ever checked.
+ * bundle concatenated the theme BEFORE the base, so the base's `#ff5874` painted
+ * instead of the theme's value. This gate landed AHEAD of #1527's concat flip
+ * precisely so the values the flip turned on had been checked first — a curated
+ * value nobody has ever rendered is a value nobody has ever checked — and it
+ * repaid that immediately by finding indaco's live 3.71:1, a failure in BOTH
+ * orders that no order-comparison sweep could ever have surfaced. The flip landed
+ * 2026-08-17; every theme's own syntax colors now paint on every path.
  *
  * FLOOR: `CAT_TEXT_FLOOR` (4.5). Syntax highlighting is small text on a panel;
  * there is no "graphical" reading of it. Held to the bare AA floor rather than
@@ -6670,14 +6673,17 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
     .map((f) => f.replace(/\.css$/, ''))];
   const maps = new Map(scan.map((n) => [n, catParseTokens(catPaletteSource(n, new Set(), themesDir))]));
 
-  // EVERY panel a token can land on. The base's tokens do not only paint on the
-  // base's own --code-bg: `lattice-emulator.js` concatenates `paletteCSS +
-  // layoutCSS`, so on the EXPORT path the base is loaded AFTER the theme and its
-  // --hljs-* WIN over the theme's. Pairing base-with-base and theme-with-theme
-  // models the post-flip world (#1527) and leaves the shipping one unmeasured:
-  // that hole hid indaco rendering --hljs-literal at 3.71:1 and --hljs-comment at
-  // 3.06:1 while this gate reported clean and a "Fixed" changelog entry shipped.
-  // Until the flip lands, a base value must clear the floor on EVERY panel.
+  // EVERY panel a token can land on, and that is STILL the right pairing after
+  // #1527. It was written because the export used to concatenate `paletteCSS +
+  // layoutCSS`, so the base's --hljs-* won over the theme's on that path, and
+  // pairing base-with-base plus theme-with-theme left the shipping combination
+  // unmeasured — a hole that hid indaco rendering --hljs-literal at 3.71:1 and
+  // --hljs-comment at 3.06:1 while this gate reported clean and a "Fixed"
+  // changelog entry shipped. The flip removed that particular route, NOT the
+  // pairing: a theme declaring no syntax color of its own still inherits the
+  // base's onto ITS panel, on every path, so a base value must still clear the
+  // floor on every panel in the corpus. Narrowing this back to base-with-base
+  // would re-open the same hole through a different door.
   const panels = new Map();   // bg -> the palette/mode that owns it, for the message
   for (const [name, map] of maps) {
     for (const mode of ['light', 'dark']) {
@@ -6758,10 +6764,10 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       `${failures.length} \`--hljs-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
       `--code-bg: ${failures.slice(0, 8).join('; ')}${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. ` +
       'Lift the value in OKLCH holding hue and chroma (the move derive-cat-ink makes for the ink tier) rather ' +
-      'than picking a new colour by eye — the palette author chose the hue. NOTE these values may not be ' +
-      'rendering today: the export loads the base AFTER the theme, so a theme\'s syntax colors are dead on ' +
-      'the export path until #1527\'s concat flip lands. A value nobody has rendered is a value nobody has ' +
-      'checked, which is why this gate exists before the flip rather than after it.',
+      'than picking a new color by eye — the palette author chose the hue. These values render on every ' +
+      'path now: #1527\'s concat flip (2026-08-17) made the export load the base BEFORE the theme, so a ' +
+      'theme\'s own syntax colors paint in a PDF as they always have in the Studio. This gate landed ahead ' +
+      'of that flip on purpose — a value nobody has rendered is a value nobody has checked.',
     );
   }
 }
@@ -7944,15 +7950,24 @@ function checkCommittedPdfs(errors) {
  * Two families, and they are not equally defensible:
  *
  *  (a) `--cat-N-ink → --cat-N-mark` — REQUIRED by `checkCatInkFallback`, and a
- *      known 4.5→3.0 drop. The tier has no `:root` default on purpose: the export
- *      bundle concatenates the theme BEFORE the base, so a default there would win
- *      and revert every curated ink to its mark (#1527). The fallback therefore
- *      lives at each consumer, and `--cat-N-mark` is the only same-slot value that
- *      exists. In practice the drop is off the path — `derive-cat-ink.js` emits the
- *      tier for every shipped palette — but a theme generated outside this repo
- *      lands on it, which is exactly the 176-of-200 measurement. **#1527's concat
- *      flip would remove the reason this drop has to exist**, and that is the
- *      cheapest way to drain eight of these rows.
+ *      known 4.5→3.0 drop. The tier has no `:root` default because the export
+ *      bundle used to concatenate the theme BEFORE the base, so a default there
+ *      would have won and reverted every curated ink to its mark (#1527). The
+ *      fallback therefore lives at each consumer, and `--cat-N-mark` is the only
+ *      same-slot value that exists. In practice the drop is off the path —
+ *      `derive-cat-ink.js` emits the tier for every shipped palette — but a theme
+ *      generated outside this repo lands on it, which is exactly the 176-of-200
+ *      measurement.
+ *
+ *      **#1527's concat flip (2026-08-17) removed that reason.** The base could now
+ *      safely declare an ink default, and doing so is the cheapest way to drain
+ *      eight of these rows. It is NOT done here, and deliberately so: it means
+ *      choosing a value for a tier every palette curates, which is a palette
+ *      change with its own blast radius, and `2026-08-10-palette-concat-order.md`
+ *      §5 asked for exactly that separation — *"the exemption itself should not be
+ *      removed in the same change"*. The exemption's justification is now
+ *      historical; the exemption is still here, and this paragraph is the record
+ *      of which is which.
  *
  *  (b) `→ --accent` — the second `--cat-N-ink`, and NOT audited. `--accent` carries
  *      no floor against anything: it is the theme's brand hue, near-black in onyx

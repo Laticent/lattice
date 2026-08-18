@@ -592,8 +592,9 @@
    * pseudo, which base.variants.css pins to `color-scheme: dark` on every title /
    * closing / non-light divider. A flat override was
    * survivable only while this base won the cascade over the palette in the
-   * export path, quietly lending its dark arm back; it is not once the palette
-   * wins (#1527). See engineering/decisions/2026-08-16-flat-palette-dark-companions.md.
+   * export path, quietly lending its dark arm back; it is not now that the palette
+   * wins there too (#1527 shipped 2026-08-17). See
+   * engineering/decisions/2026-08-16-flat-palette-dark-companions.md.
    *
    * Background soft-tints (--pass-bg, --warn-bg, --fail-bg) live in
    * each theme and derive from these via color-mix with 10% alpha. */
@@ -854,14 +855,20 @@
    * out at the --on-dark-* block below: Marpit's root-replacement only fires for a
    * bare `:root`, so a `:where()`-wrapped block is scoped as a section INSIDE a
    * section, matches nothing, and leaves every token in it undefined on the engine
-   * path. On that path a palette wins anyway — a theme `@import 'lattice'` first, so
+   * path. A palette wins on BOTH paths now — a theme `@import 'lattice'` first, so
    * the base is inlined ABOVE the palette's own `:root` and equal specificity is
-   * settled by source order. The EXPORT bundle concatenates the other way and the
-   * base wins there until #1527's concat flip, which is why concrete and onyx have
-   * carried hand-solved anchors no PDF has rendered; `--hljs-*` and `--cat-N-ink`
-   * sit in the same state, and the repo's answer is to curate and gate the value
-   * BEFORE the flip rather than after it. The poles are unaffected either way —
-   * they live in the base, which wins on both paths. */
+   * settled by source order, and #1527's concat flip (2026-08-17) put the export
+   * bundle in that same order. Until it did, the base won there: concrete and onyx
+   * carried hand-solved anchors no PDF had ever rendered, and 13 curated dark arms
+   * went live in export the day the flip landed — sub-3:1 ramp tiers 3 -> 0 and
+   * strict monotonicity 25/38 -> 38/38 across the 19 palettes x 2 canvases.
+   * `--hljs-*` and `--cat-N-ink` were in the same state and came live with them.
+   * The poles were unaffected either way FOR EVERY PALETTE BUT ONE, because they
+   * live in the base and no palette overrode them — except carbone, which pins
+   * `--seq-pole-low: black; --seq-pole-high: white;` literally so its one dark
+   * canvas keeps the right ramp direction even where something below `:root`
+   * flips the scheme. That pin was dead on the export path before the flip and
+   * lives now, which is the outcome carbone's own comment asks for. */
   --seq-pole-low:  light-dark(white, black);
   --seq-pole-high: light-dark(black, white);
   --seq-500: var(--accent);
@@ -1328,12 +1335,17 @@
 
   /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
    *
-   * These are not only a fallback. `lattice-emulator.js` concatenates
-   * `paletteCSS + layoutCSS`, so on the EXPORT path the base is loaded AFTER the
-   * theme and these values WIN — a theme's own `--hljs-*` never paints there
-   * (that inversion is #1527, and the flip is not shipped yet). So each of these
-   * must clear AA on every panel it can land on: this base's `--code-bg`
-   * (#001d33) AND all 15 distinct `--code-bg` values across the theme corpus.
+   * These are not only a fallback — but they are one again, which they were not
+   * until #1527. `lattice-emulator.js` used to concatenate `paletteCSS +
+   * layoutCSS`, so on the EXPORT path the base loaded AFTER the theme and these
+   * values WON: a theme's own `--hljs-*` never painted in a PDF. The concat flip
+   * (2026-08-17) reversed that, so a theme that declares its own syntax colors now
+   * gets them everywhere. These still must clear AA on every panel they can land
+   * on — this base's `--code-bg` (#001d33) AND all 15 distinct `--code-bg` values
+   * across the theme corpus — because a theme that declares NO syntax colors still
+   * inherits them onto its own panel, and `checkHljsContrast` still measures that
+   * pairing. The solved-for-every-panel values below are kept, not relaxed: they
+   * cost nothing and the base-on-theme-panel combination did not disappear.
    *
    * `--hljs-comment` and `--hljs-literal` are solved for that whole set rather
    * than for Night Owl's own #011627 panel. Night Owl's #637777 read 3.63:1 here

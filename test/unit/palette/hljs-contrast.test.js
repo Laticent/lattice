@@ -183,12 +183,15 @@ describe('--hljs-* contrast against --code-bg', () => {
   });
 
   test('EXPORT PATH — base tokens clear the floor on every theme panel', () => {
-    // `lattice-emulator.js` concatenates `paletteCSS + layoutCSS`, so the base is
-    // loaded AFTER the theme and its --hljs-* WIN there — a theme's own value never
-    // paints on the export. Pairing base-with-base and theme-with-theme models the
-    // post-flip world (#1527) and left indaco rendering --hljs-literal at 3.71:1
-    // and --hljs-comment at 3.06:1 while the gate reported clean and a "Fixed"
-    // changelog entry shipped. Until the flip lands, this is the real surface.
+    // `lattice-emulator.js` USED to concatenate `paletteCSS + layoutCSS`, so the
+    // base loaded AFTER the theme and its --hljs-* won there — a theme's own value
+    // never painted on the export. Pairing base-with-base and theme-with-theme left
+    // that combination unmeasured, and indaco rendered --hljs-literal at 3.71:1 and
+    // --hljs-comment at 3.06:1 while the gate reported clean and a "Fixed"
+    // changelog entry shipped. #1527's concat flip (2026-08-17) closed that route,
+    // and this test keeps its name and its assertion anyway: a theme that declares
+    // no syntax color of its own still inherits the base's onto ITS panel, on every
+    // path, so the base still owes the floor on every panel in the corpus.
     const base = tokens(flatten('lattice'));
     const panels = new Map();
     for (const f of fs.readdirSync(THEMES).sort()) {

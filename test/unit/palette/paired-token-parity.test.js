@@ -180,7 +180,8 @@ describe('paired-token parity: no flat override of a base light-dark() pair', ()
         flat,
         [],
         `${name} overrides a base light-dark() pair with a flat value — dark mode gets a value ` +
-        `nobody chose the moment the palette wins the cascade (#1527). Give it a dark arm:\n  ` +
+        `nobody chose, on every render path now that the palette wins the cascade (#1527). ` +
+        `Give it a dark arm:\n  ` +
         flat.join('\n  '),
       );
     });
