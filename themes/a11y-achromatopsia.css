@@ -85,6 +85,17 @@
    * roles colliding, and an earlier cut of this ladder put the string row two hex
    * digits off it.
    *
+   *
+   * WHERE THESE ACTUALLY PAINT, measured rather than assumed. On the EXPORT path they
+   * do NOT: `lattice-emulator.js` concatenates `paletteCSS + layoutCSS`, so the base is
+   * loaded AFTER the theme and `lib/base/base.tokens.css`'s own --hljs-* WIN (that file
+   * says so in as many words; the inversion is #1527 and is not shipped). Verified on a
+   * rendered PDF of this palette: the `function` keyword samples #C792EA, the BASE's
+   * --hljs-keyword, byte-exact. Where they DO paint is the live slide preview — the
+   * Studio and the docs site load the theme last — measured on the real built Studio at
+   * #E39B00 for a11y-deuteranopia and #A7A7A7 for a11y-achromatopsia. So this repairs
+   * the live surface today and the export the moment #1527 lands; it changes no exported
+   * bytes now.
    * Measured on THESE values, simulated: worst pair dE 0.0511
    * (structure/string), against 0.0064 for what was inherited. Lowest contrast on
    * the panel 4.69:1. Gated by checkHljsSeparation, which

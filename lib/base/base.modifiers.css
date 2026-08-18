@@ -503,6 +503,10 @@ section.print {
   --text-label: var(--print-text-label);
   --text-secondary: var(--print-text-secondary);
   --text-muted: var(--print-text-muted);
+  /* Remapped WITH its text sibling. Splitting the role (#1715) and remapping only one
+   * half would leave print/export decoration on the theme's value while its text moved
+   * to paper ink — a divergence that did not exist when one token served both. */
+  --muted-mark: var(--print-muted-mark);
   --accent: var(--print-accent);
   --accent-soft: var(--print-accent-soft);
   --on-accent: var(--print-on-accent);

@@ -15,11 +15,18 @@
  * Theme MENU and the real dark-mode button.
  *
  * WHERE studioHighlight ACTUALLY RENDERS, because I got this wrong first and it matters:
- * NOT the deck editor. `Editor.tsx` composes `markdown()` + `editorTheme` and NO
- * `syntaxHighlighting(...)` extension at all, so the deck source renders unhighlighted —
- * its `.cm-line`s contain bare text nodes and zero token spans. The one live consumer is
- * `CodeField` (CodeField.tsx:69), reached at Craft → Fabricate → Component. A verification
- * pointed at the deck editor would have measured nothing while reporting a pass.
+ * `CodeField` (CodeField.tsx:69), reached at Craft → Fabricate → Component. That is the
+ * surface this file drives.
+ *
+ * UPDATED BY #1715: the deck editor renders it TOO, and did not when this was written.
+ * `Editor.tsx` composed `markdown()` + `editorTheme` and NO `syntaxHighlighting(...)`
+ * extension at all, so the deck source was bare text nodes with zero token spans — which is
+ * how a verification pointed at it would have measured nothing while reporting a pass, and
+ * is why this run asserts a span COUNT before it asserts any color. #1715 installed the
+ * extension there (measured on the real built Studio: 7 token spans in 2 distinct colors,
+ * headings on --syntax-keyword-ink and `_class:` directives on --text-muted). This file
+ * still drives CodeField, because the equality comparisons below need a CSS document whose
+ * token roles are unambiguous; the deck editor is Markdown and does not paint every role.
  *
  * WHY EVERY ASSERTION IS AN EQUALITY. "the string is some color" passes when the palette
  * never switched — the exact way a previous verification of this surface was wrong twice
