@@ -294,13 +294,14 @@ caught it was re-deriving the number from scratch on a *different* deck, because
 size that varied between decks looked wrong.
 
 **A real question survives the mistake and is NOT settled here — now tracked as #1722.**
-**(Settled 2026-08-18 in `2026-08-18-contrast-floor-deck-scale.md`: it turned out to be a
-unit bug rather than the presentation-scale judgement call described below. `--fs-*` is
-authored in `cqi`, so `--fs-body` resolves to 21.4px on `hd` and 64.1px on `4k` and is
-16.03pt on both; `isLarge` compared resolved pixels to a reference-canvas threshold and now
-divides the scale out first. No viewing size had to be chosen. It does land on 72px on a 4k
-deck — the reverted commit's number by a sound route, which that record states outright
-rather than leaving to be rediscovered.)**
+**(Settled 2026-08-18 in `2026-08-18-contrast-floor-deck-scale.md` — by REMOVING the
+question rather than answering it. Normalizing the canvas away was built and measured, and
+it works only for landscape: `lib/typography/scale.js` curates three scales against two
+reference widths, so one normalizer inflates portrait and square and re-creates this exact
+defect on ~20 committed decks (confirmed on a rendered `size: story` deck). The paragraph
+below is therefore right that this needs "a decision about what viewing size to normalize
+to" — and that is the reason the 3:1 large-text allowance is now simply not granted. One
+flat 4.5:1, stricter than WCAG, never more lenient, measured to cost zero runs.)**
 Register entry G13 argues that a 3840px slide displayed smaller scales its type down, so
 "large" in canvas units may not be large to a viewer. That is a presentation-scale
 argument, not a unit conversion, and encoding it would need a decision about what viewing

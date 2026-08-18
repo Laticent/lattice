@@ -32,15 +32,13 @@
  * only 3:1. The prober was applying WCAG's 18pt line to RAW CANVAS PIXELS: 18pt is 24 CSS
  * px, the labels resolve to ~45px on a 4k deck, so they looked like large text. But every
  * --fs-* token is authored in `cqi`, so the same label is ~15px on an hd deck and the
- * grading flipped on the deck's `size:` line alone. #1722 settled it — the prober divides
- * the canvas scale out first — and these labels are 11.2pt, which is normal text owing
- * the full 4.5:1. So this floor is now simply THE floor, not a stricter local choice.
+ * grading flipped on the deck's `size:` line alone. #1722 settled it by dropping the
+ * large-text tier outright — a slide engine cannot honestly compute a run's POINT size,
+ * because the orientation scales use two different reference widths. So 4.5:1 is now
+ * simply THE floor everywhere, and this file's number stopped being a local choice.
  *
- * (Do not read that as vindication of the branch that once "fixed" the same threshold to
- * 72px. It reached a similar number by dividing one deck's PDF page size by another
- * deck's canvas, and cost a full revert. pt is 1.333 CSS px on every shipped size; what
- * varies is the canvas the px are measured in. Same answer, different and checkable
- * derivation — see engineering/decisions/2026-08-18-contrast-floor-deck-scale.md.)
+ * (See engineering/decisions/2026-08-18-contrast-floor-deck-scale.md, including why
+ * normalizing the canvas away — built, measured, and deleted — was the wrong repair.)
  */
 
 const { test, describe } = require('node:test');

@@ -10,10 +10,9 @@
  * chosen against `--bg-alt` instead of `--bg`. Those only exist once a slide
  * renders. This walks the real DOM of a rendered deck, resolves every text run's
  * effective background by climbing ancestors through transparent paints, and
- * scores WCAG 2.x AA (4.5:1 normal, 3:1 for large text — see `isLarge`, which applies
- * WCAG's 18pt/14pt-bold line to the size a run would have at the REFERENCE canvas,
- * because every `--fs-*` token is authored in `cqi` and therefore resolves to a
- * different pixel count on every deck size). It reads
+ * scores EVERY text run against WCAG AA's 4.5:1, large text included — see
+ * `THE 3:1 LARGE-TEXT ALLOWANCE IS NOT GRANTED` below, the one place this tool is
+ * deliberately stricter than the spec. It reads
  * pseudo-element text too, since this engine puts real content there (axis
  * labels, step badges, checkpoint labels).
  *
@@ -69,20 +68,8 @@
  * palette contract and will always report.
  */
 const puppeteer = require('puppeteer');
-// The reference canvas comes from the size registry, which OWNS it (lib/engine/sizes.js
-// exists precisely to stop copies of this table). `isLarge` normalizes against it.
-const { DEFAULT_SIZE } = require('../lib/engine/sizes.js');
-const REFERENCE_WIDTH = parseFloat(DEFAULT_SIZE.width);
 
-const PROBE = (refWidth) => {
-  // FAIL LOUD ON A MISSING REFERENCE. Without it `scale` is NaN, every `isLarge` test is
-  // false, and the whole deck silently grades as normal text — a wrong answer that looks
-  // exactly like a right one. That is not hypothetical: the invariants gate was wired up
-  // without the argument for one commit of this change and stayed green through it.
-  if (!Number.isFinite(refWidth) || refWidth <= 0) {
-    throw new Error(`check-slide-contrast: PROBE needs the reference canvas width, got ${refWidth}. `
-      + 'Call it as page.evaluate(PROBE, REFERENCE_WIDTH).');
-  }
+const PROBE = () => {
   const srgb = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const lum = ([r, g, b]) => 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b);
   // Reads BOTH computed-color serializations Chromium emits. The `color(srgb …)`
@@ -148,46 +135,46 @@ const PROBE = (refWidth) => {
   const over = (fg, bg, a) => fg.map((c, i) => c * a + bg[i] * (1 - a));
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 
-  // WCAG "LARGE TEXT" — 18pt, or 14pt when bold (>= 700) — applied to the size a run
-  // would have on the REFERENCE canvas, not to the raw pixel count on this one.
+  // THE 3:1 LARGE-TEXT ALLOWANCE IS NOT GRANTED. Every run is scored against 4.5:1.
   //
-  // 1pt is 1.333 CSS px by definition (96dpi / 72pt), so WCAG's line is 24px / 18.67px.
-  // That conversion is exact and does NOT vary with deck size. What varies is the number
-  // `getComputedStyle` hands back, because every --fs-* token is authored in `cqi` — a
-  // fraction of the slide's inline size — so one design resolves to a different pixel
-  // count on every canvas. Measured on rendered decks, both arms of the same token:
+  // WCAG AA lets text at 18pt — or 14pt bold — sit at 3:1 instead. Applying that to a
+  // slide deck requires knowing a run's size IN POINTS, and this engine cannot hand you
+  // one. Every `--fs-*` token is authored in `cqi`, a fraction of the slide's inline
+  // size, so a design resolves to a different pixel count on every canvas: `--fs-body`
+  // is 21.4px on an `hd` deck and 64.1px on a `4k` one. Reading those raw, a plain
+  // `fs >= 24` calls ordinary body copy "large text" on any 4k deck — and both gated
+  // galleries are 4k, so the lenient half was the half in force over ordinary prose.
+  // Measured: rendering `gallery.md` at both sizes flips 1024 of 1534 runs between
+  // thresholds and 317 pass/fail verdicts, on the front-matter `size:` line alone.
   //
-  //     --fs-body  (1.67cqi, "16pt" by the typography contract)
-  //         hd  1280px canvas  ->  21.4px  ->  16.03pt
-  //         4k  3840px canvas  ->  64.1px  ->  16.03pt
+  // THE OBVIOUS REPAIR IS TO NORMALIZE, AND IT DOES NOT SURVIVE CONTACT. Dividing each
+  // run by its deck's canvas-over-reference ratio fixes landscape exactly, and was built
+  // and measured before being deleted in favor of this. It needs ONE reference canvas,
+  // and `lib/typography/scale.js` curates THREE scales against TWO reference widths
+  // (landscape 1280, square/portrait 1080) with per-orientation coefficients that are
+  // explicitly "curated, not derived from one another by a constant". Normalizing every
+  // deck against 1280 therefore INFLATES portrait and square: measured on a rendered
+  // `size: story` deck, `--fs-body` (47.0px) normalizes to 55.7px and grades as large
+  // text at 3:1 — the same defect, moved to the ~20 committed portrait/square decks that
+  // no gated surface measures. Nor is 1080 the repair: that file anchors portrait type on
+  // the DEVICE ("body = 47px ⇒ ~17px on a phone"), i.e. ~12.75pt, which is normal text.
+  // There is no unit conversion here, only a judgment about viewing scale, and the value
+  // of the whole allowance is not worth encoding one.
   //
-  // Read raw, `fs >= 24` calls that NORMAL text on an hd deck and LARGE text on a 4k
-  // one — and both gated galleries are `size: 4k`, so the lenient half was the one in
-  // force over ordinary body copy. Rendering `gallery.md` at both sizes and diffing the
-  // verdicts: 1024 of 1534 runs change grading, and 317 pass as 4k while failing as hd.
-  // A deck could silence a real contrast failure by editing one word of front matter.
+  // SO THE ALLOWANCE IS DROPPED RATHER THAN NORMALIZED. This is STRICTER than WCAG and
+  // can never be more lenient, which is the only direction a contrast gate should err in.
+  // It costs nothing measured: on all three gated surfaces, zero non-exempt runs sit
+  // between 3:1 and 4.5:1. It is also invariant under everything that would have broken
+  // the normalized version — a new entry in the size registry, a change to the default
+  // canvas, a re-curation of the orientation scales, or a new preview surface.
   //
-  // So divide the deck's scale back out first. This is not a new policy layered onto
-  // WCAG — it restores to the one place in the pipeline that lost it the
-  // resolution-independence --fs-* already has (base.tokens.css: "Every size in cqi …
-  // so visual proportions hold across HD, 4K, and any custom slide size"). `refWidth`
-  // is `DEFAULT_SIZE` from lib/engine/sizes.js; the registry owns the reference canvas
-  // and this file keeps no copy of it.
+  // The cost is real but currently theoretical: genuinely poster-sized display type that
+  // WCAG would pass at 3:1 fails here. Ornaments that can never clear 4.5:1 are handled
+  // where they should be — as named entries in the invariants gate's exemption list, on
+  // the record, rather than by a size heuristic that lets every large run through.
   //
-  // ON A 4K DECK THIS LANDS ON 72px / 56px, WHICH IS ALSO WHAT A REVERTED COMMIT ONCE
-  // SHIPPED, and the resemblance is stated here rather than left to be rediscovered.
-  // That commit reached the numbers by dividing the DEMO deck's PDF page size by the
-  // GALLERY's canvas — two different decks, one meaningless ratio — and its "4 deck-px
-  // per point" remains false. This is a different claim with a different derivation,
-  // and both halves are checkable alone: pt is 1.333px on every shipped size (re-derived
-  // on the gallery's OWN export, 3840px canvas -> 2880pt page), and the scale factor is
-  // this deck's canvas over the reference canvas. Arriving at the same number by a sound
-  // route is not evidence the broken route was fine. Settled as #1722; see
-  // engineering/decisions/2026-08-18-contrast-floor-deck-scale.md.
-  const isLarge = (fs, w, scale) => {
-    const ref = fs / scale; // the size this run would have at DEFAULT_SIZE
-    return ref >= 24 || (ref >= 18.66 && w >= 700);
-  };
+  // Settled as #1722; engineering/decisions/2026-08-18-contrast-floor-deck-scale.md.
+  const AA = 4.5;
 
   // Climb ancestors, compositing every translucent paint and every element
   // `opacity`, down to the page. `from` seeds the stack with paints that are NOT
@@ -501,12 +488,6 @@ const PROBE = (refWidth) => {
   for (const sec of document.querySelectorAll('section[data-lattice-slide]')) {
     const page = sec.getAttribute('data-lattice-slide');
     const cls = sec.getAttribute('data-class') || '';
-    // Scale is a property of the CANVAS this run is painted on, so it is resolved per
-    // section. Computed `width` (the used value) rather than getBoundingClientRect(),
-    // because a preview transform would move the rect but not the layout size — the
-    // export shell carries no transform, but this tool is pointed at whatever HTML it
-    // is given. Falls back to 1x if a section reports no width.
-    const scale = (parseFloat(getComputedStyle(sec).width) || refWidth) / refWidth;
     const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
     const seen = new Set();
     let n;
@@ -562,12 +543,11 @@ const PROBE = (refWidth) => {
       const bg  = resolveStack(el, unders);
       const fgc = resolveStack(el, unders, fg);
       const w = parseInt(cs.fontWeight, 10) || 400;
-      const large = isLarge(fs, w, scale);
       out.push({
         page, cls, tag: el.tagName.toLowerCase(),
-        text: t.slice(0, 44), fs: +fs.toFixed(1), pt: +(fs / scale / (96 / 72)).toFixed(1), w, large,
+        text: t.slice(0, 44), fs: +fs.toFixed(1), w,
         fg: fgc.map(Math.round), bg: bg.map(Math.round),
-        r: +ratio(fgc, bg).toFixed(2), need: large ? 3 : 4.5,
+        r: +ratio(fgc, bg).toFixed(2), need: AA,
         exempt: exemptInks.has(fgc.map(Math.round).join(',')),
         imgBackdrop: rasterUnder(el, trect),
       });
@@ -603,12 +583,11 @@ const PROBE = (refWidth) => {
         const bg  = resolveStack(el, seed);
         const fgc = resolveStack(el, seed, fg);
         const w = parseInt(cs.fontWeight, 10) || 400;
-        const large = isLarge(fs, w, scale);
         out.push({
           page, cls, tag: el.tagName.toLowerCase() + pe,
-          text: content.replace(/^"|"$/g, '').slice(0, 44), fs: +fs.toFixed(1), pt: +(fs / scale / (96 / 72)).toFixed(1), w, large,
+          text: content.replace(/^"|"$/g, '').slice(0, 44), fs: +fs.toFixed(1), w,
           fg: fgc.map(Math.round), bg: bg.map(Math.round),
-          r: +ratio(fgc, bg).toFixed(2), need: large ? 3 : 4.5,
+          r: +ratio(fgc, bg).toFixed(2), need: AA,
           exempt: exemptInks.has(fgc.map(Math.round).join(',')),
           imgBackdrop: rasterUnder(el),
         });
@@ -625,7 +604,7 @@ const PROBE = (refWidth) => {
  * a WCAG implementation is precisely the "two gates disagreeing about a ratio" that
  * axe-a11y.test.js disables its own contrast rule to avoid.
  */
-module.exports = { PROBE, REFERENCE_WIDTH };
+module.exports = { PROBE };
 
 async function main() {
   const files = process.argv.slice(2);
@@ -639,7 +618,7 @@ async function main() {
     await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
     await page.goto('file://' + require('path').resolve(f), { waitUntil: 'networkidle0' });
     await new Promise((r) => setTimeout(r, 400));
-    const rows = await page.evaluate(PROBE, REFERENCE_WIDTH);
+    const rows = await page.evaluate(PROBE);
     total += rows.length;
     const under = rows.filter((x) => x.r < x.need);
     const bad = under.filter((x) => !x.exempt);
@@ -649,7 +628,7 @@ async function main() {
       fails++;
       console.log(
         `  p${String(b.page).padStart(2)} ${b.cls.padEnd(30).slice(0, 30)} ${b.tag.padEnd(14)}` +
-        ` ${String(b.fs).padStart(5)}px = ${String(b.pt).padStart(5)}pt/${String(b.w).padEnd(3)} ${b.r.toFixed(2)}:1 (need ${b.need})` +
+        ` ${String(b.fs).padStart(5)}px/${String(b.w).padEnd(3)} ${b.r.toFixed(2)}:1 (need ${b.need})` +
         `  fg rgb(${b.fg}) on rgb(${b.bg})${b.imgBackdrop ? '  [image backdrop — ratio not measurable]' : ''}\n      "${b.text}"`
       );
     }

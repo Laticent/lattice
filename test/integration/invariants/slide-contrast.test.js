@@ -21,6 +21,14 @@
  * run outside a written-down exclusion falls below its threshold, and no exclusion
  * grows.** The three exclusions, all now counted:
  *
+ * ONE FLOOR, 4.5:1, WITH NO LARGE-TEXT TIER. WCAG would let 18pt (or 14pt bold) sit at
+ * 3:1, and this gate does not grant it — see PROBE's `AA` note for why a slide engine
+ * cannot honestly compute a run's point size (`--fs-*` is `cqi`, and the orientation
+ * scales use two different reference widths). Stricter than the spec, never more lenient,
+ * and measured to cost nothing: zero non-exempt runs sit between 3:1 and 4.5:1 on any
+ * gated surface. Ornaments that cannot clear it are named below rather than waved through
+ * by a size heuristic.
+ *
  *   1. `SANCTIONED_CONTRAST_EXEMPTIONS` — permanent. Runs no contrast change could ever
  *      satisfy (decorative by contract, or unmeasurable). EXACT per-surface, per-tag
  *      counts; grows or shrinks and the gate fails.
@@ -62,7 +70,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const puppeteer = require('puppeteer');
 const { ROOT, runEmulator } = require('../../helpers/render');
-const { PROBE, REFERENCE_WIDTH } = require('../../../tools/check-slide-contrast.js');
+const { PROBE } = require('../../../tools/check-slide-contrast.js');
 
 /**
  * The gated surfaces: a light component catalog, the same catalog dark (ink bugs pick a
@@ -116,6 +124,9 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
       'The pullquote mark was invisible to this gate until the prober stopped dropping',
       'pseudo content that has no ASCII alphanumerics.',
     ].join(' '),
+    // `fs` is RAW CANVAS PIXELS, and every gated surface is `size: 4k`, where 200px is
+    // ~66pt. Adding a surface at another canvas size would need this floor expressed
+    // relative to that canvas — nothing normalizes sizes any more, by design (see PROBE).
     match: (r) => r.fs >= 200 && r.text.trim().length <= 2
       && ((/(^|\s)watermark(\s|$)/.test(r.cls) && r.tag === 'div')
         || (/(^|\s)pullquote(\s|$)/.test(r.cls) && r.tag.endsWith('::before'))),
@@ -174,10 +185,10 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
  * Off this change's path, so HARD RULE #18 says log it with its exact count rather than
  * sweep it in.
  *
- * IT SURFACED HERE, and the distinction matters: the deck-scale correction (#1722)
- * re-grades a 16pt run on a 4k deck from "large text, 3:1" to what it always was — normal
- * text at 4.5:1. The rendered pixels did not move; only the grading did. Nothing on that
- * slide is worse than before this change, so it is found-not-caused in the strict sense.
+ * IT SURFACED HERE, and the distinction matters: #1722 stopped granting WCAG's 3:1
+ * large-text allowance, so this run is now asked for the 4.5:1 every run is asked for.
+ * The rendered pixels did not move; only the grading did. Nothing on that slide is worse
+ * than before this change, so it is found-not-caused in the strict sense.
  *
  * CEILING-ONLY, and that is a deliberate reversal. An earlier cut failed in both
  * directions, on the theory that a stale ceiling lets a regression slip back underneath
@@ -291,7 +302,7 @@ function resolveChrome() {
 }
 
 const fmt = (r) =>
-  `p${r.page} ${r.cls || '(no class)'} <${r.tag}> ${r.fs}px = ${r.pt}pt/${r.w} `
+  `p${r.page} ${r.cls || '(no class)'} <${r.tag}> ${r.fs}px/${r.w} `
   + `${r.r}:1 (need ${r.need}) fg rgb(${r.fg}) on rgb(${r.bg})${r.imgBackdrop ? ' [img backdrop]' : ''}\n`
   + `        "${r.text}"`;
 
@@ -327,10 +338,7 @@ describe('slide contrast — the rendered galleries, against written-down exclus
       await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
       await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
       await new Promise((r) => setTimeout(r, 400));
-      // REFERENCE_WIDTH is not optional. PROBE divides the deck's canvas scale out of every
-      // font size before applying WCAG's large-text line, and `scale` computes to NaN
-      // without it — which silently grades EVERY run as normal text rather than erroring.
-      measured.push({ surface: s.id, rows: await page.evaluate(PROBE, REFERENCE_WIDTH) });
+      measured.push({ surface: s.id, rows: await page.evaluate(PROBE) });
       await page.close();
     }
   });
@@ -347,13 +355,11 @@ describe('slide contrast — the rendered galleries, against written-down exclus
     for (const m of measured) {
       assert.ok(m.rows.length >= 400,
         `${m.surface}: only ${m.rows.length} text runs measured — the probe is not reaching the deck`);
-      // …and that the SIZE GRADING ran. `pt` is the deck-scale-normalized size every
-      // threshold is decided on; a non-finite one means the reference width never arrived
-      // and every run silently graded as normal text (see PROBE's guard).
-      const ungraded = m.rows.filter((r) => !Number.isFinite(r.pt));
+      // …and that every run carries a threshold. One flat 4.5:1 applies to all of them
+      // (see PROBE's `AA`), so a run without one means the shape changed under this file.
+      const ungraded = m.rows.filter((r) => r.need !== 4.5);
       assert.equal(ungraded.length, 0,
-        `${m.surface}: ${ungraded.length} runs have no normalized size — PROBE ran without a `
-        + 'usable reference canvas width, so WCAG\'s large-text line was never applied.');
+        `${m.surface}: ${ungraded.length} runs are not scored against the 4.5:1 floor.`);
     }
   });
 

@@ -86,9 +86,8 @@
    *
    * `--text-heading` is the ink the canvas already solves for, so it follows the fill
    * wherever the fill goes: measured 0 of 64 pairs below AA 4.5:1, worst 5.63:1. That is
-   * the floor these labels are actually held to: they resolve to 11.2pt, which is normal
-   * text, and the rendered prober now agrees after #1722 taught it to divide a deck's
-   * canvas scale out before applying WCAG's large-text line. It is also the
+   * the floor these labels are actually held to. The rendered prober agrees since #1722:
+   * it scores every run against 4.5:1 and grants no large-text tier at all. It is also the
    * honest ROLE token, since the stage bar heads the group of task chips beneath it.
    *
    * `section.print` ALREADY does exactly this, one layer down — it remaps
@@ -264,9 +263,9 @@ section.journey .journey-mood-key {
  * measured 3.78:1. At the time the prober scored these as WCAG "large text" and only
  * asked 3:1 of them, so that read as a rounding error rather than a violation — on the
  * label that tells the reader which end of the ramp is which. It was BOTH: #1722 has
- * since corrected `isLarge` to divide the deck's canvas scale out first, and at 13.4pt
- * these are normal text owing the full 4.5:1, which 58 of 64 pairs did not clear.
- * Without the wash the worst pair is 5.02:1 and indaco renders 6.85:1.
+ * since dropped the large-text tier entirely, so these owe the full 4.5:1 that 58 of the
+ * 64 pairs did not clear. Without the wash the worst pair is 5.02:1 and indaco renders
+ * 6.85:1.
  *
  * (An intermediate commit on this branch called the 3.78:1 an AA violation. The RATIO was
  * real and reproduces; the classification came from a mis-derived unit conversion that

@@ -36,7 +36,7 @@ de-emphasizes the thing it is not pointing at
    - 317 runs passed as 4k, failed as hd
    - _Only `size:` changed_
 
-`--fs-*` is authored in `cqi`. The threshold now divides that scale out first.
+So the gate stopped grading on size. One floor, 4.5:1, applied to every run.
 
 ---
 

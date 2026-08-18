@@ -2,10 +2,12 @@
   asked only 3:1 of it.** WCAG's 18pt large-text line was applied to raw canvas pixels,
   but every `--fs-*` token is authored in `cqi`, so one design resolves to a different
   pixel count per deck size — `--fs-body` is 21.4px on an `hd` deck and 64.1px on a `4k`
-  one, and 16.03pt on both. Rendering the same gallery at both sizes flipped 1024 of 1534
-  runs between thresholds and 317 pass/fail verdicts, on the deck's `size:` line alone.
-  The threshold now divides the canvas scale out first, which restores the
-  resolution-independence the type system already had.
+  one. Rendering the same gallery at both sizes flipped 1024 of 1534 runs between
+  thresholds and 317 pass/fail verdicts, on the deck's `size:` line alone. The gate now
+  scores every run against 4.5:1 and grants no large-text allowance: normalizing the
+  canvas away needs a single reference width, and the type scale is curated against two,
+  so any normalizer inflates the orientations it was not curated for. Stricter than WCAG,
+  never more lenient, and it costs nothing measured.
 - **Fixed: de-emphasized rows and cards were dimmed with `opacity`, which made the
   largest text on a slide the least legible.** A CSS `opacity` composites ink *and*
   backdrop, so it weakens each ink in proportion to the headroom it had: on an `agenda`
