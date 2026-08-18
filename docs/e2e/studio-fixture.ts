@@ -27,6 +27,31 @@ export const CHROME = {
 	deckScope: 'Deck scope',
 	/** Opens the Inspector pointed at SLIDE scope (editor row / mobile preview bar). */
 	slideSettings: 'Slide settings',
+	/**
+	 * The Inspector's pill-tab names, per scope. They are the LOCATION of nearly every
+	 * setting, so a rename moves controls out from under a spec exactly the way #780's
+	 * accessible-name drift did — and the 2026-08-18 regroup renamed and merged several
+	 * at once (deck `Marks`→`Chrome`; slide `Status`+`Decoration`→`Marks`; a new deck
+	 * `General`). Address a tab through here, never by a bare literal.
+	 * Source of truth: DECK_TABS in StudioShell.tsx, tabDefs in SlideContext.tsx.
+	 */
+	deckTab: {
+		look: 'Look',
+		chrome: 'Chrome',
+		general: 'General',
+		accent: 'Accent',
+		motion: 'Motion',
+		speech: 'Speech',
+	},
+	slideTab: {
+		look: 'Look',
+		notes: 'Notes',
+		chrome: 'Chrome',
+		marks: 'Marks',
+		accent: 'Accent',
+		motion: 'Motion',
+		comments: 'Comments',
+	},
 	/** Activity-bar toggle for the Coach (deterministic deck assessment) panel. */
 	coach: 'Toggle Coach',
 	/** Activity-bar toggle for the Chat (AI conversation) panel — a separate peer of the Coach. */
@@ -489,6 +514,16 @@ export function slideCount(page: Page): Promise<number> {
  */
 export async function openInspector(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.deckScope }).first().click();
+}
+
+/**
+ * Open the Deck inspector AND select one of its tabs. The panel always opens on Look,
+ * so a spec that wants a control in another tab owes the click — two specs were silently
+ * red for want of exactly that (see the note above `openChromeTab` in inspector.spec.ts).
+ */
+export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deckTab): Promise<void> {
+	await openInspector(page);
+	await page.getByRole('tab', { name: CHROME.deckTab[tab] }).click();
 }
 
 /** Focus the CodeMirror editor (the `.cm-content` carries aria-label "Deck source"). */

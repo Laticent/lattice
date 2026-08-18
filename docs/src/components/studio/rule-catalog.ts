@@ -9,6 +9,10 @@ export type RuleEntry = {
 	/** the `rule:` register value (and engine RULE_NAMES member) */
 	name: string;
 	label: string;
+	/** For an entry whose own label is "Auto": what auto RESOLVES to, for the
+	 *  `Auto — <resolved>` head. Without it that head reads "Auto — Auto"
+	 *  (see autoHeadLabel in auto-mark.tsx). */
+	autoLabel?: string;
 	blurb: string;
 	/** CSS for the preview chip — an underline segment beneath a title */
 	swatch: { background: string; backgroundSize?: string };
@@ -19,7 +23,7 @@ const HAIR = 'var(--border)';
 // Ordered as the picker shows them. `auto` is the named baseline (today's render).
 export const RULES: RuleEntry[] = [
 	{
-		name: 'auto', label: 'Auto',
+		name: 'auto', label: 'Auto', autoLabel: 'Hairline',
 		blurb: 'Today’s render — a hairline where the masthead already draws one, else nothing.',
 		swatch: { background: `linear-gradient(${HAIR}, ${HAIR}) left bottom / 66% 1.5px no-repeat, var(--bg)` },
 	},

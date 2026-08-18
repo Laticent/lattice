@@ -139,7 +139,7 @@ describe('Studio — every top-bar control responds', () => {
 		expect(await screen.findByRole('button', { name: /Q4/ })).toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		const field = await screen.findByRole('textbox', { name: 'Deck name' });
 		await user.click(field);
 		await user.type(field, 'Board pack — Q4 FY26 (final)');
@@ -167,7 +167,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.paste(rich);
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		const field = await screen.findByRole('textbox', { name: 'Deck name' });
 		await user.click(field);
 		await user.type(field, 'Board pack');
@@ -192,7 +192,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.paste('---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n');
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		const field = await screen.findByRole('textbox', { name: 'Deck name' });
 		await user.click(field);
 		await user.type(field, 'Board pack');
@@ -586,7 +586,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Page-numbers switch writes paginate front-matter to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		// Off by default (no front-matter); turning it on writes `paginate: true`.
 		expect(sw).not.toBeChecked();
@@ -601,7 +601,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('a settings change raises a one-click Undo toast that reverts it', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		await user.click(sw);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*true/);
@@ -619,7 +619,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
 		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
 		// Edit the source AFTER the settings change — the pending Undo must bow out so it
@@ -634,7 +634,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		// Header & footer are text DECLARATIONS, not toggles: typing text (committed
 		// on blur) writes the directive; clearing the field removes it again.
 		const header = await screen.findByRole('textbox', { name: 'Header' });
@@ -658,7 +658,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
 		// Rail is ON by default (no class token) — so the switch reads checked.
 		expect(sw).toBeChecked();
@@ -733,7 +733,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Header field preserves front matter it did not come to change', async () => {
 		const user = setup();
 		await pasteRichDeck(user);
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const header = await screen.findByRole('textbox', { name: 'Header' });
 		await user.click(header);
 		await user.type(header, 'Acme — Q3');
@@ -747,41 +747,191 @@ describe('Studio — Inspector controls respond', () => {
 		// scoped `class:` in with the 23 named directives, since it is the same flat scalar.
 		const user = setup();
 		await pasteRichDeck(user);
-		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
 		expect(screen.getByLabelText('Deck source').textContent).toContain('class: no-progress');
 		expectFrontMatterIntact('Section rail');
 	});
 
-	it('a text field shares its row with its label, like every dropdown in the column', async () => {
-		// jsdom has no layout, so this asserts the STRUCTURE the geometry rests on: the label
-		// and the input are siblings in one flex row, not stacked with the help line between
-		// them. The measured version (one row, right edges aligned, 36px tall, at 390/820/1440)
-		// runs against the built site — see the decision note. This is the part that fails if
-		// someone reverts TextRow to its own layout instead of routing through `Field`.
+	it('a text field shares its row with its label, in the same two columns every control uses', async () => {
+		// jsdom has no layout, so this asserts the STRUCTURE the geometry rests on: label
+		// column and control column as siblings in ONE row, with the help line beneath —
+		// not stacked with the help line between them. The measured version (columns at a
+		// shared x, right edges aligned, at 390/820/1440) runs against the built site.
+		// This is what fails if someone reverts TextRow to a layout of its own instead of
+		// routing through `Field`.
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		const field = await screen.findByRole('textbox', { name: /Deck name/ });
 		const label = document.querySelector(`label[for="${field.id}"]`);
 		expect(label).not.toBeNull();
-		expect(label?.parentElement).toBe(field.parentElement); // ONE row, not two
+
+		// ONE row: the label's column and the field's column are siblings of the same row.
+		const labelCol = label?.parentElement;
+		const controlCol = field.parentElement;
+		const row = labelCol?.parentElement;
+		expect(controlCol?.parentElement).toBe(row);
+
+		// The 45/45 split is what aligns every control in the column at one x — without it
+		// each row sizes to its own label and the column is a ragged edge. Both columns
+		// carry it, so neither can drift alone.
+		for (const col of [labelCol, controlCol]) {
+			expect(col?.className, 'both columns share the row geometry').toMatch(/basis-\[45%\]/);
+			expect(col?.className).toMatch(/flex-1/);
+		}
+
+		// Below ~320px of PANEL width the two columns stack, so the control gets the width
+		// back instead of eating its own value. jsdom has no container-query engine, so what
+		// is checkable here is the CONTRACT: the row carries the stacking variant, and some
+		// ancestor actually declares the container it measures — a variant with no container
+		// is dead CSS that fails silently. The behavior itself is verified on the real panel
+		// (2026-08-18 decision note §7.1).
+		expect(row?.className, 'the row stacks when the panel is narrow').toMatch(/@max-\[320px\]\/settings:flex-col/);
+		expect(row?.closest('.\\@container\\/settings'), 'a container is declared for that query to measure').not.toBeNull();
+
 		// …and the help line is BELOW that row, where every `Field` puts it — not between the
 		// label and the input, which is what pushed the field under the keyboard.
 		const desc = document.getElementById(field.getAttribute('aria-describedby') ?? '');
 		expect(desc).not.toBeNull();
-		expect(desc?.parentElement).toBe(field.parentElement?.parentElement);
+		expect(desc?.parentElement).toBe(row?.parentElement);
 	});
 
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByText('Developer')); // A.1: dev aids live in a footer disclosure now
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await user.click(await screen.findByText('Developer')); // the dev aids are General's "more" disclosure
 		// The Debug overlay control is a preset menu with every value; picking the
 		// verbose variant writes `debug: on-always verbose`.
 		await user.click(await screen.findByRole('button', { name: 'Debug overlay' }));
 		await user.click(await screen.findByRole('menuitem', { name: 'Always on · verbose' }));
 		// A multi-word value is YAML-quoted; the parser + lint both strip the quotes.
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/debug:\s*"?on-always verbose"?/);
+	});
+});
+
+// The registers the coverage audit found the Inspector never offered — each one the
+// engine already read, reachable only by hand-writing YAML. See
+// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.2.
+//
+// Every case asserts the SAME contract the older rows keep: picking a value writes the
+// key, and returning to the register's own baseline CLEARS it, so a default deck carries
+// no front matter at all. A control that only ever writes is how a deck accretes keys
+// that say nothing.
+describe('Studio — Inspector covers the registers that had no control', () => {
+	// CodeMirror's textContent joins lines without newlines, so these patterns are
+	// deliberately unanchored — `/^key: value$/m` can never match here.
+	const source = () => screen.getByLabelText('Deck source').textContent ?? '';
+
+	async function openDeckTab(user: ReturnType<typeof setup>, tab: string) {
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: tab }));
+	}
+	/** Open a tab's collapsed "more" disclosure by its summary text. */
+	async function openMore(user: ReturnType<typeof setup>, label: string) {
+		await user.click(await screen.findByText(label));
+	}
+	/** Pick `option` from the CatalogSelect named `name`. */
+	async function pick(user: ReturnType<typeof setup>, name: string, option: RegExp | string) {
+		await user.click(await screen.findByRole('combobox', { name }));
+		await user.click(await screen.findByRole('option', { name: option }));
+	}
+
+	it('Corners writes and clears the `corners:` register', async () => {
+		const user = setup();
+		await openDeckTab(user, 'Look');
+		await openMore(user, 'More look settings');
+		await pick(user, 'Choose corners', 'Rounded');
+		await waitFor(() => expect(source()).toMatch(/corners: rounded/));
+		await pick(user, 'Choose corners', 'Square'); // back to the baseline → no key
+		await waitFor(() => expect(source()).not.toMatch(/corners:/));
+	});
+
+	it('Claim writes and clears the `claim:` register', async () => {
+		const user = setup();
+		await openDeckTab(user, 'Look');
+		await openMore(user, 'More look settings');
+		await pick(user, 'Choose claim', 'Bleed');
+		await waitFor(() => expect(source()).toMatch(/claim: bleed/));
+		await pick(user, 'Choose claim', 'Framed');
+		await waitFor(() => expect(source()).not.toMatch(/claim:/));
+	});
+
+	it('the Logo field writes `logo:` — and its modifiers stay hidden until there is one', async () => {
+		const user = setup();
+		await openDeckTab(user, 'Chrome');
+		// The four modifiers are meaningless without a logo, so an empty deck must not
+		// open this tab on four dead rows.
+		expect(screen.queryByRole('combobox', { name: 'Choose which slides carry the logo' })).not.toBeInTheDocument();
+		const field = await screen.findByRole('textbox', { name: 'Logo' });
+		// `paste`, not `type`: every keystroke re-renders the whole Inspector, so typing a
+		// 16-character path is ~16 full renders and made this the slowest case in the file —
+		// enough to time out under a loaded suite. The commit path is the same (blur).
+		await user.click(field);
+		await user.paste('./brand/mark.svg');
+		await user.tab();
+		await waitFor(() => expect(source()).toMatch(/logo: \.\/brand\/mark\.svg/));
+		// …and now they appear.
+		await pick(user, 'Choose which slides carry the logo', 'Title slide only');
+		await waitFor(() => expect(source()).toMatch(/logo-on: title/));
+	});
+
+	it('the Meta line writes `meta:`, and clearing the field removes the key', async () => {
+		const user = setup();
+		await openDeckTab(user, 'Chrome');
+		const field = await screen.findByRole('textbox', { name: 'Meta line' });
+		await user.click(field);
+		await user.paste('Q3 FY26 · Board review');
+		await user.tab();
+		await waitFor(() => expect(source()).toMatch(/meta: "Q3 FY26 · Board review"/));
+		await user.clear(screen.getByRole('textbox', { name: 'Meta line' }));
+		await user.tab();
+		await waitFor(() => expect(source()).not.toMatch(/meta:/));
+	});
+
+	it('New slide on / Deck chrome / Auto-glossary write their registers', async () => {
+		const user = setup();
+		await openDeckTab(user, 'General');
+		await pick(user, 'Choose how slides split', /dividers only/);
+		await waitFor(() => expect(source()).toMatch(/split: rule/));
+
+		// `form:` is inverted — standard is the default, so only the OFF state writes.
+		await user.click(await screen.findByRole('switch', { name: 'Deck chrome' }));
+		await waitFor(() => expect(source()).toMatch(/form: off/));
+
+		// `glossary:` writes the canonical `auto`, not `on`/`true`.
+		await user.click(await screen.findByRole('switch', { name: 'Auto-glossary' }));
+		await waitFor(() => expect(source()).toMatch(/glossary: auto/));
+	});
+
+	it('the Default slide class field never shows or eats the Section rail token', async () => {
+		const user = setup();
+		// Turn the rail OFF first — that stamps `no-progress` into the same `class:` key
+		// this field writes. A naive text field would show the token, and any edit would
+		// silently flip a control in another tab.
+		await openDeckTab(user, 'Chrome');
+		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
+		await waitFor(() => expect(source()).toMatch(/class: no-progress/));
+
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		const field = await screen.findByRole('textbox', { name: 'Default slide class' });
+		expect((field as HTMLInputElement).value).toBe(''); // the rail's token is not shown
+		await user.click(field);
+		await user.type(field, 'no-note');
+		await user.tab();
+		// Both survive: the author's modifier AND the rail token the toggle owns. The
+		// value is YAML-quoted because it contains a space — every reader unquotes it
+		// (deckClassTokensFromFrontMatter parses both spellings to the same two tokens).
+		await waitFor(() => expect(source()).toMatch(/class: "?no-note no-progress"?/));
+	});
+
+	it('Pace writes the `pace:` register and clears at the default', async () => {
+		const user = setup();
+		await openDeckTab(user, 'Speech');
+		await pick(user, 'Choose pace', 'Deliberate');
+		await waitFor(() => expect(source()).toMatch(/pace: deliberate/));
+		await pick(user, 'Choose pace', /Natural/);
+		await waitFor(() => expect(source()).not.toMatch(/pace:/));
 	});
 });

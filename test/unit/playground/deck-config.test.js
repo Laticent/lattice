@@ -25,7 +25,6 @@ describe('readFrontMatter', () => {
     assert.equal(fm.header, '');
     assert.equal(fm.footer, '');
     assert.equal(fm.class, '');
-    assert.equal(fm.math, '');
     assert.equal(fm.lang, '');
     assert.equal(fm.split, 'headings');
     assert.equal(fm.configured, false);
@@ -187,12 +186,11 @@ describe('writeFrontMatter', () => {
     // Opt out — boolean false or a falsey string — writes `validate: off`.
     assert.ok(writeFrontMatter(CLEAN, 'validate', false).includes('validate: off\n'));
     assert.ok(writeFrontMatter(CLEAN, 'validate', 'off').includes('validate: off\n'));
-    // canonical slot: after form, before math.
-    let src = writeFrontMatter(CLEAN, 'math', 'mathjax');
-    src = writeFrontMatter(src, 'form', 'off');
+    // canonical slot: after form, and last in the block on a deck that sets nothing else.
+    let src = writeFrontMatter(CLEAN, 'form', 'off');
     src = writeFrontMatter(src, 'validate', false);
     const block = src.slice(0, src.indexOf('\n---\n'));
-    assert.equal(block, '---\nmarp: true\nform: off\nvalidate: off\nmath: mathjax');
+    assert.equal(block, '---\nmarp: true\nform: off\nvalidate: off');
     // round-trips, and switching it back on clears the key.
     assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'validate', false)).validate, false);
     assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'validate', false), 'validate', true).includes('validate'));
@@ -226,11 +224,25 @@ describe('writeFrontMatter', () => {
     assert.equal(cleared, CLEAN);
   });
 
-  test('math: only mathjax is written; katex/empty is the default and omitted', async () => {
-    const { writeFrontMatter } = await import(MOD);
-    assert.ok(writeFrontMatter(CLEAN, 'math', 'mathjax').includes('math: mathjax'));
-    assert.equal(writeFrontMatter(CLEAN, 'math', 'katex'), CLEAN);
-    assert.equal(writeFrontMatter(CLEAN, 'math', ''), CLEAN);
+  test('math: the retired control is gone, but a deck that carries the key KEEPS it', async () => {
+    // `math:` was a managed field with a Math-renderer row until 2026-08-18. Nothing in the
+    // engine reads it — a grep for `mathjax` across lib/ and lattice-emulator.js returns only
+    // the control that wrote it — so the row was retired (see
+    // engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.4).
+    //
+    // Retiring a CONTROL must never delete an author's LINE. The key is simply unmanaged now,
+    // so it rides the `preserved` path verbatim through an unrelated write, exactly like any
+    // other key this panel does not model.
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    const withMath = '---\nmarp: true\nmath: mathjax\n---\n\n# Deck\n';
+    const out = writeFrontMatter(withMath, 'paginate', true);
+    assert.ok(out.includes('math: mathjax'), 'a hand-written math: survives an unrelated write');
+    assert.ok(out.includes('paginate: true'));
+    // It no longer counts as CONFIGURATION, though — `configured` (the trigger's accent
+    // cue) asks whether a deck carries settings this panel manages, and no control owns
+    // this key any more. Preserved, not claimed.
+    assert.equal(readFrontMatter(withMath).configured, false);
+    assert.equal(readFrontMatter(writeFrontMatter(withMath, 'paginate', true)).configured, true);
   });
 
   test('finish (backdrop): atrium is written; none + empty are the baseline and omitted', async () => {

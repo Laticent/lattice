@@ -6,14 +6,16 @@ import { toast } from 'sonner';
 import DeckPreview from '@/components/DeckPreview';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
+import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 	DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -29,6 +31,7 @@ import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
+import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
@@ -38,15 +41,17 @@ import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoo
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
-import { AUTO_LABEL, AutoIcon } from './auto-mark';
+import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
+import { activeClaim, CLAIMS } from './claim-catalog';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
+import { activeCorners, CORNERS } from './corners-catalog';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
@@ -132,19 +137,37 @@ const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Edi
 const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
 
 
-// Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
-// read-aloud groups collapse into "Speech"; the spectrum/accent family is "Accent"
-// (renamed from "Brand" — a broader, clearer name for everything the accent touches,
-// incl. the heading marks). Preview-only dev aids are NOT a tab — they live in a
-// Developer footer disclosure (A.1) so the strip is four narrow, one-row pills.
-type DeckTab = 'look' | 'brand' | 'marks' | 'motion' | 'speech';
+// Deck Inspector pill-tab sections, ORDERED BY LIKELY REACH — the strip is read left
+// to right, so the order is the claim about what an author opens this panel for:
+// appearance first, then the repeating furniture, then the once-per-deck facts, then
+// brand refinement, then the two axes only some decks use at all.
+//
+// "Marks" is now "Chrome", and the two panels agree. The slide Inspector had called the
+// header/footer/page-number furniture Chrome since it shipped while this one called the
+// same four controls Marks — and the slide's Status + Decoration tabs (a Draft badge, a
+// corner wash) are what the word "marks" actually describes. The two scopes had each
+// other's word. Renaming here frees "Marks" for the slide's overlay tabs
+// (SlideContext.tsx) and leaves one vocabulary across both scopes.
+//
+// "General" is new: the deck's name, language and structural facts — set once, not
+// styling, and they were sitting in Look for want of anywhere better. It also absorbs
+// the old Developer footer disclosure, so there is one place for "things about this
+// deck" instead of a tab strip plus a stray expander.
+// See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
+type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech';
 const DECK_TABS: { value: DeckTab; label: string }[] = [
 	{ value: 'look', label: 'Look' },
+	{ value: 'chrome', label: 'Chrome' },
+	{ value: 'general', label: 'General' },
 	{ value: 'brand', label: 'Accent' },
-	{ value: 'marks', label: 'Marks' },
 	{ value: 'motion', label: 'Motion' },
 	{ value: 'speech', label: 'Speech' },
 ];
+
+// The head value for a register with NO named baseline (`stamp:`, `tone:`): absent means
+// "the engine's own default shape", which is not a value the register can spell. Radix
+// Select rejects an empty value, so the head needs a non-empty sentinel.
+const DEFAULT_SENTINEL = '__default__';
 
 // Offline FALLBACK known-components — used only when the real catalog (the
 // `components` prop, the full 53-component manifest) fails to load. The live known
@@ -1275,6 +1298,80 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the in-content accents. On writes the key; off clears it.
 	const spectrumTrim = getFrontMatter(source, 'spectrum-trim') || 'off';
 	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => writeFrontMatterLine(s, 'spectrum-trim', value === 'off' ? null : value));
+	// ── The registers the Inspector gained in the coverage audit ────────────────────
+	// Each one the engine already reads and no panel offered (see
+	// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.2). Same
+	// shape as every register above: read with a named baseline, and write `null` at
+	// that baseline so a default deck carries no key.
+
+	// Corners (`corners:`) — whether the slide surface itself is rounded. lib/core/resolve-corners.js.
+	const corners = getFrontMatter(source, 'corners') || 'square';
+	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeFrontMatterLine(s, 'corners', value === 'square' ? null : value));
+	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
+	const claim = getFrontMatter(source, 'claim') || 'framed';
+	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
+	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
+	// halves of two axes whose per-slide overrides the slide Inspector has offered all
+	// along — the asymmetry the audit found. There is no named baseline (an absent key
+	// means the engine's own default shape), so the head option is a `__default__`
+	// sentinel rather than a register value.
+	const stampStyleFM = getFrontMatter(source, 'stamp') || '';
+	const setStampStyleFM = (value: string) => settingsWrite(value === DEFAULT_SENTINEL ? 'Stamp style → default' : `Stamp style → ${value}`, (s) => writeFrontMatterLine(s, 'stamp', value === DEFAULT_SENTINEL ? null : value));
+	const toneStyleFM = getFrontMatter(source, 'tone') || '';
+	const setToneStyleFM = (value: string) => settingsWrite(value === DEFAULT_SENTINEL ? 'Tone style → default' : `Tone style → ${value}`, (s) => writeFrontMatterLine(s, 'tone', value === DEFAULT_SENTINEL ? null : value));
+	// Pace (`pace:`) — how long a self-presenting deck holds on a new slide before it
+	// speaks. lib/core/resolve-pace.mjs; `natural` is the default, so it clears the key.
+	const pace = getFrontMatter(source, 'pace') || DEFAULT_PACE;
+	const setPace = (value: string) => settingsWrite(`Pace → ${value}`, (s) => writeFrontMatterLine(s, 'pace', value === DEFAULT_PACE ? null : value));
+	// Slide splitting (`split:`) — headings (default) or `---` dividers. lib/core/resolve-split.js.
+	// `slideSplit`, not `split` — the Studio already has a `split` in scope (the resizable
+	// editor/preview divider), and shadowing it silently breaks every layout read below.
+	const slideSplit = getFrontMatter(source, 'split') || 'headings';
+	const setSlideSplit = (value: string) => settingsWrite(`Slide splitting → ${value}`, (s) => writeFrontMatterLine(s, 'split', value === 'headings' ? null : value));
+	// Deck form (`form:`) — the masthead band + bay + rail composition. Mirrors
+	// readFormMode in plugins.js: standard is the default and ONLY off/false/no opts out.
+	const formOn = !/^(off|false|no)$/i.test((getFrontMatter(source, 'form') || '').trim());
+	const toggleForm = () => settingsWrite(formOn ? 'Deck chrome off' : 'Deck chrome on', (s) => writeFrontMatterLine(s, 'form', formOn ? 'off' : null));
+	// Auto-glossary (`glossary:`) — an appendix slide built from the acronym registry's
+	// definitions. lib/core/glossary-auto.mjs; the canonical written value is `auto`.
+	const glossaryOn = /^(auto|on|true|yes)$/i.test((getFrontMatter(source, 'glossary') || '').trim());
+	const toggleGlossary = () => settingsWrite(glossaryOn ? 'Auto-glossary off' : 'Auto-glossary on', (s) => writeFrontMatterLine(s, 'glossary', glossaryOn ? null : 'auto'));
+	// The deck LOGO and its four placement modifiers. Read by plugins.js + lib/runtime,
+	// rendered by the masthead logo tile. `logo:` is a path or URL; the modifiers only
+	// mean anything once it is set, so the Inspector hides them until then.
+	const logo = getFrontMatter(source, 'logo') || '';
+	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
+	const logoOn = getFrontMatter(source, 'logo-on') || 'all';
+	const setLogoOn = (value: string) => settingsWrite(`Logo on → ${value}`, (s) => writeFrontMatterLine(s, 'logo-on', value === 'all' ? null : value));
+	const logoStyle = getFrontMatter(source, 'logo-style') || 'auto';
+	const setLogoStyle = (value: string) => settingsWrite(`Logo style → ${value}`, (s) => writeFrontMatterLine(s, 'logo-style', value === 'auto' ? null : value));
+	// Placement + size ride as free numbers (the engine clamps: x/y 0–100 as the logo
+	// CENTER in %, scale 0.2–3). A blank field clears the key back to the default spot.
+	const logoX = getFrontMatter(source, 'logo-x') || '';
+	const logoY = getFrontMatter(source, 'logo-y') || '';
+	const logoScale = getFrontMatter(source, 'logo-scale') || '';
+	const setLogoNum = (key: 'logo-x' | 'logo-y' | 'logo-scale', label: string) => (v: string) =>
+		settingsWrite(label, (s) => writeFrontMatterLine(s, key, v.trim() || null));
+	// The masthead META line (`meta:`) — the small line in the status bay.
+	const metaLine = getFrontMatter(source, 'meta') || '';
+	const setMetaLine = (v: string) => settingsWrite('Meta line', (s) => writeFrontMatterLine(s, 'meta', v.trim() || null));
+	// The deck-wide DEFAULT SLIDE CLASS (`class:`) — a modifier stamped on every slide.
+	// The Section-rail toggle owns `no-progress` inside the same key, so this field
+	// deliberately shows and writes only the OTHER tokens: showing `no-progress` here
+	// would let a stray edit silently flip a control two rows up (and the field would
+	// re-render with a token the author never typed).
+	// The stamp / tone SHAPE vocabularies come from the generated lint vocab — the same
+	// source the slide Inspector's per-slide pickers read, so the deck default and the
+	// per-slide override can never offer different shapes.
+	const stampVocab = (lintVocab as { stampStyles?: { boardroom: string[]; range: string[] } } | null)?.stampStyles ?? { boardroom: [], range: [] };
+	const toneVocab = (lintVocab as { toneStyles?: string[] } | null)?.toneStyles ?? [];
+	const RAIL_TOKEN = 'no-progress';
+	const deckClass = (getFrontMatter(source, 'class') || '').split(/\s+/).filter((t) => t && t !== RAIL_TOKEN).join(' ');
+	const setDeckClass = (v: string) => settingsWrite('Default slide class', (s) => {
+		const kept = v.trim().split(/\s+/).filter(Boolean);
+		if (!deckRail) kept.push(RAIL_TOKEN); // the rail toggle's token survives the edit
+		return writeFrontMatterLine(s, 'class', kept.length ? kept.join(' ') : null);
+	});
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
@@ -2995,50 +3092,44 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
-		<div className="space-y-3 pt-1">
+		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
+		// so they stack when the PANEL is dragged narrow — not when the window is.
+		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)}>
 			<PillTabs tabs={DECK_TABS} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
 			{deckTab === 'look' && (
 			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The deck's identity — its name, language, palette, light or dark, size, and surface.</p>
-				<TextRow
-					label="Deck name"
-					desc={`What this deck is called in the switcher, in Share, and in the export filename. ${deckNameOverride.trim() ? 'Clear the field to go back to following the cover heading.' : `Currently “${deckTitle}”, from the cover heading — type a name here only when the shelf name isn't what belongs on the title slide.`}`}
-					value={deckNameOverride}
-					placeholder="Follows the cover heading"
-					onCommit={setDeckName}
-				/>
-				<Field label="Language" desc="This deck's language — its document language (carried into every export and read-aloud) and the language the AI writes its content in. “Auto” (the link icon) inherits the workspace default; pick one to pin it to the deck. English only for now.">
-					<LanguageSelect
-						value={deckLang || LANG_AUTO}
-						ariaLabel="Choose deck language"
-						includeAuto
-						autoLabel={`Automatic — ${langDisplay(workspaceLang)}`}
-						onValueChange={setDeckLang}
-					/>
-				</Field>
-				<Field label="Theme" desc="This deck's color palette. “Auto” (the link icon) follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
+				<TabNote>How the deck looks — its palette, light or dark, slide shape, and the surface behind your content.</TabNote>
+				<Field label="Theme" desc="This deck's color palette." help={<>Pinning a theme saves it <strong>with the deck</strong>, so it survives a change to the website theme and travels into every export. <strong>Auto</strong> (the link icon) follows the website theme instead.</>}>
 					<CatalogSelect
 						ariaLabel="Choose deck theme"
 						swatchShape="round"
-						className="min-w-[116px]"
+						className="w-full"
 						value={deckThemeBase || '__auto__'}
 						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
-						groups={[{ options: [{ value: '__auto__', label: AUTO_LABEL, icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+						// The head names what Auto RESOLVES to (the website theme), not just the
+						// word — the same shape every auto head in both scopes now uses. It is
+						// safe to be this long again because the control owns a fixed half of
+						// its row and truncates (SETTING_ROW); it used to widen the whole row.
+						groups={[{ options: [{ value: '__auto__', label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 					/>
-					{savedThemes.length > 0 && (
-						<div className="mt-2 space-y-0.5">
-							<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>
-							{savedThemes.map((t) => (
-								<div key={t.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
-									<span className="size-3 shrink-0 rounded-full border border-border" style={{ background: t.essentials?.accent ?? 'var(--accent)' }} />
-									<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-heading)]">{t.label}</span>
-									<button type="button" onClick={() => removeTheme(t)} aria-label={`Delete ${t.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
-								</div>
-							))}
-						</div>
-					)}
 				</Field>
-				<Field label="Color mode" desc="The mode the deck opens in, everywhere it's rendered. Light or Dark pin it; System follows the viewer's OS; “Match site” adopts the host (the website toggle here, the OS in a shared file). Theme default uses the theme's own mode.">
+				{/* The saved-theme manager is a SIBLING of the Field, not a child: the Field's
+				    control column is a right-aligned half-row, so a full-width list inside it
+				    would sit beside the dropdown instead of beneath the setting. (The saved
+				    FINISH list below was already shaped this way.) */}
+				{savedThemes.length > 0 && (
+					<div className="mt-2 space-y-0.5">
+						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>
+						{savedThemes.map((t) => (
+							<div key={t.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
+								<span className="size-3 shrink-0 rounded-full border border-border" style={{ background: t.essentials?.accent ?? 'var(--accent)' }} />
+								<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-heading)]">{t.label}</span>
+								<button type="button" onClick={() => removeTheme(t)} aria-label={`Delete ${t.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
+							</div>
+						))}
+					</div>
+				)}
+				<Field label="Color mode" desc="Light, dark, or follow something." help={<>The mode the deck opens in <strong>everywhere</strong> it's rendered. <strong>Light</strong> / <strong>Dark</strong> pin it. <strong>System</strong> follows the viewer's OS. <strong>Match site</strong> adopts the host — the website toggle here, the OS in a shared file. <strong>Theme default</strong> uses the theme's own mode. <strong>Print</strong> is ink on white, for paper.</>}>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Control aria-label="Choose deck color mode"><span className="flex min-w-0 items-center gap-2">{COLOR_MODE_META[deckColorMode].icon}<span className="truncate">{COLOR_MODE_META[deckColorMode].label}</span></span> <ChevronDown className="size-3.5" /></Control>
@@ -3050,7 +3141,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-				<Field label="Size" desc="The slide shape and dimensions (16:9, A4, …).">
+				<Field label="Size" desc="Slide shape and dimensions." help={<>16:9 is the default landscape. The portrait and square formats are for social and mobile — they change what fits on a slide, so check a dense slide after switching.</>}>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Control>{SIZE_LABELS[deckSize] ?? deckSize} <ChevronDown className="size-3.5" /></Control>
@@ -3062,139 +3153,226 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-				<Field label="Mode" desc="The rendering style — boardroom (crisp) or sketch (hand-drawn). Separate from Finish; the two combine.">
-						{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
-						    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
-						    owns `style:` for inline CSS, so the axis is named "mode"). */}
-						<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="min-w-[116px]" groups={[{ options: catalogOptions(MODES) }]} />
+				<Field label="Mode" desc="Crisp, or hand-drawn." help={<>The rendering hand: <strong>Boardroom</strong> is the clean default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
+					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
+					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
+					    owns `style:` for inline CSS, so the axis is named "mode"). */}
+					<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="w-full" groups={[{ options: catalogOptions(MODES) }]} />
+				</Field>
+				<Field label="Finish" desc="A backdrop behind every slide." help={<>A palette-blind layer stack — a soft gradient, wash or grain — painted behind the content. It follows whatever palette the deck is on, so it never fights the theme. Tune one in Fabricate to save your own.</>}>
+					<CatalogSelect
+						ariaLabel="Choose finish"
+						value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
+						onValueChange={setFinish}
+						className="w-full"
+						groups={finishSelectGroups({
+							heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
+							saved: savedFinishMenu,
+							savedValue: (n) => `finish-${n}`,
+						})}
+					/>
+				</Field>
+				{savedFinishes.length > 0 && (
+					<div className="mt-2 space-y-0.5">
+						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved finishes</div>
+						{savedFinishes.map((f) => (
+							<div key={f.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
+								<span className="size-3 shrink-0 rounded-[3px] border border-border" style={{ ...finishSwatch(f.recipe) }} />
+								<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-heading)]">{f.label}</span>
+								<button type="button" onClick={() => removeFinish(f)} aria-label={`Delete ${f.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
+							</div>
+						))}
+					</div>
+				)}
+				{/* Card lift — the opt-in "Struck" elevation. A deck-wide surface toggle
+				    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
+				<Field label="Card lift" desc="A soft shadow under card surfaces." help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
+				<More label="More look settings">
+					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
+						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />
 					</Field>
-				<Field label="Finish" desc="A backdrop texture applied to every slide — a soft gradient, wash, or grain behind the content.">
-						<CatalogSelect
-							ariaLabel="Choose finish"
-							value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
-							onValueChange={setFinish}
-							className="min-w-[116px]"
-							groups={finishSelectGroups({
-								heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
-								saved: savedFinishMenu,
-								savedValue: (n) => `finish-${n}`,
-							})}
-						/>
+					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
+						<CatalogSelect ariaLabel="Choose claim" value={activeClaim(claim).name} onValueChange={setClaim} className="w-full" groups={[{ options: catalogOptions(CLAIMS) }]} />
 					</Field>
-					{savedFinishes.length > 0 && (
-						<div className="mt-2 space-y-0.5">
-							<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved finishes</div>
-							{savedFinishes.map((f) => (
-								<div key={f.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
-									<span className="size-3 shrink-0 rounded-[3px] border border-border" style={{ ...finishSwatch(f.recipe) }} />
-									<span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-heading)]">{f.label}</span>
-									<button type="button" onClick={() => removeFinish(f)} aria-label={`Delete ${f.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
-								</div>
-							))}
-						</div>
-					)}
-					{/* Card lift — the opt-in "Struck" elevation. A deck-wide surface toggle
-					    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
-					<Field label="Card lift" desc="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export."><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
+				</More>
+			</div>
+			)}
+			{deckTab === 'chrome' && (
+			<div>
+				<TabNote>The furniture that repeats on every slide — running header and footer, page numbers, the section rail, and your logo.</TabNote>
+				<TextRow label="Header" desc="The line along the top. Blank hides it." help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
+				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
+				<Field label="Page numbers" desc="Number every slide."><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
+				<Field label="Section rail" desc="Progress dots down the edge." help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				<TextRow label="Logo" desc="A path or URL to your mark." help={<>Drawn into the masthead of every slide. Point it at a file beside the deck (<code>./brand/mark.svg</code>) or a full URL. A local file is dropped from an in-browser export, which has no filesystem to copy it from — use a URL if the deck is going to be shared as a bundle.</>} value={logo} placeholder="e.g. ./brand/mark.svg" onCommit={setLogo} />
+				{/* The four logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with four dead rows. */}
+				{logo.trim() !== '' && (
+					<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+						<Field label="Show on" desc="Every slide, or just the cover.">
+							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
+						</Field>
+						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
+							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
+						</Field>
+						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. Clamped to 0.2–3; anything outside that is ignored rather than applied.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
+						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
+						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
+					</div>
+				)}
+				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />
+			</div>
+			)}
+			{deckTab === 'general' && (
+			<div>
+				<TabNote>What this deck is and how it's put together — set once, mostly at the start.</TabNote>
+				<TextRow
+					label="Deck name"
+					desc="What this deck is called."
+					help={<>Used in the deck switcher, in Share, and as the export filename. {deckNameOverride.trim() ? <>Clear the field to go back to following the cover heading.</> : <>Right now it follows the cover heading (“{deckTitle}”) — type a name here only when the shelf name isn't what belongs on the title slide.</>}</>}
+					value={deckNameOverride}
+					placeholder="Follows the cover heading"
+					onCommit={setDeckName}
+				/>
+				<Field label="Language" desc="The deck's language." help={<>Two things at once: the document language carried into every export and read-aloud, and the language the AI writes content in. <strong>Auto</strong> (the link icon) inherits the workspace default. English only for now.</>}>
+					<LanguageSelect
+						value={deckLang || LANG_AUTO}
+						ariaLabel="Choose deck language"
+						includeAuto
+						autoLabel={`Automatic — ${langDisplay(workspaceLang)}`}
+						resolvedAuto={langDisplay(workspaceLang)}
+						onValueChange={setDeckLang}
+					/>
+				</Field>
+				<Field label="New slide on" desc="Headings, or --- dividers." help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
+					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
+				</Field>
+				<Field label="Deck chrome" desc="The masthead band and status bay." help={<>The Form composition model — the masthead band, the meta/status bay and the progress rail. On for every deck by default; turning it off strips all three, leaving bare slides.</>}><Toggle label="Deck chrome" on={formOn} onClick={toggleForm} /></Field>
+				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
+				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>no-note</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle owns its own token in this key and isn't shown here.</>} value={deckClass} placeholder="e.g. no-note" onCommit={setDeckClass} />
+				{/* Developer — the two preview-only authoring aids. They used to be a footer
+				    disclosure hanging below the tab strip; they are facts about this deck like
+				    everything else here, so they live in General's own "more" instead. */}
+				<More label="Developer">
+					<p className="mb-2 text-[11px] leading-snug text-muted-foreground">Aids while you write. Preview-only — none of this appears in the export.</p>
+					<Field label="Inline validation" desc="Flag unknown components as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
+					{/* Debug overlay — outlines every box by layout mode and labels the
+					    structural ones on hover; `always` pins them. A deck setting (`debug:`
+					    front matter), preview-only, stripped from every export.
+					    engineering/decisions/2026-07-01-debug-bounding-boxes.md */}
+					<Field label="Debug overlay" desc="Outline every layout box." help={<>Outlines each box by layout mode (grid / flex / flow) and labels the structural ones. <strong>Verbose</strong> adds the class and box levers. Stripped from every export, so it can safely ride in the deck.</>}>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Control aria-label="Debug overlay">{debugLabel} <ChevronDown className="size-3.5" /></Control>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-52">
+								{DEBUG_OPTIONS.map((o) => (
+									<DropdownMenuItem key={o.label} onSelect={() => setDebug(o.value)}>
+										{o.label}
+										{debugLabel === o.label && <span className="ml-auto text-[var(--accent)]">✓</span>}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</Field>
+				</More>
 			</div>
 			)}
 			{deckTab === 'brand' && (
 			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Where your accent shows — the brand bar, card rails, structural trim, and heading marks. Set the theme accent to a client's brand and everything here follows, white-labeling the deck.</p>
-					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Set Solid to a client's brand color to white-label the deck.">
-							{/* The white-label spectrum — the rainbow bar on the top border / divider
-							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
-							    the theme accent to a client's brand and Solid follows. */}
-							<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRA) }]} />
+				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>
+				<Field label="Brand bar" desc="The strip along the slide edge." help={<>The colored strip on each slide's top edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck.</>}>
+					{/* The white-label spectrum — the rainbow bar on the top border / divider
+					    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
+					    the theme accent to a client's brand and Solid follows. */}
+					<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="w-full" groups={[{ options: catalogOptions(SPECTRA) }]} />
+				</Field>
+				{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
+				    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
+				<Field label="Bar placement" desc="Which edge the bar sits on." help={<>Top by default. <strong>Off</strong> drops only the bar — table rails and rules keep their color.</>}>
+					<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
+				</Field>
+				<Field label="Card rail" desc="A spectrum rail on card surfaces." help={<>Tunable independently of the brand bar. Off by default; <strong>Auto</strong> follows the bar, or pin Solid / Duo / Mono / Rainbow.</>}>
+					<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
+				</Field>
+				{spectrumCard !== 'off' && (
+					<Field label="Card rail placement" desc="Which edge of each card." help={<>Left by default.</>}>
+						<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
+					</Field>
+				)}
+				<Field label="Structural trim" desc="Accent on in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the brand bar.</>}>
+					<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
+				</Field>
+				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
+					<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="w-full" groups={[{ options: catalogOptions(RULES) }]} />
+				</Field>
+				<Field label="Eyebrow" desc="The mark on the kicker line." help={<>The kicker is the small mono-caps line above a heading. This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
+					<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="w-full" groups={[{ options: catalogOptions(EYEBROWS) }]} />
+				</Field>
+				<Field label="Headline alignment" desc="Auto, or pin left / center / right." help={<>Aligns the whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps each component's own default.</>}>
+					<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="w-full" groups={[{ options: catalogOptions(HEADLINES) }]} />
+				</Field>
+				<More label="More accent settings">
+					{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0) && (
+						<Field label="Stamp shape" desc="The shape a state badge renders in." help={<>Sets the default shape for every state badge in the deck — the Draft / Confidential markers a slide carries. <strong>Boardroom</strong> holds the restrained set; <strong>More</strong> is the wider range. A slide overrides it in its own settings.</>}>
+							<CatalogSelect
+								ariaLabel="Choose stamp shape"
+								value={stampStyleFM || DEFAULT_SENTINEL}
+								onValueChange={setStampStyleFM}
+								className="w-full"
+								groups={[
+									{ options: [{ value: DEFAULT_SENTINEL, label: 'Default — tab' }] },
+									{ label: 'Boardroom', options: stampVocab.boardroom.map((n) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) })) },
+									...(stampVocab.range.length ? [{ label: 'More', options: stampVocab.range.map((n) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) })) }] : []),
+								]}
+							/>
 						</Field>
-						{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
-						    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
-						<Field label="Bar placement" desc="Which edge the brand bar sits on — top (default), left, right, bottom, or off. Off drops only the bar; table rails and rules keep their color.">
-							<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
+					)}
+					{toneVocab.length > 0 && (
+						<Field label="Tone shape" desc="How a review tone shows." help={<>Sets the default shape for pass / warn / fail tones across the deck — a side <strong>rail</strong>, a full <strong>edge</strong>, or a soft <strong>glow</strong>. A slide overrides it in its own settings.</>}>
+							<CatalogSelect
+								ariaLabel="Choose tone shape"
+								value={toneStyleFM || DEFAULT_SENTINEL}
+								onValueChange={setToneStyleFM}
+								className="w-full"
+								groups={[{ options: [
+									{ value: DEFAULT_SENTINEL, label: 'Default — rail' },
+									...toneVocab.map((t) => { const n = t.replace('tone-', ''); return { value: n, label: n.charAt(0).toUpperCase() + n.slice(1) }; }),
+								] }]}
+							/>
 						</Field>
-						<Field label="Card rail" desc="A spectrum rail on card surfaces, tunable independently of the Brand bar. Off by default; Auto follows the bar, or pin Solid / Duo / Mono / Rainbow.">
-							<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
-						</Field>
-						{spectrumCard !== 'off' && (
-							<Field label="Card rail placement" desc="Which edge of each card the rail sits on — left (default), top, right, or bottom.">
-								<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
-							</Field>
-						)}
-						<Field label="Structural trim" desc="Whether the spectrum flows onto the in-content accents — table rails, the timeline spine, code strips, hr. Quiet by default (a neutral hairline); the spectrum stays on the brand bar.">
-							<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
-						</Field>
-						<Field label="Heading rule" desc="The underline beneath a slide's heading — a full hairline, a short rule, an accent segment, or none.">
-							<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="min-w-[116px]" groups={[{ options: catalogOptions(RULES) }]} />
-						</Field>
-						<Field label="Eyebrow" desc="The mark on the mono-caps kicker above a heading — a dot, a bar, an arrow, an underline, or plain.">
-							<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="min-w-[116px]" groups={[{ options: catalogOptions(EYEBROWS) }]} />
-						</Field>
-						<Field label="Headline alignment" desc="Which way the framing text — eyebrow, heading, rule, subtitle, note, key insight, caption — aligns. Auto keeps each component's own default; Left / Center / Right pin the whole cluster.">
-							<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="min-w-[116px]" groups={[{ options: catalogOptions(HEADLINES) }]} />
-						</Field>
-			</div>
-			)}
-			{deckTab === 'marks' && (
-			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The header, footer, page number, and section rail — the marks that repeat across slides.</p>
-					<TextRow label="Header" desc="The line along the top — a deck title or client name. Blank hides it." value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
-					<TextRow label="Footer" desc="The line along the bottom — a confidentiality or source line. Blank hides it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
-					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
-					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+					)}
+				</More>
 			</div>
 			)}
 			{deckTab === 'motion' && (
 			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Animate charts in place on the live surfaces (Studio, Present) — they play once when the slide is shown. Preview-only: the exported PDF/PPTX is unchanged. Any slide can override these in its own settings.</p>
-					<Field label="Play" desc="Turn chart motion on for the deck. Off keeps every chart static.">
-						<Toggle label="Chart motion" on={motionPlay} onClick={toggleMotionPlay} />
-					</Field>
-					<Field label="Style" desc="How a chart moves — Build reveals in reading order, Together fades in at once, Rise lifts marks into place.">
-						<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="min-w-[116px]" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
-					</Field>
-					<Field label="Speed" desc="How fast the build runs. Auto paces to the chart's size.">
-						<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="min-w-[116px]" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
-					</Field>
+				<TabNote>How charts animate on the live surfaces (Studio, Present) — they play once when a slide is shown. Preview-only: it changes nothing in the exported PDF or PPTX, and any slide can override it.</TabNote>
+				<Field label="Play" desc="Animate charts in this deck." help={<>Off keeps every chart static. A single slide can still force motion on or off in its own settings.</>}>
+					<Toggle label="Chart motion" on={motionPlay} onClick={toggleMotionPlay} />
+				</Field>
+				<Field label="Style" desc="How a chart moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
+					<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="w-full" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
+				</Field>
+				<Field label="Speed" desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
+					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+				</Field>
 			</div>
 			)}
 			{deckTab === 'speech' && (
 			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Teach read-aloud how to say tricky words, symbols, and acronyms — carried into the deck and its captions.</p>
-			<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
-				<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
-			</InspGroup>
-			<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
-				<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
-			</InspGroup>
+				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
+				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
+					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="w-full" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : '') })) }]} />
+				</Field>
+				<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
+					<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
+				</InspGroup>
+				<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
+					<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
+				</InspGroup>
 			</div>
 			)}
-			{/* Developer — the two preview-only authoring aids. NOT a pill tab (A.1): they're
-			    the lowest-reach controls and don't belong in a strip you scan for deck styling.
-			    A collapsed footer disclosure keeps them reachable without a fifth pill. */}
-			<details className="mt-1 border-t border-border pt-2">
-				<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">Developer</summary>
-				<p className="mb-2.5 mt-2 text-[11px] leading-snug text-muted-foreground">Aids while you write. Preview-only — none of this appears in the export.</p>
-				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
-				{/* Debug overlay — outlines every box by layout mode and labels the
-				    structural ones on hover; `always` pins them. A deck setting (`debug:`
-				    front matter), preview-only, stripped from every export.
-				    engineering/decisions/2026-07-01-debug-bounding-boxes.md */}
-				<Field label="Debug overlay" desc="Outlines every layout box for debugging. Preview-only — stripped from every export.">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Control aria-label="Debug overlay">{debugLabel} <ChevronDown className="size-3.5" /></Control>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-52">
-							{DEBUG_OPTIONS.map((o) => (
-								<DropdownMenuItem key={o.label} onSelect={() => setDebug(o.value)}>
-									{o.label}
-									{debugLabel === o.label && <span className="ml-auto text-[var(--accent)]">✓</span>}
-								</DropdownMenuItem>
-							))}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</Field>
-			</details>
 		</div>
 	);
 
@@ -3216,27 +3394,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    deck↔slide switch and only its inner content/color swaps, so a screen reader
 			    reliably announces every scope change AND slide-nav change. (Two separate
 			    aria-live nodes — one per branch — would each be freshly INSERTED on a switch,
-			    which most screen readers don't announce.) */}
+			    which most screen readers don't announce.)
+
+			    "Configure", not "Editing": you edit the deck's CONTENT in the editor, and this
+			    panel sets how it is configured — calling both "editing" made the two read as the
+			    same act. Both lines are active and address the author directly ("Set it once…",
+			    "What you set here…") rather than describing the panel to itself. */}
 			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 				{inspectorScope === 'deck' ? (
 					<>
 						<div className="flex min-w-0 items-center gap-2">
 							<SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Configure the whole deck</span>
 							<span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
+						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Set it once here and all {slides.length} slides follow.</p>
 					</>
 				) : (
 					<>
 						<div className="flex min-w-0 items-center gap-2">
 							<FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1}</span>
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Configure slide {activeFullIndex + 1}</span>
 							<span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
+						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">What you set here beats the deck, for this slide only. Leave it blank and the deck decides.</p>
 					</>
 				)}
 			</div>
@@ -4741,10 +4924,39 @@ function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNod
 // Inspector state change. Doing it per render made the docs suite time out under load
 // (`studio.theme-depth.test.tsx`, 5s, a different case each run) while every file still
 // passed in isolation — the signature of a render-path cost, not a logic break.
-const FIELD_ROW = cn('flex items-center justify-between gap-2.5', PINNED_FIELD_ROW);
+const FIELD_ROW = cn(SETTING_ROW, PINNED_FIELD_ROW);
+// Merged once, for the reason spelled out above FIELD_ROW: `cn` is twMerge(clsx(...)) and
+// `Field` renders ~20 times per Inspector state change, so a per-render merge here is a
+// measurable cost — it is what timed the docs suite out twice in this change alone.
+const FIELD_LABEL = cn(SETTING_LABEL_COL, 'text-[12.5px] text-foreground');
 
-// A deck-setting row. `desc` adds a plain-language help line under the control —
-// no magic, no mystery: every setting says what it does. Obvious toggles can omit it.
+// The one-line framing that opens each Inspector tab — says what the whole group is FOR
+// before the individual rows explain themselves. (The slide Inspector's TabIntro, same job,
+// same weight; kept local to each file rather than shared because the two panels size their
+// type independently.)
+function TabNote({ children }: { children: React.ReactNode }) {
+	return <p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">{children}</p>;
+}
+
+// A "more" disclosure INSIDE a tab — that tab's lowest-reach rows, collapsed by default.
+// Without it every row carries the same weight, so `Card rail placement` (a sub-option of a
+// sub-option) sits as prominently as `Brand bar` and the common controls are buried under
+// the rare ones. Collapsed, not hidden: nothing becomes unreachable, it just stops competing.
+function More({ label, children }: { label: string; children: React.ReactNode }) {
+	return (
+		<details className="mt-2 border-t border-border/60 pt-2">
+			<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">{label}</summary>
+			<div className="mt-1">{children}</div>
+		</details>
+	);
+}
+
+// A deck-setting row. `desc` is the plain-language line under the control — kept to a
+// CLAUSE, because eight rows of three-sentence prose is a wall the eye skips, which
+// defeats the purpose the prose was written for. The full explanation moves to `help`,
+// rendered as a ⓘ beside the label (HelpTip — a popover, so it opens on touch too).
+// The rule: `desc` says what the control does, `help` says why you'd reach for it and
+// what the values mean. Obvious toggles can omit both.
 //
 // ONE row geometry for the whole drawer: label on the left, control on the right, help
 // line underneath. `TextRow` below routes through this too, so a text field sits exactly
@@ -4757,7 +4969,7 @@ const FIELD_ROW = cn('flex items-center justify-between gap-2.5', PINNED_FIELD_R
 // span; `descId` names the help line so the field can `aria-describedby` it. Both are
 // opt-in, so the dropdown/toggle rows — whose controls carry their own `aria-label` —
 // render exactly the markup they did before.
-function Field({ label, desc, htmlFor, descId, children }: { label: string; desc?: string; htmlFor?: string; descId?: string; children: React.ReactNode }) {
+function Field({ label, desc, help, htmlFor, descId, children }: { label: string; desc?: string; help?: React.ReactNode; htmlFor?: string; descId?: string; children: React.ReactNode }) {
 	return (
 		<div className="my-2">
 			{/* `PINNED_FIELD_ROW` holds the row you are TYPING in above the keyboard — the
@@ -4768,17 +4980,19 @@ function Field({ label, desc, htmlFor, descId, children }: { label: string; desc
 			    and only rows that actually own an `<input>` can trigger it (`:has(input:focus)`),
 			    so the dropdown and toggle rows carry the class inertly. */}
 			<div className={FIELD_ROW}>
-				{htmlFor ? (
-					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
-					// without it the flex algorithm takes the space out of the label and
-					// "Deck name" wraps to two lines. The dropdown rows have no growing child,
-					// so adding it there would change nothing except their overflow behavior
-					// at the narrowest widths — left alone.
-					<label htmlFor={htmlFor} className="shrink-0 text-[12.5px] text-foreground">{label}</label>
-				) : (
-					<span className="text-[12.5px] text-foreground">{label}</span>
-				)}
-				{children}
+				{/* The ⓘ sits WITH the label, not at the row's end: it explains the setting, so
+				    it reads as part of its name rather than as a second control. It is INLINE
+				    (see HelpTip) — a flex sibling took its own 20px of the row and wrapped
+				    "Color mode" onto two lines.
+				    The label owns its HALF of the row (SETTING_LABEL_COL) rather than shrinking
+				    to fit whatever the control wants; that is what aligns every control in the
+				    column, and it is why an option label can carry its resolved value again
+				    without widening its row. */}
+				<span className={FIELD_LABEL}>
+					{htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
+					{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
+				</span>
+				<span className={SETTING_CONTROL_COL}>{children}</span>
 			</div>
 			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 		</div>
@@ -4786,7 +5000,7 @@ function Field({ label, desc, htmlFor, descId, children }: { label: string; desc
 }
 // Forwards ref + props so it can be a Radix `asChild` trigger (the Size menu).
 const Control = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(({ children, ...props }, ref) => (
-	<button ref={ref} type="button" {...props} className="inline-flex min-w-[116px] items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
+	<button ref={ref} type="button" {...props} className="inline-flex w-full items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-left text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
 ));
 Control.displayName = 'Control';
 // Thin adapter over the shared ui/switch primitive, preserving this file's
@@ -4801,7 +5015,7 @@ function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; la
 // empty commit clears the setting.
 //
 // The geometry is `Field`'s, not its own — see the note there.
-function TextRow({ label, desc, value, placeholder, onCommit }: { label: string; desc?: string; value: string; placeholder?: string; onCommit: (v: string) => void }) {
+function TextRow({ label, desc, help, value, placeholder, onCommit }: { label: string; desc?: string; help?: React.ReactNode; value: string; placeholder?: string; onCommit: (v: string) => void }) {
 	const [draft, setDraft] = React.useState(value);
 	// A real <label htmlFor> (not a bare span) so tapping the label focuses the field,
 	// and aria-describedby so a screen reader announces the help line (incl. "Blank
@@ -4813,7 +5027,7 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 	// never fights the author mid-keystroke.
 	React.useEffect(() => { setDraft(value); }, [value]);
 	return (
-		<Field label={label} desc={desc} htmlFor={id} descId={desc ? descId : undefined}>
+		<Field label={label} desc={desc} help={help} htmlFor={id} descId={desc ? descId : undefined}>
 			<Input
 				id={id}
 				aria-describedby={desc ? descId : undefined}
@@ -4829,7 +5043,7 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 				// `h-9` (36px), NOT the `h-8` this had while it was a full-width field of its
 				// own: that is `Control`'s height, so the field and the dropdowns it now sits
 				// among share a baseline instead of missing it by 4px on every row.
-				className="h-9 min-w-[116px] flex-1 text-[12.5px]"
+				className="h-9 w-full text-[12.5px]"
 			/>
 		</Field>
 	);

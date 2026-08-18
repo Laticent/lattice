@@ -297,6 +297,47 @@ export function useKeyboardInset(active: boolean): void {
  * description pinned over the deck would eat most of what a keyboard leaves, and the dock
  * this imitates is one row.
  */
+/**
+ * The SETTINGS-ROW geometry — one source for both Inspector scopes (HARD RULE #15).
+ *
+ * A setting is two rows: `label | control` on top, the help line beneath spanning the
+ * full width. The top row splits 45/45 with a gap, and because both columns are
+ * `flex-1 min-w-0` the free space divides evenly — so every control in a column starts
+ * at the same x, whatever its label's length. That is the property the panel lacked:
+ * each dropdown sized to its own content, so a column of them was a ragged edge, and a
+ * verbose option label (an "Automatic — English (United States)") widened its whole row.
+ *
+ * The control column is `justify-end`, which is all an intrinsic control (a Switch) needs
+ * to sit at the right margin. A control that should FILL its half — a dropdown, a text
+ * input, a segmented control — takes `w-full` and truncates rather than growing, which is
+ * what lets an option label carry its resolved value again.
+ *
+ * `flex-wrap` + `basis-[45%]`: two 45% columns and a gap fit one line, so the row only
+ * wraps when a control's own min-content cannot fit its half — at which point it drops to
+ * its own full-width line instead of overflowing the panel. The docked Inspector is
+ * 260–420px wide (SET_MIN … PANEL_MAX in StudioShell), so the narrowest column is ~108px.
+ */
+export const SETTING_ROW =
+	'flex flex-wrap items-center gap-x-3 gap-y-1.5 ' +
+	// STACK when the PANEL gets narrow. Below ~320px there is not enough width for two
+	// usable columns — the control lands under ~130px and starts eating its own value
+	// ("Widescreen 16…") — so label, control and help line become three stacked rows and
+	// the control takes the full width back.
+	//
+	// A CONTAINER query, not a media query, and that is the whole point: the docked
+	// Inspector is resizable between SET_MIN (260px) and PANEL_MAX (420px) at ANY viewport,
+	// so the viewport's width says nothing about the panel's. The container is declared by
+	// `SETTING_SCOPE` on the panel body.
+	'@max-[320px]/settings:flex-col @max-[320px]/settings:items-stretch @max-[320px]/settings:gap-y-1';
+/** Put this on the panel body that holds the rows — it is what the row's stacking measures. */
+export const SETTING_SCOPE = '@container/settings';
+/** The label half of a `SETTING_ROW`. */
+export const SETTING_LABEL_COL = 'min-w-0 flex-1 basis-[45%] @max-[320px]/settings:basis-auto';
+/** The control half of a `SETTING_ROW` — right-aligned, so an intrinsic control needs nothing.
+ *  Stacked, it keeps `justify-end` so a Switch stays on the right where the eye expects a
+ *  toggle, while a filling control (already `w-full`) spans the row either way. */
+export const SETTING_CONTROL_COL = 'flex min-w-0 flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
+
 export const PINNED_FIELD_ROW =
 	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +
 	'max-[699px]:[&:has(input:focus)]:z-50 max-[699px]:[&:has(input:focus)]:bg-[var(--bg)] max-[699px]:[&:has(input:focus)]:border-t ' +

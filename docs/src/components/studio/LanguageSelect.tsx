@@ -2,7 +2,7 @@ import { Globe } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { AUTO_LABEL, AutoIcon } from './auto-mark';
+import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { resolveSupported, STUDIO_LANGUAGES } from './studio-language';
 import { flagSrc } from './tts-voice-catalog';
 
@@ -34,6 +34,7 @@ export function LanguageSelect({
 	onValueChange,
 	includeAuto = false,
 	autoLabel = 'Automatic — workspace default',
+	resolvedAuto,
 	ariaLabel = 'Language',
 	className,
 }: {
@@ -42,8 +43,12 @@ export function LanguageSelect({
 	onValueChange: (code: string) => void;
 	/** Prepend the "inherit the workspace default" row (deck override picker only). */
 	includeAuto?: boolean;
-	/** Label for the Automatic row — pass the resolved default (e.g. "Automatic — English (US)"). */
+	/** Tooltip for the Automatic row — the fuller sentence (e.g. "Automatic — English (US)"). */
 	autoLabel?: string;
+	/** The DISPLAY name Automatic currently resolves to (e.g. "English"), shown in the row
+	 *  itself as `Auto — English`. Falls back to parsing it out of `autoLabel`, so a caller
+	 *  that only passes the old sentence still reads correctly. */
+	resolvedAuto?: string;
 	ariaLabel?: string;
 	className?: string;
 }) {
@@ -64,14 +69,16 @@ export function LanguageSelect({
 			</SelectTrigger>
 			<SelectContent>
 				{includeAuto && (
-					// Compact "Auto" — the trigger mirrors this row, so a long "Automatic —
-					// English (United States)" label here widened the whole control. `title`
-					// carries the full resolved meaning (hover tooltip + accessible description;
-					// Radix owns the option's accessible NAME via the visible text, so aria-label
-					// on the item is inert — the title is the honest channel).
+					// "Auto — English", not a bare "Auto". The value used to be cut from this row
+					// because the trigger mirrors it and a long label widened the whole control;
+					// the control now owns a fixed half of its row and truncates (SETTING_ROW in
+					// ui/panel), so the resolved language is back where it can be read at a
+					// glance. `title` still carries the fuller sentence (hover tooltip +
+					// accessible description; Radix owns the option's accessible NAME via the
+					// visible text, so aria-label on the item is inert).
 					<SelectItem value={LANG_AUTO} title={autoLabel}>
 						<AutoIcon />
-						<span>{AUTO_LABEL}</span>
+						<span>{autoHeadLabel(resolvedAuto ?? autoLabel.split('—').pop()?.trim())}</span>
 					</SelectItem>
 				)}
 				{STUDIO_LANGUAGES.map((l) => (

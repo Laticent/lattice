@@ -12,6 +12,10 @@ export type SpectrumCardEntry = {
 	/** the `spectrum-card:` register value (and engine SPECTRUM_CARD_NAMES member) */
 	name: string;
 	label: string;
+	/** For an entry whose own label is "Auto": what auto RESOLVES to, for the
+	 *  `Auto — <resolved>` head. Without it that head reads "Auto — Auto"
+	 *  (see autoHeadLabel in auto-mark.tsx). */
+	autoLabel?: string;
 	blurb: string;
 	/** CSS for the preview chip — a card face, optionally with a left rail */
 	swatch: { background: string; backgroundSize?: string };
@@ -31,7 +35,7 @@ export const SPECTRUM_CARDS: SpectrumCardEntry[] = [
 		swatch: { background: 'var(--bg-alt, var(--bg))' },
 	},
 	{
-		name: 'auto', label: 'Auto',
+		name: 'auto', label: 'Auto', autoLabel: 'Bar',
 		blurb: 'A rail that follows the deck’s spectrum style — the on-brand default when enabled.',
 		swatch: { background: RAIL('var(--spectrum-vertical, var(--spectrum, linear-gradient(var(--accent), var(--accent))))') },
 	},

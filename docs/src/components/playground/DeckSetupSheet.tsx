@@ -1,5 +1,6 @@
 import { Settings } from 'lucide-react';
 import * as React from 'react';
+import { MODES } from '@/components/studio/mode-catalog';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
@@ -19,7 +20,17 @@ import { CONFIG_PROFILES, createConfigPanel } from '@/playground/deck-config.js'
  * `noTheme` profile: the top-bar palette picker owns theme on this surface.
  * The trigger icon tints when the deck carries non-theme managed front matter
  * (readFrontMatter().configured) — the same cue the vanilla `is-set` class gave.
+ *
+ * `modes` is REQUIRED for the Mode row to render at all — deck-config gates it on
+ * `modes.length`, and this host passed nothing, so the row was in the profile and
+ * never drawn (found by the 2026-08-18 coverage audit, §4.2). The names come from the
+ * Studio's mode catalog, which carries the engine rot-guard (mode-catalog.test.ts), so
+ * the two surfaces cannot offer different modes.
  */
+// Module scope: a stable identity, so the mount callback's dep list doesn't change
+// every render (which would rebuild the whole vanilla panel on each parent update).
+const MODE_NAMES = MODES.map((m) => m.name);
+
 export function DeckSetupSheet({
 	getSource,
 	setSource,
@@ -62,6 +73,7 @@ export function DeckSetupSheet({
 				setSource: (next: string) => setSourceRef.current(next),
 				palettes,
 				finishes,
+				modes: MODE_NAMES,
 				fields: CONFIG_PROFILES.noTheme,
 			});
 			panel.render();

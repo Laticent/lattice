@@ -74,7 +74,7 @@ test('the walkthrough reskin drives the REAL deck Inspector (not a phantom point
 	await gotoStudio(page);
 	await startTour(page); // the full walkthrough
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect(page.getByText('Editing the whole deck')).toBeVisible({ timeout: 100_000 });
+	await expect(page.getByText('Configure the whole deck')).toBeVisible({ timeout: 100_000 });
 });
 
 // The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours

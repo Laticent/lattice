@@ -25,9 +25,21 @@ export type CatalogGroup = { label?: string; options: CatalogOption[] };
 
 /** Map a catalog of `{name,label,swatch,blurb?}` entries (finish/spectrum/mode/…)
  *  to CatalogOptions, using the entry `name` as the value and its `blurb` as the
- *  row's hover title. The shared adapter so a caller never hand-rolls the mapping. */
-export function catalogOptions(entries: { name: string; label: string; swatch: CatalogSwatch; blurb?: string }[]): CatalogOption[] {
-	return entries.map((e) => ({ value: e.name, label: e.label, swatch: e.swatch, title: e.blurb }));
+ *  row's hover title. The shared adapter so a caller never hand-rolls the mapping.
+ *
+ *  An entry carrying `autoLabel` is one whose own label is "Auto" — a value that says
+ *  nothing on its own. It renders as `Auto — <what it lands on>`, which is the ONE rule
+ *  the panels now keep: wherever the word Auto appears, what it resolves to follows it.
+ *  (The per-slide inherit heads do the same through `autoHeadLabel`; this covers the
+ *  deck scope, where Auto is a real register value rather than an inherit sentinel — the
+ *  two used to read differently for a reason no reader could see.) */
+export function catalogOptions(entries: { name: string; label: string; autoLabel?: string; swatch: CatalogSwatch; blurb?: string }[]): CatalogOption[] {
+	return entries.map((e) => ({
+		value: e.name,
+		label: e.autoLabel ? `${e.label} — ${e.autoLabel}` : e.label,
+		swatch: e.swatch,
+		title: e.blurb,
+	}));
 }
 
 // The preview chip — a small swatch rendering the option's CSS background (a finish

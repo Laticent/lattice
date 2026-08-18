@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -19,14 +19,16 @@ test('@smoke size control writes the size front-matter', async ({ page }) => {
 });
 
 // Header / Footer / Page numbers / Section rail live under the Inspector's
-// "Marks" tab (DECK_TABS); the panel opens on "Look". Selecting the tab is part
+// "Chrome" tab (DECK_TABS); the panel opens on "Look". Selecting the tab is part
 // of the flow — these two specs were silently red for want of that one click.
-async function openMarksTab(page: Page): Promise<void> {
-	await page.getByRole('tab', { name: 'Marks' }).click();
+// (The tab was called "Marks" until 2026-08-18; the slide Inspector had always
+// called the same four controls Chrome, and one vocabulary won.)
+async function openChromeTab(page: Page): Promise<void> {
+	await page.getByRole('tab', { name: CHROME.deckTab.chrome }).click();
 }
 
 test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
-	await openMarksTab(page);
+	await openChromeTab(page);
 	const toggle = page.getByRole('switch', { name: 'Page numbers' });
 	await expect(toggle).toHaveAttribute('aria-checked', 'false');
 	await toggle.click();
@@ -36,7 +38,7 @@ test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
 
 test('the Header field declares running-header text into front-matter', async ({ page }) => {
 	// Header is a text DECLARATION now (you state the copy), not a toggle.
-	await openMarksTab(page);
+	await openChromeTab(page);
 	const header = page.getByRole('textbox', { name: 'Header' });
 	await header.click();
 	await header.fill('Acme — Q3');
