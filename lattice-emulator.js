@@ -14,8 +14,10 @@
  * off) — but nothing here defers to Marp, and lattice.css is written for
  * this engine, not for Marp. See engineering/marp-independence.md.
  *
- * Mermaid diagrams (```mermaid blocks) are rendered to SVG via mmdc
- * with theme variables mapped to the Lattice palette.
+ * Mermaid diagrams (```mermaid blocks) are rendered to SVG in an engine-owned
+ * Puppeteer page (lib/integrations/mermaid/render-worker.js), with theme variables
+ * mapped to the Lattice palette and the engine's own fonts loaded before Mermaid
+ * measures a label.
  *
  * Usage:
  *   node lattice-emulator.js <source.md> <output.pdf> [palette]
@@ -36,7 +38,7 @@ const fs            = require('fs');
 const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 const os            = require('os');
-const { execSync }  = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
 // The logo-marks transform emits `<span class="logo-mark" … style="--logo-mask:
@@ -70,8 +72,8 @@ function inlineLogoMarkSvg(html, baseFileUrl) {
   });
 }
 
-// Package root for sibling-asset lookups (themes/, dist/lattice.css,
-// node_modules/.bin/mmdc). This file runs from two locations: as repo-root
+// Package root for sibling-asset lookups (themes/, dist/lattice.css, dist/fonts/,
+// the Mermaid render worker). This file runs from two locations: as repo-root
 // source (tests, `node lattice-emulator.js`) where __dirname IS the root,
 // and as the bundled dist/lattice-emulator.js (the published `bin`) where
 // __dirname is <root>/dist. esbuild collapses every bundled module onto the
@@ -692,7 +694,13 @@ const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 const { resolveDiagramBand } = require('./lib/core/diagram-band');
 // The look question, the band question's sibling — same inputs, same per-slide walk.
 // See lib/core/diagram-look.js for why it is decided HERE and not in CSS.
-const { resolveDiagramLook, paletteUsesTextureChannel } = require('./lib/core/diagram-look');
+const { resolveDiagramLook, resolveDiagramHandType, paletteUsesTextureChannel } = require('./lib/core/diagram-look');
+// Hoisted ABOVE the mermaid pre-pass, which runs at module-evaluation time. Declared with
+// the other font plumbing further down, these were in the TDZ when `warnOnUnloadedFaces`
+// fired — the same trap `escAttrLocal` documents a few hundred lines below, and it
+// surfaced the same way: a misleading "Mermaid render failed" for a bug in our own code.
+const { fontFaceCss } = require('./lib/fonts/face-css.js');
+const { TEXT_FACES } = require('./lib/fonts/text-faces.js');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
 // decides no policy.
@@ -852,7 +860,7 @@ if (explicitSize && !isRegisteredSize(explicitSize)) {
 //   2. lattice.css "DIAGRAM OVERRIDES" section.  Per-diagram CSS
 //      (`section .section-N rect { fill: var(--cat-3-fill) }` and so
 //      on) that target classes Mermaid emits but doesn't theme. Loaded as
-//      a normal page stylesheet via lattice.css; the mmdc-produced SVG is
+//      a normal page stylesheet via lattice.css; the rendered SVG is
 //      embedded inline in the host HTML, so the host stylesheet cascades
 //      onto it at PDF-rasterize time — same mechanism the runtime preview
 //      already uses. No Mermaid `themeCSS` init parameter is used.
@@ -877,7 +885,7 @@ if (explicitSize && !isRegisteredSize(explicitSize)) {
 // Required HERE, above the first use: the mermaid pre-pass runs during module
 // evaluation, so everything it reaches for must already be bound (the same
 // hazard the local escapeHtml below works around).
-const { withEngineInit, engineInitConfig, authorPinsTheme } = require('./lib/integrations/mermaid/init-directive');
+const { engineInitConfig, authorPinsTheme } = require('./lib/integrations/mermaid/init-directive');
 const { buildDiagramTheme } = require('./lib/core/mermaid-theme-map');
 
 
@@ -925,8 +933,8 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
 
 // ── Build the Mermaid themeVariables object from the map + CSS vars ──────
 // This path's half of the port (lib/core/mermaid-theme-map.js): read one token
-// out of the OFFLINE-resolved palette. mmdc is a separate process, so there is
-// no live DOM to ask — `parsePaletteVars` has already collapsed light-dark() and
+// out of the OFFLINE-resolved palette. The render worker is a separate process, so
+// there is no live DOM to ask — `parsePaletteVars` has already collapsed light-dark() and
 // chased every var() chain to a literal for the scheme being baked.
 //
 // The MISS POLICY is this path's too, and it is not cosmetic: a build-log
@@ -948,8 +956,17 @@ function readPaletteToken(paletteVars, name) {
   return val;
 }
 
-function resolveMermaidThemeVars(paletteVars) {
-  return buildDiagramTheme((name) => readPaletteToken(paletteVars, name));
+function resolveMermaidThemeVars(paletteVars, hand = false) {
+  return buildDiagramTheme((name) => {
+    // Same sketch re-point `readScopeToken` applies, against a palette handed in
+    // rather than one selected by band — the image-set look re-bake parses a
+    // DIFFERENT theme file, so it cannot go through the band reader. Stated in both
+    // places would be two answers; `readScopeToken` delegates the lookup and this
+    // repeats only the one-line table read.
+    const repoint = hand ? SKETCH_TOKEN_REPOINTS[name] : undefined;
+    if (repoint && paletteVars[repoint]) return readPaletteToken(paletteVars, repoint);
+    return readPaletteToken(paletteVars, name);
+  });
 }
 
 // Parse the combined cascade (layoutCSS first, then paletteCSS) so the
@@ -1003,8 +1020,54 @@ function paletteVarsForBand(band) {
   if (band === 'dark' && DUAL_RENDER) return PALETTE_VARS_DARK;
   return PALETTE_VARS;
 }
-function readBandToken(band, name) {
-  return readPaletteToken(paletteVarsForBand(band), name);
+/**
+ * THE SKETCH RE-POINT THIS READER CANNOT SEE (#1674).
+ *
+ * `base.sketch.css` re-points `--font-body` to `--sketch-font-body` inside a CLASS
+ * scope (`section.sketch`). The preview's reader is `getComputedStyle(section)`, so
+ * that re-point is already applied by the time it looks. This reader resolves tokens
+ * OFFLINE against the palette text — there is no element, no cascade and no class —
+ * so it would hand back the clean body stack for a sketch slide and the export's
+ * diagram labels would be the only thing on the slide still speaking in the machine
+ * face. That is #1674 in one sentence.
+ *
+ * So the re-point is applied HERE, in the reader, which is where a path difference
+ * belongs (`lib/core/render-diagrams.js` § THE PORT): the map stays declarative
+ * (`fontFamily: { var: 'font-body' }`) and both paths answer the same question.
+ *
+ * Only the tokens the diagram map actually reads need an entry. `base.sketch.css`
+ * re-points `--font-label` and `--pill-font` too, and neither reaches Mermaid.
+ * `test/unit/mermaid/sketch-font-repoint.test.js` reads the real CSS and fails if a
+ * mapped token's re-point is renamed or dropped, so this table cannot silently rot.
+ */
+const SKETCH_TOKEN_REPOINTS = Object.freeze({ 'font-body': 'sketch-font-body' });
+
+/**
+ * Read one palette token as a SCOPE resolves it. The scope is `{ band, hand }` —
+ * the band decides the palette, `hand` says whether the slide wears the sketch
+ * finish's type. It is an object rather than the bare band string it used to be
+ * because a slide's diagram now needs BOTH answers, and passing them separately is
+ * how the two drift.
+ */
+function readScopeToken(scope, name) {
+  const { band, hand } = normalizeScope(scope);
+  const vars = paletteVarsForBand(band);
+  const repoint = hand ? SKETCH_TOKEN_REPOINTS[name] : undefined;
+  // Fall through to the base token when a theme somehow carries no sketch value, so a
+  // missing re-point degrades to the clean face rather than to the black sentinel.
+  if (repoint && vars[repoint]) return readPaletteToken(vars, repoint);
+  return readPaletteToken(vars, name);
+}
+
+/** Accept a bare band string as well as a scope object — the look re-bake passes one. */
+function normalizeScope(scope) {
+  return typeof scope === 'string' ? { band: scope, hand: false } : (scope || { band: 'light', hand: false });
+}
+
+/** Names the palette a scope resolves, for the kernel's per-palette memoization. */
+function diagramScopeKey(scope) {
+  const { band, hand } = normalizeScope(scope);
+  return `${band}|${hand ? 'hand' : 'clean'}`;
 }
 // The band palettes, for the ONE caller that renders outside the kernel's walk: the
 // image-set cross-scheme look re-bake, which re-renders an already-placed diagram in a
@@ -1013,18 +1076,22 @@ function readBandToken(band, name) {
 // constants it replaced, and built through `resolveMermaidThemeVars` — the same single
 // assembly point that caller uses — so the two cannot diverge.
 const bandThemeVars = new Map();
-function themeVarsForBand(band) {
-  let vars = bandThemeVars.get(band);
+function themeVarsForBand(band, hand = false) {
+  const key = diagramScopeKey({ band, hand });
+  let vars = bandThemeVars.get(key);
   if (!vars) {
-    vars = resolveMermaidThemeVars(paletteVarsForBand(band));
-    bandThemeVars.set(band, vars);
+    // Through `resolveMermaidThemeVars`, deliberately: the PDF path keeps exactly ONE
+    // palette-assembly site, and `test/unit/core/diagram-theme-parity.test.js` fails on
+    // a second one — that is where the 38 drifted values came from (#511).
+    vars = resolveMermaidThemeVars(paletteVarsForBand(band), hand);
+    bandThemeVars.set(key, vars);
   }
   return vars;
 }
 
 // ── Puppeteer config — chrome auto-detection ─────────────────────────────
-// The renderer shells out to mmdc (mermaid-cli) which uses puppeteer to
-// rasterize diagrams. Puppeteer needs a Chrome binary; resolution order:
+// Both the diagram render worker and the PDF rasterize step drive puppeteer, which
+// needs a Chrome binary; resolution order:
 //   1. PUPPETEER_EXECUTABLE_PATH env var (explicit override)
 //   2. puppeteer's bundled copy under <user>/.cache/puppeteer/chrome/
 //   3. system Chrome / Chromium (looked up via `which`)
@@ -1079,11 +1146,10 @@ function detectChromeExecutable() {
 }
 
 const CHROME_EXEC = detectChromeExecutable();
-const PUPPETEER_CONFIG = JSON.stringify(
-  CHROME_EXEC
-    ? { executablePath: CHROME_EXEC, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-    : { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-);
+// The engine-owned Mermaid render page, run as a child process so this synchronous
+// pre-pass can drive an async Puppeteer render. Resolved from PKG_ROOT rather than
+// __dirname so a bundled emulator finds it the same way the fonts are found.
+const MERMAID_WORKER = path.join(PKG_ROOT, 'lib', 'integrations', 'mermaid', 'render-worker.js');
 if (!CHROME_EXEC) {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or install puppeteer to download one.');
 }
@@ -1106,9 +1172,9 @@ const MERMAID_KINDS = {
 // Escaped LOCALLY rather than via the module's `escapeHtml`, which is declared far
 // below as a `const`: the mermaid pre-pass runs during module evaluation, so reaching
 // forward to it throws `Cannot access 'escapeHtml' before initialization`. That failure
-// was ALSO invisible — the surrounding retry loop deletes the temp dir before this
-// point, so attempts 2 and 3 failed with a misleading "Command failed: mmdc" (no input
-// file) and the real cause never surfaced.
+// was ALSO invisible — the surrounding retry loop deleted the temp dir before this
+// point, so attempts 2 and 3 failed with a misleading "Command failed" (no input file)
+// and the real cause never surfaced.
 const escAttrLocal = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function mermaidKindLabel(definition) {
@@ -1133,106 +1199,136 @@ function mermaidKindLabel(definition) {
 }
 
 function renderMermaidOne(definition, themeVars, extraClass, look) {
-  // Prepend the Mermaid init block if not already present.
-  // JetBrains Mono is bundled by the lattice.css font import and is the
-  // safe default for diagrams: predictable character widths, no measurement
-  // drift between the layout pass and render pass.
-  //
-  // No `themeCSS` field is set: per-diagram CSS overrides live in
-  // lattice-diagram.css and reach the SVG via the host page's stylesheet
-  // cascade (the mmdc-produced SVG is embedded inline in the host HTML at
-  // PDF-rasterize time). themeVariables is enough here because it covers
-  // the values Mermaid inlines as SVG attributes — gradient stops, marker
-  // fills, gantt grid lines — which no external CSS can reach.
-  //
-  // Placement (including YAML-frontmatter ordering) and the merge with an
-  // author's own `%%{init}%%` are the shared kernel's job — see
-  // lib/integrations/mermaid/init-directive.js. An author directive no longer
-  // costs the palette: unless it pins a Mermaid `theme:`, the engine directive
-  // goes in ahead of it and mermaid merges the author's keys on top (#1311).
-  const themed = withEngineInit(definition, engineInitConfig(themeVars, { look }));
-
-  const tmpDir    = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-'));
-  const inFile    = path.join(tmpDir, 'diagram.mmd');
-  const outSvg    = path.join(tmpDir, 'diagram.svg');
-  const cfgFile   = path.join(tmpDir, 'puppeteer.json');
-
-  fs.writeFileSync(inFile,  themed);
-  fs.writeFileSync(cfgFile, PUPPETEER_CONFIG);
-
-  // mmdc / Puppeteer has known transient failures (browser startup races,
-  // network hiccups when fetching CDN-hosted icon sets for architecture/c4).
-  // Retry up to 3 times before falling back. Each attempt is fully isolated:
-  // we delete any stale output between tries.
+  // Mermaid / Chromium has known transient failures (browser startup races, a lost
+  // page). Retry the whole worker up to 3 times before degrading to a `<pre>`.
   const MAX_ATTEMPTS = 3;
   let lastError = null;
-  // Resolve mmdc binary explicitly — falls back to bare 'mmdc' on PATH if the
-  // local install is missing. Direct `node lattice-emulator.js` doesn't include
-  // node_modules/.bin in PATH the way `npm run` does.
-  const localMmdc = path.join(PKG_ROOT, 'node_modules', '.bin', 'mmdc');
-  const mmdcBin   = fs.existsSync(localMmdc) ? localMmdc : 'mmdc';
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      if (fs.existsSync(outSvg)) fs.unlinkSync(outSvg);
-      execSync(
-        `"${mmdcBin}" -i "${inFile}" -o "${outSvg}" --backgroundColor transparent --puppeteerConfigFile "${cfgFile}"`,
-        { stdio: 'pipe' }
-      );
-      if (!fs.existsSync(outSvg) || fs.statSync(outSvg).size === 0) {
-        throw new Error('mmdc exited cleanly but produced no SVG');
-      }
-      const svg = fs.readFileSync(outSvg, 'utf8');
-      // mmdc hardcodes the SVG root id to "my-svg" and prefixes every internal
-      // id (markers, gradients, filters) and every emitted CSS rule with that
-      // same string. When a slide deck embeds many Mermaid SVGs in one HTML,
-      // their `<style>` blocks all use `#my-svg .node …` selectors that step
-      // on each other — the last diagram's theme variables (e.g. a treeview
-      // with primaryColor="#FFFFFF") silently override every prior diagram's
-      // node fills. Rewrite to a per-diagram suffix so the SVGs are isolated.
-      // The replacement is a single global substitution: it catches the root
-      // id, every internal id (e.g. my-svg-flowchart-A-0), every url(#my-svg…)
-      // reference, and every #my-svg selector inside the embedded <style>.
-      // The id isolation that used to live here now runs inside finishMermaidSvg,
-      // so the batched path gets it too — see there. Skipping it on one path gave
-      // every diagram in a deck the same `my-svg` prefix, which is the collision
-      // this repo already knew about; the oracle caught it on 118 of 118 fences.
-      // Mermaid sankey (11.14) emits each node's <text> with the node name on
-      // line 1 and the outbound-link value on line 2, separated by a literal
-      // newline:   <text>Wages\n750</text>
-      // SVG ignores newlines inside <text> (no <tspan>, no line break), but
-      // the post-mmdc pipeline runs the HTML through marp/markdown-it, which
-      // parses `\n\n` inside the inlined SVG as a paragraph break and wraps
-      // the value in <p>…</p>. The resulting <text>Wages<p>750</text> is
-      // invalid SVG and breaks text positioning, producing the visible
-      // "750Disposable income750Savings…" run-together labels. Sankey is the
-      // only diagram type that puts newlines inside <text>; gate on the
-      // sankey-specific <g class="links"> marker so the substitution doesn't
-      // touch <text> elements in any other diagram type.
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-      return finishMermaidSvg(svg, definition, extraClass);
-    } catch (e) {
-      lastError = e;
-      if (attempt < MAX_ATTEMPTS) {
-        // Brief backoff before retry — gives Puppeteer time to release
-        // any zombie chrome processes from the failed attempt.
-        execSync('sleep 1');
-      }
+    const out = runMermaidWorker([{ definition, themeVars, look }]);
+    if (out.ok && out.results[0]?.ok) {
+      return finishMermaidSvg(out.results[0].svg, definition, extraClass);
     }
+    lastError = out.results[0]?.error || out.error || 'unknown failure';
+    // A DIAGRAM-level error is the author's syntax, not a flaky browser — retrying it
+    // costs three Chromium boots to reach the same verdict. Only a WORKER-level failure
+    // is worth another attempt.
+    if (out.ok) break;
+    if (attempt < MAX_ATTEMPTS) execSync('sleep 1');
   }
-  console.warn(`  ⚠ Mermaid render failed after ${MAX_ATTEMPTS} attempts:`, lastError.message.split('\n')[0]);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-  return `<pre class="mermaid-fallback">${definition}</pre>`;
+  console.warn(`  ⚠ Mermaid render failed: ${String(lastError).split('\n')[0]}`);
+  return mermaidFallbackPre(definition);
 }
 
 /**
- * Everything that happens to an mmdc-produced SVG between "mmdc succeeded" and
+ * The degradation block for a diagram that could not render, with its source ESCAPED.
+ *
+ * It was interpolated raw on both paths, which put author markup straight into the
+ * exported `.html` sidecar and into the page Puppeteer rasterizes — a fence body of
+ * `</pre><img src=x onerror=…>` executed there, verified. Pre-existing (identical on
+ * `origin/main`) and off the path of #1674, so by HARD RULE #18 it would be logged rather
+ * than fixed — except that it is one call, the helper already existed a few lines up, and
+ * #1674 makes this path materially easier to reach (a batch that used to fall back and
+ * retry now degrades in place). Fixing beats logging when the fix is this small.
+ *
+ * `escAttrLocal` rather than the module's `escapeHtml`: same TDZ reason as its own
+ * docstring gives — the mermaid pre-pass runs during module evaluation.
+ */
+function mermaidFallbackPre(definition) {
+  return `<pre class="mermaid-fallback">${escAttrLocal(definition)}</pre>`;
+}
+
+/**
+ * A face that is DECLARED but never LOADS is the #1674 bug wearing a disguise: the
+ * diagram still renders, Mermaid just measured it in a fallback and the deck then paints
+ * it in the real face. Nothing about the output looks wrong until a label overflows its
+ * box. The worker reports what actually reached `status === 'loaded'`, so say something
+ * the one time it does not — once per run, naming the faces, rather than per diagram.
+ */
+let warnedUnloadedFaces = false;
+function warnOnUnloadedFaces(out) {
+  if (warnedUnloadedFaces || !out || !Array.isArray(out.fontsLoaded)) return;
+  // PER FACE, not per family. A family with its 400 present and its 700 missing would pass
+  // a family-level check while mermaid measured cluster titles and bold runs against
+  // synthetic bold — the same measure/paint split one weight down.
+  const loaded = new Set(out.fontsLoaded);
+  const missing = TEXT_FACES
+    .filter((f) => !loaded.has(`${f.family}|${f.weight}|${f.style}`))
+    .map((f) => `${f.family} ${f.weight}${f.style === 'italic' ? ' italic' : ''}`);
+  if (!missing.length) return;
+  warnedUnloadedFaces = true;
+  console.warn(`  ⚠ Mermaid render page did not load: ${missing.join(', ')} — diagram labels in `
+    + 'those faces were measured against a fallback and may not fit their nodes.');
+}
+
+/**
+ * Run the engine-owned Mermaid render worker over a list of requests, synchronously.
+ *
+ * WHY A CHILD PROCESS AT ALL — `preprocessMermaid` is called at module-evaluation
+ * time (below) and cannot `await`, while Puppeteer is async throughout. The worker
+ * keeps the caller's shape exactly as the `mmdc` shell-out had it. See
+ * lib/integrations/mermaid/render-worker.js for why we stopped calling `mmdc`.
+ *
+ * @param {Array<{definition: string, themeVars: object, look: string|undefined}>} requests
+ * @returns {{ok: boolean, error?: string, results: Array<{ok: boolean, svg?: string, error?: string}>}}
+ */
+function runMermaidWorker(requests) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-'));
+  try {
+    const jobFile = path.join(tmpDir, 'job.json');
+    const outFile = path.join(tmpDir, 'out.json');
+    fs.writeFileSync(jobFile, JSON.stringify({
+      pkgRoot: PKG_ROOT,
+      chromePath: CHROME_EXEC || undefined,
+      backgroundColor: 'transparent',
+      outFile,
+      // The engine's config, delivered the way the live preview delivers it. Nothing is
+      // serialized into a `%%{init}%%` directive any more, so the author's own directive
+      // is the ONLY one in the source and Mermaid merges it over ours exactly as it does
+      // in the preview (#1674, HARD RULE #1).
+      diagrams: requests.map((r) => ({
+        definition: r.definition,
+        // `omitPalette` carries the theme STAND-DOWN across the transport change. It used
+        // to be implicit in `withEngineInit`, which returned the definition untouched when
+        // the author pinned a theme, so no engine config reached Mermaid at all. Config
+        // travels beside the source now, so the stand-down has to be stated.
+        config: engineInitConfig(r.themeVars, {
+          look: r.look,
+          omitPalette: authorPinsTheme(r.definition),
+        }),
+      })),
+    }));
+    // A BUDGET, because there was none. The worker bounds its own CDP calls, but a child
+    // that wedges before it can report leaves this synchronous call blocked forever — and
+    // `mmdc` had the same gap with a fraction of the blast radius, because it booted a
+    // browser per diagram. Scaled by batch size so a large deck is not cut off mid-render;
+    // on expiry `execFileSync` throws, the catch below degrades, and the caller retries.
+    const timeout = Math.max(120_000, 15_000 * requests.length);
+    execFileSync(process.execPath, [MERMAID_WORKER, jobFile], { stdio: ['ignore', 'ignore', 'pipe'], timeout });
+    const out = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    warnOnUnloadedFaces(out);
+    return out;
+  } catch (e) {
+    // The worker writes its result file even when the browser never came up, so prefer
+    // that over the process error — it carries the real reason.
+    try {
+      const parsed = JSON.parse(fs.readFileSync(path.join(tmpDir, 'out.json'), 'utf8'));
+      if (parsed && Array.isArray(parsed.results)) { warnOnUnloadedFaces(parsed); return parsed; }
+    } catch (_e) { /* fall through to the process-level error */ }
+    return { ok: false, error: String(e?.message ? e.message : e).split('\n')[0], results: [] };
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Everything that happens to a rendered SVG between "Mermaid succeeded" and
  * "this is a slide fragment". EXTRACTED so the one-at-a-time path and the batched
- * path cannot drift: they are two ways of invoking mmdc, not two renderers, and a
+ * path cannot drift: they are two ways of calling the worker, not two renderers, and a
  * fix applied to one of them silently missing the other is precisely the failure
  * `lib/core/render-diagrams.js` was built to stop (#1326, four defects in a row,
  * each one two implementations answering the same question differently).
  *
- * @param {string} svg          Raw mmdc output.
+ * @param {string} svg          Raw worker output.
  * @param {string} definition   The diagram source, for the accessible-name fallback.
  * @param {string|null} extraClass  Extra class on the wrapper, or null.
  */
@@ -1301,79 +1397,57 @@ function finishMermaidSvg(svg, definition, extraClass) {
     console.warn(`  ⚠ Mermaid post-processing failed (diagram still rendered): ${postErr?.message}`);
   }
   const cls = extraClass ? `mermaid-svg ${extraClass}` : 'mermaid-svg';
-  return `<div class="${cls}">${svg}</div>`;
+  // STAMP THE STAND-DOWN. When the author pins a theme in the fence, the engine emits no
+  // palette AND no font keys — the diagram deliberately wears Mermaid's stock look, which
+  // means its labels are deliberately NOT in the deck's face. Nothing in the output said
+  // so, so `tools/check-diagram-labels.js` could not tell a diagram that opted out from
+  // one the finish failed to reach: it had to fall back to a denylist of five Mermaid
+  // default face names, which passes any face that is merely WRONG rather than famous.
+  // One attribute makes the export self-describing and lets that gate ask the exact
+  // question — "is this label in the face its own slide asked for?" — with an exemption
+  // that is a fact about the diagram rather than a guess.
+  const pinned = authorPinsTheme(definition) ? ' data-author-theme="1"' : '';
+  return `<div class="${cls}"${pinned}>${svg}</div>`;
 }
 
 /**
- * Render EVERY fence in one mmdc invocation instead of one invocation each.
+ * Render EVERY fence in ONE browser instead of one browser each.
  *
- * mmdc boots its own Chromium, and it was booting one PER DIAGRAM: measured at
- * ~2.9s per fence, which on the 14-fence diagram gallery was 40.7s of a 44.3s
- * render — 92%, and the largest single cost anywhere in the CLI
- * (engineering/decisions/2026-08-16-render-format-cost-assessment.md §2b).
+ * THE COST THIS REMOVES. `mmdc` boots its own Chromium, and it was booting one PER
+ * DIAGRAM: ~2.9s per fence, which on the 14-fence diagram gallery was 40.7s of a 44.3s
+ * render — 92%, the largest single cost anywhere in the CLI
+ * (engineering/decisions/2026-08-16-render-format-cost-assessment.md §2b). Batching
+ * through `mmdc -i <markdown>` brought that to a measured `1.86s + 1.09s × N`.
  *
- * mmdc's `-i` accepts a MARKDOWN file and extracts every ```mermaid fence from it,
- * writing `<out>-1.svg`, `<out>-2.svg`, … in fence order. That is the whole
- * mechanism. Batching is safe across theme bands because `withEngineInit` bakes
- * each fence's palette into its OWN `%%{init}%%` directive, so a light fence and a
- * dark fence in one file still render with their own colors — verified, not assumed.
+ * The worker goes further for free: it reuses ONE PAGE across the batch, so the 1.6 MB
+ * Mermaid bundle is parsed once rather than once per diagram, which is where most of
+ * that per-diagram second went. Numbers for the change are in the PR's `## Performance`
+ * section (HARD RULE #19).
  *
- * Measured: `1.86s + 1.09s × N` batched against `2.9s × N` serial, so it wins from
- * two fences up.
+ * NOT ALL-OR-NOTHING ANY MORE, and that is the other improvement. The `mmdc -i`
+ * batch wrote `<out>-1.svg`, `<out>-2.svg`, … and a fence it could not parse simply
+ * produced no file — which invalidated the index alignment the caller depends on, so
+ * one bad fence sent the WHOLE deck back through the one-at-a-time path. The worker
+ * returns an index-aligned result per diagram with its own `ok` flag, so a bad fence
+ * costs only itself and the other thirteen are already rendered.
  *
- * Returns an array of finished slide fragments index-aligned with `requests`, or
- * `null` if the batch could not be completed — the caller then falls back to the
- * one-at-a-time path, which keeps `renderMermaidOne`'s per-diagram retry and
- * per-diagram fallback. A batch is all-or-nothing on purpose: one bad fence must
- * not cost the other thirteen their diagrams.
+ * Returns an array of finished slide fragments index-aligned with `requests`, or `null`
+ * when the worker itself could not run at all (no browser, a crash before any diagram)
+ * — the caller then falls back to the one-at-a-time path, which retries.
  *
  * @param {Array<{definition: string, themeVars: object, look: string|undefined, extraClass: string|null}>} requests
  */
 function renderMermaidBatch(requests) {
   if (!requests.length) return [];
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-batch-'));
-  try {
-    const inFile = path.join(tmpDir, 'batch.md');
-    const outFile = path.join(tmpDir, 'out.md');
-    const cfgFile = path.join(tmpDir, 'puppeteer.json');
-    fs.writeFileSync(cfgFile, PUPPETEER_CONFIG);
-    // One fence per request, in order. The themed source is byte-identical to what
-    // the one-at-a-time path writes — same `withEngineInit`, same config — so the
-    // two paths differ only in how many Chromiums pay for it.
-    fs.writeFileSync(
-      inFile,
-      requests
-        .map((r) => `\`\`\`mermaid\n${withEngineInit(r.definition, engineInitConfig(r.themeVars, { look: r.look }))}\n\`\`\``)
-        .join('\n\n') + '\n',
-    );
-
-    const localMmdc = path.join(PKG_ROOT, 'node_modules', '.bin', 'mmdc');
-    const mmdcBin = fs.existsSync(localMmdc) ? localMmdc : 'mmdc';
-    execSync(
-      `"${mmdcBin}" -i "${inFile}" -o "${outFile}" -e svg --backgroundColor transparent --puppeteerConfigFile "${cfgFile}" --quiet`,
-      { stdio: ['ignore', 'ignore', 'pipe'] },
-    );
-
-    // `<out>-N.svg`, 1-based, in fence order. A missing file means mmdc skipped a
-    // fence (a syntax error in one diagram), which invalidates the index alignment
-    // the caller depends on — bail to the per-fence path rather than shift every
-    // subsequent diagram onto the wrong slide.
-    const base = outFile.replace(/\.md$/, '');
-    const svgs = [];
-    for (let i = 0; i < requests.length; i++) {
-      const f = `${base}-${i + 1}.svg`;
-      if (!fs.existsSync(f)) return null;
-      svgs.push(fs.readFileSync(f, 'utf8'));
-    }
-    return svgs.map((svg, i) => finishMermaidSvg(svg, requests[i].definition, requests[i].extraClass));
-  } catch (e) {
-    if (!QUIET) {
-      console.warn(`  ⚠ batched Mermaid render failed (${String(e.message || e).split('\n')[0]}) — falling back to one render per diagram`);
-    }
-    return null;
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  const out = runMermaidWorker(requests);
+  if (!out.ok || out.results.length !== requests.length) return null;
+  return out.results.map((r, i) => {
+    if (r.ok) return finishMermaidSvg(r.svg, requests[i].definition, requests[i].extraClass);
+    // One fence failed to parse. Degrade THIS diagram only — and say which, because the
+    // batch used to be silent about it (the whole run just got slower).
+    console.warn(`  ⚠ Mermaid render failed for one diagram: ${String(r.error).split('\n')[0]}`);
+    return mermaidFallbackPre(requests[i].definition);
+  });
 }
 
 // Scheme-aware render: a diagram is baked with the dark-resolved themeVars when
@@ -1385,15 +1459,15 @@ function renderMermaidBatch(requests) {
 // Author-supplied %%{init}%% diagrams keep their own theming.
 // LATTICE_MERMAID_SINGLE=1 forces the light bake everywhere (fallback to the
 // CSS-override path).
-function renderMermaid(definition, mode, look) {
-  return renderMermaidOne(definition, themeVarsForBand(mode), null, look);
+function renderMermaid(definition, mode, look, hand = false) {
+  return renderMermaidOne(definition, themeVarsForBand(mode, hand), null, look);
 }
 
 // ── Pre-process markdown: render mermaid blocks before slide splitting ────────
 // Each fence is rendered for the band of ITS OWN slide, and the walk is the shared
 // kernel's (`renderDiagrams`, lib/core/render-diagrams.js — #1332 step 4). This path
 // supplies two capabilities and no policy: read a token for a band
-// (`readBandToken`), and render one diagram with the palette the kernel resolved
+// (`readScopeToken`), and render one diagram with the palette the kernel resolved
 // (`renderMermaidOne`).
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
@@ -1425,6 +1499,10 @@ const MERMAID_REBAKE_MODES = [];
 // scheme mismatch MERMAID_REBAKE_MODES exists to prevent. SINGLE-SHOT and reset
 // together with them.
 const MERMAID_REBAKE_LOOKS = [];
+// Index-aligned with the above: did this diagram bake its labels in the sketch hand
+// face? A cross-scheme re-bake reads a different palette file and must resolve the
+// SAME font token, or a re-baked sketch diagram silently reverts to the clean face.
+const MERMAID_REBAKE_HAND = [];
 
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
@@ -1485,15 +1563,27 @@ function preprocessMermaid(source) {
             flagPrint: WANT_PRINT,
           }),
         }),
-        scope: resolveDiagramBand({
-          frontMatter: fm,
-          slideClass: fence.slideClass,
-          // WANT_PRINT, not `flags.print`: `--image-mode print` sets the print
-          // canvas too, and passing the narrower flag made the band depend on the
-          // front-matter merge alone — so an image set exported in print mode
-          // baked full-color ink while manifest.json recorded "print".
-          flagPrint: WANT_PRINT,
-        }),
+        // THE SCOPE IS `{ band, hand }` (#1674), not the bare band it used to be.
+        // The band decides the palette; `hand` decides whether `--font-body` resolves
+        // through the sketch re-point (see readScopeToken). Both are per-SLIDE answers
+        // read from the same two inputs, so they are resolved together for the same
+        // reason the look is — a scope that answered one per slide and the other per
+        // deck would bake a diagram whose palette and type disagreed.
+        scope: {
+          band: resolveDiagramBand({
+            frontMatter: fm,
+            slideClass: fence.slideClass,
+            // WANT_PRINT, not `flags.print`: `--image-mode print` sets the print
+            // canvas too, and passing the narrower flag made the band depend on the
+            // front-matter merge alone — so an image set exported in print mode
+            // baked full-color ink while manifest.json recorded "print".
+            flagPrint: WANT_PRINT,
+          }),
+          // NOT `look === 'handDrawn'`: a texture palette and the print band both take
+          // the hand SHAPE away (redundant encoding cannot survive a hachure stroke)
+          // while leaving the hand TYPE, which is what `resolveDiagramHandType` answers.
+          hand: resolveDiagramHandType({ frontMatter: fm, slideClass: fence.slideClass }),
+        },
         diagrams: [],
       };
       bySlide.set(fence.slideIndex, slide);
@@ -1515,24 +1605,32 @@ function preprocessMermaid(source) {
   // position and a reordering would re-bake the wrong diagram.
   const requests = [];
   const rendered = renderDiagrams(deck, {
-    readToken: readBandToken,
+    readToken: readScopeToken,
+    scopeKey: diagramScopeKey,
     renderOne: (fence, themeVars, meta) => {
       // Keep the source def AND the band it was baked in, index-aligned, so the
       // image-set look re-bake can tell whether THIS diagram needs re-rendering.
       const idx = MERMAID_REBAKE_DEFS.push(fence.source) - 1;
-      MERMAID_REBAKE_MODES[idx] = meta.scope;
+      // The BAND, not the whole scope: `MERMAID_REBAKE_MODES` is compared against a
+      // look name (`'light'`/`'dark'`/`'print'`) to decide whether a diagram needs
+      // re-baking, and the scope became an object when the hand-type answer joined it.
+      MERMAID_REBAKE_MODES[idx] = meta.scope.band;
+      // Whether this diagram's labels are in the hand face, so a cross-scheme re-bake
+      // resolves the same font token the first bake did.
+      MERMAID_REBAKE_HAND[idx] = meta.scope.hand;
       MERMAID_REBAKE_LOOKS[idx] = meta.look;
       requests.push({ definition: fence.source, themeVars, look: meta.look, extraClass: null, scope: meta.scope });
       return { fence, idx };
     },
   });
 
-  // Pass 2: one mmdc for all of them, falling back to one-per-diagram if the batch
-  // cannot be completed. The fallback is not a formality — it is what preserves
-  // `renderMermaidOne`'s per-diagram retry and per-diagram `<pre>` degradation, so a
-  // single malformed fence still costs only itself.
+  // Pass 2: one browser for all of them, falling back to one-per-diagram if the WORKER
+  // could not run at all. The fallback is narrower than it used to be and still not a
+  // formality: a per-DIAGRAM failure is now degraded in place by the batch, so this
+  // path is reached only when nothing rendered — where `renderMermaidOne`'s retry is
+  // exactly what is wanted.
   if (!QUIET && requests.length) {
-    const scopes = [...new Set(requests.map((r) => r.scope))].join(', ');
+    const scopes = [...new Set(requests.map((r) => diagramScopeKey(r.scope)))].join(', ');
     process.stdout.write(`  Rendering ${requests.length} mermaid diagram${requests.length === 1 ? '' : 's'} (${scopes}) in one pass...`);
   }
   let htmls = renderMermaidBatch(requests);
@@ -2000,50 +2098,27 @@ aside.lattice-notes { display: none !important; }
 // type stack: display serif (Playfair, incl. italics), body sans (Outfit), mono
 // (JetBrains), and the `sketch` hand pair (Caveat, Shantell). See
 // assets/fonts/README.md.
-const SELF_HOSTED_FACES = require('./lib/fonts/text-faces.js').TEXT_FACES;
+// Both suppliers below come from ONE builder (lib/fonts/face-css.js) over the canonical
+// manifest. They used to be two near-identical loops here, and #1674 needed a third for
+// the Mermaid render worker's page — three copies of "walk the manifest, find the woff2,
+// base64 it, emit a rule" is how the `font-display` value or the directory fallback drift
+// apart with nothing watching (HARD RULE #15).
+
+// The PDF page's embedded block: every face, wrapped in a <style>. Covers the full engine
+// type stack — display serif (Playfair, incl. italics), body sans (Outfit), mono
+// (JetBrains), and the `sketch` hand pair (Caveat, Shantell). See assets/fonts/README.md.
 function embeddedFontsStyle() {
-  // Prefer the shipped dist/fonts/ (in the npm tarball AND committed in-repo);
-  // fall back to the assets/fonts/ source for a pre-build run. Either way the
-  // woff2 are local — the emulator embeds them with zero network.
-  const dir = [path.join(PKG_ROOT, 'dist', 'fonts'), path.join(PKG_ROOT, 'assets', 'fonts')]
-    .find((d) => fs.existsSync(d));
-  if (!dir) return '';
-  const faces = [];
-  for (const { family, weight, style, file } of SELF_HOSTED_FACES) {
-    const fp = path.join(dir, `${file}.woff2`);
-    if (!fs.existsSync(fp)) continue;
-    const b64 = fs.readFileSync(fp).toString('base64');
-    faces.push(
-      `@font-face{font-family:'${family}';font-style:${style};font-weight:${weight};` +
-      `font-display:swap;src:url(data:font/woff2;base64,${b64}) format('woff2');}`,
-    );
-  }
-  return faces.length ? `<style id="lattice-embedded-fonts">${faces.join('')}</style>` : '';
+  const faces = fontFaceCss(PKG_ROOT);
+  return faces ? `<style id="lattice-embedded-fonts">${faces}</style>` : '';
 }
 const embeddedFonts = embeddedFontsStyle();
 
-// Raw `@font-face{…}` rules (no <style> wrapper) for a standalone SVG asset, subset
-// to the families it actually uses (from collectFontFamilies) so a diagram/chart
-// lifted into the image set opens with the right type instead of a serif fallback,
-// without embedding all ~17 faces in every file. Reuses the SAME PKG_ROOT-resolved
-// woff2 as embeddedFontsStyle (bundling-safe, unlike a tools/ __dirname path).
+// Raw `@font-face{…}` rules (no <style> wrapper) for a standalone SVG asset, SUBSET to the
+// families it actually uses (from collectFontFamilies) so a diagram/chart lifted into the
+// image set opens with the right type instead of a serif fallback, without embedding all
+// ~17 faces in every file.
 function standaloneFontFaceCss(families) {
-  const want = new Set((families || []).map((f) => String(f).toLowerCase()));
-  const dir = [path.join(PKG_ROOT, 'dist', 'fonts'), path.join(PKG_ROOT, 'assets', 'fonts')]
-    .find((d) => fs.existsSync(d));
-  if (!dir) return '';
-  const rules = [];
-  for (const { family, weight, style, file } of SELF_HOSTED_FACES) {
-    if (want.size && !want.has(family.toLowerCase())) continue;
-    const fp = path.join(dir, `${file}.woff2`);
-    if (!fs.existsSync(fp)) continue;
-    const b64 = fs.readFileSync(fp).toString('base64');
-    rules.push(
-      `@font-face{font-family:'${family}';font-style:${style};font-weight:${weight};` +
-      `font-display:swap;src:url(data:font/woff2;base64,${b64}) format('woff2');}`,
-    );
-  }
-  return rules.join('');
+  return fontFaceCss(PKG_ROOT, { families });
 }
 
 // ── Build-time syntax highlighter ─────────────────────────────────────────────
@@ -3251,7 +3326,10 @@ async function renderBody(browser, g, closeBrowser) {
         let lookApplied = true;
         let lookPaletteCss = paletteCSS;
         let sectionLookClass = lookMode === 'print' ? 'form print' : 'form';
-        let lookThemeVars = null;
+        // Per HAND, not one for the deck: a deck can mix sketch and boardroom slides, and
+        // the two resolve `--font-body` differently. Memoized so the palette is still
+        // built at most twice however many diagrams are re-baked.
+        let lookThemeVarsFor = null;
         if (lookMode !== 'print') {
           const base = paletteName.replace(/-dark$/, '');
           const targetName = lookMode === 'dark' ? `${base}-dark` : base;
@@ -3265,7 +3343,13 @@ async function renderBody(browser, g, closeBrowser) {
             // themeVarsForBand is baked from the deck's resolved palette, which for `--image-mode
             // dark` is the DARK theme, so re-rendering `light` with it would still read dark. Parse
             // the look palette fresh so a light look bakes light diagram colors and a dark look dark.
-            lookThemeVars = resolveMermaidThemeVars(parsePaletteVars(layoutCSS + '\n' + lookPaletteCss, lookMode === 'dark'));
+            const lookPaletteVars = parsePaletteVars(layoutCSS + '\n' + lookPaletteCss, lookMode === 'dark');
+            const byHand = new Map();
+            lookThemeVarsFor = (hand) => {
+              const k = hand ? 'hand' : 'clean';
+              if (!byHand.has(k)) byHand.set(k, resolveMermaidThemeVars(lookPaletteVars, hand));
+              return byHand.get(k);
+            };
           } else {
             // Can't honor the look (no companion theme) — coerce to `inherit` so the baked canvas
             // + manifest describe what actually renders (the slide look), not a lie. Warn even
@@ -3342,8 +3426,8 @@ async function renderBody(browser, g, closeBrowser) {
               // enforced at the second place a diagram can be baked.
               const bakeLook = lookMode === 'print' ? 'classic' : MERMAID_REBAKE_LOOKS[idx];
               const out = lookMode === 'print'
-                ? renderMermaid(def, 'print', bakeLook)
-                : renderMermaidOne(def, lookThemeVars, null, bakeLook);
+                ? renderMermaid(def, 'print', bakeLook, MERMAID_REBAKE_HAND[idx])
+                : renderMermaidOne(def, lookThemeVarsFor(MERMAID_REBAKE_HAND[idx]), null, bakeLook);
               // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting
               // its retries — keep the ORIGINAL live diagram (still an <svg>) below, but flag it distinctly:
               // it's still in the slide scheme, unlike the benign author-color case.

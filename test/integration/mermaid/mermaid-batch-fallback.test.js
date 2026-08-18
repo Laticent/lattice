@@ -1,25 +1,31 @@
 /**
- * Integration: when the BATCHED Mermaid render fails, the deck still gets every
- * diagram mmdc can actually draw.
+ * Integration: one unparseable fence costs only itself.
  *
- * A deck's fences render in ONE mmdc invocation (mmdc boots a Chromium per call,
- * and per-fence invocation was 92% of a diagram-heavy render). Batching trades a
- * failure boundary for that speed: one unparseable fence fails the whole batch,
- * where per-fence rendering would have failed only itself. The renderer therefore
- * falls back to one invocation per diagram when a batch cannot be completed, which
- * restores the old per-diagram retry and per-diagram degradation.
+ * A deck's fences render in ONE browser (Mermaid boots a Chromium per invocation, and
+ * per-fence invocation was 92% of a diagram-heavy render). Batching used to trade a
+ * failure boundary for that speed: `mmdc -i <markdown>` wrote `<out>-1.svg`,
+ * `<out>-2.svg`, … and simply produced no file for a fence it could not parse, which
+ * broke the index alignment the caller depends on — so ONE typo sent the whole deck
+ * back through the one-at-a-time path and paid the per-fence Chromium boot again.
  *
- * That fallback is the thing this pins. It is invisible in a green run — every
- * corpus deck parses, so nothing exercises it — and if it silently broke, the
- * symptom would be a deck losing EVERY diagram because one fence had a typo. An
- * authoring mistake in one diagram must not cost the other thirteen.
+ * #1674 removed that trade. The engine-owned render worker returns an index-aligned
+ * result per diagram, each with its own `ok` flag, so a bad fence degrades in place and
+ * the deck keeps both its diagrams and its speed. The whole-batch fallback still exists
+ * for the case it is actually for — the worker not running at all — but a syntax error
+ * no longer reaches it.
  *
- * The fixture carries one valid fence and one deliberately malformed one. Asserts:
+ * What this pins is invisible in a green run, because every corpus deck parses. If it
+ * silently broke, the symptom would be a deck losing EVERY diagram because one fence had
+ * a typo. The fixture carries one valid fence and one deliberately malformed one:
  *   - the run still succeeds (a bad fence is an authoring error, not a crash);
  *   - the valid fence renders as a real `.mermaid-svg`;
- *   - the malformed fence degrades to `<pre class="mermaid-fallback">`, carrying
- *     its source through so the author can see what failed;
- *   - stderr says the batch fell back, so the slower path is never silent.
+ *   - the malformed fence degrades to `<pre class="mermaid-fallback">`, carrying its
+ *     source through so the author can see what failed;
+ *   - the failure is REPORTED, naming the diagram — a silent degradation is a diagram
+ *     quietly missing from a board deck;
+ *   - and the whole-batch fallback did NOT fire, which is the #1674 improvement. If it
+ *     did, the deck still renders correctly and simply pays the old cost, so nothing
+ *     above would catch the regression.
  */
 
 const { test, describe } = require('node:test');
@@ -50,13 +56,23 @@ describe('mermaid batch fallback', () => {
     assert.equal(rendered, 1, 'the valid fence must still render as a real diagram');
     assert.equal(degraded, 1, 'the malformed fence must degrade to the <pre> fallback, not vanish');
 
-    // The slower path must announce itself: a silent fallback is a 14x perf cliff
-    // nobody can see. (stdout+stderr — the warning goes to stderr, the progress
-    // line to stdout, and which stream carries it is not what this pins.)
+    // The failure must announce itself, naming the diagram: a silent degradation is a
+    // diagram quietly absent from a deck somebody is about to present.
+    const output = `${r.stdout}${r.stderr}`;
     assert.match(
-      `${r.stdout}${r.stderr}`,
+      output,
+      /Mermaid render failed for one diagram/,
+      'the degraded diagram must be reported, not silent',
+    );
+    // …and the WHOLE-BATCH fallback must not have fired. Before #1674 it did, on exactly
+    // this input, and the deck came out identical — just after paying a Chromium boot per
+    // fence. Every assertion above would still pass, so this is the only thing standing
+    // between that 14x cliff and a green run.
+    assert.doesNotMatch(
+      output,
       /falling back to one render per diagram/,
-      'the batch fallback must be reported, not silent',
+      'a single unparseable fence must degrade in place, not send the whole deck back '
+      + 'through the one-at-a-time path',
     );
   });
 });

@@ -91,11 +91,15 @@ function liftPreviewBuild(tokensBySection, fallbackSection, captured = {}) {
   };
 
   // The block declares `closeSectionReaders` alongside the ports; return both so a
-  // caller can drive teardown.
+  // caller can drive teardown. `TEXT_VALUE_TOKENS` is the third thing it closes over:
+  // the NON-COLOR tokens the port must fetch with `raw()` rather than the
+  // color-resolving `read()`. Supplied from the map's real flags, so this drives the
+  // same branch a browser does.
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point — a paraphrase would test the paraphrase.
   const factoryOut = eval(
-    `(function (document, getComputedStyle, diagramScopeKey) {\n${blockSrc}\n  return { diagramThemePorts, closeSectionReaders };\n})`,
-  )(fakeDocument, fakeGetComputedStyle, diagramScopeKey);
+    `(function (document, getComputedStyle, diagramScopeKey, TEXT_VALUE_TOKENS) {\n${blockSrc}\n  return { diagramThemePorts, closeSectionReaders };\n})`,
+  )(fakeDocument, fakeGetComputedStyle, diagramScopeKey,
+    require('../../../lib/core/mermaid-theme-map').textValueTokens());
   captured.probeEl = probeEl;
   captured.close = factoryOut.closeSectionReaders;
   const ports = factoryOut.diagramThemePorts();

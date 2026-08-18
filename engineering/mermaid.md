@@ -137,13 +137,56 @@ back in one slide at a time. Style does not outrank an accessibility affordance.
 Those decks still get the hand type everywhere else; only the diagram shapes stay
 machine-drawn.
 
-### Not covered
+### The type comes too, and it is a SEPARATE answer from the shape
 
-- **Diagram labels stay mono** under sketch. Separate, pre-existing gap — see §5.3.
-- **Legacy-renderer families** (sequence, gantt, pie, journey, timeline, quadrant,
-  mindmap) ignore `look` entirely; Mermaid honors it only in its unified renderer
-  (flowchart, state, class, ER). Those diagrams stay crisp on a sketch deck until
-  Mermaid migrates them.
+Diagram **labels** render in the hand face on a sketch deck (#1674). That is not a
+second sketch rule — `base.sketch.css` re-points `--font-body` to `--sketch-font-body`,
+and the diagram map reads `--font-body`, so the type follows the token like everything
+else on the slide.
+
+The two answers come apart on purpose, and the split is worth holding on to:
+
+| | hand SHAPE (`resolveDiagramLook`) | hand TYPE (`resolveDiagramHandType`) |
+|---|---|---|
+| `mode: sketch`, ordinary palette | ✓ | ✓ |
+| `mode: sketch`, `a11y-*` / `onyx` / `concrete` | ✗ rule 1 | ✓ |
+| `mode: sketch`, `--print` band | ✗ rule 1 | ✓ |
+| `_class: boardroom` on a sketch deck | ✗ | ✗ |
+| `_class: sketch` on a plain deck | ✓ | ✓ |
+
+Rule 1 exists because a per-category PATTERN cannot survive being painted through a
+hachure stroke — that is about the redundant-encoding channel and says nothing about
+type. So a texture deck in `mode: sketch` gets **hand labels inside machine-drawn
+nodes**, which is what "those decks still get the hand type everywhere else" above has
+always meant. `resolveDiagramLook` calls `resolveDiagramHandType` rather than
+repeating rules 2 and 3, so the two cannot drift.
+
+### Which families the hand SHAPE reaches — measured, not assumed
+
+**SIX, not four.** This section said four (flowchart, state, class, ER) and named mindmap
+among the families that "ignore `look` entirely". Both were wrong: `mindmap` and
+`requirementDiagram` go through rough.js too. Measured on Mermaid 11.14 by rendering every
+family twice, `look: 'handDrawn'` against the default, and counting rough nodes in the
+output — `test/integration/mermaid/diagram-look-support.test.js` pins the result so the
+list cannot rot again.
+
+| honors `look: handDrawn` | ignores it |
+|---|---|
+| `flowchart` · `stateDiagram-v2` · `classDiagram` | `sequenceDiagram` · `gantt` · `pie` · `journey` |
+| `erDiagram` · **`mindmap`** · **`requirementDiagram`** | `timeline` · `quadrant` · `sankey` · `xychart` |
+| | `C4Context` · `block` · `packet` · `architecture` · `gitGraph` |
+
+Two entries in the right column look like they honor it and do not: `gitGraph` and
+`architecture-beta` emit *different bytes* under `handDrawn`, but the difference is a
+random commit hash and an Iconify element id respectively — no rough geometry. Anyone
+re-deriving this table by diffing SVGs needs to count rough nodes, not compare bytes.
+
+Everything in the right column stays crisp on a sketch deck until Mermaid migrates it —
+but every family gets the hand TYPE. Not from one lever: `themeVariables.fontFamily` is
+the global one, and it is joined by mermaid's separate TOP-LEVEL `fontFamily` and by the
+28 per-block `*FontFamily` keys that c4 / journey / sequence / timeline read instead
+(§5.3e). A sketch deck therefore speaks in one voice everywhere and draws by hand wherever
+Mermaid can (#1674).
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
@@ -157,17 +200,18 @@ decided once, in `lib/core/mermaid-theme-map.js`. Each path supplies only a
 `readToken` — `getComputedStyle(section)` in the preview, offline token
 resolution against the palette text in the PDF path — and `buildDiagramTheme`
 does the rest. Before that, the two paths held separate copies of the same map
-and 38 values had drifted apart; `fontFamily` is now the one sanctioned
-divergence (`DIVERGENT_KEYS`), and
-`test/unit/core/diagram-theme-parity.test.js` fails on any other.
+and 38 values had drifted apart. There is now **no sanctioned divergence at all**:
+`fontFamily` was the last one and retired with #1674, and
+`test/unit/core/diagram-theme-parity.test.js` compares every key with no exception set.
 
-The two paths deliver it differently, because they have to. The **live preview**
-is in-process, so it sets the palette once on the global config
-(`mermaid.initialize`); Mermaid then merges your in-source `%%{init}%%` over that
-per render, which is where the guarantee below comes from. The **PDF path** shells
-out to `mmdc`, one process per diagram, so its config can only travel *in* the
-diagram source — hence the merge kernel described at the end of this section. What
-the two share is the token→variable map, not the plumbing.
+**They deliver it the same way, too, as of #1674.** Both paths set the palette on the
+global config with `mermaid.initialize` and let Mermaid merge your in-source
+`%%{init}%%` over it per render — which is where the guarantee below comes from. The
+export used to be the odd one out: it shelled out to the `mmdc` binary, one process per
+diagram, so its config could only travel *in* the diagram source and a hand-written
+merge kernel spliced it in ahead of yours. It renders in a page the engine owns now
+(`lib/integrations/mermaid/render-worker.js`), so the kernel is gone and the merge is
+Mermaid's own.
 
 The mapping is `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`, imported by
 both paths. `test/unit/mermaid/mermaid-var-map.test.js` asserts every token it
@@ -221,8 +265,8 @@ changes.
 `engineInitConfig` (`lib/integrations/mermaid/init-directive.js`) holds the shared
 **non-palette** options, and the preview builds its `mermaid.initialize` argument from
 it rather than hand-rolling a second copy. It always claimed to be shared; the runtime
-did not call it, so eight keys diverged with nothing watching — `DIVERGENT_KEYS` covers
-`themeVariables` only.
+did not call it, so eight keys diverged with nothing watching — the `themeVariables`
+gate of the day could not see them.
 
 The one that bit was `flowchart.wrappingWidth`: 480 in the preview against Mermaid's
 default 200 in the export. Wrapping width decides where a label breaks and a label
@@ -253,18 +297,68 @@ constrained, which is a layout change rather than a parity fix.
 sanction that no longer diverges, and on a Mermaid upgrade that takes one of those three
 off its secure list (which would make it shareable).
 
-**The two paths use different diagram fonts, and there is a constraint behind it.**
-The preview uses `--font-body`; the PDF path uses `"JetBrains Mono", monospace`
-(`DIAGRAM_FONT_STACK` in the kernel). That is not arbitrary: `sanitizeDirective`'s
-allow-list for `themeVariables` values (`/^[\d "#%(),.;A-Za-z]+$/`) has **no
-hyphen**, so a stack containing `system-ui` / `sans-serif` is silently replaced
-with `""` the moment it rides in a directive — and a blank font is worse than an
-absent one, because Mermaid then measures labels in the host's default font while
-the page renders them in the inherited one, and they clip mid-word. The preview
-escapes this only because `mermaid.initialize` runs the far more permissive
-`sanitize`. The kernel drops any value the directive filter would blank rather
-than shipping one to be emptied. (Preview and export therefore disagree on
-diagram font — a real, pre-existing WYSIWYG gap, tracked separately.)
+**Both paths now use the deck's own body face.** A diagram reads `--font-body`, like
+every other run of text on the slide, which is also how `mode: sketch` reaches diagram
+labels (§5.3e) with no sketch-specific code in the diagram path at all.
+
+It was not always so, and the reason is worth keeping because it constrains anyone who
+reintroduces a directive transport. The export used to bake `"JetBrains Mono",
+monospace`: `sanitizeDirective`'s allow-list for directive-borne `themeVariables`
+values (`/^[\d "#%(),.;A-Za-z]+$/`) has **no hyphen**, so a stack containing
+`system-ui` / `sans-serif` was silently replaced with `""` the moment it rode in a
+directive — and a blank font is worse than an absent one, because Mermaid then measures
+labels in one face while the page renders them in another, clipping them mid-word.
+Monospace was the only kind of stack that survived the filter, and its `monospace`
+generic tail meant the fallback it was measured in had near-identical metrics. That
+allow-list still governs any directive **you** write; it no longer governs the engine,
+because the engine no longer writes one.
+
+### Four families carry their OWN font key, and the global one does not reach them
+
+`themeVariables.fontFamily` is global, and most families follow it. **C4, journey,
+sequence and timeline do not.** Mermaid's config schema gives them per-element
+`*FontFamily` keys — `c4.personFontFamily`, `journey.taskFontFamily`,
+`sequence.actorFontFamily`, `timeline.taskFontFamily` and so on — each defaulted to
+`"Open Sans"` or `"trebuchet ms"`, and those win for the elements they cover.
+
+Left alone, that means a `mode: sketch` deck renders a C4 context diagram with **33 of 34
+labels in Open Sans** while every other word on the slide is hand-drawn. Measured, and
+found by eye on an export before any gate noticed — the label census had been printing it
+for a whole review round.
+
+`engineInitConfig` now sets all of them from the same `--font-body` value. **C4 has
+twenty-two**, not the six an obvious reading finds: every shape has an `external_` twin,
+and systems/containers/components each have `_db` and `_queue` variants, so a first cut
+that set six left every `System_Ext` label in Open Sans.
+
+There is a **twenty-ninth** key, and it is not in a block: mermaid's own top-level
+`config.fontFamily`, which is separate from `themeVariables.fontFamily` and does not
+follow it. Setting it is not cosmetic — mermaid measures SEQUENCE layout with it, so a
+sketch deck spaced its lifelines for trebuchet ms and then painted the messages in the
+hand face: `price(lane, equipment, readyAt)` overran its own arrow and crossed the next
+lifeline. Same measure/paint split as #1674's headline bug, one level up.
+
+The list has to be enumerated in the kernel (it is pure and fs-free, so it cannot read
+mermaid's schema), which means it can rot — so
+`test/integration/mermaid/diagram-font-parity.test.js` derives the truth from the
+installed mermaid and fails when a key it defines is one the engine does not set. That
+derivation carries **no exemptions**: an earlier cut skipped a `venn.fontFamily` that does
+not exist, an artifact of a parent-guessing heuristic that attributed the top-level key to
+whichever block the bundle happened to declare last.
+
+`tools/check-diagram-labels.js` catches the same defect from the other end, and it asks
+the question against the deck rather than against a list of famous names: every label is
+compared to `--font-body` on its OWN `<section>`, so a face that is merely wrong fails
+exactly like `Open Sans` does, and a `_class: diagram boardroom` opt-out is judged by what
+that slide asked for. A fence whose author pinned a theme is exempt by fact, not by guess
+— the emulator stamps `data-author-theme` on it.
+
+**A warning about apostrophes in your own directive**, from the same measurement:
+Mermaid runs a blanket `'` → `"` swap over a directive payload before `JSON.parse`, so
+a single apostrophe in any value makes the payload invalid JSON and Mermaid's catch
+drops **every** directive in the diagram — including the palette, leaving you with
+stock `#ECECFF`/`#333333`. A hyphen only blanks the one value it appears in; an
+apostrophe costs you the lot. Use double quotes.
 
 The one thing that *does* stand the engine down is naming a Mermaid **theme** in
 a `%%{init}%%` directive:
@@ -276,46 +370,69 @@ a `%%{init}%%` directive:
 ````
 
 Any theme name Mermaid actually resolves — `dark`, `forest`, `neutral`, `neo`,
-`redux`, … — other than `base`, reads as an explicit opt-out, so the engine
-injects nothing and
-you get Mermaid's stock `forest` — off-palette by definition, immune to a theme
-switch, and reported as "kept their own colors" by the export's look re-bake.
-Reach for it only when you genuinely want a diagram outside the deck's palette.
+`redux`, … — other than `base`, reads as an explicit opt-out, so the engine sends no
+`theme` and no `themeVariables` and you get Mermaid's stock `forest`: off-palette by
+definition, immune to a theme switch, and reported as "kept their own colors" by the
+export's look re-bake. Reach for it only when you genuinely want a diagram outside the
+deck's palette.
+
+**The stand-down has to be all-or-nothing, and that is why it is a stand-down rather
+than a merge.** The engine sets essentially every Mermaid theme variable, so a
+half-hearted version — sending our variables and letting your `theme:` sit on top —
+would leave the pin doing almost nothing, because ours would win for every key we set.
+Measured with `theme: forest` on an indaco deck: standing down gives cluster `#cdffb2`
+and node `#cde498` (forest's own), where sending the palette anyway gives `#E8F0F7` /
+`#BCD5EC` (indaco's).
+
+*(Mechanically this changed with #1674 and behaves identically. The export used to
+implement the stand-down by emitting no `%%{init}%%` directive at all; it now passes
+`omitPalette` to `engineInitConfig`, which drops `theme` and `themeVariables` and keeps
+everything else. That is a small improvement on the old hole: a pinned diagram used to
+lose `wrappingWidth`, `padding` and the quadrant/c4 sizes to Mermaid's defaults too.
+Opting out of the palette is not opting out of the layout.)*
 
 A name Mermaid does **not** resolve is not an opt-out. `theme: 'Forest'` (wrong
 case), `theme: ''`, or a typo would leave you with no theme from Mermaid *and* no
 palette from the engine — stock `#ffffde` — so the engine keeps the diagram
 instead. Theme lookup is case-sensitive and exact on Mermaid's side.
 
-**Two spellings the stand-down does NOT cover**, both pre-dating #1311:
+**Two spellings the stand-down does NOT cover**, both pre-dating #1311 and both
+re-measured under the new transport:
 
 - **`%%{INIT: …}%%` in caps.** Mermaid's directive scanner is case-insensitive
   but its init-type filter is not, so Mermaid applies nothing from an uppercase
-  directive. The engine matches that case-sensitively and injects as if it
+  directive. The engine matches that case-sensitively and sends the palette as if it
   weren't there — the palette lands, and your directive is ignored by both of us.
   Write it lowercase.
 - **A theme set in YAML front matter** (`---\nconfig:\n  theme: forest\n---`).
-  Mermaid merges front-matter config *under* the directive, so the engine's
-  `theme: base` wins and you get the palette, not `forest`. The stand-down reads
-  the `%%{init}%%` spelling only. Use the directive form to opt out.
+  You get the deck palette, not `forest` — measured on the real export, cluster
+  `#E8F0F7`. The stand-down reads the `%%{init}%%` spelling only. Use the directive
+  form to opt out.
 
-The reconciliation lives in `lib/integrations/mermaid/init-directive.js`, which
-the **PDF path** calls; the preview needs no kernel because Mermaid's own merge
-over the global config already delivers the same guarantee. One consequence worth
-knowing: the theme stand-down is PDF-path-only — a `theme:` pin previews on-theme
-and exports stock. Before #1311 the build path was worse: ANY directive made it skip the
+**The stand-down is still export-path-only** — a `theme:` pin exports stock and
+previews on-theme. That gap is unchanged by #1674 and is not a transport problem: the
+runtime configures Mermaid once per RUN of diagrams sharing a palette and renders the
+run's fences concurrently against that one global config, so standing down for a single
+pinned fence means re-initializing mid-run. Worth doing; it is a change to the preview's
+render queue rather than to this file, and it is tracked separately.
+
+Before #1311 the export was worse than any of this: ANY directive made it skip the
 injected palette entirely, and the diagram silently fell back to Mermaid stock
 (`#ffffde` clusters, `#333` label ink). If you are looking at an off-theme
 diagram with a directive in it, that regression is what
 `test/integration/mermaid/mermaid-init-merge.test.js` guards.
 
-**`layout: 'elk'` still does nothing — and says so only in a log.** The directive
-now survives the merge, but elk ships as a separate package
-(`@mermaid-js/layout-elk`) that neither `mmdc` nor the runtime bundle registers.
-Mermaid does not fail on an unregistered algorithm: `getRegisteredLayoutAlgorithm`
-falls back to dagre with a `log.warn` you never see, so the diagram renders
-on-palette, laid out by dagre, looking like the directive worked. Verified on
-Mermaid 11.14. Installing elk is separate work from #1311.
+**`layout: 'elk'` works on the EXPORT and does nothing in the preview.** The directive
+survives the merge on both. `@mermaid-js/layout-elk` ships inside mermaid-cli's bundle,
+which the export's render page loads and the worker registers (as the CLI does); the
+runtime bundle carries no elk at all.
+So a diagram pinning elk lays out differently in the two places, and the preview is the
+one that is wrong. Mermaid does not fail on an unregistered algorithm:
+`getRegisteredLayoutAlgorithm` falls back to dagre with a `log.warn` you never see, so
+the preview renders on-palette, laid out by dagre, looking like the directive worked.
+Measured on Mermaid 11.14 — export `viewBox="4 4 324.92 70"` against dagre's
+`viewBox="0 0 320.69 67"` on the same fence. Registering elk in the runtime bundle is
+separate work from #1311.
 
 ---
 
@@ -483,21 +600,25 @@ Neither path assembles a palette any more. `renderDiagrams`
 `themeVariables` from the one map, and calls the path back:
 
 ```js
-renderDiagrams(deck, { readToken, renderOne, scopeKey, beginRun, finishTheme })
+renderDiagrams(deck, { readToken, renderOne, scopeKey, beginRun })
 ```
 
 A `scope` is whatever a path needs in order to read a token for one slide, and the
 two hand in genuinely different things — the PDF path a resolved band
-(`'light' | 'dark' | 'print'`), the preview the `<section>` element itself.
+(`{ band, hand }` — the band decides the palette, `hand` whether `--font-body` resolves
+through the sketch re-point the offline reader cannot see in the cascade), the preview
+the `<section>` element itself.
 `scopeKey(scope)` names the palette that scope resolves, so the theme is built once
 per distinct palette rather than once per slide: the band string on the PDF path, the
 section's class signature (`lib/core/diagram-scope.js`) on the preview. Two spellings
 of "these slides paint the same", which is all the kernel needs.
 
-`finishTheme` is the ONE place a path may differ from the other inside the palette,
-and its only licensed use is `DIVERGENT_KEYS` — today `fontFamily`, per §5.3. The
-parity gate fails on any other key that comes apart, and on a sanctioned key that
-stops diverging.
+There is **no `finishTheme` port**, and there is no key a path may differ on. Both
+used to exist for one reason — `fontFamily`, which could not survive mermaid's
+directive sanitizer on the export — and #1674 removed the cause by taking the export
+off directives entirely (§5.3). The parity gate now compares every key with no
+exception set at all; a hook kept "just in case" is how the next divergence arrives
+pre-authorized.
 
 **The acceptance test was a deletion.** #1332 stated it: *"a correct fix should let us
 DELETE the reconciliation devices, not accumulate more."* `data-lattice-slide-bake` —

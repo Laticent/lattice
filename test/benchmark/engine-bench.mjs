@@ -13,6 +13,7 @@
 //
 //   node test/benchmark/engine-bench.mjs            # render tiers
 //   node test/benchmark/engine-bench.mjs --export   # + rasterize/export tier
+//   node test/benchmark/engine-bench.mjs --diagrams # + Mermaid diagram-render tier
 //   node test/benchmark/engine-bench.mjs --json     # machine-readable dump
 //   node test/benchmark/engine-bench.mjs --bless     # write the committed baseline
 //   node test/benchmark/engine-bench.mjs --check     # compare vs baseline (variance-aware)
@@ -47,6 +48,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 // Each flag lazily sets up its own puppeteer, so either may be passed alone.
 const wantExport = process.argv.includes('--export');
 const wantPrint = process.argv.includes('--print');
+const wantDiagrams = process.argv.includes('--diagrams');
 // --sweep  fit-sweep tier (browser). The overflow/legibility probes run over laid-out
 //          DOM, so neither the in-process render tier nor the whole-cycle export tier
 //          can see them; this is the only thing that measures them. ~30s.
@@ -540,6 +542,93 @@ async function printTier() {
   return { summary };
 }
 
+// ── DIAGRAM RENDER TIER (--diagrams) ─────────────────────────────────────────
+//
+// The one path `npm run bench`'s other tiers cannot see. Everything above measures the
+// IN-PROCESS engine (`api.render`), and Mermaid is not in-process on the export path —
+// it runs in a browser, in a child process, before slide splitting even begins. So a
+// change to how diagrams are rendered moved no number here at all, which is exactly the
+// hole HARD RULE #19(c) says to close ("extend the harness if no dataset exercises it").
+//
+// #1674 is why it exists: replacing the per-diagram `mmdc` shell-out with one
+// engine-owned page took the 14-fence diagram gallery from ~19s to ~8s end to end. That
+// was measured by hand with `time`, which is not a thing a later change can regress
+// against.
+//
+// OPT-IN, like --export and --print, and for the same reason: it boots a real Chromium.
+// It is NOT part of `bench:bless`'s committed baseline — the tier is I/O-bound on a
+// browser launch and would be the noisiest number in the file. It reports, and the PR
+// quotes it.
+async function diagramTier() {
+  const { fileURLToPath } = await import('node:url');
+  const { execFileSync, execSync } = await import('node:child_process');
+  // Same resolution the browser tiers use — the worker takes the path as job data
+  // rather than launching from an ambient env var, so it has to be found here.
+  let chrome = process.env.CHROME_PATH;
+  if (!chrome || !existsSync(chrome)) {
+    try {
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+    } catch {
+      /* default */
+    }
+  }
+  const { mkdtempSync, writeFileSync, readFileSync: readF, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const HERE = dirname(fileURLToPath(import.meta.url));
+  const REPO = join(HERE, '..', '..');
+  const WORKER = join(REPO, 'lib', 'integrations', 'mermaid', 'render-worker.js');
+  const { engineInitConfig } = await import(`file://${join(REPO, 'lib/integrations/mermaid/init-directive.js')}`)
+    .then((m) => m.default || m);
+
+  // The real gallery's fences, which is what the 92%-of-render-time figure was measured
+  // on — not a synthetic diagram that would understate a real deck's layout cost.
+  const gallery = readFileSync(join(REPO, 'lib/components/diagram/diagram.gallery.md'), 'utf8');
+  const fences = [...gallery.matchAll(/```mermaid\n([\s\S]*?)```/g)].map((m) => m[1].trim());
+  const vars = { fontFamily: "'Outfit', system-ui, sans-serif", fontSize: '14px' };
+
+  function renderN(n) {
+    const dir = mkdtempSync(join(tmpdir(), 'bench-mmd-'));
+    try {
+      const jobFile = join(dir, 'job.json');
+      const outFile = join(dir, 'out.json');
+      writeFileSync(jobFile, JSON.stringify({
+        pkgRoot: REPO, chromePath: chrome || undefined, backgroundColor: 'transparent', outFile,
+        diagrams: fences.slice(0, n).map((definition) => ({ definition, config: engineInitConfig(vars) })),
+      }));
+      execFileSync(process.execPath, [WORKER, jobFile], { stdio: ['ignore', 'ignore', 'pipe'] });
+      const res = JSON.parse(readF(outFile, 'utf8'));
+      const failed = res.results.filter((r) => !r.ok).length;
+      if (failed) throw new Error(`${failed} of ${n} diagrams failed to render`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // 1 and N, because the interesting property is the SLOPE. One browser boot is a fixed
+  // cost the old path paid per diagram; the point of the shared page is that the second
+  // diagram is nearly free, so `14 / 1` is the number that would regress if a future
+  // change went back to a page (or a process) per fence.
+  const bench = new Bench({ name: 'diagrams', warmup: false, time: 1, iterations: 3 });
+  bench.add('1 diagram (fixed cost: browser boot + bundle parse)', () => renderN(1));
+  bench.add(`${fences.length} diagrams (one page, reused)`, () => renderN(fences.length));
+  await bench.run();
+  console.log('\n=== DIAGRAMS · Mermaid render worker ===');
+  console.table(bench.table());
+
+  const one = mean(bench.getTask('1 diagram (fixed cost: browser boot + bundle parse)'));
+  const many = mean(bench.getTask(`${fences.length} diagrams (one page, reused)`));
+  const marginal = (many - one) / (fences.length - 1);
+  console.log(`\nfixed ${one.toFixed(0)}ms · ${fences.length} diagrams ${many.toFixed(0)}ms · marginal ${marginal.toFixed(0)}ms/diagram`);
+  console.log(`a page-per-diagram implementation would cost about ${(one * fences.length / 1000).toFixed(1)}s here.`);
+  return {
+    summary: [
+      { dataset: 'diagrams · 1 (fixed)', slides: 1, ms: one },
+      { dataset: `diagrams · ${fences.length}`, slides: fences.length, ms: many },
+      { dataset: 'diagrams · marginal per diagram', slides: 1, ms: marginal },
+    ],
+  };
+}
+
 // ── baseline (commit) + variance-aware check ──────────────────────────────────
 // Wall-clock numbers are machine-relative, so the baseline is a ratchet, not an
 // absolute: --bless writes it, --check compares against it but never trips inside
@@ -956,6 +1045,7 @@ async function main() {
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
+  const diagrams = wantDiagrams ? await diagramTier() : null;
   if (wantBless) blessBaseline(render.summary, print?.summary, render, sweep?.summary);
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
@@ -1002,8 +1092,12 @@ async function main() {
       }
     }
   }
-  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print }, null, 2));
-  const missing = [!wantExport && '--export (rasterize tier, ~2 min)', !wantPrint && '--print (print re-place tier, ~11 min)'].filter(Boolean);
+  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print, diagrams }, null, 2));
+  const missing = [
+    !wantExport && '--export (rasterize tier, ~2 min)',
+    !wantPrint && '--print (print re-place tier, ~11 min)',
+    !wantDiagrams && '--diagrams (Mermaid render worker, ~30 s)',
+  ].filter(Boolean);
   console.log('\nDone.' + (missing.length ? ` (pass ${missing.join(' and ')} to time them too.)` : ''));
 }
 

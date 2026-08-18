@@ -840,53 +840,84 @@ on every run, so it cannot rot quietly.
 (SF Pro) and Windows (Segoe UI) were unreachable from here, and `→ = 0.90` is
 where that would bite. Stated rather than generalized.
 
-## Known gap — Mermaid diagram labels (NOT closed here)
+## Known gap — Mermaid diagram labels — **CLOSED 2026-08-17 (#1674)**
 
-Text inside a rendered Mermaid diagram stays JetBrains Mono under sketch. This
-is pre-existing and already documented as sanctioned drift: `fontFamily` is the
-sole entry in `DIVERGENT_KEYS` (`lib/core/mermaid-theme-map.js`), because
-mermaid's `sanitizeDirective` allow-list for `themeVariables` has no hyphen —
-so a stack containing `system-ui` / `sans-serif` is silently replaced with `""`
-when it rides in a `%%{init}%%` directive, and a blank font is *worse* than a
-wrong one (mermaid then measures labels in one font and renders them in
-another, clipping mid-word).
+**Original text, kept because the reasoning for deferring was sound.** Text inside a
+rendered Mermaid diagram stayed JetBrains Mono under sketch. This was pre-existing and
+already documented as sanctioned drift: `fontFamily` was the sole entry in
+`DIVERGENT_KEYS` (`lib/core/mermaid-theme-map.js`), because mermaid's
+`sanitizeDirective` allow-list for `themeVariables` has no hyphen — so a stack
+containing `system-ui` / `sans-serif` was silently replaced with `""` when it rode in a
+`%%{init}%%` directive, and a blank font is *worse* than a wrong one (mermaid then
+measures labels in one font and renders them in another, clipping mid-word).
 
-Left out deliberately (HARD RULE #18, off-path): it is a different mechanism
-(JS theme-variable plumbing, not CSS token routing), it has its own parity test
-asserting the divergence, and it changes rendered diagram geometry — which
-belongs in its own change, not bolted onto a CSS token sweep.
+Left out deliberately (HARD RULE #18, off-path): a different mechanism (JS
+theme-variable plumbing, not CSS token routing), its own parity test asserting the
+divergence, and it changes rendered diagram geometry — its own change, not bolted onto
+a CSS token sweep.
 
-### What a follow-up actually has to solve — measured, not guessed
+**How it closed.** Not by finding a font that survives the directive sanitizer, but by
+removing the directive: the export renders in a page the engine owns and configures
+Mermaid through `initialize`, so the full `--font-body` stack reaches both paths and
+`DIVERGENT_KEYS` retired. Sketch then falls out of token routing —
+`base.sketch.css` already re-points `--font-body` to `--sketch-font-body`. Verified on
+the real export: 26/26 labels in the hand face, 0 clipped, across flowchart, state,
+class, ER and sequence. Full record:
+`engineering/decisions/2026-08-17-mermaid-render-worker.md`.
 
-A throwaway probe (engine config patched, rendered through the real PDF
-pipeline, reverted) established three things:
+### What a follow-up actually had to solve — measured, then corrected by #1674
 
-1. **The sanitizer is NOT the binding constraint.** `'Shantell Sans'` contains
-   no hyphen, so it passes `DIRECTIVE_VALUE_OK` and reaches Mermaid intact —
-   the labels really do render in the hand face.
-2. **Label measurement is the binding constraint.** With the hand face, every
-   node label clips mid-word ("Raw Signals" → "Raw Signa", "Decision Log" →
-   "Decision Lo"). This is the failure `DIAGRAM_FONT_STACK`'s comment predicts,
-   and the root cause is sharper than "proportional fonts are risky":
-   `renderMermaidOne` shells out to `mmdc` with only `--backgroundColor` and
-   `--puppeteerConfigFile`, so **mmdc's page never loads Lattice's fonts at
-   all**. Mermaid measures in a fallback face and sizes the `foreignObject`;
-   the SVG is then embedded in the host page where `lattice.css` DOES load the
-   real face, and the wider text overflows the box it was measured for.
-   Mono survives this only because its stack ends in the `monospace` generic —
-   the fallback has near-identical metrics to the intended face. No hand face
-   has that property.
-   **The lever:** `mmdc` accepts `-C, --cssFile`. Feeding it the `@font-face`
-   block would make the measure pass and the render pass agree.
-3. **`look: 'handDrawn'` works today** (Mermaid 11.14 bundles rough.js) and can
-   be set from a deck's own `%%{init}%%` — but it costs the palette. Lattice
-   colours flowchart nodes with
-   `g.nodes > g.node:nth-of-type(N) > rect`, and the handDrawn renderer emits
-   `g.rough-node > g.basic.label-container > path`, so BOTH halves of that
-   selector miss and every node falls back to a single fill. Mirroring the
-   `nth-of-type` block onto the rough path selector is not sufficient on its
-   own either: rough.js paints its fill as a hachure of stroked lines, so a
-   `fill:` override leaves a muddy box that swallows the label ink.
+A throwaway probe (engine config patched, rendered through the real PDF pipeline,
+reverted) established three things. **Points 1 and 3 stand; the "lever" in point 2 was
+refuted, and is struck below rather than deleted so nobody re-derives it.**
+
+1. **The sanitizer was not the binding constraint** *for a bare family name.*
+   `Shantell Sans` contains no hyphen, so it passed `DIRECTIVE_VALUE_OK` and reached
+   Mermaid intact — the labels really did render in the hand face.
+
+   **Sharpened by #1674:** the quoting matters more than the hyphen rule suggests. A
+   name wrapped in APOSTROPHES (`'Shantell Sans'`) does not merely get blanked — it
+   takes the whole palette with it. `detectDirective` runs a blanket `'` → `"` swap
+   over the payload before `JSON.parse`, so one apostrophe anywhere in `themeVariables`
+   makes the payload invalid JSON and mermaid's catch drops EVERY directive in the
+   diagram. Measured on 11.14: an apostrophe in `primaryColor` alone drops the palette
+   to stock `#ECECFF`/`#333333`, where a hyphen only blanks the value it sits in.
+   Double quotes survive. This never reached the engine — `prune()` stripped
+   apostrophes from every emitted string — but the trap and its defense are both gone
+   now that nothing emits a directive.
+
+2. **Label measurement was the binding constraint.** With the hand face, every node
+   label clipped mid-word ("Raw Signals" → "Raw Signa"). The root cause is sharper than
+   "proportional fonts are risky": `renderMermaidOne` shelled out to `mmdc` with only
+   `--backgroundColor` and `--puppeteerConfigFile`, so **mmdc's page never loaded
+   Lattice's fonts at all**. Mermaid measured in a fallback face and sized the
+   `foreignObject`; the SVG was then embedded in the host page where `lattice.css` DOES
+   load the real face, and the wider text overflowed the box it was measured for. Mono
+   survived only because its stack ends in the `monospace` generic — near-identical
+   fallback metrics. No hand face has that property.
+
+   > ~~**The lever:** `mmdc` accepts `-C, --cssFile`. Feeding it the `@font-face` block
+   > would make the measure pass and the render pass agree.~~
+   >
+   > **STRUCK (#1674) — it cannot, by construction rather than by timing.** mermaid-cli
+   > appends `myCSS` as a `<style>` INSIDE the SVG *after* `mermaid.render()` has
+   > returned (`src/index.js`), and preloads `document.fonts` before that. Measured on
+   > real `mmdc` runs with and without a data-URI `@font-face` via `-C`: node widths
+   > 216.02 / 186.20 and `foreignObject` widths 156.02 / 126.20, **byte-identical both
+   > ways**. Adopting it would move the PAINT to the hand face and leave the
+   > MEASUREMENT in the fallback — i.e. reintroduce exactly the divergence
+   > `DIVERGENT_KEYS` existed to prevent. Worse than doing nothing.
+   >
+   > The actual fix was to stop shelling out: render in a page the engine controls,
+   > inject the `@font-face` block, and `await document.fonts` before rendering. See
+   > `2026-08-17-mermaid-render-worker.md`.
+
+3. **`look: 'handDrawn'` works today** (Mermaid 11.14 bundles rough.js) and can be set
+   from a deck's own `%%{init}%%` — but it costs the palette. Lattice colored
+   flowchart nodes with `g.nodes > g.node:nth-of-type(N) > rect`, and the handDrawn
+   renderer emits `g.rough-node > g.basic.label-container > path`, so both halves of
+   that selector missed. *(Shipped in #1647 by painting with `stroke` instead of
+   `fill` — see `2026-08-13-sketch-mermaid-hand-drawn.md`.)*
 
 ### The shading — SUPERSEDED, see the note below
 
@@ -922,13 +953,21 @@ STROKE (two paths, both `fill="none"`), so the palette goes on with `stroke` —
 at which point the full categorical cycle works. The muddy boxes were a probe
 that forced `fill` onto those stroked paths.
 
-Also worth recording: a deck-authored `%%{init}%%` carrying its own
-`themeVariables` **replaces the engine's palette wholesale** rather than
-deep-merging it — the probe's variants fell back to Mermaid's stock
-`#ECECFF`/`#9370DB` defaults. `engineering/mermaid.md` §5.3 currently tells
-authors their own init "is fine and costs nothing", which is true for
-`flowchart.curve` and not true for `themeVariables`. Worth a doc correction
-independent of any sketch work.
+~~Also worth recording: a deck-authored `%%{init}%%` carrying its own `themeVariables`
+**replaces the engine's palette wholesale** rather than deep-merging it — the probe's
+variants fell back to Mermaid's stock `#ECECFF`/`#9370DB` defaults.
+`engineering/mermaid.md` §5.3 currently tells authors their own init "is fine and costs
+nothing", which is true for `flowchart.curve` and not true for `themeVariables`. Worth
+a doc correction independent of any sketch work.~~
+
+**STRUCK (#1674) — measured, and it is not what happens. §5.3 was right.** A second
+directive carrying `themeVariables` DOES deep-merge: engine `primaryColor: #123456`
+plus author `lineColor: #ff0000` renders with both, on Mermaid 11.14. What the probe
+hit was the APOSTROPHE (point 1 above) — its variants quoted the font family with `'`,
+which made the payload invalid JSON and cost the diagram every directive it had,
+palette included. The stock `#ECECFF` was the whole engine directive vanishing, not a
+partial override winning. A correction was written into §5.3 on the strength of this
+paragraph and then withdrawn when the measurement was redone.
 
 ## Found, not fixed — list-tabular's value column sits flush to the sketch frame
 

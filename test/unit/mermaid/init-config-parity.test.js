@@ -33,6 +33,7 @@ const {
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
+const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
 
 const THEME_VARS = { primaryColor: '#111', fontFamily: 'X' };
 
@@ -102,12 +103,12 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
   });
 
   test('DIVERGENT_CONFIG is exactly the sanctioned list, and each entry really does differ', () => {
-    assert.deepEqual([...DIVERGENT_CONFIG], [
-      'securityLevel',
-      'startOnLoad',
-      'suppressErrorRendering',
-      'flowchart.useMaxWidth',
-    ]);
+    // ONE entry since #1674. The other three — `securityLevel`, `startOnLoad`,
+    // `suppressErrorRendering` — were secure keys the export could not deliver while its
+    // config rode in a `%%{init}%%` directive. It renders in an engine-owned page now and
+    // calls `mermaid.initialize`, so all three moved into `engineInitConfig` and are sent
+    // by both paths. A sanction that stops diverging is DELETED, never left standing.
+    assert.deepEqual([...DIVERGENT_CONFIG], ['flowchart.useMaxWidth']);
 
     const pdf = configOnly(engineInitConfig(THEME_VARS));
     const preview = configOnly(previewConfig());
@@ -117,16 +118,27 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
     }
   });
 
-  test("the three secure keys are undeliverable by directive — that is why they diverge", () => {
-    // Not a preference: Mermaid's default config carries
+  test('the three secure keys are SHARED now, and are still secure keys', () => {
+    // They used to sit in DIVERGENT_CONFIG, and not as a preference: Mermaid's default
+    // config carries
     //   secure: ['secure','securityLevel','startOnLoad','maxTextSize','suppressErrorRendering','maxEdges']
     // and its `sanitize` DELETES those keys from anything that is not
-    // `mermaid.initialize`. The PDF path's config can only travel in a `%%{init}%%`
-    // directive, so it structurally cannot state them — putting them in
-    // `engineInitConfig` would emit keys Mermaid silently drops and call it parity.
+    // `mermaid.initialize`. While the export's config could only travel in a `%%{init}%%`
+    // directive it structurally could not state them — putting them in `engineInitConfig`
+    // would have emitted keys Mermaid silently drops and called it parity.
     //
-    // Read from the INSTALLED Mermaid, so a version that changed the list fails here
-    // instead of leaving a stale justification in a comment.
+    // #1674 removed the premise rather than the rule: the export renders in a page the
+    // engine owns and calls `initialize` like the preview, so all three are simply sent
+    // by both paths now.
+    const cfg = engineInitConfig(THEME_VARS);
+    assert.equal(cfg.startOnLoad, false);
+    assert.equal(cfg.securityLevel, 'strict');
+    assert.equal(cfg.suppressErrorRendering, true);
+
+    // Still read from the INSTALLED Mermaid, because the secure list is what makes this
+    // reachable ONLY through `initialize`. A key leaving that list would mean a directive
+    // could carry it too — which changes nothing here, but the day someone reintroduces a
+    // directive transport it is the fact they need.
     const dist = path.join(REPO, 'node_modules', 'mermaid', 'dist', 'chunks', 'mermaid.esm');
     const files = fs.existsSync(dist) ? fs.readdirSync(dist).filter((f) => f.endsWith('.mjs')) : [];
     let secure = null;
@@ -143,13 +155,11 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
     }
     assert.ok(secure, 'could not read Mermaid\'s secure-key list from the installed package');
     for (const key of ['securityLevel', 'startOnLoad', 'suppressErrorRendering']) {
-      assert.ok(secure.includes(key),
-        `Mermaid no longer treats \`${key}\` as a secure key, so it CAN now ride a directive — `
-        + 'move it into engineInitConfig and out of DIVERGENT_CONFIG');
+      assert.ok(secure.includes(key), `expected \`${key}\` to still be a Mermaid secure key`);
     }
-    // `flowchart.useMaxWidth`, the fourth sanction, is NOT a secure key — it is a
-    // deliberate behavior choice, and the comment on it says so. Assert the difference
-    // so the two kinds of sanction cannot be confused for each other.
+    // `flowchart.useMaxWidth`, the surviving sanction, is NOT a secure key — it is a
+    // deliberate behavior choice, and the comment on it says so. Assert the difference so
+    // the two kinds of sanction cannot be confused for each other.
     assert.equal(secure.includes('useMaxWidth'), false);
   });
 
@@ -189,18 +199,26 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
       'the runtime states its own quadrantChart block again');
   });
 
-  test('a directive built from the shared config survives Mermaid\'s value filter', () => {
-    // `engineInitDirective` prunes what `sanitizeDirective` would blank, so a newly
-    // shared key must not arrive as a value the filter rejects. Numbers and booleans
-    // are safe; this pins that the newly added keys actually SHIP rather than being
-    // pruned away, which would look like sharing and deliver nothing.
-    const { engineInitDirective } = require('../../../lib/integrations/mermaid/init-directive');
-    const directive = engineInitDirective(engineInitConfig({ primaryColor: 'rgb(1, 2, 3)' }));
-    const payload = JSON.parse(/%%\{init: ([\s\S]*)\}%%/.exec(directive)[1]);
-    assert.equal(payload.flowchart.wrappingWidth, 480);
-    assert.equal(payload.htmlLabels, true);
-    assert.equal(payload.markdownAutoWrap, false);
-    assert.equal(payload.quadrantChart.titleFontSize, 24);
-    assert.equal(payload.c4.c4ShapeInRow, 3);
+  test('nothing on either path serializes the engine config into a directive', () => {
+    // RETIRED ASSERTION, replaced by its inverse (#1674). This used to build a
+    // `%%{init}%%` from the shared config and check that Mermaid's value filter did not
+    // blank the newly shared keys. There is no such directive any more: both paths call
+    // `mermaid.initialize`, so the filter — and the apostrophe trap behind it, which cost
+    // a diagram its entire palette — is out of the engine's path entirely.
+    //
+    // What is worth pinning is that it STAYS out. A path that goes back to emitting a
+    // directive re-acquires the sanitizer constraint that made `fontFamily` diverge, and
+    // it should not be able to do so without this test noticing.
+    const initDirective = require('../../../lib/integrations/mermaid/init-directive');
+    for (const gone of ['engineInitDirective', 'withEngineInit', 'DIRECTIVE_VALUE_OK', 'DIAGRAM_FONT_STACK']) {
+      assert.equal(gone in initDirective, false,
+        `${gone} was retired in #1674 — see engineering/decisions/2026-08-17-mermaid-render-worker.md `
+        + 'before reintroducing a directive transport');
+    }
+    // A CALL, not a mention — the export keeps comments explaining what the directive
+    // transport was and why it went, and that history is the useful part.
+    assert.equal(/withEngineInit\(|engineInitDirective\(/.test(EMULATOR_SRC), false,
+      'the export path builds a %%{init}%% directive again — that reintroduces the '
+      + 'sanitizer allow-list that forced DIVERGENT_KEYS');
   });
 });

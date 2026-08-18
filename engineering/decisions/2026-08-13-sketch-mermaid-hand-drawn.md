@@ -136,3 +136,12 @@ one would keep its node renderer — which is exactly a sketch deck with one
   timeline, quadrant and mindmap ignore it and stay crisp on a sketch deck until
   Mermaid migrates them. Nothing here can change that, and faking it per family
   would be a fork of Mermaid's renderers.
+
+> **CORRECTED 2026-08-18 (#1674).** `mindmap` does NOT ignore `look` — it renders through
+> rough.js, and so does `requirementDiagram`. Measured across all 19 families by rendering
+> each twice and counting rough nodes; six honor it, not four. The mistake was repeated
+> from here into `engineering/mermaid.md` §5.3e and into #1674's own issue text, so an
+> author was told their mind map could not match the finish when it already did.
+> `test/integration/mermaid/diagram-look-support.test.js` now derives the list from the
+> installed Mermaid so it cannot drift again.
+
