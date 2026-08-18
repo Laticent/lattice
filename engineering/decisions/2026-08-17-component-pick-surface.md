@@ -127,9 +127,17 @@ never to delete the detail — it is to give the cheap job its own surface and r
 it.
 
 The pick list lands at 3.8k against the ~10k index budget, comfortably inside, which is
-worth stating after the decisions index missed that budget by 2.6×. The difference is
-what the row has to carry: 411 decision notes need a sentence each to be
+worth stating after the decisions index missed that budget by 2.5× on its rows. The difference is
+what the row has to carry: 425 decision notes need a sentence each to be
 distinguishable; 61 components are distinguishable by name, axes and tags.
+
+*(Amended 2026-08-17.* That budget has since been restated — see
+`2026-08-17-context-index-tiering.md` §"Amendment". The ~10k figure survives for
+**read-whole** surfaces, which is exactly what this one is: 61 rows an agent loads in a
+single call (3,844 tokens after this change adds two `see also` names). The decisions index turned out to be a **grep-first** surface, budgeted
+per-row instead, so it was never over budget under the access mode its routing actually
+prescribes. Nothing about the pick list's number changes; only the class it belongs to
+is now named.)
 
 A test pins the size (`build-pick-list.test.js` fails past 24 KB) so the pick list
 cannot quietly become a document — the exact failure mode this rule exists to catch.
@@ -222,11 +230,89 @@ agent that does not pay for all six is choosing from a fraction of the catalog.
 
 **Limits, stated plainly.** Twelve briefs, two runs per condition, and the briefs were
 written to have defensible ground truth — which makes them easier than a real confusable
-case. The 8-point strict gap is literally one brief. A discriminating follow-up would use
-briefs drawn from the confusable clusters (`list` / `cards-stack` / `list-tabular`,
-`matrix-grid` / `matrix-2x2` / `roadmap`) where the `see also` column is supposed to
-earn its place. And the same person wrote the briefs and both surfaces, so unconscious
-favouring of pick-row vocabulary cannot be ruled out.
+case. The 8-point strict gap is literally one brief. And the same person wrote the briefs
+and both surfaces, so unconscious favouring of pick-row vocabulary cannot be ruled out.
+**The discriminating follow-up this paragraph used to call for has now been run** — see
+the next section; the same-author caveat survives it unchanged.
+
+## Then measured on the cases built to break it
+
+The limit above named a specific missing experiment: briefs drawn from the confusable
+clusters (`list` / `cards-stack` / `list-tabular`, `matrix-grid` / `matrix-2x2` /
+`roadmap`) where the `see also` column is supposed to earn its place. Twelve such briefs
+were pre-registered in `tools/intent-bakeoff/pick-surface-briefs-confusable.json` and
+committed before any agent ran; each encodes the ONE distinction the manifest itself
+draws between a component and its neighbors — `cards-stack`'s vertical reading order
+against `cards-grid`'s at-a-glance parallelism, `matrix-2x2`'s author-placed discrete
+labels against `quadrant`'s continuous data, `roadmap`'s workstream×phase cells against
+`gantt`'s overlapping spans. Same design as before: four agents on Opus, two per
+condition, one surface each and nothing else.
+
+**How this record was made, because it bears on how far to trust it.**
+`pick-surface-agent-runs.json` is a **hand-transcribed** record of what four subagents
+returned — as is the first bake-off above. There is no committed harness, no run log, no
+replay: the briefs and the ground truth are gated artifacts, the *picks* are not. Every
+derived figure in the table below recomputes from that JSON, which verifies the
+arithmetic and nothing about provenance. Under HARD RULE #23 the surface is "four Opus
+subagents" and the artifact is self-reported, so read the numbers as an honest report
+rather than a reproducible measurement. Making them reproducible means a committed
+harness, which is a different change from this one.
+
+| condition | strict | defensible | tokens per agent | tool calls |
+|---|---|---|---|---|
+| PICK surface | 22/24 — **92%** | 22/24 — 92% | 50.9k | 1 |
+| FULL catalog | 24/24 — 100% | 24/24 — 100% | 218.8k | 9 |
+
+**The STRICT gap did not widen on the cases chosen to widen it** — 92% against 100%, and
+the two surfaces still agreed on **11 of 12**, the same as the easy set. **The DEFENSIBLE
+gap did widen, from 0 points to 8**, and that is the honest headline of the table: on the
+easy set the pick agents' one miss (`timeline-list` for brief 3) sat inside the `ok` set,
+so both surfaces scored 100% lenient; here the miss falls outside both `expect` and `ok`.
+A confusable brief costs you a defensible answer, not just a strict one.
+
+The cost gap widened too: **4.3x the tokens and 9 reads against 1**, with both full-catalog
+agents paying for all nine pages this time rather than one of them getting lucky at eight.
+
+**The one miss is worth more than the score.** Brief 12 — six compliance dates, each
+needing the date, a read on whether we are clear or exposed, and a line of explanation —
+went `timeline-list` in both full-catalog agents and `regulatory-update` in both pick
+agents. Both full agents named `regulatory-update` as their runner-up and rejected it for
+a reason that is not on the pick row and cannot be: its antiPattern says each row needs
+*all three* of citation, summary and effective date, "otherwise the row reads as rumor."
+**The discriminator is a required sub-element, and a one-line purpose cannot carry one.**
+
+**And it was not a `see also` failure — it was a `see also` GAP.** `timeline-list`
+pointed at `gantt`, `list-steps`, `journey`, `roadmap`, `progress`; `regulatory-update`
+pointed at `authority-chain`, `list-criteria`, `list-steps`, `list-tabular`. **Neither
+named the other**, though both carry the `changelog` tag and the brief's own word
+"compliance" is a literal tag on the row the pick agents chose. The column the experiment
+was built to test never got a chance to fire. The missing edge is added here, both ways,
+with its `when` clause — which is the fix this note predicted ("a richer `see also` or a
+discriminating clause in the row, not reverting to the 95k catalog").
+
+**Be precise about what that fix reaches, though.** The pick row's `see also` column
+renders NAMES only, so a pick-only agent — the exact condition that missed — now sees the
+bare token `timeline-list` in `regulatory-update`'s row and vice versa. That is what the
+column is for ("where to go when the SHAPE is wrong"), and it is more than the nothing
+that was there. **The `when` clause itself is not on that surface**; it lands in the two
+`.docs.md` files and the galleries, which HARD RULE #6 sends you to *after* the pick. So
+the fix gives the failing condition a pointer, not the discriminator.
+
+**Rendering every `see also`'s `when` clause on the row was measured and rejected**:
+243 links across 61 components cost **+2,883 tokens — 3,844 → 6,727, a 74% increase** —
+and would take the file past the 24 KB pin `build-pick-list.test.js` holds (16,992 →
+~30,300 characters). The answer to a missing edge is the edge, not a fatter row.
+
+**What this result does NOT establish.** The `see also` fix was derived from the single
+observed miss, so re-running these same twelve briefs would be circular; **it is not
+re-measured, and should not be reported as verified.** The brief that produced the miss
+also handed the pick surface a verbatim tag match (`compliance`) pointing at the wrong
+component, which makes 92% pessimistic here rather than flattering — worth stating in
+both directions. And the same-author bias is unchanged and not retired: whoever wrote
+these briefs also owns the surface under test. The mitigation is partial — discriminators
+were read out of each manifest's `whenToUse`, which is text the FULL condition can see
+and the PICK condition cannot, so where that biases the experiment it biases it toward
+the full catalog — but it is not an independent-author design.
 
 ## Deliberately not done
 

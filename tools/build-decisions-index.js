@@ -18,6 +18,8 @@
  * GIST_CAP characters. Nothing is lost: the full summary is in the note's own
  * front-matter, one click (or one `head`) away, and the one-line form makes the
  * index GREPPABLE — `grep -i mermaid README.md` now returns lines, not paragraphs.
+ * That grep IS the access pattern `CLAUDE.md` prescribes, and it is what the index is
+ * budgeted against: see `ROW_CAP` below for why the budget is per-row and not per-file.
  *
  * Each note (engineering/decisions/YYYY-MM-DD-*.md, excluding README.md) must
  * carry front-matter:
@@ -242,9 +244,9 @@ function collect() {
 }
 
 // How many characters of summary a row may carry. Sized from the corpus: at 140,
-// 220 of 406 first sentences land whole, and the file totals 90 KB (26k tokens)
+// 220 of 425 first sentences land whole, and the file totals 98 KB (27.1k tokens)
 // against 395 KB (96k) for the full summaries. Raising it buys little — the
-// distribution has a long tail — and every character is paid 406 times.
+// distribution has a long tail — and every character is paid 425 times.
 const GIST_CAP = 140;
 
 // A sentence end is punctuation followed by whitespace or end-of-string, so `v1.2`,
@@ -315,6 +317,61 @@ function gistFor(summary) {
 function rowFor(note) {
   const tail = note.supersededBy ? ` → [${note.supersededBy}](${note.supersededBy})` : '';
   return `- ${STATUS[note.status].glyph} [${note.file}](${note.file}) — ${gistFor(note.summary)}${tail}`;
+}
+
+/**
+ * THE PER-ROW COST CAP — the budget this index can actually be held to.
+ *
+ * `2026-08-17-context-index-tiering.md` coined an "an index over ~10k tokens has failed"
+ * budget and this file missed it by 2.5x (25,500 tokens of rows, o200k_base, 425 notes).
+ * Both exits that note proposed were re-measured and neither reaches 10k: capping
+ * `summary:` at the source cannot get under the 5,387 tokens the filenames cost before a
+ * word of gist, and a filename-and-status index costs 13,336 — more than twice what `ls`
+ * of this folder prints for 5,811. The budget was unreachable the day it was written.
+ *
+ * WHY A ROW CAP AND NOT A FILE TOTAL. A file total is the one number #1547 already taught
+ * this generator not to assert: it is an aggregate over EVERY note, so the PR that trips
+ * it is being billed for 424 predecessors' contributions and has no local fix. A per-row
+ * cap holds each PR to exactly what it added — the same principle #1547 applied to
+ * correctness, applied to cost. It is also merge-safe by construction: two concurrent PRs
+ * each adding a note both pass, in either order. Nothing here — and nothing in this file's
+ * TESTS — may assert an aggregate over the corpus, including "the widest row is still
+ * close to the cap": a PR that shortens or deletes the longest note would fail it for
+ * doing exactly what the cap's own error message asks for.
+ *
+ * WHAT THE NUMBER IS. Measured over the live corpus, o200k_base: p50 row 214 characters /
+ * 60 tokens, p90 236 / 70, max 281. The cap sits just above today's worst row, so it is a
+ * RATCHET at the corpus, never a target nothing can hit — which is the failure mode this
+ * whole exercise exists to correct. A row's cost is bounded by `2 × filename + GIST_CAP +
+ * 12` (`gistFor` may add an ellipsis to its 140), so with the second term already capped
+ * the FILENAME is the lever an author still controls — 285 leaves room for 66 characters
+ * of it. It is rendered twice per row (link text + link target) and paid forever.
+ *
+ * The ` → [successor](successor)` pointer is excluded, on the 7 rows that carry one. Its
+ * length is set by the SUCCESSOR's filename, which this note's author did not choose.
+ * The strip is keyed on `supersededBy` and NOT on the row's shape: a regex anchored at
+ * end-of-row cannot tell a pointer from a GIST that happens to end in a markdown link,
+ * and would silently unbill up to a whole gist's worth of characters.
+ */
+const ROW_CAP = 285;
+
+const POINTER_TAIL = / → \[[^\]]+\]\([^)]+\)$/;
+
+/** Per-note, per-row: the check a single PR can be held responsible for. */
+function rowCostProblems(notes) {
+  const problems = [];
+  for (const note of notes) {
+    const row = rowFor(note);
+    const body = note.supersededBy ? row.replace(POINTER_TAIL, '') : row;
+    if (body.length <= ROW_CAP) continue;
+    problems.push(
+      `${note.file}: its index row is ${body.length} characters, over the ${ROW_CAP} cap. ` +
+        'The FILENAME is the lever — it is rendered twice per row (link text + link target) ' +
+        `and paid on every read of the index; shorten the slug. The summary is already capped at ${GIST_CAP} ` +
+        'characters by `gistFor`, so it is not what pushed this row over.',
+    );
+  }
+  return problems;
 }
 
 function render(notes) {
@@ -494,6 +551,17 @@ function main(argv) {
     for (const e of errors) process.stderr.write(`  ✗ ${e}\n`);
     return 1;
   }
+
+  // The per-row cost cap fails BOTH modes: write must not emit a row it would then
+  // refuse to certify, and the author needs to hear it from `npm run decisions:index`
+  // rather than from a gate two commands later.
+  const oversize = rowCostProblems(notes);
+  if (oversize.length) {
+    process.stderr.write(`decisions-index: ${oversize.length} row(s) over the ${ROW_CAP}-character cap:\n`);
+    for (const p of oversize) process.stderr.write(`  ✗ ${p}\n`);
+    return 1;
+  }
+
   const readme = fs.readFileSync(README, 'utf8');
 
   // CHECK asserts only what a single PR can be held responsible for (#1547) —
@@ -522,4 +590,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { frontMatter, collect, render, rowFor, gistFor, parseIndex, verify, splice, STATUS, FOOTER, GIST_CAP };
+module.exports = { frontMatter, collect, render, rowFor, gistFor, rowCostProblems, parseIndex, verify, splice, STATUS, FOOTER, GIST_CAP, ROW_CAP };

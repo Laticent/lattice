@@ -117,6 +117,10 @@
   ],
   "related": [
     {
+      "name": "timeline-list",
+      "when": "dated entries with a status read and a sentence each, but no citation per row"
+    },
+    {
       "name": "authority-chain",
       "when": "single rule walked statute → regulation → guidance → case"
     },

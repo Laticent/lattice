@@ -1,0 +1,91 @@
+{
+  "_design": "PRE-REGISTERED before any agent ran. The DISCRIMINATING follow-up the first bake-off (pick-surface-briefs.json) named as missing: 12 authoring briefs drawn ONLY from the two confusable clusters that note identified — `list` / `cards-stack` / `list-tabular` and `matrix-grid` / `matrix-2x2` / `roadmap`, plus the neighbors the pick list's own `see also` column links them to. Briefs 1-7 are the inventory/list cluster, 8-12 the matrix/plan cluster. Written in AUTHOR voice — the words a person writing a deck would use, deliberately NOT the manifests' vocabulary — because a brief phrased in manifest prose hands the FULL condition a verbatim string match and measures nothing. Ground truth is a SET: `expect` is what the manifest's own whenToUse points at, `ok` are alternatives a competent author could defend. Scored on `expect` (strict) and `expect ∪ ok` (lenient).",
+  "_discriminator_source": "Each brief encodes the ONE distinction the manifest itself names between a component and its confusable neighbors — cards-stack's vertical reading order against cards-grid's at-a-glance parallelism, matrix-2x2's author-placed discrete labels against quadrant's continuous data, roadmap's workstream×phase cells against gantt's overlapping spans. Those discriminators were read out of each manifest's `whenToUse`, which is text the FULL condition can see and the PICK condition cannot. Where that biases the experiment, it biases it TOWARD the full catalog.",
+  "_bias": "Same-author bias, stated and NOT retired: the same person wrote these briefs and owns the surface under test, so a brief could unconsciously favor vocabulary a pick row happens to carry. The mitigation is partial — discriminators taken from manifest whenToUse rather than from pick rows, briefs rephrased out of manifest wording, ground truth locked and committed before any agent was spawned. It is not an independent-author design and should not be read as one.",
+  "briefs": [
+    {
+      "id": 1,
+      "cluster": "inventory/list",
+      "brief": "Three ideas that only make sense read in order down the page — the second leans on the first. Each one needs a couple of sentences, and I don't want them sitting side by side as if they were alternatives.",
+      "expect": ["cards-stack"],
+      "ok": ["list-steps", "inventory"]
+    },
+    {
+      "id": 2,
+      "cluster": "inventory/list",
+      "brief": "Four choices the room should be able to size up in a single look. None of them ranks above the others, and they each have about the same amount to say.",
+      "expect": ["cards-grid"],
+      "ok": ["cards-stack", "inventory"]
+    },
+    {
+      "id": 3,
+      "cluster": "inventory/list",
+      "brief": "Six one-line points to close out the section. Nothing nested underneath any of them, and none longer than about ten words.",
+      "expect": ["list"],
+      "ok": ["list-tabular"]
+    },
+    {
+      "id": 4,
+      "cluster": "inventory/list",
+      "brief": "Seven things that have to be true before we ship. For each one the room needs to see whether it's finished, still moving, or stuck — that mix is what decides whether we go.",
+      "expect": ["checklist"],
+      "ok": ["list", "list-tabular"]
+    },
+    {
+      "id": 5,
+      "cluster": "inventory/list",
+      "brief": "A dense reference page: nine configuration settings, the name on one side and its value on the other. No prose, nothing to explain — people will squint at it and move on.",
+      "expect": ["list-tabular"],
+      "ok": ["glossary", "inventory"]
+    },
+    {
+      "id": 6,
+      "cluster": "inventory/list",
+      "brief": "Five named people and the part of the migration each one is answerable for. This is about who to chase, not about the order things happen in.",
+      "expect": ["actors"],
+      "ok": ["list-tabular", "inventory"]
+    },
+    {
+      "id": 7,
+      "cluster": "inventory/list",
+      "brief": "The four pieces of our operating model — a short name for each and one sentence on what it covers. They sit alongside each other; there's no first or last.",
+      "expect": ["inventory"],
+      "ok": ["cards-grid", "list"]
+    },
+    {
+      "id": 8,
+      "cluster": "matrix/plan",
+      "brief": "Risk review. Sort each item into high or low chance of it happening, against high or low damage if it does. I'm placing them myself from judgment — there's no dataset behind it.",
+      "expect": ["matrix-2x2"],
+      "ok": ["quadrant", "matrix-grid"]
+    },
+    {
+      "id": 9,
+      "cluster": "matrix/plan",
+      "brief": "One slide showing where a staff engineer actually sits: one direction is how deep the expertise runs, the other is how far the influence spreads — yourself, your team, the company, the wider field. Both run from low to high.",
+      "expect": ["matrix-grid"],
+      "ok": ["matrix-2x2"]
+    },
+    {
+      "id": 10,
+      "cluster": "matrix/plan",
+      "brief": "The delivery plan as a board: for each of our three teams, what lands in Q1 through Q4. Every box also needs a mark for shipped, in progress, or not started yet.",
+      "expect": ["roadmap"],
+      "ok": ["gantt", "matrix-grid"]
+    },
+    {
+      "id": 11,
+      "cluster": "matrix/plan",
+      "brief": "Eight pieces of work across three teams. The whole point is how long each one runs and where two of them are happening at the same time — I want the room to see the collisions.",
+      "expect": ["gantt"],
+      "ok": ["roadmap", "timeline-list"]
+    },
+    {
+      "id": 12,
+      "cluster": "matrix/plan",
+      "brief": "Six compliance dates. Each needs the date itself, a read on whether we're clear or exposed on it, and a line of explanation.",
+      "expect": ["timeline-list"],
+      "ok": ["list-steps", "roadmap"]
+    }
+  ]
+}

@@ -7135,6 +7135,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 #### Related components
 
+- [`regulatory-update`](#regulatory-update) — the dated entries are regulatory changes and every row carries a citation
 - [`gantt`](#gantt) — milestones occupy date ranges, not single moments
 - [`list-steps`](#list-steps) — the sequence has no dates, just an order
 - [`journey`](#journey) — stage-by-stage progress without calendar dates
@@ -8767,6 +8768,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 #### Related components
 
+- [`timeline-list`](#timeline-list) — dated entries with a status read and a sentence each, but no citation per row
 - [`authority-chain`](#authority-chain) — single rule walked statute → regulation → guidance → case
 - [`list-criteria`](#list-criteria) — flat enumeration of requirements without dates or citations
 - [`list-steps`](#list-steps) — lighter dots-on-a-spine sequence — the `timeline` variant
