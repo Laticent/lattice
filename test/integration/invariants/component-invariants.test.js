@@ -17,6 +17,24 @@
  * WHY this isn't flaky like the pixel gate: selector matches, the overflow flag,
  * and computed colours are logical facts of the laid-out DOM — no sub-pixel AA.
  *
+ * ONE RENDER, NOT ONE PER COMPONENT. Each sample is a self-contained
+ * `<!-- _class: X -->` slide, so the 61 of them are 61 sections of ONE deck. This used
+ * to render a one-slide deck per component, paying a Chromium launch, a navigation and
+ * a PDF encode each: measured at ~150s of render against 8.7s for the batch, and 214s
+ * against 17s for the whole file (engineering/decisions/
+ * 2026-08-18-inspection-oracle-catalog.md §5, lever A). Every assertion therefore names
+ * its OWN slide (`slideSel(slide)`) instead of a hard-coded slide 1, and `slideIndexByClass`
+ * does the locating — an ordered walk, so auto-split (which turns one authored slide into
+ * several sections carrying the same class) cannot shift a later component onto an
+ * earlier one's section. A component the walk cannot place falls back to its own render
+ * rather than being skipped.
+ *
+ * WHAT THE BATCH CHANGES, stated so a failure here is read correctly: a sample is no
+ * longer slide 1 of a 1-slide deck. Deck-position-dependent chrome differs — a two-digit
+ * page number in the footer where there used to be "1" — and one component that hangs
+ * takes the batch's render down with it instead of only its own. The layout contract is
+ * otherwise identical: same front matter, same theme, same `form: on`.
+ *
  * Local iteration: `INV_ONLY=funnel,kpi node --test <thisfile>` renders just those.
  * Needs Chromium (CHROME_PATH / puppeteer cache) + the emulator.
  */
@@ -27,7 +45,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
-const { renderHtml, deckFromSample, ROOT } = require('../../helpers/semantic-render');
+const { renderHtml, deckFromSample, deckFromSamples, ROOT } = require('../../helpers/semantic-render');
 const { LAYER3, TRANSFORM } = require('./component-invariants.layer3');
 
 /** Best-effort Chromium path — mirrors color-parity.test.js / tools/screenshot.js. */
@@ -59,17 +77,63 @@ function allComponents() {
   return mans;
 }
 
-const SLIDE = 'section[data-lattice-slide="1"]';
+/** The slide selector for a given 1-based slide number in the rendered deck. */
+const slideSel = (n) => `section[data-lattice-slide="${n}"]`;
 // Mermaid samples (chart + diagram buckets) spawn mmdc per diagram — give them room.
 const MERMAID = new Set(['chart', 'diagram']);
 const renderTimeout = (m) => (MERMAID.has(m.function) || MERMAID.has(m.bucket) ? 240000 : 60000);
+
+/**
+ * Locate each sample's own section in the BATCHED deck.
+ *
+ * Every sample opens with `<!-- _class: … -->` carrying its component's name as a class
+ * token (verified for all 61 shipped manifests), and the engine stamps that class onto
+ * the section. So the mapping is a single ORDERED walk: for sample i, take the first
+ * section at or after the cursor whose class list carries `names[i]`, then advance the
+ * cursor past it.
+ *
+ * ORDERED, and not a global `querySelector('.name')`, for two reasons. Auto-split turns
+ * one authored slide into several sections that ALL carry the same class, so a global
+ * lookup would still find the first — but a component whose class token also appears on
+ * an EARLIER sample's slide (a modifier two components share) would resolve to that
+ * earlier slide instead. Walking forward makes each match consume its section, so the
+ * i-th sample can only ever match at or after the (i-1)-th.
+ *
+ * Returns `number | null` per sample — null means "not found", which the caller renders
+ * on its own rather than skipping.
+ */
+function slideIndexByClass(names) {
+  const sections = [...document.querySelectorAll('section[data-lattice-slide]')];
+  const out = [];
+  let cursor = 0;
+  for (const name of names) {
+    let found = null;
+    for (let i = cursor; i < sections.length; i++) {
+      if (sections[i].classList.contains(name)) { found = i; break; }
+    }
+    if (found === null) { out.push(null); continue; }
+    out.push(Number(sections[found].getAttribute('data-lattice-slide')));
+    cursor = found + 1;
+  }
+  return out;
+}
+
+/** Force-load every embedded face, then wait for the font set to settle. */
+async function settleFonts(page) {
+  await page.evaluate(async () => {
+    try {
+      await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+      await document.fonts.ready;
+    } catch { /* Font Loading API absent — proceed */ }
+  });
+}
 
 /** Browser-side: WCAG contrast of every HEADING vs its nearest opaque background.
  *  Returns the worst (lowest) ratio, or null if the slide has no heading. NOTE:
  *  headings only — body-text contrast (and palette-token resolution) are phase-2
  *  (see decision §0). Headings are the highest contrast-risk surface. */
-function worstHeadingContrast() {
-  const sec = document.querySelector('section[data-lattice-slide="1"]');
+function worstHeadingContrast(slideSelector) {
+  const sec = document.querySelector(slideSelector);
   if (!sec) return null;
   // Headings + blockquote (the `quote` component's focal text is a <blockquote>,
   // not an h-tag). KNOWN phase-2 gap: components whose focal text is neither —
@@ -101,40 +165,89 @@ function worstHeadingContrast() {
   return Number.isFinite(worst) ? worst : null;
 }
 
+const COMPONENTS = allComponents();
+// One deck, one slide per component. Rendering them one deck apiece cost a Chromium
+// launch + navigation + PDF encode PER COMPONENT — ~150s against 8.7s batched
+// (engineering/decisions/2026-08-18-inspection-oracle-catalog.md §5, lever A).
+const BATCH_TIMEOUT = Math.max(...COMPONENTS.map(renderTimeout), 60000);
+
 describe('component semantic invariants (assert meaning, not pixels)', () => {
   let browser;
+  let batchPage;
+  /** name → { page, slide } for every component, batched or fallback. */
+  const view = new Map();
+  /** Pages opened for components the batch could not place; closed with the browser. */
+  const soloPages = [];
+
   before(async () => {
     browser = await puppeteer.launch({
       executablePath: resolveChrome(),
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-  });
-  after(async () => { if (browser) await browser.close(); });
 
-  for (const m of allComponents()) {
+    const html = renderHtml(deckFromSamples(COMPONENTS.map((m) => m.sample)), {
+      key: '_all-components',
+      timeout: BATCH_TIMEOUT,
+    });
+    batchPage = await browser.newPage();
+    await batchPage.goto(`file://${html}`, { waitUntil: 'load', timeout: 60000 });
+    // Settle fonts before ANY layout read. The emulator's authoritative overflow pass
+    // runs after document.fonts.ready, but that corrected state never reaches the .html
+    // sidecar — so we mirror the settle here. Without it, overflow/contrast would measure
+    // a mid-load serif fallback (timing- and proxy-dependent), reintroducing the very
+    // machine-nondeterminism the pixel gate was retired for. Embedded woff2 (data-URI)
+    // load without network; document.fonts.ready resolves on success OR failure, so a
+    // blocked Google-Fonts <link> can't hang it.
+    await settleFonts(batchPage);
+
+    const slides = await batchPage.evaluate(slideIndexByClass, COMPONENTS.map((m) => m.name));
+    for (const [i, m] of COMPONENTS.entries()) {
+      if (slides[i] != null) { view.set(m.name, { page: batchPage, slide: slides[i] }); continue; }
+      // FALL BACK, never skip. A component the ordered walk cannot place still owes its
+      // invariants, so it gets the old one-deck-per-component treatment. This costs a
+      // render, which is the point: it is visible in the suite's wall clock rather than
+      // silently uncovered.
+      const solo = renderHtml(deckFromSample(m.sample), { key: m.name, timeout: renderTimeout(m) });
+      const page = await browser.newPage();
+      soloPages.push(page);
+      await page.goto(`file://${solo}`, { waitUntil: 'load', timeout: 60000 });
+      await settleFonts(page);
+      view.set(m.name, { page, slide: 1 });
+    }
+  }, { timeout: BATCH_TIMEOUT + 120000 });
+
+  after(async () => {
+    for (const p of soloPages) await p.close().catch(() => {});
+    if (batchPage) await batchPage.close().catch(() => {});
+    if (browser) await browser.close();
+  });
+
+  // The batch's own invariant. Every per-component assertion below is scoped by the
+  // slide number this mapping produced, so a cursor bug that pointed two components at
+  // one section would make BOTH of them assert against the same DOM — and the layer-1
+  // slot checks would mostly still pass, because a shared frame satisfies a lot of
+  // selectors. Distinctness is the property that cannot be satisfied by accident.
+  test('batch mapping: every component resolved to its own slide', () => {
+    const placed = [...view.entries()].filter(([, v]) => v.page === batchPage);
+    const slides = placed.map(([, v]) => v.slide);
+    assert.equal(new Set(slides).size, slides.length,
+      `two components resolved to the same slide: ${JSON.stringify(placed.map(([n, v]) => [n, v.slide]))}`);
+    // A fallback is correct, not a failure — but it costs a full render, so say so.
+    if (soloPages.length) {
+      const fell = [...view.entries()].filter(([, v]) => v.page !== batchPage).map(([n]) => n);
+      console.error(`  ℹ ${fell.length} component(s) rendered solo (not located in the batch): ${fell.join(', ')}`);
+    }
+  });
+
+  for (const m of COMPONENTS) {
     describe(`${m.function}/${m.name}`, () => {
-      let page;
-      before(async () => {
-        const html = renderHtml(deckFromSample(m.sample), { key: m.name, timeout: renderTimeout(m) });
-        page = await browser.newPage();
-        await page.goto(`file://${html}`, { waitUntil: 'load', timeout: 60000 });
-        // Settle fonts before ANY layout read. The emulator's authoritative
-        // overflow pass runs after document.fonts.ready, but that corrected state
-        // never reaches the .html sidecar — so we mirror the settle here. Without
-        // it, overflow/contrast would measure a mid-load serif fallback (timing-
-        // and proxy-dependent), reintroducing the very machine-nondeterminism the
-        // pixel gate was retired for. Embedded woff2 (data-URI) load without
-        // network; document.fonts.ready resolves on success OR failure, so a
-        // blocked Google-Fonts <link> can't hang it.
-        await page.evaluate(async () => {
-          try {
-            await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
-            await document.fonts.ready;
-          } catch { /* Font Loading API absent — proceed */ }
-        });
-      }, { timeout: renderTimeout(m) + 30000 });
-      after(async () => { if (page) await page.close(); });
+      /** Resolved in the suite-level `before`; read fresh inside each test. */
+      const at = () => {
+        const v = view.get(m.name);
+        if (!v) throw new Error(`no rendered view for ${m.name} — the suite-level render failed`);
+        return v;
+      };
 
       // ── Layer 1 — every required slot's selector resolves in the rendered DOM ──
       // Skipped for TRANSFORM components, whose authoring slot (e.g. a `ul > li`) is
@@ -143,8 +256,9 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
       if (!TRANSFORM.has(m.name)) {
         for (const [slot, spec] of Object.entries(m.slots || {}).filter(([, s]) => s.required)) {
           test(`contract: required slot "${slot}" (${spec.selector}) renders`, async () => {
-            const n = await page.evaluate((sel) => {
-              const s = document.querySelector('section[data-lattice-slide="1"]');
+            const { page, slide } = at();
+            const n = await page.evaluate((sel, slideSelector) => {
+              const s = document.querySelector(slideSelector);
               if (!s) return -1;
               // Manifest selectors are written against the slide <section> root: a
               // leading `section` IS this element (→ :scope), a bare selector is a
@@ -163,7 +277,7 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
               try {
                 return roots.reduce((n, r) => n + r.querySelectorAll(norm).length, 0);
               } catch { return -2; }
-            }, spec.selector);
+            }, spec.selector, slideSel(slide));
             assert.ok(n >= 1, `expected ≥1 "${spec.selector}" for required slot "${slot}", got ${n}`);
           });
         }
@@ -173,14 +287,16 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
       // Measure directly (post-fonts-settle) with the emulator's TOL=12, rather
       // than trust the sidecar's early `.overflow` class (set before fonts loaded).
       test('universal: slide does not overflow its frame', async () => {
-        const over = await page.$eval(SLIDE, (s) =>
+        const { page, slide } = at();
+        const over = await page.$eval(slideSel(slide), (s) =>
           s.scrollHeight > s.clientHeight + 12 || s.scrollWidth > s.clientWidth + 12);
         assert.equal(over, false, 'slide content overflows the 1280×720 frame');
       });
 
       // ── Layer 2b — headings meet WCAG AA contrast ──
       test('universal: heading contrast ≥ 4.5:1', async () => {
-        const ratio = await page.evaluate(worstHeadingContrast);
+        const { page, slide } = at();
+        const ratio = await page.evaluate(worstHeadingContrast, slideSel(slide));
         if (ratio === null) return; // no heading slot
         assert.ok(ratio >= 4.5, `worst heading contrast ${ratio.toFixed(2)}:1 < 4.5:1 (WCAG AA)`);
       });
@@ -189,7 +305,10 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
       const layer3 = LAYER3[m.name];
       if (layer3) {
         for (const [label, fn] of Object.entries(layer3)) {
-          test(`semantic: ${label}`, async () => { await fn(page, assert, SLIDE); });
+          test(`semantic: ${label}`, async () => {
+            const { page, slide } = at();
+            await fn(page, assert, slideSel(slide));
+          });
         }
       }
     });
