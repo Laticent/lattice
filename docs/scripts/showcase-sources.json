@@ -2,7 +2,7 @@
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "f4ac766f9d09b975c31840d6de50a2e02e639aaf2e18aefc7e3f990799f7d7b2"
+		"srcSha256": "37ef40fcc204fd2af6103e5a3d41cc00c541441ebc09511d11b7c343fbc206c8"
 	},
 	"big-number.dark": {
 		"src": "lib/components/statement/big-number/big-number.gallery.dark.pdf",
@@ -12,7 +12,7 @@
 	"cards-grid.light": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "f8c92f831d6c2d7d4430aa239ae9e78a4a4241b91948894a09baa7d1fd572a00"
+		"srcSha256": "56ac11561634bbc937f28f0280c8d5a3199d6a2742e267cb5199480add72654a"
 	},
 	"cards-grid.dark": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.dark.pdf",
@@ -22,37 +22,37 @@
 	"checklist.light": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "a2abbac193dc81d58e5d6bafc706d04d3da70caf34684b26beb3dce6d9a588c6"
+		"srcSha256": "010271b6fd9f6f39b16ee2832697c99e8cbe1e8fc116cfa62adc57498c907ae1"
 	},
 	"checklist.dark": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "6ca1b6cf5b359052ccc6bb0c9cbbc7ffc66934ed0a6a4474197528ca72416b24"
+		"srcSha256": "c77137ecff46f0a3562428bd0cb5810e934a67ccca781cdcc6069f34920a2d00"
 	},
 	"code.light": {
 		"src": "lib/components/code/code/code.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "d6ad41578c01c5f59633cb6c786b20eb344a6153a0e403ffdbd4bc95152fc976"
+		"srcSha256": "2e7a0577c6b8579cc29da6ca4ca62ad233180d1835e796c37b6b0d4a7b272a3a"
 	},
 	"code.dark": {
 		"src": "lib/components/code/code/code.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "ca1d8772b8df5800efd7e17fd079d41dae627b61bdd654d7469732158aadd789"
+		"srcSha256": "2d00e2ebb86a10e38f02a8b3b1ef96aea8008ff8d2c05bdf3c5705eea9ca01e0"
 	},
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
 		"page": 4,
-		"srcSha256": "b1ee8d78b7ce37288f3dff87a25e449480934795787d91b3a8333c4e282edcba"
+		"srcSha256": "42c86593552b19a5a9642c4fa87d268c54858c6b8d197ccdf2f4678b7ca5d4cd"
 	},
 	"diagram.dark": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.dark.pdf",
 		"page": 4,
-		"srcSha256": "f37b60a44e9a751fbdddd8be03c853c29ff51ca60845292bcd99e73629c4287f"
+		"srcSha256": "5b7076d45753c2311cf6d257f07f449f4ced664c91305a7beea1a94c25d2fa48"
 	},
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "7ebf8b660f6d95bbabfff7bfe15381090162dd45bc1100fea8a27d989a3caeb4"
+		"srcSha256": "d952589b5eab2a2562b3f7fc9abb566eaae9589c14d885ed8385724276fdf628"
 	},
 	"divider.dark": {
 		"src": "lib/components/anchor/divider/divider.gallery.dark.pdf",
@@ -62,7 +62,7 @@
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "adc54787cc40055f2d4a78af966a14c1877e4e7a1f761ed182930b66e2a2a9bc"
+		"srcSha256": "e70d2597557f3e2cb9cb141f1a7d0db2fa12674b686984197ef17796d10a2ae3"
 	},
 	"funnel.dark": {
 		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
@@ -72,7 +72,7 @@
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "51daf46a63428e17f14cee36d737b5c04ab3422ec5527326a66ba6d760f57c42"
+		"srcSha256": "0965c228e0eca9af60cddea65b3b2c0ee676946bcc42b78d13a0a3c34e71b697"
 	},
 	"image.dark": {
 		"src": "lib/components/imagery/image/image.gallery.dark.pdf",
@@ -82,7 +82,7 @@
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "fca268fe05bcaa993516994a4ae9a135e2eb530930a0469775ef67e66412531c"
+		"srcSha256": "a91c0baffe77996bbe1bac640c2b943399b76373f2289793527aee52b632762c"
 	},
 	"inventory.dark": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.dark.pdf",
@@ -92,27 +92,27 @@
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "d97b7954a07549c374e0b4f2f44e5c2b7ca300b1c3fd61961f03c1bb797bc649"
+		"srcSha256": "f08de73dae0e8d8f37d490dd31dc6fc192444a50a1dbd1604ac1f2a114a7bfc0"
 	},
 	"kpi.dark": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "91cfcee18aa978b2e39c0beebc6af0425faf80f642ab5cac33d1bc298ddf5887"
+		"srcSha256": "556bb7afc815944f88e407739852d324e24c3fc38767e3a8f7f80f9020353199"
 	},
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "17c080c01183872d307e87085a0fcba2b0f3376205e188d9d8c4c28c05c5ac6b"
+		"srcSha256": "020891f03179c29786e48cf62c0707c361bacc6fd4fbb778bbe80bca37336140"
 	},
 	"pricing.dark": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "5ef172bd46574009b8e040567767dc092331b5adb332a4308758e1dcbb69d588"
+		"srcSha256": "2da115960b10a75e431087edb3f5a3a8f6812ab1ffd3320384f637e2677e3d17"
 	},
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "dd8b860b95c577a61fa4fe2274cc4025fbf8225258eac6406576a7a4a1f18f84"
+		"srcSha256": "b203b1b09811ab2fc20327f855c36abc955e3fe136531a9d7dbf5d49b37b8dcf"
 	},
 	"quote.dark": {
 		"src": "lib/components/statement/quote/quote.gallery.dark.pdf",
@@ -122,7 +122,7 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "4485264b2fc57420fcdda367d6647902e89e908f23764157f3b762ab2cd318c6"
+		"srcSha256": "0bf2da75a963e73a522c0677d55cc9ac4c2fae21de8fc7a46db99dc23bd5b9c3"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
@@ -132,21 +132,21 @@
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "9d33fec2b9aae717b001f99b5254bc205bb19d09088a7f21af7f88b3d97be03d"
+		"srcSha256": "0533469f03c0755f375aa165bffb6b5604c4e42c013996d8777b2a02de2b414f"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "0e0a1b10175d5caa5e03a85534942ebde2366b86efd02534f83ccb4564037f2f"
+		"srcSha256": "de396e089b0edaced8c8fec3fbb7db0a3a6f9ea45c1b97e28c1ac9b9da464e92"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "d2f65e9ba222dad5ea355043f785ef06724828e01ef652fdf76aac3f5afbf84d"
+		"srcSha256": "070b87041fbcdbb7ec52cdfd1442c985841954bfb792b7754f606cd2def0db27"
 	},
 	"verdict-grid.dark": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "e6ece9201efbfa78da1fb6340f00ce9d41b1856ff58e57b4f130928118917feb"
+		"srcSha256": "ca66064f8c237f80fb3e1df2bd03f93117a82c4a0b8afe96878e15332449a7c8"
 	}
 }
