@@ -2,7 +2,7 @@
 status: shipped
 summary: >
   The merge queue ejected PRs with MERGE_CONFLICT on the committed generated bundles —
-  43 of the last 50 commits touch dist/, the minified files run ~9.6 KB PER LINE, so two
+  36 of the last 50 commits touch dist/, the minified files run ~9.6 KB PER LINE, so two
   such PRs conflict with certainty and the queue silently clears auto-merge on the loser.
   dist/ and the docs-site bundles are now BUILT, NOT COMMITTED. The npm package is
   unaffected: package.json's `files` whitelist beats .gitignore, verified at 135 dist/
@@ -52,9 +52,9 @@ saying so. #1686 took three rebase cycles to land a change that was already gree
 |---|---|
 | **npm consumers** | Unchanged. `files` in package.json whitelists `dist/`, which **beats `.gitignore`** — verified: `npm pack --dry-run` lists **135 `dist/` files**, including the 6.8 MB `bin`. A new `prepack` runs the build so they exist at pack time. |
 | **jsDelivr `/npm/` URLs** | Unchanged — they serve the npm tarball. |
-| **CI** | Every job that loads the engine gains a `npm run build` step (unit, integration, golden-diff, docs-build, studio-smoke). |
-| **The docs site** | `docs.yml` builds them before deploying. This is strictly *fresher* than before — see §5. |
-| **A fresh sandbox** | `session-start.sh` builds them after `npm install`. |
+| **CI** | `npm ci` runs `prepare`, which generates them — so every job has them without naming a build step. Five jobs also build explicitly, and the `lint` job bootstraps before its freshness gate (order matters — §2 below). An earlier cut relied ONLY on per-job build steps and was red on five jobs, the docs deploy, `prepack` and the SessionStart hook; see §8. |
+| **The docs site** | `docs.yml` builds them before deploying — a better guarantee, not a fix for a live problem; the claim that it is *fresher* was wrong and is retracted in §5. |
+| **A fresh sandbox** | `session-start.sh` builds them after `npm install`, and does NOT abort the hook if that fails — losing the browser and PDF tooling to a build error would be a worse failure than a missing dist/. |
 | **The release** | `release.js` no longer stages `dist` (a silent no-op once ignored); the tarball is where they ship. |
 
 `build:check` becomes `build.js --check --exclude-uncommitted`, skipping the 25
