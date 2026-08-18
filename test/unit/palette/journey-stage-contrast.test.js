@@ -25,25 +25,22 @@
  * a fact about the component, so it is asserted independently below and the recipe is
  * pinned. The ink is then read from the real stylesheet and scored against it.
  *
- * THE FLOOR IS AA 4.5:1, DELIBERATELY STRICTER THAN THE RENDERED PROBER'S 3:1 — and the
- * two are not in conflict, they are answering different questions.
+ * THE FLOOR IS AA 4.5:1, AND THE RENDERED PROBER NOW AGREES — it did not always, and the
+ * disagreement is worth keeping because of how it was resolved.
  *
- * `tools/check-slide-contrast.js` is right by the letter of WCAG: 18pt is 24 CSS px
- * (1pt = 1.333px), these labels compute to ~45px, so they are large text and 3:1 applies.
- * That conversion is exact and does not vary with deck size — a branch that "fixed" it to
- * 72px cost a full revert to establish.
+ * This file held 4.5 while `tools/check-slide-contrast.js` asked these same labels for
+ * only 3:1. The prober was applying WCAG's 18pt line to RAW CANVAS PIXELS: 18pt is 24 CSS
+ * px, the labels resolve to ~45px on a 4k deck, so they looked like large text. But every
+ * --fs-* token is authored in `cqi`, so the same label is ~15px on an hd deck and the
+ * grading flipped on the deck's `size:` line alone. #1722 settled it — the prober divides
+ * the canvas scale out first — and these labels are 11.2pt, which is normal text owing
+ * the full 4.5:1. So this floor is now simply THE floor, not a stricter local choice.
  *
- * The open question is whether the LETTER is the right test here, and the repo has not
- * settled it. Register entry G13 in `2026-07-03-semantic-html-accessibility.md` argues
- * that a nominally 3840px-wide slide shown smaller scales its type down, so canvas-unit
- * "large" may be nothing of the kind to a viewer — a presentation-scale argument that
- * would need a decision about what viewing size to normalize to before any threshold
- * could encode it (#1722).
- *
- * Until it is settled, this tier holds the stricter floor, because holding it costs
- * nothing — the shipped ink clears 4.5:1 with 1.13:1 of headroom at its worst pair — and
- * it keeps the ratio out of the gap between the two thresholds, which is exactly where a
- * label lands when nobody has decided which one governs.
+ * (Do not read that as vindication of the branch that once "fixed" the same threshold to
+ * 72px. It reached a similar number by dividing one deck's PDF page size by another
+ * deck's canvas, and cost a full revert. pt is 1.333 CSS px on every shipped size; what
+ * varies is the canvas the px are measured in. Same answer, different and checkable
+ * derivation — see engineering/decisions/2026-08-18-contrast-floor-deck-scale.md.)
  */
 
 const { test, describe } = require('node:test');

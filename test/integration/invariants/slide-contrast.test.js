@@ -62,7 +62,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const puppeteer = require('puppeteer');
 const { ROOT, runEmulator } = require('../../helpers/render');
-const { PROBE } = require('../../../tools/check-slide-contrast.js');
+const { PROBE, REFERENCE_WIDTH } = require('../../../tools/check-slide-contrast.js');
 
 /**
  * The gated surfaces: a light component catalog, the same catalog dark (ink bugs pick a
@@ -152,54 +152,54 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
  * ratcheted. NOT a second exemption list: an entry above is something no contrast change
  * could satisfy; an entry HERE is a debt with a number on it.
  *
- * WHERE THEY CAME FROM. #1704 taught the prober to read element `opacity` (which
- * composites ink AND background together) but never re-measured the RENDERED galleries,
- * so the `agenda progress-*` and `kanban` de-emphasis washes have been failing on `main`
- * unseen since that merge. Reproduced at `91913c5` in a clean worktree before this branch
- * touched anything.
+ * THE ORIGINAL TWO ENTRIES ARE GONE — FIXED, NOT RE-RATCHETED. `agenda progress-*` and
+ * `kanban` both de-emphasized with a CSS `opacity`, which renders the subtree to a buffer
+ * and composites ink AND backdrop together, so it does not step each ink down evenly: it
+ * steps each one down in proportion to the headroom it already had. On `agenda` that took
+ * the row title (--text-heading, 18.13:1 on indaco) to 2.97:1 and the accent counter
+ * beside it (5.47:1 to start with) to 2.00:1 — the BIGGER, BOLDER element was the
+ * illegible one, which is the tell that the mechanism was wrong rather than the amount.
+ * Both now de-emphasize with a role ink, plus elevation and weight on kanban. A third
+ * instance of the identical pattern turned up while fixing them (`compare-prose`
+ * .decision / .rejected, `opacity: .72` washing a white-on-accent label from 5.41:1 to
+ * 3.24:1) and was fixed with them. All three now contribute ZERO sub-threshold runs, so
+ * their entries were DELETED — which is what the staleness check below exists to force.
  *
- * A SECOND WAVE WAS BRIEFLY LISTED HERE AND WAS NOT REAL. An intermediate commit raised
- * the large-text threshold 3x on a mis-derived unit conversion, which made `compare-prose`
- * and `redline` appear to fail and inflated `kanban`. The threshold is reverted and those
- * entries are deleted — recorded because the gate went GREEN on the bad threshold, its
- * ledger having been retuned to match, which is exactly how a wrong number survives.
+ * WHAT IS LEFT IS A DIFFERENT ANIMAL, and that is why it is logged instead. `redline`'s
+ * `<del>` carries no opacity — its own rule says so at length, having already removed one
+ * for exactly this reason — so there is no wash to take away. Its 4.25:1 is `--fail` ink
+ * on `--fail-bg`, a 10% tint of --fail over the dark canvas: a PALETTE TOKEN-PAIR
+ * question owned by `2026-08-17-composed-surface-contrast.md`, where re-tuning reaches
+ * all 32 palettes and the record already warns how far a wash drags the curated hues.
+ * Off this change's path, so HARD RULE #18 says log it with its exact count rather than
+ * sweep it in.
  *
- * Fixing any of them is a design call on a component unrelated to `journey`: how much
- * emphasis may a de-emphasized row keep, how loud may a struck clause be. HARD RULE #18
- * says log an off-path pre-existing defect rather than sweep it in; HARD RULE #17 says do
- * not bolt a second feature onto this PR. But a gate that cannot go green is not a gate,
- * so they are counted rather than ignored. Tracked as #1717.
+ * IT SURFACED HERE, and the distinction matters: the deck-scale correction (#1722)
+ * re-grades a 16pt run on a 4k deck from "large text, 3:1" to what it always was — normal
+ * text at 4.5:1. The rendered pixels did not move; only the grading did. Nothing on that
+ * slide is worse than before this change, so it is found-not-caused in the strict sense.
  *
  * CEILING-ONLY, and that is a deliberate reversal. An earlier cut failed in both
  * directions, on the theory that a stale ceiling lets a regression slip back underneath
- * it. Measured, that theory costs more than it buys: `agenda li` sits at 2.97:1 against a
- * 3:1 floor, so the first token retune that IMPROVES the repo reds an unrelated PR and
- * hands its author a 400-line contrast policy to edit. Do that twice and "just bump the
- * number" becomes folk wisdom, which is what the design was meant to prevent. Growth
- * fails; progress prints; a full fix trips the staleness check and forces deletion.
+ * it. Measured, that theory costs more than it buys: an unrelated PR that IMPROVES a
+ * token would be reded and handed a 400-line contrast policy to edit. Do that twice and
+ * "just bump the number" becomes folk wisdom, which is what the design was meant to
+ * prevent. Growth fails; progress prints; a full fix trips the staleness check and forces
+ * deletion — as it just did, twice.
  */
 const PREEXISTING_CONTRAST_BACKLOG = [
   {
-    id: 'agenda-progress-dimming',
-    why: '`section.agenda[class*="progress-"] ol > li { opacity: 0.45 }` dims every '
-      + 'non-current agenda item, including its ::before counter, so the current row stands '
-      + 'out. Fixing it means deciding how much emphasis that row may keep.',
-    match: (r) => /\bagenda\b/.test(r.cls),
+    id: 'redline-strike-ink',
+    why: '`section.redline del` paints --fail ink on --fail-bg (a 10% tint of --fail over '
+      + 'the canvas). On the dark canvas that is 4.25:1 against the 4.5:1 normal-text floor. '
+      + 'No opacity is involved — the rule removed one deliberately — so the fix is a palette '
+      + 'tune of the --fail / --fail-bg pair across 32 themes, not a component edit. Owned by '
+      + 'engineering/decisions/2026-08-17-composed-surface-contrast.md.',
+    match: (r) => /\bredline\b/.test(r.cls) && r.tag === 'del',
     counts: {
-      'gallery @ indaco': { li: 4, 'li::before': 4 },
-      'gallery @ indaco-dark': { 'li::before': 4 },
-      'gallery-jargon @ indaco': { li: 4, 'li::before': 4 },
-    },
-  },
-  {
-    id: 'kanban-dimming',
-    why: 'The same de-emphasis wash on `kanban` card meta — the inline code chip and the '
-      + 'column-header span. Same design call, different component.',
-    match: (r) => /\bkanban\b/.test(r.cls),
-    counts: {
-      'gallery @ indaco': { code: 2 },
-      'gallery @ indaco-dark': { code: 2 },
-      'gallery-jargon @ indaco': { span: 2 },
+      'gallery @ indaco': {},
+      'gallery @ indaco-dark': { del: 2 },
+      'gallery-jargon @ indaco': {},
     },
   },
 ];
@@ -269,7 +269,12 @@ const EXEMPT_TIER_FLOOR = {
   size: {
     'gallery @ indaco': 333,
     'gallery @ indaco-dark': 333,
-    'gallery-jargon @ indaco': 184,
+    // 184 until the kanban de-emphasis stopped being an opacity wash. One `.kanban-size`
+    // token ("M"/"L"/"XL") returned to the tier: the wash had been shifting its COMPOSITED
+    // value off `--text-muted`, so a run authored in the exempt tier was being measured as
+    // failing body copy. It sits at 3.24:1, above the graphical floor. Raised here with its
+    // reason attached, which is exactly what this ceiling exists to force.
+    'gallery-jargon @ indaco': 185,
   },
 };
 
@@ -286,7 +291,7 @@ function resolveChrome() {
 }
 
 const fmt = (r) =>
-  `p${r.page} ${r.cls || '(no class)'} <${r.tag}> ${r.fs}px/${r.w} `
+  `p${r.page} ${r.cls || '(no class)'} <${r.tag}> ${r.fs}px = ${r.pt}pt/${r.w} `
   + `${r.r}:1 (need ${r.need}) fg rgb(${r.fg}) on rgb(${r.bg})${r.imgBackdrop ? ' [img backdrop]' : ''}\n`
   + `        "${r.text}"`;
 
@@ -322,7 +327,10 @@ describe('slide contrast — the rendered galleries, against written-down exclus
       await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
       await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
       await new Promise((r) => setTimeout(r, 400));
-      measured.push({ surface: s.id, rows: await page.evaluate(PROBE) });
+      // REFERENCE_WIDTH is not optional. PROBE divides the deck's canvas scale out of every
+      // font size before applying WCAG's large-text line, and `scale` computes to NaN
+      // without it — which silently grades EVERY run as normal text rather than erroring.
+      measured.push({ surface: s.id, rows: await page.evaluate(PROBE, REFERENCE_WIDTH) });
       await page.close();
     }
   });
@@ -332,13 +340,20 @@ describe('slide contrast — the rendered galleries, against written-down exclus
   /**
    * The green-because-nothing-ran guard. Every assertion below is vacuously true over an
    * empty row set, so a render that silently produced no slides — or a PROBE that threw
-   * and returned [] — would pass this file as "0 failures". Measured today: 1518/1518/852.
+   * and returned [] — would pass this file as "0 failures". Measured today: 1542/1542/861.
    */
   test('the sweep actually measured all three surfaces', () => {
     assert.equal(measured.length, SURFACES.length, 'a surface failed to render or probe');
     for (const m of measured) {
       assert.ok(m.rows.length >= 400,
         `${m.surface}: only ${m.rows.length} text runs measured — the probe is not reaching the deck`);
+      // …and that the SIZE GRADING ran. `pt` is the deck-scale-normalized size every
+      // threshold is decided on; a non-finite one means the reference width never arrived
+      // and every run silently graded as normal text (see PROBE's guard).
+      const ungraded = m.rows.filter((r) => !Number.isFinite(r.pt));
+      assert.equal(ungraded.length, 0,
+        `${m.surface}: ${ungraded.length} runs have no normalized size — PROBE ran without a `
+        + 'usable reference canvas width, so WCAG\'s large-text line was never applied.');
     }
   });
 

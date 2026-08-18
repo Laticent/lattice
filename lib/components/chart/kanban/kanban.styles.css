@@ -88,7 +88,33 @@
   color: var(--state-pass-ink);
   border-bottom-color: color-mix(in oklab, var(--state-pass-ink) 40%, transparent);
 }
-.kanban-column[data-done] .kanban-card { opacity: 0.52; }
+/* "Done" cards recede by INK and ELEVATION, never by opacity.
+ *
+ * This was `opacity: 0.52`, and opacity composites the subtree's ink AND its backdrop
+ * in one buffer — so it does not dim each ink equally, it dims each one in proportion
+ * to the headroom it had. Measured on the rendered gallery, the card title (16.59:1 on
+ * indaco) came through the wash at 3.51:1 while the inline code token beside it, which
+ * only ever had 5:1, fell to 2.12:1. The wash also knocked --text-muted meta OUT of its
+ * own palette tier by shifting its composited value, so genuinely-chrome text started
+ * reporting as under-contrast body copy (#1717).
+ *
+ * Three cues replace it, and every one of them is contrast-safe: the card drops its
+ * elevation so a finished column reads flat against the live ones, and its title steps
+ * down a weight and one rung of the ink scale (--text-heading -> --text-body). That is
+ * the house rule base.tokens.css states for exactly this situation, and which the
+ * redline ins/del rule already follows: "If you need a quieter label here, spend size
+ * or weight, not alpha."
+ *
+ * --text-secondary was the first choice and is 0.03 short in dark mode (4.47:1 against a
+ * 4.5 floor). Not a rounding accident worth tuning away: --text-secondary's AA contract
+ * is against the CANVAS, and a kanban card deliberately sits LIGHTER than the canvas in
+ * both modes (see .kanban-card). An ink solved for one surface does not carry to a
+ * surface built to differ from it.
+ *
+ * The status chip and the pass-green column header keep full strength — they are the
+ * signal that the column is done, so washing them out was backwards. */
+.kanban-column[data-done] .kanban-card { box-shadow: none; }
+.kanban-column[data-done] .kanban-card-title { color: var(--text-body); font-weight: 500; }
 
 .kanban-cards {
   display: flex;

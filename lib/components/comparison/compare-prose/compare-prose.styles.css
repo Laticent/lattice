@@ -113,7 +113,7 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:last-child {
 
 /* rejected: the second card is the option dropped — dimmed card + struck tag. */
 section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child {
-  opacity: 0.72;
+  color: var(--text-secondary);
 }
 section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child > strong:first-child {
   text-decoration: line-through;
@@ -121,8 +121,16 @@ section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child > str
 
 /* decision composes chosen (second card) with a de-emphasised first card and
  * a chevron amplified into a labelled DECISION connector. */
+/* De-emphasis on the losing card is INK, never opacity — same call as agenda and
+ * kanban (#1717). An `opacity` composites the subtree's ink AND its backdrop in one
+ * buffer, so it does not step each ink down evenly: it steps each down in proportion to
+ * the headroom it had. Measured here, `opacity: .72` took the label chip — white on
+ * --accent, a perfectly sound 5.41:1 pairing — to 3.24:1, while the prose beside it,
+ * which started far higher, sailed through. The wash was also doing no work the design
+ * needs: the winner is already marked by an --accent-soft fill and an accent edge, and
+ * the loser's label is already struck through. So the card recedes by ink alone. */
 section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child {
-  opacity: 0.72;
+  color: var(--text-secondary);
 }
 section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child > strong:first-child {
   text-decoration: line-through;
