@@ -861,7 +861,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(field);
 		await user.type(field, 'Q3 FY26 · Board review');
 		await user.tab();
-		await waitFor(() => expect(source()).toMatch(/meta: \"Q3 FY26 · Board review\"/));
+		await waitFor(() => expect(source()).toMatch(/meta: "Q3 FY26 · Board review"/));
 		await user.clear(screen.getByRole('textbox', { name: 'Meta line' }));
 		await user.tab();
 		await waitFor(() => expect(source()).not.toMatch(/meta:/));

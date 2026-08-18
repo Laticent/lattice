@@ -57,8 +57,11 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	return { onMutate, applied, sourceOut };
 }
 
-// The drawer is now dynamic pill-tabs — controls live under Look / Status / Decoration /
-// Chrome / Notes. Switch to the tab that owns a control before interacting with it.
+// The drawer is dynamic pill-tabs — controls live under Look / Notes / Chrome / Marks /
+// Accent / Motion / Comments, in reach order. Switch to the tab that owns a control
+// before interacting with it. (Status + Decoration merged into Marks on 2026-08-18: both
+// stamp something on top of the slide's content, and the tab separates them by whether
+// the mark carries meaning.)
 const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
 // The finish/brand-bar/stamp/tone pickers are shadcn (Radix) Selects now — a
@@ -123,7 +126,7 @@ describe('SlideContextBody controls', () => {
 
 	it('single-selects a tone (and swaps, not stacks)', () => {
 		const { applied } = setup('<!-- _class: kpi tone-warn -->\n\n# Hi');
-		goTab('Status');
+		goTab('Marks');
 		fireEvent.click(screen.getByRole('radio', { name: 'Fail' }));
 		const toks = applied();
 		expect(toks).toContain('tone-fail');
@@ -160,21 +163,21 @@ describe('SlideContextBody controls', () => {
 
 	it('overrides the stamp SHAPE from the Stamp style picker', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
-		goTab('Status');
+		goTab('Marks');
 		await pickOption(/stamp style/i, 'Seal');
 		expect(applied()).toContain('stamp-seal');
 	});
 
 	it('picking the inherited/default stamp head clears the per-slide shape', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
-		goTab('Status');
+		goTab('Marks');
 		await pickOption(/stamp style/i, /Default/);
 		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
 	});
 
 	it('sets the tone SHAPE without disturbing the semantic tone', async () => {
 		const { applied } = setup('<!-- _class: kpi tone-pass -->\n\n# Hi');
-		goTab('Status');
+		goTab('Marks');
 		await pickOption(/tone style/i, 'Edge');
 		const toks = applied();
 		expect(toks).toContain('tone-pass'); // semantic tone untouched
@@ -184,7 +187,7 @@ describe('SlideContextBody controls', () => {
 	it('reads the stamp shape as Auto, naming the deck `stamp:` value it resolves to', async () => {
 		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
 		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
-		goTab('Status');
+		goTab('Marks');
 		const label = await selectedOptionText(/stamp style/i);
 		expect(label).toMatch(/^Auto — Seal$/);
 		expect(label).not.toMatch(/inherit/i);
@@ -220,7 +223,7 @@ describe('SlideContextBody controls', () => {
 
 	it('applies a decoration tint phrase (token + placement together)', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Decoration');
+		goTab('Marks');
 		fireEvent.click(screen.getByRole('radio', { name: 'Edge' }));
 		const toks = applied();
 		expect(toks).toContain('tint-edge');
@@ -279,11 +282,14 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		// Look tab (default): the group intro + a field-level description are both present.
 		expect(screen.getByText(/how this one slide looks/i)).toBeTruthy();
-		expect(screen.getByText(/light or dark surface for this one slide/i)).toBeTruthy();
+		expect(screen.getByText(/light or dark, for this slide alone/i)).toBeTruthy();
 		// Switching tabs swaps in that tab's own intro.
 		goTab('Chrome');
 		expect(screen.getByText(/the slide's furniture/i)).toBeTruthy();
 		expect(screen.getByText(/section-progress dots/i)).toBeTruthy();
+		// The row descriptions are CLAUSES now; the long explanation moved behind a ⓘ,
+		// which is a real button so it can be reached by tap and keyboard, not just hover.
+		expect(screen.getByRole('button', { name: 'More about Hide rail' })).toBeTruthy();
 	});
 
 	it('authors an accessibility description as a describe: comment under the Notes tab', () => {
