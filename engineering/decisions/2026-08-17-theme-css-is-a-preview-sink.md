@@ -395,6 +395,15 @@ byte figures (`new TextEncoder().encode(…).length`) are 21,903 → 25,535, aga
 this repo spent a CI failure on 190-vs-179 in §6 for the same reason — a number reported in
 a unit nobody checked. Caught by the independent checker, not by the author.
 
+**And now re-derivable, which the first cut was not.** The checker's next observation was that
+this table rested on the author's word — unlike §4, whose probes are committed — so the
+measurement is committed too:
+`2026-08-17-theme-css-is-a-preview-sink/probe-truncation-bytes.mjs`, which prints both units
+and the element's tail for any rendered fixture. The guard's own fuzz result is committed
+beside it (`probe-guard-fuzz.mjs`: 300,000 cases against an independently written oracle, 0
+divergences, 0 non-idempotent) for the same reason — §9.7 asserted that number with nothing
+behind it.
+
 **The `--player` export is the one with a real author→recipient split, and it is worse
 there:** the injected `<link>` was **harvested into the shipped file** — `assemblePlayer`
 reuses `s.outerHTML` of each `head style`, and by then the parser has resolved the breakout
@@ -468,8 +477,8 @@ The corpus is `git ls-files '*.css'` — **179** sheets, identical on every mach
 what a working-tree walk cost). **None contains `</style`.** So the guard returns its input by
 identity for every real deck, and:
 
-Two decks, each in light and dark — `examples/build.md` (8 slides) and
-`examples/kaizen-craftsmanship.md` (17 slides across cards-grid, split-panel, cycle,
+Two decks, each in light and dark — `examples/build.md` (7 slides) and
+`examples/kaizen-craftsmanship.md` (16 slides across cards-grid, split-panel, cycle,
 glossary and quote), because one deck is an anecdote:
 
 | artifact | before → after |
@@ -547,12 +556,23 @@ arm renders **without** `--css` on purpose: the prune only engages on a target b
 the tiny hostile sheet skips the re-wrap entirely — a first cut used `--css` there and left both
 prune guards deletable with everything green.
 
-**Still killed by nothing, and named rather than papered over:** the emulator's look-diagram
-scratch page (site 2 — it needs a mermaid `look` render, which no fixture has) and
-`player-core.mjs`'s three. The player-core arms in `test/unit/export/html-player.test.js` pin
-that the *transforms* preserve an escape, not that the *guards* fire, and removing all three
-guards leaves them green — measured, by two of the three reviewers independently. They are
-depth per §9.3, so that is the honest state, not a coverage claim.
+**What kills what, precisely** — an earlier draft of this paragraph was loose in both
+directions, and the checker measured each cell:
+
+| guard site | killed by |
+|---|---|
+| emulator page `<style>` (site 1) | all three integration arms |
+| emulator prune CSS re-wrap (site 3) | the `--player` integration arm, and the re-wrap gate |
+| emulator prune FONT re-wrap (site 4) | the re-wrap gate only — no behavioral test |
+| both browser-twin re-wraps | the re-wrap gate only — no behavioral test |
+| emulator look-diagram scratch page (site 2) | **nothing** (it needs a mermaid `look` render no fixture has) |
+| `player-core.mjs`'s three | no behavioral test; removing **all three** trips the document arm, removing **one** trips nothing |
+
+The player-core arms in `test/unit/export/html-player.test.js` pin that the *transforms*
+preserve an escape, not that the *guards* fire. That is the honest state rather than a
+coverage claim — and it is why the guard census in
+`test/unit/export/style-guard-census.test.js` exists: it pins every one of these call sites
+by count, so the rows reading "nothing" and "gate only" can no longer disappear silently.
 
 Where those unit arms are careful is a different axis: the safe outcomes are **two**, the escape
 surviving *or* the text being deleted outright (`minifyCss` strips comments), so each case
@@ -676,8 +696,14 @@ charcode table and the hop-by-hop `indexOf("</")` scan, minified to `I` and expo
   caller-influenced one: `deck-preview.js` (`bg` from `getComputedStyle(…).getPropertyValue`),
   `presenter-window.js` (`bg`), and `deck-export.js` (`theme.css` + `theme.name` spliced into a
   `<style>` in markdown handed to a recipient, and `theme.name` additionally into a `/* … */`
-  header — the #1709 shape at a second serializer). No live payload path was found for any of
-  the three; they are #1718's files, not this change's.
+  header — the #1709 shape at a second serializer).
+  **The reassurance that followed this sentence — "no live payload path was found for any of
+  the three" — was falsified within the hour, and by the next commit.** §9.8 records the red
+  team driving `deck-export.js`'s block through the real CLI to a live `<link href=evil…>`.
+  The sentence was true about the *search* and false about the *world*, and it was doing
+  load-bearing work in a decision to log rather than fix. `deck-export.js` and its `bridge.js`
+  sibling are guarded now; the two `bg` interpolations remain logged, with no such reassurance
+  attached.
 - **`lib/core/marp-bundle.js`** hands the deck (front-matter `style:` intact) and theme CSS to
   marp-cli, which inlines them into a `<style>` in *its* renderer. Same class, different engine,
   and it will never match a "assembles a document" marker because it does not assemble one.

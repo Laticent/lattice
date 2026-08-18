@@ -4371,9 +4371,12 @@ const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
 // scaffold takes a `--css` layout sheet and a theme file, both caller-supplied by
 // construction) and was not scanned at ALL, so the same breakout could recur there in
 // silence. Measured over the repo, the marker selects 2 files outside `docs/src` under
-// these roots — both genuine — where a whole-repo walk selects 13, the other 11 being
-// `dist/` build products, frozen decision-doc probes, and local measurement tools that
-// never reach a recipient. So the line is drawn at "ships", not at "exists":
+// these roots — both genuine — where a whole-repo walk selects 14, the other 12 being
+// `dist/` build products, frozen decision-doc probes, a bench, and local measurement tools
+// that never reach a recipient. So the line is drawn at "ships", not at "exists":
+// (An earlier draft of this comment said 13/11 — that figure quietly excluded `.test.mjs`,
+// which this walk does not. Corrected here as well as in the note, because this comment is
+// what the next person maintaining the gate actually reads.)
 //
 //   · `dist/` is GENERATED from these very files, and HARD RULE #2 forbids hand-editing
 //     it — a gate demanding a fix there would demand the one fix that is never allowed.
@@ -5305,20 +5308,24 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
  *
  * WHAT IT CANNOT SEE — stated here because the other two arms state theirs (§5, §9.5 of the
  * governing note) and an undeclared envelope is how a gate gets trusted past its worth. All
- * measured against this implementation, all SILENT while genuinely re-wrapping pruned CSS:
+ * measured against THIS implementation, all SILENT while genuinely re-wrapping pruned CSS:
  *
- *   · a re-wrap through `split(…).join(…)`, `insertAdjacentHTML`, or `head.innerHTML +=`
- *     rather than `replace`/`replaceAll`;
+ *   · the `<style>` opener and closer hoisted into constants (`const OPEN = '<style>'`), so
+ *     the element never appears next to the value. Nothing short of a parser sees this one;
+ *   · the prune in one module and the re-wrap in another (taint is tracked per file);
+ *   · more than 400 characters between the opener and the closer;
  *   · the prune imported under an alias (`import { prunePlayerCss as prune }`);
- *   · more than 400 characters between the opener and the closer, or more than 160 between
- *     the `.replace(` and the opener (a long comment does it);
- *   · the opener/closer hoisted into constants (`const OPEN = '<style>'`);
- *   · the prune in one module and the re-wrap in another;
  *   · the same code in a `.astro` file — `listSourceFiles` takes only js/ts/tsx/mjs/cjs;
- *   · a guard applied to the WRONG variable inside the interpolation (needs dataflow).
+ *   · a guard applied to the WRONG tainted value inside one interpolation.
+ *
+ * Shapes it DOES catch, listed because an earlier proximity-based cut missed all of them:
+ * `replaceAll`, `split().join()`, slice-concatenation, a replacer carrying a long comment,
+ * a one-level alias of the prune result, a second tainted value beside a guarded one, and a
+ * `sanitizeStyleText(` that appears only inside a comment. It also no longer fires on
+ * correctly-guarded code that hoists the sanitized value into a local first.
  *
  * What it buys is that the shape both real twins use cannot lose its guard silently, and
- * that a new re-wrap written the obvious way is caught. That is worth having and is not the
+ * that a new re-wrap written any ordinary way is caught. That is worth having and is not the
  * same as coverage — the durable defense for these sites is the guard census in
  * `test/unit/export/style-guard-census.test.js`, which pins the call count by value.
  */
@@ -5327,12 +5334,17 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
   // One `<style…>` rebuild: the opener, then everything up to the matching closer. Both
   // the template-literal (`${…}`) and the concatenation (`' + x + '`) forms land here.
   const REWRAP_SITE = /<style[^>]*>((?:(?!<\/style)[\s\S]){0,400}?)<\/style/gi;
-  // …but ONLY where the element is being swapped back into an existing document, which is
-  // what a re-wrap is: `html.replace(target.full, () => `<style>…`)`. Without this, a file
-  // that happens to contain a prune anywhere also owes the call for every unrelated
-  // `<style>` it builds — `lattice-emulator.js`'s base64 font block (a fixed manifest that
-  // cannot carry `<`) was the false positive that forced the distinction.
-  const REPLACE_LEAD = /\.(?:replace|replaceAll)\s*\([\s\S]{0,160}$/;
+  // Names that HOLD pruned CSS: assigned straight from a prune, plus one level of aliasing
+  // (`cssResult = pruned` is the real shape in both twins). Tracking the VALUE is what makes
+  // this precise, and it replaced a proximity heuristic — "is there a `.replace(` within 160
+  // characters" — that was wrong in both directions: it missed a re-wrap done with
+  // `replaceAll`/`split().join()`/slice-concat, or one whose replacer carried a comment (the
+  // most likely accidental shape in a codebase that comments inside callbacks), and it fired
+  // on correctly-guarded code that hoisted the sanitized value into a local first.
+  const TAINT_FROM_PRUNE = /(?:const|let|var)?\s*\b([A-Za-z_$][\w$]*)\s*=\s*[^;\n]*\bprunePlayer(?:Css|FontFaces)\s*\(/g;
+  const ALIAS_OF = (name) => new RegExp(`(?:const|let|var)?\\s*\\b([A-Za-z_$][\\w$]*)\\s*=\\s*[^;\\n]*\\b${name}\\b`, 'g');
+  // A name is CLEAN once it is assigned from the guard: `const safe = sanitizeStyleText(x)`.
+  const CLEANED = /(?:const|let|var)?\s*\b([A-Za-z_$][\w$]*)\s*=\s*sanitizeStyleText\s*\(/g;
   const files = [];
   for (const r of DOC_STYLE_SINK_ROOTS) {
     const abs = path.join(root, r);
@@ -5343,26 +5355,38 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
   const seen = [];
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
-    if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
+    if (/\.test\.[cm]?[jt]s$/.test(rel)) continue;
     const src = fs.readFileSync(file, 'utf8');
     if (!PRUNE_CALL.test(src)) continue;
+    // Which locals hold pruned CSS, and which have been through the guard.
+    const tainted = new Set([...src.matchAll(TAINT_FROM_PRUNE)].map((x) => x[1]));
+    for (const base of [...tainted]) {
+      for (const a of src.matchAll(ALIAS_OF(base))) if (a[1] !== base) tainted.add(a[1]);
+    }
+    const cleaned = new Set([...src.matchAll(CLEANED)].map((x) => x[1]));
+    for (const c of cleaned) tainted.delete(c);
+    if (!tainted.size) continue;
+    const mentionsTaint = (text) => [...tainted].some((n) => new RegExp(`\\b${n}\\b`).test(text));
     let found = false;
     for (const m of src.matchAll(REWRAP_SITE)) {
       const body = m[1];
       // A literal body (no interpolation, no concatenation) is our own static CSS.
       if (!/\$\{|['"`]\s*\+|\+\s*['"`]/.test(body)) continue;
-      if (!REPLACE_LEAD.test(src.slice(0, m.index))) continue;
+      // Only elements built out of PRUNED CSS are this check's business. `lattice-emulator.js`'s
+      // base64 font block is a fixed manifest in the same file and must stay out.
+      if (!mentionsTaint(body)) continue;
       found = true;
-      // EVERY interpolation in the body must carry the call, not just one somewhere in it.
-      // "Somewhere in the body" is satisfied by a second, guarded value sitting beside an
-      // unguarded one — and by a `sanitizeStyleText(` written inside a COMMENT. Both were
-      // measured passing an earlier cut of this check while the pruned CSS went out raw.
+      // EVERY interpolation carrying a tainted value must carry the call, not just one
+      // somewhere in the body. "Somewhere in the body" is satisfied by a second, guarded
+      // value sitting beside an unguarded one — and by a `sanitizeStyleText(` written inside
+      // a COMMENT. Both were measured passing an earlier cut of this check while the pruned
+      // CSS went out raw.
       const interpolations = body.match(/\$\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g) || [];
-      const unguarded = interpolations.filter((x) => !SANITIZE_STYLE_CALL.test(x));
-      if (interpolations.length && !unguarded.length) continue;
+      const carriers = interpolations.filter(mentionsTaint);
+      if (carriers.length && carriers.every((x) => SANITIZE_STYLE_CALL.test(x))) continue;
       // Concatenation form (`'<style>' + x + '</style>'`) has no `${…}` to inspect, so it
       // falls back to the whole body — weaker, and stated as such in the docblock.
-      if (!interpolations.length && SANITIZE_STYLE_CALL.test(body)) continue;
+      if (!carriers.length && SANITIZE_STYLE_CALL.test(body)) continue;
       errors.push(
         `${rel} rebuilds a <style> element from css-tree-pruned CSS without sanitizeStyleText ` +
         `(HARD RULE #22, stylesheet channel): \`${m[0].slice(0, 70).replace(/\s+/g, ' ')}…\`. ` +
