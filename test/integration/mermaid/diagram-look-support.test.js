@@ -61,6 +61,26 @@ const FAMILIES = {
 /** Measured 2026-08-18 against Mermaid 11.14. Update WITH a re-measurement, never by hand. */
 const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement'];
 
+/**
+ * What Mermaid calls each fixture back, so the table cannot be answered by the WRONG
+ * FAMILY. Every entry above is a string keyed by a name nothing verifies: paste a
+ * flowchart definition under `mindmap:` and this file happily reports that mindmap honors
+ * `look`. `aria-roledescription` is Mermaid's own answer to "what did I just draw", so it
+ * is the one reading that cannot be faked by editing the fixture.
+ */
+const ROLE_DESCRIPTION = {
+  flowchart: 'flowchart-v2', state: 'stateDiagram', class: 'class', er: 'er',
+  mindmap: 'mindmap', requirement: 'requirement', sequence: 'sequence', gantt: 'gantt',
+  pie: 'pie', journey: 'journey', timeline: 'timeline', quadrant: 'quadrantChart',
+  gitGraph: 'gitGraph', sankey: 'sankey', xychart: 'xychart', c4: 'c4', block: 'block',
+  packet: 'packet', architecture: 'architecture',
+};
+
+/** Mermaid's own name for the diagram it drew. */
+function roleOf(svg) {
+  return ((svg || '').match(/aria-roledescription="([^"]*)"/) || [])[1] || null;
+}
+
 function render(withLook) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'look-'));
   try {
@@ -94,6 +114,14 @@ describe('which families honor look: handDrawn', { skip: skipWithoutChrome(CHROM
     const classic = render(false);
     const failed = Object.keys(FAMILIES).filter((_n, i) => !classic[i].ok);
     assert.deepEqual(failed, [], 'these fixtures no longer parse, so their look answer is meaningless');
+    // …and each one is the family it is filed under. See ROLE_DESCRIPTION.
+    const misfiled = Object.keys(FAMILIES)
+      .map((name, i) => [name, roleOf(classic[i].svg)])
+      .filter(([name, role]) => role !== ROLE_DESCRIPTION[name])
+      .map(([name, role]) => `${name} rendered as ${role}`);
+    assert.deepEqual(misfiled, [],
+      'a fixture is not the family it is keyed under, so this table is measuring the wrong '
+      + 'diagram. Either the fixture was edited or Mermaid renamed a role.');
   });
 
   test('the honoring set is exactly what was measured', () => {
@@ -113,6 +141,8 @@ describe('which families honor look: handDrawn', { skip: skipWithoutChrome(CHROM
     const hand = render(true);
     for (const family of ['mindmap', 'requirement']) {
       const i = Object.keys(FAMILIES).indexOf(family);
+      assert.equal(roleOf(hand[i].svg), ROLE_DESCRIPTION[family],
+        `the ${family} fixture did not render as a ${family}`);
       assert.ok(roughNodes(hand[i].svg) > 0,
         `${family} used to be documented as ignoring \`look\`, and does not — it must keep `
         + 'producing rough nodes, or a sketch deck loses hand shapes it currently has');

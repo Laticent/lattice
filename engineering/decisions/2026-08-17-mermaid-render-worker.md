@@ -471,11 +471,17 @@ set, and the runtime's port fetches those with `raw()`. Marked on the MAP rather
 listed in the runtime so a second non-color token needs no second edit.
 
 **The gate that would have caught it exists now.**
-`test/integration/mermaid/preview-diagram-face.test.js` drives the real preview —
-`engine.render(preview)` plus the shipped `dist/lattice-runtime.js` and mermaid, assembled
-the way `docs/src/playground/deck-preview.js` assembles the frame, in real Chromium — and
-fails on any diagram text rendered in a face the deck never asked for. Canaried by
-reverting the fix: `{"Shantell Sans":215,"sans-serif":5,"Outfit":8}`, red.
+`test/integration/mermaid/preview-diagram-face.test.js` drives the real preview CASCADE —
+`engine.render(preview)` plus `composeCss`, the shipped `dist/lattice-runtime.js` and
+mermaid, in real Chromium — and fails on any diagram text rendered in a face the deck
+never asked for. Canaried by reverting the fix:
+`{"Shantell Sans":215,"sans-serif":5,"Outfit":8}`, red.
+
+It is the cascade, **not the Studio frame**: no `srcdoc` iframe, no `sanitizeSlideHtml` /
+`sanitizeStyleText`, mermaid from `node_modules` rather than the CDN. The cascade is the
+whole question for a token, because the preview's scoping is what differs from the
+export's — but a claim about the frame's sanitizers would need the frame, and this file
+said "assembled the way `deck-preview.js` assembles the frame" until that was corrected.
 
 That closes a real asymmetry in this change. The export had `check-diagram-labels.js` from
 the first commit; the preview had nothing, and it is half of HARD RULE #1.
@@ -488,3 +494,96 @@ the first commit; the preview had nothing, and it is half of HARD RULE #1.
   hand type with crisp shapes, and the `_class: boardroom` slide correctly coming back in
   Outfit. `MERMAID_REBAKE_HAND` threads correctly through the second render.
 - **The full integration tier on the merge tree**: 764 tests, 757 pass, 0 fail.
+
+## Two more, after a second review aimed at the gates rather than the change
+
+The delta review and a red team pointed at the CHECKS found one live defect the gates
+could not see and a set of ways the gates could not fail. Both halves are recorded here
+because the pattern — a verification harness that reads as green for a run it did not
+perform — is the recurring one in this whole change.
+
+### `mode: sketch-clean` previewed every slide in Times New Roman
+
+Not the diagrams: **the slide**. Prose, headings, labels, diagram text, all of it.
+
+The finish restores the clean body face on a `sketch-clean-body` slide, and it did so from
+an alias snapshotted at the root:
+
+```css
+:lattice-root { --font-body-clean: var(--font-body); }         /* base.tokens.css */
+section.sketch { --font-body: var(--sketch-font-body); }        /* base.sketch.css */
+section.sketch.sketch-clean-body { --font-body: var(--font-body-clean); }
+```
+
+In the **export** that resolves, because the alias lives on `:root` and the override on
+the section — two elements, so the alias is computed before the override exists. In the
+**preview** `composeCss` rescopes `:lattice-root` onto the section itself
+(`lib/engine/css.js`), which puts the alias and the override on ONE element. That is a
+custom-property **cycle**: both sides become guaranteed-invalid, `--font-body` computes to
+the empty string, and everything downstream falls back to the browser default.
+
+Measured, before and after, in real Chromium on the shipped bundle:
+
+```
+before   cls "diagram sketch sketch-clean-body form"   --font-body: ""      faces {"Times New Roman": 6}
+after    cls "diagram sketch sketch-clean-body form"   --font-body: Outfit  faces {"Outfit": 6}
+```
+
+The fix is to move the guard from a second declaration into the SELECTOR —
+`section.sketch:not(.sketch-clean-body) { --font-body: … }` — so a clean-body slide is
+never re-pointed and simply keeps the theme's stack. No alias, no snapshot, no cycle in
+either path, and `--font-body-clean` is retired.
+
+**Why every gate in this change missed it.** `diagram-font-parity.test.js` has a
+`sketch-clean` row, and it reads **both** sides out of the export page — so it compares
+the export's bake to the export's cascade and never touches the one that breaks. Its
+docstring claimed otherwise. `preview-diagram-face.test.js` drove only `mode: sketch`.
+The regression guard is a third case in that file, and it buckets the face census by what
+each SLIDE asked for so the deck's `_class: diagram boardroom` opt-out is not read as a
+defect.
+
+### Mermaid's top-level `fontFamily` is a second lever, and sequence layout uses it
+
+`themeVariables.fontFamily` is not the only font key, and neither are the 28 per-block
+`*FontFamily` keys. Mermaid also keeps a **top-level** `config.fontFamily`, which does not
+follow the theme variable:
+
+```
+after engineInitConfig({fontFamily: '"Shantell Sans", cursive'}) → mermaid.initialize:
+  getConfig().themeVariables.fontFamily = "Shantell Sans", cursive
+  getConfig().fontFamily                = "trebuchet ms", verdana, arial, sans-serif
+```
+
+It looked inert. It becomes `--mermaid-font-family` in the emitted SVG, and nothing in
+mermaid 11.14's own CSS reads that variable; flowchart node geometry is byte-identical
+with and without it, which is what the checker measured. **The measurement was on the
+wrong family.** SEQUENCE layout is sized with the top-level key, so a `mode: sketch` deck
+spaced its lifelines for trebuchet ms and then painted the messages in the hand face:
+`price(lane, equipment, readyAt)` overran its own arrow and crossed the next lifeline.
+Screenshotted before and after; the demo deck's sequence goes `929×498 → 992×534`, bigger
+because it is finally sized for the type it is drawn in. Same measure/paint split as this
+whole change's headline bug, one level up.
+
+Four committed PDFs carry a real delta and were re-rendered. Five more moved and were
+reverted: their only difference is a gitGraph commit hash and rough.js jitter, which
+differ across two renders of the **same** commit. That non-determinism is pre-existing and
+off-path, but it is worth knowing before anyone reads a PDF diff as evidence.
+
+### The gates that could not fail
+
+| The gate | How it passed while broken | Now |
+|---|---|---|
+| the three new browser suites | guarded on `CHROME_PATH \|\| PUPPETEER_EXECUTABLE_PATH`, which CI never exports — it populates the puppeteer cache instead. All three SKIPPED on every scheduled run, and `node --test` reports a skipped suite as `ok` | one resolver (`test/helpers/chrome.js`) reads the cache the way `tools/screenshot.js` does; under `CI` a missing browser FAILS instead of skipping |
+| `check-diagram-labels.js` face check | matched five famous mermaid default names, so it caught a face that is FAMOUS, never one merely wrong. `mode: boardroom` on a hand-drawn deck: `foreign-face: 0`, exit 0 | compares each label to `--font-body` on its OWN section, per-slide. Author-pinned fences are exempt by fact — the emulator stamps `data-author-theme` |
+| the same tool, twice more | reported a clean zero for a page with no diagrams; `--json` set no exit code on any failure | both are failures, and the exit code is set in both modes |
+| `preview-diagram-face.test.js` | `diagrams >= 6` on a seven-diagram deck, reading only the SVGs that rendered — a broken renderer left it green with three error blocks in the DOM | exact fence count, zero error blocks, per-slide face buckets, and two more cases |
+| the prologue-drift gate | matched registration names against the raw worker source, comments included. Deleting BOTH registrations and leaving their names in the prose passed all thirteen tests while zenuml stopped rendering | code-only, plus a render test: zenuml must render, and `layout: elk` must differ from dagre (unregistered, ELK silently renders AS dagre) |
+| the config-schema scraper | took "the last `"name": {` within 6000 chars" as the enclosing block, filing mermaid's top-level key under `venn` — so the gate carried an exemption for `venn.fontFamily`, a key that does not exist, on a justification false in both halves | brace-depth parenting, **no exemptions**, and the blocks it must find are pinned so a scraper that finds nothing cannot pass |
+| `diagram-look-support.test.js` | nineteen fixtures keyed by a name nothing verified — paste a flowchart under `mindmap:` and the table reports mindmap honors `look` | each fixture's `aria-roledescription` must match the family it is filed under |
+
+One more escape closed on the way: `autonumber` bubbles in a sequence diagram were the
+last machine-faced text on a hand-drawn slide. Mermaid writes that one label with a
+`font-family="sans-serif"` PRESENTATION ATTRIBUTE, past every config key there is, so no
+amount of config reaches it — a presentation attribute loses to any CSS rule, and one
+element-specificity rule in `mermaid.css` is the whole fix. It was invisible until the
+face check started asking the question against the deck.
