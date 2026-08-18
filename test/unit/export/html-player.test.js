@@ -33,6 +33,24 @@ test.before(async () => {
 		await import('../../../lib/export/player-core.mjs'));
 });
 
+test('minifyCss never collapses a descendant combinator into a compound', () => {
+	// Whitespace to the LEFT of a `:` is a descendant combinator wherever the colon opens a
+	// pseudo, and tightening it re-means the selector into a compound that can never match —
+	// silently, because the output is still valid CSS. 59 rules in dist/lattice.css were
+	// re-meant this way, so they did not apply in ANY exported player: the code/pre chip
+	// inside a section, list styling on cards-grid / cards-stack / closing, and the
+	// split-panel chrome ink, which is how a `watermark` slide's running header ended up
+	// painting the canvas's muted ink on the accent rail at 1.45:1 (#1642). The CSS prune
+	// then dropped them as unused — correctly, since by then they matched nothing.
+	assert.equal(minifyCss('section.split-panel.watermark :is(header, footer) { color: red; }'), 'section.split-panel.watermark :is(header,footer){color:red}');
+	assert.equal(minifyCss('.a :not(.b){color:red}'), '.a :not(.b){color:red}');
+	assert.equal(minifyCss('.a ::before{color:red}'), '.a ::before{color:red}');
+	// A compound that was ALREADY compound stays compound — the gap is what carries meaning.
+	assert.equal(minifyCss('.a:hover{color:red}'), '.a:hover{color:red}');
+	// The right side of a `:` still tightens, in declarations and in at-rule preludes alike.
+	assert.equal(minifyCss('@media (min-width: 100px){a{color: red}}'), '@media (min-width:100px){a{color:red}}');
+});
+
 // ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
 test('resolveLightDark picks the right arm, respecting nested parens and recursion', () => {
 	// Top-level comma only — a var() fallback's own comma must NOT split the pair.

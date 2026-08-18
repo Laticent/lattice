@@ -116,6 +116,34 @@ test/helpers/                 render.js, pdf.js, palette.js
 test/fixtures/                small .md decks for integration
 ```
 
+### Contrast: two tools, one probe
+
+`tools/check-slide-contrast.js` scores the rendered DOM of a deck: fast, one scheme,
+backdrops resolved by climbing the ancestor chain. It is the one the invariants gate
+imports, and its `PROBE` is the single source of truth for which runs exist, what ink
+they carry, and which AA threshold applies.
+
+`tools/check-player-contrast.js` reuses that same `PROBE` and changes three things it
+structurally cannot do: it drives the real `--player` EXPORT rather than a plain render,
+it scores BOTH scheme states (as exported, and after clicking `#lp-mode`), and it samples
+each run's backdrop from a SCREENSHOT taken with the glyphs made transparent — so a
+gradient, an image, a translucent overlay or a z-ordered rail resolves correctly because
+it is simply there. That split is what makes its report actionable: an "as exported"
+failure is in the PDF too (a deck or theme defect), while an "after the toggle" failure
+exists only in the player (a scheme defect).
+
+```bash
+node tools/check-player-contrast.js examples/a11y.md            # a deck, exported first
+node tools/check-player-contrast.js --json out.json exported.html
+```
+
+ON-DEMAND, deliberately: it renders every slide through a browser twice, so a full sweep
+of `examples/` is roughly an hour — too slow for `build:check`, and the failures it finds
+today are pre-existing, so wiring it in would turn `main` red on merge. Run it when
+touching the player, a theme, or an `--on-*` ink tier. The muted-chrome tier
+(header/footer/pagination) is WCAG-exempt by palette contract and is reported in its own
+bucket, never as a failure.
+
 `[PR]` suites gate every `code` PR via `test:integration:pr`; `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style

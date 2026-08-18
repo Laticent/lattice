@@ -232,6 +232,35 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   VALUE, not its RULE. Re-scoping a selector changes who wins, everywhere that selector
   applied — a much larger blast radius than the one declaration you meant to change.
 
+## An exported player quietly dropped every `X :is(…)` rule the deck renders
+
+- **Symptom:** A rule the PDF honors does nothing in the exported `.html` player. On a
+  `split-panel watermark` slide the running header and footer paint the CANVAS's muted ink
+  while sitting on the accent rail — 1.45:1 on `examples/gallery-jargon.md` p14 after the
+  toggle, invisible — even though `section.split-panel.watermark :is(header, footer) {color:
+  var(--on-accent)}` is right there in `dist/lattice.css` and the PDF obeys it. The same
+  silence covers the `code`/`pre` chip inside a section and the list styling on `cards-grid`,
+  `cards-stack` and `closing`.
+- **Cause:** `minifyCss` tightened whitespace on BOTH sides of every `:`. To the left of a
+  colon that opens a PSEUDO, that whitespace is a descendant combinator — so
+  `section.split-panel.watermark :is(header, footer)` minified to
+  `section.split-panel.watermark:is(header, footer)`, a compound asking for a section that is
+  also a header. Still valid CSS, still parses, matches nothing. 59 rules in the bundle were
+  re-meant this way. The CSS prune then removed them as unused — correctly, because by then
+  they genuinely matched nothing — so the shipped file carried no trace of the rule at all,
+  and the surface fell through to whatever generic rule was left.
+- **Reproduce it anywhere:**
+  `node -e "import('./lib/export/player-core.mjs').then(({minifyCss})=>console.log(minifyCss('.a :is(b){c:1}')))"`
+  — the space is the whole bug.
+- **Fix:** `:` now tightens on the RIGHT everywhere, and on the left only where a declaration's
+  property name proves it is a declaration (the token immediately after a `{` or `;`). The
+  selector side keeps its space. What it costs is nothing authored CSS here writes.
+- **The general shape:** a minifier's contract is that meaning is preserved, and whitespace in
+  a selector IS meaning. A transform that is "obviously safe" on declarations is not
+  automatically safe on the other half of the grammar it runs over — and this one failed
+  silently in both directions, because the output parsed and the prune then made the evidence
+  disappear.
+
 ## A baked diagram label went dark-on-dark after the player's toggle
 
 - **Symptom:** In an exported `.html` player, an EDGE label ("a case fails", "yes"/"no")

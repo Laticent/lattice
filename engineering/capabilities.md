@@ -395,6 +395,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-geometry-parity.js` | geometry-parity — does a slide measure the SAME on every surface it renders on? |
 | `tools/check-lint-coverage.js` | Lint-coverage gate — asks what Biome ACTUALLY checks, never how the config is spelled. |
 | `tools/check-overflow-corpus.js` | overflow-corpus — how many slides in the SHIPPED corpus does the export clip? |
+| `tools/check-player-contrast.js` | check-player-contrast — WCAG AA audit of an EXPORTED HTML PLAYER, in BOTH of its |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-slide-contrast.js` | check-slide-contrast — WCAG AA audit of the ACTUALLY RENDERED slide, not the |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |

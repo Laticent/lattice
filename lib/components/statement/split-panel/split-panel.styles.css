@@ -266,8 +266,27 @@ section.split-panel.watermark .panel-right :is(ol,ul) + ul > li:nth-child(2)::be
  * the same ink lands on the light content side and renders near-white on cream: 1.11:1,
  * effectively invisible in the shipped PDF. Excluding `.mirror` restores the default
  * `--text-muted`, which is what the content side wants. Surfaced by the G10 axe gate and
- * confirmed by looking at the render (2026-07-03-semantic-html-accessibility.md §18.1). */
-section.split-panel.watermark:not(.mirror) { --marp-slide-header-color: var(--on-accent-secondary); --marp-slide-footer-color: var(--on-accent-secondary); }
+ * confirmed by looking at the render (2026-07-03-semantic-html-accessibility.md §18.1).
+ *
+ * The RUNG is `--on-accent`, not the 70%-derived `--on-accent-secondary`, for exactly the
+ * reason the block above gives for the eyebrow and the h5: a derived alpha spends the AA
+ * margin that per-palette curation bought, and it has nowhere to descend to on a palette
+ * whose `--on-accent` clears the floor by little. Chrome was the last consumer of the
+ * derived rung on this layout and it failed the same way, in the state only a live toggle
+ * reaches: measured on `examples/gallery-jargon.md` p14 in an exported player, 5.08:1 as
+ * exported and 1.45:1 after the toggle — a mid-purple on a light lavender rail, while the
+ * h2 and h5 beside it on the SAME rail read 6.43:1 on the curated rung (#1642). The chrome
+ * is uppercase, letterspaced and micro-sized, so size and weight already carry its step
+ * down; it does not also need an alpha that cannot be made safe. A curated
+ * `--on-accent-muted` rung would let the chrome stay quiet AND legible, but that is a new
+ * engine token every theme must fill — the right follow-up, not this fix.
+ *
+ * The ELEMENT rule that paints this chrome lives further down with the rest of the
+ * split-panel chrome-ink block (`section.split-panel.watermark :is(header, footer)`); this
+ * declaration is the TOKEN half, which the pagination tier chains through
+ * (`--marp-slide-pagination-color` → `--marp-slide-footer-color`). Both name the same rung
+ * now, so the chip and the chrome cannot drift apart. */
+section.split-panel.watermark:not(.mirror) { --marp-slide-header-color: var(--on-accent); --marp-slide-footer-color: var(--on-accent); }
 
 /* HEADER BERTH UNDER `mirror` (#680). `section header` is absolutely positioned
  * to the slide's LEFT inset and is NOT in flow, so nothing reserves its band.
