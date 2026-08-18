@@ -5302,6 +5302,25 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
  *
  * Returns the discovered files, so its test can assert the known two are still found
  * rather than trusting a green run over an empty set.
+ *
+ * WHAT IT CANNOT SEE — stated here because the other two arms state theirs (§5, §9.5 of the
+ * governing note) and an undeclared envelope is how a gate gets trusted past its worth. All
+ * measured against this implementation, all SILENT while genuinely re-wrapping pruned CSS:
+ *
+ *   · a re-wrap through `split(…).join(…)`, `insertAdjacentHTML`, or `head.innerHTML +=`
+ *     rather than `replace`/`replaceAll`;
+ *   · the prune imported under an alias (`import { prunePlayerCss as prune }`);
+ *   · more than 400 characters between the opener and the closer, or more than 160 between
+ *     the `.replace(` and the opener (a long comment does it);
+ *   · the opener/closer hoisted into constants (`const OPEN = '<style>'`);
+ *   · the prune in one module and the re-wrap in another;
+ *   · the same code in a `.astro` file — `listSourceFiles` takes only js/ts/tsx/mjs/cjs;
+ *   · a guard applied to the WRONG variable inside the interpolation (needs dataflow).
+ *
+ * What it buys is that the shape both real twins use cannot lose its guard silently, and
+ * that a new re-wrap written the obvious way is caught. That is worth having and is not the
+ * same as coverage — the durable defense for these sites is the guard census in
+ * `test/unit/export/style-guard-census.test.js`, which pins the call count by value.
  */
 function checkCssTreeRewrapSinks(errors, root = ROOT) {
   const PRUNE_CALL = /\bprunePlayer(?:Css|FontFaces)\s*\(/;
@@ -5313,7 +5332,7 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
   // that happens to contain a prune anywhere also owes the call for every unrelated
   // `<style>` it builds — `lattice-emulator.js`'s base64 font block (a fixed manifest that
   // cannot carry `<`) was the false positive that forced the distinction.
-  const REPLACE_LEAD = /\.replace\s*\([\s\S]{0,160}$/;
+  const REPLACE_LEAD = /\.(?:replace|replaceAll)\s*\([\s\S]{0,160}$/;
   const files = [];
   for (const r of DOC_STYLE_SINK_ROOTS) {
     const abs = path.join(root, r);
@@ -5334,7 +5353,16 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
       if (!/\$\{|['"`]\s*\+|\+\s*['"`]/.test(body)) continue;
       if (!REPLACE_LEAD.test(src.slice(0, m.index))) continue;
       found = true;
-      if (SANITIZE_STYLE_CALL.test(body)) continue;
+      // EVERY interpolation in the body must carry the call, not just one somewhere in it.
+      // "Somewhere in the body" is satisfied by a second, guarded value sitting beside an
+      // unguarded one — and by a `sanitizeStyleText(` written inside a COMMENT. Both were
+      // measured passing an earlier cut of this check while the pruned CSS went out raw.
+      const interpolations = body.match(/\$\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g) || [];
+      const unguarded = interpolations.filter((x) => !SANITIZE_STYLE_CALL.test(x));
+      if (interpolations.length && !unguarded.length) continue;
+      // Concatenation form (`'<style>' + x + '</style>'`) has no `${…}` to inspect, so it
+      // falls back to the whole body — weaker, and stated as such in the docblock.
+      if (!interpolations.length && SANITIZE_STYLE_CALL.test(body)) continue;
       errors.push(
         `${rel} rebuilds a <style> element from css-tree-pruned CSS without sanitizeStyleText ` +
         `(HARD RULE #22, stylesheet channel): \`${m[0].slice(0, 70).replace(/\s+/g, ' ')}…\`. ` +

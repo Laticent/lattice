@@ -6,8 +6,15 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -25,6 +32,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // lib/components/manifest.schema.json
 var require_manifest_schema = __commonJS({
@@ -1359,6 +1367,43 @@ var require_starters = __commonJS({
   }
 });
 
+// lib/core/sanitize-style-text.mjs
+var sanitize_style_text_exports = {};
+__export(sanitize_style_text_exports, {
+  default: () => sanitize_style_text_default,
+  sanitizeStyleText: () => sanitizeStyleText
+});
+function isStyleEndAt(text, i) {
+  for (let k = 0; k < 5; k++) {
+    if ((text.charCodeAt(i + 2 + k) | 32) !== S[k]) return false;
+  }
+  return true;
+}
+function sanitizeStyleText(css) {
+  if (!css) return css;
+  const text = String(css);
+  let i = text.indexOf("</");
+  if (i < 0) return text;
+  let out = null;
+  let from = 0;
+  while (i >= 0) {
+    if (isStyleEndAt(text, i)) {
+      if (out === null) out = "";
+      out += `${text.slice(from, i)}<\\`;
+      from = i + 1;
+    }
+    i = text.indexOf("</", i + 2);
+  }
+  return out === null ? text : out + text.slice(from);
+}
+var S, sanitize_style_text_default;
+var init_sanitize_style_text = __esm({
+  "lib/core/sanitize-style-text.mjs"() {
+    S = [115, 116, 121, 108, 101];
+    sanitize_style_text_default = sanitizeStyleText;
+  }
+});
+
 // lib/layout/bridge.js
 var require_bridge = __commonJS({
   "lib/layout/bridge.js"(exports, module) {
@@ -1397,12 +1442,14 @@ var require_bridge = __commonJS({
     function stripEmbeddedComponents2(source) {
       return String(source || "").replace(EMBEDDED_BLOCK_RE, "");
     }
+    var { sanitizeStyleText: sanitizeStyleText2 } = (init_sanitize_style_text(), __toCommonJS(sanitize_style_text_exports));
     function componentBlock(name, css) {
-      return `<style>
-/* ${COMPONENT_BLOCK_MARK} "${String(name || "component")}" (self-contained:
+      return "<style>\n" + sanitizeStyleText2(
+        `/* ${COMPONENT_BLOCK_MARK} "${String(name || "component")}" (self-contained:
    this deck keeps the layout even where the component is not installed).
    Palette-blind \u2014 every colour is a token. Generated on export. */
-` + String(css || "").trim() + "\n</style>\n";
+` + String(css || "").trim()
+      ) + "\n</style>\n";
     }
     function embedComponentsInMarkdown2(source, components) {
       const src = stripEmbeddedComponents2(source);

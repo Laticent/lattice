@@ -380,9 +380,14 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   Second, the **discovery rule is different**: a preview builder is found by the runtime-`<script>`
   idiom, a stylesheet sink by assembling a whole document (`<!doctype html`) — and neither finds
   the third shape, a module that assembles nothing but takes CSS back OUT of a document, prunes
-  it, and re-wraps it. `prunePlayerCss` is a css-tree parse→generate, and css-tree normalizes
-  `<\/style` back into a live terminator, so **a re-wrap owes the call itself** no matter what
-  guarded the document upstream. That one is gated per SITE, not per file. *(gated —
+  it, and re-wraps it. **Any CSS SERIALIZER normalizes `<\/style` back into a live terminator**
+  — css-tree (`prunePlayerCss`) and the browser's own CSSOM `cssText` are both measured doing
+  it — so **a re-wrap owes the call itself** no matter what guarded the document upstream. That
+  one is gated per `<style>` ELEMENT, by text match, with its evasion envelope written into the
+  check's docblock; the durable pin for the guard call sites themselves is the CENSUS in
+  `test/unit/export/style-guard-census.test.js`, because all three gates are text matchers and
+  none of them can see a guard that quietly disappears from a file that still calls it
+  elsewhere. *(gated —
   `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS`, `checkDocumentStyleSinks` +
   `DOC_STYLE_SINK_ROOTS` + `SANCTIONED_STYLE_SINK_EXEMPT`, and `checkCssTreeRewrapSinks`, all in
   `tools/check-ownership.js` via `build:check`; `engineering/gotchas.md`,

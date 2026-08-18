@@ -412,8 +412,9 @@ guard is ESM; `require()` of an `.mjs` is native on the pinned engines and alrea
 idiom (`leading-is.js`, `comment-directive.js`, `boundary-parser.js`, `math-block-rule.js`).
 
 Four guarded sites in the emulator, and **two of them are real breakouts, not one.** The
-first draft of this section called sites 3+4 "depth"; the inversion pass proved otherwise and
-the correction is the more interesting half of this record:
+first draft of this section called site 3 "depth"; the inversion pass proved otherwise and
+the correction is the more interesting half of this record. (Site 4 *is* depth — an earlier
+version of this sentence said "sites 3+4", which over-warned in a way its own list contradicted.)
 
 1. the `htmlDoc` deck `<style>` — hoisted into one `deckStyleText` string so the *whole*
    element body is guarded at the point of embedding, not each piece separately. **The
@@ -646,7 +647,17 @@ charcode table and the hop-by-hop `indexOf("</")` scan, minified to `I` and expo
 - every other round trip between guard and shipped bytes was checked and holds: `minifyCss`,
   `themeDualMode`, `resolveLightDark`, jsdom parse→`outerHTML`, `subsetEmbeddedFonts`,
   `inlineAssets` (which `encodeURIComponent`s `<` to `%3C`), Chromium's `outerHTML` player bake,
-  and the `textContent =` writes. **Only css-tree reproduces a live terminator.**
+  and the `textContent =` writes. **css-tree is the only one of those that reproduces a live
+  terminator — but the class is any CSS SERIALIZER, not css-tree.** A first draft wrote "only
+  css-tree", which is the same over-narrow generalization this whole section exists to correct,
+  one level up, and it had been written into the gate's name and into HARD RULE #22. Measured
+  in the same Chromium 131, the CSSOM does exactly what css-tree does:
+  ```
+  input             .x::after{content:"<\/style><img src=x>"}
+  rule.cssText   →  .x::after { content: "</style><img src=x>"; }
+  ```
+  So the rule to carry forward is: **CSS that goes through any serializer and comes back to
+  markup owes the guard again at the re-wrap.**
 
 **Logged, off-path, not pulled into this diff** (HARD RULE #18's other half):
 
@@ -680,3 +691,74 @@ charcode table and the hop-by-hop `indexOf("</")` scan, minified to `I` and expo
   into a document, with both channels inside it. That is where this class actually closes, and it
   is a coordinated pass across CJS/ESM/TS/Astro that would move exported bytes on every surface at
   once. Named as the destination, deliberately not attempted here.
+
+### 9.8 The second trio pass, on the fix pass itself
+
+§9.7's corrections were reviewed by a second red team / inversion / checker round, scoped to
+the delta rather than re-attacking a primitive that had already survived three passes and
+300,000 fuzz cases. It found the same shape a third time, which is the finding that matters
+more than any individual item: **this change kept fixing one twin and declaring the class
+closed.**
+
+**A THIRD unguarded twin, demonstrated.** `share-export.ts`'s `embedFinishInMarkdown` splices
+a saved finish's CSS into a `<style>` in markdown handed to a recipient, and carries an
+explicit `#22 stylesheet channel` comment. Two functions with byte-identical shape did not:
+
+| | what it embeds | first cut |
+|---|---|---|
+| `share-export.ts` `embedFinishInMarkdown` | a saved finish's CSS | guarded (#1718) |
+| `docs/src/components/studio/export/deck-export.js` `embedThemeInMarkdown` | a **saved library theme**'s CSS | **not** |
+| `lib/layout/bridge.js` `componentBlock` | **model-authored component** CSS | **not** |
+
+Red team took `embedThemeInMarkdown`'s exact byte output for a hostile theme through the real
+CLI: `1` live `<link href=evil…>` in the exported document, the theme's own CSS after the
+payload turned into markup. Both are guarded here — the **whole element body**, not just the
+CSS, because the theme/component *name* rides in the comment header above it and is free text
+too. Pre-existing rather than introduced, but on this change's path by any reading: the guarded
+twin is the model, and a PR whose deliverable is "the export half of this class is closed"
+cannot ship with two literal copies of it open.
+
+**The guard census.** Six of seven guard call sites were killed by no test — the three gates
+are all text matchers, so deleting one call in a file that still calls the guard elsewhere
+produces zero errors. Both reviewers measured that independently, and one watched it happen
+live. `test/unit/export/style-guard-census.test.js` now pins the call count per file, by value,
+with a stated reason for every `<style>` that deliberately has none. It kills every previously
+unkillable mutant, and its anti-vacuity arm immediately found a file the census had missed
+(`presenter-window.js`). It also pins the **third-party assumption** underneath §9.3's "depth"
+call: DOMPurify dropping a `style=` attribute whose value carries the terminator, measured
+against the real sanitizer — because `package.json` pins DOMPurify with a caret and
+`dependabot-auto-merge.yml` merges semver-minor bumps unread, so that contract could change
+overnight against a suite that stays green with all three of those guards removed.
+
+**The `--player` arm was silently vacuous.** Every assertion in it is also satisfied by the
+upstream guard alone, so the moment the prune bails — a target under 50 KB, or a failed
+computed-style gate — the arm tests nothing and reports green. Measured: with the re-wrap guard
+deleted AND the prune forced to bail, all three arms passed. It now asserts the emulator's own
+`pruned unused CSS: N/M rules kept` line, so "the prune ran" is evidence rather than assumption.
+
+**The re-wrap gate's discovery rule was weaker than its docstring.** "Per site" was really
+"per element body", satisfied by a guarded value sitting beside an unguarded one, or by a
+`sanitizeStyleText(` written inside a **comment**. It now requires every interpolation in the
+element to carry the call, `.replaceAll` counts as a re-wrap, and — the part that was missing
+and that the other two arms already had — **its evasion envelope is written into its docblock**:
+seven measured shapes that pass while genuinely re-wrapping pruned CSS. An undeclared envelope
+is how a gate gets trusted past its worth.
+
+**The root-cause test rested on a false premise.** `affected-test-scopes.test.js` filtered to
+directories containing a `*.test.js`, but `tools/affected-tests.js` maps on the **path prefix**
+for *any* staged file — a fixture, or a `.test.js` one level deeper. Red team staged both shapes
+and watched the hook fail with the test green. The filter is gone.
+
+**Also corrected in the record:** §9.7's bolded "Only css-tree reproduces a live terminator" was
+the same over-narrow generalization one level up — measured, the CSSOM's `cssText` does exactly
+what css-tree does — and that narrow name had been written into the gate's identifier and into
+HARD RULE #22. And §9.3's lead said "sites 3+4 were called depth" while its own list says site 4
+*is* depth.
+
+**Logged, off-path, not pulled in:** `docs/src/playground/snapshot-cache.js` serializes live
+CSSOM rules (`rule.cssText` / `rule.style.cssText`, which normalize the escape) into
+`localStorage`, and `docs/src/pages/playground.astro:447` writes that into a `<style>` in the
+**top** docs document. It is inert for exactly one reason — the sink is `textContent =`, which
+does not parse markup — so it is safe by the choice of one line rather than by anything this
+change built. That is the CSSOM twin of the css-tree re-wrap, and the next person to reach for
+`insertAdjacentHTML` there makes it live.

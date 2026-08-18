@@ -56,14 +56,19 @@ describe('a `</style>` in caller CSS cannot break out of the exported document',
 	// by several MB per run and never gives it back.
 	after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-	/** Render to `.html` (a real browser render; only the PDF encode is skipped). */
-	const render = (name, extra = []) => {
+	/**
+	 * Render to `.html` (a real browser render; only the PDF encode is skipped).
+	 *
+	 * `quiet` is a parameter rather than always-on because the `--player` arm needs the
+	 * emulator's own progress line as EVIDENCE THAT THE PRUNE RAN — see that arm.
+	 */
+	const render = (name, extra = [], { quiet = true } = {}) => {
 		const out = path.join(dir, name);
-		const r = spawnSync(process.execPath, [EMULATOR, deckFile, out, '--quiet', ...extra], {
+		const r = spawnSync(process.execPath, [EMULATOR, deckFile, out, ...(quiet ? ['--quiet'] : []), ...extra], {
 			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
 		});
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-		return fs.readFileSync(out, 'utf8');
+		return { html: fs.readFileSync(out, 'utf8'), stdout: `${r.stdout}${r.stderr}` };
 	};
 
 	/**
@@ -91,7 +96,7 @@ describe('a `</style>` in caller CSS cannot break out of the exported document',
 	}
 
 	test('the deck\'s front-matter `style:` block', { timeout: TIMEOUT }, () => {
-		const html = render('fm.html');
+		const { html } = render('fm.html');
 		assertNoBreakout(html, 'front-matter style:');
 		// The guard NEUTRALIZES rather than censors: the payload's text is still there,
 		// readable, with a backslash between the two characters the tokenizer pairs.
@@ -100,7 +105,7 @@ describe('a `</style>` in caller CSS cannot break out of the exported document',
 	});
 
 	test('the `--css` layout sheet', { timeout: TIMEOUT }, () => {
-		const html = render('css.html', ['--css', cssFile]);
+		const { html } = render('css.html', ['--css', cssFile]);
 		assertNoBreakout(html, '--css sheet');
 		assert.match(html, /<\\\/style>/, 'the terminator must be escaped in the layout sheet too');
 	});
@@ -116,7 +121,15 @@ describe('a `</style>` in caller CSS cannot break out of the exported document',
 		// the css-tree round trip that normalizes `<\/style` back to `</style`, and the re-wrap
 		// guard is the only thing that re-escapes it. Rendering this arm with `--css` is how a
 		// first cut left both prune guards deletable with everything green.
-		const html = render('player.html', ['--player']);
+		const { html, stdout } = render('player.html', ['--player'], { quiet: false });
+		// PROVE THE PRUNE RAN. Without this the arm is silently vacuous the moment the prune
+		// bails: every assertion below is also satisfied by the UPSTREAM guard alone, because
+		// `minifyCss` drops the comment payload whether or not css-tree runs. The prune has two
+		// bail-outs — a target under 50 KB (why this arm renders without `--css`) and a failed
+		// computed-style gate, which any future CSS change could trip. Measured: with the guard
+		// deleted AND the prune forced to bail, all three arms passed green.
+		assert.match(stdout, /pruned unused CSS:\s*\d+\/\d+ rules kept/,
+			`the CSS prune did not run, so this arm tested nothing about the re-wrap. stdout:\n${stdout}`);
 		assertNoBreakout(html, '--player export');
 		// The comment-borne payload is gone entirely — css-tree and minifyCss both drop
 		// comments — so `evil.example` may survive ONLY as the string-borne one, escaped.

@@ -11,8 +11,8 @@
  * nothing checks it, so the FOURTH new `test/unit/<dir>` fails somebody's commit exactly the
  * same way.
  *
- * This is the check that ends the class: adding a directory without its script now fails a
- * test, with a message that says what to add and where.
+ * This is the check that ends the class for a directory under `test/unit/`: adding one without
+ * its script now fails a test, with a message that says what to add and where.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,11 +24,16 @@ const UNIT_DIR = path.join(ROOT, 'test', 'unit');
 
 test('every test/unit/<scope> directory has a matching `test:<scope>` npm script', () => {
   const { scripts } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  // EVERY directory, with no "does it contain a test file" filter. An earlier cut had one,
+  // and its premise was false: `tools/affected-tests.js:147` maps on the PATH PREFIX
+  // (`/^test\/unit\/([^/]+)\//`) for ANY staged file — a fixture, a helper, a `.test.mjs`, or
+  // a `.test.js` one level deeper in `test/unit/<scope>/sub/`. All of those produce
+  // `test:<scope>` and all of them die in pre-commit if the script is missing, while a
+  // filtered, non-recursive census stayed green. Found by the red-team pass, which staged
+  // exactly those two shapes and watched the hook fail with the test still passing.
   const scopes = fs
     .readdirSync(UNIT_DIR, { withFileTypes: true })
     .filter((e) => e.isDirectory())
-    // A directory with no test file in it cannot be staged into the mapping.
-    .filter((e) => fs.readdirSync(path.join(UNIT_DIR, e.name)).some((f) => f.endsWith('.test.js')))
     .map((e) => e.name);
 
   assert.ok(scopes.length > 15, `expected the unit suite to have many scopes, found ${scopes.length}`);

@@ -18,6 +18,13 @@
   `<\/style` straight back into a live terminator — so the guard applied where the document
   was assembled was undone at the re-wrap, in a document that is mounted in a same-origin
   frame and then handed to a recipient. Both re-wraps now re-sanitize.
+- **Fixed: two more `<style>` blocks spliced into shared markdown carried the same hole.**
+  A saved library theme's CSS (`embedThemeInMarkdown`) and a library component's CSS
+  (`componentBlock`) are embedded in the markdown a recipient receives, in byte-identical
+  shape to the finish block beside them that was already guarded. Rendering the theme
+  block's own output through the CLI produced a live `<link rel="stylesheet">` and turned
+  the theme's remaining CSS into markup. Both now guard the whole element body, since the
+  theme/component name rides in the comment header and is free text too.
 - **Changed: the HARD RULE #22 stylesheet gate now covers the export pipeline.** It scanned
   `docs/src` alone, so `lattice-emulator.js` and `lib/export/**` were not checked at all. Its
   roots are the three shipped document assemblers, and a new per-site check catches a

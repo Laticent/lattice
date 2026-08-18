@@ -400,3 +400,37 @@ describe('the live tree', () => {
     assert.ok(withStyleSink >= 3, `expected all three builders to carry a stylesheet channel, found ${withStyleSink}`);
   });
 });
+
+// The tightening that finding "per-site is really per-body" forced: a guarded value sitting
+// beside an unguarded one, and a `sanitizeStyleText(` written inside a COMMENT, both passed
+// an earlier cut of the re-wrap check while the pruned CSS went out raw.
+describe('the css-tree re-wrap arm checks every interpolation, not just the body', () => {
+  const PRUNE = "import { prunePlayerCss } from './p.js';\n";
+  function gateAt(src) {
+    const abs = path.join(TMP, 'lib', 'export', 'probe-two.mjs');
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, src);
+    const errors = [];
+    try { checkCssTreeRewrapSinks(errors, TMP); } finally { fs.rmSync(abs, { force: true }); }
+    return errors.filter((e) => e.includes('probe-two.mjs'));
+  }
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const TWO_VALUES = PRUNE + 'export function f(h,t,r,fr){ const p = prunePlayerCss(t.css,u); return h.replace(t.full, () => `<style>${sanitizeStyleText(fr.css)}\\n${p.css}</style>`); }';
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const COMMENT_ONLY = PRUNE + 'export function f(h,t){ const p = prunePlayerCss(t.css,u); return h.replace(t.full, () => `<style>/* sanitizeStyleText(x) is applied upstream */${p.css}</style>`); }';
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const BOTH_GUARDED = PRUNE + 'export function f(h,t,r,fr){ const p = prunePlayerCss(t.css,u); return h.replace(t.full, () => `<style>${sanitizeStyleText(fr.css)}\\n${sanitizeStyleText(p.css)}</style>`); }';
+
+  test('fires when a SECOND value in the same element is unguarded', () => {
+    assert.ok(gateAt(TWO_VALUES).length > 0, 'a guarded value beside an unguarded one must not certify the element');
+  });
+  test('fires when the only mention is inside a comment', () => {
+    assert.ok(gateAt(COMMENT_ONLY).length > 0, 'a call in a comment is not a call');
+  });
+  test('quiet when every interpolation is guarded', () => {
+    assert.deepEqual(gateAt(BOTH_GUARDED), []);
+  });
+  test('`.replaceAll` is a re-wrap too', () => {
+    assert.ok(gateAt(TWO_VALUES.replace('.replace(', '.replaceAll(')).length > 0, 'one token must not silence the gate');
+  });
+});
