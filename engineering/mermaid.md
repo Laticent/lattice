@@ -302,7 +302,8 @@ drops **every** directive in the diagram — including the palette, leaving you 
 stock `#ECECFF`/`#333333`. A hyphen only blanks the one value it appears in; an
 apostrophe costs you the lot. Use double quotes.
 
-### Naming a Mermaid **theme** in your directive
+The one thing that *does* stand the engine down is naming a Mermaid **theme** in
+a `%%{init}%%` directive:
 
 ````markdown
 ```mermaid
@@ -311,47 +312,56 @@ apostrophe costs you the lot. Use double quotes.
 ````
 
 Any theme name Mermaid actually resolves — `dark`, `forest`, `neutral`, `neo`,
-`redux`, … — reads as an opt-out of the deck palette. **What you get is a hybrid, and
-it is the same hybrid on both paths since #1674:** Mermaid re-derives its palette from
-the named theme, and the engine's `themeVariables` still apply to whatever that theme's
-derivation did not set. Measured with `forest` — node fill comes back `#cde498`
-(forest's), while `lineColor` and the font stay the engine's.
+`redux`, … — other than `base`, reads as an explicit opt-out, so the engine sends no
+`theme` and no `themeVariables` and you get Mermaid's stock `forest`: off-palette by
+definition, immune to a theme switch, and reported as "kept their own colors" by the
+export's look re-bake. Reach for it only when you genuinely want a diagram outside the
+deck's palette.
 
-That is Mermaid's own layering (a directive over the site config), and it is what the
-live preview has always done. **The export used to differ**, and this is a behavior
-change worth knowing if you pin themes: it emitted no directive at all when it saw a
-pin, so a pinned diagram exported as *stock* `forest` — every color from the theme,
-none from the deck — while previewing as the hybrid. The export now matches the
-preview. A deck that pins a theme therefore exports slightly differently than it did
-before #1674, in the direction of what its author was already looking at.
+**The stand-down has to be all-or-nothing, and that is why it is a stand-down rather
+than a merge.** The engine sets essentially every Mermaid theme variable, so a
+half-hearted version — sending our variables and letting your `theme:` sit on top —
+would leave the pin doing almost nothing, because ours would win for every key we set.
+Measured with `theme: forest` on an indaco deck: standing down gives cluster `#cdffb2`
+and node `#cde498` (forest's own), where sending the palette anyway gives `#E8F0F7` /
+`#BCD5EC` (indaco's).
 
-Reach for a theme pin only when you genuinely want a diagram outside the deck's
-palette, and expect to set explicitly anything you want the named theme to own.
+*(Mechanically this changed with #1674 and behaves identically. The export used to
+implement the stand-down by emitting no `%%{init}%%` directive at all; it now passes
+`omitPalette` to `engineInitConfig`, which drops `theme` and `themeVariables` and keeps
+everything else. That is a small improvement on the old hole: a pinned diagram used to
+lose `wrappingWidth`, `padding` and the quadrant/c4 sizes to Mermaid's defaults too.
+Opting out of the palette is not opting out of the layout.)*
 
-A name Mermaid does **not** resolve is not an opt-out at all. `theme: 'Forest'` (wrong
-case), `theme: ''`, or a typo resolves no theme, so you simply keep the deck palette.
-Theme lookup is case-sensitive and exact on Mermaid's side. `authorPinsTheme`
-(`lib/integrations/mermaid/init-directive.js`) matches that exactly — it no longer
-gates an injection, but the export's image-set look re-bake still reads it to decide
-whether re-rendering a diagram could change its colors.
+A name Mermaid does **not** resolve is not an opt-out. `theme: 'Forest'` (wrong
+case), `theme: ''`, or a typo would leave you with no theme from Mermaid *and* no
+palette from the engine — stock `#ffffde` — so the engine keeps the diagram
+instead. Theme lookup is case-sensitive and exact on Mermaid's side.
 
-**One spelling that behaves differently from the others:**
+**Two spellings the stand-down does NOT cover**, both pre-dating #1311 and both
+re-measured under the new transport:
 
-- **`%%{INIT: …}%%` in caps.** Mermaid's directive scanner is case-insensitive but its
-  init-type filter is not, so Mermaid applies **nothing** from an uppercase directive —
-  yours is ignored and you keep the full deck palette. Write it lowercase.
+- **`%%{INIT: …}%%` in caps.** Mermaid's directive scanner is case-insensitive
+  but its init-type filter is not, so Mermaid applies nothing from an uppercase
+  directive. The engine matches that case-sensitively and sends the palette as if it
+  weren't there — the palette lands, and your directive is ignored by both of us.
+  Write it lowercase.
+- **A theme set in YAML front matter** (`---\nconfig:\n  theme: forest\n---`).
+  You get the deck palette, not `forest` — measured on the real export, cluster
+  `#E8F0F7`. The stand-down reads the `%%{init}%%` spelling only. Use the directive
+  form to opt out.
 
-**Front matter now works too** (`---\nconfig:\n  theme: forest\n---`), which is
-another #1674 change. Mermaid merges front-matter config over the site config, and
-there is no longer an engine directive sitting above it to win — measured, a
-front-matter `theme: forest` gets the same hybrid the directive form does. The old
-text here said front matter loses to the engine's `theme: base`; that was true only
-while the engine emitted a directive.
+**The stand-down is still export-path-only** — a `theme:` pin exports stock and
+previews on-theme. That gap is unchanged by #1674 and is not a transport problem: the
+runtime configures Mermaid once per RUN of diagrams sharing a palette and renders the
+run's fences concurrently against that one global config, so standing down for a single
+pinned fence means re-initializing mid-run. Worth doing; it is a change to the preview's
+render queue rather than to this file, and it is tracked separately.
 
 Before #1311 the export was worse than any of this: ANY directive made it skip the
-injected palette entirely, and the diagram fell back to Mermaid stock (`#ffffde`
-clusters, `#333` label ink). If you are looking at an off-theme diagram with a
-directive in it, that regression is what
+injected palette entirely, and the diagram silently fell back to Mermaid stock
+(`#ffffde` clusters, `#333` label ink). If you are looking at an off-theme
+diagram with a directive in it, that regression is what
 `test/integration/mermaid/mermaid-init-merge.test.js` guards.
 
 **`layout: 'elk'` still does nothing — and says so only in a log.** The directive

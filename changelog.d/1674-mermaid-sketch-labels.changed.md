@@ -12,11 +12,6 @@
   used mono; under `sketch` it is the hand face. Diagram geometry shifts slightly on
   existing decks (0.2–0.4% measured) because labels are finally measured in the face
   they are painted in.
-- **Changed: a diagram that pins a Mermaid `theme:` exports what it previews.** The
-  export used to inject nothing at all when it saw a `theme:` pin, so such a diagram
-  exported as the stock theme while previewing as a blend of that theme and the deck
-  palette. Both paths now produce the blend. A `theme:` set in YAML front matter also
-  takes effect on export, where the engine's directive previously overrode it.
 - **Fixed: one malformed diagram no longer costs a deck its other diagrams' speed.**
   The batched render was all-or-nothing — an unparseable fence sent every diagram in
   the deck back through the one-at-a-time path. Failures are now isolated per diagram.

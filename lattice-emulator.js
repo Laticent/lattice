@@ -1240,7 +1240,14 @@ function runMermaidWorker(requests) {
       // in the preview (#1674, HARD RULE #1).
       diagrams: requests.map((r) => ({
         definition: r.definition,
-        config: engineInitConfig(r.themeVars, { look: r.look }),
+        // `omitPalette` carries the theme STAND-DOWN across the transport change. It used
+        // to be implicit in `withEngineInit`, which returned the definition untouched when
+        // the author pinned a theme, so no engine config reached Mermaid at all. Config
+        // travels beside the source now, so the stand-down has to be stated.
+        config: engineInitConfig(r.themeVars, {
+          look: r.look,
+          omitPalette: authorPinsTheme(r.definition),
+        }),
       })),
     }));
     execFileSync(process.execPath, [MERMAID_WORKER, jobFile], { stdio: ['ignore', 'ignore', 'pipe'] });

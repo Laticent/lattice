@@ -215,7 +215,9 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
         `${gone} was retired in #1674 — see engineering/decisions/2026-08-17-mermaid-render-worker.md `
         + 'before reintroducing a directive transport');
     }
-    assert.equal(/withEngineInit|engineInitDirective/.test(EMULATOR_SRC), false,
+    // A CALL, not a mention — the export keeps comments explaining what the directive
+    // transport was and why it went, and that history is the useful part.
+    assert.equal(/withEngineInit\(|engineInitDirective\(/.test(EMULATOR_SRC), false,
       'the export path builds a %%{init}%% directive again — that reintroduces the '
       + 'sanitizer allow-list that forced DIVERGENT_KEYS');
   });

@@ -213,3 +213,38 @@ The third row is the texture contract holding: hand type, machine-drawn shapes.
 - **It does not touch `flowchart.useMaxWidth`.** The surviving sanctioned divergence,
   left alone deliberately: sharing it would change exported SVG attributes with no
   measured visual effect, which is churn taken on faith.
+
+## The one contract that had to be carried across by hand
+
+An author who pins a Mermaid `theme:` is opting out of the deck palette, and the export
+honored that by emitting **no directive at all** — the stand-down was a side effect of
+the transport rather than a stated rule. Moving the config beside the source instead of
+into it silently dropped it: the engine's `themeVariables` went out regardless, and
+since the engine sets essentially every one of them, a pinned diagram came back wearing
+the deck palette. `test/integration/mermaid/mermaid-init-merge.test.js` caught it —
+`fill:#E8F0F7` where the test expected forest's `#cdffb2`.
+
+Fixed by stating the rule: `engineInitConfig(vars, { omitPalette })` drops `theme` and
+`themeVariables` when `authorPinsTheme` says so. Re-measured on the real export, indaco
+deck, `theme: forest`:
+
+| | cluster | node | font |
+|---|---|---|---|
+| directive pin | `#cdffb2` | `#cde498` | trebuchet (forest's own) |
+| front-matter `config.theme` | `#E8F0F7` | `#BCD5EC` | Outfit (deck palette) |
+| no pin | `#E8F0F7` | `#BCD5EC` | Outfit |
+
+Identical to the pre-change behavior on all three rows, including the documented
+asymmetry that front matter is not a stand-down. It is also slightly better than the
+directive era: emitting nothing used to cost a pinned diagram `wrappingWidth`,
+`padding` and the quadrant/c4 sizes as well, which the old docstring called out as a
+hole. Opting out of the palette is not opting out of the layout.
+
+**The stand-down remains export-only, and this change did not close that.** The preview
+configures Mermaid once per RUN of diagrams sharing a palette and renders that run's
+fences concurrently against the one global config, so standing down for a single pinned
+fence means re-initializing mid-run and restoring afterwards. That is a change to the
+runtime's diagram queue, not to the config plumbing — a different subsystem from the one
+this change touches, and pulling it in would blur what the diff is for (HARD RULE #18,
+pre-existing and off-path). Recorded here and in `engineering/mermaid.md` §5.3 rather
+than left implicit.

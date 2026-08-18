@@ -256,9 +256,15 @@ describe('mermaid init-directive: render-path wiring', () => {
     const src = read('lattice-emulator.js');
     assert.match(src, /require\('\.\/lib\/integrations\/mermaid\/init-directive'\)/);
     // #1674: the config is DATA in the worker job, not text prepended to the diagram.
-    assert.match(src, /config: engineInitConfig\(r\.themeVars, \{ look: r\.look \}\)/,
+    assert.match(src, /config: engineInitConfig\(r\.themeVars, \{/,
       'the worker job carries the engine config per diagram');
-    assert.doesNotMatch(src, /withEngineInit/,
+    // And the theme STAND-DOWN rides with it. It used to be implicit — the old kernel
+    // returned the definition untouched when the author pinned a theme, so no engine
+    // config reached Mermaid at all. Config travels beside the source now, so a missing
+    // `omitPalette` would silently repaint a pinned diagram in the deck palette.
+    assert.match(src, /omitPalette: authorPinsTheme\(r\.definition\)/,
+      'a pinned Mermaid theme must still stand the engine palette down');
+    assert.doesNotMatch(src, /withEngineInit\(/,
       'the export must not compose a %%{init}%% directive again — that reintroduces the '
       + 'sanitizer allow-list that forced DIVERGENT_KEYS');
     assert.doesNotMatch(src, /const hasInit = definition\.includes/,
