@@ -242,6 +242,29 @@ async function main() {
       const bad = list.filter((e) => e.r < FLOOR).sort((a, b) => a.r - b.r);
       console.log(`  ${String(bad.length).padStart(2)}/${n}  ${name}${bad.length ? `   worst ${bad[0].r.toFixed(2)}:1 ${bad[0].ctx} (${bad[0].av} on ${bad[0].bv})` : '   clean'}`);
     }
+
+    // PER CONTEXT. Printed because the per-row view above answers "which pairing
+    // is broken" and a palette owner needs the transpose — "how much of this is
+    // mine". Counted in ROWS (a shape or a line that fails), not in pairs: a
+    // shape offers three candidate edges, so a pair count silently weights
+    // shapes 3x against lines and is not a quantity anyone can act on.
+    const perCtx = new Map(result.contexts.map((c) => [c, { shapes: [], lines: [] }]));
+    for (const [name, list] of Object.entries(result.shapes)) {
+      for (const e of list) if (e.best < FLOOR) perCtx.get(e.ctx).shapes.push(name);
+    }
+    for (const [name, list] of Object.entries(result.lines)) {
+      for (const e of list) if (e.r < FLOOR) perCtx.get(e.ctx).lines.push(name);
+    }
+    const ranked = [...perCtx].map(([ctx, v]) => ({ ctx, s: v.shapes.length, l: v.lines.length }))
+      .sort((a, b) => (b.s + b.l) - (a.s + a.l) || a.ctx.localeCompare(b.ctx));
+    console.log(`\nPER CONTEXT — failing rows (of ${Object.keys(result.shapes).length} shapes + ${Object.keys(result.lines).length} lines):\n`);
+    for (const r of ranked) console.log(`  ${String(r.s + r.l).padStart(2)}  ${r.ctx.padEnd(28)} ${r.s} shape · ${r.l} line`);
+    const clean = ranked.filter((r) => r.s + r.l === 0);
+    console.log(`\n  fully clean contexts: ${clean.length ? clean.map((r) => r.ctx).join(', ') : '(none)'}`);
+    for (const scheme of ['light', 'dark']) {
+      const sub = ranked.filter((r) => r.ctx.endsWith(`/${scheme}`));
+      console.log(`  ${scheme}: ${sub.reduce((a, r) => a + r.s + r.l, 0)} failing rows across ${sub.length} palettes`);
+    }
   }
   if (reportArg === 'all' || reportArg === 'levers') {
     const L = result.levers;

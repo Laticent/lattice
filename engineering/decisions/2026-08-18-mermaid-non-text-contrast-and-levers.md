@@ -18,7 +18,8 @@ summary: >
   repair is cheaper than that precedent suggests, though: `cuoio` already passes with a flat
   literal, because its mid-tone `#8B7E6D` clears 3:1 against BOTH its canvases (3.71:1 light,
   4.74:1 dark) where indaco's `#1F4A6E` banks 9.28:1 on light and collapses to 1.85:1 on dark —
-  so the first move is re-curating a value per palette, not re-architecting a tier. The
+  so the first move is re-curating a value per palette, not re-architecting a tier, and there
+  are 14 values to re-curate rather than 32 because every `-dark` twin inherits its base's. The
   xy chart's brand gap is real but is NOT a contrast or a font problem: its type is correct (all
   344 gallery labels render in Outfit, verified on the export), and mermaid genuinely offers no
   gridline or plot-frame lever — what it does offer and we do not use is `xyChart.dataLabelColor`
@@ -124,14 +125,17 @@ SHAPES — no candidate edge clears 3:1        (of 64 contexts)
    0/64  subgraph cluster        clean
 
 LINES — the one pair, no fallback
+   2/64  flowchart edge          worst 2.96:1 cuoio/dark
+   2/64  sequence signal arrow   worst 2.96:1 cuoio/dark
+   2/64  sequence lifeline       worst 2.96:1 cuoio/dark
   49/64  gantt grid line         worst 1.30:1 concrete/light
   33/64  gantt today marker      worst 1.01:1 concrete/light
   29/64  quadrant frame          worst 1.00:1 a11y-achromatopsia/dark
+   4/64  quadrant divider        worst 2.67:1 magnolia/light
   29/64  xy x-axis rule          worst 1.00:1 a11y-achromatopsia/dark
   29/64  xy y-axis rule          worst 1.00:1 a11y-achromatopsia/dark
-   5/64  xy axis ticks           worst 2.69:1 a11y-achromatopsia/dark
-   4/64  quadrant divider        worst 2.67:1 magnolia/light
-   2/64  flowchart edge          worst 2.96:1 cuoio/dark
+   5/64  xy x-axis tick          worst 2.69:1 a11y-achromatopsia/dark
+   5/64  xy y-axis tick          worst 2.69:1 a11y-achromatopsia/dark
 ```
 
 **The subgraph cluster is the only clean row, and that is the tell** — see §3.
@@ -154,9 +158,11 @@ quadrantPointFill   quadrantExternalBorderStrokeFill
 xyChart.xAxisLineColor  xyChart.yAxisLineColor
 ```
 
-And **no palette makes it mode-aware.** All 14 base palettes declare it as a flat literal —
-`#000000` on onyx, `#1F4A6E` on indaco, `#2A2A28` on concrete, `#8B7E6D` on cuoio — with
-not one `light-dark()` among them. In a dark context that is a dark stroke on a dark canvas:
+And **no palette makes it mode-aware.** Thirteen of the fourteen base palettes declare it as
+a flat literal — `#000000` on onyx, `#1F4A6E` on indaco, `#2A2A28` on concrete, `#8B7E6D` on
+cuoio; the fourteenth, carbone, declares `var(--brand-accent)`, which is itself a flat
+`#7DE38A`. There is not one `light-dark()` among them, and the thirteen `-dark` twins and
+five `a11y-*` palettes declare none at all — they inherit through `@import`. In a dark context that is a dark stroke on a dark canvas:
 1.00:1 on onyx and the a11y family, 1.85:1 on indaco.
 
 **This is a known bug shape that was fixed for exactly one of the fourteen keys.**
@@ -241,23 +247,40 @@ so the next person does not re-derive it while looking at color.
 Two further render-verified items belong to §1's unpulled levers rather than to contrast:
 the dark **sankey**'s ribbons are near-invisible (`sankey.linkColor`, unset), and the
 **radar**'s two series converge to the same milky pale because `mermaid.css` paints
-`.radarCurve-N` from `--cat-N-mark` at `fill-opacity: 0.28` — and on a dark palette the mark
+`.radarCurve-0..7` from `--cat-1..8-mark` at `fill-opacity: 0.28` — and on a dark palette the mark
 tier *is* pale, so every series lands in the same narrow band.
 
 ## 6. Reality per palette
 
-No palette is clean. Failure counts are the non-text sweep, both floors, per context:
+`--report contrast` transposes the sweep: **failing ROWS per context**, of 6 shapes + 11
+lines. Rows rather than pairs, because a shape offers three candidate edges and a pair count
+silently weights shapes 3x against lines.
 
-- **Worst:** `carta`, `concrete`, `indaco` (and their `-dark` twins) in dark — 30 failing
-  pairs each.
-- **The a11y family** fails hardest on the specific pairs that matter most to it: with
-  `--diagram-stroke: #000000` against a `#000000` dark canvas, every bordered shape and
-  every axis rule sits at exactly 1.00:1.
-- **`concrete` in light** is the worst light-mode palette: its canvas is `#B8B8B5`, a
-  mid-grey, so both the gantt grid (`#D1D1D1`, 1.30:1) and the today marker (`#B7B7B7`,
-  1.01:1) vanish into it.
-- **Light mode is materially better than dark** — 678 failing non-text pairs against 878 —
-  and the gap is almost entirely §3's token.
+**No context is clean.** The spread is 1 to 9 failing rows out of 17.
+
+| | contexts | failing rows |
+|---|---|---|
+| worst | `concrete` / `concrete-dark`, dark | **9** (4 shape · 5 line) |
+| next | `ardesia`, `brina`, `burgundy`, `carta`, `crepuscolo`, `indaco`, `laguna` + `-dark` twins, dark | 8 (4 shape · 4 line) |
+| the a11y family, dark | `a11y-base` and its four siblings | 5 — **all line**, because `--diagram-stroke: #000000` on a `#000000` canvas puts the quadrant frame and both xy axis rules at exactly **1.00:1** |
+| best | `cuoio` / `cuoio-dark`, light | 1 (0 shape · 1 line) |
+
+**Dark is 2.4x worse than light: 221 failing rows against 93**, and §3's token is most of
+the difference. Every dark context with 4 failing *shapes* is one where `--diagram-stroke`
+went dark-on-dark; the two palettes with **zero** failing shapes in either scheme are cuoio
+(a genuine mid-tone) and carbone (dark-only, so nothing to bridge).
+
+Two per-palette notes worth having before someone re-derives them:
+
+- **`concrete` is the worst palette in both schemes, for different reasons.** In dark it is
+  §3. In light its canvas is `#B8B8B5`, a mid-grey, so the gantt grid (`#D1D1D1`, 1.30:1)
+  and today marker (`#B7B7B7`, 1.01:1) — values curated against a white page — vanish into
+  it. It owns the two worst light-mode *ratios*; `magnolia/light` has more failing rows (4
+  against 3), so "worst in light" depends on which you are optimizing.
+- **The `-dark` twin of a palette always scores identically to its base**, in both schemes.
+  That is expected — a twin inherits `--diagram-stroke` through `@import` and declares no
+  override — and it is worth stating because it halves the real work: there are 14 values to
+  re-curate, not 32.
 
 ## 7. Recommended order
 
