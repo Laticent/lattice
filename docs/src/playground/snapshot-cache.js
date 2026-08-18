@@ -12,7 +12,31 @@
 // sheet is ALREADY parsed inside the preview iframe, so we walk its live CSSOM and
 // keep the rules whose selectors match the rendered slide — native, allocation-cheap,
 // and it captures runtime-drawn content (chart SVGs) as static HTML for free.
+//
+// TWO CHANNELS, NOT ONE (HARD RULE #22). A snapshot carries `html` AND `css`, and both
+// cross localStorage and come back into the TOP docs document — the origin HARD RULE #24
+// puts the visitor's OpenRouter key in. The html channel has been guarded since this file
+// was written (`sanitizeSlideHtml`, at both captures and again at the storage boundary).
+// The css channel was not, and it is the CSSOM TWIN of the css-tree re-wrap that #1731
+// closed on the export paths:
+//
+//     rule.cssText  on  .x::after{content:"<\/style><img src=x>"}
+//              →        .x::after { content: "</style><img src=x>"; }
+//
+// A CSS SERIALIZER is entitled to normalize the escape away, and the browser's own CSSOM
+// does exactly what css-tree does — measured in Chromium 131. So an escape applied wherever
+// the preview document was assembled does NOT survive this round trip, and the guard is owed
+// again HERE, at the re-serialization, not upstream.
+//
+// It is INERT today for exactly one reason: the replay sinks the css with `textContent =`
+// (playground.astro), which does not parse markup, while the html beside it goes in with
+// `innerHTML =`. That is safety by the choice of one line, and the next person to reach for
+// `insertAdjacentHTML` / `set:html` on the css makes it live. Guarding at capture and at
+// storage costs nothing to be right about: `sanitizeStyleText` returns its input BY IDENTITY
+// for every real stylesheet, so no snapshot's bytes move.
+// See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
+import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 
 export const SNAPSHOT_KEY = 'lattice-studio-last-slide';
@@ -153,6 +177,9 @@ export function captureFromFrame(frame, meta) {
 		// document. Rewrite to the absolute served themes/ base so the replayed slide
 		// uses the real faces (same fix as the build-time front-A shell).
 		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
+		// The stylesheet channel of the same chokepoint (#22) — see the header. Applied AFTER
+		// the font-URL rewrite so the stored string is the one the replay actually sinks.
+		css = sanitizeStyleText(css);
 		// deckId + slideIndex identify WHICH deck/slide this snapshot is of, so the replay
 		// paints it only when the app is about to boot that same deck. Without them the
 		// shell can flash deck B's last slide before the app hydrates deck A (the app boots
@@ -227,6 +254,8 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// Same relative-font-URL rewrite as captureFromFrame: the replayed CSS lives in
 		// the TOP document (`/playground/`), so `url(fonts/…)` must be made absolute.
 		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
+		// Stylesheet channel (#22), same as captureFromFrame — see the header.
+		css = sanitizeStyleText(css);
 		return { v: 2, srcHash: meta.srcHash || '', html, css, w: meta.w || 1280, h: meta.h || 720, fit, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };
 	} catch {
 		return null;
@@ -275,6 +304,11 @@ function saveSnapshotTo(snap, key) {
 		// value physically unstorable. Guard on a string html so a malformed snap just
 		// fails the size gate.
 		if (typeof snap.html === 'string') snap = { ...snap, html: sanitizeSlideHtml(snap.html) };
+		// The STYLESHEET half of the same boundary (#22) — the css crosses storage exactly as
+		// the html does, and the CSSOM serializer that produced it undoes any upstream escape
+		// (header). Idempotent, and identity for every real stylesheet, so a clean snapshot is
+		// byte-unchanged and the size gate below sees the same string it always did.
+		if (typeof snap.css === 'string') snap = { ...snap, css: sanitizeStyleText(snap.css) };
 		const s = JSON.stringify(snap);
 		if (s.length > MAX_UNITS) return false;
 		localStorage.setItem(key, s);

@@ -45,6 +45,42 @@ describe('saveSnapshot / loadSnapshot', () => {
 		expect(stored.html).not.toContain('onerror');
 		expect(stored.html).not.toContain('<script');
 	});
+
+	// ── The STYLESHEET channel of the same boundary (#22) ────────────────────────────────
+	//
+	// A `<style>`'s content is HTML RAWTEXT: it ends at the first `</style`, and knows nothing
+	// about CSS strings or comments. The snapshot's css is produced by serializing the live
+	// CSSOM (`rule.cssText`), and that serializer normalizes `<\/style` back into a LIVE
+	// terminator — so an escape applied wherever the preview document was assembled does not
+	// survive into storage. The guard is owed here, at the re-serialization.
+	//
+	// This arm KILLS the storage-boundary call: delete it and the payload round-trips intact.
+	it('escapes the element terminator in css at the storage boundary (#22, stylesheet channel)', () => {
+		const dirty = {
+			v: 1,
+			html: '<div class="lattice"></div>',
+			css: '.x::after{content:"</style><img src=x onerror=alert(1)>"}',
+			w: 1,
+			h: 1,
+			palette: 'indaco',
+			mode: 'light',
+			ts: 1,
+		};
+		expect(saveSnapshot(dirty)).toBe(true);
+		const stored = loadSnapshot();
+		// No live terminator survives — the one thing that turns stylesheet text into markup.
+		expect(stored.css).not.toMatch(/<\/style/i);
+		// …and the declaration is otherwise intact: `\/` is CSS's escape for `/`, so the
+		// computed value is unchanged. This is not a CSS sanitizer and must not become one.
+		expect(stored.css).toContain('<\\/style>');
+		expect(stored.css).toContain('img src=x');
+	});
+
+	it('leaves a real stylesheet byte-identical (the guard is identity on clean css)', () => {
+		const css = '.lattice section{color:var(--fg)}@font-face{src:url(fonts/a.woff2)}';
+		expect(saveSnapshot({ v: 1, html: '<div></div>', css, w: 1, h: 1, palette: 'indaco', mode: 'light', ts: 1 })).toBe(true);
+		expect(loadSnapshot().css).toBe(css);
+	});
 });
 
 describe('captureFirstSectionFromFrame (Playground filmstrip → first slide only)', () => {
@@ -95,6 +131,25 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		// against a container none of it matches — a first paint of raw unstyled Markdown.
 		// This assertion used to pin `<div>`, which is why the miss went unnoticed.
 		expect(snap?.html).toMatch(/^<article class="lattice">/);
+	});
+
+	// Kills the CAPTURE-SITE stylesheet guard specifically: this asserts the value the
+	// capture RETURNS, before it reaches the storage boundary, so the boundary call cannot
+	// stand in for it. The payload rides in the preview's own CSSOM exactly as a hostile
+	// theme's would, and `rule.cssText` is what re-serializes it.
+	it('escapes the element terminator in the CAPTURED css (#22, stylesheet channel)', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		// Injected via `textContent`, not `innerHTML`: the payload IS an element terminator, so
+		// writing it as markup would end the `<style>` in the fixture itself and the rule would
+		// never reach the CSSOM this capture serializes. That asymmetry is the whole bug.
+		doc.head.innerHTML = '';
+		const styleEl = doc.createElement('style');
+		styleEl.textContent = 'section{color:blue}section::after{content:"</style><img src=x onerror=alert(1)>"}';
+		doc.head.appendChild(styleEl);
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap).not.toBeNull();
+		expect(snap?.css).not.toMatch(/<\/style/i);
 	});
 
 	it('strips the FIT agent inline transform/margin from the captured slide', () => {

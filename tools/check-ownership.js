@@ -4443,6 +4443,65 @@ const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/components/studio/present/presenter-window.js', why: 'buildStageDoc — the Studio\'s dual-screen presenter AND rehearsal stage; embeds the deck\'s composed CSS in the stage <style>.' },
 ];
 
+// ── HARD RULE #22, the POST-SANITIZE INJECTION shape (#1246) ────────────────────
+//
+// The other three arms of #22 all guard the moment a preview DOCUMENT is assembled.
+// `lib/runtime` runs INSIDE that document and writes more markup into it, after every
+// one of those guards has already run — so the sanitizer is one step too early for
+// anything the runtime injects, and no existing gate can see it: `checkPreviewHtmlSinks`
+// asks whether a builder CALLS `sanitizeSlideHtml`, and the builder does.
+//
+// This is a CENSUS, not a guard requirement, and the difference is deliberate. The
+// dangerous sink here takes SVG back from a third-party renderer (Mermaid), and
+// re-sanitizing it is not available: measured through the real `createSlideSanitizer`,
+// DOMPurify deletes `<foreignObject>` and `<style>` — which is every htmlLabels node
+// label and every diagram's generated styling. What actually contains the payload is
+// Mermaid's own `securityLevel: 'strict'` (a Mermaid SECURE KEY, so a deck's `%%{init}%%`
+// cannot opt back out), and that is a behavioral property of a floating dependency
+// rather than of this repo. So the durable requirement is the one #1246's acceptance
+// criteria asked for: a NEW render path cannot inject post-sanitize DOM without someone
+// writing down where its markup comes from.
+//
+// `sink` is the receiver expression plus the operation, and `count` pins how many times
+// it appears — because the file-scoped shape every other #22 arm uses would certify a
+// SECOND injection point hiding behind an already-legitimate one (#1731 §9.8, finding 7,
+// in a different channel). A stale entry fails too, so the list cannot rot.
+const SANCTIONED_RUNTIME_MARKUP_SINKS = [
+  {
+    file: 'lib/runtime/index.js',
+    sink: 'target.innerHTML',
+    count: 3,
+    provenance:
+      'THIRD PARTY (2 of 3) — the SVG mermaid.render() returns, injected on the fresh-render path and ' +
+      'again on the mermaidSvgCache replay of the same string. Contained by securityLevel:\'strict\', ' +
+      'pinned behaviorally in docs/e2e/mermaid-post-sanitize.spec.ts, NOT by a sanitizer: DOMPurify ' +
+      'strips <foreignObject> and <style>, i.e. every node label and all diagram styling. The third is ' +
+      'the empty-string clear before a re-render, which parses no markup.',
+  },
+  {
+    file: 'lib/runtime/index.js',
+    sink: 'errEl.innerHTML',
+    count: 1,
+    provenance: 'OURS — clears the themed diagram error block to the empty string before it is rebuilt from text nodes.',
+  },
+  // `li.innerHTML` and `td.innerHTML` USED TO BE HERE, declared "OURS — already-sanitized
+  // text". That reasoning was WRONG and the census said so in writing, which is the exact
+  // failure a provenance census exists to prevent: both read their label from
+  // `element.textContent`, which DECODES entities, so markup the sanitizer had deliberately
+  // left inert came back live and `innerHTML` re-parsed it. Demonstrated on the real
+  // Playground (`top.__pwned = 1`). They are now built with `document.createElement` +
+  // `textContent` (`badgeSpan` in lib/runtime/index.js), so there is no sink to declare.
+  // Do NOT re-add an entry here to "cover" a reinstated innerHTML — fix the sink instead.
+  {
+    file: 'lib/runtime/index.js',
+    sink: 'document.body.insertAdjacentHTML',
+    count: 1,
+    provenance:
+      'OURS — texturePatternDefs(), a fixed <svg><defs> of categorical texture patterns generated from ' +
+      'lib/tokens with no caller-supplied input at all.',
+  },
+];
+
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -4479,6 +4538,32 @@ function listSourceFiles(dir, out = []) {
 //   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
+  // ── #1246, the post-sanitize injection suite ─────────────────────────────────
+  // Both are the canonical "and then nothing happened" shape this allowlist exists for:
+  // the assertion is that a payload did NOT execute and did NOT reach the network, and an
+  // absence has no signal to poll — a poll would go green on its first tick, before the
+  // payload it is meant to catch had any chance to fire. Everything POLLABLE in these
+  // specs already is: the diagram's own `data-mermaid-state` settle stamp and the rendered
+  // label are awaited with `expect`, so the wait covers only the gap between "the payload
+  // is in the live DOM" and "we conclude it did nothing".
+  {
+    file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1500, count: 1,
+    why: 'ABSENCE ASSERTION. The script-vector table injects a payload into a rendered node label '
+       + 'and then asserts `top.__pwned` is still undefined and no request left the frame. The '
+       + 'render itself is polled (data-mermaid-state + the label element); this is the settle '
+       + 'window for an execution that must never come. COUNT SEMANTICS, stated because this gate '
+       + 'counts TEXT matches and its docblock says counts are of WAITS: this single occurrence '
+       + 'sits inside a `for (const v of SCRIPT_VECTORS)` loop and therefore executes once per '
+       + 'vector — NINE times, ~13.5s of the suite. A table-driven loop is the same shape as the '
+       + 'helper-hiding-N-waits case that gate was written for; the `via` mechanism only covers '
+       + 'named helpers, so it is written down here instead.',
+  },
+  {
+    file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1000, count: 1,
+    why: 'ABSENCE ASSERTION, post-interaction. After clicking a node whose `click` directive '
+       + 'carries a javascript: URL, the assertion is that no navigation and no request followed. '
+       + 'A click has no completion signal when the correct outcome is that nothing happens.',
+  },
   // ── judged in #1618 ──────────────────────────────────────────────────────────
   // The 12000ms entry is RETIRED. Its justification claimed a poll "would go green
   // without ever waking the frozen tab" and that 12s "outlasts several 5s
@@ -5439,6 +5524,136 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
     if (found) seen.push(rel);
   }
   return seen;
+}
+
+/**
+ * HARD RULE #22, FOURTH shape — POST-SANITIZE INJECTION inside the preview frame (#1246).
+ *
+ * See `SANCTIONED_RUNTIME_MARKUP_SINKS` for why this is a census of PROVENANCE rather than
+ * a demand for a sanitize call. In short: the sink that matters takes SVG back from a
+ * third-party renderer, and re-sanitizing it deletes the diagram (measured — DOMPurify
+ * drops `<foreignObject>` and `<style>`). What is enforceable, and what #1246's acceptance
+ * criteria actually asked for, is that a new injection point cannot land silently.
+ *
+ * WHAT IT CANNOT SEE — stated here because the other three arms state their envelopes, and
+ * an undeclared envelope is how a gate gets trusted past its worth. All of these write
+ * markup into the live frame while staying silent:
+ *
+ *   · a sink reached through a variable holding the property name
+ *     (`el[prop] = s`, `const k = 'innerHTML'`), and a BRACKET-INDEXED receiver
+ *     (`nodes[i].innerHTML = s`) — the receiver pattern is dotted names only;
+ *   · `document.createElement` + `appendChild` of a parsed fragment — no string sink at all,
+ *     which is a legitimate and SAFER shape, but also an unmonitored one;
+ *   · `DOMParser`/`Range` obtained under an alias whose receiver name differs from the
+ *     declared one (the census keys on the receiver TEXT, so `r2.createContextualFragment`
+ *     is simply a new, undeclared sink — it fires, which is the safe direction);
+ *   · anything in `lib/runtime/*.generated.js`, which is build output;
+ *   · a sink in a module OUTSIDE `lib/runtime` that the frame imports.
+ *
+ * The last one is the real scope boundary and it is deliberate: `lib/runtime` is the code
+ * that runs inside the preview frame, downstream of every sanitize the other arms enforce.
+ * Widening to all of `lib` would census hundreds of Node-side sites with no frame at all.
+ *
+ * Comments are stripped before matching — a sink named only in a comment satisfying a text
+ * matcher is a MEASURED evasion in this repo (#1731 §9.8), not a hypothetical.
+ *
+ * @param {string[]} errors    collected error strings
+ * @param {Array}    sanctions the census (injectable, so probes need no committed entry)
+ * @param {string}   root      repo root (injectable, so probes live in a temp tree)
+ */
+function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_SINKS, root = ROOT) {
+  // A RECEIVER is a dotted chain that may end in a call or an index, because that is how people
+  // actually write this: `document.querySelector('.x').innerHTML`, `nodes[0].innerHTML`,
+  // `new DOMParser().parseFromString(…)`. The first cut matched dotted identifiers ONLY, so the
+  // single most idiomatic shape in the whole class passed silently.
+  const RECEIVER = String.raw`[\w$]+(?:\([^()]*\)|\[[^\][]*\]|\.[\w$]+)*`;
+  // `(?:\+)?=(?!=)` so a `+=` APPEND counts — a plain markup append, invisible to the first cut —
+  // while `==` / `===` / `!=` stay reads.
+  const ASSIGN = new RegExp(`(${RECEIVER})\\.(innerHTML|outerHTML|srcdoc)\\s*(?:\\+)?=(?!=)`, 'g');
+  const CALL = new RegExp(
+    `(${RECEIVER})\\.(insertAdjacentHTML|createContextualFragment|setHTMLUnsafe|setHTML|parseFromString|writeln|write)\\s*\\(`,
+    'g',
+  );
+  // `setAttribute('srcdoc', …)` is the same sink as `.srcdoc =`, spelled so that no property
+  // assignment appears at all.
+  const SET_ATTR = new RegExp(`(${RECEIVER})\\.setAttribute\\s*\\(\\s*['"\`](srcdoc)['"\`]`, 'gi');
+  const dir = path.join(root, 'lib', 'runtime');
+  const found = new Map(); // `${rel} ${sink}` -> count
+  const files = [];
+  if (fs.existsSync(dir)) listSourceFiles(dir, files);
+  for (const file of files) {
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    if (/\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
+    // REUSE the repo's conservative stripper (HARD RULE #15) rather than a local regex. The first
+    // cut used `/(^|[^:])\/\/.*$/gm`, which truncates any line holding `//` inside a STRING or a
+    // REGEX LITERAL — hiding a real sink written beside a protocol-relative URL, and drifting a
+    // committed count for a reason nobody could see. `stripCodeComments` removes only FULL-LINE
+    // `//` comments, so a TRAILING comment mentioning a sink can still be counted; that is the
+    // SAFE direction (the author declares it) and it is stated in the envelope above.
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    for (const re of [ASSIGN, CALL, SET_ATTR]) {
+      for (const m of code.matchAll(re)) {
+        // `document.write` parses markup; `stream.write` / `logger.write` do not. The receiver's
+        // last segment must END in `document`, so `contentDocument.write` and
+        // `ownerDocument.write` — both real sinks the first cut dropped — count. Anything else is
+        // DISCARDED rather than becoming an entry: a deliberate false negative, because `.write(`
+        // is far too common on streams to make every one of them a census row. (The first cut's
+        // comment claimed the opposite of what its code did.)
+        if ((m[2] === 'write' || m[2] === 'writeln') && !/(^|\.)[\w$]*document$/i.test(m[1])) continue;
+        const sink = `${m[1]}.${m[2].toLowerCase() === 'srcdoc' && /setAttribute/i.test(m[0]) ? 'setAttribute(srcdoc)' : m[2]}`;
+        const key = `${rel} ${sink}`;
+        found.set(key, (found.get(key) || 0) + 1);
+      }
+    }
+  }
+  // A duplicate (file, sink) would SILENTLY SHADOW in the Map below — last one wins — leaving a
+  // wrong count and its provenance in the list enforcing nothing. `checkE2ESleeps` in this same
+  // file already detects exactly this hazard; not doing it here re-opened a hole its neighbour
+  // had already closed.
+  const seenSanctionKeys = new Set();
+  for (const entry of sanctions) {
+    const key = `${entry.file} ${entry.sink}`;
+    if (seenSanctionKeys.has(key)) {
+      errors.push(
+        `SANCTIONED_RUNTIME_MARKUP_SINKS has a duplicate entry for ${entry.file} \`${entry.sink}\` — one ` +
+        `silently shadows the other, so its count enforces nothing. Merge them into a single entry ` +
+        `with the real count.`,
+      );
+    }
+    seenSanctionKeys.add(key);
+  }
+  const declared = new Map(sanctions.map((s) => [`${s.file} ${s.sink}`, s]));
+  for (const [key, count] of found) {
+    const [rel, sink] = key.split(' ');
+    const entry = declared.get(key);
+    if (!entry) {
+      errors.push(
+        `${rel} writes markup into the live preview frame via \`${sink}\` and is not in ` +
+        `SANCTIONED_RUNTIME_MARKUP_SINKS (HARD RULE #22, post-sanitize injection). lib/runtime runs ` +
+        `INSIDE a document the preview builder already sanitized, so anything injected here is ` +
+        `downstream of every guard #22 enforces — the same gap #1246 reported for the Mermaid SVG. ` +
+        `Add an entry stating the markup's PROVENANCE: whose renderer produced it, and what contains ` +
+        `it if the answer is not "ours".`,
+      );
+      continue;
+    }
+    if (entry.count !== count) {
+      errors.push(
+        `${rel} now has ${count} \`${sink}\` markup sink(s); SANCTIONED_RUNTIME_MARKUP_SINKS declares ` +
+        `${entry.count}. A count is the pin here precisely because a file-scoped rule would certify a ` +
+        `NEW injection point hiding behind an already-legitimate one. If you ADDED one, state its ` +
+        `provenance; if you REMOVED one, drop the count so the list stays honest. ` +
+        `Declared provenance: ${entry.provenance}`,
+      );
+    }
+  }
+  for (const [key, entry] of declared) {
+    if (found.has(key)) continue;
+    errors.push(
+      `SANCTIONED_RUNTIME_MARKUP_SINKS has a stale entry: ${entry.file} no longer has a \`${entry.sink}\` ` +
+      `markup sink (HARD RULE #22). Remove it so the allowlist keeps describing the tree.`,
+    );
+  }
 }
 
 // HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
@@ -9508,6 +9723,7 @@ function run() {
   checkClassAttrReads(errors);
   checkFrontMatterReaders(errors);
   checkPreviewHtmlSinks(errors);
+  checkRuntimeMarkupSinks(errors);
   checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
@@ -9673,6 +9889,7 @@ module.exports = {
   checkPreviewHtmlSinks,
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,
+  checkRuntimeMarkupSinks,
   DOC_ASSEMBLER_MARKER,
   SANCTIONED_STYLE_SINK_EXEMPT,
   DOC_STYLE_SINK_ROOTS,
@@ -9695,6 +9912,7 @@ module.exports = {
   stripCodeComments,
   listFilesByExt,
   SANCTIONED_PREVIEW_BUILDERS,
+  SANCTIONED_RUNTIME_MARKUP_SINKS,
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,
   STYLE_SINK_MARKER,
