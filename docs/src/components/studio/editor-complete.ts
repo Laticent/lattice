@@ -10,24 +10,69 @@ import { STUDIO_LANGUAGES } from './studio-language';
 
 export type CompletionComponent = { name: string; bucket: string; description: string };
 
-// Deck-level front-matter directives the engine honours (deck-config knobs), with
-// a one-line hint. Values left to the author (a few common ones suggested inline).
+// Deck-level front-matter directives the engine honours, with a one-line hint. Values
+// are left to the author (a few common ones are suggested inline below).
+//
+// This list was a THIRD hand-maintained enumeration of the deck's front-matter surface,
+// alongside the Inspector's rows and deck-config's FIELD_DEFAULTS, and it had drifted
+// furthest — it offered 15 keys where the engine reads ~35, so a register with no
+// control was also invisible to autocomplete, i.e. unreachable by any route except
+// knowing it exists. Filled out from the audit in
+// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2, which is where
+// the full catalog + the reader for each key lives.
 const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
+	// Identity + structure
+	{ key: 'title', info: 'Deck name — used in the switcher, in Share, and as the export filename. Defaults to the cover heading.' },
 	{ key: 'theme', info: 'Deck theme (palette) — e.g. indaco, cuoio.' },
-	{ key: 'size', info: 'Slide size — 16:9, standard, square, 4k.' },
-	{ key: 'paginate', info: 'Page numbers — true / false.' },
-	{ key: 'header', info: 'Running header text on every slide.' },
-	{ key: 'footer', info: 'Running footer text on every slide.' },
+	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US). Drives <html lang> + read-aloud.' },
+	{ key: 'ai-lang', info: 'AI-output language — what the AI writes in, if it should differ from the document language. Defaults to lang.' },
+	{ key: 'size', info: 'Slide size — hd (16:9), standard, square, 4k, or a portrait format.' },
+	{ key: 'split', info: 'How the body divides into slides — headings (default) or rule (--- only).' },
+	{ key: 'form', info: 'Deck chrome — the masthead band, status bay and rail. standard (default) / off.' },
+	{ key: 'glossary', info: 'Auto-glossary — append a reference slide built from the acronyms: definitions. auto / off.' },
+	{ key: 'class', info: 'Default _class applied to every slide (a modifier — a component name is ignored).' },
+	{ key: 'validate', info: "Inline validation in the editor — on (default) / off. Travels with the deck." },
+	// Look
+	{ key: 'color-mode', info: 'The mode the deck opens in — light / dark / system / inherited / print.' },
 	{ key: 'mode', info: 'Rendering mode — boardroom / sketch / sketch-clean.' },
 	{ key: 'finish', info: 'Finish backdrop — e.g. atrium, halo, gallery.' },
 	{ key: 'finish-override', info: 'Override the applied finish — a nested map (backdrop: { strength, clearance }, wash, …).' },
-	{ key: 'split', info: 'Slide-splitting strategy — e.g. headings.' },
 	{ key: 'lift', info: 'Card lift — the "Struck" shadow on card surfaces. on / off.' },
-	{ key: 'class', info: 'Default _class applied to every slide.' },
-	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US). Drives <html lang> + read-aloud.' },
-	{ key: 'ai-lang', info: 'AI-output language — what the AI writes in, if it should differ from the document language. Defaults to lang.' },
-	{ key: 'present', info: 'Open the exported PDF in presentation mode — true / false.' },
+	{ key: 'corners', info: 'Slide surface corners — square (default) / rounded.' },
+	{ key: 'claim', info: 'How much frame the content sits inside — framed (default) / quiet / hero / bleed.' },
+	// Chrome
+	{ key: 'header', info: 'Running header text on every slide.' },
+	{ key: 'footer', info: 'Running footer text on every slide.' },
+	{ key: 'paginate', info: 'Page numbers — true / false.' },
+	{ key: 'meta', info: 'The masthead bay\u2019s meta line — a date, a document number, a review stage.' },
+	{ key: 'logo', info: 'Deck logo — a path beside the deck or a full URL, drawn into the masthead.' },
+	{ key: 'logo-on', info: 'Which slides carry the logo — all (default) / title.' },
+	{ key: 'logo-style', info: 'Logo treatment — auto (default) / brand.' },
+	{ key: 'logo-scale', info: 'Logo size multiplier — 1 is default, clamped 0.2–3.' },
+	{ key: 'logo-x', info: 'Logo centre across the slide, 0–100 (%).' },
+	{ key: 'logo-y', info: 'Logo centre down the slide, 0–100 (%).' },
+	// Accent
+	{ key: 'spectrum', info: 'Brand bar — on (rainbow, default) / solid / duo / mono / off.' },
+	{ key: 'spectrum-edge', info: 'Which edge the brand bar sits on — top (default) / left / right / bottom / off.' },
+	{ key: 'spectrum-card', info: 'Card rail style — off (default) / auto / solid / duo / mono / rainbow.' },
+	{ key: 'spectrum-card-edge', info: 'Card rail placement — left (default) / top / right / bottom.' },
+	{ key: 'spectrum-trim', info: 'Flow the spectrum onto structural accents (table rails, code strips, hr). on / off.' },
+	{ key: 'rule', info: 'Heading underline — auto (default) / full / short / accent / none.' },
+	{ key: 'eyebrow', info: 'The mark on the mono-caps kicker — plain (default) / dot / bar / arrow / underline.' },
+	{ key: 'headline', info: 'Framing-text alignment — auto (default) / left / center / right.' },
+	{ key: 'stamp', info: 'Deck-wide state-badge shape — e.g. tab, notch, seal, pill.' },
+	{ key: 'tone', info: 'Deck-wide review-tone shape — rail (default) / edge / glow.' },
+	// Motion + speech
+	{ key: 'motion', info: 'Chart motion on the live surfaces — on / off. Preview-only; the export is unchanged.' },
+	{ key: 'motion-style', info: 'How a chart moves — build (default) / together / rise.' },
+	{ key: 'motion-speed', info: 'How fast the build runs — auto (default) / slow / …' },
 	{ key: 'pace', info: 'Presentation rhythm — how long a self-presenting deck holds on a new slide before speaking: brisk / natural / deliberate.' },
+	{ key: 'lexicon', info: 'Read-aloud pronunciations — a nested map of token → spoken text.' },
+	{ key: 'acronyms', info: 'Acronym registry — term → spoken expansion (and an optional glossary definition).' },
+	// Marp-inherited + tooling
+	{ key: 'style', info: 'Raw CSS for this deck (a YAML block scalar).' },
+	{ key: 'debug', info: 'Layout debug overlay — on-hover / on-always (+ verbose). Preview-only, stripped from every export.' },
+	{ key: 'present', info: 'Open the exported PDF in presentation mode — true / false.' },
 ];
 
 // The `lang:` front-matter VALUE vocabulary — the supported document languages

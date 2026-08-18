@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 // Spy on the vanilla panel factory — this suite is about what the HOST hands it, not
 // about the rows it draws (those are test/unit/playground/deck-config.test.js).
-const createConfigPanel = vi.fn(() => ({ render: () => {}, syncTrigger: () => {} }));
+type PanelOpts = { modes?: string[]; fields?: string[]; palettes?: string[]; finishes?: string[] };
+const createConfigPanel = vi.fn((_opts: PanelOpts) => ({ render: () => {}, syncTrigger: () => {} }));
 vi.mock('@/playground/deck-config.js', () => ({
-	createConfigPanel: (...args: unknown[]) => createConfigPanel(...(args as [])),
+	createConfigPanel: (opts: PanelOpts) => createConfigPanel(opts),
 	CONFIG_PROFILES: { noTheme: ['mode', 'color-mode', 'finish'] },
 	readFrontMatter: () => ({ configured: false }),
 }));
@@ -37,7 +38,7 @@ describe('DeckSetupSheet — what it hands the vanilla config panel', () => {
 		);
 		await user.click(screen.getByRole('button', { name: 'Deck Setting' }));
 		await waitFor(() => expect(createConfigPanel).toHaveBeenCalled());
-		const opts = createConfigPanel.mock.calls.at(-1)?.[0] as unknown as { modes?: string[]; fields?: string[] };
+		const opts = createConfigPanel.mock.calls.at(-1)?.[0] as PanelOpts;
 		expect(opts.modes, 'the host must hand the panel its mode vocabulary').toBeTruthy();
 		expect((opts.modes ?? []).length).toBeGreaterThan(0);
 		// …and every name is a real register value, not a label — the panel writes these
