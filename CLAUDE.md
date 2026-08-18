@@ -387,11 +387,29 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   check's docblock; the durable pin for the guard call sites themselves is the CENSUS in
   `test/unit/export/style-guard-census.test.js`, because all three gates are text matchers and
   none of them can see a guard that quietly disappears from a file that still calls it
-  elsewhere. *(gated —
+  elsewhere.
+  **A FOURTH shape is the one all three miss by construction: markup injected INSIDE the frame,
+  AFTER the builder sanitized.** `lib/runtime` runs in the preview document and writes more
+  markup into it — so the sanitizer ran one step too early, and the gate cannot see it because
+  `checkPreviewHtmlSinks` asks only whether the BUILDER called `sanitizeSlideHtml`, and it did
+  (#1246). The dangerous instance takes SVG back from a third-party renderer (Mermaid), which is
+  why this arm is a CENSUS OF PROVENANCE rather than a demand for a guard call: re-sanitizing
+  that SVG is not available — DOMPurify deletes `<foreignObject>` and `<style>`, i.e. every node
+  label and all diagram styling (measured). What contains it is Mermaid's own behavior, and the
+  split is worth knowing: `sanitizeText` runs DOMPurify on labels UNCONDITIONALLY, while
+  `securityLevel: 'strict'` governs URL handling and click callbacks — so a label payload and a
+  `click … javascript:` payload are held by two different mechanisms, both third-party, both
+  pinned behaviorally in `docs/e2e/mermaid-post-sanitize.spec.ts`. Every markup sink in
+  `lib/runtime` therefore declares WHERE ITS MARKUP COMES FROM, and the count is pinned per
+  sink — the file-scoped shape the other three arms use would certify a SECOND injection point
+  hiding behind an already-legitimate one, which is not hypothetical: #1246 named one Mermaid
+  site and there are two (the render and the cache replay). *(gated —
   `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS`, `checkDocumentStyleSinks` +
-  `DOC_STYLE_SINK_ROOTS` + `SANCTIONED_STYLE_SINK_EXEMPT`, and `checkCssTreeRewrapSinks`, all in
+  `DOC_STYLE_SINK_ROOTS` + `SANCTIONED_STYLE_SINK_EXEMPT`, `checkCssTreeRewrapSinks`, and
+  `checkRuntimeMarkupSinks` + `SANCTIONED_RUNTIME_MARKUP_SINKS`, all in
   `tools/check-ownership.js` via `build:check`; `engineering/gotchas.md`,
-  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9.)*
+  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9,
+  `engineering/decisions/2026-08-18-post-sanitize-injection-queue.md`.)*
 - **#23 — A verification claim names its surface and carries an artifact from it.**
   "Verified" / "works" / "done" is a claim about a specific running surface — the
   real Playground, the real export, the actual device — and it needs proof from
