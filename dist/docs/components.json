@@ -8142,7 +8142,7 @@
         },
         {
           "title": "Three or four weighty pairs",
-          "body": "A few substantive questions, each with a reasoned two-to-three-sentence answer. Past five the answers compress below persuasion; for a long reference list of one-line look-ups use `faq` or `glossary` instead."
+          "body": "A few substantive questions, each with a reasoned two-to-three-sentence answer. Past five the answers compress below persuasion; for a long reference list of one-line look-ups use `list-tabular` or `glossary` instead."
         },
         {
           "title": "Question as prompt, answer as substance",
@@ -8152,7 +8152,7 @@
       "antiPatterns": [
         {
           "title": "A flat FAQ of one-liners",
-          "body": "Six or more terse question/answer pairs you flip back to as a reference belong in `faq` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page."
+          "body": "Six or more terse question/answer pairs you flip back to as a reference belong in `list-tabular` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page."
         },
         {
           "title": "Rhetorical questions with no answer",
@@ -8165,8 +8165,8 @@
       ],
       "related": [
         {
-          "name": "faq",
-          "when": "many terse reference questions to flip back to, not a few weighty defenses"
+          "name": "list-tabular",
+          "when": "many terse question/answer look-ups to flip back to, not a few weighty defenses"
         },
         {
           "name": "glossary",

@@ -167,7 +167,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 ## When NOT to reach for q-and-a.
 
 - A flat FAQ of one-liners
-  - Six or more terse question/answer pairs you flip back to as a reference belong in `faq` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
+  - Six or more terse question/answer pairs you flip back to as a reference belong in `list-tabular` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
 - Rhetorical questions with no answer
   - Every question needs a nested answer that genuinely closes it. A bare question used as a section header or a hook is a `divider` or a `statement`, not a Q&A pair.
 - Evaluation criteria in disguise
@@ -181,7 +181,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 `Related components`
 
-- `faq` — many terse reference questions to flip back to, not a few weighty defenses
+- `list-tabular` — many terse question/answer look-ups to flip back to, not a few weighty defenses
 - `glossary` — term/definition reference pairs rather than question/answer pairs
 - `list-criteria` — numbered criteria with rationale — evaluation, not anticipated objections
 - `cards-stack` — parallel co-equal cards with no question/answer role split

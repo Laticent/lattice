@@ -25,6 +25,7 @@ const {
   listBasePalettes,
   REQUIRED_THEME_TOKENS,
   checkTagClustering,
+  checkRelatedTargets,
   checkRetiredTokenNames,
   RETIRED_TOKEN_NAMES,
   checkTypographyTokens,
@@ -732,6 +733,46 @@ describe('check-ownership', () => {
         [...transformModifierTokens(src)].sort(),
         ['delta', 'target'], // 'dark' is universal, filtered out
       );
+    });
+  });
+
+  describe('related targets', () => {
+    const of = (name, related) => ({ name, related });
+
+    test('flags a related entry naming a component that does not exist', () => {
+      const errors = [];
+      checkRelatedTargets([of('q-and-a', [{ name: 'faq', when: 'x' }]), of('glossary', [])], errors);
+      assert.ok(errors.some((e) => /"faq" is not a component/.test(e)), errors.join('\n'));
+    });
+
+    test('accepts a relation that resolves, including across buckets', () => {
+      const errors = [];
+      checkRelatedTargets([of('timeline-list', [{ name: 'regulatory-update', when: 'x' }]), of('regulatory-update', [])], errors);
+      assert.deepEqual(errors, []);
+    });
+
+    test('tolerates a bare-string relation and a missing related array', () => {
+      const errors = [];
+      checkRelatedTargets([of('a', ['b']), of('b', undefined)], errors);
+      assert.deepEqual(errors, []);
+    });
+
+    // Per-component and order-independent, so two concurrent PRs each adding a
+    // component both pass after a mechanical merge (#1547).
+    test('is a pure per-element filter — order cannot change the verdict', () => {
+      const set = [of('a', [{ name: 'b', when: 'x' }]), of('b', [{ name: 'a', when: 'x' }])];
+      const forward = [];
+      const reverse = [];
+      checkRelatedTargets(set, forward);
+      checkRelatedTargets([...set].reverse(), reverse);
+      assert.deepEqual(forward, []);
+      assert.deepEqual(reverse, []);
+    });
+
+    test('the live tree has no dangling relations', () => {
+      const errors = [];
+      checkRelatedTargets(loadAll(), errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
     });
   });
 

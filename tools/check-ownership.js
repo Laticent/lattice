@@ -1293,6 +1293,43 @@ function checkComponentNames(manifests, errors) {
   }
 }
 
+/**
+ * Every `related` entry names a component that EXISTS.
+ *
+ * `checkManifest` (lib/components/index.js) validates a related entry's SHAPE — array,
+ * non-empty `name`, non-empty `when` — and cannot check existence, because it sees one
+ * manifest in isolation. Nothing else did, so `q-and-a` pointed at `faq` for months: a
+ * name that was never a component in this repo (no files were ever deleted for it; the
+ * string was introduced with #1627's manifest prose).
+ *
+ * A dangling name is not a cosmetic typo. `renderPickMd` filters unknown names off the
+ * pick surface, which is why that one file stayed clean — but the relation still reaches
+ * `<name>.docs.md` as a RELATIVE LINK (`../faq/faq.docs.md`, a 404), the gallery deck's
+ * "See also" slide, and `dist/docs/components.json`, which ships into the playground
+ * bundle and every exported deck. HARD RULE #6 sends an author to `.docs.md` before they
+ * write the slide, so the documentation was routing them to `_class: faq` and an
+ * `unknown-class` lint error.
+ *
+ * Per-component and order-independent, so two concurrent PRs adding components both pass
+ * after a mechanical merge (#1547).
+ */
+function checkRelatedTargets(manifests, errors) {
+  const known = new Set(manifests.map((m) => m.name));
+  for (const m of manifests) {
+    if (!Array.isArray(m.related)) continue;
+    for (const entry of m.related) {
+      const name = typeof entry === 'string' ? entry : entry?.name;
+      if (!name || known.has(name)) continue;
+      errors.push(
+        `${m.name}: related entry "${name}" is not a component. A dangling relation is ` +
+        `rendered as a relative link in ${m.name}.docs.md (a 404), as a "See also" row in ` +
+        'the gallery, and in dist/docs/components.json — only the pick surface filters it. ' +
+        'Point it at a real component or drop the entry, and fix any prose naming it too.',
+      );
+    }
+  }
+}
+
 /** Locate a component's <name>.styles.css across the bucket-nested tree. */
 function componentStylesPath(m) {
   const bucket = manifestBucket(m);
@@ -8775,6 +8812,7 @@ function run() {
   checkLayoutOwnership(errors);
   checkComponentNames(manifests, errors);
   checkComponentCss(manifests, errors);
+  checkRelatedTargets(manifests, errors);
   checkVariantDeclaration(manifests, errors);
   checkTagClustering(manifests, errors);
   checkThemeTokenParity(errors);
@@ -8861,6 +8899,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  checkRelatedTargets,
   run,
   checkE2ESleeps,
   e2eSleepCensus,
