@@ -400,7 +400,62 @@ a role with `--code-text` (RED).
 
 ## 7. Verification (HARD RULE #23)
 
-*(filled in below from the real-surface run)*
+**The real built docs site**, `astro preview` over `npm run build`, real Chromium — not a
+harness and not jsdom.
+
+**`tools/verify-studio-syntax.js` (committed, pre-existing): PASS, 252 comparisons.** Every
+rendered token color equals its own palette-mode's emitted token value across all 36
+palette-modes. This is the check that `--text-muted` moving did not disturb #1720's syntax ink
+tier — and separately, the emitted `--syntax-*-ink` values are **byte-identical** to `main`,
+which is consistent with #1720's own note that its `avoid` constraint is inert on the shipped
+palettes.
+
+**The deck editor now paints (Part 4).** On the real Studio: **7 token spans in 2 distinct
+colors**, against zero spans before. Headings resolve to `rgb(122, 90, 16)` = `#7A5A10` =
+cuoio/light's `--syntax-keyword-ink`; the `<!-- _class: X -->` directives resolve to
+`rgb(118, 104, 84)` = `#766854` = cuoio/light's **new** `--text-muted`. So Part 2 and Part 4
+are verified on the same pixels.
+
+**The `--ink` severity question, measured rather than asserted.** The issue and the brief both
+reasoned that the anima emphasis stroke "probably does nothing"; the instruction was not to
+claim it without measuring. Driving `resolveColor`'s own mechanism on a real host:
+
+| probe | resolves to | |
+|---|---|---|
+| the host's inherited color | `rgb(107, 93, 79)` | `#6B5D4F` — cuoio/light `--text-body` |
+| `var(--ink)` — what shipped | **`rgb(107, 93, 79)`** | **identical to the inherited value** |
+| `var(--text-heading)` — what ships now | `rgb(30, 26, 21)` | `#1E1A15`, declared |
+
+**Confirmed, with the severity corrected:** the stroke was never invisible. It painted the
+host's own body text color, so a "highlighted" mark was outlined in the same ink as the prose
+around it. Wrong, not absent — and the fix demonstrably changes it.
+
+**The vignette rim, measured at the corner** because a 7%-alpha rim is not something to
+eyeball. Rendering one slide with the rim forced to the old effective value (`--accent`) and
+one with the new (`--text-heading`), sampling the extreme corner at 60dpi:
+
+| palette | OLD rim corner | NEW rim corner | |
+|---|---|---|---|
+| `indaco` | `srgb(241,245,247)` | `srgb(241,241,242)` | blue-tinted → neutral |
+| `onyx` | `srgb(241,241,241)` | `srgb(241,241,241)` | **byte-identical** |
+
+Which is exactly the shape the issue predicted and could not confirm: the repair is visible on
+a hued accent and a no-op where the accent is already near-achromatic. Small in magnitude, real
+in direction.
+
+**Responsive review at 1440 / 820 / 390** (QUALITY BAR). The deck editor's highlighting reads
+as structural affordance rather than colorization at every width; at 390 the Studio defaults to
+the Preview pane, so the Source tab was tapped to put the editor on screen — no jank, wrapping
+and gutter hold. Screenshots in the PR.
+
+**Gates and suites**: `npm run lint`, `npm test` (6648), the docs vitest suite (3181),
+`npm run build:check`, and `cd docs && npm run typecheck` all pass. Each of the three new gates
+was mutated to RED and back to GREEN before its pass was trusted; the mutations are listed in
+§6.
+
+**UNVERIFIED, stated rather than blurred:** the deployed Cloudflare Pages preview. Chromium
+cannot reach it from this sandbox (the same `ERR_CONNECTION_RESET` #1720 recorded), so every
+measurement above is against the real built site served locally.
 
 ## 8. What this does NOT fix
 
