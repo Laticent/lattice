@@ -10,24 +10,37 @@
  * (`theme: carta` + `class: sketch`), but `theme: indaco class: sketch`
  * works identically in blue.
  *
- * Two parts make the look, both PDF-safe vector (no SVG filters — a
- * feTurbulence/feDisplacementMap "roughen" pass reads on screen but
- * collapses Marp's print-scale transform, so the slide shrinks in the
- * PDF; see engineering/gotchas.md). The parts:
+ * Three parts make the look, all PDF-safe vector. "PDF-safe" here means one
+ * specific thing: no SVG FILTER. A feTurbulence/feDisplacementMap "roughen"
+ * pass reads on screen but collapses Marp's print-scale transform, so the
+ * slide shrinks in the PDF (see engineering/gotchas.md). It does NOT mean
+ * "no SVG" — a plain `<path>` exports fine, which is what part 3 rests on.
+ * The parts:
  *   1. Handwriting type   — --sketch-font-display on headings,
  *                           --sketch-font-body on prose (base.tokens.css).
  *   2. Hand-drawn boxes    — asymmetric border-radius + an offset "ink"
  *                           stroke + a per-card micro-rotation, on every
  *                           card-style layout's card surface (the
  *                           CARD_STYLE_LAYOUTS family in
- *                           lib/authoring/lint-core.js), AND on the other
- *                           structures that draw their own lines — table
- *                           frames + rules (compare-table, glossary,
- *                           obligation-matrix, list-tabular), boxed
- *                           blockquotes (quote, redline), bordered rows
- *                           (actors), and the divider rule. The finish
- *                           roughens lines the deck draws; it never invents
- *                           a box (big-number / stats stay pure type).
+ *                           lib/authoring/lint-core.js), plus boxed
+ *                           blockquotes (quote, redline) and bordered rows
+ *                           (actors, checklist, list).
+ *   3. Hand-drawn LINES    — real rough.js strokes, drawn into one SVG
+ *                           overlay per slide by lib/core/rough-ink.js +
+ *                           lib/core/rough-ink-dom.js. This is what draws
+ *                           table frames, table row + column rules, the
+ *                           list-tabular ledger, the `list.principles` row
+ *                           rules, the `hr` divider, the agenda ledger's
+ *                           active rule, and the masthead↔stage divider.
+ * The finish roughens lines the deck draws; it never invents a box
+ * (big-number / stats stay pure type).
+ *
+ * PART 2 IS THE OLDER, FAKED HALF, and it is on its way out. Parts 2 and 3
+ * describe the same intent by two different mechanisms: part 2 BENDS a CSS
+ * border into a wobble, part 3 DRAWS a stroke. Where they overlap, part 3
+ * wins and part 2's radius/shadow are removed rather than layered — stacking
+ * a blur under a wobble reads as neither. Boxes convert in a follow-up; see
+ * engineering/decisions/2026-08-18-rough-ink.md § "What is still faked".
  *
  * Default `sketch` is FULL handwriting (headings + body). `sketch-clean-body`
  * opts body back to the clean --font-body for dense, text-heavy slides
@@ -50,13 +63,27 @@
  * ink so it reads on every canvas (incl. dark, via the light-dark token). */
 section.sketch {
   --sketch-ink: var(--text-heading);
-  /* The hand-drawn RULE — a near-straight stroke with a slight pen-waver, as
-   * a tiling SVG mask. Lines (table cell rules, ledger/agenda row rules, the
-   * divider) wear this so they read as ruled-by-hand, not a machine hairline
-   * — the line-shaped counterpart to the boxes' asymmetric corners. The shape
-   * rides in the mask; the colour is `background-color: var(--sketch-ink)`, so
-   * it stays palette-blind (no baked hex). PDF-safe: a static image, not the
-   * feTurbulence filter that collapses Marp's print scaling. */
+  /* The hand-drawn RULE, NO-SCRIPT FALLBACK ONLY — a tiling SVG mask.
+   *
+   * This used to be how every drawn line in the finish was made, and it was
+   * the weakest thing in it: one sine path tiled at 140px, so the "waver" was
+   * mathematically periodic (constant amplitude, constant frequency) and read
+   * as a word-processor squiggle rather than a pen. Applied per `td`, it also
+   * RE-PHASED at each column seam, so a single table rule visibly broke
+   * mid-run — while the frame around it stayed a smooth rounded rectangle and
+   * the column rules were never roughened at all.
+   *
+   * Real rough.js strokes replace it (part 3 in the header). What keeps it
+   * here is progressive enhancement, and nothing else: the ink is painted by
+   * script after layout settles, so a document that never runs the runtime —
+   * a raw `.html` sidecar opened with JS off, a consumer embedding
+   * `lattice.css` alone — would otherwise show NO rules at all, which is
+   * worse than a periodic one. Every rule that this tile still draws is
+   * switched off on any slide that actually GOT ink — the gate is
+   * `:has(> svg[data-lattice-rough-ink])` on the section (below).
+   *
+   * Do NOT add new callers. A new drawn line goes in ROUGH_INK_STRUCTURES
+   * (lib/core/rough-ink.js) with a `--rough-ink-stroke` enrollment here. */
   --sketch-wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 7'%3E%3Cpath d='M0 3.5 Q12 1.5 23 3.7 Q35 5.5 47 3.2 Q58 1.6 70 3.6 Q82 5.4 94 3.3 Q105 1.5 117 3.7 Q128 5.3 140 3.5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
   /* The section's own default font tracks --font-body (re-pointed just
    * below), so EVERY text node a component doesn't explicitly font — prose,
@@ -176,17 +203,54 @@ section.sketch.split-compare .option ul > li::marker {
  * the hand. The escape hatch for the rare text-dense slide that still needs
  * the clean footprint. */
 
-/* ── HAND-DRAWN HEADING RULE ──────────────────────────────────────────
- * A wobbly underline under the slide heading. The asymmetric border-
- * radius bends a straight border into a drawn stroke; width:fit-content
- * keeps it the length of the words above it. Accent-hued so it picks up
- * the palette. */
-section.sketch h2 {
-  width: fit-content;
-  max-width: 100%;
-  padding-bottom: var(--sp-2xs);
-  border-bottom: 2.5px solid var(--accent);
-  border-radius: 0 0 95% 4px / 0 0 14px 8px;
+/* ── THE HEADING RULE — RETIRED (2026-08-18) ──────────────────────────
+ * `section.sketch h2` used to draw its OWN underline: a `border-bottom`
+ * bent into a wobble by `border-radius: 0 0 95% 4px / 0 0 14px 8px`, sized
+ * to the words by `width: fit-content`, hued by --accent.
+ *
+ * It is gone, and NOT because it looked bad — it was the nicest thing the
+ * old faked geometry produced. It is gone because it was the SECOND rule.
+ * A Form slide already draws a masthead↔stage divider
+ * (`section.form .cell-masthead { border-bottom: 1px solid var(--border) }`,
+ * lib/forms/cell/masthead/masthead.css), so every masthead heading on a
+ * sketch deck carried a hand-drawn wobble under the words AND a
+ * machine-straight full-width hairline about 50px below it — two rules, two
+ * different line languages, on every content slide in the deck.
+ *
+ * The band's rule is the STRUCTURAL one: it separates the masthead from the
+ * stage and it exists on every Form slide whether or not the finish is on.
+ * So that is the one that gets the hand (ROUGH_INK_STRUCTURES `masthead` /
+ * `masthead-rule`), and the heading's bespoke underline is retired rather
+ * than roughened alongside it.
+ *
+ * Do not reinstate this rule to "bring the underline back". If a heading
+ * underline is wanted again it is a rule-* finish question for
+ * base.accent-finish.css, which already owns the four-way answer
+ * (full / none / short / accent) for where a heading rule lives — not a
+ * finish-layer override that runs in parallel with it. */
+
+/* ── THE ROUGH-INK OVERLAY ────────────────────────────────────────────
+ * One SVG per slide, holding every rough.js stroke on it. Appended last by
+ * `paintRoughInk` (lib/core/rough-ink-dom.js), so it needs no explicit
+ * stacking beyond the local content band.
+ *
+ * `z-index: 1` is the LOCAL 0–9 band inside the content plane
+ * (design/forms.md §5.2, base.tokens.css § depth axis), not a global plane:
+ * the ink must sit above a card's or a table's own background fill — which
+ * is what it is drawn on top of — while staying below --z-chrome (30), so
+ * the running header, footer and pagination are never crossed by a stroke.
+ *
+ * `overflow: visible` is load-bearing. rough.js overshoots a rectangle's
+ * corners on purpose (that overshoot IS the drawn-corner look), so the frame
+ * paths run a few px outside the viewBox and would be clipped away by the
+ * SVG default of `hidden` — leaving suspiciously neat corners on the one
+ * element whose corners are the point. */
+section > svg[data-lattice-rough-ink] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
 }
 
 /* ── HAND-DRAWN BOXES ─────────────────────────────────────────────────
@@ -331,24 +395,47 @@ section.sketch.compare-prose:not(.banner-tag) .compare-prose-inner .card > stron
  * (photos, real `code`, chart SVG geometry) is out of scope by the same
  * rule. See engineering/decisions/2026-06-11-sketch-finish.md.
  *
- * Tables carry a drawn FRAME (border + asymmetric radius + offset ink),
- * gentler than the card radius so a full-width grid reads as a hand-ruled
- * box, not a balloon. collapse→separate because border-radius is inert on
- * border-collapse:collapse; border-spacing:0 keeps the rows tight. */
+ * Tables and the list-tabular ledger carry a drawn FRAME. It used to be
+ * faked — an asymmetric `border-radius` plus an offset `box-shadow` — and
+ * both are GONE here: at table scale the radius read as a smooth rounded
+ * rectangle with perfectly straight edges (the opposite of hand-drawn), and
+ * the shadow read as a material drop shadow rather than ink. rough.js draws
+ * the frame now, so the border below survives only as GEOMETRY: it keeps its
+ * width in the box model and goes transparent under `.rough-inked`. Removing
+ * it instead would resize the table the instant the ink applied, and every
+ * measurement behind the overlay would be one border-width stale.
+ *
+ * `border-collapse: separate` stays. It is no longer needed for a radius,
+ * but switching back to `collapse` would merge the table's border with its
+ * cells' and move every measured row boundary — a geometry change for no
+ * gain. `border-spacing: 0` keeps the rows tight. */
 section.sketch.compare-table table,
 section.sketch.glossary table,
 section.sketch.obligation-matrix table,
 section.sketch.list-tabular > ol,
 section.sketch.list-tabular > .cell-stage > ol {
   border: 2px solid var(--sketch-ink);
-  border-radius: 18px 5px 15px 8px / 8px 15px 5px 18px;
-  box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
+  /* Enrollment: a non-empty --rough-ink-stroke is what actually opts a
+   * structure into the ink (lib/core/rough-ink-dom.js `measureRoughInk`).
+   * Declaring the color through the same token the border uses keeps the
+   * finish palette-blind — HARD RULE #3 reaches the SVG stroke too, because
+   * the painter copies this resolved value rather than naming a color. */
+  --rough-ink-stroke: var(--sketch-ink);
+  --rough-ink-width: 2;
 }
 section.sketch.compare-table table,
 section.sketch.glossary table,
 section.sketch.obligation-matrix table {
   border-collapse: separate;
   border-spacing: 0;
+}
+/* `list.principles` draws row rules but no frame, so it enrolls on the list
+ * itself with kind `rows` — the ol has no border of its own to inherit a
+ * width from, hence the explicit 2. */
+section.sketch.list.principles > ol,
+section.sketch.list.principles > .cell-stage > ol {
+  --rough-ink-stroke: var(--sketch-ink);
+  --rough-ink-width: 2;
 }
 
 /* Interior rules become hand-drawn wavy strokes, not straight hairlines — the
@@ -388,6 +475,79 @@ section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
 section.sketch.list-tabular > ol > li:last-child::after,
 section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display: none; }
 
+/* ── THE HANDOVER: everything above is the fallback, this is the real thing ──
+ * A slide's fallback rules switch off when — and only when — that slide is
+ * carrying an ink overlay. The gate is the overlay's own presence:
+ * `section…:has(> svg[data-lattice-rough-ink])`.
+ *
+ * THE SIGNAL IS THE ARTIFACT, NOT A FLAG, and that is the whole point. The
+ * first version stamped a `rough-inked` class on `<html>` and gated on
+ * `:root.rough-inked`. It worked in the browser and in the PDF, and it broke
+ * the `--player` export: the player bakes the DECK's DOM, so the overlays
+ * came through but the root class did not — and `player-prune` then removed
+ * every `:root.rough-inked` rule as unused, because by its reading it WAS.
+ * Measured on the shipped player: 14 ink overlays with 19 tiled-wave strips
+ * still drawing on top of them. Doubled rules in the one artifact people
+ * forward to each other.
+ *
+ * Keying on the overlay cannot come apart that way. Any bake that carries the
+ * ink carries the gate with it, and the prune keeps these rules precisely
+ * because they now match the baked DOM. It is also more honest per slide: a
+ * section the pass visited and found nothing to draw on keeps its fallback,
+ * which is the correct answer rather than a document-wide guess.
+ *
+ * Two different switches below, and the difference matters:
+ *   · the ::after wave strips are `display: none` — they are absolutely
+ *     positioned, so removing them moves nothing;
+ *   · the borders go TRANSPARENT, never `none`/`0` — they are in the box
+ *     model, and dropping their width would resize the very structure whose
+ *     measurements the overlay was built from. Re-measuring after the switch
+ *     would then find a different box, repaint, and shift it again. */
+section.sketch.compare-table:has(> svg[data-lattice-rough-ink]) td::after,
+section.sketch.obligation-matrix:has(> svg[data-lattice-rough-ink]) td::after,
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol > li::after,
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after,
+section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > ol > li::after,
+section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after {
+  display: none;
+}
+section.sketch.compare-table:has(> svg[data-lattice-rough-ink]) table,
+section.sketch.glossary:has(> svg[data-lattice-rough-ink]) table,
+section.sketch.obligation-matrix:has(> svg[data-lattice-rough-ink]) table,
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol,
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol {
+  border-color: transparent;
+}
+/* NOTE — there is deliberately NO rule here clearing cells' LEFT/RIGHT
+ * borders, and the ink draws no column rules to replace them. An earlier
+ * draft did both, and it was wrong twice over. First, neither compare-table
+ * nor glossary declares a vertical border at all, so "roughening the column
+ * rule" meant INVENTING one — and a full ink grid turns a horizontally-ruled
+ * comparison table into a spreadsheet. Second, the one vertical border that
+ * does exist in this family is obligation-matrix's `6px double var(--accent)`
+ * fold marker, which carries MEANING: flattening it into a plain ink line
+ * would have deleted information to make a finish look tidier. Columns are
+ * opt-in per component via `--rough-ink-cols: 1`; nothing sets it today. */
+
+/* The thead underline, which is neither a border nor a wave but a
+ * --spectrum-structure gradient strip painted as the row's background
+ * (`background: var(--spectrum-structure) bottom / 100% 2px no-repeat`, in
+ * each table component). It is a precise two-pixel gradient — the single most
+ * machine-made mark on a hand-drawn table, and it sat there through the whole
+ * first version of this finish because it is not a line any of the old rules
+ * knew how to look for.
+ *
+ * The thead row's bottom edge is already an interior boundary in the measured
+ * plan, so dropping the strip does not lose the rule: rough.js draws it, in
+ * the same ink as every other rule in the table. That is the point — a person
+ * ruling a table by hand uses ONE pen, and the header row stays distinct
+ * through its label-voice type, not through a second color of line. */
+section.sketch.compare-table:has(> svg[data-lattice-rough-ink]) thead tr,
+section.sketch.glossary:has(> svg[data-lattice-rough-ink]) thead tr,
+section.sketch.obligation-matrix:has(> svg[data-lattice-rough-ink]) thead tr {
+  background-image: none;
+}
+
 /* Boxed blockquotes (the quote callout, the redline statement) become drawn
  * boxes like the cards. redline keeps its semantic left spine — we wobble
  * the corners and add the offset ink, never recolour the meaning-bearing
@@ -417,8 +577,10 @@ section.sketch.list > .cell-stage > ul > li {
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
 
-/* The divider rule bends into a hand stroke (the h2-underline trick) and
- * thickens a touch so it reads as drawn ink, not a printer's rule. */
+/* The divider rule. The 7px box IS the rule, so the ink goes down its
+ * centerline (kind `mid`); the wave mask below is the no-script fallback and
+ * is switched off under `.rough-inked`. The box keeps its height either way —
+ * it is what reserves the divider's space in the flow. */
 section.sketch hr {
   height: 7px;
   border: none;
@@ -426,6 +588,58 @@ section.sketch hr {
   background: var(--sketch-ink);
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
+  --rough-ink-stroke: var(--sketch-ink);
+  --rough-ink-width: 3;
+}
+section.sketch:has(> svg[data-lattice-rough-ink]) hr {
+  background: none;
+}
+
+/* ── THE MASTHEAD↔STAGE DIVIDER ───────────────────────────────────────────
+ * The rule this finish now hands the pen to, in place of the retired `h2`
+ * underline (see above). Where that rule LIVES is a four-way answer owned by
+ * base.accent-finish.css, and the enrollment mirrors it exactly rather than
+ * re-deriving it:
+ *
+ *   rule-full (default)  the band's own `border-bottom` is the rule  → band enrolls
+ *   rule-none            there is no rule                            → nobody enrolls
+ *   rule-short / -accent the rule is a real <hr class="masthead-rule"> → the hr enrolls
+ *
+ * Keeping that logic in the cascade — rather than testing `border-bottom-style`
+ * in JS — is why enrollment is a custom property at all. By the time the ink
+ * pass re-runs, the border it would have tested has been made transparent.
+ *
+ * `masthead-rule` uses kind `underline`, not `mid`: it is `content-box` sized
+ * with a `padding-top` gap above it (base.accent-finish.css), so its visible
+ * segment sits at the BOTTOM of its box and its centerline would land in the
+ * padding. It also explicitly opts out of the wave mask there, which means
+ * under `rule-short`/`rule-accent` the heading rule was the one line on a
+ * sketch deck that stayed perfectly straight. It no longer is.
+ *
+ * THE INK IS NOT `var(--border)`. That is what the machine hairline is drawn
+ * in, and at 1px of the palette's lightest structural gray a rough stroke is
+ * indistinguishable from a straight one — the first cut of this shipped
+ * exactly that, and the slide simply lost its heading underline and gained
+ * nothing visible in exchange. A drawn line has to be dark enough and thick
+ * enough to show its own waver, so this is the sketch ink held back to a
+ * little over half strength: unmistakably a pen stroke, still quieter than
+ * the heading above it. `color-mix` on a token keeps it palette-blind. */
+section.sketch.form:not(.rule-none):not(.rule-short):not(.rule-accent) .cell-masthead {
+  --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
+  --rough-ink-width: 2.6;
+}
+section.sketch.form:is(.rule-short, .rule-accent) .cell-masthead .masthead-rule {
+  --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
+  --rough-ink-width: 3.2;
+}
+section.sketch.form.rule-accent .cell-masthead .masthead-rule {
+  --rough-ink-stroke: var(--accent);
+}
+section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead {
+  border-bottom-color: transparent;
+}
+section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead .masthead-rule {
+  background: none;
 }
 
 /* ── TARGETED FIXES ───────────────────────────────────────────────────────
@@ -520,6 +734,39 @@ section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress
   height: 7px;
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
+}
+/* …and the ink version of the same rule. The row's `::after` is pinned
+ * `left:0; right:0; bottom:0` on the `li` (agenda.styles.css), so the li's own
+ * bottom edge IS the rule's position — which is exactly what kind `underline`
+ * measures, and why a pseudo-element rule is reachable here at all without
+ * measuring the pseudo.
+ *
+ * Enrollment rides the SAME nth-child chain as the rule above rather than a
+ * simpler selector, because that chain is the only thing that knows which row
+ * is "you are here". The registry's selector (lib/core/rough-ink.js, id
+ * `agenda-active`) is the broad prefilter `…agenda … li`; the cascade picks
+ * the one row out of it.
+ *
+ * The OTHER rows keep their dotted leader untouched. A leader is a different
+ * mark from a rule — it is dotted on purpose, it reads fine in the hand, and
+ * roughening it into a solid stroke would erase the distinction the ledger
+ * style is built on. */
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1),
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2),
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol > li:nth-child(3),
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4),
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5),
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6) {
+  --rough-ink-stroke: var(--accent);
+  --rough-ink-width: 3;
+}
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(6)::after {
+  display: none;
 }
 
 /* circles — hand-drawn rings with an offset ink + a per-row tilt. */
