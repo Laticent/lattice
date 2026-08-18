@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 // export, so it lives in the nightly; what is unit-testable is the part that decides what
 // counts as the same finding and what counts as a regression — which is precisely the part
 // that can be wrong while every render is perfect.
-const { collapse, diffBaseline, findingKey, over, ratio } = require('../../../tools/check-player-contrast.js');
+const { collapse, diffBaseline, findingKey, over, ratio, HIDE_INK } = require('../../../tools/check-player-contrast.js');
 
 const row = (over_) => ({ deck: 'd', state: 'as exported', page: '5', cls: 'kanban', tag: 'span', text: 'growth', need: 4.5, ...over_ });
 
@@ -54,4 +54,21 @@ test('the ink is composited over the pixel it sits on, not over a modelled backd
 	assert.deepEqual(over([255, 255, 255], [0, 0, 0], 0.5), [128, 128, 128]);
 	assert.deepEqual(over([255, 255, 255], [0, 0, 0], 1), [255, 255, 255]);
 	assert.equal(ratio([255, 255, 255], [0, 0, 0]).toFixed(0), '21');
+});
+
+test('HIDE_INK erases SVG paint on TEXT only, never on shapes', () => {
+	// A blanket `*{fill:transparent}` erases the geometry too — the boxes of an ER diagram,
+	// the wedges of a pie, the bars of a chart — so the screenshot behind the glyphs shows
+	// whatever sits under the ERASED shape rather than the surface the text is on. Measured
+	// on mermaid-sketch-labels p5: white labels on hatched blue boxes sampled as pure white
+	// and scored 1.00:1, twelve confident wrong rows on one deck. With the paint erasure
+	// scoped to text the same run reads 6.49:1, which is what the render shows.
+	assert.match(HIDE_INK, /\btext,tspan,textPath\{[^}]*fill:transparent/, 'text paint is erased');
+	// The universal selector must NOT carry fill/stroke.
+	const universal = HIDE_INK.slice(0, HIDE_INK.indexOf('}') + 1);
+	assert.doesNotMatch(universal, /fill:/, 'the universal rule never erases fill');
+	assert.doesNotMatch(universal, /stroke:/, 'the universal rule never erases stroke');
+	// It must still erase the things that only affect glyphs.
+	assert.match(universal, /color:transparent/);
+	assert.match(universal, /text-shadow:none/);
 });
