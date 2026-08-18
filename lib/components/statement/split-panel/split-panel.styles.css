@@ -73,7 +73,12 @@ section.split-panel { border-top: none; }
 section.split-panel .panel-left::after {
   content: ''; position: absolute; top: 0; left: 0; right: 0;
   height: calc(var(--_sec-1cqi, 1cqi) * 0.3125); /* section-OWN cqi: route through --_sec-1cqi */
-  background: var(--panel-mark, var(--accent));
+  /* `--panel-mark` (cat-N, proof/capstone) wins; then the palette's own edge value;
+   * then `--accent`. The middle rung exists because on an ACHROMATIC palette
+   * `--accent` IS the panel fill — onyx measured `#000000` on `#000000`, i.e. the
+   * panel half silently loses its top edge. Gated: composed-contrast surface
+   * `split-panel/edge-mark`. */
+  background: var(--panel-mark, var(--panel-edge-mark));
   z-index: 3; /* local 0-9 band (design/forms.md 5.2): over the panel's own fill, under nothing */
 }
 /* The supporting zone carries the deck ribbon — as a BACKGROUND on the panel box,

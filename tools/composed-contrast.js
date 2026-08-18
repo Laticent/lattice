@@ -117,7 +117,30 @@ const WORDCLOUD = 'lib/components/chart/word-cloud/word-cloud.transform.js';
 const POLICY = 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css';
 const OBLIGATION = 'lib/components/legal/obligation-matrix/obligation-matrix.styles.css';
 const KPI = 'lib/components/evidence/kpi/kpi.styles.css';
+const SPLITPANEL = 'lib/components/statement/split-panel/split-panel.styles.css';
+const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styles.css';
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
+
+/**
+ * The bar for the split frames' panel-edge mark, and why it is NOT 3:1.
+ *
+ * Every other surface here scores TEXT, where 4.5 (or 3 for large text / non-text UI)
+ * is the standard. This one scores a 4px decorative rule against the panel it sits on.
+ * WCAG 1.4.11's 3:1 is calibrated for IDENTIFYING a UI component, a stricter task than
+ * noticing a colored line, and holding this mark to it would fail 25 of 32 palettes —
+ * including cuoio at 2.72 and indaco at 2.06, both of which were rendered and read
+ * plainly. Fitting the number to those would be a ratchet-to-fit.
+ *
+ * The shipped population is bimodal with an empty band between: thirteen theme·mode
+ * pairs sit at 1.00-1.11 (the achromatic palettes, where `--accent` IS
+ * `--surface-inverse` — the same paint, no edge at all), and the next worst is
+ * crepuscolo at 1.86. 1.5 sits in that gap, so it separates "indistinguishable" from
+ * "quiet but present" without being tuned to any one palette. It is a FLOOR against
+ * invisibility, not an accessibility claim; the categorical marks that DO carry
+ * information (`--cat-N-mark` on `--cat-N-fill`) are gated separately and properly by
+ * checkCatContrast. engineering/decisions/2026-08-18-split-frame-edge-ownership.md
+ */
+const PANEL_EDGE_MIN = 1.5;
 
 const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt))`;
 
@@ -126,6 +149,31 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 const SURFACES = [
+  // ── split frames · the panel's own top-edge mark on the panel fill ────────
+  // NOT text: a 4px structural rule, so the bar is WCAG 1.4.11's non-text 3:1 rather
+  // than 4.5. It is here because the mark's default is `--accent` and the panel fill is
+  // `--surface-inverse` — on an ACHROMATIC palette those are the same paint. onyx
+  // measured 1.00:1 (`#000000` on `#000000`) and the panel half shipped with no top
+  // edge at all; ardesia / concrete / atelier were within a few points of it. Before
+  // 2026-08-18 the visible edge over the panel came from the section's spectrum
+  // `border-top`, which the split frames no longer carry, so nothing else covers this.
+  // engineering/decisions/2026-08-18-split-frame-edge-ownership.md
+  {
+    id: 'split-panel/edge-mark',
+    ctx: 'split-panel: the panel top-edge mark on the featured panel fill',
+    base: '--surface-inverse', groups: [],
+    ink: 'var(--panel-mark, var(--panel-edge-mark))', min: PANEL_EDGE_MIN,
+    src: SPLITPANEL,
+    requires: [/\.panel-left::after\s*\{[^}]*background:\s*var\(--panel-mark, var\(--panel-edge-mark\)\)/],
+  },
+  {
+    id: 'split-compare/edge-mark',
+    ctx: 'split-compare: the panel top-edge mark on the featured panel fill',
+    base: '--surface-inverse', groups: [],
+    ink: 'var(--panel-mark, var(--panel-edge-mark))', min: PANEL_EDGE_MIN,
+    src: SPLITCOMPARE,
+    requires: [/\.compare-left::after\s*\{[^}]*background:\s*var\(--panel-mark, var\(--panel-edge-mark\)\)/],
+  },
   // ── redline · the default stage blockquote (bg-alt card) ──────────────────
   {
     id: 'redline/ins',

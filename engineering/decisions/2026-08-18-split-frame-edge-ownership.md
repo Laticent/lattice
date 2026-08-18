@@ -168,6 +168,60 @@ frame should reach the edge. Keeping a transparent border to preserve the old
 geometry does not work — the section background would show through as a 4px band
 above the segments.
 
+## The achromatic-palette regression (found before merge, fixed in this change)
+
+Dropping the section border meant the panel half's only edge is now the component's
+own mark, whose default is `--accent` — and on an ACHROMATIC palette `--accent` IS
+`--surface-inverse`. onyx measured **1.00:1**: `#000000` on `#000000`, no edge at all.
+Before this change the visible edge over the panel came from the section's spectrum
+`border-top`, so nothing had exposed it. ardesia (1.06), concrete (1.10) and atelier
+(1.11) were the same defect a hair off. The five `a11y-*` palettes inherit it because
+`a11y-base.css` `@import`s onyx.
+
+`--panel-edge-mark` is the fix: declared in `base.tokens.css` as `var(--accent)` — the
+intended look, unchanged on 28 palettes — and overridden on the four broken ones to the
+curated `--spectrum-end`. `--panel-mark` still outranks it where set (cat-N,
+proof/capstone), because that is categorical identity.
+
+**Why per-palette and not a new global default.** Swapping the default to
+`--spectrum-end` everywhere fixes all four, but measured across all 32 it makes
+**mustard worse** — 3.93:1 down to 1.89:1. The endpoint is not universally the better
+color; it is better exactly where `--accent` collapses into the panel.
+
+### Three things the gates caught that the audit alone did not
+
+1. **A `var()` fallback re-creates the bug.** The first shape was
+   `var(--panel-edge-mark, var(--accent))`. `checkOwnership` rejected it: a palette that
+   never defines the token degrades silently onto `--accent`, which is the defect. The
+   token is declared in `base.tokens.css` instead, and the read carries no fallback.
+2. **The export path is BASE-WINS, so a plain `:root` override is discarded.**
+   `composed-contrast` models palette-wins (the engine/Studio order, and the export order
+   after #1527). Today's export concatenates `base.tokens.css` AFTER the palette, so at
+   equal specificity the engine default wins on source order: the static audit passed
+   while the rendered PDF still showed `#000000` on `#000000`. The overrides are pinned
+   `:root:root`. **This is a live discrepancy between the audit's model and the export
+   path** — any future per-palette override of a base-declared token has the same trap.
+3. **A flat override collapses a `light-dark()` pair.** Only the LIGHT arm is broken; on
+   the dark arm `--accent` flips bright and measures 21:1 on onyx. A flat
+   `var(--spectrum-end)` would have replaced a correct color with a worse one, which
+   `paired-token-parity.test.js` caught. The overrides are
+   `light-dark(var(--spectrum-end), var(--accent))`.
+
+### The floor, and why it is not 3:1
+
+The gate is the composed-contrast surface `split-panel/edge-mark`, floor **1.5:1** — a
+floor against invisibility, not an accessibility claim. WCAG 1.4.11's 3:1 is calibrated
+for identifying a UI component, a stricter task than noticing a colored rule, and holding
+a 4px decorative mark to it fails 25 of 32 palettes including cuoio (2.72) and indaco
+(2.06) — both rendered and plainly legible. The shipped population is bimodal with an
+empty band: thirteen theme·mode pairs at 1.00–1.11, next worst crepuscolo at 1.86. 1.5
+sits in that gap, so it is not tuned to any one palette. The categorical marks that DO
+carry information (`--cat-N-mark` on `--cat-N-fill`) are gated separately by
+`checkCatContrast`.
+
+Verified by rendering, not by the token map: light and dark arms of all four patched
+palettes, plus cuoio / indaco / mustard unchanged.
+
 ## Rejected alternatives
 
 - **Drop the panel bar, keep the ribbon.** One line, but it deletes the

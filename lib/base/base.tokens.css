@@ -594,6 +594,25 @@
   --warn: light-dark(#B45309, #F97316);
   --fail: light-dark(#991B1B, #F87171);
 
+  /* ── Panel edge mark ──────────────────────────────────────────────────
+   * The color of the top-edge rule the split frames paint over their featured
+   * panel (`split-panel`, `split-compare`). Declared HERE, with no `var()`
+   * fallback at the read, deliberately: a fallback would let a palette that
+   * never defines it degrade silently onto `--accent`, which is the exact
+   * defect this token exists to fix. On an ACHROMATIC palette `--accent` IS
+   * `--surface-inverse`, so the mark measured 1.00:1 — the panel half shipped
+   * with no top edge at all. onyx / ardesia / concrete / atelier override this
+   * to their curated `--spectrum-end`; every other palette keeps `--accent`,
+   * which is both the intended look and, on mustard, materially better than
+   * the endpoint would be (3.93:1 vs 1.89:1) — which is why this is a per-
+   * palette override rather than a new global default.
+   *
+   * `--panel-mark` still wins where it is set (cat-N, proof/capstone): that is
+   * categorical identity and outranks the palette's own edge color.
+   * Gated: composed-contrast surface `split-panel/edge-mark` (floor 1.5:1).
+   * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+  --panel-edge-mark: var(--accent);
+
   /* ── On-accent text tier ──────────────────────────────────────────────
    * Paired ink for `--accent` backgrounds (corner tags, timeline circles,
    * split-panel left rail, banner-tags, badges). Themes can override any

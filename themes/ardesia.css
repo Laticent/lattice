@@ -306,3 +306,23 @@
   --chart-state-info: light-dark(#3E6A9E, #79A6D6); /* deep slate-blue  */
   --chart-state-mute: light-dark(#6F6354, #A69882); /* warm taupe       */
 }
+
+/* ── Panel edge mark ─────────────────────────────────────────────────────────
+ * `--panel-edge-mark` colors the top-edge rule the split frames paint over their
+ * featured panel. Its engine default is `--accent`, which on THIS palette is the
+ * panel fill itself (`--surface-inverse`): measured 1.00:1 on onyx — the panel half
+ * ships with no visible top edge at all. The curated spectrum endpoint is this
+ * palette's own distinctive hue and clears the floor.
+ *
+ * PAIRED, not flat: only the LIGHT arm is broken. On the dark arm `--accent` flips to
+ * a bright value against the same panel (onyx measures 21:1 there), so forcing the
+ * endpoint on both arms would replace a correct color with a worse one — the flat-
+ * override defect paired-token-parity.test.js exists to catch.
+ *
+ * `:root:root`, NOT `:root`, and that is load-bearing. The export path concatenates
+ * base.tokens.css AFTER the palette, so at equal specificity the engine default wins
+ * on source order and a plain `:root` override is silently discarded in the rendered
+ * PDF while every static check still passes. Verified by rendering, not by the token
+ * map. Gated: composed-contrast surface `split-panel/edge-mark` (floor 1.5:1).
+ * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+:root:root { --panel-edge-mark: light-dark(var(--spectrum-end), var(--accent)); }
