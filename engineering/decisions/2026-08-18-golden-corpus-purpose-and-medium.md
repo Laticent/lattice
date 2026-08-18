@@ -527,3 +527,91 @@ kept only as human artifacts under HARD RULE #9.
 This does not change the §9 scores — it changes what Option 2 *is*. "Snapshots for
 galleries" is better understood as "give the composition layer the owned bless every
 other layer already has."
+
+---
+
+## 11. The completed ownership map, and what is actually left for a render to prove
+
+§10 argued each owner should bless what it owns. Counting them, **the repo already
+has 70 owned gates** (`function check*` in `tools/check-ownership.js`), and they all
+run in **6.6 seconds**. The 356 PDFs take ~7 minutes at P=4 and are currently 100%
+stale.
+
+**Nobody ever went back to subtract.** The owned gates grew over time; the PDF
+corpus grew alongside them; no one asked what was left for the PDFs to prove.
+
+### 11.1 The owners
+
+Beyond engine / themes / components, the gate names reveal owners worth naming
+explicitly — several have no obvious home in a "CSS, themes, components" model:
+
+| Owner | Owns | Example owned gates |
+|---|---|---|
+| Engine / layout | positioning, section box, stage inset, size registry, z-planes, container anchoring | `checkLayoutOwnership`, `checkSectionBoxOwnership`, `checkStageInsetOwnership`, `checkZPlanes`, `checkSectionCqAnchoring`, `checkMarginDiscipline` |
+| Themes | color, modes, roles, token parity, identity | `checkThemeRoles`, `checkThemeModes`, `checkThemeTokenParity`, `checkThemeIdentity` |
+| Tokens | names, typography scale, fallbacks, phantom/dangling reads | `checkTypographyTokens`, `checkRetiredTokenNames`, `checkPhantomTokenReads`, `checkNoSafeDefaultTokens` |
+| Components | CSS shape, names, variants, adapt + density declarations | `checkComponentCss`, `checkVariantDeclaration`, `checkAdaptDeclarations`, `checkDensityCoverage` |
+| **Transformers** | DOM shaping — moves the render with **no CSS diff at all** | `checkTransformerNames`, `checkRenderNature` |
+| **Forms** | the composition vocabulary (`lib/forms`) | `checkSolverIntentDeclared` |
+| **Treatments / finishes** | tint, mark, background layers | `checkBackgroundLayerVars`, `checkAnimaColorVocabulary` |
+| **Textures** | the categorical texture channel | `checkCatInkDeclared`, `checkCatInkFallback`, `checkCatContrast` |
+| **Syntax highlighting** | `--hljs-*` on its own backgrounds | `checkHljsContrast`, `checkSyntaxInkContrast`, `checkHljsSeparation` |
+| **Diagrams / math** | mermaid scoping, renderer parity | `checkDiagramScopeSelectors`, `checkMathRendererParity` |
+| **Typography / fonts** | metric pinning, voice fonts | `checkFontMetricsPin`, `checkLabelVoiceFont` |
+| **Export / runtime** | document + markup sinks, style guards | `checkDocumentStyleSinks`, `checkRuntimeMarkupSinks`, `checkPreviewHtmlSinks` |
+| **Satellite libraries** | Anima · Cadenza · Lente · Suono · Vetrina boundaries | `check*Boundary` (five of them) |
+
+Two of these are the ones easiest to forget and matter most here: **transformers**
+(a transform change reshapes the DOM with no CSS diff, so no CSS gate can see it)
+and **forms** (composition is a vocabulary with its own rules).
+
+### 11.2 The residual — precisely what a render still has to prove
+
+All 70 gates are **static**. Verified: `tools/check-ownership.js` contains no
+`puppeteer`, no `page.goto`, no `getBoundingClientRect`, no `getComputedStyle` — the
+only four textual matches are comments. They read source and check *declarations*.
+
+Four things they therefore cannot see, by construction:
+
+1. **The cascade's resolved value in context.** `checkPhantomTokenReads` finds a read
+   with no declaration; it cannot say what the cascade actually resolved to for a real
+   element on a real slide.
+2. **Real geometry.** No static gate measures a box. HARD RULE #20 exists *because*
+   measurement matters — and nothing static can measure.
+3. **Emergent deck behavior.** Overflow, auto-split, slide count are properties of a
+   composed deck, owned by nobody.
+4. **Composition order.** The contrast gate says it itself: *"the export loads the base
+   AFTER the theme, so a theme's syntax colors are dead on the export path."* Declared
+   contract ≠ rendered result.
+
+**That residual is the entire remaining job of a render** — and items 1–3 are exactly
+the three channels one snapshot pass emits (resolved style · geometry · row and slide
+counts). Item 4 is the one that genuinely needs pixels, and it needs a *thin*,
+deliberately chosen set — not 356 artifacts and 4,009 pages.
+
+### 11.3 So, answering the question directly
+
+> *Why are we having PDFs do the re-blessing instead of the owners?*
+
+We aren't, mostly — **70 owners already bless themselves in 6.6 seconds.** The PDFs
+are a second, monolithic pass that re-derives what those gates already proved, plus
+the four-item residual above. The re-blessing pain is the cost of never having
+subtracted the first from the second.
+
+> *Would owner-blessing be faster, cheaper, transitive?*
+
+Faster and cheaper: **6.6 s against ~7 min**, already demonstrated in-tree. Transitive:
+yes, and soundly, because HARD RULE #3 is gated at budget 0 (§10.3) — with the three
+leaks recorded there, of which composition order is the one that keeps a thin pixel
+set alive.
+
+### 11.4 Next step
+
+The work is not "build per-owner blessing." It is:
+
+1. **Give composition its owned bless** — the §5 snapshot, covering residual 1–3.
+2. **Subtract.** Retire the PDF checks that duplicate a static gate, and say per PDF
+   class what it is still for.
+3. **Keep a thin pixel set** for residual 4, sized deliberately.
+4. **Make staleness detectable** (§6 M2) — otherwise all of the above rots the same
+   way the current corpus did.
