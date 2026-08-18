@@ -223,6 +223,8 @@
     "test:release": "node --test 'test/unit/release/*.test.js'",
     "test:theme": "node --test 'test/unit/theme/*.test.js'",
     "test:tokens": "node --test 'test/unit/tokens/*.test.js'",
+    "test:runtime": "node --test 'test/unit/runtime/*.test.js'",
+    "test:diagnostics": "node --test 'test/unit/diagnostics/*.test.js'",
     "test:tools": "node --test 'test/unit/tools/*.test.js'",
     "test:adaptive": "node --test 'test/unit/adaptive/*.test.js'",
     "test:concepts": "node --test 'test/unit/concepts/*.test.js'",

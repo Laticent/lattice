@@ -1,6 +1,6 @@
 # Probes for `2026-08-17-theme-css-is-a-preview-sink.md`
 
-The verification behind that note's §2, §4 and §4b, committed so the claims are
+The verification behind that note's §2, §4, §4b and §9, committed so the claims are
 **falsifiable**. A post-commit checker marked the pre/post numbers PLAUSIBLE rather than
 reproduced, because the probes lived in `.scratch/` and `docs/dist` is gitignored — which
 is a fair reading of HARD RULE #23: a claim that names a surface should carry something a
@@ -16,6 +16,8 @@ pinned in `test/unit/core/sanitize-style-text.test.js` and
 | `probe-mechanism.mjs` | Which channel actually carries a theme description out of the frame's `<style>` — the CSS comment (`*/`) or the element terminator (`</style>`)? Needs no build; reproduces §2. |
 | `probe-chain.mjs` | The full chain on the SHIPPED bundle: `serializeTheme` → `addThemes` → `ThemeStore.cssFor` → a preview `srcdoc`. Reproduces §4's PRE-FIX/POST-FIX table. |
 | `probe-sink-guard.mjs` | The sink guard ALONE, on CSS that already carries the terminator — so the serializer's win cannot stand in for it. Reproduces §4's second table. |
+| `probe-truncation-bytes.mjs` | §9.2's element sizes, printed in BOTH units. The first cut of that table reported UTF-16 code units while calling them bytes; this makes the corrected figures (21,903 → 25,535) re-derivable from any rendered fixture instead of resting on the author's word. |
+| `probe-guard-fuzz.mjs` | §9.7's fuzz claim: 300,000 token-biased cases against an INDEPENDENTLY WRITTEN oracle (a regex derived from the rule, not from the implementation, so a shared bug cannot hide in both). Needs no browser. |
 | `chain-PRE-FIX.json`, `chain-POST-FIX.json`, `sink-guard.json` | The outputs as taken, for diffing against a re-run. |
 
 ## Re-running

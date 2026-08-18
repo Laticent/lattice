@@ -4363,17 +4363,40 @@ const SANITIZE_STYLE_CALL = /sanitizeStyleText\s*\(/;
 // no false positives — where a looser "embeds a `<style>` with an interpolation" marker
 // selects 22, most of them our own font/chart CSS.
 const DOC_ASSEMBLER_MARKER = /<!doctype html/i;
+// The roots the STYLESHEET arm walks — every SHIPPED surface that assembles a whole
+// HTML document a human then opens. A root is a directory or a single file.
+//
+// It shipped as `docs/src` alone, and that was half the class: the CLI export pipeline
+// assembles the same document from the same caller CSS (`lattice-emulator.js`'s `htmlDoc`
+// scaffold takes a `--css` layout sheet and a theme file, both caller-supplied by
+// construction) and was not scanned at ALL, so the same breakout could recur there in
+// silence. Measured over the repo, the marker selects 2 files outside `docs/src` under
+// these roots — both genuine — where a whole-repo walk selects 14, the other 12 being
+// `dist/` build products, frozen decision-doc probes, a bench, and local measurement tools
+// that never reach a recipient. So the line is drawn at "ships", not at "exists":
+// (An earlier draft of this comment said 13/11 — that figure quietly excluded `.test.mjs`,
+// which this walk does not. Corrected here as well as in the note, because this comment is
+// what the next person maintaining the gate actually reads.)
+//
+//   · `dist/` is GENERATED from these very files, and HARD RULE #2 forbids hand-editing
+//     it — a gate demanding a fix there would demand the one fix that is never allowed.
+//     `listSourceFiles` skips it, and no root names it.
+//   · `tools/` and `test/` build documents to MEASURE something on this machine; nothing
+//     they emit is handed to anyone.
+//
+// Widening this set widens HARD RULE #22. Its test pins the set by value, so it cannot
+// move without saying so out loud.
+const DOC_STYLE_SINK_ROOTS = ['docs/src', 'lib/export', 'lattice-emulator.js'];
 // A document assembler that legitimately does not call the sanitizer, with the reason.
 // Same anti-rot shape as the other allowlists: a stale entry fails.
-const SANCTIONED_STYLE_SINK_EXEMPT = [
-  {
-    file: 'docs/src/playground/player-core.generated.js',
-    why: 'GENERATED from lib/export/player-core.mjs (HARD RULE #2 — never hand-edited). It is the '
-      + 'EXPORT player, so the same `</style>` class applies to it, but the fix belongs at its '
-      + 'generator and changes the bytes of a shipped artifact — which needs export sign-off, not a '
-      + 'silent edit here. Tracked in engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §8.',
-  },
-];
+//
+// EMPTY BY DESIGN. Its one entry was `docs/src/playground/player-core.generated.js`,
+// excused because "the fix belongs at its generator" and that generator is the export
+// pipeline, which wants export sign-off rather than a silent edit. The generator
+// (`lib/export/player-core.mjs`) is guarded as of the change that added the export roots
+// above, so the bundle inherits the call and the entry became a sanction for a fix that
+// had already landed — exactly the stale lie this list's rot check exists to catch.
+const SANCTIONED_STYLE_SINK_EXEMPT = [];
 const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path); the theme/component CSS bakes into the document <style>.' },
   { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview; themeStyleContent() is the one place theme + author CSS is baked, and the RESTYLE fast path re-swaps it.' },
@@ -5181,6 +5204,7 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
     }
   }
   checkDocumentStyleSinks(errors, exempt, root);
+  checkCssTreeRewrapSinks(errors, root);
 }
 
 /**
@@ -5196,13 +5220,28 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
  *
  * A `<style>`'s content is HTML RAWTEXT: it ends at the first `</style`, inside a CSS
  * comment or string just the same, and the remainder is parsed as markup.
+ *
+ * Scope is `DOC_STYLE_SINK_ROOTS` — the docs site AND the CLI export pipeline. See that
+ * constant for why the roots stop where they do.
  */
 function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, root = ROOT) {
-  const DOCS_SRC = path.join(root, 'docs', 'src');
   const excused = new Map(exempt.map((e) => [e.file, e]));
   const seen = new Set();
-  for (const file of listSourceFiles(DOCS_SRC)) {
-    const rel = path.relative(root, file);
+  // A root is a directory to walk or a single file to read; `lattice-emulator.js` is the
+  // latter, and resolving it by `listSourceFiles` would silently scan nothing.
+  const files = [];
+  for (const r of DOC_STYLE_SINK_ROOTS) {
+    const abs = path.join(root, r);
+    if (!fs.existsSync(abs)) continue;
+    if (fs.statSync(abs).isDirectory()) listSourceFiles(abs, files);
+    else files.push(abs);
+  }
+  for (const file of files) {
+    // Compare and REPORT in posix form: the allowlist and the tests are written with `/`,
+    // and `path.relative` hands back `\` on Windows. The markup arm above is deliberately
+    // left as it was — its non-normalization is pre-existing and off this change's path
+    // (HARD RULE #18), and it is inert on every platform CI runs.
+    const rel = path.relative(root, file).split(path.sep).join('/');
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
     const src = fs.readFileSync(file, 'utf8');
     if (!DOC_ASSEMBLER_MARKER.test(src) || !STYLE_SINK_MARKER.test(src)) continue;
@@ -5229,6 +5268,137 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
       );
     }
   }
+}
+
+/**
+ * HARD RULE #22, STYLESHEET channel, THIRD shape — the css-tree RE-WRAP.
+ *
+ * `checkDocumentStyleSinks` keys on document assembly, which structurally cannot see a
+ * module that assembles no document and instead takes CSS back OUT of one, runs it through
+ * `prunePlayerCss` / `prunePlayerFontFaces`, and puts it back in a FRESH `<style>` element.
+ * That round trip is a css-tree parse→generate, and css-tree normalizes the escape into a
+ * live terminator again:
+ *
+ *     IN   section::after{content:"<\/style>"}
+ *     OUT  section::after{content:"</style>"}
+ *
+ * So whatever guarded the document upstream is undone at the re-wrap, and the re-wrap owes
+ * the call itself. There are two such sites and they are twins: the CLI's
+ * (`lattice-emulator.js`) and the browser's (`player-prune-browser.ts`, whose output
+ * `share-export.ts` mounts in a same-origin frame and then hands to a recipient). The
+ * first cut of this work guarded one of the two, and a red-team pass drove the other to a
+ * real cross-origin fetch from the shipped artifact — which is exactly the kind of
+ * one-twin fix a gate exists to stop happening a third time.
+ *
+ * Scope is `DOC_STYLE_SINK_ROOTS`, and the marker is the MECHANISM: a file that calls a
+ * prune AND rebuilds a `<style>` element. A prune consumer that only reads sizes owes
+ * nothing, and a `<style>` re-wrap with no prune is the document guard's business, not
+ * this one's.
+ *
+ * PER SITE, not per file — and that difference is the whole point of adding a check rather
+ * than widening an existing one. Every other arm of #22 is satisfied by one call anywhere
+ * in the file (§5 of the governing note lists that weakness; §4b finding 7 is a second
+ * unguarded sink hiding behind a guarded one). Both re-wrap files rebuild TWO elements and
+ * call the guard elsewhere besides, so a file-scoped rule here would have certified either
+ * twin with its CSS re-wrap stripped — measured, not assumed. Each `<style…>` rebuild
+ * therefore has to carry the call between its own opener and its own closer.
+ *
+ * Returns the discovered files, so its test can assert the known two are still found
+ * rather than trusting a green run over an empty set.
+ *
+ * WHAT IT CANNOT SEE — stated here because the other two arms state theirs (§5, §9.5 of the
+ * governing note) and an undeclared envelope is how a gate gets trusted past its worth. All
+ * measured against THIS implementation, all SILENT while genuinely re-wrapping pruned CSS:
+ *
+ *   · the `<style>` opener and closer hoisted into constants (`const OPEN = '<style>'`), so
+ *     the element never appears next to the value. Nothing short of a parser sees this one;
+ *   · the prune in one module and the re-wrap in another (taint is tracked per file);
+ *   · more than 400 characters between the opener and the closer;
+ *   · the prune imported under an alias (`import { prunePlayerCss as prune }`);
+ *   · the same code in a `.astro` file — `listSourceFiles` takes only js/ts/tsx/mjs/cjs;
+ *   · a guard applied to the WRONG tainted value inside one interpolation.
+ *
+ * Shapes it DOES catch, listed because an earlier proximity-based cut missed all of them:
+ * `replaceAll`, `split().join()`, slice-concatenation, a replacer carrying a long comment,
+ * a one-level alias of the prune result, a second tainted value beside a guarded one, and a
+ * `sanitizeStyleText(` that appears only inside a comment. It also no longer fires on
+ * correctly-guarded code that hoists the sanitized value into a local first.
+ *
+ * What it buys is that the shape both real twins use cannot lose its guard silently, and
+ * that a new re-wrap written any ordinary way is caught. That is worth having and is not the
+ * same as coverage — the durable defense for these sites is the guard census in
+ * `test/unit/export/style-guard-census.test.js`, which pins the call count by value.
+ */
+function checkCssTreeRewrapSinks(errors, root = ROOT) {
+  const PRUNE_CALL = /\bprunePlayer(?:Css|FontFaces)\s*\(/;
+  // One `<style…>` rebuild: the opener, then everything up to the matching closer. Both
+  // the template-literal (`${…}`) and the concatenation (`' + x + '`) forms land here.
+  const REWRAP_SITE = /<style[^>]*>((?:(?!<\/style)[\s\S]){0,400}?)<\/style/gi;
+  // Names that HOLD pruned CSS: assigned straight from a prune, plus one level of aliasing
+  // (`cssResult = pruned` is the real shape in both twins). Tracking the VALUE is what makes
+  // this precise, and it replaced a proximity heuristic — "is there a `.replace(` within 160
+  // characters" — that was wrong in both directions: it missed a re-wrap done with
+  // `replaceAll`/`split().join()`/slice-concat, or one whose replacer carried a comment (the
+  // most likely accidental shape in a codebase that comments inside callbacks), and it fired
+  // on correctly-guarded code that hoisted the sanitized value into a local first.
+  const TAINT_FROM_PRUNE = /(?:const|let|var)?\s*\b([A-Za-z_$][\w$]*)\s*=\s*[^;\n]*\bprunePlayer(?:Css|FontFaces)\s*\(/g;
+  const ALIAS_OF = (name) => new RegExp(`(?:const|let|var)?\\s*\\b([A-Za-z_$][\\w$]*)\\s*=\\s*[^;\\n]*\\b${name}\\b`, 'g');
+  // A name is CLEAN once it is assigned from the guard: `const safe = sanitizeStyleText(x)`.
+  const CLEANED = /(?:const|let|var)?\s*\b([A-Za-z_$][\w$]*)\s*=\s*sanitizeStyleText\s*\(/g;
+  const files = [];
+  for (const r of DOC_STYLE_SINK_ROOTS) {
+    const abs = path.join(root, r);
+    if (!fs.existsSync(abs)) continue;
+    if (fs.statSync(abs).isDirectory()) listSourceFiles(abs, files);
+    else files.push(abs);
+  }
+  const seen = [];
+  for (const file of files) {
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    if (/\.test\.[cm]?[jt]s$/.test(rel)) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    if (!PRUNE_CALL.test(src)) continue;
+    // Which locals hold pruned CSS, and which have been through the guard.
+    const tainted = new Set([...src.matchAll(TAINT_FROM_PRUNE)].map((x) => x[1]));
+    for (const base of [...tainted]) {
+      for (const a of src.matchAll(ALIAS_OF(base))) if (a[1] !== base) tainted.add(a[1]);
+    }
+    const cleaned = new Set([...src.matchAll(CLEANED)].map((x) => x[1]));
+    for (const c of cleaned) tainted.delete(c);
+    if (!tainted.size) continue;
+    const mentionsTaint = (text) => [...tainted].some((n) => new RegExp(`\\b${n}\\b`).test(text));
+    let found = false;
+    for (const m of src.matchAll(REWRAP_SITE)) {
+      const body = m[1];
+      // A literal body (no interpolation, no concatenation) is our own static CSS.
+      if (!/\$\{|['"`]\s*\+|\+\s*['"`]/.test(body)) continue;
+      // Only elements built out of PRUNED CSS are this check's business. `lattice-emulator.js`'s
+      // base64 font block is a fixed manifest in the same file and must stay out.
+      if (!mentionsTaint(body)) continue;
+      found = true;
+      // EVERY interpolation carrying a tainted value must carry the call, not just one
+      // somewhere in the body. "Somewhere in the body" is satisfied by a second, guarded
+      // value sitting beside an unguarded one — and by a `sanitizeStyleText(` written inside
+      // a COMMENT. Both were measured passing an earlier cut of this check while the pruned
+      // CSS went out raw.
+      const interpolations = body.match(/\$\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g) || [];
+      const carriers = interpolations.filter(mentionsTaint);
+      if (carriers.length && carriers.every((x) => SANITIZE_STYLE_CALL.test(x))) continue;
+      // Concatenation form (`'<style>' + x + '</style>'`) has no `${…}` to inspect, so it
+      // falls back to the whole body — weaker, and stated as such in the docblock.
+      if (!carriers.length && SANITIZE_STYLE_CALL.test(body)) continue;
+      errors.push(
+        `${rel} rebuilds a <style> element from css-tree-pruned CSS without sanitizeStyleText ` +
+        `(HARD RULE #22, stylesheet channel): \`${m[0].slice(0, 70).replace(/\s+/g, ' ')}…\`. ` +
+        `css-tree's parse→generate normalizes \`<\\/style\` back into a live element terminator, ` +
+        `so the guard applied where the document was assembled is undone here — and the result ` +
+        `is downloaded by a recipient. Re-sanitize the pruned CSS at THIS re-wrap; a call ` +
+        `elsewhere in the file does not cover it.`,
+      );
+    }
+    if (found) seen.push(rel);
+  }
+  return seen;
 }
 
 // HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
@@ -8784,8 +8954,10 @@ module.exports = {
   SANCTIONED_CLASS_ATTR_READS,
   checkPreviewHtmlSinks,
   checkDocumentStyleSinks,
+  checkCssTreeRewrapSinks,
   DOC_ASSEMBLER_MARKER,
   SANCTIONED_STYLE_SINK_EXEMPT,
+  DOC_STYLE_SINK_ROOTS,
   checkSnapshotHtmlSinks,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,

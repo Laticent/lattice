@@ -370,10 +370,28 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
     The rule and the gate were markup-only until 2026-08-17, and a builder passed while
     concatenating unsanitized theme CSS two lines above the sanitized HTML (#1709).
   Add a new builder to the allowlist with its justification; the gate fails on an un-listed
-  builder, a builder that drops **either** call it owes, AND a stale entry. *(gated —
-  `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS` in `tools/check-ownership.js`,
-  via `build:check`; `engineering/gotchas.md`,
-  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md`.)*
+  builder, a builder that drops **either** call it owes, AND a stale entry.
+  **The stylesheet channel is NOT a docs-site rule — it follows the document, wherever it is
+  built.** Its scope is `DOC_STYLE_SINK_ROOTS`: the docs site **and the CLI export pipeline**
+  (`lattice-emulator.js`, `lib/export/**`). Two things follow that the "preview frame" framing
+  above does not tell you. First, the **harm is different off the docs site**: in a downloaded
+  `.html` / `--player` export there is no OpenRouter key to steal — the payload is a beacon
+  baked into every copy the *recipient* opens, and a stylesheet silently truncated mid-rule.
+  Second, the **discovery rule is different**: a preview builder is found by the runtime-`<script>`
+  idiom, a stylesheet sink by assembling a whole document (`<!doctype html`) — and neither finds
+  the third shape, a module that assembles nothing but takes CSS back OUT of a document, prunes
+  it, and re-wraps it. **Any CSS SERIALIZER normalizes `<\/style` back into a live terminator**
+  — css-tree (`prunePlayerCss`) and the browser's own CSSOM `cssText` are both measured doing
+  it — so **a re-wrap owes the call itself** no matter what guarded the document upstream. That
+  one is gated per `<style>` ELEMENT, by text match, with its evasion envelope written into the
+  check's docblock; the durable pin for the guard call sites themselves is the CENSUS in
+  `test/unit/export/style-guard-census.test.js`, because all three gates are text matchers and
+  none of them can see a guard that quietly disappears from a file that still calls it
+  elsewhere. *(gated —
+  `checkPreviewHtmlSinks` + `SANCTIONED_PREVIEW_BUILDERS`, `checkDocumentStyleSinks` +
+  `DOC_STYLE_SINK_ROOTS` + `SANCTIONED_STYLE_SINK_EXEMPT`, and `checkCssTreeRewrapSinks`, all in
+  `tools/check-ownership.js` via `build:check`; `engineering/gotchas.md`,
+  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9.)*
 - **#23 — A verification claim names its surface and carries an artifact from it.**
   "Verified" / "works" / "done" is a claim about a specific running surface — the
   real Playground, the real export, the actual device — and it needs proof from

@@ -21,7 +21,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { checkPreviewHtmlSinks, checkDocumentStyleSinks, SANCTIONED_PREVIEW_BUILDERS, SANCTIONED_STYLE_SINK_EXEMPT } = require('../../../tools/check-ownership.js');
+const {
+  checkPreviewHtmlSinks,
+  checkDocumentStyleSinks,
+  SANCTIONED_PREVIEW_BUILDERS,
+  SANCTIONED_STYLE_SINK_EXEMPT,
+  DOC_STYLE_SINK_ROOTS,
+  checkCssTreeRewrapSinks,
+} = require('../../../tools/check-ownership.js');
 
 // The gate walks `<root>/docs/src`, and `root` is injectable — so probes live in a
 // TEMP tree, never in the real one. Writing them into `docs/src` (the first shape of this
@@ -188,6 +195,142 @@ describe('the document-assembler arm — the one the runtime-<script> marker mis
   });
 });
 
+// ── The EXPORT roots ────────────────────────────────────────────────────────────
+// The stylesheet arm shipped walking `docs/src` alone, which left the CLI export
+// pipeline — the emulator's own `htmlDoc` scaffold and `lib/export/**` — unscanned
+// entirely, so the same `</style>` breakout could recur there silently. The roots
+// are now the three SHIPPED document assemblers; `dist/` is generated from them
+// (HARD RULE #2) and must stay out, or the gate would demand an edit to a file
+// nobody may hand-edit.
+describe('the export roots — the CLI half the docs/src walk never saw', () => {
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const RAW_DOC = "function d(p){ return `<!DOCTYPE html><html><head><style>${p.css}</style></head><body>${p.slides}</body></html>`; }";
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const SAFE_DOC = "function d(p){ return `<!DOCTYPE html><html><head><style>${sanitizeStyleText(p.css)}</style></head><body>${p.slides}</body></html>`; }";
+
+  /** Write `src` at `rel` under the temp root, run just the stylesheet arm, clean up. */
+  function gateAt(rel, src, exempt = []) {
+    const abs = path.join(TMP, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, src);
+    const errors = [];
+    try {
+      checkDocumentStyleSinks(errors, exempt, TMP);
+    } finally {
+      fs.rmSync(abs, { force: true });
+    }
+    return errors.filter((e) => e.includes(rel));
+  }
+
+  test('the roots are exactly the three shipped document assemblers', () => {
+    assert.deepEqual(
+      [...DOC_STYLE_SINK_ROOTS].sort(),
+      ['docs/src', 'lattice-emulator.js', 'lib/export'].sort(),
+      'changing this set changes what HARD RULE #22 covers — update the note with it',
+    );
+  });
+
+  test('fires on the emulator scaffold (a ROOT FILE, not a directory)', () => {
+    const errs = gateAt('lattice-emulator.js', RAW_DOC);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `the CLI scaffold must owe the stylesheet channel; got: ${errs.join(' | ')}`);
+  });
+
+  test('quiet once the emulator scaffold sanitizes', () => {
+    assert.deepEqual(gateAt('lattice-emulator.js', SAFE_DOC), []);
+  });
+
+  test('fires on an unguarded assembler under lib/export', () => {
+    const errs = gateAt(path.join('lib', 'export', 'probe-player.mjs'), RAW_DOC);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `lib/export must be walked; got: ${errs.join(' | ')}`);
+  });
+
+  test('quiet once lib/export sanitizes', () => {
+    assert.deepEqual(gateAt(path.join('lib', 'export', 'probe-player.mjs'), SAFE_DOC), []);
+  });
+
+  test('the GENERATED dist/ copy is NOT scanned — HARD RULE #2 forbids editing it', () => {
+    // dist/lattice-emulator.js is a build product of the very file above. Scanning it would
+    // demand a hand-edit to a generated artifact, which is the one fix that is never allowed.
+    assert.deepEqual(gateAt(path.join('dist', 'lattice-emulator.js'), RAW_DOC), []);
+  });
+
+  test('an exemption excuses a file under a new root, and a stale one still fires', () => {
+    const rel = path.join('lib', 'export', 'probe-player.mjs');
+    assert.deepEqual(gateAt(rel, RAW_DOC, [{ file: rel, why: 'probe' }]), [], 'a listed file must be excused');
+    const errors = [];
+    checkDocumentStyleSinks(errors, [{ file: 'lib/export/gone.mjs', why: 'not here' }], TMP);
+    assert.ok(errors.some((e) => /stale style-sink exemption/.test(e)), 'the exemption list must not be allowed to rot under the new roots either');
+  });
+});
+
+// ── The css-tree RE-WRAP arm ────────────────────────────────────────────────────
+// A third shape the document-assembler marker structurally cannot see: a module that
+// does not assemble a document at all, but takes CSS back OUT of one, runs it through
+// `prunePlayerCss` (a css-tree parse→generate), and puts it back in a fresh `<style>`.
+// css-tree NORMALIZES the escape into a live terminator —
+//     IN  section::after{content:"<\/style>"}   OUT  section::after{content:"</style>"}
+// — so whatever guarded the document upstream is undone at the re-wrap, and the re-wrap
+// owes the call itself. There were two such sites; the CLI's was guarded and the browser
+// twin (`player-prune-browser.ts`, whose output is downloaded by a recipient) was not,
+// which a red-team pass drove to a real cross-origin fetch from the shipped artifact.
+describe('the css-tree re-wrap arm', () => {
+  const REWRAP_RAW =
+    "import { prunePlayerCss } from './p.js';\nexport function f(h, t){ const r = prunePlayerCss(t.css, u); return h.replace(t.full, () => '<style>' + r.css + '</style>'); }";
+  const REWRAP_SAFE = REWRAP_RAW.replace("'<style>' + r.css", "'<style>' + sanitizeStyleText(r.css)");
+
+  function gateAt(rel, src) {
+    const abs = path.join(TMP, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, src);
+    const errors = [];
+    try {
+      checkCssTreeRewrapSinks(errors, TMP);
+    } finally {
+      fs.rmSync(abs, { force: true });
+    }
+    return errors.filter((e) => e.includes(rel.split(path.sep).join('/')));
+  }
+
+  test('fires on an unguarded re-wrap in docs/src (the browser twin\'s shape)', () => {
+    const errs = gateAt(path.join('docs', 'src', 'prune-browser.ts'), REWRAP_RAW);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `a css-tree re-wrap must owe the guard; got: ${errs.join(' | ')}`);
+  });
+
+  test('fires on an unguarded re-wrap at a file root (the CLI\'s shape)', () => {
+    const errs = gateAt('lattice-emulator.js', REWRAP_RAW);
+    assert.ok(errs.some((e) => /sanitizeStyleText/.test(e)), `the CLI re-wrap must owe the guard; got: ${errs.join(' | ')}`);
+  });
+
+  test('quiet once the re-wrap sanitizes', () => {
+    assert.deepEqual(gateAt(path.join('docs', 'src', 'prune-browser.ts'), REWRAP_SAFE), []);
+  });
+
+  test('a prune CONSUMER that never re-wraps into a <style> owes nothing', () => {
+    // Reading the pruned size, logging it, returning it — no element is rebuilt, so the
+    // terminator never re-enters markup.
+    const errs = gateAt(path.join('docs', 'src', 'stats.ts'),
+      "import { prunePlayerCss } from './p.js';\nexport const size = (css) => prunePlayerCss(css, () => true).css.length;");
+    assert.deepEqual(errs, []);
+  });
+
+  test('a <style> re-wrap with no css-tree round trip is out of scope', () => {
+    // Without the prune there is no serializer to normalize the escape away, so the
+    // document's own guard still holds and this arm must not pile on.
+    const errs = gateAt(path.join('docs', 'src', 'plain.ts'),
+      "export function f(h, t){ return h.replace(t.full, () => '<style>' + t.css + '</style>'); }");
+    assert.deepEqual(errs, []);
+  });
+
+  test('the live tree passes, and both known re-wrap sites are discovered', () => {
+    const errors = [];
+    const seen = checkCssTreeRewrapSinks(errors);
+    assert.deepEqual(errors, [], `unguarded css-tree re-wrap on the live tree:\n${errors.join('\n')}`);
+    for (const must of ['lattice-emulator.js', 'docs/src/components/studio/player-prune-browser.ts']) {
+      assert.ok(seen.includes(must), `${must} is no longer discovered as a css-tree re-wrap — did the prune move?`);
+    }
+  });
+});
+
 describe('the live tree', () => {
   test('passes the gate with both channels enforced', () => {
     const errors = [];
@@ -195,11 +338,52 @@ describe('the live tree', () => {
     assert.deepEqual(errors, [], `HARD RULE #22 violations on the live tree:\n${errors.join('\n')}`);
   });
 
-  test('every exemption names a file that really is still a document style sink', () => {
+  // The list is EMPTY by design: the export player's generated bundle was its one entry,
+  // excused on the grounds that "the fix belongs at its generator". The generator
+  // (lib/export/player-core.mjs) is now guarded, so the bundle inherits the call and the
+  // entry would be a stale sanction — which this gate is built to fail on. The loop below
+  // is kept, not deleted, so a FUTURE entry still has to name a real sink and a real reason.
+  test('the exemption list is empty, and any future entry names a real sink', () => {
+    assert.deepEqual(SANCTIONED_STYLE_SINK_EXEMPT, [], 'a new exemption needs its reason recorded in the governing note too');
     for (const e of SANCTIONED_STYLE_SINK_EXEMPT) {
       const src = fs.readFileSync(path.join(REAL_ROOT, e.file), 'utf8');
       assert.match(src, /<!doctype html/i, `${e.file} no longer assembles a document`);
       assert.ok(e.why && e.why.length > 40, `${e.file} needs a real justification, not a placeholder`);
+    }
+  });
+
+  // Asserted independently of the gate — a gate that silently stopped walking a root
+  // would still leave this failing. Every shipped document assembler, enumerated from
+  // the roots themselves, has to carry the call.
+  test('every document assembler under the roots really calls sanitizeStyleText', () => {
+    const excused = new Set(SANCTIONED_STYLE_SINK_EXEMPT.map((e) => e.file));
+    const seen = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(?:js|ts|tsx|mjs|cjs)$/.test(e.name)) check(p);
+      }
+    };
+    const check = (p) => {
+      const rel = path.relative(REAL_ROOT, p).split(path.sep).join('/');
+      if (/\.test\.(?:ts|js)$/.test(rel)) return;
+      const src = fs.readFileSync(p, 'utf8');
+      if (!/<!doctype html/i.test(src) || !/<style[\s>]/i.test(src)) return;
+      seen.push(rel);
+      if (excused.has(rel)) return;
+      assert.match(src, /sanitizeStyleText\s*\(/, `${rel} assembles a document with a <style> and must sanitize it`);
+    };
+    for (const root of DOC_STYLE_SINK_ROOTS) {
+      const abs = path.join(REAL_ROOT, root);
+      if (fs.statSync(abs).isDirectory()) walk(abs);
+      else check(abs);
+    }
+    // The CLI scaffold, the export player, and its generated browser bundle are the three
+    // this change added; the docs-site assemblers #1718 already covered are the rest.
+    for (const must of ['lattice-emulator.js', 'lib/export/player-core.mjs', 'docs/src/playground/player-core.generated.js']) {
+      assert.ok(seen.includes(must), `${must} is no longer discovered as a document style sink — did a root move?`);
     }
   });
 
@@ -214,5 +398,39 @@ describe('the live tree', () => {
       assert.match(src, /sanitizeStyleText\s*\(/, `${s.file} embeds a <style> and must sanitize it`);
     }
     assert.ok(withStyleSink >= 3, `expected all three builders to carry a stylesheet channel, found ${withStyleSink}`);
+  });
+});
+
+// The tightening that finding "per-site is really per-body" forced: a guarded value sitting
+// beside an unguarded one, and a `sanitizeStyleText(` written inside a COMMENT, both passed
+// an earlier cut of the re-wrap check while the pruned CSS went out raw.
+describe('the css-tree re-wrap arm checks every interpolation, not just the body', () => {
+  const PRUNE = "import { prunePlayerCss } from './p.js';\n";
+  function gateAt(src) {
+    const abs = path.join(TMP, 'lib', 'export', 'probe-two.mjs');
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, src);
+    const errors = [];
+    try { checkCssTreeRewrapSinks(errors, TMP); } finally { fs.rmSync(abs, { force: true }); }
+    return errors.filter((e) => e.includes('probe-two.mjs'));
+  }
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const TWO_VALUES = PRUNE + 'export function f(h,t,r,fr){ const p = prunePlayerCss(t.css,u); return h.replace(t.full, () => `<style>${sanitizeStyleText(fr.css)}\\n${p.css}</style>`); }';
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const COMMENT_ONLY = PRUNE + 'export function f(h,t){ const p = prunePlayerCss(t.css,u); return h.replace(t.full, () => `<style>/* sanitizeStyleText(x) is applied upstream */${p.css}</style>`); }';
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: probe source text, not an interpolation
+  const BOTH_GUARDED = PRUNE + 'export function f(h,t,r,fr){ const p = prunePlayerCss(t.css,u); return h.replace(t.full, () => `<style>${sanitizeStyleText(fr.css)}\\n${sanitizeStyleText(p.css)}</style>`); }';
+
+  test('fires when a SECOND value in the same element is unguarded', () => {
+    assert.ok(gateAt(TWO_VALUES).length > 0, 'a guarded value beside an unguarded one must not certify the element');
+  });
+  test('fires when the only mention is inside a comment', () => {
+    assert.ok(gateAt(COMMENT_ONLY).length > 0, 'a call in a comment is not a call');
+  });
+  test('quiet when every interpolation is guarded', () => {
+    assert.deepEqual(gateAt(BOTH_GUARDED), []);
+  });
+  test('`.replaceAll` is a re-wrap too', () => {
+    assert.ok(gateAt(TWO_VALUES.replace('.replace(', '.replaceAll(')).length > 0, 'one token must not silence the gate');
   });
 });

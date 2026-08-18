@@ -19,6 +19,7 @@
 // css-tree is heavy, so this whole module (and its bundle) loads on demand, only when
 // the user actually exports a webpage — never on the initial Studio load.
 import { collectBaseSelectors, GATE_PROPS, prunePlayerCss, prunePlayerFontFaces } from '@/playground/player-prune.generated.js';
+import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 
 export type PruneResult = {
 	html: string;
@@ -166,10 +167,20 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 
 		// Apply whichever prunes survived. Replacer FUNCTIONS, not strings — else a
 		// `$&`/`$1`/backtick in the CSS or a data-URI would be interpreted by replace().
+		//
+		// Re-sanitized on the way back in (HARD RULE #22), and this is NOT belt-and-braces:
+		// `prunePlayerCss` is a css-tree parse→generate, and css-tree NORMALIZES the escape
+		// straight back to a live terminator —
+		//     IN  section::after{content:"<\/style>"}   OUT  section::after{content:"</style>"}
+		// — so the guard `buildSelfContainedDoc` applied upstream is undone here, and the
+		// document this returns is what `share-export.ts` mounts in a same-origin frame and
+		// then hands to a recipient. A red-team pass drove that to a real cross-origin fetch
+		// from the shipped artifact against the built bundle. Identity return for every real
+		// stylesheet, so the exported bytes are unmoved.
 		let html = playerHtml;
-		if (cssOk && target) html = html.replace(target.full, () => `<style>${cssResult.css}</style>`);
+		if (cssOk && target) html = html.replace(target.full, () => `<style>${sanitizeStyleText(cssResult.css)}</style>`);
 		if (fontResult.applied && fontBlock) {
-			html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${fontResult.css}</style>`);
+			html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${sanitizeStyleText(fontResult.css)}</style>`);
 		}
 		return {
 			html,

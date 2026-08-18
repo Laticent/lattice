@@ -31,6 +31,7 @@
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
+import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
@@ -116,13 +117,25 @@ function download(blob, filename) {
 export function embedThemeInMarkdown(source, theme) {
 	const src = String(source || '');
 	if (!theme?.css) return src;
+	// #22 stylesheet channel — a SAVED LIBRARY THEME is user- or model-authored CSS, and this
+	// splices it into a `<style>` in the markdown handed to a RECIPIENT. A `</style>` in it
+	// ends the element on their machine: demonstrated end to end through the real CLI, where
+	// this block's own bytes produced a live `<link rel=stylesheet href=…>` in the exported
+	// document and truncated the theme's remaining CSS into markup.
+	//
+	// The whole element BODY goes through the guard, not just `theme.css`, because
+	// `theme.name` is interpolated into the comment header above it and is free text too.
+	// This is the exact shape `share-export.ts`'s `embedFinishInMarkdown` already guards —
+	// it was the twin that got the call, and this one did not.
 	const block =
 		'<style>\n' +
-		'/* Lattice Workbench — embedded theme "' +
-		String(theme.name || 'theme') +
-		'" (self-contained: this deck keeps its palette\n' +
-		'   even where the theme is not installed). Generated on export. */\n' +
-		String(theme.css).trim() +
+		sanitizeStyleText(
+			'/* Lattice Workbench — embedded theme "' +
+				String(theme.name || 'theme') +
+				'" (self-contained: this deck keeps its palette\n' +
+				'   even where the theme is not installed). Generated on export. */\n' +
+				String(theme.css).trim(),
+		) +
 		'\n</style>\n';
 	// Place the block just after the front matter (or at the top if there is none),
 	// blank-line-separated so it reads as its own Marp directive scope.

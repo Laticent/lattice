@@ -169,6 +169,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:core` | Unit scope: lib/core/* (token resolver, splits, marp bundle, …). |
 | `test:coverage` | c8 coverage over the unit suite (→ .scratch/coverage/). |
 | `test:coverage:all` | c8 coverage over unit + integration. |
+| `test:diagnostics` | Unit scope: lib/diagnostics/* — the pure core shared by the headless preview-fidelity sweep (`npm run equiv`) and the Studio overlay. |
 | `test:engine` | Unit scope: lattice-engine internals. |
 | `test:exemplars` | Unit scope: the exemplar decks and the exemplar-core bundle. |
 | `test:export` | Unit scope: the owned export writers (PPTX, …). |
@@ -187,6 +188,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:parsing` | Unit scope: source-parse, splitter, slot-label-lift, marp plugins. |
 | `test:playground` | Unit scope: the playground bundle/core. |
 | `test:release` | Unit scope: the release tooling. |
+| `test:runtime` | Unit scope: lib/runtime/* — the pure decisions behind the in-page runtime (fluid-view policy, the diagram queue, per-slide mermaid bands, the axis DOM catalog). |
 | `test:theme` | Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet). |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |
