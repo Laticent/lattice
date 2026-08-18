@@ -210,9 +210,30 @@ const PREVIEW_MIN = PREVIEW_CHROME.splitPreviewMin;
 // drive through `data-palette`.
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
+type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
 
-export default function StudioShell({ options, components = [], lintVocab, slideHeadings, slideBlocks }: Props) {
+export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks }: Props) {
+	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
+	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
+	// parsed before hydration on every launch to serve a gallery the user may never open.
+	// `seedComponents` still seeds it, so a caller that passes the array directly (every
+	// unit test does) behaves exactly as before and never fetches.
+	const [components, setComponents] = React.useState<ComponentEntry[]>(seedComponents);
+	React.useEffect(() => {
+		if (components.length || !catalogUrl) return;
+		let alive = true;
+		fetch(catalogUrl)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((rows) => {
+				if (alive && Array.isArray(rows) && rows.length) setComponents(rows as ComponentEntry[]);
+			})
+			.catch(() => {
+				/* offline / stale deploy — `componentNames` still keeps lint honest below */
+			});
+		return () => {
+			alive = false;
+		};
+	}, [components.length, catalogUrl]);
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
@@ -936,7 +957,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// `components` prop) plus your saved local components — never the stale hardcoded
 	// subset, which would false-flag valid components on the welcome deck and beyond.
 	// Falls back to KNOWN only if the catalog failed to load.
-	const catalogNames = React.useMemo(() => (components.length ? components.map((c) => c.name) : KNOWN), [components]);
+	// Name list first, catalog second: `componentNames` is inlined by studio.astro (~1KB)
+	// precisely so the editor's lint never falls back to the stale hardcoded KNOWN subset
+	// during the window before the fetched catalog arrives — that subset false-flags valid
+	// components on the welcome deck.
+	const catalogNames = React.useMemo(
+		() => (components.length ? components.map((c) => c.name) : componentNames?.length ? componentNames : KNOWN),
+		[components, componentNames],
+	);
 	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	const issues = React.useMemo(() => unknownComponents(source, lintKnown).length, [source, lintKnown]);
