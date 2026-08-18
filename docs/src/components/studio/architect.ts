@@ -16,13 +16,32 @@ import { parseScene } from '@/lib/anima/schema';
 import type { Scene } from '@/lib/anima/types';
 import { AXES, MOTION_VERBS, PRIMITIVES, VERB_SOURCE } from '@/lib/anima/vocabulary';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { askComponentMessages, askComponentRefineMessages, askDesignRefineMessages, askRepairMessages, auditComponentDesign, coerceComponent, coerceRefinement, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
-import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
 import { loadInstructions, loadOnDeviceInstructions, loadSettings } from './studio-store';
+
+// The Fabricate cores are loaded ON DEMAND (2026-08-17 loading audit §6, §9.2).
+// `Fabricate.tsx` is already behind React.lazy, but this module is reached EAGERLY
+// from StudioShell, so importing its cores statically pulled ~177KB of source
+// (layout-core 126.7KB + theme-core 49.8KB) onto the cold path anyway — the lazy
+// boundary existed and these two imports walked straight past it. Every consumer
+// below sits inside an async function driven by a user action (generate a theme, a
+// component, a refinement), so the await costs nothing on a cold load. Memoized at
+// module scope: the first generate pays the import, every later one is a hit.
+type LayoutCore = typeof import('@/playground/layout-core.generated.js');
+type ThemeCore = typeof import('@/playground/theme-core.generated.js');
+let layoutCoreLoad: Promise<LayoutCore> | null = null;
+let themeCoreLoad: Promise<ThemeCore> | null = null;
+function loadLayoutCore(): Promise<LayoutCore> {
+	if (!layoutCoreLoad) layoutCoreLoad = import('@/playground/layout-core.generated.js');
+	return layoutCoreLoad;
+}
+function loadThemeCore(): Promise<ThemeCore> {
+	if (!themeCoreLoad) themeCoreLoad = import('@/playground/theme-core.generated.js');
+	return themeCoreLoad;
+}
 
 // Re-export so UI surfaces (Fabricate, the deck chat) import the doc type + reader
 // from one place alongside the generate functions they feed it to.
@@ -508,9 +527,10 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 		const blk = cloudBudgetBlock(model, prompt, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', note: blk };
 	}
-	const fallback: ThemeEssentials = current && Object.keys(current).length ? current : (STARTERS[0].essentials as ThemeEssentials);
+	const tc = await loadThemeCore();
+	const fallback: ThemeEssentials = current && Object.keys(current).length ? current : (tc.STARTERS[0].essentials as ThemeEssentials);
 	// Ground in the user's reference doc (#640) — e.g. "match this brand guide".
-	const ground = groundMessages(askMessages(fallback, prompt), docs, generation === 'openrouter');
+	const ground = groundMessages(tc.askMessages(fallback, prompt), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({
@@ -522,12 +542,12 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 	} catch {
 		return { status: 'offline' };
 	}
-	const { essentials, rampStrategy, name, description, applied, ok } = coerceEssentials(reply, fallback);
+	const { essentials, rampStrategy, name, description, applied, ok } = tc.coerceEssentials(reply, fallback);
 	// A connected model that proposed nothing usable (e.g. the json:true floor
 	// echoing the fallback) → no-op, never a fabricated change.
 	if (!ok && applied.length === 0) return { status: 'nochange', note: 'The model returned no usable palette.' };
-	const tokens = deriveTheme(essentials, { rampStrategy }) as Record<string, string>;
-	const audit = auditBoth(tokens) as ThemeAudit;
+	const tokens = tc.deriveTheme(essentials, { rampStrategy }) as Record<string, string>;
+	const audit = tc.auditBoth(tokens) as ThemeAudit;
 	return { status: 'ok', essentials, rampStrategy, tokens, audit, applied, name, description };
 }
 
@@ -846,7 +866,7 @@ async function dedupComponents(prompt: string, catalog: DedupCatalog, model: Arc
 		/* fall through to the pure floor */
 	}
 	// 3. Pure token-overlap floor (also the unit-tested path).
-	return rankSimilar(prompt, catalog, { limit }) as ComponentSimilar[];
+	return (await loadLayoutCore()).rankSimilar(prompt, catalog, { limit }) as ComponentSimilar[];
 }
 
 // The shape coerceComponent returns (a decline, or a coerced draft to gate).
@@ -889,7 +909,7 @@ async function repairToClean(
 		let fix = '';
 		try {
 			fix = await model.complete({
-				messages: askRepairMessages(draft, errs),
+				messages: (await loadLayoutCore()).askRepairMessages(draft, errs),
 				json: true,
 				fallback: '',
 				onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
@@ -897,9 +917,9 @@ async function repairToClean(
 		} catch {
 			break; // a failed repair call → keep the best draft so far
 		}
-		const rc = coerceComponent(fix) as CoercedComponent;
+		const rc = (await loadLayoutCore()).coerceComponent(fix) as CoercedComponent;
 		if (rc.decline || !rc.ok || !rc.manifest) break; // unusable repair → keep best
-		const next = gateDraft(rc);
+		const next = await gateDraft(rc);
 		if (next.errorCount >= errorCount) break; // no improvement → stop, keep best
 		draft = next.draft;
 		findings = next.findings;
@@ -945,7 +965,7 @@ async function improveDesign(
 		let reply = '';
 		try {
 			reply = await model.complete({
-				messages: askDesignRefineMessages(best.draft),
+				messages: (await loadLayoutCore()).askDesignRefineMessages(best.draft),
 				json: true,
 				fallback: '',
 				onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
@@ -953,7 +973,7 @@ async function improveDesign(
 		} catch {
 			break; // a failed refine call → keep the best so far
 		}
-		const rc = coerceRefinement(reply) as CoercedComponent & { rating: number; baselineRating: number | null };
+		const rc = (await loadLayoutCore()).coerceRefinement(reply) as CoercedComponent & { rating: number; baselineRating: number | null };
 		// Adopt the model's rating of the ORIGINAL as the bar to beat, once — a later round
 		// re-rates the already-improved best, so only the first baseline reflects the input.
 		if (bestRating < 0 && rc.baselineRating != null) bestRating = rc.baselineRating;
@@ -962,7 +982,7 @@ async function improveDesign(
 		// the model's self-rating of its PRE-repair output; it can drift slightly from the
 		// post-repair `cand.draft` when repair had to alter it — acceptable for a noisy
 		// self-report used only to rank rounds against each other.
-		const cand = await repairToClean(model, gateDraft(rc), generation);
+		const cand = await repairToClean(model, await gateDraft(rc), generation);
 		if (cand.errorCount === 0 && rc.rating > bestRating) {
 			best = { draft: cand.draft, findings: cand.findings, errorCount: 0 };
 			bestRating = rc.rating;
@@ -977,12 +997,13 @@ async function improveDesign(
 // design audit — on a coerced draft, returning the draft, its normalized findings, and
 // the ERROR count. The single source of truth for "is this draft clean", so the first
 // pass and every repair pass judge it identically.
-function gateDraft(coerced: CoercedComponent): { draft: ComponentDraft; findings: ComponentFinding[]; errorCount: number } {
+async function gateDraft(coerced: CoercedComponent): Promise<{ draft: ComponentDraft; findings: ComponentFinding[]; errorCount: number }> {
+	const lc = await loadLayoutCore();
 	const m = coerced.manifest as Omit<ComponentDraft, 'css' | 'skeleton'>;
-	const gate = gateComponent({ css: coerced.css, manifest: { ...m, skeleton: coerced.skeleton } }) as { ok: boolean; errors: ComponentFinding[] };
+	const gate = lc.gateComponent({ css: coerced.css, manifest: { ...m, skeleton: coerced.skeleton } }) as { ok: boolean; errors: ComponentFinding[] };
 	// The native-ness design audit (§6) — adapt/capacity coherence + the data: URI size
 	// cap — beyond the structural gate. Advisory + hard findings, both shown.
-	const design = auditComponentDesign(m, coerced.css) as ComponentFinding[];
+	const design = lc.auditComponentDesign(m, coerced.css) as ComponentFinding[];
 	const findings = [...(gate.errors ?? []), ...design];
 	const draft: ComponentDraft = {
 		name: m.name, description: m.description, function: m.function, form: m.form,
@@ -1029,7 +1050,7 @@ export async function generateComponent(
 	const similar = readDedupEnabled() ? await dedupComponents(prompt, catalog, model) : [];
 	// Ground in the user's reference doc (#640) — prepended to the user turn as
 	// untrusted DATA; a PDF rides as an inlined file-part + the parser plugin.
-	const ground = groundMessages(askComponentMessages(prompt, { similar }), docs, generation === 'openrouter');
+	const ground = groundMessages((await loadLayoutCore()).askComponentMessages(prompt, { similar }), docs, generation === 'openrouter');
 	opts?.onStatus?.({ phase: 'generating' });
 	let reply = '';
 	try {
@@ -1043,7 +1064,7 @@ export async function generateComponent(
 	} catch {
 		return { status: 'offline' };
 	}
-	const coerced = coerceComponent(reply) as CoercedComponent;
+	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	if (coerced.decline) {
 		return { status: 'declined', reason: coerced.decline.reason, route: coerced.decline.route, suggestion: coerced.decline.suggestion, similar };
 	}
@@ -1052,7 +1073,7 @@ export async function generateComponent(
 	}
 	// Gate the first draft, then SILENTLY repair any gate ERRORS (compliance) before the
 	// user sees it — the "Refining — fixing N issues…" cue rides on the top-level pass.
-	const repaired = await repairToClean(model, gateDraft(coerced), generation, (pass, issues) =>
+	const repaired = await repairToClean(model, await gateDraft(coerced), generation, (pass, issues) =>
 		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues }),
 	);
 	let { draft, findings } = repaired;
@@ -1130,7 +1151,7 @@ export async function refineComponent(
 	let reply = '';
 	try {
 		reply = await model.complete({
-			messages: askComponentRefineMessages(current, instruction),
+			messages: (await loadLayoutCore()).askComponentRefineMessages(current, instruction),
 			json: true,
 			fallback: '',
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
@@ -1138,7 +1159,7 @@ export async function refineComponent(
 	} catch {
 		return { status: 'offline' };
 	}
-	const coerced = coerceComponent(reply) as CoercedComponent;
+	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	// A refine shouldn't decline (it's editing, not creating), but honor one if it comes.
 	if (coerced.decline) {
 		return { status: 'declined', reason: coerced.decline.reason, route: coerced.decline.route, suggestion: coerced.decline.suggestion, similar: [] };
@@ -1147,7 +1168,7 @@ export async function refineComponent(
 		return { status: 'nochange', note: 'The model returned no usable refinement — your draft stands.' };
 	}
 	// Gate-repair the nudged draft (compliance), same as generation.
-	const repaired = await repairToClean(model, gateDraft(coerced), generation, (pass, issues) =>
+	const repaired = await repairToClean(model, await gateDraft(coerced), generation, (pass, issues) =>
 		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues }),
 	);
 	// No-op guard: the model echoed the draft back unchanged (applied nothing) — don't claim

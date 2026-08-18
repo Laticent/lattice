@@ -7,7 +7,17 @@
 // the Studio's view model and degrades gracefully when IndexedDB is unavailable.
 
 import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
-import { componentAsset } from '@/playground/layout-core.generated.js';
+
+// Loaded ON DEMAND (2026-08-17 loading audit §9.2). This module is reached eagerly
+// from StudioShell, so a static import pulled layout-core's 126.7KB of source onto
+// the cold path — past the React.lazy boundary Fabricate already has. `componentAsset`
+// is only ever called while SAVING a component, which is a user action.
+type LayoutCore = typeof import('@/playground/layout-core.generated.js');
+let layoutCoreLoad: Promise<LayoutCore> | null = null;
+function loadLayoutCore(): Promise<LayoutCore> {
+	if (!layoutCoreLoad) layoutCoreLoad = import('@/playground/layout-core.generated.js');
+	return layoutCoreLoad;
+}
 
 /** A saved local component as the Studio uses it. */
 export type StudioComponent = {
@@ -82,7 +92,7 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	}
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
-	const asset = componentAsset({ name: input.name, css: input.css, skeleton: input.skeleton, manifest });
+	const asset = (await loadLayoutCore()).componentAsset({ name: input.name, css: input.css, skeleton: input.skeleton, manifest });
 	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }
