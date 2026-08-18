@@ -435,9 +435,9 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// The rail's "Deck" scope button opens the column in deck scope (loud echo).
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
-		// The deck-scope body is pill-tabbed now; the Marks tab is a stable marker
+		// The deck-scope body is pill-tabbed now; the Chrome tab is a stable marker
 		// that the deck-scope inspector rendered.
-		expect(screen.getByRole('tab', { name: 'Marks' })).toBeInTheDocument();
+		expect(screen.getByRole('tab', { name: 'Chrome' })).toBeInTheDocument();
 		// The header close (a single X, chevron retired) collapses it back to the rail.
 		await user.click(screen.getByRole('button', { name: 'Collapse settings' }));
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
@@ -449,7 +449,8 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		// Deck-wide Authoring controls live in Deck scope — open it from the rail.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByText('Developer')); // A.1: dev aids live in a footer disclosure now
+		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await user.click(await screen.findByText('Developer')); // the dev aids are General's "more" disclosure
 		const sw = await screen.findByRole('switch', { name: 'Inline validation' });
 		expect(sw).toBeChecked();
 		await user.click(sw);
