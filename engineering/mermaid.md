@@ -306,16 +306,16 @@ emits — alone, and again alongside the engine's full set — and see which com
 
 ```
 mermaid emits            243 color themeVariables
-Lattice sets             196
-unused (a lever exists)   50
+Lattice sets             194
+unused (a lever exists)   52
 of ours, not in a bare base theme   3   (fontFamily, labelColor, labelBackground)
 mermaid IGNORES            0   <- keys with no lever at all
 our own keys overridden    0
 ```
 
 The three headline numbers do NOT partition on their own, and the report prints the
-missing term rather than leaving it to be re-derived: 243 − 50 = 193 shared, and
-196 − 3 ours-only = 193. Two earlier defects in this census are worth knowing, because
+missing term rather than leaving it to be re-derived: 243 − 52 = 191 shared, and
+194 − 3 ours-only = 191. Two earlier defects in this census are worth knowing, because
 both made it assert more than it had measured. Its color test matched only
 `#`/`rgb()`/`hsl()`, so the nine keys mermaid states as bare CSS names were invisible
 to it — including `gridColor` and `todayLineColor`, the two keys this page's own table
