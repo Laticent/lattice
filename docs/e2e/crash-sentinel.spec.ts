@@ -355,6 +355,38 @@ test('an error logged to the console lands in the live record', async ({ page })
 	expect(recorded?.source).toBe('console.error');
 });
 
+/**
+ * THE CONSENT GATE ON WEBKIT — a tagged twin of the spec above, because the tag
+ * system is per-project and exclusive, so the `desktop` copy never runs here.
+ *
+ * Worth the duplication for this one specifically: it is a PRIVACY control, and
+ * WebKit is both the engine the original report came from and the one whose
+ * storage and lifecycle behavior a Chromium pass cannot stand in for. The claim
+ * is the same and so is the strongest probe — that no patch installs itself into
+ * a real console without consent.
+ */
+test('records nothing until the workspace switch is on, on WebKit @webkit-phone', async ({ page }) => {
+	await gotoStudio(page); // deliberately WITHOUT allowRecording
+	await page.evaluate(() => console.error('this must not be recorded', new Error('nor this stack')));
+	await page.waitForTimeout(1_500); // longer than the console write throttle
+
+	const state = await page.evaluate(() => ({
+		records: Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length,
+		tabMirror: sessionStorage.getItem('lattice-studio-tab-session'),
+	}));
+	expect(state.records, 'a session record was written with recording off').toBe(0);
+	expect(state.tabMirror, 'the tab mirror was claimed with recording off').toBeNull();
+
+	await openWorkspace(page);
+	await page.getByRole('switch', { name: /Record what the Studio was doing/ }).click();
+	await expect
+		.poll(
+			async () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length),
+			{ timeout: 15_000, message: 'turning the switch on did not start the recorder' },
+		)
+		.toBeGreaterThan(0);
+});
+
 test('a clean session is never reported as a crash', async ({ page }) => {
 	// BEFORE `gotoStudio`, not after. `addInitScript` applies to navigations that
 	// come AFTER it is registered, so registering it second left the flag unseen by
