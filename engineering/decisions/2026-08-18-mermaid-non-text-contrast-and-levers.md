@@ -360,7 +360,7 @@ for the first time.
 
 | § | Recommended | Shipped |
 |---|---|---|
-| 7.1 | re-curate `--diagram-stroke` per palette | 12 of 14 palettes retuned to a mid-tone; `cuoio` and `carbone` already cleared and were left alone; only `concrete` needed `light-dark()`. Also `--diagram-today` (13 palettes) and `cuoio`'s `--diagram-line`. |
+| 7.1 | re-curate `--diagram-stroke` per palette | 12 of 14 palettes retuned to a mid-tone; `cuoio` and `carbone` already cleared and were left alone; only `concrete` needed `light-dark()`. Also `--diagram-today` (12 palettes) and `cuoio`'s `--diagram-line`. |
 | 7.2 | gate the non-text tier | `test/unit/palette/diagram-nontext-contrast.test.js` + `test/helpers/diagram-surfaces.js`, shared with the audit tool. Mutation-tested against the original values. |
 | 7.3 | pull the levers | 36 keys stated: the stateDiagram set, requirementDiagram set, architecture, `venn1`–`venn8`, C4 `personBkg`, ER row bands, `nodeBkg`/`border2`/`arrowheadColor`, `xyChart.dataLabelColor`. 159 → 196 set. |
 | 7.4 | `sankey.linkColor` | superseded — see §8.1. |
@@ -430,3 +430,19 @@ alone condemns shapes that read fine — demonstrated by the three gantt lifecyc
 which score ~60/64 "broken" on that measure and 0/64 on discernibility. What the finding
 does establish is that the gate constrains `--diagram-stroke` through a single pair, which
 is a real coverage limit and is stated in the gate's own docblock.
+
+### 8.6 Print mode, checked rather than assumed
+
+The `gridColor` repoint reaches print too, and it is the same defect in the same
+direction rather than a new one. `--diagram-done` remaps to `--print-diagram-done`
+(`#EDEDED`) under the print band and `--muted-mark` to `--print-muted-mark`
+(`#6E6E6E`), so a printed gantt's grid goes from **1.17:1 on paper — invisible — to
+5.10:1**. It is now a clearly visible mid-gray rule, and it reads at 4.36:1 against
+the `#EDEDED` "done" bars it crosses, so the two tiers stay distinguishable.
+
+The independent check flagged this as a possible over-correction ("a mid-gray rule
+heavier than the bars it crosses"). That is a fair aesthetic note and the measurement
+supports the change: a grid line at 1.17:1 was not subtle, it was absent. Whether
+`#6E6E6E` is heavier than a printed gantt wants is a curation question for the print
+band, not a contrast one, and it is left as-is rather than tuned blind — no print
+artifact was rendered in this pass, so this is a token-chain reading, not a render.
