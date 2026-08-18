@@ -202,6 +202,31 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // arriving" instead, so the handoff stays seamless. Fixed widths (no Math.random) keep it
 // deterministic; the real text is sr-only for assistive tech.
 const EDITOR_SKELETON_LINES = [82, 63, 71, 44, 78, 57, 88, 38, 67, 74, 51, 80, 60, 46];
+// Compose-shaped placeholder, the rich-editor twin of EditorSkeleton below. Compose is a
+// WYSIWYG surface with no line-number gutter, so reusing the code-editor skeleton would
+// read as the wrong pane arriving. Prose blocks — a heading bar, then paragraph runs —
+// say "the rich editor, arriving". Same deterministic widths, same sr-only real text.
+const COMPOSE_SKELETON_BLOCKS = [
+	{ w: 46, h: 15 },
+	{ w: 92, h: 9 },
+	{ w: 86, h: 9 },
+	{ w: 71, h: 9 },
+	{ w: 38, h: 13 },
+	{ w: 89, h: 9 },
+	{ w: 78, h: 9 },
+	{ w: 58, h: 9 },
+];
+export function ComposeSkeleton() {
+	return (
+		<div className="flex flex-1 flex-col gap-[11px] overflow-hidden p-5" aria-hidden="true">
+			{COMPOSE_SKELETON_BLOCKS.map((b) => (
+				<div key={`${b.w}-${b.h}`} className="rounded-sm bg-muted-foreground/10" style={{ width: `${b.w}%`, height: `${b.h}px` }} />
+			))}
+			<span className="sr-only">Loading Compose…</span>
+		</div>
+	);
+}
+
 export function EditorSkeleton() {
 	return (
 		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]" aria-hidden="true">

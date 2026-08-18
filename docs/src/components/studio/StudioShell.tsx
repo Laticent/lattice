@@ -41,9 +41,9 @@ import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineAc
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import { type ComposeHandle, ComposeView } from './ComposeView';
+import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { BAR_CONTROL, BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -120,6 +120,16 @@ const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default:
 // Mirrors the Fabricate lazy split above. See
 // engineering/decisions/2026-07-19-defer-editor-hydration.md.
 const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Editor })));
+
+// ComposeView is the OTHER half of the editor pane, and the heaviest thing left on the
+// cold path after the Editor split: ~69KB of its own source plus the whole ProseMirror
+// stack (13 vendor modules, ~693KB of source) — for a pane that is NOT the default.
+// `editMode` starts at 'markdown', and the toggle that reaches Compose is a deliberate
+// user action, so nothing on a cold load needs it. Already conditionally rendered, so
+// this is the same drop-in the Fabricate and Editor splits were. A React.lazy over a
+// forwardRef component still forwards `ref` in React 19, so `composeRef` reaches its
+// useImperativeHandle. See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.4.
+const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
 
 
 // Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
@@ -3308,7 +3318,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</div>
 			)}
 			{editMode === 'compose' ? (
+				<React.Suspense fallback={<ComposeSkeleton />}>
 				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
+				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
