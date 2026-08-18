@@ -54,8 +54,29 @@ const DECK_DIR = path.join(ROOT, '.scratch', 'invariant-decks');
  * (2026-07-30-slide-geometry-emitted-not-measured.md §4). Rendering the way every real
  * deck renders is the only configuration in which the assertion measures the component.
  */
-function deckFromSample(sample, { palette = 'indaco' } = {}) {
-  return `---\nmarp: true\ntheme: ${palette}\nform: on\n---\n\n${String(sample).trim()}\n`;
+function deckFromSample(sample, opts = {}) {
+  return deckFromSamples([sample], opts);
+}
+
+/**
+ * The same wrapper over MANY samples — one deck, one slide per sample, in order.
+ *
+ * WHY IT EXISTS. A sample is a self-contained `<!-- _class: X -->` slide, so N of them
+ * are N sections of one document; rendering them one deck at a time paid a Chromium
+ * launch, a navigation and a PDF encode PER COMPONENT. Measured on the 61 shipped
+ * components: 61 renders ≈ 150s against 8.7s for one batched render
+ * (engineering/decisions/2026-08-18-inspection-oracle-catalog.md §5, lever A).
+ *
+ * The front matter is IDENTICAL to the single-sample form — same theme, same `form: on`
+ * — so a batched slide lays out under the same deck-level contract as it did alone. What
+ * DOES differ is deck position: a slide in a 61-slide deck is not slide 1, so its footer
+ * carries a two-digit page number where it used to carry "1". That is the deliberate
+ * cost, and it is why the caller must locate each sample's section rather than assume an
+ * index (see `slideIndexByClass` in the invariants suite).
+ */
+function deckFromSamples(samples, { palette = 'indaco' } = {}) {
+  const body = samples.map((s) => String(s).trim()).join('\n\n---\n\n');
+  return `---\nmarp: true\ntheme: ${palette}\nform: on\n---\n\n${body}\n`;
 }
 
 /**
@@ -77,4 +98,4 @@ function renderHtml(markdown, { palette = 'indaco', key = 'deck', timeout = 6000
   return html;
 }
 
-module.exports = { deckFromSample, renderHtml, ROOT, DECK_DIR };
+module.exports = { deckFromSample, deckFromSamples, renderHtml, ROOT, DECK_DIR };

@@ -209,8 +209,17 @@ jobs:
   # bias as perf-nightly / preview-e2e-nightly: keep blocking gates blocking, move
   # work later only where a later catch is cheap. See
   # engineering/decisions/2026-06-27-integration-nightly-split.md.
+  # DEPENDS ON `changes` ONLY — deliberately NOT on `unit`. It used to wait for the
+  # unit tier, which bought a fail-fast economy (don't spend 8 render-minutes when a
+  # unit test is already red) and cost ~2m00 of CRITICAL PATH on every green run —
+  # measured, and the single largest serial gap in the pipeline
+  # (engineering/decisions/2026-08-18-inspection-oracle-catalog.md §3, lever B).
+  # Green runs vastly outnumber red ones, the two tiers catch different things, and a
+  # runner-minute is cheaper than a person waiting. The saved minutes on a red run are
+  # the price; the aggregate `ci` gate below still requires BOTH, so nothing merges on
+  # a red unit tier.
   integration:
-    needs: [changes, unit]
+    needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     name: integration (node 22)
@@ -302,7 +311,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # need base-branch history to diff goldens
+          # Base-branch history is needed to diff goldens, but their BYTES are not:
+          # `git diff --name-only <base>` reads blob OIDs out of trees, and only the
+          # handful of goldens that actually moved are ever materialized (`git show
+          # <base>:<path>`). A full-blob clone of a repo that is 67% committed PDFs
+          # therefore downloaded ~150 MB of history to look at a few files — measured
+          # at 1m23 of checkout for a job whose own work took 1s
+          # (engineering/decisions/2026-08-18-inspection-oracle-catalog.md §3, lever C).
+          # `filter: blob:none` keeps every commit and tree and fetches a blob only when
+          # something asks for it, which is exactly this job's access pattern.
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version: 22

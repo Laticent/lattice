@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Asked whether the build leans too hard on visual inspection and whether CSS-based
   checking could replace it. Cataloged every gate by the ORACLE it consults, and the
@@ -243,6 +243,12 @@ GitHub runner. So the floor is `max(longest single file, total ÷ 4)`:
 This matters for which levers are real: **until the total serial work drops below 4×
 the longest file, splitting a big file buys nothing.** Cutting total work is the lever.
 
+**After lever A** (shipped here: `component-invariants` 214s → ~15s) the total is
+**~1,072s**, and the floor becomes `max(257, 1072/4 = 268)` = **268s** — a predicted
+~16% off the job's floor, with the sum still binding by 11 seconds. That margin is why
+lever H below is listed as conditional rather than free: splitting `export-formats`
+would drop the longest file to `html-player`'s 197s and change the floor by nothing.
+
 ### 3b. The scheduled tiers
 
 | Scheduled workflow | Wall | Verdict |
@@ -294,14 +300,14 @@ Sizes are measured or arithmetic on measured figures; each says which.
 
 | # | Lever | Size | Confidence |
 |---|---|---|---|
-| **A** | **Batch the component-invariant renders.** `component-invariants.test.js` spawns the emulator **61 times** — once per component — to lay out 61 independent one-slide decks that share identical front matter (`deckFromSample` differs only by palette). They are sections of one deck. **Measured:** one render of all 61 samples concatenated = **8.5s / 8.8s**; a single-component render averages **2.47s** over 6 samples, so the 61 individual renders cost **~150s**. The file itself measures 214s. **~141s of serial work removed, ~17× on the render step.** | **largest measured** | measured both arms |
-| **B** | **Stop making `integration` wait on `unit`.** `needs: [changes, unit]` costs **~2m00 of critical path** (18% of the PR wall clock) and buys only "don't burn integration minutes when unit is broken". Runner-minutes are cheap relative to a human waiting. | ~2m wall/PR | measured |
-| **C** | **Fix `golden-diff`'s checkout.** `fetch-depth: 0` costs **1m23** for a job whose work took **1s**. It needs one base commit, not all history: `fetch-depth: 1` plus an explicit `git fetch --depth=1 origin <base-sha>`, or a `blob:none` partial clone. | ~1.3 runner-min/PR | measured |
+| **A** | **Batch the component-invariant renders.** ✅ **SHIPPED in this change.** `component-invariants.test.js` spawned the emulator **61 times** — once per component — to lay out 61 independent one-slide decks that share identical front matter. They are sections of one deck. **Before:** 214s, 265 tests. **After:** **13–17s, 266 tests** (the extra is the mapping-integrity assertion), all passing, zero fallbacks. **~12.6× on the file, ~197s of serial work removed.** | **largest measured** | shipped + verified |
+| **B** | **Stop making `integration` wait on `unit`.** ✅ **SHIPPED in this change.** `needs: [changes, unit]` cost **~2m00 of critical path** (18% of the PR wall clock) and bought only "don't burn integration minutes when unit is broken". The aggregate `ci` gate still requires both, so nothing merges on a red unit tier. | ~2m wall/PR | shipped |
+| **C** | **Fix `golden-diff`'s checkout.** ✅ **SHIPPED in this change** as `filter: blob:none` (history kept, blobs fetched on demand — the job reads blob OIDs out of trees and materializes only the goldens that moved). `fetch-depth: 0` alone cost **1m23** for a job whose work took **1s**. | ~1.3 runner-min/PR | shipped; CI to confirm the new checkout time |
 | **D** | **Converge the emulator's front-matter post-process into the shared kernel** (the prior note's L3). `deck-class-fm`, `deck-mode-fm` and `deck-logo` each boot a whole browser to assert a *string* — their headers say so — only because the emulator re-implements the reader (a HARD RULE #1 violation in place). Converging makes them T2 unit tests. | 3 full renders/PR | mechanism confirmed in the test headers |
 | **E** | **`waitUntil: 'load'`** (the prior note's L2, still **UNVERIFIED**). ~1.7s per navigation, 1–3 navigations per render. | medium | measured size, unverified safety |
 | **F** | **Give the unscheduled gates a cadence.** `overflow:check`, `geometry:check`, `css:values`, `check:chart-fit`, `check:render`, `build:galleries:check` and `build:bucket-galleries:check` are wired into **no workflow and no hook** — they run when someone remembers. `lefthook.yml`'s `pre-push-disabled` block already carries a correction saying so about the last two. A blessed baseline nothing evaluates is an assertion that rots (the same reasoning `integration-nightly.yml` already gives for the family gates). | correctness, not speed | verified by grepping every workflow + `lefthook.yml` |
 | **G** | **`docs-build`'s vitest step is 2m47** across 236 test files — the second-largest single step in the pipeline and never profiled. | unknown | unmeasured |
-| **H** | **Split `export-formats.test.js` (32 cases, 257s) by format.** Conditional on A: while total serial ÷ 4 (318s) exceeds the longest file (257s), the sum binds and splitting buys nothing. After A the sum is ~1,130s ÷ 4 = 283s, still above 257s — so H only pays once the total drops further. Listed so it is not mistaken for a free win. | conditional | arithmetic on measured figures |
+| **H** | **Split `export-formats.test.js` (32 cases, 257s) by format.** Still conditional after A: the sum ÷ 4 is 268s against a 257s longest file, so the sum binds by 11s and splitting changes the floor by nothing — the next-longest file (`html-player`, 197s) simply takes over. H pays only once total serial work drops below ~1,030s. Listed so it is not mistaken for a free win. | conditional | arithmetic on measured figures |
 | **I** | **Prefer the `setContent` T3 pattern where the claim is about the cascade.** `invariants/bookend-ink.test.js` runs its whole suite in **1.3s** — real Chromium, real computed colors — by injecting `dist/lattice.css` + the theme into synthetic markup with `page.setContent`, no emulator and no PDF. It is the cheapest T3 in the repo by two orders of magnitude. **Its limit is real and must be stated with it:** it bypasses the engine's transforms, so it can only carry claims about the CASCADE (does this token land on this surface), never about the PIPELINE (does the transform emit this markup). HARD RULE #23 — a claim names its surface — is what keeps the two apart. | pattern, not a one-off | measured |
 
 Deliberately **not** proposed: switching tests or goldens to images, replacing the
@@ -361,11 +367,16 @@ Pre-existing and off the path of this catalog, so logged rather than pulled into
 
 ## 8. What is not measured here
 
-- **Lever A end-to-end.** The two render arms are measured (150s vs 8.7s); what is NOT
-  measured is the suite after the change. Batching moves 61 slides into one document,
-  so a slide that auto-splits adds sections and the suite must select its section by a
-  marker rather than by "the only one", and one component that hangs now takes the
-  batch down instead of itself. Both are tractable; neither is done.
+- **Lever A in CI.** Measured end-to-end on this sandbox (214s → 13–17s, 265 → 266
+  tests, all passing, no component falling back to a solo render). What is NOT measured
+  is the same file on a GitHub runner, or what the integration job's wall clock does once
+  its second-longest file stops binding — §3a's arithmetic predicts the total, not the
+  longest file, becomes the constraint. Two accepted costs ride with it: a sample is no
+  longer slide 1 (so deck-position chrome differs — a two-digit page number), and one
+  hanging component now takes the batch's render down instead of only its own.
+- **Levers B and C in CI.** Both are one-line workflow changes whose sizes come from
+  reading job timings, not from running the changed pipeline. This PR's own CI run is the
+  first measurement of either.
 - **Lever G.** The 2m47 vitest step was timed as a step and never profiled.
 - **All per-file integration figures are this sandbox, run serially.** CI runs them
   4-way parallel on a slower box; the *ordering* should hold, the absolutes will not.
