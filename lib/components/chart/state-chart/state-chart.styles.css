@@ -207,7 +207,7 @@ section.state-chart .state-node {
    * slate tile, exactly like a kanban card with no lane. The node fill is ALWAYS
    * neutral — status colour lives only in the index badge (see below), never the
    * node fill, so a green "on-track" node can't blend into a green wash. */
-  --fill-hue: var(--text-muted);
+  --fill-hue: var(--muted-mark);
   --fill-ink: var(--diagram-stroke);
   background: linear-gradient(180deg,
     light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
@@ -515,7 +515,7 @@ section.state-chart.horizontal .state-node-row {
   padding: var(--sp-sm) var(--sp-md);
   /* Row spacing is the container's flex gap now (was margin: 0.3125cqi 0). */
   /* Same canonical tile as the SVG-variant nodes above. */
-  --fill-hue: var(--text-muted);
+  --fill-hue: var(--muted-mark);
   --fill-ink: var(--diagram-stroke);
   background: linear-gradient(180deg,
     light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
@@ -673,7 +673,7 @@ section.state-chart .state-node-shape {
   pointer-events: auto;
   /* The FILL is the canonical chart gradient, emitted inline by the layout pass
    * (SVG fill cannot take a CSS gradient). What stays here is the edge. */
-  --fill-hue: var(--text-muted);
+  --fill-hue: var(--muted-mark);
   stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
   stroke-width: 1;
 }

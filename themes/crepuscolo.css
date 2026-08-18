@@ -66,7 +66,8 @@
   --text-body:    light-dark(#2E2542, var(--scheme-dark-text-body));        /* L:13.63:1 / D:10.42:1 */
   --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label)); /* L:7.99:1 / D:8.28:1 AAA */
   --text-secondary: light-dark(#5C546C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
-  --text-muted:   light-dark(#8E83A8, var(--scheme-dark-text-muted));      /* decorative / de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt */
+  --text-muted:   light-dark(#6E6487, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   light-dark(#8B80A5, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
   /* ── Brand accent ──────────────────────────────────────────────────── */
   --accent:      light-dark(var(--brand-accent), #B59ADC); /* L:7.99:1 / D:7.50:1 on bg AAA */
@@ -121,7 +122,8 @@
   --scheme-dark-border:       #3F2A5C;
   --scheme-dark-text-heading: #FFFFFF;
   --scheme-dark-text-body:    #C8BFE0;
-  --scheme-dark-text-muted:   #8E83A8;
+  --scheme-dark-text-muted:   #9287AC;
+  --scheme-dark-muted-mark:   #8E83A8;
   --scheme-dark-text-secondary: #A59CBC;
   --scheme-dark-text-label:   #B5A8D5;
   --scheme-dark-text-display: #FFFFFF;

@@ -100,7 +100,7 @@ section { --tone-rail: 0 0 transparent; }
 section.tone-pass { --tone-color: var(--pass); }
 section.tone-warn { --tone-color: var(--warn); }
 section.tone-fail { --tone-color: var(--fail); }
-section.tone-skip { --tone-color: var(--text-muted); }
+section.tone-skip { --tone-color: var(--muted-mark); }
 /* The tone STYLE axis (orthogonal to the semantic tone above) sets the box-shadow
    SHAPE, so `tone-fail tone-edge` composes. Default (no style) = the left rail; a
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never

@@ -157,7 +157,10 @@ const SINGLETON_TAGS = new Set([
 // fallback; everything else a theme may inherit from lattice.css `:root`.
 const REQUIRED_THEME_TOKENS = Object.freeze([
   '--bg', '--bg-alt', '--border',
-  '--text-heading', '--text-body', '--text-secondary', '--text-muted',
+  // Both halves of the muted tier (#1715). `--muted-mark` is here for the same reason
+  // the rest are: 73 engine reads consume it with no engine fallback, so a palette that
+  // omits it drops every rule, hairline, grid line and skipped mark it paints.
+  '--text-heading', '--text-body', '--text-secondary', '--text-muted', '--muted-mark',
   '--accent', '--accent-soft', '--surface-inverse',
 ]);
 
@@ -7966,7 +7969,10 @@ const KNOWN_CONTRACT_DROPS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `--cat-${n}-ink → --cat-${n}-mark`),
   // (b) → --accent, unaudited. Text tier.
   '--code-inline-fg → --accent',
-  '--ink → --accent',
+  // '--ink → --accent' was here until #1715. It was not merely a floor drop: `--ink` was
+  // declared NOWHERE, so the fallback won on every theme forever. The four reads now point
+  // straight at `--text-heading`, a REQUIRED_TOKENS contract token that needs no fallback,
+  // and `checkPhantomFallbackTokens` below stops the class from recurring.
   '--jur-ink → --accent',
   '--lane-ink → --accent',
   '--on-dark-watermark → --accent',
@@ -8178,6 +8184,667 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
       'The drop was fixed — delete the row. A stale entry is how a list stops covering what it was written for, ' +
       'and here it would also hide the fact that the backlog is draining.',
     );
+  }
+}
+
+// ─── The muted tier's two floors (#1715) ───────────────────────────────────
+//
+// `--text-muted` carried TWO declared contracts that contradicted each other, and
+// both were written down. Its NAME says text: `lib/tokens/contracts.js` reads the
+// floor off the name and returns `{floor: 4.5, role: 'ink'}` for it, because HARD
+// RULE #11 makes role-based names canonical. Its own DECLARATION said the
+// opposite — every one of the fourteen palettes annotated the line "decorative /
+// de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt", and
+// `lib/theme/derive.js` said "Muted is DECORATIVE / WCAG-exempt — pass through, no
+// repair."
+//
+// Measured, the value followed the comment and the READS followed the name: below
+// AA on 44 of 72 palette-mode-surface pairs (worst 2.11:1, magnolia/light on
+// `--bg-alt`) while 53 engine-CSS sites painted real text with it.
+//
+// #1715 split the role rather than picking a winner, because both readings were
+// describing something real: `--text-muted` keeps the name and gains the floor the
+// name always promised, and the decoration — rules, hairlines, empty/skipped marks,
+// glyph washes — moved to `--muted-mark`, which is named for what it is and takes
+// the 3:1 graphical floor. This gate is what makes each half stay true.
+//
+/**
+ * PINNED LITERALS. 4.5 is WCAG AA for normal text and 3.0 is WCAG 1.4.11 for
+ * graphical objects; they are written here rather than imported from
+ * `lib/theme/color.js` for the reason #1720 §5 records — a gate that takes its
+ * floor from the thing it is measuring cannot fail when that thing moves.
+ * `CAT_TEXT_FLOOR` above is the same 4.5 and is deliberately not reused: this arm
+ * must keep biting even if that constant is retuned for the categorical tier.
+ */
+const MUTED_TEXT_FLOOR = 4.5;
+const MUTED_MARK_FLOOR = 3.0;
+
+/**
+ * A CEILING, not a floor — the property the split's own design depends on and the one
+ * nothing else in the repo owns.
+ *
+ * `--text-muted` used to be defined by its distance from `--text-body`; after #1715 its
+ * only enforced property is its distance from the CANVAS. Those pull in opposite
+ * directions: repairing muted to AA walks it toward the body ink it exists to be quieter
+ * than. Measured across the split, 24 of 36 palette-modes lost separation and none gained
+ * any — median −20.4%, worst cuoio/light at −80.8% (0.198 → 0.038).
+ *
+ * A floor alone therefore cannot express the contract. `lib/theme/cat-ink.js` learned the
+ * same thing for the categorical ink tier and carries `MIN_DIST` for exactly this reason;
+ * the muted tier shipped with the floor and not the ceiling, and an inversion pass found
+ * that `lib/theme/derive.js` will manufacture `--text-muted` BYTE-IDENTICAL to
+ * `--text-body` from plausible Studio essentials while every gate stays green.
+ *
+ * 0.030 rather than cat-ink's 0.035: cuoio/light ships at 0.0380 and this pins today's
+ * worst as the worst the repo will ever tolerate, with a little room for a re-solve to
+ * round. It is deliberately NOT a fresh computation of the same solve — it reads the
+ * committed values, so a solver change that moved both sides together would still trip it.
+ */
+const MUTED_SEPARATION_FLOOR = 0.030;
+
+function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
+  const themes = fs.readdirSync(themesDir)
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => f.replace(/\.css$/, ''));
+  let measured = 0;
+  let measuredThemes = 0;
+
+  for (const name of themes) {
+    const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
+    // A palette that declares neither token resolves both through its import chain
+    // and is measured wherever it lands; one that declares no --bg at all is not a
+    // palette (a11y-base is a shared partial) and is skipped by that test alone.
+    if (!map.has('--bg') && !map.has('--text-muted')) continue;
+    measuredThemes++;
+
+    // PRESENCE, not just value. Checking only the value of a DECLARED token means a
+    // palette that omits `--muted-mark` entirely passes silently — and then 76 engine
+    // reads of it are invalid at computed-value time on that palette, taking every
+    // hairline, grid line, quadrant frame, radar grid, state ring and skipped mark
+    // with them. Verified by experiment: stripping --muted-mark from indaco produced
+    // ZERO errors before this arm existed.
+    //
+    // The obligation is keyed on the SIBLING: a palette that authors its own
+    // `--text-muted` is a palette that owns this tier and must author both halves.
+    // The `-dark` wrappers and the a11y family declare neither and resolve through
+    // their import chain, which is correct and stays silent.
+    const own = fs.readFileSync(path.join(themesDir, `${name}.css`), 'utf8');
+    for (const [text, mark] of [
+      ['--text-muted', '--muted-mark'],
+      ['--scheme-dark-text-muted', '--scheme-dark-muted-mark'],
+    ]) {
+      const declaresText = new RegExp(`^\\s*${text}\\s*:`, 'm').test(own);
+      const declaresMark = new RegExp(`^\\s*${mark}\\s*:`, 'm').test(own);
+      if (declaresText && !declaresMark) {
+        errors.push(
+          `themes/${name}.css declares ${text} but not ${mark}. A palette that authors the `
+          + 'muted TEXT tier owns the muted DECORATION tier too — without it, every engine read '
+          + `of ${mark} is invalid at computed-value time on this palette and the rules, `
+          + 'hairlines, grid lines and skipped marks it paints disappear (#1715).');
+      }
+    }
+
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--bg', mode);
+      const bgAlt = catResolve(map, '--bg-alt', mode);
+      if (!bg || !bgAlt) continue;
+
+      // THE CEILING. Muted TEXT must stay perceptibly quieter than body text, or the tier
+      // is a name with no behavior. Checked before the floors so a collapse is reported
+      // even on a palette whose values otherwise pass.
+      const mutedForSep = catResolve(map, '--text-muted', mode);
+      const bodyForSep = catResolve(map, '--text-body', mode);
+      if (mutedForSep && bodyForSep) {
+        const sep = oklabDistance(mutedForSep, bodyForSep);
+        if (!(sep >= MUTED_SEPARATION_FLOOR)) {
+          errors.push(
+            `${name}/${mode}: --text-muted ${mutedForSep} sits OKLab ${sep.toFixed(4)} from `
+            + `--text-body ${bodyForSep}, under the ${MUTED_SEPARATION_FLOOR} separation floor. `
+            + 'A muted tier defined only by its distance from the canvas collapses into the body '
+            + 'ink it exists to be quieter than — the floor cannot express this on its own (#1715).');
+        }
+      }
+
+      for (const [token, floor, what] of [
+        ['--text-muted', MUTED_TEXT_FLOOR, 'de-emphasized TEXT'],
+        ['--muted-mark', MUTED_MARK_FLOOR, 'de-emphasized DECORATION'],
+      ]) {
+        const value = catResolve(map, token, mode);
+        // FAIL CLOSED. `catContrast` returns null on a value it cannot read and
+        // `null < 4.5` is TRUE in JS while `NaN < 4.5` is FALSE — either way,
+        // guessing here is how a gate ends up measuring nothing. An unreadable
+        // value on a palette that declares the token is an error in its own right.
+        if (!value) {
+          if (map.has(token)) {
+            errors.push(
+              `checkMutedTierFloors: ${name}/${mode} declares ${token} but it does not resolve to a `
+              + 'hex, so nothing can be measured. Fail closed rather than skip.');
+          }
+          continue;
+        }
+        for (const [surface, surfaceHex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
+          const ratio = catContrast(value, surfaceHex);
+          if (typeof ratio !== 'number' || Number.isNaN(ratio)) {
+            errors.push(
+              `checkMutedTierFloors: ${name}/${mode} — ${token} vs ${surface} did not produce a `
+              + 'number. Fail closed.');
+            continue;
+          }
+          measured++;
+          if (ratio < floor) {
+            errors.push(
+              `${name}/${mode}: ${token} ${value} on ${surface} ${surfaceHex} is ${ratio.toFixed(2)}:1, `
+              + `below its ${floor}:1 floor (${what}). ${token === '--text-muted'
+                ? 'This token is named for TEXT and lib/tokens/contracts.js classifies it as ink at '
+                  + '4.5 — if the value is meant to be decorative, the read belongs on --muted-mark '
+                  + 'instead (#1715).'
+                : 'A rule, hairline or empty mark still has to be visible — WCAG 1.4.11 (#1715).'}`);
+          }
+        }
+      }
+    }
+  }
+
+  // ANTI-VACUOUS, and DERIVED from what the run INTENDS to measure rather than from a
+  // number typed here. Each theme file contributes 2 modes x 2 tokens x 2 surfaces = 8
+  // measurements, so the floor is `themes.length * 8`.
+  //
+  // The first cut said "14 palettes x 2 modes x 2 tokens x 2 surfaces is 112" and then
+  // set the floor to `themes.length * 2`. Both halves were wrong: `themes` is every
+  // `.css` in the directory — 32 of them, including the 17 `-dark` wrappers, the five
+  // a11y files and `a11y-base` — and the real count is 256. So the guard sat at 64 and
+  // would have tolerated losing 75% of coverage silently. That is the same decay #1720
+  // recorded in its own harness, where a literal 200 was 93% of the expected 216 and
+  // quietly became 69% when the count grew.
+  // TWO guards, because one derived from `themes.length` cannot see the palette list
+  // ITSELF collapsing — it scales down with the loss and stays green. Verified: pointing
+  // the gate at a directory holding two themes passed the derived floor cleanly. So the
+  // corpus size is floored on its own, well under today's 32 so a palette can be retired
+  // without a false alarm, and far above the "the readdir broke" case.
+  const MIN_THEME_FILES = 20;
+  if (themes.length < MIN_THEME_FILES) {
+    errors.push(
+      `checkMutedTierFloors found only ${themes.length} theme file(s) in ${path.relative(ROOT, themesDir)} `
+      + `— the repo ships 32, so under ${MIN_THEME_FILES} means the scan is broken, not that palettes were retired.`);
+    return;
+  }
+  // Derived from the palettes actually MEASURED, not from the file count. Keying it to
+  // `themes.length` made the gate false-positive on the one case its own comment sanctions:
+  // adding a non-palette partial (a second `a11y-base`, which the loop skips by design)
+  // raised the expectation by 8 while the measurement stayed put, and the gate reported
+  // "the palette scan is broken, not the tree" about a tree that was fine. It also made
+  // every real failure emit that line as a spurious second error.
+  const expected = measuredThemes * 8;
+  if (measured < expected) {
+    errors.push(
+      `checkMutedTierFloors made ${measured} measurement(s) across ${measuredThemes} palette(s), `
+      + `fewer than the ${expected} it intends (2 modes x 2 tokens x 2 surfaces each). Either a `
+      + 'palette is missing one of the two tokens — the arm above says which, and fixing that '
+      + 'clears this line too — or the scan itself is broken.');
+  }
+}
+
+// ─── a11y syntax separation UNDER the condition (#1715) ────────────────────
+//
+// `checkHljsContrast` holds every `--hljs-*` to AA against `--code-bg`, and on the
+// four `a11y-*` palettes it PASSED the whole time — every inherited value cleared
+// the floor comfortably. Contrast was never what was wrong there.
+//
+// What was wrong is that two colors can both clear contrast and still be the SAME
+// COLOR to the reader the palette exists for. Until #1715 the four declared no
+// syntax family at all, so `a11y-base`'s import of `onyx` gave them onyx's:
+// `--hljs-string` green at hue 144° beside `--hljs-keyword` red at 17° — the
+// red-green axis `a11y-deuteranopia` and `a11y-protanopia` are named for. Measured
+// through the simulation, 17 of 55 role pairs on deuteranopia were distinct to a
+// normal-sighted reader and collapsed under the condition; 19 of 55 on
+// achromatopsia, where hue carries nothing at all.
+//
+// So this gate measures the SIMULATED values, which no existing gate did:
+// `tools/cvd-audit.js` covers the categorical cycle and the status trio but not
+// the syntax family, and it has never had an achromatopsia arm at all.
+const A11Y_SYNTAX_CONDITIONS = Object.freeze([
+  { theme: 'a11y-deuteranopia', condition: 'deuteranopia' },
+  { theme: 'a11y-protanopia', condition: 'protanopia' },
+  { theme: 'a11y-tritanopia', condition: 'tritanopia' },
+  { theme: 'a11y-achromatopsia', condition: 'achromatopsia' },
+]);
+
+/** The twelve roles a palette declares. `.hljs-meta` and `.hljs-name` are not
+ *  separate tokens — highlight-js.css routes them to `--hljs-type` / `--hljs-tag`. */
+const HLJS_ROLES = Object.freeze(['comment', 'keyword', 'built_in', 'number', 'literal',
+  'string', 'title', 'type', 'variable', 'params', 'tag', 'punctuation']);
+
+/**
+ * PINNED LITERALS, not imported from whatever produced the values — a floor that
+ * moves with its producer cannot fail for the reason that matters (#1720 §5, where
+ * a gate reusing the recipe's own constants tolerated a 3.2x weakening).
+ *
+ * Two floors because the two conditions are structurally different, and one number
+ * covering both would be the weaker of the two everywhere:
+ *
+ *   DICHROMACY — two axes survive (lightness, plus position on the one chromatic
+ *   axis the condition leaves), so the families are spaced on both. Measured today:
+ *   deuteranopia 0.1194, protanopia 0.1143, tritanopia 0.1285.
+ *
+ *   MONOCHROMACY — only lightness survives, so six roles plus `--code-text` share
+ *   one axis and the ceiling is arithmetic. Measured today: 0.0511.
+ *
+ * Both are far above `checkCatContrast`'s 0.010 collapse floor and the syntax
+ * tier's own 0.035 MIN_DIST; neither reaches the 0.15 `tools/cvd-audit.js` uses for
+ * CATEGORICAL distinctness, which is a bar for large flat areas of color rather
+ * than for small text carrying italics and language structure as well.
+ */
+const HLJS_SEP_FLOOR_DICHROMACY = 0.11;
+const HLJS_SEP_FLOOR_MONOCHROMACY = 0.048;
+
+/**
+ * comment and punctuation are BOTH quiet by design, so holding them to the floor
+ * above would be asking the palette to make its two de-emphasis roles shout at
+ * each other. They are not exempt, though: `checkHljsContrast` polices exactly
+ * that pair by name against the repo's 0.010 collapse floor, after an earlier
+ * change lifted both to the same AA target and merged them into one gray in eight
+ * palettes. That gate owns the pair; this one steps aside rather than duplicating
+ * it with a second, different number (HARD RULE #15).
+ */
+const HLJS_QUIET_PAIR = Object.freeze(['comment', 'punctuation']);
+
+function checkHljsSeparation(errors, themesDir = THEMES_DIR) {
+  const { simulate } = require('../lib/theme/cvd.js');
+  const { oklabDistance } = require('../lib/theme/color.js');
+  let compared = 0;
+
+  for (const { theme, condition } of A11Y_SYNTAX_CONDITIONS) {
+    const file = path.join(themesDir, `${theme}.css`);
+    if (!fs.existsSync(file)) {
+      errors.push(`checkHljsSeparation: themes/${theme}.css is missing — the gate cannot run.`);
+      continue;
+    }
+    // The EMITTED file, flattened through its @import chain — the same reader
+    // checkHljsContrast uses, so the two cannot disagree about what a palette says.
+    const map = catParseTokens(catPaletteSource(theme, new Set(), themesDir));
+    // These palettes are mode-invariant (a11y-base pins color-scheme: light), so
+    // 'light' is the only mode that renders. Asking for it explicitly rather than
+    // looping both keeps the gate honest about what it measured.
+    const mode = 'light';
+
+    // EVERY ROLE THE PALETTE MUST DECLARE ITSELF. Before #1715 these resolved
+    // through the a11y-base -> onyx import, which is exactly the defect; so a role
+    // that is not declared in this palette's OWN file is an error, not an inherit.
+    const own = fs.readFileSync(file, 'utf8');
+    const missing = HLJS_ROLES.filter((r) => !new RegExp(`--hljs-${r}\\s*:`).test(own));
+    if (missing.length) {
+      errors.push(
+        `themes/${theme}.css declares no --hljs-${missing.join(', --hljs-')} of its own, so it `
+        + "inherits onyx's syntax family through a11y-base — the red-green pair this palette "
+        + 'exists to avoid (#1715).');
+      continue;
+    }
+
+    // The panel, and the UN-highlighted text on it. A syntax role that collides
+    // with `--code-text` is as unreadable as two roles colliding, so it is a FIXED
+    // member of the set rather than a bystander.
+    const bg = catResolve(map, '--code-bg', mode);
+    const codeText = catResolve(map, '--code-text', mode);
+    // FAIL CLOSED on an operand we cannot read. `oklabDistance` on an unparseable
+    // value throws, and a `try`-wrapped skip would make the gate pass while
+    // measuring nothing — the shape #1720 had to repair in checkSyntaxInkContrast.
+    if (!bg || !codeText) {
+      errors.push(
+        `checkHljsSeparation: ${theme} — could not resolve `
+        + `${!bg ? '--code-bg' : '--code-text'} to a hex, so nothing can be measured against it.`);
+      continue;
+    }
+
+    const vals = new Map([['code-text', codeText]]);
+    let unresolved = null;
+    for (const role of HLJS_ROLES) {
+      const hex = catResolve(map, `--hljs-${role}`, mode);
+      if (!hex) { unresolved = role; break; }
+      vals.set(role, hex);
+    }
+    if (unresolved) {
+      errors.push(`checkHljsSeparation: ${theme} — --hljs-${unresolved} does not resolve to a hex.`);
+      continue;
+    }
+
+    const floor = condition === 'achromatopsia'
+      ? HLJS_SEP_FLOOR_MONOCHROMACY : HLJS_SEP_FLOOR_DICHROMACY;
+    const entries = [...vals];
+
+    // HOW MUCH COLLAPSE IS "DESIGN"? The pair-skip below treats byte-identical roles as
+    // deliberate, which they are — but nothing capped the number of them, and a red team
+    // showed the consequence: set TEN of the twelve roles to one color on all four palettes
+    // and this gate reports zero errors, because every collapsed pair is skipped and the
+    // survivors still clear the comparison count. Syntax highlighting would be gone from the
+    // palettes whose entire purpose is that it stays separable, certified by the gate written
+    // to protect it.
+    //
+    // The design is SIX groups, so six distinct values. Floored at five to leave one group
+    // free to merge without a gate edit, which is a design call; going below that is not.
+    const DISTINCT_MIN = 5;
+    const distinct = new Set(HLJS_ROLES.map((r) => String(vals.get(r)).toLowerCase()));
+    if (distinct.size < DISTINCT_MIN) {
+      errors.push(
+        `${theme}: its twelve --hljs-* roles resolve to only ${distinct.size} distinct color(s), `
+        + `under the ${DISTINCT_MIN} this palette's six-group design emits. Roles made `
+        + 'DELIBERATELY identical are skipped by the separation arm below, so a wholesale '
+        + 'collapse would otherwise pass every check while erasing syntax highlighting on the '
+        + 'palettes that most need it (#1715).');
+    }
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const [na, ha] = entries[i];
+        const [nb, hb] = entries[j];
+        // Roles the palette makes DELIBERATELY identical are not a collapse — they
+        // are the design (a twelve-way color distinction does not survive a
+        // dichromacy). Only pairs the palette claims are different are measured.
+        if (ha.toLowerCase() === hb.toLowerCase()) continue;
+        // The two quiet roles are checkHljsContrast's to police; see HLJS_QUIET_PAIR.
+        if (HLJS_QUIET_PAIR.includes(na) && HLJS_QUIET_PAIR.includes(nb)) continue;
+        compared++;
+        const d = oklabDistance(simulate(ha, condition), simulate(hb, condition));
+        if (!(d >= floor)) {
+          // `--code-text` is in the set but is NOT an --hljs-* token, so it gets its
+          // own name in the message rather than a fabricated `--hljs-code-text`.
+          const nameOf = (n) => (n === 'code-text' ? '--code-text' : `--hljs-${n}`);
+          errors.push(
+            `${theme}: ${nameOf(na)} (${ha}) and ${nameOf(nb)} (${hb}) are different colors that `
+            + `render ΔE ${d.toFixed(4)} apart UNDER ${condition} — below the ${floor} floor. `
+            + 'Two colors that both clear contrast can still be the same color to the reader this '
+            + 'palette is for (#1715).');
+        }
+      }
+    }
+  }
+
+  // ANTI-VACUOUS. Every arm above `continue`s on a problem it reports, so a broken
+  // reader could report one error and zero comparisons; a run that measured nothing
+  // is a failure whatever else it said.
+  if (compared < 20) {
+    errors.push(
+      `checkHljsSeparation made only ${compared} comparison(s) across `
+      + `${A11Y_SYNTAX_CONDITIONS.length} palettes — it should make dozens, so the scan is broken.`);
+  }
+}
+
+// ─── Phantom token reads (#1715) ───────────────────────────────────────────
+//
+// A token READ that no palette declares and no code writes. `--ink` was read four
+// times in `lib/base/base.finish.css` as `var(--ink, var(--accent))` from #1606
+// until #1715, and `git log -S"--ink:" -- lib themes` is empty: it was phantom
+// from the moment the reads were written. The fallback therefore won on every
+// theme forever, so a rule whose own comment says "a neutral text-colored rim"
+// shipped in the BRAND hue.
+//
+// WHY NEITHER EXISTING GATE SAW IT, which is the whole reason this one exists:
+//
+//   `checkNoSafeDefaultTokens`'s `fallbackOnlyTokens` arm opens with
+//   `if (!themeTokens.has(token) …) continue;` — its population is limited to
+//   tokens SOME shipped palette declares. No palette declares `--ink`, so a
+//   phantom falls outside the arm entirely. A phantom is invisible to the gate
+//   built to police fallbacks precisely BECAUSE it is a phantom.
+//
+//   `checkDanglingTokenReads` scans `docs/src` and accepts a token declared
+//   ANYWHERE it looked, `docs/src` included. Seven page-local `.astro` prototypes
+//   (cadenza, vetrina, lente, suono, the two proto pages) carry their own private
+//   `--paper/--stage/--ink/--muted` palette, and those declarations rescued
+//   `--ink` for the whole repo — including `chart-anima.ts`, a module whose output
+//   renders inside a SLIDE, where a docs page's `:root` block does not exist.
+//
+// So the rule here is "declared in the ENGINE, or provably WRITTEN at runtime",
+// and the writer must be a WRITE the scanner can see rather than a ledger row
+// somebody asserted.
+//
+/**
+ * Custom properties the ENGINE itself declares — `lib/**.css`, `dist/**.css`,
+ * `themes/**.css`. Deliberately NARROWER than `checkDanglingTokenReads`'s set,
+ * for the `.astro`-prototype reason above; the same narrowing
+ * `checkAnimaColorVocabulary` already makes, and shared with it (HARD RULE #15).
+ *
+ * Names are stored WITHOUT the leading `--`, because that is the form
+ * `bareVarReads` returns. Both sides normalize through `bareName`; an earlier cut
+ * of this gate compared `--`-prefixed declarations against bare read names, so
+ * every hop was skipped and the gate reported a clean tree on a tree that still
+ * had `--ink` in it.
+ */
+function engineDeclaredTokens() {
+  const out = new Set();
+  const files = [
+    ...listFilesByExt(LIB_DIR, ['.css']),
+    ...listFilesByExt(path.join(ROOT, 'dist'), ['.css']),
+    ...listFilesByExt(path.join(ROOT, 'themes'), ['.css']),
+  ];
+  const into = new Set();
+  for (const f of files) declaredCustomProps(fs.readFileSync(f, 'utf8'), into);
+  for (const t of into) out.add(bareName(t));
+  return { tokens: out, fileCount: files.length };
+}
+
+/** `--foo` / `foo` → `foo`. The one normalization both sides of this gate use. */
+function bareName(t) { return String(t).replace(/^--/, ''); }
+
+/**
+ * Custom properties something WRITES at render time. Three idioms, and all three
+ * are live in this repo — which is the point: runtime-set is proven by a write,
+ * never asserted by a ledger entry that nothing re-checks.
+ *
+ *   1. `--x:` inside a JS/TS template literal (generated CSS text) — how
+ *      `--fin-backdrop-mask-opaque` is set, by `finish-generate.ts`.
+ *   2. `setProperty('--x', …)` — how `--stat-emphasis` and `--safe-bottom` are set.
+ *   3. `['--x', value]` PAIR ARRAYS — how `plugins.js` emits the five `--logo-*`
+ *      placement tokens into an inline `style`. `declaredCustomProps` does not
+ *      recognize this form, and without it two real writers read as phantoms.
+ *
+ * COMMENTS ARE STRIPPED FIRST, and that is not tidiness. `declaredCustomProps` matches
+ * `--x:` anywhere in the text, so a PROSE MENTION counted as a proven write — including
+ * front-matter keys discussed in comments (`--class`, `--theme`, `--paginate`) and, worst,
+ * any token this repo documents by name. Measured before the fix: 27 of 137 entries (20%)
+ * existed only in comments. The failure that matters is specific: re-introduce
+ * `var(--ink, var(--accent))` while ANY non-test file under `lib/**` or `docs/src/**`
+ * mentions `--ink:` in a comment — which the decision record for this very change makes
+ * likely — and `resolves()` returns true, so the gate goes green on the exact defect it
+ * exists to catch. Arm B already stripped comments for the same reason; this scan did not.
+ *
+ * SOURCED FROM CODE, NOT FROM PAGES: `lib/**.{js,mjs}` plus `docs/src`
+ * TypeScript/JavaScript emitters, and deliberately NOT `.astro` or `.css` under
+ * `docs/src` — a page-local prototype palette is not a writer of engine tokens,
+ * and treating it as one is exactly the hole that hid `--ink`. Tests are excluded
+ * for the same reason (`test/unit/export/html-player.test.js` declares `--ink:`
+ * in a fixture).
+ */
+function runtimeWrittenTokens() {
+  const out = new Set();
+  const files = [
+    ...listFilesByExt(LIB_DIR, ['.js', '.mjs']),
+    ...listFilesByExt(path.join(ROOT, 'docs', 'src'), ['.ts', '.tsx', '.js', '.mjs']),
+  ].filter((f) => !/\.test\./.test(path.basename(f)));
+  for (const f of files) {
+    const src = stripCodeComments(fs.readFileSync(f, 'utf8'));
+    const into = new Set();
+    declaredCustomProps(src, into);
+    for (const t of into) out.add(bareName(t));
+    for (const m of src.matchAll(/\[\s*['"`](--[A-Za-z0-9_-]+)['"`]\s*,/g)) out.add(bareName(m[1]));
+  }
+  return { tokens: out, fileCount: files.length };
+}
+
+/**
+ * Tokens read in engine CSS that NOTHING in this repo declares or writes, because
+ * a DECK sets them. These are real and there are two of them — not the 43-entry
+ * allowlist a naive "every bare read in lib/" gate would need, which is why this
+ * gate's arm A is scoped to FALLBACK CHAINS (`fallbackHops`) rather than every
+ * bare read: a bare `var(--x, auto)` with a literal default is the normal shape of
+ * an author knob, and policing it would be all allowlist and no signal.
+ *
+ * Fails on a STALE entry too, so the list cannot rot.
+ */
+const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
+  { token: 'fill', why: 'progress: "Authors pin a categorical hue with `--fill`" (progress.styles.css:87). '
+    + 'A deck-set knob; the engine only ever reads it, and --chart-cat-1-hue is the default.' },
+  { token: 'font', why: 'base.finish: `var(--font-display, var(--font, serif))` — a defensive hop for a '
+    + 'consumer theme that sets a generic --font. Ends on a literal, so the rim always resolves.' },
+  // The BARE-READ arm's population. Each is a per-deck or per-slide knob an AUTHOR sets in
+  // deck CSS; nothing in the repo writes them, and each read carries its own literal default.
+  { token: 'fin-edge-repeat', why: 'base.finish: a finish slot a deck or a Studio-fabricated finish sets.' },
+  { token: 'footerleft-inset', why: 'footer-left cell: per-deck placement knob, defaults inline.' },
+  { token: 'footerleft-w', why: 'footer-left cell: per-deck width knob, defaults inline.' },
+  { token: 'pagination-inset', why: 'pagination-right cell: per-deck placement knob, defaults inline.' },
+  { token: 'progress-inset', why: 'progress-centre cell: per-deck placement knob, defaults inline.' },
+  { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
+  { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
+  { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
+]);
+
+/**
+ * #1715's gate. Two arms, ONE rule, budget 0.
+ *
+ * ARM A — every fallback chain in `lib/`. `fallbackHops()` is the only scanner
+ * that enumerates `var(--a, var(--b))` with NO `themeTokens` restriction, so it is
+ * the only arm that can see a token no palette declares. Both ends of every hop
+ * must be engine-declared, runtime-written, or author-set.
+ *
+ * ARM B — the docs modules that emit CSS/SVG destined for a SLIDE, where
+ * `bareVarReads` is run over the WHOLE file so a BARE read is caught too. Arm A
+ * would have missed `chart-anima.ts:216` entirely: `'var(--ink)'` has no fallback
+ * at all, and it is the DEFAULT emphasis stroke that `chart-anima-hydrate.ts`
+ * uses in production (`highlightMarks: worstMarks(svg)`, no `highlightColor`).
+ * `resolveColor` (anima/backends/paint.ts) sets that value on a probe span
+ * parented to the host and reads `getComputedStyle`; `color` is INHERITED, so an
+ * undeclared property made the declaration invalid at computed-value time and the
+ * probe returned the HOST's own text color. Wrong, not absent — the same
+ * correction #1720 §7 had to make about this exact mechanism.
+ *
+ * The emitter list fails on a stale entry, so a renamed or deleted module is a
+ * red build rather than an arm that quietly stops scanning.
+ */
+const SLIDE_BOUND_DOCS_EMITTERS = Object.freeze([
+  { file: 'docs/src/lib/chart-anima.ts',
+    why: 'emits the inline `stroke:` baked into the chart asset an Anima scene mounts INSIDE a slide.' },
+  { file: 'docs/src/components/studio/finish-generate.ts',
+    why: 'generates the CSS text of every Studio-fabricated finish, applied to a slide section.' },
+]);
+
+function checkPhantomTokenReads(errors) {
+  const declared = engineDeclaredTokens();
+  const runtime = runtimeWrittenTokens();
+  const authorSet = new Set(AUTHOR_SET_ENGINE_TOKENS.map((r) => bareName(r.token)));
+
+  // FAIL CLOSED. Every input is an intersection term: an empty one makes this gate
+  // pass while measuring nothing, which is the failure mode it exists to prevent.
+  if (declared.fileCount === 0 || declared.tokens.size < 100) {
+    errors.push(
+      `checkPhantomTokenReads scanned ${declared.fileCount} engine stylesheet(s) and found `
+      + `${declared.tokens.size} declared token(s) — the engine ships hundreds, so this is a broken `
+      + 'scan, not a clean tree.');
+    return;
+  }
+  if (runtime.fileCount === 0 || runtime.tokens.size === 0) {
+    errors.push(
+      `checkPhantomTokenReads found ${runtime.tokens.size} runtime-written token(s) across `
+      + `${runtime.fileCount} module(s) — the engine writes dozens, so the writer scan is broken.`);
+    return;
+  }
+  const resolves = (t) => declared.tokens.has(t) || runtime.tokens.has(t) || authorSet.has(t);
+
+  // ── Arm A: fallback chains in lib/ ────────────────────────────────────────
+  const hops = fallbackHops();
+  if (!hops.length) {
+    errors.push('checkPhantomTokenReads: fallbackHops() returned no chains from lib/ — a broken scan.');
+    return;
+  }
+  const phantom = new Map(); // bare token -> Set(where)
+  for (const h of hops) {
+    for (const end of [h.token, h.target]) {
+      const t = bareName(end);
+      if (resolves(t)) continue;
+      if (!phantom.has(t)) phantom.set(t, new Set());
+      phantom.get(t).add(h.where);
+    }
+  }
+
+  // ── Arm C: BARE reads in engine CSS ───────────────────────────────────────
+  // Arm A walks fallback CHAINS, so a bare `var(--typo)` in lib/**.css is invisible to it —
+  // and `checkDanglingTokenReads` scans docs/src for reads, treating lib/ and dist/ as
+  // DEFINITION sources only. Between them, nothing scanned engine CSS for a read that
+  // resolves to nothing. That is the shape a mistyped rename takes, and #1715 renamed ~250
+  // reads in one pass, so the gate that exists to catch phantom reads was scoped away from
+  // this change's own dominant risk. A red team demonstrated it: `--muted-marks` for
+  // `--muted-mark` on one line, `check:ownership` green, and in real Chromium the
+  // declaration dies at computed-value time — `stroke` goes `none`, `background-color` goes
+  // transparent, a `border-*-color` falls back to `currentColor` and paints at full body-ink
+  // strength.
+  //
+  // Template-literal reads (`var(--chart-cat-${n})`) are skipped: the scanner sees a
+  // truncated prefix, not a token.
+  for (const f of listFilesByExt(LIB_DIR, ['.css'])) {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    fs.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").split('\n').forEach((line, i) => {
+      if (/var\(\s*--[A-Za-z0-9_-]+\$\{/.test(line)) return;
+      for (const m of line.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) {
+        const t = bareName(m[1]);
+        if (resolves(t)) continue;
+        if (!phantom.has(t)) phantom.set(t, new Set());
+        phantom.get(t).add(`${rel}:${i + 1}`);
+      }
+    });
+  }
+
+  // ── Arm B: slide-bound docs emitters, BARE reads included ─────────────────
+  for (const { file } of SLIDE_BOUND_DOCS_EMITTERS) {
+    const abs = path.join(ROOT, file);
+    if (!fs.existsSync(abs)) {
+      errors.push(
+        `checkPhantomTokenReads: SLIDE_BOUND_DOCS_EMITTERS names ${file}, which does not exist. `
+        + 'Re-point or delete the entry rather than leaving an arm that scans nothing.');
+      continue;
+    }
+    const src = stripCodeComments(fs.readFileSync(abs, 'utf8'));
+    const reads = bareVarReads(src, file);
+    if (!reads.size) {
+      errors.push(
+        `checkPhantomTokenReads: ${file} is listed as a slide-bound emitter but yielded ZERO var() `
+        + 'reads. Either it stopped emitting CSS (drop the entry) or the scan broke.');
+      continue;
+    }
+    for (const [token, rs] of reads) {
+      const t = bareName(token);
+      if (resolves(t)) continue;
+      if (!phantom.has(t)) phantom.set(t, new Set());
+      for (const r of rs) phantom.get(t).add(r.where);
+    }
+  }
+
+  if (phantom.size) {
+    const shown = [...phantom].sort()
+      .map(([t, w]) => `--${t} (${[...w].slice(0, 4).join(', ')})`).join('\n      ');
+    errors.push(
+      `${phantom.size} PHANTOM token read(s): read in engine CSS or a slide-bound emitter, but no `
+      + 'palette declares them and nothing writes them at render time, so the fallback (or the '
+      + "inherited value) wins on every theme forever. That is how --ink shipped a 'neutral ink' "
+      + `vignette rim in the brand hue from #1606 to #1715:\n      ${shown}\n`
+      + '      Fix: point the read at a token that exists (a REQUIRED_TOKENS contract token needs no '
+      + 'fallback at all), or — if a DECK is meant to set it — add it to AUTHOR_SET_ENGINE_TOKENS '
+      + 'with the reason.');
+  }
+
+  // The author-set list is LOGGED, not blessed: a stale entry is an error, so the
+  // list shrinks visibly rather than rotting.
+  // Read in EITHER arm — a token excused as author-set may appear as a bare read (most of
+  // them do) rather than in a fallback chain, and counting only chains made every bare-read
+  // entry look stale the moment arm C landed.
+  const everRead = new Set();
+  for (const h of hops) { everRead.add(bareName(h.token)); everRead.add(bareName(h.target)); }
+  for (const f of listFilesByExt(LIB_DIR, ['.css'])) {
+    const src = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of src.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)) everRead.add(bareName(m[1]));
+  }
+  const stale = AUTHOR_SET_ENGINE_TOKENS
+    .filter((r) => !everRead.has(bareName(r.token)) || declared.tokens.has(bareName(r.token)));
+  if (stale.length) {
+    errors.push(
+      `${stale.length} AUTHOR_SET_ENGINE_TOKENS entr(ies) are stale — no longer read as a fallback `
+      + `chain in lib/, or now declared by the engine: ${stale.map((r) => `--${r.token}`).join(', ')}. `
+      + 'Delete them; a list that outlives what it excuses stops describing the tree.');
   }
 }
 
@@ -8867,6 +9534,9 @@ function run() {
   checkSyntaxInkContrast(errors);
   checkFontMetricsPin(errors);
   checkFallbackContracts(errors);
+  checkPhantomTokenReads(errors);
+  checkHljsSeparation(errors);
+  checkMutedTierFloors(errors);
   return {
     errors,
     counts: {
@@ -8925,6 +9595,15 @@ module.exports = {
   checkFallbackContracts,
   ledgerContractProblems,
   fallbackHops,
+  checkPhantomTokenReads,
+  checkHljsSeparation,
+  checkMutedTierFloors,
+  A11Y_SYNTAX_CONDITIONS,
+  HLJS_ROLES,
+  engineDeclaredTokens,
+  runtimeWrittenTokens,
+  AUTHOR_SET_ENGINE_TOKENS,
+  SLIDE_BOUND_DOCS_EMITTERS,
   KNOWN_CONTRACT_DROPS,
   SANCTIONED_TOKEN_CONTRACTS,
   auditPdfOwnership,

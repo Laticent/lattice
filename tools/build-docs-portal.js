@@ -132,6 +132,10 @@ const PORTAL_URL = 'https://slidewright.github.io/lattice/components/';
 const PORTAL_TOKENS = [
   'bg', 'bg-alt', 'border',
   'text-heading', 'text-body', 'text-muted',
+  // The DECORATION half of what --text-muted used to be (#1715): rules, hairlines,
+  // empty/skipped marks. The docs chrome reads it too, and a token the portal does
+  // not emit is a token the docs site reads and never resolves.
+  'muted-mark',
   'accent', 'accent-soft', 'on-accent', 'surface-inverse',
   // The per-palette categorical series (each tuned per palette AND light/dark),
   // so the docs chrome can use distinct-but-on-palette colours — e.g. the Card

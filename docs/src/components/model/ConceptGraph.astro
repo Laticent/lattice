@@ -81,8 +81,8 @@ import ConceptLattice from './ConceptLattice.astro';
   .cg-graph :global(.cg-gedge) { position: absolute; top: 0; left: 0; height: 2px; transform-origin: 0 50%; border-radius: 2px;
     will-change: transform, opacity;
     background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), color-mix(in srgb, var(--accent) 18%, transparent)); }
-  .cg-graph :global(.cg-gedge.struct) { background: linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 60%, transparent), color-mix(in srgb, var(--text-muted) 15%, transparent)); }
-  .cg-graph :global(.cg-gedge.ortho) { height: 1px; background: repeating-linear-gradient(90deg, var(--text-muted) 0 5px, transparent 5px 11px); }
+  .cg-graph :global(.cg-gedge.struct) { background: linear-gradient(90deg, color-mix(in srgb, var(--muted-mark) 60%, transparent), color-mix(in srgb, var(--muted-mark) 15%, transparent)); }
+  .cg-graph :global(.cg-gedge.ortho) { height: 1px; background: repeating-linear-gradient(90deg, var(--muted-mark) 0 5px, transparent 5px 11px); }
 
   .cg-controls { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .cg-cap { margin: 0; text-align: center; max-width: 54ch; font: 400 14px/1.5 var(--sl-font-system, serif); color: var(--text-body); }

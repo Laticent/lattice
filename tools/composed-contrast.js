@@ -271,7 +271,10 @@ const SURFACES = [
   // NB the component maps the pass CELL to a --fail wash and vice versa on
   // purpose (a heat map reads "hot = attention"), so the tokens below are the
   // wash hues, not the state names.
-  ...[['14', '--fail'], ['14', '--warn'], ['10', '--pass'], ['6', '--text-muted']].map(([pct, tok]) => ({
+  // The neutral row's wash moved from --text-muted to --muted-mark in #1715: it is a
+  // 6% DECORATIVE wash, and --text-muted is now the AA-floored TEXT half of that split.
+  // Re-derived from the CSS rather than deleted, as the drift check asks.
+  ...[['14', '--fail'], ['14', '--warn'], ['10', '--pass'], ['6', '--muted-mark']].map(([pct, tok]) => ({
     id: `obligation-matrix/heat-${tok.replace(/^--/, '')}`,
     ctx: `obligation-matrix.heat: table body ink on the ${pct}% ${tok} cell wash`,
     base: '--bg',

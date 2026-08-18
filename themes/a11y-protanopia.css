@@ -31,4 +31,89 @@
   --chart-state-warn: #946400;
   --chart-state-fail: #800613;
   --diagram-critical: #800613;
+
+  /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
+   * Until now this palette declared NONE, so a11y-base's import of onyx handed
+   * it onyx's whole family: --hljs-string green at hue 144 deg beside
+   * --hljs-keyword red at 17 deg. That pair sits on the very red-green axis this
+   * palette exists to avoid. #1720 routed the Studio's EDITOR around it; a deck
+   * rendered on this palette still got the green strings.
+   *
+   * CONTRAST WAS NEVER THE PROBLEM. Every inherited value already cleared AA on
+   * this panel, which is why checkHljsContrast passed the whole time. SEPARATION
+   * UNDER THE CONDITION was: 12 of 66 role pairs were distinct to a
+   * normal-sighted reader and collapsed for the reader this palette is for, the
+   * worst at dE 0.0041 (built_in/variable). Two colors can both clear contrast and still be the
+   * same color to the person reading them.
+   *
+   *
+   * THE CENSUS ABOVE COUNTS ALL TWELVE ROLES, and a first cut of it did not — it omitted
+   * --hljs-built_in and so quoted the SECOND-smallest pair over 55 pairs instead of the
+   * smallest over 66. That was the wrong direction to be wrong in: built_in is where the
+   * worst inherited collapse is under every condition, including an EXACT dE 0.0000 tie
+   * with --hljs-type under achromatopsia (#70C0B8 and #90B8D0 both simulate to #B2B2B2)
+   * — the single strongest piece of evidence for this change, left out of its own table.
+   * Caught by an independent checker recomputing it (HARD RULE #25).
+   *
+   * The "after" figure quoted here is the CROSS-GROUP worst. Over all 56 distinct pairs
+   * the worst is comment/punctuation (deuteranopia 0.0575, protanopia 0.0541, tritanopia
+   * 0.0643) — both are quiet by design and that pair is checkHljsContrast's to police.
+   *
+   * THE PANEL IS AN INVERTED SURFACE, which decides the seeds. --code-bg
+   * resolves to --surface-inverse (#000000, inherited from onyx) while this
+   * palette forces color-scheme:light — so these are built from the DARK side of
+   * its curated status pair, not the light side the rest of the palette renders.
+   * The light-mode --pass (#004982 on deuteranopia) would be 1.5:1 here.
+   *
+   * SIX GROUPS, NOT TWELVE. A twelve-way color distinction does not survive a
+   * dichromacy and certainly not achromatopsia; inventing one is the defect, not
+   * the fix. Roles that cannot be told apart under this condition are made
+   * DELIBERATELY identical rather than accidentally so, and the six that remain
+   * are spaced on the axes that do survive: blue 250 deg / amber 76 deg — the pair this palette already curates as --pass / --warn, plus lightness.
+   * comment and punctuation are both quiet but NOT equal — checkHljsContrast
+   * polices that pair by name, after an earlier change collapsed them into one
+   * gray in eight palettes.
+   *
+   * --code-text (#D9D9D9, the panel's UN-highlighted text) is a FIXED member of
+   * the separation set: a role that collides with it is as unreadable as two
+   * roles colliding, and an earlier cut of this ladder put the string row two hex
+   * digits off it.
+   *
+   *
+   * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
+   * path, and the difference is the whole caveat:
+   *
+   *   lattice-emulator.js (the PDF / HTML-player EXPORT) concatenates
+   *     `paletteCSS + layoutCSS`, so the base is loaded AFTER the theme and
+   *     lib/base/base.tokens.css's own --hljs-* WIN — that file says so in as many words,
+   *     and the inversion is #1527, unshipped. Verified on a rendered PDF of this palette:
+   *     the `function` keyword samples #C792EA, the BASE's --hljs-keyword, byte-exact.
+   *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
+   *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
+   *     --hljs-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
+   *   The live slide preview (Studio + docs site) loads the theme last too, measured on
+   *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
+   *
+   * So these families paint today on the engine path and the live preview, and not in an
+   * emulator-exported PDF until #1527 flips that order. A first cut of this comment said
+   * flatly "the export path" and was too broad in one direction after being too narrow in
+   * the other.
+   * Measured on THESE values, simulated: worst pair dE 0.1143
+   * (identifier/string), against 0.0041 for what was inherited. Lowest contrast on
+   * the panel 4.69:1. Gated by checkHljsSeparation, which
+   * measures the SIMULATED values — no existing gate did. .hljs-comment,
+   * .hljs-built_in and .hljs-title also carry font-style:italic from
+   * highlight-js.css, a second channel that survives every condition. */
+  --hljs-comment:     #777777;   /* comment */
+  --hljs-keyword:     #E09900;   /* structure */
+  --hljs-built_in:    #E09900;   /* structure */
+  --hljs-number:      #FFBF5B;   /* numeric */
+  --hljs-literal:     #FFBF5B;   /* numeric */
+  --hljs-string:      #82C0FF;   /* string */
+  --hljs-title:       #E09900;   /* structure */
+  --hljs-type:        #319CFC;   /* identifier */
+  --hljs-variable:    #319CFC;   /* identifier */
+  --hljs-params:      #319CFC;   /* identifier */
+  --hljs-tag:         #E09900;   /* structure */
+  --hljs-punctuation: #878787;   /* punctuation */
 }

@@ -255,7 +255,7 @@
   width: 0.55cqi;
   height: 0.55cqi;
   border-radius: 50%;
-  background: var(--text-muted);
+  background: var(--muted-mark);
   opacity: 0.85;
   flex: 0 0 auto;
 }
@@ -296,7 +296,7 @@
   background: light-dark(
     color-mix(in oklab, var(--bg-alt) 92%, var(--border)),
     color-mix(in oklab, var(--bg-alt) 72%, var(--border)));
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--border) 65%, var(--text-muted));
+  border: var(--chart-hairline) solid color-mix(in oklab, var(--border) 65%, var(--muted-mark));
   /* THE one category cue: a crisp left keyline at the full lane ink. */
   border-left: 0.42cqi solid var(--lane-color, var(--border));
   /* Square the LEFT corners so the keyline reads as one continuous edge; right
@@ -305,7 +305,7 @@
   box-shadow: none;
 }
 :is(section.kanban, figure.kanban).keyline.dark .kanban-card {
-  border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
+  border-color: color-mix(in oklab, var(--border) 70%, var(--muted-mark));
 }
 /* Lane label quiet; the keyline carries the colour, so drop the dot. */
 :is(section.kanban, figure.kanban).keyline .kanban-lane { color: var(--text-secondary); }
@@ -383,7 +383,7 @@
 }
 :is(section.kanban, figure.kanban).tinted.dark .kanban-card {
   background: color-mix(in oklab, var(--bg-alt) 88%, white);
-  border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
+  border-color: color-mix(in oklab, var(--border) 70%, var(--muted-mark));
 }
 /* Lane label quiet; drop the dot (colour now lives on the lane, not the card). */
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }

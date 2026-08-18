@@ -80,14 +80,14 @@
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--pass);        --state-mark:var(--mark-check); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--warn);        --state-mark:var(--mark-dash);  }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--text-label); }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--text-muted);  --state-mark:var(--mark-slash); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark);  --state-mark:var(--mark-slash); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
   content:'';
   position:absolute;
   inset:0;
   border-radius:50%;
-  background-color:var(--state-color, var(--text-muted));
+  background-color:var(--state-color, var(--muted-mark));
 }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::after {
   content:'';
@@ -250,7 +250,7 @@
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
-  --state-color:var(--text-muted);
+  --state-color:var(--muted-mark);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
 }
@@ -302,7 +302,7 @@
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::before,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::before {
   border-radius:50%;
-  background-color:var(--state-color, var(--text-muted));
+  background-color:var(--state-color, var(--muted-mark));
 }
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::after,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::after {
@@ -327,7 +327,7 @@
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped .row-text {
   color:var(--text-muted);
   text-decoration:line-through;
-  text-decoration-color:color-mix(in srgb, var(--text-muted) 60%, transparent);
+  text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent);
 }
 
 /* Horizons row left rail picks up the state colour (overrides the
@@ -356,6 +356,18 @@
   color:var(--state-color, var(--text-muted));
   padding-bottom:2px; /* sanctioned: hairline-scale label spacing (was margin-bottom, kept in-box) */
   line-height:1.2;
+}
+
+/* The SKIPPED label is the one TEXT read of --state-color, and that local is graphical
+ * (3:1) — it paints discs, rings and rails, and both the legend above and `heat` in
+ * base.modifiers.css set it to --muted-mark. Overriding the local for the whole cell
+ * would desync the legend from the cells it decodes, so the repair is here, at the read:
+ * the label alone takes the 4.5 text tier. Scoped with `.state-skipped`, so it also wins
+ * against `section.heat`, which re-points --state-color later in the bundle at equal
+ * specificity and re-broke an earlier version of this fix (#1715). */
+:is(section.roadmap, figure.roadmap).status td.cell-state.state-skipped .cell-state-label,
+:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label {
+  color:var(--text-muted);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {
   display:block;
@@ -395,7 +407,7 @@
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state::after {
   border-radius:50%;
-  background-color:var(--state-color, var(--text-muted));
+  background-color:var(--state-color, var(--muted-mark));
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state::before {
   background-color:var(--bg);

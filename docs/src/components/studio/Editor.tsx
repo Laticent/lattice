@@ -1,13 +1,15 @@
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
+import { yamlFrontmatter } from '@codemirror/lang-yaml';
+import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
-import { editorTheme } from './editor-theme';
+import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
@@ -359,7 +361,40 @@ export const Editor = React.forwardRef<EditorHandle, {
 						lineNumbers(),
 						history(),
 						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
-						markdown(),
+						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
+						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
+						// closing `---` reads as the underline — so `marp: true / theme: … ` rendered bold
+						// in the accent color, indistinguishable from `# Title`, as the first thing an
+						// author sees on opening any deck. Found by a red team running the real parser over
+						// this PR's own demo deck (#1715).
+						yamlFrontmatter({ content: markdown() }),
+						// The deck editor was the ONE Studio editing surface with no highlighting at
+						// all: it composed `markdown()` + `editorTheme` and no `syntaxHighlighting(…)`,
+						// so the deck source rendered as bare text nodes with ZERO token spans, while
+						// CodeField (studioHighlight) and the Playground (latticeHighlight) both
+						// highlighted. Found while verifying #1720 — a run pointed at this editor
+						// measures nothing and reports a pass.
+						//
+						// `studioHighlight` rather than a bespoke Markdown-only style, so this surface and
+						// CodeField cannot drift (syntax-highlight-parity.test.ts pins them per role).
+						//
+						// WHAT THIS ACTUALLY PAINTS, measured by running the real parser over a deck
+						// rather than assumed. An earlier version of this comment claimed the Markdown
+						// token set is "heading, emphasis, link, code span, quote"; three of those five
+						// get no rule, because `studioHighlight` was written for CSS and JS:
+						//
+						//   heading (`#`, `##`)          -> --syntax-keyword-ink, weight 600
+						//   `<!-- _class: X -->`         -> --text-muted, italic (it is a comment)
+						//   front-matter keys            -> --text-heading, colons on --text-muted
+						//   link / url                   -> --syntax-keyword-ink, underlined
+						//   **strong**, *em*, `code`, "> -> UNSTYLED (no t.strong/t.emphasis/
+						//                                 t.monospace/t.quote row in the map)
+						//
+						// So it is a HEADING SPINE plus quiet metadata, not full colorization — which is
+						// the right amount for a writing surface, but it is not what "makes the directives
+						// visible at a glance" would suggest: the directives are the QUIETEST thing here,
+						// deliberately, because they are chrome an author reads past.
+						syntaxHighlighting(studioHighlight),
 						acComp.current.of(buildAutocomplete()),
 						lintComp.current.of(buildLint()),
 						lintGutter(),

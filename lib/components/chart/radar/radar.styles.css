@@ -39,9 +39,9 @@
  */
 
 :is(section.radar, figure.chart-frame) {
-  --radar-grid:       color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 20%, transparent);
-  --radar-spoke:      color-mix(in srgb, var(--text-muted) 34%, transparent);
+  --radar-grid:       color-mix(in srgb, var(--muted-mark) 42%, transparent);
+  --radar-grid-soft:  color-mix(in srgb, var(--muted-mark) 20%, transparent);
+  --radar-spoke:      color-mix(in srgb, var(--muted-mark) 34%, transparent);
   --radar-fill:       18%;   /* series-colour share in the polygon fill */
 }
 
@@ -148,7 +148,7 @@
 /* ── target: actual vs a reference polygon, per-axis gap segments ─────── */
 :is(section.radar, figure.chart-frame) .radar-poly--target {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--muted-mark);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -170,7 +170,7 @@
 /* ── delta: before → after, per-axis change segments ──────────────────── */
 :is(section.radar, figure.chart-frame) .radar-poly--before {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--muted-mark);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -184,8 +184,8 @@
 
 /* ── benchmark: hero series over a min–max envelope band ──────────────── */
 :is(section.radar, figure.chart-frame) .radar-band {
-  fill: color-mix(in srgb, var(--text-muted) 22%, transparent);
-  stroke: color-mix(in srgb, var(--text-muted) 48%, transparent);
+  fill: color-mix(in srgb, var(--muted-mark) 22%, transparent);
+  stroke: color-mix(in srgb, var(--muted-mark) 48%, transparent);
   stroke-width: 1;
 }
 :is(section.radar, figure.chart-frame) .radar-poly--hero {
@@ -330,8 +330,8 @@ section.radar.minimal .radar-poly--hero {
   fill: none;
 }
 section.radar.minimal {
-  --radar-grid:      color-mix(in srgb, var(--text-muted) 26%, transparent);
-  --radar-grid-soft: color-mix(in srgb, var(--text-muted) 13%, transparent);
+  --radar-grid:      color-mix(in srgb, var(--muted-mark) 26%, transparent);
+  --radar-grid-soft: color-mix(in srgb, var(--muted-mark) 13%, transparent);
 }
 section.radar.minimal .radar-band {
   fill: none;
@@ -342,9 +342,9 @@ section.radar.minimal .radar-band {
  * legend ink and the dot halo flip on their own — only the grid tokens
  * (built on the fixed --text-muted) need a nudge for dark-surface contrast. */
 section.radar.dark {
-  --radar-grid:       color-mix(in srgb, var(--text-muted) 62%, transparent);
-  --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 32%, transparent);
-  --radar-spoke:      color-mix(in srgb, var(--text-muted) 52%, transparent);
+  --radar-grid:       color-mix(in srgb, var(--muted-mark) 62%, transparent);
+  --radar-grid-soft:  color-mix(in srgb, var(--muted-mark) 32%, transparent);
+  --radar-spoke:      color-mix(in srgb, var(--muted-mark) 52%, transparent);
   --radar-fill:       24%;
 }
 

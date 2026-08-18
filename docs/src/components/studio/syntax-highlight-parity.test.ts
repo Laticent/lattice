@@ -138,3 +138,30 @@ describe('the Playground highlighter uses the same contrast-repaired tokens', ()
 		for (const c of colorsOf(latticeHighlight, 'latticeHighlight')) expect(c, c).toMatch(/^var\(--[a-z0-9-]+\)$/);
 	});
 });
+
+// A HighlightStyle that is never INSTALLED paints nothing, and the map above cannot tell
+// the difference. Editor.tsx composed `markdown()` + `editorTheme` and no
+// `syntaxHighlighting(…)` extension at all, so the deck editor rendered its source as bare
+// text nodes with ZERO token spans — every assertion above passed the whole time (#1715,
+// found while verifying #1720). So each CodeMirror surface is checked for the extension
+// itself, at the source, which is where the omission lived.
+describe('every CodeMirror surface INSTALLS its highlighter', () => {
+	const SURFACES: Array<{ file: string; style: string }> = [
+		{ file: 'Editor.tsx', style: 'studioHighlight' },
+		{ file: 'CodeField.tsx', style: 'studioHighlight' },
+	];
+	for (const { file, style } of SURFACES) {
+		it(`${file} composes syntaxHighlighting(${style})`, async () => {
+			const fs = await import('node:fs');
+			const nodePath = await import('node:path');
+			// Resolved from the vitest root (docs/), not `import.meta.url` — under vitest that
+			// is a VIRTUAL module path, so fileURLToPath yields `/src/components/...` and the
+			// read fails with ENOENT rather than measuring the file.
+			const abs = nodePath.resolve(process.cwd(), 'src/components/studio', file);
+			const src = fs.readFileSync(abs, 'utf8');
+			expect(src.length, `${file}: read nothing — re-point this test`).toBeGreaterThan(500);
+			expect(src, `${file} builds a CodeMirror editor without installing a highlighter`)
+				.toMatch(new RegExp(`syntaxHighlighting\\(\\s*${style}\\s*\\)`));
+		});
+	}
+});

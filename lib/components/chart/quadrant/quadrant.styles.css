@@ -49,9 +49,15 @@
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
 :is(section.quadrant, figure.chart-frame) {
-  --quadrant-frame:   color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-split:   color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-target:  color-mix(in srgb, var(--text-muted) 78%, transparent);
+  --quadrant-frame:   color-mix(in srgb, var(--muted-mark) 42%, transparent);
+  --quadrant-split:   color-mix(in srgb, var(--muted-mark) 28%, transparent);
+  --quadrant-target:  color-mix(in srgb, var(--muted-mark) 78%, transparent);
+  /* The badge is SVG <text> (the numeric threshold, 10px/700 — quadrant.transform.js
+   * builds it with wrapSvgLabel), so it cannot ride --quadrant-target: that local is a
+   * 78%-alpha tint of the GRAPHICAL tier, tuned for the target LINE it shares a name
+   * with. Measured on cuoio/light it painted 2.52:1. One local was serving two floors,
+   * which is the same defect #1715 split --text-muted for, one level down. */
+  --quadrant-target-ink: var(--text-muted);
   /* On-field labels sit on the vivid pie-matched zone fills, so they take
    * maximum-contrast ink rather than the softened --text-heading: true black
    * on the light canvas, true white on dark. light-dark() flips it off the
@@ -333,7 +339,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 
 /* ── Threshold variant: target badges at the axis crossings ───────────── */
 :is(section.quadrant, figure.chart-frame) .quadrant-target-badge {
-  fill: var(--quadrant-target);
+  fill: var(--quadrant-target-ink);
   font-family: var(--font-label, var(--font-body));
   font-size: 10px;
   font-weight: 700;
@@ -344,8 +350,8 @@ section.quadrant.minimal .quadrant-tint {
   fill: none;
 }
 section.quadrant.minimal {
-  --quadrant-frame: color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-split: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  --quadrant-frame: color-mix(in srgb, var(--muted-mark) 28%, transparent);
+  --quadrant-split: color-mix(in srgb, var(--muted-mark) 18%, transparent);
 }
 section.quadrant.minimal .quadrant-bubble {
   fill: none;
@@ -356,7 +362,8 @@ section.quadrant.minimal .quadrant-hull {
 
 /* ── dark: lift frame + split for dark surfaces (composable) ──────────── */
 section.quadrant.dark {
-  --quadrant-frame:  color-mix(in srgb, var(--text-muted) 58%, transparent);
-  --quadrant-split:  color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-target: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  --quadrant-frame:  color-mix(in srgb, var(--muted-mark) 58%, transparent);
+  --quadrant-split:  color-mix(in srgb, var(--muted-mark) 42%, transparent);
+  --quadrant-target: color-mix(in srgb, var(--muted-mark) 88%, transparent);
+  --quadrant-target-ink: var(--text-muted);
 }

@@ -29,7 +29,7 @@
  * in tailwind.css — not here. */
 
 :root {
-	scrollbar-color: color-mix(in srgb, var(--text-muted) 38%, transparent) transparent;
+	scrollbar-color: color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent;
 	scrollbar-width: thin;
 	/* Checkboxes, radios, range + progress, and the text caret — one line each,
 	 * universal support, so form controls stop rendering in OS blue. */

@@ -35,7 +35,8 @@
 	--border: #e4eaf2;
 	--text-heading: #0a1628;
 	--text-body: #1e3a5f;
-	--text-muted: #6b7f9a;
+	--text-muted: #5c6f8a;
+	--muted-mark: #6b7f9a;
 	--accent: #006fa8;
 	--accent-soft: #eff6fc;
 	--on-accent: #ffffff;
@@ -112,7 +113,8 @@
 		--border: #0f3a5f;
 		--text-heading: #ffffff;
 		--text-body: #cbd9e8;
-		--text-muted: #6b7f9a;
+		--text-muted: #7c91ac;
+		--muted-mark: #6b7f9a;
 		--accent: #82c8e5;
 		--accent-soft: #002847;
 		--on-accent: #003d66;

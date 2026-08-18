@@ -592,7 +592,7 @@ type CanvasHandleSpec = { key: string; label: string; x: number; y: number; tone
 // The tone color per handle — accent for spotlight/mark, an ink gray-blue for the wash
 // hotspot — exposed as `--tone` so the knob gradient + reticle strokes recolor from one var.
 const handleTone = (tone: 'accent' | 'ink') =>
-	tone === 'accent' ? 'var(--accent)' : 'color-mix(in srgb, var(--ink, var(--accent)) 74%, var(--border))';
+	tone === 'accent' ? 'var(--accent)' : 'color-mix(in srgb, var(--text-heading) 74%, var(--border))';
 
 // A named LABEL chip beside the mark, so multiple handles are told apart at a glance. It
 // flips to the opposite side near an edge so it never clips off the specimen.

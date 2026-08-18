@@ -15,7 +15,7 @@
    * hue". That keeps the ramp monotonic ABOVE the neutral in both light and
    * dark: a low value can never sink darker than an empty region the way a
    * mix-toward-`--bg` ramp does on a dark canvas. */
-  --map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
+  --map-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
   width: 100%;
   height: 100%;
   display: flex;
@@ -27,7 +27,7 @@
   /* Also define --map-base on the SVG itself (not just .map-figure): Read·Article
    * re-hosts the bare .map-svg outside .map-figure, so the choropleth/neutral
    * regions need the base anchor on an ancestor that survives the re-host. */
-  --map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
+  --map-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
   min-width: 0;
   /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
    * map scales to the room it's actually given (it was pinned small at 56cqi).

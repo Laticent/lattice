@@ -388,7 +388,7 @@ section footer {
  * See lib/transformers/pill-tag.js + 2026-06-08-inline-code-contrast.md.
  *
  * Per-layout custom-property hooks (defaults in parens):
- *   --pill-border  (var(--text-muted))   border colour
+ *   --pill-border  (var(--muted-mark))   border color
  *   --pill-bg      (var(--bg))           fill colour
  *   --pill-fg      (var(--text-body))    text colour
  *
@@ -432,7 +432,7 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
   font-size:var(--pill-fs);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  border:1px solid var(--pill-border, var(--text-muted));
+  border:1px solid var(--pill-border, var(--muted-mark));
   background:var(--pill-bg, var(--bg));
   color:var(--pill-fg, var(--text-body));
   border-radius:var(--pill-radius);
@@ -503,6 +503,10 @@ section.print {
   --text-label: var(--print-text-label);
   --text-secondary: var(--print-text-secondary);
   --text-muted: var(--print-text-muted);
+  /* Remapped WITH its text sibling. Splitting the role (#1715) and remapping only one
+   * half would leave print/export decoration on the theme's value while its text moved
+   * to paper ink — a divergence that did not exist when one token served both. */
+  --muted-mark: var(--print-muted-mark);
   --accent: var(--print-accent);
   --accent-soft: var(--print-accent-soft);
   --on-accent: var(--print-on-accent);
@@ -1074,7 +1078,7 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  *   full   (was good)  → alarm  (var(--fail))
  *   half   (was caution) → caution (var(--warn) — unchanged)
  *   empty  (was bad)   → relief (var(--pass))
- *   skip   (was muted) → muted  (var(--text-muted) — unchanged)
+ *   skip   (was muted) → muted  (var(--muted-mark) — the graphical tier since #1715)
  *
  * Selectors match the per-layout default --state-color assignments above
  * exactly, so specificity ties; this block is placed AFTER the layout
@@ -1129,7 +1133,7 @@ section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
 section.heat td.cell-state.state-skipped,
-section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--text-muted); }
+section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS

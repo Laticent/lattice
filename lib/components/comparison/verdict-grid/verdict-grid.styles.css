@@ -11,11 +11,11 @@
  * state-half / state-empty / state-slashed. Replaces the prior Unicode
  * ✓/–/✗ glyphs (font-dependent) with a font-independent disc+mask recipe;
  * the SHAPE carries the meaning independently of colour. */
-.badge { position:relative; display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; gap:6px; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--text-muted); color:var(--text-body); }
+.badge { position:relative; display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; gap:6px; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--muted-mark); color:var(--text-body); }
 .badge.pass { --state-color:var(--pass); }
 .badge.warn { --state-color:var(--warn); }
 .badge.fail { --state-color:var(--fail); }
-.badge.skip { --state-color:var(--text-muted); color:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--text-muted) 60%, transparent); }
+.badge.skip { --state-color:var(--muted-mark); color:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* Disc (leading ::before, in flex flow) + mark (::after, overlaid on the
  * disc). Colours mixed here from --state-color + the scalar knobs; disc
  * style follows the default (Ringed Solid) or a .checks-* variant. Mirror
@@ -27,10 +27,10 @@
   width:calc(0.95em * var(--state-disc-scale)); height:calc(0.95em * var(--state-disc-scale));
   border-radius:50%;
   box-sizing:border-box;
-  background:color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-fill-pct), transparent);
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--text-muted));
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
 /* Mark overlay — anchored to the disc, which sits at the badge's left pad. */
 .badge::after {
@@ -38,7 +38,7 @@
   position:absolute;
   left:var(--pill-pad-x); top:50%; transform:translateY(-50%);
   width:calc(0.95em * var(--state-disc-scale)); height:calc(0.95em * var(--state-disc-scale));
-  background-color:color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-mark-pct), var(--bg));
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }
@@ -81,7 +81,7 @@ section.verdict-grid > .cell-stage > ul > li > strong { font-weight:inherit; col
 /* Inner ul = badge row */
 section.verdict-grid > .cell-stage > ul > li > ul { display:flex; flex-wrap:wrap; gap:0.390625cqi; list-style:none; padding:0; margin:0; align-content:flex-start; }
 /* Badge items (all but last nested li) — neutral pill */
-section.verdict-grid > .cell-stage > ul > li > ul > li:not(:last-child) { display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--text-muted); color:var(--text-body); }
+section.verdict-grid > .cell-stage > ul > li > ul > li:not(:last-child) { display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--muted-mark); color:var(--text-body); }
 /* When emitter/runtime ran: strip neutral pill so .badge span styles through cleanly */
 section.verdict-grid > .cell-stage > ul > li > ul > li:not(:last-child):has(.badge) { background:none; border:none; padding:0; }
 /* Body text (last nested li) — reset inherited card-title styles */

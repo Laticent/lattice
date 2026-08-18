@@ -98,7 +98,7 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > co
   display:inline-flex; align-items:center; line-height:1;
   font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking); text-transform:none;
-  border:1px solid var(--pill-border, var(--text-muted));
+  border:1px solid var(--pill-border, var(--muted-mark));
   background:var(--pill-bg, var(--bg)); color:var(--pill-fg, var(--text-body));
   border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x);
   white-space:nowrap;

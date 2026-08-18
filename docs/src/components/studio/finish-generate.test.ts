@@ -74,7 +74,7 @@ describe('finish-generate', () => {
 			expect(css, 'hex literal violates HARD RULE #3').not.toMatch(/#[0-9a-f]{3,8}\b/i);
 			expect(css, 'margin violates HARD RULE #20').not.toMatch(/(^|[\s;{])margin\b/i);
 			// Palette-blind — color comes only through var()/color-mix.
-			expect(css).toMatch(/var\(--accent\)|var\(--fin-canvas, var\(--bg\)\)|var\(--ink/);
+			expect(css).toMatch(/var\(--accent\)|var\(--fin-canvas, var\(--bg\)\)|var\(--text-heading/);
 		}
 	});
 
@@ -109,7 +109,7 @@ describe('finish-generate', () => {
 			expect(screen, 'url() adds exfil surface').not.toMatch(/url\(/i);
 			expect(screen, 'hex literal violates HARD RULE #3').not.toMatch(/#[0-9a-f]{3,8}\b/i);
 			expect(screen, 'margin violates HARD RULE #20').not.toMatch(/(^|[\s;{])margin\b/i);
-			expect(screen).toMatch(/var\(--accent\)|var\(--fin-canvas, var\(--bg\)\)|var\(--ink/);
+			expect(screen).toMatch(/var\(--accent\)|var\(--fin-canvas, var\(--bg\)\)|var\(--text-heading/);
 		}
 	});
 

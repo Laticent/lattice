@@ -116,20 +116,31 @@ export const editorTheme = EditorView.theme({
 // `--hljs-*` below AA on the editor's canvas (worst 1.01:1). Hence a solved tier rather
 // than a direct read.
 //
-// COMMENTS AND PUNCTUATION DELIBERATELY STAY ON `--text-muted`, AND THAT TOKEN IS NOT AA.
-// An earlier cut of this change first excluded them on a claim that was simply false — that
-// "--text-muted is AA against the canvas by contract" (true of `--text-body` and
-// `--text-heading`, false of `--text-muted`, which is below AA on 44 of 72
-// palette-mode-surface pairs, worst 2.11:1 on magnolia/light against `--bg-alt`, 2.47:1
-// against `--bg`). It then over-corrected and pulled both rows into the tier, which was worse:
-// the solve moves lightness AWAY from the canvas, which is where `--text-body` already sits,
-// so on cuoio/light — the default palette and mode — comment-to-body separation collapsed from
-// OKLab 0.198 to 0.038, and `.cm-gutters` / `.cm-completionDetail` above still read
-// `--text-muted`, leaving the line numbers DIMMER than the comment beside them.
+// COMMENTS AND PUNCTUATION DELIBERATELY STAY ON `--text-muted`, AND THAT TOKEN IS NOW AA.
+// This block said the opposite until #1715 and the correction is worth keeping, because both
+// halves of the history are load-bearing.
 //
-// So the honest scope is: this tier does not own `--text-muted`. Repairing it means repairing
-// the token, so the gutter, the completion chrome, the docs captions and the comment row move
-// together — a theme-token change with a much wider blast radius, tracked separately.
+// #1703 excluded these rows on a claim that was simply false — that "--text-muted is AA
+// against the canvas by contract". It was not: below AA on 44 of 72 palette-mode-surface
+// pairs, worst 2.11:1. #1688 then over-corrected, pulling both rows into the derived tier,
+// and that was worse — the solve moves lightness AWAY from the canvas, which is where
+// `--text-body` already sits, so comment-to-body separation collapsed while `.cm-gutters` and
+// `.cm-completionDetail` stayed on the raw token, leaving the line numbers DIMMER than the
+// comment beside them. That version was reverted.
+//
+// #1715 repaired the TOKEN instead, which is what §9 of that record said the honest scope was:
+// `--text-muted` now clears 4.5:1 on `--bg` and `--bg-alt` across all 36 palette-modes, gated
+// by `checkMutedTierFloors`, and the decoration it used to double as moved to `--muted-mark`.
+// So the gutter, the completion chrome, the docs captions and this comment row all moved
+// TOGETHER — the inverted hierarchy is gone.
+//
+// WHAT DID NOT GET FIXED, stated here because this is the surface it lands on: the MARGIN.
+// On cuoio/light — the default palette and mode — the repaired `--text-muted` sits OKLab
+// 0.038 from `--text-body`, so on that one palette the line numbers and the comment row are
+// close to the color of the code beside them. Ordering survives everywhere (muted is never
+// louder than body); the gap does not, on the palettes whose body ink is itself near the AA
+// floor. That is a property of those palettes, not of this map — see the decision record's
+// §3 for the distribution and why no token choice avoids it.
 //
 // `t.invalid` KEEPS `--fail`, and that is not residue from the same compromise — invalid
 // input is precisely what a status token names.

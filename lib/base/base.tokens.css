@@ -747,6 +747,11 @@
   --print-text-label:      #2E2E2E;
   --print-text-secondary:  #3D3D3D;
   --print-text-muted:      #6E6E6E;
+  /* The DECORATION half of the muted tier (#1715). Same value as the text half, which
+   * is what reproduces the pre-split print output exactly: before the role was split,
+   * one token served both and the remap below moved them together. Kept as its own
+   * token rather than aliased so the two can diverge on paper later without a rename. */
+  --print-muted-mark:      #6E6E6E;
 
   --print-accent:          #1A1A1A;  /* accent is text-bearing → ink, not hue */
   --print-accent-soft:     #ECECEC;

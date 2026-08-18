@@ -43,7 +43,7 @@ section.cards-grid > .cell-stage > ul > li > code,
 section.cards-grid > .cell-stage > ol > li > code { flex:0 0 auto;
   display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1;
   font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  background:var(--bg); border-color:var(--text-muted); color:var(--text-body); }
+  background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
 /* — card body (nested list) — full-width row below the title. */
 section.cards-grid > .cell-stage > ul > li > ul, section.cards-grid > .cell-stage > ul > li > ol,
 section.cards-grid > .cell-stage > ol > li > ul, section.cards-grid > .cell-stage > ol > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
@@ -69,7 +69,7 @@ section.cards-grid .card > strong { flex:1 1 auto; min-width:0; }
 section.cards-grid .card > code { flex:0 0 auto;
   display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1;
   font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  background:var(--bg); border-color:var(--text-muted); color:var(--text-body); }
+  background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
 section.cards-grid .card > ul, section.cards-grid .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
 section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 /* — numbered cards (ol): flush corner tag via absolute ::before — */
@@ -122,7 +122,7 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > code,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > code { flex:0 0 auto;
   display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1;
   font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  background:var(--bg); border-color:var(--text-muted); color:var(--text-body); }
+  background:var(--bg); border-color:var(--muted-mark); color:var(--text-body); }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ul,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ol,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ul,

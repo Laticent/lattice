@@ -9,7 +9,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { simulate, distanceUnder, canonicalType, CVD_TYPES } = require('../../../lib/theme/cvd.js');
+const { simulate, distanceUnder, canonicalType, CVD_TYPES, ACHROMATOPSIA, SIMULATED_TYPES } = require('../../../lib/theme/cvd.js');
 const { oklabDistance, normalizeHex } = require('../../../lib/theme/color.js');
 
 const isHex = v => /^#[0-9a-f]{6}$/.test(v);
@@ -17,6 +17,46 @@ const isHex = v => /^#[0-9a-f]{6}$/.test(v);
 describe('theme-cvd', () => {
   test('CVD_TYPES is the three dichromacies', () => {
     assert.deepEqual([...CVD_TYPES].sort(), ['deuteranopia', 'protanopia', 'tritanopia']);
+  });
+
+  // ACHROMATOPSIA is a MONOCHROMACY, not a dichromacy — it has no Machado matrix and is
+  // deliberately absent from CVD_TYPES (tools/cvd-audit.js loops over that list). It was
+  // added for #1715, where a11y-achromatopsia's syntax family has to be measured under the
+  // condition the palette is named for.
+  test('SIMULATED_TYPES adds the monochromacy without changing CVD_TYPES', () => {
+    assert.deepEqual([...SIMULATED_TYPES].sort(),
+      ['achromatopsia', 'deuteranopia', 'protanopia', 'tritanopia']);
+    assert.ok(!CVD_TYPES.includes(ACHROMATOPSIA), 'CVD_TYPES is the dichromacies only');
+  });
+
+  test('achromatopsia keeps only luminance, and preserves grays exactly', () => {
+    for (const gray of ['#000000', '#767676', '#808080', '#ffffff']) {
+      assert.equal(simulate(gray, ACHROMATOPSIA), gray, `${gray} under achromatopsia`);
+    }
+    // Every output is neutral: R = G = B.
+    for (const hex of ['#d12f2f', '#2f9e44', '#1971c2', '#f6c700']) {
+      const out = simulate(hex, ACHROMATOPSIA);
+      assert.ok(isHex(out), `${hex} → ${out}`);
+      assert.equal(out.slice(1, 3), out.slice(3, 5), `${out} is neutral`);
+      assert.equal(out.slice(3, 5), out.slice(5, 7), `${out} is neutral`);
+    }
+    // It is LUMINANCE, not a channel average: onyx's --hljs-string (#80B880, a mid
+    // green) is far brighter than its --hljs-keyword (#E05060, a red) even though the
+    // red has the higher single-channel maximum.
+    assert.ok(simulate('#80B880', ACHROMATOPSIA) > simulate('#E05060', ACHROMATOPSIA));
+    // The property the a11y syntax families are designed against (#1715), on the real
+    // values: onyx's --hljs-string (green 144°) and --hljs-number (yellow-green 104°),
+    // which the four a11y palettes used to inherit, are 0.1009 apart to a normal-sighted
+    // reader and 0.0604 under achromatopsia — hue carries nothing, so only the small
+    // lightness difference survives. Comment vs keyword is worse still, at 0.0408.
+    assert.ok(distanceUnder('#80B880', '#C8C060', ACHROMATOPSIA) < 0.07);
+    assert.ok(distanceUnder('#767676', '#E05060', ACHROMATOPSIA) < 0.05);
+  });
+
+  test('canonicalType accepts the monochromacy and its aliases', () => {
+    assert.equal(canonicalType('achromatopsia'), 'achromatopsia');
+    assert.equal(canonicalType('Achroma'), 'achromatopsia');
+    assert.equal(canonicalType('MONOCHROMACY'), 'achromatopsia');
   });
 
   test('canonicalType maps clinical names, short aliases, and normal', () => {

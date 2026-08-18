@@ -56,7 +56,7 @@ section.redline > .cell-stage > blockquote {
   padding:var(--sp-md) var(--sp-lg);
   background:var(--bg-alt);
   border:1px solid var(--border);
-  border-left:4px solid var(--text-muted);
+  border-left:4px solid var(--muted-mark);
   border-radius:0 var(--radius-md) var(--radius-md) 0;
   font-family:var(--font-display);
   font-size:var(--fs-body);

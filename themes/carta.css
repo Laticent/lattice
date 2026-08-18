@@ -45,7 +45,8 @@
   --text-body:    light-dark(#3A3127, var(--scheme-dark-text-body));    /* ~9:1 on paper  */
   --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label));
   --text-secondary: light-dark(#574C3D, var(--scheme-dark-text-secondary)); /* AA both */
-  --text-muted:   light-dark(#897C68, var(--scheme-dark-text-muted));   /* decorative */
+  --text-muted:   light-dark(#736753, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   light-dark(#897C68, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
   /* ── Accent — fountain-pen ink blue ────────────────────────────────── */
   --accent:      light-dark(var(--brand-accent), #9DB8DC);
@@ -110,7 +111,8 @@
   --scheme-dark-border:       #3C3328;
   --scheme-dark-text-heading: #FBF6EC;
   --scheme-dark-text-body:    #E7DDC9;
-  --scheme-dark-text-muted:   #897C68;
+  --scheme-dark-text-muted:   #998C77;
+  --scheme-dark-muted-mark:   #897C68;
   --scheme-dark-text-secondary: #B2A78F;
   --scheme-dark-text-label:   #C9B68E;
   --scheme-dark-text-display: #FFFFFF;

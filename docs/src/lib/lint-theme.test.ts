@@ -32,13 +32,6 @@ const contrast = (a: string, b: string) => {
 	const [l1, l2] = [relLum(a), relLum(b)];
 	return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 };
-// srgb `color-mix(in srgb, A p%, B)` — the exact form MUTED_INK uses.
-const mix = (a: string, b: string, p: number) => {
-	const A = (a.replace('#', '').match(/../g) as string[]).map((x) => Number.parseInt(x, 16));
-	const B = (b.replace('#', '').match(/../g) as string[]).map((x) => Number.parseInt(x, 16));
-	return `#${A.map((v, i) => Math.round(v * p + B[i] * (1 - p)).toString(16).padStart(2, '0')).join('')}`;
-};
-
 describe('lintTheme', () => {
 	it('kills the stock severity rail, glyph background and squiggle image', () => {
 		// The whole visible defect in the bug report is stock interior chrome: a 5px
@@ -230,25 +223,29 @@ describe('lintTheme', () => {
 		}
 	});
 
-	it('lifts recessive ink past 3:1 on every palette, which --text-muted alone does not', () => {
+	// This test used to assert the OPPOSITE — that bare `--text-muted` drops below 3:1
+	// on at least one shipped palette, which is what justified mixing it 55% into
+	// `--text-body`. #1715 made that premise false: `--text-muted` is now the AA-floored
+	// TEXT half of a split role and clears 4.5:1 on every palette-mode against both
+	// surfaces. So the mix is gone and the token is read directly; the assertion is
+	// inverted to pin the contract that replaced it, rather than deleted.
+	it('reads --text-muted directly, because it now carries an AA floor', () => {
 		const rows = paletteRows();
 		expect(rows.length).toBeGreaterThan(20); // sanity: the sheet really parsed
 		const failures: string[] = [];
-		let mutedWouldFail = 0;
+		let measured = 0;
 		for (const { palette, mode, vars } of rows) {
-			const { bg, 'text-muted': muted, 'text-body': body } = vars;
-			if (!bg || !muted || !body) continue;
-			if (contrast(muted, bg) < 3) mutedWouldFail++;
-			const lifted = contrast(mix(muted, body, 0.55), bg);
-			if (lifted < 3) failures.push(`${palette}/${mode} ${lifted.toFixed(2)}:1`);
+			const { bg, 'text-muted': muted } = vars;
+			if (!bg || !muted) continue;
+			measured++;
+			const r = contrast(muted, bg);
+			if (r < 4.5) failures.push(`${palette}/${mode} ${r.toFixed(2)}:1`);
 		}
-		// The defect this guards against is real, not hypothetical: bare
-		// --text-muted drops below 3:1 on at least one shipped palette.
-		expect(mutedWouldFail).toBeGreaterThan(0);
+		expect(measured).toBeGreaterThan(20); // not vacuous
 		expect(failures).toEqual([]);
-		// And the rule id / Note glyph must actually use the lifted ink.
+		// And the rule id / Note glyph must actually use it.
 		expect(lintTheme['.cm-tooltip-lint .cm-diagnosticSource'].color).toBe(MUTED_INK);
-		expect(MUTED_INK).toBe('color-mix(in srgb, var(--text-muted) 55%, var(--text-body))');
+		expect(MUTED_INK).toBe('var(--text-muted)');
 	});
 
 	it('keeps severity tokens above 3:1 against the popup fill on every palette', () => {

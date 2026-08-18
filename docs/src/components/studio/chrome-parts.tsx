@@ -21,19 +21,21 @@ import type { Posture } from './studio-store';
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two
 // copies would drift silently.
 //
-// It is `--text-muted`, not the `bg-border` a shadcn `Separator` defaults to. Measured
+// It is `--muted-mark`, not the `bg-border` a shadcn `Separator` defaults to. This is a RULE
+// — the first noun in --muted-mark's own definition — and it read `--text-muted` until #1715
+// split that token; the 2.64:1 quoted below is the value that moved to --muted-mark. Measured
 // on the rendered bar in cuoio light, `--border` against the header ground is **1.32:1**
 // (1.42:1 dark) — a rule that faint cannot carry the banding it is there for, which is
 // why a visual review recommended deleting all three separators outright and letting
 // proximity do the work. The owner's call was the other way: keep the device, make it
-// readable. `--text-muted` is **2.64:1** — visible at a glance, and still well short of
+// readable. `--muted-mark` is **2.64:1** — visible at a glance, and still well short of
 // `--text-body` (5.95:1), which at 1px reads as a border around a region rather than a
 // seam between bands. `h-6` over `h-5` for the same reason: a 24px rule in a 54px bar
 // reads as deliberate where 20px read as incidental.
 //
 // This is the ONLY place the weight is set. Do not restyle the shared `Separator`
 // primitive to match — other surfaces depend on its `bg-border` default.
-export const BAR_RULE = 'h-6 bg-[var(--text-muted)]';
+export const BAR_RULE = 'h-6 bg-[var(--muted-mark)]';
 
 // ONE HEIGHT for every control in the top bar, and one for a member inside a bordered
 // group. Before this the row ran SIX heights — launcher 38, appearance box 38, dial 35,

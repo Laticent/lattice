@@ -59,7 +59,13 @@ export interface ChartAnimaOptions {
   buildSpan?: number;
   /** The AssetMap key the returned scene references (default 'chart'). */
   assetKey?: string;
-  /** Stroke color token applied to a highlighted mark so its emphasis reads (default var(--ink)). */
+  /** Stroke color token applied to a highlighted mark so its emphasis reads
+   *  (default `var(--text-heading)` — the slide's neutral ink, a REQUIRED_TOKENS contract token,
+   *  so it needs no fallback). It used to default to `var(--ink)`, which no palette declares and
+   *  nothing writes at render time (#1715): `resolveColor` (anima/backends/paint.ts) sets the value
+   *  on a probe span parented to the host and reads `getComputedStyle`, and `color` is INHERITED —
+   *  so an undeclared custom property made the declaration invalid at computed-value time and the
+   *  probe returned the HOST's own text color. The stroke was never the emphasis color it named. */
   highlightColor?: string;
 }
 
@@ -213,7 +219,7 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   const highlight = new Set(opts.highlightMarks ?? []);
   // The emphasis stroke must be a palette-blind token (HARD RULE #3) — an invalid/hard-coded value
   // falls back to the default rather than baking a raw color into the asset.
-  const highlightColor = opts.highlightColor && validateColor(opts.highlightColor) === null ? opts.highlightColor : 'var(--ink)';
+  const highlightColor = opts.highlightColor && validateColor(opts.highlightColor) === null ? opts.highlightColor : 'var(--text-heading)';
 
   // Geometry marks (bars/sectors/…) build; text marks (labels/values) follow. Document order is
   // the build order, which for a top-to-bottom funnel reads correctly.

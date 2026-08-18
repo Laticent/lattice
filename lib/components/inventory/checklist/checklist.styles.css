@@ -102,12 +102,12 @@ section.checklist > .cell-stage > ol > li.state.todo {
 }
 section.checklist > .cell-stage > ul > li.state.skip,
 section.checklist > .cell-stage > ol > li.state.skip {
-  --state-color:var(--text-muted);
+  --state-color:var(--muted-mark);
   border-left-color:var(--state-color);
   background:var(--bg-alt);
   color:var(--text-muted);
   text-decoration:line-through;
-  text-decoration-color:color-mix(in srgb, var(--text-muted) 50%, transparent);
+  text-decoration-color:color-mix(in srgb, var(--muted-mark) 50%, transparent);
 }
 
 /* Universal state token — coloured disc + distinct in-disc mark in the
@@ -134,14 +134,14 @@ section.checklist > .cell-stage > ol > li.state::after {
 section.checklist > .cell-stage > ul > li.state::before,
 section.checklist > .cell-stage > ol > li.state::before {
   border-radius:50%;
-  background:color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-fill-pct), transparent);
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--text-muted));
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
 section.checklist > .cell-stage > ul > li.state::after,
 section.checklist > .cell-stage > ol > li.state::after {
-  background-color:color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-mark-pct), var(--bg));
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }

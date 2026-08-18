@@ -595,13 +595,13 @@ section.finish-halo {
     radial-gradient(
       78% 78% at 50% 50%,
       transparent 60%,
-      color-mix(in srgb, var(--ink, var(--accent)) 7%, transparent) 100%
+      color-mix(in srgb, var(--text-heading) 7%, transparent) 100%
     );
   --fin-edge-opaque:
     radial-gradient(
       78% 78% at 50% 50%,
       var(--fin-canvas) 62%,
-      color-mix(in srgb, var(--ink, var(--accent)) 5%, var(--fin-canvas)) 100%
+      color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 100%
     );
   --fin-edge-position: center;
   --fin-edge-size: cover;
@@ -689,13 +689,13 @@ section.finish-nimbus {
     radial-gradient(
       82% 82% at 50% 50%,
       transparent 58%,
-      color-mix(in srgb, var(--ink, var(--accent)) 8%, transparent) 100%
+      color-mix(in srgb, var(--text-heading) 8%, transparent) 100%
     );
   --fin-edge-opaque:
     radial-gradient(
       82% 82% at 50% 50%,
       var(--fin-canvas) 60%,
-      color-mix(in srgb, var(--ink, var(--accent)) 6%, var(--fin-canvas)) 100%
+      color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 100%
     );
   --fin-edge-position: center;
   --fin-edge-size: cover;

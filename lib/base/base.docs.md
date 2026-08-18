@@ -89,7 +89,9 @@ slides and dark themes). All three dark bookend slides (title, divider,
 closing) override the color to `--on-dark-secondary` automatically.
 (Before the 2026-06-05 token-structure audit the eyebrow rode the
 decorative `--text-muted`, which dropped below AA in several themes —
-see `engineering/decisions/2026-06-05-token-structure-audit.md`. And
+see `engineering/decisions/2026-06-05-token-structure-audit.md`. That
+token no longer drops below AA anywhere: #1715 gave it the floor its name
+always implied and moved the decoration to `--muted-mark`. And
 until 2026-08-11 `closing` alone rode `--on-dark-ghost`, the decorative
 chrome rung, at 2.49–2.91:1 in every palette; ghost carries **no text**
 and is now the rule/divider tier — see
@@ -1349,8 +1351,9 @@ scope; the leaf disc mixes the actual colours from `--state-color` +
 `--bg`, so variants stay theme-aware. See `base.modifiers.css`.
 
 **Theme tokens:** `--pass`, `--warn`, `--fail` (disc fill + ring + left
-bar), `--text-label` (the neutral `[ ]` todo ring) and `--text-muted`
-(`[/]`); plus `--pass-bg` / `--warn-bg` / `--fail-bg` (10% color-mix row
+bar), `--text-label` (the neutral `[ ]` todo ring) and `--muted-mark`
+(`[/]` — the skipped mark is a SHAPE, so it takes the 3:1 graphical tier;
+it read `--text-muted` until #1715 split that token's two roles); plus `--pass-bg` / `--warn-bg` / `--fail-bg` (10% color-mix row
 tints). The mark *shapes* are the shared masks `--mark-check` /
 `--mark-dash` / `--mark-x` / `--mark-slash` (each with a `-bold` sibling for
 `checks-bold`); the neutral `[ ]` todo uses no mask — it's a hollow ring.
