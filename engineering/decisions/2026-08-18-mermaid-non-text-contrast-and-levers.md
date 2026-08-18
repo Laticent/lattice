@@ -280,7 +280,7 @@ went dark-on-dark; the two palettes with **zero** failing shapes in either schem
 Two per-palette notes worth having before someone re-derives them:
 
 - **`concrete` is the worst palette in both schemes, for different reasons.** In dark it is
-  §3. In light its canvas is `#B8B8B5`, a mid-grey, so the gantt grid (`#D1D1D1`, 1.30:1)
+  §3. In light its canvas is `#B8B8B5`, a mid-gray, so the gantt grid (`#D1D1D1`, 1.30:1)
   and today marker (`#B7B7B7`, 1.01:1) — values curated against a white page — vanish into
   it. It owns the two worst light-mode *ratios*; `magnolia/light` has more failing rows (4
   against 3), so "worst in light" depends on which you are optimizing.
@@ -387,3 +387,46 @@ A second scare was not a regression: the three `--diagram-*-mark` tokens measure
 actually judges a shape — does it have ANY visible edge — the three gantt lifecycle bars went
 from 29/14/25 failing to **0/0/0**. Border-vs-fill in isolation is not the question, which is
 precisely why the discernibility rule exists.
+
+### 8.5 Corrections from the independent check (post-merge-candidate review)
+
+A `checker` pass over the shipped diff found six things this note and the change asserted
+that measurement contradicts. All are fixed; they are listed because the pattern is the
+same one §8.1 and §8.2 already record — **a claim reasoned from a config surface rather
+than from rendered output.**
+
+1. **The sankey fix was itself a regression, and is reverted.** Overriding
+   `mix-blend-mode` to `normal` made dark ribbons visible and washed the node LABELS
+   under them from 15.66:1 to 3.32:1 — below AA, on an accessibility change. Mermaid
+   appends `g.node-labels` before `g.links`, so ribbons paint over labels, and multiply
+   was what protected them. The opacity bump that made it worse was justified with an
+   arithmetically false claim (multiply against white is the identity). Dark sankey is
+   now a documented limitation rather than a silent one.
+2. **`nodeBkg` and `compositeBorder` are inert** in mermaid 11.14 — each appears only as
+   its own assignment, never read by a style block. Dropped. 36 keys added became 34.
+3. **`compositeBackground` and `compositeTitleBackground` both read `--c-container`**,
+   collapsing a composite state's title band into its body. They now take the two rungs
+   of the containment ladder. No deck in the tree exercises a composite state, which is
+   why it shipped unrendered.
+4. **Three rationales were false.** `arrowheadColor` derived to a LIGHT peach, not
+   near-black — it was off-palette, never invisible. `personBkg` already derived to the
+   same value it now names, so stating it is intent rather than repair. `rowOdd`/`rowEven`
+   lose to `mermaid.css`'s `!important` pins on a Lattice slide and matter only for the
+   baked value.
+5. **The lever census was unsound in two ways** and is fixed: its color test excluded CSS
+   named colors — so `gridColor` and `todayLineColor`, the two keys §8.3 re-points, were
+   never in the population the "honors all of them" claim was measured over — and its
+   probe used one repeated hex, which cannot detect mermaid's two same-family clobbers.
+   243 emitted, not 234.
+6. **`state-chart` was undisclosed.** It is the only non-Mermaid consumer of
+   `--diagram-stroke` and its accent edge moved: better on dark, three to five times
+   lighter on light, nothing below the floor. Now named in the changelog and §5.3f.
+
+**One finding was NOT accepted.** The check reported 67 border-vs-fill pairs crossing
+below 3:1 on light decks and read that as a regression the gate's ANY-edge rule hides.
+The rule is deliberate and this note argues it in §2: a filled shape whose fill separates
+from the canvas is legible whether or not its border does, and judging border-vs-fill
+alone condemns shapes that read fine — demonstrated by the three gantt lifecycle bars,
+which score ~60/64 "broken" on that measure and 0/64 on discernibility. What the finding
+does establish is that the gate constrains `--diagram-stroke` through a single pair, which
+is a real coverage limit and is stated in the gate's own docblock.

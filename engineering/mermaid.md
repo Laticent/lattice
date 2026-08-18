@@ -243,7 +243,9 @@ mis-assigned key is simply re-judged against the tier it was mis-assigned to.
 `primaryBorderColor`, `secondaryBorderColor`, `tertiaryBorderColor`, `nodeBorder`,
 `actorBorder`, `labelBoxBorderColor`, `activationBorderColor`, `pieOuterStrokeColor`,
 `taskBorderColor`, `tagLabelBorder`, `quadrantExternalBorderStrokeFill`, `border2`,
-and both `xyChart` axis line colors. Every palette used to declare it as a flat,
+and both `xyChart` axis line colors. (`border2` is the weakest of the fourteen —
+mermaid consumes it in exactly one rule, `div.mermaidTooltip`'s border, which cannot
+exist in an export.) Every palette used to declare it as a flat,
 mode-invariant literal (`#000000` on onyx, `#1F4A6E` on indaco), so on a dark canvas
 it was a dark line on a dark page: 24 of 64 palette-modes had a flowchart node, gantt
 bar, pie slice and sequence actor with **no discernible edge at all**, and the a11y
@@ -258,6 +260,17 @@ the right rule all along (`withChroma(withLightness(e.accent, 0.5), 0.09)` — l
 `concrete` needed a `light-dark()` pair, because its light canvas is a mid-gray
 `#B8B8B5` that no single value can bridge to a near-black dark canvas. **There are 14
 values to curate, not 32: every `-dark` twin inherits its base's through `@import`.**
+
+**`--diagram-stroke` REACHES ONE NON-MERMAID SURFACE**, and re-curating it moved that
+surface too: `state-chart` reads it for the node's leading accent edge
+(`state-chart.styles.css`, `--state-node-stroke` / `--fill-ink` / `.state-node-accent`).
+Measured in real Chromium, accent against the tile it sits on, the change is a trade
+that is good in dark and costly in light — onyx 1.35 → 3.42 dark but 15.91 → 3.44
+light; indaco 1.56 → 3.47 dark, 7.27 → 3.27 light. **No light context drops below the
+3:1 floor, and every dark one rises toward it** (magnolia dark 1.02 → 2.59 is still
+under, but far better than it was). The light accent is nonetheless three to five times
+lighter than it was, which is a visible change to that component and is called out here
+because nothing else in the change mentions it.
 
 **Curating a new palette's stroke:** pick a mid-tone in the palette's own hue that
 clears 3:1 against BOTH its canvases, and reach for `light-dark()` only when the two
@@ -292,20 +305,33 @@ control is limited. That is testable: send a sentinel for every color key Mermai
 emits — alone, and again alongside the engine's full set — and see which come back.
 
 ```
-mermaid emits            234 color themeVariables
+mermaid emits            243 color themeVariables
 Lattice sets             196
-unused (a lever exists)   49
+unused (a lever exists)   50
+of ours, not in a bare base theme   3   (fontFamily, labelColor, labelBackground)
 mermaid IGNORES            0   <- keys with no lever at all
 our own keys overridden    0
 ```
 
+The three headline numbers do NOT partition on their own, and the report prints the
+missing term rather than leaving it to be re-derived: 243 − 50 = 193 shared, and
+196 − 3 ours-only = 193. Two earlier defects in this census are worth knowing, because
+both made it assert more than it had measured. Its color test matched only
+`#`/`rgb()`/`hsl()`, so the nine keys mermaid states as bare CSS names were invisible
+to it — including `gridColor` and `todayLineColor`, the two keys this page's own table
+re-points, which the "honors all of them" claim had therefore never probed. And it
+built our theme from a single repeated hex, which cannot detect a clobber that assigns
+one of our keys FROM another — mermaid has two such assignments. Distinct per-key
+sentinels now; the answer is unchanged, the method now earns it.
+
 *(`node tools/audit-diagram-contrast.mjs --report levers`.)* **Nothing is clobbered in
 either direction.** Mermaid's color maths is a *fallback for unstated keys*, not an
 override of stated ones — so an off-brand color in a Lattice diagram is a token pointed
-at the wrong tier or a key nobody named, never a knob Mermaid withheld. 36 keys were
-stated for the first time in this pass (the stateDiagram set, the requirementDiagram
+at the wrong tier or a key nobody named, never a knob Mermaid withheld. 34 keys are
+stated for the first time in this pass (36 were tried; `nodeBkg` and `compositeBorder`
+turned out to be inert in mermaid 11.14 and were dropped) (the stateDiagram set, the requirementDiagram
 set, architecture's edges and group border, `venn1`–`venn8`, C4's `personBkg`, the ER
-row bands, `nodeBkg`/`border2`/`arrowheadColor`, `xyChart.dataLabelColor`), which is
+row bands, `border2`/`arrowheadColor`, `xyChart.dataLabelColor`), which is
 where the stock-looking state, requirement, venn, architecture and C4 renders came from.
 
 **Two things are genuinely outside `themeVariables`**, and are worth knowing before
