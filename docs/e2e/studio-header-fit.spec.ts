@@ -111,7 +111,11 @@ const STOPS = CHROME.postureStops.map((name) => ({ name, word: name.split(' —'
  *  one-file fix there (the #780 failure mode) rather than a sweep. 'Present', 'Share'
  *  and the tablet 'Settings' button have no CHROME entry — 'Slide settings' is a
  *  different control — so they stay literal here. */
-const TAIL = ['Present', 'Share', CHROME.feedback, 'Settings', CHROME.moreControls];
+// The row's trailing run. `Settings` used to be here and is not any more: it was a
+// tablet-only inline button, and the 2026-08-18 width ladder moved it into the overflow
+// menu at every width along with Coach and Chat. `searchOverflow` closes the run at every
+// width from 700 up — it is the row's permanent right edge.
+const TAIL = ['Present', 'Share', CHROME.feedback, CHROME.searchOverflow];
 
 type HeaderShape = { over: number; menu: { x: number; right: number } | null; x: Record<string, number>; tall: { name: string; h: number }[] };
 
@@ -305,10 +309,17 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 	for (const width of WIDTHS) {
 		await page.setViewportSize({ width, height: 900 });
 		const compact = width < DESKTOP;
-		// The breakpoint flip is a matchMedia listener + a React render; wait on the
-		// OBSERVABLE consequence (the ⋯ Menu exists below 1100 and not at/above it)
-		// rather than on a sleep, so the measurement can never race the re-layout.
-		await expect(header.getByRole('button', { name: CHROME.moreControls, exact: true })).toHaveCount(compact ? 1 : 0);
+		// Wait on an OBSERVABLE consequence of the re-layout rather than on a sleep, so the
+		// measurement can never race it.
+		//
+		// It used to wait on "the ⋯ Menu exists below 1100 and not at/above it" — a signal
+		// that only worked because the row was built in TIERS, which is exactly what the
+		// 2026-08-18 pass removed. The overflow menu is now permanent from 700 up: it is the
+		// row's right edge at every width, and what sits inside it is decided by width alone.
+		// So the settle signal is the SEARCH pill, which is present at every width and whose
+		// LABEL appears at `xl` — a width-driven change that still proves the re-render ran.
+		await expect(header.getByRole('button', { name: CHROME.searchOverflow, exact: true })).toHaveCount(1);
+		await expect(header.getByRole('button', { name: /Search or run/ })).toHaveCount(1);
 
 		const perStop: Record<string, HeaderShape> = {};
 		for (const stop of STOPS) {
@@ -372,7 +383,7 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 			expect(legible.clipPath, `${stop.word} @ ${width}px is clipped away (the modern visually-hidden idiom)`).toBe('none');
 			expect(legible.paintedHere, `${stop.word} @ ${width}px is not painted where its box says it is (off-screen, ancestor-clipped, or covered)`).toBe(true);
 
-			const shape = await readHeaderSettled(page, TAIL, CHROME.moreControls);
+			const shape = await readHeaderSettled(page, TAIL, CHROME.searchOverflow);
 			expect(shape.over, `header self-overflow at ${width}px on ${stop.word}`).toBeLessThanOrEqual(TOLERANCE);
 			expect(
 				shape.tall,
@@ -488,42 +499,55 @@ test('the inline search does not burst the row when it opens, at every tier that
 
 	for (const width of OPEN_SEARCH_WIDTHS) {
 		await page.setViewportSize({ width, height: 900 });
-		const compact = width < DESKTOP;
 		// Wait on the observable breakpoint consequence, never a sleep.
-		await expect(header.getByRole('button', { name: CHROME.moreControls, exact: true })).toHaveCount(compact ? 1 : 0);
+		await expect(header.getByRole('button', { name: CHROME.searchOverflow, exact: true })).toHaveCount(1);
 
 		for (const stop of STOPS) {
 			const button = header.getByRole('button', { name: stop.name }).first();
 			await button.click();
 			await expect(button, `${stop.word} @ ${width}px should be the lit stop`).toHaveAttribute('aria-pressed', 'true');
 
-			// THE LAUNCHER, asserted both ways. Desktop draws the pill (it becomes the field);
-			// tablet draws none, because its row measures 0px of spare from 700 through 834 and
-			// a 34px pill would come straight out of the deck title. Pinning both directions is
-			// what stops this test quietly becoming a no-op if a tier loses its pill.
+			// THE LAUNCHER IS THE PILL AT EVERY WIDTH, and this assertion is the one that
+			// would have caught the bug it used to encode. It read: "desktop draws the pill;
+			// tablet draws NONE, because its row measures 0px of spare and a 34px pill would
+			// come out of the deck title" — and it passed, while a tablet user had no visible
+			// way to search at all. Owner, 2026-08-18: *"portrait on tablet hides the search
+			// button? your approach is whack."*
+			//
+			// The premise was the mistake, not the measurement: the row genuinely had no spare
+			// width, but the answer is to demote what matters less, not to delete the control
+			// that reaches everything. Under the width ladder the pill persists and Coach,
+			// Chat, Settings, feedback, theme and tours overflow into the menu instead.
+			// Below `xl` it is an icon-only button; from `xl` it grows its label and ⌘K hint.
 			const pill = header.getByRole('button', { name: 'Search or run a command' });
 			await expect(
 				pill,
-				`at ${width}px on ${stop.word} the search launcher should be ${compact ? 'the ⋯ menu / ⌘K (no pill — the tablet row has no spare width)' : 'the header pill'}`,
-			).toHaveCount(compact ? 0 : 1);
+				`at ${width}px on ${stop.word} the search pill must be in the row — it persists at EVERY width; things that matter less overflow into the menu instead`,
+			).toHaveCount(1);
 
-			if (compact) await page.keyboard.press('ControlOrMeta+k');
-			else await pill.first().click();
+			await pill.first().click();
 			// Wait on the OBSERVABLE consequence of opening, never a sleep.
 			await expect(header.getByPlaceholder('Search or run a command…')).toBeVisible();
 			await expect(pill).toHaveCount(0);
 
-			const open = await readHeaderSettled(page, TAIL, CHROME.moreControls);
+			const open = await readHeaderSettled(page, TAIL, CHROME.searchOverflow);
 			expect(
 				open.over,
 				`the open search bursts the row at ${width}px on ${stop.word} by ${open.over}px — the scroll valve is lifted while the field is open, so this overflow CANNOT be scrolled and whatever spills is unreachable. Fix the field's sizing in CommandPalette.tsx; do not raise this tolerance.`,
 			).toBeLessThanOrEqual(TOLERANCE);
 
-			// THE TAIL IS GONE, not merely on-screen. This is the contract that lets the field
-			// grow without the deck title paying, so it is asserted rather than assumed — and
-			// asserting absence also catches the opposite regression, a tail that renders but
-			// off-viewport, which is what the previous version of this check allowed.
-			for (const name of TAIL) {
+			// THE TAIL YIELDS — but into the overflow menu, not into nothing. This is the
+			// contract that lets the field grow without the deck title paying, so it is
+			// asserted rather than assumed, and asserting ABSENCE also catches the opposite
+			// regression: a tail that renders but off-viewport, which an earlier version of
+			// this check allowed.
+			//
+			// `searchOverflow` is exempt and that exemption is the point. The row used to go
+			// completely empty on the right, which the owner reported from a real iPad —
+			// *"it looks really odd that it takes up all the space"* — so the hamburger stays
+			// as the row's right edge and carries everything that just left. If it ever
+			// vanished with the rest, the bar would read as amputated again.
+			for (const name of TAIL.filter((n) => n !== CHROME.searchOverflow)) {
 				expect(
 					open.x[name],
 					`${name} is still in the header with the search open at ${width}px on ${stop.word} — the row is supposed to yield its whole right-hand side, and if it no longer does, the width has to come from somewhere else (it used to come out of the deck title)`,
@@ -538,8 +562,10 @@ test('the inline search does not burst the row when it opens, at every tier that
 			// an open field — the state leak that would make later widths lie. The tail coming
 			// back is the observable consequence of closing at every tier, pill or not.
 			await page.keyboard.press('Escape');
-			await expect(pill).toHaveCount(compact ? 0 : 1);
-			await expect(header.getByRole('button', { name: CHROME.moreControls, exact: true })).toHaveCount(compact ? 1 : 0);
+			// The pill comes back at EVERY width — `compact ? 0 : 1` was the old tier rule,
+			// and it is the same wrong premise as the launcher assertion above.
+			await expect(pill).toHaveCount(1);
+			await expect(header.getByRole('button', { name: CHROME.searchOverflow, exact: true })).toHaveCount(1);
 		}
 	}
 });

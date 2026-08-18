@@ -79,6 +79,21 @@ export const CHROME = {
 	 */
 	moreControls: 'Menu',
 	/**
+	 * The hamburger that stands in for the row's whole right-hand side WHILE THE INLINE
+	 * SEARCH IS OPEN. Deliberately NOT `moreControls` ('Menu'), even though both are
+	 * hamburgers: they open different doors — this one carries everything the open field
+	 * displaces (Present/Share/feedback/Workspace, plus the tablet's Coach/Chat/Settings
+	 * and the ⋯ menu's own rows), which is a superset of what 'Menu' holds. Same name,
+	 * different contents is the drift #1654 is about, in the direction the map cannot
+	 * catch. They are never on screen together: this one exists only while the field is
+	 * open, and the row's own ⋯ is inside the block that collapses into it.
+	 *
+	 * Also keeps `back-gesture.spec.ts` honest — it asserts on a bare `'Menu'` and the
+	 * SSR skeleton already ships two inert ones; a third would make that locator
+	 * ambiguous under strict mode.
+	 */
+	searchOverflow: 'More controls',
+	/**
 	 * The three posture-dial segments, in dial order. Desktop + tablet only — the
 	 * phone header gates the dial on `!mobile`, so there is no posture control there.
 	 *

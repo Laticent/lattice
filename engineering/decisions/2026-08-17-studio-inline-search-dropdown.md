@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header.
+summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header. Round three (2026-08-18) closes the two items that handback left open: the dropdown's height cap now knows about the software keyboard — it takes a third arm from `--vvh` via the same `useKeyboardInset` every mobile sheet caps against, turning the ≈0px margin computed at an iPad's landscape geometry into a small deliberate one, with the no-keyboard geometry unchanged at 100% zoom; an on-device tap then confirmed iPadOS DOES report the keyboard through visualViewport and corrected the gutter constant from 15px to 5px — and the hand-rolled dropdown container is re-litigated against the shared Radix `Popover` (HARD RULE #15) by BUILDING the non-portalled variant and measuring it: it paints, and even removes both clip workarounds, but it has to be told the offset the CSS derives, runs a measurement pipeline for a static position, wraps the listbox in `role="dialog"`, and needs seven props to switch its own behavior off. Rejected — and the one thing it would have bought, never thinking about the clips again, is bought instead as a regression test that fails if either clip returns.
 ---
 
 # The Studio's inline expanding search, and the clip nobody had looked at
@@ -426,3 +426,407 @@ move HARD RULE #23 exists to prevent. It belongs with the touch/tablet work, wit
 this measurement attached.
 
 Worth a tap on the real device before the issue is called closed.
+
+---
+
+# Round three (2026-08-18): the keyboard cap, and `Popover` re-litigated properly
+
+Two items came back from the handback above. Both are settled here.
+
+## 1. The cap now knows about the keyboard
+
+The measurement in the Verification section is the whole argument: at the width this
+feature was reported from — iPad Pro 11" landscape, 1194×834, ~350pt keyboard — the
+list ran y=61→483 against a keyboard topping out at ≈481. **It fit by ≈0px.**
+`min(60vh, 420px)` had no way to know, because neither arm shrinks for a keyboard:
+`vh` is the LARGE viewport unit, and 420px is a number picked for laptop viewports.
+
+The fix takes a third arm from the visual viewport rather than inventing a
+measurement: `useKeyboardInset` (`components/ui/panel.tsx`) already publishes `--vvh`
+— the height that is actually VISIBLE, keyboard subtracted — and every mobile sheet
+already caps against it. The inline field mounts the same hook while it is open:
+
+```
+max-h-[min(60vh, 420px, calc(var(--vvh) - 54px - 14px))]
+```
+
+`54px` is the header's own `h-[54px]`, +8px for the card's gap below the bar and +16px so
+the last row is not flush against the keyboard the way the measured case was. `_-_` in the
+source is not decoration: `calc(var(--vvh)-24px)` is invalid CSS and the declaration is
+dropped silently.
+
+**Two numbers here shipped wrong for one commit and a checker caught both.** Worth recording,
+because each was invisible in a different way.
+
+**`3.375rem` was not 54px.** It was written to mirror `panel.tsx`, which spells the same
+header that way — but that file composes it with `dvh`, while here the whole expression is px
+against a header that is a fixed `h-[54px]` (`StudioShell.tsx`, both stops). `rem` follows the
+browser's font-size setting, so at Chrome's **"Small" (12px root)** the term subtracted 40.5px
+instead of 54 and **the card bottom returned to 483 — the exact flush-with-the-keyboard number
+this arm exists to remove.** Measured across the setting, with `--vvh` forced to 484px:
+
+| root font | cap | card bottom | clearance |
+|---|---|---|---|
+| 12px ("Small") | 419.5px | **483** | **1px** |
+| 16px (default) | 406px | 469 | 15px |
+| 20px ("Large") | 392.5px | 456 | 28px |
+| 24px ("Very large") | 379px | 442 | 42px |
+
+Direction was safe for large fonts and wrong for small ones. It is now `54px`. The `minfont`
+e2e project could never have caught it: that project raises Blink's *minimum* font size, which
+does not move `getComputedStyle(html).fontSize`, so `3.375rem` still measures 54px under it.
+
+**The test written to catch the `_-_` typo could not catch it.** See §Tests below.
+
+**Measured in real Chromium, before → after:**
+
+| Viewport | `--vvh` | list cap | card | bottom edge |
+|---|---|---|---|---|
+| 1440×900 | 900px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
+| 1920×1080 | 1080px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
+| 1194×834 | 834px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
+| any | 484px (~350pt keyboard) | **416px** | y=61 h=418 | **479** |
+
+So the landscape case goes from ≈0px of margin to ~5px, and it scales: a keyboard
+carrying a predictive row shrinks `--vvh` further and the cap follows it down.
+
+### The gutter, corrected from the device (2026-08-18)
+
+The first cut of this arm subtracted 24px past the header rather than 14, and the owner
+tapped it on a real iPad: *"looks good in portrait but in landscape it falls a bit short of
+reaching the top of the digital keypad."*
+
+**That did not need re-measuring, because the gap is a constant in closed form.** Card
+bottom = `61 + cap + 2` (borders) and `cap = --vvh - N`, so the bottom lands at
+`--vvh - (N - 63)` — the SAME gap at every keyboard height, which is exactly why it read as
+a deliberate margin rather than a miss. At N=78 that constant was **15px**; confirmed in
+Chromium at `--vvh: 484` → card y=61 h=408, bottom 469, 484-469 = 15. At N=68 it is **5px**.
+
+Portrait was never affected and the report says so: there the 420px arm binds, not this one,
+so no amount of gutter tuning moves it. **The one number that had to come from hardware —
+does iPadOS report the keyboard through `visualViewport` at all — the tap answered: it does.**
+The mechanism is confirmed on device; only the constant was wrong.
+
+**Safe by construction, which is what makes it shippable without an iPad.** The new
+arm sits inside `min()`, so it can only ever make the list SHORTER. At 100% zoom with no
+keyboard, `--vvh` is the full viewport and the 420px arm still wins — which is why all three
+no-keyboard rows above are byte-identical to what round two measured. The worst case
+on a device this sandbox cannot reach is a slightly shorter list, never a worse
+occlusion.
+
+**IT ALSO SHRINKS UNDER PAGE ZOOM, and the first draft of this record said it did not.**
+`visualViewport.height` is in CSS px, so it halves at 2× — it reports what is VISIBLE, and a
+pinch shrinks that exactly as a keyboard does. Measured at 1194×834 with
+`Emulation.setPageScaleFactor: 2` (the mechanism iPad Safari's pinch drives): `--vvh`
+834→417px, cap 420→**339px**, card h 422→341. So "with no keyboard up the geometry is
+unchanged at every width" — which was in the changelog, the source comment AND this record —
+was false. All three now say what actually happens.
+
+**Kept rather than fixed, because it is the right behavior.** A 420px list inside a 417px
+visible band would have to be panned to read; a list that fits the band is correct. The rule
+for anyone editing this: **the cap tracks VISIBLE HEIGHT, not "the keyboard"** — do not
+re-derive it from `--kb`.
+
+**One consequence left alone deliberately.** Under zoom the hook also publishes a `--kb` that
+is not a keyboard — `innerHeight - vv.height` is the whole shrink, whatever caused it
+(measured 417px at 2× with no keyboard present). That is pre-existing to `useKeyboardInset`
+and inert here: an exhaustive grep of `docs/src`, `docs/public` and `lib/` found the only
+consumers of `--kb`/`--vvh` are `MOBILE_OFFSET`, `MOBILE_HEIGHT` and `PINNED_FIELD_ROW`,
+every one of them applied under a phone gate (`useIsPhone()`, a `mobile &&` call site, or a
+`max-[699px]:` prefix), and none can mount at desktop/tablet. Correcting the arithmetic means
+changing what every mobile sheet depends on, on devices this sandbox cannot test — a bigger
+and far less verifiable change than the one it would fix. **Logged, not fixed** (HARD RULE
+#18: pre-existing, off-path).
+
+**Still UNVERIFIED (HARD RULE #23):** whether iPadOS reports *this* keyboard through
+`visualViewport` at all. Headless Chromium raises no keyboard, so the arm that matters
+never binds in the browser test either. What each surface can actually hold, and does:
+
+- `command-palette-keyboard.test.tsx` — the WIRING: the listener mounts while the field
+  is open, tracks the viewport, is REMOVED on close (a stale `--vvh` would cap every
+  later surface against a keyboard that has closed), the mobile sheet mounts exactly one
+  hook's worth of listeners and not two, and the cap still NAMES `--vvh`. Verified able to
+  fail: with the hook commented out and the arm dropped, all three fail.
+- `command-palette.spec.ts` — that the cap RESOLVES correctly in a real browser: its
+  resting value, and its RESPONSE to `--vvh` being forced down to the band a 350pt keyboard
+  leaves (484 → the list must cap to 406).
+- the table above — the arithmetic, by forcing `--vvh` to that same band.
+
+**The first cut of those two tests could not catch the one typo they were written for, and
+that is the most useful thing in this section.** Both were shape checks:
+
+- the e2e asserted `max-height` matched `/^\d+px$/`, on the reasoning that *"a dropped
+  declaration reads as `none`, and nothing else would notice"*. **It does not read as
+  `none`.** `CommandList` carries its own `max-h-[300px]` base class (`command.tsx`), so a
+  dropped declaration falls back to **300px** — a silent 120px shrink at every desktop width
+  that matches the regex perfectly. Measured on the branch build: with the cap class removed,
+  `max-height: 300px`, `cardHeight: 302`, and every assertion in the guard still passed.
+- the unit test matched `max-h-[min(…var(--vvh)…)]` against the class STRING, which cannot
+  distinguish a live arm from a dead one — jsdom never resolves the value.
+
+**And a correction to the correction, which is worth more than either.** Both the source
+comment and the first draft of this section claimed the load-bearing hazard was the `_-_` →
+`-` typo: *"`calc(var(--vvh)-78px)` is invalid CSS and would drop the whole declaration."*
+**That is false on this toolchain.** Built with the un-spaced form, the generated CSS is
+byte-identical — `calc(var(--vvh) - 54px - 24px)` — because Tailwind v4 normalizes the
+operators itself. The underscores are convention and readability, not a correctness guard,
+and a test written to catch that typo would be testing nothing. Two rounds of reasoning
+rested on a hazard nobody had built; one build settled it.
+
+So the regression both tests advertised passed both tests. The e2e now asserts by **value**
+(`> 400`) and by **response** (force `--vvh: 484px`, the cap must become 406px, which only a
+live `calc()` can do); the unit test's claim is narrowed to what it can actually hold — the
+arm cannot be *removed* unnoticed.
+
+**Both assertions verified able to fail, against real mutants, rebuilt each time:** delete
+the cap class → `the cap resolved to 300px …`; delete just the `--vvh` arm → `with the
+visible band at 484px the list must cap to 406px …, got 420px`. **The lesson generalizes past this file: when asserting that a Tailwind
+declaration survived, assert the resolved VALUE, never its shape — the fallback is whatever
+base class sits underneath, and base classes are exactly what this whole record is about.**
+
+`useKeyboardInset` was documented as phone-only ("no keyboard to subtract anywhere
+else"). That is now false and the comment says so: the second caller is a desktop-and-
+tablet surface. The two callers are mutually exclusive by tier, so last-writer-wins is
+still safe — **if a third caller ever overlaps one of them, this has to become
+refcounted**, and that is written at the hook.
+
+## 2. `Popover` vs. the hand-rolled container (HARD RULE #15)
+
+Round two's answer was *"a Radix `Popover` was tried, it portals the list out of the
+`Command` subtree, three unit tests broke."* That is an argument against **one spelling
+of it**, not against the primitive — the honest question, and the one #15 actually
+asks, is whether a NON-portalled `PopoverContent` should replace the div. So it was
+built and measured rather than argued.
+
+**It works.** `PopoverContent` gained a `portal={false}` mode, the inline branch was
+rewired to `Popover` + `PopoverAnchor`, and on the real Studio at 1440 the card painted
+at y=51 h=422 w=720 with 34 items, hit-testable, and clicking an item ran its command.
+Better than that: Radix positions with `strategy: "fixed"`, which escapes overflow
+clipping outright — so the spike painted **with both clip workarounds deleted**, the
+`overflow-visible` on the `Command` root AND StudioShell's valve lift. Measured with
+the header back on `overflow: auto` throughout.
+
+**It was still rejected, and here is the honest ledger.**
+
+For:
+- deletes both clip workarounds and the coupling between `CommandPalette.tsx` and
+  `StudioShell.tsx` that they create;
+- outside-click dismissal and Escape come free from `DismissableLayer`;
+- it is the shared primitive, which is what #15 asks for on its face.
+
+Against, all measured:
+- **It has to be TOLD the offset the CSS derives.** Anchored to the field, the card
+  landed at **y=51 against a header bottom of 54** — three pixels *inside* the bar. The
+  full-height root plus `top: calc(100% + 8px)` yields 61 with no number to maintain
+  and nothing to re-derive if the header height ever moves. Moving the anchor up to the
+  `Command` root fixes the offset and then breaks dismissal, because the content now
+  sits inside the anchor and a click into the field reads as "outside".
+- **It is a measurement pipeline for a static position.** floating-ui + ResizeObserver
+  + rAF, to compute *directly under the field, exactly its width* — which is what
+  `inset-x-0` and `top: calc(100% + 8px)` already say, synchronously and for free.
+  (`--radix-popper-anchor-width` reported `0px` under jsdom, where every rect is 0×0.)
+- **It wraps the listbox in a dialog.** `PopoverContent` renders `role="dialog"`
+  (confirmed in `@radix-ui/react-popover` and live: `cardRole: "dialog"`). A combobox's
+  popup *is* its listbox; cmdk already gives it `role="listbox"` and wires
+  `aria-controls`. Not a demonstrated break — focus never enters the wrapper, so a
+  screen reader is unlikely to announce it — but it is semantics pointing the wrong way.
+- **Fitting it took seven props whose only job is switching Popover behavior off**:
+  `portal={false}`, `avoidCollisions={false}`, `onOpenAutoFocus`, `onCloseAutoFocus`,
+  `p-0`, `w-[var(--radix-popper-anchor-width)]`, and `onInteractOutside` — plus a new
+  mode on a shared primitive that no other caller wants.
+
+**The test that made the decision cheap.** Popover's one real win was never having to
+think about the clips again. That is buyable directly, and it should have been bought
+in round two: `command-palette.spec.ts` now asserts the card's box is real, starts at
+or below the header's bottom edge, is HIT-TESTABLE at its own top rows (a clipped card
+still reports a rect), and that the `Command` root has not been scrolled — *"the list
+draws inside the bar, scrolled"* was the reported symptom, produced by a root scrolled
+to 73px. **Verified able to fail, once per clip:** re-arming the `Command` root's
+`overflow-hidden` fails it, and separately, removing StudioShell's valve lift fails it
+— each with `the dropdown must clear the header, not draw inside the 54px bar`. Three
+attempts missed this bug; nothing shipped in round two could have caught a fourth.
+
+**What would change the answer.** A second surface needing an inline listbox anchored
+to a bar control — then there is a widget to share, and the question becomes which
+primitive it is built on, not whether five utility classes are a fork. As it stands the
+primitive's value is computing a position we already know, and #15's target — *don't
+fork a widget per surface* — is not what one `<div>` with `inset-x-0` is.
+
+The shadcn combobox recipe the repo already has (`ComponentPicker.tsx`: `Popover` +
+`PopoverTrigger` wrapping the whole `Command`) stays the pattern for a picker whose
+field lives *inside* the popup. It cannot express this one, where the field is the
+header row's own control and grows the row — that is the feature.
+
+## 3. Logged in passing, not fixed here (HARD RULE #18: pre-existing, off-path)
+
+Three things a checker surfaced that this change neither caused nor worsens. Recorded so
+they are not re-discovered, and deliberately kept out of the diff so #17 (one feature, one
+PR) and #8 (gallery isolation) stay intact.
+
+- **A LANDSCAPE PHONE gets neither transport's keyboard handling.** `CommandPalette`'s own
+  `mobile` is `useBreakpoint() === 'mobile'`, which EXCLUDES a landscape phone — so the
+  `PanelSheet` branch (bottom-docked field, the solved keyboard case) does not apply there
+  and it falls through to the `CommandDialog`, whose list keeps the base `max-h-[300px]` and
+  has no keyboard awareness of any kind. `StudioShell` separately gates `inline` on a
+  phone-INCLUSIVE `mobile`, so the inline field with its new cap does not apply either. The
+  shortest viewport in the whole matrix (~390px tall, keyboard guaranteed) is the one with
+  the least keyboard-aware search. Pre-existing since the sheet branch was written.
+- **`--kb` is not a keyboard under zoom.** See the round-three §1 note; inert today because
+  no consumer of `--kb` mounts above the phone tier.
+- **`StudioShell.test.tsx` › "reaches Fabricate from the launcher (not a deck mode)" is
+  flaky under parallel load** — it passes in isolation and timed out on roughly half of the
+  full-suite runs on this machine (both this round's checker and an earlier session hit it).
+  It has nothing to do with this diff — it does not use ⌘K at all — but it means any
+  "3181/3181" claim about the full docs suite is a coin-flip reproduction, and it is worth
+  knowing that before it is read as evidence of a regression somewhere.
+
+## 4. The row keeps its right edge (2026-08-18, from the same iPad session)
+
+**Ask:** *"it looks really odd that it takes up all the space. i would much rather we
+collapse the icons to the right into a hamburger menu even though it will be non
+functional once the search loses focus."*
+
+Round two had the row's trailing cluster VANISH while the field is open — `searchExpanded`
+simply dropped it — and the width that freed is genuinely needed: at tablet the row measures
+**0px of spare** from 700 through 834, so without reclaiming it the field cannot open at all.
+What was wrong is not the reclaim; it is that the row's right EDGE went with it, and a bar
+with nothing on one end reads as broken rather than as focused.
+
+So the cluster now collapses into ONE 26px hamburger pinned where it used to end, instead of
+into nothing. Measured on the built site with the field open: the button sits at x=1394 of
+1440 (right edge 1426, i.e. the header's own 14px padding) at desktop and x=778 of 820 at
+tablet, and `scrollWidth === clientWidth` at both — the reclaim is intact.
+
+**What goes in is "everything the row hides"** — the owner's call over a narrower
+Present/Share/feedback set. That is a different list per tier, and the gates are load-bearing:
+desktop displaces theme, light/dark, tours, Present, Share, feedback and Workspace; tablet
+displaces Coach, Chat, Settings and the ⋯ menu itself, so everything reachable THROUGH that ⋯
+(Library, Reader views) is displaced too and belongs in here. Measured: 28 rows at desktop,
+33 at tablet. The one row deliberately omitted is the ⋯ menu's "Search / commands" — it opens
+the very field this menu only exists underneath.
+
+### The trap: a sibling control cannot survive its own press
+
+The hamburger is a SIBLING of the `Command` widget, not a descendant, and the field's
+dismissal is a **capture-phase** `pointerdown` listener that closes on any target outside
+`inlineRef`. So the search closed on the very press that opens the menu, unmounting the
+trigger mid-gesture: the button rendered, had its accessible name, and did nothing.
+
+`[data-inline-search-keep-open]` is the exception — anything the row marks as belonging to
+the open-search state counts as inside. **Nothing else would have caught its removal**, which
+is why the guard is explicit: `command-palette.spec.ts` presses the button and requires the
+menu to appear. Verified able to fail — with the exception deleted and the site rebuilt, it
+reports `the overflow menu did not open — the search dismissed itself on the press`.
+
+A second, smaller lesson from writing that guard: its last assertion first ran a row that
+opens a **modal** (Workspace settings), which marks the row inert — so "Present is not
+visible" afterwards said nothing about whether the row had come back. It now runs the
+light/dark row, which opens nothing, so the assertion is about the row and not about an
+overlay sitting on top of it.
+
+### Naming
+
+The button is **"More controls"**, deliberately not `CHROME.moreControls` ('Menu') which the
+tablet ⋯ already uses. Same idiom, different door: this one's contents are a superset. Same
+name with different contents is the drift #1654 is about, in the direction the map cannot
+catch — and a third `aria-label="Menu"` would also make `back-gesture.spec.ts`'s bare `'Menu'`
+locator ambiguous, since the SSR skeleton ships two inert ones already. Registered as
+`CHROME.searchOverflow`.
+
+## 5. Round five: the header is a width ladder, not three device tiers (2026-08-18)
+
+**Ask, and it was a rejection of the previous three rounds' framing:** *"portrait on tablet
+hides the search button? your approach is whack. this is a simple problem with full parity
+between desktop, tablet landscape portrait. also remember the user can resize the window on
+desktop. the behavior i want is based on width. search input is available if there is
+sufficient width. if not, it turns into a button. if search is clicked it hides all the
+other buttons under a hamburger button and keeps the order… as the available width decreases
+things that persist are the logo drop down, deck selection dropdown, dial and search,
+everything else goes into the hamburger."*
+
+**The complaint was right and the measurement was worse than the complaint.** A pure width
+ladder at a fixed height — so nothing in it can be orientation or device:
+
+| width | search? | what the row kept |
+|---|---|---|
+| 1920 → 1100 | yes | title · dial · search · Present · Share · feedback |
+| 1024 → 700 | **no** | 13 controls: Present, Share, Coach, Chat, Settings, feedback, dark mode, Menu… |
+| 640 | no | 5 |
+
+Search died at **1024 — on a resized desktop window too**, and the priority was inverted:
+Coach, Chat, Settings and the dark-mode toggle all outranked the one control that reaches
+everything. Two mechanisms did it, which is why it read as a device-tier rule: the pill
+carried `hidden … lg:flex` (`display:none` below 1024) AND the caller passed
+`idlePill={!compact}` (suppressed below 1100). At 700 the row *also* overflowed by 20px with
+the deck title crushed to **42px**.
+
+**The previous rounds' reasoning was the actual defect.** #1712 measured "the tablet row has
+0px of spare from 700 through 834" and concluded the search pill could not fit. The premise
+was true; the conclusion was backwards. When a row is full you demote what matters least —
+you do not delete the control that reaches everything. That mistake was then written into
+`studio-header-fit.spec.ts` as an assertion, which passed while a tablet user had no way to
+search, and into `CommandPalette.tsx`'s `idlePill` docblock as a justification.
+
+### The ladder
+
+One axis: available width. No `bp === 'tablet'`, no orientation, no stop-dependent control
+sets below `xl`. Persistent at every width: **logo dropdown · deck dropdown · dial · search**.
+Everything else overflows, in row order, into a permanent "More controls" menu:
+
+| leaves at | control |
+|---|---|
+| below `xl` (1280) | theme + light/dark segment, tours, and the rules bracketing them |
+| below `lg` (1024) | Send feedback |
+| below `md` (768) | Present, Share |
+| removed from the row entirely | Coach, Chat, Settings (tablet-only inline buttons; the menu carries them at every width) |
+
+The search pill already degraded correctly — its label and ⌘K hint are `xl:` — so it is a
+full pill at wide widths and a 34px icon button below, which is exactly "input if there is
+sufficient width, a button if not". **The dial never had to give up its words**: measured at
+700px the row still fits with them, so the icon-only tab group the owner offered as a lever
+was not spent.
+
+**Measured after, Write and Craft, 1440 → 700:** search present at every width, `scrollWidth
+=== clientWidth` at every width, deck title never below **230px** (it was 42px at 700). Write
+and Craft draw an identical row at every width ≤1099, and crossing 1099 no longer changes
+anything on Write.
+
+### The logo, and why two headers were the root cause
+
+The Studio renders a SLIM header at Read/Write ≥1100 and a FULL one elsewhere. The slim one
+drew a bare `LatticeMark`; the full one drew the workspace-launcher dropdown. So resizing a
+desktop window across 1099 made the launcher appear out of nowhere — the first item on the
+owner's persist list, behaving as a tier artifact. It is now one hoisted `workspaceLauncher`
+used by both. The two headers still differ above `xl` at Craft (it keeps theme and tours),
+which is a STOP difference and intended; below that they are the same row.
+
+### What the guards had to learn
+
+Every failure below was a test asserting the old tier model, not a regression — but two of
+them are worth naming because they had been *encoding the bug*:
+
+- `studio-header-fit.spec.ts` asserted *"at 700px the search launcher should be the ⋯ menu /
+  ⌘K (no pill — the tablet row has no spare width)"*. It passed for as long as the bug
+  existed. It now asserts the pill is present at every width, with the old premise recorded
+  in place so it cannot be re-derived.
+- `StudioShell.test.tsx` pinned *"desktop Read/Write get the slim header, a brand mark and
+  NOT a launcher button"* — the 1099 discontinuity, asserted as a feature.
+- The SSR skeleton mirrored three tails (phone / tablet / desktop) and had to collapse to the
+  same single ladder, or `studio-shell-parity` fails on every control right of the deck pill.
+  Its slim-header bare mark is gone with the app's.
+
+**A limit worth knowing for anyone editing this:** the ladder is CSS, and jsdom applies no
+CSS — so a control the ladder HIDES is still in the unit-test DOM. Unit tests can only assert
+what React conditionally *renders*; the ladder itself is `studio-header-fit.spec.ts`'s job,
+in a browser that resolves the classes. Where a menu row and a bar button are twins
+(`twin('lg:hidden')`), what a unit test *can* hold is that the row carries the class that
+hides it exactly where its twin appears — lose that and the control has two homes at one
+width, which neither a jsdom test nor a single-width browser test would catch.
+
+## 6. Coverage this round did NOT add
+
+The new paint + cap guard carries no project tag, so it runs on the **desktop** Playwright
+project only. The tablet widths that justify the feature (820, 1194) have no paint guard of
+their own. Not added here because the spec file's project membership is a config-level
+change with its own blast radius; named so the gap is a known one rather than an assumed
+cover.

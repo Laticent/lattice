@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileText, Gauge, Menu as MenuIcon, MonitorPlay, Moon, Palette, Play, Plus, Search, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, Trash2,
+	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileText, Gauge, Menu as MenuIcon, MonitorPlay, Moon, Palette, Play, Plus, Search, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -180,7 +180,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				    expressible in a Tailwind width class (it depends on the STOP), so the shell CSS
 				    re-gates these three spans under `:root[data-ssr-stop="craft"]`; drawing the slim
 				    header's bare mark there instead pushed the deck pill 27px right. */}
-				<span className="ssr-launcher-wrap contents min-[1100px]:hidden">
+				<span className="ssr-launcher-wrap contents">
 					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
 						{/* The wordmark rides the launcher only at !compact — the desktop FULL header, which
@@ -188,10 +188,6 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
 							<ChevronDown className="size-4 text-muted-foreground" />
 					</button>
-				</span>
-				{/* SLIM-header left: a bare mark. Desktop at Read/Write only. */}
-				<span className="ssr-slim-mark hidden min-[1100px]:contents">
-					<LatticeMark mode="light" className="size-7 shrink-0 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 shrink-0 ssr-mark-dark" />
 				</span>
 				{/* The rule between the launcher and the deck pill — `!compact` in the app, so it
 				    exists ONLY in the desktop full header, which is the Craft stop. */}
@@ -213,61 +209,53 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				</span>
 				<div className="flex-1" />
 
-				{/* PHONE tail: mode · workspace settings · menu. */}
+				{/* PHONE tail: mode · workspace settings · menu. Below 700 the app still uses the
+				    Eight-Cell Bar and the StudioDrawer, so this tier is untouched by the width
+				    ladder above it. */}
 				<span className="contents min-[700px]:hidden">
-					<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Workspace settings"><SettingsCog className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* TABLET tail: Present · Share · Coach · Chat · feedback · Settings · mode · Menu. */}
-				<span className="hidden min-[700px]:max-[1100px]:contents">
-					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Toggle Coach"><Gauge className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Toggle Chat"><ChatIcon className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Settings"><SlidersHorizontal className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
-				</span>
-
-				{/* DESKTOP tail (slim header): ⌘K · Present · Share · feedback. The dial and its
-				    rule are in the identity band above, not here.
-				    The ⌘K pill grows its label at Tailwind's `xl`, exactly as the app's does. */}
-				<span className="ssr-desktop-tail hidden min-[1100px]:contents">
-					<button type="button" aria-label="Search or run a command" className="hidden h-8 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
+				{/* ≥700: ONE TAIL, ONE LADDER (2026-08-18). This was three tails — phone, tablet
+				    (700–1100) and desktop (≥1100) — mirroring an app that drew a different control
+				    set per tier. The app no longer does: search is present at EVERY width, and what
+				    overflows into the "More controls" menu is decided by WIDTH ALONE, so a resized
+				    desktop window and a tablet at the same width draw the same row. The skeleton has
+				    to say the same thing or parity fails on every control right of the deck pill.
+				    The ladder, first to leave the row: theme + tours (xl) → feedback (lg) →
+				    Present/Share (md). Search and the menu never leave. */}
+				<span className="ssr-desktop-tail hidden min-[700px]:contents">
+					<button type="button" aria-label="Search or run a command" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
-					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
+					<Button size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button variant="outline" size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="More controls"><MenuIcon className="size-[18px]" /></Button>
 				</span>
-					{/* DESKTOP at CRAFT: the app swaps its slim header for the FULL one, which regains
-					    Theme, the mode toggle and the tours launcher (the panel toggles move into the
-					    52px activity rail instead). Mirrored control-for-control — the parity spec
-					    compares the two SETS, so an omission here fails rather than ships. */}
-					<span className="ssr-craft-tail hidden min-[1100px]:contents">
-						<button type="button" aria-label="Search or run a command" className="hidden h-8 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] sm:flex xl:px-3">
-							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
-							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
-						</button>
-						<span className="flex h-8 items-center rounded-md border border-border bg-background p-[3px]">
-							<Button variant="ghost" size="icon-sm" className="size-[26px]" aria-label="Theme"><Palette className="size-[18px]" /></Button>
-							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark size-[26px]"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light size-[26px]"><Sun className="size-[18px]" /></Button>
-						</span>
-						<Separator orientation="vertical" className={BAR_RULE} />
-						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--text-body)]"><MonitorPlay className="size-[18px]" /></Button>
-						{/* The seam the dial used to sit behind. The dial moved to the identity band in
-						    2026-08-16 but this rule did NOT — in the app it still closes the utilities
-						    band before the verbs, so dropping it here left the shell one rule short and
-						    shifted every control after it. */}
-						<Separator orientation="vertical" className={BAR_RULE} />
-						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-						<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
+				{/* CRAFT keeps two extra utilities, and only from `xl` up — the stop carries more,
+				    but the WIDTH rule is the same one. Their bracketing rules are `xl` too, or they
+				    would draw with nothing between them. */}
+				<span className="ssr-craft-tail hidden min-[700px]:contents">
+					<button type="button" aria-label="Search or run a command" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
+						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+					</button>
+					<span className="hidden h-8 items-center rounded-md border border-border bg-background p-[3px] xl:flex">
+						<Button variant="ghost" size="icon-sm" className="size-[26px]" aria-label="Theme"><Palette className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark size-[26px]"><Moon className="size-[18px]" /></Button>
 					</span>
+					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />
+					<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours hidden text-[var(--text-body)] xl:inline-flex"><MonitorPlay className="size-[18px]" /></Button>
+					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />
+					<Button size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button variant="outline" size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="More controls"><MenuIcon className="size-[18px]" /></Button>
+				</span>
 			</div>
 
 			{/* The phone's action bar — below 700 only. */}

@@ -179,12 +179,38 @@ export const MOBILE_HEIGHT =
 	'h-[calc(var(--vvh)-3.375rem)] [&:has(input:focus,textarea:focus)]:h-[var(--vvh)]';
 
 /**
- * Publishes the on-screen keyboard's height as `--kb` on <html>.
+ * Publishes the on-screen keyboard's height as `--kb`, and the VISIBLE height as
+ * `--vvh`, on <html>.
  *
  * `visualViewport.height` shrinks when the keyboard opens; `innerHeight` does not.
- * The difference IS the keyboard. Mounted only while a mobile sheet is open, and
- * only on a phone — there is no keyboard to subtract anywhere else, and a resize
- * listener that runs for the life of the page is a cost with no payer.
+ * The difference IS the keyboard. Mounted only while a surface that can raise a
+ * keyboard is open — a resize listener that runs for the life of the page is a cost
+ * with no payer.
+ *
+ * NOT PHONE-ONLY ANY MORE. It was, because the only caller was the mobile sheet. The
+ * Studio's inline search (`CommandPalette`, the header combobox that desktop AND
+ * TABLET get) is the second caller, and it needs `--vvh` at tablet width for exactly
+ * the same reason the sheet needs it at phone width: an iPad raises a software
+ * keyboard under a dropdown whose height was picked for laptops. Measured on the
+ * owner's device width — 1194×834 landscape, ~350pt keyboard — the list ended flush
+ * with the keyboard's top edge, 0px to spare.
+ *
+ * THE TWO CALLERS CANNOT BOTH BE MOUNTED — but the guarantee does not live in this file,
+ * and it is worth naming exactly where it does, because there are two different `mobile`s
+ * in play and only one of them holds:
+ *   - `PanelSheet` below uses `useIsPhone()` = `bp === 'mobile' || landscapePhone`.
+ *   - `CommandPalette`'s own `mobile` is `useBreakpoint() === 'mobile'` — which EXCLUDES a
+ *     landscape phone, so it is not the thing keeping these apart.
+ * What actually keeps them apart is `StudioShell.tsx`, which gates the inline transport on
+ * its own phone-INCLUSIVE `mobile` (`bp === 'mobile' || landscapePhone`) — the same
+ * predicate `useIsPhone()` uses. Narrow that one gate to `bp === 'mobile'` and a landscape
+ * phone mounts the inline field AND `StudioDrawer`'s sheet at once; whichever closes first
+ * REMOVES `--vvh`, dropping the still-open sheet from `h-[calc(var(--vvh)-3.375rem)]` back
+ * to the `100dvh` fallback with a keyboard up. Verified today across a live 1440→390 resize
+ * with the palette open: `--vvh` never once read as unset.
+ *
+ * So: if a third caller appears, or if that gate is ever narrowed, this has to become
+ * refcounted rather than last-writer-wins.
  */
 export function useKeyboardInset(active: boolean): void {
 	React.useEffect(() => {
