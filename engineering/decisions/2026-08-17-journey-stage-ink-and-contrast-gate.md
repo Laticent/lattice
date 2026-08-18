@@ -218,6 +218,13 @@ it; a backlog entry is a debt with a number on it.
 Tracked as **#1717**. It is the obvious next slice, and it is now impossible to
 forget, because the gate recites it on every run.
 
+**(Closed 2026-08-18, same record.** Both entries are deleted rather than lowered. It was
+one mechanism in three components, not two: `compare-prose`'s `.decision`/`.rejected` cards
+carried the identical `opacity` wash and were found while fixing the other two. All three
+now de-emphasize with a role ink. What replaced them in the ledger is `redline`, which
+carries no wash at all — its 4.25:1 is a `--fail`/`--fail-bg` palette pair, logged rather
+than swept in.**)
+
 ### The correction that matters more than the fix
 
 The prober's own header claimed the header runs were "fully occluded by the left
@@ -287,6 +294,14 @@ caught it was re-deriving the number from scratch on a *different* deck, because
 size that varied between decks looked wrong.
 
 **A real question survives the mistake and is NOT settled here — now tracked as #1722.**
+**(Settled 2026-08-18 in `2026-08-18-contrast-floor-deck-scale.md` — by REMOVING the
+question rather than answering it. Normalizing the canvas away was built and measured, and
+it works only for landscape: `lib/typography/scale.js` curates three scales against two
+reference widths, so one normalizer inflates portrait and square and re-creates this exact
+defect on ~20 committed decks (confirmed on a rendered `size: story` deck). The paragraph
+below is therefore right that this needs "a decision about what viewing size to normalize
+to" — and that is the reason the 3:1 large-text allowance is now simply not granted. One
+flat 4.5:1, stricter than WCAG, never more lenient, measured to cost zero runs.)**
 Register entry G13 argues that a 3840px slide displayed smaller scales its type down, so
 "large" in canvas units may not be large to a viewer. That is a presentation-scale
 argument, not a unit conversion, and encoding it would need a decision about what viewing

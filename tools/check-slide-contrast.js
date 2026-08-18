@@ -10,8 +10,9 @@
  * chosen against `--bg-alt` instead of `--bg`. Those only exist once a slide
  * renders. This walks the real DOM of a rendered deck, resolves every text run's
  * effective background by climbing ancestors through transparent paints, and
- * scores WCAG 2.x AA (4.5:1 normal, 3:1 for large text — see `isLarge`, which converts
- * WCAG's 18pt/14pt-bold line into this engine's 4-deck-px-per-point units). It reads
+ * scores EVERY text run against WCAG AA's 4.5:1, large text included — see
+ * `THE 3:1 LARGE-TEXT ALLOWANCE IS NOT GRANTED` below, the one place this tool is
+ * deliberately stricter than the spec. It reads
  * pseudo-element text too, since this engine puts real content there (axis
  * labels, step badges, checkpoint labels).
  *
@@ -134,35 +135,46 @@ const PROBE = () => {
   const over = (fg, bg, a) => fg.map((c, i) => c * a + bg[i] * (1 - a));
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 
-  // WCAG "LARGE TEXT" — 18pt, or 14pt when bold (>= 700), expressed in CSS px.
+  // THE 3:1 LARGE-TEXT ALLOWANCE IS NOT GRANTED. Every run is scored against 4.5:1.
   //
-  // 1pt is 1.333 CSS px by definition (96dpi / 72pt), so the thresholds are 24px and
-  // 18.67px. That is the textbook conversion and it does NOT vary with deck size.
-  // Measured across all three shipped sizes, the CSS-px-to-PDF-point ratio is the same
-  // 1.333 every time — the page grows with the canvas:
+  // WCAG AA lets text at 18pt — or 14pt bold — sit at 3:1 instead. Applying that to a
+  // slide deck requires knowing a run's size IN POINTS, and this engine cannot hand you
+  // one. Every `--fs-*` token is authored in `cqi`, a fraction of the slide's inline
+  // size, so a design resolves to a different pixel count on every canvas: `--fs-body`
+  // is 21.4px on an `hd` deck and 64.1px on a `4k` one. Reading those raw, a plain
+  // `fs >= 24` calls ordinary body copy "large text" on any 4k deck — and both gated
+  // galleries are 4k, so the lenient half was the half in force over ordinary prose.
+  // Measured: rendering `gallery.md` at both sizes flips 1024 of 1534 runs between
+  // thresholds and 317 pass/fail verdicts, on the front-matter `size:` line alone.
   //
-  //     default 16:9   1280 CSS px  ->   960 x 540 pt
-  //     story portrait 1080 CSS px  ->   810 x 1440 pt
-  //     4k landscape   3840 CSS px  ->  2880 x 1620 pt
+  // THE OBVIOUS REPAIR IS TO NORMALIZE, AND IT DOES NOT SURVIVE CONTACT. Dividing each
+  // run by its deck's canvas-over-reference ratio fixes landscape exactly, and was built
+  // and measured before being deleted in favor of this. It needs ONE reference canvas,
+  // and `lib/typography/scale.js` curates THREE scales against TWO reference widths
+  // (landscape 1280, square/portrait 1080) with per-orientation coefficients that are
+  // explicitly "curated, not derived from one another by a constant". Normalizing every
+  // deck against 1280 therefore INFLATES portrait and square: measured on a rendered
+  // `size: story` deck, `--fs-body` (47.0px) normalizes to 55.7px and grades as large
+  // text at 3:1 — the same defect, moved to the ~20 committed portrait/square decks that
+  // no gated surface measures. Nor is 1080 the repair: that file anchors portrait type on
+  // the DEVICE ("body = 47px ⇒ ~17px on a phone"), i.e. ~12.75pt, which is normal text.
+  // There is no unit conversion here, only a judgment about viewing scale, and the value
+  // of the whole allowance is not worth encoding one.
   //
-  // A PREVIOUS VERSION OF THIS BLOCK GOT THAT WRONG AND IS WORTH RECORDING, because it
-  // is the exact failure the rest of this header warns about. An adversarial review
-  // reported "4 deck-px per point", and it was confirmed by running `pdfinfo` on the
-  // DEMO deck (a 960pt page) and dividing by the GALLERY's 3840px canvas — two different
-  // decks, two incompatible numbers, one confident conclusion. On the strength of it the
-  // cutoff was raised to 72px/56px, i.e. 3x too strict, and a whole cascade of derived
-  // claims was written into the changelog, a decision record and a PR body: "68.6% of
-  // runs mis-graded", "14 real AA failures passing". None of it was true. The gate went
-  // GREEN on the wrong threshold, because the recorded ledger had been retuned to match
-  // it — CI confirms only what it actually exercises.
+  // SO THE ALLOWANCE IS DROPPED RATHER THAN NORMALIZED. This is STRICTER than WCAG and
+  // can never be more lenient, which is the only direction a contrast gate should err in.
+  // It costs nothing measured: on all three gated surfaces, zero non-exempt runs sit
+  // between 3:1 and 4.5:1. It is also invariant under everything that would have broken
+  // the normalized version — a new entry in the size registry, a change to the default
+  // canvas, a re-curation of the orientation scales, or a new preview surface.
   //
-  // A REAL question hides behind the mistake and is NOT settled here. Register entry G13
-  // in `2026-07-03-semantic-html-accessibility.md` argues that a 3840px-wide slide shown
-  // at a smaller size scales its type down, so "large" in canvas units may not be large
-  // to the viewer. That is a PRESENTATION-SCALE argument, not a unit conversion, and it
-  // would need a decision about what viewing size to normalize to before any threshold
-  // could encode it. Whatever it lands on, it is not what the code above was doing.
-  const isLarge = (fs, w) => fs >= 24 || (fs >= 18.66 && w >= 700);
+  // The cost is real but currently theoretical: genuinely poster-sized display type that
+  // WCAG would pass at 3:1 fails here. Ornaments that can never clear 4.5:1 are handled
+  // where they should be — as named entries in the invariants gate's exemption list, on
+  // the record, rather than by a size heuristic that lets every large run through.
+  //
+  // Settled as #1722; engineering/decisions/2026-08-18-contrast-floor-deck-scale.md.
+  const AA = 4.5;
 
   // Climb ancestors, compositing every translucent paint and every element
   // `opacity`, down to the page. `from` seeds the stack with paints that are NOT
@@ -531,12 +543,11 @@ const PROBE = () => {
       const bg  = resolveStack(el, unders);
       const fgc = resolveStack(el, unders, fg);
       const w = parseInt(cs.fontWeight, 10) || 400;
-      const large = isLarge(fs, w);
       out.push({
         page, cls, tag: el.tagName.toLowerCase(),
-        text: t.slice(0, 44), fs: +fs.toFixed(1), w, large,
+        text: t.slice(0, 44), fs: +fs.toFixed(1), w,
         fg: fgc.map(Math.round), bg: bg.map(Math.round),
-        r: +ratio(fgc, bg).toFixed(2), need: large ? 3 : 4.5,
+        r: +ratio(fgc, bg).toFixed(2), need: AA,
         exempt: exemptInks.has(fgc.map(Math.round).join(',')),
         imgBackdrop: rasterUnder(el, trect),
       });
@@ -572,12 +583,11 @@ const PROBE = () => {
         const bg  = resolveStack(el, seed);
         const fgc = resolveStack(el, seed, fg);
         const w = parseInt(cs.fontWeight, 10) || 400;
-        const large = isLarge(fs, w);
         out.push({
           page, cls, tag: el.tagName.toLowerCase() + pe,
-          text: content.replace(/^"|"$/g, '').slice(0, 44), fs: +fs.toFixed(1), w, large,
+          text: content.replace(/^"|"$/g, '').slice(0, 44), fs: +fs.toFixed(1), w,
           fg: fgc.map(Math.round), bg: bg.map(Math.round),
-          r: +ratio(fgc, bg).toFixed(2), need: large ? 3 : 4.5,
+          r: +ratio(fgc, bg).toFixed(2), need: AA,
           exempt: exemptInks.has(fgc.map(Math.round).join(',')),
           imgBackdrop: rasterUnder(el),
         });

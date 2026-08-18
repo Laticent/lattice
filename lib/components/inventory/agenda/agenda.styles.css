@@ -43,12 +43,43 @@ section.agenda ol {
 section.agenda ol > li {
   counter-increment: agenda-counter;
   color: var(--text-heading);
+  /* The marker ink every variant's ::before reads. Declared here so the read is a plain
+   * var() with no fallback: the de-emphasis rule below re-points it for non-current rows,
+   * and the active-row rules point it back. A pseudo-element inherits custom properties
+   * from its originating element, so this reaches the counter without restating any of
+   * the per-variant :not() chains. */
+  --ag-marker-ink: var(--accent);
   font-size: var(--fs-message);
   line-height: var(--lh-snug);
 }
-/* Future/past dimming shared by every style. */
-section.agenda[class*="progress-"] ol > li { opacity: 0.45; }
-section.dark.agenda[class*="progress-"] ol > li { opacity: 0.55; }
+/* Future/past de-emphasis, shared by every style — INK, not opacity.
+ *
+ * This was `opacity: .45` (`.55` on section.dark), and opacity was the wrong
+ * instrument: it renders the subtree to a buffer and composites ink AND backdrop
+ * together, so it does not step every ink down by the same amount — it steps each one
+ * down in proportion to the headroom it already had. Measured on the rendered gallery,
+ * the row's title (--text-heading, 18.13:1 on indaco) survived the wash at 2.97:1 while
+ * the accent counter beside it (5.47:1 to begin with) collapsed to 2.00:1. The BIGGER,
+ * BOLDER element was the illegible one, which is the tell that the mechanism was wrong
+ * rather than the amount (#1717).
+ *
+ * De-emphasis is a role, and the palette already names it: --text-secondary is the
+ * "secondary prose / subtitle / caption" ink, AA on both canvases by contract. That also
+ * retires the section.dark twin — opacity is scheme-blind, so a dark slide needed its own
+ * number, while a light-dark() token resolves itself because section.dark flips
+ * color-scheme.
+ *
+ * --ag-marker-ink carries the same de-emphasis into the ::before counter, which sets its
+ * own color and so cannot inherit one. Custom properties DO inherit into pseudo-elements,
+ * so one declaration reaches every variant's marker without restating the :not() chains;
+ * the active row re-points it to --accent.
+ *
+ * Emphasis on the current row never rested on alpha anyway: it is bold, indented, and
+ * carries an accent arrow / filled ring / accent card fill. */
+section.agenda[class*="progress-"] ol > li {
+  color: var(--text-secondary);
+  --ag-marker-ink: var(--text-secondary);
+}
 
 /* ── DEFAULT: LEDGER ─────────────────────────────────────────────────────
  * Contents page. Number · title · dotted leader · optional page ref (a
@@ -64,7 +95,7 @@ section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li {
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li::before {
   content: counter(agenda-counter, decimal-leading-zero);
   font-family: var(--font-label); font-weight: 700; letter-spacing: 0.06em;
-  color: var(--accent); font-size: var(--fs-body);
+  color: var(--ag-marker-ink); font-size: var(--fs-body);
 }
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li code {
   /* page ref right-anchors by GROWING to fill the row and right-aligning its text, rather
@@ -88,7 +119,7 @@ section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol >
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4),
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5),
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6) {
-  opacity: 1; font-weight: 700; padding-left: var(--sp-xl);
+  color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: var(--sp-xl);
 }
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1)::before,
 section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2)::before,
@@ -133,7 +164,7 @@ section.agenda.circles ol > li::before {
   width: 2.4em; height: 2.4em; border-radius: 50%;
   border: 2px solid var(--ag-outline); background: none; margin: 0; letter-spacing: normal;
   font-family: var(--font-label); font-weight: 700; font-size: var(--fs-message); line-height: 1;
-  color: var(--accent); -webkit-mask: none; mask: none;
+  color: var(--ag-marker-ink); -webkit-mask: none; mask: none;
 }
 section.agenda.circles ol > li::after { content: none; }
 section.agenda.circles.progress-1 ol > li:nth-child(1),
@@ -141,7 +172,7 @@ section.agenda.circles.progress-2 ol > li:nth-child(2),
 section.agenda.circles.progress-3 ol > li:nth-child(3),
 section.agenda.circles.progress-4 ol > li:nth-child(4),
 section.agenda.circles.progress-5 ol > li:nth-child(5),
-section.agenda.circles.progress-6 ol > li:nth-child(6) { opacity: 1; font-weight: 700; padding-left: 0; }
+section.agenda.circles.progress-6 ol > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: 0; }
 section.agenda.circles.progress-1 ol > li:nth-child(1)::before,
 section.agenda.circles.progress-2 ol > li:nth-child(2)::before,
 section.agenda.circles.progress-3 ol > li:nth-child(3)::before,
@@ -174,7 +205,7 @@ section.agenda.rail ol > li::before {
   width: 2.2em; height: 2.2em; position: relative; z-index: 1; margin: 0; letter-spacing: normal;
   background: var(--bg); border: 2px solid var(--ag-outline); border-radius: 50%;
   font-family: var(--font-label); font-weight: 700; font-size: var(--fs-body); line-height: 1;
-  color: var(--accent); -webkit-mask: none; mask: none;
+  color: var(--ag-marker-ink); -webkit-mask: none; mask: none;
 }
 section.agenda.rail ol > li::after { content: none; }
 section.agenda.rail.progress-1 ol > li:nth-child(1),
@@ -182,7 +213,7 @@ section.agenda.rail.progress-2 ol > li:nth-child(2),
 section.agenda.rail.progress-3 ol > li:nth-child(3),
 section.agenda.rail.progress-4 ol > li:nth-child(4),
 section.agenda.rail.progress-5 ol > li:nth-child(5),
-section.agenda.rail.progress-6 ol > li:nth-child(6) { opacity: 1; font-weight: 700; padding-left: 0; }
+section.agenda.rail.progress-6 ol > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: 0; }
 section.agenda.rail.progress-1 ol > li:nth-child(1)::before,
 section.agenda.rail.progress-2 ol > li:nth-child(2)::before,
 section.agenda.rail.progress-3 ol > li:nth-child(3)::before,
@@ -205,7 +236,7 @@ section.agenda.cards ol > li {
 section.agenda.cards ol > li::before {
   content: counter(agenda-counter, decimal-leading-zero); margin: 0;
   font-family: var(--font-label); font-weight: 700; letter-spacing: 0.04em;
-  color: var(--accent); font-size: var(--fs-body); -webkit-mask: none; mask: none; width: auto; height: auto; border: none;
+  color: var(--ag-marker-ink); font-size: var(--fs-body); -webkit-mask: none; mask: none; width: auto; height: auto; border: none;
 }
 section.agenda.cards ol > li::after { content: none; }
 section.agenda.cards.progress-1 ol > li:nth-child(1),
@@ -214,7 +245,7 @@ section.agenda.cards.progress-3 ol > li:nth-child(3),
 section.agenda.cards.progress-4 ol > li:nth-child(4),
 section.agenda.cards.progress-5 ol > li:nth-child(5),
 section.agenda.cards.progress-6 ol > li:nth-child(6) {
-  opacity: 1; font-weight: 700; padding-left: var(--sp-md);
+  color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: var(--sp-md);
   background: var(--accent-soft); border-color: var(--accent);
 }
 
@@ -234,11 +265,6 @@ section.agenda.checks ol > li::before {
 }
 section.agenda.checks ol > li::after { content: none; }
 /* past — ticked */
-section.agenda.checks.progress-2 ol > li:nth-child(-n+1),
-section.agenda.checks.progress-3 ol > li:nth-child(-n+2),
-section.agenda.checks.progress-4 ol > li:nth-child(-n+3),
-section.agenda.checks.progress-5 ol > li:nth-child(-n+4),
-section.agenda.checks.progress-6 ol > li:nth-child(-n+5) { opacity: 0.5; }
 section.agenda.checks.progress-2 ol > li:nth-child(-n+1)::after,
 section.agenda.checks.progress-3 ol > li:nth-child(-n+2)::after,
 section.agenda.checks.progress-4 ol > li:nth-child(-n+3)::after,
@@ -254,7 +280,7 @@ section.agenda.checks.progress-2 ol > li:nth-child(2),
 section.agenda.checks.progress-3 ol > li:nth-child(3),
 section.agenda.checks.progress-4 ol > li:nth-child(4),
 section.agenda.checks.progress-5 ol > li:nth-child(5),
-section.agenda.checks.progress-6 ol > li:nth-child(6) { opacity: 1; font-weight: 700; }
+section.agenda.checks.progress-6 ol > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; }
 section.agenda.checks.progress-1 ol > li:nth-child(1)::before,
 section.agenda.checks.progress-2 ol > li:nth-child(2)::before,
 section.agenda.checks.progress-3 ol > li:nth-child(3)::before,

@@ -85,8 +85,9 @@
    * light mode.)
    *
    * `--text-heading` is the ink the canvas already solves for, so it follows the fill
-   * wherever the fill goes: measured 0 of 64 pairs below AA 4.5:1, worst 5.63:1 — not
-   * merely past the 3:1 large-text floor these labels are scored at. It is also the
+   * wherever the fill goes: measured 0 of 64 pairs below AA 4.5:1, worst 5.63:1. That is
+   * the floor these labels are actually held to. The rendered prober agrees since #1722:
+   * it scores every run against 4.5:1 and grants no large-text tier at all. It is also the
    * honest ROLE token, since the stage bar heads the group of task chips beneath it.
    *
    * `section.print` ALREADY does exactly this, one layer down — it remaps
@@ -257,13 +258,14 @@ section.journey .journey-mood-key {
 /* "PAIN" / "DELIGHT" — the mood ramp's end labels.
  *
  * NO `opacity` HERE, and that is the point. These carried `opacity: 0.75` over
- * `--text-secondary`. The prober scores them as WCAG "large text" (3:1 — see `isLarge`),
- * and the wash left the WORST pair across 32 palettes x both schemes at **3.07:1: 0.07
- * of margin**, with 58 of the 64 pairs under 4.5 and 4 pairs within 0.1 of the 3:1 floor
- * itself. In indaco's rendered gallery it measures 3.78:1. Not a violation at the floor
- * the prober applies; a rounding error away from one, on the label that tells the reader
- * which end of the ramp is which. Without the wash the worst pair is 5.02:1 and indaco
- * renders 6.85:1.
+ * `--text-secondary`, and the wash left the WORST pair across 32 palettes x both schemes
+ * at **3.07:1**, with 58 of the 64 pairs under 4.5. In indaco's rendered gallery it
+ * measured 3.78:1. At the time the prober scored these as WCAG "large text" and only
+ * asked 3:1 of them, so that read as a rounding error rather than a violation — on the
+ * label that tells the reader which end of the ramp is which. It was BOTH: #1722 has
+ * since dropped the large-text tier entirely, so these owe the full 4.5:1 that 58 of the
+ * 64 pairs did not clear. Without the wash the worst pair is 5.02:1 and indaco renders
+ * 6.85:1.
  *
  * (An intermediate commit on this branch called the 3.78:1 an AA violation. The RATIO was
  * real and reproduces; the classification came from a mis-derived unit conversion that
