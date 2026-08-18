@@ -13,6 +13,13 @@
 //
 // `startCrashSentinel()` is idempotent, and it degrades to a no-op in a
 // storage-blocked context rather than throwing on the Studio's boot path.
+//
+// IT IS ALSO A NO-OP UNLESS THE AUTHOR TURNED RECORDING ON (Workspace → General →
+// Crash reports; off by default). The consent check lives INSIDE
+// `startCrashSentinel` rather than here on purpose — two callers start this
+// module, this script and the Studio island, and a gate at either one is a gate
+// the other walks around. So this file stays an unconditional call: what it
+// starts is decided in one place.
 ---
 
 <script>

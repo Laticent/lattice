@@ -73,6 +73,26 @@ async function seedCrash(page: Parameters<typeof gotoStudio>[0], id = 'e2e-crash
 	}, staleCrashRecord(id, 20 * 60_000));
 }
 
+/**
+ * Turn recording ON before the app boots — the Workspace switch, in storage terms.
+ *
+ * Needed by every spec that exercises the RECORDER, because it is off unless
+ * explicitly on. Written in the same init script style as `seedCrash`, and for
+ * the same reason: the hoisted page script reads this before the island hydrates,
+ * so setting it afterwards would be too late for the boot it is meant to govern.
+ */
+async function allowRecording(page: Parameters<typeof gotoStudio>[0]) {
+	await page.addInitScript(() => {
+		try {
+			const k = 'lattice-studio-settings';
+			const cur = JSON.parse(localStorage.getItem(k) || '{}');
+			localStorage.setItem(k, JSON.stringify({ ...cur, crashReports: true }));
+		} catch {
+			/* storage unavailable — the assertions will say so */
+		}
+	});
+}
+
 /** Open the Workspace sheet — the header control, at every width. */
 async function openWorkspace(page: Parameters<typeof gotoStudio>[0]) {
 	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
@@ -236,6 +256,7 @@ async function expectReportReadsWell(page: Parameters<typeof gotoStudio>[0]) {
 
 test('a crash report is offered in Workspace and says what to try', async ({ page }) => {
 	await seedCrash(page);
+	await allowRecording(page);
 	await gotoStudio(page);
 	await expectReportIsOffered(page);
 	await expectReportReadsWell(page);
@@ -243,6 +264,7 @@ test('a crash report is offered in Workspace and says what to try', async ({ pag
 
 test('the crash report reads correctly on WebKit at phone size @webkit-phone', async ({ page }) => {
 	await seedCrash(page);
+	await allowRecording(page);
 	await gotoStudio(page);
 	await expectReportIsOffered(page);
 	await expectReportReadsWell(page);
@@ -262,6 +284,7 @@ test('the crash report reads correctly on WebKit at phone size @webkit-phone', a
  */
 test('no toast interrupts a boot that found a crash record', async ({ page }) => {
 	await seedCrash(page);
+	await allowRecording(page);
 	await page.addInitScript(() => {
 		const w = window as unknown as { __anyToastEverRendered?: string | null };
 		w.__anyToastEverRendered = null;
@@ -303,6 +326,7 @@ test('no toast interrupts a boot that found a crash record', async ({ page }) =>
  * else the page does to `console.error`, which is not a thing jsdom can prove.
  */
 test('an error logged to the console lands in the live record', async ({ page }) => {
+	await allowRecording(page);
 	await gotoStudio(page);
 	await page.evaluate(() => {
 		const e = new Error('preview render failed');
@@ -337,9 +361,44 @@ test('a clean session is never reported as a crash', async ({ page }) => {
 	// says the recorder is armed, which is the useful empty state — so this reds on
 	// both possible failures: a clean boot reported as a crash, and the row itself
 	// disappearing.
+	await allowRecording(page);
 	await openWorkspace(page);
-	await expect(page.getByText('Nothing to report')).toBeVisible();
+	// The switch is the group's standing state; the reports row appears only when
+	// there is something to report. Both are asserted, so this reds on a clean boot
+	// reported as a crash AND on the control itself disappearing.
+	await expect(page.getByRole('switch', { name: /Record what the Studio was doing/ })).toBeVisible();
 	await expect(page.getByText(/session(s)? ended unexpectedly/)).toHaveCount(0);
+});
+
+/**
+ * THE CONSENT GATE, on a real browser.
+ *
+ * Off by default means off: no record, and — the half that matters most, because
+ * it is the one that can carry text a third-party library chose to print — no
+ * console patch. Asserted on the live page rather than in jsdom, since what is
+ * being claimed is that nothing installs itself into a REAL console.
+ */
+test('records nothing until the workspace switch is on', async ({ page }) => {
+	await gotoStudio(page); // deliberately WITHOUT allowRecording
+	await page.evaluate(() => console.error('this must not be recorded', new Error('nor this stack')));
+	await page.waitForTimeout(1_500); // longer than the console write throttle
+
+	const state = await page.evaluate(() => ({
+		records: Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length,
+		tabMirror: sessionStorage.getItem('lattice-studio-tab-session'),
+	}));
+	expect(state.records, 'a session record was written with recording off').toBe(0);
+	expect(state.tabMirror, 'the tab mirror was claimed with recording off').toBeNull();
+
+	// Now turn it on through the real control, and it starts without a reload.
+	await openWorkspace(page);
+	await page.getByRole('switch', { name: /Record what the Studio was doing/ }).click();
+	await expect
+		.poll(
+			async () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length),
+			{ timeout: 15_000, message: 'turning the switch on did not start the recorder' },
+		)
+		.toBeGreaterThan(0);
 });
 
 /**

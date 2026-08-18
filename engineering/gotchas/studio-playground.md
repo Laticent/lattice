@@ -669,7 +669,13 @@ never turn "passed in headless" into "works on iOS."
   trajectory, main-thread stalls, every error it saw and the breadcrumb trail.
   **It is at Workspace → General → Crash reports, and nowhere else — nothing
   announces it.** (There used to be a boot toast; it was removed, see the next
-  entry.) The console IS captured while the page is alive — everything written to
+  entry.)
+  **FIRST CHECK WHETHER RECORDING WAS EVEN ON.** It is **off by default** — the
+  same Workspace group carries the switch. If it was off, there is no report and
+  there is no way to make one after the fact; turn it on so the NEXT one is
+  diagnosable. An empty Crash reports group therefore means one of two different
+  things, and the switch is what tells them apart: armed and nothing crashed, or
+  never watching. The console IS captured while the page is alive — everything written to
   `console.error` goes into the record with its stack — so an error the app caught,
   logged and degraded around is in the report even though `window.onerror` never
   saw it. The report states what was MEASURED — how memory trended, any errors, any

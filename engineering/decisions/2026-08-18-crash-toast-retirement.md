@@ -115,6 +115,54 @@ An error taken off the console is also *labeled* as one — "logged to the conso
 the page kept running" — because a caught-and-logged warning must not read as the
 thing that killed the tab. That is what the new `ErrorGroup.source` field carries.
 
+## Opt-in: the recorder is off until the author turns it on
+
+Added after the three changes above, and it reverses a position this module
+argued in its own comments — *"a crash you must opt into recording is a crash you
+never catch"*, and the Workspace group was deliberately built as a row rather
+than a switch on that reasoning. The cost was stated honestly and it is real: the
+first crash after a fresh install is now genuinely not caught.
+
+It is still the wrong trade, and the console capture above is what tips it. What
+this keeps is a rolling diary of the session — breadcrumbs, a heap trajectory,
+every error — and since the console became a source, that diary can carry
+whatever a third-party library chose to pass to `console.error`. A diagnostic
+nobody asked for should not be the default, however careful its caps are and
+however local its storage. The privacy note above bounds the exposure; it does
+not make it something to enable on someone's behalf.
+
+**The gate is one line, and it is inside `startCrashSentinel`** — not at the call
+site. Two callers start this module, the hoisted page script
+(`CrashSentinel.astro`) and the Studio island, and a gate at either one is a gate
+the other walks around. Everything with a cost or a trace is below it: the
+interval, the six listeners, **the console patch**, and every write. Above it the
+function is a no-op returning a no-op.
+
+**`crashReports` fails closed.** `loadSettings` reads `saved.crashReports === true`
+and the recorder's own `crashRecordingEnabled()` reads the same field the same
+way — strict `=== true`, never truthiness. A corrupted value, a hand-edited
+profile, a settings blob from a build that never had the field, or a storage read
+that throws can therefore only ever land on *do not record*. This is the
+difference between this flag and its neighbor `intentSearch`, which validates so
+a junk value cannot desync the Switch from a running feature: that one has no safe
+direction, this one does.
+
+**The key is spelled twice, and pinned.** `crash-sentinel.ts` does not import
+`studio-store.ts` to read one boolean — it runs from a hoisted script that must be
+up before the engine is fetched. The cost of that duplication is drift, so a unit
+test imports both and requires them to agree on the key, the field, and the
+fail-closed reading.
+
+**Turning it off is a withdrawal of consent, not a clean exit.** `stopCrashSentinel()`
+seals first (so the teardown's own final `persist()` is a no-op — the ordering
+`clearAllSessions` documents, for the same unwinnable-race reason), tears down,
+then removes the half-written record of the session in progress and releases the
+tab mirror. **Past reports are deliberately left alone**: they are the author's
+data, they stay listed and readable with recording off, and the group's existing
+two-tap control is how they go. Both directions take effect immediately —
+`startCrashSentinel` is idempotent, so flipping the switch on starts recording
+without a reload.
+
 ## What did NOT change
 
 The recorder, the storage discipline, the privacy posture, the guard

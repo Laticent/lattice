@@ -6,6 +6,7 @@ import {
 	clearAllSessions,
 	clearCrashReports,
 	collectCrashReports,
+	crashRecordingEnabled,
 	crashReportStats,
 	describeSession,
 	dismissCrashReport,
@@ -24,8 +25,10 @@ import {
 	SESSION_PREFIX,
 	type SessionRecord,
 	STALE_MS,
+	sentinelRunning,
 	setCrashContext,
 	startCrashSentinel,
+	stopCrashSentinel,
 	TAB_SESSION_KEY,
 	WIPE_MARK_KEY,
 	WIPE_SIGNAL_KEY,
@@ -41,6 +44,19 @@ function rec(over: Partial<SessionRecord> = {}): SessionRecord {
 	return newRecord(over.id ?? 'sess-1', T0, { lastBeat: T0 + 60_000, ...over });
 }
 
+/**
+ * Grant recording consent — the Workspace switch, in storage terms.
+ *
+ * Every test below that exercises the RECORDER needs this, because the recorder
+ * is off unless it is explicitly on (see "recording is opt-in"). Granted in
+ * `beforeEach` rather than per test: the opt-in behavior has its own block that
+ * clears it, and threading a setup line through sixty tests about something else
+ * would bury what each one is actually asserting.
+ */
+function allowRecording() {
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: true }));
+}
+
 /** The one call `collectCrashReports` needs to have seen — it reads module state. */
 function bootSentinel() {
 	startCrashSentinel();
@@ -50,6 +66,7 @@ beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
 	__resetSentinelForTest();
+	allowRecording();
 	vi.useRealTimers();
 });
 
@@ -1264,5 +1281,142 @@ describe('"nothing to do" is for the ordinary case only', () => {
 			Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
 			vi.useRealTimers();
 		}
+	});
+});
+
+/**
+ * CONSENT. The recorder is off unless the Workspace switch is on.
+ *
+ * This module used to argue the opposite in its own comments — "a crash you must
+ * opt into recording is a crash you never catch" — and that was a real cost,
+ * honestly stated. It was still the wrong trade: what this keeps is a rolling
+ * diary of the session, and since the console became a source that diary can
+ * carry whatever a third-party library passed to `console.error`. Diagnostics
+ * nobody asked for are not a default.
+ */
+describe('recording is opt-in', () => {
+	const enable = (v: unknown) => localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: v }));
+
+	it('records nothing at all with no setting stored', () => {
+		localStorage.clear(); // undo the harness's blanket grant — this is the shipped default
+		const before = console.error;
+		const stopper = startCrashSentinel();
+		expect(sentinelRunning()).toBe(false);
+		expect(liveSession()).toBeNull();
+		// Not a byte, and — the privacy-critical half — the console is untouched.
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+		expect(console.error).toBe(before);
+		expect(sessionStorage.getItem(TAB_SESSION_KEY)).toBeNull();
+		expect(() => stopper()).not.toThrow(); // still a well-behaved no-op stopper
+	});
+
+	it('records once the switch is on', () => {
+		enable(true);
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		breadcrumb('action', 'did a thing');
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'did a thing')).toBe(true);
+	});
+
+	// FAILS CLOSED. The flag has a safe direction, so every value that is not
+	// exactly `true` — junk, a truthy string, a missing field, an older build's
+	// settings blob — must land on "do not record", never on "record".
+	it('treats anything but an explicit true as no', () => {
+		for (const v of ['true', 1, {}, [], 'yes', null, undefined]) {
+			__resetSentinelForTest();
+			localStorage.clear();
+			enable(v);
+			expect(crashRecordingEnabled(), `value ${JSON.stringify(v)} must not enable recording`).toBe(false);
+			startCrashSentinel();
+			expect(sentinelRunning()).toBe(false);
+		}
+	});
+
+	it('reads unparseable settings as no consent rather than throwing', () => {
+		localStorage.setItem('lattice-studio-settings', '{not json');
+		expect(crashRecordingEnabled()).toBe(false);
+		expect(() => startCrashSentinel()).not.toThrow();
+		expect(sentinelRunning()).toBe(false);
+	});
+
+	// Turning the switch OFF mid-session is a WITHDRAWAL of consent, not a clean
+	// exit — so the half-written record of the session in progress must not be
+	// left on disk, which the ordinary `stop()` teardown would do (it stamps the
+	// record `closed` and persists it on the way out).
+	it('drops the live record when recording is turned off', () => {
+		enable(true);
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential' });
+		breadcrumb('action', 'mid-session');
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toHaveLength(1);
+
+		stopCrashSentinel();
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+		expect(sentinelRunning()).toBe(false);
+		expect(sessionStorage.getItem(TAB_SESSION_KEY)).toBeNull();
+		// And it stays gone — a late beat or lifecycle event must not write it back.
+		dispatchEvent(new Event('pagehide'));
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+	});
+
+	it('leaves PAST reports alone — they are the user\'s data, not this session\'s', () => {
+		localStorage.setItem(`${SESSION_PREFIX}old`, JSON.stringify(rec({ id: 'old' })));
+		enable(true);
+		startCrashSentinel();
+		stopCrashSentinel();
+		expect(localStorage.getItem(`${SESSION_PREFIX}old`)).not.toBeNull();
+	});
+
+	it('can be turned back on in the same session', () => {
+		enable(true);
+		startCrashSentinel();
+		stopCrashSentinel();
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		breadcrumb('action', 'recording again');
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'recording again')).toBe(true);
+	});
+
+	// Reading a past report must not depend on the switch — someone who turns
+	// recording off still owns what was already recorded, and still has to be able
+	// to read and clear it.
+	it('still lists and clears reports recorded while it was on', () => {
+		localStorage.clear();
+		localStorage.setItem(`${SESSION_PREFIX}past`, JSON.stringify(rec({ id: 'past' })));
+		startCrashSentinel(); // disabled — no consent stored
+		expect(collectCrashReports(Date.now() + STALE_MS + 1)).toHaveLength(1);
+		clearCrashReports();
+		expect(collectCrashReports(Date.now() + STALE_MS + 1)).toEqual([]);
+	});
+});
+
+/**
+ * THE DUPLICATED KEY, pinned.
+ *
+ * `crash-sentinel.ts` spells the settings key and field itself rather than
+ * importing the React-side store — it runs from a hoisted page script that must
+ * be up before the engine is fetched. The cost of that is drift, so this is the
+ * thing that catches it: both sides are imported here and required to agree,
+ * including on the fail-closed reading.
+ */
+describe('the sentinel and the workspace store agree on the setting', () => {
+	it('reads the same key and field the store writes', async () => {
+		localStorage.clear(); // the shipped default, not the harness's grant
+		const { saveSettings, loadSettings } = await import('../components/studio/studio-store');
+		expect(loadSettings().crashReports).toBe(false); // the shipped default
+		expect(crashRecordingEnabled()).toBe(false);
+
+		saveSettings({ crashReports: true });
+		expect(crashRecordingEnabled()).toBe(true); // the store's write is what the recorder reads
+
+		saveSettings({ crashReports: false });
+		expect(crashRecordingEnabled()).toBe(false);
+	});
+
+	it('agrees that a junk value is not consent', async () => {
+		const { loadSettings } = await import('../components/studio/studio-store');
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: 'yes' }));
+		expect(loadSettings().crashReports).toBe(false);
+		expect(crashRecordingEnabled()).toBe(false);
 	});
 });

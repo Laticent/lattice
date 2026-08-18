@@ -902,6 +902,40 @@ const ss = (): Storage | undefined => {
 	}
 };
 
+/**
+ * The Workspace settings blob, and the field inside it that governs this module.
+ *
+ * SPELLED HERE RATHER THAN IMPORTED, deliberately. This module runs from a
+ * HOISTED page script that must be up before the engine bundle is even fetched,
+ * and `studio-store.ts` is the React-side workspace store — importing it to read
+ * one boolean would pull the store into that script for no gain. The cost of the
+ * duplication is drift, so the drift is what the test pins:
+ * `crash-sentinel.test.ts` imports BOTH and asserts the key, the field name and
+ * the fail-closed reading agree.
+ */
+const SETTINGS_KEY = 'lattice-studio-settings';
+const CRASH_SETTING = 'crashReports';
+
+/**
+ * May this browser record at all?
+ *
+ * OFF UNLESS EXPLICITLY ON. The comparison is `=== true` and not a truthy test,
+ * because this flag has a safe direction: a corrupted value, a hand-edited
+ * profile, a settings blob written by an older build that never had the field, a
+ * storage read that throws in a locked-down browser — every one of those must
+ * land on "do not record". The whole module is downstream of this answer: no
+ * interval, no listeners, no console patch, not a byte written.
+ */
+export function crashRecordingEnabled(): boolean {
+	const raw = safeGet(ls(), SETTINGS_KEY);
+	if (!raw) return false;
+	try {
+		return (JSON.parse(raw) as Record<string, unknown> | null)?.[CRASH_SETTING] === true;
+	} catch {
+		return false; // unparseable settings are not consent
+	}
+}
+
 /** Every session key currently in `localStorage`, oldest-started first. */
 function sessionKeys(): string[] {
 	const store = ls();
@@ -1452,6 +1486,13 @@ export function liveSession(): Readonly<SessionRecord> | null {
 export function startCrashSentinel(): () => void {
 	if (stop) return stop;
 	if (typeof document === 'undefined') return () => {};
+	// THE CONSENT GATE, and it sits here rather than at the call site on purpose.
+	// Two callers start this module — the hoisted page script (CrashSentinel.astro)
+	// and the Studio island — and a gate at either one is a gate the other can walk
+	// around. Everything with a cost or a trace is BELOW this line: the interval,
+	// the six listeners, the console patch, and every write. Above it, the function
+	// is a no-op that returns a no-op.
+	if (!crashRecordingEnabled()) return () => {};
 
 	sealed = false; // a new page load is a new session; the seal was for the old one
 	const now = Date.now();
@@ -1802,6 +1843,31 @@ export function startCrashSentinel(): () => void {
 		stop = null;
 	};
 	return stop;
+}
+
+/**
+ * Stop recording and leave nothing behind from THIS session — the Workspace
+ * switch going off.
+ *
+ * Distinct from the `stop()` returned by `startCrashSentinel`, which is an
+ * ordinary teardown: that one stamps the record `closed` and PERSISTS it, because
+ * a clean exit is a fact worth keeping. Turning the feature off is not an exit,
+ * it is a withdrawal of consent, so the half-finished record of the session the
+ * user was in the middle of must not be left on disk.
+ *
+ * Seals FIRST so the teardown's own final `persist()` is a no-op — the same
+ * ordering `clearAllSessions` documents, and for the same reason: racing the
+ * writes is unwinnable, refusing to write is not. PAST reports are deliberately
+ * left alone; they are the user's data, and the Workspace group has an explicit
+ * two-tap control for clearing them.
+ */
+export function stopCrashSentinel(): void {
+	const id = liveId;
+	sealed = true;
+	if (stop) stop();
+	if (id) safeRemove(ls(), SESSION_PREFIX + id);
+	// The tab mirror is this session's claim on a record that no longer exists.
+	safeRemove(ss(), TAB_SESSION_KEY);
 }
 
 /** Test-only reset — drops module state without touching storage. */
