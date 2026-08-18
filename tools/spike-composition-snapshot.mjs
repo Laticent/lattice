@@ -19,7 +19,7 @@
  *      |    |__ tag + class chain
  *      |__ slide index
  *
- * Two channels on purpose: geometry before `::`, resolved style after. A colour
+ * Two channels on purpose: geometry before `::`, resolved style after. A color
  * token moves only the right-hand side; a length token moves only the left.
  *
  * KNOWN LIMITS — measured, not guessed. Do not read a green diff as "nothing
