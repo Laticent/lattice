@@ -137,9 +137,12 @@ test('the inline dropdown paints below the header, not clipped inside it', async
  * the only symptom is that pressing it does nothing.
  */
 test('the open search collapses the row into one menu, and that menu can actually be opened', async ({ page }) => {
-	// Closed: the tail is the row's right edge, and there is no overflow hamburger.
+	// Closed: the tail is in the row, and the overflow menu closes it. The menu is
+	// PERMANENT as of the width-ladder pass — it is the row's right edge at every width,
+	// and the home for whatever the width has pushed out of the row. It used to appear
+	// only while the search was open; asserting its absence here was encoding that.
 	await expect(page.getByRole('button', { name: 'Present' })).toBeVisible();
-	await expect(page.getByRole('button', { name: CHROME.searchOverflow })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: CHROME.searchOverflow })).toHaveCount(1);
 
 	await page.keyboard.press('ControlOrMeta+k');
 	await expect(page.getByPlaceholder('Search or run a command…')).toBeFocused();
@@ -163,7 +166,7 @@ test('the open search collapses the row into one menu, and that menu can actuall
 	await page.getByRole('menuitem', { name: /Switch to (light|dark) mode/ }).click();
 	await expect(page.getByPlaceholder('Search or run a command…'), 'running a row must close the search, not strand it open behind the result').toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Present' }), 'closing the search must restore the row').toBeVisible();
-	await expect(page.getByRole('button', { name: CHROME.searchOverflow }), 'the hamburger belongs to the open state only').toHaveCount(0);
+	await expect(page.getByRole('button', { name: CHROME.searchOverflow }), 'the overflow menu is the row’s permanent right edge — it does not come and go').toHaveCount(1);
 });
 
 /**

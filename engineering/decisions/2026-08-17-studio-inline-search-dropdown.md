@@ -733,7 +733,97 @@ catch — and a third `aria-label="Menu"` would also make `back-gesture.spec.ts`
 locator ambiguous, since the SSR skeleton ships two inert ones already. Registered as
 `CHROME.searchOverflow`.
 
-## 5. Coverage this round did NOT add
+## 5. Round five: the header is a width ladder, not three device tiers (2026-08-18)
+
+**Ask, and it was a rejection of the previous three rounds' framing:** *"portrait on tablet
+hides the search button? your approach is whack. this is a simple problem with full parity
+between desktop, tablet landscape portrait. also remember the user can resize the window on
+desktop. the behavior i want is based on width. search input is available if there is
+sufficient width. if not, it turns into a button. if search is clicked it hides all the
+other buttons under a hamburger button and keeps the order… as the available width decreases
+things that persist are the logo drop down, deck selection dropdown, dial and search,
+everything else goes into the hamburger."*
+
+**The complaint was right and the measurement was worse than the complaint.** A pure width
+ladder at a fixed height — so nothing in it can be orientation or device:
+
+| width | search? | what the row kept |
+|---|---|---|
+| 1920 → 1100 | yes | title · dial · search · Present · Share · feedback |
+| 1024 → 700 | **no** | 13 controls: Present, Share, Coach, Chat, Settings, feedback, dark mode, Menu… |
+| 640 | no | 5 |
+
+Search died at **1024 — on a resized desktop window too**, and the priority was inverted:
+Coach, Chat, Settings and the dark-mode toggle all outranked the one control that reaches
+everything. Two mechanisms did it, which is why it read as a device-tier rule: the pill
+carried `hidden … lg:flex` (`display:none` below 1024) AND the caller passed
+`idlePill={!compact}` (suppressed below 1100). At 700 the row *also* overflowed by 20px with
+the deck title crushed to **42px**.
+
+**The previous rounds' reasoning was the actual defect.** #1712 measured "the tablet row has
+0px of spare from 700 through 834" and concluded the search pill could not fit. The premise
+was true; the conclusion was backwards. When a row is full you demote what matters least —
+you do not delete the control that reaches everything. That mistake was then written into
+`studio-header-fit.spec.ts` as an assertion, which passed while a tablet user had no way to
+search, and into `CommandPalette.tsx`'s `idlePill` docblock as a justification.
+
+### The ladder
+
+One axis: available width. No `bp === 'tablet'`, no orientation, no stop-dependent control
+sets below `xl`. Persistent at every width: **logo dropdown · deck dropdown · dial · search**.
+Everything else overflows, in row order, into a permanent "More controls" menu:
+
+| leaves at | control |
+|---|---|
+| below `xl` (1280) | theme + light/dark segment, tours, and the rules bracketing them |
+| below `lg` (1024) | Send feedback |
+| below `md` (768) | Present, Share |
+| removed from the row entirely | Coach, Chat, Settings (tablet-only inline buttons; the menu carries them at every width) |
+
+The search pill already degraded correctly — its label and ⌘K hint are `xl:` — so it is a
+full pill at wide widths and a 34px icon button below, which is exactly "input if there is
+sufficient width, a button if not". **The dial never had to give up its words**: measured at
+700px the row still fits with them, so the icon-only tab group the owner offered as a lever
+was not spent.
+
+**Measured after, Write and Craft, 1440 → 700:** search present at every width, `scrollWidth
+=== clientWidth` at every width, deck title never below **230px** (it was 42px at 700). Write
+and Craft draw an identical row at every width ≤1099, and crossing 1099 no longer changes
+anything on Write.
+
+### The logo, and why two headers were the root cause
+
+The Studio renders a SLIM header at Read/Write ≥1100 and a FULL one elsewhere. The slim one
+drew a bare `LatticeMark`; the full one drew the workspace-launcher dropdown. So resizing a
+desktop window across 1099 made the launcher appear out of nowhere — the first item on the
+owner's persist list, behaving as a tier artifact. It is now one hoisted `workspaceLauncher`
+used by both. The two headers still differ above `xl` at Craft (it keeps theme and tours),
+which is a STOP difference and intended; below that they are the same row.
+
+### What the guards had to learn
+
+Every failure below was a test asserting the old tier model, not a regression — but two of
+them are worth naming because they had been *encoding the bug*:
+
+- `studio-header-fit.spec.ts` asserted *"at 700px the search launcher should be the ⋯ menu /
+  ⌘K (no pill — the tablet row has no spare width)"*. It passed for as long as the bug
+  existed. It now asserts the pill is present at every width, with the old premise recorded
+  in place so it cannot be re-derived.
+- `StudioShell.test.tsx` pinned *"desktop Read/Write get the slim header, a brand mark and
+  NOT a launcher button"* — the 1099 discontinuity, asserted as a feature.
+- The SSR skeleton mirrored three tails (phone / tablet / desktop) and had to collapse to the
+  same single ladder, or `studio-shell-parity` fails on every control right of the deck pill.
+  Its slim-header bare mark is gone with the app's.
+
+**A limit worth knowing for anyone editing this:** the ladder is CSS, and jsdom applies no
+CSS — so a control the ladder HIDES is still in the unit-test DOM. Unit tests can only assert
+what React conditionally *renders*; the ladder itself is `studio-header-fit.spec.ts`'s job,
+in a browser that resolves the classes. Where a menu row and a bar button are twins
+(`twin('lg:hidden')`), what a unit test *can* hold is that the row carries the class that
+hides it exactly where its twin appears — lose that and the control has two homes at one
+width, which neither a jsdom test nor a single-width browser test would catch.
+
+## 6. Coverage this round did NOT add
 
 The new paint + cap guard carries no project tag, so it runs on the **desktop** Playwright
 project only. The tablet widths that justify the feature (820, 1194) have no paint guard of

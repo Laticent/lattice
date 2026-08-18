@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -13,7 +13,6 @@ import {
 	DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Kbd } from '@/components/ui/kbd';
 import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -3553,9 +3552,56 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// it — nor anything beside it. Before this it lived only in the full header, which
 	// made the desktop right cluster jump 70px on every Write↔Craft step and left Read
 	// and Write with no feedback affordance at all.
+	/**
+	 * THE LOGO IS A DROPDOWN AT EVERY WIDTH AND EVERY STOP — the first item on the
+	 * persist list (owner, 2026-08-18: *"as the available width decreases things that
+	 * persist are the logo drop down, deck selection dropdown, dial and search"*).
+	 *
+	 * It is hoisted here because the slim Read/Write header used to render a BARE
+	 * `LatticeMark` while the full header rendered this menu, so resizing a desktop
+	 * window across 1099 made the workspace launcher appear out of nowhere. Same
+	 * control, one definition, both headers — a discontinuity you can see is a
+	 * discontinuity in the source.
+	 */
+	const workspaceLauncher = (
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					{/* The real brand mark (not a text tile), and the chevron shows at EVERY
+					    width — without it the phone-width trigger reads as a static logo,
+					    not a menu. */}
+					<button type="button" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
+						<LatticeMark mode={mode} className="size-7" />
+						{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
+						    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
+						    decoration is the first thing to spend when the mark and the chevron
+						    already say "brand, and it opens".
+						    Gated on `compact`, NOT on a Tailwind width class, because Tailwind's
+						    `lg` is 1024px and this app's desktop boundary is 1100px. A `lg:inline`
+						    here reclaimed nothing across 700–1023 that mattered and nothing AT ALL
+						    across 1024–1099 — that band rendered the wordmark either way, so it
+						    paid the feedback button's 44px straight out of the deck title (at
+						    1024 the title fell from `Markdo…` to `M…`). Same source of truth as
+						    every other gate in this header is what keeps that from recurring. */}
+						{!compact && <span className="font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>}
+						<ChevronDown className="size-4 text-muted-foreground" />
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start" className="w-60">
+					<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Workspace</DropdownMenuLabel>
+					<DropdownMenuItem onSelect={() => setView('compose')}><Layers className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Decks</div><div className="text-[11px] text-muted-foreground">Your saved decks</div></div></DropdownMenuItem>
+					<DropdownMenuItem onSelect={() => setView('fabricate')}><PencilRuler className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Fabricate</div><div className="text-[11px] text-muted-foreground">Theme &amp; Component Studio</div></div></DropdownMenuItem>
+					<DropdownMenuSeparator />
+					{/* Deck CRUD lives in the deck switcher (New deck is there) — the
+					    launcher keeps app navigation + Import only, so the two adjacent
+					    menus don't offer the same action twice. */}
+					<DropdownMenuItem onSelect={() => importInputRef.current?.click()}><Upload className="size-4" />Import deck…</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+	);
+
 	const feedbackButton = (
 		<Tip label="Send feedback">
-			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
+			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
 		</Tip>
 	);
 
@@ -3601,15 +3647,27 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setCmdOpen(false);
 		fn();
 	};
-	const searchOverflowMenu = (
+	const searchExpanded = cmdOpen && !mobile;
+	/**
+	 * A MENU ROW IS VISIBLE EXACTLY WHEN ITS INLINE TWIN IS NOT — otherwise the same action
+	 * has two homes at the same moment, which is the duplication this row keeps removing
+	 * elsewhere (Slide settings, Send feedback).
+	 *
+	 * Two things decide it. The WIDTH LADDER is CSS (`Present` is `md:inline-flex`, so its
+	 * menu row is `md:hidden`), and it has to stay CSS so the pre-paint skeleton can mirror
+	 * it. Whether the SEARCH has taken the row is React state, and when it has, every inline
+	 * control is gone at every width — so the menu shows everything again.
+	 */
+	const twin = (atWidth: string) => (searchExpanded ? undefined : atWidth);
+	const overflowMenu = (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button variant="ghost" size="icon-sm" aria-label="More controls" data-inline-search-keep-open="" className="shrink-0"><MenuIcon className="size-[18px]" /></Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" data-inline-search-keep-open="" className="w-56 overflow-hidden p-0">
 				<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
-					<DropdownMenuItem onSelect={fromOverflow(openPresent)}><Play className="size-4" />Present</DropdownMenuItem>
-					<DropdownMenuItem onSelect={fromOverflow(() => setShareOpen(true))}><Share2 className="size-4" />Share…</DropdownMenuItem>
+					<DropdownMenuItem onSelect={fromOverflow(openPresent)} className={twin('md:hidden')}><Play className="size-4" />Present</DropdownMenuItem>
+					<DropdownMenuItem onSelect={fromOverflow(() => setShareOpen(true))} className={twin('md:hidden')}><Share2 className="size-4" />Share…</DropdownMenuItem>
 					{bp === 'tablet' && (
 						<>
 							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach')))}><Gauge className="size-4" />Coach</DropdownMenuItem>
@@ -3620,13 +3678,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</>
 					)}
 					<DropdownMenuItem onSelect={fromOverflow(() => setWorkspaceOpen(true))}><SettingsCog className="size-4" />Workspace settings</DropdownMenuItem>
-					<DropdownMenuItem onSelect={fromOverflow(() => setFeedbackOpen(true))}><FeedbackIcon className="size-4" />Send feedback</DropdownMenuItem>
+					<DropdownMenuItem onSelect={fromOverflow(() => setFeedbackOpen(true))} className={twin('lg:hidden')}><FeedbackIcon className="size-4" />Send feedback</DropdownMenuItem>
 					{toursOn && !demoActive && (
 						<>
 							<DropdownMenuSeparator />
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
-								<DropdownMenuItem key={t.id} onSelect={fromOverflow(() => startDemo(t.id))} className="flex-col items-start gap-0.5 py-2">
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => startDemo(t.id))} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
 								</DropdownMenuItem>
@@ -3769,7 +3827,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// 834 — so `idlePill` is off there and the ⋯ menu's "Search / commands" row plus ⌘K stay
 	// the way in. Phones keep the sheet: its bottom-docked field is a solved keyboard problem
 	// (reported from a real device), not a stylistic difference.
-	const cmdInline = !mobile ? <CommandPalette inline idlePill={!compact} {...cmdProps} /> : null;
+	const cmdInline = !mobile ? <CommandPalette inline {...cmdProps} /> : null;
 	const cmdPalette = mobile ? <CommandPalette {...cmdProps} /> : null;
 	/**
 	 * THE ROW YIELDS ITS RIGHT-HAND SIDE WHILE THE FIELD IS OPEN (owner's call, 2026-08-17:
@@ -3787,7 +3845,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	 * Deliberately NOT applied to phones — `cmdInline` is null there and the sheet owns the
 	 * whole screen anyway, so there is no row to reclaim.
 	 */
-	const searchExpanded = cmdOpen && !mobile;
+
 
 	return (
 		// Where the phone's back chevron says it goes, published once for every panel
@@ -3840,7 +3898,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// touching this, because lifting either clip ALONE paints nothing and invites the
 				// wrong conclusion. The scroll valve is KEPT: it never had to be traded away.
 				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain')}>
-				<LatticeMark mode={mode} className="size-7 shrink-0" />
+				{workspaceLauncher}
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
 				    switching / New deck is a Write-and-up concern). Write gets the real
 				    switcher: deck navigation is not strippable chrome. */}
@@ -3884,7 +3942,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    moved — they are GONE — so there is no x to disagree about, and the width they
 				    were holding goes to the field instead of coming out of the deck title.
 				    `studio-header-fit`'s open-state guard asserts exactly that. */}
-				{searchExpanded ? searchOverflowMenu : (<>
+				{searchExpanded ? overflowMenu : (<>
 				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
 				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
 				    and Craft (#1371). It survives the dial moving to the identity band precisely
@@ -3902,7 +3960,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				{feedbackButton}
-				</>)}
+				{!mobile && overflowMenu}</>)}
 			</header>
 			) : (
 			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out',
@@ -3939,39 +3997,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    desktop density back on and the deck title truncates to `Markdown for the …`
 				    at 1024 and to `M…` at 820 (measured). A JSX ternary branch admits exactly one
 				    element, which is why this note sits inside the tag rather than above it. */}
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						{/* The real brand mark (not a text tile), and the chevron shows at EVERY
-						    width — without it the phone-width trigger reads as a static logo,
-						    not a menu. */}
-						<button type="button" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
-							<LatticeMark mode={mode} className="size-7" />
-							{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
-							    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
-							    decoration is the first thing to spend when the mark and the chevron
-							    already say "brand, and it opens".
-							    Gated on `compact`, NOT on a Tailwind width class, because Tailwind's
-							    `lg` is 1024px and this app's desktop boundary is 1100px. A `lg:inline`
-							    here reclaimed nothing across 700–1023 that mattered and nothing AT ALL
-							    across 1024–1099 — that band rendered the wordmark either way, so it
-							    paid the feedback button's 44px straight out of the deck title (at
-							    1024 the title fell from `Markdo…` to `M…`). Same source of truth as
-							    every other gate in this header is what keeps that from recurring. */}
-							{!compact && <span className="font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>}
-							<ChevronDown className="size-4 text-muted-foreground" />
-						</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start" className="w-60">
-						<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Workspace</DropdownMenuLabel>
-						<DropdownMenuItem onSelect={() => setView('compose')}><Layers className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Decks</div><div className="text-[11px] text-muted-foreground">Your saved decks</div></div></DropdownMenuItem>
-						<DropdownMenuItem onSelect={() => setView('fabricate')}><PencilRuler className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Fabricate</div><div className="text-[11px] text-muted-foreground">Theme &amp; Component Studio</div></div></DropdownMenuItem>
-						<DropdownMenuSeparator />
-						{/* Deck CRUD lives in the deck switcher (New deck is there) — the
-						    launcher keeps app navigation + Import only, so the two adjacent
-						    menus don't offer the same action twice. */}
-						<DropdownMenuItem onSelect={() => importInputRef.current?.click()}><Upload className="size-4" />Import deck…</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+				{workspaceLauncher}
 
 				{/* DESKTOP-ONLY, like the two dividers further down the row. `hidden sm:block`
 				    drew these from 640px up, so a tablet paid 7px each (1px rule + one 6px gap)
@@ -4003,7 +4029,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    short version is #1401: icon-only made the stops unreachable on touch, and
 				    the row pays for the labels by keeping tours in ⋯ and running at the phone's
 				    density below desktop. */}
-				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{!compact && <Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />}
 				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 
 				<div className="flex-1" />
@@ -4033,14 +4059,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    you are not using while searching are the right ones to spend.
 				    Idle is untouched, so `studio-shell-parity` and the SSR skeleton do not
 				    move; the open state is guarded by `studio-header-fit`'s open-state test. */}
-				{searchExpanded ? searchOverflowMenu : (<>
+				{searchExpanded ? overflowMenu : (<>
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,
 				    the mode toggle kept a direct 1-tap button. On compact the theme picker
 				    folds into ⋯; the mode toggle stands alone on tablet and joins the ⋯
 				    Appearance tail on phones (below). */}
 				{!compact && (
-					<div className="flex h-8 items-center rounded-md border border-border bg-background p-[3px]">
+					<div className="hidden h-8 items-center rounded-md border border-border bg-background p-[3px] xl:flex">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button variant="ghost" size="icon-sm" aria-label="Theme" className="size-[26px]"><Palette className="size-[18px]" /></Button>
@@ -4056,7 +4082,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* Desktop dividers band the right cluster by altitude — utilities |
 				    deliverable verbs | session panels | app surfaces — so global and
 				    deck controls don't read as one interleaved run (2026-07-03). */}
-				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
+				{!compact && <Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />}
 
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),
@@ -4105,7 +4131,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								    enough to bury one tap deeper on tablet (#1401). Accent is a pointer and the
 								    bar was spending it five times; a hover tint keeps the affordance without
 								    competing with the CTA two slots away. */}
-								<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('text-[var(--text-body)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
+								<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('hidden text-[var(--text-body)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] xl:inline-flex', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
 								</DropdownMenuTrigger>
 							</TooltipTrigger>
 							<TooltipContent>Show me — a guided tour that drives itself</TooltipContent>
@@ -4128,8 +4154,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    the identity band beside the deck (2026-08-16) — the note is on its new site.
 				    What stayed behind is the rule, which now reads as "utilities end, actions
 				    begin" instead of "…and now a mode control". */}
-				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
-				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
+				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -4137,15 +4163,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. (A landscape phone renders
 				    no header at all — the cinema morph — so no leak here.) */}
-				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
-				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><ChatIcon className="size-[18px]" /></Button></Tip>}
 				{/* Feedback sits directly above the Settings button in this right-hand run, at
 				    tablet AND desktop — the one fixed address for it. Tablet reaches it in one
 				    tap here instead of two through ⋯ (that row is gone: one action, one home).
 				    Desktop has no header Settings button (the activity bar owns it), so the same
 				    slot puts feedback last — which is exactly where the slim header ends too. */}
 				{!mobile && feedbackButton}
-				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{/* No trailing separator on desktop: it separated the feedback button from
 				    nothing (the controls after it are compact-only), and the 13px it spent
 				    was 13px the slim header could never match. */}
@@ -4157,56 +4180,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    StudioDrawer (2026-07-26-studio-mobile-eight-cell-bar.md) — five fixed named
 				    zones instead of one 30-item scroll, and none of the six protected controls
 				    (Present/Share/Coach/Chat/Settings/pane toggle) are anywhere in it. */}
-				{compact && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
-				{bp === 'tablet' && (
-					<DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
-						</DropdownMenuTrigger>
-						{/* Inline, scrollable content — NOT a side-opening submenu. A nested
-						    Radix submenu flies out to the side, which on a phone overflows the
-						    viewport (clips off-screen) and hides that the theme list scrolls.
-						    Actions sit first; the theme picker fills the rest as one scroll
-						    region so a clipped row signals "more below". Tablet-only now — the
-						    two `mobile &&` blocks this used to carry were already dead here. */}
-						<DropdownMenuContent align="end" className="w-56 overflow-hidden p-0">
-							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
-								<DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setLensesOpen(true)}><LensIcon className="size-4" />Lenses — reader views</DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><SettingsCog className="size-4" />Workspace settings</DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
-								{/* No "Send feedback" row — it's a 1-tap button in the header now, and
-								    the same action in two adjacent homes is the exact problem this menu
-								    already avoids for Slide settings. Mobile keeps its drawer row (no
-								    header button there); ⌘K keeps its command everywhere. */}
-								{/* Show me — the tablet's ONE home for the tours, since the header button
-								    is desktop-only (#1401). Same rows, same `data-tour` ids and the same
-								    two-line shape as the desktop picker; `demoActive` drops them while a
-								    tour drives the screen, matching the header button's own hide. */}
-								{toursOn && !demoActive && (
-									<>
-										<DropdownMenuSeparator />
-										<DropdownMenuLabel>Show me…</DropdownMenuLabel>
-										{TOURS.map((t) => (
-											<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
-												<span className="font-medium">{t.label}</span>
-												<span className="text-[12px] text-muted-foreground">{t.description}</span>
-											</DropdownMenuItem>
-										))}
-									</>
-								)}
-								<DropdownMenuSeparator />
-								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
-							</ScrollFade>
-						</DropdownMenuContent>
-					</DropdownMenu>
-				)}
 				{/* Workspace settings promoted to the header, between mode and the Menu —
 				    it was buried a drawer-open + one more tap deep and shouldn't have been
 				    (reported). Opened directly here, it never arms `drawerPendingReturn`, so
 				    closing it doesn't spuriously reopen the drawer; it's dropped from the
 				    drawer's own Workspace row below to avoid the exact "same setting, two
 				    homes" problem just fixed for Slide settings. */}
+				{mobile && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
 				{mobile && (
 					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></Button></Tip>
 				)}
@@ -4237,7 +4217,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						onApplyPalette={applyPalette}
 					/>
 				)}
-				</>)}
+				{!mobile && overflowMenu}</>)}
 
 				{/* Library + Workspace + account — on DESKTOP these live in the left activity
 				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the

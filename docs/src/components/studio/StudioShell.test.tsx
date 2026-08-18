@@ -621,9 +621,13 @@ describe('StudioShell — responsive layout', () => {
 		// Nothing docked open by default; the deck stays visible.
 		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
-		// Tablet keeps the docked column (in-panel segment, no rail) — the toolbar
-		// "Settings" toggle opens Deck scope in the column, no overlay that dims the deck.
-		await user.click(screen.getByRole('button', { name: 'Settings' }));
+		// Tablet keeps the docked column (in-panel segment, no rail), and Deck scope opens
+		// from the overflow menu rather than a bar button: "Settings" was one of three
+		// tablet-only inline toggles (with Coach and Chat) that the 2026-08-18 width ladder
+		// demoted so the search pill could stay in the row. What is asserted here is
+		// unchanged — a DOCKED column, not a dimming sheet — only the door it comes through.
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
 		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
 	});
 });
@@ -675,46 +679,58 @@ describe('StudioShell — topbar information architecture', () => {
 		setup();
 		expect(screen.getByRole('button', { name: 'Theme' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Switch to dark mode' })).toBeInTheDocument();
-		// Desktop keeps the full bar — no ⋯ overflow, and Library/Workspace are primary.
-		expect(screen.queryByRole('button', { name: 'Menu' })).not.toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
-		// The ⌘K pill is a desktop affordance.
+		// THE SEARCH PILL IS IN THE ROW AT EVERY WIDTH — it used to be commented here as "a
+		// desktop affordance", and that was the bug: below 1100 it was suppressed outright,
+		// so a tablet (and a resized desktop window) had no visible way to search.
 		expect(screen.getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument();
+		// The overflow menu is PERMANENT from 700 up — the row's right edge, and the home for
+		// whatever the width has pushed out of it. It used to exist only below 1100.
+		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
 	});
 
 	it('compact: secondary controls fold into ⋯ while mode + panel toggles stay primary', () => {
 		setViewport('tablet');
 		setup();
-		// The mode toggle stays a direct 1-tap button; the panel toggles stay primary.
-		expect(screen.getByRole('button', { name: 'Switch to dark mode' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Present' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
-		// The genuinely-secondary controls leave the bar: the theme picker, Library,
-		// Workspace, and the desktop ⌘K pill are no longer direct bar buttons…
+		// WHAT THIS CAN AND CANNOT SEE. The width ladder is CSS (`Present` is
+		// `md:inline-flex`, feedback `lg:`, theme/tours `xl:`) and jsdom applies no CSS, so
+		// a control the ladder HIDES is still in this DOM. Only what React conditionally
+		// RENDERS is assertable here; the ladder itself is `studio-header-fit.spec.ts`'s job,
+		// where a real browser resolves the classes.
+		//
+		// So: the search pill and the overflow menu are rendered at this width…
+		expect(screen.getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		// …and these left the row ENTIRELY, into that menu. Coach, Chat and Settings used to
+		// be inline here and only here (tablet has no activity bar); the theme picker, Library
+		// and Workspace were already behind the overflow.
+		expect(screen.queryByRole('button', { name: 'Toggle Coach' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Toggle Chat' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Theme' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Workspace settings' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Search or run a command' })).not.toBeInTheDocument();
-		// …they live behind a single ⋯ overflow.
-		expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
 	});
 
-	it('compact: ⋯ holds the theme picker (inline, not a side submenu), Library, Workspace, and a Search/commands row', async () => {
+	it('compact: ⋯ holds the theme picker (inline, not a side submenu), Library, Workspace, and the mode toggle', async () => {
 		setViewport('tablet');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
 		expect(screen.getByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
 		expect(screen.getByRole('menuitem', { name: 'Workspace settings' })).toBeInTheDocument();
-		expect(screen.getByRole('menuitem', { name: /Search \/ commands/ })).toBeInTheDocument();
+		// The "Search / commands" row is gone: the pill is the launcher at every width now.
+		expect(screen.queryByRole('menuitem', { name: /Search \/ commands/ })).not.toBeInTheDocument();
 		// The theme swatches are inline in the SAME menu — a single scroll region, not a
 		// side-opening submenu (which overflows a phone viewport). Picking one is one tap.
 		expect(await screen.findByRole('menuitem', { name: 'Indaco' })).toBeInTheDocument();
 		expect(screen.getByRole('menuitem', { name: 'Onyx' })).toBeInTheDocument();
-		// Tablet keeps the mode toggle ON the bar — no duplicate row inside ⋯.
-		expect(screen.queryByRole('menuitem', { name: /Switch to (dark|light) mode/ })).not.toBeInTheDocument();
+		// THE MODE TOGGLE IS A MENU ROW HERE, not a bar button. It used to be inline at this
+		// width — "tablet keeps the mode toggle ON the bar" — and that was one of the controls
+		// crowding the search out of the row entirely. Under the width ladder the persistent
+		// set is logo · deck · dial · search, and the least-used control on the bar (this
+		// repo's own 2026-07-03 review says so) is exactly what a ladder should demote first.
+		expect(screen.getByRole('menuitem', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
 	});
 
 	it('mobile: the deck actions stay inline on the Eight-Cell Bar (captioned cells, no ⋯ hiding)', async () => {
@@ -764,13 +780,21 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(await screen.findByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
 	});
 
-	it('compact: the ⋯ Search/commands row opens the command palette', async () => {
+	it('compact: the search pill IS the launcher — no menu row stands in for it', async () => {
 		setViewport('tablet');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Menu' }));
-		await user.click(await screen.findByRole('menuitem', { name: /Search \/ commands/ }));
-		// The cmdk palette surfaces — its search box is the proof the row is wired.
+		// This used to click a "Search / commands" row inside the ⋯ menu, because below 1100
+		// the pill was suppressed and the menu was the only way in. That is the bug the
+		// 2026-08-18 width ladder removed: the pill is in the row at EVERY width, so the row
+		// that stood in for it is gone — a menu row that opens the field the menu hangs from
+		// is one home too many.
+		await user.click(screen.getByRole('button', { name: 'Search or run a command' }));
 		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
+
+		// And the stand-in really is gone, not merely unused.
+		await user.keyboard('{Escape}');
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		expect(screen.queryByRole('menuitem', { name: /Search \/ commands/ })).not.toBeInTheDocument();
 	});
 
 	it('mobile: a drawer row that opens NO sheet must not arm the drawer-reopen flag', async () => {
@@ -981,7 +1005,7 @@ describe('StudioShell — topbar information architecture', () => {
 			};
 		}) as unknown as typeof window.matchMedia;
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
 		expect(await screen.findByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
 		// Flip straight to mobile (both `compact` AND `bp` change: tablet→mobile is exactly
 		// the transition `compact` alone can't see, since it's true on both sides of it) —
@@ -990,7 +1014,9 @@ describe('StudioShell — topbar information architecture', () => {
 		flip('mobile');
 		await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument());
 		flip('tablet');
-		expect(await screen.findByRole('button', { name: 'Menu' })).toBeInTheDocument();
+		// Back at tablet the trigger is the permanent overflow menu, not the phone's 'Menu'
+		// (that one belongs to the StudioDrawer and stays below 700).
+		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
 	});
@@ -1099,23 +1125,32 @@ describe('StudioShell — Send feedback has ONE fixed address', () => {
 		setViewport(bp);
 		setup();
 		expect(screen.getByRole('button', { name: 'Send feedback' })).toBeInTheDocument();
-		// Pin WHICH header rendered, so this can't pass by accident. Desktop Read and
-		// Write get the slim header (a brand mark, not a launcher button); every other
-		// stop/width combination gets the full one.
-		const slim = bp === 'desktop' && posture !== 'craft';
-		expect(screen.queryByRole('button', { name: 'Workspace launcher' }) === null).toBe(slim);
+		// THE LOGO IS A DROPDOWN AT EVERY WIDTH AND STOP. This used to pin the opposite —
+		// "desktop Read/Write get the slim header, a brand mark and NOT a launcher button" —
+		// which meant resizing a desktop window across 1099 made the workspace launcher
+		// appear out of nowhere. The owner called that out (2026-08-18) along with the
+		// search vanishing below 1100: the row's persistent set is logo · deck · dial ·
+		// search at every width, so the launcher is one control shared by both headers.
+		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
 	});
 
-	it('the tablet ⋯ menu does not offer it a second time', async () => {
+	it('is offered ONCE at a width — the menu row and the row button never both apply', async () => {
 		setViewport('tablet');
 		const user = setup();
-		// Count the header's copy BEFORE opening the menu: Radix marks everything
-		// outside an open dropdown `aria-hidden`, so a role query taken with the menu
-		// up can no longer see the button we are comparing against.
-		expect(screen.getAllByRole('button', { name: 'Send feedback' })).toHaveLength(1);
-		await user.click(screen.getByRole('button', { name: 'Menu' }));
-		await screen.findByRole('menuitem', { name: /Search \/ commands/ });
-		expect(screen.queryAllByRole('menuitem', { name: 'Send feedback' })).toHaveLength(0);
+		// TWO HOMES AT DIFFERENT WIDTHS IS NOT TWO HOMES. This used to assert the menu never
+		// carries "Send feedback", because at tablet it was a 1-tap header button. Under the
+		// width ladder it is a header button from `lg` up and a MENU ROW below it, and the
+		// row's class (`twin('lg:hidden')`) is what keeps exactly one of them applying at any
+		// given width — the same trick every priority-plus bar uses.
+		//
+		// jsdom applies no CSS, so BOTH are in this DOM and neither absence is assertable
+		// here. What IS assertable is the mirror itself: the menu row must carry the class
+		// that hides it exactly where the header button appears. Lose that and the control
+		// really does have two homes at once, which no test in a real browser would catch
+		// either — both would simply be visible.
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		const row = await screen.findByRole('menuitem', { name: 'Send feedback' });
+		expect(row.className, 'the menu row must hide itself exactly where the header button appears').toContain('lg:hidden');
 	});
 
 	it('mobile keeps it in the drawer and OUT of the header', async () => {
@@ -1146,8 +1181,8 @@ describe('StudioShell — Show me has ONE launcher per tier', () => {
 		setViewport('tablet');
 		const user = setup();
 		expect(screen.queryByRole('button', { name: 'Show me — guided tours' })).toBeNull();
-		await user.click(screen.getByRole('button', { name: 'Menu' }));
-		await screen.findByRole('menuitem', { name: /Search \/ commands/ });
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await screen.findByRole('menuitem', { name: 'Workspace settings' });
 		// Every tour the desktop picker lists is reachable here — asserted against the
 		// live TOURS table, so adding a tour can't silently skip the tablet.
 		const rows = screen.getAllByRole('menuitem').filter((el) => el.hasAttribute('data-tour'));
@@ -1157,7 +1192,7 @@ describe('StudioShell — Show me has ONE launcher per tier', () => {
 	it('a tablet tour row actually starts the tour', async () => {
 		setViewport('tablet');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
 		const first = (await screen.findAllByRole('menuitem')).find((el) => el.getAttribute('data-tour') === TOURS[0].id);
 		expect(first).toBeDefined();
 		await user.click(first as HTMLElement);
