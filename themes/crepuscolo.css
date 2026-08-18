@@ -58,7 +58,7 @@
   --bg:       light-dark(#FAF8FC, var(--scheme-dark-bg));      /* canvas              */
   --bg-alt:   light-dark(#EFEBF5, var(--scheme-dark-bg-alt));  /* card fill           */
   --surface-inverse:  #2A1B45;                  /* title / divider    */
-  --border:   light-dark(#DCD4E8, var(--scheme-dark-border));  /* hairline rule       */
+  --border:   light-dark(#8C8497, var(--scheme-dark-border));  /* hairline rule       */
 
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
   --text-display: #FFFFFF;
@@ -119,7 +119,7 @@
   /* ── Dark-variant tokens (referenced by light-dark() above) ───────── */
   --scheme-dark-bg:           #1A0F2D;
   --scheme-dark-bg-alt:       #2A1B45;
-  --scheme-dark-border:       #3F2A5C;
+  --scheme-dark-border:       #79649B;
   --scheme-dark-text-heading: #FFFFFF;
   --scheme-dark-text-body:    #C8BFE0;
   --scheme-dark-text-muted:   #9287AC;

@@ -37,7 +37,7 @@
   --bg:       light-dark(#FAF7F0, var(--scheme-dark-bg));      /* paper canvas   */
   --bg-alt:   light-dark(#F1EBDF, var(--scheme-dark-bg-alt));  /* card sheet     */
   --surface-inverse:  var(--brand-canvas);
-  --border:   light-dark(#E4DBC9, var(--scheme-dark-border));  /* warm hairline  */
+  --border:   light-dark(#8F8676, var(--scheme-dark-border));  /* warm hairline  */
 
   /* ── Ink ramp — warm near-black → sepia-grey ───────────────────────── */
   --text-display: #FFFFFF;
@@ -115,7 +115,7 @@
 :root {
   --scheme-dark-bg:           #1E1A14;
   --scheme-dark-bg-alt:       #2A241B;
-  --scheme-dark-border:       #3C3328;
+  --scheme-dark-border:       #786E61;
   --scheme-dark-text-heading: #FBF6EC;
   --scheme-dark-text-body:    #E7DDC9;
   --scheme-dark-text-muted:   #998C77;
