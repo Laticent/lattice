@@ -82,6 +82,11 @@ cd lattice
 npm install
 ```
 
+`npm install` also **builds `dist/`** — the engine bundles, the CLI and the
+docs-site bundles are generated, not committed (they conflicted in the merge
+queue on every other PR). It takes ~16s and needs no browser. If you ever need to
+regenerate them by hand, `npm run build`.
+
 Requires Node 22.12+ (`require()` of an ES module, which `lib/authoring` uses to
 share the class-directive scanner, is unflagged from that release).
 `npm install` pulls in the Mermaid CLI and Puppeteer
@@ -318,7 +323,7 @@ indexed elsewhere; follow the pointers.
 ```text
 lattice/
 ├── lattice-emulator.js   # the owned engine (CLI renderer; esbuild entry)
-├── dist/                 # GENERATED, NOT committed — `npm run build` (~16s); never hand-edit
+├── dist/                 # GENERATED, NOT committed — built by `npm install` / `npm run build`
 │                         #   (lattice.css, the runtime/emulator bundles, docs/).
 │                         #   Regenerate: npm run build · index: dist/README.md
 ├── lib/                  # engine source: core kernels, transformers, components/, theme/, forms/

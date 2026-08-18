@@ -13,7 +13,7 @@ summary: >
   designed, reviewed, rejected by a checker, rebuilt, and then discarded — because the
   premise was never unverifiable. jsDelivr publishes free public stats: 2 lifetime /gh/
   hits, both against an immutable commit SHA that keeps resolving regardless. 1 star,
-  0 forks, 0 tags, and dist/marp-kit appears in no user-facing document. Everything in
+  0 forks, and a v1.0.0 tag whose pins are immutable and therefore unaffected. Everything in
   this line of work that was measured held; everything asserted was wrong. The one claim
   that decided the design shape was the one nobody measured.
 ---
@@ -31,8 +31,8 @@ any two PRs that touch `lib/`. Measured on `main`:
 
 | | |
 |---|---:|
-| Commits touching `dist/` | **43 / 50** |
-| Commits touching `dist/lattice-emulator{,.min}.js` | **28 / 50** |
+| Commits touching `dist/` | **36 / 50** |
+| Commits touching `dist/lattice-emulator{,.min}.js` | **26 / 50** |
 | `dist/lattice.min.css` | 61 lines / 586 KB — **~9.6 KB per line** |
 | Tracked files removed here | **194** |
 | `npm run build` | **~16 s, no browser, byte-deterministic** |
@@ -99,11 +99,22 @@ GET .../versions?period=year
 
 **Two hits, lifetime — and both against an immutable commit SHA, a pin that keeps
 resolving forever no matter what `main` does.** Branch-pin fetches, the only kind
-uncommitting could break: **zero**. Corroborating, all cheap: 1 star, 0 forks,
-0 subscribers; **0 tags** (no release has ever been cut, so `/gh/` has no version
-to resolve); `README.md` documents every entry point as `@workwel/lattice/…`, the
-npm package; and `dist/marp-kit` appears in **no user-facing document** — only in
-internal `engineering/` notes.
+uncommitting could break: **zero**. Corroborating: 1 star, 0 forks, 0 subscribers.
+
+> **Corrected, and this one is embarrassing.** This paragraph originally claimed
+> **"0 tags — no release has ever been cut, so `/gh/` has no version to resolve"**,
+> from `git tag | wc -l` returning 0. The local clone simply had no tags fetched.
+> A **`v1.0.0` tag exists on the remote, with a published GitHub Release carrying a
+> `lattice-v1.0.0.zip` asset**, and `cdn.jsdelivr.net/gh/slidewright/lattice@v1.0.0/…`
+> resolves today. Running a command that returned 0 and believing it — without
+> asking whether the command could see what it was counting — is the same error
+> this note's §3 is about, committed inside the correction. The conclusion holds
+> only because a tag is immutable: a `@v1.0.0` pin keeps resolving to that tag's
+> tree regardless of what `main` does. Found by the red team.
+
+`README.md` routes every entry point through `@workwel/lattice/…` — though the same
+README says npm publishing is **pending**, so that route does not yet exist, which
+is why the git-URL install path (§8) mattered so much.
 
 **HARD RULE #23 was read backwards.** It forbids *claiming* verification without
 an artifact from the surface. It does not license treating an unmeasured hazard as
@@ -137,13 +148,20 @@ sat in the premise.
   that this repo already priced per-event queue trips and chose nightly instead;
   the alternative would have added ~20 a working day.
 
-## 5. The docs site gets FRESHER, not staler
+## 5. The docs site — a wash, not a win
 
-`docs.yml` triggers on `push: main` and previously ran only `npm ci`, deploying
-whatever bundle happened to be committed. Its own comment warns about the
-consequence: *"an engine/theme PR silently leaves the live playground on the
-previously-deployed assets."* That was a real, live staleness. Building at deploy
-time makes the deployed bundle match the deployed engine by construction.
+An earlier draft of this section claimed the docs site *"gets FRESHER, not
+staler"*. **That was wrong and the red team disproved it.** Before this change,
+`build:check` ran all 39 steps in the always-on `lint` job on every PR, so
+`docs/public/playground/lattice-playground.js` was byte-gated and could not be
+stale on `main` at all. The staleness `docs.yml`'s comment warns about is about
+its *deploy trigger*, not the bundle's correctness.
+
+What is true: building at deploy time makes the deployed bundle match the deployed
+engine by construction, which is a structurally better guarantee than a gate that
+had to be remembered. What is not true is that it fixes an existing live problem —
+there wasn't one. Net: a wash, and the honest reason to make this change is the
+merge queue, not the docs site.
 
 ## 6. What this costs — stated, not buried
 
@@ -180,3 +198,89 @@ Gates: `npm run lint`, `npm test`, `npm run build:check`, `npm run test:integrat
 **UNVERIFIED:** no CI job has actually run this. The build steps, the docs deploy
 and `prepack` are reasoned and locally exercised, but a GitHub Actions run is the
 real surface and it has not happened yet.
+
+## 8. What the adversarial trio found (HARD RULE #25)
+
+Run before this opened as a PR. The inversion lens reported first and its
+findings are below; they were reproduced independently before anything was
+changed.
+
+### It was red on almost every surface it touched
+
+The previous commit fixed the cold-tree guard failure in **one** place — the CI
+lint job — and left every other caller to do the same. They did not:
+
+| Surface | State |
+|---|---|
+| 5 CI jobs running plain `npm run build` | **exit 1**, measured on a clean clone |
+| pre-push hook + `release.yml` running `npm run build:check` | **exit 1** |
+| `session-start.sh` (`set -euo pipefail`) | **aborted provisioning before poppler-utils and CHROME_PATH** |
+| `npm i <git-url>` — the only install path, since npm publishing is pending | **silently produced a package with no `dist/`, no `bin`, exit 0** |
+
+The last one is the sharpest: npm runs **`prepare`** for a git dependency, not
+`prepack`. `prepare` was `lefthook install || true`, so the fix that made
+`npm pack` correct did nothing for the path anyone can actually use today.
+
+### The shape of the mistake, which is the part worth keeping
+
+The change created a **global ordering invariant** — nothing may read the engine
+before something builds it, the build must not run before a freshness check, and
+the build could not run cold at all — and then spread responsibility for it
+across ten surfaces with no gate enforcing any of them. It held on two.
+
+The fix is not ten fixes. `tools/build.js` now **self-bootstraps**: it detects a
+cold tree and generates the built-not-committed artifacts before the guard. One
+place, and `npm run build` / `npm run build:check` simply work cold. `prepare`
+builds them too, which is what makes a fresh clone and a git-URL install work.
+
+The invariant survives in exactly one form and it is load-bearing: the bootstrap
+generates **only** the uncommitted artifacts. Generating the committed ones would
+make the following `--check` compare fresh against fresh and pass vacuously.
+Verified in both directions on a cold clone — build and check exit 0, and a stale
+committed artifact still fails and is named.
+
+### What the measurement in §3 does NOT cover
+
+§3 leans on jsDelivr `/gh/` stats. Stated plainly, because §3 did not: that API
+covers jsDelivr CDN requests and **nothing else**. It says nothing about
+`git clone`, `npm i <git-url>`, `degit`, GitHub "Download ZIP",
+`raw.githubusercontent.com`, corporate mirrors, or the sibling SlideWright Tauri
+app in another repository. "Nobody fetches this" is inferred from those two hits
+*together with* 0 forks, 0 subscribers and no published npm package (the v1.0.0 tag
+exists but a tag pin is immutable, so it keeps resolving) — not
+from the CDN number alone. And one of §3's four supporting legs was hollow:
+"README documents every entry point as the npm package" is true, but `README.md`
+also says npm publishing is **pending**, so that route does not yet exist.
+
+### The alternative the inversion asked to be priced
+
+Measured bytes-per-line across all 184 generated files: **~9 files carry the
+certainty of conflict** (`lattice-runtime.min.js` at 10,898 B/line,
+`lattice-default.min.css` 9,555, `lattice.min.css` 9,457, the two marp-kit
+copies, `lattice-playground.js` 2,818, `lattice-katex.js` 1,033,
+`mermaid-v11.min.js` 959, `lattice-emulator.min.js` 533). Everything else is
+≤ 233 B/line and three-way-merges like ordinary text.
+
+A **partial** uncommit of just those nine would kill the ejection, keep
+`dist/lattice-emulator.js` committed so a cold clone runs the CLI with no
+bootstrap at all, and keep `dist/docs/components.pick.md` greppable for agents.
+Its machinery cost is the same step-tagging with a different tag set, and its
+blast radius is roughly a tenth.
+
+**The full uncommit was kept anyway, for two reasons and one of them is weak.**
+The strong one: the bulk of the ~280 MB churn is `dist/lattice-emulator.js`
+itself — 6.8 MB, touched by 28 of the last 50 commits — so a partial that keeps
+it committed keeps most of the growth. The weak one: the bootstrap now exists and
+is verified, so the partial's main advantage (no bootstrap needed) is worth less
+than it was an hour ago. **If the bootstrap ever proves fragile, the ~9-file
+partial is the documented fallback and it costs a tag-set edit, not a redesign.**
+
+### Verified after the fixes
+
+| Claim | Surface | Result |
+|---|---|---|
+| `npm run build` cold | clean clone, no `dist/` | **exit 0**, bootstraps |
+| `npm run build:check` cold | clean clone | **exit 0** |
+| The gate is still real | staled the decision index on that clone | **exit 1**, named |
+| `npm i <git-url>` | real install into an empty project | **exit 0**, 14 `dist/` entries, `bin` present |
+| The installed CLI renders | ran it on a real deck | **1-page PDF, exit 0** |

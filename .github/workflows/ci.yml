@@ -54,7 +54,12 @@ jobs:
               - 'tools/**'
               - 'test/**'
               - 'themes/**'
-              - 'dist/**'
+              # assets/fonts/** is a real build input (tools/build-css.js ASSET_FONTS,
+              # tools/check-fonts.js) and was previously reached ONLY via 'dist/**':
+              # a font change forced a dist/fonts + dist/*.css rebuild into the PR,
+              # which matched. dist/ is no longer committed, so 'dist/**' can never
+              # match again and a fonts-only change would have run no test tier at all.
+              - 'assets/fonts/**'
               - 'examples/**'
               # Worked exemplar decks ship a committed .pdf each and ride the
               # integration render gate (test/integration/exemplars/); an
@@ -74,7 +79,7 @@ jobs:
               - '.github/workflows/ci.yml'
             docs:
               - 'docs/**'
-              - 'dist/**'
+              - 'assets/fonts/**' # same reason as `code` above — dist/** no longer matches
               - 'themes/**'
               - 'lib/**'
               # The exemplar decks are staged into the docs build; keep an

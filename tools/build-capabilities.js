@@ -62,6 +62,8 @@ const SCRIPT_META = {
   // Build & bundle
   'build':                    ['Build & bundle', 'Regenerate every generated artifact in dependency order, behind the ownership gate.'],
   'build:check':              ['Build & bundle', 'Freshness gate for the COMMITTED generated artifacts: regenerate in memory and diff, skipping the bundles that are built-not-committed (CI/pre-push).'],
+  'build:uncommitted':        ['Build & bundle', 'Generate ONLY the built-not-committed artifacts (dist/, the docs-site bundles). The cold-tree bootstrap: the ownership guard reads dist/ CSS, so it cannot run before this. Skips the guard for that reason.'],
+  'prepack':                  ['Build & bundle', 'npm lifecycle: build before packing, so the published tarball carries dist/ even though git does not.'],
   'build:check:all':          ['Build & bundle', 'The same gate without the scope: every artifact, including the built-not-committed bundles. Needs dist/ present, so run it after npm run build.'],
   'css:build':                ['Build & bundle', 'Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet.'],
   'css:check':                ['Build & bundle', 'Freshness gate for dist/lattice.css.'],
@@ -258,7 +260,7 @@ const SCRIPT_META = {
 
   // Meta / housekeeping
   'clean:scratch':            ['Meta', 'Delete .scratch/ entries older than 14 days.'],
-  'prepare':                  ['Meta', 'npm lifecycle: wire the lefthook git hooks on install.'],
+  'prepare':                  ['Meta', 'npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work.'],
   'prepublishOnly':           ['Meta', 'npm lifecycle: guard run before publish.'],
 };
 

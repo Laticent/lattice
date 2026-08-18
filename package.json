@@ -254,7 +254,7 @@
     "clean:scratch": "find .scratch -mindepth 1 -mtime +14 -print -delete",
     "prepare": "lefthook install || true; node tools/build.js --only-uncommitted",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "@mermaid-js/mermaid-cli": "^11.0.0",

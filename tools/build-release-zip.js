@@ -46,8 +46,11 @@ const OUT_FILE = path.join(OUT_DIR, `lattice-v${VERSION}.zip`);
 // excluded for free. lib/ carries both the engine runtime deps
 // (lib/transformers, lib/core, lib/components/**/*.transform.js,
 // lib/integrations) and the 142 gallery PDFs the component reference links.
+// NOT 'dist' — see DISK_PATHS below. `git archive` is tracked-only, and dist/ is
+// built, not committed, so listing it here made the whole command exit 128 with
+// `fatal: pathspec 'dist' did not match any files`, and merely dropping it would
+// have shipped a showcase zip with no engine in it — silently.
 const PATHSPECS = [
-  'dist',                  // css bundles, runtime, emulator, README, docs/components.*
   'lib',                   // engine deps + per-component css/docs/manifests + gallery PDFs
   'themes',                // all palette files
   'examples',              // showcase decks + their PDFs
@@ -87,7 +90,7 @@ function main() {
 
   // 3. dist/ freshness gate — never zip a stale or colliding dist/.
   if (!skipCheck) {
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check'], {
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check', '--exclude-uncommitted'], {
       cwd: ROOT, stdio: 'inherit',
     });
     if (r.status !== 0) {
@@ -103,6 +106,25 @@ function main() {
   git(['archive', '--format=zip', `--prefix=${PREFIX}`, '-o', OUT_FILE, 'HEAD', '--', ...PATHSPECS], {
     stdio: ['ignore', 'pipe', 'inherit'],
   });
+
+  // dist/ is BUILT, not committed, so `git archive` cannot see it — it has to be
+  // added from the working tree. Without this the zip is an engine-less showcase:
+  // no lattice.css, no emulator, no marp-kit, and dist/docs/components.md's
+  // relative PDF links (the reason the lattice-v<x>/ prefix exists) resolve to
+  // nothing. `zip -r` appends into the archive git archive just wrote, under the
+  // same prefix, so the layout is identical to what shipped before.
+  const distDir = path.join(ROOT, 'dist');
+  if (!fs.existsSync(distDir)) {
+    console.error('[build-release-zip] dist/ is missing — it is built, not committed.');
+    console.error('       Run `npm run build`, then retry.');
+    process.exit(1);
+  }
+  const staged = path.join(OUT_DIR, PREFIX.replace(/\/$/, ''));
+  fs.rmSync(staged, { recursive: true, force: true });
+  fs.mkdirSync(staged, { recursive: true });
+  fs.cpSync(distDir, path.join(staged, 'dist'), { recursive: true });
+  spawnSync('zip', ['-qr', OUT_FILE, PREFIX.replace(/\/$/, '')], { cwd: OUT_DIR, stdio: 'inherit' });
+  fs.rmSync(staged, { recursive: true, force: true });
 
   const bytes = fs.statSync(OUT_FILE).size;
   console.log(`[build-release-zip] ${path.relative(ROOT, OUT_FILE)}  (${(bytes / 1e6).toFixed(1)} MB)`);

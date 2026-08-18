@@ -234,7 +234,7 @@ async function main(argv) {
       : STEPS;
   const mode = check ? 'check' : 'build';
   const scope = excludeUncommitted
-    ? `${steps.length} PR-owned artifacts (${STEPS.length - steps.length} bot-owned skipped)`
+    ? `${steps.length} committed artifacts (${STEPS.length - steps.length} built-not-committed skipped)`
     : `${steps.length} artifacts`;
   process.stdout.write(`Lattice ${mode}: ${scope} behind the ownership gate.\n\n`);
 
@@ -295,7 +295,7 @@ async function main(argv) {
   // removed the join step while leaving a background step in, nothing would
   // await it and its failure would be silently discarded — a check that passes
   // because it stopped looking. Today all four background steps AND the join
-  // step are bot-owned, so they leave together and this never fires; it exists
+  // step are built-not-committed, so they leave together and this never fires; it exists
   // because that is a coincidence of the current tags, not a property anyone
   // enforced, and the failure it guards is invisible.
   if (backgroundSteps.length && !foregroundSteps.some((s) => s.script === JOIN_BEFORE_SCRIPT)) {

@@ -266,7 +266,23 @@ describe('differential: identical to the old strip wherever the old strip was ri
     // BY NAME rather than reverting to a directory walk. An explicit list cannot
     // vary with what happens to have been built, which is what made the walk
     // machine-dependent.
-    const GENERATED_SHEETS = ['dist/lattice.css', 'dist/lattice-default.css'];
+    // The MINIFIED sheets matter most here and were the easiest to lose: they are
+    // single-line, comment-stripped CSS, which is exactly the shape a regex-vs-walk
+    // @import differential exists to stress. Uncommitting dist/ dropped 38 of them
+    // from the corpus (179 -> 141) and re-adding only the two unminified ones would
+    // have quietly kept the easy half. Globbed from disk rather than listed, so a
+    // new palette joins the corpus without anyone remembering to add it.
+    const GENERATED_SHEETS = [
+      'dist/lattice.css',
+      'dist/lattice-default.css',
+      'dist/lattice.min.css',
+      'dist/lattice-default.min.css',
+      ...(fs.existsSync(path.join(ROOT, 'dist/themes'))
+        ? fs.readdirSync(path.join(ROOT, 'dist/themes'))
+            .filter((f) => f.endsWith('.css'))
+            .map((f) => `dist/themes/${f}`)
+        : []),
+    ];
     const tracked = execFileSync('git', ['ls-files', '*.css'], { cwd: ROOT, encoding: 'utf8' })
       .split('\n').filter(Boolean).map((p) => path.join(ROOT, p));
     for (const rel of GENERATED_SHEETS) {
