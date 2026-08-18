@@ -405,7 +405,7 @@ section.math.theorem blockquote:nth-of-type(3n+2) strong:first-child {
   color: var(--cat-7-ink, var(--cat-7-mark, var(--accent)));
 }
 section.math.theorem blockquote:nth-of-type(3n) {
-  border-left-color: var(--text-muted);
+  border-left-color: var(--muted-mark);
 }
 section.math.theorem blockquote:nth-of-type(3n) strong:first-child {
   color: var(--text-secondary);
@@ -851,7 +851,7 @@ section .functionplot .function-plot {
   background: transparent;
 }
 section .functionplot .function-plot .domain {
-  stroke: var(--text-muted) !important;
+  stroke: var(--muted-mark) !important;
   opacity: 0.6 !important;
 }
 section .functionplot .function-plot .tick line {
@@ -878,11 +878,11 @@ section .functionplot .function-plot .line-1 {
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot .line-2 {
-  stroke: var(--cat-7-mark, var(--text-muted)) !important;
+  stroke: var(--cat-7-mark, var(--muted-mark)) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot :is(.line-3, .line-4, .line-5) {
-  stroke: var(--text-muted) !important;
+  stroke: var(--muted-mark) !important;
   stroke-width: 2 !important;
 }
 section .functionplot .function-plot .annotations .annotation,

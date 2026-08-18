@@ -65,7 +65,7 @@ section.cards-stack .card > code {
   font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius);
   padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap;
-  border:1px solid var(--pill-border, var(--text-muted));
+  border:1px solid var(--pill-border, var(--muted-mark));
   background:var(--pill-bg, var(--bg)); color:var(--pill-fg, var(--text-body));
 }
 

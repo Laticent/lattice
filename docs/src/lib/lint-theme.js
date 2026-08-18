@@ -93,14 +93,20 @@ const mask = (img) => ({
 	WebkitMaskSize: '100% 100%',
 });
 
-// Recessive ink that still clears 3:1. `--text-muted` alone does NOT: measured
-// against `--bg` across all 36 palette x mode rows it bottoms out at 2.47:1
-// (magnolia light) and 2.64:1 (cuoio light). Mixing 55% of it into `--text-body`
-// — which is AA against `--bg` by contract — lifts every row past 3:1 (worst
-// becomes 3.75:1) while still reading as secondary beside `--text-heading`.
-// Used for the rule id and the Note glyph, the two places severity ink would
-// otherwise be the palette's weakest color.
-export const MUTED_INK = 'color-mix(in srgb, var(--text-muted) 55%, var(--text-body))';
+// Recessive ink for the rule id and the Note glyph — the two places severity ink
+// would otherwise be the palette's weakest color.
+//
+// This used to be `color-mix(in srgb, var(--text-muted) 55%, var(--text-body))`,
+// and the mix was a WORKAROUND: `--text-muted` alone bottomed out at 2.47:1
+// (magnolia light) and 2.64:1 (cuoio light) against `--bg`, so 55% of it was
+// pulled toward `--text-body` to clear 3:1.
+//
+// #1715 removed the reason. `--text-muted` is now the AA-floored TEXT half of a
+// split role — 4.5:1 against BOTH `--bg` and `--bg-alt` on all 36 palette-mode
+// rows, gated by `checkMutedTierFloors` — so the token reads directly. Keeping the
+// mix would now be actively worse: pulling muted 55% toward body is precisely the
+// de-emphasis collapse #1720 measured and reverted a change for.
+export const MUTED_INK = 'var(--text-muted)';
 
 // A hairline drawn from the popup's OWN ink rather than `--border`: `--border` is
 // tuned as a card edge against `--bg-alt`, and this surface is `--bg`, where it

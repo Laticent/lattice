@@ -101,15 +101,15 @@ section.obligation-matrix td .state {
   /* Disc fill + ring + lift from the scalar knobs (default Ringed Solid or
    * a .checks-* variant). Colours mixed here from --state-color. Mirror
    * recipe: checklist.styles.css, verdict-grid.styles.css. */
-  background:color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-fill-pct), transparent);
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--text-muted));
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
 section.obligation-matrix td .state.pass { --state-color:var(--pass); }
 section.obligation-matrix td .state.warn { --state-color:var(--warn); }
 section.obligation-matrix td .state.fail { --state-color:var(--fail); }
-section.obligation-matrix td .state.skip { --state-color:var(--text-muted); }
+section.obligation-matrix td .state.skip { --state-color:var(--muted-mark); }
 /* exempt — `[ ]` is "not subject to this obligation", a NEUTRAL state (not a
  * gap): a true hollow ring (empty centre; see `.state.todo` in base.modifiers). */
 section.obligation-matrix td .state.todo { --state-color:var(--text-label); }
@@ -118,7 +118,7 @@ section.obligation-matrix td .state.todo { --state-color:var(--text-label); }
 section.obligation-matrix td .state::after {
   content:'';
   position:absolute; inset:0;
-  background-color:color-mix(in srgb, var(--state-color, var(--text-muted)) var(--state-mark-pct), var(--bg));
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }
@@ -137,7 +137,7 @@ section.obligation-matrix.heat td:has(> .state.fail) {
   background:color-mix(in srgb, var(--pass) 10%, var(--bg));
 }
 section.obligation-matrix.heat td:has(> .state.skip) {
-  background:color-mix(in srgb, var(--text-muted) 6%, var(--bg));
+  background:color-mix(in srgb, var(--muted-mark) 6%, var(--bg));
 }
 /* Bracket-frame echo at the row level. Each row carries a doubled left
  * border (matching the authority-chain.bracket aesthetic) so the matrix

@@ -105,7 +105,8 @@
   --text-body:    light-dark(#6B5D4F, var(--scheme-dark-text-body));   /* 5.95:1 / 11.02:1 AA  */
   --text-label:   light-dark(#6F604F, var(--scheme-dark-text-label));  /* 5.68:1 /  9.63:1 AA  */
   --text-secondary: light-dark(#75685C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA on bg + bg-alt both sides */
-  --text-muted:   light-dark(#A69882, var(--scheme-dark-text-muted));      /* decorative / de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt */
+  --text-muted:   light-dark(#766854, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   light-dark(#92856F, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
   /* ── Brand accent ──────────────────────────────────────────────────────
    * The accent is text-bearing on multiple surfaces (inline code chips,
@@ -223,6 +224,7 @@
   --scheme-dark-text-heading: #FAF7F2;  /* 17.58:1 on dark-bg AAA                */
   --scheme-dark-text-body:    #D6C4A8;  /* warm tan — 11.02:1 on dark-bg AAA     */
   --scheme-dark-text-muted:   #A69882;
+  --scheme-dark-muted-mark:   #A69882;
   --scheme-dark-text-secondary: #AB9C85;
   --scheme-dark-text-label:   #C4B8A8;  /* pale tan — 9.63:1 on dark-bg AAA      */
   --scheme-dark-text-display: #FAF7F2;

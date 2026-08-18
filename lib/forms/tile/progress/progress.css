@@ -25,7 +25,7 @@ section.form .tile-progress {
   width: 0.85cqi;
   height: 0.85cqi;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text-muted) 50%, transparent);
+  background: color-mix(in srgb, var(--muted-mark) 50%, transparent);
 }
 .tile-progress .dot.on {
   width: 2.6cqi;

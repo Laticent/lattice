@@ -8184,6 +8184,108 @@ function checkFallbackContracts(errors, libDir = LIB_DIR) {
   }
 }
 
+// ─── The muted tier's two floors (#1715) ───────────────────────────────────
+//
+// `--text-muted` carried TWO declared contracts that contradicted each other, and
+// both were written down. Its NAME says text: `lib/tokens/contracts.js` reads the
+// floor off the name and returns `{floor: 4.5, role: 'ink'}` for it, because HARD
+// RULE #11 makes role-based names canonical. Its own DECLARATION said the
+// opposite — every one of the fourteen palettes annotated the line "decorative /
+// de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt", and
+// `lib/theme/derive.js` said "Muted is DECORATIVE / WCAG-exempt — pass through, no
+// repair."
+//
+// Measured, the value followed the comment and the READS followed the name: below
+// AA on 44 of 72 palette-mode-surface pairs (worst 2.11:1, magnolia/light on
+// `--bg-alt`) while 88 sites painted real text with it.
+//
+// #1715 split the role rather than picking a winner, because both readings were
+// describing something real: `--text-muted` keeps the name and gains the floor the
+// name always promised, and the decoration — rules, hairlines, empty/skipped marks,
+// glyph washes — moved to `--muted-mark`, which is named for what it is and takes
+// the 3:1 graphical floor. This gate is what makes each half stay true.
+//
+/**
+ * PINNED LITERALS. 4.5 is WCAG AA for normal text and 3.0 is WCAG 1.4.11 for
+ * graphical objects; they are written here rather than imported from
+ * `lib/theme/color.js` for the reason #1720 §5 records — a gate that takes its
+ * floor from the thing it is measuring cannot fail when that thing moves.
+ * `CAT_TEXT_FLOOR` above is the same 4.5 and is deliberately not reused: this arm
+ * must keep biting even if that constant is retuned for the categorical tier.
+ */
+const MUTED_TEXT_FLOOR = 4.5;
+const MUTED_MARK_FLOOR = 3.0;
+
+function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
+  const themes = fs.readdirSync(themesDir)
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => f.replace(/\.css$/, ''));
+  let measured = 0;
+
+  for (const name of themes) {
+    const map = catParseTokens(catPaletteSource(name, new Set(), themesDir));
+    // A palette that declares neither token resolves both through its import chain
+    // and is measured wherever it lands; one that declares no --bg at all is not a
+    // palette (a11y-base is a shared partial) and is skipped by that test alone.
+    if (!map.has('--bg') && !map.has('--text-muted')) continue;
+
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--bg', mode);
+      const bgAlt = catResolve(map, '--bg-alt', mode);
+      if (!bg || !bgAlt) continue;
+
+      for (const [token, floor, what] of [
+        ['--text-muted', MUTED_TEXT_FLOOR, 'de-emphasized TEXT'],
+        ['--muted-mark', MUTED_MARK_FLOOR, 'de-emphasized DECORATION'],
+      ]) {
+        const value = catResolve(map, token, mode);
+        // FAIL CLOSED. `catContrast` returns null on a value it cannot read and
+        // `null < 4.5` is TRUE in JS while `NaN < 4.5` is FALSE — either way,
+        // guessing here is how a gate ends up measuring nothing. An unreadable
+        // value on a palette that declares the token is an error in its own right.
+        if (!value) {
+          if (map.has(token)) {
+            errors.push(
+              `checkMutedTierFloors: ${name}/${mode} declares ${token} but it does not resolve to a `
+              + 'hex, so nothing can be measured. Fail closed rather than skip.');
+          }
+          continue;
+        }
+        for (const [surface, surfaceHex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
+          const ratio = catContrast(value, surfaceHex);
+          if (typeof ratio !== 'number' || Number.isNaN(ratio)) {
+            errors.push(
+              `checkMutedTierFloors: ${name}/${mode} — ${token} vs ${surface} did not produce a `
+              + 'number. Fail closed.');
+            continue;
+          }
+          measured++;
+          if (ratio < floor) {
+            errors.push(
+              `${name}/${mode}: ${token} ${value} on ${surface} ${surfaceHex} is ${ratio.toFixed(2)}:1, `
+              + `below its ${floor}:1 floor (${what}). ${token === '--text-muted'
+                ? 'This token is named for TEXT and lib/tokens/contracts.js classifies it as ink at '
+                  + '4.5 — if the value is meant to be decorative, the read belongs on --muted-mark '
+                  + 'instead (#1715).'
+                : 'A rule, hairline or empty mark still has to be visible — WCAG 1.4.11 (#1715).'}`);
+          }
+        }
+      }
+    }
+  }
+
+  // ANTI-VACUOUS, and DERIVED rather than a hardcoded literal that silently decays
+  // as palettes are added: 14 palettes x 2 modes x 2 tokens x 2 surfaces is 112, and
+  // the a11y four resolve through onyx on top of that. A run measuring far fewer has
+  // stopped finding palettes.
+  const expected = themes.length * 2;
+  if (measured < expected) {
+    errors.push(
+      `checkMutedTierFloors made ${measured} measurement(s) across ${themes.length} theme file(s), `
+      + `fewer than the ${expected} floor — the palette scan is broken, not the tree.`);
+  }
+}
+
 // ─── a11y syntax separation UNDER the condition (#1715) ────────────────────
 //
 // `checkHljsContrast` holds every `--hljs-*` to AA against `--code-bg`, and on the
@@ -9261,6 +9363,7 @@ function run() {
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
   checkHljsSeparation(errors);
+  checkMutedTierFloors(errors);
   return {
     errors,
     counts: {
@@ -9321,6 +9424,7 @@ module.exports = {
   fallbackHops,
   checkPhantomTokenReads,
   checkHljsSeparation,
+  checkMutedTierFloors,
   A11Y_SYNTAX_CONDITIONS,
   HLJS_ROLES,
   engineDeclaredTokens,

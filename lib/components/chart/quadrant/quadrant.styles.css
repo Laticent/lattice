@@ -49,9 +49,9 @@
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
 :is(section.quadrant, figure.chart-frame) {
-  --quadrant-frame:   color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-split:   color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-target:  color-mix(in srgb, var(--text-muted) 78%, transparent);
+  --quadrant-frame:   color-mix(in srgb, var(--muted-mark) 42%, transparent);
+  --quadrant-split:   color-mix(in srgb, var(--muted-mark) 28%, transparent);
+  --quadrant-target:  color-mix(in srgb, var(--muted-mark) 78%, transparent);
   /* On-field labels sit on the vivid pie-matched zone fills, so they take
    * maximum-contrast ink rather than the softened --text-heading: true black
    * on the light canvas, true white on dark. light-dark() flips it off the
@@ -344,8 +344,8 @@ section.quadrant.minimal .quadrant-tint {
   fill: none;
 }
 section.quadrant.minimal {
-  --quadrant-frame: color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-split: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  --quadrant-frame: color-mix(in srgb, var(--muted-mark) 28%, transparent);
+  --quadrant-split: color-mix(in srgb, var(--muted-mark) 18%, transparent);
 }
 section.quadrant.minimal .quadrant-bubble {
   fill: none;
@@ -356,7 +356,7 @@ section.quadrant.minimal .quadrant-hull {
 
 /* ── dark: lift frame + split for dark surfaces (composable) ──────────── */
 section.quadrant.dark {
-  --quadrant-frame:  color-mix(in srgb, var(--text-muted) 58%, transparent);
-  --quadrant-split:  color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-target: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  --quadrant-frame:  color-mix(in srgb, var(--muted-mark) 58%, transparent);
+  --quadrant-split:  color-mix(in srgb, var(--muted-mark) 42%, transparent);
+  --quadrant-target: color-mix(in srgb, var(--muted-mark) 88%, transparent);
 }

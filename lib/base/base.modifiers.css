@@ -432,7 +432,7 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
   font-size:var(--pill-fs);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  border:1px solid var(--pill-border, var(--text-muted));
+  border:1px solid var(--pill-border, var(--muted-mark));
   background:var(--pill-bg, var(--bg));
   color:var(--pill-fg, var(--text-body));
   border-radius:var(--pill-radius);
@@ -1129,7 +1129,7 @@ section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
 section.heat td.cell-state.state-skipped,
-section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--text-muted); }
+section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS

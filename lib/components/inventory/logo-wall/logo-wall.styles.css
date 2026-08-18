@@ -154,7 +154,7 @@ section.logo-wall > .cell-stage > ul > li > ul > li > code {
   letter-spacing: var(--pill-tracking);
   color: var(--pill-fg, var(--text-muted));
   background: var(--pill-bg, transparent);
-  border: 1px solid var(--pill-border, var(--text-muted));
+  border: 1px solid var(--pill-border, var(--muted-mark));
   border-radius: var(--pill-radius);
   padding: var(--pill-pad-y) var(--pill-pad-x);
   white-space: nowrap;

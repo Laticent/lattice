@@ -109,7 +109,7 @@ section.kpi code {
   font-weight: var(--pill-weight);
   letter-spacing: 0.12em;       /* wider tracking pairs with the uppercase opt-in */
   text-transform: uppercase;
-  border: 1px solid var(--pill-border, var(--text-muted));
+  border: 1px solid var(--pill-border, var(--muted-mark));
   background: var(--pill-bg, var(--bg));
   color: var(--pill-fg, var(--text-body));
   border-radius: var(--pill-radius);
@@ -140,7 +140,7 @@ section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol
 }
 section.kpi > .cell-stage > :where(ol, ul) > li :where(ul, ol) > li code ~ code,
 section.kpi > .cell-stage > :where(ol, ul) > li > code ~ code {
-  --pill-border: var(--text-muted);
+  --pill-border: var(--muted-mark);
   --pill-bg: var(--bg);
   --pill-fg: var(--text-muted);
 }

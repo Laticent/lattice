@@ -100,7 +100,7 @@ section { --tone-rail: 0 0 transparent; }
 section.tone-pass { --tone-color: var(--pass); }
 section.tone-warn { --tone-color: var(--warn); }
 section.tone-fail { --tone-color: var(--fail); }
-section.tone-skip { --tone-color: var(--text-muted); }
+section.tone-skip { --tone-color: var(--muted-mark); }
 /* The tone STYLE axis (orthogonal to the semantic tone above) sets the box-shadow
    SHAPE, so `tone-fail tone-edge` composes. Default (no style) = the left rail; a
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
@@ -278,9 +278,9 @@ section.divider:not(.light).spectrum-edge-off { background: var(--surface-invers
 section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); }
 section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); }
 section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); }
-section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); }
+section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--muted-mark); }
 section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); }
-section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); }
+section.archived     { --stamp-label: "Archived";     --stamp-color: var(--muted-mark); }
 section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
 section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
 

@@ -659,7 +659,7 @@ export function MotionStudio({
 .motion-stage .scene-control[data-mode="optin"]::before{content:"\\25b6"}
 .motion-stage .scene-control:not([data-mode="optin"]){width:28px;padding:0;justify-content:center;border-radius:50%}
 .motion-stage .scene-control-label:empty{display:none}
-.motion-stage .scene-control:hover{color:var(--text-heading);border-color:var(--text-muted)}`}</style>
+.motion-stage .scene-control:hover{color:var(--text-heading);border-color:var(--muted-mark)}`}</style>
 		</div>
 	);
 }

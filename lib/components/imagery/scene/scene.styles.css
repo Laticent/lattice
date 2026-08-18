@@ -159,7 +159,7 @@ section.scene .scene-figure svg {
 .anima-live .scene-control-label:empty { display: none; }
 .anima-live .scene-control:hover {
   color: var(--text-heading);
-  border-color: var(--text-muted);
+  border-color: var(--muted-mark);
 }
 
 /* The prose panel (mirrors .image-text). */

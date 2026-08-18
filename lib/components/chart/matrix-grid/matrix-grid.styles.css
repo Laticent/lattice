@@ -313,7 +313,7 @@ section.matrix-grid.chart-frame .chart-caption {
   content: '';
   width: 0.8em; height: 0.8em;
   border-radius: var(--radius-sm);
-  border: 2px solid var(--text-muted);
+  border: 2px solid var(--muted-mark);
 }
 
 /* ── Box-local tall/strip: the TYPE has to step down with the box (#1620) ────

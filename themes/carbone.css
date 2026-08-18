@@ -71,7 +71,8 @@
   --text-body:    #DCDCD7;       /* L:12.63:1 on bg AAA */
   --text-label:   var(--brand-accent); /* L:10.95:1 on bg AAA */
   --text-secondary: #A5A5A2;   /* secondary prose / subtitle / caption — 7.0:1 on bg AAA */
-  --text-muted:   #757A82;      /* decorative / de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt */
+  --text-muted:   #8A9098;      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   #757A82;      /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
   /* ── Brand accent — electric lime ──────────────────────────────────── */
   --accent:      var(--brand-accent);          /* L:10.95:1 on bg AAA */
@@ -137,7 +138,7 @@
   --scheme-dark-border:       #3A3A3F;
   --scheme-dark-text-heading: #F5F5F2;
   --scheme-dark-text-body:    #DCDCD7;
-  --scheme-dark-text-muted:   #757A82;
+  --scheme-dark-text-muted:   #8A9098;
   --scheme-dark-text-secondary: #A5A5A2;
   --scheme-dark-text-label:   var(--brand-accent);
   --scheme-dark-text-display: #F5F5F2;
