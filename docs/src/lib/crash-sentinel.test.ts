@@ -1420,3 +1420,114 @@ describe('the sentinel and the workspace store agree on the setting', () => {
 		expect(crashRecordingEnabled()).toBe(false);
 	});
 });
+
+/**
+ * WHAT THE CONSENT GATE MUST NOT TAKE WITH IT.
+ *
+ * Every case here failed against the first cut of the gate. The shape of the
+ * mistake was the same each time: the gate returned before something that does
+ * not record — a read, or a delete — and took an unrelated promise down with it.
+ */
+describe('turning recording off does not break the promises around it', () => {
+	const deny = () => localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: false }));
+
+	// THE iOS EVICTION PATH. `isUncleanEnd`'s first branch needs `sameTab`, which
+	// needs the boot facts, which are readable exactly once. With the gate above
+	// them they stayed null and this report became invisible FOREVER — while the
+	// panel copy promised the opposite. Everyone upgrades into "off", so this is
+	// the default experience of anyone who already had a report.
+	it('still lists a page-cache eviction after recording is turned off', () => {
+		const evicted = rec({ id: 'ev', closed: true, bfcached: true, lastBeat: Date.now() });
+		localStorage.setItem(SESSION_PREFIX + 'ev', JSON.stringify(evicted));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'ev');
+		deny();
+		// biome-ignore lint/suspicious/noExplicitAny: minimal navigation-timing stub
+		const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation(((k: string) => (k === 'navigation' ? [{ type: 'reload' }] : [])) as any);
+		try {
+			startCrashSentinel(); // declines — but must still latch the boot facts
+			expect(sentinelRunning()).toBe(false);
+			const [report] = collectCrashReports(Date.now() + 1000);
+			expect(report?.id).toBe('ev');
+			expect(report?.sameTab).toBe(true);
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	// RETENTION IS A DELETE, NOT A RECORDING. `pruneSessions` has exactly one
+	// caller; gating it meant nothing ever expired for anyone with the switch off.
+	it('still expires records past the retention window', () => {
+		const old = rec({ id: 'ancient', startedAt: Date.now() - 8 * 24 * 60 * 60 * 1000, lastBeat: Date.now() - 8 * 24 * 60 * 60 * 1000 });
+		localStorage.setItem(SESSION_PREFIX + 'ancient', JSON.stringify(old));
+		deny();
+		startCrashSentinel();
+		expect(localStorage.getItem(SESSION_PREFIX + 'ancient')).toBeNull();
+	});
+
+	it('still sweeps an unparseable record, which is the only repair path there is', () => {
+		localStorage.setItem(`${SESSION_PREFIX}junk`, 'not json at all');
+		deny();
+		startCrashSentinel();
+		expect(localStorage.getItem(`${SESSION_PREFIX}junk`)).toBeNull();
+	});
+});
+
+/**
+ * NOTHING GATHERED WITHOUT CONSENT IS KEPT.
+ *
+ * `preStart` buffers breadcrumbs for the milliseconds between import and start.
+ * With recording off that window is the whole session, and the buffer drains
+ * into the record the instant the switch goes on — so an hour of labels, deck
+ * titles among them, landed on disk right after consent was given, every one
+ * stamped `t: 0`. Found by the checker, reproduced here first.
+ */
+describe('pre-consent breadcrumbs never reach the disk', () => {
+	it('drops what was buffered while recording was off', () => {
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: false }));
+		startCrashSentinel(); // declines
+		breadcrumb('nav', 'deck: Q3 Board Confidential (deck-7)');
+		breadcrumb('action', 'opened Present');
+
+		// Now the author turns it on.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: true }));
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		const crumbs = (liveSession() as SessionRecord).crumbs;
+		expect(crumbs.some((c) => c.m.includes('Q3 Board Confidential'))).toBe(false);
+		expect(crumbs.some((c) => c.m === 'opened Present')).toBe(false);
+		// The record still opens normally.
+		expect(crumbs.some((c) => c.k === 'boot')).toBe(true);
+	});
+
+	// The buffer still does its ORIGINAL job when consent was there all along —
+	// this is the boot race it exists for, and the fix must not cost it.
+	it('still flushes the boot-race buffer when recording was on', () => {
+		breadcrumb('action', 'raced the island');
+		startCrashSentinel();
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'raced the island')).toBe(true);
+	});
+});
+
+/**
+ * Consent withdrawn in ANOTHER tab has to reach this one. `stopCrashSentinel` is
+ * module state, so tab A's switch did nothing for tab B, whose next beat wrote a
+ * record the author believed they had just turned off. The module already reaches
+ * across tabs for a privacy wipe; this is the same kind of promise.
+ */
+describe('consent is cross-tab', () => {
+	it('stops recording when another tab turns the switch off', () => {
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: false }));
+		dispatchEvent(Object.assign(new Event('storage'), { key: 'lattice-studio-settings', newValue: '{"crashReports":false}' }));
+		expect(sentinelRunning()).toBe(false);
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+	});
+
+	it('ignores an unrelated settings change', () => {
+		startCrashSentinel();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: true, posture: 'read' }));
+		dispatchEvent(Object.assign(new Event('storage'), { key: 'lattice-studio-settings', newValue: '{"crashReports":true}' }));
+		expect(sentinelRunning()).toBe(true);
+	});
+});

@@ -29,12 +29,15 @@
  * generation of this report unactionable. See the console patch in
  * `startCrashSentinel`.
  *
- * WHAT IT DOES NOT DO ANY MORE: interrupt. There is no boot toast. A backgrounded
- * tab that the browser unloads — the ordinary, blameless end of most sessions —
- * is indistinguishable from a crash from in here, so an announcement on every
- * boot was mostly a false alarm, and a false alarm on a schedule is how a real
- * one gets ignored. The recording is unconditional; the TELLING is a place the
- * author goes (Workspace → Crash reports), not a thing that finds them.
+ * WHAT IT DOES NOT DO ANY MORE: interrupt, or record without being asked. There
+ * is no boot toast — a backgrounded tab that the browser unloads is the ordinary,
+ * blameless end of most sessions and is indistinguishable from a crash from in
+ * here, so an announcement on every boot was mostly a false alarm, and a false
+ * alarm on a schedule is how a real one gets ignored. The TELLING is a place the
+ * author goes (Workspace → General → Crash reports), not a thing that finds them.
+ * And RECORDING IS OPT-IN: `startCrashSentinel` is a no-op unless the author
+ * turned it on. Only two things happen above that gate, and neither records —
+ * latching the once-readable boot facts, and expiring old records.
  *
  * WHAT THIS CAN AND CANNOT PROVE. An unclosed record means "this session ended
  * without a clean unload". It does NOT prove a crash: a force-quit, a device
@@ -1220,6 +1223,28 @@ let stop: (() => void) | null = null;
 let sealed = false;
 /** Breadcrumbs dropped before `start()` ran (an early import racing the island). */
 const preStart: Breadcrumb[] = [];
+/**
+ * The consent gate said no, so nothing may even be BUFFERED.
+ *
+ * `preStart` exists for a window of milliseconds — the gap between this module
+ * being imported and `start()` running — and it drains into the record when the
+ * recorder opens. With recording off that window becomes the whole session, and
+ * the drain happens the moment someone flips the switch on: an hour of labels
+ * gathered without consent, deck titles among them, written to disk right after
+ * consent was given and all stamped `t: 0` as though they happened at once.
+ * Measured, not theorized. So a declined start stops the buffering as well as
+ * the recording, and empties what is already there.
+ */
+let declined = false;
+/**
+ * Have the once-per-document boot facts been read?
+ *
+ * They are READS of things that are only readable at start-up, and they now
+ * happen ABOVE the consent gate (see `startCrashSentinel`) — so a later
+ * enabling call must not re-read them, by which time this tab's own teardown has
+ * cleared the mirror they came from.
+ */
+let bootLatched = false;
 
 function newId(now: number): string {
 	try {
@@ -1266,7 +1291,7 @@ function persist(): void {
 
 /** Record one labeled step. Callers pass LABELS — never deck text, never user prose. */
 export function breadcrumb(kind: BreadcrumbKind, message: string): void {
-	if (sealed) return;
+	if (sealed || declined) return;
 	const m = clip(message);
 	if (!m) return;
 	if (!live) {
@@ -1486,29 +1511,59 @@ export function liveSession(): Readonly<SessionRecord> | null {
 export function startCrashSentinel(): () => void {
 	if (stop) return stop;
 	if (typeof document === 'undefined') return () => {};
-	// THE CONSENT GATE, and it sits here rather than at the call site on purpose.
-	// Two callers start this module — the hoisted page script (CrashSentinel.astro)
-	// and the Studio island — and a gate at either one is a gate the other can walk
-	// around. Everything with a cost or a trace is BELOW this line: the interval,
-	// the six listeners, the console patch, and every write. Above it, the function
-	// is a no-op that returns a no-op.
-	if (!crashRecordingEnabled()) return () => {};
-
-	sealed = false; // a new page load is a new session; the seal was for the old one
-	const now = Date.now();
-	// Read the tab mirror BEFORE overwriting it — this is the tab-continuity
-	// signal, and there is exactly one moment it is readable.
-	priorTabSessionId = safeGet(ss(), TAB_SESSION_KEY);
-	// The browser's OWN answer to "was this tab discarded?", available only on the
-	// load that follows the discard (Chromium; absent elsewhere, which reads as
-	// false and falls back to the `frozen` inference).
-	priorTabDiscarded = document.wasDiscarded === true;
-	bootNavType = navigationType();
+	// ── ABOVE THE GATE: reads and deletes only. Neither records anything. ──
+	//
+	// THE BOOT FACTS ARE LATCHED FIRST, and getting this order wrong is not
+	// academic — it shipped in the first cut of the consent gate and the checker
+	// caught it. These three are readable at exactly one moment, and if the gate
+	// returns before them they stay null for the life of the document. `isSameTab`
+	// then answers false forever, and `isUncleanEnd`'s FIRST branch —
+	// `closed && bfcached && sameTab`, the iOS eviction path — collapses to
+	// `return false`. Effect: a report recorded on an iPhone while the switch was
+	// on becomes permanently invisible the moment it is switched off, which is the
+	// exact opposite of the promise the panel copy makes ("reports already saved
+	// are still here"). Reading them costs nothing and writes nothing, so they
+	// belong above the gate. (The tab mirror WRITE stays below it.)
+	if (!bootLatched) {
+		// Read the tab mirror BEFORE overwriting it — this is the tab-continuity
+		// signal, and there is exactly one moment it is readable.
+		priorTabSessionId = safeGet(ss(), TAB_SESSION_KEY);
+		// The browser's OWN answer to "was this tab discarded?", available only on the
+		// load that follows the discard (Chromium; absent elsewhere, which reads as
+		// false and falls back to the `frozen` inference).
+		priorTabDiscarded = document.wasDiscarded === true;
+		bootNavType = navigationType();
+		bootLatched = true;
+	}
 	try {
 		seenWipeMark = ls()?.getItem(WIPE_MARK_KEY) ?? null;
 	} catch {
 		seenWipeMark = null;
 	}
+	const now = Date.now();
+	// RETENTION IS NOT A RECORDING ACTIVITY — `pruneSessions` only ever DELETES.
+	// Gating it was the second half of the same mistake: this is its only caller,
+	// so with recording off nothing expired, and since every existing user upgrades
+	// INTO off, their records would have sat there past the seven days this module
+	// promises and past the cap that stops it becoming "the storage-accumulation
+	// problem it exists to diagnose". It also sweeps unparseable records, which is
+	// the one repair path for a corrupted store. Runs first, so a full store has
+	// room for the new record when there is one.
+	pruneSessions(now);
+
+	// THE CONSENT GATE, and it sits here rather than at the call site on purpose.
+	// Two callers start this module — the hoisted page script (CrashSentinel.astro)
+	// and the Studio island — and a gate at either one is a gate the other can walk
+	// around. Everything that RECORDS is below this line: the interval, the six
+	// listeners, the console patch, the tab-mirror claim, and every write.
+	if (!crashRecordingEnabled()) {
+		declined = true;
+		preStart.length = 0; // see `declined` — nothing gathered without consent is kept
+		return () => {};
+	}
+
+	declined = false;
+	sealed = false; // a new page load is a new session; the seal was for the old one
 
 	const id = newId(now);
 	liveId = id;
@@ -1542,8 +1597,8 @@ export function startCrashSentinel(): () => void {
 		live.peakUsed = mem0.usedJSHeapSize;
 	}
 	breadcrumb('boot', `studio boot (${live.nav || 'navigate'})${priorTabDiscarded ? ', tab restored after a browser discard' : ''}`);
-	// Prune BEFORE the first persist so a full store has room for the new record.
-	pruneSessions(now, id);
+	// Pruned above the gate already, before this record existed — so there is no
+	// `keepId` to pass and nothing to repeat here.
 	persist();
 
 	let ticks = 0;
@@ -1791,6 +1846,17 @@ export function startCrashSentinel(): () => void {
 	// `storage` event fires in every OTHER document on the origin, which is
 	// exactly the reach that was missing.
 	const onStorage = (ev: StorageEvent) => {
+		// CONSENT WITHDRAWN IN ANOTHER TAB. `stopCrashSentinel` is module state, so
+		// tab A's switch did nothing for tab B — which kept recording, and whose next
+		// beat wrote a record the user believed they had just turned off. This module
+		// already reaches across tabs for a privacy wipe; consent is the same kind of
+		// promise. Only the OFF direction is honored here: turning it on elsewhere
+		// starts this tab on its next load, and the safe direction is the one worth
+		// acting on immediately.
+		if (ev.key === SETTINGS_KEY) {
+			if (!crashRecordingEnabled()) stopCrashSentinel();
+			return;
+		}
 		if (ev.key !== WIPE_SIGNAL_KEY || !ev.newValue) return;
 		sealed = true;
 		if (live) {
@@ -1879,6 +1945,8 @@ export function __resetSentinelForTest(): void {
 	priorTabSessionId = null;
 	priorTabDiscarded = false;
 	sealed = false;
+	declined = false;
+	bootLatched = false;
 	seenWipeMark = null;
 	preStart.length = 0;
 	// Module-level and therefore NOT reset by clearing storage: a session proven

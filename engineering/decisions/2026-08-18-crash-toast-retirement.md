@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: "The crash sentinel's boot toast fired on returning to any Studio tab the browser had unloaded while it sat in the background — which is not a crash, and is the ordinary end of most sessions. From inside a page an ordinary unload and a dead renderer are the same observation: the record just stops. So the alarm was wrong most of the times it fired, and a false alarm on a schedule is how the one true alarm gets ignored. Fix, three parts. (1) The toast is REMOVED; recording stays unconditional and the report becomes a place the author goes — Workspace → General → Crash reports — with `markReported`/`unreportedCrashReports`, the interruption-rationing API, deleted with it. (2) `console.error` is now CAPTURED (patched, always passing through, re-entrancy guarded, restored on stop only if still ours, writes throttled to 1/s): `window.onerror` sees only what nobody caught, while the diagnostic failures here are caught, logged and degraded around — so a session that printed a stack trace seconds before it died used to report no errors at all. (3) The report is reordered and re-worded to be actionable: what FAILED leads (errors, missing files) with the ambient measurements behind it, a new `hidden` field records whether anyone was looking so a background unload gets the headline 'The Studio stopped while the tab was in the background' and 'nothing to do' rather than 'stopped unexpectedly', and a frozen-and-never-resumed record is classified `reclaimed` instead of `stopped`."
+summary: "The crash sentinel's boot toast fired on returning to any Studio tab the browser had unloaded while it sat in the background — which is not a crash, and is the ordinary end of most sessions. From inside a page an ordinary unload and a dead renderer are the same observation: the record just stops. So the alarm was wrong most of the times it fired, and a false alarm on a schedule is how the one true alarm gets ignored. Fix, three parts. (1) The toast is REMOVED and, in a later pass on the same branch, recording became OPT-IN and off by default; the report is a place the author goes — Workspace → General → Crash reports — with `markReported`/`unreportedCrashReports`, the interruption-rationing API, deleted with it. (2) `console.error` is now CAPTURED (patched, always passing through, re-entrancy guarded, restored on stop only if still ours, writes throttled to 1/s): `window.onerror` sees only what nobody caught, while the diagnostic failures here are caught, logged and degraded around — so a session that printed a stack trace seconds before it died used to report no errors at all. (3) The report is reordered and re-worded to be actionable: what FAILED leads (errors, missing files) with the ambient measurements behind it, a new `hidden` field records whether anyone was looking so a background unload gets the headline 'The Studio stopped while the tab was in the background' and 'nothing to do' rather than 'stopped unexpectedly', and a frozen-and-never-resumed record is classified `reclaimed` instead of `stopped`."
 ---
 
 # Retiring the crash toast, and making the report worth opening
@@ -45,9 +45,11 @@ honest move is to stop interrupting and keep recording.
 `markReported` and `unreportedCrashReports` are deleted — they existed only to
 ration an interruption that no longer happens — along with the `reported` field
 they wrote and the prune tier that read it. **Workspace → General → Crash reports
-is now the only way in**, which it was already built to be: the row is always
-present, and at zero it says the recorder is armed (that empty state was
-deliberate, and it is now load-bearing).
+is now the only way in**, which it was already built to be. (The §"Opt-in"
+section below then made that group the place recording is turned on at all, so
+what is always present there is the SWITCH; the reports row appears whenever
+anything is stored, which is what keeps a record from being
+present-but-unclearable.)
 
 **2 · The console is a source.** `window.onerror` fires only for an exception
 nobody caught, and the failures worth diagnosing in this app are *caught* — a

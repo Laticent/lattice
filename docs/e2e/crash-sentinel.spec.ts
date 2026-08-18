@@ -356,12 +356,18 @@ test('an error logged to the console lands in the live record', async ({ page })
 });
 
 test('a clean session is never reported as a crash', async ({ page }) => {
-	await gotoStudio(page);
-	// ASSERT WHAT THE AUTHOR IS OFFERED. The row is always present — at zero it
-	// says the recorder is armed, which is the useful empty state — so this reds on
-	// both possible failures: a clean boot reported as a crash, and the row itself
-	// disappearing.
+	// BEFORE `gotoStudio`, not after. `addInitScript` applies to navigations that
+	// come AFTER it is registered, so registering it second left the flag unseen by
+	// the loaded document — the recorder never ran, no record could exist, and the
+	// "no crash was reported" assertion passed while asserting nothing at all. That
+	// is the vacuous-green failure this file's header exists to warn about, and it
+	// was caught by a checker rather than by the suite.
 	await allowRecording(page);
+	await gotoStudio(page);
+	// ASSERT WHAT THE AUTHOR IS OFFERED. The SWITCH is what is always present now
+	// (the reports row appears only when something is stored), so this reds on both
+	// failures worth catching: a clean boot reported as a crash, and the control
+	// itself disappearing.
 	await openWorkspace(page);
 	// The switch is the group's standing state; the reports row appears only when
 	// there is something to report. Both are asserted, so this reds on a clean boot
@@ -454,6 +460,7 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 			if (e.key === 'lattice-studio-wipe-signal' || e.key === 'lattice-studio-wiped-at') w.__heardWipe = true;
 		});
 	});
+	await allowRecording(page); // the premise is a record existing to be wiped
 	await gotoStudio(page);
 
 	const ownKeys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')));
@@ -477,6 +484,7 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	// runner-side and safe against a stopped document; `page.evaluate` is not, so
 	// every read of the page's own state waits until after the resume below.
 	const other = await context.newPage();
+	await allowRecording(other); // the second tab records too — it is the one that must seal
 	await gotoStudio(other);
 	await other.evaluate(() => {
 		for (const k of Object.keys(localStorage)) if (k.startsWith('lattice-studio-session-')) localStorage.removeItem(k);

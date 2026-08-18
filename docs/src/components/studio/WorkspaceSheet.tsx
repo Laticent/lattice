@@ -9,7 +9,7 @@ import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { clearCrashReports, collectCrashReports, OPEN_CRASH_REPORT_EVENT, startCrashSentinel, stopCrashSentinel } from '@/lib/crash-sentinel';
+import { clearCrashReports, collectCrashReports, crashReportStats, OPEN_CRASH_REPORT_EVENT, startCrashSentinel, stopCrashSentinel } from '@/lib/crash-sentinel';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
 import { DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
@@ -215,19 +215,26 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		setFidelityOverlay(fidelityOverlayEnabled());
 		return onFidelityOverlayEnabledChange(setFidelityOverlay);
 	}, []);
-	// Crash reports — NOT a pref, and deliberately not a switch. The sentinel records
-	// unconditionally (a crash you have to opt into recording is a crash you never
-	// catch; see lib/crash-sentinel.ts), so what belongs here is the standing way back
-	// into a report after the boot toast has gone, plus the way to forget them.
-	// Recounted each time the panel opens, because the shell can discard one while it
-	// is closed.
+	// Crash reports — a switch (off by default, see StudioSettings.crashReports)
+	// plus the standing way into a report and the way to forget them. Recounted
+	// each time the panel opens, because the shell can discard one while it is
+	// closed.
 	const [crashCount, setCrashCount] = React.useState(0);
 	const [crashArmed, setCrashArmed] = React.useState(false);
 	// Whether the sentinel records at all. OFF by default — see StudioSettings.
 	const [crashOn, setCrashOn] = React.useState(() => loadSettings().crashReports);
+	// Stored records, which is NOT the same number as reportable ones: a record can
+	// be on disk and not yet eligible to report (the staleness window). The clear
+	// control keys off THIS, so a record can never be present-but-unclearable.
+	const [crashStored, setCrashStored] = React.useState(0);
 	React.useEffect(() => {
 		if (!open) return;
 		setCrashCount(collectCrashReports(Date.now()).length);
+		setCrashStored(crashReportStats().count);
+		// RE-READ THE SWITCH, don't trust mount state. Another tab can have turned it
+		// off since this component mounted, and the sheet is long-lived — showing a
+		// stale ON over a recorder that is stopped is a lie about a privacy control.
+		setCrashOn(loadSettings().crashReports);
 		setCrashArmed(false); // never re-open mid-confirmation
 	}, [open]);
 	// Viewport-debug overlay — same shared-pref pattern; the `?vvdebug` URL param and
@@ -820,6 +827,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											} else {
 												stopCrashSentinel();
 												setCrashCount(collectCrashReports(Date.now()).length);
+												setCrashStored(crashReportStats().count);
 												notify('Stopped recording. Reports already saved are still here until you clear them.');
 											}
 										}}
@@ -834,17 +842,26 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										</span>
 									</span>
 								</label>
-								{crashCount > 0 && (
+								{crashStored > 0 && (
 									<div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
 										<span className="min-w-0 flex-1">
 											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">
-												{crashCount === 1 ? '1 session ended unexpectedly' : `${crashCount} sessions ended unexpectedly`}
+												{crashCount === 0
+													? crashStored === 1
+														? '1 recorded session'
+														: `${crashStored} recorded sessions`
+													: crashCount === 1
+														? '1 session ended unexpectedly'
+														: `${crashCount} sessions ended unexpectedly`}
 											</span>
 											<span className="block text-[11px] text-muted-foreground">
-												What the Studio was doing, how memory was trending, and every error it saw. Recorded on this device.
+												{crashCount === 0
+													? 'Nothing in these ended unexpectedly, or they are too recent to tell yet. Kept on this device for seven days.'
+													: 'What the Studio was doing, how memory was trending, and every error it saw. Recorded on this device.'}
 											</span>
 										</span>
 										<span className="flex shrink-0 items-center gap-1.5">
+											{crashCount > 0 && (
 											<Button
 												size="sm"
 												variant="outline"
@@ -860,6 +877,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											>
 												View
 											</Button>
+											)}
 											{/* The SAME two-tap delete the Library and the Data tab use — HARD
 											    RULE #15: one delete affordance, not a bespoke one per surface. */}
 											<DeleteBtn
@@ -870,6 +888,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 													clearCrashReports();
 													setCrashArmed(false);
 													setCrashCount(0);
+													setCrashStored(crashReportStats().count);
 													notify('Crash reports cleared.');
 												}}
 												label="crash reports"

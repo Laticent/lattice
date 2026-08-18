@@ -476,9 +476,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the author actually saw was "The Studio stopped unexpectedly" on returning to
 	// a tab that had been sitting idle — a crash notice where there had been no
 	// crash. An alarm that is usually wrong is worse than no alarm, because it
-	// spends the credibility the one true alarm needs. Recording stays
-	// unconditional; the way IN is Workspace → Crash reports, a place the author
-	// goes rather than a thing that finds them.
+	// spends the credibility the one true alarm needs. The way IN is Workspace →
+	// General → Crash reports, a place the author goes rather than a thing that
+	// finds them — and the same group carries the switch that decides whether
+	// anything is recorded at all (off by default). This effect only READS, so it
+	// is correct either way: with recording off it simply finds whatever was
+	// recorded while it was on.
 	React.useEffect(() => {
 		setCrashReports(collectCrashReports(Date.now()));
 	}, []);

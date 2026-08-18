@@ -705,7 +705,7 @@ never turn "passed in headless" into "works on iOS."
   session record simply stops, exactly as it would if the renderer had died. The
   boot toast announced every such ending, so the notice most people saw was a false
   alarm, and a false alarm on a schedule is how the one true alarm gets ignored.
-- **Fix (shipped):** the toast is gone. Recording is unchanged and unconditional;
+- **Fix (shipped):** the toast is gone. Recording captures the same things, but it is now OPT-IN (off by default);
   the report is a place you GO — **Workspace → General → Crash reports** — not a
   thing that finds you. The report also names this ending honestly now: a session
   whose last recorded state was hidden reads *"The Studio stopped while the tab was
