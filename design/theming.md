@@ -85,7 +85,8 @@ to spot during palette development.
 | `--text-body` | Body prose |
 | `--text-secondary` | Secondary **content** text — subtitle, caption, eyebrow, table header, sub-label, attribution. AA (≥4.5:1) on both canvases. |
 | `--text-label` | Accent-hued labels / kickers. AA on both canvases. |
-| `--text-muted` | **Decorative / de-emphasized** — chrome (pagination/header/footer), empty-cell & skipped-state marks, struck "dropped" options, quote glyphs, code comments. DECORATIVE / WCAG-exempt; never for primary or secondary **content** text (use `--text-secondary`). |
+| `--text-muted` | **De-emphasized TEXT** — chrome (pagination/header/footer), captions, table headers, code comments, quote glyphs. AA (≥4.5:1) on both canvases, like every other `text-*` token. Still quieter than `--text-secondary`; it is de-emphasis with a floor, not an exemption. |
+| `--muted-mark` | **De-emphasized DECORATION** — rules, hairlines, empty-cell & skipped-state marks, struck "dropped" options, low-alpha cell washes, chart grid lines. The 3:1 WCAG 1.4.11 graphical floor; **never for text**. |
 | `--accent` | Saturated brand color used for emphasis text and borders |
 | `--accent-soft` | Pale brand-tinted panel fill |
 | `--on-accent` | Ink for text/icons placed ON an `--accent` fill (`-secondary` / `-ghost` / `-watermark` tiers derive from it) |
@@ -599,13 +600,19 @@ Then, in order of impact:
 2. **Surfaces** (`--bg`, `--bg-alt`, `--border`). Use `light-dark(…)`
    pairs so the dark variant works automatically.
 3. **Ink ramp** (`--text-heading`, `-body`, `-secondary`, `-label`,
-   `-muted`, `--text-display`). Every **content** text token must clear
-   WCAG AA (4.5:1) against the surface it appears on — `--text-secondary`
-   and `--text-label` included. `--text-muted` is the one exception: it
-   is chrome-only (pagination/header/footer) and WCAG-exempt. Author the
-   content tiers as `light-dark()` pairs (`--text-secondary` →
-   `var(--scheme-dark-text-secondary)`) so the dark variant resolves
-   automatically. Run `node tools/contrast-audit.js` to verify.
+   `-muted`, `--text-display`) **plus `--muted-mark`**. Every `text-*`
+   token must clear WCAG AA (4.5:1) against the surface it appears on —
+   `--text-secondary`, `--text-label` **and `--text-muted`** included.
+   There is no exception: `--text-muted` used to be documented as
+   "chrome-only and WCAG-exempt" while 88 sites painted real text with it
+   and it sat below AA on 44 of 72 palette-mode-surface pairs (#1715). The
+   decorative half now has its own token, `--muted-mark`, at the 3:1
+   graphical floor — so a rule, hairline or empty mark reads `--muted-mark`
+   and anything with glyphs in it reads `--text-muted`. Author both as
+   `light-dark()` pairs (`--text-muted` → `var(--scheme-dark-text-muted)`,
+   `--muted-mark` → `var(--scheme-dark-muted-mark)`) so the dark variant
+   resolves automatically. `checkMutedTierFloors` gates both floors; run
+   `node tools/contrast-audit.js` to verify.
 4. **Accent** (`--accent`, `--accent-soft`, `--on-accent`). Most-seen
    color after ink. Must clear contrast against `--bg` *and* against
    `--accent-soft`.
