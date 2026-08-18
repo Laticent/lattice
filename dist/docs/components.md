@@ -2752,12 +2752,12 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 #### When to use
 
 - **The questions are the point.** The slide that ends a pitch by naming the hard questions and answering them first. Anticipating the objection and closing it on your terms is more persuasive than waiting to be asked — it signals you have already done the thinking.
-- **Three or four weighty pairs.** A few substantive questions, each with a reasoned two-to-three-sentence answer. Past five the answers compress below persuasion; for a long reference list of one-line look-ups use `faq` or `glossary` instead.
+- **Three or four weighty pairs.** A few substantive questions, each with a reasoned two-to-three-sentence answer. Past five the answers compress below persuasion; for a long reference list of one-line look-ups use `list-tabular` or `glossary` instead.
 - **Question as prompt, answer as substance.** The layout deliberately weights the two unequally — the question is the lighter prompt, the answer is the payoff. Lead each pair with the interrogative line and nest the prepared answer one level under it.
 
 #### When NOT to use
 
-- **A flat FAQ of one-liners.** Six or more terse question/answer pairs you flip back to as a reference belong in `faq` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
+- **A flat FAQ of one-liners.** Six or more terse question/answer pairs you flip back to as a reference belong in `list-tabular` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
 - **Rhetorical questions with no answer.** Every question needs a nested answer that genuinely closes it. A bare question used as a section header or a hook is a `divider` or a `statement`, not a Q&A pair.
 - **Evaluation criteria in disguise.** If the top-level item is a requirement you are scoring against (with a rationale below), that is `list-criteria`, not a question you expect to be asked. q-and-a defends; list-criteria evaluates.
 
@@ -2884,7 +2884,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 #### Related components
 
-- [`faq`](../faq/faq.docs.md) — many terse reference questions to flip back to, not a few weighty defenses
+- [`list-tabular`](#list-tabular) — many terse question/answer look-ups to flip back to, not a few weighty defenses
 - [`glossary`](#glossary) — term/definition reference pairs rather than question/answer pairs
 - [`list-criteria`](#list-criteria) — numbered criteria with rationale — evaluation, not anticipated objections
 - [`cards-stack`](#cards-stack) — parallel co-equal cards with no question/answer role split
