@@ -97,6 +97,29 @@ const ratio = (a, b) => {
 };
 
 /**
+ * Every scratch directory this run made, so the run can take them away again.
+ *
+ * One directory per deck, each holding a player that is only read while the deck is being
+ * audited. A full-corpus sweep is 135 of them; leaving them behind cost about 225 MB of
+ * `/tmp` across four sweeps before anyone noticed. Cleared in the `main()` `finally` and
+ * again on `exit`, because the exit handler is the only one that runs if the process is
+ * killed mid-sweep.
+ */
+const TEMP_DIRS = [];
+
+function cleanupTempDirs() {
+	while (TEMP_DIRS.length) {
+		// Best effort: a scratch directory that has already gone (a shared `/tmp` reaper, a
+		// second cleanup pass) is not a reason to fail a sweep that otherwise succeeded.
+		try {
+			fs.rmSync(TEMP_DIRS.pop(), { recursive: true, force: true });
+		} catch {}
+	}
+}
+
+process.on('exit', cleanupTempDirs);
+
+/**
  * Export a deck to a player if given markdown; pass a `.html` through untouched.
  *
  * The output path is `.html`, NOT `.pdf`. Both produce a byte-identical player — the
@@ -109,6 +132,7 @@ const ratio = (a, b) => {
 function playerFor(input) {
 	if (input.endsWith('.html')) return path.resolve(input);
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-player-contrast-'));
+	TEMP_DIRS.push(dir);
 	const out = path.join(dir, `${path.basename(input, '.md')}.html`);
 	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), input, out, '--quiet', '--player'], {
 		cwd: ROOT,
@@ -420,6 +444,7 @@ async function main() {
 		}
 	} finally {
 		await browser.close();
+		cleanupTempDirs();
 	}
 	if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify(all, null, '\t')}\n`);
 	const runs = all.reduce((n, d) => n + d.rows.length, 0);
