@@ -587,24 +587,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// can't clobber the sample.
 	let lastSanitizeMs = 0;
 
-	// Self-hosted preview fonts. Lazy-imported + cached: font-embed.js pulls
-	// bundled .woff2 that Node can't load, so a static import would break this
-	// module's unit test. The @font-face references the woff2 by URL (browser
-	// caches once), not inlined per render.
-	let fontFaceCss = '';
-	let fontFacesReady: Promise<void> | null = null;
-	function ensurePreviewFonts(): Promise<void> {
-		if (!fontFacesReady) {
-			fontFacesReady = import('../playground/font-embed.js')
-				.then((m) => {
-					fontFaceCss = m.previewFontFaceCss();
-				})
-				.catch(() => {
-					fontFaceCss = '';
-				});
-		}
-		return fontFacesReady;
-	}
+	// PREVIEW FONTS ARE THE THEME'S, not a second supply (2026-08-17 loading audit §3, §9.5).
+	// This module used to prepend `previewFontFaceCss()` — 17 @font-face rules pointing at
+	// docs-bundled woff2 — on top of the theme CSS below. Its stated reason was that "the
+	// engine's Google-Fonts @import is inert inside the srcdoc <style>", and that @import is
+	// GONE: tools/build-css.js emits self-hosted @font-face into lattice.css, and
+	// theme-fetch.ts rewrites those URLs for the preview. The two supplies declared the SAME
+	// 17 family/weight/style combinations, so the frame fetched every text face twice under
+	// two URL schemes (~288KB). Worse, the docs-side supply is weight-collapsed — 17
+	// filenames over only 6 distinct files — so several of those weights were the wrong bytes.
+	// `previewFontFaceCss` itself stays: share-export.ts still needs it for a STANDALONE
+	// exported deck, which carries no theme CSS of ours.
 
 	// The inner text of the srcdoc's resident `<style id="lattice-theme">` — the ONE place a
 	// slide's theme, mode, size-box, and author CSS are baked. Extracted so srcdoc() (full write)
@@ -617,7 +610,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// styles) is appended AFTER the theme, the same order the Workbench previews it.
 	function themeStyleContent(css: string, mode: 'light' | 'dark', geom: Geom, extraCss = ''): string {
 		return (
-			fontFaceCss +
 			singleSlideFrame(geom.width, geom.height) +
 			':root{color-scheme:' +
 			mode +
@@ -746,7 +738,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		void themes.fetch('lattice').catch(() => {});
 		void themes.fetch(palette).catch(() => {});
 		if ((modeOverride ?? mode) === 'dark') void themes.fetch(palette + '-dark').catch(() => {});
-		void ensurePreviewFonts();
 	}
 
 	/**
@@ -819,13 +810,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
 		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
 		const themeReady = extra
-			? Promise.all([themes.ensureBase(), ensurePreviewFonts()]).then(() => {
+			? themes.ensureBase().then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
 					// theme re-saved under the same name takes effect immediately. A
 					// hasTheme() guard would silently keep rendering the stale CSS.
 					PG.addThemes([{ name: extra.name, css: extra.css }]);
 				})
-			: Promise.all([themes.ensure(palette, mode), ensurePreviewFonts()]);
+			: themes.ensure(palette, mode);
 		return themeReady
 			.then(async () => {
 				// Bail if the host was disposed/detached while the theme fetch was in
