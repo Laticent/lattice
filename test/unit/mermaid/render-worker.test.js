@@ -203,6 +203,21 @@ describe('render worker: a dead page is not a diagram error', () => {
 describe('render worker: behavior', { skip: CHROME ? false : 'no CHROME_PATH — set it to run the real render' }, () => {
   const FLOW = 'flowchart TB\n  A["Raw Signals from the field"] --> B["Decision Log"]';
 
+  test('a render that produced no SVG is a failure, not a silent hole', () => {
+    // Mermaid can resolve WITHOUT inserting an `<svg>`. Found by accident: a `pie`
+    // definition containing a full-width digit (`48.２`) resolves cleanly on 11.14 and
+    // leaves the container empty. The worker reported `ok: true` with `svg: undefined`,
+    // and the caller then threw on `undefined.replace` — one keystroke away from shipping
+    // a slide with a hole in it instead. An empty render is a diagram-level failure and
+    // degrades to a `<pre>` like any other.
+    const out = runWorker([
+      { definition: 'pie showData\n  title T\n  "A" : 48.\uFF12\n  "B" : 31.4',
+        config: engineInitConfig({ fontSize: '14px' }) },
+    ]);
+    assert.equal(out.results[0].ok, false, 'an empty render must report failure');
+    assert.match(out.results[0].error, /without producing an SVG/);
+  });
+
   test('renders, and reports per-diagram failure without losing the batch', () => {
     const cfg = engineInitConfig({ fontFamily: '"JetBrains Mono", monospace', fontSize: '14px' });
     const out = runWorker([

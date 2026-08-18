@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 mode: sketch
-header: "Lattice · sketch diagram labels"
+header: "Meridian Freight · platform review"
 ---
 
 <!-- _class: title -->
@@ -14,21 +14,105 @@ header: "Lattice · sketch diagram labels"
 
 # The hand reaches the diagram
 
-A sketch deck used to wrap hand-drawn shapes around machine-faced labels. Now the type carries through.
+A sketch deck used to wrap hand-drawn shapes around machine-faced labels. Now the whole slide speaks in one voice — including the diagrams.
 
 ---
 
 <!-- _class: diagram -->
 
-`#1674 · flowchart`
+`Flowchart · consignment intake`
 
-## Long labels, measured in the face they are painted in.
+## Where a booking can stop, and who is holding it.
 
 ```mermaid
 flowchart LR
-  A["Raw Signals from the field"] --> B["Decision Log"]
-  B --> C["Quarterly Board Review"]
-  C --> D["Portfolio Reallocation"]
+  A["Booking received<br/>(EDI 204 / portal)"] --> B{"Customs<br/>documents complete?"}
+  B -- "No" --> C["Hold for broker<br/>SLA 4h"]
+  C --> B
+  B -- "Yes" --> D["Capacity match<br/>lane + equipment"]
+  D --> E{"Carrier<br/>accepts tender?"}
+  E -- "Declined ×3" --> F["Escalate to spot market"]
+  E -- "Accepted" --> G["Dispatch confirmed"]
+  F --> G
+  G --> H["Track & trace active"]
+```
+
+---
+
+<!-- _class: diagram -->
+
+`State diagram · consignment lifecycle`
+
+## Every status a shipper can see, and the transitions we allow.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Quoted
+  Quoted --> Tendered: rate accepted
+  Tendered --> Dispatched: carrier confirms
+  Tendered --> Quoted: tender expired
+  Dispatched --> InTransit: first GPS ping
+  InTransit --> Exception: dwell > 6h
+  Exception --> InTransit: recovery plan filed
+  Exception --> Cancelled: shipper withdraws
+  InTransit --> Delivered: POD captured
+  Delivered --> Invoiced: rate audit passed
+  Invoiced --> [*]
+```
+
+---
+
+<!-- _class: diagram -->
+
+`Class diagram · domain model`
+
+## The four aggregates the booking service owns.
+
+```mermaid
+classDiagram
+  class Consignment {
+    +String reference
+    +Money declaredValue
+    +Instant readyAt
+    +tender(Carrier) Tender
+    +recordException(Reason)
+  }
+  class Tender {
+    +Money linehaulRate
+    +Duration expiresIn
+    +accept() Dispatch
+  }
+  class Carrier {
+    +String scacCode
+    +Float onTimePercent
+    +Boolean bondedForCustoms
+  }
+  class Invoice {
+    +Money settledAmount
+    +auditAgainst(Tender)
+  }
+  Consignment "1" --> "0..*" Tender : offers
+  Tender "1" --> "1" Carrier : awarded to
+  Consignment "1" --> "0..1" Invoice : settles
+```
+
+---
+
+<!-- _class: diagram -->
+
+`Entity relationship · settlement schema`
+
+## What rate audit actually joins across.
+
+```mermaid
+erDiagram
+  SHIPPER ||--o{ CONSIGNMENT : books
+  CONSIGNMENT ||--|{ LEG : "moves over"
+  LEG }o--|| CARRIER : "hauled by"
+  CONSIGNMENT ||--o| INVOICE : settles
+  INVOICE ||--|{ ACCESSORIAL : "itemises"
+  CARRIER ||--o{ RATE_AGREEMENT : "prices under"
+  RATE_AGREEMENT ||--o{ LANE : covers
 ```
 
 ---
@@ -39,10 +123,10 @@ flowchart LR
 
 ## Mermaid measures a label in the browser that renders it.
 
-- The measurement was somewhere else
+- The measurement happened somewhere else
   - The export shelled out to a binary whose page carries none of the deck's fonts, so every label was sized in a fallback face.
 - Then the paint moved
-  - The finished SVG lands in the deck, where the real face loads — and the text no longer fits the box it was measured for.
+  - The finished SVG lands in the deck, where the real face loads — and the box no longer fits the text it was measured for.
 - Why mono never showed it
   - Its stack ends in the `monospace` generic, whose fallback metrics nearly match. No hand face has that luck.
 
@@ -50,55 +134,52 @@ flowchart LR
 
 <!-- _class: diagram -->
 
-`State · the same face throughout`
+`Sequence · legacy renderer`
 
-## Nothing here is sketch-specific.
+## Machine-drawn shapes, hand type — the tender API round trip.
 
 ```mermaid
-stateDiagram-v2
-  [*] --> Drafting
-  Drafting --> UnderReview: submit for approval
-  UnderReview --> Published: sign-off received
-  UnderReview --> Drafting: revisions requested
+sequenceDiagram
+  participant S as Shipper portal
+  participant B as Booking service
+  participant R as Rating engine
+  participant C as Carrier API
+  S->>B: POST /consignments
+  B->>R: price(lane, equipment, readyAt)
+  R-->>B: 3 rate options
+  B->>C: tender(bestRate)
+  C-->>B: 202 Accepted (ref MRD-8841)
+  B-->>S: dispatch confirmed
+  Note over B,C: tender expires in 45 min
 ```
-
----
-
-<!-- _class: content -->
-
-`How the type gets there`
-
-## It follows a token, like every other run of text on the slide.
-
-- One re-point
-  - The sketch finish already points `--font-body` at `--sketch-font-body`. The diagram map reads `--font-body`.
-- One reader taught one rule
-  - The export resolves tokens offline, where a class-scoped rule is invisible, so it applies that re-point itself.
-- Both paths, one answer
-  - The preview and the export now configure Mermaid identically. There is no sanctioned divergence left between them.
 
 ---
 
 <!-- _class: diagram -->
 
-`Class · unified renderer`
+`Gantt · legacy renderer`
 
-## Hand shapes and hand type are separate answers.
+## The migration plan, in the deck's own voice.
 
 ```mermaid
-classDiagram
-  class QuarterlyReport {
-    +String headlineTitle
-    +generateSummary()
-  }
-  QuarterlyReport <|-- BoardPacket
-  QuarterlyReport <|-- InvestorUpdate
+gantt
+  dateFormat YYYY-MM-DD
+  axisFormat %b
+  title Rate audit migration
+  section Foundations
+    Schema backfill      :done,    a1, 2026-01-06, 40d
+    Dual-write shadow    :done,    a2, after a1, 30d
+  section Cutover
+    Read traffic 10%     :active,  b1, 2026-04-01, 21d
+    Read traffic 100%    :         b2, after b1, 28d
+  section Decommission
+    Retire legacy audit  :         c1, after b2, 35d
 ```
 
 ---
 
 <!-- _class: diagram boardroom -->
-<!-- _header: "Lattice · sketch diagram labels · opted out" -->
+<!-- _header: "Meridian Freight · platform review · opted out" -->
 
 `Per-slide opt-out`
 
@@ -106,22 +187,9 @@ classDiagram
 
 ```mermaid
 flowchart LR
-  A["Raw Signals from the field"] --> B["Decision Log"]
-  B --> C["Quarterly Board Review"]
-```
-
----
-
-<!-- _class: diagram -->
-
-`Legacy renderer`
-
-## Sequence keeps machine-drawn shapes — and still speaks in the deck's voice.
-
-```mermaid
-sequenceDiagram
-  Analyst->>Engine: request the quarterly rollup
-  Engine-->>Analyst: rendered board packet
+  A["Booking received"] --> B["Capacity match"]
+  B --> C["Dispatch confirmed"]
+  C --> D["Track & trace active"]
 ```
 
 ---

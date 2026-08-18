@@ -76,11 +76,24 @@ async function main() {
           // inline span reports 0 for both, which made this check vacuous.
           const painted = el.getBoundingClientRect().width;
           const box = fo ? fo.getBoundingClientRect().width : 0;
+          // TWO KINDS OF BOX, and only one is sized from the text. A class diagram's
+          // CARDINALITY markers ("1", "0..*") live under `g.edgeTerminals`, and mermaid
+          // gives those a fixed minimum width — measured, "1" paints 2.76 into a 5.4 box —
+          // so equality cannot hold there and demanding it reports a defect that is not
+          // one. They get an OVERFLOW-only test, which still catches a marker too big for
+          // its box; every other label keeps exact equality, which is the sharper signal.
+          //
+          // `g.edgeTerminals`, not `g.inner`: only some of them carry the intervening
+          // `g.inner`, so keying on that left half the markers still flagged.
+          const padded = !!el.closest('g.edgeTerminals');
+          const delta = padded
+            ? Math.max(0, painted - box)   // slack is mermaid's padding, not our bug
+            : Math.abs(painted - box);     // sized from the text: any gap is a face mismatch
           out.push({
-            diagram: di, kind: 'html', text,
+            diagram: di, kind: padded ? 'html-padded' : 'html', text,
             font: getComputedStyle(el).fontFamily,
             content: +painted.toFixed(2), box: +box.toFixed(2),
-            overflow: +Math.abs(painted - box).toFixed(2),
+            overflow: +delta.toFixed(2),
           });
         });
         // SVG <text> labels — sequence, gantt, pie, journey, the legacy renderers.
