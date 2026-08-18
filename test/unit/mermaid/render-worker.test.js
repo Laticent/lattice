@@ -103,12 +103,13 @@ describe('render worker: contract', () => {
     const workerSrc = fs.readFileSync(WORKER, 'utf8');
     const cliCalls = [...cliSrc.matchAll(/mermaid\.(register\w+)\s*\(/g)].map((m) => m[1]);
     assert.ok(cliCalls.length, 'could not read any mermaid.register* call from mermaid-cli');
-    // `registerIconPacks` is deliberately NOT made: the CLI registers packs named by its
-    // `--iconPacks` CLI flag, which nothing here passes, and its loader FETCHES from
-    // unpkg.com at render time. The engine renders offline (HARD RULE: the library loads
-    // type from its own bytes, zero network), so an icon pack would have to be vendored
-    // before it could be registered. Listed here so the omission is a decision on the
-    // record rather than another silently dropped step.
+    // `registerIconPacks` is deliberately NOT made, and skipping it is EXACTLY what mmdc
+    // did for us: the CLI registers packs named by its `--iconPacks` / `--iconPacksNames`
+    // flags, both default to `[]`, and the export never passed either — so
+    // `registerIconPacks([])` registered nothing. Not calling it is behaviorally
+    // identical, which is why this is an exception and not a third dropped step. It also
+    // should stay one: the CLI's loader FETCHES each pack from unpkg.com at render time,
+    // and the engine renders offline by design. A pack would have to be vendored first.
     const NOT_OWED = new Set(['registerIconPacks']);
     const missing = [...new Set(cliCalls)]
       .filter((c) => !NOT_OWED.has(c))
