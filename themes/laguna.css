@@ -51,7 +51,7 @@
   --bg:       light-dark(#F8F2E5, var(--scheme-dark-bg));      /* warm sand        */
   --bg-alt:   light-dark(#F1E9D4, var(--scheme-dark-bg-alt));  /* deeper sand card */
   --surface-inverse:  #04181B;
-  --border:   light-dark(#DBCFB2, var(--scheme-dark-border));
+  --border:   light-dark(#8F8469, var(--scheme-dark-border));
 
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
   --text-display: #EFE8D7;
@@ -123,7 +123,7 @@
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #04181B;
   --scheme-dark-bg-alt:       #0F2D31;
-  --scheme-dark-border:       #1C3F44;
+  --scheme-dark-border:       #55787E;
   --scheme-dark-text-heading: #EFE8D7;
   --scheme-dark-text-body:    #A9B7B9;
   --scheme-dark-text-muted:   #869497;

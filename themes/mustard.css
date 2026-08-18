@@ -55,7 +55,7 @@
   --bg:       light-dark(#F5EFD8, var(--scheme-dark-bg));      /* parchment       */
   --bg-alt:   light-dark(#ECE3C0, var(--scheme-dark-bg-alt));
   --surface-inverse:  #0F0A03;
-  --border:   light-dark(#D5C896, var(--scheme-dark-border));
+  --border:   light-dark(#8D8151, var(--scheme-dark-border));
 
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
   --text-display: #F0E5C8;
@@ -118,7 +118,7 @@
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #0F0A03;
   --scheme-dark-bg-alt:       #2A1F0E;
-  --scheme-dark-border:       #3D2D14;
+  --scheme-dark-border:       #7B694E;
   --scheme-dark-text-heading: #F0E5C8;
   --scheme-dark-text-body:    #BDAC78;
   --scheme-dark-text-muted:   #9A885E;
