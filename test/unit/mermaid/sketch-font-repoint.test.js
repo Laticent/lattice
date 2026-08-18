@@ -59,7 +59,7 @@ describe('sketch font re-point — the CSS rule and the export reader agree', ()
     // The table only needs entries for tokens Mermaid actually receives. `font-body` is
     // the one — assert the LINK rather than the literal, so a map that moved to a
     // different token fails here instead of quietly losing the sketch voice.
-    assert.deepEqual(MERMAID_VAR_MAP.fontFamily, { var: 'font-body' });
+    assert.deepEqual(MERMAID_VAR_MAP.fontFamily, { var: 'font-body', text: true });
     assert.equal(repointTable()['font-body'], 'sketch-font-body');
   });
 

@@ -36,6 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   MERMAID_VAR_MAP,
+  textValueTokens,
   buildDiagramTheme,
   diagramThemeTokens,
 } = require('../../../lib/core/mermaid-theme-map');
@@ -130,9 +131,13 @@ function previewThemeVars(readToken, scopeEl = { className: 'content', getAttrib
 
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (document, getComputedStyle, diagramScopeKey) {\n${blockSrc}\n  return diagramThemePorts;\n})`,
+    `(function (document, getComputedStyle, diagramScopeKey, TEXT_VALUE_TOKENS) {\n${blockSrc}\n  return diagramThemePorts;\n})`,
   );
-  const ports = factory(fakeDocument, fakeGetComputedStyle, diagramScopeKey)();
+  // `TEXT_VALUE_TOKENS` is one of the two things the lifted block closes over, and it is
+  // load-bearing rather than incidental: it is what keeps a FONT STACK away from the
+  // reader's color-resolving `read()`. Supplied from the map's real flags, so the fake
+  // reader exercises the same branch the browser does.
+  const ports = factory(fakeDocument, fakeGetComputedStyle, diagramScopeKey, textValueTokens())();
   let out;
   renderDiagrams([{ scope: scopeEl, diagrams: ['d'] }], {
     ...ports,
@@ -185,7 +190,14 @@ describe('diagram theme parity — both render paths, one map', () => {
     assert.equal(preview.fontFamily, '#font-body');
     // And the map really does read a TOKEN rather than carrying a literal — a literal
     // would tie both paths together at the wrong value and still pass the test above.
-    assert.deepEqual(MERMAID_VAR_MAP.fontFamily, { var: 'font-body' });
+    // `text: true` marks it as a NON-COLOR value, which is what keeps the preview's
+    // color-resolving `read()` off it — see the entry's own comment. Asserted here
+    // because dropping the flag is silent: the export is unaffected and the preview only
+    // misrenders the handful of labels our CSS does not already cover.
+    assert.deepEqual(MERMAID_VAR_MAP.fontFamily, { var: 'font-body', text: true });
+    assert.ok(textValueTokens().has('font-body'),
+      'font-body must be reachable as a text-valued token, or the runtime port cannot '
+      + 'know to fetch it with raw()');
   });
 
   test('the retired sanction is not quietly reintroduced', () => {

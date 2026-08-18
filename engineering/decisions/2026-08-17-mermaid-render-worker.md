@@ -439,3 +439,52 @@ module-level id counters (`actorCnt`, class ids, sankey node ids) leak across re
 the shared page, so sequence and sankey ids depend on batch position. The latter is worth
 a closer look than it got here — within a batch the drift accidentally *prevents* a
 duplicate-id collision that the one-at-a-time path still has.
+
+## The regression the whole review missed, and the surface nobody drove
+
+Asked "do we feel confident to ship?", the honest answer was no — three things were
+unverified on the tree that would actually merge. Two came back clean. The third did not.
+
+**The preview had been sending Mermaid a COLOR as its font family.**
+
+Deleting the `finishTheme` port (above) was right in principle: the palette should come
+from the map, not a per-path override. But that port fetched `--font-body` with the
+reader's `raw()`, and routing the token through `MERMAID_VAR_MAP` handed it to the port's
+`read()` instead. `read()` is a **color resolver** — it probes by assigning
+`color: var(--token)` and reading the computed value back, which is how `light-dark(...)`
+reaches Mermaid as a flat rgb. Handed a font stack, that assignment is invalid, the probe
+keeps its inherited color, and the reader returns `rgb(31, 74, 110)`. Measured directly:
+
+```
+read('font-body') → 'rgb(9, 9, 9)'          raw('font-body') → "'Shantell Sans', system-ui, sans-serif"
+```
+
+**Why nothing caught it.** `mermaid.css` sets `font-family` on most label elements
+regardless, so the damage was almost entirely masked. On a ten-slide deck exactly five
+labels exposed it — the gantt axis ticks, the one text our CSS does not cover. And no
+unit test could see it in principle: `diagram-theme-parity.test.js` drives both paths with
+a FAKE reader whose `read` and `raw` return the same string by construction. The fake
+reader is what makes that test cheap, and it is exactly what made it blind here.
+
+`MERMAID_VAR_MAP.fontFamily` now carries `text: true`, `textValueTokens()` derives the
+set, and the runtime's port fetches those with `raw()`. Marked on the MAP rather than
+listed in the runtime so a second non-color token needs no second edit.
+
+**The gate that would have caught it exists now.**
+`test/integration/mermaid/preview-diagram-face.test.js` drives the real preview —
+`engine.render(preview)` plus the shipped `dist/lattice-runtime.js` and mermaid, assembled
+the way `docs/src/playground/deck-preview.js` assembles the frame, in real Chromium — and
+fails on any diagram text rendered in a face the deck never asked for. Canaried by
+reverting the fix: `{"Shantell Sans":215,"sans-serif":5,"Outfit":8}`, red.
+
+That closes a real asymmetry in this change. The export had `check-diagram-labels.js` from
+the first commit; the preview had nothing, and it is half of HARD RULE #1.
+
+**The two that came back clean**, for the record:
+
+- **The image-set cross-scheme re-bake**, which the checker read but did not run. Driven
+  with `--svg-background dark` on the sketch deck: seven diagrams re-baked, the four
+  unified-renderer ones keeping their rough nodes (8/8/4/8), sequence and gantt keeping
+  hand type with crisp shapes, and the `_class: boardroom` slide correctly coming back in
+  Outfit. `MERMAID_REBAKE_HAND` threads correctly through the second render.
+- **The full integration tier on the merge tree**: 764 tests, 757 pass, 0 fail.

@@ -21,6 +21,12 @@
   `mode: sketch` deck rendered a C4 context diagram with 33 of its 34 labels in Open Sans
   while the rest of the slide was hand-drawn. All of them (22 for C4 alone, counting the
   `external_`, `_db` and `_queue` shape variants) now take the deck's body face.
+- **Fixed: the live preview was handing Mermaid a color as its font family.** The
+  preview's palette reader resolves colors by probing `color: var(--token)`, which is how
+  `light-dark(...)` reaches Mermaid as a flat rgb — but a font stack is not a color, so it
+  came back as the probe's inherited color instead. `mermaid.css` masked it almost
+  everywhere; gantt axis ticks, the one text it does not cover, rendered in a generic
+  sans-serif on a hand-drawn slide. Non-color tokens are now fetched literally.
 - **Fixed: one malformed diagram no longer costs a deck its other diagrams' speed.**
   The batched render was all-or-nothing — an unparseable fence sent every diagram in
   the deck back through the one-at-a-time path. Failures are now isolated per diagram.
