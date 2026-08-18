@@ -98,8 +98,10 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
    1. **Brand axis** — 2–6 hex anchors, the single source of the hue.
    2. **Surfaces** — `--bg`, `--bg-alt`, `--border`, as `light-dark()` pairs.
    3. **Ink ramp** — `--text-display / -heading / -body / -label / -secondary /
-      -muted`. Every *content* tier clears AA; `--text-muted` is the one
-      decoration-only, WCAG-exempt tier (chrome, glyphs) — never content text.
+      -muted`, **plus `--muted-mark`**. Every `text-*` tier clears AA, `--text-muted`
+      included: it is de-emphasis WITH a floor, not an exemption (#1715). The
+      decoration — rules, hairlines, empty/skipped marks, low-alpha washes — is
+      `--muted-mark`, at the 3:1 graphical floor, and never carries glyphs.
    4. **Accent** — `--accent`, `--accent-soft`, `--on-accent` (must clear contrast
       vs `--bg` **and** vs `--accent-soft`).
    5. **Categorical cycle** — the scaffold copies indaco's block verbatim, so you
@@ -130,7 +132,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
    convention, and it forces you to check.
 4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
    in light and dark. Register the palette name in **`test/unit/palette/token-parity.test.js`'s
-   `THEMES` array** (this is what enforces the full 95-token contract on your theme)
+   `THEMES` array** (this is what enforces the full 97-token contract on your theme)
    and in `.vscode/settings.json` under `markdown.marp.themes`. (`contrast.test.js`
    is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
    run via cascade — so adding your theme *there* does nothing.)
@@ -166,7 +168,8 @@ A base palette's spine (from `themes/indaco.css`):
   --text-heading:   light-dark(#0A211D, var(--scheme-dark-text-heading));   /* 17:1 */
   --text-body:      light-dark(#1C2E2A, var(--scheme-dark-text-body));      /* 11:1 */
   --text-secondary: light-dark(#3A4E49, var(--scheme-dark-text-secondary)); /* AA   */
-  --text-muted:     light-dark(#6B7B77, var(--scheme-dark-text-muted));     /* chrome only */
+  --text-muted:     light-dark(#5A6A66, var(--scheme-dark-text-muted));     /* AA — quiet TEXT */
+  --muted-mark:     light-dark(#6B7B77, var(--scheme-dark-muted-mark));     /* 3:1 — DECORATION */
 
   /* Accent — clears contrast vs --bg AND vs --accent-soft */
   --accent:      light-dark(#0E8C7A, #17B89E);
@@ -200,13 +203,15 @@ A base palette's spine (from `themes/indaco.css`):
 }
 ```
 
-The **10 required core tokens** — `build:check` fails without these, defined
+The **11 required core tokens** — `build:check` fails without these, defined
 *directly*, not inherited: `--bg`, `--bg-alt`, `--border`, `--text-heading`,
-`--text-body`, `--text-secondary`, `--text-muted`, `--accent`, `--accent-soft`,
-`--surface-inverse`.
+`--text-body`, `--text-secondary`, `--text-muted`, `--muted-mark`, `--accent`,
+`--accent-soft`, `--surface-inverse`. (`checkMutedTierFloors` fails a palette that
+authors `--text-muted` without its `--muted-mark` sibling, and each `--scheme-dark-*`
+half likewise.)
 
 But those 10 are the floor, not the contract. A **from-scratch theme must define
-the full 95-token per-theme contract directly** (the `CONTRACT` list in
+the full 97-token per-theme contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
@@ -226,7 +231,7 @@ rather than by eye. Also define **all 12**
 `--c-subcontainer`; and the `--chart-cat1..8` / `--chart-state-*` chart palette.
 **Note:** `token-parity` only checks the themes *listed* in its `THEMES` array — so
 until you add your theme there, a passing `npm test` does **not** prove the contract
-is complete. The 12 `--cat-N-texture` tokens are **not** in this 95-token contract —
+is complete. The 12 `--cat-N-texture` tokens are **not** in this 97-token contract —
 texture is an *optional* adoption channel (recipe step 5), declared only by a
 monochrome/CVD theme.
 
@@ -261,8 +266,9 @@ The **dark variant in full** — this is the whole file:
 - `--cat-N-fill` set **equal** to `--cat-N-mark` — collapses the node and its border
   to one color (the original categorical-collapse bug); the anti-collapse floor fails.
 - A pastel `--diagram-stroke` — boxes float with no readable border.
-- `--text-muted` used for a subtitle or caption — it's WCAG-exempt; use
-  `--text-secondary` for content.
+- `--text-muted` used for a subtitle or caption — it clears AA now, but it is the
+  QUIETEST text tier; use `--text-secondary` for real content.
+- `--muted-mark` used for anything with glyphs in it — it is held to 3:1, not 4.5.
 - Inventing a `--fs-lg` or `--fs-xl` font-size token — the 12 `--fs-*` are closed
   (HARD RULE #4).
 - A retired token name (`--c1-light`, `--c-stroke`, `--bg-dark`, `--dark-*`,
@@ -277,7 +283,7 @@ The **dark variant in full** — this is the whole file:
 - [ ] `@theme <name>` matches the filename AND the manifest's `name` exactly; a variant's
       `@import '<parent>'` matches the manifest's `extends`; and the file declares no `@size`. All three are `check:ownership` failures now, not conventions:
       the manifest owns the name, geometry lives in `lib/engine/sizes.js`.
-- [ ] All 10 required core tokens declared directly.
+- [ ] All 11 required core tokens declared directly (both halves of the muted tier).
 - [ ] Every surface/ink/accent token is a `light-dark()` pair; the universal
       semantic palette pinned to fixed hex; `--cat-on-fill` / `--cat-on-mark` **flip**
       with the scheme.
@@ -293,7 +299,7 @@ The **dark variant in full** — this is the whole file:
       per-slide `_class: dark` while the pinned chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Full 95-token contract defined directly (not just the 10 core) — all 12
+- [ ] Full 97-token contract defined directly (not just the 10 core) — all 12
       `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`.
 - [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
       `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.
@@ -308,7 +314,8 @@ The **dark variant in full** — this is the whole file:
 2. **A fixed, non-flipping `--cat-on-fill`** → dark-on-jewel in dark mode, below AA
    (`checkCatContrast` fails). Flip it with `var(--text-heading)`.
 3. **Pale stroke** → boxes float in diagrams.
-4. **`--text-muted` for content** → drops below AA.
+4. **`--muted-mark` for text** → held to 3:1, so it is legal and unreadable
+   (`checkMutedTierFloors` cannot catch it; the token is fine, the READ is wrong).
 5. **Inventing an `--fs-*` token** (HARD RULE #4) or a **retired token name / a
    `-light`/`-dark` suffix** (HARD RULE #11).
 6. **Lowering the contrast bar to pass the test** — lift the text or the surface

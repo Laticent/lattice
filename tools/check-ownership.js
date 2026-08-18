@@ -157,7 +157,10 @@ const SINGLETON_TAGS = new Set([
 // fallback; everything else a theme may inherit from lattice.css `:root`.
 const REQUIRED_THEME_TOKENS = Object.freeze([
   '--bg', '--bg-alt', '--border',
-  '--text-heading', '--text-body', '--text-secondary', '--text-muted',
+  // Both halves of the muted tier (#1715). `--muted-mark` is here for the same reason
+  // the rest are: 76 engine reads consume it with no engine fallback, so a palette that
+  // omits it drops every rule, hairline, grid line and skipped mark it paints.
+  '--text-heading', '--text-body', '--text-secondary', '--text-muted', '--muted-mark',
   '--accent', '--accent-soft', '--surface-inverse',
 ]);
 
@@ -8229,6 +8232,33 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
     // palette (a11y-base is a shared partial) and is skipped by that test alone.
     if (!map.has('--bg') && !map.has('--text-muted')) continue;
 
+    // PRESENCE, not just value. Checking only the value of a DECLARED token means a
+    // palette that omits `--muted-mark` entirely passes silently — and then 76 engine
+    // reads of it are invalid at computed-value time on that palette, taking every
+    // hairline, grid line, quadrant frame, radar grid, state ring and skipped mark
+    // with them. Verified by experiment: stripping --muted-mark from indaco produced
+    // ZERO errors before this arm existed.
+    //
+    // The obligation is keyed on the SIBLING: a palette that authors its own
+    // `--text-muted` is a palette that owns this tier and must author both halves.
+    // The `-dark` wrappers and the a11y family declare neither and resolve through
+    // their import chain, which is correct and stays silent.
+    const own = fs.readFileSync(path.join(themesDir, `${name}.css`), 'utf8');
+    for (const [text, mark] of [
+      ['--text-muted', '--muted-mark'],
+      ['--scheme-dark-text-muted', '--scheme-dark-muted-mark'],
+    ]) {
+      const declaresText = new RegExp(`^\\s*${text}\\s*:`, 'm').test(own);
+      const declaresMark = new RegExp(`^\\s*${mark}\\s*:`, 'm').test(own);
+      if (declaresText && !declaresMark) {
+        errors.push(
+          `themes/${name}.css declares ${text} but not ${mark}. A palette that authors the `
+          + 'muted TEXT tier owns the muted DECORATION tier too — without it, every engine read '
+          + `of ${mark} is invalid at computed-value time on this palette and the rules, `
+          + 'hairlines, grid lines and skipped marks it paints disappear (#1715).');
+      }
+    }
+
     for (const mode of ['light', 'dark']) {
       const bg = catResolve(map, '--bg', mode);
       const bgAlt = catResolve(map, '--bg-alt', mode);
@@ -8274,15 +8304,35 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
     }
   }
 
-  // ANTI-VACUOUS, and DERIVED rather than a hardcoded literal that silently decays
-  // as palettes are added: 14 palettes x 2 modes x 2 tokens x 2 surfaces is 112, and
-  // the a11y four resolve through onyx on top of that. A run measuring far fewer has
-  // stopped finding palettes.
-  const expected = themes.length * 2;
+  // ANTI-VACUOUS, and DERIVED from what the run INTENDS to measure rather than from a
+  // number typed here. Each theme file contributes 2 modes x 2 tokens x 2 surfaces = 8
+  // measurements, so the floor is `themes.length * 8`.
+  //
+  // The first cut said "14 palettes x 2 modes x 2 tokens x 2 surfaces is 112" and then
+  // set the floor to `themes.length * 2`. Both halves were wrong: `themes` is every
+  // `.css` in the directory — 32 of them, including the 17 `-dark` wrappers, the five
+  // a11y files and `a11y-base` — and the real count is 256. So the guard sat at 64 and
+  // would have tolerated losing 75% of coverage silently. That is the same decay #1720
+  // recorded in its own harness, where a literal 200 was 93% of the expected 216 and
+  // quietly became 69% when the count grew.
+  // TWO guards, because one derived from `themes.length` cannot see the palette list
+  // ITSELF collapsing — it scales down with the loss and stays green. Verified: pointing
+  // the gate at a directory holding two themes passed the derived floor cleanly. So the
+  // corpus size is floored on its own, well under today's 32 so a palette can be retired
+  // without a false alarm, and far above the "the readdir broke" case.
+  const MIN_THEME_FILES = 20;
+  if (themes.length < MIN_THEME_FILES) {
+    errors.push(
+      `checkMutedTierFloors found only ${themes.length} theme file(s) in ${path.relative(ROOT, themesDir)} `
+      + `— the repo ships 32, so under ${MIN_THEME_FILES} means the scan is broken, not that palettes were retired.`);
+    return;
+  }
+  const expected = themes.length * 8;
   if (measured < expected) {
     errors.push(
       `checkMutedTierFloors made ${measured} measurement(s) across ${themes.length} theme file(s), `
-      + `fewer than the ${expected} floor — the palette scan is broken, not the tree.`);
+      + `fewer than the ${expected} it intends (2 modes x 2 tokens x 2 surfaces each) — the `
+      + 'palette scan is broken, not the tree.');
   }
 }
 
@@ -8516,6 +8566,16 @@ function bareName(t) { return String(t).replace(/^--/, ''); }
  *      placement tokens into an inline `style`. `declaredCustomProps` does not
  *      recognize this form, and without it two real writers read as phantoms.
  *
+ * COMMENTS ARE STRIPPED FIRST, and that is not tidiness. `declaredCustomProps` matches
+ * `--x:` anywhere in the text, so a PROSE MENTION counted as a proven write — including
+ * front-matter keys discussed in comments (`--class`, `--theme`, `--paginate`) and, worst,
+ * any token this repo documents by name. Measured before the fix: 30 of 134 entries (22%)
+ * existed only in comments. The failure that matters is specific: re-introduce
+ * `var(--ink, var(--accent))` while ANY non-test file under `lib/**` or `docs/src/**`
+ * mentions `--ink:` in a comment — which the decision record for this very change makes
+ * likely — and `resolves()` returns true, so the gate goes green on the exact defect it
+ * exists to catch. Arm B already stripped comments for the same reason; this scan did not.
+ *
  * SOURCED FROM CODE, NOT FROM PAGES: `lib/**.{js,mjs}` plus `docs/src`
  * TypeScript/JavaScript emitters, and deliberately NOT `.astro` or `.css` under
  * `docs/src` — a page-local prototype palette is not a writer of engine tokens,
@@ -8530,7 +8590,7 @@ function runtimeWrittenTokens() {
     ...listFilesByExt(path.join(ROOT, 'docs', 'src'), ['.ts', '.tsx', '.js', '.mjs']),
   ].filter((f) => !/\.test\./.test(path.basename(f)));
   for (const f of files) {
-    const src = fs.readFileSync(f, 'utf8');
+    const src = stripCodeComments(fs.readFileSync(f, 'utf8'));
     const into = new Set();
     declaredCustomProps(src, into);
     for (const t of into) out.add(bareName(t));

@@ -248,14 +248,23 @@ const PREEXISTING_CONTRAST_BACKLOG = [
  */
 const EXEMPT_TIER_FLOOR = {
   floor: 3,
-  why: 'The WCAG-exempt decorative ink tier may sit below the 4.5:1 TEXT threshold by '
-    + 'palette contract, but nothing in it may fall through the 3:1 graphical floor, and '
-    + 'the tier may not silently grow. Ceiling-only on both; the recorded numbers are '
-    + 'themselves a backlog (#1717).',
+  why: 'The decorative ink tier may sit below the 4.5:1 TEXT threshold, but nothing in it '
+    + 'may fall through the 3:1 graphical floor, and the tier may not silently grow. '
+    + 'Ceiling-only on both; the recorded numbers are themselves a backlog (#1717). Since '
+    + '#1715 the tier is chiefly --muted-mark and --border: --text-muted carries a 4.5 '
+    + 'floor of its own now and is no longer "WCAG-exempt by palette contract", which is '
+    + 'what drove these counts from 14/14/12 to 1/1/0.',
+  // RATCHETED by #1715, which is what drove these down: the exempt tier resolves a run
+  // as exempt by matching its foreground against --text-muted / --border, and #1715 gave
+  // --text-muted the AA floor its name always implied (44 of 72 palette-mode-surface
+  // pairs were below it) while moving the decoration to --muted-mark. 14 / 14 / 12 below
+  // the 3:1 graphical floor became 1 / 1 / 0. The gate printed the instruction and it is
+  // taken here rather than left for the next reader:
+  //   ↓ exempt-tier progress — gallery @ indaco: 1 below 3:1, ceiling 14. Lower it to 1.
   counts: {
-    'gallery @ indaco': 14,
-    'gallery @ indaco-dark': 14,
-    'gallery-jargon @ indaco': 12,
+    'gallery @ indaco': 1,
+    'gallery @ indaco-dark': 1,
+    'gallery-jargon @ indaco': 0,
   },
   size: {
     'gallery @ indaco': 333,

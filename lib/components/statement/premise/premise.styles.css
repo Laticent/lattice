@@ -109,9 +109,11 @@ section.premise > ol > li {
 }
 /* The ordinal is generated, not hand-typed per row — rows renumber themselves on
  * reorder, which a typed `01` cannot. The list's own `start` is honoured though
- * (see the counter note above): that is the mechanism, not a leak. --text-secondary, not --text-muted: this is
- * row CONTENT, not the "muted chrome" the palette contract exempts from AA
- * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
+ * (see the counter note above): that is the mechanism, not a leak. --text-secondary, not
+ * --text-muted: this is row CONTENT, so it takes the content tier (6.27:1 on --bg-alt)
+ * rather than the quietest text tier. The 3.75:1 this comment used to attribute to
+ * --text-muted is now --muted-mark's number — #1715 split the tier and gave --text-muted
+ * a 4.5 floor instead of an exemption from it. --text-secondary is still right here. */
 section.premise > ol > li::before {
   content: counter(list-item, decimal-leading-zero);
   font-family: var(--font-label);

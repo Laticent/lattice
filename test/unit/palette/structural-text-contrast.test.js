@@ -9,8 +9,11 @@
  * decorative --text-muted token" bug — re-borrowing a decorative token
  * for content text drops it below AA and fails here.
  *
- * --text-muted itself is intentionally exempt (chrome only:
- * pagination/header/footer) and is NOT asserted for contrast.
+ * --text-muted is NOT asserted here, but the reason changed with #1715: it used to be
+ * "intentionally exempt (chrome only)", which was false — it was below AA on 44 of 72
+ * palette-mode-surface pairs while 88 sites painted real text with it. It now carries
+ * the 4.5 floor its name implies, asserted by `checkMutedTierFloors` (via build:check)
+ * rather than here. The decoration it used to double as is `--muted-mark`, at 3:1.
  */
 
 const { test, describe } = require('node:test');

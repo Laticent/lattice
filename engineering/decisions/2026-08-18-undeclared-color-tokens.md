@@ -8,14 +8,15 @@ summary: >
   `var(--ink)` made a chart→anima emphasis stroke inherit rather than emphasize.
   `--text-muted` carried two contracts that contradicted each other IN WRITING — its name
   classifies as ink at 4.5 via `lib/tokens/contracts.js`, its own declaration in all fourteen
-  palettes said "decorative … WCAG-exempt" — and the value followed the comment while 88 sites
+  palettes said "decorative … WCAG-exempt" — and the value followed the comment while the reads
   followed the name, leaving it below AA on 44 of 72 palette-mode-surface pairs, worst 2.11:1.
   It is now split: `--text-muted` keeps the name and gains AA (44 → 0), `--muted-mark` is new
   and takes the decoration at the 3:1 graphical floor, seeded so 32 of 36 values are
   byte-identical. The four `a11y-*` palettes inherited onyx's red-green syntax family for
   SLIDE code panels — contrast was never the problem there and that is why no gate saw it;
-  measured through a color-vision simulation, 17 of 55 role pairs collapsed under
-  deuteranopia and 19 under achromatopsia, now 0.1194 / 0.1143 / 0.1285 / 0.0511 worst-pair,
+  measured through a color-vision simulation over all twelve roles, 21 of 66 role pairs
+  collapsed under deuteranopia and 22 under achromatopsia — where two roles were EXACTLY
+  identical — now 0.1194 / 0.1143 / 0.1285 / 0.0511 cross-group worst-pair,
   6x to 8x better — on the LIVE slide preview, since the export path still loads the base
   after the theme and a first cut of this record wrongly claimed exported bytes changed there.
   And the Studio's deck editor installed no `syntaxHighlighting(...)` at all.
@@ -109,12 +110,21 @@ pass through, no repair."*
 
 **The value followed the comment. The reads followed the name.** Below AA on 44 of 72
 palette-mode-surface pairs, worst **2.11:1** (magnolia/light on `--bg-alt`), while a census
-of the 251 reads found the token doing two jobs with two different floors:
+of the reads found the token doing two jobs with two different floors.
+
+`origin/main` carries **124** reads of `--text-muted` in `lib/**/*.css` (comments stripped).
+After the split, the same tree carries **53 `--text-muted` + 73 `--muted-mark` = 126** — the
+two extra being the new `--quadrant-target-ink` declarations §"what a checker found" covers.
+`docs/src` carries a further 106 reads, almost all `color:`.
 
 | | engine CSS reads | fails its floor |
 |---|---|---|
-| paints TEXT (`color:`, SVG label `fill:`, `-fg` / `-ink` locals) | 45 | 44 of 72 pairs |
-| paints DECORATION (borders, strokes, grid lines, 6% washes, state rings) | 78 | 6 of 72 pairs |
+| paints TEXT (`color:`, SVG label `fill:`, `-fg` / `-ink` locals) | **53** | 44 of 72 pairs |
+| paints DECORATION (borders, strokes, grid lines, 6% washes, state rings) | **73** | 6 of 72 pairs |
+
+*An earlier draft of this record said 45 / 78 / 123 here and "88 sites" in its summary. None
+of the three reproduced against the tree; the numbers above are counted with comments
+stripped and are reproducible by the one-liner in §"what a checker found".*
 
 That asymmetry is the whole argument. Raising one token to AA fixes the 44 and drags 78
 decorative sites darker for no accessibility reason; leaving it fixes nothing. **So the role
@@ -232,10 +242,21 @@ unmeasurable.
 
 | palette | pairs distinct normally that COLLAPSE under the condition | worst pair before | after |
 |---|---|---|---|
-| `a11y-deuteranopia` | 17 of 55 | 0.0147 | **0.1194** |
-| `a11y-protanopia` | 11 of 55 | 0.0139 | **0.1143** |
-| `a11y-tritanopia` | 3 of 55 | 0.0224 | **0.1285** |
-| `a11y-achromatopsia` | 19 of 55 | 0.0064 | **0.0511** |
+| `a11y-deuteranopia` | 21 of 66 | 0.0104 (`built_in`/`variable`) | **0.1194** |
+| `a11y-protanopia` | 12 of 66 | 0.0041 (`built_in`/`variable`) | **0.1143** |
+| `a11y-tritanopia` | 3 of 66 | 0.0204 (`built_in`/`variable`) | **0.1285** |
+| `a11y-achromatopsia` | 22 of 66 | **0.0000** (`built_in`/`type`) | **0.0511** |
+
+**Those "before" numbers are a correction, and the direction matters.** The first cut of this
+table quoted 17/11/3/19 of **55** pairs with worst 0.0147/0.0139/0.0224/0.0064 — computed over
+ELEVEN roles, silently omitting `--hljs-built_in`. That is where the worst collapse lives under
+every condition, including an exact **ΔE 0.0000** tie with `--hljs-type` under achromatopsia
+(`#70C0B8` and `#90B8D0` both simulate to `#B2B2B2`). The strongest single piece of evidence
+for this change was missing from its own table. Found by an independent checker recomputing it.
+
+The "after" column is the **cross-group** worst, which is what `checkHljsSeparation` holds.
+Over all 56 distinct pairs the worst is `comment`/`punctuation` — 0.0575 / 0.0541 / 0.0643 /
+0.0511 — both quiet by design, and that pair is `checkHljsContrast`'s to police.
 
 Three things the design turns on:
 
@@ -457,7 +478,77 @@ was mutated to RED and back to GREEN before its pass was trusted; the mutations 
 cannot reach it from this sandbox (the same `ERR_CONNECTION_RESET` #1720 recorded), so every
 measurement above is against the real built site served locally.
 
-## 8. What this does NOT fix
+## 8. What a checker found (HARD RULE #25)
+
+An independent checker ran on the complete diff and changed the outcome substantially. It is
+recorded because every finding is the same species as the ones this change is *about*: a
+claim the code did not make good on.
+
+**Three sites where TEXT ended up at the graphical floor** — the migration's own defect,
+committed twice more than the two already caught:
+
+| site | what it paints | measured |
+|---|---|---|
+| `base.variants.css` 281/283 | the `tbd` / `archived` STAMP LABELS ("TBD", "[ Archived ]") via `--stamp-color`, read as `color:` in six stamp variants | 3.38:1 on `--bg`, 3.07:1 on the pill wash — the AA sibling gives 5.07:1 |
+| `roadmap.styles.css:257` | the skipped cell's `--state-color`, read as `color:` on `.cell-state-label` | the earlier repair fixed the FALLBACK at the read, which never fires when the local is set |
+| `quadrant.styles.css:336` | `.quadrant-target-badge`, an SVG `<text>` carrying the numeric threshold | 2.52:1 |
+
+The last one was a token serving two floors one level down: `--quadrant-target` is a
+78%-alpha tint used as the target LINE's stroke *and* the badge's fill. It is split the same
+way the change splits `--text-muted`, into `--quadrant-target-ink`. That site was sub-AA
+before this branch too (~2.0:1 on the old muted), so it is a pre-existing defect squarely on
+the path — HARD RULE #18 says fix it here.
+
+**Four decorative sites left behind, each half of a paired recipe whose other half moved** —
+state-chart's SVG node gradient, radar's three legend swatches, map's unmatched-region swatch
+stroke. They were byte-identical to their CSS partner before this branch and would not have
+been after: OKLab ΔE between the two tokens differs on 24 of 28 palette-modes, worst 0.1054.
+
+**Two real holes in the new gates**, both of which made them claim more than they did:
+
+- `checkMutedTierFloors` **never noticed a palette that omits `--muted-mark` entirely** — it
+  checked the value of a declared token and skipped an undeclared one. Demonstrated by
+  stripping the token from `indaco`: zero errors. 76 engine reads would have been invalid at
+  computed-value time on the default palette. It now keys the obligation on the SIBLING (a
+  palette that authors `--text-muted` owns both halves), and that arm immediately found a
+  real gap in this very change — `carbone` had `--scheme-dark-text-muted` and no
+  `--scheme-dark-muted-mark`. `--muted-mark` also joined `REQUIRED_THEME_TOKENS` and the
+  `token-parity` CONTRACT.
+- `runtimeWrittenTokens()` **counted a token named in a COMMENT as a proven runtime write**,
+  in the one function whose docblock says runtime-set is "proven by a write, never asserted".
+  30 of 134 entries (22%) existed only in prose, including front-matter keys like `--class`
+  and `--theme`. The concrete failure: re-introduce `var(--ink, var(--accent))` while any
+  non-test file mentions `--ink:` in a comment — which *this record* makes likely — and the
+  phantom gate goes green on its own subject. Comments are stripped now (134 → 110 entries,
+  all four legitimate writers retained), and the exact scenario is bitten.
+- Its anti-vacuous floor was `themes.length * 2` under a comment claiming 112 measurements;
+  the real count is 256 over 32 files, so the guard tolerated losing **75%** of coverage. It
+  is now `themes.length * 8` plus a minimum corpus size — because a floor derived from
+  `themes.length` alone scales down with the loss and cannot see the palette list itself
+  collapsing (verified: a two-theme directory passed the derived floor cleanly).
+
+**Two censuses in this record that did not reproduce**, both corrected above: the a11y
+"before" numbers (§4) and the read counts (§3).
+
+**The export-path claim was right but too broad.** §"Where these actually paint" says the base
+loads after the theme; that is true of `lattice-emulator.js` (`paletteCSS + layoutCSS`), the
+PDF/HTML player path, and FALSE of `lib/engine/css.js`, which inlines the base at the theme's
+`@import 'lattice'` position — base first, theme last. Verified by composing both: the engine
+path resolves `--hljs-keyword` to `#E39B00` on `a11y-deuteranopia`. So a consumer taking
+`engine.render().css` DOES get the new syntax families today; it is the emulator-driven export
+that does not.
+
+**Stale claims elsewhere in the tree**, all repaired: `design/skills/theme.md` — the canonical
+"author a theme from scratch" doc — still taught `--text-muted` as "chrome only / WCAG-exempt"
+and would have manufactured the retired contract into every new theme, the same argument that
+justified fixing `derive.js` and `ai.js` and a third instance nobody had noticed. Plus the
+exempt-tier ledger in `slide-contrast.test.js`, whose ceilings this change drove from 14/14/12
+to **1/1/0** while printing the instruction to lower them; `tools/check-slide-contrast.js`,
+whose exempt-ink resolver keyed on `--text-muted` and now also on `--muted-mark`; the docs-site
+SSR fallback palette, which had no `--muted-mark` and a stale `--text-muted`; and four code
+comments quoting the old contract's numbers.
+
+## 9. What this does NOT fix
 
 - **cuoio/light muted text is 0.038 from body text in OKLab.** Stated in §3 with the reason.
   The only thing that would recover it is re-tuning `--text-body` or `--bg` on that palette,
@@ -478,6 +569,10 @@ measurement above is against the real built site served locally.
 - **Part 3 does not reach the export path**, and cannot until #1527 flips the base/theme
   concatenation order. Measured above; stated here because a reader looking for green strings
   to disappear from a PDF will not find them.
+- **`checkMutedTierFloors` cannot catch a `--muted-mark` READ that paints text.** It polices
+  the token's value, not its use sites; the three the checker found were caught by reading,
+  not by a gate. A use-site classifier is what `lib/tokens/contracts.js` argues against
+  building, so this stays a review property.
 - **`tools/cvd-audit.js` still has no achromatopsia arm.** `lib/theme/cvd.js` can now simulate
   it and `checkHljsSeparation` uses it, but wiring it through the audit's own CLI and its
   categorical/status groups is a separate pass.

@@ -459,7 +459,14 @@ const PROBE = () => {
     const probe = document.createElement('span');
     probe.style.display = 'none';
     sec.appendChild(probe);
-    for (const tok of ['--text-muted', '--border']) {
+    // `--muted-mark` joins the pair for #1715: the decorative half of what
+    // `--text-muted` used to be moved to it (rules, hairlines, empty/skipped marks,
+    // glyph washes), so a run painted from it is exactly the decoration this bucket
+    // exists to hold. Leaving it out would have scored those runs at the 4.5 TEXT
+    // threshold — and `--text-muted` itself, which now carries a 4.5 floor of its own,
+    // is kept here rather than dropped: a run of it can still legitimately be chrome,
+    // and the bucket is a ceiling on what escapes measurement, not a license.
+    for (const tok of ['--text-muted', '--muted-mark', '--border']) {
       probe.style.color = `var(${tok})`;
       const v = parse(getComputedStyle(probe).color);
       if (v && v.a > 0) exemptInks.add(v.rgb.map(Math.round).join(','));

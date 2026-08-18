@@ -278,9 +278,9 @@ section.divider:not(.light).spectrum-edge-off { background: var(--surface-invers
 section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); }
 section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); }
 section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); }
-section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--muted-mark); }
+section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); }
 section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); }
-section.archived     { --stamp-label: "Archived";     --stamp-color: var(--muted-mark); }
+section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); }
 section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
 section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
 

@@ -250,7 +250,11 @@
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
-  --state-color:var(--muted-mark);
+  /* --text-muted, NOT --muted-mark: this local is read as `color:` on
+   * `.cell-state-label` below (the uppercase state eyebrow), so on a skipped cell it
+   * paints TEXT and takes the 4.5 floor. The `var(--state-color, --text-muted)`
+   * fallback at that read never fires here precisely because this line sets it (#1715). */
+  --state-color:var(--text-muted);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
 }

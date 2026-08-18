@@ -304,9 +304,10 @@ section.matrix-grid.chart-frame .chart-caption {
   gap: 0.4em;
   padding-left: 0.9em;
   font-style: italic;
-  /* Legend text is CONTENT (it decodes the grid), not the "muted chrome" the
-   * palette contract exempts from AA — --text-muted is 4.10:1 on --bg,
-   * --text-secondary is 6.85:1. */
+  /* Legend text is CONTENT (it decodes the grid), so it takes the content tier rather
+   * than the quietest text tier: --text-secondary is 6.85:1 on --bg. The 4.10:1 once
+   * attributed to --text-muted is now --muted-mark's number — #1715 split the tier and
+   * gave --text-muted the 4.5 floor instead of an exemption from it. */
   color: var(--text-secondary);
 }
 :is(section.matrix-grid, figure.matrix-grid) .chart-caption em::before {

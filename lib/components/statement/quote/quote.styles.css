@@ -47,8 +47,10 @@ section.quote.bare > .cell-stage > p {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   /* The attribution is the quote's only other content — it names whose words
-   * these are — so it reads at --text-secondary (6.85:1 on --bg), not the
-   * --text-muted chrome tier the palette contract exempts from AA (4.10:1). */
+   * these are — so it reads at --text-secondary (6.85:1 on --bg), a step above the
+   * quietest text tier. The 4.10:1 this comment used to attribute to --text-muted is
+   * now --muted-mark's number: #1715 split the tier, and --text-muted carries the 4.5
+   * floor rather than an exemption from it. --text-secondary is still right here. */
   color: var(--text-secondary);
 }
 section.quote.bare > .cell-stage > p em { font-style: normal; }

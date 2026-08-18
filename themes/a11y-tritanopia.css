@@ -44,10 +44,23 @@
    *
    * CONTRAST WAS NEVER THE PROBLEM. Every inherited value already cleared AA on
    * this panel, which is why checkHljsContrast passed the whole time. SEPARATION
-   * UNDER THE CONDITION was: 3 of 55 role pairs were distinct to a
+   * UNDER THE CONDITION was: 3 of 66 role pairs were distinct to a
    * normal-sighted reader and collapsed for the reader this palette is for, the
-   * worst at dE 0.0224. Two colors can both clear contrast and still be the
+   * worst at dE 0.0204 (built_in/variable). Two colors can both clear contrast and still be the
    * same color to the person reading them.
+   *
+   *
+   * THE CENSUS ABOVE COUNTS ALL TWELVE ROLES, and a first cut of it did not — it omitted
+   * --hljs-built_in and so quoted the SECOND-smallest pair over 55 pairs instead of the
+   * smallest over 66. That was the wrong direction to be wrong in: built_in is where the
+   * worst inherited collapse is under every condition, including an EXACT dE 0.0000 tie
+   * with --hljs-type under achromatopsia (#70C0B8 and #90B8D0 both simulate to #B2B2B2)
+   * — the single strongest piece of evidence for this change, left out of its own table.
+   * Caught by an independent checker recomputing it (HARD RULE #25).
+   *
+   * The "after" figure quoted here is the CROSS-GROUP worst. Over all 56 distinct pairs
+   * the worst is comment/punctuation (deuteranopia 0.0575, protanopia 0.0541, tritanopia
+   * 0.0643) — both are quiet by design and that pair is checkHljsContrast's to police.
    *
    * THE PANEL IS AN INVERTED SURFACE, which decides the seeds. --code-bg
    * resolves to --surface-inverse (#000000, inherited from onyx) while this
@@ -70,18 +83,26 @@
    * digits off it.
    *
    *
-   * WHERE THESE ACTUALLY PAINT, measured rather than assumed. On the EXPORT path they
-   * do NOT: `lattice-emulator.js` concatenates `paletteCSS + layoutCSS`, so the base is
-   * loaded AFTER the theme and `lib/base/base.tokens.css`'s own --hljs-* WIN (that file
-   * says so in as many words; the inversion is #1527 and is not shipped). Verified on a
-   * rendered PDF of this palette: the `function` keyword samples #C792EA, the BASE's
-   * --hljs-keyword, byte-exact. Where they DO paint is the live slide preview — the
-   * Studio and the docs site load the theme last — measured on the real built Studio at
-   * #E39B00 for a11y-deuteranopia and #A7A7A7 for a11y-achromatopsia. So this repairs
-   * the live surface today and the export the moment #1527 lands; it changes no exported
-   * bytes now.
+   * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
+   * path, and the difference is the whole caveat:
+   *
+   *   lattice-emulator.js (the PDF / HTML-player EXPORT) concatenates
+   *     `paletteCSS + layoutCSS`, so the base is loaded AFTER the theme and
+   *     lib/base/base.tokens.css's own --hljs-* WIN — that file says so in as many words,
+   *     and the inversion is #1527, unshipped. Verified on a rendered PDF of this palette:
+   *     the `function` keyword samples #C792EA, the BASE's --hljs-keyword, byte-exact.
+   *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
+   *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
+   *     --hljs-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
+   *   The live slide preview (Studio + docs site) loads the theme last too, measured on
+   *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
+   *
+   * So these families paint today on the engine path and the live preview, and not in an
+   * emulator-exported PDF until #1527 flips that order. A first cut of this comment said
+   * flatly "the export path" and was too broad in one direction after being too narrow in
+   * the other.
    * Measured on THESE values, simulated: worst pair dE 0.1285
-   * (numeric/code-text), against 0.0224 for what was inherited. Lowest contrast on
+   * (numeric/code-text), against 0.0204 for what was inherited. Lowest contrast on
    * the panel 4.62:1. Gated by checkHljsSeparation, which
    * measures the SIMULATED values — no existing gate did. .hljs-comment,
    * .hljs-built_in and .hljs-title also carry font-style:italic from

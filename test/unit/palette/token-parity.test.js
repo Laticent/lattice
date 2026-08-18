@@ -35,12 +35,12 @@ const THEMES = baseThemeNames();
 
 const CONTRACT = [
   'bg', 'bg-alt', 'surface-inverse', 'border', 'text-display', 'text-heading',
-  'text-body', 'text-secondary', 'text-label', 'text-muted', 'accent',
+  'text-body', 'text-secondary', 'text-label', 'text-muted', 'muted-mark', 'accent',
   'accent-soft', 'on-accent', 'code-text',
   'pass', 'fail', 'warn', 'pass-bg', 'fail-bg', 'warn-bg',
   'scheme-dark-bg', 'scheme-dark-bg-alt', 'scheme-dark-border', 'scheme-dark-text-heading',
   'scheme-dark-text-body', 'scheme-dark-text-display', 'scheme-dark-text-secondary',
-  'scheme-dark-text-label', 'scheme-dark-text-muted',
+  'scheme-dark-text-label', 'scheme-dark-text-muted', 'scheme-dark-muted-mark',
   'hljs-comment', 'hljs-keyword', 'hljs-built_in', 'hljs-number',
   'hljs-literal', 'hljs-string', 'hljs-title', 'hljs-type', 'hljs-variable',
   'hljs-params', 'hljs-tag', 'hljs-punctuation',
