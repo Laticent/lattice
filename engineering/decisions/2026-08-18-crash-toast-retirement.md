@@ -1,0 +1,246 @@
+---
+status: shipped
+summary: "The crash sentinel's boot toast fired on returning to any Studio tab the browser had unloaded while it sat in the background — which is not a crash, and is the ordinary end of most sessions. From inside a page an ordinary unload and a dead renderer are the same observation: the record just stops. So the alarm was wrong most of the times it fired, and a false alarm on a schedule is how the one true alarm gets ignored. Fix, three parts. (1) The toast is REMOVED and, in a later pass on the same branch, recording became OPT-IN and off by default; the report is a place the author goes — Workspace → General → Crash reports — with `markReported`/`unreportedCrashReports`, the interruption-rationing API, deleted with it. (2) `console.error` is now CAPTURED (patched, always passing through, re-entrancy guarded, restored on stop only if still ours, writes throttled to 1/s): `window.onerror` sees only what nobody caught, while the diagnostic failures here are caught, logged and degraded around — so a session that printed a stack trace seconds before it died used to report no errors at all. (3) The report is reordered and re-worded to be actionable: what FAILED leads (errors, missing files) with the ambient measurements behind it, a new `hidden` field records whether anyone was looking so a background unload gets the headline 'The Studio stopped while the tab was in the background' and 'nothing to do' rather than 'stopped unexpectedly', and a frozen-and-never-resumed record is classified `reclaimed` instead of `stopped`."
+---
+
+# Retiring the crash toast, and making the report worth opening
+
+**Date:** 2026-08-18 · **Status:** shipped
+
+Amends `2026-08-10-studio-crash-sentinel.md`, which shipped the recorder and the
+toast. The recorder was right. The toast was not.
+
+## The report
+
+> this keeps showing up even when there is no crash. the browser unloads the page
+> after time, come back and you see this crash toast. horrible. we should continue
+> collecting but this toast is not useful, remove it. also, for crashes we don't
+> capture critical errors that are logged in the console. today, the crash report
+> is not actionable either.
+
+A phone, a Studio tab left in the background, a return to it — and *"The Studio
+stopped unexpectedly · Your decks are safe. See what the Studio recorded."*
+
+## Why the toast was wrong, and why it could not be tuned
+
+Browsers unload backgrounded tabs on their own schedule. **From inside the page,
+that is the same observation as a renderer death:** the session record stops.
+There is no signal that separates them — `document.wasDiscarded` covers one
+Chromium case and nothing else, and the browser's own crash report goes to a
+server endpoint this site deliberately does not have (measured, and recorded in
+the 08-10 note).
+
+So the toast was not miscalibrated; it was announcing a class of event it could
+not distinguish from the boring member of that class. The boring member is also
+the *common* one. Every mechanism that made it politer — announce once per record
+(`markReported`), a 12s life, a non-blocking shape — reduced the annoyance
+without touching the fact that the notice was usually a false alarm.
+
+An alarm that is usually wrong spends the credibility the true alarm needs. The
+honest move is to stop interrupting and keep recording.
+
+## What changed
+
+**1 · No interruption.** `StudioShell` still collects on mount; nothing announces.
+`markReported` and `unreportedCrashReports` are deleted — they existed only to
+ration an interruption that no longer happens — along with the `reported` field
+they wrote and the prune tier that read it. **Workspace → General → Crash reports
+is now the only way in**, which it was already built to be. (The §"Opt-in"
+section below then made that group the place recording is turned on at all, so
+what is always present there is the SWITCH; the reports row appears whenever
+anything is stored, which is what keeps a record from being
+present-but-unclearable.)
+
+**2 · The console is a source.** `window.onerror` fires only for an exception
+nobody caught, and the failures worth diagnosing in this app are *caught* — a
+`catch` that logs and degrades, React logging what a boundary absorbed, a library
+refusing bad input. All of them print to the console; the reload after a crash
+wipes it. The report therefore said "no errors recorded" about a session that
+printed a stack trace seconds before it ended.
+
+`console.error` is patched in `startCrashSentinel`. Four properties keep that
+honest:
+
+- the original is **always** called, so devtools shows exactly what it showed;
+- the capture is **re-entrancy guarded** — anything below it that logs would
+  otherwise recurse forever (a getter that throws and logs is the real shape);
+- `stop()` restores it **only if `console.error` is still ours**, so a later
+  patcher is never torn out from under;
+- writes are **throttled to one per second** (`CONSOLE_PERSIST_MS`); the 5s
+  heartbeat carries the rest. `console.error` is cheap to call and libraries call
+  it in loops — persisting 4-8KB of JSON per call would make the recorder the
+  stall it exists to observe.
+
+**The privacy cost, stated.** A breadcrumb is written by a caller who chose a
+label. A `console.error` argument is written by whoever called it — including a
+third-party library that might print the input it choked on — so this is the one
+channel the module does not control. It is bounded rather than eliminated: 300
+characters per message and 1200 per stack (`noteError`), nothing transmitted, and
+the panel shows the recorded error above the "Report on GitHub" button so the
+only path off the device runs through a human reading it. Audited when this
+landed: all eleven `console.error` calls in `docs/src` log a label plus an Error
+object; none passes deck text. That is a convention to keep, and the module's
+PRIVACY docblock now says so.
+
+`console.warn` is deliberately NOT captured: it is where libraries put things
+that are working as intended, and burying the errors in them helps nobody.
+
+`formatConsoleError` folds the arguments the way a console does — printf
+specifiers substituted (`'%s failed', 'export'` → `export failed`, `%c` consumed),
+an `Error` anywhere in the arguments contributing its **stack**, duck-typed as
+well as `instanceof` so an error thrown across the preview iframe's realm
+boundary still gives up its stack, and every serialization failure (circular,
+throwing getter) absorbed. It is exported and unit-tested because it is the part
+with a wrong answer available.
+
+**3 · The report leads with what failed.** Three changes, all in
+`describeSession`:
+
+- **Order.** Errors and failed loads first; memory, freezes and tab identity
+  after. The old order opened with a memory paragraph *every* report carries and
+  pushed the one line naming a broken function below it.
+- **`hidden`** — a new optional field on the record, latched from
+  `document.visibilityState` at boot and on every visibility change, resume and
+  bfcache restore. A session whose last known state was hidden did not stop while
+  anyone was using it. It gets the headline **"The Studio stopped while the tab
+  was in the background"** and a step that says *nothing to do* — and it is
+  deliberately still `ending: 'stopped'`, because "nobody was looking" is weaker
+  evidence than the browser saying it reclaimed the tab. The wording carries the
+  inference; the classification does not overclaim.
+- **`frozen` is a reclaim.** A record left frozen means the browser announced the
+  tab had become discard-eligible and it never came back. That is the browser
+  unloading it, so `ending` is now `reclaimed` (still `confirmed: false`, so the
+  panel keeps its caveat), and the headline reads "The browser unloaded this tab
+  in the background" rather than "The Studio stopped unexpectedly".
+
+An error taken off the console is also *labeled* as one — "logged to the console;
+the page kept running" — because a caught-and-logged warning must not read as the
+thing that killed the tab. That is what the new `ErrorGroup.source` field carries.
+
+## Opt-in: the recorder is off until the author turns it on
+
+Added after the three changes above, and it reverses a position this module
+argued in its own comments — *"a crash you must opt into recording is a crash you
+never catch"*, and the Workspace group was deliberately built as a row rather
+than a switch on that reasoning. The cost was stated honestly and it is real: the
+first crash after a fresh install is now genuinely not caught.
+
+It is still the wrong trade, and the console capture above is what tips it. What
+this keeps is a rolling diary of the session — breadcrumbs, a heap trajectory,
+every error — and since the console became a source, that diary can carry
+whatever a third-party library chose to pass to `console.error`. A diagnostic
+nobody asked for should not be the default, however careful its caps are and
+however local its storage. The privacy note above bounds the exposure; it does
+not make it something to enable on someone's behalf.
+
+**The gate is one line, and it is inside `startCrashSentinel`** — not at the call
+site. Two callers start this module, the hoisted page script
+(`CrashSentinel.astro`) and the Studio island, and a gate at either one is a gate
+the other walks around. Everything with a cost or a trace is below it: the
+interval, the six listeners, **the console patch**, and every write. Above it the
+function is a no-op returning a no-op.
+
+**`crashReports` fails closed.** `loadSettings` reads `saved.crashReports === true`
+and the recorder's own `crashRecordingEnabled()` reads the same field the same
+way — strict `=== true`, never truthiness. A corrupted value, a hand-edited
+profile, a settings blob from a build that never had the field, or a storage read
+that throws can therefore only ever land on *do not record*. This is the
+difference between this flag and its neighbor `intentSearch`, which validates so
+a junk value cannot desync the Switch from a running feature: that one has no safe
+direction, this one does.
+
+**The key is spelled twice, and pinned.** `crash-sentinel.ts` does not import
+`studio-store.ts` to read one boolean — it runs from a hoisted script that must be
+up before the engine is fetched. The cost of that duplication is drift, so a unit
+test imports both and requires them to agree on the key, the field, and the
+fail-closed reading.
+
+**Turning it off is a withdrawal of consent, not a clean exit.** `stopCrashSentinel()`
+seals first (so the teardown's own final `persist()` is a no-op — the ordering
+`clearAllSessions` documents, for the same unwinnable-race reason), tears down,
+then removes the half-written record of the session in progress and releases the
+tab mirror. **Past reports are deliberately left alone**: they are the author's
+data, they stay listed and readable with recording off, and the group's existing
+two-tap control is how they go. Both directions take effect immediately —
+`startCrashSentinel` is idempotent, so flipping the switch on starts recording
+without a reload.
+
+## What did NOT change
+
+The recorder, the storage discipline, the privacy posture, the guard
+(`isSessionRecord`), the wipe machinery, the GitHub hand-off. Both new optional
+fields (`hidden`, `ErrorGroup.source`) are validated by the guard on the same
+reasoning as every field before them — a present-but-wrong-shaped optional field
+is exactly what that guard exists for — and neither moves `RECORD_VERSION`, since
+a bump would discard every record already sitting in a user's browser and older
+code simply ignores a field it does not know.
+
+## What an independent checker found, and what changed because of it
+
+Maker-checker (CLAUDE.md) on the first cut. Every finding below was a real defect
+in code that had already passed lint, both unit suites, `build:check` and a green
+e2e run — which is the argument for the rung.
+
+1. **The console write path skipped `catchUpOnWipe()`.** Every other write in the
+   module re-reads the durable wipe mark first, on the stated reasoning that the
+   wake path nobody has thought of yet is the one that resurrects deleted data. A
+   console error is exactly such a path: a tab that slept through another tab's
+   "Delete Everything" hears no event, and one library log would have persisted
+   the record — deck title and all — back under the key the wipe had just removed.
+   Now guarded, and pinned by a test that fails without the guard.
+2. **A chatty console erased the trail.** Folding stopped a *repeating* message
+   from filling the 60-crumb ring, but `find` only looks among the first six
+   groups — so from the seventh *distinct* message on, nothing folded and every
+   one took a crumb. Measured: 200 distinct console errors left 60 error crumbs
+   and no boot, nav or lifecycle context, which is the exact failure folding was
+   introduced to fix. A distinct message past the cap now takes no crumb either,
+   and the report states how many errors it could not list.
+3. **"Nothing to do" covered a browser-confirmed reclaim.** A record with
+   `wasDiscarded` set and a 9x heap rise printed its own evidence and then told
+   the reader not to bother reporting it. The step now excludes `confirmedDiscard`
+   and any record whose heap climbed >=1.5x or hit the ceiling; both instead ask
+   for the report, naming the memory figures.
+4. **An orphaned patch kept recording.** After start -> third-party wrap -> stop
+   -> start, `stop()` correctly declines to restore (tearing out someone else's
+   function would be worse) — but the first patch stayed alive inside their
+   wrapper while the second sat on top, and one `console.error` was counted twice.
+   `stop()` now switches the patch inert as well, so an orphan is a pass-through.
+5. **A throwing `message` getter dropped the whole call.** `describeValue` read
+   the duck-typed properties *above* its `try`, so a hostile argument lost the
+   label logged beside it. Every property read on a caller-controlled object is
+   inside the guard now, and read once (a logging getter was running twice);
+   `formatConsoleError`'s stack lookup got the same treatment.
+6. **The wipe scrubs missed `errorGroups` and `failedLoads`.** Pre-existing, and
+   squarely on this change's path — the console is what makes those fields carry
+   uncontrolled text. Fixed in place (HARD RULE #18) rather than logged.
+7. **`hidden` was latched on events only**, so it could not support the sentence
+   "the tab was in the background when the recording stopped" on a path that skips
+   `visibilitychange`. It is latched on the heartbeat now — the one thing that runs
+   on every path — plus `pagehide` and `freeze`.
+8. Smaller: a `RECORD_VERSION` comment still naming the deleted `reported` field;
+   the throttle docblock claiming a 1s worst case when it is a `BEAT_MS` one;
+   unclipped string arguments building full-size intermediates.
+
+The checker also could not reach a real browser from its own sandbox and said so
+rather than assuming — the e2e and real-Studio evidence below is the maker's.
+
+## Verification
+
+- Unit: `docs/src/lib/crash-sentinel.test.ts` — console capture (record contents,
+  pass-through, restore, later-patcher, no recursion), `formatConsoleError`
+  (specifiers, stacks, unserializable arguments), the background headline and its
+  absent chore, error-first ordering, console labeling, visibility tracking, and
+  the guard's two new fields, plus one test per checker finding above — each
+  verified to FAIL against the pre-fix code, not merely pass after it. 94 passing.
+- E2E (`docs/e2e/crash-sentinel.spec.ts`, real browser — HARD RULE #23): the
+  report is offered in Workspace and reads well on desktop AND WebKit-at-phone
+  (clipping on both axes per text layer, contrast composited from the deepest
+  opaque layer up, no sideways overflow); **a boot that finds a crash record
+  raises no toast at all**, latched from before first paint so a toast cannot be
+  raised and gone before the assertion; a console error lands in the live record
+  with its stack and substituted format string; a clean session still reports
+  nothing.
+
+The toast's own presentation contract — radius, per-layer contrast, per-axis
+clipping, the auto-dismiss skip and its latch — is retired with the toast. What
+was portable moved onto the panel a human now reads.

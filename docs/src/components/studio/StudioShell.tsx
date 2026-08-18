@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, markReported, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext, unreportedCrashReports } from '@/lib/crash-sentinel';
+import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { cornerRadiusCss } from '@/lib/deck-corner';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
@@ -467,32 +467,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	// Sessions that ended without a clean unload — the crash sentinel's harvest
 	// (lib/crash-sentinel.ts). Collected once on mount, BEFORE anything else can
-	// write to storage, and surfaced as one non-blocking toast: a page that just
-	// came back from a crash owes the author their work, not a modal.
+	// write to storage.
 	const [crashReports, setCrashReports] = React.useState<CrashReport[]>([]);
 	const [crashOpen, setCrashOpen] = React.useState(false);
-	// One toast shape for both announcement paths (mount, and the late watch below),
-	// so a late report never reads as a different KIND of event than a prompt one.
-	const announceCrash = React.useCallback((report: CrashReport) => {
-		toast(crashReportTitle(report), {
-			duration: 12_000,
-			description: 'Your decks are safe. See what the Studio recorded.',
-			action: { label: 'See report', onClick: () => setCrashOpen(true) },
-		});
-	}, []);
+	// COLLECTED, NEVER ANNOUNCED. There used to be a boot toast here, and it had to
+	// go: a browser unloading a backgrounded tab is the ordinary end of most
+	// sessions and is indistinguishable from a crash from inside the page, so what
+	// the author actually saw was "The Studio stopped unexpectedly" on returning to
+	// a tab that had been sitting idle — a crash notice where there had been no
+	// crash. An alarm that is usually wrong is worse than no alarm, because it
+	// spends the credibility the one true alarm needs. The way IN is Workspace →
+	// General → Crash reports, a place the author goes rather than a thing that
+	// finds them — and the same group carries the switch that decides whether
+	// anything is recorded at all (off by default). This effect only READS, so it
+	// is correct either way: with recording off it simply finds whatever was
+	// recorded while it was on.
 	React.useEffect(() => {
 		setCrashReports(collectCrashReports(Date.now()));
-		// Interrupt ONCE per report. `markReported` persists that we said it, so a
-		// report the user simply ignored does not re-toast on every subsequent boot
-		// until they explicitly discard it — it stays listed in Workspace instead.
-		const fresh = unreportedCrashReports(Date.now());
-		if (!fresh.length) return;
-		// Mark ONLY the one we announce. Marking them all spent the interruption
-		// budget of reports the user was never actually told about, so a second
-		// accumulated crash could never toast.
-		markReported(fresh[0].id);
-		announceCrash(fresh[0]);
-	}, [announceCrash]);
+	}, []);
 	// NOT FIXED HERE, deliberately — see issue #1621. When the browser reloads a
 	// dead tab BY ITSELF, this boot often has nothing to say: immediate reporting
 	// needs `isSameTab`, which needs a navigation typed `reload`, and at least one

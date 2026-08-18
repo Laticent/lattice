@@ -6,16 +6,18 @@ import {
 	clearAllSessions,
 	clearCrashReports,
 	collectCrashReports,
+	crashRecordingEnabled,
 	crashReportStats,
 	describeSession,
 	dismissCrashReport,
 	elapsedLabel,
+	formatConsoleError,
 	formatCrashReport,
 	isOpaqueError,
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
-	markReported,
+	MAX_ERROR_GROUPS,
 	newRecord,
 	noteError,
 	noteFailedLoad,
@@ -23,10 +25,11 @@ import {
 	SESSION_PREFIX,
 	type SessionRecord,
 	STALE_MS,
+	sentinelRunning,
 	setCrashContext,
 	startCrashSentinel,
+	stopCrashSentinel,
 	TAB_SESSION_KEY,
-	unreportedCrashReports,
 	WIPE_MARK_KEY,
 	WIPE_SIGNAL_KEY,
 } from './crash-sentinel';
@@ -41,6 +44,19 @@ function rec(over: Partial<SessionRecord> = {}): SessionRecord {
 	return newRecord(over.id ?? 'sess-1', T0, { lastBeat: T0 + 60_000, ...over });
 }
 
+/**
+ * Grant recording consent — the Workspace switch, in storage terms.
+ *
+ * Every test below that exercises the RECORDER needs this, because the recorder
+ * is off unless it is explicitly on (see "recording is opt-in"). Granted in
+ * `beforeEach` rather than per test: the opt-in behavior has its own block that
+ * clears it, and threading a setup line through sixty tests about something else
+ * would bury what each one is actually asserting.
+ */
+function allowRecording() {
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: true }));
+}
+
 /** The one call `collectCrashReports` needs to have seen — it reads module state. */
 function bootSentinel() {
 	startCrashSentinel();
@@ -50,6 +66,7 @@ beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
 	__resetSentinelForTest();
+	allowRecording();
 	vi.useRealTimers();
 });
 
@@ -113,9 +130,13 @@ describe('describeSession — reports what was measured, never a cause', () => {
 		const confirmed = describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true });
 		expect(confirmed.headline).toMatch(/browser reclaimed this tab to free memory/i);
 		expect(confirmed.confirmed).toBe(true); // the browser said it, so the panel may drop its caveat
-		// A frozen tab is NOT a confirmed reclaim — it is reported as an observation.
+		// A frozen tab is a reclaim — the browser said the tab had become a candidate
+		// to unload and it never came back — but NOT a confirmed one, so the panel
+		// keeps its caveat and the headline names no cause.
 		const frozen = describeSession(withMem(0.2, { frozen: true }), { sameTab: true });
-		expect(frozen.ending).toBe('stopped');
+		expect(frozen.ending).toBe('reclaimed');
+		expect(frozen.confirmed).toBe(false);
+		expect(frozen.headline).toMatch(/unloaded this tab in the background/i);
 		expect(frozen.facts.join(' ')).toMatch(/frozen this tab in the background/i);
 	});
 
@@ -570,7 +591,7 @@ describe('the reachability fixes', () => {
 			expect(report?.facts.join(' ')).toMatch(/dropped rather than resumed/i);
 			// An INFERENCE, so the headline must not name a reason and the panel must
 			// keep its caveat — the page cache is also emptied on limits and timeouts.
-			expect(report?.headline).toMatch(/dropped this tab from its page cache/i);
+			expect(report?.headline).toMatch(/unloaded this tab in the background/i);
 			expect(report?.confirmed).toBe(false);
 			expect(report?.facts.join(' ')).toMatch(/does not say which/i);
 		});
@@ -586,14 +607,16 @@ describe('the reachability fixes', () => {
 		});
 	});
 
-	it('interrupts once — a report already announced is not re-toasted', () => {
+	// The toast is gone (it announced an ordinary background unload as a crash on
+	// every return to an idle tab), so collection must be idempotent: a report
+	// stays listed and readable no matter how many times a boot harvests it.
+	// Nothing marks it spent any more, because nothing spends it.
+	it('keeps a report listed across repeated collection — nothing consumes it', () => {
 		localStorage.setItem(SESSION_PREFIX + 'a', JSON.stringify(rec({ id: 'a' })));
 		startCrashSentinel();
 		const now = Date.now() + STALE_MS + 1;
-		expect(unreportedCrashReports(now)).toHaveLength(1);
-		markReported('a');
-		expect(unreportedCrashReports(now)).toHaveLength(0);
-		// …but it is still LISTED, so Workspace can show and clear it.
+		expect(collectCrashReports(now)).toHaveLength(1);
+		expect(collectCrashReports(now)).toHaveLength(1);
 		expect(collectCrashReports(now)).toHaveLength(1);
 	});
 
@@ -792,6 +815,15 @@ describe('the new optional fields cannot brick the Studio', () => {
 		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 7, n: 1, firstT: 0, lastT: 0 }] })).toBe(false);
 		expect(isSessionRecord({ ...good(), errorGroups: 'boom' })).toBe(false);
 		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 2, firstT: 0, lastT: 10 }] })).toBe(true);
+		// `source` is concatenated into a rendered fact, so it is checked like the rest.
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 1, firstT: 0, lastT: 0, source: 7 }] })).toBe(false);
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 1, firstT: 0, lastT: 0, source: 'console.error' }] })).toBe(true);
+	});
+
+	it('rejects a `hidden` that would pick the headline by truthiness', () => {
+		expect(isSessionRecord({ ...good(), hidden: 'yes' })).toBe(false);
+		expect(isSessionRecord({ ...good(), hidden: true })).toBe(true);
+		expect(isSessionRecord(good())).toBe(true); // absent is fine — older records lack it
 	});
 
 	it('drops such a record instead of letting it reach a reader', () => {
@@ -926,5 +958,576 @@ describe('a wipe survives a tab that slept through it', () => {
 		document.dispatchEvent(new Event('resume'));
 		expect(localStorage.getItem(WIPE_MARK_KEY)).toBeTruthy(); // durable on purpose
 		expect(sessionCount()).toBe(0);
+	});
+});
+
+/**
+ * THE CONSOLE, and the report that could not be acted on.
+ *
+ * `window.onerror` fires only for an exception nobody caught. The failures worth
+ * diagnosing in this app are usually caught, logged and degraded around — so a
+ * session that printed a stack trace seconds before it died reported "no errors
+ * recorded", and the reader was handed a memory chart and nothing to do with it.
+ */
+describe('console errors reach the record', () => {
+	it('captures console.error, keeps the stack, and still prints to the console', () => {
+		const seen: unknown[][] = [];
+		const original = console.error;
+		console.error = (...args: unknown[]) => { seen.push(args); };
+		try {
+			startCrashSentinel();
+			const boom = new Error('render failed');
+			boom.stack = 'Error: render failed\n    at renderSlide (engine.js:42:9)';
+			console.error('preview blew up', boom);
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(1);
+			expect(live.lastError?.message).toContain('render failed');
+			// The stack is the whole point — it names the code that failed.
+			expect(live.lastError?.stack).toContain('renderSlide');
+			expect(live.errorGroups?.[0].source).toBe('console.error');
+		} finally {
+			// `stop()` restores whatever it patched; this restores the spy either way.
+			__resetSentinelForTest();
+			console.error = original;
+		}
+		// PASSED THROUGH. A recorder that eats the console is worse than no
+		// recorder: devtools has to show exactly what it showed before.
+		expect(seen).toHaveLength(1);
+		expect(seen[0][0]).toBe('preview blew up');
+	});
+
+	it('restores console.error on stop, and leaves a later patcher alone', () => {
+		const original = console.error;
+		const stop = startCrashSentinel();
+		expect(console.error).not.toBe(original);
+		stop();
+		expect(console.error).toBe(original);
+
+		// Someone else patched on top of ours — tearing theirs out would break them.
+		const stop2 = startCrashSentinel();
+		const theirs = (...args: unknown[]) => { void args; };
+		console.error = theirs;
+		stop2();
+		expect(console.error).toBe(theirs);
+		console.error = original;
+	});
+
+	it('does not recurse when the capture path itself logs', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			// A console.error raised from INSIDE a console.error handler is the shape
+			// that turns a patch into an infinite loop.
+			const evil = { get message() { console.error('nested'); return 'outer'; } };
+			expect(() => console.error(evil)).not.toThrow();
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+});
+
+describe('formatConsoleError — the arguments a console prints, not the ones it was passed', () => {
+	it('substitutes printf specifiers the way a console does', () => {
+		// React and friends log `console.error('%s failed', name)`. Joining the raw
+		// arguments prints the format string verbatim with the values on the end.
+		expect(formatConsoleError(['%s failed after %d tries', 'export', 3]).message).toBe('export failed after 3 tries');
+		expect(formatConsoleError(['100%% done']).message).toBe('100% done');
+		// `%c` takes a CSS string that styles console output and is pure noise here.
+		expect(formatConsoleError(['%cstyled', 'color: red']).message).toBe('styled');
+	});
+
+	it('reads a message and a stack off a real Error, wherever it sits', () => {
+		const e = new Error('nope');
+		e.stack = 'Error: nope\n    at thing (a.js:1:1)';
+		expect(formatConsoleError(['while saving', e]).stack).toContain('at thing');
+		expect(formatConsoleError(['while saving', e]).message).toBe('while saving Error: nope');
+		// Thrown across a realm boundary (the preview iframe), `instanceof` fails —
+		// so the shape is duck-typed too.
+		expect(formatConsoleError([{ message: 'cross-realm', stack: 'at frame (b.js:2:2)' }]).stack).toContain('at frame');
+	});
+
+	it('survives an argument that will not serialize', () => {
+		const circular: Record<string, unknown> = {};
+		circular.self = circular;
+		expect(() => formatConsoleError([circular])).not.toThrow();
+		const throwing = { get boom(): never { throw new Error('getter'); } };
+		expect(() => formatConsoleError([throwing])).not.toThrow();
+		expect(formatConsoleError([]).message).toBe('console.error (no arguments)');
+	});
+});
+
+/**
+ * THE FALSE ALARM THIS WHOLE CHANGE EXISTS FOR. A tab left in the background
+ * long enough for the browser to unload it is the ordinary end of most sessions.
+ * Every earlier generation announced it as "The Studio stopped unexpectedly".
+ */
+describe('a backgrounded tab that the browser unloaded is not a crash', () => {
+	it('says so in the headline, and offers no chore', () => {
+		const idle = rec({ hidden: true, mem: [] });
+		const { headline, facts, steps, ending } = describeSession(idle, { sameTab: true });
+		expect(headline).toBe('The Studio stopped while the tab was in the background');
+		expect(facts.join(' ')).toMatch(/tab was in the background when the recording stopped/i);
+		expect(steps.join(' ')).toMatch(/Nothing to do/);
+		// It is still only an INFERENCE — the browser never said it reclaimed anything.
+		expect(ending).toBe('stopped');
+		// And it must not send someone to install Chrome over an ordinary unload.
+		expect(steps.join(' ')).not.toMatch(/Chrome or Edge/);
+	});
+
+	it('still leads with a real error when there was one, and still says report it', () => {
+		const idle = rec({
+			hidden: true,
+			mem: [],
+			errorCount: 1,
+			errorGroups: [{ message: 'cannot read length of undefined', n: 1, firstT: 1_000, lastT: 1_000, file: '/_astro/studio.js', line: 12 }],
+		});
+		const { facts, steps } = describeSession(idle, { sameTab: true });
+		// WHAT FAILED COMES FIRST — the ambient measurements are background.
+		expect(facts[0]).toMatch(/cannot read length of undefined/);
+		expect(steps[0]).toMatch(/Report this on GitHub/);
+	});
+
+	it('marks a console-sourced error as one the page survived', () => {
+		const r = rec({
+			errorCount: 1,
+			errorGroups: [{ message: 'save failed', n: 1, firstT: 500, lastT: 500, source: 'console.error' }],
+		});
+		expect(describeSession(r, { sameTab: true }).facts[0]).toMatch(/logged to the console; the page kept running/);
+	});
+
+	it('tracks visibility on the live record, so the next boot can tell', () => {
+		startCrashSentinel();
+		const live = liveSession() as SessionRecord;
+		expect(live.hidden).toBe(false); // jsdom reports a visible document
+		Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+		document.dispatchEvent(new Event('visibilitychange'));
+		expect((liveSession() as SessionRecord).hidden).toBe(true);
+		Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+		document.dispatchEvent(new Event('visibilitychange'));
+		expect((liveSession() as SessionRecord).hidden).toBe(false);
+	});
+});
+
+/**
+ * What an independent checker found once the console became a source. Each of
+ * these is a real defect that shipped in the first cut of that change, so each
+ * test is written to FAIL against it rather than merely pass against the fix.
+ */
+describe('the console channel cannot undo the module’s other promises', () => {
+	const sessionCount = () => Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX)).length;
+
+	// Every other write path re-reads the durable wipe mark before writing,
+	// because the wake path nobody has thought of is the one that resurrects
+	// deleted data. A console error was exactly such a path.
+	it('a console error in a tab that slept through a wipe does not bring the record back', () => {
+		const original = console.error;
+		try {
+			// The spy goes UNDER the patch, not over it: it is what the patch must
+			// still call through to, so it has to be installed before `start`.
+			const seen: unknown[][] = [];
+			console.error = (...args: unknown[]) => { seen.push(args); };
+			startCrashSentinel();
+			setCrashContext({ Deck: 'Confidential' });
+			expect(sessionCount()).toBe(1);
+			// Another tab wiped while this document was not running: only the durable
+			// mark is left behind, no live event was heard.
+			localStorage.clear();
+			localStorage.setItem(WIPE_MARK_KEY, String(Date.now()));
+			console.error('a library complains after the wipe');
+			expect(sessionCount()).toBe(0);
+			// AND THE CONSOLE STILL WORKS. The first cut of this guard used a bare
+			// `return`, which exits the patch before the pass-through — so a wipe
+			// silently started swallowing every console error for the rest of the
+			// page's life. A recorder may stop recording; it may never eat the console.
+			expect(seen).toHaveLength(1);
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	// Folding stopped a REPEATING message from filling the ring. `find` only looks
+	// among the first six groups, so from the seventh DISTINCT message on nothing
+	// folded and every one took a crumb — 60 errors and no context.
+	it('a chatty console cannot evict the trail', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			breadcrumb('nav', 'deck: The Seven Steps');
+			for (let i = 0; i < 200; i++) console.error(`distinct failure ${i}`);
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(200);
+			expect(live.errorGroups).toHaveLength(MAX_ERROR_GROUPS);
+			// The narrative survives: boot and nav are still the start of the trail.
+			expect(live.crumbs[0].k).toBe('boot');
+			expect(live.crumbs.some((c) => c.m.startsWith('deck: '))).toBe(true);
+			expect(live.crumbs.filter((c) => c.k === 'error')).toHaveLength(MAX_ERROR_GROUPS);
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	it('says how many errors it could not list, rather than implying six was all of them', () => {
+		const many = rec({
+			errorCount: 200,
+			errorGroups: [{ message: 'first', n: 1, firstT: 0, lastT: 0 }],
+		});
+		expect(describeSession(many, { sameTab: true }).facts.join(' ')).toMatch(/199 further error\(s\)/);
+	});
+
+	// An orphaned patch left recording inside someone else's wrapper counted every
+	// console error twice — "2x" in a public issue for one occurrence.
+	it('a patch someone else wrapped goes inert on stop instead of double-counting', () => {
+		const original = console.error;
+		try {
+			const stop1 = startCrashSentinel();
+			const theirs = console.error; // a third party wraps ours
+			const wrapper = (...args: unknown[]) => (theirs as (...a: unknown[]) => unknown)(...args);
+			console.error = wrapper;
+			stop1(); // cannot restore — wrapper is not ours — so it must go inert
+			__resetSentinelForTest();
+			startCrashSentinel();
+			console.error('one message');
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(1);
+			expect(live.errorGroups?.[0].n).toBe(1);
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	// The first cut read `.message` before the try, so a throwing getter dropped
+	// the whole call — including the perfectly recordable label beside it.
+	it('records the label even when an argument refuses to be read', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			const hostile = { get message(): never { throw new Error('nope'); } };
+			expect(() => console.error('context that matters', hostile)).not.toThrow();
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(1);
+			expect(live.lastError?.message).toContain('context that matters');
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+
+	// The wipe scrubs cleared five fields and missed the two that now carry text
+	// from the channel this module does not control.
+	it('a wipe scrubs the error groups and failed loads, not just the last error', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			console.error('something a library printed');
+			noteFailedLoad('/_astro/gone.js');
+			expect((liveSession() as SessionRecord).errorGroups).toHaveLength(1);
+			dispatchEvent(Object.assign(new Event('storage'), { key: WIPE_SIGNAL_KEY, newValue: '1' }));
+			const live = liveSession() as SessionRecord;
+			expect(live.errorGroups).toBeUndefined();
+			expect(live.failedLoads).toBeUndefined();
+			expect(live.lastError).toBeUndefined();
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+});
+
+/**
+ * The report must not talk its reader out of the one report worth having. A
+ * browser-CONFIRMED reclaim, or a heap that climbed through the session, is the
+ * strongest signal this recorder produces — and the first cut answered both with
+ * "nothing to do — normal behavior on every browser", directly under its own
+ * evidence of a 9x rise.
+ */
+describe('"nothing to do" is for the ordinary case only', () => {
+	const climbing = (over: Partial<SessionRecord> = {}) =>
+		rec({ mem: [{ t: 0, used: 200_000_000, limit: 2_000_000_000 }, { t: 2_400_000, used: 1_800_000_000, limit: 2_000_000_000 }], ...over });
+
+	it('asks for a report when the browser said it reclaimed the tab', () => {
+		const { steps } = describeSession(climbing(), { sameTab: true, tabDiscarded: true });
+		expect(steps.join(' ')).toMatch(/Report this on GitHub/);
+		expect(steps.join(' ')).not.toMatch(/Nothing to do/);
+	});
+
+	it('asks for a report when the heap climbed, even on a background unload', () => {
+		const { headline, steps } = describeSession(climbing({ hidden: true }), { sameTab: true });
+		expect(headline).toBe('The Studio stopped while the tab was in the background');
+		expect(steps.join(' ')).toMatch(/memory figures above/);
+		expect(steps.join(' ')).not.toMatch(/Nothing to do/);
+	});
+
+	it('still says "nothing to do" for a quiet background unload', () => {
+		const { steps } = describeSession(rec({ hidden: true, mem: [{ t: 0, used: 5e6, limit: 4e9 }] }), { sameTab: true });
+		expect(steps.join(' ')).toMatch(/Nothing to do/);
+	});
+
+	// `hidden` is read by a sentence that claims the tab was in the background when
+	// recording STOPPED, and an event-only latch cannot support that on a path
+	// where the document goes away without a `visibilitychange` first.
+	it('latches visibility on the heartbeat, not only on the events', () => {
+		vi.useFakeTimers();
+		try {
+			startCrashSentinel();
+			Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+			// No `visibilitychange` dispatched on purpose — the tick is the oracle.
+			vi.advanceTimersByTime(BEAT_MS + 1_000);
+			expect((liveSession() as SessionRecord).hidden).toBe(true);
+		} finally {
+			Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+			vi.useRealTimers();
+		}
+	});
+});
+
+/**
+ * CONSENT. The recorder is off unless the Workspace switch is on.
+ *
+ * This module used to argue the opposite in its own comments — "a crash you must
+ * opt into recording is a crash you never catch" — and that was a real cost,
+ * honestly stated. It was still the wrong trade: what this keeps is a rolling
+ * diary of the session, and since the console became a source that diary can
+ * carry whatever a third-party library passed to `console.error`. Diagnostics
+ * nobody asked for are not a default.
+ */
+describe('recording is opt-in', () => {
+	const enable = (v: unknown) => localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: v }));
+
+	it('records nothing at all with no setting stored', () => {
+		localStorage.clear(); // undo the harness's blanket grant — this is the shipped default
+		const before = console.error;
+		const stopper = startCrashSentinel();
+		expect(sentinelRunning()).toBe(false);
+		expect(liveSession()).toBeNull();
+		// Not a byte, and — the privacy-critical half — the console is untouched.
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+		expect(console.error).toBe(before);
+		expect(sessionStorage.getItem(TAB_SESSION_KEY)).toBeNull();
+		expect(() => stopper()).not.toThrow(); // still a well-behaved no-op stopper
+	});
+
+	it('records once the switch is on', () => {
+		enable(true);
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		breadcrumb('action', 'did a thing');
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'did a thing')).toBe(true);
+	});
+
+	// FAILS CLOSED. The flag has a safe direction, so every value that is not
+	// exactly `true` — junk, a truthy string, a missing field, an older build's
+	// settings blob — must land on "do not record", never on "record".
+	it('treats anything but an explicit true as no', () => {
+		for (const v of ['true', 1, {}, [], 'yes', null, undefined]) {
+			__resetSentinelForTest();
+			localStorage.clear();
+			enable(v);
+			expect(crashRecordingEnabled(), `value ${JSON.stringify(v)} must not enable recording`).toBe(false);
+			startCrashSentinel();
+			expect(sentinelRunning()).toBe(false);
+		}
+	});
+
+	it('reads unparseable settings as no consent rather than throwing', () => {
+		localStorage.setItem('lattice-studio-settings', '{not json');
+		expect(crashRecordingEnabled()).toBe(false);
+		expect(() => startCrashSentinel()).not.toThrow();
+		expect(sentinelRunning()).toBe(false);
+	});
+
+	// Turning the switch OFF mid-session is a WITHDRAWAL of consent, not a clean
+	// exit — so the half-written record of the session in progress must not be
+	// left on disk, which the ordinary `stop()` teardown would do (it stamps the
+	// record `closed` and persists it on the way out).
+	it('drops the live record when recording is turned off', () => {
+		enable(true);
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential' });
+		breadcrumb('action', 'mid-session');
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toHaveLength(1);
+
+		stopCrashSentinel();
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+		expect(sentinelRunning()).toBe(false);
+		expect(sessionStorage.getItem(TAB_SESSION_KEY)).toBeNull();
+		// And it stays gone — a late beat or lifecycle event must not write it back.
+		dispatchEvent(new Event('pagehide'));
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+	});
+
+	it('leaves PAST reports alone — they are the user\'s data, not this session\'s', () => {
+		localStorage.setItem(`${SESSION_PREFIX}old`, JSON.stringify(rec({ id: 'old' })));
+		enable(true);
+		startCrashSentinel();
+		stopCrashSentinel();
+		expect(localStorage.getItem(`${SESSION_PREFIX}old`)).not.toBeNull();
+	});
+
+	it('can be turned back on in the same session', () => {
+		enable(true);
+		startCrashSentinel();
+		stopCrashSentinel();
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		breadcrumb('action', 'recording again');
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'recording again')).toBe(true);
+	});
+
+	// Reading a past report must not depend on the switch — someone who turns
+	// recording off still owns what was already recorded, and still has to be able
+	// to read and clear it.
+	it('still lists and clears reports recorded while it was on', () => {
+		localStorage.clear();
+		localStorage.setItem(`${SESSION_PREFIX}past`, JSON.stringify(rec({ id: 'past' })));
+		startCrashSentinel(); // disabled — no consent stored
+		expect(collectCrashReports(Date.now() + STALE_MS + 1)).toHaveLength(1);
+		clearCrashReports();
+		expect(collectCrashReports(Date.now() + STALE_MS + 1)).toEqual([]);
+	});
+});
+
+/**
+ * THE DUPLICATED KEY, pinned.
+ *
+ * `crash-sentinel.ts` spells the settings key and field itself rather than
+ * importing the React-side store — it runs from a hoisted page script that must
+ * be up before the engine is fetched. The cost of that is drift, so this is the
+ * thing that catches it: both sides are imported here and required to agree,
+ * including on the fail-closed reading.
+ */
+describe('the sentinel and the workspace store agree on the setting', () => {
+	it('reads the same key and field the store writes', async () => {
+		localStorage.clear(); // the shipped default, not the harness's grant
+		const { saveSettings, loadSettings } = await import('../components/studio/studio-store');
+		expect(loadSettings().crashReports).toBe(false); // the shipped default
+		expect(crashRecordingEnabled()).toBe(false);
+
+		saveSettings({ crashReports: true });
+		expect(crashRecordingEnabled()).toBe(true); // the store's write is what the recorder reads
+
+		saveSettings({ crashReports: false });
+		expect(crashRecordingEnabled()).toBe(false);
+	});
+
+	it('agrees that a junk value is not consent', async () => {
+		const { loadSettings } = await import('../components/studio/studio-store');
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: 'yes' }));
+		expect(loadSettings().crashReports).toBe(false);
+		expect(crashRecordingEnabled()).toBe(false);
+	});
+});
+
+/**
+ * WHAT THE CONSENT GATE MUST NOT TAKE WITH IT.
+ *
+ * Every case here failed against the first cut of the gate. The shape of the
+ * mistake was the same each time: the gate returned before something that does
+ * not record — a read, or a delete — and took an unrelated promise down with it.
+ */
+describe('turning recording off does not break the promises around it', () => {
+	const deny = () => localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: false }));
+
+	// THE iOS EVICTION PATH. `isUncleanEnd`'s first branch needs `sameTab`, which
+	// needs the boot facts, which are readable exactly once. With the gate above
+	// them they stayed null and this report became invisible FOREVER — while the
+	// panel copy promised the opposite. Everyone upgrades into "off", so this is
+	// the default experience of anyone who already had a report.
+	it('still lists a page-cache eviction after recording is turned off', () => {
+		const evicted = rec({ id: 'ev', closed: true, bfcached: true, lastBeat: Date.now() });
+		localStorage.setItem(SESSION_PREFIX + 'ev', JSON.stringify(evicted));
+		sessionStorage.setItem(TAB_SESSION_KEY, 'ev');
+		deny();
+		// biome-ignore lint/suspicious/noExplicitAny: minimal navigation-timing stub
+		const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation(((k: string) => (k === 'navigation' ? [{ type: 'reload' }] : [])) as any);
+		try {
+			startCrashSentinel(); // declines — but must still latch the boot facts
+			expect(sentinelRunning()).toBe(false);
+			const [report] = collectCrashReports(Date.now() + 1000);
+			expect(report?.id).toBe('ev');
+			expect(report?.sameTab).toBe(true);
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	// RETENTION IS A DELETE, NOT A RECORDING. `pruneSessions` has exactly one
+	// caller; gating it meant nothing ever expired for anyone with the switch off.
+	it('still expires records past the retention window', () => {
+		const old = rec({ id: 'ancient', startedAt: Date.now() - 8 * 24 * 60 * 60 * 1000, lastBeat: Date.now() - 8 * 24 * 60 * 60 * 1000 });
+		localStorage.setItem(SESSION_PREFIX + 'ancient', JSON.stringify(old));
+		deny();
+		startCrashSentinel();
+		expect(localStorage.getItem(SESSION_PREFIX + 'ancient')).toBeNull();
+	});
+
+	it('still sweeps an unparseable record, which is the only repair path there is', () => {
+		localStorage.setItem(`${SESSION_PREFIX}junk`, 'not json at all');
+		deny();
+		startCrashSentinel();
+		expect(localStorage.getItem(`${SESSION_PREFIX}junk`)).toBeNull();
+	});
+});
+
+/**
+ * NOTHING GATHERED WITHOUT CONSENT IS KEPT.
+ *
+ * `preStart` buffers breadcrumbs for the milliseconds between import and start.
+ * With recording off that window is the whole session, and the buffer drains
+ * into the record the instant the switch goes on — so an hour of labels, deck
+ * titles among them, landed on disk right after consent was given, every one
+ * stamped `t: 0`. Found by the checker, reproduced here first.
+ */
+describe('pre-consent breadcrumbs never reach the disk', () => {
+	it('drops what was buffered while recording was off', () => {
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: false }));
+		startCrashSentinel(); // declines
+		breadcrumb('nav', 'deck: Q3 Board Confidential (deck-7)');
+		breadcrumb('action', 'opened Present');
+
+		// Now the author turns it on.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: true }));
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		const crumbs = (liveSession() as SessionRecord).crumbs;
+		expect(crumbs.some((c) => c.m.includes('Q3 Board Confidential'))).toBe(false);
+		expect(crumbs.some((c) => c.m === 'opened Present')).toBe(false);
+		// The record still opens normally.
+		expect(crumbs.some((c) => c.k === 'boot')).toBe(true);
+	});
+
+	// The buffer still does its ORIGINAL job when consent was there all along —
+	// this is the boot race it exists for, and the fix must not cost it.
+	it('still flushes the boot-race buffer when recording was on', () => {
+		breadcrumb('action', 'raced the island');
+		startCrashSentinel();
+		expect((liveSession() as SessionRecord).crumbs.some((c) => c.m === 'raced the island')).toBe(true);
+	});
+});
+
+/**
+ * Consent withdrawn in ANOTHER tab has to reach this one. `stopCrashSentinel` is
+ * module state, so tab A's switch did nothing for tab B, whose next beat wrote a
+ * record the author believed they had just turned off. The module already reaches
+ * across tabs for a privacy wipe; this is the same kind of promise.
+ */
+describe('consent is cross-tab', () => {
+	it('stops recording when another tab turns the switch off', () => {
+		startCrashSentinel();
+		expect(sentinelRunning()).toBe(true);
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: false }));
+		dispatchEvent(Object.assign(new Event('storage'), { key: 'lattice-studio-settings', newValue: '{"crashReports":false}' }));
+		expect(sentinelRunning()).toBe(false);
+		expect(Object.keys(localStorage).filter((k) => k.startsWith(SESSION_PREFIX))).toEqual([]);
+	});
+
+	it('ignores an unrelated settings change', () => {
+		startCrashSentinel();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ crashReports: true, posture: 'read' }));
+		dispatchEvent(Object.assign(new Event('storage'), { key: 'lattice-studio-settings', newValue: '{"crashReports":true}' }));
+		expect(sentinelRunning()).toBe(true);
 	});
 });

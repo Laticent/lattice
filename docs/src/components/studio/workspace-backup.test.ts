@@ -219,3 +219,30 @@ describe('backup bookkeeping — last-backup + earned nudge', () => {
 		expect(WORKSPACE_ZIP_NAME).toBe('lattice-workspace.zip');
 	});
 });
+
+/**
+ * A restored backup must not be able to switch crash recording ON.
+ *
+ * Every other setting in the file is a preference and restoring it is the point.
+ * This one is permission for a background process to start writing a diary of the
+ * session to THIS device, and `importStudioState` already treats a backup as
+ * attacker-adjacent input — a `.json` someone was handed cannot grant that.
+ */
+describe('crash recording consent is not restorable', () => {
+	// No shared beforeEach in this file, so each case sets the local answer it is
+	// asserting about rather than inheriting one from whatever ran before it.
+	it('ignores crashReports in an imported backup, keeping the local answer', () => {
+		saveSettings({ crashReports: false });
+		const backup = { ...exportStudioState(), settings: { ...loadSettings(), crashReports: true } };
+		importStudioState(backup, T0);
+		expect(loadSettings().crashReports).toBe(false);
+	});
+
+	it('does not turn it OFF either — the local answer simply stands', () => {
+		saveSettings({ crashReports: true });
+		const backup = { ...exportStudioState(), settings: { ...loadSettings(), crashReports: false } };
+		importStudioState(backup, T0);
+		expect(loadSettings().crashReports).toBe(true);
+		saveSettings({ crashReports: false }); // leave the shipped default behind us
+	});
+});

@@ -664,11 +664,21 @@ never turn "passed in headless" into "works on iOS."
   page's JS is already gone: `beforeunload`, `pagehide` and every boundary are
   dead, and the reload that follows wipes the console.
 - **Fix:** don't go looking in the console — there is nothing there and there never
-  will be. Read the crash report. The Studio records a rolling session record
-  (`docs/src/lib/crash-sentinel.ts`) and, on the boot after an unclean end, shows a
-  toast → a report with the heap trajectory, main-thread stalls, the last error and
-  the breadcrumb trail. It is also reachable at any time from **Workspace → Crash
-  reports**. The report states what was MEASURED — how memory trended, any errors, any
+  will be, because the reload wiped it. Read the crash report instead: the Studio
+  records a rolling session record (`docs/src/lib/crash-sentinel.ts`) with the heap
+  trajectory, main-thread stalls, every error it saw and the breadcrumb trail.
+  **It is at Workspace → General → Crash reports, and nowhere else — nothing
+  announces it.** (There used to be a boot toast; it was removed, see the next
+  entry.)
+  **FIRST CHECK WHETHER RECORDING WAS EVEN ON.** It is **off by default** — the
+  same Workspace group carries the switch. If it was off, there is no report and
+  there is no way to make one after the fact; turn it on so the NEXT one is
+  diagnosable. An empty Crash reports group therefore means one of two different
+  things, and the switch is what tells them apart: armed and nothing crashed, or
+  never watching. The console IS captured while the page is alive — everything written to
+  `console.error` goes into the record with its stack — so an error the app caught,
+  logged and degraded around is in the report even though `window.onerror` never
+  saw it. The report states what was MEASURED — how memory trended, any errors, any
   freezes, the trail — and never guesses a cause, because no browser will tell a
   page why a tab died. The one exception is a browser-CONFIRMED reclaim
   (`document.wasDiscarded`), which is stated outright because the browser said it.
@@ -683,6 +693,27 @@ never turn "passed in headless" into "works on iOS."
   See `engineering/decisions/2026-08-10-studio-crash-sentinel.md`; to hunt the leak
   behind a report showing memory growth, reach for `npm run torture`
   (`tools/perf-torture/`).
+
+## A "crash" notice appeared on returning to a tab, and nothing had crashed
+
+- **Symptom (historical):** come back to a Studio tab left open in another app or
+  another tab for a while, and a toast reads *"The Studio stopped unexpectedly —
+  your decks are safe"*. Nothing crashed. It happened again the next time, and the
+  next.
+- **Cause:** browsers unload backgrounded tabs on their own schedule to reclaim
+  memory, and **from inside the page that is indistinguishable from a crash** — the
+  session record simply stops, exactly as it would if the renderer had died. The
+  boot toast announced every such ending, so the notice most people saw was a false
+  alarm, and a false alarm on a schedule is how the one true alarm gets ignored.
+- **Fix (shipped):** the toast is gone. Recording captures the same things, but it is now OPT-IN (off by default);
+  the report is a place you GO — **Workspace → General → Crash reports** — not a
+  thing that finds you. The report also names this ending honestly now: a session
+  whose last recorded state was hidden reads *"The Studio stopped while the tab was
+  in the background"*, with "nothing to do" as its next step, rather than
+  "unexpectedly". See `engineering/decisions/2026-08-18-crash-toast-retirement.md`.
+- **Don't reintroduce:** an interruption for this class of ending. The recorder
+  cannot tell an ordinary unload from a crash, so anything that shouts about it is
+  wrong most of the time it fires.
 
 ## The Studio says a feature "hit an unexpected error" on a tab that has been open a while
 

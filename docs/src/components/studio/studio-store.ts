@@ -736,8 +736,15 @@ export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // answers a described intent ("who owns what") as well as a remembered name. It runs
 // entirely in this tab — no model, no download, no request — so the only reason to
 // turn it off is a preference for literal matching. Default on.
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true, intentSearch: true };
+// `crashReports` — whether the crash sentinel RECORDS (docs/src/lib/crash-sentinel.ts).
+// OFF by default, and the only setting here that is. Everything else in this type is
+// a preference about how the Studio behaves; this one decides whether a background
+// process writes a diary of your session to this device — breadcrumbs, a heap
+// trajectory, and every error, INCLUDING whatever a third-party library chose to put
+// in a `console.error` argument. That is not a thing to switch on for someone.
+// See `2026-08-18-crash-toast-retirement.md` §"Opt-in".
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
@@ -788,7 +795,16 @@ export function loadSettings(): StudioSettings {
 	// so any non-boolean falsy value (0, null, "", an explicit undefined from a hand-edited or
 	// third-party workspace backup) would render the Switch OFF while the feature kept running.
 	const intentSearch = typeof saved.intentSearch === 'boolean' ? saved.intentSearch : DEFAULT_SETTINGS.intentSearch;
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch };
+	// FAILS CLOSED, which is the difference between this flag and `intentSearch`
+	// above. That one validates so a junk value cannot render the Switch OFF while
+	// the feature keeps running; this one has a SAFE direction — only an explicit
+	// `true` records. A corrupted, hand-edited, or third-party-backup value can
+	// therefore only ever turn recording off, never silently on. The recorder reads
+	// the same field the same way from its hoisted page script (see
+	// `crashRecordingEnabled` in lib/crash-sentinel.ts, pinned against this line by
+	// a unit test) — both must agree that anything other than `true` means no.
+	const crashReports = saved.crashReports === true;
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
@@ -961,7 +977,18 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		summary.restoredCopies++;
 	}
 	saveIndex(index);
-	saveSettings(data.settings);
+	// CONSENT IS NOT RESTORABLE. Every other field in `settings` is a preference
+	// about how the Studio behaves, and restoring it is the point of a backup.
+	// `crashReports` is not that: it is permission for a background process to
+	// start writing a diary of this session — including whatever a third-party
+	// library passes to `console.error` — to THIS device. A `.json` a person was
+	// handed must not be able to switch that on for them, and this function
+	// already treats a backup as attacker-adjacent input (see `asPosture` and the
+	// line-ending normalization above). Dropping the key leaves the local answer
+	// standing, because `saveSettings` merges over `loadSettings()`.
+	const importedSettings: Partial<StudioSettings> = { ...data.settings };
+	delete importedSettings.crashReports;
+	saveSettings(importedSettings);
 	saveInstructions(data.instructions);
 	saveOnDeviceInstructions(data.onDeviceInstructions ?? ''); // absent in a pre-split backup — restores empty, never throws
 	return summary;
