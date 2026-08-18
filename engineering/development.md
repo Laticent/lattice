@@ -157,8 +157,9 @@ The CORPUS sweep runs **nightly** (`integration-nightly.yml`), because that part
 costs: ~24s per deck — 16s to export the player, 8s to audit it — so `examples/` is roughly
 55 minutes. The PDF is not the cost and is no longer written; the browser render, the
 dynamic-component bake and the CSS prune are, and the player needs all three. It compares
-against `test/oracle/player-contrast.json` and fails only on a finding that is **new** or has
-got **worse** — the corpus's known sub-AA runs are tracked in #1745, and a nightly that
+against `test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with
+every theme and contrast change and a baseline blessed on a branch is stale before that branch
+merges — and fails only on a finding that is **new** or has got **worse** — the corpus's known sub-AA runs are tracked in #1745, and a nightly that
 re-lists them is one people learn to skim. Re-bless with `npm run contrast:player:bless` once
 a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette
 contract and is reported in its own bucket, never as a failure.

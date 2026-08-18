@@ -407,9 +407,18 @@ async function main() {
 
 	// An ABSENT baseline is not an empty one. Treating it as `{}` would report every known
 	// finding in the corpus as NEW — a few hundred rows on the first run, which is both
-	// useless and indistinguishable from a real regression. Say what is actually wrong.
+	// useless and indistinguishable from a real regression. Say what is actually wrong, and
+	// FAIL: a scheduled gate with no oracle is an assertion that rots quietly, which is the
+	// failure `check:family-tiers` exists to remember (#1218).
+	//
+	// The baseline is blessed ON MAIN, not on a branch, and that is not laziness. It records
+	// ratios, and ratios move with every theme and contrast change — three landed on main in
+	// the hours this branch was open (#1738 widened the exempt ink set, #1723 re-curated seven
+	// status trios, #1744 withdrew the 3:1 large-text allowance so every run is scored at 4.5).
+	// A ~55-minute sweep blessed on a branch is stale before the branch merges, and a stale
+	// baseline reports drift that is really just the branch being behind.
 	if (!fs.existsSync(baselinePath)) {
-		console.error(`\nno baseline at ${path.relative(ROOT, baselinePath)} — record one with \`npm run contrast:player:bless\`\n`);
+		console.error(`\nno baseline at ${path.relative(ROOT, baselinePath)} — record one ON MAIN with \`npm run contrast:player:bless\` and commit it\n`);
 		process.exit(2);
 	}
 	const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
