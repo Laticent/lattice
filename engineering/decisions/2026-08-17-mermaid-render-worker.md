@@ -203,7 +203,8 @@ as the intent. `resolveDiagramLook` now calls `resolveDiagramHandType` rather th
 repeating it, so the shape answer and the type answer cannot drift.
 
 Because `fontFamily` is a GLOBAL Mermaid theme variable, hand type also reaches the
-legacy-renderer families (sequence, gantt, pie, journey, timeline, quadrant, mindmap),
+remaining families (sequence, gantt, pie, journey, timeline, quadrant, sankey, xychart,
+C4, block, packet, architecture, gitGraph),
 which honor no `look` and keep machine-drawn shapes. **Chosen, not tolerated**: a
 sketch deck should speak in one voice, type is a separate question from shape, and
 holding those families back would need per-family overrides Mermaid does not cleanly
@@ -249,9 +250,14 @@ The third row is the texture contract holding: hand type, machine-drawn shapes.
 
 ## What this does NOT do
 
-- **It does not make the legacy renderers hand-DRAWN.** Mermaid honors `look` only in
-  its unified renderer (flowchart, state, class, ER). Those families get hand type and
-  keep crisp shapes until Mermaid migrates them; that is upstream.
+- **It does not make the remaining renderers hand-DRAWN.** Mermaid honors `look` in six
+  families, not the four this note first claimed: flowchart, state, class, ER, **mindmap**
+  and **requirementDiagram**. The rest — sequence, gantt, pie, journey, timeline,
+  quadrant, sankey, xychart, C4, block, packet, architecture, gitGraph — get hand type and
+  keep crisp shapes until Mermaid migrates them; that is upstream. Measured across all 19
+  families and pinned by `test/integration/mermaid/diagram-look-support.test.js`, because
+  the four-family claim had been repeated through three documents without anyone checking
+  it.
 - **It does not CHANGE elk's status, but it very nearly removed it.** `layout: 'elk'`
   works on the export — the CLI's bundle carries the elk loaders and the worker now
   registers them, as the CLI does. The worker did not, for the first two commits of this

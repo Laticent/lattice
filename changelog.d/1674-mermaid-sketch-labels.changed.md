@@ -21,5 +21,7 @@
 - **Changed: sketch reaches diagram TYPE even where it cannot reach diagram SHAPE.**
   On `a11y-*`, `onyx` and `concrete` — and in the `--print` band — nodes stay
   machine-drawn so the per-category texture survives, but labels take the hand face.
-  Legacy-renderer families (sequence, gantt, pie, journey, timeline, quadrant,
-  mindmap) likewise keep crisp shapes and gain hand type.
+  The families Mermaid draws through rough.js are flowchart, state, class, ER,
+  **mindmap** and **requirementDiagram** — six, not the four our docs claimed; the rest
+  (sequence, gantt, pie, journey, timeline, quadrant, sankey, xychart, C4, block, packet,
+  architecture, gitGraph) keep crisp shapes and gain hand type.

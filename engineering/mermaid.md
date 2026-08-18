@@ -161,14 +161,30 @@ nodes**, which is what "those decks still get the hand type everywhere else" abo
 always meant. `resolveDiagramLook` calls `resolveDiagramHandType` rather than
 repeating rules 2 and 3, so the two cannot drift.
 
-### Not covered
+### Which families the hand SHAPE reaches — measured, not assumed
 
-- **Legacy-renderer families** (sequence, gantt, pie, journey, timeline, quadrant,
-  mindmap) ignore `look` entirely; Mermaid honors it only in its unified renderer
-  (flowchart, state, class, ER). Those diagrams stay crisp on a sketch deck until
-  Mermaid migrates them — but they DO get the hand type, because `fontFamily` is a
-  global theme variable. A sketch deck therefore speaks in one voice everywhere and
-  draws by hand only where Mermaid can (#1674, a deliberate choice).
+**SIX, not four.** This section said four (flowchart, state, class, ER) and named mindmap
+among the families that "ignore `look` entirely". Both were wrong: `mindmap` and
+`requirementDiagram` go through rough.js too. Measured on Mermaid 11.14 by rendering every
+family twice, `look: 'handDrawn'` against the default, and counting rough nodes in the
+output — `test/integration/mermaid/diagram-look-support.test.js` pins the result so the
+list cannot rot again.
+
+| honors `look: handDrawn` | ignores it |
+|---|---|
+| `flowchart` · `stateDiagram-v2` · `classDiagram` | `sequenceDiagram` · `gantt` · `pie` · `journey` |
+| `erDiagram` · **`mindmap`** · **`requirementDiagram`** | `timeline` · `quadrant` · `sankey` · `xychart` |
+| | `C4Context` · `block` · `packet` · `architecture` · `gitGraph` |
+
+Two entries in the right column look like they honor it and do not: `gitGraph` and
+`architecture-beta` emit *different bytes* under `handDrawn`, but the difference is a
+random commit hash and an Iconify element id respectively — no rough geometry. Anyone
+re-deriving this table by diffing SVGs needs to count rough nodes, not compare bytes.
+
+Everything in the right column stays crisp on a sketch deck until Mermaid migrates it —
+but every family gets the hand TYPE, because `fontFamily` is a global theme variable. A
+sketch deck therefore speaks in one voice everywhere and draws by hand wherever Mermaid
+can (#1674).
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
