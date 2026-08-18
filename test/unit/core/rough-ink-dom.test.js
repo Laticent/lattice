@@ -92,6 +92,39 @@ describe('measureRoughInk — enrollment', () => {
     );
   });
 
+  test('a non-color stroke is replaced with currentColor, not passed through', () => {
+    // `--rough-ink-stroke` is read out of the cascade — which a deck author's
+    // own `<style>` participates in — and written into an SVG `stroke`
+    // attribute. `stroke` takes a `<paint>`, so `url(…)` is valid there and the
+    // browser FETCHES it: measured at one outbound request per opened copy of a
+    // `--fluid` export, which is the beacon HARD RULE #22 names as the
+    // off-docs-site harm. The capability is not ours to close (plain
+    // `background-image: url(…)` in author CSS does the same, and
+    // sanitize-style-text.mjs says CSS-as-CSS fetching is intended) — but this
+    // module must not add a SECOND route to it.
+    mount(`<section ${SECTION}><hr style="--rough-ink-stroke: url(https://beacon.invalid/t.svg#p); --rough-ink-width: 3" data-geom="0,0,800,7"></section>`);
+    const [plan] = measureRoughInk([{ id: 'divider', kind: 'mid', sel: 'section.sketch hr' }]);
+    assert.equal(plan.stroke, 'currentColor');
+  });
+
+  test('a hostile stroke costs the ink its COLOR, never its rules', () => {
+    // Rejecting by SKIPPING the structure would be worse than useless: the
+    // fallback gate is `:has(> svg…)` per section, so any other inked element
+    // on the same slide would switch the wave off and leave this one with no
+    // lines at all.
+    mount(`<section ${SECTION}><hr style="--rough-ink-stroke: url(https://beacon.invalid/t.svg); --rough-ink-width: 3" data-geom="0,0,800,7"></section>`);
+    assert.equal(measureRoughInk([{ id: 'divider', kind: 'mid', sel: 'section.sketch hr' }]).length, 1);
+  });
+
+  test('a legitimate token-derived color still passes through untouched', () => {
+    // The shipped masthead ink is a color-mix over a light-dark token. If the
+    // validator were tightened into an allowlist of literal colors this would
+    // be the first casualty, and the finish would stop being palette-blind.
+    const mix = 'color-mix(in srgb, rgb(33, 28, 21) 55%, transparent)';
+    mount(`<section ${SECTION}><hr style="--rough-ink-stroke: ${mix}; --rough-ink-width: 3" data-geom="0,0,800,7"></section>`);
+    assert.equal(measureRoughInk([{ id: 'divider', kind: 'mid', sel: 'section.sketch hr' }])[0].stroke, mix);
+  });
+
   test('a missing --rough-ink-width falls back to 2 rather than 0', () => {
     mount(`<section ${SECTION}><hr style="--rough-ink-stroke: rgb(1,1,1)" data-geom="0,0,800,7"></section>`);
     const [plan] = measureRoughInk([{ id: 'divider', kind: 'mid', sel: 'section.sketch hr' }]);

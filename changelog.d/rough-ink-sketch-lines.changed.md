@@ -20,3 +20,11 @@
 - **No-script documents keep the old tiled wave.** The ink is painted after layout settles, so a
   raw `.html` sidecar opened without the runtime falls back to the previous rules rather than
   showing none. PDF, PNG, PPTX and `--player` exports all carry the ink.
+- **The ink stroke is validated as a color before it reaches the SVG.** `--rough-ink-stroke` is
+  read out of the cascade, which a deck author's own `<style>` participates in, and an SVG
+  `stroke` accepts `url(…)` — so an authored `url(https://…)` reached the attribute and the
+  browser fetched it, once per opened copy of an export. The underlying capability is not new
+  (plain `background-image: url(…)` in author CSS does the same, and `sanitize-style-text.mjs`
+  states that CSS-as-CSS fetching is intended), but this path must not be a second route to it.
+  A non-color value now falls back to `currentColor`, so a hostile deck loses the ink's color
+  rather than its rules.
