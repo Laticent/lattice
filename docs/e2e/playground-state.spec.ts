@@ -1,4 +1,4 @@
-import { expect, test } from './studio-fixture';
+import { appToast, expect, test } from './studio-fixture';
 
 // PR 5 of the Specimen Book plan (2026-07-05 decision §4/§6): the playground
 // remembers where you were, syncs honestly, and never destroys a draft. These
@@ -82,17 +82,33 @@ test('@crosswidth the picker detaches honestly when the draft holds no recognize
 
 
 test('@crosswidth a handoff over a pristine draft applies automatically and is consumed', async ({ page }) => {
+	// Seed the handoff ONCE. `addInitScript` re-runs on EVERY document load, and the
+	// Playground navigates during startup — measured at THREE runs of this script for a
+	// single `gotoPlayground`. Re-seeding a deliberately one-shot key after the first
+	// apply means the draft is no longer pristine, so `consumeHandoffIfAny` PARKS the
+	// handoff and deliberately KEEPS the key — the exact opposite of what this test
+	// asserts. Whether the assertion below caught the gap between the apply and the next
+	// re-seed was luck, and it flaked under the parallelism of a multi-file run.
 	await page.addInitScript(
-		([k, md]) => localStorage.setItem(k, JSON.stringify({ md, from: 'the landing page', ts: Date.now() })),
-		[HANDOFF_KEY, '<!-- _class: quote -->\n\n> Handed off.\n'] as const,
+		([k, md, seeded]) => {
+			if (localStorage.getItem(seeded)) return;
+			localStorage.setItem(seeded, '1');
+			localStorage.setItem(k, JSON.stringify({ md, from: 'the landing page', ts: Date.now() }));
+		},
+		[HANDOFF_KEY, '<!-- _class: quote -->\n\n> Handed off.\n', 'e2e-handoff-seeded'] as const,
 	);
 	await gotoPlayground(page);
 
 	await expect
 		.poll(async () => page.evaluate((k) => localStorage.getItem(k), SOURCE_KEY))
 		.toContain('Handed off.');
-	// Consumed on APPLY — the one-shot key is gone.
-	expect(await page.evaluate((k) => localStorage.getItem(k), HANDOFF_KEY)).toBeNull();
+	// Consumed on APPLY — the one-shot key is gone. POLLED, like the source read above:
+	// applying the deck and clearing the one-shot key are two steps, so a bare read can
+	// land between them. It did — under the parallelism of a multi-file run this failed
+	// in ~2s at both widths while passing when the file ran alone.
+	await expect
+		.poll(async () => page.evaluate((k) => localStorage.getItem(k), HANDOFF_KEY))
+		.toBeNull();
 });
 
 test('@crosswidth a handoff over a dirty draft parks; Not now keeps it; Replace applies with a backup', async ({ page }) => {
@@ -126,11 +142,16 @@ test('@crosswidth a handoff over a dirty draft parks; Not now keeps it; Replace 
 	await expect
 		.poll(async () => page.evaluate((k) => localStorage.getItem(k), SOURCE_KEY))
 		.toContain('Incoming again.');
-	expect(await page.evaluate((k) => localStorage.getItem(k), HANDOFF_KEY)).toBeNull();
+	await expect
+		.poll(async () => page.evaluate((k) => localStorage.getItem(k), HANDOFF_KEY))
+		.toBeNull();
 	expect(await page.evaluate((k) => localStorage.getItem(k), BACKUP_KEY)).toContain('masterpiece');
 
-	// The undo toast restores the parked draft.
-	await page.locator('.pg-toast').getByRole('button', { name: 'Undo' }).click();
+	// The undo toast restores the parked draft. The Playground's toasts are Sonner's
+	// (`toast(msg, { action: { label: 'Undo' } })` in PlaygroundApp) and carry no
+	// `.pg-toast` class — that selector had no matching element on the built surface,
+	// which playground-first-paint.spec.ts:432 already records in a comment.
+	await appToast(page).getByRole('button', { name: 'Undo' }).click();
 	await expect
 		.poll(async () => page.evaluate((k) => localStorage.getItem(k), SOURCE_KEY))
 		.toContain('masterpiece');

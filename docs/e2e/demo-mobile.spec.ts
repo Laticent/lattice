@@ -74,7 +74,13 @@ test('@mobile the phone demo types the 4-slide deck across pane-swaps and comple
 
 	// It completes on its own: the stage detaches and the deck is LEFT BEHIND.
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
-	await expect(toastText(page)).toContainText(FIRST_DECK);
+	// The completion toast NAMES NO DECK — the shared `use-studio-demo` toast reads
+	// "Demo complete — the deck is yours to edit." A deck is titled by its first heading
+	// since #1248, so by the end this one is called whatever the tour typed, not
+	// "My First Deck". The desktop sibling (demo.spec.ts) was updated for that and this
+	// one was not. FIRST_DECK survives below: the stable creation LABEL in the index is
+	// still that, which is what firstDeckSource keys on.
+	await expect(toastText(page)).toContainText('yours to edit');
 	// Still a single "My First Deck" (deduped fixture — a re-run never doubles it).
 	expect(await firstDeckSource(page)).toContain('_class: closing');
 });
