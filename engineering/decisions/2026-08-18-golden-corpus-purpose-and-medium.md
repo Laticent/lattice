@@ -1,6 +1,12 @@
 ---
 status: proposed
 summary: >
+  CORRECTED THROUGHOUT BY §12 — read that first. The adversarial trio refuted the
+  DIAGNOSIS (the medium is not the cause; the capable detector has no cadence), the
+  TRANSITIVITY argument (§10.3, struck), the "composition is unowned" claim (§11,
+  circular survey), and three "measured" numbers. What held: D1 reproduced
+  byte-for-byte, and `waitUntil: 'load'` survived every attack built against it.
+  The original text is kept in place, not overwritten.
   Re-blessing hurts because 356 committed PDFs serve four different jobs with one
   artifact, and the job that drives the churn — regression detection — is the one a
   PDF serves worst. Measured: the corpus is 100% stale against current main and the
@@ -73,6 +79,13 @@ that does not need a stored artifact.** That is the whole finding.
 
 ### D1 — Staleness is structurally undetectable
 
+> **THE OBSERVATION REPRODUCES EXACTLY; THE FRAMING IS WRONG — see §12.1.** This
+> section scores `build:galleries:check`, a cheap pre-commit input-hash guard that
+> documents its own inability to answer the question. The tool that *can* is
+> `tools/regression-gate.mjs`, which renders fresh and pixel-diffs — and which
+> `ci.yml:278` retired from CI ("Visual regression gate REMOVED"). **Staleness is
+> not undetectable; the capable detector has no cadence.**
+
 `build:galleries:check` reports:
 
 ```
@@ -112,6 +125,12 @@ explain pixels they did not move.
 
 ### D3 — Mermaid decks are not byte-reproducible
 
+> **WRONG ON CAUSE AND SCOPE — corrected in §12.2.** It is `classDiagram`, not
+> mermaid, and **4 decks of 30**, not 29. `examples/sketch.md` *does* carry a
+> mermaid fence and *is* byte-stable, so the stated reason the prior claim "does
+> not generalize" is false. Isolated: a bare `classDiagram` fence differs across
+> two renders (15,200 vs 15,201 B); a bare `flowchart` fence is identical.
+
 `examples/diagram-narration.md` (7 fences), two renders, identical settings, one
 machine: **294,379 vs 294,403 bytes**, differing inside a Flate-compressed content
 stream. Pixel-identical, byte-different.
@@ -147,7 +166,12 @@ A controlled 4-way run (same 4 decks, one warm browser, 4 samples each):
 | D — fresh page + **`load`** | **408 ms** |
 | B — warm page + `load` | 345 ms |
 
-**`waitUntil` is worth 82%; page reuse is worth 3%.** My own hypothesis — that
+**`waitUntil` is worth 82%; page reuse is worth 3%.**
+
+> **The 3% does not reproduce — see §12.3.** Re-measured with an *interleaved*
+> design (fresh and warm alternating within one round, n=20 each) page reuse is
+> worth **23%**; the trio's independent run measured 31–40%. The block-run design
+> used here is the defect. The 82% half reproduces (independently: 85%). My own hypothesis — that
 re-parsing the 1.5 MB inlined CSS bundle per deck was the cost — was **wrong**
 (§7).
 
@@ -208,7 +232,7 @@ s001 code [488.25,288,303.5,19] color(srgb 1 1 1 / 0.76)|…|14.976px|600|"JetBr
 |---|---|---|
 | Size (219 slides) | 4.88 MB | 2.34 MB raw, **117 KB gzipped** |
 | Size (one gallery) | 197,994 B | 19,978 B |
-| Extraction time | ~2.2 s/deck | **1.76 s for all 219 slides** |
+| Extraction time | ~2.2 s/deck | **1.76 s for all 219 slides** — ⚠️ see §12.5: this is an ATLAS figure set against a PER-DECK figure. Measured per-deck extraction is ~2.06 s regardless of element count, so 150 committed snapshots is ~5.2 min, not seconds |
 | Deterministic same-host | no for mermaid (D3) | **yes** (verified) |
 | Stable across hosts | **no** — Skia is CPU-dispatched | **yes** — layout math, not rasterization |
 | Diffable in git | no (new binary blob) | **yes** (text, delta-compresses) |
@@ -230,7 +254,21 @@ one-line answer instead of a rasterized montage.
 **What it does not catch, honestly:** anything painted but not in the property
 list — `box-shadow`, `background-image`, `border-radius`, gradients, z-order
 overlap, glyph rasterization. So this **complements** pixels; it does not abolish
-them. A small, deliberately chosen pixel set stays as the paint backstop, which is
+them.
+
+> **THREE MORE BLIND SPOTS, DEMONSTRATED — §12.4.** (a) It is **text-blind**:
+> `"stating"` → `"statign"` (same glyphs, same width) moves ZERO rows while the PDF
+> bytes move — and transformers, which §11.1 calls the owner that matters most, are
+> exactly what reshapes text. (b) It measures **screen** media; the artifact is
+> **print**, and `base.finish.css` flips the whole finish system under
+> `@media print` — 11 rows differ on `finish-backdrops`, entirely in
+> `background-image`/`clip-path`/`box-shadow`, i.e. properties this list omits, so
+> it is blind twice over. (c) **SVG paint servers are invisible** — the a11y/print
+> texture `<pattern>` defs sit outside every `<section>`.
+>
+> **The harness is now committed** as `tools/spike-composition-snapshot.mjs`, so
+> every number in this section is auditable. It was not, which §8 failed to list
+> and the trio's checker rightly called the largest unverified surface here. A small, deliberately chosen pixel set stays as the paint backstop, which is
 also where the 16 uncovered themes should go.
 
 **Known weakness:** boxes are currently document-relative, so inserting a slide
@@ -468,7 +506,7 @@ exactly the per-owner blessing this section argues for, already load-bearing.
 | Layout CSS | no hex, no margin, no partial layers | **yes** — `checkHexLiterals`, `checkMarginDiscipline`, `checkCascadeLayers` |
 | Fit / overflow | split, overflow envelope | **yes** — `overflow:bless` |
 | Geometry | scaled positioning parity | partial — `check-geometry-parity.js` |
-| **Composition** | does a component, under a theme, in the engine's layout, actually paint the right token in the right box? | **NO — this is what the 356 PDFs are really covering** |
+| **Composition** | does a component, under a theme, in the engine's layout, actually paint the right token in the right box? | ~~**NO**~~ **PARTLY — see §12.7.** `test/integration/invariants/` is 16 files / ~3,990 lines, 10 driving a real browser for computed style + geometry, on the PR path via `test:integration:pr` — and `ci.yml:278` says the pixel gate was retired *in favour of it* |
 
 **Almost every layer already blesses itself cheaply and in text.** The PDFs are
 genuinely covering exactly one uncovered thing: *composition*. And the §5 snapshot
@@ -477,6 +515,11 @@ style. The two ideas converge: **the snapshot is the composition owner's missing
 bless.**
 
 ### 10.3 Is it transitive? Yes — and here is exactly why, and where it leaks
+
+> **STRUCK — THIS SECTION IS FALSE. See §12.6.** Colour reaches pixels *without*
+> `var(--token)` in at least three ways `checkHexLiterals` cannot see, so
+> "provable without rendering" does not hold. The budget-0 gate is real; the
+> inference drawn from it is not.
 
 Transitivity holds when a layer's golden is a **complete** description of what
 downstream can observe about it. Here it is, because **HARD RULE #3 is gated at
@@ -569,7 +612,13 @@ and **forms** (composition is a vocabulary with its own rules).
 
 All 70 gates are **static**. Verified: `tools/check-ownership.js` contains no
 `puppeteer`, no `page.goto`, no `getBoundingClientRect`, no `getComputedStyle` — the
-only four textual matches are comments. They read source and check *declarations*.
+only four textual matches are comments.
+
+> **TRUE OF THAT FILE, MISLEADING ABOUT THE REPO — §12.7.** Ten further owned gates
+> in `tools/` DO drive a real browser (`check-geometry-parity`,
+> `check-slide-contrast`, `check-css-values`, `check-viz-render`, …), so the
+> "6.6 s vs ~7 min" comparison below is not like-for-like. (Also: one of the four
+> matches is an error-message string literal, not a comment.) They read source and check *declarations*.
 
 Four things they therefore cannot see, by construction:
 
@@ -615,3 +664,174 @@ The work is not "build per-owner blessing." It is:
 3. **Keep a thin pixel set** for residual 4, sized deliberately.
 4. **Make staleness detectable** (§6 M2) — otherwise all of the above rots the same
    way the current corpus did.
+
+---
+
+## 12. The adversarial trio — what it refuted, and what survived
+
+HARD RULE #25's full trio (red team · Munger inversion · independent checker) was
+run against this note **before** it went anywhere near a merge. It found more than
+§7 did. Every finding below was re-verified by hand against the repo before being
+recorded here; the original text above is corrected **in place**, not overwritten.
+
+**The short version: the measurements mostly held; the reasoning built on them
+largely did not.**
+
+### 12.1 The diagnosis was wrong — it is cadence, not medium
+
+§3 scored `build:galleries:check` and concluded the medium cannot detect staleness.
+That tool is a cheap **pre-commit input-hash guard** and says so itself
+(`tools/lib/render-inputs.js:40` — *"It cannot see a change that was committed
+WITHOUT rebuilding the PDFs"*). The tool that answers the question is
+`tools/regression-gate.mjs` (`npm run regress`): it renders fresh and pixel-diffs,
+and is entirely capable of catching everything §3 found.
+
+Why it never fires — `.github/workflows/ci.yml:278`:
+
+> `── (Visual regression gate REMOVED — pivoted to component invariants) ──`
+
+It is wired to **no workflow and no hook**. And
+`2026-08-04-committed-pdf-freshness.md:153` already prescribed the fix — add
+`regress` to `integration-nightly.yml` at ~3% tolerance — which was never executed.
+
+**So the corpus is stale because a two-week-old recommendation went undone, not
+because PDFs are the wrong medium.** §9.3's `Detect = 0` for today is scored
+against the wrong tool, which inflates every option above Option 1.
+
+### 12.2 D3's cause and blast radius were both wrong
+
+Not mermaid, and not 29. Re-measured here:
+
+| Probe | Result |
+|---|---|
+| `examples/sketch.md` (has a mermaid fence) | **byte-identical** across two renders |
+| bare `classDiagram` fence | **differs** — 15,200 vs 15,201 B |
+| bare `flowchart` fence | **identical** |
+| committed-PDF decks with `classDiagram` | **4 of 30** |
+
+`sketch.md` is a mermaid deck, so the claim that the prior "byte-identical" finding
+was tested on a mermaid-free deck is false. M3's real scope is 4 decks and its real
+subject is the `classDiagram` renderer.
+
+### 12.3 "Page reuse is worth 3%" does not reproduce
+
+Re-measured with an **interleaved** design (fresh and warm alternating inside one
+round, n=20 each): page reuse is worth **23%**; the checker's independent run
+measured 31–40%. The block-run design in §4 is the defect. §7's correction #1 —
+which retired the persistent-page hypothesis — therefore rests on a number that
+does not hold. The 82% `waitUntil` half reproduces independently at 85%.
+
+### 12.4 The snapshot has three more blind spots, all demonstrated
+
+Text content (`"stating"` → `"statign"`: 0 rows, PDF bytes move) · screen-vs-print
+media (11 rows on `finish-backdrops`, all in properties the list omits) · SVG paint
+servers. See the §5 callout. The harness is now committed as
+`tools/spike-composition-snapshot.mjs` with these limits in its header.
+
+### 12.5 Two cost claims conflated medium with granularity
+
+§5's extraction-time row compares an atlas figure to a per-deck figure; per-deck
+extraction is ~2.06 s regardless of element count. And **M1 and M5 are substitutes,
+not additive**: W3's 5.7× exists *because* the fixed cost is 2,223 ms, 82% of which
+M1 deletes — post-M1 the atlas advantage falls to ~1.7×. §9.4 summed marginal gains
+that partly cancel.
+
+### 12.6 Transitivity (§10.3) is false — three bypasses of `var(--token)`
+
+- `lib/core/accessibility-textures.js:71-78` declares literal hex ramps **in
+  JavaScript** — *"LITERAL hex (no var, no CSS)"* — injected into **every export**
+  via `lattice-emulator.js:761`. A hand-maintained duplicate of the token table,
+  painting the `a11y-*` themes, `onyx`, `concrete` and print mode.
+- `checkHexLiterals` matches **hex only**. `image.styles.css:404-405,417` paints
+  scrim gradients and caption ink as `rgba()` literals; `video.styles.css` the same
+  for shadows. Not sanctioned, not tokenized, not caught.
+- 18 files under `lib/**/*.js|mjs` carry hex the gate never scans.
+
+The bitter overlap: those `rgba()` sites are gradients, ink-over-photo and shadows
+— **exactly what §5 admits the snapshot misses**. That content is invisible to both
+the gate transitivity rests on *and* the medium proposed to replace pixels.
+
+### 12.7 "Composition is unowned" came from a circular survey
+
+§11 counted `function check*` in one file that is static by construction, then
+concluded nothing dynamic was owned. In fact `test/integration/invariants/` is 16
+files / ~3,990 lines, 10 driving real Chromium for computed style and geometry, on
+the **PR path**; `component-invariants.test.js` renders every component in one
+batched deck — M4's medium and M5's granularity, already shipped. Ten more
+browser-driven gates live in `tools/`.
+
+The honest claim is much narrower: **that tier asserts hand-written invariants, not
+a full baseline.** That is a coverage-breadth gap, not an ownership gap — and it
+makes the snapshot an *extension of an existing tier* rather than a new mechanism,
+which is what HARD RULE #15 wants.
+
+### 12.8 What deleting the gallery PDFs would actually break (M5, unpriced)
+
+- **`golden-diff` would post a permanent false green.** Its candidate set comes from
+  committed gallery blobs (`tools/golden-diff.mjs:85`, filtered by `GOLDEN_RE`).
+  Remove them and it emits *"✅ No visual changes to committed goldens on this
+  branch"* on every PR, forever — on the surface reviewers actually read. Same
+  vacuous-gate class as #1750.
+- **61 component `.docs.md` files** link `<name>.gallery.light.pdf`
+  (`tools/build-component-docs.js:383`) — the "open it and look" path HARD RULE #6
+  sends agents down. An atlas gives no per-component link.
+- `2026-08-16` L4 said stop committing goldens **"only if L0 is impossible."** L0
+  shipped. That precondition is already falsified and this note did not engage it.
+
+### 12.9 Numbers that drifted or were mis-scoped
+
+| Claim | Corrected |
+|---|---|
+| 356 PDFs | **359** today (`examples/` 158) |
+| "the corpus is 100% stale" | a sample generalized — 15 of 16 differ, one is byte-identical |
+| §9.1 "150 galleries = 1,334 pages / 48 MB" | those are the **122** gate-covered galleries; the real 150 are 1,602 pages / 58.3 MiB |
+| `content` renders 330× | **326** over the 198 sources |
+| "109 of the 148 `examples/` decks" | denominator is **150** |
+| "five `check*Boundary`" | **six** |
+| PR body "67% of the tracked tree" | **75.9%** |
+| PR body "6,729 pass" | **6,787** |
+| §9.1's 18.3× | n=1 vs n=1; real re-blesses span 685 B – 29,466 B on the PDF side alone |
+| W3 atlas 5.7× | checker independently measured **7.2×** — but see §12.5, it collapses post-M1 |
+| "nobody had tried `waitUntil: 'load'`" | it is already in `component-invariants.test.js:194` |
+
+Byte delta is also a **bad proxy for drift**: `exemplars/nonprofit/program-overview`
+differs by **7 bytes** and **153,432 pixels across 15 of 17 pages**.
+
+### 12.10 What survived attack
+
+- **D1's observation reproduced byte-for-byte** — `quote` 184,496 → 197,994,
+  `timeline-list` 298,162 → 309,503, `cycle` 210,877 → 220,925, and the pixel diff
+  landed on **17,044 across 7 of 9 slides**, per-slide identical to §3. This is the
+  note's strongest section and it is exact.
+- **`waitUntil: 'load'` held against every attack built for it** — 0 differing
+  geometry rows across KaTeX, mermaid, 10 real images, `state-chart` (the case the
+  in-code comment claims `networkidle0` covers), the async overflow marker, and a
+  deliberately delayed remote image. There is no network in a Lattice render for
+  `networkidle0` to wait on. Better evidenced now than when written.
+- **Snapshot determinism held more strongly than claimed** — 0 rows across fresh
+  browsers, device scale factors and viewports. The geometry channel is not noisy.
+- Exact: 70 `check*`, 6.6 s, `SANCTIONED_HEX` = 5, 32 themes / 16 exercised,
+  `indaco` 166 of 198, 198 deck sources. Per-slide marginal cost is ~4.7 ms —
+  **stronger** than the ~20 ms stated.
+
+### 12.11 The revised recommendation
+
+**Decouple the addition from the subtraction.** §6 listed medium, granularity and
+storage as independent axes and then coupled them anyway.
+
+1. **Wire `regress` to a cadence** — nightly, ~3% tolerance, rolling issue, exactly
+   as `2026-08-04-committed-pdf-freshness.md:153` specified. This alone fixes the
+   measured harm (D1 *and* #1730's leak) and needs no new artifact class.
+2. **Re-bless the corpus once** on that cadence's first red.
+3. **`waitUntil: 'load'`** — now the best-evidenced move in the note. Still export
+   sign-off.
+4. **`classDiagram` reproducibility** (4 decks), or accept it.
+5. **Build the snapshot as an ADDITION**, extending `test/integration/invariants/`
+   rather than replacing anything — after fixing print media, and after running the
+   cross-host experiment that §5 asserted without measuring.
+6. **Delete nothing** until both have run side by side long enough to say which
+   caught what.
+
+**Every measurement in this note can be right and its conclusion still wrong,
+because all of them measure COST and none measures COVERAGE.** That is the gap the
+trio exposed, and it is the reason step 6 exists.
