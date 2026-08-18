@@ -18,9 +18,13 @@ summary: >
   re-sanitizing the SVG, is refused with numbers: DOMPurify deletes `<foreignObject>` and
   `<style>`, i.e. every node label and all diagram styling. And the containment is TWO
   mechanisms, not the one everyone assumed — Mermaid sanitizes labels unconditionally, and
-  `securityLevel` governs only URL handling and click callbacks. What ships is the durable
-  half the card asked for and nobody built: `checkRuntimeMarkupSinks`, a provenance census of
-  every markup sink in `lib/runtime`, plus 11 behavioral arms on the real Playground.
+  `securityLevel` gates a whole-SVG DOMPurify pass plus URL handling and click callbacks. What
+  ships is the durable half the card asked for and nobody built: `checkRuntimeMarkupSinks`, a
+  provenance census of every markup sink in `lib/runtime`, plus behavioral arms on the real
+  Playground. Reviewing that census then found a LIVE XSS it had certified as safe: the badge
+  transforms read their label with `textContent` (which decodes entities) and wrote it back with
+  `innerHTML`, so markup the sanitizer had neutralized came back live — `top.__pwned === 1` on
+  the real Playground. Fixed at the source, not relabelled.
 ---
 
 # The post-sanitize injection queue, and what measuring it refuted
@@ -125,7 +129,8 @@ excluded: bundler output tracks a build step, not a decision.
 
 The card asserts a live one-click key-theft path. Two triage passes had already corrected it
 once each, and each inherited the previous one's framing. It was re-derived from scratch
-against the real Playground with the real Mermaid 11.14 from its real CDN.
+against the real Playground with the real Mermaid from its real CDN (11.16.1 — see the version
+correction in §3.2).
 
 ### 3.1 What is actually true
 
