@@ -311,6 +311,31 @@ generic tail meant the fallback it was measured in had near-identical metrics. T
 allow-list still governs any directive **you** write; it no longer governs the engine,
 because the engine no longer writes one.
 
+### Four families carry their OWN font key, and the global one does not reach them
+
+`themeVariables.fontFamily` is global, and most families follow it. **C4, journey,
+sequence and timeline do not.** Mermaid's config schema gives them per-element
+`*FontFamily` keys — `c4.personFontFamily`, `journey.taskFontFamily`,
+`sequence.actorFontFamily`, `timeline.taskFontFamily` and so on — each defaulted to
+`"Open Sans"` or `"trebuchet ms"`, and those win for the elements they cover.
+
+Left alone, that means a `mode: sketch` deck renders a C4 context diagram with **33 of 34
+labels in Open Sans** while every other word on the slide is hand-drawn. Measured, and
+found by eye on an export before any gate noticed — the label census had been printing it
+for a whole review round.
+
+`engineInitConfig` now sets all of them from the same `--font-body` value. **C4 has
+twenty-two**, not the six an obvious reading finds: every shape has an `external_` twin,
+and systems/containers/components each have `_db` and `_queue` variants, so a first cut
+that set six left every `System_Ext` label in Open Sans.
+
+The list has to be enumerated in the kernel (it is pure and fs-free, so it cannot read
+mermaid's schema), which means it can rot — so
+`test/integration/mermaid/diagram-font-parity.test.js` derives the truth from the
+installed mermaid and fails when a key it defines is one the engine does not set.
+`tools/check-diagram-labels.js` fails on any label rendered in a mermaid default face,
+which is the same defect caught from the other end.
+
 **A warning about apostrophes in your own directive**, from the same measurement:
 Mermaid runs a blanket `'` → `"` swap over a directive payload before `JSON.parse`, so
 a single apostrophe in any value makes the payload invalid JSON and Mermaid's catch

@@ -31,7 +31,15 @@
  *      depends on the render host's installed fonts, which is the real argument for the
  *      fix: the geometry was not wrong in a fixed direction, it was nondeterministic.
  *
- *   3. DID EVERY DIAGRAM RENDER AT ALL?  Added after the #1674 adversarial review, which
+ *   3. IS IT A FACE THE DECK ASKED FOR?  Added after `mode: sketch` was found reaching
+ *      only some families: C4, journey, sequence and timeline carry their own
+ *      `*FontFamily` config keys, defaulted to Open Sans / trebuchet ms, which the global
+ *      `themeVariables.fontFamily` does not touch. A C4 slide on a sketch deck came back
+ *      with 33 of 34 labels in Open Sans. The census had been printing that all along and
+ *      it took a human reading the PDF to notice, so it is a failure now, not a line of
+ *      output.
+ *
+ *   4. DID EVERY DIAGRAM RENDER AT ALL?  Added after the #1674 adversarial review, which
  *      found the first two questions structurally blind to the worst failure: a diagram
  *      that never rendered has no `.mermaid-svg` wrapper, so it is a MISSING ROW rather
  *      than a red one, and a harness that counts labels reports "0 clipped" for a deck
@@ -115,6 +123,13 @@ async function main() {
     else {
       const faces = new Map();
       let clipped = 0;
+      // A FACE THE DECK NEVER ASKED FOR is the failure `mode: sketch` is supposed to make
+      // impossible, and it hid behind the census for a whole review round: C4 and journey
+      // carry their own `*FontFamily` config keys defaulted to Open Sans / trebuchet ms,
+      // so 33 of 34 labels on a C4 slide rendered in Open Sans while every other word on
+      // the slide was hand-drawn. Nothing failed — the census printed it and nobody read
+      // it. Name mermaid's own defaults and fail on them.
+      const MERMAID_DEFAULT_FACES = /^(?:"?Open Sans"?|"?trebuchet ms"?|verdana|arial|Times New Roman)$/i;
       for (const r of rows) {
         faces.set(r.font, (faces.get(r.font) || 0) + 1);
         if (r.overflow !== null && r.overflow > 0.5) {
@@ -123,9 +138,18 @@ async function main() {
         }
       }
       for (const d of degraded) console.log(`  DEGRADED  a diagram did not render: ${d}…`);
-      console.log(`diagrams degraded: ${degraded.length}   labels: ${rows.length}   mismeasured: ${clipped}`);
+      const foreign = rows.filter((r) => MERMAID_DEFAULT_FACES.test(String(r.font).split(',')[0].trim()));
+      if (foreign.length) {
+        const byFace = new Map();
+        for (const r of foreign) byFace.set(r.font.split(',')[0], (byFace.get(r.font.split(',')[0]) || 0) + 1);
+        for (const [face, n] of byFace) {
+          console.log(`  FOREIGN FACE  ${n} label(s) in ${face} — a mermaid default, not a deck face`);
+        }
+      }
+      console.log(`diagrams degraded: ${degraded.length}   labels: ${rows.length}   `
+        + `mismeasured: ${clipped}   foreign-face: ${foreign.length}`);
       for (const [f, n] of [...faces].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${f}`);
-      if (clipped || degraded.length) process.exitCode = 1;
+      if (clipped || degraded.length || foreign.length) process.exitCode = 1;
     }
   } finally { await browser.close(); }
 }

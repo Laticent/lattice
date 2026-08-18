@@ -86,6 +86,65 @@ async function facesFor(source) {
   }
 }
 
+describe('the per-diagram font keys cover every one mermaid ships', () => {
+  // `themeVariables.fontFamily` is global and most families follow it. Four do not: C4,
+  // journey, sequence and timeline carry their OWN `*FontFamily` config keys, defaulted to
+  // Open Sans / trebuchet ms. A `mode: sketch` deck rendered a C4 context diagram with 33
+  // of 34 labels in Open Sans, and a user journey with 22 of 51 — on slides where every
+  // other word was hand-drawn.
+  //
+  // `engineInitConfig` has to enumerate those keys (it is pure and fs-free, so it cannot
+  // read mermaid's schema), which means the enumeration can rot. This derives the truth
+  // from the installed mermaid and fails when it does.
+  const { engineInitConfig, C4_FONT_KINDS } = require('../../../lib/integrations/mermaid/init-directive');
+
+  /** Every `*FontFamily` key in mermaid's shipped default config, grouped by its block. */
+  function schemaFontKeys() {
+    const dir = path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'chunks', 'mermaid.core');
+    const out = {};
+    for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.mjs'))) {
+      const src = fs.readFileSync(path.join(dir, f), 'utf8');
+      for (const m of src.matchAll(/"([a-zA-Z0-9_]*[Ff]ontFamily)":/g)) {
+        const before = src.slice(Math.max(0, m.index - 6000), m.index);
+        const parents = [...before.matchAll(/"([a-zA-Z0-9_]+)":\s*\{/g)].map((x) => x[1]);
+        const parent = parents.length ? parents[parents.length - 1] : null;
+        if (!parent) continue;
+        (out[parent] = out[parent] || new Set()).add(m[1]);
+      }
+    }
+    return out;
+  }
+
+  test('every block-scoped font key mermaid defines is one the engine sets', () => {
+    const schema = schemaFontKeys();
+    const cfg = engineInitConfig({ fontFamily: 'X' });
+    const missing = [];
+    for (const [block, keys] of Object.entries(schema)) {
+      // `venn.fontFamily` is the block's own general key, not a per-element override, and
+      // it follows the global themeVariable — verified by the face census, which shows no
+      // venn label in a mermaid default.
+      if (block === 'venn') continue;
+      for (const key of keys) {
+        if (cfg[block]?.[key] !== 'X') missing.push(`${block}.${key}`);
+      }
+    }
+    assert.deepEqual(missing.sort(), [],
+      'mermaid defines these per-element font keys and engineInitConfig does not set them, so '
+      + 'those labels render in Open Sans / trebuchet ms however the deck is themed. Add them '
+      + 'to perDiagramFonts (C4 shape kinds go in C4_FONT_KINDS).');
+  });
+
+  test('the C4 kind list matches the shapes mermaid actually ships', () => {
+    // Twenty-two, not the six an obvious reading finds: every shape has an `external_`
+    // twin, and containers/components/systems each have `_db` and `_queue` variants. The
+    // first cut set six and left every `System_Ext` label in Open Sans.
+    const fromSchema = [...(schemaFontKeys().c4 || [])]
+      .map((k) => k.replace(/FontFamily$/, '')).sort();
+    assert.deepEqual([...C4_FONT_KINDS].sort(), fromSchema,
+      'C4_FONT_KINDS has drifted from mermaid\'s c4 config block');
+  });
+});
+
 describe('diagram font parity — the baked face IS the cascade\'s face', { skip: CHROME ? false : 'no CHROME_PATH' }, () => {
   test('every mode answer agrees between the export bake and the cascade', { timeout: TIMEOUT }, async () => {
     const decks = [

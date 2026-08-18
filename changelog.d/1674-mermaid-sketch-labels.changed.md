@@ -15,6 +15,12 @@
   widest labels move most); every committed diagram PDF in the repo was re-rendered in
   this change. Nothing is clipped — the box is measured in the face it is painted in,
   which is the point — but a deck with hand-tuned diagram spacing will reflow.
+- **Fixed: C4, journey, sequence and timeline diagrams now follow the deck's font too.**
+  Those four families carry their own per-element `*FontFamily` config keys, defaulted to
+  Open Sans / trebuchet ms, which the global theme variable never touched — so a
+  `mode: sketch` deck rendered a C4 context diagram with 33 of its 34 labels in Open Sans
+  while the rest of the slide was hand-drawn. All of them (22 for C4 alone, counting the
+  `external_`, `_db` and `_queue` shape variants) now take the deck's body face.
 - **Fixed: one malformed diagram no longer costs a deck its other diagrams' speed.**
   The batched render was all-or-nothing — an unparseable fence sent every diagram in
   the deck back through the one-at-a-time path. Failures are now isolated per diagram.
