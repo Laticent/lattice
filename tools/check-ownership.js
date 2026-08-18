@@ -4572,16 +4572,15 @@ const SANCTIONED_E2E_SLEEPS = [
   // absence) and the second was wrong arithmetic (12s is two beats, not several).
   // The spec now polls the page's own tick counter and then asserts.
   {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 2,
-    why: 'JUDGED KEEP (#1618, re-judged in the fourth review pass). BOTH are absence assertions '
-       + 'with nothing to poll. (1) An ordinary visit must NOT raise a crash report — nothing can '
-       + 'be polled for a thing that should never appear; its subject was corrected from the '
-       + 'transient toast to the persisted `reported` flag, which has no 12s window to fall '
-       + 'through. (2) The window during which the page is STOPPED and the other tab wipes: the '
-       + 'stopped page by definition runs nothing to poll, and the length only has to exceed the '
-       + 'wipe, which is a single synchronous storage write. The 3000ms entry that stood here is '
-       + 'retired with the freeze-observation window it measured — the skip predicate now reads '
-       + 'whether the page HEARD the wipe rather than counting ticks over an interval.',
+    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 1,
+    why: 'JUDGED KEEP (#1618, re-judged when the crash toast was retired). The one that remains '
+       + 'is the window during which the page is STOPPED and the other tab wipes: the stopped '
+       + 'page by definition runs nothing to poll, and the length only has to exceed the wipe, '
+       + 'which is a single synchronous storage write. The clean-session wait went with the '
+       + 'toast — "an ordinary visit raises no crash report" is now asserted on the Workspace '
+       + 'row, which is durable state and can simply be awaited. The 3000ms entry that once '
+       + 'stood here is retired with the freeze-observation window it measured — the skip '
+       + 'predicate reads whether the page HEARD the wipe rather than counting ticks.',
   },
   // ── judged in #1564 ──────────────────────────────────────────────────────────
   {

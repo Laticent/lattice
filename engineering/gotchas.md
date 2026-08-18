@@ -219,6 +219,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Playground math (and any cqi/cqh layout) renders tiny + "jumps/rescales"](gotchas/studio-playground.md#playground-math-and-any-cqicqh-layout-renders-tiny--jumpsrescales)
 - [Playground preview won't scroll on iOS after opening a settings sheet](gotchas/studio-playground.md#playground-preview-wont-scroll-on-ios-after-opening-a-settings-sheet)
 - [The Studio "crashed" and reloaded itself, and nothing was logged anywhere](gotchas/studio-playground.md#the-studio-crashed-and-reloaded-itself-and-nothing-was-logged-anywhere)
+- [A "crash" notice appeared on returning to a tab, and nothing had crashed](gotchas/studio-playground.md#a-crash-notice-appeared-on-returning-to-a-tab-and-nothing-had-crashed)
 - [The Studio says a feature "hit an unexpected error" on a tab that has been open a while](gotchas/studio-playground.md#the-studio-says-a-feature-hit-an-unexpected-error-on-a-tab-that-has-been-open-a-while)
 - [A crash report shows `Script error.` several times and names nothing](gotchas/studio-playground.md#a-crash-report-shows-script-error-several-times-and-names-nothing)
 - [Data a user deleted comes back when a parked tab wakes up](gotchas/studio-playground.md#data-a-user-deleted-comes-back-when-a-parked-tab-wakes-up)

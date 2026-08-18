@@ -779,8 +779,11 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							    vanished, and it has to outlive that gate.
 							    A row rather than a switch: the sentinel records unconditionally (a
 							    crash you must opt into recording is a crash you never catch — see
-							    lib/crash-sentinel.ts), so what belongs here is the standing way back
-							    in after the boot toast has gone, plus the way to forget them.
+							    lib/crash-sentinel.ts), so what belongs here is the way IN, plus the
+							    way to forget them. Since the boot toast was removed this is the ONLY
+							    way in — the sentinel no longer interrupts anyone, because the endings
+							    it can see are mostly the browser unloading an idle tab, and a notice
+							    that is usually a false alarm spends the credibility the true one needs.
 							    ALWAYS PRESENT, including at zero. The first cut hid the whole group
 							    when there was nothing to report — "don't show a permanently-empty
 							    row" — and that was wrong for a DIAGNOSTIC. It was reported from a real
@@ -799,8 +802,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										</span>
 										<span className="block text-[11px] text-muted-foreground">
 											{crashCount === 0
-												? 'The Studio is watching. If a session ever ends without closing cleanly — a crash, or the browser reclaiming the tab — the report lands here, and nothing leaves this device.'
-												: 'What the Studio was doing, how memory was trending, and the last error it saw — recorded on this device. Nothing is sent anywhere; reporting one opens a pre-filled GitHub issue you look over and submit yourself.'}
+												? 'The Studio is watching, quietly — it never interrupts you. If a session ever ends without closing cleanly — a crash, or the browser reclaiming the tab — the report lands here, and nothing leaves this device.'
+												: 'What the Studio was doing, how memory was trending, and every error it saw — including the ones only the console showed. Recorded on this device; nothing is sent anywhere, and reporting one opens a pre-filled GitHub issue you look over and submit yourself.'}
 										</span>
 									</span>
 									{crashCount > 0 && (

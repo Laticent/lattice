@@ -7,6 +7,17 @@ summary: "The Studio had zero visibility into the one failure users actually rep
 
 **Date:** 2026-08-10 · **Status:** shipped
 
+> **Amended 2026-08-18 — the boot toast described below is GONE.** It announced
+> every unclean ending, and the ending it announced most was the browser unloading
+> a tab that had been idle in the background, which is not a crash and which no
+> in-page signal can tell apart from one. The recorder, the record shape, the
+> privacy posture and the report are unchanged; the way IN is now Workspace →
+> General → Crash reports, `console.error` is captured, and the report leads with
+> what failed. Everything below about the toast — its copy, its radius, its
+> contrast contract, the `markReported` rationing, and the e2e that policed all of
+> it — is history, not current behavior. See
+> [2026-08-18-crash-toast-retirement.md](2026-08-18-crash-toast-retirement.md).
+
 ## The rule
 
 > A crash that kills the page cannot be reported **by** the page. The only thing

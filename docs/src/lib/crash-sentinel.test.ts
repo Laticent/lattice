@@ -10,12 +10,12 @@ import {
 	describeSession,
 	dismissCrashReport,
 	elapsedLabel,
+	formatConsoleError,
 	formatCrashReport,
 	isOpaqueError,
 	isSessionRecord,
 	isUncleanEnd,
 	liveSession,
-	markReported,
 	newRecord,
 	noteError,
 	noteFailedLoad,
@@ -26,7 +26,6 @@ import {
 	setCrashContext,
 	startCrashSentinel,
 	TAB_SESSION_KEY,
-	unreportedCrashReports,
 	WIPE_MARK_KEY,
 	WIPE_SIGNAL_KEY,
 } from './crash-sentinel';
@@ -113,9 +112,13 @@ describe('describeSession — reports what was measured, never a cause', () => {
 		const confirmed = describeSession(withMem(0.2), { sameTab: true, tabDiscarded: true });
 		expect(confirmed.headline).toMatch(/browser reclaimed this tab to free memory/i);
 		expect(confirmed.confirmed).toBe(true); // the browser said it, so the panel may drop its caveat
-		// A frozen tab is NOT a confirmed reclaim — it is reported as an observation.
+		// A frozen tab is a reclaim — the browser said the tab had become a candidate
+		// to unload and it never came back — but NOT a confirmed one, so the panel
+		// keeps its caveat and the headline names no cause.
 		const frozen = describeSession(withMem(0.2, { frozen: true }), { sameTab: true });
-		expect(frozen.ending).toBe('stopped');
+		expect(frozen.ending).toBe('reclaimed');
+		expect(frozen.confirmed).toBe(false);
+		expect(frozen.headline).toMatch(/unloaded this tab in the background/i);
 		expect(frozen.facts.join(' ')).toMatch(/frozen this tab in the background/i);
 	});
 
@@ -570,7 +573,7 @@ describe('the reachability fixes', () => {
 			expect(report?.facts.join(' ')).toMatch(/dropped rather than resumed/i);
 			// An INFERENCE, so the headline must not name a reason and the panel must
 			// keep its caveat — the page cache is also emptied on limits and timeouts.
-			expect(report?.headline).toMatch(/dropped this tab from its page cache/i);
+			expect(report?.headline).toMatch(/unloaded this tab in the background/i);
 			expect(report?.confirmed).toBe(false);
 			expect(report?.facts.join(' ')).toMatch(/does not say which/i);
 		});
@@ -586,14 +589,16 @@ describe('the reachability fixes', () => {
 		});
 	});
 
-	it('interrupts once — a report already announced is not re-toasted', () => {
+	// The toast is gone (it announced an ordinary background unload as a crash on
+	// every return to an idle tab), so collection must be idempotent: a report
+	// stays listed and readable no matter how many times a boot harvests it.
+	// Nothing marks it spent any more, because nothing spends it.
+	it('keeps a report listed across repeated collection — nothing consumes it', () => {
 		localStorage.setItem(SESSION_PREFIX + 'a', JSON.stringify(rec({ id: 'a' })));
 		startCrashSentinel();
 		const now = Date.now() + STALE_MS + 1;
-		expect(unreportedCrashReports(now)).toHaveLength(1);
-		markReported('a');
-		expect(unreportedCrashReports(now)).toHaveLength(0);
-		// …but it is still LISTED, so Workspace can show and clear it.
+		expect(collectCrashReports(now)).toHaveLength(1);
+		expect(collectCrashReports(now)).toHaveLength(1);
 		expect(collectCrashReports(now)).toHaveLength(1);
 	});
 
@@ -792,6 +797,15 @@ describe('the new optional fields cannot brick the Studio', () => {
 		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 7, n: 1, firstT: 0, lastT: 0 }] })).toBe(false);
 		expect(isSessionRecord({ ...good(), errorGroups: 'boom' })).toBe(false);
 		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 2, firstT: 0, lastT: 10 }] })).toBe(true);
+		// `source` is concatenated into a rendered fact, so it is checked like the rest.
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 1, firstT: 0, lastT: 0, source: 7 }] })).toBe(false);
+		expect(isSessionRecord({ ...good(), errorGroups: [{ message: 'boom', n: 1, firstT: 0, lastT: 0, source: 'console.error' }] })).toBe(true);
+	});
+
+	it('rejects a `hidden` that would pick the headline by truthiness', () => {
+		expect(isSessionRecord({ ...good(), hidden: 'yes' })).toBe(false);
+		expect(isSessionRecord({ ...good(), hidden: true })).toBe(true);
+		expect(isSessionRecord(good())).toBe(true); // absent is fine — older records lack it
 	});
 
 	it('drops such a record instead of letting it reach a reader', () => {
@@ -926,5 +940,153 @@ describe('a wipe survives a tab that slept through it', () => {
 		document.dispatchEvent(new Event('resume'));
 		expect(localStorage.getItem(WIPE_MARK_KEY)).toBeTruthy(); // durable on purpose
 		expect(sessionCount()).toBe(0);
+	});
+});
+
+/**
+ * THE CONSOLE, and the report that could not be acted on.
+ *
+ * `window.onerror` fires only for an exception nobody caught. The failures worth
+ * diagnosing in this app are usually caught, logged and degraded around — so a
+ * session that printed a stack trace seconds before it died reported "no errors
+ * recorded", and the reader was handed a memory chart and nothing to do with it.
+ */
+describe('console errors reach the record', () => {
+	it('captures console.error, keeps the stack, and still prints to the console', () => {
+		const seen: unknown[][] = [];
+		const original = console.error;
+		console.error = (...args: unknown[]) => { seen.push(args); };
+		try {
+			startCrashSentinel();
+			const boom = new Error('render failed');
+			boom.stack = 'Error: render failed\n    at renderSlide (engine.js:42:9)';
+			console.error('preview blew up', boom);
+			const live = liveSession() as SessionRecord;
+			expect(live.errorCount).toBe(1);
+			expect(live.lastError?.message).toContain('render failed');
+			// The stack is the whole point — it names the code that failed.
+			expect(live.lastError?.stack).toContain('renderSlide');
+			expect(live.errorGroups?.[0].source).toBe('console.error');
+		} finally {
+			// `stop()` restores whatever it patched; this restores the spy either way.
+			__resetSentinelForTest();
+			console.error = original;
+		}
+		// PASSED THROUGH. A recorder that eats the console is worse than no
+		// recorder: devtools has to show exactly what it showed before.
+		expect(seen).toHaveLength(1);
+		expect(seen[0][0]).toBe('preview blew up');
+	});
+
+	it('restores console.error on stop, and leaves a later patcher alone', () => {
+		const original = console.error;
+		const stop = startCrashSentinel();
+		expect(console.error).not.toBe(original);
+		stop();
+		expect(console.error).toBe(original);
+
+		// Someone else patched on top of ours — tearing theirs out would break them.
+		const stop2 = startCrashSentinel();
+		const theirs = (...args: unknown[]) => { void args; };
+		console.error = theirs;
+		stop2();
+		expect(console.error).toBe(theirs);
+		console.error = original;
+	});
+
+	it('does not recurse when the capture path itself logs', () => {
+		const original = console.error;
+		try {
+			startCrashSentinel();
+			// A console.error raised from INSIDE a console.error handler is the shape
+			// that turns a patch into an infinite loop.
+			const evil = { get message() { console.error('nested'); return 'outer'; } };
+			expect(() => console.error(evil)).not.toThrow();
+		} finally {
+			__resetSentinelForTest();
+			console.error = original;
+		}
+	});
+});
+
+describe('formatConsoleError — the arguments a console prints, not the ones it was passed', () => {
+	it('substitutes printf specifiers the way a console does', () => {
+		// React and friends log `console.error('%s failed', name)`. Joining the raw
+		// arguments prints the format string verbatim with the values on the end.
+		expect(formatConsoleError(['%s failed after %d tries', 'export', 3]).message).toBe('export failed after 3 tries');
+		expect(formatConsoleError(['100%% done']).message).toBe('100% done');
+		// `%c` takes a CSS string that styles console output and is pure noise here.
+		expect(formatConsoleError(['%cstyled', 'color: red']).message).toBe('styled');
+	});
+
+	it('reads a message and a stack off a real Error, wherever it sits', () => {
+		const e = new Error('nope');
+		e.stack = 'Error: nope\n    at thing (a.js:1:1)';
+		expect(formatConsoleError(['while saving', e]).stack).toContain('at thing');
+		expect(formatConsoleError(['while saving', e]).message).toBe('while saving Error: nope');
+		// Thrown across a realm boundary (the preview iframe), `instanceof` fails —
+		// so the shape is duck-typed too.
+		expect(formatConsoleError([{ message: 'cross-realm', stack: 'at frame (b.js:2:2)' }]).stack).toContain('at frame');
+	});
+
+	it('survives an argument that will not serialize', () => {
+		const circular: Record<string, unknown> = {};
+		circular.self = circular;
+		expect(() => formatConsoleError([circular])).not.toThrow();
+		const throwing = { get boom(): never { throw new Error('getter'); } };
+		expect(() => formatConsoleError([throwing])).not.toThrow();
+		expect(formatConsoleError([]).message).toBe('console.error (no arguments)');
+	});
+});
+
+/**
+ * THE FALSE ALARM THIS WHOLE CHANGE EXISTS FOR. A tab left in the background
+ * long enough for the browser to unload it is the ordinary end of most sessions.
+ * Every earlier generation announced it as "The Studio stopped unexpectedly".
+ */
+describe('a backgrounded tab that the browser unloaded is not a crash', () => {
+	it('says so in the headline, and offers no chore', () => {
+		const idle = rec({ hidden: true, mem: [] });
+		const { headline, facts, steps, ending } = describeSession(idle, { sameTab: true });
+		expect(headline).toBe('The Studio stopped while the tab was in the background');
+		expect(facts.join(' ')).toMatch(/tab was in the background when the recording stopped/i);
+		expect(steps.join(' ')).toMatch(/Nothing to do/);
+		// It is still only an INFERENCE — the browser never said it reclaimed anything.
+		expect(ending).toBe('stopped');
+		// And it must not send someone to install Chrome over an ordinary unload.
+		expect(steps.join(' ')).not.toMatch(/Chrome or Edge/);
+	});
+
+	it('still leads with a real error when there was one, and still says report it', () => {
+		const idle = rec({
+			hidden: true,
+			mem: [],
+			errorCount: 1,
+			errorGroups: [{ message: 'cannot read length of undefined', n: 1, firstT: 1_000, lastT: 1_000, file: '/_astro/studio.js', line: 12 }],
+		});
+		const { facts, steps } = describeSession(idle, { sameTab: true });
+		// WHAT FAILED COMES FIRST — the ambient measurements are background.
+		expect(facts[0]).toMatch(/cannot read length of undefined/);
+		expect(steps[0]).toMatch(/Report this on GitHub/);
+	});
+
+	it('marks a console-sourced error as one the page survived', () => {
+		const r = rec({
+			errorCount: 1,
+			errorGroups: [{ message: 'save failed', n: 1, firstT: 500, lastT: 500, source: 'console.error' }],
+		});
+		expect(describeSession(r, { sameTab: true }).facts[0]).toMatch(/logged to the console; the page kept running/);
+	});
+
+	it('tracks visibility on the live record, so the next boot can tell', () => {
+		startCrashSentinel();
+		const live = liveSession() as SessionRecord;
+		expect(live.hidden).toBe(false); // jsdom reports a visible document
+		Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+		document.dispatchEvent(new Event('visibilitychange'));
+		expect((liveSession() as SessionRecord).hidden).toBe(true);
+		Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+		document.dispatchEvent(new Event('visibilitychange'));
+		expect((liveSession() as SessionRecord).hidden).toBe(false);
 	});
 });

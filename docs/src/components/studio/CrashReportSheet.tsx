@@ -212,7 +212,13 @@ export function CrashReportSheet({
 
 						{report.record.lastError && (
 							<PanelSection label="Last error">
-								<pre className="max-h-48 overflow-auto rounded-lg border border-border bg-card p-2 text-[11px] leading-relaxed text-muted-foreground">
+								{/* WRAPPED, not side-scrolled. The stack is the one part of this report
+								    that names the code that failed, and a stack frame is routinely wider
+								    than a 390px phone — measured on the real panel, where the message was
+								    cut at "reading 'sli" with the rest behind a horizontal scroll nobody
+								    discovers inside an already-scrolling sheet. `break-words` rather than
+								    `break-all` so a path breaks at its separators instead of mid-token. */}
+								<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-card p-2 text-[11px] leading-relaxed text-muted-foreground">
 									{report.record.lastError.message}
 									{report.record.lastError.stack ? `\n${report.record.lastError.stack}` : ''}
 								</pre>
