@@ -147,18 +147,39 @@ describe('createThemeFetcher — relative font url() rewriting', () => {
 		expect(registeredCss[0]).toContain('url("/playground/v/abc123/themes/fonts/outfit-300.woff2")');
 	});
 
-	it('routes KaTeX font refs to the sibling katex/fonts/ dir instead of themes/fonts/', async () => {
+	// The KaTeX faces are STRIPPED from the base registration until a source actually
+	// contains math (2026-08-17 loading audit §9.6) — the engine force-loads every declared
+	// face, so leaving them in downloaded ~254KB of math woff2 for a deck with no math.
+	// Their url() rewriting still has to be correct for when they ARE registered, so both
+	// halves are asserted here.
+	it('strips the KaTeX faces from the base registration by default', async () => {
 		stubFetch('@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
 		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
-		expect(registeredCss[0]).toContain('url(/playground/v/abc123/katex/fonts/KaTeX_Main-Regular.woff2)');
-		expect(registeredCss[0]).not.toContain('themes/fonts/KaTeX');
+		expect(registeredCss[0]).toBe('');
 	});
 
-	it('rewrites both a text-face AND a KaTeX ref in the same stylesheet correctly', async () => {
+	it('routes KaTeX font refs to the sibling katex/fonts/ dir once ensureKatexFaces() asks for them', async () => {
+		stubFetch('@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
+		const themes = createThemeFetcher('/playground/v/abc123/themes/');
+		await themes.ensureBase();
+		await themes.ensureKatexFaces();
+		const withFaces = registeredCss[registeredCss.length - 1];
+		expect(withFaces).toContain('url(/playground/v/abc123/katex/fonts/KaTeX_Main-Regular.woff2)');
+		expect(withFaces).not.toContain('themes/fonts/KaTeX');
+	});
+
+	it('keeps the text face while stripping the KaTeX one, and restores both on demand', async () => {
 		stubFetch('@font-face{src:url(fonts/outfit-300.woff2)}@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
-		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		const themes = createThemeFetcher('/playground/v/abc123/themes/');
+		await themes.ensureBase();
 		expect(registeredCss[0]).toContain('url(/playground/v/abc123/themes/fonts/outfit-300.woff2)');
-		expect(registeredCss[0]).toContain('url(/playground/v/abc123/katex/fonts/KaTeX_Main-Regular.woff2)');
+		expect(registeredCss[0]).not.toContain('KaTeX_Main-Regular');
+		expect(themes.katexFacesActive()).toBe(false);
+		await themes.ensureKatexFaces();
+		const withFaces = registeredCss[registeredCss.length - 1];
+		expect(withFaces).toContain('url(/playground/v/abc123/themes/fonts/outfit-300.woff2)');
+		expect(withFaces).toContain('url(/playground/v/abc123/katex/fonts/KaTeX_Main-Regular.woff2)');
+		expect(themes.katexFacesActive()).toBe(true);
 	});
 
 	it('leaves a CSS text with no font url() reference untouched', async () => {
@@ -186,7 +207,11 @@ describe('createThemeFetcher — relative font url() rewriting', () => {
 	// not a change nobody notices broke KaTeX quietly.
 	it('degrades to a WRONG (not katex/fonts/-routed) but still absolute URL when themeBase does not end in "themes/"', async () => {
 		stubFetch('@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
-		await createThemeFetcher('/playground/v/abc123/other/').ensureBase();
-		expect(registeredCss[0]).toBe('@font-face{src:url(/playground/v/abc123/other/KaTeX_Main-Regular.woff2)}');
+		const themes = createThemeFetcher('/playground/v/abc123/other/');
+		await themes.ensureBase();
+		// Stripped by default like anywhere else; the degraded routing is what matters here,
+		// so ask for the faces before asserting on the URL.
+		await themes.ensureKatexFaces();
+		expect(registeredCss[registeredCss.length - 1]).toBe('@font-face{src:url(/playground/v/abc123/other/KaTeX_Main-Regular.woff2)}');
 	});
 });

@@ -809,6 +809,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// silently redefine the number (a 40× jump that reads as a content explosion, not as a
 		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
 		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
+		// KaTeX's 20 faces are stripped from the registered theme until a source actually
+		// contains math (2026-08-17 loading audit §9.6). Gate on the ENGINE's own detector,
+		// the same one renderMarkdown uses, and AWAIT it as part of themeReady so the first
+		// math slide already has its faces — no fallback-font flash.
+		const katexReady = sourceHasMath(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
 		const themeReady = extra
 			? themes.ensureBase().then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
@@ -817,7 +822,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					PG.addThemes([{ name: extra.name, css: extra.css }]);
 				})
 			: themes.ensure(palette, mode);
-		return themeReady
+		return Promise.all([themeReady, katexReady])
 			.then(async () => {
 				// Bail if the host was disposed/detached while the theme fetch was in
 				// flight — don't spend an engine render on a torn-down preview.
@@ -1159,7 +1164,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// presence — a mermaid-content edit needs no full write, and the resident
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
-				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}`;
+				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}`;
 				// RESTYLE sig — everything a theme/mode change CANNOT re-render in place: the frame
 				// box (geom, which sizes the resident <style>'s singleSlideFrame + the iframe element)
 				// and the mermaid <script> presence (prop-driven, so it can't be injected post-hoc).

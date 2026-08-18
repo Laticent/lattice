@@ -37,12 +37,12 @@ import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 // cost, audit 2026-07-20-studio-degradation-audit). The CSS for a given (themeBase, name) is
 // identical across hosts, so sharing is safe; the engine-side registry (PG.addThemes/hasTheme)
 // was already globally deduped — this closes the docs-side duplication the audit measured.
-type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null };
+type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null; katexWanted: boolean; katexReady: Promise<void> | null };
 const sharedState = new Map<string, FetcherState>();
 function stateFor(themeBase: string): FetcherState {
 	let s = sharedState.get(themeBase);
 	if (!s) {
-		s = { fetched: {}, registering: {}, latticeReady: null };
+		s = { fetched: {}, registering: {}, latticeReady: null, katexWanted: false, katexReady: null };
 		sharedState.set(themeBase, s);
 	}
 	return s;
@@ -105,6 +105,60 @@ export function createThemeFetcher(themeBase: string) {
 		);
 	}
 
+	// lattice.css bakes in KaTeX's OWN 20 `@font-face` rules unconditionally, and the
+	// engine force-loads EVERY declared face at runtime boot (lib/core/font-settle.js —
+	// a first overflow measurement must not be taken against fallback metrics). Net
+	// effect: ~254KB of math woff2 downloaded into the preview frame of a deck with no
+	// math in it (2026-08-17 loading audit §3, §9.6). They are stripped at REGISTRATION
+	// and put back by `ensureKatexFaces()` the moment a source actually contains math —
+	// callers await that before the render, so the first math slide already has them and
+	// there is no fallback-font flash. Stripping here and not in `dist/lattice.css` is
+	// deliberate: that file is a PUBLISHED export artifact (package.json `files`,
+	// consumed by the runtime, the engine and the PDF path) whose self-hosted KaTeX is
+	// what makes math render with zero network. Editing it would change exported bytes
+	// and trip the export sign-off gate; this seam is docs-only.
+	// The 20 rules are contiguous and each is a self-delimited `@font-face{…}` block, so
+	// the match cannot run past its own rule.
+	const KATEX_FACE_RE = /@font-face\{[^}]*KaTeX_[^}]*\}/g;
+	function latticeCssFor(css: string): string {
+		return state.katexWanted ? css : css.replace(KATEX_FACE_RE, '');
+	}
+
+	/**
+	 * Re-register `lattice` WITH its KaTeX faces. Idempotent; call (and await) before
+	 * rendering a source that contains math. Once wanted, every later registration —
+	 * including the eviction-repair paths below — keeps them, because `latticeCssFor`
+	 * reads the flag.
+	 */
+	function ensureKatexFaces(): Promise<void> {
+		const PG = window.LatticePlayground;
+		if (!PG) return Promise.reject(new Error('engine not ready'));
+		if (state.katexWanted && state.katexReady) return state.katexReady;
+		state.katexWanted = true;
+		state.katexReady = fetchTheme('lattice')
+			.then((css) => {
+				// addThemes overwrites by name, so this replaces the stripped registration.
+				PG.addThemes([{ name: 'lattice', css }]);
+			})
+			.catch((e) => {
+				state.katexReady = null; // let a later math render retry
+				throw e;
+			});
+		return state.katexReady;
+	}
+
+	/**
+	 * True once the KaTeX faces have been put back into the registered base. Preview hosts
+	 * fold this into their patch signature: the faces live in the COMPOSED stylesheet, and
+	 * the cheap body-patch path deliberately does not rewrite that <style> — so without a
+	 * signature change the first math render after registration would patch in math HTML
+	 * over a stylesheet that still has no math faces, and the math would paint in fallback
+	 * metrics. Measured exactly that way before this was threaded through.
+	 */
+	function katexFacesActive(): boolean {
+		return state.katexWanted && Boolean(state.katexReady);
+	}
+
 	/** True once the engine reports the named theme is registered. */
 	function has(name: string): boolean {
 		return Boolean(window.LatticePlayground?.hasTheme(name));
@@ -116,7 +170,7 @@ export function createThemeFetcher(themeBase: string) {
 		if (!PG) return Promise.reject(new Error('engine not ready'));
 		if (!state.latticeReady) {
 			state.latticeReady = fetchTheme('lattice')
-				.then((css) => PG.addThemes([{ name: 'lattice', css }]))
+				.then((css) => PG.addThemes([{ name: 'lattice', css: latticeCssFor(css) }]))
 				.catch((e) => { if (e?.status !== 404) state.latticeReady = null; throw e; }); // self-heal transient only (keep a 404 negatively cached)
 		}
 		// Eviction-safe: the memo is now page-lifetime-shared, so it must not outlive the engine's
@@ -125,7 +179,7 @@ export function createThemeFetcher(themeBase: string) {
 		// when present — negligible on the hot path). Without this, the shared memo would say
 		// "registered" forever and strip the render (Munger inversion on Fix A).
 		return state.latticeReady.then(() => {
-			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([{ name: 'lattice', css }]); });
+			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([{ name: 'lattice', css: latticeCssFor(css) }]); });
 		});
 	}
 
@@ -177,7 +231,7 @@ export function createThemeFetcher(themeBase: string) {
 		return Promise.all(jobs).then(() => undefined);
 	}
 
-	return { fetch: fetchTheme, ensure, ensureBase, has };
+	return { fetch: fetchTheme, ensure, ensureBase, ensureKatexFaces, katexFacesActive, has };
 }
 
 export type ThemeFetcher = ReturnType<typeof createThemeFetcher>;

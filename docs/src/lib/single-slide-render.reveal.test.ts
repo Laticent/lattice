@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./render-engine', () => ({ renderMarkdown: vi.fn(async () => ({ html: '<section></section>', css: '' })) }));
 vi.mock('./theme-fetch', () => ({
-	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, fetch: async () => {} }),
+	createThemeFetcher: () => ({ ensure: async () => {}, ensureBase: async () => {}, ensureKatexFaces: async () => {}, katexFacesActive: () => false, fetch: async () => {} }),
 }));
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
