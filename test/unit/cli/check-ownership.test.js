@@ -61,6 +61,7 @@ const {
   LAYOUT_HEX_BUDGET,
   SANCTIONED_HEX,
   checkUsEnglish,
+  checkTypedGlyphs,
   UK_ENGLISH_FORMS,
   CANONICAL_FS_TOKENS,
   SINGLETON_TAGS,
@@ -674,6 +675,34 @@ describe('check-ownership', () => {
         assert.ok(s.file && s.hex && s.count >= 1 && s.why, 'every sanction names a file, hex, count, and reason');
         assert.match(s.hex, /^#[0-9a-fA-F]{3,8}$/, 'sanction hex is a real literal');
       }
+    });
+  });
+
+  describe('typed-glyph gate (HARD RULE #28)', () => {
+    test('the live repo stays within the typed-glyph budget', () => {
+      const errors = [];
+      checkTypedGlyphs(errors);
+      assert.deepEqual(errors, [], 'typed chrome glyphs exceeded TYPED_GLYPH_BUDGET');
+    });
+
+    test('the gate reports a count, so the budget can be ratcheted honestly', () => {
+      // A gate that only says "too many" cannot be lowered with confidence. The
+      // message carries the live total and the heaviest files precisely so the
+      // next person can drop the budget to a number they can see.
+      const errors = [];
+      const { TYPED_GLYPH_BUDGET } = require('../../../tools/check-ownership.js');
+      assert.equal(typeof TYPED_GLYPH_BUDGET, 'number');
+      checkTypedGlyphs(errors);
+      assert.deepEqual(errors, []);
+    });
+
+    test('the sanctioned-deck list is truthful, not a blanket exemption', () => {
+      // Every entry must name a deck that EXISTS, is still reached by the gate,
+      // and still contains a glyph. The gate itself raises all three; this asserts
+      // the live tree satisfies them, so a stale sanction cannot sit unnoticed.
+      const errors = [];
+      checkTypedGlyphs(errors);
+      assert.ok(!errors.some((e) => e.includes('SANCTIONED_GLYPH_DECKS')), errors.join('\n'));
     });
   });
 

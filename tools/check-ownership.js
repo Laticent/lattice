@@ -3433,6 +3433,154 @@ function checkUsEnglish(errors) {
   }
 }
 
+// ── HARD RULE #28 — chrome is DRAWN, never typed ──────────────────────────────
+//
+// A typed `✓` resolves to whatever font on the reader's machine covers U+2713,
+// so its shape, weight and baseline shift between macOS, Windows, Linux and
+// every PDF viewer — and where nothing covers it, it is tofu. Lattice draws its
+// chrome as SVG precisely so that cannot happen; a typed glyph is a hole in
+// that contract, one character wide.
+//
+// The failure was already here, in the worst place: five sites typed
+// `content: "\2713"` — `themes/a11y-base.css` among them — re-implementing
+// `--mark-check`, which has existed as a curated SVG mask the whole time.
+//
+// WHAT THIS GATE POLICES, AND WHAT IT DOES NOT.
+// It scans RENDERED surfaces only — the decks we ship, engine CSS `content:`,
+// and engine JS that emits strings. It does NOT scan documentation prose or
+// source comments: an arrow inside a sentence explaining a mechanism is
+// writing, not chrome, and dragging ~6,000 of those into scope would bury the
+// signal. It also does not police SOMEONE ELSE'S deck — an author may type what
+// they like; `lib/authoring/lint-core.js` coaches them instead of failing.
+//
+// The list of what counts as a SHAPE (versus punctuation that is legitimately
+// text — em-dash, curly quotes, middot) is curated in lib/core/shape-glyphs.js,
+// shared with the author lint so the two can never drift.
+//
+// Exceed-only ratchet, the same shape as US_ENGLISH_BUDGET above: existing
+// sites are a tracked migration backlog; lower TYPED_GLYPH_BUDGET as each
+// surface converts. Target zero.
+const TYPED_GLYPH_BUDGET = 228;
+
+// Decks that RENDER — every glyph in one lands on a slide in front of a reader.
+// `*.docs.md` is deliberately absent: it is documentation about a component,
+// read as prose, not projected.
+const GLYPH_DECK_GLOBS = [
+  (rel) => rel.startsWith(`examples${path.sep}`) && rel.endsWith('.md'),
+  (rel) => rel.endsWith('.gallery.md'),
+  (rel) => rel.startsWith(path.join('test', 'integration', 'baseline-decks')) && rel.endsWith('.md'),
+];
+
+// Decks where a typed glyph IS the subject matter, not chrome. Each entry
+// carries its justification, and the gate fails on a STALE one (a listed deck
+// that no longer contains a glyph) so the list cannot quietly rot into a
+// blanket exemption.
+const SANCTIONED_GLYPH_DECKS = [
+  {
+    deck: path.join('examples', 'speech-symbols.md'),
+    why:
+      'A read-aloud stress test. Its front matter maps "→" to "leads to" and the ' +
+      'body types →, ⇒, ↑, ↓, ← as FIXTURES proving the lexicon and pronunciation ' +
+      'pipeline speak each one correctly. Replacing them with drawn chrome would ' +
+      'delete what the deck tests — the glyph is the input, not the decoration.',
+  },
+];
+
+function checkTypedGlyphs(errors) {
+  const { findShapeGlyphs, shapeGlyphAdvice } = require('../lib/core/shape-glyphs');
+  const hits = [];
+  const sanctionedSeen = new Set();
+  const note = (rel, line, glyphs) => hits.push({ rel, line, glyphs });
+
+  for (const file of listRepoTextFiles()) {
+    const rel = path.relative(ROOT, file);
+    // The table that DEFINES the deny list necessarily contains every character
+    // in it, and so does the test that proves the table works.
+    if (rel === path.join('lib', 'core', 'shape-glyphs.js')) continue;
+    if (rel === path.join('test', 'unit', 'core', 'shape-glyphs.test.js')) continue;
+    let text;
+    try { text = fs.readFileSync(file, 'utf8'); } catch { continue; }
+
+    // 1. DECKS — the whole file is content, minus fenced code (a fence shows
+    //    source, it does not render as chrome).
+    if (GLYPH_DECK_GLOBS.some((f) => f(rel))) {
+      if (SANCTIONED_GLYPH_DECKS.some((d) => d.deck === rel)) { sanctionedSeen.add(rel); continue; }
+      let fenced = false;
+      text.split('\n').forEach((line, i) => {
+        if (/^\s*```/.test(line)) { fenced = !fenced; return; }
+        if (fenced) return;
+        const g = findShapeGlyphs(line);
+        if (g.length) note(rel, i + 1, g);
+      });
+      continue;
+    }
+
+    // 2. ENGINE CSS — only `content:`, which is the one CSS property that puts
+    //    a character on the page. A glyph in a comment is documentation.
+    if (rel.endsWith('.css') && (rel.startsWith(`lib${path.sep}`) || rel.startsWith(`themes${path.sep}`))) {
+      text.split('\n').forEach((line, i) => {
+        const m = line.match(/content\s*:\s*(['"])((?:[^'"\\]|\\.)*)\1/);
+        if (!m) return;
+        // Resolve CSS escapes: `\2713` and a literal ✓ are the same defect, and
+        // only one of them is greppable.
+        const value = m[2].replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, h) => String.fromCodePoint(parseInt(h, 16)));
+        const g = findShapeGlyphs(value);
+        if (g.length) note(rel, i + 1, g);
+      });
+    }
+
+    // 3. ENGINE JS — deliberately NOT gated, and this absence is a decision
+    //    rather than an oversight.
+    //
+    //    A first cut scanned non-comment lines in `lib/**` and
+    //    `lattice-emulator.js` and reported 33 hits in the emulator alone.
+    //    Every one was TERMINAL text, not slide chrome: 24 `⚠` in
+    //    `console.warn` calls and 9 `→` inside the `--help` block. Neither has
+    //    a font contract to break — a CLI writes to whatever the shell renders,
+    //    and no reader ever sees it on a slide.
+    //
+    //    Separating a DOM-bound string from a log line, a prompt (`lib/theme/
+    //    ai.js` bullets a model prompt with `•`) and a regex that PARSES an
+    //    author's typed arrow needs real intent analysis, and a gate that
+    //    guesses wrong is a gate somebody switches off. The CSS and deck arms
+    //    above are exact, so they gate; the JS emitters are converted by hand
+    //    alongside the tokens and covered by review, not by this check.
+    //    engineering/decisions/2026-08-18-typed-glyphs.md § "Why JS is not gated".
+  }
+
+  // A sanction that no longer applies is a lie the next reader inherits.
+  for (const { deck } of SANCTIONED_GLYPH_DECKS) {
+    if (!fs.existsSync(path.join(ROOT, deck))) {
+      errors.push(`SANCTIONED_GLYPH_DECKS lists "${deck}", which does not exist — drop the entry.`);
+    } else if (!sanctionedSeen.has(deck)) {
+      errors.push(
+        `SANCTIONED_GLYPH_DECKS lists "${deck}", but the gate never reached it — the deck no longer ` +
+        `matches GLYPH_DECK_GLOBS, so the exemption is stale. Drop the entry.`,
+      );
+    } else if (!require('../lib/core/shape-glyphs').findShapeGlyphs(fs.readFileSync(path.join(ROOT, deck), 'utf8')).length) {
+      errors.push(
+        `SANCTIONED_GLYPH_DECKS exempts "${deck}", but it contains no typed glyph any more — ` +
+        `drop the entry so the exemption cannot silently cover a future one.`,
+      );
+    }
+  }
+
+  const total = hits.reduce((a, h) => a + h.glyphs.length, 0);
+  if (total > TYPED_GLYPH_BUDGET) {
+    const byFile = new Map();
+    for (const h of hits) byFile.set(h.rel, (byFile.get(h.rel) || 0) + h.glyphs.length);
+    const top = [...byFile].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([f, n]) => `${f} (${n})`).join(', ');
+    const sample = hits[0];
+    errors.push(
+      `typed chrome glyphs rose to ${total}, above the budget of ${TYPED_GLYPH_BUDGET} (HARD RULE #28 — ` +
+      `chrome is drawn, never typed). ${shapeGlyphAdvice(sample.glyphs[0], 'engine')} ` +
+      `First at ${sample.rel}:${sample.line}. Existing sites are a tracked migration backlog — don't add ` +
+      `new ones; as each surface converts, lower TYPED_GLYPH_BUDGET in tools/check-ownership.js. ` +
+      `Heaviest files: ${top}.`,
+    );
+  }
+}
+
 function checkThemeTokenParity(errors) {
   const palettes = listBasePalettes();
   if (!palettes.length) {
@@ -9715,6 +9863,7 @@ function run() {
   checkZPlanes(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
+  checkTypedGlyphs(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
@@ -9922,6 +10071,9 @@ module.exports = {
   LAYOUT_HEX_BUDGET,
   SANCTIONED_HEX,
   checkUsEnglish,
+  checkTypedGlyphs,
+  TYPED_GLYPH_BUDGET,
+  SANCTIONED_GLYPH_DECKS,
   listRepoTextFiles,
   UK_ENGLISH_FORMS,
   US_ENGLISH_BUDGET,

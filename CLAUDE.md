@@ -495,6 +495,31 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `Agent()` call rides on the policy above, and harness built-ins need nothing
   passed. `engineering/decisions/2026-07-28-model-tiering-retirement.md`.)*
 
+- **#28 — Chrome is DRAWN, never typed.** A `✓` typed as a character resolves to
+  whatever font on the reader's machine covers U+2713 — its shape, weight and
+  baseline shift across macOS / Windows / Linux and every PDF viewer, and where
+  nothing covers it, it is tofu. Lattice draws its chrome as SVG precisely so
+  that cannot happen. The failure was already in the tree in the worst place:
+  five sites typed `content: "\2713"` — `themes/a11y-base.css` among them —
+  re-implementing `--mark-check`, a curated SVG mask that had existed the whole
+  time. **The predicate is "shape or word", not "non-ASCII":** an em-dash is
+  punctuation, a curly quote is a quotation mark, and `redline` legitimately
+  renders `content: 'OLD — prior text'`. The curated deny list — and the
+  deliberately-absent list, which is equally load-bearing — is
+  `lib/core/shape-glyphs.js`, shared so the gate and the author lint cannot
+  drift. **We hold OURSELVES to it absolutely and COACH everyone else:** the
+  gate fails the build on our own rendered surfaces (the decks we ship, engine
+  CSS `content:`), while `lib/authoring/lint-core.js` sees a typed glyph in an
+  author's deck and names the risk, points at the modifier that does it
+  properly, and offers the fix — never blocking. Consistency is king;
+  flexibility is the necessary evil that keeps the engine worth writing for.
+  *(gated — `checkTypedGlyphs` + `SANCTIONED_GLYPH_DECKS` in
+  `tools/check-ownership.js`, via `build:check`; exceed-only ratchet, target
+  zero, and the sanction list fails on a stale entry. Engine JS is deliberately
+  NOT gated — every hit was terminal text (`console.warn`, `--help`), and a gate
+  that cannot tell a log line from a DOM string is one somebody switches off;
+  those convert by hand under review. `engineering/decisions/2026-08-18-typed-glyphs.md`.)*
+
 ---
 
 ## Read the canonical doc before working in its area
