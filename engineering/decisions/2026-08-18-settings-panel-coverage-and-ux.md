@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   An audit of every deck front-matter key and per-slide directive the engine reads against
   what the three settings surfaces actually offer. Twelve deck registers have NO control
@@ -9,15 +9,18 @@ summary: >
   `math:` control writes a key nothing in the engine reads. Four hand-maintained enumerations
   of the same surface are drifting (deck-config `FIELD_DEFAULTS`, the Studio Inspector's rows,
   the editor's `FRONT_MATTER_KEYS`, and the engine's own register reads) with no parity gate.
-  The redesign proposes one tab spine shared by both scopes, a ≤8-word visible clause per row
-  with the full prose behind a new touch-capable `HelpTip` popover (Radix Tooltip cannot open
-  on touch), and controls for nine of the twelve uncovered registers.
+  Shipped: one tab vocabulary across both scopes, ordered by likely reach, with a clause per
+  row and the full prose behind a new touch-capable `HelpTip` popover (Radix Tooltip cannot
+  open on touch), and controls for nine of the twelve uncovered registers. The deck's Marks
+  tab is now Chrome and the slide's Status + Decoration merge into Marks; a new General tab
+  holds the deck's name, language and structure. Both Playground defects are fixed in place.
 ---
 
 # Deck & Slide settings — front-matter coverage audit + a UX redesign
 
 **Date:** 2026-08-18
-**Status:** proposed — the catalog (§2–3) is fact; the redesign (§5) awaits the pick in §6.
+**Status:** shipped — the catalog (§2–3) is fact; the redesign (§5) landed with the
+amendments in §7.
 
 The ask: *"we have front matter that doesn't have a setting entry in deck or slide
 settings? let's catalog them. also let's look at reorganizing and grouping things in
@@ -29,6 +32,8 @@ This note is the catalog (§2–3), the diagnosis (§4), and the design model (�
 ---
 
 ## 1. The three surfaces, and who owns what
+
+*(This section is the state the audit found — before §7's changes.)*
 
 There is not one settings panel. There are three, written at different times, with
 three different groupings and three different vocabularies for the same registers.
@@ -279,10 +284,55 @@ would violate HARD RULE #17. Recorded as the follow-on, not done here.
 
 ---
 
-## 6. Open questions for the human
+## 6. What the human picked
 
-1. **Scope** — Studio Inspector only, or the Playground panel too?
-2. **Coverage** — the nine-register add above, or a narrower first cut?
-3. **Grouping** — the shared spine (§5.2 A), or keep today's tabs and only add the
-   `more` disclosures?
-4. **Help model** — ⓘ popover per row, or short desc lines with no ⓘ?
+1. **Scope** — Studio Inspector only. The Playground's vanilla panel keeps its layout;
+   the two defects the audit found in it (§4.2, §2.4) were fixed in place, since they
+   are on the path of the audit that found them.
+2. **Coverage** — the nine high-value registers.
+3. **Grouping** — see §7: a **General tab**, not a pinned strip, and **tabs ordered by
+   likely reach**.
+4. **Help model** — a short clause per row plus a ⓘ popover.
+
+---
+
+## 7. What shipped, where §5 was amended
+
+The design proposed pinning the deck's identity fields (name, language) in an
+always-visible strip above the tab strip. **That was rejected in favour of a General
+tab** — the same reachability without a second kind of surface in the panel, and a
+natural home for the structural keys (`split:`, `form:`, `glossary:`, `class:`) that
+otherwise had nowhere to go. It also absorbs the Developer footer disclosure, so the
+panel is a tab strip and nothing else.
+
+The other amendment is the ORDER. §5 grouped the tabs; the shipped strip also *ranks*
+them, left to right, by how often an author is likely to reach for each:
+
+| | Deck | Slide |
+|---|---|---|
+| 1 | **Look** — theme, color mode, size, mode, finish, card lift · *more:* corners, claim | **Look** — canvas, type scale, finish, compact, accent |
+| 2 | **Chrome** — header, footer, page numbers, section rail, logo (+4 modifiers), meta line | **Notes** — speaker note, caption, description |
+| 3 | **General** — deck name, language, new-slide-on, deck chrome, auto-glossary, default class · *more:* Developer (validation, debug) | **Chrome** — clean slide, hide header / footer / page number / rail |
+| 4 | **Accent** — brand bar, placements, card rail, trim, heading rule, eyebrow, headline · *more:* stamp shape, tone shape | **Marks** — stamp (+shape), tone (+shape), tint, mark |
+| 5 | **Motion** — play, style, speed | **Accent** — the same seven axes, per-slide |
+| 6 | **Speech** — pace, lexicon, acronyms | **Motion** — play, style, speed |
+| 7 | — | **Comments** — review notes |
+
+`Marks` → `Chrome` on the deck side and `Status` + `Decoration` → `Marks` on the slide
+side are one move, not two: the two panels held each other's word (§4.6), and the merge
+is what frees it. The merged tab keeps the distinction the two tabs used to carry as a
+section head each — *Says something* (a state badge, a review tone) and *Says nothing*
+(a tint, a mark).
+
+**The help affordance is `docs/src/components/ui/help-tip.tsx`**, a Popover as §5.2 D
+argued. One implementation detail earned its own note: the ⓘ is rendered INLINE
+(`inline-grid` + `align-middle`), not as a flex sibling of the label. As a sibling it
+took its own 20px of a no-wrap row, which broke "Color mode" onto two lines and then
+orphaned the icon on a line of its own — visible in the first real-surface screenshot,
+invisible to every unit test.
+
+**Not done, and deliberately:** `style:`, the Marp `background*` / `color` directives,
+`captions:`, and the per-slide `_focus` / `_focusSteps` / `_build` grammar. The first
+group is an escape hatch the editor (with autocomplete) serves better; the last needs an
+ordinal picker driven by live slide content, which is a design of its own rather than a
+row in a panel.

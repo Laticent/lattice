@@ -84,10 +84,14 @@ export function HelpTip({
 					onPointerEnter={hoverOpen}
 					onPointerLeave={hoverClose}
 					className={cn(
-						// `shrink-0` so a long label never squeezes the icon to nothing, and a
-						// 20px hit box (the icon is 13px) so it is tappable without stealing
-						// height from a 12.5px row.
-						'grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors',
+						// INLINE, not a flex sibling. As a flex item beside the label it took its
+						// own 20px of the row, which pushed a two-word label ("Color mode") onto a
+						// second line with the icon floating beside the wrap. `inline-grid` +
+						// `align-middle` puts it in the TEXT flow, so it follows the last word and
+						// wraps with it — the label breaks only when the label itself is too long.
+						// 18px box around a 13px glyph: tappable without adding height to a
+						// 12.5px row.
+						'ml-0.5 inline-grid size-[18px] shrink-0 place-items-center rounded-full align-middle text-muted-foreground transition-colors',
 						'hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]',
 						'data-[state=open]:bg-[var(--accent-soft)] data-[state=open]:text-[var(--accent)]',
 						className,

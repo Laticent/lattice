@@ -89,8 +89,8 @@ function Row({ label, hint, desc, help, children }: { label: string; hint?: stri
 			    below the label instead of overflowing the row — so the inspector stays usable
 			    when the Settings panel is dragged narrow. */}
 			<div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5">
-				<span className="flex items-center gap-0.5 text-[12.5px] text-foreground">
-					{label}{hint && <span className="ml-1 text-[11px] text-muted-foreground">{hint}</span>}
+				<span className="text-[12.5px] text-foreground">
+					{label}{hint && <span className="ml-1.5 text-[11px] text-muted-foreground">{hint}</span>}
 					{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
 				</span>
 				{children}

@@ -4959,22 +4959,28 @@ function Field({ label, desc, help, htmlFor, descId, children }: { label: string
 			    and only rows that actually own an `<input>` can trigger it (`:has(input:focus)`),
 			    so the dropdown and toggle rows carry the class inertly. */}
 			<div className={FIELD_ROW}>
-				{/* The ⓘ sits WITH the label, not at the row's end: it explains the setting,
-				    so it reads as part of its name rather than as a second control. The
-				    wrapper carries the same `shrink-0` the bare label used to. */}
+				{/* The ⓘ sits WITH the label, not at the row's end: it explains the setting, so
+				    it reads as part of its name rather than as a second control. It is INLINE
+				    (see HelpTip) — a flex sibling took its own 20px of the row and wrapped
+				    "Color mode" onto two lines. */}
 				{htmlFor ? (
 					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
 					// without it the flex algorithm takes the space out of the label and
 					// "Deck name" wraps to two lines. The dropdown rows have no growing child,
 					// so adding it there would change nothing except their overflow behavior
 					// at the narrowest widths — left alone.
-					<span className="flex shrink-0 items-center gap-0.5">
-						<label htmlFor={htmlFor} className="text-[12.5px] text-foreground">{label}</label>
+					<span className="shrink-0 text-[12.5px] text-foreground">
+						<label htmlFor={htmlFor}>{label}</label>
 						{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
 					</span>
 				) : (
-					<span className="flex items-center gap-0.5">
-						<span className="text-[12.5px] text-foreground">{label}</span>
+					// `shrink-0` here too, for the same reason the field branch has it: the row
+					// is a no-wrap flex, and a wide trigger ("Theme default", with two icons)
+					// otherwise squeezes the label to its content width and orphans the ⓘ on a
+					// second line. The trigger is the one that should give — it already
+					// truncates ("Theme def…") and has a 116px floor.
+					<span className="shrink-0 text-[12.5px] text-foreground">
+						{label}
 						{help && <HelpTip label={`More about ${label}`}>{help}</HelpTip>}
 					</span>
 				)}
