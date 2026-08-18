@@ -46,7 +46,9 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `axis-dom-catalog:build` | Generate lib/runtime/axis-dom-catalog.generated.js — component name to density.axis/domSelector, scanned from every manifest, bundled into lattice-runtime.js so the Fix-Me overlay drill-down can find a component's rendered collection without shipping the whole manifest catalog to the browser. |
 | `axis-dom-catalog:check` | Freshness gate for the generated axis-DOM catalog. |
 | `build` | Regenerate every generated artifact in dependency order, behind the ownership gate. |
-| `build:check` | Freshness gate: regenerate in memory and byte-diff every artifact; fail on drift (CI/pre-push). |
+| `build:check` | Freshness gate for the COMMITTED generated artifacts: regenerate in memory and diff, skipping the bundles that are built-not-committed (CI/pre-push). |
+| `build:check:all` | The same gate without the scope: every artifact, including the built-not-committed bundles. Needs dist/ present, so run it after npm run build. |
+| `build:uncommitted` | Generate ONLY the built-not-committed artifacts (dist/, the docs-site bundles). The cold-tree bootstrap: the ownership guard reads dist/ CSS, so it cannot run before this. Skips the guard for that reason. |
 | `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
@@ -96,6 +98,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `playground:build` | Build docs/public/playground/lattice-playground.js — the in-browser engine bundle. |
 | `playground:check` | Freshness gate for the playground bundle. |
 | `playground:watch` | Rebuild the playground bundle on change. |
+| `prepack` | npm lifecycle: build before packing, so the published tarball carries dist/ even though git does not. |
 | `read-along-core:build` | Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet's "Captions (.vtt)" export. |
 | `read-along-core:check` | Freshness gate for the read-along-core Playground bundle. |
 | `runtime:build` | Build dist/lattice-runtime.js — browser runtime transforms (vscode preview / web export). |
@@ -255,7 +258,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
-| `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
+| `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
 ## Tools — `tools/`

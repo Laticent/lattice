@@ -51,6 +51,7 @@
  */
 
 const { spawn, spawnSync } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -72,8 +73,8 @@ const PREFLIGHT = [
 ];
 
 const STEPS = [
-  { label: 'lattice.css', script: 'build-css.js' },
-  { label: 'lattice-default.css', script: 'build-default-bundle.js' },
+  { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
+  { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice-emulator.js — those bundles
   // `require()` these generated catalogs directly (esbuild inlines them at
   // bundle time). The stage catalog is the single source of the stage-cell
@@ -83,37 +84,37 @@ const STEPS = [
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
-  { label: 'lattice-runtime.js', script: 'build-runtime.js' },
-  { label: 'lattice-emulator.js', script: 'build-emulator.js' },
+  { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
+  { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },
   { label: 'per-component docs', script: 'build-component-docs.js' },
-  { label: 'doc portal (components.md/.json)', script: 'build-docs-portal.js' },
-  { label: 'forms catalog (dist/docs/forms.json)', script: 'build-forms.js' },
-  { label: 'concepts catalog (dist/docs/concepts.json)', script: 'build-concepts.js' },
+  { label: 'doc portal (components.md/.json)', script: 'build-docs-portal.js', uncommitted: true },
+  { label: 'forms catalog (dist/docs/forms.json)', script: 'build-forms.js', uncommitted: true },
+  { label: 'concepts catalog (dist/docs/concepts.json)', script: 'build-concepts.js', uncommitted: true },
   { label: 'landing tokens (docs site)', script: 'build-landing-tokens.js' },
   { label: 'spec pages (docs site)', script: 'build-spec-docs.js' },
-  { label: 'playground bundle (docs site)', script: 'build-playground.js' },
-  { label: 'katex-provider bundle (docs site)', script: 'build-katex-provider.js' },
-  { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js' },
-  { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js' },
-  { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js' },
-  { label: 'exemplar-core bundle (docs site)', script: 'build-exemplar-core.js' },
-  { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js' },
-  { label: 'image-set-core bundle (docs site)', script: 'build-image-set-core.js' },
-  { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js' },
+  { label: 'playground bundle (docs site)', script: 'build-playground.js', uncommitted: true },
+  { label: 'katex-provider bundle (docs site)', script: 'build-katex-provider.js', uncommitted: true },
+  { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
+  { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
+  { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js', uncommitted: true },
+  { label: 'exemplar-core bundle (docs site)', script: 'build-exemplar-core.js', uncommitted: true },
+  { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js', uncommitted: true },
+  { label: 'image-set-core bundle (docs site)', script: 'build-image-set-core.js', uncommitted: true },
+  { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js', uncommitted: true },
   // anima-player IIFE must exist before player-core bundles it in (playerJs injects it).
   { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
-  { label: 'player-core bundle (docs site)', script: 'build-player-core.js' },
-  { label: 'player-prune bundle (docs site)', script: 'build-player-prune.js' },
+  { label: 'player-core bundle (docs site)', script: 'build-player-core.js', uncommitted: true },
+  { label: 'player-prune bundle (docs site)', script: 'build-player-prune.js', uncommitted: true },
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
-  { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js' },
-  { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js' },
+  { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js', uncommitted: true },
+  { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@workwel/lente')` / publish break.
-  { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js' },
-  { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js' },
-  { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js' },
+  { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
+  { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
+  { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js', uncommitted: true },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
   // Curated categorical on-canvas ink — regenerates the --cat-N-ink block in each
@@ -136,8 +137,8 @@ const STEPS = [
   // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice.min.css,
   // dist/themes/, dist/lattice-runtime.min.js and dist/fonts/, so every one of
   // those must already be fresh. Before dist README, which indexes dist/.
-  { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js' },
-  { label: 'dist README', script: 'build-dist-readme.js' },
+  { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js', uncommitted: true },
+  { label: 'dist README', script: 'build-dist-readme.js', uncommitted: true },
 ];
 
 // The slowest steps (non-incremental `tsc --emitDeclarationOnly`) have no
@@ -187,18 +188,115 @@ function runStepAsync(step, check) {
 
 async function main(argv) {
   const check = argv.includes('--check');
-  const mode = check ? 'check' : 'build';
-  process.stdout.write(`Lattice ${mode}: ${STEPS.length} artifacts behind the ownership gate.\n\n`);
+  // --exclude-uncommitted: skip the generators whose outputs are NOT COMMITTED
+  // (dist/, the docs-site bundles — see .gitignore). This is not an optimization,
+  // it is what keeps the gate meaningful.
+  //
+  // The gate's question is "did you commit the regenerated artifacts you own?",
+  // which can only be answered by comparing a FRESH generation against what is on
+  // disk from the checkout. So CI must NOT run `npm run build` before it — that
+  // would make everything on disk fresh and every check pass vacuously. But a CI
+  // checkout has no dist/ at all now, so those generators would fail on a missing
+  // file rather than a stale one. Skipping them is the correct scope: an artifact
+  // that is never committed cannot be stale relative to anything.
+  //
+  // Each surviving generator keeps its OWN --check semantics, which is load-bearing:
+  // build-decisions-index.js's is deliberately WEAKER than a byte-diff (#1547) so
+  // two decision-doc PRs can share the merge queue. An earlier attempt at this
+  // scoping rebuilt the tree and diffed it with git instead, which silently
+  // overrode that and re-opened the ejection #1547 closed.
+  //
+  // The tags were derived by MEASUREMENT — timestamp the tree, run each of the 39
+  // generators alone, see what it writes — not by reading the build; that is how
+  // build-theme-catalog.js was caught writing on both sides of the line.
+  // test/unit/tools/uncommitted-steps.test.js re-asserts the partition.
+  const excludeUncommitted = check && argv.includes('--exclude-uncommitted');
 
-  // Gate first — a collision fails before anything is (re)generated.
+  // --only-uncommitted: generate ONLY the built-not-committed artifacts, and skip
+  // the guard and preflight entirely. This exists to break a real chicken-and-egg
+  // a cold checkout hits: the ownership guard reads dist/ CSS to know which tokens
+  // are declared, and reads a generated docs bundle for the style-sink check — so
+  // on a tree that has never been built it fails on the absence of the very files
+  // this script exists to produce.
+  //
+  // CI uses it as a bootstrap: `build:uncommitted` then `build:check`. That order
+  // matters and is the whole point — building EVERYTHING first would rewrite the
+  // committed artifacts too, so the freshness check after it would compare fresh
+  // against fresh and pass vacuously. Generating only the uncommitted half gives
+  // the guard its inputs while leaving the committed half exactly as checked out,
+  // which is the state the gate needs to judge.
+  const onlyUncommitted = argv.includes('--only-uncommitted');
+
+  const steps = onlyUncommitted
+    ? STEPS.filter((s) => s.uncommitted)
+    : excludeUncommitted
+      ? STEPS.filter((s) => !s.uncommitted)
+      : STEPS;
+  const mode = check ? 'check' : 'build';
+  const scope = excludeUncommitted
+    ? `${steps.length} committed artifacts (${STEPS.length - steps.length} built-not-committed skipped)`
+    : `${steps.length} artifacts`;
+  process.stdout.write(`Lattice ${mode}: ${scope} behind the ownership gate.\n\n`);
+
+  // SELF-BOOTSTRAP. The ownership guard below reads dist/ CSS to know which tokens
+  // are declared, and a generated docs bundle for the HARD RULE #22 style-sink
+  // check. Those are built, not committed — so on a tree that has never been built
+  // the guard fails on the ABSENCE of the very files this script exists to produce,
+  // and its error tells you to delete a security allowlist entry rather than to
+  // build.
+  //
+  // This was originally handled by making every caller run `build:uncommitted`
+  // first. That was the wrong shape and it shipped broken: five CI jobs, the
+  // pre-push hook, the release workflow and the SessionStart hook all call plain
+  // `npm run build` or `npm run build:check`, and every one of them was red on a
+  // cold checkout. An ordering invariant spread across ten surfaces, enforced by
+  // nobody, is a defect generator. It lives here instead, once.
+  //
+  // Only the UNCOMMITTED steps run: generating the committed artifacts too would
+  // make a subsequent --check compare fresh against fresh and pass vacuously.
+  //
+  // CONSTRAINT this creates, and it is load-bearing: an uncommitted step may not
+  // depend on a COMMITTED step's output being freshly generated, because the
+  // bootstrap skips those. Today that holds — build-player-core.js needs
+  // build-anima-player.js's lib/export/anima-player-bundle.generated.mjs, and that
+  // file is committed, so a checkout always has it. If a dependency of an
+  // uncommitted step is ever moved out of git, bootstrap it here too.
+  const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js'];
+  if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
+    process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
+    // BACKGROUND_LABELS first, and this is a dependency, not a speed-up. The main
+    // pipeline starts the four workspace-library dists in the background early and
+    // joins them at build-read-along-core.js; a naive in-order serial loop here
+    // instead ran build-player-core.js BEFORE build-cadenza-lib.js, and player-core
+    // bundles `@workwel/cadenza`, whose entry IS that dist. It failed with
+    // `Could not resolve "@workwel/cadenza"` on a genuinely cold tree — and only
+    // there, because any previously-built dist/ hid it.
+    const bootstrapOrder = [
+      ...STEPS.filter((x) => x.uncommitted && BACKGROUND_LABELS.has(x.label)),
+      ...STEPS.filter((x) => x.uncommitted && !BACKGROUND_LABELS.has(x.label)),
+    ];
+    for (const step of bootstrapOrder) {
+      if (!runStep(step, false)) {
+        process.stderr.write(`\nbuild aborted: bootstrap step ${step.label} failed.\n`);
+        return 1;
+      }
+    }
+    process.stdout.write('\n');
+  }
+
+  // Gate first — a collision fails before anything is (re)generated. Skipped under
+  // --only-uncommitted, which runs precisely to give this guard the files it reads.
+  if (!onlyUncommitted) {
   process.stdout.write(`▸ ${GUARD.label}\n`);
   if (!runStep(GUARD, false)) {
     process.stderr.write('\nbuild aborted: ownership guard failed.\n');
     return 1;
   }
 
+  }
+
   // Read-only preflight gates (font parity, …) — fail before generating.
-  for (const gate of PREFLIGHT) {
+  for (const gate of onlyUncommitted ? [] : PREFLIGHT) {
     process.stdout.write(`▸ ${gate.label}\n`);
     if (!runStep(gate, false)) {
       process.stderr.write(`\nbuild aborted: ${gate.label} failed.\n`);
@@ -208,8 +306,24 @@ async function main(argv) {
 
   // Kick the independent, slow steps off in the background now; everything
   // else still runs serially in its documented order.
-  const backgroundSteps = STEPS.filter((s) => BACKGROUND_LABELS.has(s.label));
-  const foregroundSteps = STEPS.filter((s) => !BACKGROUND_LABELS.has(s.label));
+  const backgroundSteps = steps.filter((s) => BACKGROUND_LABELS.has(s.label));
+  const foregroundSteps = steps.filter((s) => !BACKGROUND_LABELS.has(s.label));
+
+  // The background steps are only ever AWAITED at the join point. If scoping
+  // removed the join step while leaving a background step in, nothing would
+  // await it and its failure would be silently discarded — a check that passes
+  // because it stopped looking. Today all four background steps AND the join
+  // step are built-not-committed, so they leave together and this never fires; it exists
+  // because that is a coincidence of the current tags, not a property anyone
+  // enforced, and the failure it guards is invisible.
+  if (backgroundSteps.length && !foregroundSteps.some((s) => s.script === JOIN_BEFORE_SCRIPT)) {
+    process.stderr.write(
+      `\nbuild aborted: ${backgroundSteps.length} background step(s) are in scope but the ` +
+        `join step (${JOIN_BEFORE_SCRIPT}) is not, so their results would never be awaited. ` +
+        'Fix the uncommitted tags in STEPS so the join step is in scope whenever a background step is.\n',
+    );
+    return 1;
+  }
   const backgroundResults = backgroundSteps.map((step) => ({ step, ok: runStepAsync(step, check) }));
 
   const failed = [];

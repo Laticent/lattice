@@ -1,17 +1,15 @@
 # build output
 dist/
-# ...except the committed, freshness-gated library dists (node-consumable CJS +
-# .d.ts, built by tools/build-{cadenza,vetrina,lente,suono}-lib.js; the `dist/` rule above
-# matches at any depth, so re-include the full path — a bare `!dist/` under an
-# ignored parent won't work). See 2026-07-08-library-shape-cadenza-vetrina.md.
-!src/lib/cadenza/dist/
-!src/lib/cadenza/dist/**
-!src/lib/vetrina/dist/
-!src/lib/vetrina/dist/**
-!src/lib/lente/dist/
-!src/lib/lente/dist/**
-!src/lib/suono/dist/
-!src/lib/suono/dist/**
+# The library dists (node-consumable CJS + .d.ts, built by
+# tools/build-{cadenza,vetrina,lente,suono}-lib.js) USED to be re-included here and
+# committed. They are not any more — like dist/ at the root, they are built, not
+# committed: two PRs that both regenerated them conflicted in the merge queue with
+# certainty. `npm run build` produces them; CI and the SessionStart hook build before
+# anything reads them. The `dist/` rule above now covers them, which is why the eight
+# `!src/lib/*/dist/**` negations that stood here are gone — leaving them would have
+# silently kept 47 files tracked and undone the change at the root.
+# See 2026-08-17-generated-bundles-uncommitted.md, and
+# 2026-07-08-library-shape-cadenza-vetrina.md for why they exist at all.
 # generated types
 .astro/
 # portal copies staged from ../docs by scripts/sync-portal.mjs

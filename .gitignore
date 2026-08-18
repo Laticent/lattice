@@ -106,3 +106,21 @@ themes/*.html
 # moment its render finishes, so these only exist mid-run; ignored so a sweep in flight
 # cannot be mistaken for work to commit.
 *.darksweep.tmp.md
+
+# ── Generated bundles: BUILT, not committed (2026-08-17) ─────────────────────
+# `npm run build` produces these in ~16s with no browser. They were committed
+# until the merge queue made that untenable: the minified files run ~9.6 KB per
+# LINE, so any two PRs that regenerated them conflicted with certainty and the
+# queue ejected one, silently clearing its auto-merge flag. 43 of the last 50
+# commits touched dist/.
+#
+# Keeping them committed was considered and rejected on measurement: the only
+# reason to was that people might fetch them from the repo, and jsDelivr's public
+# stats show 2 lifetime /gh/ hits, both against an immutable commit SHA (which
+# keeps resolving regardless). The npm package is unaffected — `files` carries
+# dist/ and the tarball is built at publish.
+# See engineering/decisions/2026-08-17-generated-bundles-uncommitted.md
+dist/
+docs/public/playground/
+docs/src/playground/*.generated.js
+docs/src/lib/*/dist/

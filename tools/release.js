@@ -110,7 +110,7 @@ function requireCleanTree() {
  */
 function publish() {
   requireCleanTree();
-  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check']);
+  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check', '--exclude-uncommitted']);
 
   const version = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8')).version;
   const tag = `v${version}`;
@@ -232,7 +232,7 @@ function main() {
 
   // Real run from here — require a clean tree and a fresh dist.
   requireCleanTree();
-  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check']);
+  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check', '--exclude-uncommitted']);
 
   // Bump version, roll changelog, rebuild dist.
   run('npm', ['version', next, '--no-git-tag-version']);
@@ -250,7 +250,11 @@ function main() {
   // no zip: the queue squashes this commit into a NEW sha on main, so anything
   // cut here would name a commit that never lands. Phase 2 does both.
   // `changelog.d` stages the fragment DELETIONS the roll just made.
-  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', 'dist', cl.FRAGMENT_DIRNAME]);
+  // NOT 'dist' — the bundles are built, not committed (.gitignore), so staging
+  // them here did nothing but look reassuring. They reach consumers through the
+  // npm tarball, which `prepack` builds and package.json's `files` whitelist
+  // includes regardless of .gitignore (verified: 135 dist/ files in npm pack).
+  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', cl.FRAGMENT_DIRNAME]);
 
   // `npm run build` regenerates 36 artifacts; only those four are the release
   // surface. If it touched anything else the tree was stale before the release

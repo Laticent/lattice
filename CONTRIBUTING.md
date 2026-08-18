@@ -48,7 +48,7 @@ hooks, and CI — lives in [`engineering/development.md`](engineering/developmen
 The short version:
 
 ```sh
-npm install
+npm install            # also builds dist/ — it is generated, not committed
 npm test               # unit suite (inner loop)
 npm run lint
 npm run build          # regenerates dist/ (never hand-edit dist/)
