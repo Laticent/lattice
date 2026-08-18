@@ -474,9 +474,17 @@ and gutter hold. Screenshots in the PR.
 was mutated to RED and back to GREEN before its pass was trusted; the mutations are listed in
 §6.
 
-**UNVERIFIED, stated rather than blurred:** the deployed Cloudflare Pages preview. Chromium
-cannot reach it from this sandbox (the same `ERR_CONNECTION_RESET` #1720 recorded), so every
+**UNVERIFIED, stated rather than blurred:** the deployed Cloudflare Pages preview, so every
 measurement above is against the real built site served locally.
+
+**RETESTED on this branch rather than inherited**, because a limitation carried forward on
+someone else's say-so is exactly the shape HARD RULE #12's retirement was about — a claim
+nobody had re-run since it was written. Against this PR's own deployment
+(`3387ac9d.lattice-docs-5ji.pages.dev`): `curl` returns **200**, and Chromium returns
+**`net::ERR_CONNECTION_RESET`** both bare and with `--proxy-server` pointed at the agent
+proxy plus `--ignore-certificate-errors`. Same asymmetry #1720 recorded, reproduced here.
+So the surface is genuinely out of reach from this sandbox, and "couldn't test" stays
+"couldn't test".
 
 ## 8. What a checker found (HARD RULE #25)
 
