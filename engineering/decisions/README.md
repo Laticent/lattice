@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ☐ [2026-08-18-inspection-oracle-catalog.md](2026-08-18-inspection-oracle-catalog.md) — Asked whether the build leans too hard on visual inspection and whether CSS-based checking could replace it.
 - ⏸ [2026-08-17-codeql-merge-gate.md](2026-08-17-codeql-merge-gate.md) — CodeQL is NOT a required status check on this repo — the "Main Merge Queue" ruleset requires exactly one context, `ci`, so a red CodeQL…
 - ☐ [2026-08-11-palette-concat-signoff.md](2026-08-11-palette-concat-signoff.md) — The sign-off package #1527 asked for, and it changes the recommendation.
 - ◐ [2026-08-11-per-theme-texture-ramp.md](2026-08-11-per-theme-texture-ramp.md) — #1562's blocker was supply-side: only four texture sets exist and each bakes a literal ramp for one palette, so a generated theme could…
