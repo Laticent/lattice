@@ -99,6 +99,38 @@ jobs:
           done
           echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
 
+      # CONTRAST OF THE REAL EXPORTED PLAYER, in both scheme states, with every backdrop
+      # sampled from rendered pixels rather than modelled from the ancestor chain. The two
+      # cheaper contrast gates cannot answer this question:
+      #   contrast-audit   scores a palette's own token matrix — 0.3s, no browser
+      #   composed-contrast models the surfaces a component composes — 0.3s, no browser
+      # Both read the SOURCE. Their blind spot is anything the export PIPELINE does to it:
+      # a `light-dark()` pair collapsed to one arm, a selector re-meant by the minifier and
+      # then deleted by the prune (#1645/#1642 — the CSS was correct in both cases and the
+      # shipped artifact was not). That half is gated per-PR by the real-surface test in
+      # test/integration/export/html-player.test.js, which is fast because it drives ONE
+      # deck. This step is the CORPUS half: ~24s per deck (16s export, 8s audit) across
+      # examples/, so it belongs here and nowhere faster.
+      #
+      # It compares against a BLESSED baseline and fails only on a finding that is NEW or
+      # has got WORSE. The corpus's 283 known sub-AA runs are tracked in #1745, not
+      # re-listed nightly — a report that repeats what is already filed is a report people
+      # learn to skim.
+      - name: Player contrast sweep (real export, both schemes, vs baseline)
+        id: contrast
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- player contrast (vs test/oracle/player-contrast.json) ---'
+          } >> "$REPORT"
+          if npm run --silent contrast:player 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # The `code-line-clipped` budgets are five numbers MEASURED in a browser
       # (lib/authoring/lint-core.js CODE_LINE_BUDGET). Their guard re-measures
       # them against a real render — but it skips with no Chromium, and the PR
@@ -158,7 +190,7 @@ jobs:
       # title marker). Self-labelled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true'
+        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

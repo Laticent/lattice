@@ -34,4 +34,9 @@
 - **Added: `tools/check-player-contrast.js`** — a WCAG audit of the real exported
   player in BOTH scheme states, with each backdrop sampled from a screenshot taken
   with the glyphs made transparent. It reuses `check-slide-contrast.js`'s probe, so
-  the two cannot disagree about a ratio. On-demand, not a gate.
+  the two cannot disagree about a ratio. It runs nightly over `examples/` against a
+  blessed baseline (`test/oracle/player-contrast.json`) and fails only on a finding
+  that is new or has got worse; `npm run contrast:player` runs it by hand and
+  `npm run contrast:player:bless` re-records the baseline. The static contrast tools
+  stay the cheap first pass — this one exists for what they structurally cannot see,
+  which is what the export pipeline does to CSS that was already correct.

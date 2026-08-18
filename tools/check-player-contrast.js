@@ -47,13 +47,21 @@
  *     ramp honestly.
  *
  * Usage:
- *   node tools/check-player-contrast.js examples/a11y.md examples/gallery-jargon.md
+ *   node tools/check-player-contrast.js examples/a11y.md      # one deck, full verdict
  *   node tools/check-player-contrast.js --json out.json examples/*.md
  *   node tools/check-player-contrast.js already-exported-player.html
+ *   npm run contrast:player                                   # the corpus, vs the baseline
+ *   npm run contrast:player:bless                             # re-record the baseline
  *
- * A `.md` is exported with `--player` into a temp dir first; a `.html` is opened as
- * given. Exits non-zero if any non-exempt run falls below its AA threshold in either
- * scheme. ON-DEMAND, not a blocking gate — see `engineering/workflow.md`.
+ * A `.md` is exported with `--player` first; a `.html` is opened as given.
+ *
+ * WITHOUT `--baseline` it exits non-zero on any non-exempt sub-AA run — what a human
+ * auditing one deck wants. WITH one it exits non-zero only on a finding that is NEW or has
+ * got WORSE than the blessed record, which is what a scheduled sweep wants: the corpus
+ * carries 283 known sub-AA runs (#1745), tracked there, and re-listing them every night is
+ * how a reader learns to skim past the row that matters. NOT a per-PR gate — a full sweep
+ * is ~24s per deck (16s export, 8s audit) and the pipeline half is already gated per-PR by
+ * the real-surface test in `test/integration/export/html-player.test.js`.
  */
 const fs = require('node:fs');
 const os = require('node:os');
@@ -64,6 +72,8 @@ const { PNG } = require('pngjs');
 const { PROBE } = require('./check-slide-contrast.js');
 
 const ROOT = path.join(__dirname, '..');
+/** Where `--bless` writes and `--baseline` reads when neither is given a path. */
+const DEFAULT_BASELINE = path.join(ROOT, 'test', 'oracle', 'player-contrast.json');
 
 /** WCAG relative luminance / contrast, on 0–255 sRGB triples. */
 const srgb = (c) => {
@@ -78,11 +88,20 @@ const ratio = (a, b) => {
 	return (x + 0.05) / (y + 0.05);
 };
 
-/** Export a deck to a player if given markdown; pass a `.html` through untouched. */
+/**
+ * Export a deck to a player if given markdown; pass a `.html` through untouched.
+ *
+ * The output path is `.html`, NOT `.pdf`. Both produce a byte-identical player — the
+ * emulator writes the player beside whatever it was asked for — but a `.pdf` target also
+ * encodes a PDF this tool never opens. Measured: no wall-clock difference (the cost is the
+ * browser render, the dynamic-component bake and the CSS prune, which the player needs
+ * either way), so this buys disk and honesty rather than time — about 50 MB of PDFs per
+ * full sweep that nothing reads.
+ */
 function playerFor(input) {
 	if (input.endsWith('.html')) return path.resolve(input);
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-player-contrast-'));
-	const out = path.join(dir, `${path.basename(input, '.md')}.pdf`);
+	const out = path.join(dir, `${path.basename(input, '.md')}.html`);
 	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), input, out, '--quiet', '--player'], {
 		cwd: ROOT,
 		encoding: 'utf8',
@@ -90,7 +109,7 @@ function playerFor(input) {
 		timeout: 600000,
 	});
 	if (r.status !== 0) throw new Error(`export failed for ${input}: ${r.stderr || r.stdout}`);
-	return out.replace(/\.pdf$/, '.html');
+	return out;
 }
 
 /**
@@ -232,6 +251,53 @@ async function auditPlayer(browser, file) {
 	return [...asExported, ...after];
 }
 
+/**
+ * The identity of a finding, stable across runs but blind to the ratio.
+ *
+ * Deck, scheme state, page, slide classes, tag and the run's own text — everything that says
+ * WHICH run this is, and nothing that says how bad it is. The ratio is compared separately,
+ * so a known row that gets WORSE is a regression while the same row unchanged is not news.
+ * Text is included because two runs can share every other field on one slide; it is truncated
+ * by `PROBE` already, so the key stays bounded.
+ */
+const findingKey = (row) => [row.deck, row.state, row.page, row.cls || '', row.tag, String(row.text)].join('|');
+
+/**
+ * Compare a sweep against a blessed baseline and return only what MOVED.
+ *
+ * WHY A BASELINE AT ALL. A scheduled sweep that re-reports every known failure every night is
+ * a wall of rows nobody reads, and this repo has already written down what that costs: a
+ * reader who learns to skim past known-bogus rows is exactly the reader who skims past a real
+ * one (`check-slide-contrast.js`, on its own exempt tier). The corpus carries 283 sub-AA runs
+ * today (#1745) and they are tracked there, not here. So the nightly's question is not "how
+ * many are there" but "did tonight add one, or make one worse".
+ *
+ * FIXED rows are reported too, and deliberately: they are the signal that the baseline is
+ * stale and wants re-blessing, and without them a fix looks identical to a deck being skipped.
+ *
+ * @param {{deck: string}[]} rows every sub-AA run this sweep found
+ * @param {Record<string, number>} baseline key → ratio, from a previous `--bless`
+ */
+function diffBaseline(rows, baseline) {
+	const seen = new Map();
+	for (const row of rows) {
+		const key = findingKey(row);
+		// Same run measured twice (two identical text runs on one slide) — keep the worse.
+		if (!seen.has(key) || row.r < seen.get(key).r) seen.set(key, row);
+	}
+	const added = [];
+	const worse = [];
+	for (const [key, row] of seen) {
+		if (!(key in baseline)) added.push(row);
+		// A 0.05 band, not equality: the backdrop is sampled from rendered pixels, so a
+		// sub-pixel layout shift between runs can move a ratio in the third decimal without
+		// anything having changed. Below that band this would cry wolf every night.
+		else if (row.r < baseline[key] - 0.05) worse.push({ ...row, was: baseline[key] });
+	}
+	const fixed = Object.keys(baseline).filter((key) => !seen.has(key));
+	return { added, worse, fixed, current: Object.fromEntries([...seen].map(([key, row]) => [key, row.r])) };
+}
+
 function report(name, rows) {
 	const failing = rows.filter((x) => !x.exempt && x.r < x.need);
 	const exempt = rows.filter((x) => x.exempt && x.r < x.need);
@@ -260,11 +326,18 @@ function report(name, rows) {
 async function main() {
 	const argv = process.argv.slice(2);
 	let jsonOut = null;
+	let baselinePath = null;
+	let bless = false;
+	let quiet = false;
 	const inputs = [];
 	for (let i = 0; i < argv.length; i++) {
 		if (argv[i] === '--json') jsonOut = argv[++i];
+		else if (argv[i] === '--baseline') baselinePath = argv[++i];
+		else if (argv[i] === '--bless') bless = true;
+		else if (argv[i] === '--quiet') quiet = true;
 		else inputs.push(argv[i]);
 	}
+	if (bless && !baselinePath) baselinePath = DEFAULT_BASELINE;
 	if (!inputs.length) {
 		console.error('usage: node tools/check-player-contrast.js [--json out.json] <deck.md|player.html> ...');
 		process.exit(2);
@@ -274,6 +347,7 @@ async function main() {
 		args: ['--no-sandbox', '--font-render-hinting=none'],
 	});
 	const all = [];
+	const findings = [];
 	let failed = 0;
 	try {
 		for (const input of inputs) {
@@ -286,18 +360,51 @@ async function main() {
 				continue;
 			}
 			const rows = await auditPlayer(browser, file);
-			const bad = report(path.basename(input), rows);
+			const name = path.basename(input).replace(/\.(md|html)$/, '');
+			const bad = quiet ? rows.filter((x) => !x.exempt && x.r < x.need) : report(name, rows);
 			failed += bad.length;
-			all.push({ deck: path.basename(input), rows });
+			for (const row of bad) findings.push({ ...row, deck: name });
+			all.push({ deck: name, rows });
 		}
 	} finally {
 		await browser.close();
 	}
 	if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify(all, null, '\t')}\n`);
-	console.log(`\n${'='.repeat(90)}\n${all.reduce((n, d) => n + d.rows.length, 0)} runs across ${all.length} deck(s) · ${failed} below AA\n`);
-	process.exit(failed ? 1 : 0);
+	const runs = all.reduce((n, d) => n + d.rows.length, 0);
+	console.log(`\n${'='.repeat(90)}\n${runs} runs across ${all.length} deck(s) · ${failed} below AA`);
+
+	// No baseline asked for: the raw verdict, which is what a human running this by hand on
+	// one deck wants.
+	if (!baselinePath) {
+		console.log('');
+		process.exit(failed ? 1 : 0);
+	}
+
+	if (bless) {
+		const blessed = Object.fromEntries(findings.map((row) => [findingKey(row), row.r]));
+		fs.writeFileSync(baselinePath, `${JSON.stringify(blessed, null, '\t')}\n`);
+		console.log(`blessed ${Object.keys(blessed).length} known finding(s) into ${path.relative(ROOT, baselinePath)}\n`);
+		process.exit(0);
+	}
+
+	// An ABSENT baseline is not an empty one. Treating it as `{}` would report every known
+	// finding in the corpus as NEW — a few hundred rows on the first run, which is both
+	// useless and indistinguishable from a real regression. Say what is actually wrong.
+	if (!fs.existsSync(baselinePath)) {
+		console.error(`\nno baseline at ${path.relative(ROOT, baselinePath)} — record one with \`npm run contrast:player:bless\`\n`);
+		process.exit(2);
+	}
+	const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+	const { added, worse, fixed } = diffBaseline(findings, baseline);
+	console.log(`baseline ${path.relative(ROOT, baselinePath)}: ${Object.keys(baseline).length} known · ${added.length} new · ${worse.length} worse · ${fixed.length} fixed\n`);
+	for (const row of added) console.log(`  NEW    ${row.deck} p${row.page} ${row.cls || '—'} ${row.tag} ${row.r.toFixed(2)}:1 (need ${row.need})  "${row.text}"`);
+	for (const row of worse) console.log(`  WORSE  ${row.deck} p${row.page} ${row.cls || '—'} ${row.tag} ${row.was.toFixed(2)} → ${row.r.toFixed(2)}:1  "${row.text}"`);
+	if (fixed.length) console.log(`\n  ${fixed.length} baseline finding(s) no longer reproduce — re-bless with \`npm run contrast:player:bless\` once the fix has landed.`);
+	console.log('');
+	// FIXED rows do NOT fail. A sweep is only ever asked whether tonight made things worse.
+	process.exit(added.length || worse.length ? 1 : 0);
 }
 
-module.exports = { sampleBackdrop, ratio, over, HIDE_INK };
+module.exports = { sampleBackdrop, ratio, over, HIDE_INK, findingKey, diffBaseline, DEFAULT_BASELINE };
 
 if (require.main === module) main();
