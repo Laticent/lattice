@@ -3108,7 +3108,7 @@ async function renderBody(browser, g, closeBrowser) {
         paint(p);
       }, { p: paints, paintSrc: PAINT_ROUGH_INK_SRC }), 'paint rough ink');
     } catch (e) {
-      console.warn(`  ⚠ sketch ink skipped — ${e && e.message ? e.message : e}`);
+      console.warn(`  ⚠ sketch ink skipped — ${e?.message ? e.message : e}`);
       console.warn('    The slides render with the CSS fallback rules instead of drawn strokes.');
     }
   }
