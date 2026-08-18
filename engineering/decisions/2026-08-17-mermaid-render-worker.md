@@ -127,14 +127,30 @@ shape exactly as the `mmdc` shell-out had it, so nothing upstream became async. 
 alternative — threading `await` up through a 4400-line CJS entry point — would have
 been a far larger diff for no user-visible gain.
 
-**Off-sketch geometry moves.** Loading the real JetBrains Mono instead of measuring in
-the `monospace` generic shifts existing diagrams by 0.45–1.13 user units on 150–373-unit
-diagrams; sequence diagrams are unaffected. The alternative was to inject faces only
-under `sketch`, which would have kept every existing deck byte-identical. **We chose the
-single code path**: a conditional "load fonts only sometimes" leaves the mono path
-measuring against a coincidence, and the whole point of this change is that measure and
-paint agree. The shift is toward correctness — the box now matches what the host page
-paints — and it went through export sign-off with the rest of the change.
+**Off-sketch diagrams RESIZE, and the first version of this paragraph understated it by
+roughly 40x.** Two different effects were conflated, and the smaller one got written down:
+
+1. *Loading the real JetBrains Mono* instead of measuring in the `monospace` generic —
+   0.45–1.13 user units on 150–373-unit diagrams, 0.2–0.4%. That is what the original
+   figure measured, holding the face constant.
+2. *Changing the face* from mono to the deck's body sans, which is what the change
+   actually does off sketch. A proportional face sets narrower labels than mono, and a
+   Mermaid node is sized from its label. Measured origin/main against HEAD on three
+   committed decks: **node widths 3–16% narrower**, the widest labels moving most
+   (`mermaid-diagram-surface` −3.9% / −12.0% / −15.9%; `containment-tier` −3.1% to
+   −11.2%; `per-slide-diagram-band` −3.8% / −8.0%).
+
+Effect 2 dominates and is a visible typography change to every existing deck's diagrams,
+not a rounding shift. Caught by the adversarial trio's checker, which noticed the note
+contradicted its own changelog bullet. Recorded plainly because a reviewer sizing the
+blast radius from the wrong number would sign off on the wrong thing.
+
+The alternative was to inject faces only under `sketch`, which would have kept every
+existing deck byte-identical. **We chose the single code path**: a conditional "load fonts
+only sometimes" leaves the mono path measuring against a coincidence, and the whole point
+of this change is that measure and paint agree. Every committed diagram PDF in the repo
+was re-rendered in the same change, and the resize was put in front of the human at
+export sign-off with these numbers rather than the earlier ones.
 
 ## What the change let us DELETE
 
@@ -331,3 +347,89 @@ diverges in place. The typographic case, stated plainly since the record did not
 a diagram label is prose about the system, not notation *of* it, and it should read in
 the same voice as the slide around it. Mono was a workaround for a measurement
 constraint, and the constraint is gone.
+
+## What the red team caught — and why the verification harness was the worst of it
+
+The red team attacked the shipped worker rather than reading it. Six findings landed; two
+were HIGH and both are regressions this change would otherwise have introduced.
+
+**S1 — a dead render page reported as a successful batch.** `renderAll` returned
+`ok: true` unconditionally, because `renderOne` catches everything. So a browser that died
+mid-batch produced N per-diagram failures inside a *successful* payload: the caller's
+`if (!out.ok …) return null` never fired, the retrying one-at-a-time path was skipped, and
+every failed index became a `<pre>`. Measured — a renderer killed 4 s into an 80-diagram
+batch lost **70 of 80 diagrams and exited 0**. Not one of those errors was a diagram
+error; they were `detached Frame`, `Target closed`, `Execution context was destroyed`,
+i.e. exactly the class the retry exists for.
+
+Fixed by classifying: `isFatalPageError` separates transport failures from mermaid parse
+errors, and a fatal one ends the batch with `ok: false` so the caller retries. Re-run
+against the same attack: `payload ok = False`, aborts at diagram 27 of 60 instead of
+grinding through all of them.
+
+**S2 — no timeout at any layer, and the blast radius had grown.** Puppeteer's default
+`protocolTimeout` is 180 s *per call*, `page.$eval` had no budget, and the caller's
+`execFileSync` had none either. Observed: three diagrams burning 540 s of dead wall clock
+in one batch, and a re-run still hung at **11 minutes**. `mmdc` had the same gap, but it
+booted a browser per diagram — one wedge cost one diagram. Sharing one page across the
+deck converted that into the whole deck, which is a blast-radius regression this change
+created. Now bounded at both layers (60 s per CDP call; a batch-size-scaled budget on the
+child), so the attack finishes in 66 s and degrades instead of hanging.
+
+**S4 — the harness that verified this whole change could not detect the bug it verified.**
+The one worth dwelling on. `tools/check-diagram-labels.js` compared `scrollWidth` to
+`clientWidth` on the label — but mermaid's `.nodeLabel` is a `display: inline` span, where
+both are **always 0**. The `clipped` counter was structurally 0 on every deck ever run
+through it, including a deliberately broken one. Every "0 clipped" in this record's
+earlier drafts was vacuous.
+
+The replacement compares the painted label's `getBoundingClientRect()` against its
+`<foreignObject>`, which is the actual invariant: mermaid sizes the box from what it
+measures, so when measure and paint share a face the two are **0.00 apart**, exactly.
+Measured on the same flowchart — injected 180.84 / 180.84 → 0.00; suppressed
+180.84 / 183.30 → 2.45.
+
+Two things fell out of fixing it, and neither would have been found otherwise:
+
+- **The fix's real effect is now measurable.** Same deck, same harness: `origin/main`
+  renders **13 of 24 labels mismeasured**; this branch renders **0 of 24**. Ten of those
+  thirteen were the sub-pixel mono/`monospace`-generic drift, which is the 0.2–0.4% effect
+  — visible at last, and gone.
+- **A real clipping bug, pre-existing, in the demo deck.** The other three were gross
+  (163.89 units off) and produced visibly truncated labels — "Raw Signals from the field"
+  painted as "Raw Signals from". Cause: a diagram on a slide whose layout is `content`
+  rather than `diagram`; the demo deck's opt-out slide said `_class: boardroom` where
+  every other diagram slide says `_class: diagram …`. Present identically on
+  `origin/main` (worse, at 163.89 vs 141.92), so pre-existing — but it was about to ship
+  inside this PR's own committed demo PDF, which is a window this change would have
+  created. The deck now uses the documented `_class: diagram boardroom` pairing and the
+  slide measures clean.
+
+  **The underlying defect is logged, not fixed** (HARD RULE #18, pre-existing and
+  off-path): *a Mermaid diagram on a non-`diagram` slide layout has its labels painted
+  ~1.5× the size its box was measured for.* That is slide-layout sizing, a different
+  subsystem from the font plumbing, and pulling it in would blur what this diff is for.
+
+Three smaller ones, all fixed: **S3** — `resolveBundles` derived one directory from where
+`mermaid` happened to land, so under a nested layout (a consumer app pinning its own
+mermaid) both candidates collapsed to the same wrong path and *every* diagram degraded; it
+now probes `require.resolve.paths`. **S5** — the new `fontsLoaded` guard deduped by
+family, so a missing *weight* was invisible, which is the likely failure since mermaid sets
+cluster titles and bold runs at 700; it reports `family|weight|style` now. **S6** — the
+restored registrations were guarded `if (zenuml)`, which re-armed the exact silent skip
+they were added to fix; they throw instead.
+
+One **pre-existing** defect was fixed rather than logged, against the usual rule: the
+`<pre class="mermaid-fallback">` degradation interpolated the diagram source unescaped, so
+a fence body of `</pre><img src=x onerror=…>` landed live in the exported HTML sidecar
+(verified). Identical on `origin/main` and off-path — but it is one call to a helper that
+already existed, and this change makes the path materially easier to reach. Fixing beat
+logging at that size.
+
+**Logged, not fixed** (off-path, both verified identical on `origin/main`): the `my-svg`
+id-isolation substitution rewrites author-visible label text (a node labeled
+`the my-svg identifier` exports as `the lattice-mmd-1 identifier`); and mermaid's
+module-level id counters (`actorCnt`, class ids, sankey node ids) leak across renders in
+the shared page, so sequence and sankey ids depend on batch position. The latter is worth
+a closer look than it got here — within a batch the drift accidentally *prevents* a
+duplicate-id collision that the one-at-a-time path still has.

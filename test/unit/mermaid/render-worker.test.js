@@ -147,6 +147,59 @@ describe('render worker: contract', () => {
   });
 });
 
+describe('render worker: a dead page is not a diagram error', () => {
+  const { isFatalPageError } = require(WORKER);
+
+  test('transport-level failures are classified fatal, author errors are not', () => {
+    // THE WORST BUG IN THE FIRST CUT OF THIS FILE. `renderOne` catches everything, so a
+    // browser that died mid-batch produced N per-diagram failures inside an `ok: true`
+    // payload — the caller saw a successful batch, skipped the retrying fallback, and
+    // shipped a PDF with a hole in it. Measured by the adversarial trio's red team: a
+    // renderer killed 4s into an 80-diagram batch lost 70 of 80 diagrams and exited 0.
+    //
+    // The distinction has to be made on the message, because Puppeteer surfaces both
+    // through the same throw. Every string below is one the red team actually observed.
+    for (const fatal of [
+      "Attempted to use detached Frame '6A41'.",
+      'Protocol error (Runtime.callFunctionOn): Target closed',
+      'Runtime.callFunctionOn timed out. Increase the protocolTimeout.',
+      'Execution context was destroyed, most likely because of a navigation.',
+      'Session closed. Most likely the page has been closed.',
+    ]) {
+      assert.equal(isFatalPageError(fatal), true, `must be fatal: ${fatal}`);
+    }
+    // …and an authoring mistake must NOT be, or one typo costs three Chromium boots to
+    // reach the same verdict and the batch loses its whole point.
+    for (const authorError of [
+      'Parse error on line 2:\n...flowchart TB\n  BROKEN (((',
+      'No diagram type detected matching given configuration for text: grafh TD',
+      'Maximum text size in diagram exceeded',
+    ]) {
+      assert.equal(isFatalPageError(authorError), false, `must NOT be fatal: ${authorError}`);
+    }
+  });
+
+  test('the classifier is wired into the batch result, not just exported', () => {
+    // A pure predicate nothing calls is the same bug with extra steps.
+    const src = fs.readFileSync(WORKER, 'utf8');
+    assert.match(src, /isFatalPageError\(result\.error\)/,
+      'renderAll must consult the classifier after a per-diagram failure');
+    assert.match(src, /return \{ ok: false, error: `render page died mid-batch/,
+      'a fatal page error must make the whole payload ok:false, so the caller retries');
+    assert.match(src, /protocolTimeout: PROTOCOL_TIMEOUT_MS/,
+      'the CDP calls must be bounded — one page serves the whole deck, so an unbounded '
+      + 'wedge stalls every remaining diagram behind it');
+  });
+
+  test('the caller bounds the child process too', () => {
+    // The worker bounds its own CDP calls, but a child that wedges before it can report
+    // leaves the caller's synchronous `execFileSync` blocked with no budget at all.
+    const emulator = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
+    assert.match(emulator, /execFileSync\(process\.execPath, \[MERMAID_WORKER, jobFile\], \{[^}]*timeout \}/,
+      'the worker spawn must carry a timeout');
+  });
+});
+
 describe('render worker: behavior', { skip: CHROME ? false : 'no CHROME_PATH — set it to run the real render' }, () => {
   const FLOW = 'flowchart TB\n  A["Raw Signals from the field"] --> B["Decision Log"]';
 
@@ -183,21 +236,33 @@ describe('render worker: behavior', { skip: CHROME ? false : 'no CHROME_PATH —
       + 'is being accumulated onto instead of replacing the site config');
   });
 
-  test('the hand face measures WIDER than the un-injected fallback — fonts really loaded', () => {
-    // The measurement at the heart of #1674, reduced to one assertion. Without the
-    // injected faces Mermaid sized this label's box in a fallback face ~20% narrow, and
-    // the host page then painted the real face into it, clipping mid-word. If the fonts
-    // stopped loading, the box would shrink back and this goes red.
-    const hand = { fontFamily: "'Shantell Sans', system-ui, sans-serif", fontSize: '14px' };
-    const out = runWorker([{ definition: FLOW, config: engineInitConfig(hand) }]);
-    assert.equal(out.results[0].ok, true);
-    const svg = out.results[0].svg;
-    assert.match(svg, /Shantell Sans/, 'the hand family must reach the rendered SVG');
-    const width = Number(/viewBox="[\d.]+ [\d.]+ ([\d.]+)/.exec(svg)[1]);
-    // Measured on the un-injected fallback: 213.83. With the real face loaded: 243.08.
-    // The floor sits between them, well clear of either.
-    assert.ok(width > 228,
-      `flowchart measured ${width} user units wide — that is the un-injected fallback's `
-      + 'geometry, so the @font-face block is not reaching the render page');
+  test('the injected faces are actually LOADED in the render page', () => {
+    // THE ASSERTION THIS REPLACES DID NOT WORK, and how it failed is worth keeping. It
+    // rendered a flowchart in the hand face and asserted the box came back wider than a
+    // threshold calibrated from an earlier probe (213.83 un-injected vs 243.08 injected).
+    // Those numbers came from a probe with different flowchart config; against the real
+    // `engineInitConfig` both arms land near 257, so REMOVING THE FONT INJECTION ENTIRELY
+    // left the test green. The adversarial trio's checker caught it by mutation.
+    //
+    // The repair is to stop inferring the fonts from geometry and ask the page. The worker
+    // now reports the families that reached `status === 'loaded'`, which is the property
+    // that actually matters: a declared-but-unloaded face measures as its fallback, and
+    // that is #1674 exactly. No threshold, nothing to go stale.
+    const out = runWorker([
+      { definition: FLOW, config: engineInitConfig({ fontFamily: '"JetBrains Mono", monospace', fontSize: '14px' }) },
+    ]);
+    assert.ok(Array.isArray(out.fontsLoaded), 'the worker must report the faces it loaded');
+    // PER FACE (`family|weight|style`), not per family: a family whose 400 loaded and
+    // whose 700 did not would pass a family-level check while mermaid measured cluster
+    // titles and bold runs against synthetic bold.
+    const { TEXT_FACES } = require('../../../lib/fonts/text-faces.js');
+    const loaded = new Set(out.fontsLoaded);
+    const missing = TEXT_FACES
+      .filter((f) => !loaded.has(`${f.family}|${f.weight}|${f.style}`))
+      .map((f) => `${f.family} ${f.weight} ${f.style}`);
+    assert.deepEqual(missing, [],
+      `these engine faces were declared but not loaded when the render began: ${missing.join(', ')}. `
+      + 'Mermaid measures against what is LOADED, so an unloaded face means labels sized in one '
+      + 'face and painted in another — #1674, reintroduced.');
   });
 });

@@ -97,7 +97,7 @@ classDiagram
 
 ---
 
-<!-- _class: boardroom -->
+<!-- _class: diagram boardroom -->
 <!-- _header: "Lattice · sketch diagram labels · opted out" -->
 
 `Per-slide opt-out`

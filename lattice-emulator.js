@@ -695,6 +695,12 @@ const { resolveDiagramBand } = require('./lib/core/diagram-band');
 // The look question, the band question's sibling — same inputs, same per-slide walk.
 // See lib/core/diagram-look.js for why it is decided HERE and not in CSS.
 const { resolveDiagramLook, resolveDiagramHandType, paletteUsesTextureChannel } = require('./lib/core/diagram-look');
+// Hoisted ABOVE the mermaid pre-pass, which runs at module-evaluation time. Declared with
+// the other font plumbing further down, these were in the TDZ when `warnOnUnloadedFaces`
+// fired — the same trap `escAttrLocal` documents a few hundred lines below, and it
+// surfaced the same way: a misleading "Mermaid render failed" for a bug in our own code.
+const { fontFaceCss } = require('./lib/fonts/face-css.js');
+const { TEXT_FACES } = require('./lib/fonts/text-faces.js');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
 // decides no policy.
@@ -1210,7 +1216,48 @@ function renderMermaidOne(definition, themeVars, extraClass, look) {
     if (attempt < MAX_ATTEMPTS) execSync('sleep 1');
   }
   console.warn(`  ⚠ Mermaid render failed: ${String(lastError).split('\n')[0]}`);
-  return `<pre class="mermaid-fallback">${definition}</pre>`;
+  return mermaidFallbackPre(definition);
+}
+
+/**
+ * The degradation block for a diagram that could not render, with its source ESCAPED.
+ *
+ * It was interpolated raw on both paths, which put author markup straight into the
+ * exported `.html` sidecar and into the page Puppeteer rasterizes — a fence body of
+ * `</pre><img src=x onerror=…>` executed there, verified. Pre-existing (identical on
+ * `origin/main`) and off the path of #1674, so by HARD RULE #18 it would be logged rather
+ * than fixed — except that it is one call, the helper already existed a few lines up, and
+ * #1674 makes this path materially easier to reach (a batch that used to fall back and
+ * retry now degrades in place). Fixing beats logging when the fix is this small.
+ *
+ * `escAttrLocal` rather than the module's `escapeHtml`: same TDZ reason as its own
+ * docstring gives — the mermaid pre-pass runs during module evaluation.
+ */
+function mermaidFallbackPre(definition) {
+  return `<pre class="mermaid-fallback">${escAttrLocal(definition)}</pre>`;
+}
+
+/**
+ * A face that is DECLARED but never LOADS is the #1674 bug wearing a disguise: the
+ * diagram still renders, Mermaid just measured it in a fallback and the deck then paints
+ * it in the real face. Nothing about the output looks wrong until a label overflows its
+ * box. The worker reports what actually reached `status === 'loaded'`, so say something
+ * the one time it does not — once per run, naming the faces, rather than per diagram.
+ */
+let warnedUnloadedFaces = false;
+function warnOnUnloadedFaces(out) {
+  if (warnedUnloadedFaces || !out || !Array.isArray(out.fontsLoaded)) return;
+  // PER FACE, not per family. A family with its 400 present and its 700 missing would pass
+  // a family-level check while mermaid measured cluster titles and bold runs against
+  // synthetic bold — the same measure/paint split one weight down.
+  const loaded = new Set(out.fontsLoaded);
+  const missing = TEXT_FACES
+    .filter((f) => !loaded.has(`${f.family}|${f.weight}|${f.style}`))
+    .map((f) => `${f.family} ${f.weight}${f.style === 'italic' ? ' italic' : ''}`);
+  if (!missing.length) return;
+  warnedUnloadedFaces = true;
+  console.warn(`  ⚠ Mermaid render page did not load: ${missing.join(', ')} — diagram labels in `
+    + 'those faces were measured against a fallback and may not fit their nodes.');
 }
 
 /**
@@ -1250,14 +1297,22 @@ function runMermaidWorker(requests) {
         }),
       })),
     }));
-    execFileSync(process.execPath, [MERMAID_WORKER, jobFile], { stdio: ['ignore', 'ignore', 'pipe'] });
-    return JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    // A BUDGET, because there was none. The worker bounds its own CDP calls, but a child
+    // that wedges before it can report leaves this synchronous call blocked forever — and
+    // `mmdc` had the same gap with a fraction of the blast radius, because it booted a
+    // browser per diagram. Scaled by batch size so a large deck is not cut off mid-render;
+    // on expiry `execFileSync` throws, the catch below degrades, and the caller retries.
+    const timeout = Math.max(120_000, 15_000 * requests.length);
+    execFileSync(process.execPath, [MERMAID_WORKER, jobFile], { stdio: ['ignore', 'ignore', 'pipe'], timeout });
+    const out = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    warnOnUnloadedFaces(out);
+    return out;
   } catch (e) {
     // The worker writes its result file even when the browser never came up, so prefer
     // that over the process error — it carries the real reason.
     try {
       const parsed = JSON.parse(fs.readFileSync(path.join(tmpDir, 'out.json'), 'utf8'));
-      if (parsed && Array.isArray(parsed.results)) return parsed;
+      if (parsed && Array.isArray(parsed.results)) { warnOnUnloadedFaces(parsed); return parsed; }
     } catch (_e) { /* fall through to the process-level error */ }
     return { ok: false, error: String(e?.message ? e.message : e).split('\n')[0], results: [] };
   } finally {
@@ -1381,7 +1436,7 @@ function renderMermaidBatch(requests) {
     // One fence failed to parse. Degrade THIS diagram only — and say which, because the
     // batch used to be silent about it (the whole run just got slower).
     console.warn(`  ⚠ Mermaid render failed for one diagram: ${String(r.error).split('\n')[0]}`);
-    return `<pre class="mermaid-fallback">${requests[i].definition}</pre>`;
+    return mermaidFallbackPre(requests[i].definition);
   });
 }
 
@@ -2038,7 +2093,6 @@ aside.lattice-notes { display: none !important; }
 // the Mermaid render worker's page — three copies of "walk the manifest, find the woff2,
 // base64 it, emit a rule" is how the `font-display` value or the directory fallback drift
 // apart with nothing watching (HARD RULE #15).
-const { fontFaceCss } = require('./lib/fonts/face-css.js');
 
 // The PDF page's embedded block: every face, wrapped in a <style>. Covers the full engine
 // type stack — display serif (Playfair, incl. italics), body sans (Outfit), mono
