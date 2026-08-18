@@ -141,6 +141,23 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * Class names verified against rendered SVG output on Mermaid 11.14.
  * ════════════════════════════════════════════════════════════════════════ */
 
+/* ── TYPE ESCAPE: SEQUENCE AUTONUMBER ──
+ * Every other diagram family takes its face from config — the global
+ * `themeVariables.fontFamily`, or its own block's `*FontFamily` keys, which
+ * `perDiagramFonts` fills in (lib/integrations/mermaid/init-directive.js).
+ * `autonumber` is the one label mermaid hard-codes past all of it: the bubble's
+ * <text> is written with a `font-family="sans-serif"` PRESENTATION ATTRIBUTE
+ * (mermaid/dist/chunks/mermaid.core/sequenceDiagram-*.mjs, `.attr("font-family",
+ * "sans-serif")`), so no config key can reach it. A presentation attribute loses to
+ * any CSS rule, so one element-specificity rule is the whole fix, and it is a rule
+ * rather than a config change because there is no config to change.
+ *
+ * It surfaced when tools/check-diagram-labels.js started comparing each label
+ * against its own slide's --font-body instead of a denylist of famous default face
+ * names: two labels per autonumbered sequence on a `mode: sketch` deck were in
+ * generic sans-serif while every other word on the slide was hand-drawn. */
+:is(section, figure) text.sequenceNumber { font-family: var(--font-body); }
+
 /* ── DIAGRAM TITLE SUPPRESSION ──
  * The slide's `## heading` is the canonical title. Hide Mermaid's own
  * title (frontmatter `title:` or in-body `title`) so the audience sees one

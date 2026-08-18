@@ -29,7 +29,8 @@ const { execFileSync } = require('node:child_process');
 const REPO = path.join(__dirname, '..', '..', '..');
 const WORKER = path.join(REPO, 'lib', 'integrations', 'mermaid', 'render-worker.js');
 const { engineInitConfig } = require('../../../lib/integrations/mermaid/init-directive');
-const CHROME = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null;
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
+const CHROME = resolveChrome();
 
 /** One minimal, VALID definition per family the engine's `MERMAID_KINDS` recognizes. */
 const FAMILIES = {
@@ -86,7 +87,7 @@ function roughNodes(svg) {
   return ((svg || '').split('</style>').pop().match(/class="[^"]*rough-node/g) || []).length;
 }
 
-describe('which families honor look: handDrawn', { skip: CHROME ? false : 'no CHROME_PATH' }, () => {
+describe('which families honor look: handDrawn', { skip: skipWithoutChrome(CHROME) }, () => {
   test('every family still renders — a broken fixture would read as "ignores look"', () => {
     // The failure mode this guards: a definition that stops parsing on a Mermaid upgrade
     // produces no SVG, hence no rough nodes, hence a silent demotion out of the list.

@@ -55,13 +55,6 @@
      variant. */
   --font-display: 'Playfair Display', Georgia, serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   --font-body:    'Outfit', system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
-  /* Stable handle to the CLEAN body face. The `sketch` finish re-points
-     --font-body itself at the hand sans (so every component that pulls
-     var(--font-body) goes hand regardless of selector specificity); this
-     alias preserves the engine face so `sketch-clean-body` can restore it.
-     Computed at :root, so it stays the clean stack even where --font-body
-     is overridden downstream. */
-  --font-body-clean: var(--font-body);
   --font-mono:    'JetBrains Mono', 'Courier New', monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   /* The "label voice" — small uppercase tracked labels (eyebrows, table
      column headers, stat sub-labels, KEY INSIGHT, running header/footer).

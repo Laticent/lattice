@@ -30,10 +30,11 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
-const CHROME = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null;
+const CHROME = resolveChrome();
 const TIMEOUT = 180000;
 
 const DIAGRAM = '```mermaid\nflowchart LR\n  A["Alpha node"] --> B["Beta node"]\n```';
@@ -161,7 +162,7 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
   });
 });
 
-describe('diagram font parity — the baked face IS the cascade\'s face', { skip: CHROME ? false : 'no CHROME_PATH' }, () => {
+describe('diagram font parity — the baked face IS the cascade\'s face', { skip: skipWithoutChrome(CHROME) }, () => {
   test('every mode answer agrees between the export bake and the cascade', { timeout: TIMEOUT }, async () => {
     const decks = [
       ['mode: sketch', 'mode: sketch', ['', 'boardroom', 'sketch-clean-body', 'dark']],

@@ -1397,7 +1397,17 @@ function finishMermaidSvg(svg, definition, extraClass) {
     console.warn(`  ⚠ Mermaid post-processing failed (diagram still rendered): ${postErr?.message}`);
   }
   const cls = extraClass ? `mermaid-svg ${extraClass}` : 'mermaid-svg';
-  return `<div class="${cls}">${svg}</div>`;
+  // STAMP THE STAND-DOWN. When the author pins a theme in the fence, the engine emits no
+  // palette AND no font keys — the diagram deliberately wears Mermaid's stock look, which
+  // means its labels are deliberately NOT in the deck's face. Nothing in the output said
+  // so, so `tools/check-diagram-labels.js` could not tell a diagram that opted out from
+  // one the finish failed to reach: it had to fall back to a denylist of five Mermaid
+  // default face names, which passes any face that is merely WRONG rather than famous.
+  // One attribute makes the export self-describing and lets that gate ask the exact
+  // question — "is this label in the face its own slide asked for?" — with an exemption
+  // that is a fact about the diagram rather than a guess.
+  const pinned = authorPinsTheme(definition) ? ' data-author-theme="1"' : '';
+  return `<div class="${cls}"${pinned}>${svg}</div>`;
 }
 
 /**

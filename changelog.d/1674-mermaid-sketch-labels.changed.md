@@ -37,3 +37,13 @@
   **mindmap** and **requirementDiagram** — six, not the four our docs claimed; the rest
   (sequence, gantt, pie, journey, timeline, quadrant, sankey, xychart, C4, block, packet,
   architecture, gitGraph) keep crisp shapes and gain hand type.
+- **Fixed: `mode: sketch-clean` previewed every slide in Times New Roman.** The finish
+  restored the clean body face from an alias snapshotted at `:root`, which works in the
+  export — alias on `:root`, override on the section — but the preview scopes both onto
+  the same element, making a custom-property cycle that resolves to nothing. All body
+  prose and every diagram label on a sketch-clean slide fell back to the browser default
+  in the Playground and the Studio while the exported PDF was correct. The re-point is
+  now guarded in its selector instead, so there is no alias to cycle with.
+- **Fixed: `autonumber` bubbles in a sequence diagram stayed in a generic sans-serif.**
+  Mermaid writes that one label with a hard-coded `font-family` presentation attribute,
+  past every config key, so it was the last text on a hand-drawn slide still machine-faced.

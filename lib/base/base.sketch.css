@@ -72,9 +72,9 @@ section.sketch {
    * (big-number sub-label, key-insight body) gets Shantell — no clean-face
    * leaks, no per-component overrides. `--font-mono` is deliberately NOT
    * re-pointed: real inline `code`/`pre`/math must stay unambiguous.
-   * `sketch-clean-body` restores --font-body to --font-body-clean. */
+   * `--font-body` is re-pointed in its OWN rule below, guarded against
+   * `sketch-clean-body` — see the note there for why it cannot live here. */
   --font-display: var(--sketch-font-display);
-  --font-body: var(--sketch-font-body);
   /* The "label voice" — eyebrows, table column headers, stat sub-labels,
    * KEY INSIGHT, the running header/footer, counters, chips, chart legend
    * labels AND values — defaults to the mono face (shared with code).
@@ -101,6 +101,27 @@ section.sketch {
    * --pill-radius (a 999px pill) becomes a hand-drawn asymmetric chip, so
    * every metadata pill / badge / chip rides the hand like the cards. */
   --pill-radius: 14px 3px 11px 4px / 4px 11px 3px 14px;
+}
+
+/* --font-body is the ONE type token the finish re-points OUTSIDE the block
+ * above, because `sketch-clean-body` has to be able to keep the clean face and
+ * a token cannot be un-set once a rule on the SAME element has set it.
+ *
+ * The obvious shape — re-point here, restore from a `--font-body-clean` alias
+ * snapshotted at :root — worked only in the EXPORT, where the alias sits on
+ * :root and the override on the section, two different elements. The PREVIEW
+ * rescopes :lattice-root onto the section itself (lib/engine/css.js
+ * `composeCss`), which put `--font-body-clean: var(--font-body)` and
+ * `--font-body: var(--font-body-clean)` on ONE element: a custom-property
+ * CYCLE. Both resolve to the guaranteed-invalid value, so every sketch-clean
+ * slide previewed its prose AND its diagram labels in Times New Roman while
+ * the export was correct — measured, not reasoned.
+ *
+ * So the guard is in the SELECTOR, not in a second declaration: a clean-body
+ * slide is never re-pointed in the first place and simply inherits whatever
+ * --font-body the theme set. No alias, no snapshot, no cycle in either path. */
+section.sketch:not(.sketch-clean-body) {
+  --font-body: var(--sketch-font-body);
 }
 
 /* ── HANDWRITING TYPE ─────────────────────────────────────────────────
@@ -147,14 +168,13 @@ section.sketch.split-compare .option ul > li::marker {
 }
 
 /* `sketch-clean-body` — keep the hand headings + boxes, return prose to the
- * clean engine body face. One token reset: restore --font-body to the clean
- * stack. Because the section default and every component pull var(--font-body),
- * this reverts all body prose at once; --font-display / --font-label stay
- * re-pointed, so headings and labels keep the hand. The escape hatch for the
- * rare text-dense slide that still needs the clean footprint. */
-section.sketch.sketch-clean-body {
-  --font-body: var(--font-body-clean);
-}
+ * clean engine body face. It needs NO rule of its own: the re-point above is
+ * guarded by `:not(.sketch-clean-body)`, so --font-body is simply never
+ * touched here and keeps the theme's stack. Because the section default and
+ * every component pull var(--font-body), that reverts all body prose at once;
+ * --font-display / --font-label stay re-pointed, so headings and labels keep
+ * the hand. The escape hatch for the rare text-dense slide that still needs
+ * the clean footprint. */
 
 /* ── HAND-DRAWN HEADING RULE ──────────────────────────────────────────
  * A wobbly underline under the slide heading. The asymmetric border-
