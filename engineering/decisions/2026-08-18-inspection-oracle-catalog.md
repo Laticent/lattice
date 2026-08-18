@@ -266,12 +266,17 @@ Same workflow, same repo, one commit apart: [32082889125](https://github.com/Sli
 Lever A's job-level result tracks §3a's arithmetic: the predicted floor moved 318s →
 268s (−16%) and the measured step moved −14%.
 
+A **second** green run on the next commit ([32093217913](https://github.com/SlideWright/lattice/actions/runs/32093217913)) came in at **8.9m**, so the
+after-figure is two runs at 8m48 / 8m54 against a before-range of 10.9–11.4m across the
+four sampled full runs.
+
 **Runner-minutes are roughly flat** (25.2 → 26.3), and that is the honest read, not a
-regression: lever B moves work sideways rather than removing it, and this run's
-`golden-diff` paid **118s** for `apt-get install poppler-utils imagemagick` against 13s
-in the before-run — mirror variance that swamps the 71s the lever saved in the same job.
-Net of that spike the run is ~24.5 runner-minutes. **The win here is latency, not
-spend**, which is the right trade at 81 runs a day.
+regression: lever B moves work sideways rather than removing it. The first after-run's
+`golden-diff` also paid **118s** for `apt-get install poppler-utils imagemagick` against
+13s in the before-run — mirror variance, not the change; on the second run the same job
+came in at **1.4m** against a 1.9–3.5m before-range, which is lever C showing through
+once the apt noise clears. **The win here is latency, not spend**, which is the right
+trade at 81 runs a day.
 
 ### 3b. The scheduled tiers
 
@@ -398,10 +403,10 @@ Pre-existing and off the path of this catalog, so logged rather than pulled into
   longest file, becomes the constraint. Two accepted costs ride with it: a sample is no
   longer slide 1 (so deck-position chrome differs — a two-digit page number), and one
   hanging component now takes the batch's render down instead of only its own.
-- **One CI run each, not a distribution.** §3c is a single before/after pair. GitHub
-  runners vary — this run's own `apt-get` step swung 13s → 118s for reasons that have
-  nothing to do with the change — so read the wall-clock delta as the signal and the
-  runner-minute delta as inside the noise.
+- **Two after-runs against four before-runs — a small sample, not a distribution.**
+  GitHub runners vary enough to matter: one `apt-get` step swung 13s → 118s for reasons
+  that have nothing to do with the change. Read the wall-clock delta as the signal and
+  the runner-minute delta as inside the noise.
 - **Lever B on a RED run.** The saved 2m15 is measured on a green run. What was traded
   away is the fail-fast economy on a red one: `integration` now spends its 8 minutes even
   when `unit` was already failing. Nobody has counted how often that happens.
