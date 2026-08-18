@@ -423,3 +423,107 @@ only thing that stops the bleeding and is a precondition for everything), then M
 (free speed, never wasted), then M3, then snapshots for the galleries. Hold the
 HARD RULE #9 amendment until snapshots have earned trust on the corpus that was
 designed for them.
+
+---
+
+## 10. The reframe that supersedes §6 — let each owner bless what it owns
+
+Added 2026-08-18, from the observation that the codebase is *already* layered by
+ownership: engine and `lattice.css` own positioning, themes own color and contrast,
+components own their own look and their token choices.
+
+**The finding: the codebase is layered and machine-gated. The verification is
+monolithic.** A committed PDF is a fully composed artifact — it mixes every owner's
+contribution into one blob of pixels. So a change by *any* owner invalidates *every*
+blob, and nothing can be inferred without re-rendering. The goldens flatten a
+well-factored architecture back into an undifferentiated one, then pay to re-derive
+the factoring on every change.
+
+### 10.1 This is not hypothetical — one layer already does it
+
+Setting `--brand-canvas` to a bad value in `themes/indaco.css`:
+
+```
+✗ 30 `--hljs-*` syntax color(s) fall below the 4.5:1 AA floor on their own --code-bg:
+  --hljs-comment #92a8a8 on --code-bg indaco-dark/light #663d00 = 3.76:1;
+  --hljs-keyword #c792ea … = 3.91:1; … +22 more.
+  Lift the value in OKLCH holding hue and chroma rather than picking a new colour by eye.
+build aborted: ownership guard failed.
+```
+
+**4.6 seconds. Named tokens, measured ratios, a prescribed fix. Zero PDFs
+rendered.** The same defect reaching the PDF corpus costs a full re-render
+(~7 min at P=4) and reports "N pixels changed" with no attribution.
+
+The palette owner already blesses its own contract — `palette:bless` writes
+`KNOWN_SUB_THRESHOLD` and `CVD_FROZEN`, keyed and **ratchet-only**, as text. That is
+exactly the per-owner blessing this section argues for, already load-bearing.
+
+### 10.2 The ownership map — who already blesses, and the one gap
+
+| Owner | Owns | Already has its own bless/gate? |
+|---|---|---|
+| Palette / theme | color, contrast, CVD separation | **yes** — `palette:bless`, `composed-contrast.js`, `cvd-trio-floor` |
+| Tokens | names, typography scale, crosswalk | **yes** — `checkTypographyTokens`, `checkRetiredTokenNames`, `css-token-resolution` |
+| Layout CSS | no hex, no margin, no partial layers | **yes** — `checkHexLiterals`, `checkMarginDiscipline`, `checkCascadeLayers` |
+| Fit / overflow | split, overflow envelope | **yes** — `overflow:bless` |
+| Geometry | scaled positioning parity | partial — `check-geometry-parity.js` |
+| **Composition** | does a component, under a theme, in the engine's layout, actually paint the right token in the right box? | **NO — this is what the 356 PDFs are really covering** |
+
+**Almost every layer already blesses itself cheaply and in text.** The PDFs are
+genuinely covering exactly one uncovered thing: *composition*. And the §5 snapshot
+is precisely a composition golden — per element, per slide, geometry plus resolved
+style. The two ideas converge: **the snapshot is the composition owner's missing
+bless.**
+
+### 10.3 Is it transitive? Yes — and here is exactly why, and where it leaks
+
+Transitivity holds when a layer's golden is a **complete** description of what
+downstream can observe about it. Here it is, because **HARD RULE #3 is gated at
+budget 0** (`checkHexLiterals`, 5 sanctioned entries): layout CSS reaches color
+*only* through `var(--token)`. So an unchanged token table means no deck can have
+changed for theme reasons — provable without rendering anything.
+
+Measured, the two channels separate cleanly:
+
+| Change | Geometry rows moved | Style rows moved |
+|---|---:|---:|
+| color token (`--brand-canvas`) | — | style only |
+| **length token (`--sp-lg`)** | **36** | **0 beyond those 36** |
+
+So tokens do exactly two things, and the snapshot's two channels correspond to
+them one-for-one. That yields a free defect check: **a color-only PR whose geometry
+channel moved is a bug**, flagged automatically.
+
+**Where transitivity leaks — do not oversell it:**
+
+1. **Themes are not purely color.** A theme that touches a length token moves
+   layout (36 rows above). "Theme changed ⇒ only color changed" is false.
+2. **Emergent composition.** Overflow, auto-split and slide-count changes are
+   properties of a whole deck, not of any one owner. `overflow:bless` covers part.
+3. **An owned gate can verify a contract the render does not honor.** The contrast
+   gate's own note says it: *"these values may not be rendering today — the export
+   loads the base AFTER the theme, so a theme's syntax colors are dead on the export
+   path until #1527's concat flip lands."* A layer can be green while the composed
+   artifact is wrong. **This is the strongest argument against going fully
+   compositional**, and it comes from this repo's own code.
+
+### 10.4 What this changes about the recommendation
+
+§6's options were framed as *"which medium for the golden."* The better frame is
+*"which owner blesses which contract, and what does the composition owner need."*
+That reorders the work:
+
+- Most owners **already** bless themselves — the win is not building that, it is
+  **stopping the PDFs from re-verifying it** at 1000× the cost.
+- The composition layer is the only real gap, and the §5 snapshot fills it.
+- A **thin** end-to-end pixel set must survive, precisely because of leak (3) — but
+  it can be small and deliberately chosen, not 356 artifacts and 4,009 pages.
+
+**Revised shape:** per-owner blessing where an owner exists (mostly already true) ·
+snapshots for composition · a thin pixel backstop for the end-to-end claim · PDFs
+kept only as human artifacts under HARD RULE #9.
+
+This does not change the §9 scores — it changes what Option 2 *is*. "Snapshots for
+galleries" is better understood as "give the composition layer the owned bless every
+other layer already has."
