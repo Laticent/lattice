@@ -37,7 +37,13 @@
  * KNOWN LIMITATIONS, inherited and added:
  *   · a pseudo-element has no rect in CSS, so its row keeps the MODELLED backdrop
  *     (`rectIsOwner`) — a sample taken from the owner's box may land beside the
- *     pseudo rather than under it, and a wrong number is worse than a modelled one;
+ *     pseudo rather than under it, and a wrong number is worse than a modelled one.
+ *     THAT MODEL CAN STILL BE WRONG, and those rows are the ones to distrust first: 10 of
+ *     the 285 oracle entries are pseudo-elements, and a spot audit found the `scene`
+ *     play-control glyph (`button::before`, the ⏸) scored 1.00:1 while rendering as light
+ *     grey on a dark circular button, plainly legible. The modelled backdrop misses a
+ *     translucent control floating over a canvas. Treat a pseudo row as a lead, not a
+ *     measurement, until someone has looked at the slide;
  *   · an occluded run is still scored, exactly as in `check-slide-contrast` — with
  *     one improvement: because the sample is taken from pixels, a run painted under
  *     an opaque sibling now reads against that sibling rather than against whatever
