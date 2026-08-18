@@ -740,24 +740,51 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) g.node-labels text, :is(section, figure) g.nodes text {
   fill: var(--cat-on-fill) !important;
 }
-:is(section, figure) g.link {
-  /* MERMAID PAINTS EVERY RIBBON THROUGH `mix-blend-mode: multiply`, inline on the
-   * group. Multiply is a LIGHT-CANVAS assumption: it darkens toward the backdrop,
-   * which is exactly right on a white page and drives the ribbon to black on a
-   * dark one. On a `color-mode: dark` deck the whole flow — the diagram's entire
-   * payload — rendered as a near-black smudge on near-black while the node bars
-   * beside it stayed correctly colored. Inline styles only yield to `!important`. */
-  mix-blend-mode: normal !important;
-}
+/* THE DARK SANKEY IS A KNOWN LIMITATION, AND THIS IS THE RECORD OF WHY IT IS NOT
+ * FIXED HERE — so the next person does not re-derive the same dead end.
+ *
+ * Symptom: on a dark deck the link ribbons render as a near-black smudge on
+ * near-black while the node bars beside them stay correctly colored. The entire
+ * payload of the diagram is the part that disappears.
+ *
+ * Cause: mermaid paints every link group through an inline
+ * `mix-blend-mode: multiply` (`sankeyDiagram-*.mjs`). Multiply darkens toward the
+ * backdrop, so on a near-black canvas ANY ribbon color multiplies to near-black.
+ * No color fixes it — `multiply(x, #001D33)` is dark for every x.
+ *
+ * WHY THE OBVIOUS FIX IS WRONG, measured. Overriding to `mix-blend-mode: normal`
+ * does make the dark ribbons visible, and it breaks the LIGHT deck: mermaid appends
+ * `g.node-labels` BEFORE `g.links`, so every ribbon paints ON TOP of the labels, and
+ * multiply is what was protecting them — multiply of a near-black glyph with
+ * anything stays near-black. Under `normal` the ribbon composites over the glyph
+ * instead. Measured on the real exported PDF, "Wages 750" under its ribbon:
+ *
+ *     multiply @0.4  → glyph #081426 on #E4EEF7 = 15.66:1
+ *     normal   @0.55 → glyph #6B7E93 on #DAE7F4 =  3.32:1   (below AA)
+ *
+ * — an accessibility regression, on a change whose whole purpose is accessibility.
+ * Note also that on a WHITE canvas multiply IS the identity (`multiply(x, #FFF) = x`),
+ * so there is nothing to compensate for by raising opacity; an earlier revision of
+ * this block claimed otherwise and was arithmetically wrong.
+ *
+ * WHAT WOULD ACTUALLY WORK is `screen` on dark (multiply's dual — it lightens toward
+ * the backdrop, so it preserves a LIGHT glyph exactly as multiply preserves a dark
+ * one; measured 6.70:1 label and a BETTER ribbon-vs-canvas than `normal`). It cannot
+ * be applied: a blend mode has to be selected per color-scheme, and the dark context
+ * here is expressed only as `color-scheme: dark` — `light-dark()` takes colors, not
+ * keywords, and no CSS selector can query a computed `color-scheme`. Sections carry
+ * no `.dark` class on either dark path (verified on both `color-mode: dark` and a
+ * `-dark` palette render).
+ *
+ * So this stays on mermaid's own multiply. Closing it needs either a scheme hook the
+ * cascade does not currently expose, or upstream paint-order (labels after links).
+ */
 :is(section, figure) g.link path, :is(section, figure) g.links path {
   /* Ribbons are connective tissue tied to c1 at reduced opacity — a flat COLOR,
    * NOT the texture channel: a pattern paint-server sampled through a thin,
-   * variable-width stroke reads as speckle, not a tint. So stay on --cat-1-fill.
-   * Opacity raised 0.4 → 0.55 with multiply gone: multiply had been doing part of
-   * the darkening work on the light canvas, so removing it alone would have left
-   * the ribbons weaker there than they were. */
+   * variable-width stroke reads as speckle, not a tint. So stay on --cat-1-fill. */
   stroke: var(--cat-1-fill) !important;
-  stroke-opacity: 0.55 !important;
+  stroke-opacity: 0.4 !important;
   fill: none !important;
 }
 

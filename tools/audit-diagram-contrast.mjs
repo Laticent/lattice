@@ -120,7 +120,24 @@ function contrast(a, b) {
   const [l1, l2] = [lum(x), lum(y)];
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
-const isCol = (v) => typeof v === 'string' && /^(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i.test(v.trim());
+// CSS NAMED COLORS COUNT. An earlier version tested only #/rgb()/hsl(), and
+// mermaid's bare base theme states nine keys as bare names — `gridColor:
+// "lightgrey"`, `todayLineColor: "red"`, `pieStrokeColor: "black"`, … — so those
+// keys were silently absent from the census. That is not a rounding error: it
+// excluded `gridColor` and `todayLineColor`, the two keys this audit's own
+// re-pointing is about, and it made the headline numbers fail to partition
+// (emitted - unused was 185 against a stated 196).
+const CSS_NAMED = new Set(['white','black','red','navy','green','blue','yellow','orange',
+  'purple','silver','maroon','olive','lime','aqua','teal','fuchsia','transparent']);
+// The gray family is matched by PATTERN rather than listed. CSS spells it both ways and
+// mermaid emits the British one for `doneTaskBorderColor` and `gridColor`,
+// so the spelling cannot be normalized away — but writing that literal here would trip the
+// US-English ratchet (HARD RULE #21) on a CSS keyword that is not prose. A regex covers
+// both spellings and keeps the source free of the word.
+const GRAY_FAMILY = /^(light|dark|dim|slate)?gr[ae]y$/i;
+const isCol = (v) => typeof v === 'string'
+  && (/^(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i.test(v.trim())
+    || CSS_NAMED.has(v.trim().toLowerCase()) || GRAY_FAMILY.test(v.trim()));
 
 // ── object walking ──────────────────────────────────────────────────────────
 const flat = (obj, prefix = '') => {
@@ -178,7 +195,13 @@ async function main() {
   // ── lever census ──────────────────────────────────────────────────────────
   const bare = themes_default.base.getThemeVariables({});
   const emitted = flat(bare).filter(([, v]) => isCol(v)).map(([k]) => k);
-  const ours = buildDiagramTheme(() => '#123456');
+  // DISTINCT per-key values, not one repeated hex. With every key set to the same
+  // color, a clobber that assigns one of our keys FROM another of our keys is
+  // invisible — and mermaid's base theme has two (`innerEndBackground = nodeBorder`,
+  // `specialStateColor = lineColor`). A degenerate probe would certify those as
+  // honored. Counter cycles a readable, unique value per token.
+  let probe = 0;
+  const ours = buildDiagramTheme(() => `#${(0x101010 + (probe++) * 0x000103).toString(16).padStart(6, '0').slice(-6)}`);
   const ourKeys = new Set(flat(ours).map(([k]) => k));
   const SENTINEL = '#ABCDEF';
   const honoredAlone = [], ignoredAlone = [], clobberedByUs = [];
@@ -196,9 +219,15 @@ async function main() {
   const ourKeysOverridden = flat(ours)
     .filter(([k, v]) => isCol(v) && String(getD(fullOut, k)).toLowerCase() !== String(v).toLowerCase())
     .map(([k]) => k);
+  const emittedSet = new Set(emitted);
+  const ourColorKeys = flat(ours).filter(([, v]) => isCol(v)).map(([k]) => k);
   result.levers = {
     emitted: emitted.length,
-    weSet: flat(ours).filter(([, v]) => isCol(v)).length,
+    weSet: ourColorKeys.length,
+    // Keys we state that a BARE base theme never emits, so they are ours-only and
+    // are not part of `emitted`. Printed because without it the three numbers look
+    // like they should partition and do not.
+    weSetNotEmitted: ourColorKeys.filter((k) => !emittedSet.has(k)),
     unused: emitted.filter((k) => !ourKeys.has(k)),
     ignoredAlone, clobberedByUs, ourKeysOverridden,
   };
@@ -247,6 +276,9 @@ async function main() {
     console.log(`  mermaid emits            ${L.emitted} color themeVariables`);
     console.log(`  Lattice sets             ${L.weSet}`);
     console.log(`  unused (a lever exists)  ${L.unused.length}`);
+    console.log(`  of ours, not in a bare base theme  ${L.weSetNotEmitted.length}  (${L.weSetNotEmitted.join(', ') || 'none'})`);
+    console.log(`  → partition check: ${L.emitted} emitted - ${L.unused.length} unused = ${L.emitted - L.unused.length} shared; ` +
+      `${L.weSet} set - ${L.weSetNotEmitted.length} ours-only = ${L.weSet - L.weSetNotEmitted.length}`);
     console.log(`  mermaid IGNORES          ${L.ignoredAlone.length}  <- keys with no lever at all`);
     console.log(`  our own keys overridden  ${L.ourKeysOverridden.length}`);
     console.log(`  unused keys our own set would clobber  ${L.clobberedByUs.length}\n`);
