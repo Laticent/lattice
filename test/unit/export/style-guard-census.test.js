@@ -76,6 +76,23 @@ const CENSUS = {
 		guards: 1,
 		why: 'componentBlock — model-authored component CSS spliced into markdown handed to a recipient.',
 	},
+	'docs/src/playground/deck-preview.js': {
+		guards: 2,
+		why:
+			'the Playground preview builder: the font-face <style> and the composed theme block. ' +
+			'TWO sinks in one file, which is exactly the shape `checkPreviewHtmlSinks` cannot pin — ' +
+			'it is file-scoped, so either call could be deleted and the gate would still certify it.',
+	},
+	'docs/src/playground/snapshot-cache.js': {
+		guards: 3,
+		why:
+			'both captures and the storage boundary, mirroring the html channel in the same file. ' +
+			'The CSSOM TWIN of the css-tree re-wrap: `rule.cssText` normalizes `<\\/style` back into a ' +
+			'live terminator (measured in Chromium 131), so the snapshot owes the guard at the ' +
+			're-serialization however the preview document upstream was assembled. Neither a preview ' +
+			'builder nor a document assembler, so NEITHER text-matching gate can see this file — the ' +
+			'census is the only pin it has.',
+	},
 	'docs/src/components/studio/present/presenter-window.js': {
 		guards: 1,
 		why:
@@ -119,7 +136,11 @@ for (const [rel, expected] of Object.entries(CENSUS)) {
 test('the census covers every file that calls the guard outside docs/src preview builders', () => {
 	// Anti-vacuity: if a new export-surface file starts calling sanitizeStyleText and is not in
 	// the census, the census stops describing the surface it claims to describe.
-	const roots = ['lattice-emulator.js', 'lib/export', 'lib/layout', 'docs/src/components/studio'];
+	// `docs/src/playground` joined these roots with the CSSOM twin (snapshot-cache.js): the
+	// snapshot's css crosses localStorage and is replayed into the TOP docs document, and the
+	// file is invisible to all three text-matching gates (it is not a preview builder and it
+	// assembles no document), so the census is its only durable pin.
+	const roots = ['lattice-emulator.js', 'lib/export', 'lib/layout', 'docs/src/components/studio', 'docs/src/playground'];
 	const found = [];
 	const walk = (abs) => {
 		if (!fs.existsSync(abs)) return;
@@ -128,6 +149,10 @@ test('the census covers every file that calls the guard outside docs/src preview
 			if (e.name === 'node_modules' || e.name === 'dist') continue;
 			const p = path.join(abs, e.name);
 			if (e.isDirectory()) walk(p);
+			// `*.generated.js` are BUNDLER OUTPUT (esbuild inlines lib/core/sanitize-style-text.mjs
+			// into several of them). A count there tracks a build step rather than a decision, and
+			// churns on every re-bundle — the census is about call sites someone chose to write.
+			else if (/\.generated\.js$/.test(e.name)) continue;
 			else if (/\.(?:js|ts|tsx|mjs|cjs)$/.test(e.name)) check(p);
 		}
 	};
