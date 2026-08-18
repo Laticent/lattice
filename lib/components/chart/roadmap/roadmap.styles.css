@@ -250,11 +250,7 @@
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
-  /* --text-muted, NOT --muted-mark: this local is read as `color:` on
-   * `.cell-state-label` below (the uppercase state eyebrow), so on a skipped cell it
-   * paints TEXT and takes the 4.5 floor. The `var(--state-color, --text-muted)`
-   * fallback at that read never fires here precisely because this line sets it (#1715). */
-  --state-color:var(--text-muted);
+  --state-color:var(--muted-mark);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
 }
@@ -360,6 +356,18 @@
   color:var(--state-color, var(--text-muted));
   padding-bottom:2px; /* sanctioned: hairline-scale label spacing (was margin-bottom, kept in-box) */
   line-height:1.2;
+}
+
+/* The SKIPPED label is the one TEXT read of --state-color, and that local is graphical
+ * (3:1) — it paints discs, rings and rails, and both the legend above and `heat` in
+ * base.modifiers.css set it to --muted-mark. Overriding the local for the whole cell
+ * would desync the legend from the cells it decodes, so the repair is here, at the read:
+ * the label alone takes the 4.5 text tier. Scoped with `.state-skipped`, so it also wins
+ * against `section.heat`, which re-points --state-color later in the bundle at equal
+ * specificity and re-broke an earlier version of this fix (#1715). */
+:is(section.roadmap, figure.roadmap).status td.cell-state.state-skipped .cell-state-label,
+:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label {
+  color:var(--text-muted);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {
   display:block;

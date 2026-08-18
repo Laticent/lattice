@@ -388,7 +388,7 @@ section footer {
  * See lib/transformers/pill-tag.js + 2026-06-08-inline-code-contrast.md.
  *
  * Per-layout custom-property hooks (defaults in parens):
- *   --pill-border  (var(--text-muted))   border colour
+ *   --pill-border  (var(--muted-mark))   border color
  *   --pill-bg      (var(--bg))           fill colour
  *   --pill-fg      (var(--text-body))    text colour
  *
@@ -1078,7 +1078,7 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  *   full   (was good)  → alarm  (var(--fail))
  *   half   (was caution) → caution (var(--warn) — unchanged)
  *   empty  (was bad)   → relief (var(--pass))
- *   skip   (was muted) → muted  (var(--text-muted) — unchanged)
+ *   skip   (was muted) → muted  (var(--muted-mark) — the graphical tier since #1715)
  *
  * Selectors match the per-layout default --state-color assignments above
  * exactly, so specificity ties; this block is placed AFTER the layout

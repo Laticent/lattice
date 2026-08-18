@@ -178,7 +178,7 @@ starlight-menu-button[aria-expanded='true'] button {
 	--ec-focusBrd: var(--accent);
 	--ec-codeSelBg: color-mix(in srgb, var(--accent) 22%, transparent);
 	--ec-uiSelBg: color-mix(in srgb, var(--accent) 22%, transparent);
-	--ec-sbThumbCol: color-mix(in srgb, var(--text-muted) 38%, transparent);
+	--ec-sbThumbCol: color-mix(in srgb, var(--muted-mark) 38%, transparent);
 	--ec-sbThumbHoverCol: color-mix(in srgb, var(--accent) 55%, transparent);
 	/* Frame chrome accents */
 	--ec-frm-edActTabIndTopCol: var(--accent);

@@ -210,12 +210,12 @@ The **11 required core tokens** — `build:check` fails without these, defined
 authors `--text-muted` without its `--muted-mark` sibling, and each `--scheme-dark-*`
 half likewise.)
 
-But those 10 are the floor, not the contract. A **from-scratch theme must define
+But those 11 are the floor, not the contract. A **from-scratch theme must define
 the full 97-token per-theme contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
-the 10 core tokens, define: all 12 `--hljs-*` code-syntax colors — each of which
+the 11 core tokens, define: all 12 `--hljs-*` code-syntax colors — each of which
 must clear **4.5:1 against your `--code-bg`**, comments and punctuation included
 (`checkHljsContrast`, via `build:check`). Syntax highlighting is small text a human
 reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption for
@@ -299,7 +299,7 @@ The **dark variant in full** — this is the whole file:
       per-slide `_class: dark` while the pinned chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Full 97-token contract defined directly (not just the 10 core) — all 12
+- [ ] Full 97-token contract defined directly (not just the 11 core) — all 12
       `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`.
 - [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
       `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.

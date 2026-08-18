@@ -147,7 +147,7 @@
 .deck-config .db-switch-knob {
 	position: absolute;
 	inset: 0;
-	background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+	background: color-mix(in srgb, var(--muted-mark) 45%, transparent);
 	border-radius: 999px;
 	transition: background 0.16s ease;
 }

@@ -156,8 +156,14 @@ confined to the sites that actually need AA.
 
 ### What was measured, and what it cost
 
-Solved with `solveInk` (`lib/theme/cat-ink.js`), so hue and chroma are held and the move is
-the minimum lightness change — the same recipe the categorical ink tier uses (HARD RULE #1).
+The 24 hand-authored palette values are solved with `solveInk` (`lib/theme/cat-ink.js`), so
+hue and chroma are held and the move is the minimum lightness change — the same recipe the
+categorical ink tier uses (HARD RULE #1).
+
+**That is NOT true of the Studio's generator, and an earlier draft of this paragraph said it
+was.** `lib/theme/derive.js` repairs the tier with bare `ensureContrast`, which walks to the
+AA boundary rather than making a minimum move — so the one path that ships to users unattended
+got the solver WITHOUT `MIN_DIST`. See §8.
 
 | | before | after |
 |---|---|---|
@@ -173,12 +179,34 @@ the minimum lightness change — the same recipe the categorical ink tier uses (
 decimal places, and it is a fact about the palette rather than about the solve: with body at
 5.46:1 there is no room for a quieter AA value.
 
-Two things bound it, and both are why this ships where #1720's attempt did not:
+**The distribution, not just the worst case**, because "34 of 36 keep ΔE ≥ 0.065" is a count
+standing in for a shape and an inversion pass was right to ask for the shape:
 
-- **It is one palette-mode.** 34 of 36 keep ΔE ≥ 0.065; the next worst is concrete/dark at
-  0.065, then laguna/light at 0.081.
-- **The ordering survives everywhere.** No palette-mode ends up louder than `--text-body` on
-  either surface, so muted text is still quieter than body text on all 36.
+| | |
+|---|---|
+| palette-modes that LOST separation | **24 of 36** (12 unchanged, **0 gained**) |
+| median change across all 36 | **−20.4%** |
+| median change among those that lost | −28.9% |
+| lost more than 30% / 40% | 11 / 7 |
+| worst | cuoio/light **−80.8%** (0.198 → 0.038), concrete/dark −64.7%, brina/light −50.5% |
+
+For comparison, #1720's own docblock describes the version it REVERTED as "26 of 36
+palette-modes lost separation; none gained any." **That is the same distribution.** What
+separates this change from that one is not the amount of separation lost — it is where the
+loss lands (see below), not how much.
+
+A second consequence the first draft never computed: on the palettes with the least room, the
+repaired `--text-muted` lands close to `--text-secondary`, which already carries AA. Measured
+on the 15 palette-modes whose ramp resolves to literals, **4 sit within 0.035** — brina/light
+at ΔE **0.0021** and cuoio/light at **0.0118** are the same color to the eye. So on the
+default palette the ink ramp now has two named tiers that render alike, and the split bought
+nothing there that `--text-secondary` would not have given free.
+
+Two things bound the cost, and both are why this ships where #1720's attempt did not:
+
+- **The ORDERING survives everywhere** — no palette-mode ends up louder than `--text-body`.
+- **Every text reader moves together.** This is the real difference from #1720, and it is
+  worth being precise that it is the ONLY one.
 
 And the inversion that killed #1720's version does not arise here. That change lifted only
 the editor's comment row while `.cm-gutters` and `.cm-completionDetail` stayed on the raw
@@ -255,8 +283,11 @@ every condition, including an exact **ΔE 0.0000** tie with `--hljs-type` under 
 for this change was missing from its own table. Found by an independent checker recomputing it.
 
 The "after" column is the **cross-group** worst, which is what `checkHljsSeparation` holds.
-Over all 56 distinct pairs the worst is `comment`/`punctuation` — 0.0575 / 0.0541 / 0.0643 /
-0.0511 — both quiet by design, and that pair is `checkHljsContrast`'s to police.
+Over all 56 distinct pairs the worst is 0.0575 / 0.0541 / 0.0643 / 0.0511. On the three
+dichromacies that worst pair is `comment`/`punctuation` — both quiet by design, and
+`checkHljsContrast`'s to police. On achromatopsia it is **`keyword`/`string`** at 0.0511, the
+same number the cross-group column reports; an earlier draft named the quiet pair for all four
+and was wrong on the fourth (its comment/punctuation sits at 0.0541).
 
 Three things the design turns on:
 
@@ -516,7 +547,7 @@ been after: OKLab ΔE between the two tokens differs on 24 of 28 palette-modes, 
 
 - `checkMutedTierFloors` **never noticed a palette that omits `--muted-mark` entirely** — it
   checked the value of a declared token and skipped an undeclared one. Demonstrated by
-  stripping the token from `indaco`: zero errors. 76 engine reads would have been invalid at
+  stripping the token from `indaco`: zero errors. 73 engine reads would have been invalid at
   computed-value time on the default palette. It now keys the obligation on the SIBLING (a
   palette that authors `--text-muted` owns both halves), and that arm immediately found a
   real gap in this very change — `carbone` had `--scheme-dark-text-muted` and no
@@ -524,10 +555,10 @@ been after: OKLab ΔE between the two tokens differs on 24 of 28 palette-modes, 
   `token-parity` CONTRACT.
 - `runtimeWrittenTokens()` **counted a token named in a COMMENT as a proven runtime write**,
   in the one function whose docblock says runtime-set is "proven by a write, never asserted".
-  30 of 134 entries (22%) existed only in prose, including front-matter keys like `--class`
+  27 of 137 entries (20%) existed only in prose, including front-matter keys like `--class`
   and `--theme`. The concrete failure: re-introduce `var(--ink, var(--accent))` while any
   non-test file mentions `--ink:` in a comment — which *this record* makes likely — and the
-  phantom gate goes green on its own subject. Comments are stripped now (134 → 110 entries,
+  phantom gate goes green on its own subject. Comments are stripped now (137 → 110 entries,
   all four legitimate writers retained), and the exact scenario is bitten.
 - Its anti-vacuous floor was `themes.length * 2` under a comment claiming 112 measurements;
   the real count is 256 over 32 files, so the guard tolerated losing **75%** of coverage. It
@@ -556,6 +587,52 @@ whose exempt-ink resolver keyed on `--text-muted` and now also on `--muted-mark`
 SSR fallback palette, which had no `--muted-mark` and a stale `--text-muted`; and four code
 comments quoting the old contract's numbers.
 
+## 8b. What a Munger inversion found (HARD RULE #25)
+
+The inversion was asked to destroy the change and could not destroy its SHAPE — it measured
+the `--text-secondary` alternative and reported that the split beats it (median separation
+0.1898 vs 0.1155; the split is no worse on 33 of 36), and it declined to manufacture an
+objection to the `--muted-mark` name. What it did break is the claims defending the design.
+
+**The finding that would have shipped broken.** `lib/theme/derive.js` — the Studio's theme
+factory, run on user- and model-supplied essentials — repairs `--text-muted` with a FLOOR and
+no ceiling. Measured, HEAD vs `origin/main`, same inputs:
+
+| essentials | main: ΔE(muted, body) | HEAD |
+|---|---|---|
+| `bg #EDEDED`, body `#5F5F5F` | 0.1479 | **0.0177** |
+| `bg #FFFFFF`, body `#767676` | 0.1411 | **0.0000** — muted byte-identical to body |
+
+That second row is three text tiers in one color, from essentials a Studio user can plausibly
+pick, and **every gate was green on it** (4.95:1 clears the AA arm). It is a regression this
+change introduced: before, the generator passed the author's muted through untouched.
+
+**The proposed mechanism did not work, and that is worth recording.** The inversion suggested
+switching the generator to `solveInk`. Measured, it changes nothing: on those palettes AA is
+the binding constraint and both solvers converge on the same boundary value (`#646464` /
+`#6f6f6f`). A "step MIN_DIST from body" variant was also tried and is worse — it makes ROOMY
+palettes quieter than the author asked for. **There is no better value available**: on a
+palette whose body ink is itself near the AA floor, a quieter AA tier does not exist. The
+generator is reporting a bad palette, not producing a bad answer.
+
+So the fix is the one thing that WAS missing — **making the collapse visible**.
+`checkMutedTierFloors` gains a CEILING arm (`MUTED_SEPARATION_FLOOR = 0.030`) asserting
+`ΔE(--text-muted, --text-body)` per palette-mode. It pins today's worst (cuoio/light, 0.0380)
+as the worst the repo will tolerate, and it is bitten two ways. What it does NOT cover is the
+generator, which runs in a browser on values that are never committed — stated in §9.
+
+**Three more repairs it forced:** the fifth stale contract comment (`editor-theme.ts`, still
+teaching "NOT AA / 44 of 72 / tracked separately" in the present tense, in the module most
+directly downstream); the Breaking note, which said undeclared `--muted-mark` "reads heavier"
+when the decoration actually DISAPPEARS (rendered and confirmed — a `checklist` `[/]` row
+loses its status disc entirely, the component's own color-blind-safe channel); and ten
+decoration sites in `docs/src` that stayed on the text tier, including `BAR_RULE`, both
+concept-graph edge pairs and two scrollbar thumbs.
+
+**Where it was directionally right and numerically off**, checked rather than taken: it
+reported 3 palette-modes losing >40% (7), and 13 of 36 muted/secondary collisions (4 of the 15
+that resolve to literals). The shape of both claims held; the magnitudes are corrected above.
+
 ## 9. What this does NOT fix
 
 - **cuoio/light muted text is 0.038 from body text in OKLab.** Stated in §3 with the reason.
@@ -577,6 +654,11 @@ comments quoting the old contract's numbers.
 - **Part 3 does not reach the export path**, and cannot until #1527 flips the base/theme
   concatenation order. Measured above; stated here because a reader looking for green strings
   to disappear from a PDF will not find them.
+- **The separation ceiling covers COMMITTED palettes, not `deriveTheme`'s output.** A theme a
+  user fabricates in the Studio from a palette with no room can still emit `--text-muted`
+  equal to `--text-body`, and nothing surfaces it: `lib/theme/contrast.js` — the meter the
+  Studio actually shows — has no separation concept at all (no `oklabDistance` import). Wiring
+  a separation row into that meter is the real repair and is its own change.
 - **`checkMutedTierFloors` cannot catch a `--muted-mark` READ that paints text.** It polices
   the token's value, not its use sites; the three the checker found were caught by reading,
   not by a gate. A use-site classifier is what `lib/tokens/contracts.js` argues against

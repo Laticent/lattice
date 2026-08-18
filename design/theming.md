@@ -604,7 +604,7 @@ Then, in order of impact:
    token must clear WCAG AA (4.5:1) against the surface it appears on —
    `--text-secondary`, `--text-label` **and `--text-muted`** included.
    There is no exception: `--text-muted` used to be documented as
-   "chrome-only and WCAG-exempt" while 88 sites painted real text with it
+   "chrome-only and WCAG-exempt" while 53 engine-CSS sites painted real text with it
    and it sat below AA on 44 of 72 palette-mode-surface pairs (#1715). The
    decorative half now has its own token, `--muted-mark`, at the 3:1
    graphical floor — so a rule, hairline or empty mark reads `--muted-mark`
