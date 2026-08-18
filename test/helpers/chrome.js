@@ -46,12 +46,27 @@ function resolveChrome() {
 /**
  * The `skip` value for a `describe(…, { skip })` on a render-backed suite.
  *
- * `false` when a browser is available. On a developer machine without one, a reason
- * string (skip locally — not everyone renders). Under CI, `false` even with no
- * browser, so the suite runs and fails on the launch instead of vanishing.
+ * `false` when a browser is available — the ordinary case, here and on any CI job that
+ * expects one.
+ *
+ * With no browser the answer depends on whether one was SUPPOSED to be there:
+ *
+ *  - `PUPPETEER_SKIP_DOWNLOAD` set → the job declared itself render-free and told
+ *    `npm ci` not to fetch Chromium. ci.yml's `lint` and `unit` jobs both set it, on
+ *    purpose: the unit tier is contractually browser-free. Skip, with the reason.
+ *  - otherwise under `CI` → a job that was meant to have a browser and does not. That is
+ *    an infrastructure regression, and the whole point of this helper is that it must not
+ *    vanish into a green run — so return `false` and let the launch fail loudly.
+ *  - otherwise → a developer machine without one. Skip; not everyone renders.
+ *
+ * The first branch is not a loophole, it is the same declaration read from both ends: the
+ * workflow states "no browser here" in the env, and the suite believes it. A job that
+ * wants these gates simply does not set the variable — which is exactly what
+ * integration-nightly does.
  */
 function skipWithoutChrome(chrome) {
   if (chrome) return false;
+  if (process.env.PUPPETEER_SKIP_DOWNLOAD) return 'render-free job (PUPPETEER_SKIP_DOWNLOAD)';
   if (process.env.CI) return false;
   return 'no Chromium (CHROME_PATH / puppeteer cache)';
 }
