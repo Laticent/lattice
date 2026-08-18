@@ -362,6 +362,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/audit-capacity-basis.js` | audit-capacity-basis — what words-per-element does each component ACTUALLY get |
+| `tools/audit-diagram-contrast.mjs` | tools/audit-diagram-contrast.mjs — what Mermaid ACTUALLY paints, per palette, |
 | `tools/bench-preview-diagrams.mjs` | bench-preview-diagrams — how long the LIVE PREVIEW takes to bake a deck's diagrams. |
 | `tools/bless-palette-baselines.js` | bless-palette-baselines — rewrite the two frozen palette baselines, RATCHET-ONLY. |
 | `tools/bless-split-oracle.js` | bless-split-oracle — write the STANDING ORACLE record (§8 rule 5). |

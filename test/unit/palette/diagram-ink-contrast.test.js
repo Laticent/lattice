@@ -88,9 +88,35 @@ const SITES = {
   quadrant3TextFill:     'quadrant3Fill',
   quadrant4TextFill:     'quadrant4Fill',
   quadrantPointTextFill: 'quadrant1Fill',
+  // NOT text — a plotted point and the rule between quadrants. They are listed
+  // because they are drawn ON a quadrant fill and therefore read the tier curated
+  // for that surface (`--cat-on-fill`), which sweeps them into `inkKeys()`. Being
+  // held to the 4.5 text floor rather than 1.4.11's 3:1 is deliberate: they clear
+  // it (worst 5.11:1) and the stricter floor costs nothing. Their graphical floor
+  // is also covered by `tools/audit-diagram-contrast.mjs --report contrast`.
+  quadrantPointFill: 'quadrant1Fill',
+  quadrantInternalBorderStrokeFill: 'quadrant1Fill',
   quadrantXAxisTextFill: 'background',
   quadrantYAxisTextFill: 'background',
   quadrantTitleFill:     'background',
+  // Keys added when the previously-unstated levers were pulled. Each names the
+  // surface Mermaid actually draws that text on, read off the renderer, not off
+  // our map: a state label sits on the state's own chip, a transition label and a
+  // relation label sit on the canvas beside their line, a requirement's body sits
+  // on the requirement box, a venn set label on its set fill, a venn title on the
+  // canvas, and the xy chart's in-bar value label on the bar itself.
+  stateLabelColor:       'stateBkg',
+  transitionLabelColor:  'background',
+  requirementTextColor:  'requirementBackground',
+  relationLabelColor:    'background',
+  vennSetTextColor:      'venn1',
+  vennTitleTextColor:    'background',
+  // The surface is `xyChart.plotColorPalette` — but that key is a comma-JOINED
+  // string, so `tokenFor` returns null for it and the pair would be skipped in
+  // silence, which is the one failure mode this gate must not have. `cScale0` is
+  // fed from `--cat-1-mark`, the SAME value as the first plot series, so naming it
+  // here judges the real pairing against a key the resolver can actually read.
+  'xyChart.dataLabelColor': 'cScale0',
   // Error box
   errorTextColor: 'errorBkgColor',
 };

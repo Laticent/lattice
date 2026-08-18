@@ -129,7 +129,7 @@
   --scheme-dark-text-display: #ECECE8;
 
   /* ── Mermaid extensions — oxblood pop on second curve ──────────────── */
-  --diagram-stroke:          #2A2A28;
+  --diagram-stroke:          light-dark(#2A2A28, #777775);
   --diagram-accent-warm:     var(--brand-alt);
   /* cScale / gitgraph — warm gray with one oxblood pop */
 }
@@ -215,7 +215,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#7C7C7C, #525252);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#B7B7B7, #5D5D5D);
+  --diagram-today:        light-dark(#5D5D5D, #6D6D6D);
   --diagram-note:        light-dark(#E4E4E4, #696969);
 
   /* Containment tier — two nested structural surfaces. A monotonic

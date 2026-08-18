@@ -131,7 +131,7 @@
   --scheme-dark-text-display: #FFFFFF;
 
   /* ── Mermaid extensions — saturated red is the only chroma ───────── */
-  --diagram-stroke:          #000000;
+  --diagram-stroke:          #767676;
   --diagram-accent-warm:     var(--brand-alt);
   /* cScale / gitgraph — achromatic with one saturated red pop */
 }
@@ -217,7 +217,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#7A7A7A, #525252);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#B7B7B7, #5D5D5D);
+  --diagram-today:        light-dark(#8D8D8D, #5D5D5D);
   --diagram-note:        light-dark(#E4E4E4, #696969);
 
   /* Containment tier — two nested structural surfaces. A monotonic

@@ -133,7 +133,7 @@
   --scheme-dark-text-display: #EFE8D7;
 
   /* ── Mermaid extensions kept on-theme ──────────────────────────────── */
-  --diagram-stroke:          #0F2D31;
+  --diagram-stroke:          #5D7C81;
   --diagram-accent-warm:     var(--brand-alt); /* the coral pop */
   /* cScale / gitgraph — slot 0 anchors band-1 teal-deep (BRAND); slot 1
    * coral echoes band-2. Slot 3 swapped from deep-navy to amber so it
@@ -223,7 +223,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#E47154, #9A2C0E);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#D8BE1E, #766700);
+  --diagram-today:        light-dark(#988500, #766700);
   --diagram-note:        light-dark(#D7D2B1, #71640B);
 
   /* Containment tier — two nested structural surfaces. A monotonic

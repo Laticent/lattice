@@ -132,7 +132,7 @@
   --scheme-dark-text-display: #F0E2CE;
 
   /* ── Mermaid extensions — champagne pop on second curve ────────────── */
-  --diagram-stroke:          #48202A;
+  --diagram-stroke:          #966770;
   --diagram-accent-warm:     var(--brand-alt);
   /* cScale / gitgraph — slot 0 anchors band-1 wine (BRAND); slot 1
    * champagne echoes band-2. Slots 5 + 7 swapped away from wine-rose
@@ -222,7 +222,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#D35C63, #9A2735);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#ECB417, #7F5F00);
+  --diagram-today:        light-dark(#A77D00, #7F5F00);
   --diagram-note:        light-dark(#DDD0B0, #7B5F06);
 
   /* Containment tier — two nested structural surfaces. A monotonic

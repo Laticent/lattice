@@ -240,13 +240,24 @@ describe('diagram theme parity — both render paths, one map', () => {
 });
 
 describe('the map itself', () => {
-  test('carries the full inventory — 166 resolved variables', () => {
-    // 155 top-level keys plus the 11 nested xyChart slots. Pinned so a key
+  test('carries the full inventory — 201 resolved variables', () => {
+    // 189 top-level keys plus the 12 nested xyChart slots. Pinned so a key
     // silently disappearing — the #511 failure mode — fails rather than passes
     // quietly.
+    //
+    // Was 156/166. The 34 net added are the levers Mermaid has always offered and the
+    // engine had never stated: the stateDiagram node/transition/composite set, the
+    // requirementDiagram box + relation set, architecture's edges and group border,
+    // venn's eight sets and its two ink keys, C4's person, the ER row bands, three
+    // two flowchart leftovers (`border2`, `arrowheadColor` — `nodeBkg` and
+    // `compositeBorder` were tried and dropped, being inert in mermaid 11.14), and
+    // `xyChart.dataLabelColor`. Left unstated, Mermaid derived each from
+    // `primaryColor`/`background` by its own color maths — which is the whole of
+    // the "mermaid invents off-brand colors" complaint. Raising this number means
+    // stating MORE, and that is the direction it should move.
     const flat = flatten(buildDiagramTheme(fakeReadToken));
-    assert.equal(Object.keys(MERMAID_VAR_MAP).length, 156);
-    assert.equal(Object.keys(flat).length, 166);
+    assert.equal(Object.keys(MERMAID_VAR_MAP).length, 190);
+    assert.equal(Object.keys(flat).length, 201);
   });
 
   test('every entry is exactly one of literal / var / joinVars / nested', () => {

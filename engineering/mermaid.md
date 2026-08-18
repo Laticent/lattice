@@ -219,6 +219,142 @@ names resolves in every self-declaring palette;
 `test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against
 the surface it is actually drawn on, per palette and per scheme.
 
+### The non-text tier — strokes, edges, grid lines and axis rules
+
+WCAG has two contrast floors and the engine gates both, in two deliberately
+non-overlapping places. **Text** is `diagram-ink-contrast.test.js` at 4.5:1 (§5.3d).
+**Graphics** — anything that carries meaning without being text — is
+`diagram-nontext-contrast.test.js` at **3:1** (SC 1.4.11).
+
+A shape is judged by **discernibility**, not by any single pair: it passes if ANY of
+its three candidate edges clears the floor — fill vs canvas, border vs canvas, or
+border vs its own fill. A node with an invisible border but a fill that separates
+cleanly from the canvas is perfectly legible, and a gate that judged border-vs-fill
+alone would condemn it and teach the next person to "fix" something that reads fine.
+A LINE has no fill to fall back on, so it is judged on its one pair — against the
+surface it is actually drawn on, which is not always the canvas (a quadrant divider
+and a plotted point sit on a quadrant's own fill). The tables are in
+`test/helpers/diagram-surfaces.js`, shared with `tools/audit-diagram-contrast.mjs`,
+and are written out rather than derived from `MERMAID_VAR_MAP` for the same reason
+the ink gate hard-codes its `SITES`: derive the pairing from our own map and a
+mis-assigned key is simply re-judged against the tier it was mis-assigned to.
+
+**`--diagram-stroke` is the token this tier turns on, and it feeds fourteen keys** —
+`primaryBorderColor`, `secondaryBorderColor`, `tertiaryBorderColor`, `nodeBorder`,
+`actorBorder`, `labelBoxBorderColor`, `activationBorderColor`, `pieOuterStrokeColor`,
+`taskBorderColor`, `tagLabelBorder`, `quadrantExternalBorderStrokeFill`, `border2`,
+and both `xyChart` axis line colors. (`border2` is the weakest of the fourteen —
+mermaid consumes it in exactly one rule, `div.mermaidTooltip`'s border, which cannot
+exist in an export.) Every palette used to declare it as a flat,
+mode-invariant literal (`#000000` on onyx, `#1F4A6E` on indaco), so on a dark canvas
+it was a dark line on a dark page: 24 of 64 palette-modes had a flowchart node, gantt
+bar, pie slice and sequence actor with **no discernible edge at all**, and the a11y
+family sat at exactly 1.00:1.
+
+**The fix was a re-curation, not a re-architecture, and `cuoio` is why.** It already
+passed with a flat literal, because `#8B7E6D` is a genuine mid-tone that clears both
+of its canvases (3.71:1 light, 4.74:1 dark) — where indaco's `#1F4A6E` banked 9.28:1
+on light it had no use for and collapsed to 1.85:1 on dark. `lib/theme/derive.js` had
+the right rule all along (`withChroma(withLightness(e.accent, 0.5), 0.09)` — lightness
+0.5, a mid-tone); the hand-authored palettes were the drift. Twelve were retuned; only
+`concrete` needed a `light-dark()` pair, because its light canvas is a mid-gray
+`#B8B8B5` that no single value can bridge to a near-black dark canvas. **There are 14
+values to curate, not 32: every `-dark` twin inherits its base's through `@import`.**
+
+**`--diagram-stroke` REACHES ONE NON-MERMAID SURFACE**, and re-curating it moved that
+surface too: `state-chart` reads it for the node's leading accent edge
+(`state-chart.styles.css`, `--state-node-stroke` / `--fill-ink` / `.state-node-accent`).
+Measured in real Chromium, accent against the tile it sits on, the change is a trade
+that is good in dark and costly in light — onyx 1.35 → 3.42 dark but 15.91 → 3.44
+light; indaco 1.56 → 3.47 dark, 7.27 → 3.27 light. **No light context drops below the
+3:1 floor, and every dark one rises toward it** (magnolia dark 1.02 → 2.59 is still
+under, but far better than it was). The light accent is nonetheless three to five times
+lighter than it was, which is a visible change to that component and is called out here
+because nothing else in the change mentions it.
+
+**Curating a new palette's stroke:** pick a mid-tone in the palette's own hue that
+clears 3:1 against BOTH its canvases, and reach for `light-dark()` only when the two
+canvases are too far apart for one value — which, on this evidence, is rare.
+
+**Three keys were reading the wrong tier**, and all three are the same shape as the
+`gitBranchLabel` error (§5.3d) — a token curated for one surface, used on another:
+
+| key | was | now | why |
+|---|---|---|---|
+| `gridColor` | `--diagram-done` | `--muted-mark` | a pale gantt BAR FILL used as a LINE; 1.30:1 on 49 of 64 |
+| `noteBorderColor` | `--diagram-today` | `--diagram-stroke` | the gantt TODAY MARKER's hue used as a note's border |
+| `quadrantInternalBorderStrokeFill`, `quadrantPointFill` | `--cat-8-mark` | `--cat-on-fill` | a SIBLING of the quadrant fills, used ON them |
+
+The first two undo a **documented value reuse** in `lib/base/base.tokens.css` group 3
+("the grid borrows the `done` tone; the note border borrows the `today` highlight").
+That dedup equated a SURFACE with a LINE, and the two have different floors — a fill
+may sit a hair off the canvas, a line drawn on it may not. `doneTaskBkgColor` keeps
+`--diagram-done` and `todayLineColor` keeps `--diagram-today`: the jobs those tokens
+are named for.
+
+**The numbers this tier reports are deliberately optimistic.** They are the baked
+`themeVariables`. `mermaid.css` puts `stroke-opacity` below 1 on several strokes (the
+radar graticule at 0.20, its axis lines at 0.5) and a translucent stroke blends toward
+what is under it, so a pair passing at 3.05:1 can still render below the floor. The
+gate never reports a failure that is not real; it can miss one.
+
+### Which keys are levers — measured, and the answer is "all of them"
+
+The folk answer is that Mermaid's `updateColors()` mixes colors out from under us, so
+control is limited. That is testable: send a sentinel for every color key Mermaid
+emits — alone, and again alongside the engine's full set — and see which come back.
+
+```
+mermaid emits            243 color themeVariables
+Lattice sets             194
+unused (a lever exists)   52
+of ours, not in a bare base theme   3   (fontFamily, labelColor, labelBackground)
+mermaid IGNORES            0   <- keys with no lever at all
+our own keys overridden    0
+```
+
+The three headline numbers do NOT partition on their own, and the report prints the
+missing term rather than leaving it to be re-derived: 243 − 52 = 191 shared, and
+194 − 3 ours-only = 191. Two earlier defects in this census are worth knowing, because
+both made it assert more than it had measured. Its color test matched only
+`#`/`rgb()`/`hsl()`, so the nine keys mermaid states as bare CSS names were invisible
+to it — including `gridColor` and `todayLineColor`, the two keys this page's own table
+re-points, which the "honors all of them" claim had therefore never probed. And it
+built our theme from a single repeated hex, which cannot detect a clobber that assigns
+one of our keys FROM another — mermaid has two such assignments. Distinct per-key
+sentinels now; the answer is unchanged, the method now earns it.
+
+*(`node tools/audit-diagram-contrast.mjs --report levers`.)* **Nothing is clobbered in
+either direction.** Mermaid's color maths is a *fallback for unstated keys*, not an
+override of stated ones — so an off-brand color in a Lattice diagram is a token pointed
+at the wrong tier or a key nobody named, never a knob Mermaid withheld. 34 keys are
+stated for the first time in this pass (36 were tried; `nodeBkg` and `compositeBorder`
+turned out to be inert in mermaid 11.14 and were dropped) (the stateDiagram set, the requirementDiagram
+set, architecture's edges and group border, `venn1`–`venn8`, C4's `personBkg`, the ER
+row bands, `border2`/`arrowheadColor`, `xyChart.dataLabelColor`), which is
+where the stock-looking state, requirement, venn, architecture and C4 renders came from.
+
+**Two things are genuinely outside `themeVariables`**, and are worth knowing before
+hunting for a theme key that does not exist:
+
+- **`sankey.linkColor` is a diagram CONFIG key, not a theme variable.** Its default is
+  already `gradient`, so this was never the sankey's problem. The actual defect was
+  that Mermaid paints every link through an inline `mix-blend-mode: multiply` — a
+  light-canvas assumption that darkens toward the backdrop, correct on white and
+  catastrophic on a dark deck, where the whole flow rendered as a near-black smudge
+  beside correctly-colored node bars. `mermaid.css` overrides it to `normal` and
+  raises the ribbon opacity 0.4 → 0.55 to make up the darkening multiply had been
+  contributing on light.
+- **The xy chart has no gridline and no plot-frame lever, and CSS cannot supply one.**
+  `XYChartConfig` offers width, height, title sizing, data-label toggles and
+  orientation — nothing that draws a grid. Verified against the rendered SVG: the
+  chart emits `g.plot`, `g.bottom-axis`/`g.left-axis` (each with `g.axis-line`,
+  `g.ticks`, `g.label`) and a single `rect.background`, and **no gridline elements at
+  all**. A stylesheet can restyle elements; it cannot create them. Closing this needs
+  either an upstream Mermaid feature or post-render injection in `lib/runtime`, which
+  is a HARD RULE #22 markup sink and its own piece of work. The axis rules and ticks
+  ARE now on-palette and clear 3:1, which is the part that was fixable here.
+
 **A `subgraph` box is drawn entirely from the containment tier** — fill
 `--c-container`, boundary `--c-container-edge`, label ink `--c-on-container` (and
 the `-subcontainer` trio one rung in). Not `--bg-alt`, which is the deck's *card*

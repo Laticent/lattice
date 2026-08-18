@@ -131,7 +131,7 @@
   --scheme-dark-text-display: #FFFFFF;
 
   /* ── Mermaid extensions kept on-theme ──────────────────────────────── */
-  --diagram-stroke:          #1E2A38;
+  --diagram-stroke:          #697788;
   --diagram-accent-warm:     #BD5000;
   /* cScale / gitgraph — slot 0 anchors band-1 steel-blue (BRAND); slot 1
    * brass echoes band-2 warm-tan. Slot 3 swapped from cool-gray-blue
@@ -221,7 +221,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#DD656C, #9A2735);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#D8BE1E, #796900);
+  --diagram-today:        light-dark(#9A8600, #796900);
   --diagram-note:        light-dark(#D7D2B1, #71640B);
 
   /* Containment tier — two nested structural surfaces. A monotonic

@@ -144,7 +144,7 @@
 /* ── Diagram tokens ──────────────────────────────────────────────────── */
 :root {
   /* Warm ink stroke that reads on every pale fill including white. */
-  --diagram-stroke: #4A3D29;
+  --diagram-stroke: #867862;
   --diagram-line:   light-dark(#241D14, var(--scheme-dark-text-body));
   --diagram-accent-warm: #BD5000;
 }
@@ -206,7 +206,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#A91C2A, #F87171);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#D8BE1E, #796900);
+  --diagram-today:        light-dark(#9C8800, #796900);
   --diagram-note:        light-dark(#D7D2B1, #71640B);
 
   --c-container:     light-dark(#F2ECE0, #2C2A24);

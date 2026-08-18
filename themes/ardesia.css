@@ -133,7 +133,7 @@
   --scheme-dark-text-display: #FFFFFF;
 
   /* ── Mermaid extensions kept on-theme ──────────────────────────────── */
-  --diagram-stroke:          #2A2A2A;
+  --diagram-stroke:          #777777;
   /* Warm-gold pop — the deliberate "coolness break" on second curve.
    * Same trick Boardroom's Graphite uses to give an achromatic palette
    * one chromatic axis without compromising the neutral identity. */
@@ -222,7 +222,7 @@
   --diagram-done-mark:   var(--diagram-stroke);
   --diagram-critical:       light-dark(#7A7A7A, #525252);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#B7B7B7, #5D5D5D);
+  --diagram-today:        light-dark(#8A8A8A, #676767);
   --diagram-note:        light-dark(#E4E4E4, #696969);
 
   /* Containment tier — two nested structural surfaces. A monotonic
