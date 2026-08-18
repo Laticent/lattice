@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header. Round three (2026-08-18) closes the two items that handback left open: the dropdown's height cap now knows about the software keyboard — it takes a third arm from `--vvh` via the same `useKeyboardInset` every mobile sheet caps against, turning the ≈0px margin computed at an iPad's landscape geometry into 12px, with the no-keyboard geometry unchanged at 100% zoom — and the hand-rolled dropdown container is re-litigated against the shared Radix `Popover` (HARD RULE #15) by BUILDING the non-portalled variant and measuring it: it paints, and even removes both clip workarounds, but it has to be told the offset the CSS derives, runs a measurement pipeline for a static position, wraps the listbox in `role="dialog"`, and needs seven props to switch its own behavior off. Rejected — and the one thing it would have bought, never thinking about the clips again, is bought instead as a regression test that fails if either clip returns.
+summary: The ⌘K search becomes the Studio header's own expanding combobox instead of a centered overlay. #1707 framed the blocker — a dropdown that never painted — as an architectural fork between portalling the list (and exiling three unit tests to e2e) or taking the header's scroll valve away at desktop. Neither was needed: a live getComputedStyle walk up from the card found the last clip was the `Command` widget's OWN base-class `overflow-hidden`, one level BELOW the header every attempt had been aimed at. The header's `overflow-x: auto` clip is real and also has to lift, which is why lifting it alone (attempt 2) looked like a dead end — two clipping contexts, and clearing either one alone paints nothing. Fixing the widget's clip keeps the scroll valve (#1381), keeps the list in one DOM tree, and keeps all 92 unit tests as unit tests. Two defects the paint failure had been masking also surfaced: the open field sat 11px above the row's control line, and the root's `bg-popover` painted an opaque slab across a deliberately translucent header. Round three (2026-08-18) closes the two items that handback left open: the dropdown's height cap now knows about the software keyboard — it takes a third arm from `--vvh` via the same `useKeyboardInset` every mobile sheet caps against, turning the ≈0px margin computed at an iPad's landscape geometry into a small deliberate one, with the no-keyboard geometry unchanged at 100% zoom; an on-device tap then confirmed iPadOS DOES report the keyboard through visualViewport and corrected the gutter constant from 15px to 5px — and the hand-rolled dropdown container is re-litigated against the shared Radix `Popover` (HARD RULE #15) by BUILDING the non-portalled variant and measuring it: it paints, and even removes both clip workarounds, but it has to be told the offset the CSS derives, runs a measurement pipeline for a static position, wraps the listbox in `role="dialog"`, and needs seven props to switch its own behavior off. Rejected — and the one thing it would have bought, never thinking about the clips again, is bought instead as a regression test that fails if either clip returns.
 ---
 
 # The Studio's inline expanding search, and the clip nobody had looked at
@@ -447,7 +447,7 @@ measurement: `useKeyboardInset` (`components/ui/panel.tsx`) already publishes `-
 already caps against it. The inline field mounts the same hook while it is open:
 
 ```
-max-h-[min(60vh, 420px, calc(var(--vvh) - 54px - 24px))]
+max-h-[min(60vh, 420px, calc(var(--vvh) - 54px - 14px))]
 ```
 
 `54px` is the header's own `h-[54px]`, +8px for the card's gap below the bar and +16px so
@@ -485,10 +485,27 @@ does not move `getComputedStyle(html).fontSize`, so `3.375rem` still measures 54
 | 1440×900 | 900px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
 | 1920×1080 | 1080px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
 | 1194×834 | 834px (no keyboard) | 420px | y=61 h=422 | 483 — *unchanged* |
-| any | 484px (~350pt keyboard) | **406px** | y=61 h=408 | **469** |
+| any | 484px (~350pt keyboard) | **416px** | y=61 h=418 | **479** |
 
-So the landscape case goes from ≈0px of margin to **12px**, and it scales: a keyboard
+So the landscape case goes from ≈0px of margin to ~5px, and it scales: a keyboard
 carrying a predictive row shrinks `--vvh` further and the cap follows it down.
+
+### The gutter, corrected from the device (2026-08-18)
+
+The first cut of this arm subtracted 24px past the header rather than 14, and the owner
+tapped it on a real iPad: *"looks good in portrait but in landscape it falls a bit short of
+reaching the top of the digital keypad."*
+
+**That did not need re-measuring, because the gap is a constant in closed form.** Card
+bottom = `61 + cap + 2` (borders) and `cap = --vvh - N`, so the bottom lands at
+`--vvh - (N - 63)` — the SAME gap at every keyboard height, which is exactly why it read as
+a deliberate margin rather than a miss. At N=78 that constant was **15px**; confirmed in
+Chromium at `--vvh: 484` → card y=61 h=408, bottom 469, 484-469 = 15. At N=68 it is **5px**.
+
+Portrait was never affected and the report says so: there the 420px arm binds, not this one,
+so no amount of gutter tuning moves it. **The one number that had to come from hardware —
+does iPadOS report the keyboard through `visualViewport` at all — the tap answered: it does.**
+The mechanism is confirmed on device; only the constant was wrong.
 
 **Safe by construction, which is what makes it shippable without an iPad.** The new
 arm sits inside `min()`, so it can only ever make the list SHORTER. At 100% zoom with no

@@ -116,8 +116,8 @@ test('the inline dropdown paints below the header, not clipped inside it', async
 	});
 	expect(
 		parseFloat(capped),
-		`with the visible band at 484px the list must cap to 406px (484 - 54 header - 8 gap - 16 gutter), got ${capped}`,
-	).toBeCloseTo(406, 0);
+		`with the visible band at 484px the list must cap to 416px (484 - 54 header - 14 for the card's gap, borders and breathing), got ${capped}`,
+	).toBeCloseTo(416, 0);
 });
 
 /**

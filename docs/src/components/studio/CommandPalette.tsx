@@ -380,12 +380,23 @@ export function CommandPalette({
 					// `useKeyboardInset` note at the top of this component for the measurement):
 					//   60vh                  — proportional, for a short window
 					//   420px                 — the flat laptop ceiling
-					//   --vvh - 54px - 24px   — what is actually VISIBLE below the card's top edge
+					//   --vvh - 54px - 14px   — what is actually VISIBLE below the card's top edge
 					// `--vvh` is the visual viewport's height, so it shrinks under the keyboard
-					// where `vh`/`dvh` do not. 54px = the header's own `h-[54px]` (StudioShell,
-					// both stops) + 8px for the card's gap below the bar, then +16px so the last
-					// row does not sit flush on the keyboard the way the measured landscape case
-					// did.
+					// where `vh`/`dvh` do not. The 14px breaks down as 8px for the card's gap
+					// below the bar + 2px for its own borders + 4px of breathing room, on top of
+					// the 54px header (`h-[54px]`, StudioShell, both stops).
+					//
+					// THE 4px IS THE WHOLE POINT AND IT USED TO BE 16. Reported from a real iPad
+					// in LANDSCAPE (the orientation this feature exists for): the list "falls a
+					// bit short of reaching the top of the digital keypad." It was not a mystery
+					// and it did not need re-measuring — the arithmetic gives the gap in closed
+					// form. Card bottom = 61 + cap + 2, and cap = `--vvh` - N, so the bottom lands
+					// at `--vvh` - (N - 63): a CONSTANT gap, the same at every keyboard height,
+					// which is exactly why it read as a design choice rather than a miss. At
+					// N=78 that constant was 15px (confirmed in Chromium: `--vvh` 484 → card
+					// y=61 h=408, bottom 469, 484-469=15). At N=68 it is 5px — reaching, with
+					// just enough that the last row is not tangent to the keyboard.
+					// Portrait was never affected: there the 420px arm binds, not this one.
 					// `54px` AND NOT `3.375rem`, which is what this shipped as for one commit and
 					// is the same 54px only at the default root font size. The header is a fixed
 					// `h-[54px]`; `rem` follows the browser's font-size setting, so at Chrome's
@@ -412,7 +423,7 @@ export function CommandPalette({
 					// VALUE (>400, which 300 fails) and by RESPONSE (force `--vvh` to 484px and the
 					// cap must become 406px, which only a live `calc()` can do). Both were verified
 					// able to fail against real mutants.
-					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px,calc(var(--vvh)_-_54px_-_24px))]',
+					'[&_[data-slot=command-list]]:max-h-[min(60vh,420px,calc(var(--vvh)_-_54px_-_14px))]',
 				)}
 				// Escape closes; the caller re-renders the pill and the effect above puts focus
 				// back ON it — that hand-back is not automatic, and this comment used to claim it
