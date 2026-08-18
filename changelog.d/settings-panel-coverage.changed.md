@@ -19,3 +19,10 @@
   line become three rows so the control keeps its full width instead of truncating its own
   value. It measures the panel, not the window — the docked Inspector is resizable at any
   screen size.
+- **The settings panels say "Configure", not "Editing", and speak to you directly.** You edit
+  a deck's content in the editor; the panel configures it, and calling both "editing" made
+  them read as the same act. The scope banners now read *Configure the whole deck* / *Configure
+  slide N*, with active lines beneath, and the passive descriptions across both scopes ("is
+  inherited from the deck", "the export is unchanged") now name who does what.
+- **"Auto" values are capitalized**, so they read as the value the control is set to rather than
+  a stray sentence fragment beside "Rainbow" and "Theme default".

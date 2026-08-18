@@ -3347,7 +3347,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{deckTab === 'motion' && (
 			<div>
-				<TabNote>How charts animate on the live surfaces (Studio, Present) — they play once when a slide is shown. Preview-only: the exported PDF/PPTX is unchanged, and any slide can override this.</TabNote>
+				<TabNote>How charts animate on the live surfaces (Studio, Present) — they play once when a slide is shown. Preview-only: it changes nothing in the exported PDF or PPTX, and any slide can override it.</TabNote>
 				<Field label="Play" desc="Animate charts in this deck." help={<>Off keeps every chart static. A single slide can still force motion on or off in its own settings.</>}>
 					<Toggle label="Chart motion" on={motionPlay} onClick={toggleMotionPlay} />
 				</Field>
@@ -3394,27 +3394,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    deck↔slide switch and only its inner content/color swaps, so a screen reader
 			    reliably announces every scope change AND slide-nav change. (Two separate
 			    aria-live nodes — one per branch — would each be freshly INSERTED on a switch,
-			    which most screen readers don't announce.) */}
+			    which most screen readers don't announce.)
+
+			    "Configure", not "Editing": you edit the deck's CONTENT in the editor, and this
+			    panel sets how it is configured — calling both "editing" made the two read as the
+			    same act. Both lines are active and address the author directly ("Set it once…",
+			    "What you set here…") rather than describing the panel to itself. */}
 			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 				{inspectorScope === 'deck' ? (
 					<>
 						<div className="flex min-w-0 items-center gap-2">
 							<SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Configure the whole deck</span>
 							<span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
+						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Set it once here and all {slides.length} slides follow.</p>
 					</>
 				) : (
 					<>
 						<div className="flex min-w-0 items-center gap-2">
 							<FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1}</span>
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Configure slide {activeFullIndex + 1}</span>
 							<span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
+						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">What you set here beats the deck, for this slide only. Leave it blank and the deck decides.</p>
 					</>
 				)}
 			</div>

@@ -33,7 +33,7 @@ const bars = (pos: string) =>
 // Ordered as the picker shows them. `auto` is the named baseline (the component's own default).
 export const HEADLINES: HeadlineEntry[] = [
 	{
-		name: 'auto', label: 'Auto', autoLabel: 'component',
+		name: 'auto', label: 'Auto', autoLabel: 'Component',
 		blurb: "Respect the component — left masthead, centered title. The default.",
 		// A split chip: left bar over a centered bar, hinting "each component decides."
 		swatch: { background: `linear-gradient(${INK}, ${INK}) left 38% / 55% 2.5px no-repeat, linear-gradient(${INK}, ${INK}) center 62% / 38% 2px no-repeat, var(--bg)` },

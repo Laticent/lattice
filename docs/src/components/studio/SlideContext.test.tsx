@@ -166,7 +166,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		goTab('Accent');
 		// `rule`'s auto entry is labeled "Auto" and carries autoLabel 'masthead default'.
-		expect(await selectedOptionText(/heading rule/i)).toBe('Auto — hairline');
+		expect(await selectedOptionText(/heading rule/i)).toBe('Auto — Hairline');
 	});
 
 	// The whole point of the rework: NO head is a bare "Auto" any more. A reader can tell

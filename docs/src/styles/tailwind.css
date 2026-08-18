@@ -150,6 +150,31 @@
 		background: none;
 		cursor: pointer;
 	}
+	/* Preflight parity for LISTS. Reported from a real iPhone: the Speech tab's lexicon
+	 * and acronym rows sat ~40px in from the panel's left edge, wasting a tenth of a
+	 * 390px screen — because a bare <ul> keeps the UA's `padding-inline-start: 40px`
+	 * and its bullets. Tailwind's Preflight zeroes both; this scoped reset stands in for
+	 * Preflight and had not.
+	 *
+	 * At the RESET, not the call site: a structural <ul> is the natural markup for a row
+	 * list and every author who reaches for it inherits the indent. LensesPanel already
+	 * carries `list-none pl-0` on its own lists — a per-call-site workaround that
+	 * predates this rule and is now redundant, which is the shape of the bug. */
+	.lx-ui ul,
+	.lx-ui ol {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	/* …but a PROSE list IS a list. `cm-md-list` is what chat-markdown.ts emits for a
+	 * bullet or numbered list in an Architect reply — real prose, where the marker
+	 * carries the meaning. It had no styles of its own and rode the UA default, which
+	 * the rule above removes, so it states its own now. `revert` keeps the right marker
+	 * per element (disc for ul, decimal for ol) instead of hard-coding one. */
+	.lx-ui .cm-md-list {
+		list-style: revert;
+		padding-inline-start: 1.35rem;
+	}
 	/* A control's LABEL is not prose. Reported from a real iPhone: press-and-hold a
 	 * Studio drawer row and iOS SELECTS the word ("Library") and raises the
 	 * Copy / Look Up callout instead of the row reading as pressed — the long press

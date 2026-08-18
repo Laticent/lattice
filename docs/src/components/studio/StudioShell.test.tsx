@@ -431,16 +431,16 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('the settings panel opens to a scope from the rail and closes from the header X', async () => {
 		const user = setup();
 		// Closed by default → no scope echo showing.
-		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		expect(screen.queryByText('Configure the whole deck')).not.toBeInTheDocument();
 		// The rail's "Deck" scope button opens the column in deck scope (loud echo).
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+		expect(await screen.findByText('Configure the whole deck')).toBeInTheDocument();
 		// The deck-scope body is pill-tabbed now; the Chrome tab is a stable marker
 		// that the deck-scope inspector rendered.
 		expect(screen.getByRole('tab', { name: 'Chrome' })).toBeInTheDocument();
 		// The header close (a single X, chevron retired) collapses it back to the rail.
 		await user.click(screen.getByRole('button', { name: 'Collapse settings' }));
-		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		expect(screen.queryByText('Configure the whole deck')).not.toBeInTheDocument();
 		// The rail's scope buttons remain (the switch is always present).
 		expect(screen.getByRole('button', { name: 'Deck scope' })).toBeInTheDocument();
 	});
@@ -621,7 +621,7 @@ describe('StudioShell — responsive layout', () => {
 		const user = setup();
 		// Nothing docked open by default; the deck stays visible.
 		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
-		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		expect(screen.queryByText('Configure the whole deck')).not.toBeInTheDocument();
 		// Tablet keeps the docked column (in-panel segment, no rail), and Deck scope opens
 		// from the overflow menu rather than a bar button: "Settings" was one of three
 		// tablet-only inline toggles (with Coach and Chat) that the 2026-08-18 width ladder
@@ -629,7 +629,7 @@ describe('StudioShell — responsive layout', () => {
 		// unchanged — a DOCKED column, not a dimming sheet — only the door it comes through.
 		await user.click(screen.getByRole('button', { name: 'More controls' }));
 		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
-		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+		expect(await screen.findByText('Configure the whole deck')).toBeInTheDocument();
 	});
 });
 
@@ -640,13 +640,13 @@ describe('StudioShell — desktop activity bar', () => {
 		expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
 		// The bar's Deck icon opens the settings panel at deck scope.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		expect(await screen.findByText(/Editing the whole deck/)).toBeInTheDocument();
+		expect(await screen.findByText(/Configure the whole deck/)).toBeInTheDocument();
 		// Switching to Slide swaps the one panel in place (grouped exclusivity).
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		expect(await screen.findByText(/Editing Slide \d+/)).toBeInTheDocument();
+		expect(await screen.findByText(/Configure slide \d+/)).toBeInTheDocument();
 		// Clicking the ACTIVE scope icon closes the panel — the one collapse rule.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		expect(screen.queryByText(/Editing Slide \d+/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Configure slide \d+/)).not.toBeInTheDocument();
 	});
 
 	it('the Architect stays independent of settings — the coach can be up WHILE you tune (grouped, not global)', async () => {
@@ -658,7 +658,7 @@ describe('StudioShell — desktop activity bar', () => {
 		// Opening deck settings does NOT close the coach — independent groups, not a
 		// single mutually-exclusive sidebar.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		expect(await screen.findByText(/Editing the whole deck/)).toBeInTheDocument();
+		expect(await screen.findByText(/Configure the whole deck/)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
@@ -763,12 +763,12 @@ describe('StudioShell — topbar information architecture', () => {
 		// as a Sheet, but it hosts the SAME Slide-first scope switch + echo as the
 		// desktop/tablet column — opening from "Settings" lands on deck scope.
 		await user.click(within(paneBar).getByRole('button', { name: 'Settings' }));
-		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+		expect(await screen.findByText('Configure the whole deck')).toBeInTheDocument();
 		// The Slide-first segment is present, so a user can flip to this-slide scope
 		// without leaving the sheet — the deterministic scope switch, one surface.
 		const scopeSheet = screen.getByRole('dialog');
 		await user.click(within(scopeSheet).getByRole('button', { name: 'Slide scope' }));
-		expect(await within(scopeSheet).findByText(/Editing Slide \d+/)).toBeInTheDocument();
+		expect(await within(scopeSheet).findByText(/Configure slide \d+/)).toBeInTheDocument();
 	});
 
 	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {

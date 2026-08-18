@@ -666,7 +666,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					    lives in Brand, mirroring the deck Inspector). */}
 					{activeTab === 'look' && (
 						<div className="py-1">
-							<TabIntro>How this one slide looks — its canvas, text size, and backdrop. Anything you don't set here is inherited from the deck.</TabIntro>
+							<TabIntro>How this one slide looks — its canvas, text size, and backdrop. The deck decides anything you don't set here.</TabIntro>
 							<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark, for this slide alone." help={<><strong>Auto</strong> follows the deck (or the site). <strong>Light</strong> or <strong>Dark</strong> pins THIS slide regardless — so a bright slide can sit inside a dark deck, or the reverse.</>}>
 								<Seg
 									ariaLabel="Slide canvas"
@@ -700,7 +700,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					    per-axis (Play / Style / Speed). Preview-only; the export is unchanged. */}
 					{activeTab === 'motion' && (
 						<div className="py-1">
-							<TabIntro>How a chart on this slide animates in place. Each axis inherits the deck's Motion unless you override it here. Preview-only — the exported PDF/PPTX is unchanged.</TabIntro>
+							<TabIntro>How a chart on this slide animates in place. Each axis inherits the deck's Motion unless you override it here. Preview-only — it changes nothing in the exported PDF or PPTX.</TabIntro>
 							<Row label="Play" hint={motionPlayProv.state === 'inherited' ? 'from deck' : undefined} desc="Animate this slide's chart." help={<><strong>Auto</strong> follows the deck. <strong>On</strong> forces motion here; <strong>Off</strong> pins this one slide static.</>}>
 								<Seg
 									ariaLabel="Chart motion"
@@ -722,7 +722,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					    Inspector's Brand tab: bar, card rails, structural trim, heading marks). */}
 					{activeTab === 'brand' && (
 						<div className="py-1">
-							<TabIntro>Where the accent shows on this slide — the brand bar, card rails, trim, and heading marks. Anything you don't set is inherited from the deck.</TabIntro>
+							<TabIntro>Where the accent shows on this slide — the brand bar, card rails, trim, and heading marks. The deck decides anything you don't set.</TabIntro>
 							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The strip on the slide's edge." help={<>A divider slide shows it as a left rail instead. <strong>None</strong> removes it; <strong>Solid</strong> / <strong>Duo</strong> / <strong>Mono</strong> repaint it in the theme accent.</>}>
 								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
 							</Row>
@@ -757,10 +757,10 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					    treatments (which do not). Two tabs until 2026-08-18; one idea. */}
 					{activeTab === 'marks' && (
 						<div className="py-1">
-							<TabIntro>Things stamped on top of this slide — a state badge, a review tone, and atmospheric accents in the margins. Tap an active chip again to clear it.</TabIntro>
+							<TabIntro>Badges and accents that sit on top of this slide's content — a state stamp, a review tone, and atmospheric margins. Tap an active chip again to clear it.</TabIntro>
 							{hasStatus && (
 								<div>
-									<SectionHead label="Says something" desc="These carry meaning — a reader is meant to read them as a claim about where the slide stands." />
+									<SectionHead label="Says something" desc="These carry meaning — a reader takes them as a claim about where the slide stands." />
 									{stateGroup.length > 0 && (
 										<div className="my-1.5">
 											<GroupHead label="Stamp" desc="A small state badge in a corner — like Draft or Confidential." />
@@ -787,7 +787,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							)}
 							{hasDecoration && (
 								<div className={hasStatus ? 'mt-4 border-t border-border/60 pt-3' : undefined}>
-									<SectionHead label="Says nothing" desc="Purely visual — atmosphere in the margins, with no meaning a reader is expected to decode." />
+									<SectionHead label="Says nothing" desc="Purely visual — atmosphere in the margins, carrying no meaning a reader has to decode." />
 									{tints.length > 0 && (
 										<div className="my-1.5">
 											<GroupHead label="Tint" desc="A soft color wash in a corner or along an edge." />
@@ -836,7 +836,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							</>
 						) : <span className="text-muted-foreground">no class — bare markdown slide</span>}
 					</div>
-					{inheritedGhost.length > 0 && <div className="mt-1 text-[10px] text-muted-foreground">Faded tokens are inherited from the deck.</div>}
+					{inheritedGhost.length > 0 && <div className="mt-1 text-[10px] text-muted-foreground">Faded tokens come from the deck.</div>}
 				</div>
 		</>
 	);

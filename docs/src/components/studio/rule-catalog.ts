@@ -23,7 +23,7 @@ const HAIR = 'var(--border)';
 // Ordered as the picker shows them. `auto` is the named baseline (today's render).
 export const RULES: RuleEntry[] = [
 	{
-		name: 'auto', label: 'Auto', autoLabel: 'hairline',
+		name: 'auto', label: 'Auto', autoLabel: 'Hairline',
 		blurb: 'Today’s render — a hairline where the masthead already draws one, else nothing.',
 		swatch: { background: `linear-gradient(${HAIR}, ${HAIR}) left bottom / 66% 1.5px no-repeat, var(--bg)` },
 	},

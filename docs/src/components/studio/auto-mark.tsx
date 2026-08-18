@@ -40,6 +40,10 @@ export const AUTO_LABEL = 'Auto';
  * Keep an `autoLabel` to ONE short word where you can. The control owns a fixed half of
  * its row and truncates, and the docked Inspector goes down to 260px — a resolved value
  * that reads "Auto — masthead d…" has spent the width and told the reader nothing.
+ *
+ * CAPITALIZE it. It is read as a VALUE, sitting in a list beside "Rainbow", "Quiet" and
+ * "Theme default", so a lower-case tail reads as a stray sentence fragment rather than
+ * the thing the control is set to.
  */
 export function autoHeadLabel(resolved?: string | null): string {
 	const value = (resolved ?? '').trim();
