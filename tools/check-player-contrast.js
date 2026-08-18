@@ -263,6 +263,29 @@ async function auditPlayer(browser, file) {
 const findingKey = (row) => [row.deck, row.state, row.page, row.cls || '', row.tag, String(row.text)].join('|');
 
 /**
+ * Collapse rows to one per finding key, keeping the WORST ratio.
+ *
+ * A key can genuinely collide: `examples/kanban-chart-redesign.md` p5 carries two different
+ * cards whose lane label is both the word "growth", so deck/state/page/class/tag/text names
+ * them both. Keeping the worst is the conservative read of "this finding".
+ *
+ * SHARED BY BOTH PATHS ON PURPOSE, and that is the whole reason it is a function. `--bless`
+ * used to build its map with `Object.fromEntries`, which keeps the LAST row for a duplicate
+ * key, while the comparison kept the WORST — so the two "growth" cards blessed at 4.47 and
+ * compared at 4.02, and the very first run against a fresh baseline reported a 0.45
+ * regression that did not exist. A gate that cries wolf on its own baseline is worse than no
+ * gate, and two collapse rules for one key is exactly how that happens.
+ */
+function collapse(rows) {
+	const seen = new Map();
+	for (const row of rows) {
+		const key = findingKey(row);
+		if (!seen.has(key) || row.r < seen.get(key).r) seen.set(key, row);
+	}
+	return seen;
+}
+
+/**
  * Compare a sweep against a blessed baseline and return only what MOVED.
  *
  * WHY A BASELINE AT ALL. A scheduled sweep that re-reports every known failure every night is
@@ -279,12 +302,7 @@ const findingKey = (row) => [row.deck, row.state, row.page, row.cls || '', row.t
  * @param {Record<string, number>} baseline key → ratio, from a previous `--bless`
  */
 function diffBaseline(rows, baseline) {
-	const seen = new Map();
-	for (const row of rows) {
-		const key = findingKey(row);
-		// Same run measured twice (two identical text runs on one slide) — keep the worse.
-		if (!seen.has(key) || row.r < seen.get(key).r) seen.set(key, row);
-	}
+	const seen = collapse(rows);
 	const added = [];
 	const worse = [];
 	for (const [key, row] of seen) {
@@ -381,7 +399,7 @@ async function main() {
 	}
 
 	if (bless) {
-		const blessed = Object.fromEntries(findings.map((row) => [findingKey(row), row.r]));
+		const blessed = Object.fromEntries([...collapse(findings)].map(([key, row]) => [key, row.r]));
 		fs.writeFileSync(baselinePath, `${JSON.stringify(blessed, null, '\t')}\n`);
 		console.log(`blessed ${Object.keys(blessed).length} known finding(s) into ${path.relative(ROOT, baselinePath)}\n`);
 		process.exit(0);
@@ -405,6 +423,6 @@ async function main() {
 	process.exit(added.length || worse.length ? 1 : 0);
 }
 
-module.exports = { sampleBackdrop, ratio, over, HIDE_INK, findingKey, diffBaseline, DEFAULT_BASELINE };
+module.exports = { sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, DEFAULT_BASELINE };
 
 if (require.main === module) main();
