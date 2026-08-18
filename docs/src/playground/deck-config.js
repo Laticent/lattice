@@ -88,7 +88,14 @@ const FIELD_DEFAULTS = {
   // — e.g. one leaning on bespoke/local classes where the underlines are noise.
   // Lives in front matter so the choice TRAVELS with the deck (and its exported .md).
   validate: 'on',
-  math: '', // '' / 'katex' = the default KaTeX renderer; 'mathjax' switches
+  // (`math:` was a managed field with a Math-renderer control until 2026-08-18. NOTHING
+  // in lib/ or lattice-emulator.js reads the key — a grep for `mathjax` across the engine
+  // returns only the control that wrote it. Lattice types all math with KaTeX; the value
+  // means something only to marp-core, i.e. to an exported .md later rendered by marp-cli.
+  // A control that LOOKS like an input and is not is exactly what lib/core/export-settings.js
+  // argues against, so the row is gone. The key is no longer MANAGED, which means a deck
+  // that already carries one keeps it verbatim through the `preserved` path — retiring a
+  // control must not delete an author's line.)
   lang: '',
 };
 const MANAGED = Object.keys(FIELD_DEFAULTS);
@@ -119,7 +126,7 @@ const COLOR_MODE_OPTIONS = [
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field (the Drawing Board: full set, theme three-way synced).
@@ -131,7 +138,7 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'g
 //             with no deck chrome and no theme, which the studio itself owns).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
+  noTheme: ['mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'lang'],
   preview: ['mode', 'color-mode', 'finish', 'size', 'paginate', 'form', 'lift'],
 });
 
@@ -223,7 +230,6 @@ export function readFrontMatter(source) {
     // `validate` is binary, default ON — surfaced as a boolean (like paginate) for
     // the switch. On unless the deck explicitly opts out with a falsey value.
     validate: !FALSEY.test((map.validate || '').trim()),
-    math: map.math || '',
     lang: map.lang || '',
     // Whether the deck carries any NON-THEME managed front matter — drives the
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
@@ -242,7 +248,6 @@ function isDefault(key, value) {
   // `validate` is binary, default ON — so on (any non-falsey) is the omitted
   // default; only an explicit `validate: off` is written into the block.
   if (key === 'validate') return !FALSEY.test(String(value).trim());
-  if (key === 'math') return value === '' || value === 'katex';
   // `form` defaults to 'standard' (on) — that's the omitted value; only `off`
   // is written into the block.
   if (key === 'form') return formMode(value) === 'standard';
@@ -272,7 +277,6 @@ function normalize(key, value) {
   // the canonical `off`. The switch passes a boolean (checked = validation on).
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
   const v = (value == null ? '' : String(value)).trim();
-  if (key === 'math') return v === '' || v === 'katex' ? null : v;
   // `form`: standard (the default) omits the key; only `off` is written.
   if (key === 'form') { const m = formMode(v); return m === 'standard' ? null : m; }
   // none = backdrop baseline → omit (same no-class render as no key at all).
@@ -405,7 +409,7 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     return t;
   }
 
-  // An inline select row (theme, size, math) — label/hint left, <select> right.
+  // An inline select row (theme, size, color mode) — label/hint left, <select> right.
   // `rerender` re-paints the panel after a change (the theme row uses it so the
   // "unknown theme" note + the select settle on the new valid value).
   function selectRow(key, label, hint, options, current, rerender = false) {
@@ -583,18 +587,12 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
 
     // Advanced — the lower-traffic deck-authoring keys. Only shown when the
     // profile includes at least one of them (a preview surface omits them all).
-    if (show('class') || show('math') || show('lang')) {
+    if (show('class') || show('lang')) {
       host.append(el('h3', 'db-settings-head db-settings-subhead', 'Advanced'));
       // Deliberately NOT `dark` as the example: the color axis belongs to `color-mode:`
       // above, which supersedes it here, and a component name is refused outright — so the
       // example names a modifier, which is what this register is actually for.
       if (show('class')) host.append(textField('class', 'Default slide class', 'A modifier applied to every slide (e.g. no-note). Color lives in Color mode; a component name is ignored here.', fm.class, 'e.g. no-note'));
-      if (show('math')) {
-        host.append(selectRow('math', 'Math renderer', 'How $…$ math is typeset', [
-          ['', 'KaTeX (default)'],
-          ['mathjax', 'MathJax'],
-        ], fm.math === 'mathjax' ? 'mathjax' : ''));
-      }
       if (show('lang')) host.append(textField('lang', 'Language', 'The deck’s document language tag', fm.lang, 'e.g. en'));
     }
 
