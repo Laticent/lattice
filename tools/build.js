@@ -254,6 +254,13 @@ async function main(argv) {
   //
   // Only the UNCOMMITTED steps run: generating the committed artifacts too would
   // make a subsequent --check compare fresh against fresh and pass vacuously.
+  //
+  // CONSTRAINT this creates, and it is load-bearing: an uncommitted step may not
+  // depend on a COMMITTED step's output being freshly generated, because the
+  // bootstrap skips those. Today that holds — build-player-core.js needs
+  // build-anima-player.js's lib/export/anima-player-bundle.generated.mjs, and that
+  // file is committed, so a checkout always has it. If a dependency of an
+  // uncommitted step is ever moved out of git, bootstrap it here too.
   const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js'];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
