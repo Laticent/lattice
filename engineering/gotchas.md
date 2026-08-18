@@ -117,6 +117,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A slide-level color-scheme pin has to be re-emitted for the exported player](gotchas/export.md#a-slide-level-color-scheme-pin-has-to-be-re-emitted-for-the-exported-player)
 - [A token flattened for the player took the print band's value](gotchas/export.md#a-token-flattened-for-the-player-took-the-print-bands-value)
 - [Chart fills took one scheme while the page took the other](gotchas/export.md#chart-fills-took-one-scheme-while-the-page-took-the-other)
+- [A player's dark toggle moved every color except the ones written in a real property](gotchas/export.md#a-players-dark-toggle-moved-every-color-except-the-ones-written-in-a-real-property)
 - [A baked diagram label went dark-on-dark after the player's toggle](gotchas/export.md#a-baked-diagram-label-went-dark-on-dark-after-the-players-toggle)
 - [`--strip-notes` deleted a comment out of a code fence](gotchas/export.md#--strip-notes-deleted-a-comment-out-of-a-code-fence)
 - [`--strip-notes` could not remove a note that opens with a directive keyword](gotchas/export.md#--strip-notes-could-not-remove-a-note-that-opens-with-a-directive-keyword)

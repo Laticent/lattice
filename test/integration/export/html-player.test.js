@@ -451,32 +451,67 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 });
 
 // The player's whole scheme contract in one assertion: NOTHING it ships may depend on the
-// `light-dark()` CSS function. `themeDualMode` guarantees that for <style> blocks, but the
-// chart family writes its gradient stops as an inline `style` ATTRIBUTE, which that function
-// never saw — so those shipped with `light-dark()` intact, and the fill was decided by the
-// element's `color-scheme` while the page was decided by `data-lp-scheme`. The two agree only
-// because the player's script writes an inline color-scheme onto <html>; where that coupling
-// does not hold the chart takes one scheme and the page the other. Reported from a real iPad
-// as dark gantt/state-chart fills on a light page, and on a pre-17.5 WebKit — the engine the
-// whole dual-mode machine exists for — the declaration is simply invalid and the fills go
-// black. `portrait-gantt-statechart` is the guard because it emits BOTH families' gradients.
-describe('html-player export — no shipped attribute depends on light-dark()', () => {
+// `light-dark()` CSS function — not a token, not an inline attribute, not a rule.
+//
+// The function only exists from WebKit 17.5, and where it does exist it resolves against the
+// ELEMENT's `color-scheme`, which is not the signal the player's toggle drives. So every pair
+// has to be split at export time into a light base plus an explicit, attribute-keyed dark
+// override. That split had three holes, closed one at a time and each one invisible until a
+// real artifact was opened:
+//   · `<style>` TOKENS — `themeDualMode`, the original machine;
+//   · inline `style` ATTRIBUTES — the chart family writes its gradient stops there, so they
+//     shipped verbatim and the fill followed `color-scheme` while the page followed
+//     `data-lp-scheme`. Reported from a real iPad as dark gantt/state-chart fills on a light
+//     page; on a pre-17.5 engine the declaration is invalid outright and the fills go black
+//     (#1643, `hoistInlineLightDark`);
+//   · pairs written in a REAL PROPERTY of a rule — in neither set, so the base kept the light
+//     arm and nothing restored the dark one. 18 declarations across 14 rules, including the
+//     kanban card's four-layer elevation recipe, which is byte-identical before and after a
+//     toggle without this (#1645, `hoistRuleLightDark`).
+//
+// The assertion is therefore a COUNT over the whole file rather than a DOM query over one
+// sink: each of those three holes was invisible to a gate written for the previous one, and a
+// substring count is the only shape that cannot be. The player script's own `//` comments
+// EXPLAIN the mechanism and name the function, so they are stripped before counting — the one
+// exemption, and a narrow one.
+//
+// `portrait-gantt-statechart` is the guard deck because it emits BOTH chart families'
+// gradients; `kanban-chart-redesign` is the second because it carries the real-property pairs.
+describe('html-player export — nothing shipped depends on light-dark()', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
 	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
-	const DECK = path.join(ROOT, 'examples', 'portrait-gantt-statechart.md');
 	const TIMEOUT = 180000;
-	let html;
-	test.before(() => {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-inline-scheme-'));
+	/** @type {Record<string, string>} */
+	const exported = {};
+	const render = (deck) => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-scheme-'));
 		const out = path.join(dir, 'deck.pdf');
-		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+		const r = spawnSync(process.execPath, [EMULATOR, path.join(ROOT, 'examples', `${deck}.md`), out, '--quiet', '--player'], {
 			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
 		});
-		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
-		html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
-	}, { timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed on ${deck}: ${r.stderr}`);
+		exported[deck] = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	};
+	test.before(() => {
+		render('portrait-gantt-statechart');
+		render('kanban-chart-redesign');
+	}, { timeout: TIMEOUT * 2 });
 
-	test('every inline style is scheme-free, and the dark arms ride the attribute-keyed block', () => {
+	// The player is ONE executable script and it is the only place a `//` comment can appear in
+	// the shipped file, so stripping line comments there is both sufficient and bounded. Done on
+	// the raw text rather than through the DOM because the count has to cover the stylesheets,
+	// the attributes and the JSON envelope in one pass — which is the point of counting at all.
+	const schemeFree = (html) => html.replace(/^[ \t]*\/\/.*$/gm, '');
+
+	for (const deck of ['portrait-gantt-statechart', 'kanban-chart-redesign']) {
+		test(`${deck}: the exported player carries no light-dark() outside the script's own comments`, () => {
+			const hits = (schemeFree(exported[deck]).match(/light-dark\(/g) || []).length;
+			assert.equal(hits, 0, `${hits} light-dark() occurrence(s) survive the export`);
+		});
+	}
+
+	test('the inline gradient stops are collapsed, and their dark arms ride the attribute-keyed block', () => {
+		const html = exported['portrait-gantt-statechart'];
 		const doc = new JSDOM(html).window.document;
 		// Guard the guard FIRST: without gradients the assertion below passes on a document
 		// that never had anything to fix. (`examples/state-chart.md` is exactly that document —
@@ -490,6 +525,75 @@ describe('html-player export — no shipped attribute depends on light-dark()', 
 		assert.match(html, /:root\[data-lp-scheme=dark\] \.lp-sd-\d+\{/, 'the dark arms are re-applied, not dropped');
 		assert.match(html, /section\[data-lattice-slide\]\.dark:not\(\.print\) \.lp-sd-\d+\{/, 'including on an author-pinned dark slide');
 	});
+
+	// The real-property half (#1645). The kanban card is the guard because its `box-shadow` is
+	// the case a token-only split cannot reach AND the case where the light arm is not merely a
+	// wrong shade but a different set of shadow layers — a light-only export ships a contact
+	// shadow and no inset rim, on a near-black canvas where only the rim reads.
+	test('a pair written in a real property is routed through a private token, in its own rule', () => {
+		const html = exported['kanban-chart-redesign'];
+		assert.match(html, /box-shadow:var\(--lp-ld-[\d-]+,/, 'the base declaration keeps its place and reads the token');
+		assert.match(html, /:root\[data-lp-scheme=dark\][^{]*\.kanban-card\{--lp-ld-[\d-]+:/, 'the dark arms are defined under the viewer scheme');
+		assert.match(
+			html,
+			/section\[data-lattice-slide\]\.dark:not\(\.print\)[^{]*\.kanban-card\{--lp-ld-[\d-]+:/,
+			'and on an author-pinned dark slide, in every player scheme',
+		);
+		// The indirection exists to leave the cascade alone: the base rule must NOT have been
+		// re-emitted at a scope-boosted specificity, which is what silently un-flattened every
+		// keyline card. A scoped copy would carry the real property, not just the token.
+		assert.doesNotMatch(html, /:root\[data-lp-scheme=dark\][^{]*\.kanban-card\{box-shadow:/, 'no scope-boosted copy of the rule itself');
+	});
+
+	// …and the same thing again on the REAL surface, because the assertions above describe the
+	// EMISSION and this one describes the BEHAVIOR. A count of `light-dark(` in the file cannot
+	// see this defect at all — the light collapse already removes every occurrence, which is
+	// precisely the bug: the dark arm is discarded, not left behind. Only driving the toggle and
+	// reading back a computed value distinguishes "collapsed to light" from "switches".
+	test('toggling the shipped player actually moves a real property, and lands on the dark arm', async (t) => {
+		const puppeteer = require('puppeteer');
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-scheme-live-'));
+		// The SAME deck twice: once as authored (light), once pinned `color-mode: dark`. The dark
+		// export is the reference — what the deck's own dark render puts on the card — so the
+		// assertion is fidelity to a real artifact, not to a literal transcribed into a test.
+		const source = fs.readFileSync(path.join(ROOT, 'examples', 'kanban-chart-redesign.md'), 'utf8');
+		const darkDeck = path.join(dir, 'dark.md');
+		fs.writeFileSync(darkDeck, source.replace(/^---\n/, '---\ncolor-mode: dark\n'));
+		assert.match(fs.readFileSync(darkDeck, 'utf8'), /^---\ncolor-mode: dark\n/, 'guard: the dark reference really is pinned dark');
+		const out = path.join(dir, 'dark.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, darkDeck, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed on the dark reference: ${r.stderr}`);
+		const lightFile = path.join(dir, 'light.html');
+		fs.writeFileSync(lightFile, exported['kanban-chart-redesign']);
+
+		const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+		t.after(async () => { await browser.close(); });
+		const shadow = async (file, toggle) => {
+			const page = await browser.newPage();
+			await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
+			await page.goto(require('node:url').pathToFileURL(file).href, { waitUntil: 'networkidle0' });
+			if (toggle) {
+				await page.click('#lp-mode');
+				await new Promise((res) => setTimeout(res, 250));
+			}
+			// Only the COLOR components are compared. The lengths are `cqi`, so they track the
+			// container the card happens to sit in, and the two exports lay out independently —
+			// pinning the pixels would make this a geometry test that fails for the wrong reason.
+			return page.evaluate(() => {
+				const el = document.querySelector('.kanban-card');
+				if (!el) return null;
+				return (getComputedStyle(el).boxShadow.match(/(?:rgba?|oklab|oklch|color)\([^)]*\)|\btransparent\b/g) || []).join(' ');
+			});
+		};
+		const asLoaded = await shadow(lightFile, false);
+		const toggled = await shadow(lightFile, true);
+		const reference = await shadow(out.replace(/\.pdf$/, '.html'), false);
+		assert.ok(asLoaded, 'guard: the deck really does ship a kanban card');
+		assert.notEqual(toggled, asLoaded, 'the toggle moves the card\u2019s elevation recipe at all');
+		assert.equal(toggled, reference, 'and moves it to what the deck\u2019s own dark render paints');
+	}, { timeout: TIMEOUT * 2 });
 });
 
 // The label HALO — the rect `foreignObjectToText` writes under the words — is the one paint
