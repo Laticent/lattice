@@ -781,6 +781,15 @@ describe('Studio — Inspector controls respond', () => {
 			expect(col?.className).toMatch(/flex-1/);
 		}
 
+		// Below ~320px of PANEL width the two columns stack, so the control gets the width
+		// back instead of eating its own value. jsdom has no container-query engine, so what
+		// is checkable here is the CONTRACT: the row carries the stacking variant, and some
+		// ancestor actually declares the container it measures — a variant with no container
+		// is dead CSS that fails silently. The behavior itself is verified on the real panel
+		// (2026-08-18 decision note §7.1).
+		expect(row?.className, 'the row stacks when the panel is narrow').toMatch(/@max-\[320px\]\/settings:flex-col/);
+		expect(row?.closest('.\\@container\\/settings'), 'a container is declared for that query to measure').not.toBeNull();
+
 		// …and the help line is BELOW that row, where every `Field` puts it — not between the
 		// label and the input, which is what pushed the field under the keyboard.
 		const desc = document.getElementById(field.getAttribute('aria-describedby') ?? '');

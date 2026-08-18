@@ -15,7 +15,7 @@
 import { Captions, Check, Cloud, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
-import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW } from '@/components/ui/panel';
+import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch as UISwitch } from '@/components/ui/switch';
@@ -543,7 +543,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	return (
 		<>
-			<div className="flex-1 overflow-y-auto px-4 overscroll-contain [touch-action:pan-y] min-w-0">
+			{/* `SETTING_SCOPE`: the rows stack against THIS body's width, so a narrow docked
+			    Inspector degrades gracefully wherever the window happens to be. */}
+			<div className={cn('flex-1 overflow-y-auto px-4 overscroll-contain [touch-action:pan-y] min-w-0', SETTING_SCOPE)}>
 					{/* Reset — revert every edit made this session back to the original slide. */}
 					<div className="flex items-center justify-between border-b border-border py-2">
 						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>

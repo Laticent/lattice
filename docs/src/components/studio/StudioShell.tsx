@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -3092,7 +3092,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
-		<div className="space-y-3 pt-1">
+		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
+		// so they stack when the PANEL is dragged narrow — not when the window is.
+		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)}>
 			<PillTabs tabs={DECK_TABS} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
 			{deckTab === 'look' && (
 			<div>

@@ -15,3 +15,7 @@
 - **"Auto" always names what it resolves to** — `Auto — Cuoio`, `Auto — English`,
   `Auto — hairline`. Three different shapes were in play (a bare `Auto`, `Auto — value`,
   and a bare value), picked by a rule no reader could see.
+- **Narrow settings panels stack.** Below ~320px of panel width the label, control and help
+  line become three rows so the control keeps its full width instead of truncating its own
+  value. It measures the panel, not the window — the docked Inspector is resizable at any
+  screen size.

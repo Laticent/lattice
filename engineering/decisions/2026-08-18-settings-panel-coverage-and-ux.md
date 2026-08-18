@@ -372,6 +372,21 @@ labeled "Auto"; those entries now carry an `autoLabel` naming what their auto LA
 both read. Keep those to one short word: the control truncates, and `Auto — masthead d…`
 has spent the width and said nothing.
 
+**And below ~320px of panel width, the two columns stack.** Label, control and help line
+become three rows and the control takes the full width back — at 231px (what the docked
+desktop Inspector's default 296px leaves after chrome and padding) two columns would put
+the control under ~100px, where "Widescreen 16 : 9" becomes "Widescreen 16…" and the
+alignment win has cost more than it bought.
+
+The trigger is a **container query**, not a media query, and that distinction is the whole
+reason it works: the docked Inspector is resizable between 260px and 420px at ANY viewport,
+so the window's width says nothing about the panel's. `SETTING_SCOPE` (`@container/settings`)
+goes on each panel body and `SETTING_ROW` carries `@max-[320px]/settings:flex-col`. A
+consequence worth stating plainly: the desktop dock's DEFAULT width sits below the
+threshold, so the docked panel stacks and the two-column layout appears on the wider
+surfaces (the tablet dock and the mobile sheet, ~362–391px). Moving that boundary is a
+one-line change to the threshold, or a wider `SET_DEFAULT`.
+
 **A performance note, because it was nearly shipped twice.** Mounting a Radix Popover per
 row for the ⓘ cost **44% of the StudioShell test file's runtime** (63.9s → 92.0s) and
 tipped a lazy-panel test past its budget. `HelpTip` is now lazy — a plain button until the

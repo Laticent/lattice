@@ -317,11 +317,26 @@ export function useKeyboardInset(active: boolean): void {
  * its own full-width line instead of overflowing the panel. The docked Inspector is
  * 260–420px wide (SET_MIN … PANEL_MAX in StudioShell), so the narrowest column is ~108px.
  */
-export const SETTING_ROW = 'flex flex-wrap items-center gap-x-3 gap-y-1.5';
+export const SETTING_ROW =
+	'flex flex-wrap items-center gap-x-3 gap-y-1.5 ' +
+	// STACK when the PANEL gets narrow. Below ~320px there is not enough width for two
+	// usable columns — the control lands under ~130px and starts eating its own value
+	// ("Widescreen 16…") — so label, control and help line become three stacked rows and
+	// the control takes the full width back.
+	//
+	// A CONTAINER query, not a media query, and that is the whole point: the docked
+	// Inspector is resizable between SET_MIN (260px) and PANEL_MAX (420px) at ANY viewport,
+	// so the viewport's width says nothing about the panel's. The container is declared by
+	// `SETTING_SCOPE` on the panel body.
+	'@max-[320px]/settings:flex-col @max-[320px]/settings:items-stretch @max-[320px]/settings:gap-y-1';
+/** Put this on the panel body that holds the rows — it is what the row's stacking measures. */
+export const SETTING_SCOPE = '@container/settings';
 /** The label half of a `SETTING_ROW`. */
-export const SETTING_LABEL_COL = 'min-w-0 flex-1 basis-[45%]';
-/** The control half of a `SETTING_ROW` — right-aligned, so an intrinsic control needs nothing. */
-export const SETTING_CONTROL_COL = 'flex min-w-0 flex-1 basis-[45%] items-center justify-end';
+export const SETTING_LABEL_COL = 'min-w-0 flex-1 basis-[45%] @max-[320px]/settings:basis-auto';
+/** The control half of a `SETTING_ROW` — right-aligned, so an intrinsic control needs nothing.
+ *  Stacked, it keeps `justify-end` so a Switch stays on the right where the eye expects a
+ *  toggle, while a filling control (already `w-full`) spans the row either way. */
+export const SETTING_CONTROL_COL = 'flex min-w-0 flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
 
 export const PINNED_FIELD_ROW =
 	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +
