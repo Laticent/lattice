@@ -19,11 +19,23 @@ import { expect, test } from './studio-fixture';
 //     whether an EXTRA `removeScript` pass runs on top. So the label arms below are pinning
 //     Mermaid's own DOMPurify, NOT our `securityLevel`, and — measured — they stay green
 //     with the runtime flipped to `loose`.
-//   · `securityLevel: 'strict'` (lib/runtime/index.js PREVIEW_ONLY_CONFIG) governs URL
+//   · `securityLevel` gates a WHOLE-SVG DOMPurify pass in `render()`
+//     (`else if (!isLooseSecurityLevel) svgCode = purify.sanitize(svgCode, …)`), which is a
+//     second, broader net over everything the diagram emits — not just labels.
+//   · `securityLevel: 'strict'` (lib/runtime/index.js PREVIEW_ONLY_CONFIG) also governs URL
 //     handling: `formatUrl` runs `sanitizeUrl` on a link unless the level is `loose`, and
 //     `setClickFun` refuses to bind a click callback at all unless it is. That is what the
 //     `click` arm pins, and flipping the runtime to `loose` DOES turn that arm red —
 //     verified by rebuilding the runtime and the docs site against a mutated source.
+//
+// So the label arms have belt AND braces (per-label unconditional + whole-SVG under strict),
+// which is why flipping `securityLevel` alone does not move them, while the click arm moves.
+//
+// VERSION, stated because it is easy to get wrong: these run against the CDN URL
+// `deck-preview.js` names, `mermaid@11`, which resolves to whatever the latest 11.x is —
+// **11.16.1** at the time of writing, NOT the 11.14.0 pinned in `node_modules`. The source
+// citations above were read from the installed 11.14.0; the behavior was measured on
+// 11.16.1. That gap is the point of pinning behavior rather than a version.
 //
 // It is a Mermaid SECURE KEY either way — `sanitize` deletes it from anything that is not
 // `initialize` — so a deck's own `%%{init}%%` structurally cannot opt back out.
@@ -99,11 +111,12 @@ async function openDeck(page: import('@playwright/test').Page, mermaidSrc: strin
 // is OpenRouter-key theft. They are table-driven because the failure mode this whole area
 // keeps hitting is fixing one twin and declaring the class closed: a single `<img onerror>`
 // arm would have said nothing about `<svg onload>`, `<details ontoggle>`, or `<iframe
-// srcdoc>`. All seven measured silent on Mermaid 11.14; this is what keeps them that way.
+// srcdoc>`. All NINE measured silent on the CDN's current 11.x; this is what keeps them
+// that way.
 // NO DOUBLE QUOTES IN ANY PAYLOAD, and that is a correctness requirement rather than
 // style: a mermaid node label is delimited by `"`, so an inner `"` makes Mermaid throw —
 // the diagram never renders, nothing can run, and the arm passes while testing NOTHING.
-// The first cut of this table had exactly that bug in 6 of 7 rows, and only the
+// The first cut of this table had exactly that bug in 6 of its then-7 rows, and only the
 // `data-mermaid-state: rendered` assertion below exposed it.
 //
 // The oracle is `top.__pwned`, not a network beacon: it detects script EXECUTION directly,

@@ -163,13 +163,28 @@ comment carried. Read Mermaid 11's `sanitizeText` / `sanitizeMore`:
 - **Node labels are sanitized UNCONDITIONALLY.** `sanitizeText` always runs
   `DOMPurify.sanitize(…, { FORBID_TAGS: ['style'] })`; `securityLevel` only decides whether an
   extra `removeScript` pass runs on top.
-- **`securityLevel` governs URL handling**: `formatUrl` runs `sanitizeUrl` unless the level is
-  `loose`, and `setClickFun` refuses to bind a click callback unless it is.
+- **`securityLevel` gates a WHOLE-SVG DOMPurify pass** in `render()` —
+  `else if (!isLooseSecurityLevel) svgCode = purify.sanitize(svgCode, …)` — a second, broader
+  net over everything the diagram emits, not just labels.
+- **`securityLevel` also governs URL handling**: `formatUrl` runs `sanitizeUrl` unless the
+  level is `loose`, and `setClickFun` refuses to bind a click callback unless it is.
 
 Measured consequence: the nine label-payload arms stay **green with the runtime flipped to
-`loose`**, because the thing holding them is not the key. Only the click arm moves. A suite
-that had assumed one mechanism would have reported "we verified `strict`" while nine of its
-eleven arms were pinning a third-party sanitizer nobody had named.
+`loose`**, because labels have belt AND braces and the per-label net does not depend on the
+key. Only the click arm moves. A suite that had assumed one mechanism would have reported "we
+verified `strict`" while nine of its eleven arms were pinning a third-party sanitizer nobody
+had named.
+
+**A correction to this section's own first cut**, kept rather than quietly edited because it is
+the same failure this note is about: it originally said `securityLevel` governs *only* URL
+handling and click callbacks. A red-team pass found the whole-SVG pass, which the source read
+confirms. The measured behavior did not change; the explanation of *why* did.
+
+**And a version correction.** The e2e suite loads the CDN URL `deck-preview.js` names,
+`mermaid@11`, which resolves to the latest 11.x — **11.16.1**, not the **11.14.0** pinned in
+`node_modules`. Earlier drafts of this note and the spec said "11.14" for both. The source
+citations here are from the installed 11.14.0; the behavior was measured on 11.16.1. That the
+two can differ at all is the argument for pinning behavior instead of a version number.
 
 ### 3.3 Fix-direction (2) is refused, with numbers
 
@@ -196,6 +211,70 @@ posture in §3.1 does not already concede, and it cannot stop the one shape that
 **during** Mermaid's own layout (`A@{ img: "https://…" }`, measured firing before our
 injection point exists).
 
+### 3.3b The `themeCSS` channel — contained, but worth naming
+
+A diagram *can* inject a real `<style>` element into the preview frame:
+`%%{init:{'themeCSS':'…'}}%%` is honored, because `themeCSS` is not on Mermaid's `secure`
+key list. That is a capability ordinary slide content does **not** have —
+`sanitizeSlideHtml` forbids `<style>` and `<link>` in content outright — so it is the one
+place a diagram outranks the rest of the surface.
+
+Measured on the real Playground, it is contained by two Mermaid behaviors:
+
+- `sanitizeCss` rejects any payload whose `}` count exceeds its `{` count, so scope-breakout
+  attempts (`} h1{…} #z{`) are replaced with an error comment — confirmed absent from the
+  frame's stylesheets;
+- stylis wraps the CSS as `#<svgId>{ … }`, scoping every selector to the diagram's own
+  dynamically-named subtree. A scoped `background:url(attacker)` did **not** fire, and
+  `@import url(attacker)` did **not** fire.
+
+So: no document-wide rule, nothing outside the diagram in scope, no read primitive. Not an
+escalation today — but it rests entirely on a third-party brace-balance check, and if a future
+Mermaid relaxes `sanitizeCss` or the scoping it becomes document-wide CSS injection into the
+key-bearing origin. Recorded here so it is a known channel rather than a rediscovery.
+
+### 3.3c The census was WRONG about two of its own entries — a live XSS
+
+The most valuable thing this branch produced, and it came from an independent checker
+reading the census rather than the code: `li.innerHTML` and `td.innerHTML` were declared
+**"OURS — a regex capture of the slide's OWN already-sanitized text"**. That reasoning is
+false, and the `td` one was a **live XSS on the real Playground**.
+
+Both transforms read their label with `element.textContent`, which **DECODES** entities.
+Markup that `sanitizeSlideHtml` had deliberately left inert as escaped TEXT — `&lt;img
+src=x onerror=…&gt;` — comes back as `<img src=x onerror=…>`, and assigning that to
+`innerHTML` re-parses it as live markup. The sanitizer is not at fault and cannot help: the
+decode happens entirely downstream of it. That is this issue's own class, in our own code.
+
+Reproduced end to end on the real Playground, in a deck that only has to defeat the
+SERVER-side plugin so the runtime path is the one that handles the cell (a leading inline
+element does it):
+
+```
+| Duty | Status |
+|---|---|
+| Runtime path | <span></span>[x] &lt;img src=x onerror=top.__pwned=1&gt; |
+```
+
+    observed:  <td><span class="state pass state-full"><img src="x" onerror="top.__pwned=1"></span></td>
+               top.__pwned === 1
+    control (no leading span, plugin transforms server-side): top.__pwned === undefined
+
+So script ran in the origin HARD RULE #24 puts the visitor's OpenRouter key in.
+
+**Fixed at the source, not relabelled.** `badgeSpan()` builds the element with
+`createElement` + `textContent`, so there is no parse step to exploit — and it is also more
+faithful, since the label had already been flattened to text by the read. Both sinks are
+therefore GONE from `lib/runtime`, and their census entries are replaced by a note saying
+why they must not come back. `docs/e2e/badge-transform-escape.spec.ts` pins it on the real
+surface, with an anti-vacuity assertion that the transform actually ran.
+
+**Why this is the finding that matters most.** A provenance census is only worth what its
+provenance claims are worth, and this PR's own census asserted "contained" about a line that
+was not. Pre-existing rather than introduced — but squarely on this change's path (HARD RULE
+#18): a PR whose deliverable is "declare where every runtime injection's markup comes from"
+cannot ship having declared two of them wrongly.
+
 ### 3.4 What ships: the durable half nobody built
 
 The card's fourth acceptance criterion — "a gate, or an extension of `checkPreviewHtmlSinks`,
@@ -220,6 +299,16 @@ Test written first: 13 arms, all 13 failing before the implementation, over a te
 injected root. Both real-tree mutants killed — a new sink shape, and a fourth
 `target.innerHTML`. Its evasion envelope is in the docblock, as the other three arms carry
 theirs.
+
+**Widened after a red-team pass**, which drove the real gate over a temp tree and watched
+`target.setHTMLUnsafe(svg)` pass **silently**. It is a Baseline-2024 API present in the
+Chromium the preview runs on, it parses its argument as HTML exactly like `innerHTML` with no
+sanitization, and it was in neither the sink list nor the declared envelope — i.e. exactly the
+"future render path" the gate exists to catch, landing green. `setHTMLUnsafe`, `setHTML` and
+`writeln` are now matched (test arms first, as before), and bracket-indexed receivers
+(`nodes[i].innerHTML`) are now named in the envelope rather than left implied. Nothing in
+`lib/runtime` uses any of them today, so this changed no census entry — it closed a hole in the
+claim, not in the tree.
 
 ### 3.5 The suite, and the vacuity it caught in itself
 

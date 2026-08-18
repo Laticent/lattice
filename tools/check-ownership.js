@@ -4484,20 +4484,14 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 1,
     provenance: 'OURS — clears the themed diagram error block to the empty string before it is rebuilt from text nodes.',
   },
-  {
-    file: 'lib/runtime/index.js',
-    sink: 'li.innerHTML',
-    count: 1,
-    provenance:
-      'OURS — a <span class="badge"> built from a regex capture of the slide\'s OWN already-sanitized text. ' +
-      'The document this runs in has been through sanitizeSlideHtml; this re-shapes text that survived it.',
-  },
-  {
-    file: 'lib/runtime/index.js',
-    sink: 'td.innerHTML',
-    count: 1,
-    provenance: 'OURS — the table-cell twin of the li badge above, same already-sanitized capture, same reasoning.',
-  },
+  // `li.innerHTML` and `td.innerHTML` USED TO BE HERE, declared "OURS — already-sanitized
+  // text". That reasoning was WRONG and the census said so in writing, which is the exact
+  // failure a provenance census exists to prevent: both read their label from
+  // `element.textContent`, which DECODES entities, so markup the sanitizer had deliberately
+  // left inert came back live and `innerHTML` re-parsed it. Demonstrated on the real
+  // Playground (`top.__pwned = 1`). They are now built with `document.createElement` +
+  // `textContent` (`badgeSpan` in lib/runtime/index.js), so there is no sink to declare.
+  // Do NOT re-add an entry here to "cover" a reinstated innerHTML — fix the sink instead.
   {
     file: 'lib/runtime/index.js',
     sink: 'document.body.insertAdjacentHTML',
@@ -4557,7 +4551,12 @@ const SANCTIONED_E2E_SLEEPS = [
     why: 'ABSENCE ASSERTION. The script-vector table injects a payload into a rendered node label '
        + 'and then asserts `top.__pwned` is still undefined and no request left the frame. The '
        + 'render itself is polled (data-mermaid-state + the label element); this is the settle '
-       + 'window for an execution that must never come.',
+       + 'window for an execution that must never come. COUNT SEMANTICS, stated because this gate '
+       + 'counts TEXT matches and its docblock says counts are of WAITS: this single occurrence '
+       + 'sits inside a `for (const v of SCRIPT_VECTORS)` loop and therefore executes once per '
+       + 'vector — NINE times, ~13.5s of the suite. A table-driven loop is the same shape as the '
+       + 'helper-hiding-N-waits case that gate was written for; the `via` mechanism only covers '
+       + 'named helpers, so it is written down here instead.',
   },
   {
     file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1000, count: 1,
@@ -5541,7 +5540,8 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  * markup into the live frame while staying silent:
  *
  *   · a sink reached through a variable holding the property name
- *     (`el[prop] = s`, `const k = 'innerHTML'`);
+ *     (`el[prop] = s`, `const k = 'innerHTML'`), and a BRACKET-INDEXED receiver
+ *     (`nodes[i].innerHTML = s`) — the receiver pattern is dotted names only;
  *   · `document.createElement` + `appendChild` of a parsed fragment — no string sink at all,
  *     which is a legitimate and SAFER shape, but also an unmonitored one;
  *   · `DOMParser`/`Range` obtained under an alias whose receiver name differs from the
@@ -5562,37 +5562,69 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
  * @param {string}   root      repo root (injectable, so probes live in a temp tree)
  */
 function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_SINKS, root = ROOT) {
-  // A receiver expression followed by a markup sink. `[\w$.]` covers `document.body` and
-  // plain locals; anything more exotic (computed access) is in the stated envelope above.
-  const ASSIGN = /([\w$]+(?:\.[\w$]+)*)\.(innerHTML|outerHTML|srcdoc)\s*=(?!=)/g;
-  const CALL = /([\w$]+(?:\.[\w$]+)*)\.(insertAdjacentHTML|createContextualFragment|write)\s*\(/g;
+  // A RECEIVER is a dotted chain that may end in a call or an index, because that is how people
+  // actually write this: `document.querySelector('.x').innerHTML`, `nodes[0].innerHTML`,
+  // `new DOMParser().parseFromString(…)`. The first cut matched dotted identifiers ONLY, so the
+  // single most idiomatic shape in the whole class passed silently.
+  const RECEIVER = String.raw`[\w$]+(?:\([^()]*\)|\[[^\][]*\]|\.[\w$]+)*`;
+  // `(?:\+)?=(?!=)` so a `+=` APPEND counts — a plain markup append, invisible to the first cut —
+  // while `==` / `===` / `!=` stay reads.
+  const ASSIGN = new RegExp(`(${RECEIVER})\\.(innerHTML|outerHTML|srcdoc)\\s*(?:\\+)?=(?!=)`, 'g');
+  const CALL = new RegExp(
+    `(${RECEIVER})\\.(insertAdjacentHTML|createContextualFragment|setHTMLUnsafe|setHTML|parseFromString|writeln|write)\\s*\\(`,
+    'g',
+  );
+  // `setAttribute('srcdoc', …)` is the same sink as `.srcdoc =`, spelled so that no property
+  // assignment appears at all.
+  const SET_ATTR = new RegExp(`(${RECEIVER})\\.setAttribute\\s*\\(\\s*['"\`](srcdoc)['"\`]`, 'gi');
   const dir = path.join(root, 'lib', 'runtime');
-  const found = new Map(); // `${rel} ${sink}` -> count
+  const found = new Map(); // `${rel} ${sink}` -> count
   const files = [];
   if (fs.existsSync(dir)) listSourceFiles(dir, files);
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
-    if (/\.generated\.js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
-    const code = fs
-      .readFileSync(file, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/(^|[^:])\/\/.*$/gm, '$1');
-    for (const re of [ASSIGN, CALL]) {
+    if (/\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
+    // REUSE the repo's conservative stripper (HARD RULE #15) rather than a local regex. The first
+    // cut used `/(^|[^:])\/\/.*$/gm`, which truncates any line holding `//` inside a STRING or a
+    // REGEX LITERAL — hiding a real sink written beside a protocol-relative URL, and drifting a
+    // committed count for a reason nobody could see. `stripCodeComments` removes only FULL-LINE
+    // `//` comments, so a TRAILING comment mentioning a sink can still be counted; that is the
+    // SAFE direction (the author declares it) and it is stated in the envelope above.
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    for (const re of [ASSIGN, CALL, SET_ATTR]) {
       for (const m of code.matchAll(re)) {
-        // `document.write` is a sink; `stream.write` / `logger.write` are not. Only the
-        // document one is a markup parser, so the census keys on the full receiver text and
-        // a non-document `.write(` simply becomes its own undeclared entry — the safe
-        // direction, and one an author clears by declaring its provenance.
-        if (m[2] === 'write' && !/(^|\.)document$/.test(m[1])) continue;
-        const sink = `${m[1]}.${m[2]}`;
-        const key = `${rel} ${sink}`;
+        // `document.write` parses markup; `stream.write` / `logger.write` do not. The receiver's
+        // last segment must END in `document`, so `contentDocument.write` and
+        // `ownerDocument.write` — both real sinks the first cut dropped — count. Anything else is
+        // DISCARDED rather than becoming an entry: a deliberate false negative, because `.write(`
+        // is far too common on streams to make every one of them a census row. (The first cut's
+        // comment claimed the opposite of what its code did.)
+        if ((m[2] === 'write' || m[2] === 'writeln') && !/(^|\.)[\w$]*document$/i.test(m[1])) continue;
+        const sink = `${m[1]}.${m[2].toLowerCase() === 'srcdoc' && /setAttribute/i.test(m[0]) ? 'setAttribute(srcdoc)' : m[2]}`;
+        const key = `${rel} ${sink}`;
         found.set(key, (found.get(key) || 0) + 1);
       }
     }
   }
-  const declared = new Map(sanctions.map((s) => [`${s.file} ${s.sink}`, s]));
+  // A duplicate (file, sink) would SILENTLY SHADOW in the Map below — last one wins — leaving a
+  // wrong count and its provenance in the list enforcing nothing. `checkE2ESleeps` in this same
+  // file already detects exactly this hazard; not doing it here re-opened a hole its neighbour
+  // had already closed.
+  const seenSanctionKeys = new Set();
+  for (const entry of sanctions) {
+    const key = `${entry.file} ${entry.sink}`;
+    if (seenSanctionKeys.has(key)) {
+      errors.push(
+        `SANCTIONED_RUNTIME_MARKUP_SINKS has a duplicate entry for ${entry.file} \`${entry.sink}\` — one ` +
+        `silently shadows the other, so its count enforces nothing. Merge them into a single entry ` +
+        `with the real count.`,
+      );
+    }
+    seenSanctionKeys.add(key);
+  }
+  const declared = new Map(sanctions.map((s) => [`${s.file} ${s.sink}`, s]));
   for (const [key, count] of found) {
-    const [rel, sink] = key.split(' ');
+    const [rel, sink] = key.split(' ');
     const entry = declared.get(key);
     if (!entry) {
       errors.push(

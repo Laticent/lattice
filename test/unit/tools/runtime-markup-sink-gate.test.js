@@ -68,16 +68,25 @@ describe('checkRuntimeMarkupSinks — sinks that MUST be declared', () => {
 		assert.deepEqual(gate('function f(target, svg) { target.innerHTML = svg; }', [entry('target.innerHTML', 1)]), []);
 	});
 
-	test('outerHTML, insertAdjacentHTML, srcdoc, document.write and createContextualFragment all count', () => {
+	test('every string-to-DOM sink counts, not just innerHTML', () => {
 		// Each is a way to turn a string into live DOM. A gate that knew only `innerHTML`
 		// would be trivially side-stepped by the next author reaching for any of the others,
 		// which is precisely the failure mode #1246 is about.
+		//
+		// `setHTMLUnsafe` / `setHTML` / `writeln` were added after a red-team pass drove the
+		// real gate over a temp tree and watched `t.setHTMLUnsafe(svg)` pass SILENTLY. It is a
+		// Baseline-2024 API, present in the Chromium the preview runs on, and it parses its
+		// argument as HTML exactly like `innerHTML` with no sanitization — i.e. precisely the
+		// "future render path" this gate exists to catch, landing green.
 		const shapes = [
 			['el.outerHTML = s;', 'el.outerHTML'],
 			['host.insertAdjacentHTML("beforeend", s);', 'host.insertAdjacentHTML'],
 			['frame.srcdoc = s;', 'frame.srcdoc'],
 			['document.write(s);', 'document.write'],
+			['document.writeln(s);', 'document.writeln'],
 			['range.createContextualFragment(s);', 'range.createContextualFragment'],
+			['el.setHTMLUnsafe(s);', 'el.setHTMLUnsafe'],
+			['el.setHTML(s);', 'el.setHTML'],
 		];
 		for (const [code, sink] of shapes) {
 			const errors = gate(`function f(el, host, frame, range, s) { ${code} }`);
@@ -98,6 +107,56 @@ describe('checkRuntimeMarkupSinks — sinks that MUST be declared', () => {
 	});
 });
 
+describe('checkRuntimeMarkupSinks — receiver shapes an author actually writes', () => {
+	// Every one of these was SILENT in the first cut and none was in the declared envelope.
+	// A gate whose promise is "a new injection point cannot land silently" cannot miss the
+	// most idiomatic way to write one.
+	const shapes = [
+		['function f(s){ document.querySelector(".x").innerHTML = s; }', 'a call-expression receiver'],
+		['function f(nodes, s){ nodes[0].innerHTML = s; }', 'a bracket-indexed receiver'],
+		['function f(t, s){ t.innerHTML += s; }', 'a += append'],
+		['function f(fr, s){ fr.setAttribute("srcdoc", s); }', 'srcdoc via setAttribute'],
+		['function f(s){ new DOMParser().parseFromString(s, "text/html"); }', 'DOMParser.parseFromString'],
+		['function f(d, s){ d.contentDocument.write(s); }', 'contentDocument.write'],
+		['function f(el, s){ el.ownerDocument.write(s); }', 'ownerDocument.write'],
+	];
+	for (const [src, label] of shapes) {
+		test(`${label} is seen`, () => {
+			assert.ok(gate(src).length > 0, `${label} passed the gate silently: ${src}`);
+		});
+	}
+});
+
+describe('checkRuntimeMarkupSinks — the allowlist cannot shadow itself', () => {
+	// `checkE2ESleeps` in the same file already detects this hazard and errors. A Map keyed
+	// on `file sink` silently keeps the LAST duplicate, so a wrong count plus its provenance
+	// can sit in the list enforcing nothing.
+	test('two entries for the same (file, sink) are reported, not silently merged', () => {
+		const errors = gate('function f(t,a,b,c){ t.innerHTML = a; t.innerHTML = b; t.innerHTML = c; }', [
+			entry('t.innerHTML', 9, 'first'),
+			entry('t.innerHTML', 3, 'second'),
+		]);
+		assert.ok(errors.length > 0, 'a duplicate (file, sink) sanction was silently shadowed');
+		assert.match(errors.join('\n'), /duplicate|shadow/i);
+	});
+});
+
+describe('checkRuntimeMarkupSinks — comment stripping must not eat code', () => {
+	// The first cut used `/(^|[^:])\/\/.*$/gm`, which truncates any line holding `//` inside a
+	// STRING or a regex literal — hiding a real sink on that line, and (the other direction)
+	// drifting a committed count for a reason nobody could see.
+	const shapes = [
+		['const BASE = "//cdn.example.com/"; function f(t,s){ t.innerHTML = s; }', 'a protocol-relative URL in a string'],
+		['function f(t,s){ const p = "a//b"; t.innerHTML = s; }', 'a doubled slash in a string'],
+		['function f(t,s){ s = s.replace(/\\/\\//g, "/"); t.innerHTML = s; }', 'a regex literal containing //'],
+	];
+	for (const [src, label] of shapes) {
+		test(`${label} does not hide the sink beside it`, () => {
+			assert.ok(gate(src).length > 0, `${label} hid a real sink: ${src}`);
+		});
+	}
+});
+
 describe('checkRuntimeMarkupSinks — shapes that must NOT fire', () => {
 	test('reading innerHTML is not a sink', () => {
 		assert.deepEqual(gate('function f(el) { return el.innerHTML; }'), []);
@@ -115,6 +174,32 @@ describe('checkRuntimeMarkupSinks — shapes that must NOT fire', () => {
 
 	test('textContent is not a markup sink — it does not parse markup', () => {
 		assert.deepEqual(gate('function f(el, s) { el.textContent = s; }'), []);
+	});
+});
+
+describe('checkRuntimeMarkupSinks — branches that had no test', () => {
+	test('a non-document `.write(` is NOT a markup sink', () => {
+		// Kills the receiver filter: without it, `stream.write` / `logger.write` become
+		// undeclared entries and the gate cries wolf on every writable stream.
+		assert.deepEqual(gate('function f(stream, s){ stream.write(s); }'), []);
+	});
+
+	test('an equality comparison is not an assignment', () => {
+		// Kills the `=(?!=)` lookahead: `if (el.innerHTML === s)` is a READ.
+		assert.deepEqual(gate('function f(el, s){ return el.innerHTML === s; }'), []);
+		assert.deepEqual(gate('function f(el, s){ return el.innerHTML == s; }'), []);
+	});
+
+	test('generated bundles and test files are skipped', () => {
+		// Kills the skip: build output and test fixtures are not authored injection points.
+		for (const name of ['probe.generated.js', 'probe.test.js']) {
+			const abs = path.join(TMP, 'lib', 'runtime', name);
+			fs.writeFileSync(abs, 'function f(t, s){ t.innerHTML = s; }');
+			const errors = [];
+			checkRuntimeMarkupSinks(errors, [], TMP);
+			fs.rmSync(abs, { force: true });
+			assert.deepEqual(errors, [], `${name} should be skipped`);
+		}
 	});
 });
 

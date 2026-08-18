@@ -397,9 +397,10 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   that SVG is not available — DOMPurify deletes `<foreignObject>` and `<style>`, i.e. every node
   label and all diagram styling (measured). What contains it is Mermaid's own behavior, and the
   split is worth knowing: `sanitizeText` runs DOMPurify on labels UNCONDITIONALLY, while
-  `securityLevel: 'strict'` governs URL handling and click callbacks — so a label payload and a
-  `click … javascript:` payload are held by two different mechanisms, both third-party, both
-  pinned behaviorally in `docs/e2e/mermaid-post-sanitize.spec.ts`. Every markup sink in
+  `securityLevel: 'strict'` gates a WHOLE-SVG DOMPurify pass plus URL handling and click
+  callbacks — so a label payload has two nets and a `click … javascript:` payload has one, all
+  of them third-party, all pinned behaviorally in `docs/e2e/mermaid-post-sanitize.spec.ts`
+  against the CDN's real Mermaid rather than the pinned `node_modules` copy. Every markup sink in
   `lib/runtime` therefore declares WHERE ITS MARKUP COMES FROM, and the count is pinned per
   sink — the file-scoped shape the other three arms use would certify a SECOND injection point
   hiding behind an already-legitimate one, which is not hypothetical: #1246 named one Mermaid

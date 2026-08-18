@@ -149,10 +149,10 @@ test('the census covers every file that calls the guard outside docs/src preview
 			if (e.name === 'node_modules' || e.name === 'dist') continue;
 			const p = path.join(abs, e.name);
 			if (e.isDirectory()) walk(p);
-			// `*.generated.js` are BUNDLER OUTPUT (esbuild inlines lib/core/sanitize-style-text.mjs
+			// `*.generated.js` / `*.generated.mjs` are BUNDLER OUTPUT (esbuild inlines lib/core/sanitize-style-text.mjs
 			// into several of them). A count there tracks a build step rather than a decision, and
 			// churns on every re-bundle — the census is about call sites someone chose to write.
-			else if (/\.generated\.js$/.test(e.name)) continue;
+			else if (/\.generated\.[cm]?js$/.test(e.name)) continue;
 			else if (/\.(?:js|ts|tsx|mjs|cjs)$/.test(e.name)) check(p);
 		}
 	};
