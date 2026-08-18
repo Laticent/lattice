@@ -76,6 +76,7 @@
     "new:slide": "node tools/new-slide.js",
     "new:component": "node tools/new-component.js",
     "scorecard": "node tools/theme-scorecard.js",
+    "palette:bless": "node tools/bless-palette-baselines.js",
     "scorecard:check": "node tools/theme-scorecard.js --check",
     "equiv": "node tools/slice-equivalence.mjs",
     "intent:bakeoff": "node tools/intent-bakeoff/bakeoff.mjs",

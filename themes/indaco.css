@@ -120,11 +120,18 @@
    * modes). --pass is overridden to indaco's brand-forest-green so the
    * "done / shipped" tone stays in the brand family; dark mode lifts
    * to a brighter forest variant for AA contrast on dark canvas. */
-  --pass: light-dark(#2F6B12, #6FCC4D);
+  /* The LIGHT arms are re-solved JOINTLY (#1698). `kpi`'s status pill and
+   * `policy-recommendation`'s stance badge ink the trio on a 10-12% tint OF THE
+   * SAME token, so the band moves with the value and a canvas-only reading
+   * overstates it. Solved along the OKLab lightness axis, hue kept, all three
+   * arms at once: moving --warn alone closes its deficiency separation from
+   * --pass and --fail, and lightness is the only channel a deficiency preserves
+   * (tools/composed-contrast.js, test/unit/palette/cvd-trio-floor.test.js). */
+  --pass: light-dark(#276305, #6FCC4D);
   /* Self-curated semantic trio — cool green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --warn: light-dark(#956500, #E6B255);
-  --fail: light-dark(#A81E38, #F07F92);
+  --warn: light-dark(#8B5E00, #E6B255);
+  --fail: light-dark(#900028, #F07F92);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);

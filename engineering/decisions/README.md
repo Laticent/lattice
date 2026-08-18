@@ -287,6 +287,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-08-18-status-trio-own-hue-tints.md](2026-08-18-status-trio-own-hue-tints.md) — Seven palettes inked `--warn` on a 10-12% tint OF `--warn`, so the band moved with the value and no canvas-based reading could see it.
 - ☑ [2026-08-18-undeclared-color-tokens.md](2026-08-18-undeclared-color-tokens.md) — Four color defects with one shape — a token whose DECLARED contract does not match what it paints — fixed together, gated together.
 - ☑ [2026-08-17-canvas-relative-sequential-ramp.md](2026-08-17-canvas-relative-sequential-ramp.md) — The sequential ramp derived 600-900 toward BLACK on every canvas, so on a dark one --seq-700 walked toward the background — 1.66-3.19:1…
 - ☑ [2026-08-17-component-pick-surface.md](2026-08-17-component-pick-surface.md) — The component catalog cost 95k tokens to read and HARD RULE #6 makes reading it mandatory before every _class: slide, so it was the…

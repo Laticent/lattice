@@ -232,24 +232,62 @@ const SURFACES = [
   // ── kpi · the status pill on its own-hue fill ────────────────────────────
   // The universal pill (base.modifiers.css) inks `--pill-fg` on `--pill-bg`;
   // kpi points both at a status token and its 12% tint. `.ops` tiles sit on
-  // `--bg-alt` — the same stack `redline/ins` already scores — so only the two
-  // surfaces that are NOT duplicates are listed: the WARN arm (which redline has
-  // no consumer for) and the hero tile, whose fill is `--accent-soft`.
+  // `--bg-alt` — the same stack `redline/ins` already scores — so the surfaces
+  // listed are the ones that are NOT duplicates: the WARN arm (which redline has
+  // no consumer for) and the two HERO tiles, whose fill is `--accent-soft`.
+  //
+  // BOTH hero arms are here, and the second was missing until #1698. The catalog
+  // had the pass hero (the default variant) and the warn pill over `--bg-alt`,
+  // and inferred from that pair that warn-over-accent-soft was covered. It is
+  // not: `.attention` repoints the HERO tile's pill at `--warn` while the tile
+  // keeps its `--accent-soft` fill, which is a third stack, and it renders on
+  // kpi.gallery.md. It was found by reading a rendered sweep rather than the
+  // token table — 4.44:1 on ardesia, under the bar, invisible to this file.
+  // A missing surface is the failure mode this gate exists to prevent: it does
+  // not report a defect, it reports nothing at all, which reads as a pass.
   {
     id: 'kpi/warn-pill',
     ctx: 'kpi.ops / .attention: the warn pill ink on its own --warn-bg tint over the tile',
     base: '--bg-alt', groups: [{ bg: '--warn-bg' }], ink: '--warn', min: 4.5,
     src: KPI,
-    requires: [/--pill-bg: var\(--warn-bg\);\s*\n?\s*--pill-fg: var\(--warn\)/],
+    // Anchored to `.ops`, order-insensitive. Unanchored, the `.attention` HERO block
+    // twelve lines below satisfied it — so deleting the `.ops` rules this surface
+    // actually models left the gate green on a surface modeling nothing.
+    requires: [
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--warn-bg\)/,
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/,
+    ],
   },
   {
     id: 'kpi/hero-pass-pill',
     ctx: 'kpi (default/briefing): the pass pill on --pass-bg over the accent-soft hero tile',
     base: '--accent-soft', groups: [{ bg: '--pass-bg' }], ink: '--pass', min: 4.5,
     src: KPI,
+    // Order-insensitive, and whitespace-tolerant on the fill: the repo's own compact
+    // style (`background:var(--accent-soft)`, live in title/divider/regulatory-update)
+    // reddened this gate on a pure whitespace edit.
     requires: [
-      /--pill-bg: var\(--pass-bg\);\s*\n?\s*--pill-fg: var\(--pass\)/,
-      /li:nth-child\(1\)[^{]*\{[^}]*background: var\(--accent-soft\)/,
+      /--pill-bg: var\(--pass-bg\)/,
+      /--pill-fg: var\(--pass\)/,
+      /li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/,
+    ],
+  },
+  {
+    id: 'kpi/hero-warn-pill',
+    ctx: 'kpi.attention: the warn pill on --warn-bg over the accent-soft hero tile',
+    base: '--accent-soft', groups: [{ bg: '--warn-bg' }], ink: '--warn', min: 4.5,
+    src: KPI,
+    // Two INDEPENDENT, order-insensitive pins rather than one that fixed the
+    // declaration order: the ordered form reddened the gate on a cosmetic reorder
+    // that changes nothing, which trains a reader to re-bless rather than read.
+    // The tile's own `--accent-soft` fill — the modeled BASE, and the thing that
+    // makes this a distinct stack from `kpi/warn-pill` over `--bg-alt` — is held
+    // by NO_TILE_REPAINT below, because a `requires` regex can only assert that
+    // something IS present and the risk here is something being ADDED.
+    requires: [
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--warn-bg\)/,
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/,
+      /li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/,
     ],
   },
   // ── checklist · the state row, whose own-hue wash sits on the CANVAS ─────
@@ -324,77 +362,67 @@ const KNOWN_SUB_THRESHOLD = new Map([
   // ── checklist/pass-row ── 1
   ['carbone|light|checklist/pass-row', 2.75],
   // ── kpi/hero-pass-pill ── 9
-  ['atelier-dark|light|kpi/hero-pass-pill', 3.79],
-  ['atelier|light|kpi/hero-pass-pill', 3.79],
+  ['atelier-dark|light|kpi/hero-pass-pill', 3.78],
+  ['atelier|light|kpi/hero-pass-pill', 3.78],
   ['burgundy-dark|light|kpi/hero-pass-pill', 3.93],
   ['burgundy|light|kpi/hero-pass-pill', 3.93],
-  ['carbone|light|kpi/hero-pass-pill', 1.88],
+  ['carbone|light|kpi/hero-pass-pill', 1.87],
   ['crepuscolo-dark|light|kpi/hero-pass-pill', 4.47],
   ['crepuscolo|light|kpi/hero-pass-pill', 4.47],
-  ['magnolia-dark|light|kpi/hero-pass-pill', 4.34],
-  ['magnolia|light|kpi/hero-pass-pill', 4.34],
-  // ── kpi/warn-pill ── 33
-  ['a11y-achromatopsia|light|kpi/warn-pill', 4.05],
-  ['a11y-base|light|kpi/warn-pill', 4.28],
-  ['a11y-deuteranopia|light|kpi/warn-pill', 4.06],
-  ['a11y-protanopia|light|kpi/warn-pill', 4.06],
+  ['magnolia-dark|light|kpi/hero-pass-pill', 4.33],
+  ['magnolia|light|kpi/hero-pass-pill', 4.33],
+  // ── kpi/hero-warn-pill ── 14
+  ['a11y-achromatopsia|light|kpi/hero-warn-pill', 3.86],
+  ['a11y-deuteranopia|light|kpi/hero-warn-pill', 3.87],
+  ['a11y-protanopia|light|kpi/hero-warn-pill', 3.87],
+  ['a11y-tritanopia|light|kpi/hero-warn-pill', 3.86],
+  ['atelier-dark|light|kpi/hero-warn-pill', 3.63],
+  ['atelier|light|kpi/hero-warn-pill', 3.63],
+  ['burgundy-dark|light|kpi/hero-warn-pill', 3.52],
+  ['burgundy|light|kpi/hero-warn-pill', 3.52],
+  ['carbone|dark|kpi/hero-warn-pill', 3.27],
+  ['carbone|light|kpi/hero-warn-pill', 2.24],
+  ['crepuscolo-dark|light|kpi/hero-warn-pill', 3.89],
+  ['crepuscolo|light|kpi/hero-warn-pill', 3.89],
+  ['magnolia-dark|light|kpi/hero-warn-pill', 3.92],
+  ['magnolia|light|kpi/hero-warn-pill', 3.92],
+  // ── kpi/warn-pill ── 18
+  ['a11y-achromatopsia|light|kpi/warn-pill', 4.04],
+  ['a11y-deuteranopia|light|kpi/warn-pill', 4.05],
+  ['a11y-protanopia|light|kpi/warn-pill', 4.05],
   ['a11y-tritanopia|light|kpi/warn-pill', 4.02],
-  ['ardesia-dark|light|kpi/warn-pill', 3.95],
-  ['ardesia|light|kpi/warn-pill', 3.95],
-  ['atelier-dark|light|kpi/warn-pill', 4.03],
-  ['atelier|light|kpi/warn-pill', 4.03],
-  ['brina-dark|light|kpi/warn-pill', 4.07],
-  ['brina|light|kpi/warn-pill', 4.07],
-  ['burgundy-dark|light|kpi/warn-pill', 4.05],
-  ['burgundy|light|kpi/warn-pill', 4.05],
+  ['atelier-dark|light|kpi/warn-pill', 4.02],
+  ['atelier|light|kpi/warn-pill', 4.02],
+  ['burgundy-dark|light|kpi/warn-pill', 4.04],
+  ['burgundy|light|kpi/warn-pill', 4.04],
   ['carbone|dark|kpi/warn-pill', 4.10],
   ['carbone|light|kpi/warn-pill', 2.80],
-  ['carta-dark|light|kpi/warn-pill', 4.13],
-  ['carta|light|kpi/warn-pill', 4.13],
   ['concrete-dark|dark|kpi/warn-pill', 4.40],
   ['concrete|dark|kpi/warn-pill', 4.40],
   ['crepuscolo-dark|light|kpi/warn-pill', 4.07],
   ['crepuscolo|light|kpi/warn-pill', 4.07],
-  ['cuoio-dark|light|kpi/warn-pill', 4.46],
-  ['cuoio|light|kpi/warn-pill', 4.46],
-  ['indaco-dark|light|kpi/warn-pill', 4.10],
-  ['indaco|light|kpi/warn-pill', 4.10],
-  ['laguna-dark|light|kpi/warn-pill', 3.96],
-  ['laguna|light|kpi/warn-pill', 3.96],
   ['magnolia-dark|light|kpi/warn-pill', 4.02],
   ['magnolia|light|kpi/warn-pill', 4.02],
-  ['mustard-dark|light|kpi/warn-pill', 3.96],
-  ['mustard|light|kpi/warn-pill', 3.96],
-  ['onyx-dark|light|kpi/warn-pill', 4.28],
-  ['onyx|light|kpi/warn-pill', 4.28],
+  ['mustard-dark|light|kpi/warn-pill', 3.95],
+  ['mustard|light|kpi/warn-pill', 3.95],
   // ── policy-recommendation/adopt-badge ── 3
-  ['carbone|light|policy-recommendation/adopt-badge', 2.94],
+  ['carbone|light|policy-recommendation/adopt-badge', 2.93],
   ['concrete-dark|light|policy-recommendation/adopt-badge', 4.06],
   ['concrete|light|policy-recommendation/adopt-badge', 4.06],
-  // ── policy-recommendation/amend-badge ── 23
+  // ── policy-recommendation/amend-badge ── 13
   ['a11y-achromatopsia|light|policy-recommendation/amend-badge', 4.39],
   ['a11y-deuteranopia|light|policy-recommendation/amend-badge', 4.37],
   ['a11y-protanopia|light|policy-recommendation/amend-badge', 4.37],
   ['a11y-tritanopia|light|policy-recommendation/amend-badge', 4.37],
-  ['ardesia-dark|light|policy-recommendation/amend-badge', 4.45],
-  ['ardesia|light|policy-recommendation/amend-badge', 4.45],
-  ['brina-dark|light|policy-recommendation/amend-badge', 4.36],
-  ['brina|light|policy-recommendation/amend-badge', 4.36],
-  ['burgundy-dark|light|policy-recommendation/amend-badge', 4.40],
-  ['burgundy|light|policy-recommendation/amend-badge', 4.40],
-  ['carbone|light|policy-recommendation/amend-badge', 3.46],
-  ['carta-dark|light|policy-recommendation/amend-badge', 4.44],
-  ['carta|light|policy-recommendation/amend-badge', 4.44],
-  ['concrete-dark|light|policy-recommendation/amend-badge', 4.02],
-  ['concrete|light|policy-recommendation/amend-badge', 4.02],
-  ['crepuscolo-dark|light|policy-recommendation/amend-badge', 4.50],
-  ['crepuscolo|light|policy-recommendation/amend-badge', 4.50],
-  ['indaco-dark|light|policy-recommendation/amend-badge', 4.34],
-  ['indaco|light|policy-recommendation/amend-badge', 4.34],
-  ['laguna-dark|light|policy-recommendation/amend-badge', 4.28],
-  ['laguna|light|policy-recommendation/amend-badge', 4.28],
-  ['mustard-dark|light|policy-recommendation/amend-badge', 4.40],
-  ['mustard|light|policy-recommendation/amend-badge', 4.40],
+  ['burgundy-dark|light|policy-recommendation/amend-badge', 4.39],
+  ['burgundy|light|policy-recommendation/amend-badge', 4.39],
+  ['carbone|light|policy-recommendation/amend-badge', 3.45],
+  ['concrete-dark|light|policy-recommendation/amend-badge', 4.01],
+  ['concrete|light|policy-recommendation/amend-badge', 4.01],
+  ['crepuscolo-dark|light|policy-recommendation/amend-badge', 4.49],
+  ['crepuscolo|light|policy-recommendation/amend-badge', 4.49],
+  ['mustard-dark|light|policy-recommendation/amend-badge', 4.39],
+  ['mustard|light|policy-recommendation/amend-badge', 4.39],
   // ── policy-recommendation/default-badge ── 2
   ['mustard-dark|light|policy-recommendation/default-badge', 3.76],
   ['mustard|light|policy-recommendation/default-badge', 3.76],
@@ -403,10 +431,10 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['brina|light|policy-recommendation/defer-badge', 4.30],
   ['cuoio-dark|light|policy-recommendation/defer-badge', 4.34],
   ['cuoio|light|policy-recommendation/defer-badge', 4.34],
-  ['laguna-dark|light|policy-recommendation/defer-badge', 4.50],
-  ['laguna|light|policy-recommendation/defer-badge', 4.50],
+  ['laguna-dark|light|policy-recommendation/defer-badge', 4.49],
+  ['laguna|light|policy-recommendation/defer-badge', 4.49],
   // ── policy-recommendation/oppose-badge ── 3
-  ['carbone|light|policy-recommendation/oppose-badge', 2.17],
+  ['carbone|light|policy-recommendation/oppose-badge', 2.16],
   ['concrete-dark|light|policy-recommendation/oppose-badge', 3.93],
   ['concrete|light|policy-recommendation/oppose-badge', 3.93],
   // ── redline/del ── 3
@@ -418,10 +446,10 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['ardesia|dark|redline/del-on-old-card', 4.23],
   ['brina-dark|dark|redline/del-on-old-card', 4.33],
   ['brina|dark|redline/del-on-old-card', 4.33],
-  ['carbone|dark|redline/del-on-old-card', 4.25],
+  ['carbone|dark|redline/del-on-old-card', 4.24],
   ['carbone|light|redline/del-on-old-card', 1.81],
-  ['carta-dark|dark|redline/del-on-old-card', 4.42],
-  ['carta|dark|redline/del-on-old-card', 4.42],
+  ['carta-dark|dark|redline/del-on-old-card', 4.41],
+  ['carta|dark|redline/del-on-old-card', 4.41],
   ['concrete-dark|dark|redline/del-on-old-card', 3.53],
   ['concrete|dark|redline/del-on-old-card', 3.53],
   ['laguna-dark|dark|redline/del-on-old-card', 4.46],
@@ -429,20 +457,18 @@ const KNOWN_SUB_THRESHOLD = new Map([
   // ── redline/ins ── 7
   ['atelier-dark|light|redline/ins', 4.20],
   ['atelier|light|redline/ins', 4.20],
-  ['carbone|light|redline/ins', 2.39],
+  ['carbone|light|redline/ins', 2.38],
   ['magnolia-dark|light|redline/ins', 4.45],
   ['magnolia|light|redline/ins', 4.45],
-  ['mustard-dark|light|redline/ins', 4.28],
-  ['mustard|light|redline/ins', 4.28],
-  // ── redline/ins-on-new-card ── 16
-  ['a11y-tritanopia|light|redline/ins-on-new-card', 4.44],
-  ['atelier-dark|light|redline/ins-on-new-card', 3.97],
-  ['atelier|light|redline/ins-on-new-card', 3.97],
+  ['mustard-dark|light|redline/ins', 4.27],
+  ['mustard|light|redline/ins', 4.27],
+  // ── redline/ins-on-new-card ── 14
+  ['a11y-tritanopia|light|redline/ins-on-new-card', 4.43],
+  ['atelier-dark|light|redline/ins-on-new-card', 3.96],
+  ['atelier|light|redline/ins-on-new-card', 3.96],
   ['burgundy-dark|light|redline/ins-on-new-card', 4.26],
   ['burgundy|light|redline/ins-on-new-card', 4.26],
   ['carbone|light|redline/ins-on-new-card', 2.30],
-  ['carta-dark|light|redline/ins-on-new-card', 4.41],
-  ['carta|light|redline/ins-on-new-card', 4.41],
   ['concrete-dark|dark|redline/ins-on-new-card', 4.18],
   ['concrete|dark|redline/ins-on-new-card', 4.18],
   ['crepuscolo-dark|light|redline/ins-on-new-card', 4.39],
@@ -452,11 +478,11 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['mustard-dark|light|redline/ins-on-new-card', 4.03],
   ['mustard|light|redline/ins-on-new-card', 4.03],
   // ── redline/new-label ── 1
-  ['carbone|light|redline/new-label', 2.71],
+  ['carbone|light|redline/new-label', 2.70],
   // ── redline/old-label ── 3
-  ['carbone|light|redline/old-label', 1.95],
-  ['concrete-dark|dark|redline/old-label', 4.26],
-  ['concrete|dark|redline/old-label', 4.26],
+  ['carbone|light|redline/old-label', 1.94],
+  ['concrete-dark|dark|redline/old-label', 4.25],
+  ['concrete|dark|redline/old-label', 4.25],
 ]);
 
 // ── Color compositing ──────────────────────────────────────────────────────
@@ -714,6 +740,61 @@ function auditTheme(theme) {
  * (#1640; base.tokens.css's rule is "spend size or weight, not alpha").
  */
 const NO_GROUP_ALPHA = [REDLINE];
+/**
+ * All three `kpi` surfaces model the hero tile's fill as `--accent-soft`, taken
+ * from the briefing rule. A MODIFIER that repaints that tile makes the modeled
+ * base wrong — and a `requires` regex cannot see it, because `requires` asserts
+ * presence and this risk is an ADDITION. Demonstrated: give `.attention`'s hero
+ * its own `background`, and all three surfaces keep passing while two of them
+ * model a stack that no longer exists. That is the "reports nothing at all, which
+ * reads as a pass" failure this catalog exists to prevent, so it gets the same
+ * treatment as redline's group alpha: a file-scoped absence check.
+ *
+ * Repainting the tile is not forbidden — model it (change the surface's `base`)
+ * and re-derive the palette arms solved through it.
+ */
+/**
+ * All three `kpi` surfaces model the hero tile's fill — `--accent-soft` for the two
+ * hero stacks, `--bg-alt` for the `.ops` one. A MODIFIER that repaints that tile
+ * makes the modeled base wrong, and a `requires` regex cannot see it, because
+ * `requires` asserts PRESENCE and this risk is an ADDITION. Same treatment as
+ * redline's group alpha: a scoped absence check.
+ *
+ * This is a FUNCTION, not a pattern, because three successive regexes got it wrong
+ * in three different ways — one let `\s*` backtrack to zero width so the lookahead
+ * inspected a space; one missed `background-color` / `background-image`, which are
+ * the likeliest spellings of a real repaint and a live house idiom (29 uses under
+ * lib/components/); and one fired on `li:nth-child(1) > strong`, a DESCENDANT of
+ * the tile rather than the tile. Matching a CSS rule is a parse, so it parses.
+ *
+ * Repainting the tile is not forbidden — model it (change the surface's `base`) and
+ * re-derive the palette arms solved through it.
+ */
+const TILE_FILL_OK = /^(?:var\(\s*--accent-soft\s*\)|none|transparent|inherit|initial|unset)$/i;
+// The tile ITSELF: the selector ends at the hero `li`, so a descendant or a
+// pseudo-element is not this rule. `first-child` selects the same element.
+const HERO_TILE_RULE = /section\.kpi\.[a-z-]+[^{}]*?li:(?:nth-child\(1\)|first-child)\s*\{([^{}]*)\}/g;
+const ANY_BACKGROUND = /(?:^|[;{\s])background(?:-color|-image)?\s*:\s*([^;}]*)/gi;
+
+/** Every hero-tile rule in `css` whose fill is not one the catalog models. */
+function tileRepaints(css) {
+  const out = [];
+  for (const rule of css.matchAll(HERO_TILE_RULE)) {
+    for (const decl of rule[1].matchAll(ANY_BACKGROUND)) {
+      const value = decl[1].replace(/!important/i, '').trim();
+      if (value && !TILE_FILL_OK.test(value)) out.push(value);
+    }
+  }
+  return out;
+}
+
+const NO_TILE_REPAINT = [
+  KPI,
+  // An ancestor sheet reaches the tile exactly as the component's own rule would —
+  // the hole the sibling ANCESTOR_SHEETS check already exists to close.
+  'lib/base/base.modifiers.css',
+  'lib/base/base.elements.css',
+];
 // Every shape a group alpha can take, not just `0.85`. An adversarial pass got
 // `opacity: 85%` (valid CSS Color 4, Chromium 78+), `opacity: var(--wash)`,
 // `OPACITY: .85` and `opacity: .85 !important` past the first cut of this — and
@@ -763,6 +844,17 @@ function checkSurfaceEvidence() {
         `${rel} declares a fractional \`opacity\`, but every surface modelled from it ` +
         'assumes no group alpha. Add it to the surface\'s `groups[].opacity` and re-derive ' +
         'the palette arms solved through it, or take the opacity back out.',
+      );
+    }
+  }
+  for (const rel of NO_TILE_REPAINT) {
+    const file = path.join(ROOT, rel);
+    if (!fs.existsSync(file)) { errors.push(`${rel} is gone — re-derive the surfaces that name it.`); continue; }
+    for (const fill of tileRepaints(stripComments(fs.readFileSync(file, 'utf8')))) {
+      errors.push(
+        `${rel}: a kpi rule repaints the hero tile with \`${fill}\`, but kpi/hero-pass-pill, ` +
+        'kpi/hero-warn-pill and kpi/warn-pill all model that tile as `--accent-soft` / `--bg-alt`. ' +
+        "Model the new fill in the surface's `base` and re-derive the arms solved through it, or take it out.",
       );
     }
   }
@@ -824,7 +916,7 @@ function auditAll(themes = listAllThemes()) {
 }
 
 module.exports = {
-  SURFACES, KNOWN_SUB_THRESHOLD, DEGRADE_TOLERANCE, MODES,
+  SURFACES, tileRepaints, KNOWN_SUB_THRESHOLD, DEGRADE_TOLERANCE, MODES,
   auditTheme, auditAll, listAllThemes, mergedVars, evalSurface, checkSurfaceEvidence,
 };
 
