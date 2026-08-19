@@ -381,7 +381,12 @@ function auditTheme(theme) {
   return { theme, fails, missing, checks, isDark };
 }
 
-module.exports = { auditTheme, listAllThemes, PAIRS };
+// `paletteChainCss` + `parsePaletteVars` are exported for tools/palette-sweep.js, which
+// needs BOTH: the flattened chain to inject into a rendered page, and the static
+// resolution of the same chain to check the browser against. Exported rather than
+// copied — a second @import flattener that drifted from this one would give the sweep
+// a different palette than every analytic gate scores (HARD RULE #15).
+module.exports = { auditTheme, listAllThemes, PAIRS, paletteChainCss, parsePaletteVars };
 
 // ── CLI runner ──────────────────────────────────────────────────────────────
 

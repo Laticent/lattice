@@ -317,6 +317,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
 | `tools/measure-glyph-advances.js` | Re-measure the per-glyph advance table `GLYPH_UPPER` against the shipped |
 | `tools/mutate-guide-gestures.mjs` | mutate-guide-gestures — break what each test NAMES, and watch it go red. |
+| `tools/palette-sweep.js` | palette-sweep — the rendered-DOM contrast probe, over EVERY shipped palette. |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |
 | `tools/sweep-guide-gestures.mjs` | sweep-guide-gestures — what does the Guide vocabulary ACTUALLY do to our decks? |

@@ -1,0 +1,2 @@
+- **New gate:** rendered-DOM contrast is now measured on **every shipped palette**, not just `indaco`. `tools/palette-sweep.js` renders a deck once and re-themes it in place, so all 32 palettes are probed in ~80s instead of the ~19 minutes re-rendering would cost. Seeded as an exceed-only ceiling per palette, so counts can only fall.
+- **Fixed:** the contrast probe scored the CSS source inside an SVG-scoped `<style>` element as if it were visible text, so a Mermaid diagram's own stylesheet was reported as a 1.17:1 contrast offender.
