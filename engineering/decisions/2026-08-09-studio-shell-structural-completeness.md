@@ -440,6 +440,62 @@ minimums (`splitEditorMin` / `splitPreviewMin`, which `StudioShell` now passes a
 own `minSize`), the collapsed pane's rail width, and the split's storage key. A guard proves a
 copy agrees; a shared constant means there is no copy to disagree.
 
+## The rail the matrices could not see (2026-08-19)
+
+Reported from an iPad at the Craft stop: *"we don't have the right tool-icon placeholder for
+the shell when in craft mode when we load or reload — we should have icon placeholders like the
+top nav bar has."* Reproduced first try at 1440x900 desktop-Craft, in both modes.
+
+The shell shipped the activity rail as `<div class="ssr-band ssr-activityrail"></div>` — an
+EMPTY 52px column. Everything about its geometry was right: the band is placed from `--sh-rail`,
+seeded desktop-Craft-only after the second adversarial round found the tier bug above. Only its
+CONTENT was missing, so a Craft reload drew a blank strip beside a top bar rendered
+control-for-control, and hydration filled seven launchers into it at once — the same
+"structurally incomplete → the hand-off is a re-layout" failure this whole page exists to end,
+surviving in the one band nobody had filled.
+
+**Why neither oracle saw it, and it is not the same reason twice.** The band oracle
+(`studio-instant-shell.spec.ts`) measures BANDS: the rail's band was the right box in the right
+place, and a band oracle has nothing to say about what is inside one. The control matrix
+(`studio-shell-parity.spec.ts`) compares SETS of controls, which is exactly the shape that
+catches this — but it had scoped its roots to `.ssr-topbar` + `.ssr-actionbar` against `header`
++ the deck-actions bar. The rail is a sibling `nav`, outside both, so seven missing controls sat
+in the blind spot between "not a band question" and "not in scope". The scope line was written
+when the rail did not exist; it was never revisited when the rail arrived.
+
+**The fix is the same one this page keeps landing on.** The rail moved out of `StudioShell` into
+`chrome-parts.tsx` as `ActivityRail`, joining `BarIcon` and `PostureDial`, and both surfaces now
+render that one source: the app with live state, the shell at build time with
+`ACTIVITY_RAIL_CLOSED`. That state is not a guess — `activeAssistant` and `activeSettings` both
+boot `null` at every stop (a posture never force-opens a panel), so "which panels are open on a
+cold load" has exactly one answer and the shell can draw the real launchers without asserting
+anything it cannot know. It stays inside the drawing rule: the rail's presence is a function of
+width x stop, and the seed already publishes `data-ssr-rail` for it.
+
+**The parity matrix now covers three chrome regions, not two**, adding the rail on both sides
+(`.ssr-activityrail` ↔ `nav[aria-label="Studio panels"]`). Confirmed to bite: with the band
+emptied again it names all seven — *Deck scope · Open Library · Slide settings · Toggle Chat ·
+Toggle Coach · Toggle Reader views · Workspace settings*.
+
+**What it costs, on the route ledger.** The rail is 7.3KB of raw HTML on `/studio/` — seven
+inline lucide glyphs and their class strings — and 1.8KB of that was past the route's `htmlRaw`
+budget, so `check-route-budget` red-built the PR that added it. That is the ledger working as
+designed: the growth is deliberate (it is the same structural-completeness spend as the other
+four bands, and the alternative is the hand-drawn geometry this page forbids), so the budget is
+raised in the same change with the reason attached, rather than the bytes being clawed back out
+of the fix. `eagerJsGz` is untouched — this is markup, not another chunk.
+
+**One divergence the fix introduced, found by measuring rather than by reasoning.** The rail's
+cells are `min-h-11` floors that GROW with their captions, so at a raised browser minimum font
+size (the #1496 axis) the rail's natural height is 690px against a 666px column, and the two
+surfaces agree only if they shrink identically. The app's rail is a flex item of a ROW — a
+stretched 666px box whose cells shrink inside it. The shell's is a flex item of a COLUMN, where
+the automatic minimum size is the item's CONTENT height: it stood at 690 and the band clipped
+the difference, leaving cells 3px taller each and the account chip 20px low. `min-h-0` on the
+shell's nav restores the app's box. It is guarded by a new parity case — 1280x720, `@minfont`,
+where the height is the point: a tall 1440x900 case cannot see it, because nothing overflows
+there.
+
 ## The prerender experiment — measured, not speculated
 
 Since the shell duplicating the app's chrome was the standing objection, the alternative was
@@ -462,8 +518,8 @@ is still expressed twice; collapsing that is the same CSS-breakpoint conversion 
 ## Files
 
 - `docs/src/components/studio/StudioChromeSkeleton.tsx` — the build-time chrome (new)
-- `docs/src/components/studio/chrome-parts.tsx` — `BarIcon` · `PostureDial` · `EditorSkeleton`,
-  extracted from `StudioShell` so both surfaces render the same source (new)
+- `docs/src/components/studio/chrome-parts.tsx` — `BarIcon` · `PostureDial` · `EditorSkeleton` ·
+  `ActivityRail`, extracted from `StudioShell` so both surfaces render the same source (new)
 - `docs/src/pages/studio.astro` — chrome seed (`G`), band positioning, `lx-ui` + `inert` on the
   shell root, cinema and Build-stop gating
 - `docs/src/components/studio/preview-rect.ts` — `mobileBarH` 53 → 49, `statusH`, the cinema

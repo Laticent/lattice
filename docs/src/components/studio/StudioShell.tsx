@@ -46,7 +46,7 @@ import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
+import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -3747,33 +3747,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 
 	// ── Left activity bar (desktop) — the ONE launcher for every panel ────────
-	// Assistants (Coach) top · Settings (Slide/Deck) mid · Globals (Library,
-	// Workspace, account) foot. Group labels + dividers make the grouped
-	// exclusivity legible (Coach is independent; Slide/Deck swap one panel). The
-	// accessible names are the e2e/demo contract — 'Toggle Coach', 'Toggle Chat', 'Deck scope',
-	// 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
-	// map + tour-kit SEL) — keep them stable.
+	// The rail itself is `ActivityRail` in chrome-parts.tsx, shared with the pre-paint
+	// instant shell (which renders it at build time with every panel closed). What stays
+	// here is only the STATE: which slot is showing, and what a click does to it.
 	const activityBar = (
-		<nav aria-label="Studio panels" className="flex w-[52px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-card py-2">
-			{/* The tool-panel group — ONE mutually-exclusive left slot, ordered by likely
-			    reach: the Architect (coach/chat), the Library (assets to insert), and the
-			    reader-views Lenses. Clicking the active one closes it; clicking another
-			    switches the slot. Library + Lenses are first-class panels here, not a
-			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
-			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
-			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><ChatIcon className="size-[18px]" /></BarIcon>
-			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><LensIcon className="size-[18px]" /></BarIcon>
-			<Separator className="my-1 w-6" />
-			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
-			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => setActiveSettings((p) => (p === 'slide' ? null : 'slide'))}><FileSliders className="size-[18px]" /></BarIcon>
-			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} onClick={() => setActiveSettings((p) => (p === 'deck' ? null : 'deck'))}><SlidersHorizontal className="size-[18px]" /></BarIcon>
-			<span className="flex-1" />
-			<Separator className="my-1 w-6" />
-			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></BarIcon>
-			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
-		</nav>
+		<ActivityRail
+			state={{ assistant: activeAssistant, settings: activeSettings }}
+			onAssistant={(id) => setActiveAssistant((p) => (p === id ? null : id))}
+			onSettings={(id) => setActiveSettings((p) => (p === id ? null : id))}
+			onWorkspace={() => setWorkspaceOpen(true)}
+		/>
 	);
 
 	// Feedback — a persistent, one-tap entry point (not gated on onboarded — first

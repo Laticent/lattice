@@ -6,7 +6,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 
@@ -260,6 +260,46 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 
 			{/* The phone's action bar — below 700 only. */}
 			<span className="contents min-[700px]:hidden"><ActionBar /></span>
+		</TooltipProvider>
+	);
+}
+
+/**
+ * The desktop Craft ACTIVITY RAIL — the 52px column of panel launchers left of the split.
+ *
+ * It is the app's own `ActivityRail`, rendered at build time with every panel closed, which
+ * is exactly the state StudioShell mounts with (`activeAssistant` / `activeSettings` both
+ * start `null` at every stop — a posture never force-opens a panel). So the shell can draw
+ * the real icons here without asserting anything it cannot know: unlike the deck's slides or
+ * its palette, "which panels are open on a cold load" has one answer, and it is none.
+ *
+ * Before this, the band shipped as an EMPTY `<div>` — a bare 52px strip beside a top bar
+ * drawn control-for-control, so a Craft reload showed a blank column until hydration filled
+ * it in. The band's geometry was already right (`--sh-rail`, seeded desktop-Craft-only);
+ * only its CONTENT was missing, which is why neither band oracle nor the parity matrix saw
+ * it — the former measures the bands the pane owns, the latter scoped itself to the two
+ * chrome ROWS. It now covers the rail too.
+ *
+ * `min-h-0 flex-1` fills the band, and BOTH halves are load-bearing. `flex-1` because the
+ * rail's foot group (Setup + the account chip) is pushed down by a `flex-1` spacer, so a
+ * content-height nav would stack them under "Deck" instead of at the bottom of the column the
+ * app puts them in. `min-h-0` because the band is a flex COLUMN, so the nav's main axis is
+ * vertical and its automatic minimum size is its CONTENT height — which floors it there and
+ * refuses to shrink. The app's rail is a flex item of a ROW, so its height is a stretched
+ * 666px box and its cells shrink to fit inside it. Without `min-h-0` the shell's nav stood at
+ * its 690px content height and the band clipped the difference: identical markup, 3px taller
+ * cells, drifting to 20px by the account chip — but ONLY for a reader who raised the browser's
+ * minimum font size, which is the same blind spot as #1496 and measured the same way.
+ *
+ * The band paints the right-hand hairline and clips the nav's own — same 52px border-box on
+ * both surfaces, so the icons land on the app's center line either way.
+ */
+export function StudioActivityRailSkeleton() {
+	return (
+		// Same reason as StudioChromeSkeleton's provider: BarIcon wraps its control in `Tip`,
+		// and Radix reads tooltip context at render, so a build-time render without it throws.
+		<TooltipProvider>
+			<ActivityRail className="min-h-0 flex-1" state={ACTIVITY_RAIL_CLOSED} onAssistant={NOOP} onSettings={NOOP} onWorkspace={NOOP} />
 		</TooltipProvider>
 	);
 }
