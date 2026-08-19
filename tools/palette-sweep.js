@@ -15,7 +15,7 @@
  * clock for one deck. But the render is not the palette-dependent part. Parsing the
  * markdown, rendering Mermaid, running KaTeX and laying out 117 slides produce the same DOM
  * whatever the colors are; only the PAINT changes. So the document is rendered ONCE and
- * re-re-themed in place, and the measured cost of a swap plus a full re-probe is
+ * re-themed in place, and the measured cost of a swap plus a full re-probe is
  * 150-270 ms. The matrix is ~45x cheaper than re-rendering, which is the difference between
  * a nightly job nobody runs and a per-PR gate.
  *

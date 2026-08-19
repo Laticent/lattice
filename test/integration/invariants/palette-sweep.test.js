@@ -16,7 +16,7 @@
  * WHY IT IS AFFORDABLE. The palette is not the expensive part of a render. Parsing the
  * markdown, rendering Mermaid, running KaTeX and laying out 117 slides produce the same DOM
  * whatever the colors are; only paint changes. `tools/palette-sweep.js` renders ONCE and
- * re-re-themes in place. Measured on this suite's own box: ~15 s for the render and ~80 s
+ * re-themes in place. Measured on this suite's own box: ~15 s for the render and ~80 s
  * for all 32 probes, against ~19 minutes to re-render the matrix. See that tool's header
  * for the two mechanisms that keep it honest (per-channel baked-paint detection, and the
  * oracle check below).
