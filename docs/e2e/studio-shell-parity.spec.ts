@@ -51,6 +51,20 @@ const CASES: {
 	smoke?: boolean;
 	/** Persisted global preference that removes a header control (`lattice-tour-enabled`). */
 	toursOff?: boolean;
+	/**
+	 * Also run this case in the `minfont` project — a raised browser MINIMUM font size, the
+	 * low-vision setting at Chrome's Settings → Appearance → Customize fonts.
+	 *
+	 * Text metrics are a structural blind spot for a width x stop matrix: every other case here
+	 * runs at the default size, and #1496 was 39px of band disagreement visible only to readers
+	 * who had raised it. The activity rail is the same shape of bug in a control set — its cells
+	 * are `min-h-11` floors that GROW with the caption, so at 24px the rail's natural height
+	 * (690px) exceeds the column (666px) and the two surfaces only agree if they shrink the same
+	 * way. They do only because the shell's nav carries `min-h-0`: without it a flex column
+	 * floors the item at its content height, and the cells stood 3px tall each, drifting to 20px
+	 * by the account chip.
+	 */
+	minfont?: boolean;
 }[] = [
 	{ w: 320, h: 844, stop: 'write', why: 'narrow phone — the preview sub-bar shrinks here' },
 	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
@@ -67,6 +81,11 @@ const CASES: {
 	{ w: 1440, h: 900, stop: 'write', smoke: true, why: 'desktop' },
 	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, plain title' },
 	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — activity rail + full header' },
+	// SHORT desktop, and the height is the point: at a raised minimum font size the rail's
+	// natural height (690px) exceeds this column (666px), so both surfaces have to shrink their
+	// cells the same way. A tall 1440x900 case cannot see it — nothing overflows there — which
+	// is why the `minfont` tag rides THIS row and not the one above it.
+	{ w: 1280, h: 720, stop: 'craft', minfont: true, why: 'short desktop at Craft — the activity rail outgrows its column' },
 	// The one chrome gate that is NEITHER width nor stop: the tours button reads a persisted
 	// global preference. A width x stop matrix is structurally blind to that axis, which is why
 	// the shell drew a phantom control and slid the three after it 44px.
@@ -119,7 +138,7 @@ for (const c of CASES) {
 	// NOT `@crosswidth` — every case sets its own viewport, so the tag ran the matrix twice in
 	// two projects for identical results. `@smoke` still puts a phone and a desktop case on the
 	// per-PR job.
-	test(`${c.smoke ? '@smoke ' : ''}shell and app agree on every control — ${c.w}px @ ${c.stop} (${c.why})`, async ({ page }) => {
+	test(`${c.smoke ? '@smoke ' : ''}${c.minfont ? '@minfont ' : ''}shell and app agree on every control — ${c.w}px @ ${c.stop} (${c.why})`, async ({ page }) => {
 		await page.addInitScript(
 			([stop, toursOff]) => {
 				try {
@@ -144,15 +163,22 @@ for (const c of CASES) {
 		// between a guard and a flake, so wait for BOTH surfaces to be on the final font.
 		await page.evaluate(() => document.fonts.ready);
 
-		// SCOPE: the topbar and the phone action bar are the two rows the shell claims to MIRROR
-		// control-for-control. It deliberately does not mirror the editor toolbar, the slide
-		// navigator or the status strip — those carry per-deck content (slide names, counts) the
-		// shell must not draw, and it reserves them as neutral bars instead. Band-level agreement
-		// for those regions is asserted by studio-instant-shell.spec.ts; asserting their CONTROLS
-		// here would demand the shell paint deck content, which is the failure the one-skeleton
-		// decision retired.
+		// SCOPE: the topbar, the phone action bar and the desktop-Craft activity rail are the
+		// three chrome regions the shell claims to MIRROR control-for-control. It deliberately
+		// does not mirror the editor toolbar, the slide navigator or the status strip — those
+		// carry per-deck content (slide names, counts) the shell must not draw, and it reserves
+		// them as neutral bars instead. Band-level agreement for those regions is asserted by
+		// studio-instant-shell.spec.ts; asserting their CONTROLS here would demand the shell
+		// paint deck content, which is the failure the one-skeleton decision retired.
+		//
+		// The RAIL joined this scope after it shipped for months as an empty 52px <div>: its BAND
+		// was placed correctly (`--sh-rail`, seeded desktop-Craft-only) and its CONTENT was
+		// nothing, so a Craft reload showed a blank column beside a fully-drawn top bar. Neither
+		// oracle could see it — the band spec measures the bands the preview pane owns, and this
+		// one had scoped itself to the two chrome ROWS. Every control it draws is fixed chrome
+		// (the panels all boot closed), so it belongs in a SET comparison like any other.
 		const shell = (await page.evaluate(
-			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar']),
+			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar', '#studio-ssr-shell .ssr-activityrail']),
 		)) as Control[];
 		// A shell that already dismissed reports nothing and would pass every comparison
 		// vacuously — the whole spec rests on catching it up.
@@ -163,7 +189,7 @@ for (const c of CASES) {
 		await page.evaluate(() => document.fonts.ready);
 
 		const app = (await page.evaluate(
-			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]']),
+			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]', 'nav[aria-label="Studio panels"]']),
 		)) as Control[];
 		expect(app.length, 'no app chrome found — the selectors have drifted').toBeGreaterThan(0);
 

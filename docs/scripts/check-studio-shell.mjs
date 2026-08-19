@@ -55,6 +55,12 @@ const REQUIRED = [
 	['editor-column band', /class="ssr-band ssr-editpane"/],
 	['preview sub-bar band', /class="ssr-band ssr-panehdr"/],
 	['preview footer band', /class="ssr-band ssr-paneftr"/],
+	// The desktop-Craft activity rail, and its CONTENT. The band alone is not enough: it
+	// shipped for months as an empty <div>, so a Craft reload drew a blank 52px column beside
+	// a top bar rendered control-for-control. The nav marker is what makes "the band exists"
+	// and "the band has the rail in it" two different assertions.
+	['activity-rail band', /class="ssr-band ssr-activityrail"/],
+	['activity-rail launchers', /aria-label="Studio panels"/],
 	['chrome geometry seed', /setAttribute\(\s*['"]data-ssr-chrome['"]/],
 	// The chrome is the APP'S OWN components rendered to static HTML at build time, so a real
 	// glyph in the shipped HTML is the proof that path still runs. If <StudioChromeSkeleton>

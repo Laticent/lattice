@@ -11,10 +11,12 @@
 // Keep these PURE and browser-API-free: they are rendered at build time, where there is no
 // `window`. Props only, no hooks that read the DOM.
 
-import { BookOpen, Layers, PencilLine } from 'lucide-react';
+import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal } from 'lucide-react';
 import type * as React from 'react';
+import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { ChatIcon, LensIcon } from './icons';
 import type { Posture } from './studio-store';
 
 // The top bar's band rule. ONE constant because the app header and the pre-paint
@@ -192,6 +194,81 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 				<span aria-hidden="true" className="absolute -top-1 -right-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-[1.5px] border-[var(--bg-alt)] bg-[var(--warn-fill)] px-[3px] font-mono text-[9px] font-bold leading-none text-white">{badge > 99 ? '99+' : badge}</span>
 			)}
 		</button></Tip>
+	);
+}
+
+// ── The desktop Craft activity rail — the ONE launcher for every panel ──────────
+//
+// Assistants (Coach/Chat/Library/Views) top · Settings (Slide/Deck) mid · Globals
+// (Workspace, account) foot. Group labels + dividers make the grouped exclusivity
+// legible (the assistants share one slot; Slide/Deck swap another).
+//
+// It lives HERE, beside BarIcon and PostureDial, for the reason those two do: the
+// pre-paint instant shell has to draw this rail at build time and the app draws it at
+// runtime, so a second hand-drawn copy would be geometry and glyphs that can drift with
+// nothing failing. The shell shipped that rail as an EMPTY 52px strip — every other band
+// carried the app's own controls and this one carried nothing, so a Craft reload showed a
+// blank column beside a fully-drawn top bar until hydration filled it in.
+//
+// Presentational ONLY: no state, no browser APIs, no hooks — it is rendered at build time
+// where there is no `window`. Every input is a prop, and the skeleton passes the app's
+// OWN boot state (all panels closed — `StudioShell` opens none at any stop), so the shell
+// can never light a panel the app is about to close.
+//
+// The accessible names are the e2e/demo contract — 'Toggle Coach', 'Toggle Chat', 'Deck
+// scope', 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
+// map + tour-kit SEL) — keep them stable.
+
+/** Which panel each of the rail's two exclusive slots is showing (null = closed). */
+export type ActivityRailState = {
+	/** The assistant slot: Coach · Chat · Library · Reader views. */
+	assistant: 'coach' | 'chat' | 'library' | 'lenses' | null;
+	/** The settings slot: the slide Inspector or the deck one. */
+	settings: 'slide' | 'deck' | null;
+};
+
+/** The rail's boot state — every panel closed, which is what StudioShell mounts with. */
+export const ACTIVITY_RAIL_CLOSED: ActivityRailState = { assistant: null, settings: null };
+
+export function ActivityRail({
+	state,
+	onAssistant,
+	onSettings,
+	onWorkspace,
+	className,
+}: {
+	state: ActivityRailState;
+	/** Toggle the assistant slot to `id` (the caller closes it when it is already showing). */
+	onAssistant: (id: NonNullable<ActivityRailState['assistant']>) => void;
+	/** Toggle the settings slot to `id`. */
+	onSettings: (id: NonNullable<ActivityRailState['settings']>) => void;
+	onWorkspace: () => void;
+	/** Extra classes for the nav box — the shell passes `flex-1` to fill its band. */
+	className?: string;
+}) {
+	return (
+		<nav aria-label="Studio panels" className={cn('flex w-[52px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-card py-2', className)}>
+			{/* The tool-panel group — ONE mutually-exclusive left slot, ordered by likely
+			    reach: the Architect (coach/chat), the Library (assets to insert), and the
+			    reader-views Lenses. Clicking the active one closes it; clicking another
+			    switches the slot. Library + Lenses are first-class panels here, not a
+			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
+			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
+			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
+			<Separator className="my-1 w-6" />
+			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
+			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={state.settings === 'slide'} onClick={() => onSettings('slide')}><FileSliders className="size-[18px]" /></BarIcon>
+			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={state.settings === 'deck'} onClick={() => onSettings('deck')}><SlidersHorizontal className="size-[18px]" /></BarIcon>
+			<span className="flex-1" />
+			<Separator className="my-1 w-6" />
+			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={onWorkspace}><SettingsCog className="size-[18px]" /></BarIcon>
+			{/* The account chip. Fixed chrome, not deck content: the initials are a constant in
+			    this file, so the shell draws exactly what the app draws. */}
+			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
+		</nav>
 	);
 }
 
