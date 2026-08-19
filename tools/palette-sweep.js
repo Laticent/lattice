@@ -76,8 +76,6 @@ const path = require('node:path');
 const { PROBE } = require('./check-slide-contrast.js');
 const { paletteChainCss, parsePaletteVars, listAllThemes } = require('./contrast-audit.js');
 
-const ROOT = path.join(__dirname, '..');
-const DIST_THEMES = path.join(ROOT, 'dist', 'themes');
 const STYLE_ID = '__palette_sweep__';
 const PROBE_ID = '__palette_sweep_probe__';
 
@@ -248,6 +246,13 @@ if (require.main === module) {
     console.log('  Lattice · palette sweep');
     console.log('  ══════════════════════════════════════════════════════════════');
     console.log(`  ${palettes.length} palettes · ${probedRuns} distinct runs · ${unswept.size} dropped (a channel never moved)`);
+    // The drop count is only meaningful over the FULL set. Across two palettes plenty of
+    // runs coincidentally share an ink or a ground, so a `--themes=a,b` run reports
+    // hundreds of drops and none of them mean baked paint. Say so rather than let the
+    // number be read as a finding.
+    if (palettes.length < 8) {
+      console.log(`  ⚠ ${palettes.length} palettes only — the drop count is not meaningful below the full set`);
+    }
     console.log(`  ${distinctPaints} distinct painted canvases`);
     const notApplied = palettes.filter((p) => !p.applied);
     console.log(`  ${palettes.length - notApplied.length}/${palettes.length} palettes matched the static resolver`);
