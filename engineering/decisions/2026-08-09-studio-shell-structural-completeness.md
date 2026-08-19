@@ -477,6 +477,14 @@ width x stop, and the seed already publishes `data-ssr-rail` for it.
 emptied again it names all seven — *Deck scope · Open Library · Slide settings · Toggle Chat ·
 Toggle Coach · Toggle Reader views · Workspace settings*.
 
+**What it costs, on the route ledger.** The rail is 7.3KB of raw HTML on `/studio/` — seven
+inline lucide glyphs and their class strings — and 1.8KB of that was past the route's `htmlRaw`
+budget, so `check-route-budget` red-built the PR that added it. That is the ledger working as
+designed: the growth is deliberate (it is the same structural-completeness spend as the other
+four bands, and the alternative is the hand-drawn geometry this page forbids), so the budget is
+raised in the same change with the reason attached, rather than the bytes being clawed back out
+of the fix. `eagerJsGz` is untouched — this is markup, not another chunk.
+
 **One divergence the fix introduced, found by measuring rather than by reasoning.** The rail's
 cells are `min-h-11` floors that GROW with their captions, so at a raised browser minimum font
 size (the #1496 axis) the rail's natural height is 690px against a 666px column, and the two

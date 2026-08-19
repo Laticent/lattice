@@ -5,7 +5,8 @@
     "studio": {
       "html": "studio/index.html",
       "eagerJsGz": 677200,
-      "htmlRaw": 185400
+      "htmlRaw": 192900,
+      "_htmlRawNote": "185400 -> 192900 (2026-08-19): the pre-paint shell's Craft activity rail shipped as an EMPTY band; filling it with the app's own launchers costs 7.3KB of raw HTML (7 inline lucide glyphs + their class strings), 1.8KB of it past the old budget. Bought deliberately \u2014 the alternative is hand-drawn geometry the shell forbids. Set to measured + ~3% per _units above. See engineering/decisions/2026-08-09-studio-shell-structural-completeness.md."
     },
     "playground": {
       "html": "playground/index.html",
