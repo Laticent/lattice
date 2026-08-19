@@ -171,12 +171,13 @@ for (const c of CASES) {
 		// studio-instant-shell.spec.ts; asserting their CONTROLS here would demand the shell
 		// paint deck content, which is the failure the one-skeleton decision retired.
 		//
-		// The RAIL joined this scope after it shipped for months as an empty 52px <div>: its BAND
-		// was placed correctly (`--sh-rail`, seeded desktop-Craft-only) and its CONTENT was
-		// nothing, so a Craft reload showed a blank column beside a fully-drawn top bar. Neither
-		// oracle could see it — the band spec measures the bands the preview pane owns, and this
-		// one had scoped itself to the two chrome ROWS. Every control it draws is fixed chrome
-		// (the panels all boot closed), so it belongs in a SET comparison like any other.
+		// The RAIL joined this scope after shipping as an empty 52px <div> from the day the band
+		// was added (2026-08-09): its geometry was right (`--sh-rail`, seeded desktop-Craft-only)
+		// and its CONTENT was nothing, so a Craft reload showed a blank column beside a
+		// fully-drawn top bar. Neither oracle could see it, for two different reasons — the band
+		// spec measures BOXES and has nothing to say about what is inside one, and this spec had
+		// scoped itself to the two chrome ROWS. Every control the rail draws is fixed chrome (the
+		// panels all boot closed), so it belongs in a SET comparison like any other.
 		const shell = (await page.evaluate(
 			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar', '#studio-ssr-shell .ssr-activityrail']),
 		)) as Control[];

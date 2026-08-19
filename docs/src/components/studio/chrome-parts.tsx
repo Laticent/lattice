@@ -243,7 +243,7 @@ export function ActivityRail({
 	/** Toggle the settings slot to `id`. */
 	onSettings: (id: NonNullable<ActivityRailState['settings']>) => void;
 	onWorkspace: () => void;
-	/** Extra classes for the nav box — the shell passes `flex-1` to fill its band. */
+	/** Extra classes for the nav box — the shell passes `min-h-0 flex-1` to fill its band. */
 	className?: string;
 }) {
 	return (
