@@ -4497,6 +4497,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				   draft missed exactly this branch (§10-R-M1). `React.Suspense` renders no DOM
 				   node, so the landmark goes inside it, around the view. */
 				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
+					{/* The page's one H1. The Studio is a full-page app whose visible top-level label is the
+					    branded site header, not a heading — so every shell shipped with NO h1 at all, and a
+					    screen-reader user landing here got a heading outline that started at the deck's own
+					    h2s with nothing naming the page. Visually hidden rather than drawn, because the
+					    surface deliberately has no room for a title bar. Inside <main> on purpose: outside it
+					    the heading would be page content sitting in no landmark. */}
+					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
 						<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
@@ -4519,6 +4526,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				   for the landscape phone (see the previewBox className above). Note: `svh` is NOT a
 				   reliable "always-visible" height here — some mobile browsers report `svh > dvh`. */
 				<main id="main-content" tabIndex={-1} data-cinema-stage onTouchEnd={() => setWhisperReveal((n) => n + 1)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted">
+					{/* The page's one H1. The Studio is a full-page app whose visible top-level label is the
+					    branded site header, not a heading — so every shell shipped with NO h1 at all, and a
+					    screen-reader user landing here got a heading outline that started at the deck's own
+					    h2s with nothing naming the page. Visually hidden rather than drawn, because the
+					    surface deliberately has no room for a title bar. Inside <main> on purpose: outside it
+					    the heading would be page content sitting in no landmark. */}
+					<h1 className="sr-only">Lattice Studio</h1>
 					{previewPane}
 					<LandscapeWhisper current={slideNo} total={viewSlides.length} revealKey={whisperReveal} />
 						{/* Screen-reader nav + live position. Cinema is swipe-only for sighted users, but VoiceOver/TalkBack intercept one-finger swipes, so these give AT users an intro, real controls, and an announced position (the visible counter is aria-hidden). */}
@@ -4543,6 +4557,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				   drawer — HARD RULE per the round-1 postmortem: those six stay one tap, inline,
 				   always, full stop. */
 				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
+					{/* The page's one H1. The Studio is a full-page app whose visible top-level label is the
+					    branded site header, not a heading — so every shell shipped with NO h1 at all, and a
+					    screen-reader user landing here got a heading outline that started at the deck's own
+					    h2s with nothing naming the page. Visually hidden rather than drawn, because the
+					    surface deliberately has no room for a title bar. Inside <main> on purpose: outside it
+					    the heading would be page content sitting in no landmark. */}
+					<h1 className="sr-only">Lattice Studio</h1>
 					{/* `role="group"`, NOT `role="toolbar"` (2026-08-16). This shipped as a
 					    toolbar, and a toolbar is a PROMISE OF BEHAVIOR, not a label: the ARIA
 					    pattern obliges one tab stop into the widget plus arrow-key roving focus.
@@ -4632,6 +4653,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    future `aside` (§10-R3): there are none today, so nothing here nests a
 					    landmark inside `main`. */}
 					<main id="main-content" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1">
+						{/* The page's one H1. The Studio is a full-page app whose visible top-level label is the
+						    branded site header, not a heading — so every shell shipped with NO h1 at all, and a
+						    screen-reader user landing here got a heading outline that started at the deck's own
+						    h2s with nothing naming the page. Visually hidden rather than drawn, because the
+						    surface deliberately has no room for a title bar. Inside <main> on purpose: outside it
+						    the heading would be page content sitting in no landmark. */}
+						<h1 className="sr-only">Lattice Studio</h1>
 					<ResizablePanelGroup
 						className="group/split min-h-0 flex-1"
 						data-studio-split=""

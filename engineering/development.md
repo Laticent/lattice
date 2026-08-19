@@ -572,6 +572,23 @@ survive the editor's markdown auto-continuation). It also asserts that typing pr
 because a caret outside the shown slide records **zero** samples on a preview that renders only
 the shown slide — which reads as "free" rather than as a broken harness.
 
+**`@a11y` — the WCAG rule set over the website** (`e2e/axe-site.spec.ts`). axe-core over 12
+routes at **all three widths** in **both color modes**, plus the site menu open. Routed to
+`desktop`/`tablet`/`mobile`, so it DOES run on the nightly path — and the two extra axes are
+load-bearing rather than thorough-for-its-own-sake: every `scrollable-region-focusable` finding
+on this site exists only at 390px, and three defects lived behind a closed menu. It reuses the
+repo's own `axe-core` (no `@axe-core/playwright`) and promotes axe's `equalRatio` *incomplete*
+to a failure, because an exact 1:1 — ink identical to its ground, i.e. an invisible label — is
+filed as `incomplete`, not as a violation. Budget zero, two adjudicated exceptions, and a
+self-check that plants defects and requires them to be caught. Run one width with
+`npx playwright test axe-site --project=mobile`. Rationale and the still-open list:
+`engineering/decisions/2026-08-19-website-accessibility-gate.md`.
+
+**Note the distinct-tool boundary.** `tools/check-shadcn-bridge-contrast.js` grades the token
+MATH of the shadcn bridge and `tools/contrast-audit.js` grades the theme token pairs; neither can
+see which CSS rule wins. The 1:1 nav label that motivated the `@a11y` gate passed both. Token
+gates and a rendered-DOM scan are complements, not alternatives.
+
 The pinned Chromium is **pre-installed** at `PLAYWRIGHT_BROWSERS_PATH=
 /opt/pw-browsers` (build 1194 ↔ `@playwright/test` 1.56.1) — do **NOT** run
 `playwright install` *for Chromium*. One thing genuinely can't run here: the

@@ -43,13 +43,21 @@ export function ComponentNavIsland({
 		const active = it.name === current;
 		return (
 			<li key={it.name}>
+				{/* data-nav, not just a Tailwind text-* utility: `landing.css` styles bare `a`
+				    UNLAYERED, and an unlayered rule beats every @layer-ed utility no matter how
+				    specific — so `text-primary-foreground` here never applied and the ACTIVE item
+				    rendered --accent ink on its --accent pill at 1:1, i.e. an invisible label on
+				    the shipping site. (axe files an exact 1:1 as `incomplete`, not a violation, so
+				    a violations-only scan reported this page clean.) The paired unlayered rules
+				    live beside the existing a[data-slot='button'] block in landing.css. */}
 				<a
 					href={href(it)}
 					aria-current={active ? 'page' : undefined}
+					data-nav={active ? 'item-active' : 'item'}
 					className={
 						active
-							? 'block rounded-md px-2.5 py-[5px] font-mono text-[13.5px] font-semibold bg-primary text-primary-foreground no-underline'
-							: 'block rounded-md px-2.5 py-[5px] font-mono text-[13.5px] text-foreground no-underline hover:bg-accent hover:text-primary'
+							? 'block rounded-md px-2.5 py-[5px] font-mono text-[13.5px] font-semibold bg-primary no-underline'
+							: 'block rounded-md px-2.5 py-[5px] font-mono text-[13.5px] no-underline hover:bg-accent'
 					}
 				>
 					{it.name}
@@ -68,10 +76,11 @@ export function ComponentNavIsland({
 					<a
 						href={joinBase(base, 'components/')}
 						aria-current={current === null ? 'page' : undefined}
+						data-nav={current === null ? 'all-active' : 'all'}
 						className={
 							current === null
-								? 'mb-1 block rounded-md px-2.5 py-[7px] text-[13px] font-semibold text-primary bg-accent no-underline'
-								: 'mb-1 block rounded-md px-2.5 py-[7px] text-[13px] font-semibold text-muted-foreground no-underline hover:text-primary'
+								? 'mb-1 block rounded-md px-2.5 py-[7px] text-[13px] font-semibold bg-accent no-underline'
+								: 'mb-1 block rounded-md px-2.5 py-[7px] text-[13px] font-semibold no-underline'
 						}
 					>
 						All components

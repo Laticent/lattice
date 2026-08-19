@@ -14,6 +14,35 @@ import { joinBase } from '@/lib/base-url.mjs';
 import { inlineMd } from '@/lib/component-inline';
 import { playgroundQuery } from '@/lib/playground-controller';
 
+/**
+ * A code block that a keyboard can reach.
+ *
+ * Below about tablet width these blocks overflow horizontally, and a scroll container
+ * nothing can focus is reachable only by pointer — the content past the right edge is
+ * simply unavailable to a keyboard user (WCAG 2.1.1). axe reports it as
+ * `scrollable-region-focusable`, at 390px only, which is why a desktop-only scan called
+ * these pages clean.
+ *
+ * One component rather than a `tabIndex` on each `<pre>`, so the rule exemption below is
+ * argued once instead of three times.
+ *
+ * A TAB STOP AND NOTHING ELSE — no `role`, no `aria-label`. A `role` would REPLACE the
+ * `<pre>` role, and three named `region`s per page is landmark noise that helps nobody;
+ * an `aria-label` without one is a name on a generic element, which is not reliably
+ * exposed (the linter is right about that). The `label` prop stays because it says at
+ * each call site what the block is, and reads as an ordinary React prop rather than an
+ * accessibility promise the DOM does not keep.
+ */
+const ScrollableCode = ({ label, children }: { label: string; children: React.ReactNode }) => (
+	// Without the tab stop, the content past the right edge is unreachable by keyboard at
+	// mobile width — axe fails it as `scrollable-region-focusable`. See the docblock above.
+	// biome-ignore lint/a11y/noNoninteractiveTabindex: WCAG 2.1.1 requires a scrollable region to be focusable
+	<pre data-code-block={label} tabIndex={0} className="m-0 overflow-x-auto rounded-md border border-border bg-card p-4">
+		{children}
+	</pre>
+);
+
+
 // Section heading shared across the docs sections (mono, eyebrow-style rule).
 function SectionH2({ children }: { children: React.ReactNode }) {
 	return (
@@ -78,7 +107,7 @@ export function ComponentDocsView({
 			{tags.length > 0 && (
 				<div className="mt-3.5 flex flex-wrap gap-1.5">
 					{tags.map((t) => (
-						<Badge key={t} className="rounded-full bg-accent px-2.5 font-mono text-[11px] font-normal text-primary">
+						<Badge key={t} className="rounded-full bg-accent px-2.5 font-mono text-[11px] font-normal text-accent-foreground">
 							{t}
 						</Badge>
 					))}
@@ -126,9 +155,9 @@ export function ComponentDocsView({
 
 			<section>
 				<SectionH2>Authoring</SectionH2>
-				<pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-4">
+				<ScrollableCode label="Authoring skeleton">
 					<code className="whitespace-pre font-mono text-[13px] leading-relaxed text-foreground">{skeleton}</code>
-				</pre>
+				</ScrollableCode>
 			</section>
 
 			{slots.length > 0 && (
@@ -157,7 +186,7 @@ export function ComponentDocsView({
 											variant={slot.required ? 'default' : 'secondary'}
 											className={
 												slot.required
-													? 'rounded-full bg-accent px-2 font-mono text-[11px] font-normal text-primary'
+													? 'rounded-full bg-accent px-2 font-mono text-[11px] font-normal text-accent-foreground'
 													: 'rounded-full px-2 font-mono text-[11px] font-normal text-muted-foreground'
 											}
 										>
@@ -188,9 +217,9 @@ export function ComponentDocsView({
 			{anatomy && (
 				<section>
 					<SectionH2>Anatomy</SectionH2>
-					<pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-4">
+					<ScrollableCode label="Anatomy">
 						<code className="whitespace-pre font-mono text-xs leading-tight text-muted-foreground">{anatomy}</code>
-					</pre>
+					</ScrollableCode>
 				</section>
 			)}
 
@@ -227,11 +256,11 @@ export function ComponentDocsView({
 									{vd.label && <span className="text-sm font-normal text-muted-foreground"> — {vd.label}</span>}
 								</h3>
 								{vd.summary && <p className="m-0 mb-2">{inlineMd(vd.summary)}</p>}
-								<pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-4">
+								<ScrollableCode label="Variant example">
 									<code className="whitespace-pre font-mono text-[13px] leading-relaxed text-foreground">
 										{(vd.sample || '').replace(/\n$/, '')}
 									</code>
-								</pre>
+								</ScrollableCode>
 								<div className="mt-2 flex flex-wrap gap-2">
 									<Button type="button" variant="outline" size="sm" data-variant-select={v}>
 										Preview <ArrowUp aria-hidden="true" />

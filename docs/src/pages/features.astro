@@ -254,7 +254,10 @@ const CATALOG = [
 				</div>
 			</section>
 
-			<!-- CTA -->
+			<!-- CTA. The three cards are <h2>, not <h3>: the page has exactly one <h1> and no
+			     other headings, so an <h3> here skipped a level (axe: heading-order) and gave a
+			     screen-reader outline a hole at level 2. Tag changed, classes untouched — the
+			     cards look identical. -->
 			<section class="border-t border-border py-[clamp(40px,5vw,72px)]">
 				<div class="wrap">
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-3">
@@ -262,21 +265,21 @@ const CATALOG = [
 							href={url('playground/')}
 							class="group block rounded-xl border border-border bg-card p-[24px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 						>
-							<h3 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Open the playground</h3>
+							<h2 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Open the playground</h2>
 							<p class="m-0 text-[14.5px] text-foreground">Write a slide, switch every palette, export a real PDF — in the browser.</p>
 						</a>
 						<a
 							href={url('components/')}
 							class="group block rounded-xl border border-border bg-card p-[24px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 						>
-							<h3 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Browse the components</h3>
+							<h2 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Browse the components</h2>
 							<p class="m-0 text-[14.5px] text-foreground">All {componentCount} components, live and themable in every palette.</p>
 						</a>
 						<a
 							href={url('getting-started/')}
 							class="group block rounded-xl border border-border bg-card p-[24px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 						>
-							<h3 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Render your first deck</h3>
+							<h2 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Render your first deck</h2>
 							<p class="m-0 text-[14.5px] text-foreground">Install the toolchain and ship a boardroom-grade PDF in minutes.</p>
 						</a>
 					</div>

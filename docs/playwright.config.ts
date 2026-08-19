@@ -93,6 +93,12 @@ export default defineConfig({
 	//                from @crosswidth (desktop+mobile) and from @visual (screenshots):
 	//                these are functional oracles.
 	//   @visual      screenshot evidence — all three widths
+	//   @a11y        the axe rule set over the website — ALL THREE widths, like @visual and
+	//                for the same reason turned into a hard requirement: every
+	//                `scrollable-region-focusable` finding on this site exists only at
+	//                390px, where a table or code block starts to overflow, so a
+	//                desktop-only scan called those pages clean. Picked up on `desktop`
+	//                via grepInvert; named explicitly on the other two.
 	//   @webkit-phone   real WebKit at devices['iPhone 15 Pro'] — engine behavior a Chromium
 	//                   project cannot stand in for (history traversal, #1226)
 	//   @webkit-tablet  real WebKit at a wide+short box — engine DIVERGENCE in layout, where
@@ -133,12 +139,12 @@ export default defineConfig({
 		{
 			name: 'tablet',
 			use: { viewport: { width: 820, height: 1180 } },
-			grep: /@visual/,
+			grep: /@visual|@a11y/,
 		},
 		{
 			name: 'mobile',
 			use: { viewport: { width: 390, height: 844 } },
-			grep: /@mobile|@crosswidth|@visual/,
+			grep: /@mobile|@crosswidth|@visual|@a11y/,
 		},
 		// The touchscreen halves of tablet and phone. Same widths as the two projects
 		// above, and deliberately SEPARATE from them for the reason the `desktop-touch`
