@@ -102,8 +102,16 @@ const CEILING = {
   'onyx-dark': 3,
 };
 
-/** Runs dropped because a channel never followed the swap. Pinned so the loss stays visible. */
-const UNSWEPT_RUNS = 11;
+/**
+ * Runs dropped from the per-palette scores. Pinned so the coverage given up stays visible.
+ *
+ * Two reasons a run lands here, and they are different: ELEVEN because a channel never
+ * followed the swap (Mermaid's baked paint), and SIX because their `runKey` is ambiguous —
+ * `page|tag|class|text` is not unique, and a component may legitimately repeat the same text
+ * in the same tag on one slide. See the tool's `ambiguous` block for why dropping those is
+ * strictly conservative.
+ */
+const UNSWEPT_RUNS = 17;
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;

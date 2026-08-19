@@ -192,7 +192,32 @@ async function sweep(page, themes) {
       ground.get(k).add(String(r.bg));
     }
   }
-  const unswept = new Set();
+
+  // AMBIGUOUS KEYS. `runKey` is position + element + text, and that is NOT unique: on
+  // `gallery.md` 1,541 rows collapse to 1,391 keys — 70 keys covering 220 rows — because a
+  // component can legitimately repeat the same text in the same tag on the same slide
+  // (`journey` stage spans, `pricing` row labels). Where the colliding members paint
+  // DIFFERENTLY inside a single palette, the invariance sets above are a union over runs
+  // that are not the same run, so neither channel's verdict describes either of them.
+  //
+  // Six such keys today, all `var()`-driven and all correctly kept, so this changes almost
+  // nothing NOW. It is fixed anyway because the failure it permits is the one this whole
+  // mechanism exists to prevent: let a baked run share a key with a live one and the baked
+  // one looks like it varied, survives the drop, and is scored with a stale ink. Dropping
+  // an ambiguous key is strictly conservative — it can only remove a run from scoring,
+  // never admit a mis-scored one.
+  const ambiguous = new Set();
+  for (const p of palettes) {
+    const seen = new Map(); // key -> "fg|bg" of the first member in THIS palette
+    for (const r of p.rows) {
+      const k = runKey(r);
+      const paint = `${r.fg}|${r.bg}`;
+      if (seen.has(k) && seen.get(k) !== paint) ambiguous.add(k);
+      else if (!seen.has(k)) seen.set(k, paint);
+    }
+  }
+
+  const unswept = new Set(ambiguous);
   for (const k of ink.keys()) {
     if (ink.get(k).size === 1 || ground.get(k).size === 1) unswept.add(k);
   }
