@@ -133,7 +133,9 @@ function main() {
 			// all 32 themes. It is NOT gated on the bridge's derived accent surface, and
 			// there it is sub-AA on 33 of the 36 palette x mode blocks (3.05:1 at worst).
 			// The site header's current-row description shipped at 3.80:1 on exactly that
-			// ground. Measured across all four --text-* roles, --text-heading is the ONLY
+			// ground. Measured across the three --text-* roles the generated token file actually
+			// carries — heading, body, muted; --text-secondary and --text-label are NOT in it —
+			// --text-heading is the ONLY
 			// one that clears 4.5 on this surface everywhere (worst 7.01) — which is what
 			// the bridge already declares --accent-foreground to be. So the rule the two
 			// soft rows encode together is: the accent surface has exactly one ink.

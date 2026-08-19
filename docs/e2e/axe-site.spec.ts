@@ -79,15 +79,70 @@ const ROUTES = [
 ];
 
 /**
- * The per-route signal that the page is ready to be scanned. Both apps mount a React
- * island whose landmark does not exist in the server-rendered shell, so its presence is
- * the honest "hydrated" marker; everything else is static and is ready when its own
- * `<main>`/`<h1>` is parsed.
+ * The signal that a route is ready to scan.
+ *
+ * `astro-island[ssr]`, NOT a landmark. The first version waited for `main.lx-ui` on
+ * `/playground/` and called it "the honest hydrated marker" — it is not one. That island is
+ * `client:load`, so Astro server-renders it: `<main class="lx-ui contents">` and its `<h1>`
+ * are both in the static HTML before a line of React runs, and the guard returned
+ * immediately on the shell. (It IS a real marker on `/studio/`, which is `client:only`.)
+ * Astro stamps `ssr` on every un-hydrated island and removes it on mount — measured on
+ * `/playground/`: 4 islands carry `ssr` in the served HTML, 0 do once hydration finishes.
+ *
+ * EAGER islands only. "No island still marked `ssr`" is too strong and hangs: the landing
+ * page carries two `client:visible` islands (`StudioPreview`, `RestyleShowcase`) that sit
+ * below the fold and correctly never hydrate in a 1440x900 window, so the wait timed out and
+ * `/` went unscanned in both modes. `client:load` and `client:only` are the two directives
+ * that promise to mount without user action — `/playground/` is the former, `/studio/` the
+ * latter. `client:idle` is deliberately excluded too: it rides `requestIdleCallback`, which
+ * a loaded machine can defer indefinitely.
+ *
+ * COVERAGE NOTE: it follows that a `client:visible` island is scanned in its SERVER-RENDERED
+ * form, never its hydrated one. Two on the landing page today.
  */
-const READY: Record<string, string> = {
-	'/playground/': 'main.lx-ui',
-	'/studio/': '#main-content',
-};
+const HYDRATED = () =>
+	document.querySelectorAll('astro-island[ssr][client="load"], astro-island[ssr][client="only"]').length === 0;
+
+/**
+ * Wait for an element to STOP MOVING, not merely to be "visible".
+ *
+ * Playwright's `visible` means a non-empty box that is not `visibility:hidden`. It says
+ * nothing about a running transform, and the Radix sheet slides in from `translateX(100%)`.
+ * Measured on `/features/` at 390px: at the instant `waitFor({state:'visible'})` resolved,
+ * the panel sat at **x = 386.6 in a 390px viewport** — 3.4px on screen — and settled to
+ * x = 70 about a second later. axe snapshots geometry when `axe.run` starts and both
+ * `color-contrast` and `target-size` need a node to overlap the viewport, so the scan
+ * measured an off-screen sheet and found nothing.
+ *
+ * That made this test a FALSE GREEN, which is worse than no test: against a build carrying
+ * all three menu defects it reported zero findings in 7 of 8 runs. The original comment
+ * here read "wait for its content to be visible rather than for the animation's duration",
+ * which is exactly the wrong instinct — visibility is not settle.
+ *
+ * Polling the box until it is stable across consecutive frames, rather than asserting
+ * `transform: none`, so this keeps working if the animation is ever changed or removed.
+ */
+async function settled(locator: import('@playwright/test').Locator) {
+	await locator.waitFor({ state: 'visible' });
+	await locator.evaluate(
+		(el) => new Promise<void>((resolve) => {
+			let last = '';
+			let stable = 0;
+			const tick = () => {
+				const r = el.getBoundingClientRect();
+				const now = `${r.x},${r.y},${r.width},${r.height}`;
+				if (now === last) {
+					if (++stable >= 3) return resolve();
+				} else {
+					stable = 0;
+					last = now;
+				}
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		}),
+	);
+}
 
 const AXE_RUN_OPTIONS = {
 	runOnly: {
@@ -170,7 +225,7 @@ type Finding = { rule: string; target: string; detail: string };
  * Split axe's output into what we hold to be defects and what a sanction covers.
  * "Defects" = every violation, plus the ONE enforced `incomplete` case (see the header).
  */
-function collect(results: AxeResults, hit: Set<string>): Finding[] {
+function collect(results: AxeResults, hit: Set<string>, width: number, ariaHidden: Set<string> = new Set()): Finding[] {
 	const raw: Finding[] = [];
 	for (const v of results.violations) {
 		for (const n of v.nodes) {
@@ -181,6 +236,14 @@ function collect(results: AxeResults, hit: Set<string>): Finding[] {
 		if (i.id !== 'color-contrast') continue;
 		for (const n of i.nodes) {
 			if (!n.any?.some((a) => a.data?.messageKey === 'equalRatio')) continue;
+			// axe's own contrast filter already drops `display:none`, `visibility:hidden`,
+			// zero-size, `opacity:0` and clip-based `sr-only` — verified, all four stay out of
+			// this bucket. It does NOT drop `aria-hidden="true"`, which is a legitimate way to
+			// hide decoration from assistive tech, and such an element painted in its own
+			// ground colour is not "an invisible label" — it is correctly invisible. Nothing
+			// on the site does this today; without the guard the first one to appear fails
+			// the build with the wrong diagnosis.
+			if (ariaHidden.has(n.target.join(' '))) continue;
 			raw.push({
 				rule: 'color-contrast (equalRatio)',
 				target: n.target.join(' '),
@@ -188,11 +251,43 @@ function collect(results: AxeResults, hit: Set<string>): Finding[] {
 			});
 		}
 	}
+	// A sanction exempts a finding ONLY at a width where it is declared. The first version
+	// consulted `widths` for staleness and ignored it here, so a sanction could silently
+	// SPREAD: `landmark-unique @ expressive-code` is declared at 820/390 because the blocks
+	// only become scrollable regions there, and if a font or container change made it appear
+	// at 1440 the exemption would have swallowed it with nothing failing. Staleness caught
+	// disappearance and not growth; now both are covered.
 	return raw.filter((f) => {
-		const s = SANCTIONED.find((x) => x.rule === f.rule && x.match(f.target));
+		const s = SANCTIONED.find(
+			(x) => x.rule === f.rule && x.match(f.target) && x.widths.includes(width),
+		);
 		if (s) hit.add(s.label);
 		return !s;
 	});
+}
+
+/**
+ * Run axe and resolve, in the same page, which `equalRatio` targets sit inside an
+ * `aria-hidden="true"` subtree — see the guard in `collect()`. Done here rather than in the
+ * test body so both the sweep and the menu scan get the same treatment.
+ */
+async function runAxe(page: import('@playwright/test').Page) {
+	await page.evaluate(AXE_SRC);
+	const results = await page.evaluate((o) => window.axe.run(document, o), AXE_RUN_OPTIONS);
+	const eqTargets = results.incomplete
+		.filter((i) => i.id === 'color-contrast')
+		.flatMap((i) => i.nodes
+			.filter((n) => n.any?.some((a) => a.data?.messageKey === 'equalRatio'))
+			.map((n) => n.target.join(' ')));
+	const hidden = eqTargets.length
+		? await page.evaluate((sels) => sels.filter((sel) => {
+			try {
+				const el = document.querySelector(sel);
+				return el ? !!el.closest('[aria-hidden="true"]') : false;
+			} catch { return false; }
+		}), eqTargets)
+		: [];
+	return { results, ariaHidden: new Set(hidden) };
 }
 
 /**
@@ -211,16 +306,24 @@ test('@a11y the website has no axe findings at this width, in either color mode'
 	for (const scheme of ['light', 'dark'] as const) {
 		await page.emulateMedia({ colorScheme: scheme });
 		for (const route of ROUTES) {
-			await page.goto(route, { waitUntil: 'networkidle' });
-			// The apps hydrate an island after load, and `networkidle` returns before React
-			// has mounted one — a scan of the un-mounted shell is a scan of nothing. So wait
-			// on a signal that only exists once the island is in the DOM, bounded by the
-			// project's own expect timeout, rather than on a guessed interval.
-			await page.locator(READY[route] ?? 'main, #main-content, h1').first().waitFor({ state: 'attached' });
-			await page.evaluate(AXE_SRC);
-			const results = await page.evaluate((o) => window.axe.run(document, o), AXE_RUN_OPTIONS);
-			for (const f of collect(results, hit)) {
-				found.push(`${scheme} ${width}px ${route}\n    ${f.rule} @ ${f.target}\n    ${f.detail.replace(/\n/g, ' | ').slice(0, 240)}`);
+			// A THROW MUST NOT DISCARD THE SWEEP. Every finding is asserted once, at the end,
+			// so an exception mid-run used to abort with nothing reported — measured: a
+			// `waitFor` timeout on route 11 threw away real findings from the 10 routes
+			// already scanned, including the 1:1 label, and reported only the timeout. The
+			// operator then reads "the gate is broken" instead of "the site has N defects",
+			// and the stale-sanction check below never runs at all. A failed route is now a
+			// finding in its own right and the sweep carries on.
+			try {
+				await page.goto(route, { waitUntil: 'networkidle' });
+				// `networkidle` returns before React has mounted an island, and a scan of the
+				// un-mounted shell is a scan of nothing. Bounded poll on a real signal.
+				await page.waitForFunction(HYDRATED);
+				const { results, ariaHidden } = await runAxe(page);
+				for (const f of collect(results, hit, width, ariaHidden)) {
+					found.push(`${scheme} ${width}px ${route}\n    ${f.rule} @ ${f.target}\n    ${f.detail.replace(/\n/g, ' | ').slice(0, 240)}`);
+				}
+			} catch (e) {
+				found.push(`${scheme} ${width}px ${route}\n    SCAN FAILED — this route was not measured\n    ${String(e).split('\n')[0].slice(0, 200)}`);
 			}
 		}
 	}
@@ -255,9 +358,8 @@ test('@a11y the website has no axe findings at this width, in either color mode'
 			'<p style="color:#808080;background:#808080;font-size:14px;margin:0">invisible</p>';
 		document.body.appendChild(probe);
 	});
-	await page.evaluate(AXE_SRC);
-	const selfCheck = await page.evaluate((o) => window.axe.run(document, o), AXE_RUN_OPTIONS);
-	const planted = collect(selfCheck, new Set<string>()).map((f) => f.rule);
+	const { results: selfCheck, ariaHidden: selfHidden } = await runAxe(page);
+	const planted = collect(selfCheck, new Set<string>(), width, selfHidden).map((f) => f.rule);
 	expect(planted, 'the axe sweep did not detect deliberately planted defects — it is not measuring anything').toEqual(
 		expect.arrayContaining(['button-name', 'color-contrast (equalRatio)']),
 	);
@@ -296,12 +398,11 @@ test('@a11y the site menu has no axe findings when open', async ({ page }, testI
 			continue;
 		}
 		await trigger.click();
-		// The Sheet animates in; wait for its content to be visible rather than for the
-		// animation's duration.
-		await page.locator('[data-slot="sheet-content"]').first().waitFor({ state: 'visible' });
-		await page.evaluate(AXE_SRC);
-		const results = await page.evaluate((o) => window.axe.run(document, o), AXE_RUN_OPTIONS);
-		for (const f of collect(results, new Set<string>())) {
+		// Settled, not merely visible — see `settled()`. This is the line that made the test
+		// a false green.
+		await settled(page.locator('[data-slot="sheet-content"]').first());
+		const { results, ariaHidden } = await runAxe(page);
+		for (const f of collect(results, new Set<string>(), width, ariaHidden)) {
 			found.push(`${scheme} ${width}px menu-open\n    ${f.rule} @ ${f.target}\n    ${f.detail.replace(/\n/g, ' | ').slice(0, 240)}`);
 		}
 	}

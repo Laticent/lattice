@@ -145,7 +145,9 @@ it goes stale:
 
 Finding 2 looked like a rounding problem — 4.47 against a floor of 4.5. It is not. The shadcn
 `--accent` surface is `color-mix(in oklab, var(--bg-alt), var(--accent) 14%)`: a tint of the
-accent itself. Measuring every `--text-*` role against it across all 36 palette×mode blocks:
+accent itself. Measuring against it across all 36 palette×mode blocks — the three `--text-*` roles the
+generated token file carries; `--text-secondary` and `--text-label` are not in it, so
+"every role" would overstate the sweep:
 
 | ink on the accent surface | worst | sub-AA blocks |
 |---|---|---|
