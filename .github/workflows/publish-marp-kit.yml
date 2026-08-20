@@ -1,8 +1,8 @@
 name: Publish marp-kit
 
-# Mirrors dist/marp-kit/ onto the orphan `dist-marp-kit` branch after every
-# relevant push to main, so there is a stable, browsable/raw-fetchable place
-# to grab copy-and-go Marp files without cloning or running `npm install`.
+# Mirrors dist/marp-kit/ onto the orphan `dist-marp-kit` branch once a night,
+# so there is a stable, browsable/raw-fetchable place to grab copy-and-go
+# Marp files without cloning or running `npm install`.
 #
 # WHY THIS EXISTS. dist/ is built, not committed
 # (engineering/decisions/2026-08-17-generated-bundles-uncommitted.md) — the
@@ -31,37 +31,24 @@ name: Publish marp-kit
 # nothing downstream needs to see this push as a triggering event, so the
 # built-in token (which raises no event other workflows can react to) is
 # sufficient. See engineering/workflow.md § Automation vs. the main ruleset.
+#
+# NIGHTLY, BY REQUEST — not push-triggered. Unlike sync-backlog.yml's nightly
+# cadence, this isn't dodging a merge-queue cost (the orphan branch has none);
+# it's simply how fresh the owner wants a copy-and-go mirror to be. Need it
+# current sooner: dispatch the workflow.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      # Anything that can change dist/marp-kit's output. A superset is cheap
-      # (a no-op rebuild + a no-op force-push of identical content costs one
-      # short job); the expensive direction is a stale kit nobody rebuilt.
-      - 'lib/**'
-      - 'themes/**'
-      - 'assets/fonts/**'
-      - 'assets/licenses/**'
-      - 'kit/**'
-      - 'mermaid-v11.min.js'
-      - 'package.json'
-      - 'tools/build-marp-kit.js'
-      - 'tools/build-css.js'
-      - 'tools/minify-css.js'
-      - 'tools/build.js'
-      - 'LICENSE'
-      - 'LICENSE-EXCEPTIONS'
-      - '.github/workflows/publish-marp-kit.yml'
+  schedule:
+    - cron: '29 6 * * *' # daily 06:29 UTC — after the 06:17 backlog sync
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# Only the latest push matters — a run superseded by a newer one on main
-# would just force-push the same branch again a moment later. Safe to cancel
-# because nothing is pushed until the very last step; a killed run simply
-# leaves the branch at its previous snapshot.
+# Belt-and-suspenders against an overlapping manual dispatch; the nightly
+# schedule alone never overlaps itself. Safe to cancel because nothing is
+# pushed until the very last step; a killed run simply leaves the branch at
+# its previous snapshot.
 concurrency:
   group: publish-marp-kit
   cancel-in-progress: true
@@ -95,7 +82,21 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -q -m "chore(marp-kit): publish from main @ ${SHA}"
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          # A quiet night is the common case (this reruns every day regardless
+          # of whether anything upstream changed), so skip the commit + force-
+          # push entirely when the built tree matches what's already published
+          # — otherwise every run would mint a new, otherwise-identical commit.
+          NEW_TREE="$(git write-tree)"
+          if git fetch -q origin "$BRANCH" 2>/dev/null; then
+            OLD_TREE="$(git rev-parse 'FETCH_HEAD^{tree}')"
+            if [ "$NEW_TREE" = "$OLD_TREE" ]; then
+              echo "dist/marp-kit unchanged — nothing to publish."
+              exit 0
+            fi
+          fi
+
+          git commit -q -m "chore(marp-kit): publish from main @ ${SHA}"
           git push -q --force origin "HEAD:${BRANCH}"
           echo "published $(git ls-files | wc -l) files to ${BRANCH}"
