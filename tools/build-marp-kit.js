@@ -31,11 +31,22 @@
  * promised immunity from. Caught by the adversarial trio; the sentence is now
  * true by construction instead of by assertion.
  *
- * MINIFIED BUILDS ONLY, and the `.min` names are KEPT. The export bundle renames
- * `lattice.min.css` → `lattice.css`; this does not. Someone grabbing files by
- * hand should be able to see what they took. The savings are not marginal:
- * lattice.min.css is 564 KB against 1.34 MB, and lattice-runtime.min.js is
- * 466 KB against 3.23 MB — 7x on the file a recipient loads over <script>.
+ * MINIFIED, `.min`-NAMED FILES ARE WHAT THE KIT ACTUALLY RUNS ON. The export
+ * bundle renames `lattice.min.css` → `lattice.css`; this does not — someone
+ * grabbing files by hand should be able to see what they took. The savings
+ * are not marginal: lattice.min.css is 564 KB against 1.34 MB, and
+ * lattice-runtime.min.js is 466 KB against 3.23 MB — 7x on the file a
+ * recipient loads over <script>. `marp.config.cjs` and `.vscode/settings.json`
+ * both wire up the `.min` files only, which is also the pair Lattice's own CI
+ * renders through real marp-cli (see the README's fidelity section).
+ *
+ * The Lattice-authored engine files ALSO ship an unminified counterpart —
+ * `lattice.css` beside `lattice.min.css`, `lattice-runtime.js` beside
+ * `lattice-runtime.min.js`, `cuoio.css` beside `cuoio.min.css` and its dark
+ * pair — for someone who wants to read or diff what they took, not to
+ * run against. They are not registered anywhere and are safe to delete.
+ * Third-party `mermaid-v11.min.js` stays minified-only: only a minified build
+ * is vendored in this repo, so there is no unminified counterpart to copy.
  *
  * Minification is safe here only because `tools/minify-css.js` preserves the
  * `@theme` / `@size` directive comments a stock minifier strips. If that guard
@@ -69,11 +80,28 @@ const THEME = 'cuoio';
  * so it carries the default pair. `cuoio-dark.min.css` rides along for a deck
  * that sets `class: dark` — see the README's note on what that does and does not
  * reach.
+ *
+ * UNMINIFIED_PAIRS adds a readable counterpart beside each Lattice-authored
+ * minified file, `to` matching the minified name minus `.min`. `dist/lattice.css`
+ * and `dist/lattice-runtime.js` are the same build's unminified output;
+ * `themes/${THEME}.css` is not a `dist/` build output at all but the tracked
+ * SOURCE the minifier reads — reusing it (rather than adding an unminified
+ * theme build) means one less thing for the theme pipeline to produce. Nothing
+ * here is wired into marp.config.cjs / .vscode/settings.json — see the
+ * MINIFIED, `.min`-NAMED FILES docblock above.
  */
+const UNMINIFIED_PAIRS = [
+  { from: 'dist/lattice.css', to: 'lattice.css' },
+  { from: 'dist/lattice-runtime.js', to: 'lattice-runtime.js' },
+  { from: `themes/${THEME}.css`, to: `${THEME}.css` },
+  { from: `themes/${THEME}-dark.css`, to: `${THEME}-dark.css` },
+];
+
 const ASSETS = [
   ...STATIC_ASSETS.map(({ from }) => ({ from, to: path.basename(from) })),
   { from: `dist/themes/${THEME}.min.css`, to: `${THEME}.min.css` },
   { from: `dist/themes/${THEME}-dark.min.css`, to: `${THEME}-dark.min.css` },
+  ...UNMINIFIED_PAIRS,
   { from: `kit/${DECK}`, to: DECK },
 ];
 
@@ -186,7 +214,9 @@ Copyright (c) 2025-2026 SlideWright. Licensed under the **GNU Affero General
 Public License, version 3** — the full text is in \`LICENSE\`, beside this file.
 
 \`lattice.min.css\`, \`${THEME}.min.css\`, \`${THEME}-dark.min.css\` and
-\`lattice-runtime.min.js\` are the Lattice engine in object form.
+\`lattice-runtime.min.js\` are the Lattice engine in object form — as are their
+unminified counterparts \`lattice.css\`, \`${THEME}.css\`, \`${THEME}-dark.css\`
+and \`lattice-runtime.js\`, included for reading rather than running.
 
 **The output exception does not apply to this folder.** Lattice grants an
 exception for engine assets its export pipeline embeds *inside a rendered deck*.
@@ -276,11 +306,12 @@ nothing on our side had ever rendered it. The reference render was made with
 | File | What it does |
 |---|---|
 | \`${DECK}\` | A 13-slide deck that documents itself. Your starting point. |
-| \`lattice.min.css\` | The engine — every layout and token. |
+| \`lattice.min.css\` | The engine — every layout and token. **This is the one both configs register.** |
 | \`${THEME}.min.css\` | The default palette. Swap it to restyle the deck. |
 | \`${THEME}-dark.min.css\` | A second palette. Select it with \`theme: ${THEME}-dark\`. |
 | \`lattice-runtime.min.js\` | Builds charts and diagrams in the browser. |
 | \`mermaid-v11.min.js\` | Third party. Diagram slides need it. |
+| \`lattice.css\` · \`${THEME}.css\` · \`${THEME}-dark.css\` · \`lattice-runtime.js\` | Unminified counterparts of the four above, for reading or diffing. Neither config references them — delete them freely, or keep them for reference. |
 | \`fonts/\` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
 | \`.vscode/settings.json\` | Registers them for the VS Code extension. |

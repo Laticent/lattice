@@ -179,6 +179,21 @@ merge queue, not the docs site.
   consumer ever surfaces — which is the property that made this the right way to
   be wrong.
 
+**Update, 2026-08-20 — the copy-and-go surface was restored anyway.** The
+`/gh/` measurement above holds and this is not a reversal: `dist/marp-kit`'s
+*own* owner asked for the folder to be browsable/copy-paste-able again — "when
+i go use vscode with marp i simply go and copy files from dist" (the same
+requirement `tools/build-marp-kit.js` was originally built for) does not
+distinguish "was it ever fetched" from "do I want to be able to grab it right
+now." `.github/workflows/publish-marp-kit.yml` mirrors `dist/marp-kit/` onto
+an orphan `dist-marp-kit` branch, force-pushed as one commit on every push to
+`main` that touches a real input. It costs nothing this doc's reasoning cared
+about: an orphan branch never enters the Main Merge Queue (§3's whole
+objection was about *committed-on-main* churn), and re-orphaning each run
+keeps that branch's own history from growing the way `main`'s did. Also
+shipped alongside it: `dist/marp-kit` now carries unminified counterparts of
+its Lattice-authored files, for reading rather than running.
+
 ## 7. Verification
 
 | Claim | How | Result |
