@@ -35,6 +35,10 @@ test('ships every file a recipient needs, and nothing they must fetch', () => {
     'cuoio-dark.min.css',
     'lattice-runtime.min.js',
     'mermaid-v11.min.js',
+    'lattice.css',
+    'cuoio.css',
+    'cuoio-dark.css',
+    'lattice-runtime.js',
     'marp.config.cjs',
     '.vscode/settings.json',
     'README.md',
@@ -53,7 +57,15 @@ test('carries every font its own CSS references — the silent #1256 failure', (
   // is `X ⊆ X`, and any face the walker misses is invisible to both sides. So
   // the expectation is derived INDEPENDENTLY here — straight from the @font-face
   // blocks in the shipped CSS, by a different expression than the builder uses.
-  const css = [...KIT.keys()].filter((k) => k.endsWith('.css')).map(text);
+  //
+  // MINIFIED files only. What this test guards against is minification silently
+  // dropping a font reference, so it has no claim on the kit's unminified
+  // counterparts (lattice.css, cuoio.css, …) — and this independent regex does
+  // not strip comments the way the production `fontAssetsFor()` walker does, so
+  // running it over human-authored source would also false-positive on any
+  // `url(fonts/…)` example sitting in a doc comment (e.g. base.tokens.css's own
+  // explanatory one).
+  const css = [...KIT.keys()].filter((k) => k.endsWith('.min.css')).map(text);
   const declared = new Set();
   for (const sheet of css) {
     for (const m of sheet.matchAll(/@font-face[^{]*\{[^}]*\}/g)) {
