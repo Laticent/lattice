@@ -235,10 +235,17 @@ pane, deliberately warming their chunk early — see `2026-07-19-defer-editor-hy
 PresentOverlay had no reason to warm early: most sessions never open Present. So the render
 site is gated on `presentOpen || presentEverOpened` (a one-way latch that flips true on
 first open and never resets, added beside the existing `presentOpen` state), wrapped in
-`<React.Suspense fallback={null}>`. First "Present" click fetches the chunk; every
-subsequent open/close reuses the already-resolved module, matching Editor/ComposeView's own
-"cached after first load, never re-suspends" behavior. `StudioShell.tsx` diff: +22/-2
-lines. (This PR's `chrome-parts.tsx` change is unrelated — an off-path `EditorSkeleton`
+`<React.Suspense>` with a full-screen fallback matching PresentOverlay's own root backdrop
+(`fixed inset-0 z-[100] bg-background`, plus a "Loading Present…" label) — a first cut of
+this shipped with `fallback={null}`, which is a self-inflicted regression under HARD RULE
+#18: before this PR, clicking Present was always instant (the component was already
+loaded), and a null fallback means a slow connection shows nothing at all on click, no
+spinner, no disabled state, which reads as a broken button. Caught before merge, fixed to
+match the visible-fallback convention every other lazy boundary in this file already uses
+(Fabricate, Editor, ComposeView). First "Present" click fetches the chunk; every subsequent
+open/close reuses the already-resolved module, matching Editor/ComposeView's own "cached
+after first load, never re-suspends" behavior. `StudioShell.tsx` diff: +28/-2 lines. (This
+PR's `chrome-parts.tsx` change is unrelated — an off-path `EditorSkeleton`
 a11y fix, not part of this split.)
 
 **Measured delta** (same-session interleaved measurement, full `npm run build` pipeline,

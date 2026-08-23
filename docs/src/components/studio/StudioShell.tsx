@@ -4838,7 +4838,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				/>
 			)}
 			{(presentOpen || presentEverOpened) && (
-				<React.Suspense fallback={null}>
+				<React.Suspense
+					fallback={
+						<div className="lx-ui fixed inset-0 z-[100] grid place-items-center bg-background text-[13px] text-muted-foreground">
+							Loading Present…
+						</div>
+					}
+				>
 					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 				</React.Suspense>
 			)}
