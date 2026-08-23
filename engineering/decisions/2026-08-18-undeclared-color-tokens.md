@@ -672,6 +672,10 @@ that resolve to literals). The shape of both claims held; the magnitudes are cor
   equal to `--text-body`, and nothing surfaces it: `lib/theme/contrast.js` — the meter the
   Studio actually shows — has no separation concept at all (no `oklabDistance` import). Wiring
   a separation row into that meter is the real repair and is its own change.
+  **DONE — `2026-08-23-measurement-primitives-reach-the-reader.md` §2.** The meter carries
+  `muted^body` AND `secondary^body` as a second row KIND; measured, `--text-secondary` has the
+  same defect and `deriveTheme` collapses it harder (byte-identical to body on a near-ceiling
+  essential set, where muted merely gets close).
 - **`checkMutedTierFloors` cannot catch a `--muted-mark` READ that paints text.** It polices
   the token's value, not its use sites; the three the checker found were caught by reading,
   not by a gate. A use-site classifier is what `lib/tokens/contracts.js` argues against
@@ -679,3 +683,7 @@ that resolve to literals). The shape of both claims held; the magnitudes are cor
 - **`tools/cvd-audit.js` still has no achromatopsia arm.** `lib/theme/cvd.js` can now simulate
   it and `checkHljsSeparation` uses it, but wiring it through the audit's own CLI and its
   categorical/status groups is a separate pass.
+  **DONE — `2026-08-23-measurement-primitives-reach-the-reader.md` §3.** The audit loops
+  `SIMULATED_TYPES` with a per-condition collapse floor (0.065 for the monochromacy, derived
+  from this note's own 0.048/0.11 ratio); `CVD_TYPES` is still the three matrices. It finds a
+  status-trio collapse on 25 of 32 palettes, `concrete` at ΔE 0.000.
