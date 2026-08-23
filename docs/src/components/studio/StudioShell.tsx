@@ -2189,7 +2189,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
 	// no diagrams never loads the (~1MB) library at all. Debounced past the assessment so
 	// a burst of typing settles first. A failure to load reports `[]` rather than a guess.
-	const diagramSignature = React.useMemo(() => extractDiagrams(source).map((d) => d.code).join(' '), [source]);
+	const diagramSignature = React.useMemo(() => extractDiagrams(source).map((d) => d.code).join('\u0000'), [source]);
 	React.useEffect(() => {
 		let live = true;
 		// UNKNOWN until this round answers. Without the reset, the previous deck's verdict —
