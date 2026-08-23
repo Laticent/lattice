@@ -1185,7 +1185,13 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
 
 // The overall WCAG audit (right column, under the inspector) — the AI's delivered
 // palette reads all-pass; a manual override that breaks a pair turns it red here.
-function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; status: string }[]; ok: boolean }) {
+//
+// TWO ROW KINDS. Most rows are a WCAG contrast ratio. A `separation` row is an OKLab
+// distance between two INKS — `--text-muted` / `--text-secondary` against `--text-body`
+// — and it has no ratio and no WCAG tier, so it renders its dE and an OK/FAIL grade
+// rather than a fabricated `4.5 : 1` and an `AA` badge that would be claiming a
+// conformance level for a measurement WCAG does not define. See lib/theme/contrast.js.
+function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; status: string; kind?: string; distance?: number | null }[]; ok: boolean }) {
 	return (
 		<div className="px-4 py-4">
 			<div className="mb-2.5 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -1195,13 +1201,17 @@ function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; 
 			</div>
 			{rows.map((r) => {
 				const good = r.status === 'pass';
-				const tier = tierOf(r.ratio, good);
+				const separation = r.kind === 'separation';
+				const tier = separation ? (good ? 'OK' : 'FAIL') : tierOf(r.ratio, good);
 				const colour = good ? 'var(--pass)' : 'var(--fail)';
+				const reading = separation
+					? (typeof r.distance === 'number' ? `ΔE ${r.distance.toFixed(3)}` : '—')
+					: (r.ratio ? `${r.ratio.toFixed(1)} : 1` : '—');
 				return (
 					<div key={r.role} className="my-1.5 flex items-center gap-2.5 text-[12px] text-foreground">
 						<span className="grid size-[18px] place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${colour} 16%, transparent)`, color: colour }}>{good ? <Check className="size-3" /> : <TriangleAlert className="size-3" />}</span>
 						<span className="capitalize text-[var(--text-body)]">{r.role}</span>
-						<span className="ml-auto font-mono text-[11px] text-muted-foreground">{r.ratio ? `${r.ratio.toFixed(1)} : 1` : '—'}</span>
+						<span className="ml-auto font-mono text-[11px] text-muted-foreground">{reading}</span>
 						<span className="rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}>{tier}</span>
 					</div>
 				);

@@ -60,7 +60,10 @@ export const {
   deriveTheme, PALE_L, DEEP_L,
 } = derive;
 // contrast
-export const { resolveVars, contractPairs, contentPairs, auditVars, auditBoth, meter } = contrast;
+export const {
+  resolveVars, contractPairs, contentPairs, separationPairs, SEPARATION_FLOOR,
+  auditVars, auditBoth, meter,
+} = contrast;
 // serialize
 export const { serializeTheme, themeAsset } = serialize;
 // starters

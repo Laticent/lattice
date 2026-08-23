@@ -20,11 +20,44 @@
  * is better pinned by a test than by a screenshot.
  */
 
-export type AuditResult = { role: string; ratio: number | null; status: string };
-export type AuditRow = { role: string; ratio: number | null; status: string };
+/**
+ * One row out of `lib/theme/contrast.js`. Two KINDS reach here (see that module's
+ * header): a `contrast` row carries a WCAG `ratio`, a `separation` row carries an
+ * OKLab `distance` and holds `ratio` at null. Both are optional so a caller passing
+ * pre-#1715-shaped rows still type-checks.
+ */
+export type AuditResult = {
+	role: string;
+	ratio: number | null;
+	status: string;
+	kind?: string;
+	distance?: number | null;
+};
+export type AuditRow = AuditResult;
 
 /** The default number of rows the panel shows. */
 export const AUDIT_METER_ROWS = 6;
+
+/** Lower is worse. `skipped` / `missing` rank last; they are filtered out below. */
+const statusRank = (r: AuditResult) => (r.status === 'fail' ? 0 : r.status === 'pass' ? 1 : 2);
+
+/**
+ * The row's own magnitude, whichever kind it is — a contrast ratio or an OKLab
+ * distance. Only ever compared against the SAME role in the other mode, so the two
+ * scales never meet.
+ */
+const magnitude = (r: AuditResult) => r.distance ?? r.ratio ?? Number.POSITIVE_INFINITY;
+
+const worseThan = (a: AuditResult, b: AuditResult) =>
+	statusRank(a) !== statusRank(b) ? statusRank(a) < statusRank(b) : magnitude(a) < magnitude(b);
+
+/** Copy just the fields the panel reads, omitting the ones a plain contrast row lacks. */
+function rowOf(r: AuditResult): AuditRow {
+	const row: AuditRow = { role: r.role, ratio: r.ratio, status: r.status };
+	if (r.kind !== undefined) row.kind = r.kind;
+	if (r.distance !== undefined) row.distance = r.distance;
+	return row;
+}
 
 /**
  * Reduce a two-mode audit to the meter's rows.
@@ -39,9 +72,16 @@ export function auditMeterRows(
 	for (const mode of ['light', 'dark'] as const) {
 		for (const r of byMode[mode]?.results ?? []) {
 			const prev = byRole.get(r.role);
-			// Worst ratio wins the row: a role that passes in one mode and fails in the
-			// other must read as the failure.
-			if (!prev || (r.ratio ?? 99) < (prev.ratio ?? 99)) byRole.set(r.role, { role: r.role, ratio: r.ratio, status: r.status });
+			// Worst reading wins the row: a role that passes in one mode and fails in the
+			// other must read as the failure. STATUS FIRST, then the row's own number.
+			//
+			// It used to compare `(r.ratio ?? 99)` alone, and that quietly stopped working
+			// the moment a row kind arrived whose ratio is ALWAYS null (separation): every
+			// such row scored 99 in both modes, `99 < 99` is false, and the LIGHT reading
+			// won by insertion order — so a muted tier that collapses only on the dark
+			// canvas would have rendered green. Ranking on status first is also scale-safe:
+			// it never compares a 4.5:1 ratio against a 0.03 OKLab distance.
+			if (!prev || worseThan(r, prev)) byRole.set(r.role, rowOf(r));
 		}
 	}
 	const rows = [...byRole.values()].filter((r) => r.status === 'pass' || r.status === 'fail');
