@@ -8,12 +8,18 @@ summary: >
   shared infrastructure no per-feature registry would touch. Prototyped and
   shipped the one safe, tested candidate — PresentOverlay behind React.lazy,
   gated on first open — for a measured -23.8KB gz (-3.7%, 649.5 -> 625.7KB,
-  59 -> 57 chunks), zero regressions across 29 real e2e tests. The two
-  highest-leverage-looking source-level findings both turned out NOT to be
-  safe one-line fixes on closer inspection — recorded here so nobody
-  re-discovers them and ships the same mistake. Recommendation: partial
-  split, no general registry. StudioShell.tsx's own source is ~9% of the
-  eager bundle and irreducible by any import strategy.
+  59 -> 57 chunks). The two highest-leverage-looking source-level findings
+  both turned out NOT to be safe one-line fixes on closer inspection —
+  recorded here so nobody re-discovers them and ships the same mistake. An
+  independent checker run against the shipped diff (below maker-checker's
+  usual blast-radius bar, run anyway) then caught a real self-inflicted
+  regression a mount-time side effect (a debug URL param) plus a dead-input
+  loading screen with no cancel path, both fixed and re-verified (see §4.1)
+  — the actual lesson of this spike: "no ref, no gesture API, tour
+  tolerates async" ruled out the hazards the issue named and missed the one
+  that actually shipped. Recommendation: partial split, no general
+  registry. StudioShell.tsx's own source is ~9% of the eager bundle and
+  irreducible by any import strategy.
 ---
 
 # The StudioShell coupling spike: registry, partial split, or leave it
@@ -285,9 +291,91 @@ clean.
 banked and the gate's 5% stale-slack doesn't immediately re-trip. Verified green:
 `eagerJsGz 625.7KB / 644.5KB budget`.
 
+### 4.1 What an independent checker found — one real regression, two real risks, both fixed
+
+This PR's blast radius (one file, one well-precedented pattern) is below CLAUDE.md's
+maker-checker threshold, but a first cut of the split above shipped with a self-inflicted
+regression that survived e2e, typecheck, lint and the author's own review — caught only by
+running one independent checker against the diff before asking for merge. Worth recording
+in full, because the pattern (an async mount boundary silently dropping a mount-time side
+effect, and a synchronous keyboard/UX contract nothing enforces) is exactly the class of
+risk this whole spike's §6 was supposed to rule out for the *stated* hazards
+(imperative handles, tour/palette timing) and didn't think to check for this one.
+
+1. **REAL BUG, self-inflicted regression (HARD RULE #18): `?readaloud-debug=` stopped
+   working at Studio load.** `PresentOverlay.tsx:111-115` calls `applyReadAloudDebugParam()`
+   (the documented `?readaloud-debug=1` on-device debug URL param) inside a `[]`-deps effect
+   that ran on *every* Studio load pre-split, because PresentOverlay was always mounted.
+   Post-split, that effect doesn't run until the user's first Present click — silently
+   breaking the param for anyone who loads the debug URL and checks the Workspace toggle
+   without opening Present first. **Fixed**: `StudioShell.tsx` now also calls
+   `applyReadAloudDebugParam()` in its own `[]`-deps boot effect, restoring the pre-split
+   behavior; PresentOverlay's own call is now a harmless redundant re-application on its
+   later first mount. This is the one finding that would have been genuinely bad to ship —
+   §3/§6's method (source-graph reachability, structural checks for refs/gestures/tour
+   timing) has no way to see a mount-time side effect buried inside a `useEffect` body, and
+   neither did the author's own re-read of the diff.
+2. **REAL risk: the loading fallback was a dead end.** The Suspense fallback (§4 above) had
+   no way to cancel — Escape did nothing (PresentOverlay owns Escape once mounted; nothing
+   owns it before), and StudioShell's own global key handler deliberately defers to Present
+   whenever it's "open" (`presentOpenRef.current`), which was already true the instant the
+   user clicked, chunk loaded or not. On a slow connection this left a "Loading Present…"
+   screen with literally no input handled until the chunk arrived. **Fixed**: the
+   `presentEverOpened` latch (which keeps PresentOverlay mounted across close/reopen —
+   necessary, because its own state and `if (!open)` cleanup effects, e.g. closing the
+   presenter popup window, are written assuming it never unmounts once rendered) now flips
+   true only once PresentOverlay actually reports its first mount (a new `onReady` callback
+   prop), not eagerly on click. Until then, a scoped window Escape listener and a real
+   `<button>` covering the fallback (not a `<div onClick>` — biome's
+   `useKeyWithClickEvents` correctly flagged that) both call `setPresentOpen(false)`,
+   which — because the latch hasn't fired yet — actually unmounts the Suspense boundary and
+   cancels the visible wait, rather than leaving it stuck showing until the fetch finishes.
+3. **Correction, not a bug: the tour's `settle: 2000` claim was weaker evidence than
+   presented.** §4 above cites the self-driving tour's `present()` step passing live as
+   proof the async-tolerant `settle: 2000` pattern holds for this split. True as far as it
+   goes, but every local run has a warm cache and a fast connection — Editor/ComposeView/
+   Fabricate's *own* prior use of that budget never actually raced a cold fetch either,
+   because they warm at Studio mount. This is the first time `settle: 2000` is tested
+   against a genuinely cold chunk load in practice, and only under favorable network
+   conditions. Real-world margin under throttled/mobile conditions is **UNVERIFIED**
+   (HARD RULE #23) — the fixes above (#2) make the failure mode "loading takes a moment,
+   with a real cancel path" rather than "input silently dies," which bounds the risk even
+   if `settle: 2000` alone doesn't.
+4. **Minor, fixed: a stale comment the fix itself falsified.** `chrome-parts.tsx:302`
+   (inside `ComposeSkeleton`'s own comment) said EditorSkeleton "still has" the inert-status
+   bug — true when #1727 wrote it, false the moment this PR's Item 2 fixed it 13 lines
+   below. Corrected.
+5. **Off-path, logged not fixed (HARD RULE #18, pre-existing, unrelated to this PR):**
+   `EditorSkeleton`'s gutter line-numbers and code-line placeholders drift apart vertically
+   after about line 10 (numbers pitch ~26.5px, bars pitch 16px — different gap-plus-height
+   sums). Confirmed byte-identical class strings before and after this PR's a11y fix, so
+   not a regression here. Cosmetic only; not tracked as its own issue given the size.
+6. **Accepted, not a new pattern: a failed chunk load has no local error boundary.**
+   Present's chunk fetch failing (a stale deploy mid-session, offline) falls through to the
+   Studio-wide `ErrorBoundary`, same as Editor/ComposeView/Fabricate today. Not a regression
+   *in kind* — just worth noting Present's chunk is the one most likely to be fetched hours
+   into a long session, since opening it is the least frequent of the four.
+
+Also verified and NOT changed: the `presentEverOpened` latch's core correctness (no stale
+closure, no missed dependency, no race on a same-tick open→close), that nothing outside
+PresentOverlay reaches into its DOM or holds a ref to it, that the Suspense boundary never
+re-suspends on a later reopen, that `chrome-parts.tsx`'s `display: contents` wrapper
+preserves EditorSkeleton's layout pixel-for-pixel, and that the route-budget numbers in §4
+reproduce exactly on a fresh build.
+
+**Re-verified after the fixes above**: typecheck and lint clean; `docs/route-budget.json`
+regenerates from a fresh `npm run build` unchanged; the real e2e suite re-run
+(`present.spec.ts`, `demo.spec.ts` — the full tour, including the `present()` step) —
+16 passed, 2 project-scoped (touch/pinch) skips, 0 failed.
+
+One accuracy note this pass also caught: the `EditorSkeleton` changelog fragment (Item 2)
+originally claimed the status "now announces to screen readers" — verified was that it is
+now *reachable in the accessibility tree*, not that a real assistive-technology tool
+actually announces it out loud. Softened to match what was actually verified.
+
 **Conclusion: this one is shipped, in this PR, as the concrete answer to the issue's
 acceptance criterion 2** ("does a registry pay for itself" — for this one feature, yes,
-cleanly).
+cleanly, once its own failure surface was actually closed rather than assumed closed).
 
 ---
 
@@ -374,7 +462,11 @@ and anything a tour or command-palette action drives.
   budgets a 2000ms settle after its click, and the full walkthrough passed live against the
   actual lazy-loaded PresentOverlay. Nothing in `tours/tour-kit.ts` assumes synchronous
   mount for any of the other named features either — every tour step that opens a panel goes
-  through the same `act: (a) => a.openXxx(true)` + `settle` shape. The one piece of state
+  through the same `act: (a) => a.openXxx(true)` + `settle` shape. **Caveat added after an
+  independent check (§4.1.3):** every local run of this has a warm cache and fast
+  connection, so `settle: 2000` racing a genuinely cold chunk fetch is untested under real
+  network conditions — bounded, not eliminated, by §4.1.2's Escape/dismiss fix, which keeps
+  a slow load from silently eating input even if the tour's own budget runs out first. The one piece of state
   StudioShell shares with every docked panel — `ActivityRailState`'s `assistant`/`settings`
   slots (`chrome-parts.tsx:223-231`) — is only the panel's *open/closed identity*, orthogonal
   to whether the panel's own component is lazy-loaded.

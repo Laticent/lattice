@@ -298,8 +298,9 @@ export function ComposeSkeleton() {
 		<div className="flex flex-1 flex-col gap-[11px] overflow-hidden p-5">
 			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper. An
 			    aria-hidden ancestor removes its whole subtree from the accessibility tree,
-			    so an `sr-only` span inside one announces nothing — the status below would
-			    be inert, which is the shape EditorSkeleton still has (logged, off-path). */}
+			    so an `sr-only` span inside one announces nothing — EditorSkeleton below
+			    mirrors this same shape now (it shipped with the inert version, fixed
+			    alongside this PR). */}
 			<div className="contents" aria-hidden="true">
 				{COMPOSE_SKELETON_BLOCKS.map((b) => (
 					<div key={`${b.w}-${b.h}`} className="rounded-sm bg-muted-foreground/10" style={{ width: `${b.w}%`, height: `${b.h}px` }} />
