@@ -919,18 +919,46 @@ those and one grouped PR is one.
 - **Auto-merge must be enabled on the repo** (Settings → General →
   *Allow auto-merge*). It is.
 
-## Post-merge standup — orient me, every merge
+## Post-merge standup + continuation brief — orient me, every merge
 
 I run many of your sibling sessions in parallel and lose the thread between them.
-So **the moment a merge is confirmed and local `main` is synced, post a brief
-standup** — it is the closing beat of every merge, not an optional extra. Keep it
-to ~5 lines, *derived from signals already in the repo and GitHub* — there is no
-separate swimlane/card tracker to maintain:
+So **the moment a merge is confirmed and local `main` is synced, post two fenced
+cards** — they are the closing beat of every merge, not an optional extra:
+
+1. **📋 Standup** — where this thread now stands. Always.
+2. **🎯 Continuation brief** — a paste-ready prompt that lets a *fresh* session
+   pick up everything this one leaves pending. Whenever anything is left.
+
+Post both again at the *other* moment a session goes idle: when you park at the
+merge gate with a green, review-ready PR waiting on my authorization. Those are
+the two points where I come back to a stopped session and need to know, without
+reading the transcript, what happened and what to say next.
+
+### Both cards are always fenced — no exceptions
+
+Each card goes inside a plain triple-backtick fence, **no language tag**. Not
+bullets, not a table, not prose, not "it's only three lines, I'll inline it."
+Two reasons, both of which bite in practice:
+
+- **The continuation brief exists to be copied**, verbatim, into a new session's
+  first message. Unfenced markdown is re-wrapped and re-styled by the terminal
+  renderer, so what I paste is not what you wrote — bullet glyphs, indentation
+  and line breaks all move. A fence copies as one block, exactly as written.
+- **A fenced card is scannable.** I am reading a dozen of these across parallel
+  sessions; they have to look identical every time so my eye lands on the same
+  line in each one.
+
+If a card runs long, **shorten the content — never drop the fence.**
+
+### 📋 The standup card
+
+Keep it to ~5 lines, *derived from signals already in the repo and GitHub* —
+there is no separate swimlane/card tracker to maintain:
 
 - **Swimlane** — the line of work this card sits in: the governing
   `engineering/decisions/YYYY-MM-DD-*.md` doc if one exists, else a short, *stable*
   label inferred from the branch/PR theme. Reuse the same label across a session so
-  I recognise the thread at a glance (e.g. "agent-workflow hardening").
+  I recognize the thread at a glance (e.g. "agent-workflow hardening").
 - **Card** — what this PR set out to do (its title), and the branch.
 - **Completed** — the PR just merged (`#N`, squashed sha), plus any sibling PRs
   merged earlier in the *same* thread/session so multi-PR work reads cumulatively.
@@ -938,7 +966,8 @@ separate swimlane/card tracker to maintain:
 - **On deck (this thread)** — the next concrete step(s) for *this* line of work,
   pulled from the decision doc's remaining steps, branch TODOs, or the obvious
   follow-on. If nothing remains, say so: "thread complete — awaiting direction."
-  Scope is deliberately *this thread*, not a cross-session sweep.
+  Scope is deliberately *this thread*, not a cross-session sweep — the breadth
+  lives in the continuation brief below.
 - **Notes** — the size of the decision corpus, when the merge added or superseded
   a note: `N notes (+X this merge)`, from `ls engineering/decisions/*.md`. Omit the
   line otherwise. This is the one place the corpus total is allowed to appear. It
@@ -958,6 +987,110 @@ Template:
 • On deck:   <next step for this thread, or "thread complete — awaiting direction">
 • Notes:     <N notes (+X this merge) — omit the line if the merge touched none>
 ```
+
+### 🎯 The continuation brief — the handoff card
+
+The standup's *On deck* is one line about this thread. The brief is the other
+half: **everything this session leaves pending, ticketed or not**, written as a
+complete instruction for a session that has never seen this one.
+
+**Post it whenever anything is pending.** If the thread really is finished and
+nothing was set aside, omit the card entirely — the standup's "thread complete"
+line already says so. Never post an empty brief for form's sake.
+
+Six rules make it work:
+
+1. **Self-contained.** Assume the reader has no transcript, no scrollback and no
+   memory of this session — only the repo and `CLAUDE.md`. Anything you know
+   that they need (a half-applied change, a dead end already tried, a file you
+   were about to touch) is *only* in your head until you write it into the card.
+2. **Ticketed and unticketed items both appear**, tagged `[#1234]` or
+   `[no ticket]`. An unticketed item does **not** need a card filed first — the
+   brief *is* its spec, which is why every item carries `where` / `done when` /
+   `evidence`. File a real card only for an item you are deferring *past* the
+   next session, so it can't be lost.
+3. **Prioritized by downstream impact**, P1 first, and each item says in one
+   phrase what it unblocks. Order is an instruction, not a suggestion: the next
+   session works the list top-down.
+4. **Every item names its evidence** — the artifact that will prove it works,
+   picked before the work starts: a rendered PDF via `SendUserFile`,
+   `tools/pixel-check.js`, `tools/screenshot.js` at 1440/820/390, `npm run bench`
+   before/after numbers. "The tests pass" is not evidence of a visual or
+   performance claim (#23).
+5. **Every item names its verification tier** — tier 0 gates, tier 1 an
+   independent checker, or tier 2 the adversarial trio — *and the reason*. You
+   are handing over the blast-radius judgment you already made; making the next
+   session re-derive it from scratch is how a shared-kernel edit quietly ships
+   self-reviewed. The ladder is `engineering/orchestration.md`.
+6. **It stacks the whole list into one PR, one commit per item.** That is the
+   point of the shape: I review once, and each item is still independently
+   readable and revertible. This satisfies HARD RULE #17 rather than bending it
+   — #17 bars stacked PR *chains* (a branch cut from another open PR's branch),
+   and explicitly asks you to "increment in place (many commits, one PR)."
+
+Template — everything between the fences is written *to the next session*:
+
+```
+🎯 Continuation — <swimlane>          [paste this whole block into a new session]
+
+CONTEXT
+  Swimlane:     <engineering/decisions/… path, or the stable label>
+  Just shipped: #N (<sha>) — <what it changed, one line>
+  Read first:   <2–3 canonical docs/paths for this area>, then CLAUDE.md.
+  State:        <where the tree stands; anything half-applied, tried and
+                 rejected, or deliberately left alone>
+
+PRIORITIES — work them in this order
+  P1 · [#1234] <the change, one line>
+       why now   — <what it unblocks or de-risks>
+       where     — <file:line, entry points, the doc that governs it>
+       done when — <acceptance check a reviewer can run>
+       evidence  — <the artifact that proves it: rendered PDF via SendUserFile |
+                    tools/pixel-check.js | tools/screenshot.js @1440/820/390 |
+                    npm run bench before/after>
+       verify    — <tier 0 gates | tier 1 checker | tier 2 trio>, because <reason>
+  P2 · [no ticket] <the change, one line>
+       …same five fields…
+  P3 · …
+
+WORKING AGREEMENT
+  • I am away from the keyboard. Decide and proceed — a reversible default beats
+    a question (CLAUDE.md DEFAULT OP MODE #3). Do not idle waiting on me; if a
+    call is genuinely mine, make the safe choice, note it in the PR, keep going.
+  • Don't settle. Green gates are the floor, not the finish. Visual work meets
+    the QUALITY BAR: rebuild it and actually look at it before handing back.
+  • One branch, one PR: `claude/<slug>`. One commit per priority above,
+    `area(scope): summary` (#13). The matching docs update and the
+    `changelog.d/` fragment ride in that same commit (#10, #6).
+  • Each item lands with the evidence named above, attached or pasted under its
+    own heading in the PR body. A "verified" with no artifact from the real
+    surface is not verified (#23) — if a surface can't be reached from here, say
+    UNVERIFIED.
+  • Agent budget: up to 8 agents, pre-authorized — don't ask. Spend them on the
+    highest-blast item, at the tier named there. Need more? Cut the lowest
+    priority to the next handoff and say so; never idle for authorization.
+  • Run the gates yourself (`npm run lint`, unit suite, `npm run build:check`,
+    integration where it applies) before each push; `git fetch origin main` and
+    rebase right before pushing (#16).
+  • If an item proves wrong or blocked, finish every other item, then say in the
+    PR body exactly what you left and why. Never ship a window you created (#18).
+  • STOP at the merge gate: open the PR, drive CI green, leave it rebased and
+    review-ready — then post your own standup + continuation brief and wait. Do
+    not merge. Merge authorization is mine and never carries forward (#7).
+
+DELIVERABLE
+  One green, rebased PR waiting for my review — its body carrying, per item, the
+  evidence and the verification call that was made.
+```
+
+**The 8-agent budget in that card is a pre-registered exemption to HARD RULE
+#25's ~10-agent human gate**, not a loophole an agent invents at spawn time: the
+cap is a committed number *here*, in the same way the exempt named workflows
+declare theirs in `meta`. It exists because the gate assumes a human is reachable
+and this card exists precisely for the case where I am not. The next session
+still counts agents cumulatively, still logs the spend, and still needs my OK to
+go past 8. Raise or lower the number in a given brief if the work warrants it —
+but write the number *in the card*, so the session it governs can read it.
 
 ## Work queue — the kanban board (cards, swimlanes, the mirror)
 
