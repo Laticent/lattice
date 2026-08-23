@@ -36,6 +36,7 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { AcronymEditor } from './AcronymEditor';
@@ -75,7 +76,6 @@ import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides,
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
-import { PresentOverlay } from './PresentOverlay';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -135,6 +135,16 @@ const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Edi
 // forwardRef component still forwards `ref` in React 19, so `composeRef` reaches its
 // useImperativeHandle. See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.4.
 const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
+
+// Split out of the #1751 StudioShell-coupling spike — full measurement (-23.8KB gz, -2
+// chunks, 29 real e2e tests green) in
+// engineering/decisions/2026-08-23-studio-shell-decomposition.md §4. PresentOverlay has no
+// forwardRef/imperative handle (unlike Editor/ComposeView above) — StudioShell never holds
+// a ref into it — so this is a plain React.lazy with nothing to forward. Present is gated
+// by `presentOpen || presentEverOpened` at its render site below, so — unlike
+// Editor/ComposeView, which warm unconditionally on Studio mount because they're the
+// default pane — the chunk is not fetched until the user's first "Present" click.
+const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
 
 
 // Deck Inspector pill-tab sections, ORDERED BY LIKELY REACH — the strip is read left
@@ -566,6 +576,48 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// popup window when the presenter view is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
 	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
+	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
+	// PresentOverlay is React.lazy below. `presentEverOpened` latches true once PresentOverlay
+	// has actually MOUNTED (via its `onReady` callback below) and never resets, so from then on
+	// it stays mounted across close/reopen like Editor/ComposeView do — PresentOverlay's own
+	// internal state (`idx`, its `prevOpenRef` open-transition tracking) is written assuming it
+	// never unmounts once it has rendered once; its `if (!open)` cleanup effects (closing the
+	// presenter popup window, resetting rehearsal state) depend on that too.
+	//
+	// Deliberately NOT latched on `presentOpen` alone (a first cut of this did, and shipped a
+	// second regression, caught in review): the chunk fetch is async, so between the click and
+	// the mount there is a window where `presentOpen` is true but nothing has mounted yet. If
+	// the latch fired eagerly on click, that window's Suspense boundary could never unmount —
+	// Escape/backdrop-dismiss below flips `presentOpen` back to false, but with the latch
+	// already true the wrapping condition stays true regardless, so the loading fallback would
+	// keep showing, unresponsive, until the fetch happens to finish. Gating the latch on actual
+	// mount instead means that same Escape/dismiss, pressed before the first mount, unmounts the
+	// whole boundary and cancels the wait for real — and is still a no-op safety-wise on every
+	// mount AFTER the first, since PresentOverlay is then already staying mounted.
+	const [presentEverOpened, setPresentEverOpened] = React.useState(false);
+	// While Present is requested but not yet mounted (first load in flight), nothing else owns
+	// Escape — PresentOverlay binds its own window Escape handler once mounted, and the shell's
+	// own key handler (below, `presentOpenRef.current` check) deliberately defers to it whenever
+	// Present is open. Without this, a slow connection leaves Escape (and everything else) dead
+	// for however long the chunk takes — a regression this split introduced, since the pre-split
+	// PresentOverlay was always mounted and always owned Escape. Scoped narrowly: removes itself
+	// the moment PresentOverlay actually mounts (`presentEverOpened` flips true) or Present closes.
+	React.useEffect(() => {
+		if (!presentOpen || presentEverOpened) return;
+		const onLoadingEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') setPresentOpen(false);
+		};
+		window.addEventListener('keydown', onLoadingEscape);
+		return () => window.removeEventListener('keydown', onLoadingEscape);
+	}, [presentOpen, presentEverOpened]);
+	// Regression this same split introduced, caught before merge: `applyReadAloudDebugParam()`
+	// (the `?readaloud-debug=1` URL param, a documented on-device debug path) used to fire on
+	// every Studio load because PresentOverlay's own boot effect ran unconditionally — it was
+	// ALWAYS mounted, just internally hidden. Now that PresentOverlay only mounts on first
+	// Present open, that effect no longer runs at Studio boot. Call it here too so the param is
+	// honored immediately regardless of whether Present is ever opened; PresentOverlay's own
+	// call (on its own first mount) stays as a harmless no-op re-application.
+	React.useEffect(() => { applyReadAloudDebugParam(); }, []);
 	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
 	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
 	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
@@ -4821,7 +4873,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					notify={notify}
 				/>
 			)}
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+			{(presentOpen || presentEverOpened) && (
+				<React.Suspense
+					fallback={
+						// A <button>, not a <div onClick>, so the dismiss affordance is natively
+						// keyboard-reachable too — it mirrors the Escape handler above; both are the
+						// loading window's only way out, since PresentOverlay itself (which normally
+						// owns both) hasn't mounted yet to take over.
+						<button
+							type="button"
+							onClick={() => setPresentOpen(false)}
+							aria-label="Cancel opening Present"
+							className="lx-ui fixed inset-0 z-[100] grid cursor-default place-items-center bg-background text-[13px] text-muted-foreground"
+						>
+							Loading Present…
+						</button>
+					}
+				>
+					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+				</React.Suspense>
+			)}
 			{cmdPalette}
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
