@@ -4,8 +4,9 @@
   "routes": {
     "studio": {
       "html": "studio/index.html",
-      "eagerJsGz": 677200,
+      "eagerJsGz": 659985,
       "htmlRaw": 192900,
+      "_eagerJsGzNote": "677200 -> 659985 (2026-08-23): PresentOverlay (and its private-only deps \u2014 PresentCaption, PresentRail, ReadAloudOverlay, present-guide/-sections, presenter-window.js, rehearsal.js, studio-presenter.ts, readiness-window.ts, plus the diagnostics/chart-detail-layer subtree only Present reached) moved behind React.lazy, gated on first Present open. Measured -23.8KB gz (649.5 -> 625.7KB). Set to measured + ~3% per _units above. See engineering/decisions/2026-08-23-studio-shell-decomposition.md.",
       "_htmlRawNote": "185400 -> 192900 (2026-08-19): the pre-paint shell's Craft activity rail shipped as an EMPTY band; filling it with the app's own launchers costs 7.3KB of raw HTML (7 inline lucide glyphs + their class strings), 1.8KB of it past the old budget. Bought deliberately \u2014 the alternative is hand-drawn geometry the shell forbids. Set to measured + ~3% per _units above. See engineering/decisions/2026-08-09-studio-shell-structural-completeness.md."
     },
     "playground": {

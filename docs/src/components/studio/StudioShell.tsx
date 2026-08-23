@@ -75,7 +75,6 @@ import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides,
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
-import { PresentOverlay } from './PresentOverlay';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -135,6 +134,16 @@ const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Edi
 // forwardRef component still forwards `ref` in React 19, so `composeRef` reaches its
 // useImperativeHandle. See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.4.
 const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
+
+// Split out of the #1751 StudioShell-coupling spike — full measurement (-23.8KB gz, -2
+// chunks, 29 real e2e tests green) in
+// engineering/decisions/2026-08-23-studio-shell-decomposition.md §4. PresentOverlay has no
+// forwardRef/imperative handle (unlike Editor/ComposeView above) — StudioShell never holds
+// a ref into it — so this is a plain React.lazy with nothing to forward. Present is gated
+// by `presentOpen || presentEverOpened` at its render site below, so — unlike
+// Editor/ComposeView, which warm unconditionally on Studio mount because they're the
+// default pane — the chunk is not fetched until the user's first "Present" click.
+const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => ({ default: m.PresentOverlay })));
 
 
 // Deck Inspector pill-tab sections, ORDERED BY LIKELY REACH — the strip is read left
@@ -566,6 +575,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// popup window when the presenter view is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
 	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
+	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
+	// PresentOverlay is React.lazy below. `presentEverOpened` latches true on first open and
+	// never resets, so the chunk fetches once (on first Present click, not on Studio mount)
+	// and the component then stays mounted like Editor/ComposeView do — no repeated
+	// suspend/remount cost on subsequent opens.
+	const [presentEverOpened, setPresentEverOpened] = React.useState(false);
+	React.useEffect(() => { if (presentOpen) setPresentEverOpened(true); }, [presentOpen]);
 	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
 	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
 	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
@@ -4821,7 +4837,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					notify={notify}
 				/>
 			)}
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+			{(presentOpen || presentEverOpened) && (
+				<React.Suspense fallback={null}>
+					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+				</React.Suspense>
+			)}
 			{cmdPalette}
 			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}

@@ -318,7 +318,12 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('opens and closes Present (the verb)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Present' }));
-		expect(await screen.findByText('Presenter screen')).toBeInTheDocument();
+		// PresentOverlay is React.lazy (#1751 — engineering/decisions/2026-08-23-studio-shell-
+		// decomposition.md), gated on first open rather than warmed on mount like Editor/
+		// ComposeView, so — unlike those two — nothing in this test file has already paid the
+		// dynamic import()'s cost before this assertion. The default findBy timeout (1000ms) is
+		// tight for a cold module transform under test-suite load; give it real headroom.
+		expect(await screen.findByText('Presenter screen', {}, { timeout: 5000 })).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Exit present' }));
 		expect(screen.queryByText('Presenter screen')).not.toBeInTheDocument();
 	});
