@@ -59,38 +59,51 @@ const THEMES_DIR = path.join(ROOT, 'themes');
 const COLLAPSE = 0.15;
 
 /**
- * THE COLLAPSE FLOOR IS PER-CONDITION, and it has to be.
+ * THE COLLAPSE FLOOR IS PER-CONDITION **AND PER-GROUP**, and it has to be both.
  *
  * 0.15 is calibrated for a DICHROMACY, where two axes survive: lightness plus the one
- * chromatic axis the condition leaves. Under ACHROMATOPSIA only lightness survives, so
- * the reachable ΔE is arithmetically much smaller and a single global floor stops
- * measuring the palette and starts measuring the condition. Measured on this tree
- * (32 palettes x 4 groups x every pair, 4880 pairs):
+ * chromatic axis the condition leaves. Under ACHROMATOPSIA only lightness survives.
  *
- *   floor 0.15 -> 1229 induced collapses, 1.91x the worst dichromacy arm (deuteranopia
- *                 at 645), 66% of all groups flagged, and SEVEN palettes where every
- *                 single group reads ✗. A report with no ✓ in it ranks nothing.
- *   floor 0.065 ->  711 induced, 1.10x deuteranopia, 54% of groups, and TWO all-✗
- *                 palettes — the same count tritanopia produces at 0.15. The arm sits
- *                 inside the band the three dichromacy arms already occupy (48-64% of
- *                 groups, 2-7 all-✗ palettes) instead of dominating it.
- *   floor 0.048 ->  604 induced, 0.94x deuteranopia, 44% of groups — now the QUIETEST
- *                 arm, under tritanopia's 48%. Over-corrected.
+ * THE REDUCTION IS ABOUT HOW CROWDED THE GROUP IS, NOT ABOUT THE CONDITION. That
+ * distinction is the whole of this block, and getting it wrong is how the first cut of
+ * this arm shipped a green tick over green-vs-red. N tokens mutually >= F on ONE axis
+ * need (N-1)·F of lightness range:
  *
- * 0.065 is not curve-fitted to those counts; they are the check on it. It comes from
- * the ratio this repo has ALREADY measured and shipped for the same question one tier
- * down: `checkHljsSeparation` (tools/check-ownership.js, #1715) holds the syntax family
- * to 0.11 under a dichromacy and 0.048 under monochromacy — 0.436x — after measuring
- * both on the four a11y palettes. 0.15 x 0.436 = 0.0655. The independent reading agrees:
- * the median per-group ratio of the achromatopsia reachable ceiling to the best
- * dichromacy ceiling, over every palette in the tree, is 0.644 for the categorical and
- * chart groups but 0.303 for the semantic trio, and 0.436 sits between them.
+ *   12 categorical fills at 0.15  ->  1.65 of range. Impossible; L only spans 0..1.
+ *   12 categorical marks at 0.15  ->  1.65. Impossible.
+ *    8 chart hues       at 0.15  ->  1.05. Impossible.
+ *    3 status signals   at 0.15  ->  0.30. ENTIRELY REACHABLE — and `a11y-achromatopsia`
+ *                                    reaches it, spreading pass/warn/fail across
+ *                                    #4d4d4d / #6e6e6e / #2e2e2e for a min pairwise
+ *                                    0.1180.
  *
- * WHAT DID *NOT* CALIBRATE IT, stated because it is the obvious candidate and it is
- * empty: `a11y-achromatopsia` reports ZERO induced collapses at 0.15 as well as at
- * 0.065, so it puts no upper bound on the floor. Its cycle is already achromatic, which
- * makes the simulation the identity function on it — the palette is unfalsifiable under
- * its own condition by construction, not evidence that a high floor is safe.
+ * So the monochromacy reduction is right for the three crowded groups and WRONG for the
+ * status trio. Applied to the trio it waved through 29 pairs whose simulated grays sit at
+ * 1.29:1 to 1.86:1 — ardesia's `--pass` #005535 and `--fail` #70001d both render #494949
+ * / #353535, 1.36:1, and the group printed ✓. That is the exact defect this arm exists to
+ * find, certified clean by the arm.
+ *
+ * TWO FLOORS, EACH RATCHETED FROM WHAT THE PURPOSE-BUILT PALETTE ACHIEVES — the method
+ * `checkHljsSeparation` used (tools/check-ownership.js, #1715), applied per population:
+ *
+ *   CROWDED GROUPS -> 0.065. `a11y-achromatopsia` cannot calibrate these: its cycle is a
+ *   monotone value ramp, so the simulation is the identity on it and NO pair is induced
+ *   at any floor. The number instead transposes the ratio this repo already measured and
+ *   shipped one tier down — `checkHljsSeparation` holds twelve small-text syntax roles to
+ *   0.11 under a dichromacy and 0.048 under monochromacy, 0.436x — onto this tool's 0.15:
+ *   0.15 x 0.436 = 0.0655. Legitimate here precisely BECAUSE the hljs family is also a
+ *   crowded twelve-way set boxed into a narrow band, so the crowding the ratio encodes is
+ *   the crowding these groups have.
+ *
+ *   THE STATUS TRIO -> 0.11, ratcheted just under the 0.1180 `a11y-achromatopsia`'s own
+ *   trio achieves under its own condition. No transposition needed: the palette built for
+ *   the condition measures this group directly.
+ *
+ * The report stays legible on the tree, which is the check rather than the derivation:
+ * 731 induced, 59% of groups flagged, 2 palettes all-✗ — inside the band the three
+ * dichromacy arms occupy (48-64% of groups, 2-7 all-✗). A flat 0.15 everywhere gives
+ * 1229 / 66% / 7 and ranks nothing; a flat 0.065 everywhere gives 711 / 54% / 2 and
+ * lies about the trio.
  */
 const COLLAPSE_BY_TYPE = Object.freeze({
   protanopia: COLLAPSE,
@@ -101,13 +114,21 @@ const COLLAPSE_BY_TYPE = Object.freeze({
 });
 
 /**
- * The NORMAL-VISION half of the induced test keeps 0.15 for EVERY condition, and this
- * is the half it is easy to lower by reflex along with the other one.
+ * Groups that are small enough to REACH the dichromacy floor on lightness alone, so the
+ * monochromacy reduction above does not apply to them. Keyed by the group label in
+ * `tokenGroups()`; a group absent here takes its condition's floor.
+ */
+const MONO_FLOOR_BY_GROUP = Object.freeze({ 'semantic signals': 0.11 });
+
+/**
+ * The NORMAL-VISION half of the induced test keeps 0.15 for EVERY condition and EVERY
+ * group, and this is the half it is easy to lower by reflex along with the other one.
  *
  * `dn >= NORMAL_DISTINCT` asks "could a normal-sighted viewer tell these apart?". That
  * is a property of the palette as designed, measured with no simulation in it, so it
- * cannot depend on which condition is being simulated. Lowering it for achromatopsia
- * would count pairs that were never distinct as collapses the condition induced.
+ * cannot depend on which condition is being simulated or on how crowded the group is.
+ * Lowering it for achromatopsia would count pairs that were never distinct as collapses
+ * the condition induced.
  *
  * Measured rather than asserted: dropping this half to 0.065 as well adds 996 pairs,
  * every one of them with `dn` in [0.065, 0.15) — e.g. ardesia `cat-1-fill^cat-3-fill`
@@ -117,9 +138,23 @@ const COLLAPSE_BY_TYPE = Object.freeze({
  */
 const NORMAL_DISTINCT = COLLAPSE;
 
-/** The collapse floor for one condition. Unknown names fall back to the dichromacy floor. */
-function collapseFloor(type) {
+/**
+ * The collapse floor for one condition, optionally for one GROUP within it. Called with
+ * no label it returns the condition's default — which is what the banner prints, and what
+ * the per-group overrides are stated relative to. Unknown names fall back to 0.15.
+ */
+function collapseFloor(type, groupLabel) {
+  if (type === 'achromatopsia' && groupLabel && MONO_FLOOR_BY_GROUP[groupLabel] != null) {
+    return MONO_FLOOR_BY_GROUP[groupLabel];
+  }
   return COLLAPSE_BY_TYPE[type] ?? COLLAPSE;
+}
+
+/** The `label < floor` overrides in play for one condition, for the report header. */
+function floorOverrides(type) {
+  return Object.keys(MONO_FLOOR_BY_GROUP)
+    .filter((label) => collapseFloor(type, label) !== collapseFloor(type))
+    .map((label) => `${label} < ${collapseFloor(type, label)}`);
 }
 
 // ── Palette loader ───────────────────────────────────────────────────────────
@@ -188,7 +223,7 @@ function tokenGroups() {
  *
  * The meaningful readout is CVD-*induced* collapse: a pair a normal-sighted
  * viewer can tell apart (ΔE ≥ NORMAL_DISTINCT) that a CVD viewer cannot
- * (ΔE < the floor FOR THAT CONDITION). Pairs that are already indistinct to
+ * (ΔE < the floor for that condition AND group). Pairs that are already indistinct to
  * everyone (e.g. the pale L≈87 fills, whose distinction comes from
  * marks/labels/position, not fill hue) are NOT a CVD bug and are excluded —
  * tools/contrast-audit.js already covers normal distinctness.
@@ -196,21 +231,22 @@ function tokenGroups() {
  * THE TWO HALVES TAKE DIFFERENT NUMBERS, on purpose. Both used to read the one
  * global `COLLAPSE`. The simulated half is now per-condition (`collapseFloor`)
  * because the reachable ΔE under a monochromacy is arithmetically smaller; the
- * normal-vision half stays at `NORMAL_DISTINCT` for every condition because it
- * measures the palette, not the condition. See both docblocks above.
+ * normal-vision half stays at `NORMAL_DISTINCT` for every condition AND every group,
+ * because it measures the palette, not the condition. See both docblocks above — the
+ * per-GROUP half is what the first cut of this arm got wrong.
  *
  * Returns `{ count, minNormal, minCvd, induced: [...] }`, or null if fewer than
  * two tokens resolve to hex. NOTE `minCvd` is the group MINIMUM over every pair,
  * including pairs that are not induced collapses — the report prints it as the
  * group's headline number, so it is not the ΔE of any particular flagged pair.
  */
-function analyzeGroup(hexByToken, tokens, type) {
+function analyzeGroup(hexByToken, tokens, type, groupLabel) {
   const present = tokens
     .map(t => ({ t, hex: hexByToken[t] }))
     .filter(({ hex }) => hex);
   if (present.length < 2) return null;
 
-  const floor = collapseFloor(type);
+  const floor = collapseFloor(type, groupLabel);
   let minNormal = Infinity;
   let minCvd = Infinity;
   const induced = [];
@@ -271,7 +307,10 @@ console.log('  ═════════════════════�
 // each condition with the floor it is actually measured against — a report that
 // silently applies a different threshold per row would be worse than the old one.
 console.log(`  distinct to normal vision: OKLab ΔE >= ${NORMAL_DISTINCT}  (all conditions)`);
-console.log(`  collapse under the condition: ${types.map(t => `${t} < ${collapseFloor(t)}`).join('  ·  ')}`);
+console.log(`  collapse under the condition: ${types.map((t) => {
+  const ov = floorOverrides(t);
+  return `${t} < ${collapseFloor(t)}${ov.length ? ` (${ov.join('; ')})` : ''}`;
+}).join('  ·  ')}`);
 console.log('');
 
 for (const theme of themes) {
@@ -295,7 +334,7 @@ for (const theme of themes) {
   for (const type of types) {
     const lines = [];
     for (const { label, tokens } of tokenGroups()) {
-      const r = analyzeGroup(hexByToken, tokens, type);
+      const r = analyzeGroup(hexByToken, tokens, type, label);
       if (!r) continue;
       measured++;
       totalCollapsed += r.induced.length;
@@ -309,14 +348,20 @@ for (const theme of themes) {
       // there are induced pairs, name the WORST INDUCED one too.
       const worstInduced = r.induced.length
         ? Math.min(...r.induced.map((p) => p.dc)) : null;
+      // A group measured against a DIFFERENT floor than the condition header states says
+      // so on its own line. A report that silently applied a different threshold per row
+      // would be worse than the single-floor one it replaced.
+      const own = collapseFloor(type, label);
+      const marked = own !== collapseFloor(type) ? `  [floor ${own}]` : '';
       lines.push(
         `       ${flag} ${label.padEnd(18)} ΔE ${r.minCvd.toFixed(3)} (normal ${r.minNormal.toFixed(3)})` +
         (r.induced.length
           ? `  ${r.induced.length} collapsed by CVD, worst ${worstInduced.toFixed(3)}`
-          : ''),
+          : '') + marked,
       );
     }
-    console.log(`     ${type}  (collapse < ${collapseFloor(type)})`);
+    const ov = floorOverrides(type);
+    console.log(`     ${type}  (collapse < ${collapseFloor(type)}${ov.length ? `; ${ov.join('; ')}` : ''})`);
     for (const l of lines) console.log(l);
   }
   if (measured === 0) uncovered.push(theme);

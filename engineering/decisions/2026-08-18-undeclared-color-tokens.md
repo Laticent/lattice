@@ -684,6 +684,7 @@ that resolve to literals). The shape of both claims held; the magnitudes are cor
   it and `checkHljsSeparation` uses it, but wiring it through the audit's own CLI and its
   categorical/status groups is a separate pass.
   **DONE — `2026-08-23-measurement-primitives-reach-the-reader.md` §3.** The audit loops
-  `SIMULATED_TYPES` with a per-condition collapse floor (0.065 for the monochromacy, derived
-  from this note's own 0.048/0.11 ratio); `CVD_TYPES` is still the three matrices. It finds a
-  status-trio collapse on 25 of 32 palettes, worst ΔE 0.003.
+  `SIMULATED_TYPES` with a per-condition AND per-group collapse floor (0.065 for the crowded
+  groups, from this note's own 0.048/0.11 ratio; 0.11 for the three-token status trio, which is
+  small enough to reach the dichromacy floor and does); `CVD_TYPES` is still the three matrices. It finds a
+  status-trio collapse on 31 of 32 palettes, worst ΔE 0.003.

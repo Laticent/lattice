@@ -77,7 +77,7 @@ describe('cvd-audit achromatopsia arm', () => {
   test('the collapse floor is per-condition, and the monochromacy floor is lower', () => {
     const { out } = run('indaco');
     const floors = Object.fromEntries(
-      [...out.matchAll(/^\s+(\w+)\s+\(collapse < ([\d.]+)\)/gm)].map((m) => [m[1], Number(m[2])]),
+      [...out.matchAll(/^\s+(\w+)\s+\(collapse < ([\d.]+)/gm)].map((m) => [m[1], Number(m[2])]),
     );
     for (const t of CVD_TYPES) assert.equal(floors[t], 0.15, `${t} should keep the dichromacy floor`);
     assert.ok(floors.achromatopsia < 0.15,
@@ -85,6 +85,46 @@ describe('cvd-audit achromatopsia arm', () => {
     assert.equal(floors.achromatopsia, 0.065);
     // The NORMAL-VISION half is one number for every condition — see the next test.
     assert.match(out, /distinct to normal vision: OKLab ΔE >= 0\.15\s+\(all conditions\)/);
+  });
+
+  /**
+   * THE FLOOR IS PER-GROUP TOO, and this is the arm's sharpest regression guard.
+   *
+   * The monochromacy reduction exists because a CROWDED group cannot reach 0.15 on one
+   * surviving axis: twelve tokens mutually >= 0.15 need 1.65 of lightness range. THREE
+   * tokens need 0.30, which is reachable — `a11y-achromatopsia` reaches it at 0.1180.
+   * A first cut applied the reduction to the status trio anyway and the arm printed a
+   * green tick over ardesia's `--pass` #005535 and `--fail` #70001d, which render
+   * #494949 and #353535 — 1.36:1, green and red as one gray, certified clean by the
+   * check written to catch exactly that.
+   */
+  test('BITES: the status trio keeps a higher floor than the crowded groups', () => {
+    const { out } = run('ardesia');
+    const trio = groupRow(out, 'achromatopsia', 'semantic signals');
+    assert.equal(trio.flag, '✗',
+      "ardesia's pass/fail render 1.36:1 apart as grays — the trio must not read clean");
+    assert.ok(trio.collapsed >= 2, `expected at least 2 collapsed, got ${trio.collapsed}`);
+    // …and the report SAYS which floor it used, rather than applying it silently.
+    assert.match(out, /semantic signals.*\[floor 0\.11\]/);
+    assert.match(out, /achromatopsia\s+\(collapse < 0\.065; semantic signals < 0\.11\)/);
+    // The crowded groups keep the reduced floor — the split is real, not a blanket revert.
+    assert.equal(groupRow(out, 'achromatopsia', 'categorical marks').flag, '✗');
+    assert.doesNotMatch(
+      out.split('categorical marks')[1].split('\n')[0], /\[floor/,
+      'a crowded group takes the condition default and should carry no floor marker');
+  });
+
+  /**
+   * The trio floor is ratcheted from what `a11y-achromatopsia` actually achieves (0.1180),
+   * so that palette must sit just above it. If this fails, either the palette regressed or
+   * someone raised the floor past what the purpose-built palette can reach.
+   */
+  test('the trio floor sits just under what a11y-achromatopsia achieves', () => {
+    const { out, code } = run('a11y-achromatopsia', '--strict', '--type', 'achromatopsia');
+    assert.equal(code, 0, out);
+    assert.equal(groupRow(out, 'achromatopsia', 'semantic signals').flag, '✓');
+    const m = out.match(/semantic signals\s+ΔE ([\d.]+)/);
+    assert.ok(m && Number(m[1]) >= 0.11, `expected >= 0.11, got ${m?.[1]}`);
   });
 
   /**
