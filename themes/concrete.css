@@ -81,9 +81,19 @@
    * each palette can pick its own alpha. */
   /* Self-curated semantic trio — neutral green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --pass: light-dark(#214F26, #73C77C);
-  --warn: light-dark(#683C00, #DCAA4C);
-  --fail: light-dark(#8E0B13, #EC8585);
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1190 light /
+   * 0.1203 dark, from 0.0000 / 0.0095. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-23-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#000f01, #caffcd);
+  --warn: light-dark(#3b2000, #f5c266);
+  --fail: light-dark(#8d0812, #ee8787);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

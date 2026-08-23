@@ -88,9 +88,19 @@
    * arms at once: moving --warn alone closes its deficiency separation from
    * --pass and --fail, and lightness is the only channel a deficiency preserves
    * (tools/composed-contrast.js, test/unit/palette/cvd-trio-floor.test.js). */
-  --pass: light-dark(#00523C, #4FD08C);
-  --warn: light-dark(#7C5200, #E6B255);
-  --fail: light-dark(#6A001B, #F07F92);
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1177 light /
+   * 0.1194 dark, from 0.0697 / 0.0032. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-23-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#004331, #b4ffd1);
+  --warn: light-dark(#7d5201, #f4bf63);
+  --fail: light-dark(#43000d, #f07f92);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

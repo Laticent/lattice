@@ -51,7 +51,21 @@ const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
 
 const ROOT       = path.join(__dirname, '..');
-const THEMES_DIR = path.join(ROOT, 'themes');
+/**
+ * Where palettes are read from. `--themes-dir <path>` overrides it.
+ *
+ * WHY IT IS OVERRIDABLE. The per-group floor (`MONO_FLOOR_BY_GROUP`) is the arm's
+ * sharpest rule and the shipped tree can no longer WITNESS it: once the status trio
+ * was respaced to clear 0.11 on all 32 palettes, no committed pair sits in the
+ * [0.065, 0.11) band that separates the trio floor from the crowded-group one, so a
+ * test over `themes/` cannot tell the two apart any more. It passes either way — which
+ * is the shape of a gate that has quietly stopped gating. A synthetic palette in a
+ * temp directory is the witness, and this flag is how the test hands it over.
+ */
+const THEMES_DIR = (() => {
+  const i = process.argv.indexOf('--themes-dir');
+  return i >= 0 && process.argv[i + 1] ? path.resolve(process.argv[i + 1]) : path.join(ROOT, 'themes');
+})();
 
 // ΔE under a deficiency below this = "these two categories have collapsed".
 // Mirrors tools/contrast-audit.js: 0.15 ≈ "just about distinct"; well-designed
@@ -289,7 +303,7 @@ if (typeIdx >= 0) {
   }
 }
 const themeArgs = args.filter((a, i) =>
-  !a.startsWith('-') && args[i - 1] !== '--type');
+  !a.startsWith('-') && args[i - 1] !== '--type' && args[i - 1] !== '--themes-dir');
 
 const allThemes = fs.readdirSync(THEMES_DIR)
   .filter(f => f.endsWith('.css'))

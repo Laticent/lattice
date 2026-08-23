@@ -33,13 +33,23 @@
    * (--accent-soft, not --bg-alt), where this palette's curated coral scored
    * 4.37:1 against base's 4.96:1 — a cascade regression, which has no exemption.
    * It is 4.58:1 now, and --fail did not need to move. */
-  --pass: light-dark(#007131, #61BC77);
-  --warn: light-dark(#B05139, #DC7960);
-  --fail: light-dark(#6b1667, #FFADF7);
-  --chart-state-pass: #007131;
-  --chart-state-warn: #B05139;
-  --chart-state-fail: #6b1667;
-  --diagram-critical: #6b1667;
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1222 light /
+   * 0.1291 dark, from 0.0422 / 0.0683. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-23-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#005624, #a3ffb6);
+  --warn: light-dark(#ae4f37, #dd7a61);
+  --fail: light-dark(#4b0049, #f7a6ef);
+  --chart-state-pass: #005624;
+  --chart-state-warn: #ae4f37;
+  --chart-state-fail: #4b0049;
+  --diagram-critical: #4b0049;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
    * Until now this palette declared NONE, so a11y-base's import of onyx handed

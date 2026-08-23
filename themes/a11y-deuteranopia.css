@@ -46,14 +46,24 @@
    * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) is
    * what the EXPORT path renders, and these arms are inert there until #1527
    * flips the order. */
-  --pass: light-dark(#004982, #7CBBFC);
-  --warn: light-dark(#946400, #FFDBA9);
-  --fail: light-dark(#800613, #FC827A);
-  --chart-state-pass: #004982;
-  --chart-state-warn: #946400;
-  --chart-state-fail: #800613;
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1200 light /
+   * 0.1191 dark, from 0.0341 / 0.0511. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-23-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#054c86, #82bfff);
+  --warn: light-dark(#926300, #ffdcad);
+  --fail: light-dark(#5f0009, #e9716a);
+  --chart-state-pass: #054c86;
+  --chart-state-warn: #926300;
+  --chart-state-fail: #5f0009;
   /* Diagram alarm — a deep-red attention signal (not a green/red pair). */
-  --diagram-critical: #800613;
+  --diagram-critical: #5f0009;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
    * Until now this palette declared NONE, so a11y-base's import of onyx handed
