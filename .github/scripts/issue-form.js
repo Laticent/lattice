@@ -57,24 +57,102 @@ const ALIAS_HEADINGS = {
  * in a pasted snippet, and a card must not reach `status:ready` on one.
  */
 function maskFences(text) {
-  // CommonMark: a fence is closed only by one of the SAME character, at least as
-  // long. A naive open/close toggle gets this wrong on a card that pastes a
-  // markdown EXAMPLE — an inner ``` inside an outer ~~~ flips the toggle, and
-  // the heading after it is exposed as a field again. That is the same defect
-  // this masker exists to fix, one level deeper, and showing a fence inside a
-  // fence is ordinary on a card documenting a template.
+  // CommonMark 4.5, in full — three conditions, because getting two of them right
+  // is what produced the first three defects here:
+  //   1. the closer is the SAME character as the opener;
+  //   2. its run is at least as LONG;
+  //   3. it carries NO INFO STRING.
+  // (3) is the one that bites in practice. A card pasting a nested markdown
+  // example writes an outer ``` and an inner ```markdown — because remembering to
+  // lengthen the outer fence is not a thing people do — and treating that inner
+  // line as a closer exposes every heading in the example as a real field. That is
+  // a SILENT FALSE ACCEPT: the DoR gate keeps `status:ready` on a card with no
+  // swimlane and no acceptance check, which is the one outcome this gate exists to
+  // prevent. A false reject, by contrast, is loud and self-correcting — the bot
+  // comments and a human re-applies the label.
+  //
+  // HTML COMMENTS are the second unrendered region. GitHub renders nothing for
+  // them, but a `# Done when` inside one used to be honored as a field, and
+  // hand-written cards routinely carry comment boilerplate from a template.
+  //
+  // Indentation is SPACES only (` {0,3}`), not `\s`: a tab-indented run is an
+  // indented code block per CommonMark, not a fence, so the heading after it is a
+  // real heading and masking it would drop a legitimate field.
+  //
+  // Every branch returns a string of the SAME LENGTH as its input, so heading
+  // offsets computed against the mask still index the original text.
+  const blankOut = (str) => ' '.repeat(str.length);
   let open = null; // { char, len } of the fence currently holding us open
+  let inComment = false;
   return text
     .split('\n')
     .map((line) => {
-      const m = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
-      if (!m) return open ? ' '.repeat(line.length) : line;
-      const char = m[1][0];
-      const len = m[1].length;
-      if (!open) open = { char, len };
-      else if (char === open.char && len >= open.len) open = null;
-      // else: an inner fence of the other kind, or a shorter run — still inside.
-      return ' '.repeat(line.length);
+      if (inComment) {
+        if (line.includes('-->')) inComment = false;
+        return blankOut(line); // a heading cannot start mid-line, so mask it all
+      }
+      if (!open) {
+        const at = line.indexOf('<!--');
+        if (at !== -1 && line.indexOf('-->', at) === -1) {
+          inComment = true;
+          // Keep anything BEFORE the comment: `# Title <!--` is a real heading.
+          return line.slice(0, at) + blankOut(line.slice(at));
+        }
+      }
+      const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+      if (!m) return open ? blankOut(line) : line;
+      const run = m[1];
+      const info = m[2];
+      if (!open) open = { char: run[0], len: run.length };
+      else if (run[0] === open.char && run.length >= open.len && info.trim() === '') open = null;
+      // else: an inner fence — other character, shorter run, or carrying an info
+      // string — so it is content, and we are still inside the outer block.
+      return blankOut(line);
+    })
+    .join('\n');
+}
+
+/**
+ * `text` with HTML-COMMENT regions blanked to equal-length spaces, and nothing
+ * else. Two masks are needed because fences and comments differ in KIND:
+ *
+ *   - a fenced code block is VISIBLE content that merely must not be scanned for
+ *     headings — an acceptance check written as a single ``` block is a filled
+ *     field, and blanking it for the emptiness test would falsely reject a real
+ *     card;
+ *   - an HTML comment renders as NOTHING, so content inside one must not count
+ *     as filling a field at all.
+ *
+ * So headings are located against the fence+comment mask, and field VALUES are
+ * sliced from this one. Without the split, `## Definition of done <!--` followed
+ * by a commented-out checklist reads as a filled field whose content no human can
+ * see — a real heading (GitHub renders it) carrying invisible content.
+ */
+function maskComments(text) {
+  let inComment = false;
+  return text
+    .split('\n')
+    .map((line) => {
+      const blankOut = (str) => ' '.repeat(str.length);
+      if (inComment) {
+        const end = line.indexOf('-->');
+        if (end === -1) return blankOut(line);
+        inComment = false;
+        return blankOut(line.slice(0, end + 3)) + line.slice(end + 3);
+      }
+      let out = '';
+      let rest = line;
+      for (;;) {
+        const at = rest.indexOf('<!--');
+        if (at === -1) return out + rest;
+        const close = rest.indexOf('-->', at);
+        if (close === -1) {
+          inComment = true;
+          return out + rest.slice(0, at) + blankOut(rest.slice(at));
+        }
+        out += rest.slice(0, at) + blankOut(rest.slice(at, close + 3));
+        rest = rest.slice(close + 3);
+      }
     })
     .join('\n');
 }
@@ -102,6 +180,9 @@ const blank = (v) => !v || !String(v).trim();
 function parseForm(body) {
   const text = String(body || '').replace(/\r\n/g, '\n');
   const headings = scanHeadings(text);
+  // Values come from the comment-masked copy: same length, so every offset below
+  // still lines up, but commented-out content cannot fill a required field.
+  const src = maskComments(text);
 
   // Pass 1 — canonical form headings. Boundaries are canonical headings only.
   const marks = [];
@@ -112,7 +193,7 @@ function parseForm(body) {
   const out = {};
   for (let i = 0; i < marks.length; i++) {
     const stop = i + 1 < marks.length ? marks[i + 1].headingAt : text.length;
-    let val = text.slice(marks[i].valueStart, stop).trim();
+    let val = src.slice(marks[i].valueStart, stop).trim();
     if (/^_no response_$/i.test(val)) val = '';
     out[marks[i].key] = val;
   }
@@ -132,7 +213,7 @@ function parseForm(body) {
       if (FIELD_BY_HEADING[h.label]) continue; // a canonical heading is never an alias
       if (!aliases.includes(h.label.toLowerCase())) continue;
       const next = headings.slice(i + 1).find((n) => n.level <= h.level);
-      const val = text.slice(h.valueStart, next ? next.headingAt : text.length).trim();
+      const val = src.slice(h.valueStart, next ? next.headingAt : src.length).trim();
       if (!blank(val) && !/^_no response_$/i.test(val)) {
         out[key] = val;
         break;
@@ -142,4 +223,4 @@ function parseForm(body) {
   return out;
 }
 
-module.exports = { parseForm, FIELD_BY_HEADING, ALIAS_HEADINGS };
+module.exports = { parseForm, FIELD_BY_HEADING, ALIAS_HEADINGS, maskFences, maskComments };

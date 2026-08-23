@@ -8119,12 +8119,19 @@ function auditPdfOwnership(files) {
 // one it caused, so per HARD RULE #18 they are logged and sanctioned here rather
 // than swept into the gate's own diff (tracked for cleanup; see the card).
 //
-// `AcronymEditor.tsx` is the one that is not merely latent: its NUL sits at byte
-// 2747, inside the first 8000 bytes `text=auto` inspects, so git classifies the
-// file as binary TODAY — `git diff` on it prints "Binary files … differ" and a
-// reviewer sees nothing. Measured, not assumed. The other four carry theirs past
-// byte 8000 and so still diff as text; they are one prepended paragraph away from
-// flipping, which is why they are listed rather than ignored.
+// TWO of them are not merely latent. `AcronymEditor.tsx` (NUL at byte 2747) and
+// `tools/change-coupling.js` (byte 4089) both sit inside the first 8000 bytes
+// `text=auto` inspects, so git classifies them binary TODAY — `git diff` on either
+// prints "Binary files … differ" and a reviewer sees nothing. Both measured by
+// appending a line and reading `git diff --numstat` return `-\t-`.
+//
+// An earlier revision of this comment said "Measured, not assumed" and named only
+// AcronymEditor, having checked one file and generalized from the byte offsets of
+// the rest. A sentence claiming measurement that was not measured is worse than
+// one that claims nothing.
+//
+// The other three carry theirs past byte 8000 and still diff as text; they are one
+// prepended paragraph from flipping, which is why they are listed, not ignored.
 //
 // The list is checked BOTH ways, like SANCTIONED_MARGINS: an unlisted file with a
 // NUL fails, and a listed file WITHOUT one fails as a stale sanction — so fixing
@@ -8138,8 +8145,23 @@ const SANCTIONED_NUL_FILES = [
 ];
 
 const NUL_TEXT_EXTENSIONS = [
-  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.css', '.scss', '.md', '.mdx',
-  '.json', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml',
+  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
+  '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
+  '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc',
+];
+
+// The BINARY half of the same partition. Every tracked file must fall in one list
+// or the other, and `nul-byte-gate.test.js` fails on any extension in neither —
+// which is the only way an allowlist like this does not rot.
+//
+// The first cut listed the text extensions alone, and `.astro` was missing: 40
+// tracked docs-site source files, exactly the kind this repo writes, invisible to
+// the gate. The test that should have caught it asserted a hand-written subset was
+// present in the array it was testing — self-referential, so it could not fail for
+// the one thing that mattered, a MISSING extension.
+const NUL_BINARY_EXTENSIONS = [
+  '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
+  '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
 ];
 
 /**
@@ -8188,8 +8210,13 @@ function auditNulBytes(hits, sanctioned) {
 function checkNulBytes(errors) {
   let tracked;
   try {
+    // No `.trim()`: `-z` is used precisely so paths arrive byte-exact rather than
+    // C-quoted, and trimming would re-corrupt a path with leading/trailing
+    // whitespace — which would then be silently SKIPPED (the read throws), hiding
+    // a NUL in exactly the file least likely to be looked at. `filter(Boolean)`
+    // alone drops the trailing empty element, which is all that is needed.
     tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-      .split('\0').map((x) => x.trim()).filter(Boolean);
+      .split('\0').filter(Boolean);
   } catch (e) {
     // Same rule as checkCommittedPdfs: only a missing git / non-repo checkout is
     // a legitimate skip. Anything else is a defect in THIS gate.
@@ -9961,6 +9988,7 @@ module.exports = {
   checkNulBytes,
   findNulBytes,
   auditNulBytes,
+  NUL_BINARY_EXTENSIONS,
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,

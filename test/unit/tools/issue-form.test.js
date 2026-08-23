@@ -206,3 +206,64 @@ describe('parseForm — nested fences', () => {
     assert.equal(parseForm(body).acceptance, undefined);
   });
 });
+
+// ── The closing-fence rule, and the second unrendered region ─────────────────
+// CommonMark closes a fence on THREE conditions: same character, at least as
+// long, AND no info string. The third is the one that bites — a card pasting a
+// nested markdown example writes an outer ``` and an inner ```markdown, because
+// lengthening the outer fence is not a thing people do. Treating that inner line
+// as a closer exposes every heading in the example as a real field, and the DoR
+// gate then KEEPS status:ready on a card with no swimlane and no acceptance
+// check. That silent false-accept is the one outcome the gate exists to prevent;
+// a false reject is loud and self-correcting.
+
+describe('parseForm — a fence carrying an info string is not a closer', () => {
+  test('a nested ```markdown example does not leak its headings as fields', () => {
+    const body = ['# bug: the template renders wrong', '', 'Source:', '', fence,
+      `${fence}markdown`, '## Swimlane', '', 'engineering/whatever.md', '',
+      '## Done when', '', '- [ ] example checklist item', fence, fence, '', 'Nothing else.'].join('\n');
+    const f = parseForm(body);
+    assert.ok(!f.swimlane, 'a heading inside the pasted example is not a swimlane');
+    assert.ok(!f.acceptance, 'nor an acceptance check');
+  });
+  test('a bare closer of the same run still closes', () => {
+    const body = ['# card', '', `${fence}sh`, '# Done when', fence, '', '## Definition of done', '', '- [ ] real'].join('\n');
+    assert.match(parseForm(body).acceptance, /real/);
+  });
+  test('a TAB-indented run is an indented code block, not a fence', () => {
+    // CommonMark: a tab expands to 4 columns, so this is not a fence and the
+    // heading after it is real. Masking it would drop a legitimate field.
+    // The heading must sit INSIDE the tab-indented run to discriminate: outside
+    // it, the field is found either way and the assertion proves nothing
+    // (mutation-checked — the first draft of this test was exactly that).
+    const body = ['# card', '', `\t${fence}`, '## Definition of done', '', '- [ ] real', `\t${fence}`].join('\n');
+    assert.match(parseForm(body).acceptance, /real/);
+  });
+});
+
+describe('parseForm — HTML comments render as nothing, so they fill nothing', () => {
+  test('a heading inside a comment is not a field', () => {
+    const body = ['# card', '', '<!--', '# Done when', '- [ ] fake payload', '-->', '', 'prose'].join('\n');
+    assert.ok(!parseForm(body).acceptance);
+  });
+  test('a REAL heading whose body is entirely commented out counts as empty', () => {
+    // The heading renders (GitHub shows it); its content does not. Values are
+    // sliced from the comment-masked copy so an invisible checklist cannot pass
+    // the Definition of Ready.
+    const body = ['# card', '', '## Definition of done <!--', '- [ ] invisible', '-->'].join('\n');
+    assert.ok(!parseForm(body).acceptance);
+  });
+  test('an acceptance check that IS a fenced block still counts — fences are visible', () => {
+    // The two masks differ in kind: a fence is visible content that merely must
+    // not be scanned for headings. Blanking it here would falsely reject.
+    const body = ['# card', '', '## Definition of done', '', fence, 'npm test passes', fence].join('\n');
+    assert.match(parseForm(body).acceptance, /npm test passes/);
+  });
+  test('an inline comment is removed without eating the rest of the line', () => {
+    const body = ['# card', '', '## Definition of done', '', '- [ ] real <!-- note --> and more'].join('\n');
+    const v = parseForm(body).acceptance;
+    assert.match(v, /real/);
+    assert.match(v, /and more/);
+    assert.doesNotMatch(v, /note/);
+  });
+});

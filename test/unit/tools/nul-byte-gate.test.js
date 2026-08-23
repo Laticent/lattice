@@ -25,6 +25,7 @@ const {
   auditNulBytes,
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
+  NUL_BINARY_EXTENSIONS,
 } = require(path.join(__dirname, '..', '..', '..', 'tools', 'check-ownership.js'));
 
 const NUL = String.fromCharCode(0);
@@ -82,9 +83,38 @@ describe('the shipped allowlist', () => {
       assert.ok(fs.readFileSync(path.join(root, f)).includes(0), `${f} is sanctioned but clean — drop the entry`);
     }
   });
-  test('covers the source extensions this repo actually writes', () => {
-    for (const ext of ['.js', '.mjs', '.ts', '.tsx', '.css', '.md', '.json', '.yml']) {
-      assert.ok(NUL_TEXT_EXTENSIONS.includes(ext), `${ext} must be in scope`);
+  test('every tracked extension is classified as text OR binary — nothing unclassified', () => {
+    // The first draft of this test asserted a HAND-WRITTEN subset was present in
+    // the array it was testing. That is self-referential: it cannot fail for a
+    // MISSING extension, which is the only failure mode that matters, and it
+    // duly passed while `.astro` — 40 tracked docs-site source files — sat
+    // outside the gate entirely.
+    //
+    // Partitioning the real tree is the version that bites: a new file type
+    // fails here until someone decides which half it belongs in.
+    const { execFileSync } = require('node:child_process');
+    const root = path.join(__dirname, '..', '..', '..');
+    const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+      .split('\0')
+      .filter(Boolean);
+    assert.ok(tracked.length > 1000, 'a broken query, not an empty repo');
+
+    const unclassified = new Set();
+    for (const f of tracked) {
+      const base = path.basename(f);
+      const m = /(\.[A-Za-z0-9]+)$/.exec(base);
+      if (!m) continue; // an extensionless file (LICENSE, Dockerfile) — out of scope by design
+      const ext = m[1].toLowerCase();
+      if (!NUL_TEXT_EXTENSIONS.includes(ext) && !NUL_BINARY_EXTENSIONS.includes(ext)) unclassified.add(ext);
     }
+    assert.deepEqual(
+      [...unclassified].sort(),
+      [],
+      'add each to NUL_TEXT_EXTENSIONS (scanned) or NUL_BINARY_EXTENSIONS (skipped)',
+    );
+  });
+
+  test('.astro is scanned — it is docs-site SOURCE, and it was the one that got missed', () => {
+    assert.ok(NUL_TEXT_EXTENSIONS.includes('.astro'));
   });
 });
