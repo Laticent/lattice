@@ -31,12 +31,14 @@ in patch versions.
 > leading the bullet with `**Breaking:**` so it counts as major even under
 > `### Changed`.
 
-> ## The pre-1.0.0 development log moved to `changelog/pre-release-archive.md`
+> ## The pre-1.0.0 development log moved to [`changelog/pre-release-archive.md`](https://github.com/slidewright/lattice/blob/main/changelog/pre-release-archive.md)
 >
 > 1.0.0 shipped on 2026-08-09 from a hand-written section, without rolling `## Unreleased`
 > into it — so that section kept growing until it was 18,382 lines and 99.7% of this file.
 > It is archived verbatim (#1735). **The archive is repo-only**: `changelog/` is not in
-> `package.json` `files`, so the npm tarball and the release zip carry this file alone.
+> `package.json` `files`, so the npm tarball and the release zip carry this file alone —
+> which is why the pointer above is an absolute URL. A relative path would resolve for a
+> reader on GitHub and dangle for everyone reading the shipped copy.
 >
 > Those entries will not appear in the next release’s notes; that is the cost of the move,
 > and it is deliberate. The VERSION is unaffected — the pending `changelog.d/` fragments

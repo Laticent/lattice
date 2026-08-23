@@ -27,6 +27,17 @@ describe('preview scope detector', () => {
     assert.equal(detectScope(['package.json']).level, 'L0');
   });
 
+  // The whole changelog is prose, and only `CHANGELOG.md` itself was listed. The
+  // archive (`changelog/`, 1.5 MB) and the per-PR fragments (`changelog.d/`, written
+  // by every change under HARD RULE #10) fell through to the "unrecognized file →
+  // treat as full" arm, so writing a changelog entry rebuilt and pixel-diffed every deck.
+  test('any changelog file → L0 (prose, whichever file it lives in)', () => {
+    assert.equal(detectScope(['CHANGELOG.md']).level, 'L0');
+    assert.equal(detectScope(['changelog/pre-release-archive.md']).level, 'L0');
+    assert.equal(detectScope(['changelog.d/1777-output-extension-closed.fixed.md']).level, 'L0');
+    assert.equal(detectScope(['changelog.d/README.md']).level, 'L0');
+  });
+
   test('manifest.json change → L0 (scaffolder-only impact)', () => {
     assert.equal(detectScope(['lib/components/cards-grid/cards-grid.manifest.json']).level, 'L0');
   });

@@ -90,6 +90,13 @@ const PATTERNS = Object.freeze({
     /^\.c8rc\.json$/,
     /^README\.md$/,
     /^CHANGELOG\.md$/,
+    // The rest of the changelog, which is prose exactly like `CHANGELOG.md` is.
+    // `changelog/` is the pre-1.0.0 log moved out verbatim (#1735) and is 1.5 MB;
+    // `changelog.d/` is the per-PR entry fragment every change now writes (#1593).
+    // Neither was listed, and an unrecognized path is conservatively treated as L3
+    // — so editing a changelog entry rebuilt and diffed every deck.
+    /^changelog\//,
+    /^changelog\.d\//,
     /^LICENSE$/,
     /^CLAUDE\.md$/,
     // Build outputs and committed PDFs are downstream artifacts.

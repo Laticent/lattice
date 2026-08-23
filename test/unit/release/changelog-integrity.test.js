@@ -106,6 +106,32 @@ describe('CHANGELOG integrity — it is a published file', () => {
     assert.deepEqual(hits.map((h) => `line ${h.n}: ${h.line}`), []);
   });
 
+  // WHAT SHIPS IS THIS FILE ALONE. `package.json` `files` carries `CHANGELOG.md` and NOT
+  // `changelog/`, so a relative pointer into the archive resolves for a reader on GitHub
+  // and dangles for every reader of the npm tarball or the release zip — the audience the
+  // docblock above says this file is FOR. #1735 moved 18,382 lines into `changelog/` and
+  // left the pointer relative; `npm pack --dry-run` lists `CHANGELOG.md` and no
+  // `changelog/` entry, which is the whole argument. Both the file on disk and the
+  // ASSEMBLED release body are checked, because a fragment carries the pointer too.
+  test('every pointer into the repo-only `changelog/` archive is an absolute URL', () => {
+    const cl = require('../../../tools/changelog.js');
+    const shipped = `${src}\n${cl.unreleasedWithFragments(src)}`;
+    const ARCHIVE_URL = 'https://github.com/slidewright/lattice/blob/main/changelog/';
+    const bad = [];
+    for (const line of shipped.split('\n')) {
+      // A markdown link whose TARGET is a relative path under `changelog/`.
+      if (/]\(\s*(?:\.\/)?changelog\//.test(line)) bad.push(`relative link target: ${line.trim().slice(0, 100)}`);
+      // A file in the archive named without the absolute URL anywhere on the line. Keep
+      // the link text and its target on ONE line, which is how every pointer reads today.
+      if (/changelog\/[A-Za-z0-9._-]+\.md/.test(line) && !line.includes(ARCHIVE_URL)) {
+        bad.push(`bare pointer: ${line.trim().slice(0, 100)}`);
+      }
+    }
+    assert.deepEqual(bad, [],
+      'a pointer into `changelog/` must be an absolute GitHub URL — that directory is not '
+      + `in package.json \`files\`, so a relative path dangles in the shipped copy (${ARCHIVE_URL}…)`);
+  });
+
   test('every paragraph in `## Unreleased` is an entry or a sanctioned lede', () => {
     const sanctioned = new Set(SANCTIONED_UNRELEASED_PROSE.map(([line]) => line));
     const unsanctioned = columnZeroProse(unreleased(src))
