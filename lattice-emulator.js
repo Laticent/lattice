@@ -2340,8 +2340,8 @@ const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
 // the same pre-render-then-PDF flow function-plot uses. Its first draw is in fact
 // synchronous at parse time; the DOMContentLoaded and `fonts.ready` handlers are
 // re-draws. The `fonts.ready` one is a promise continuation no navigation wait ever
-// covered, and it stays correct because the in-page `.then` is registered before the
-// Node-side `await document.fonts.ready` below and therefore runs first. The function body
+// covered; what keeps it correct is NOT registration order — see the invariant written
+// beside the Node-side force-load below, which is the accurate account. The function body
 // is the canonical installStateChartLayout from the kernel, serialised so
 // the emulator and lattice-runtime share one implementation.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
@@ -2759,25 +2759,54 @@ async function renderBody(browser, g, closeBrowser) {
   // every deferred image and frame to eager, then wait for the pixels. Runs after each
   // navigation, and under `g()`'s watchdog, so a resource that never answers fails the
   // render loudly rather than hanging it.
-  const settleDeferredMedia = (label) => g(() => page.evaluate(async () => {
-    for (const el of document.querySelectorAll('img[loading="lazy"], iframe[loading="lazy"]')) {
-      el.loading = 'eager';
+  const settleDeferredMedia = async (label) => {
+    const timedOut = await g(() => page.evaluate(async () => {
+      // EVERY wait here is bounded, and that is not defensive noise — an unbounded one
+      // wedged the render. A first cut awaited `load` on every <iframe> that did not
+      // report `contentDocument.readyState === 'complete'`. For an opaque-origin frame
+      // (file://, http://, data: — i.e. all the ordinary ones) `contentDocument` is
+      // **null rather than a throw**, so the check said "not done" for a frame whose
+      // load event had ALREADY fired during the navigation; the listener could never
+      // fire and the render hung until the watchdog killed it, ~190 s, then failed.
+      // The mirror-image bug sat in the same line: a same-origin LAZY frame reports its
+      // initial about:blank as 'complete', so it was skipped and never awaited at all.
+      const BOUND_MS = 10000;
+      let expired = 0;
+      const bounded = (p) => Promise.race([
+        Promise.resolve(p).then(() => false, () => false),
+        new Promise((r) => setTimeout(() => { expired++; r(true); }, BOUND_MS)),
+      ]);
+
+      const waits = [];
+      // FRAMES. Only the ones we promote need awaiting: an already-eager frame was
+      // covered by the load event we navigated on. `readyState` cannot tell us whether a
+      // promoted frame has arrived (see above), so the listener is the only signal, and
+      // it is bounded because it may be attached after the event it waits for.
+      const frames = [...document.querySelectorAll('iframe[loading="lazy"]')];
+      for (const frame of frames) {
+        frame.loading = 'eager';
+        waits.push(bounded(new Promise((resolve) => {
+          frame.addEventListener('load', resolve, { once: true });
+          frame.addEventListener('error', resolve, { once: true });
+        })));
+      }
+      // IMAGES need no promotion: `decode()` on a deferred lazy image starts and
+      // completes the fetch by itself (measured). Not touching `loading` also keeps the
+      // attribute out of the DOM the --player bake captures, so the export still carries
+      // what the author wrote.
+      for (const img of document.images) {
+        if (typeof img.decode === 'function') waits.push(bounded(img.decode()));
+      }
+      await Promise.all(waits);
+      return expired;
+    }), `settle deferred media${label}`);
+    // A resource that never answers is a defect in the DECK, not in the render, so it
+    // must not fail the export — but it must not pass silently either, which is the
+    // whole complaint against the wait this change removed.
+    if (timedOut && !QUIET) {
+      console.warn(`  ⚠ ${timedOut} deferred resource(s) did not settle within 10s — exported without them.`);
     }
-    const waits = [];
-    for (const img of document.images) {
-      if (typeof img.decode === 'function') waits.push(img.decode().catch(() => {}));
-    }
-    for (const frame of document.querySelectorAll('iframe')) {
-      let done = false;
-      try { done = frame.contentDocument?.readyState === 'complete'; } catch (_e) { done = true; /* cross-origin: not ours to await */ }
-      if (done) continue;
-      waits.push(new Promise((resolve) => {
-        frame.addEventListener('load', resolve, { once: true });
-        frame.addEventListener('error', resolve, { once: true });
-      }));
-    }
-    await Promise.all(waits);
-  }), `settle deferred media${label}`);
+  };
 
   // `load`, not `networkidle0`. The two are not a correctness/speed trade here: `load`
   // already waits for every resource kind this document actually contains, and the
@@ -2829,11 +2858,15 @@ async function renderBody(browser, g, closeBrowser) {
   // `.then` was registered before this await: calling `f.load()` on a face that is still
   // `unloaded` switches the FontFaceSet back to loading and REPLACES `document.fonts.ready`
   // with a new promise — measured — at which point the two awaits are on different objects
-  // and registration order buys nothing. What actually holds it today is that deck fonts are
-  // base64 `data:` URIs, so every face is already `loaded` when the navigation returns
-  // (measured: `unloaded=0`, ready not replaced, on five real sidecars). A theme or `--css`
-  // override that adds one genuinely remote `@font-face` would break that invariant and
-  // orphan the redraw. Tracked in the cost assessment's §8 rather than guarded here.
+  // and registration order buys nothing. What actually holds it today is that no face is left
+  // `unloaded` when the navigation returns: measured across five real sidecars, 74 declared
+  // faces resolve to 37 `loaded` + 37 `error`, and the force-load does NOT replace
+  // `document.fonts.ready`. Note BOTH halves, because the tempting one-line version ("deck
+  // fonts are `data:` URIs") is false — only 17 faces are base64 `data:`; the other 37 are
+  // KaTeX's relative `fonts/…woff2`, fetched and 404. It is their prompt FAILURE, not
+  // inlining, that keeps them out of `unloaded`. A theme or `--css` override adding a
+  // genuinely remote face that resolves SLOWLY rather than failing would break the invariant
+  // and orphan the redraw. Tracked in the cost assessment's §8 rather than guarded here.
   await g(() => page.evaluate(async () => {
     try {
       await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));

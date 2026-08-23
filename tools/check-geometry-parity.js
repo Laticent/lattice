@@ -176,7 +176,11 @@ async function main() {
             await document.fonts.ready;
           } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
         })();
-        await Promise.race([settle, new Promise((r) => setTimeout(r, 15000))]);
+        const timedOut = await Promise.race([settle.then(() => false), new Promise((r) => setTimeout(() => r(true), 15000))]);
+        // Say so. A parity gate that silently proceeds on unsettled fonts can print a
+        // green tick for a page the render would have measured differently, which is the
+        // worst failure mode available to it.
+        if (timedOut) console.warn('  ⚠ font settle exceeded 15s — measuring anyway; this surface\'s verdict is unreliable.');
       });
       await new Promise((r) => setTimeout(r, 2500));
       runs.push({ su, rows: await page.evaluate(MEASURE, PROBE_SRC, CLIP_CELL_SELECTOR, 12, su.scale, IGNORED_CLIP_SELECTOR) });
