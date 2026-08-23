@@ -96,6 +96,30 @@ function columnZeroProse(section) {
  */
 const SANCTIONED_UNRELEASED_PROSE = [];
 
+/** Where the archive actually lives, for the humans reading a refusal. */
+const ARCHIVE_URL = 'https://github.com/slidewright/lattice/blob/main/changelog/';
+
+/**
+ * Is this link target the archive on GitHub?
+ *
+ * PARSED, not substring-matched. `line.includes(ARCHIVE_URL)` was the first cut and CodeQL
+ * was right to flag it (js/incomplete-url-substring-sanitization): the archive URL can sit
+ * ANYWHERE in a longer string, so `https://elsewhere.example/?u=https://github.com/…/changelog/`
+ * satisfied it and the pointer a reader actually follows was never checked. The host is
+ * compared exactly and the path by prefix.
+ */
+function isArchiveUrl(target) {
+  let url;
+  try {
+    url = new URL(target);
+  } catch {
+    return false;  // relative, or not a URL at all
+  }
+  return url.protocol === 'https:'
+    && url.host === 'github.com'
+    && url.pathname.startsWith('/slidewright/lattice/blob/main/changelog/');
+}
+
 /**
  * EVERY entry line in a section, keyed by its trimmed text.
  *
@@ -210,14 +234,16 @@ describe('CHANGELOG integrity — it is a published file', () => {
   test('every pointer into the repo-only `changelog/` archive is an absolute URL', () => {
     const cl = require('../../../tools/changelog.js');
     const shipped = `${src}\n${cl.unreleasedWithFragments(src)}`;
-    const ARCHIVE_URL = 'https://github.com/slidewright/lattice/blob/main/changelog/';
     const bad = [];
     for (const line of shipped.split('\n')) {
+      const targets = [...line.matchAll(/]\(\s*([^)\s]+)/g)].map((m) => m[1]);
       // A markdown link whose TARGET is a relative path under `changelog/`.
-      if (/]\(\s*(?:\.\/)?changelog\//.test(line)) bad.push(`relative link target: ${line.trim().slice(0, 100)}`);
-      // A file in the archive named without the absolute URL anywhere on the line. Keep
-      // the link text and its target on ONE line, which is how every pointer reads today.
-      if (/changelog\/[A-Za-z0-9._-]+\.md/.test(line) && !line.includes(ARCHIVE_URL)) {
+      if (targets.some((t) => /^(?:\.\/)?changelog\//.test(t))) {
+        bad.push(`relative link target: ${line.trim().slice(0, 100)}`);
+      }
+      // A file in the archive NAMED on a line that carries no link to the archive. Keep the
+      // link text and its target on ONE line, which is how every pointer reads today.
+      if (/changelog\/[A-Za-z0-9._-]+\.md/.test(line) && !targets.some(isArchiveUrl)) {
         bad.push(`bare pointer: ${line.trim().slice(0, 100)}`);
       }
     }
