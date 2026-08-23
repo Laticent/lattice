@@ -1,0 +1,1 @@
+- **Added `examples/kaizen-craftsmanship.md`** — a 14-slide mentoring deck on craftsmanship, Deming's view of quality, kaizen, and modularity, built for an observe-first experiential session. Carries a speaker note on every slide.

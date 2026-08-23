@@ -145,7 +145,24 @@ describe('changelog fragments — the gate', () => {
   });
 
   test('a body with no bullet is rejected', () => {
-    assert.match(clean({ 'x.added.md': 'just a sentence\n' }).join('\n'), /no top-level/);
+    assert.match(clean({ 'x.added.md': 'just a sentence\n' }).join('\n'), /does not START with a top-level/);
+  });
+
+  // The rule is FIRST line, not "somewhere in the body". `some` accepted a fragment that
+  // opened with prose and buried a bullet under it — and the assembler splices that prose
+  // in under `### Changed` AHEAD of the section's first bullet, which is exactly the
+  // position the orphan check in changelog-integrity has to treat as authored. Two gates
+  // each passing left a live path for free prose into the published release notes.
+  // Found by the Munger inversion (HARD RULE #25) on #1735.
+  test('a fragment that opens with PROSE and buries a bullet is rejected', () => {
+    assert.match(
+      clean({ 'x.added.md': 'Some framing prose first.\n\n- and the real entry\n' }).join('\n'),
+      /does not START with a top-level/,
+    );
+  });
+
+  test('a leading blank line is not prose — the first non-blank line decides', () => {
+    assert.deepEqual(clean({ 'x.added.md': '\n\n- a real entry\n' }), []);
   });
 
   test('conflict markers are rejected', () => {

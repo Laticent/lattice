@@ -149,8 +149,19 @@ function fragmentProblems(dir = FRAGMENT_DIR) {
         `the \`### ${FRAGMENT_TITLES[f.category]}\` heading is written by the assembler at release time.`,
       );
     }
-    if (!lines.some((l) => /^[-*]\s+\S/.test(l))) {
-      problems.push(`${at}: has no top-level \`- \` bullet. A fragment is one or more Keep-a-Changelog bullets.`);
+    // The FIRST non-blank line, not `some` line. `some` accepted a fragment that opens
+    // with a prose paragraph and buries a bullet below it — and the assembler then splices
+    // that prose in directly under `### Changed`, ahead of the section's first bullet,
+    // which is exactly the position `changelog-integrity`'s orphan check has to treat as
+    // authored. Two gates each passing left a live path for free prose into the release
+    // notes. Caught by the Munger inversion (HARD RULE #25) on #1735.
+    const firstContent = lines.find((l) => l.trim());
+    if (firstContent === undefined || !/^[-*]\s+\S/.test(firstContent)) {
+      problems.push(
+        `${at}: does not START with a top-level \`- \` bullet. A fragment is one or more ` +
+        `Keep-a-Changelog bullets and nothing else — leading prose is spliced into the ` +
+        `release notes above the first entry, where nothing can tell it from merge damage.`,
+      );
     }
   }
   return problems;

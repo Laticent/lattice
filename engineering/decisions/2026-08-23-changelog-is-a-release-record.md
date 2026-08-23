@@ -1,31 +1,32 @@
 ---
 status: shipped
 summary: >
-  `CHANGELOG.md` was 382,512 tokens, of which 99.7% sat under `## Unreleased` — and the
-  repo had never released, so that section was a development log wearing a version
-  history's heading. The issue's own hypothesis (merge the 42 duplicate category blocks)
-  was measured and REFUTED: it saves 99 tokens, 0.026%, because merging headings removes
-  33 heading LINES while the 1,339 entries beneath them are the file. What shipped instead
-  splits the two jobs the file was doing: `changelog/pre-release-archive.md` takes the
-  pre-release log verbatim, and `CHANGELOG.md` becomes the release record, opening with a
-  curated 1.0.0 announcement grouped by capability. 382,512 → 2,199 tokens (99.43%). The
-  release pipeline was the hazard and it was measured, not assumed: the bump is driven by
-  the 106 pending fragments, not by the archived body, so archiving could not change it —
-  but the package was already AT 1.0.0 with zero tags, making 1.0.0 unreachable by any
-  bump, so the version is re-baselined to 0.9.0 and the first cut takes an explicit
-  `--bump=major`.
+  `CHANGELOG.md` was 382,512 tokens, of which 99.7% sat under `## Unreleased` — because
+  1.0.0 shipped on 2026-08-09 from a hand-written section WITHOUT rolling that section into
+  it, so an accumulated development log kept growing under a heading that says "next
+  release". The log moves to `changelog/pre-release-archive.md` verbatim and the file drops
+  to 1,373 tokens (99.64%). The pending `changelog.d/` fragments deliberately STAY: they
+  carry the `### Removed` entries and the `**Breaking:**` marker, so the computed bump is
+  unchanged at `major` (1.0.0 → 2.0.0, measured both sides). The issue's own hypothesis —
+  merge the 42 duplicate category blocks — was measured and REFUTED at 99 tokens, 0.026%.
+  Recorded at equal length: the FIRST version of this change was built on a false premise
+  ("zero tags, nothing published") produced by running `git tag` in a sandbox clone that
+  never fetched tags. It re-baselined the version to 0.9.0 and archived the fragments too,
+  which would have downgraded the next release from 2.0.0 to 1.1.0 and deadlocked the
+  publish phase against the existing `v1.0.0` tag. The adversarial trio caught it; nothing
+  else would have.
 ---
 
 # The changelog is a release record, not a development log
 
-**#1735**, the read side of #1593. The write side stopped every PR appending to one
-shared region; this side asks what that region should have contained.
+**#1735**, the read side of #1593. The write side stopped every PR appending to one shared
+region; this side asks what that region should have contained.
 
-## 1. What the file actually was
+## 1. What the file was
 
-Measured on `main`, `o200k_base` over the real bytes — not estimated, because a
-byte-length estimate of the gotchas index was off by ~2x and that lesson is the
-reason the tokenizer is used here at all.
+Measured on `main`, `o200k_base` over the real bytes — not estimated, because a byte-length
+estimate of the gotchas index was once off by ~2x and that is why the tokenizer is used here
+at all.
 
 | | tokens | share |
 |---|---:|---:|
@@ -34,134 +35,176 @@ reason the tokenizer is used here at all.
 | `## 1.0.0` + tail | 736 | 0.2% |
 | preamble | 429 | 0.1% |
 
-Two `##` headings in 18,487 lines. So "shard by release" was never available: it
-yields two files, one of which is still 381k tokens. And the `## 1.0.0` section —
-the only thing that looked like a version history — was 736 tokens of a draft that
-had never shipped.
+Two `##` headings in 18,487 lines, so "shard by release" was never available: it yields two
+files, one still 381k tokens.
 
-**The repo had zero git tags.** Nothing had ever been released. `## Unreleased` was
-therefore accurate in the narrowest sense and misleading in every useful one: it was
-the entire development history of the project, filed under a heading that says "this
-is what the next release announces."
+**Why the file is shaped like that.** 1.0.0 was tagged and released on 2026-08-09 from the
+hand-written `## 1.0.0` section — *without* rolling `## Unreleased` into it. The roll is what
+normally empties that section, so it never emptied; it simply kept accumulating. The 18,382
+lines are neither released history nor a coherent set of pending release notes. They are a
+development log that no release ever consumed.
 
 ## 2. The hypothesis the issue carried, and why it is wrong
 
-#1735 proposed that merging the duplicate category blocks "might be most of the win
-on its own." It is the cheapest and safest candidate, so it was priced first.
+#1735 proposed that merging the duplicate category blocks "might be most of the win on its
+own." It is the cheapest and safest candidate, so it was priced first.
 
-**It saves 99 tokens — 0.026% of the file.** There are 40 `###` headings in
-`## Unreleased` where 7 distinct ones exist (15 Fixed, 12 Changed, 7 Added, 3 Removed,
-Security, Deprecated, and an `Earlier (Unreleased)` tail). Merging them deletes 33
-heading LINES. The 1,339 entries underneath — p50 234 tokens each, 381,193 in total —
-are the file, and no heading arrangement touches them.
+**It saves 99 tokens — 0.026% of the file.** There are 40 `###` headings where 7 distinct
+ones exist. Merging them deletes 33 heading LINES; the 1,339 entries underneath — p50 234
+tokens each, 381,193 in total — are the file.
 
-This is worth recording because the intuition behind it is sound and general: on the
-decisions index, markup really WAS 42% of the cost (the filename rendered twice per
-row) and squeezing it was the right move. Here there is no markup layer to squeeze.
-The content is the cost. **A restructure that does not move content cannot move the
-number**, and that is a one-line test worth applying before pricing anything else.
+The intuition behind it is sound and general, which is why it is worth recording as refuted
+rather than dropped. On the decisions index, markup really WAS 42% of the cost (the filename
+rendered twice per row) and squeezing it was right. Here there is no markup layer. **A
+restructure that does not move content cannot move the number** — a one-line test worth
+applying before pricing anything else.
 
-Recorded as refuted rather than quietly dropped, so it is not re-proposed.
+## 3. THE PREMISE FAILURE — recorded because it is the most useful thing here
 
-## 3. What the release pipeline actually depended on
+The first version of this change opened by asserting: *"The repo had never released: zero
+tags, nothing published."* Every downstream decision followed from it.
 
-This is the part with teeth, and the fear stated in the issue turned out to be
-misplaced for a reason worth knowing.
+**It was false.** `v1.0.0` has been tagged since 2026-08-09 and a non-draft GitHub Release
+has been public since the same day.
 
-`tools/changelog.js` picks the semver bump from the `###` category headings inside
-`## Unreleased` (`Removed` or a `**Breaking:**` bullet → major; `Added`/`Changed`/
-`Deprecated` → minor; `Fixed`/`Security` → patch). So moving those headings looks like
-it changes what version ships.
+```
+$ git ls-remote --tags origin
+5979ae9743a74b90ebafd464be94d7ec46fb6b9b	refs/tags/v1.0.0
+$ GET /repos/SlideWright/lattice/releases
+tag: v1.0.0 | draft: false | prerelease: false | published: 2026-08-09T14:54:53Z
+```
 
-**It could not, and the measurement says why.** `--bump` reads `## Unreleased` **plus
-every pending fragment** as one body, and there were **106 pending fragments**
-including two `.removed.` and a `**Breaking:**` bullet. The bump computed from the
-fragments ALONE is `major` — identical to the bump computed from the whole file. The
-18,382 archived lines contributed nothing the fragments did not already contribute.
-Archiving them was provably bump-neutral before a byte moved.
+**How the error was made.** `git tag --list` was run inside a sandbox whose clone never
+fetched tags. It printed nothing, and nothing was treated as ground truth. That is precisely
+the failure HARD RULE #23 exists to prevent — a claim about the real world verified against a
+stand-in — committed by a change whose own commit message cited #23 approvingly.
 
-**A second measurement mattered more.** `fitReleaseBody` caps the GitHub Release body
-at 125,000 characters. The assembled notes were **1,707,058 characters**, so the
-release already discarded **92.7%** of them, keeping 1,234 of 20,143 lines. The
-archived material was not losing a reader it currently reaches; it had no reader. The
-truncation guard had quietly become the normal path.
+**What it produced.** All of the following shipped in the first draft and were wrong:
 
-## 4. The real hazard was the version, and it was hiding
+| | |
+|---|---|
+| re-baseline `package.json` 1.0.0 → 0.9.0 | 1.0.0 was already correct |
+| "the `## 1.0.0` section is a draft that never shipped" | it is the published release body, 56/56 lines verbatim |
+| archive the 106 pending fragments with the log | removes the `### Removed` entries and the `**Breaking:**` marker |
+| "archiving is bump-neutral by construction" | measured: `main` computes **major → 2.0.0**, the draft computed **minor → 1.1.0** |
 
-`package.json` said `1.0.0`. There were no tags. So the first release, computed from a
-`major` bump, would have shipped **2.0.0** — the world's first sight of Lattice would
-be version 2, with no 1.x ever existing, while a `## 1.0.0` section sat in the file
-calling itself the "Initial public release."
+The mechanical end state was worse than a wrong number. `tools/release.js` refuses to cut a
+version whose tag exists, so the documented `--bump=major` would have passed phase 1 —
+merging the release commit, consuming every fragment, emptying `## Unreleased` — and then
+**aborted in phase 2** against `v1.0.0`, leaving `main` carrying a release commit that can
+never be tagged.
 
-Every bump level was wrong from 1.0.0: major → 2.0.0, minor → 1.1.0, patch → 1.0.1.
-**1.0.0 was unreachable.** Nothing in the repo would have caught this; it is only
-visible if you ask what the first release actually prints, which is not a question the
-gates ask.
+A guard added mid-review to catch the version mistake was wrong for the same reason: it keyed
+on `!git tag --list`, and CI checks out with `fetch-tags: true`, so it was **inert exactly
+where releases are cut** and fired only in the tagless sandbox that created the illusion.
 
-The version is re-baselined **1.0.0 → 0.9.0**. Nothing was ever published under 1.0.0,
-so there is no consumer to walk back, and `--bump=major` now lands exactly on 1.0.0.
+**Nothing else caught this.** Lint, 6,965 unit tests, `build:check`, the integration tier,
+CodeQL and the full CI workflow were all green on the false version. Two independent review
+lenses read the diff and did not question it either — the Munger inversion reasoned *from*
+the premise and produced (correct, useful) findings inside it. Only the red team refused to
+take `git tag` as evidence and queried the remote. That is the argument for HARD RULE #25's
+top rung in one paragraph: the trio is not three chances at the same question, it is the only
+lens that attacks the premise rather than the implementation.
 
-## 5. What shipped
+## 4. What shipped
 
-- **`changelog/pre-release-archive.md`** — the `## Unreleased` body verbatim, the 106
-  pending fragments grouped by their filename category, and the superseded `## 1.0.0`
-  draft. 430,143 tokens. Frozen: entries keep their wording and their order, including
-  the repeated category headings each fold appended, because a correction to history
-  belongs in a new entry.
-- **`CHANGELOG.md`** — 382,512 → **2,199 tokens (99.43% smaller)**. It opens with the
-  1.0.0 announcement, grouped by capability (`### Engine`, `### Components`, `### Theme`,
-  `### Accessibility`, …) rather than by Keep-a-Changelog category, because it is an
-  announcement rather than a diff. The shape is inherited from the superseded draft; every
-  fact in it is re-grounded against what actually ships (61 components / 13 buckets, 32
-  palettes, 7 named canvases), because the draft still described two palettes and 25
-  layouts.
-- **The npm tarball's `CHANGELOG.md` drops ~1.5 MB → 9.4 kB.** `changelog/` is not in
-  `package.json` `files`, so the archive is repo-only.
+- **`changelog/pre-release-archive.md`** — the `## Unreleased` body, verbatim, byte-for-byte.
+  Frozen: wording and order preserved, repeated category headings included.
+- **`CHANGELOG.md`** — **382,512 → 1,373 tokens (99.64%)**. Preamble, an empty
+  `## Unreleased`, and the real published `## 1.0.0` notes, which stay where they are because
+  they are history rather than a draft.
+- **The 106 `changelog.d/` fragments STAY pending.** This is the load-bearing choice, and it
+  is what makes the change version-neutral.
+- **`package.json` is untouched at 1.0.0.**
 
-## 6. The one thing a reader will get wrong
+**The bump, measured on both sides in a real worktree:**
 
-**`--bump auto` is wrong for exactly one release, and it fails quietly.**
+| | fragments | level | next |
+|---|---:|---|---|
+| `origin/main` | 105 | `major` | 1.0.0 → **2.0.0** |
+| this change | 106 | `major` | 1.0.0 → **2.0.0** |
 
-`computeBump` recognizes no level in `### Engine` or `### Theme`, so it falls through to
-whatever the pending fragments say — `patch` with none, `minor` today. **Never `major`.**
-From 0.9.0 that ships 0.9.1 or 0.10.0 and steps over 1.0.0 without erroring.
+## 5. What this costs
 
-The first cut therefore takes an explicit level, and the `=` is not optional when
-running the script by hand: `arg()` matches `--bump=<level>`, and the spaced form
-`--bump major` is parsed as boolean `true` and rejected. (Verified: `--bump major` →
-`error: --bump must be auto|patch|minor|major (got "true")`; `--bump=major` →
-`0.9.0 → 1.0.0`.) The `release` workflow already interpolates the `=` form, so
-dispatching it with `bump: major` is enough.
+**The archived entries will not appear in the next release's notes.** That is a real loss and
+it is deliberate, not a side effect. Two things make it defensible:
 
-After 1.0.0 the assembler writes real `### Added` / `### Fixed` headings and `auto` is
-correct again — permanently. This is a one-release exception, documented in three places
-a release runner actually reads: the `CHANGELOG.md` preamble, `RELEASE.md`, and here.
+- They were not reaching a reader anyway. `fitReleaseBody` caps the GitHub body at 125,000
+  characters; the assembled notes were 1,707,058, so **92.7% was already discarded** — 1,234
+  of 20,143 lines survived.
+- The recent, well-written record of what actually landed is the 106 fragments, and those are
+  untouched.
 
-## 7. A guard was widened, and the widening is itself pinned
+**What it does NOT cost is the version.** That distinction — notes change, bump does not — is
+the whole reason the fragments stay.
 
-`test/unit/release/changelog-integrity.test.js` asserted that every paragraph in
-`## Unreleased` begins with a list marker. Its target is real: a conflict resolved by
-concatenation leaves an orphan paragraph — the middle of a sentence from a draft that
-lost — and that shipped three times before the test existed.
+## 6. A guard was weakened, then restored, and the restoration is the lesson
 
-A curated announcement legitimately has a lede, so the test now fails. The rule is
-**not** relaxed to "prose is allowed"; it is sharpened to **"prose is damage once an
-entry has begun."** A lede precedes the first bullet of its section; an orphan follows
-one. Every heading resets that state, so a genuine orphan under a later heading is still
-reported rather than excused as that section's lede.
+`test/unit/release/changelog-integrity.test.js` reports any column-0 paragraph in
+`## Unreleased`. The first draft put a curated announcement there with an authored lede, so
+the rule was "widened" to *prose is damage only once an entry has begun*.
 
-Widening a guard is how a guard dies, so the damage it exists for is now pinned as a
-fixture in the same file: a concatenated stale draft after an entry, and trailing prose
-after an entry under a fresh heading, both asserted to still be reported.
+**Measured, that widening was a rout.** Seven orphan shapes went from caught to uncaught — a
+section opening with a table, a blockquote, an indented line, a fence, two consecutive
+headings — and worst, **damage appended at the END of the section**, the likeliest
+concatenation site and the one the file's own docblock names, was silently excused. One of
+the uncaught shapes silently downgrades a release: a first bullet that loses its `- ` in a
+conflict stops matching `hasBreakingMarker`, so a breaking change ships as a minor.
 
-## 8. What this does NOT do
+The fixture written to pin the widening **tested a different shape than its own comment
+described**, and would have failed if written as described. A guard whose anti-rot fixture
+certifies a property the code does not have is worse than no fixture.
+
+What ships instead: the detector is back at original strength, and authored prose is named
+one line at a time in `SANCTIONED_UNRELEASED_PROSE` — this repo's `SANCTIONED_*` idiom, which
+fails both ways. **The list is currently empty**, which is the healthy state. Two arms were
+added beyond the original: each sanctioned line must appear **exactly once** (keeping both
+sides of a conflict duplicates it rather than removing it), and the same detector now runs
+over the **assembled** body — `## Unreleased` plus every pending fragment — because that is
+the text that becomes the public Release body, and until now the guard had no jurisdiction
+over it at all.
+
+## 7. Two adjacent holes the same review found
+
+- **`fragmentProblems` accepted a fragment that opens with prose** and buries a bullet below
+  it (`some`, not "the first line"). The assembler splices that prose in under `### Changed`
+  ahead of the section's first bullet — exactly the position the orphan check has to treat as
+  authored. Two gates each passing left a live path for free prose into published release
+  notes. Now the first non-blank line must be a bullet.
+- **`tools/marp-inventory.mjs` regressed to a false verdict.** Its `history` and
+  `PHANTOM_EXEMPT` rules are anchored to `^CHANGELOG\.md$`, so the archive — the same frozen
+  prose, moved — became the repo's only "actionable REMOVE" (0 → 1 actionable, 48 → 76 phantom
+  lines). The US-English exemption had been updated for exactly this reason and the others
+  were not swept. Restored to 0 actionable / 39 files / 48 lines.
+
+## 8. Where this sits relative to Changesets (#1437)
+
+`2026-08-09-changesets-multi-package-release.md` is `status: proposed` and plans to retire
+`tools/changelog.js`'s versioning role and **replace the `v<x.y.z>` tag scheme** with
+per-package `@scope/name@x.y.z`. This change deepens what that record proposes to remove.
+Recorded rather than resolved, exactly as `2026-08-11-changelog-fragments.md` §7 did for the
+write side — dropping that mitigation here would repeat a mistake this repo has already
+written down once.
+
+One correction to that record's framing, now that the history is established: its case rests
+on *"there is no published version history to reconcile, no consumer pinned to a tag scheme."*
+**A published 1.0.0 tag and GitHub Release already exist**, so that window closed on
+2026-08-09, before this change. npm is still clean (`@workwel/lattice` 404s), which is the
+part of the argument that survives. Its slice 1 also says to "close `## Unreleased` under the
+dated `## 1.0.0`" and to convert the pending fragment pile; the first is discharged
+differently here (a separate archive file) and the second is untouched by design.
+
+## 9. What this does NOT do
 
 - **No generated index over the archive.** Priced at 1,339 rows / 140-character gists =
-  **29,388 tokens**, row p50 21 — well inside the per-row budget, and grep-first per the
-  restated rule 1. It was still declined: rule 3 says don't map what `grep` gives free,
-  and an archive of prose entries is exactly what ripgrep already answers. An index here
-  would be a second territory over a corpus nobody is routed to.
-- **No merge of the duplicate category blocks.** §2 — it buys 99 tokens, and in the
-  archive it would reorder frozen history to do it.
-- **`## 1.0.0` is not preserved in place.** It never shipped, so it is a draft, not
-  history; it is archived under its own heading and superseded.
+  **29,388 tokens**, row p50 21 — inside the per-row budget and grep-first per rule 1's
+  restated form. Declined on rule 3: don't map what `grep` gives free, and an archive of prose
+  entries is what ripgrep already answers.
+- **No merge of the duplicate category blocks.** §2 — 99 tokens, and in the archive it would
+  reorder frozen history to get them.
+- **The published 1.0.0 release is not corrected.** Its notes describe two palettes and 25
+  layouts; the engine now ships 14 palettes and 61 components. Off-path here (HARD RULE #18) —
+  logged, not swept in.
+- **No `--version=<literal>` for `tools/release.js`.** Proposed by the inversion as the
+  durable answer to encoding a target version as bump arithmetic. It is a good idea and it is
+  not needed by this change any more, since the version is untouched.

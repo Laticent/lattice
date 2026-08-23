@@ -143,6 +143,10 @@ const OVERRIDES = {
 const PATH_RULES = [
   [/^engineering\/decisions\//, 'history'],
   [/^CHANGELOG\.md$/, 'history'],
+  // The pre-release log, moved out of CHANGELOG.md verbatim (#1735). Same prose, same
+  // frozen status — without this it lands in `remove` and the report shows an actionable
+  // verdict against 370 lines of history that were exempt the day before.
+  [/^changelog\//, 'history'],
   [/^dist\//, 'generated'],
   [/^docs\/public\//, 'generated'],
   [/\.generated\.js$/, 'generated'],
@@ -233,7 +237,7 @@ const PHANTOM_RE =
 
 // Dated records and the generated changelog describe the past accurately.
 const PHANTOM_EXEMPT =
-  /^(?:engineering\/decisions\/|CHANGELOG\.md$|dist\/|docs\/dist\/|docs\/public\/|docs\/src\/lib\/cadenza\/dist\/)|\.generated\.js$/;
+  /^(?:engineering\/decisions\/|changelog\/|CHANGELOG\.md$|dist\/|docs\/dist\/|docs\/public\/|docs\/src\/lib\/cadenza\/dist\/)|\.generated\.js$/;
 
 // `git ls-files` prints paths relative to CWD, which would silently void every
 // `^`-anchored path rule and every OVERRIDES key when run from a subdirectory.

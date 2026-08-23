@@ -242,22 +242,12 @@ trims the notes on a line boundary and appends a pointer to `CHANGELOG.md`,
 warning when it does — without that, `gh release create` fails *after* the tag
 is pushed. The changelog remains the complete record.
 
-That trim used to fire on every release and discard most of the notes: before
-#1735, `## Unreleased` was the whole 1.4 MB pre-release log, and 92.7% of the
-assembled body was cut. That log now lives in `changelog/pre-release-archive.md`
-and `## Unreleased` holds only what the next release actually announces, so the
-guard is back to being a guard rather than the normal path.
+That trim used to fire on every release and discard most of what it was given.
+1.0.0 shipped from a hand-written section without rolling `## Unreleased`, so
+that section kept accumulating until it was ~1.4 MB — and 92.7% of the assembled
+body was being cut at the limit, keeping 1,234 of 20,143 lines — 6.1%. That log
+moved to `changelog/pre-release-archive.md` in #1735.
 
-### Cutting 1.0.0 — the one release `auto` gets wrong
-
-Lattice has never published, and `## Unreleased` currently holds the **1.0.0
-announcement**, grouped by capability (`### Engine`, `### Theme`, …) rather than
-by Keep-a-Changelog category. `computeBump` recognizes no level in those
-headings, so `auto` resolves from whatever fragments are pending and is never
-`major` — from `0.9.0` it would ship `0.9.1` or `0.10.0` and step over 1.0.0.
-
-Dispatch the `release` workflow with **`bump: major`** (or run
-`npm run release -- --bump=major` by hand — the `=` is required; the spaced form
-parses as a boolean and is rejected). This applies **only** to the 1.0.0 cut:
-afterwards `## Unreleased` is written by the fragment assembler under real
-`### Added` / `### Fixed` headings and `auto` is correct again.
+**The trim still fires**, because 106 pending fragments are themselves ~196,000
+characters. It now keeps 1,239 of 1,790 lines (69.2%) rather than
+1,234 of 20,143 (6.1%). Cutting a release more often is what actually retires it.
