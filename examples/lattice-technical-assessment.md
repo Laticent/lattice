@@ -101,8 +101,8 @@ Every claim carries a file path, a line number, or a number I ran myself. Nothin
    - 123 scripts, including one 9,998-line gate file
    - _44,039 LOC_
 5. Decision archive
-   - 441 dated notes, growing about four a day
-   - _122,851 lines_
+   - 442 dated notes plus their index, about four a day
+   - _123,375 lines_
 
 — Source lines only, excluding dependencies and generated output.
 
@@ -196,8 +196,8 @@ That is probably the right engineering call. It is not what the framing implies,
 
 Every other deck tool answers “too much content” by making the type smaller. Lattice made that move structurally unavailable to itself.
 
-- The ban is on type, and it is code
-  - No measure-then-shrink loop touches a font size. Chart geometry still letterbox-scales; glyphs never do.
+- The ban is on writing a font size
+  - No code anywhere sets one. Figure text still rides the letterbox scale — the repo caught its own state-chart at 3.42px.
 - The ladder is closed at four moves
   - Collapse, shed, split, honest overflow. There is deliberately no fifth.
 - Readability is an axiom
@@ -219,7 +219,7 @@ flowchart LR
   Q -->|"yes"| D["divide by the<br/>measured ratio"]
   D --> E["re-emit as COVER<br/>→ BODY → CLOSING"]
   E --> R
-  Q -->|"pass 5"| RING["honest<br/>overflow ring"]
+  Q -->|"5 passes"| RING["honest overflow ring"]
 ```
 
 ---
@@ -379,7 +379,7 @@ The component catalog an AI agent must read before writing any slide fell from a
 `Readers awarding "paradigm shift"`
 
 - 0
-  - Eight agents read 441 decision records and every benchmark. All eight had the grade available. None used it — and twenty-three findings came back graded genuinely novel instead.
+  - Eight agents read 442 decision records and every benchmark. All eight had the grade available. None used it — and twenty-three findings came back graded genuinely novel instead.
 
 ---
 
@@ -495,7 +495,7 @@ _This is the one slide in the deck that breaks its own rule: the right column is
 Zero Marp packages ship, and the owned engine renders every first-party path. That part is verified and holds exactly as its own scorecard states.
 
 - Format independence is not achieved
-  - The repo's own inventory finds 839 tracked files carrying a Marp reference, across 3,840 lines.
+  - The repo's own inventory finds 840 tracked files carrying a Marp reference, across 3,851 lines.
 - The compatibility tax is mispriced
   - The doc prices the runtime mirror at 2,182 lines. It is 3,251, and the doc says to re-measure.
 - The speed claim is frozen
@@ -552,24 +552,24 @@ The committed benchmark splits one exit code into two independent signals — th
 
 `Verification`
 
-## Run twice in one hour, it returns opposite verdicts.
+## The refusal is not theoretical — here it is, refusing.
 
-`node test/benchmark/engine-bench.mjs --check — both runs, verbatim`
+`node test/benchmark/engine-bench.mjs --check — captured today, unedited`
 
 ```text
-RUN 1 · probe 6.27ms vs blessed 4.92ms (27% off, band ±12%)
-  same machine fingerprint — linux/x64, 4x Xeon @2.80GHz, node v22
-  NOT COMPARABLE — timing is REPORTED, not gated.
-
-RUN 2 · probe 4.59ms vs blessed 4.92ms (0.93x, inside band)
-  same machine as the baseline — wall clock GATES
-  dataset             base ms   now ms      Δ%    verdict
-  normal (jargon)       51.61    64.69   +25.3   REGRESSION
-  charts                43.52    57.70   +32.6   REGRESSION
-  stress (jargon x6)   138.14   187.58   +35.8   REGRESSION
+=== PERF CHECK · current vs committed baseline ===
+calibration probe: 4.92ms blessed → 5.81ms here (1.18×)
+blessed on: linux/x64, 4× Intel(R) Xeon(R) Processor @ 2.80GHz, node v22
+running on: linux/x64, 4× Intel(R) Xeon(R) Processor @ 2.80GHz, node v22
+NOT COMPARABLE (the probe reads 18% off the blessed value (band ±15%)
+ — same fingerprint, different speed) — timing is REPORTED, not gated.
+dataset               base idx   now idx      Δ%    band  verdict
+normal (jargon)          10.49     11.08    +5.6  ±12.0%  ok
+charts                    8.84     10.04   +13.6  ±13.3%  slower (not gated)
+stress (jargon x6)       28.07     33.01   +17.6  ±13.0%  slower (not gated)
 ```
 
-— Same code, same box, one hour apart. The refusal is doing real work; on a shared cloud runner it is also the only thing standing between this gate and three false regressions.
+— Identical machine fingerprint, and it still refuses. The repo has priced what that buys: the same code once read 93.9ms and 43.1ms on one runner, and the check called a phantom 124% regression on a healthy tree.
 
 ---
 
@@ -696,9 +696,9 @@ A self-playing product tour where a fake cursor drives the real application. The
 
 `The shared defect`
 
-## One stray key ships raw source to legacy resolvers.
+## One stray key ships raw source to every consumer.
 
-`docs/src/lib/*/package.json — verbatim, all four identical`
+`docs/src/lib/*/package.json — the dot entry, identical in all four`
 
 ```json
 ".": {
@@ -709,10 +709,12 @@ A self-playing product tour where a fake cursor drives the real application. The
                "default": "./dist/index.cjs" }
 }
 
-// node16, nodenext and bundler read the NESTED conditions and
-// resolve the shipped .d.ts. Only legacy node10 reads the top
-// key — and gets raw .ts compiled under the consumer's tsconfig.
-// The fix is deleting one line, not repointing it.
+// Conditions match in KEY ORDER, so "types" wins first and the
+// correct nested ones are never reached. Verified with tsc
+// --traceResolution: nodenext, node16, bundler AND node10 all
+// resolve ./index.ts. Deleting the key fixes the first three;
+// node10 then falls back to the ROOT "types" field and still
+// gets raw source. One line to fix, two to fix properly.
 ```
 
 ---
@@ -756,7 +758,7 @@ A self-playing product tour where a fake cursor drives the real application. The
 ## Three real candidates. The brief hoped for six to twelve.
 
 - The color kernel
-  - 2,240 lines, zero runtime dependencies, imported from 70 files. Already an internal library.
+  - 2,240 lines, zero runtime dependencies. Most of its importers are tests and tools, which is the tell.
 - The crash sentinel
   - 1,956 lines with zero imports of any kind. Coupled by six branded strings.
 - The input-verb kernel
@@ -838,7 +840,7 @@ Excellent infrastructure and a bad library. Worth keeping straight before anyone
 - Low effort · High value
   - The 3.8k-token pick surface; contrast floors derived from token names
 - High effort · Unclear value
-  - 441 decision notes, and five libraries serving the Studio rather than the engine
+  - 442 decision notes, and five libraries serving the Studio rather than the engine
 
 ---
 
@@ -848,7 +850,7 @@ Excellent infrastructure and a bad library. Worth keeping straight before anyone
 
 - [ ] Install weight exceeds 1.2 GB, and the README understates it `blocking`
 - [ ] Nothing has ever shipped — no tags, publish step skipped `blocking`
-- [ ] Public docs are 13 pages against 441 internal records `thin`
+- [ ] Public docs are 13 pages against 442 internal records `thin`
 - [ ] Bus factor is one, and the operating model assumes agents `structural`
 - [ ] The repository is 236 MB, of which 148 MB is PDF goldens `growing`
 - [-] The learning curve is real — 61 components, each contracted `by design`
@@ -863,12 +865,12 @@ Excellent infrastructure and a bad library. Worth keeping straight before anyone
 
 ## 11k
 
-There are 142,965 lines of internal engineering prose behind 13 published pages. The knowledge needed to use Lattice well lives in files the package does not ship.
+There are 143,489 lines of internal engineering prose behind 13 published pages. The knowledge needed to use Lattice well lives in files the package does not ship.
 
 - The reference does ship
-  - All 70 component contracts, 11,784 lines, plus the pick surface.
+  - 70 authoring contracts, 61 of them components — 11,784 lines, plus the pick surface.
 - The operating manual does not
-  - 27 hard rules and 441 records stay in the repo, where no consumer sees them.
+  - 27 hard rules and 442 records stay in the repo, where no consumer sees them.
 - This is the most fixable blocker
   - Nothing about it is architectural. It is a writing backlog.
 
@@ -903,7 +905,7 @@ There are 142,965 lines of internal engineering prose behind 13 published pages.
 ## Overbuilt, measured in lines that defend nothing.
 
 - **15,838 lines.** Five side libraries serving the docs Studio, not the deck engine.
-- **3,004 lines.** The Form catalog, from which the render path reads two fields.
+- **3,004 lines.** The Form catalog. Its loader is Node-only; the render path never calls it.
 - **1,428 lines.** A perf instrument: three retracted findings, one real leak — fixed in twenty lines.
 - **217 lines.** A texture module with a “measured, not invented” preamble and no consumers.
 
@@ -999,14 +1001,11 @@ There are 142,965 lines of internal engineering prose behind 13 published pages.
 `Licensing gates distribution; distribution gates everything else`
 
 - **License**
-  - AGPL is right for the engine and wrong for four libraries whose entire value is being installed by strangers.
-  - Leave it and the extraction work in section 07 is a hobby. Change it and you cannot change it back.
+  - Right for the engine, wrong for four libraries whose entire value is being installed by strangers. Leave it and section 07 is a hobby; change it and you cannot change it back.
 - **Audience**
-  - The engine, the Studio, and the library set are three products with three different buyers.
-  - The repo currently optimizes for all three, which is why the docs serve none of them well.
+  - The engine, the Studio and the library set are three products with three buyers. The repo optimizes for all three, which is why the docs serve none of them.
 - **Transferability**
-  - Either the operating model gets written down for humans, or it stays a single-operator system.
-  - Both are legitimate. Only one of them survives you being unavailable for a month.
+  - Either the operating model gets written down for humans, or it stays a single-operator system. Both are legitimate; only one survives a month of your absence.
 
 ---
 
