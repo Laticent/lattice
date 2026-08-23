@@ -893,10 +893,18 @@ Output: `lattice.css` (committed). Header comment lists source files.
 | `npm run css:build` | Regenerate `lattice.css` from sources |
 | `npm run css:check` | Fail if `lattice.css` is stale relative to sources (CI gate) |
 
-The `css:check` script runs as part of the pre-push hook (along with
-the snippets freshness gate). If anyone modifies a per-component
-`styles.css` without regenerating, the push fails with a
-"`npm run css:build` to regenerate" message.
+`css:check` runs in **CI's `unit` job, immediately after the full build** — not
+in the pre-push hook, which this section claimed until #1783. The distinction is
+the whole point of where it sits: after a full build the check asks whether
+`main()` wrote what `bundle()` computes, which is a real question about the code.
+Asked on a developer's machine it only measures how recently they built, and
+`dist/` has been gitignored since #1742, so a rebase makes it stale by
+definition. A unit test asking it locally was removed in #1783 for exactly that;
+`engineering/gotchas/ci.md` has the full account.
+
+If a per-component `styles.css` changes without a regeneration, CI fails there —
+and the remedy is a full `npm run build`, not `css:build` alone, which leaves
+`dist/marp-kit/` behind and simply moves the failure one artifact over.
 
 ### Migration
 

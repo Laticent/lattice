@@ -180,6 +180,21 @@ jobs:
       # `--check` after it passes vacuously and stops being a gate at all.
       - name: Build the generated bundles
         run: npm run build
+      # The END-TO-END half of the CSS contract, and the ONLY place it can be
+      # asked: does `main()` actually write what `bundle()` computes, and does no
+      # later build step clobber `dist/lattice.css` on its way past? Both are
+      # questions about a tree that has just been fully built, which is why this
+      # sits AFTER the build — and why the unit suite is the wrong home for it. A
+      # developer's `dist/` is stale the moment they rebase, so the same
+      # comparison there fails for reasons that are not about the code (#1783).
+      #
+      # Not vacuous despite following the build: `build-css.js --check` recomputes
+      # `bundle()` and byte-compares, so writing the wrong string, or a later step
+      # overwriting the file, is caught here and nowhere else. `build:check` in the
+      # `lint` job cannot cover it — it runs `--exclude-uncommitted`, which skips
+      # every `dist/` step by design.
+      - name: CSS artifact matches the bundler (post-build, end-to-end)
+        run: npm run css:check
       # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
       # bundle stale?" — a question with no meaning now that the bundle is built
       # rather than committed. The staleness it guarded against is gone at the
