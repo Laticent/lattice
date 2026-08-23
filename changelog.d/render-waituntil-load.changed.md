@@ -35,11 +35,13 @@
   to ~1.9 s run to run), but if you relied on it, you will notice.
 - **Verified against the whole shipped corpus, not a sample.** 277 decks rendered before and
   after: **identical page counts, identical clipped-page sets, identical auto-split decisions —
-  0 differences in all three.** Thirteen decks differ in PDF *bytes*; a same-code control run
-  reproduces its own set exactly, so this is pre-existing render nondeterminism (Chrome's
-  tagged-PDF accessibility node IDs — 26 bytes across `/ID`, `/Headers` and the structure-ID
-  name tree, rasterizing pixel-identical) rather than anything this change caused. The set is
-  not fixed: successive runs differ on 11, 9 and 13.
+  0 differences in all three.** Some decks differ in PDF *bytes*, and that channel is
+  pre-existing render nondeterminism rather than anything this change caused: **a same-code
+  control run differs on 19 decks, which sits inside the 9–28 range of the cross-code
+  comparisons.** The count tracks machine contention, not the diff — the busiest sweep produced
+  the most churn. The mechanism is Chrome's tagged-PDF accessibility node IDs (26 bytes across
+  `/ID`, `/Headers` and the structure-ID name tree), and every state rasterizes
+  pixel-identical.
 - New opt-in bench tier, `npm run bench -- --cli`, times a whole `lattice-emulator.js` render —
   node boot, browser launch, navigation and PDF encode. Nothing measured that before: every
   other tier drives the engine in-process or calls `page.setContent` in a browser the bench
