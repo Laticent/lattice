@@ -22,7 +22,11 @@ const assert = require('node:assert/strict');
 async function load() {
   const model = await import('../../../docs/src/components/studio/ai/architect-model.js');
   const retrieval = await import('../../../docs/src/components/studio/ai/architect-retrieval.js');
-  return { model, retrieval };
+  // The prompt-cache policy lives in its own dependency-free module so the Workspace
+  // UI can import the predicate without dragging this provider layer into the Studio's
+  // eager bundle (#1773) — load it alongside, it is covered below.
+  const cache = await import('../../../docs/src/components/studio/ai/or-cache.js');
+  return { model, retrieval, cache };
 }
 
 describe('ArchitectModel adapter', () => {
@@ -116,8 +120,8 @@ describe('orPricePerM (OpenRouter pricing parse)', () => {
 
 describe('orSupportsCache (per-model caching gate)', () => {
   test('caching-supported vendors return true; others false', async () => {
-    const { model } = await load();
-    const { orSupportsCache } = model;
+    const { cache } = await load();
+    const { orSupportsCache } = cache;
     // documented prompt-caching providers
     assert.equal(orSupportsCache('anthropic/claude-sonnet-4'), true);
     assert.equal(orSupportsCache('openai/gpt-5'), true);

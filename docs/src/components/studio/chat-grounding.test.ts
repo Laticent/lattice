@@ -11,7 +11,7 @@
 //      Appending the live assessment to that prefix would re-write the whole thing to
 //      cache every turn at the 1.25x write premium, with zero hits.
 import { beforeEach, describe, expect, it } from 'vitest';
-import { withCachedSystem } from './ai/architect-model.js';
+import { withCachedSystem } from './ai/or-cache.js';
 import { readCachingEnabled } from './ai/spend.js';
 import { buildChatSystem, withStudioVoice } from './architect';
 

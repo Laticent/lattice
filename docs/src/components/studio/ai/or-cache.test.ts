@@ -1,5 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { orSupportsCache, withCachedSystem } from './architect-model.js';
+import { orSupportsCache, withCachedSystem } from './or-cache.js';
 
 // Prompt caching (#610): mark the static SYSTEM prefix with a `cache_control`
 // breakpoint so a repeated, byte-identical system prompt (our ~7K-token authoring
@@ -117,3 +120,58 @@ describe('architect-model — the alias prefix does not defeat caching', () => {
 	});
 });
 
+
+// The reason this module exists as its own file, pinned so it cannot quietly rot back.
+//
+// `WorkspaceSheet.tsx` needs `orSupportsCache` on its render path, and importing it from
+// `architect-model.js` put the whole AI provider layer — the only consumer of which is
+// `architect.ts`'s dynamic `import()` — into the Studio's EAGER bundle: 16.0KB raw /
+// 5.6KB gz, inlined straight into the monolith chunk (#1773,
+// engineering/decisions/2026-08-23-studio-shell-decomposition.md §5.2).
+//
+// Neither half of that is caught by an existing gate. The route-byte ledger carries ~3%
+// (~19KB gz) of headroom by design, so re-adding the static import fits inside it
+// silently; and nothing at all stops an import landing IN this module, which would drag
+// whatever it names along the same path. Both are one-line regressions, so both are
+// asserted here rather than left to a reviewer noticing an import line.
+describe('the AI provider layer stays off the Studio’s eager path (#1773)', () => {
+	const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+	/** Every `.ts`/`.tsx`/`.js` under docs/src that is not itself a test. */
+	function sources(dir: string, out: string[] = []): string[] {
+		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+			const full = path.join(dir, e.name);
+			if (e.isDirectory()) sources(full, out);
+			else if (/\.(ts|tsx|js|mjs)$/.test(e.name) && !/\.test\.[^.]+$/.test(e.name)) out.push(full);
+		}
+		return out;
+	}
+
+	// Comments first, or the scan reads the prose ABOUT imports as imports — this
+	// module's own header names `import()` twice explaining why it exists. Block
+	// comments go wholesale; line comments only when `//` opens the line (the house
+	// style), so a `https://` inside a string can't be mistaken for one.
+	const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+
+	// A STATIC edge only: `import … from '…'`, bare `import '…'`, and `export … from '…'`
+	// — the re-export form is a static edge too, and a scan that only knew the word
+	// `import` would wave it straight past. A dynamic `import('…')` has no space before
+	// its paren and is exactly what this file's existence is protecting, so it must NOT
+	// match.
+	const STATIC_IMPORT = /(?:^|\n)\s*(?:import|export)\s+(?:[^;]*?\sfrom\s*)?['"]([^'"]+)['"]/g;
+	const staticSpecifiers = (src: string) => [...stripComments(src).matchAll(STATIC_IMPORT)].map((m) => m[1]);
+
+	it('no docs/src module statically imports architect-model.js', () => {
+		const offenders = sources(SRC)
+			.filter((f) => !f.endsWith(`${path.sep}architect-model.js`))
+			.filter((f) => staticSpecifiers(fs.readFileSync(f, 'utf8')).some((s) => s.endsWith('architect-model.js')))
+			.map((f) => path.relative(SRC, f));
+		expect(offenders).toEqual([]);
+	});
+
+	it('or-cache.js imports nothing, so importing it costs only itself', () => {
+		const src = fs.readFileSync(path.join(SRC, 'components', 'studio', 'ai', 'or-cache.js'), 'utf8');
+		expect(staticSpecifiers(src)).toEqual([]);
+		expect(stripComments(src)).not.toMatch(/\bimport\s*\(/);
+	});
+});
