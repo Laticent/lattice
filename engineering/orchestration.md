@@ -124,9 +124,12 @@ not the intent.
 
    **The only exemptions are pre-registered:** a fan-out CLAUDE.md *already
    mandates* without asking (the QUALITY BAR's large visual sweep — its
-   canonical layout audit is 22 agents, 11 makers + 11 checkers), or a
+   canonical layout audit is 22 agents, 11 makers + 11 checkers); a
    **named workflow that ships in `.claude/workflows/` with a hard agent cap
-   declared in its `meta`** (today: `design-competition`). A cap you can read
+   declared in its `meta`** (today: `design-competition`); or the **cap carried
+   in a continuation brief** (`workflow.md` §Post-merge standup — today 8
+   agents), which exists because this gate assumes a human is reachable and that
+   card is written for the case where he is not. A cap you can read
    off a committed file is the exemption; a name you coin in a `log()` line is
    **not** — "I'll call this the audit shape" does not self-authorize. When
    you invoke an exempt shape, still `log()` its cap so the committed cost is
