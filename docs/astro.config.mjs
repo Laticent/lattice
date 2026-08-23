@@ -6,6 +6,7 @@ import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
 
 // Emits dist/chunk-graph.json: for every CLIENT-environment JS chunk, its
 // facadeModuleId (source entry, if any), moduleIds (bundled sources), static
@@ -116,6 +117,10 @@ export default defineConfig({
 		// decision doc §0). It carries the shadcn ↔ Lattice token bridge.
 		plugins: [tailwindcss(), chunkGraphPlugin()],
 	},
+	// Markdown-wide rehype: give every content table a tab stop so its horizontal
+	// scroll is reachable without a pointer (WCAG 2.1.1). See the plugin's header for
+	// why it adds a tabindex and NOT a role.
+	markdown: { rehypePlugins: [rehypeScrollableTables] },
 	integrations: [
 		starlight({
 			title: 'Lattice',

@@ -290,6 +290,31 @@ const PAIRS = [
   ['text-body',      'bg-alt', 'slide: body on card'],
   ['text-secondary', 'bg-alt', 'slide: secondary text on card'],
   ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
+
+  // ── The muted tier — the ONE --text-* role this table never scored ─────
+  // `--text-muted` is not decoration. It is the declared ink for the running
+  // header, the running footer and the pagination counter on EVERY slide of
+  // EVERY deck (`base.tokens.css` --marp-slide-header-color / -footer-color /
+  // -pagination-color, consumed by `section header` / `section footer` in
+  // base.modifiers.css), plus the section-rail dots. Every other --text-* role
+  // was audited on both backdrops; this one was not, and the omission was
+  // invisible because all 32 theme files assert the result in a comment —
+  // "de-emphasized TEXT — AA on --bg and --bg-alt (#1715)" — that nothing read.
+  // A hand-written claim standing in for a gate is exactly the silent-drift
+  // shape this table exists to remove, so the claim is now scored.
+  //
+  // 4.5, not 3.0. The chrome renders at --fs-meta, and the large-text allowance
+  // is not available to it: `2026-08-18-contrast-floor-deck-scale.md` settled
+  // that a deck's canvas-unit size says nothing about the size a human sees
+  // (43.4px on a nominally 3840px canvas is ~14px on a 1280px projection), and
+  // the rendered prober stopped granting the allowance for that reason. This
+  // table grades a theme's tokens with no viewing size at all, so the small-text
+  // floor is the only honest bar here.
+  //
+  // All 32 themes clear both pairs today (#1715 re-tuned them), so this seeds
+  // green and its whole job is to keep it that way.
+  ['text-muted',     'bg',     'slide: muted chrome ink (running header / footer / pagination) on canvas'],
+  ['text-muted',     'bg-alt', 'slide: muted chrome ink on card'],
 ];
 
 // Every backdrop (bg) token in PAIRS resolves from a theme file (or its @import

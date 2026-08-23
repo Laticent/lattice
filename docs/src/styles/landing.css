@@ -248,6 +248,48 @@ a {
 .lx-ui a[data-slot='badge'] {
 	color: var(--accent);
 }
+
+/* The component reference's own nav links (ComponentNavIsland). Same trap as the
+ * buttons above, and it bit harder: every text-* utility on those anchors lost to
+ * the unlayered `a` rule, so ALL of them — active and inactive alike — rendered in
+ * --accent. On the ACTIVE item that put --accent ink on an --accent pill: a 1:1
+ * ratio, an invisible label, shipped. Nothing caught it. The bridge gate scores
+ * token math and the tokens were never the problem; axe files an EXACT 1:1 as
+ * `incomplete` rather than a violation (messageKey `equalRatio`, on the theory that
+ * matching ink and ground may be deliberate hiding), so a violations-only scan
+ * called the page clean. Both are now covered — the site axe gate enforces
+ * color-contrast out of the incomplete bucket too.
+ *
+ * Colours come from the same token pairs the bridge already gates: --on-accent on
+ * --accent (the solid pill) and --text-heading on the accent-soft pill. */
+.lx-ui a[data-nav='item-active'] {
+	color: var(--on-accent);
+}
+.lx-ui a[data-nav='all-active'] {
+	color: var(--text-heading);
+}
+.lx-ui a[data-nav='item'],
+.lx-ui a[data-nav='all'] {
+	color: var(--text-body);
+}
+.lx-ui a[data-nav='item']:hover,
+.lx-ui a[data-nav='all']:hover {
+	color: var(--text-heading);
+}
+
+/* The site header's own nav rows (NavActions' mobile menu). Same unlayered-`a` trap
+ * again, and it is worth noting WHERE it was found: not by the site axe gate, which
+ * scans first paint, but by driving the menu open by hand. A closed menu is a surface
+ * no scan reaches — see the gate's own "what this does not cover" list. */
+.lx-ui a[data-nav='site-active'] {
+	color: var(--text-heading);
+}
+.lx-ui a[data-nav='site'] {
+	color: var(--text-body);
+}
+.lx-ui a[data-nav='site']:hover {
+	color: var(--text-heading);
+}
 h1,
 h2,
 h3 {

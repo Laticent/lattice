@@ -1439,8 +1439,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		scrollWalkRef.current(true);
 	}, []);
 
+	// <main>, not <div>: this island IS the page body under the site header, so without
+	// it the Playground shipped with no main landmark at all and the toolbar rows sat in
+	// no landmark either (axe: landmark-one-main + region x2). `contents` stays — the
+	// element must not introduce a box; a landmark role IS exposed on a display:contents
+	// element, and the site axe gate is what holds that true rather than this comment.
 	return (
-		<div className="lx-ui contents">
+		<main className="lx-ui contents">
+			{/* The page's one H1, visually hidden — the visible label is the branded site
+			    header, which is chrome, not a heading. */}
+			<h1 className="sr-only">Lattice playground</h1>
 			{/* Chart detail reveal — the shared parent-hosted layer + its popover (PREVIEW mode:
 			    reveal whichever chart is under the pointer as the author edits). */}
 			<ChartDetailLayer ref={chartDetailRef} getFrame={() => frameRef.current} getStage={() => frameRef.current?.parentElement ?? null} hoverAny />
@@ -1759,7 +1767,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					</button>
 				</ResizablePanel>
 			</ResizablePanelGroup>
-		</div>
+		</main>
 	);
 }
 

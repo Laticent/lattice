@@ -208,12 +208,20 @@ function SheetSection({
 		<div className="flex flex-col gap-1">
 			<span className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</span>
 			{items.map((l) => (
+				// `group` + data-nav, not a bare text-* utility: `landing.css` styles bare
+				// `a` UNLAYERED, which beats every @layer-ed Tailwind color utility, so the
+				// intended ink here never applied and every row — current one included —
+				// rendered --accent. On the current row that put --accent on the accent-soft
+				// pill at 4.47:1. The paired unlayered rules live in landing.css beside the
+				// button ones. `group` is what lets the description below react to the row's
+				// own aria-current.
 				<a
 					key={l.href}
 					href={l.href}
 					onClick={onNavigate}
 					aria-current={l.current ? 'page' : undefined}
-					className="flex flex-col rounded-md px-2 py-2 text-[15px] font-medium text-foreground hover:bg-accent aria-[current=page]:bg-accent aria-[current=page]:text-primary"
+					data-nav={l.current ? 'site-active' : 'site'}
+					className="group flex flex-col rounded-md px-2 py-2 text-[15px] font-medium hover:bg-accent aria-[current=page]:bg-accent"
 				>
 					<span className="flex items-center gap-1.5">
 						{l.label}
@@ -223,7 +231,20 @@ function SheetSection({
 							</Badge>
 						)}
 					</span>
-					{l.desc && <span className="text-xs font-normal text-muted-foreground">{l.desc}</span>}
+					{/* The description drops --text-muted on the CURRENT row. --text-muted is
+					    gated AA on the canvas and on the card, and on neither of those is it
+					    a problem — but the current row's ground is the accent-soft tint, and
+					    measured across the shipped palettes --text-muted is sub-AA there on
+					    33 of 36 palette x mode blocks (3.05:1 at worst; this row shipped at
+					    3.80:1). --text-heading is the only ink that clears AA on that surface
+					    in all 36, which is exactly what the bridge declares
+					    --accent-foreground to be. Hierarchy is carried by size and weight
+					    instead of by a second color. */}
+					{l.desc && (
+						<span className="text-xs font-normal text-muted-foreground group-aria-[current=page]:text-accent-foreground">
+							{l.desc}
+						</span>
+					)}
 				</a>
 			))}
 		</div>

@@ -114,6 +114,32 @@ function main() {
 			['destructive (fg/bg)', dz.fg, dz.bg, AA, false],
 			['card body (body/bg-alt)', t('--text-body'), t('--bg-alt'), AA, false],
 			['muted caption (muted/bg-alt)', t('--text-muted'), t('--bg-alt'), AA_SECONDARY, true],
+			// MEASURED, DELIBERATELY NOT A PAIR. Five call sites once put `text-primary`
+			// (shadcn primary = the palette --accent) on `bg-accent` (the derived hover
+			// surface, a 14% oklab tint of that same --accent) — an undeclared pairing the
+			// bridge never sanctioned and this gate never scored, shipping at 4.47:1 in the
+			// component reference. Tuning cannot rescue it: an accent-tinted ground cannot
+			// carry accent-colored ink, and at ACCENT_MIX 0.14 it is sub-AA on 7 of the 36
+			// palette x mode blocks (worst mustard/light at 3.29:1), while lowering the mix
+			// to buy contrast collapses the hover surface into the card (the HOVER_DL check
+			// below). The call sites now use the DECLARED ink for that surface,
+			// --accent-foreground = --text-heading, which is the row above this one. This
+			// row stays soft so the number is measured on every run rather than remembered:
+			// it is a standing reason not to reintroduce the pairing, not a failure.
+			['(non-pair) accent ink on the accent surface — see note', t('--accent'), lxAccent, AA, true],
+			// The SAME lesson from the other side, and the reason the row above is not a
+			// one-off. --text-muted is gated AA on the two backdrops a palette declares —
+			// the canvas and the card (tools/contrast-audit.js PAIRS) — and clears both in
+			// all 32 themes. It is NOT gated on the bridge's derived accent surface, and
+			// there it is sub-AA on 33 of the 36 palette x mode blocks (3.05:1 at worst).
+			// The site header's current-row description shipped at 3.80:1 on exactly that
+			// ground. Measured across the three --text-* roles the generated token file actually
+			// carries — heading, body, muted; --text-secondary and --text-label are NOT in it —
+			// --text-heading is the ONLY
+			// one that clears 4.5 on this surface everywhere (worst 7.01) — which is what
+			// the bridge already declares --accent-foreground to be. So the rule the two
+			// soft rows encode together is: the accent surface has exactly one ink.
+			['(non-pair) muted ink on the accent surface — see note', t('--text-muted'), lxAccent, AA, true],
 		];
 
 		for (const [name, fg, bg, min, soft] of checks) {
@@ -140,7 +166,7 @@ function main() {
 		`shadcn bridge contrast: ${palettes.length} palette×mode blocks, ${checkedPairs} checks — ${failed ? `${failures.length} FAIL` : 'bridge tokens all pass'}${warnings.length ? `, ${warnings.length} theme warnings` : ''}`,
 	);
 	if (warnings.length) {
-		console.log('\n⚠ theme-owned pairs below the soft floor (informational — the palette’s own --text-muted, not a bridge defect):');
+		console.log('\n⚠ soft rows below their floor (informational, never a failure — the palette’s own --text-muted on a card, and the accent-on-accent NON-pair the note in `checks` explains):');
 		for (const w of warnings) console.log(`  • ${w}`);
 	}
 	if (failed) {
@@ -149,7 +175,7 @@ function main() {
 		console.error('\nFix the bridge mapping or the palette-blind ramp in docs/src/styles/tailwind.css.');
 		process.exit(1);
 	}
-	console.log('\n✓ every bridge-derived/critical pair meets its WCAG floor in all 14 palettes (light + dark).');
+	console.log(`\n✓ every bridge-derived/critical pair meets its WCAG floor in all ${new Set(palettes.map((p) => p.palette)).size} palettes (light + dark).`);
 }
 
 main();

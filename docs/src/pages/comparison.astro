@@ -536,7 +536,12 @@ const ROADMAP = [
 						pitch — and it’s the right one exactly when the deck matters.
 					</SectionHead>
 					<div class="relative">
-						<div class="overflow-x-auto rounded-xl border border-border bg-card">
+						<!-- tabindex + a named region: the table scrolls horizontally on a phone, and a
+					     scroll container no key can reach leaves the right-hand columns unreachable
+					     without a pointer (WCAG 2.1.1; axe: scrollable-region-focusable, mobile only).
+					     `region` here — unlike the docs code blocks — because a named landmark for the
+					     comparison matrix is worth having on a page built around it. -->
+					<div tabindex="0" role="region" aria-label="Feature comparison table" class="overflow-x-auto rounded-xl border border-border bg-card">
 							<table class="cmp-table">
 							<thead>
 								<tr>
