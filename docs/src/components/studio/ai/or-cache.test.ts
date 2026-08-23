@@ -137,12 +137,16 @@ describe('architect-model — the alias prefix does not defeat caching', () => {
 describe('the AI provider layer stays off the Studio’s eager path (#1773)', () => {
 	const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-	/** Every `.ts`/`.tsx`/`.js` under docs/src that is not itself a test. */
+	// `.astro` is in the sweep because it is a real static-import surface into this
+	// graph, not only a page shell: `src/pages/studio.astro` frontmatter statically
+	// imports eight `components/studio/*` modules. A scan of script files alone would
+	// let the edge back in through a page.
+	/** Every `.ts`/`.tsx`/`.js`/`.mjs`/`.astro` under docs/src that is not itself a test. */
 	function sources(dir: string, out: string[] = []): string[] {
 		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
 			const full = path.join(dir, e.name);
 			if (e.isDirectory()) sources(full, out);
-			else if (/\.(ts|tsx|js|mjs)$/.test(e.name) && !/\.test\.[^.]+$/.test(e.name)) out.push(full);
+			else if (/\.(ts|tsx|js|mjs|astro)$/.test(e.name) && !/\.test\.[^.]+$/.test(e.name)) out.push(full);
 		}
 		return out;
 	}
@@ -161,10 +165,20 @@ describe('the AI provider layer stays off the Studio’s eager path (#1773)', ()
 	const STATIC_IMPORT = /(?:^|\n)\s*(?:import|export)\s+(?:[^;]*?\sfrom\s*)?['"]([^'"]+)['"]/g;
 	const staticSpecifiers = (src: string) => [...stripComments(src).matchAll(STATIC_IMPORT)].map((m) => m[1]);
 
+	// The extension is OPTIONAL, because Vite/Astro resolve an extension-less specifier
+	// and this tree already relies on that (`@/lib/resolve-captions` and
+	// `@/lib/resolve-pace`, both from StudioShell, both landing on a `.js` file). A
+	// suffix test against the written text alone therefore reads
+	// `'…/ai/architect-model'` as innocent — and that spelling gives the whole win back:
+	// measured, it re-inlines the module into the monolith chunk, restores studio
+	// eagerJsGz to 640,861, and leaves `check:route-budget` GREEN, because the ledger's
+	// ~3% headroom swallows it. The pin matches module IDENTITY, not one spelling of it.
+	const NAMES_THE_PROVIDER_LAYER = /(?:^|\/)architect-model(?:\.(?:js|mjs|ts))?$/;
+
 	it('no docs/src module statically imports architect-model.js', () => {
 		const offenders = sources(SRC)
 			.filter((f) => !f.endsWith(`${path.sep}architect-model.js`))
-			.filter((f) => staticSpecifiers(fs.readFileSync(f, 'utf8')).some((s) => s.endsWith('architect-model.js')))
+			.filter((f) => staticSpecifiers(fs.readFileSync(f, 'utf8')).some((spec) => NAMES_THE_PROVIDER_LAYER.test(spec)))
 			.map((f) => path.relative(SRC, f));
 		expect(offenders).toEqual([]);
 	});

@@ -481,6 +481,16 @@ coming back — the invariant is pinned instead by a source scan in
 `architect-model.js`; `or-cache.js` imports nothing), verified to fail when the old import
 line is restored.
 
+**A text scan has to match module IDENTITY, not one spelling of it** — the first cut of
+that pin matched neither `export … from` nor an extension-less specifier, and the
+maker-checker pass reproduced both: either spelling re-inlines the module into the
+monolith, gives the full 5,747 bytes back, and leaves `check:route-budget` GREEN inside its
+own headroom. Extension-less is not a hypothetical spelling here — `StudioShell` already
+imports `@/lib/resolve-captions` and `@/lib/resolve-pace` that way, both resolving to `.js`.
+The pin now matches `/(?:^|\/)architect-model(?:\.(?:js|mjs|ts))?$/` and sweeps `.astro`
+too, since `src/pages/studio.astro` statically imports eight `components/studio/*` modules
+and is as capable of reinstating the edge as any `.tsx`. Each arm is mutation-tested.
+
 ---
 
 ## 6. What genuinely shared state would an async mount boundary reorder

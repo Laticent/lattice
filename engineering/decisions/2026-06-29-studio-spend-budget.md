@@ -76,7 +76,7 @@ so the varying user turn and any per-request dedup-neighbor `assistant` block st
 cached prefix. Within the ~5-min TTL: call 1 writes the prefix (~1.25×), calls 2..N read it at
 ~0.1× — **roughly 85% off input on a fan-out**, with zero quality loss (we keep the full canon
 + all five examples). Below a provider's min cacheable size the breakpoint is a silent no-op, so
-marking is always safe. The pure shaping is unit-tested (`architect-model.cache.test.ts`); the
+marking is always safe. The pure shaping is unit-tested (`or-cache.test.ts` — the shaping moved to `ai/or-cache.js` in #1773, with the tests); the
 live cache HIT is a budget-gated manual smoke (the `usage.cost` we already record reflects the
 discount, so the spend tally stays authoritative).
 
