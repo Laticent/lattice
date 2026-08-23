@@ -935,6 +935,61 @@ describe('export-formats', () => {
     assert.ok(m.thumbnail.width <= m.pixel.width, 'thumb no wider than the full image');
   });
 
+  // THE EXTENSION TABLE IS CLOSED. It used to end in a fallthrough to PDF, so an
+  // extension nobody implemented still produced a PDF — written under the name the
+  // caller asked for. `lattice deck.md out.webp` wrote PDF bytes into `out.webp`, and
+  // nothing anywhere said so: exit 0, a file at the requested path, `file(1)` reading
+  // "PDF document". Every assertion below is about the REFUSAL, and refusing has to be
+  // cheap: the check runs before Chromium is launched, which is why these tests carry
+  // no timeout while every render test above needs 60s.
+  describe('an unsupported output extension is refused, never mislabeled', () => {
+    function runOut(out) {
+      return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      });
+    }
+
+    test('.webp exits non-zero, names the supported set, and writes nothing', () => {
+      const out = path.join(tmpDir(), 'deck.webp');
+      const r = runOut(out);
+      assert.notEqual(r.status, 0, 'should exit non-zero on an unsupported extension');
+      assert.equal(fs.existsSync(out), false, 'no artifact may be written under a name we cannot honor');
+      assert.match(r.stderr, /unsupported output extension '\.webp'/);
+      // The supported set is named IN the message — a bare "unsupported" makes the
+      // caller go read the source to find out what is supported.
+      for (const ext of ['.pdf', '.pptx', '.png', '.zip', '.html']) {
+        assert.ok(r.stderr.includes(ext), `error should name ${ext} as supported`);
+      }
+    });
+
+    test('.webp / .jpeg / .jpg point at the image-set route that does support them', () => {
+      for (const [ext, fmt] of [['webp', 'webp'], ['jpeg', 'jpeg'], ['jpg', 'jpeg']]) {
+        const r = runOut(path.join(tmpDir(), `deck.${ext}`));
+        assert.notEqual(r.status, 0, `.${ext} should be refused`);
+        assert.match(r.stderr, new RegExp(`--image-format ${fmt}`),
+          `.${ext} is a format the image set DOES encode — say how to ask for it`);
+        assert.match(r.stderr, /deck\.zip/, 'the suggested command carries a .zip output');
+      }
+    });
+
+    test('a plain unknown extension is refused with no image-set advice', () => {
+      const r = runOut(path.join(tmpDir(), 'deck.docx'));
+      assert.notEqual(r.status, 0, 'should exit non-zero');
+      assert.match(r.stderr, /unsupported output extension '\.docx'/);
+      assert.ok(!/--image-format/.test(r.stderr), 'docx is not an image set — do not suggest one');
+    });
+
+    test('an output path with no extension is refused too (nothing picks the format)', () => {
+      const r = runOut(path.join(tmpDir(), 'deck'));
+      assert.notEqual(r.status, 0, 'should exit non-zero');
+      assert.match(r.stderr, /has no extension/);
+    });
+
+    // That the table is CLOSED but not EMPTY is proven by the render tests above rather
+    // than here: .pdf, .pptx, .png, .zip and .html each render end-to-end in this file,
+    // and every one of them now has to pass the dispatch to do it.
+  });
+
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the

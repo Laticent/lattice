@@ -22,12 +22,18 @@ Lattice deck, this is the tool, full stop.
 node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip|.html> [palette]
 ```
 
-The output extension picks the format — `.pdf` (vector, selectable text,
-default), `.pptx` (one full-bleed slide image per slide), `.png` (one file
+The output extension picks the format — `.pdf` (vector, selectable text),
+`.pptx` (one full-bleed slide image per slide), `.png` (one file
 per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 (the rendered HTML *as* the deliverable, no PDF). For every format except
 `.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
 the output file.
+
+**That list is closed** — an extension not on it is a usage error, and there is
+no default. It used to fall through to the PDF path, which wrote PDF bytes under
+whatever name was asked for: `lattice deck.md out.webp` exited 0 and left a file
+`file(1)` reads as *"PDF document"*. For per-slide JPEG or WebP, ask for a `.zip`
+and pass `--image-format jpeg|webp` (§5) — the refusal prints that command.
 
 **Pick by cost, and it is not the ordering people expect.** Measured on a
 58-slide deck (`2026-08-16-render-format-cost-assessment.md`):
