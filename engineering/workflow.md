@@ -1138,6 +1138,72 @@ still counts agents cumulatively, still logs the spend, and still needs my OK to
 go past 8. Raise or lower the number in a given brief if the work warrants it —
 but write the number *in the card*, so the session it governs can read it.
 
+## 🚦 Pre-merge card — the evidence, before I decide
+
+The merge gate is the one place a human is required (HARD RULE #7), and for a
+long time the ask arrived as a bare *"it's green, may I merge?"* — which puts the
+decision on me while the evidence stays in the agent's head. Green CI is not
+evidence of much: it confirms only what CI actually exercises (#23), and the
+things that most often should have blocked a merge — an unverified surface, a
+claim resting on a proxy, a defect knowingly shipped — are exactly the things it
+cannot see.
+
+**So every merge ask carries a pre-merge card, fenced like the other two.** No
+card, no ask. When several PRs are green, the batched round (§Merging) carries
+**one card per PR**, trimmed hard — the point is comparability, not volume.
+
+### The confidence level is derived, not asserted
+
+Four levels — `low` · `medium` · `high` · `very high` — and the rule that keeps
+them honest: **the lowest qualifying axis wins.** Confidence is a chain, so a
+change with beautiful tests and one unverified load-bearing claim is `medium`,
+not "high with a caveat". Grade the axes first, then read off the floor:
+
+| Axis | Ask |
+|---|---|
+| **Evidence** | Does every load-bearing claim carry an artifact from the *real* surface, or does one rest on a proxy — a unit test, a synthetic harness, emulation, "CI green"? |
+| **Blast radius** | If this is wrong, what breaks, and how far past the diff does it reach? |
+| **Reversibility** | How cheaply is it undone — a revert, or something that has escaped (a release, exported bytes, a migration, a published artifact)? |
+| **Unknowns** | Does any caveat bear on the *core* claim, as opposed to an adjacent surface? |
+| **Independent eyes** | Did the tier the change earned actually run (#25) — checker, trio — or did it self-review? |
+
+- **`very high`** — reversible, contained blast radius, every load-bearing claim
+  has a real-surface artifact, no caveat touches the core claim, and the
+  verification tier the work earned actually ran.
+- **`high`** — the same, but with named caveats that bear only on adjacent
+  surfaces, or a real surface that is reachable and simply was not driven.
+- **`medium`** — sound as far as it was tested, but a load-bearing claim rests on
+  a proxy, **or** the blast radius is real and nothing independent looked, **or**
+  a caveat touches the core claim.
+- **`low`** — something material is unverified or unverifiable from here, the
+  change is expensive to undo, or a known defect ships deliberately. A `low` card
+  is not forbidden; it is a card that must say plainly what I am accepting.
+
+**Every card names the ONE thing that would raise it.** That line is the most
+useful in the card: it turns "are you sure?" into a decision I can act on — merge
+anyway, or spend ten more minutes and get a better answer. If nothing would raise
+it, say so; `very high` with no raise-path is a legitimate answer.
+
+**Grade the change, not the effort.** A long session with many mutations tested
+is not evidence; the artifact is. Inflating a level to look diligent destroys the
+only thing the card is for — and the failure mode to watch is the drift where
+everything becomes `high` because the work felt thorough.
+
+Template:
+
+```
+🚦 Pre-merge — #N <title>
+WHAT        <one line: what actually lands>
+WHY         <one line: the problem it solves>
+HOW         <2–4 lines: the mechanism, plus anything a reviewer would find surprising>
+EVIDENCE    <what was RUN or MEASURED, per load-bearing claim — artifacts, numbers,
+             the surface each came from>
+RISK        <blast radius if wrong> · revert: <how it is undone>
+UNVERIFIED  <the caveats that bear on this decision, or "none">
+CONFIDENCE  <low | medium | high | very high> — <the axis that set the floor>
+            raise it by: <the one thing that would move it up, or "nothing outstanding">
+```
+
 ## Work queue — the kanban board (cards, swimlanes, the mirror)
 
 Where work *comes from*. The model is the lean-kanban ADR
