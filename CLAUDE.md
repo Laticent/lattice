@@ -27,9 +27,9 @@ choice:
 
 | When… | Do, automatically |
 |---|---|
-| a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) |
+| a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) — **one PR for the session's line of work, one commit per item**, not a PR per slice (`workflow.md` §Batch a session's slices) |
 | a PR is open | **subscribe + drive CI green**; rebase before each push (rule 7) |
-| the PR is green and rebased | **ask to merge** — the *one* user gate in this flow |
+| the PR is green and rebased | **ask to merge, with a fenced 🚦 pre-merge card** (what · why · how · evidence · risk · unverified · a *derived* confidence level) — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each (`workflow.md` §Pre-merge card) |
 | merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced (`workflow.md` §Post-merge standup) |
 | a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold (same §) |
 

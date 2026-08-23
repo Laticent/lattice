@@ -8093,6 +8093,167 @@ function auditPdfOwnership(files) {
   };
 }
 
+// ─── NUL bytes in tracked text ─────────────────────────────────────────────
+// A NUL byte in a text source makes git treat the whole file as BINARY: the diff
+// renders as "Binary file not shown", so review sees nothing at all — not the
+// change, not the corruption. Two of the eleven errors catalogued in #1252 were
+// exactly this, and both were pushed: `tools/check-lint-coverage.js` (commit
+// bb8d8a58) and `docs/src/lib/deck-link.test.ts`, whose 18 tests all vanished
+// from the diff. Neither reached `main`, and neither was caught by a gate — one
+// by a review agent, one by a diffstat that looked wrong.
+//
+// Both came from the same habit the ticket names: scripted span-replacement that
+// computes byte offsets and writes without re-reading the result. That habit is
+// discipline (#1252's intervention 2). THIS gate is the cheap mechanical half —
+// it cannot stop the bad edit, but it makes the corruption impossible to push
+// past `build:check`, which is what "caught by a human, twice" was standing in
+// for.
+//
+// Scope is tracked files with a TEXT extension. Binary payloads (fonts, PDFs,
+// images) legitimately carry NULs and are not listed; `dist/**` IS in scope,
+// because a NUL there means a generator emitted one.
+// The five files that already carried a raw NUL when this gate was written
+// (2026-08-23), each using one as a composite-key separator inside a string or
+// template literal — `${a}<NUL>${b}` — rather than the `\u0000` escape that is
+// byte-identical at runtime. They are a PRE-EXISTING defect this gate FOUND, not
+// one it caused, so per HARD RULE #18 they are logged and sanctioned here rather
+// than swept into the gate's own diff (tracked for cleanup; see the card).
+//
+// TWO of them are not merely latent. `AcronymEditor.tsx` (NUL at byte 2747) and
+// `tools/change-coupling.js` (byte 4089) both sit inside the first 8000 bytes
+// `text=auto` inspects, so git classifies them binary TODAY — `git diff` on either
+// prints "Binary files … differ" and a reviewer sees nothing. Both measured by
+// appending a line and reading `git diff --numstat` return `-\t-`.
+//
+// An earlier revision of this comment said "Measured, not assumed" and named only
+// AcronymEditor, having checked one file and generalized from the byte offsets of
+// the rest. A sentence claiming measurement that was not measured is worse than
+// one that claims nothing.
+//
+// The other three carry theirs past byte 8000 and still diff as text; they are one
+// prepended paragraph from flipping, which is why they are listed, not ignored.
+//
+// The list is checked BOTH ways, like SANCTIONED_MARGINS: an unlisted file with a
+// NUL fails, and a listed file WITHOUT one fails as a stale sanction — so fixing
+// one forces its removal here and the allowlist cannot quietly outlive the defect.
+const SANCTIONED_NUL_FILES = [
+  'docs/src/components/studio/AcronymEditor.tsx',
+  'docs/src/components/studio/StudioShell.tsx',
+  'lib/core/chart-narration.js',
+  'tools/change-coupling.js',
+  'tools/check-family-tiers.js',
+];
+
+const NUL_TEXT_EXTENSIONS = [
+  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
+  '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
+  '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc',
+];
+
+// The BINARY half of the same partition. Every tracked file must fall in one list
+// or the other, and `nul-byte-gate.test.js` fails on any extension in neither —
+// which is the only way an allowlist like this does not rot.
+//
+// The first cut listed the text extensions alone, and `.astro` was missing: 40
+// tracked docs-site source files, exactly the kind this repo writes, invisible to
+// the gate. The test that should have caught it asserted a hand-written subset was
+// present in the array it was testing — self-referential, so it could not fail for
+// the one thing that mattered, a MISSING extension.
+const NUL_BINARY_EXTENSIONS = [
+  '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
+  '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+];
+
+/**
+ * The verdict, as a PURE function of a file list and a reader — which is what
+ * makes the FAILURE branch exercisable. `checkCommittedPdfs` above carries the
+ * scar that motivates this shape: a gate that shells straight to `git` has no
+ * injection point, so its tests can only assert the real tree is clean, and
+ * inverting the condition leaves them green.
+ *
+ * @param {string[]} files repo-relative paths
+ * @param {(f:string)=>Buffer} read
+ * @returns {string[]} paths whose bytes contain a NUL
+ */
+function findNulBytes(files, read) {
+  const hits = [];
+  for (const f of files) {
+    if (!NUL_TEXT_EXTENSIONS.some((ext) => f.toLowerCase().endsWith(ext))) continue;
+    let buf;
+    try {
+      buf = read(f);
+    } catch {
+      continue; // a listed-but-unreadable path (a broken symlink, a deleted file) is not this gate's business
+    }
+    if (buf.includes(0)) hits.push(f);
+  }
+  return hits;
+}
+
+/**
+ * The two verdicts, as a PURE function of the hit list and the allowlist — the
+ * shape `checkCommittedPdfs` above had to learn: a check that shells straight to
+ * `git` has no injection point, so its tests can only assert the real tree is
+ * clean, and inverting the condition leaves them green.
+ *
+ * @param {string[]} hits files found to contain a NUL
+ * @param {string[]} sanctioned the allowlist
+ * @returns {{unlisted:string[], stale:string[]}}
+ */
+function auditNulBytes(hits, sanctioned) {
+  return {
+    unlisted: hits.filter((f) => !sanctioned.includes(f)),
+    stale: sanctioned.filter((f) => !hits.includes(f)),
+  };
+}
+
+function checkNulBytes(errors) {
+  let tracked;
+  try {
+    // No `.trim()`: `-z` is used precisely so paths arrive byte-exact rather than
+    // C-quoted, and trimming would re-corrupt a path with leading/trailing
+    // whitespace — which would then be silently SKIPPED (the read throws), hiding
+    // a NUL in exactly the file least likely to be looked at. `filter(Boolean)`
+    // alone drops the trailing empty element, which is all that is needed.
+    tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+      .split('\0').filter(Boolean);
+  } catch (e) {
+    // Same rule as checkCommittedPdfs: only a missing git / non-repo checkout is
+    // a legitimate skip. Anything else is a defect in THIS gate.
+    if (!/ENOENT|not a git repository/i.test(String(e.message || e))) throw e;
+    return;
+  }
+  if (!tracked.length) {
+    errors.push('checkNulBytes found NO tracked files — a broken query, not an empty repo.');
+    return;
+  }
+
+  const { unlisted, stale } = auditNulBytes(
+    findNulBytes(tracked, (f) => fs.readFileSync(path.join(ROOT, f))),
+    SANCTIONED_NUL_FILES,
+  );
+
+  if (unlisted.length) {
+    errors.push(
+      `${unlisted.length} tracked text file(s) contain a raw NUL byte. Git classifies a file `
+      + 'as BINARY when one falls in the first 8000 bytes, and then its diff reads "Binary files '
+      + '… differ" — review sees nothing at all (#1252, which caught two of these by hand):\n      '
+      + unlisted.slice(0, 12).join('\n      ')
+      + (unlisted.length > 12 ? `\n      … and ${unlisted.length - 12} more` : '')
+      + '\n    Write the separator as the \\u0000 ESCAPE (byte-identical at runtime) instead of the '
+      + 'raw byte. If it is not deliberate, rewrite the file from source rather than patching bytes: '
+      + 'the usual cause is a scripted span-replacement that computed an offset into the wrong encoding.',
+    );
+  }
+  for (const f of stale) {
+    errors.push(
+      `SANCTIONED_NUL_FILES lists "${f}", which no longer contains a NUL byte — a stale `
+      + 'sanction. Remove the entry: an allowlist that outlives its defect silently re-opens the hole '
+      + 'it was documenting.',
+    );
+  }
+}
+
 function checkCommittedPdfs(errors) {
   let committed;
   try {
@@ -9761,6 +9922,7 @@ function run() {
   checkAgentModelPinning(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
+  checkNulBytes(errors);
   checkChangelogFragments(errors);
   checkDanglingTokenReads(errors);
   checkAnimaColorVocabulary(errors);
@@ -9823,6 +9985,12 @@ module.exports = {
   definedPlaneTokens,
   collectZIndexDeclarations,
   checkCommittedPdfs,
+  checkNulBytes,
+  findNulBytes,
+  auditNulBytes,
+  NUL_BINARY_EXTENSIONS,
+  SANCTIONED_NUL_FILES,
+  NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
   checkFontMetricsPin,
   checkFallbackContracts,
