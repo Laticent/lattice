@@ -237,8 +237,17 @@ Prerequisites:
 
 ### One caveat on the release notes
 
-The GitHub Release body is capped at **125,000 characters**, and this repo's
-`## Unreleased` is currently the entire changelog (~1.4 MB). `tools/release.js`
+The GitHub Release body is capped at **125,000 characters**. `tools/release.js`
 trims the notes on a line boundary and appends a pointer to `CHANGELOG.md`,
 warning when it does — without that, `gh release create` fails *after* the tag
 is pushed. The changelog remains the complete record.
+
+That trim used to fire on every release and discard most of what it was given.
+1.0.0 shipped from a hand-written section without rolling `## Unreleased`, so
+that section kept accumulating until it was ~1.4 MB — and 92.7% of the assembled
+body was being cut at the limit, keeping 1,234 of 20,143 lines — 6.1%. That log
+moved to `changelog/pre-release-archive.md` in #1735.
+
+**The trim still fires**, because 106 pending fragments are themselves ~196,000
+characters. It now keeps 1,239 of 1,790 lines (69.2%) rather than
+1,234 of 20,143 (6.1%). Cutting a release more often is what actually retires it.

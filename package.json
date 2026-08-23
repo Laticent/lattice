@@ -1,7 +1,7 @@
 {
   "name": "@workwel/lattice",
   "version": "1.0.0",
-  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts \u2014 58 layouts, one palette, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
+  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts \u2014 61 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
   "keywords": [
     "slides",
     "presentation",
@@ -82,6 +82,7 @@
     "intent:bakeoff": "node tools/intent-bakeoff/bakeoff.mjs",
     "intent:fit": "node tools/intent-bakeoff/fit-bakeoff.mjs",
     "intent:pick-eval": "node tools/intent-bakeoff/pick-surface-eval.mjs",
+    "intent:pick-agents": "node tools/intent-bakeoff/pick-surface-agent-eval.mjs",
     "intent:judge": "node tools/intent-bakeoff/judge-eval.mjs",
     "intent:tune": "node tools/intent-bakeoff/tune-fit.mjs",
     "equiv:bless": "node tools/slice-equivalence.mjs --bless",

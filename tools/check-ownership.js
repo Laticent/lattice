@@ -3320,6 +3320,11 @@ const US_ENGLISH_SELF_EXEMPT = new Set([
   'tools/check-ownership.js',
   'test/unit/cli/check-ownership.test.js',
   'CHANGELOG.md',
+  // Same frozen-history exemption as CHANGELOG.md, and for literally the same prose:
+  // this file IS the pre-release `## Unreleased` section, moved out verbatim (#1735).
+  // Leaving it in scope would newly charge the gate for ~18k lines that were exempt the
+  // day before the move, on a ratchet whose whole point is that it only ever goes down.
+  'changelog/pre-release-archive.md',
   'docs/public/playground/lattice-playground.js',
   // Gitignored copy staged by docs/scripts/sync-portal.mjs — a duplicate of
   // the generated dist/docs/components.md, whose sources are already counted.
