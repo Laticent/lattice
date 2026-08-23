@@ -45,12 +45,39 @@ const ALIAS_HEADINGS = {
   swimlane: ['swimlane', 'governing decision doc', 'governing doc', 'design doc'],
 };
 
+/**
+ * `text` with every FENCED CODE BLOCK blanked to spaces, same length, newlines
+ * kept — so heading offsets computed against it still index the original.
+ *
+ * A `#`-prefixed line inside a fence is not a heading; it is a shell comment, a
+ * pasted log, or a markdown sample. Scanning raw text honors it anyway, and the
+ * captured value then runs past the closing fence into unrelated prose. The
+ * canonical field names are long enough that this stayed theoretical; the alias
+ * names are not — `# Done when` and `# Acceptance` are ordinary things to find
+ * in a pasted snippet, and a card must not reach `status:ready` on one.
+ */
+function maskFences(text) {
+  let inFence = false;
+  return text
+    .split('\n')
+    .map((line) => {
+      const isFence = /^\s{0,3}(```|~~~)/.test(line);
+      if (isFence) {
+        inFence = !inFence;
+        return ' '.repeat(line.length);
+      }
+      return inFence ? ' '.repeat(line.length) : line;
+    })
+    .join('\n');
+}
+
 /** Every markdown heading in `text`, in document order, with its level. */
 function scanHeadings(text) {
   const headingRe = /^(#{1,6})[ \t]+(.+?)[ \t]*$/gm;
   const out = [];
+  const scannable = maskFences(text);
   let m;
-  while ((m = headingRe.exec(text))) {
+  while ((m = headingRe.exec(scannable))) {
     out.push({
       level: m[1].length,
       label: m[2].replace(/^[★\s]+/, '').trim(), // drop the ★ required-marker
@@ -86,7 +113,12 @@ function parseForm(body) {
   // An alias section runs to the next heading at the SAME or a HIGHER level, so
   // its own sub-headings (a "### Steps" under "## Definition of done") stay in.
   for (const [key, aliases] of Object.entries(ALIAS_HEADINGS)) {
-    if (!blank(out[key])) continue;
+    // ABSENT, not merely empty. `_No response_` is the author explicitly
+    // skipping a required field, and the gate must keep rejecting that — a
+    // "## Definition of done" further down must not rescue it. So a form-filed
+    // card is unaffected by this pass in every case, which is the claim that
+    // makes the change safe to land.
+    if (key in out) continue;
     for (let i = 0; i < headings.length; i++) {
       const h = headings[i];
       if (FIELD_BY_HEADING[h.label]) continue; // a canonical heading is never an alias

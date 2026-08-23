@@ -7,6 +7,10 @@
   no session could pull work from the board without a human dispatching it. The parser now
   accepts the headings people actually write (`Definition of done`, `Acceptance criteria`,
   `Acceptance`, `Done when`; `Swimlane`, `Governing doc`, `Design doc`) in a **second pass
-  that runs only for a field the form headings left empty** — so a form-filed card parses
-  byte-identically, and an alias heading can neither truncate a canonical value nor hijack a
-  field the form supplied. (`.github/scripts/issue-form.js`)
+  that runs only for a field whose form heading is ABSENT** — so a form-filed card parses
+  byte-identically in every case, including one that left a required field at
+  `_No response_`, which the gate goes on rejecting. An alias heading can neither truncate a
+  canonical value nor hijack a field the form supplied. Headings inside **fenced code blocks**
+  are also no longer treated as fields at all: a `# Done when` in a pasted shell snippet used
+  to invent an acceptance check whose value ran past the closing fence into unrelated prose.
+  (`.github/scripts/issue-form.js`)

@@ -126,3 +126,49 @@ describe('parseForm — the canonical form still wins over an alias', () => {
     assert.match(f.acceptance, /second line/, 'alias headings are not boundaries in pass 1');
   });
 });
+
+// ── Fenced code is not a field source ────────────────────────────────────────
+// A `#`-prefixed line inside a fence is a shell comment or a pasted log, not a
+// heading. Honoring it both invents a field AND captures a value that runs past
+// the closing fence into unrelated prose. The canonical names are long enough
+// that this stayed theoretical; the aliases are not — "# Done when" is an
+// ordinary thing to find in a snippet, and a card must not reach status:ready
+// on one.
+
+const fence = '```';
+
+describe('parseForm — headings inside a code fence are ignored', () => {
+  test('an ALIAS heading inside a fence does not fill the field', () => {
+    const body = ['# card', '', `${fence}sh`, '# Done when', 'echo hi', fence, '', 'prose'].join('\n');
+    assert.equal(parseForm(body).acceptance, undefined);
+  });
+  test('a CANONICAL heading inside a fence does not become a field either', () => {
+    const body = ['# card', '', `${fence}md`, '### Acceptance check', 'sample', fence].join('\n');
+    assert.equal(parseForm(body).acceptance, undefined);
+  });
+  test('tilde fences count too', () => {
+    const body = ['# card', '', '~~~sh', '# Acceptance', 'echo hi', '~~~'].join('\n');
+    assert.equal(parseForm(body).acceptance, undefined);
+  });
+  test('a real heading AFTER a closed fence is still found', () => {
+    const body = ['# card', '', `${fence}sh`, '# Done when', fence, '', '## Definition of done', '', '- [ ] real'].join('\n');
+    assert.match(parseForm(body).acceptance, /real/);
+  });
+  test('an UNCLOSED fence masks the rest — failing closed, which the DoR wants', () => {
+    // The gate then reports the field missing rather than inventing one from
+    // inside the fence. Conservative is the correct direction here.
+    const body = ['# card', '', `${fence}sh`, 'echo hi', '', '## Definition of done', '', '- [ ] never seen'].join('\n');
+    assert.equal(parseForm(body).acceptance, undefined);
+  });
+});
+
+describe('parseForm — a skipped required field is NOT rescued by prose', () => {
+  test('"_No response_" on a ★ field stays empty even with a Definition of done below', () => {
+    // `_No response_` is the author explicitly skipping the field. The alias
+    // pass fills only fields whose canonical heading is ABSENT, so the gate goes
+    // on rejecting a form card that left a ★ field blank — the property that
+    // makes this change safe for form-filed cards.
+    const f = parseForm(form({ acceptance: '_No response_', notes: '## Definition of done\n\n- [ ] rescued?' }));
+    assert.ok(!f.acceptance, 'an explicitly skipped required field must stay empty');
+  });
+});
