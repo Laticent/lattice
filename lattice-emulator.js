@@ -143,9 +143,12 @@ USAGE
 
 ARGUMENTS
   source.md          Markdown source (required)
-  output             Output path (required); the extension picks the format:
-                       .pdf   vector PDF, selectable text (default; + HTML sidecar;
-                              or one image per page with --raster)
+  output             Output path (required); the extension picks the format, and an
+                     extension that is not on this list is a usage error rather than
+                     a PDF under the wrong name (a path with NO extension is still
+                     the PDF path — nothing is mislabeled when nothing is labeled):
+                       .pdf   vector PDF, selectable text (+ HTML sidecar; or one
+                              image per page with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
                        .png   one PNG per slide, written as <output>.NNN.png
                        .zip   an IMAGE SET — a zip of one raster per slide
@@ -158,6 +161,8 @@ ARGUMENTS
                               skips the PDF encode
                      For every format EXCEPT .html, an HTML sidecar is written
                      alongside; with .html that sidecar IS the output file.
+                     For per-slide JPEG or WebP, ask for a .zip and pass
+                     --image-format jpeg|webp — there is no loose .jpg/.webp output.
   custom.css         Optional layout CSS override; if omitted, the bundled
                      lattice.css from the install dir is used
   palette            Palette name (e.g. 'indaco', 'cuoio')
@@ -519,14 +524,20 @@ if (!mdFile || !outFile) {
 
 // Output format is driven by the output extension: `.pptx` → image-per-slide
 // PowerPoint (owned, via pptxgenjs), `.png` → one PNG per slide (`<base>.NNN.png`),
-// anything else → the vector PDF (the original, selectable-text path). PPTX/PNG
-// are rasterized from the same headless-Chromium render the PDF uses, so all
-// three formats are byte-for-byte the same pixels.
+// `.zip` → an IMAGE SET (a zip of one raster per slide — PNG/JPEG/WebP — plus opt-in
+// thumbnails and standalone chart/diagram SVGs), `.html` → the rendered HTML as the
+// DELIVERABLE (no PDF at all), `.pdf` → the vector, selectable-text path. PPTX/PNG/
+// the image set are rasterized from the same headless-Chromium render the PDF uses,
+// so every format is byte-for-byte the same pixels.
+//
+// THE TABLE IS CLOSED, and that is the whole point of it being a table. It used to end
+// in `: 'pdf'`, so ANY unrecognized extension rendered a PDF and wrote it under the name
+// the caller asked for: `lattice deck.md out.webp` produced a file whose bytes `file(1)`
+// reads as "PDF document" and whose name says WebP. `.webp`/`.jpeg` are the ones that
+// actually get asked for — they ARE supported formats, via `--image-format` inside a
+// `.zip` — so the refusal below names that route rather than a bare list of extensions.
+// A format is added by adding a row here, never by a caller guessing an extension.
 const OUT_EXT = path.extname(outFile).toLowerCase();
-// `.zip` → an IMAGE SET: a zip of one raster per slide (PNG/JPEG/WebP) plus opt-in
-// thumbnails and standalone chart/diagram SVGs. `.pptx` → image-per-slide PowerPoint,
-// `.png` → loose per-slide PNGs, `.html` → the rendered HTML as the DELIVERABLE (no
-// PDF at all), anything else → the vector PDF.
 //
 // `.html` used to fall through to 'pdf', which wrote PDF BYTES INTO A FILE NAMED
 // `.html` and put the real HTML in a second `<out>.html.html` — a silently
@@ -546,11 +557,41 @@ const OUT_EXT = path.extname(outFile).toLowerCase();
 // (engineering/decisions/2026-08-16-render-format-cost-assessment.md). For markup
 // without layout, call `lib/engine` directly instead — that IS browser-free, and it
 // is a different coverage tier, not a faster version of this one.
-const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
-  : OUT_EXT === '.png' ? 'png'
-  : OUT_EXT === '.zip' ? 'imageset'
-  : OUT_EXT === '.html' ? 'html'
-  : 'pdf';
+const OUT_FORMATS = Object.freeze({
+  '.pdf': 'pdf',
+  '.pptx': 'pptx',
+  '.png': 'png',
+  '.zip': 'imageset',
+  '.html': 'html',
+});
+// The lossy image formats the image-set encoder DOES speak — just not as a loose
+// per-slide output. A caller who typed one meant "one image per slide in this format",
+// so the error hands them the command that does exactly that.
+const IMAGE_SET_EXTS = Object.freeze({ '.webp': 'webp', '.jpeg': 'jpeg', '.jpg': 'jpeg' });
+// NO extension is NOT an unknown format — it is the sidecar idiom, and it stays PDF.
+// `lattice deck.md .scratch/out/player-input --player` is how this repo's own player
+// verifiers render (tools/verify-player-input.mjs, tools/verify-narrated-player.mjs):
+// the deliverable is the `<out>.html` sidecar, the PDF is a byproduct nobody opens, so
+// the output path deliberately carries no extension. Nothing is mislabeled there —
+// there is no label — which is the whole difference from `out.webp`. Refusing it broke
+// all three call sites, and they are the committed HARD RULE #23 evidence for the
+// exported player, so a refusal here costs a verification surface and buys nothing.
+const OUT_FORMAT = OUT_EXT ? OUT_FORMATS[OUT_EXT] : 'pdf';
+if (!OUT_FORMAT) {
+  // Report the extension AS TYPED. OUT_EXT is lowercased for the lookup, and telling
+  // someone who typed `out.WEBP` that '.webp' is unsupported invites the reply "I did
+  // not write that".
+  const typed = path.extname(outFile);
+  console.error(`error: unsupported output extension '${typed}' — lattice writes ${Object.keys(OUT_FORMATS).join(', ')}.`);
+  const asImageSet = IMAGE_SET_EXTS[OUT_EXT];
+  if (asImageSet) {
+    // The command has to run AS PRINTED, so both paths keep the form the caller gave —
+    // a basename would resolve against the cwd and quietly mean a different file.
+    console.error(`  ${asImageSet.toUpperCase()} slides ship as an image set — one image per slide in a zip:`);
+    console.error(`    lattice ${mdFile} ${outFile.slice(0, -typed.length)}.zip --image-format ${asImageSet}`);
+  }
+  process.exit(1);
+}
 // Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
 // thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
 // inert there. Undefined flags fall through to the kernel's DEFAULTS.
