@@ -18,6 +18,16 @@
   test fails on a relative pointer into `changelog/` in either the file or the assembled
   release body.
 
+- **Fixed: a duplicated changelog entry fails the suite again.** `changelog-integrity`
+  caught the conflict resolution that leaves a SEAM — a paragraph stranded between entries
+  — and was blind to the one that does not: keep-both-sides on a whole entry or a whole
+  section leaves a body in which every line is a heading, a bullet or a continuation, so
+  duplicating the entire `## Unreleased` body passed every check. Entry lines are counted
+  now, in the file AND in the assembled release body, so a fragment copied to a second
+  filename fails too. The check was removed once because the pre-1.0.0 backlog carried 18
+  pre-existing duplicates; that backlog is archived, the body carries 386 entries and no
+  repeats, and deliberate repetition goes in a sanction list that fails when it goes stale.
+
 - **Fixed: writing a changelog entry no longer triggers a full-deck preview render.**
   `npm run preview` listed `CHANGELOG.md` as having no visual impact but not
   `changelog/` (the 1.5 MB archive) or `changelog.d/` (the per-PR fragment every change
