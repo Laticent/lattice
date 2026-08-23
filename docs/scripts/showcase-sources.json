@@ -32,7 +32,7 @@
 	"code.light": {
 		"src": "lib/components/code/code/code.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "d6ad41578c01c5f59633cb6c786b20eb344a6153a0e403ffdbd4bc95152fc976"
+		"srcSha256": "5cd78c1b83b0c88887975d7f87f958228b8e970cef3b8d98543e3da0b313457c"
 	},
 	"code.dark": {
 		"src": "lib/components/code/code/code.gallery.dark.pdf",
@@ -42,12 +42,12 @@
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
 		"page": 4,
-		"srcSha256": "f04c026163f8b053373c5ca0c9012fabd5e5cf2c7101e925e6960f2cd1c16544"
+		"srcSha256": "6166fee72750c587a2d9d36f45cbc8a1dbe431d9fb0b8cb6fc4acb69295cafd0"
 	},
 	"diagram.dark": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.dark.pdf",
 		"page": 4,
-		"srcSha256": "32eb06915e80f6672eaef1d810fb3e514cb93ad633f0b1083050ccbbac5cdc9c"
+		"srcSha256": "de30014a4e786b3728ca446c19be129f1f3b29f47dd13c7484b386fdc8a4eb76"
 	},
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
