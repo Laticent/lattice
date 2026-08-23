@@ -13,4 +13,6 @@
   canonical value nor hijack a field the form supplied. Headings inside **fenced code blocks**
   are also no longer treated as fields at all: a `# Done when` in a pasted shell snippet used
   to invent an acceptance check whose value ran past the closing fence into unrelated prose.
+  Fence matching follows CommonMark — same character, at least as long — so a card that pastes
+  a markdown *example* containing a fence cannot invert the masking and expose a heading again.
   (`.github/scripts/issue-form.js`)

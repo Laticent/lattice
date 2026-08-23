@@ -172,3 +172,37 @@ describe('parseForm — a skipped required field is NOT rescued by prose', () =>
     assert.ok(!f.acceptance, 'an explicitly skipped required field must stay empty');
   });
 });
+
+// ── Fence matching follows CommonMark, not a toggle ──────────────────────────
+// A fence closes only on the SAME character, at least as long. A naive
+// open/close toggle inverts on a card that pastes a markdown EXAMPLE — an inner
+// ``` inside an outer ~~~ flips it, and the heading after is exposed as a field
+// again. Showing a fence inside a fence is ordinary on a card documenting a
+// template, and this is the masker's own defect class one level deeper.
+
+const tick = '```';
+const tilde = '~~~';
+
+describe('parseForm — nested fences', () => {
+  test('an UNBALANCED inner fence does not expose the heading after it', () => {
+    const body = ['# card', '', `${tilde}markdown`, `${tick}sh`, '# Acceptance', 'inside', tilde, '', 'body'].join('\n');
+    assert.equal(parseForm(body).acceptance, undefined);
+  });
+  test('an inner fence of the other kind does not close the outer one', () => {
+    const body = ['# card', '', `${tilde}md`, '# Done when', `${tick}sh`, 'echo hi', tick, tilde, '',
+      '## Definition of done', '', '- [ ] the real one'].join('\n');
+    assert.match(parseForm(body).acceptance, /the real one/);
+  });
+  test('a longer wrapper fence holds across the shorter ones it contains', () => {
+    const body = ['# card', '', '````', '# Acceptance', tick, 'x', tick, '````', '',
+      '## Definition of done', '', '- [ ] real'].join('\n');
+    assert.match(parseForm(body).acceptance, /real/);
+  });
+  test('a shorter run does not close a longer opening fence', () => {
+    // The heading must sit AFTER the non-closing run to discriminate: before it,
+    // the heading is masked either way and the assertion proves nothing
+    // (mutation-checked — the first draft of this test was exactly that).
+    const body = ['# card', '', '````', 'x', tick, '# Acceptance', 'still inside', '````'].join('\n');
+    assert.equal(parseForm(body).acceptance, undefined);
+  });
+});

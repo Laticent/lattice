@@ -57,16 +57,24 @@ const ALIAS_HEADINGS = {
  * in a pasted snippet, and a card must not reach `status:ready` on one.
  */
 function maskFences(text) {
-  let inFence = false;
+  // CommonMark: a fence is closed only by one of the SAME character, at least as
+  // long. A naive open/close toggle gets this wrong on a card that pastes a
+  // markdown EXAMPLE — an inner ``` inside an outer ~~~ flips the toggle, and
+  // the heading after it is exposed as a field again. That is the same defect
+  // this masker exists to fix, one level deeper, and showing a fence inside a
+  // fence is ordinary on a card documenting a template.
+  let open = null; // { char, len } of the fence currently holding us open
   return text
     .split('\n')
     .map((line) => {
-      const isFence = /^\s{0,3}(```|~~~)/.test(line);
-      if (isFence) {
-        inFence = !inFence;
-        return ' '.repeat(line.length);
-      }
-      return inFence ? ' '.repeat(line.length) : line;
+      const m = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+      if (!m) return open ? ' '.repeat(line.length) : line;
+      const char = m[1][0];
+      const len = m[1].length;
+      if (!open) open = { char, len };
+      else if (char === open.char && len >= open.len) open = null;
+      // else: an inner fence of the other kind, or a shorter run — still inside.
+      return ' '.repeat(line.length);
     })
     .join('\n');
 }
