@@ -49,6 +49,13 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const wantExport = process.argv.includes('--export');
 const wantPrint = process.argv.includes('--print');
 const wantDiagrams = process.argv.includes('--diagrams');
+// --cli  whole-CLI render tier. The ONLY tier that spawns `lattice-emulator.js`, and so the
+//        only one that can see the export path's `page.goto` waits, the auto-split re-navigation
+//        loop, or node boot. (--diagrams also shells out, but to the Mermaid render worker, not
+//        to the CLI; every other tier drives `api.render` / `page.setContent` in THIS process.)
+//        That is why a change to the CLI's navigation strategy moved no number here at all — the
+//        hole HARD RULE #19(c) says to close. ~25 s. Blessed into `cliDatasets`.
+const wantCli = process.argv.includes('--cli');
 // --sweep  fit-sweep tier (browser). The overflow/legibility probes run over laid-out
 //          DOM, so neither the in-process render tier nor the whole-cycle export tier
 //          can see them; this is the only thing that measures them. ~30s.
@@ -112,6 +119,28 @@ for (const d of datasets) {
 // runs. It is generated rather than committed because its only job is to be
 // over-full — there is nothing to review in it, and a committed deck that must
 // STAY broken is a deck someone eventually fixes.
+/**
+ * CLI-tier decks, chosen for what they make the EXPORT PATH do — not for size.
+ *
+ * The render performs one `page.goto` up front, one more per auto-split pass, and one
+ * more if the rails/relationship re-render changes the document. So the navigation count
+ * is a property of whether a deck splits, and these three span 1, 3 and 4 navigations.
+ * A tier that only measured a non-splitting deck would see a third of the effect.
+ *
+ * All three are deliberately MERMAID-FREE. `mmdc` is ~1.9s + ~1.1s per fence even after
+ * #1677's batching, which on a diagram deck is most of the render — it would swamp the
+ * navigation signal this tier exists to hold still.
+ */
+const cliDatasets = [
+  // No split: initial navigation only.
+  { name: 'cli · portrait-roadmap (1 nav)', deck: 'examples/portrait-roadmap.md' },
+  // Splits once: initial + auto-split + rails.
+  { name: 'cli · auto-split (3 nav)', deck: 'examples/auto-split.md' },
+  // Splits twice: initial + 2 auto-split passes + rails — the deepest navigation loop
+  // in the shipped corpus.
+  { name: 'cli · cover-paginate (4 nav)', deck: 'examples/cover-paginate.md' },
+];
+
 function overflowingDeck(slides) {
   const body = Array.from({ length: 14 }, (_, j) =>
     `- Item ${j} title\n  - ${'A reasonably long body sentence that will push this slide well past its frame. '.repeat(3)}`).join('\n');
@@ -629,6 +658,104 @@ async function diagramTier() {
   };
 }
 
+// ── WHOLE-CLI RENDER TIER (--cli) ────────────────────────────────────────────
+//
+// Everything above measures this process: `api.render` in-process, or `page.setContent`
+// on engine output in a puppeteer the bench itself launched. None of it spawns
+// `lattice-emulator.js`, so none of it can observe what the SHIPPED render actually
+// costs — node boot, the browser launch the CLI does itself, `page.goto` and whatever
+// it waits for, the measured auto-split loop's re-navigations, and the PDF encode.
+//
+// That gap is not theoretical. The `waitUntil: 'networkidle0'` → `'load'` change on the
+// three `page.goto` calls removed ~0.7-1.9s of measured idle per navigation, and a
+// before/after `npm run bench` moved by zero, because no dataset here reached the code.
+// HARD RULE #19(c) names this case exactly: extend the harness when no dataset
+// exercises the optimized path.
+//
+// OPT-IN, like every tier that boots a real browser — this one boots one per render, so
+// it is the most expensive per-iteration tier in the file. Unlike --diagrams it IS
+// blessed: #19(b) wants the committed baseline's diff to be the durable before→after
+// record, and a report-only tier cannot supply that.
+async function cliTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(join(ROOT, 'package.json'));
+  // The canonical page-count oracle (CommonJS, hence createRequire — same shape the
+  // print tier uses for jspdf).
+  const { pageCount } = req(join(ROOT, 'test/helpers/pdf.js'));
+  const { execFileSync, execSync } = await import('node:child_process');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+
+  // Same resolution the browser tiers use. The emulator reads CHROME_PATH from the
+  // environment, so this is passed down rather than handed over as an argument.
+  let chrome = process.env.CHROME_PATH;
+  if (!chrome || !existsSync(chrome)) {
+    try {
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+    } catch { /* default */ }
+  }
+  const EMULATOR = join(ROOT, 'lattice-emulator.js');
+  const env = { ...process.env, ...(chrome ? { CHROME_PATH: chrome } : {}) };
+
+  // NOT test/helpers/render.js. That helper caches by input hash and would hand back
+  // the same file without rendering on iterations 2..N, so the tier would measure
+  // fs.statSync. `test/integration/export/pdf-reproducible.test.js` bypasses it for the
+  // same reason and says so in its header.
+  function renderOnce(deck) {
+    const dir = mkdtempSync(join(tmpdir(), 'bench-cli-'));
+    try {
+      const out = join(dir, 'out.pdf');
+      execFileSync(process.execPath, [EMULATOR, join(ROOT, deck), out, '-q'], {
+        cwd: ROOT, env, stdio: ['ignore', 'ignore', 'pipe'], timeout: 300000,
+      });
+      if (!existsSync(out)) throw new Error(`${deck}: no PDF produced`);
+      return pageCount(out);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // One untimed render per deck, to record the workload signal and to fail loudly
+  // BEFORE the timed loop — a tier that renders nothing would otherwise read as fast.
+  const pages = new Map();
+  for (const d of cliDatasets) {
+    const n = renderOnce(d.deck);
+    if (!n) throw new Error(`${d.deck}: rendered 0 pages`);
+    pages.set(d.name, n);
+  }
+
+  const bench = new Bench({ name: 'cli', warmup: false, time: 1, iterations: 3 });
+  for (const d of cliDatasets) {
+    bench.add(d.name, () => {
+      const n = renderOnce(d.deck);
+      // A render that silently loses pages must not read as a win. Same guard the
+      // diagram tier uses for a failed fence.
+      if (n !== pages.get(d.name)) throw new Error(`${d.deck}: page count moved ${pages.get(d.name)} -> ${n}`);
+    });
+  }
+  await bench.run();
+  // tinybench CATCHES a throw from a task and files it on `task.result.error` — it does
+  // not abort the run. So the page-count guard above, and any render failure, would
+  // otherwise surface as a NaN mean that reads as a missing row rather than a failure.
+  // Re-raise: a tier that failed to render must never be mistaken for a fast one.
+  for (const t of bench.tasks) {
+    if (t.result?.error) throw new Error(`cli tier · ${t.name}: ${t.result.error.message || t.result.error}`);
+  }
+  console.log('\n=== CLI · whole `lattice-emulator.js` render (node boot + browser + goto + encode) ===');
+  console.table(bench.table());
+
+  const summary = [];
+  console.log('\n=== CLI SUMMARY ===');
+  for (const d of cliDatasets) {
+    const task = bench.getTask(d.name);
+    const ms = mean(task);
+    const slides = pages.get(d.name);
+    console.log(`${d.name.padEnd(32)} ${(ms / 1000).toFixed(2)}s  ${slides} pages`);
+    summary.push({ dataset: d.name, slides, ms, rmePct: task.result.latency.rme });
+  }
+  return { summary };
+}
+
 // ── baseline (commit) + variance-aware check ──────────────────────────────────
 // Wall-clock numbers are machine-relative, so the baseline is a ratchet, not an
 // absolute: --bless writes it, --check compares against it but never trips inside
@@ -683,7 +810,7 @@ function comparableMachine(base, here, probeNow) {
   return { ok: true, why: '' };
 }
 
-function blessBaseline(summary, printSummary, render, sweepSummary) {
+function blessBaseline(summary, printSummary, render, sweepSummary, cliSummary) {
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -739,6 +866,20 @@ function blessBaseline(summary, printSummary, render, sweepSummary) {
   } else if (existsSync(BASELINE)) {
     try { printOut = JSON.parse(readFileSync(BASELINE, 'utf8')).printDatasets; } catch { /* none */ }
   }
+  // The whole-CLI tier only runs under --cli, so a plain `bench:bless` PRESERVES any
+  // existing cliDatasets — same rule as print and sweep above. Skipping this branch
+  // would make the next `npm run bench:bless` silently delete the rows.
+  let cliOut;
+  if (cliSummary?.length) {
+    cliOut = {};
+    // No `index`: the calibration probe is a markdown-it parse and says nothing about a
+    // whole CLI render (node boot + browser launch + PDF encode), so these rows gate on
+    // absolute `ms` on the blessing machine and are merely reported anywhere else —
+    // exactly how printDatasets behaves.
+    for (const s2 of cliSummary) cliOut[s2.dataset] = { slides: s2.slides, ms: round2(s2.ms), rmePct: round2(s2.rmePct) };
+  } else if (existsSync(BASELINE)) {
+    try { cliOut = JSON.parse(readFileSync(BASELINE, 'utf8')).cliDatasets; } catch { /* none */ }
+  }
   // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
   //
   // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
@@ -791,9 +932,18 @@ function blessBaseline(summary, printSummary, render, sweepSummary) {
     // SHAPE re-measured on the same page in the same run, so it stays comparable
     // on any machine. Blessed via `bench:bless -- --sweep`.
     ...(sweepOut ? { sweepDatasets: sweepOut } : {}),
+    // The whole-CLI render, per deck, keyed by how many navigations the deck drives.
+    // This is the ONLY row in the file that moves when the export path's `page.goto`
+    // strategy changes, which is the point (HARD RULE #19(c)). Blessed via
+    // `bench:bless -- --cli`.
+    ...(cliOut ? { cliDatasets: cliOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
-  console.log(`\nBlessed baseline → test/benchmark/baseline.json (${summary.length} render${printSummary?.length ? ` + ${printSummary.length} print` : ''} datasets).`);
+  const wrote = [`${summary.length} render`];
+  if (printSummary?.length) wrote.push(`${printSummary.length} print`);
+  if (sweepSummary?.length) wrote.push(`${sweepSummary.length} sweep`);
+  if (cliSummary?.length) wrote.push(`${cliSummary.length} cli`);
+  console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
 
 /**
@@ -804,6 +954,7 @@ function blessBaseline(summary, printSummary, render, sweepSummary) {
  */
 function checkBaseline(summary, printSummary, render, opts = {}) {
   const sweepSummary = opts.sweepSummary ?? null;
+  const cliSummary = opts.cliSummary ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -1019,6 +1170,52 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
       }
     }
   }
+  // THE WHOLE-CLI TIER. Only compared when THIS run produced it (`--cli`), so a plain
+  // `bench:check` is unchanged.
+  //
+  // The band is the print tier's, and for the print tier's reason: these are whole
+  // multi-second process spawns — node boot, a browser launch, a PDF encode — far more
+  // exposed to machine and I/O noise than an in-process render, and measured over only
+  // 3 iterations. 50% catches a doubling, which is the failure worth having, without
+  // firing on a slow disk. Same-machine-only for the same reason too: these rows carry
+  // no calibration index, because a markdown-it parse says nothing about the cost of
+  // booting Chromium.
+  if (cliSummary?.length) {
+    console.log('\n=== CLI CHECK · whole-emulator render vs committed baseline ===');
+    for (const s2 of cliSummary) {
+      const b = base.cliDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(32)}${'—'.padStart(10)}${(s2.ms / 1000).toFixed(1).padStart(10)}s  NEW (re-bless)`);
+        continue;
+      }
+      // `slides` here is the PDF PAGE COUNT, not the engine's section count — so this
+      // row doubles as a pagination guard. A change that makes the render measure
+      // layout before fonts settle re-paginates an auto-splitting deck, and that fails
+      // on ANY machine, ahead of and independent of the timing comparison.
+      if (b.slides !== s2.slides) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(32)}${String(b.slides).padStart(10)}${String(s2.slides).padStart(10)}   PAGE COUNT CHANGED (re-bless)`);
+        continue;
+      }
+      const d = ((s2.ms - b.ms) / b.ms) * 100;
+      const verdict = d > EXPORT_BAND
+        ? (comparable ? 'REGRESSION' : 'slower (not gated)')
+        : d < -EXPORT_BAND ? (comparable ? 'win' : 'faster (not gated)') : 'ok';
+      if (verdict === 'REGRESSION') regressedDatasets.push(s2.dataset);
+      console.log(
+        `${s2.dataset.padEnd(32)}${(b.ms / 1000).toFixed(2).padStart(9)}s${(s2.ms / 1000).toFixed(2).padStart(9)}s${((d >= 0 ? '+' : '') + d.toFixed(1)).padStart(8)}${('±' + EXPORT_BAND + '%').padStart(8)}  ${verdict}`,
+      );
+    }
+    // The MISSING mirror, as on the print and sweep tiers — a REMOVED cli dataset would
+    // otherwise leave a blessed row nothing ever reads again.
+    for (const name of Object.keys(base.cliDatasets ?? {})) {
+      if (!cliSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(32)}${'—'.padStart(10)}${'absent'.padStart(10)}   MISSING (re-bless)`);
+      }
+    }
+  }
   // DRIFT FAILS ON ANY MACHINE, and that is the second half of #1382. A slide count
   // is machine-independent, so a moved one is unambiguous staleness — and the row it
   // invalidates has recorded nothing since it moved. It used to exit 0 with a note,
@@ -1046,7 +1243,8 @@ async function main() {
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
   const diagrams = wantDiagrams ? await diagramTier() : null;
-  if (wantBless) blessBaseline(render.summary, print?.summary, render, sweep?.summary);
+  const cli = wantCli ? await cliTier() : null;
+  if (wantBless) blessBaseline(render.summary, print?.summary, render, sweep?.summary, cli?.summary);
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
   } else if (wantCheck) {
@@ -1067,13 +1265,14 @@ async function main() {
     //
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
-    const pass1 = checkBaseline(render.summary, print?.summary, render, { sweepSummary: sweep?.summary });
+    const pass1 = checkBaseline(render.summary, print?.summary, render, { sweepSummary: sweep?.summary, cliSummary: cli?.summary });
     if (pass1.regressedDatasets.length) {
       console.log(`\nRe-measuring ${pass1.regressedDatasets.length} regressed dataset(s) to separate a real slowdown from machine load…`);
       const second = await renderTier();
-      // The EXPORT tier is not re-measured — an ~11-minute puppeteer arm cannot be
-      // run twice on a hunch — so an export-tier regression stands on pass 1 alone.
-      // Its ±50% band is already sized for that.
+      // The EXPORT and CLI tiers are not re-measured — an ~11-minute puppeteer arm
+      // cannot be run twice on a hunch, and the CLI tier spawns a fresh browser per
+      // iteration — so a regression in either stands on pass 1 alone. Their ±50% band
+      // is already sized for that.
       const exportRegressed = pass1.regressedDatasets.filter((n) => !render.summary.some((s) => s.dataset === n));
       const again = checkBaseline(second.summary, null, second, {
         confirming: new Set(pass1.regressedDatasets),
@@ -1092,11 +1291,17 @@ async function main() {
       }
     }
   }
-  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print, diagrams }, null, 2));
+  // `cli` joins the --json dump for symmetry with the other tiers and so a future
+  // head-vs-base comparator can read it. It is NOT wired into the nightly today:
+  // tools/perf-nightly-compare.mjs has arms for render/export/print only, and
+  // perf-nightly.yml invokes `--json --export`, never `--cli`. Wiring it there is a
+  // separate change — this line only makes the data available.
+  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',
     !wantDiagrams && '--diagrams (Mermaid render worker, ~30 s)',
+    !wantCli && '--cli (whole-emulator render, ~25 s)',
   ].filter(Boolean);
   console.log('\nDone.' + (missing.length ? ` (pass ${missing.join(' and ')} to time them too.)` : ''));
 }

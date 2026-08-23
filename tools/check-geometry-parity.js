@@ -157,7 +157,27 @@ async function main() {
     for (const su of surfaces) {
       const page = await browser.newPage();
       await page.setViewport({ width: su.w, height: su.h, deviceScaleFactor: 1 });
-      await page.goto('file://' + rendered.html, { waitUntil: 'networkidle0', timeout: 120000 });
+      // `load` + an explicit font force-load, which is exactly what the render does
+      // (lattice-emulator.js, the three `page.goto` calls and the `page.evaluate` that
+      // follows each). This tool's whole job is to check the geometry the RENDER
+      // measures, so it has to observe the page at the same moment the render does —
+      // `networkidle0` here would have been checking a different instant than the one
+      // that ships. `load` waits for every subresource this document has (img, CSS
+      // background-image, stylesheets, webfonts — each measured against a delayed
+      // response), and nothing in the page requests anything after it.
+      await page.goto('file://' + rendered.html, { waitUntil: 'load', timeout: 120000 });
+      // Bounded. The render path does the identical force-load but every call there goes
+      // through `guard()`'s watchdog; this tool has none, and an unbounded
+      // `document.fonts.ready` would hang it silently with no output rather than failing.
+      await page.evaluate(async () => {
+        const settle = (async () => {
+          try {
+            await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+            await document.fonts.ready;
+          } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
+        })();
+        await Promise.race([settle, new Promise((r) => setTimeout(r, 15000))]);
+      });
       await new Promise((r) => setTimeout(r, 2500));
       runs.push({ su, rows: await page.evaluate(MEASURE, PROBE_SRC, CLIP_CELL_SELECTOR, 12, su.scale, IGNORED_CLIP_SELECTOR) });
       await page.close();

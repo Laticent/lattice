@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF, so switching tests or goldens to images would make the repo slower AND larger. The PDF encoder is 2.3% of a small render and 15% of a large one; the cost is the browser round-trip. THE LARGEST SINGLE COST IS mmdc, which boots its own Chrome ONCE PER DIAGRAM — 40.7s of a 44.3s render on the 14-fence diagram gallery. Second is a `networkidle0` wait costing ~1.7s per navigation that pins at ~2.0s regardless of deck size; its cause is UNIDENTIFIED (the first two explanations, font work and the settleFonts cap, were both refuted by experiment), but the render's font correctness rests on an explicit force-load after every navigation, not on the wait, so `waitUntil: 'load'` is a cheap thing to try. The real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 goldens that are not byte-reproducible — which makes MAKING THEM REPRODUCIBLE dominate 'stop committing them'. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file; `.html` is now a first-class output format, a real browser render minus the PDF encode (6.77s vs 8.24s on 58 slides, but ~0 saving on the small fixtures the tests use). Corrected twelve times (§9) — under re-measurement, adversarial review, and the follow-on work; the measurements held every time, the mechanisms did not. The top lever has since shipped in #1677.
+summary: PDF was assumed to be the expensive default for testing and sanity checks. Measured, it is the CHEAPEST browser-backed format Lattice ships — PNG/PPTX/ZIP cost 7–9× the same deck, and every image golden costs 3–12× more bytes than the vector PDF, so switching tests or goldens to images would make the repo slower AND larger. The PDF encoder is 2.3% of a small render and 15% of a large one; the cost is the browser round-trip. THE LARGEST SINGLE COST IS mmdc, which boots its own Chrome ONCE PER DIAGRAM — 40.7s of a 44.3s render on the 14-fence diagram gallery. Second is a `networkidle0` wait costing ~1.7s per navigation that pins at ~2.0s regardless of deck size; its cause is UNIDENTIFIED (the first two explanations, font work and the settleFonts cap, were both refuted by experiment), but the render's font correctness rests on an explicit force-load after every navigation, not on the wait — `waitUntil: 'load'` HAS SINCE SHIPPED, worth 0.66-0.80s per navigation (31-59% of a deck's render, -24% across all 277 shipped decks) with zero page-count, clipped-page or auto-split change across the corpus. The real PDF cost is storage, not time: 351 tracked PDFs are 67.5% of the tree and 65.3% of the last 20 commits' new bytes, because one cross-cutting CSS commit re-blesses up to 150 goldens that are not byte-reproducible — which makes MAKING THEM REPRODUCIBLE dominate 'stop committing them'. Also fixed here: `deck.md out.html` wrote PDF bytes into a `.html` file; `.html` is now a first-class output format, a real browser render minus the PDF encode (6.77s vs 8.24s on 58 slides, but ~0 saving on the small fixtures the tests use). Corrected eighteen times (§9) — under re-measurement, adversarial review, and the follow-on work; the measurements held every time, the mechanisms did not. The top lever has since shipped in #1677.
 ---
 
 # PDF vs HTML vs image — what each format actually costs
@@ -20,7 +20,7 @@ render are `mmdc` booting its own Chrome **once per diagram** (§2b) and a
 `networkidle0` wait that ignores deck size (§2a); the biggest cost *overall* is
 not time at all but the 150 MB of committed goldens (§5).
 
-> **This document has been corrected repeatedly — twelve entries in §9, from
+> **This document has been corrected repeatedly — eighteen entries in §9, from
 > re-measurement, from adversarial review, and from the work it prompted.** Two
 > mechanisms it originally asserted were refuted by experiment, one lever was
 > under-sized by 14×, and a third cause of golden churn was missed entirely.
@@ -211,6 +211,27 @@ page's script, and reproducible on demand. Naming it is the first task of any
 work on this lever — not because the fix depends on it, but because the last two
 guesses were both wrong and the third should be measured before it is written
 down.
+
+**UPDATE (L2 shipped).** Two things above are now corrected by end-to-end
+measurement; see §9 rows 15 and 16.
+
+- **One context reproduces the slow arm perfectly; the others do not, and a first
+  attempt to state that as a clean three-way rule DID NOT REPLICATE** (§9 row 16 —
+  and note that it was corrected the same way everything else in this document has
+  been, by someone re-running it). What holds under re-measurement at n=10, twice,
+  by two independent runs: a **fresh page in an already-warm browser** hits the arm
+  **10/10, pinned at exactly 2,002 ms**. A **reused page** does not (0/10). A
+  **fresh browser's first page** is where the first reading was wrong: recorded as
+  0/6, re-measured at **7/10 on one document and 1/10 on another** — it hits the arm
+  sometimes, document-dependently, and nobody knows why. **The cause remains
+  unidentified**, and the honest statement is a partial condition, not a rule.
+- **So "~1.7s per navigation" was too high for the shipped path — but do not take
+  the new number from the context argument either.** Take it from the end-to-end
+  measurement, which needs no mechanism to be valid: through the real CLI
+  (`npm run bench -- --cli`, 3 iterations), the saving is **0.66-0.80 s per
+  navigation**, consistent across decks driving 1, 3 and 4 navigations. Because the
+  CLI's first navigation does sometimes pay the 2,002 ms arm, the true saving is if
+  anything a little larger than that on some runs.
 
 ### 2a-bis. Why the fix is nonetheless cheap — the wait is not what protects #894
 
@@ -484,7 +505,7 @@ divided by a factor that was never measured.
 |---|---|---|---|
 | ~~L0~~ | ~~**Make the exported PDF byte-reproducible**~~ — **DONE.** Pinning `/CreationDate` + `/ModDate` was the entire job; font-subset ordering never churned (§9 row 13) | A no-op re-bless of an unchanged deck now adds **zero** bytes to git, where it used to add the full file. Same-machine only: `golden-diff.mjs` still rasterizes, because a golden blessed on another host still differs (§9 row 13) | Landed. Smaller than written up here: one pure kernel + two write sites, no goldens touched |
 | ~~L1~~ | ~~**Batch or memoize `mmdc`**~~ — **DONE, #1677.** One invocation per deck | Was ~2.9s × diagram count (40.7s of a 44.3s render). Now `1.86s + 1.09s × N`; corpus 454.5s → 245.5s, **−46%** | Landed. Memoization was measured and *dropped*: 118 fences, 111 distinct — 7 redundant renders, not worth a cache |
-| **L2** | **Try `waitUntil: 'load'`** on the three `page.goto` calls, keeping the existing explicit force-load | **~1.7s per navigation**, 1–3 navigations per render, hit on most but not all runs (§2a) | Lower than first stated — the render's font correctness rests on the explicit force-load at `:2421`, not on `waitUntil` (§2a-bis). Test against the overflow corpus |
+| ~~L2~~ | ~~**Try `waitUntil: 'load'`** on the three `page.goto` calls, keeping the existing explicit force-load~~ — **DONE.** | **0.66-0.80 s per navigation** measured end to end (not the ~1.7s written here first — §9 row 15). Per deck: 1 nav 2.14→1.48 s (−31%), 3 nav 4.09→1.80 s (−56%), 4 nav 5.48→2.27 s (−59%). **The −31% row is the typical one**: 265 of 277 shipped decks drive exactly one navigation, 10 drive two, 2 drive three — so the 56-59% figures describe ~4% of the corpus. Whole corpus: 299.4→226.4 s (**−24%**) | Landed. Safety was the whole job and it came out clean: **0 page-count, 0 clipped-page and 0 auto-split differences across all 277 decks**. `load` was never the weaker wait — it waits for `<img>`, CSS `background-image`, `<link>` stylesheets and webfonts (measured against delayed responses), and no request starts after `load` on any real sidecar |
 | **L3** | **Audit integration assertions for layout-dependence.** Several render a whole browser to assert a string fact — `deck-class-fm`, `deck-mode-fm`, `deck-logo` say so in their own headers | 100% of those renders, not 1.8%. The root is that the emulator's front-matter post-process is a second implementation of the shared kernel — converge it (HARD RULE #1) and the assertions become unit tests | Per-assertion work; **only a minority qualify** (see the non-lever below) |
 | **L4** | **Stop committing 351 golden PDFs** | ~150 MB tracked, 65% of history growth | **Only if L0 is impossible.** As written it trades the visual-review gate for disk: `golden-diff.mjs` needs the before-PDFs in the tree, and HARD RULE #9 requires a committed `.pdf` per feature deck |
 | L5 | **Amortize per-spawn boot** — batch/daemon render instead of cold `spawnSync` per test | ~0.3–0.9s per spawn | Low, but new machinery. Deduplicating redundant re-renders is likely the bigger and safer win — one fixture is rendered 6× in a single file (`test/helpers/render.js` header) |
@@ -524,9 +545,12 @@ divided by a factor that was never measured.
   document never measured by how much. One run with `--test-concurrency=1`
   beside a normal run would give it directly, and every per-render lever should
   be divided by it.
-- **The hit rate of the slow arm** of the bimodal `networkidle0` wait. L2's size
-  turns on it, and "hit often but not always" is the one unquantified number in
-  a document whose premise is "numbers first".
+- ~~**The hit rate of the slow arm**~~ — **MEASURED** when L2 shipped, and it is
+  a hit rate *per context*, not per run: a fresh page in a warm browser hits it
+  **6/6 at exactly 2,002 ms**, a reused page **0/6**, a fresh browser's first
+  page **0/6**. The CLI only ever does the last two, so the shipped path never
+  pays the 2,002 ms arm — which is why L2's real size is 0.66-0.80 s per
+  navigation, not ~1.7s (§9 rows 15-16).
 - **What actually causes the 2,003 ms pin** (§2a). Two candidate mechanisms were
   refuted; the third has not been found.
 - **How many of the renders are distinct inputs** versus redundant re-renders of
@@ -536,9 +560,31 @@ divided by a factor that was never measured.
   constant.
 - **The nightly tiers** (`test:integration:nightly`, `perf-nightly`,
   `studio-e2e-nightly`) were not timed as tiers.
-- **Whether L2 is safe.** The ~1.7s is real and reproducible; that the overflow
-  corpus stays clean under `waitUntil: 'load'` is a hypothesis until it is run.
-  Marked **UNVERIFIED**.
+- ~~**Whether L2 is safe.**~~ — **VERIFIED, and against the whole corpus rather
+  than the overflow gate alone.** All 277 shipped decks rendered before and
+  after: **0 page-count differences, 0 clipped-page differences, 0 auto-split
+  differences.** Eleven decks differ in PDF bytes and a same-code control
+  reproduces exactly the same eleven, so that channel is pre-existing
+  nondeterminism, not this change (§9 row 17).
+- ~~**What makes 11 of 277 decks render to different BYTES run to run.**~~ —
+  **IDENTIFIED** (§9 row 17): Chrome's tagged-PDF accessibility node IDs. The
+  remaining open part is smaller and specific — *why the counter starts from a
+  different value*, and whether pinning it is reachable from our side at all.
+  The output is pixel-identical either way, so this is a repo-hygiene question
+  (it erodes L0's byte-reproducibility and is a flake risk for anything that
+  diffs rendered PDFs), not a correctness one.
+- **A latent font-ordering hazard, deliberately not guarded.** The state-chart's
+  in-page `document.fonts.ready.then(drawAll)` feeds measured geometry, and
+  `f.load()` on a face that is still `unloaded` REPLACES `document.fonts.ready` —
+  measured — which would orphan that redraw. It holds today only because deck
+  fonts are `data:` URIs and every face is already `loaded` when the navigation
+  returns (measured across five sidecars: `unloaded=0`, ready not replaced). A
+  theme or `--css` override adding one genuinely remote `@font-face` breaks the
+  invariant. Nobody has built that deck; the invariant is now written beside the
+  force-load rather than left implied.
+- **37 of 74 declared `@font-face` are in `error` state** on a real sidecar, under
+  both waits, swallowed by the force-load's `.catch(() => {})`. Pre-existing and
+  off the path of L2 — logged here rather than chased.
 
 ---
 
@@ -565,6 +611,10 @@ timing signature, and the measurements themselves all held.**
 | 12 | `mmdc` costs "2.9–3.2s per deck with a diagram" (§2b, already corrected once to per-diagram) | Confirmed per-diagram and now **fixed**: #1677 batches a deck's fences into one invocation. Corpus render 454.5s → 245.5s (−46%). The lever table below describes the state *before* that landed | #1677 |
 | 13 | Goldens churn from "font-subset ordering **and** timestamps" (§5, and four comments in `golden-diff.mjs` / `regression-gate.mjs` that had repeated it for months) | **Only the timestamps.** Two renders of `examples/sketch.md` on one machine: 1,502,729 bytes each, **exactly 4 differ**, every one a digit inside `/CreationDate` or `/ModDate`. Font subsets, object order and xref offsets are already stable. Nobody had ever byte-compared two renders; the font-subset half was inherited, not measured. Fixed by pinning two fields — L0 turned out to be a pure kernel and two call sites, not the multi-part job it was scoped as | Building L0 |
 | 14 | Pinning the dates in the written bytes covers every path | **Half the paths.** It covers the Skia-only render, whose dates are in the clear. The four pdf-lib post-passes (`--notes` / `--present` / `--embed-source` / `--raster`) re-save through `PDFDocument.save()`, which defaults to `useObjectStreams: true` and packs the Info dictionary into a **Flate-compressed** object stream — the timestamp is still there, invisible to a byte scan, and because deflate output length tracks its input the FILE LENGTH moved too (`--embed-source`: 2,903 bytes differing, 28,194 vs 28,195). Caught by testing each post-pass instead of assuming the vector result generalized; fixed by pinning at the document level before `save()` as well | Measuring the fix |
+| 15 | L2 is worth **~1.7s per navigation** (§2a, §7) | **0.66-0.80 s per navigation.** The 1.7s came from a probe that opened a FRESH PAGE per sample against a warm browser — the one context that pins `networkidle0` at 2,002 ms. The CLI launches its own browser and re-navigates one page, so it never enters that context. Measured end to end through the real CLI, the three decks that drive 1, 3 and 4 navigations saved 0.66 / 0.76 / 0.80 s each. The lever is still large — 31-59% of a deck's render — just not for the stated reason | Building the CLI bench tier that #19(c) required |
+| 16 | The 2,003 ms arm is a clean three-way **condition**: fresh page in a warm browser 6/6, reused page 0/6, **fresh browser's first page 0/6** (asserted in the first draft of this very row) | **Two legs hold, the third does not — and this is the SIXTH inferred mechanism refuted in this log, written by the person who had just finished reading the other five.** Re-measured at n=10 by two independent runs: warm-browser fresh page **10/10 at 2,002 ms** ✓, reused page **0/10** ✓, fresh browser's first page **7/10 on one document and 1/10 on another** ✗ — not zero, and document-dependent. A *zero rate* is the hardest claim to earn from n=6, and it was the load-bearing step in row 15's argument. Row 15's number survives only because it was measured end to end and never needed the condition. **The cause remains unidentified** | The adversarial trio (HARD RULE #25), re-running it at n=10 |
+| 17 | Renders are byte-reproducible (rows 13-14; and `2026-08-18-golden-corpus-purpose-and-medium.md`: "4 decks of 30 are byte-irreproducible, driven by `classDiagram`, not by mermaid") | **True of the decks that were sampled, not of the corpus — and the mechanism is now MEASURED rather than guessed.** Two same-code runs over all 277 shipped decks differ on **at least 11**; the set is NOT fixed (a third run differs on 9, and `cover-paginate.md` — outside the 11 — reproduces it in 39 bytes). Only 5 of the 11 contain `classDiagram` and four contain no mermaid at all, so `classDiagram` is not the driver. **What it is:** Chrome's tagged-PDF accessibility node IDs. Four states of `muted-tier-and-syntax.md` are all exactly 304,496 B / 8 pages and differ in **26 bytes**, every one a digit inside `/ID (node0000046N)` and the `/Headers [(node0000046N)]` that references it — definitions and references shifting together, and all four rasterizing **pixel-identical**. Page counts, clipped-page sets and split decisions never varied | The corpus sweep for L2, then the adversarial trio isolating the bytes |
+| 18 | L2 (`waitUntil: 'load'`) changes nothing about what is exported — "0 page-count, 0 clipped-page, 0 auto-split differences across 277 decks" | **The corpus was right and the generalization was wrong, twice.** (a) `load` does not wait for `<img loading="lazy">` or `<iframe loading="lazy">`, which Chromium defers past the load event; a deck can carry raw HTML (`html: true`), and a lazy remote image rendered under `load` was **absent from the PDF entirely** — `pdfimages -list` showing the object under `networkidle0` and no image objects at all under `load`, exit 0, no warning. The corpus could not see it: it contains **zero** raw `<img>`, remote assets, `<iframe>`, `<video>` or `url()`. Fixed in the same change by promoting deferred media to eager and awaiting decode after each navigation. (b) The change **widens** row 17's AX-node churn — `muted-tier-and-syntax.md` goes from 2 distinct byte states to 4 under 24-way contention, HTML sidecar and raster identical. Disclosed, not fixed: it is Chrome's counter, and the output is pixel-identical | The adversarial trio, attacking a class the corpus does not contain |
 
 The red team's findings were defects in the shipping code rather than in this
 document — the `--strip-notes` sidecar leak, the `.HTML` case mismatch, the

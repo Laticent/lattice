@@ -10,8 +10,11 @@ summary: >
   inability — reports 122 galleries green while `quote.gallery.light` alone carries
   17,044 drifted pixels across 7 of 9 slides. Measured cost findings that hold:
   `waitUntil: networkidle0` is 82% of a render's fixed per-deck cost and swapping it
-  to `load` changes no pixels; cost is per-DECK (~2s) not per-slide (~5-20ms); 4 decks
-  of 30 are byte-irreproducible, driven by `classDiagram`, not by mermaid. A text
+  to `load` changes no pixels (SHIPPED; end-to-end saving 0.66-0.80s per navigation,
+  0 page-count/clipped/split change across all 277 decks); cost is per-DECK (~2s) not
+  per-slide (~5-20ms); 4 decks of 30 are byte-irreproducible — **corrected: at least 11
+  of 277, the set is not stable, and the driver is not `classDiagram` but Chrome's
+  tagged-PDF accessibility node IDs**. A text
   snapshot of composition is a genuinely useful ADDITION with five measured blind
   spots, but it cannot replace the pixel goldens — deleting those would make
   `golden-diff` post a permanent false green and break 61 component doc links.
@@ -321,11 +324,27 @@ independent choices; the first draft coupled them.
    already models. **This is the whole fix for §2**, it fixes #1730's leak, and it
    needs no new artifact class. If exactly one thing ships from this note, it is this.
 2. **Re-bless the corpus once**, on that cadence's first red, so `main` is clean.
-3. **`waitUntil: 'load'`.** The best-evidenced move here. Still requires export
-   sign-off per the QUALITY BAR, and must also update the two in-code comments at
-   `lattice-emulator.js:2254,2291` that assert `networkidle0` coverage, and keep
-   `check-geometry-parity.js:160` in step.
-4. **Fix `classDiagram` reproducibility** (4 decks) or accept it.
+3. ~~**`waitUntil: 'load'`.**~~ **SHIPPED.** All three items in this line were
+   carried out: the two in-code comments were corrected (and a third, which
+   claimed `measureOverflow()` force-loads fonts via `lib/core/font-settle.js` —
+   it does not; the force-load is in its callers and deliberately off the shared
+   helper), and `check-geometry-parity.js` was moved in step. One thing this note did
+   NOT anticipate: `load` does not wait for `loading="lazy"` media, which Chromium
+   defers past the load event, so a deck carrying raw `<img loading="lazy">` exported
+   without the image entirely — found by the adversarial trio, fixed in the same change
+   by promoting deferred media to eager and awaiting decode. Sized end to end
+   at **0.66-0.80 s per navigation**,
+   not the ~1.7s the cost assessment first recorded — see its §9 rows 15-16 for
+   why the earlier probe read high. Verified across all **277** shipped decks:
+   0 page-count, 0 clipped-page and 0 auto-split differences.
+4. **Fix byte-irreproducibility** — and the `classDiagram` diagnosis is **the wrong
+   target**. Measured across all 277 shipped decks rather than 30, **at least 11**
+   render to different bytes on two same-code runs (the set is not stable — a third
+   run differs on 9, and `cover-paginate.md`, outside the 11, reproduces it too).
+   Only 5 of the 11 contain `classDiagram`; four contain no mermaid at all. The
+   actual mechanism is **Chrome's tagged-PDF accessibility node IDs** — 26 bytes,
+   all inside `/ID (node…)` and its `/Headers` references, rasterizing
+   pixel-identical. See `2026-08-16-render-format-cost-assessment.md` §9 row 17.
 5. **Build the snapshot as an ADDITION**, extending `test/integration/invariants/` —
    after fixing print media, and after running the cross-host experiment §5 flags.
 6. **Delete nothing** until both have run side by side long enough to answer: did the
