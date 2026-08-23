@@ -261,6 +261,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
+| `contrast:palette-native` | **TODO: describe `contrast:palette-native` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks, then generate the built-not-committed artifacts — this is what makes a fresh clone and a git-URL install work. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -317,6 +318,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
 | `tools/measure-glyph-advances.js` | Re-measure the per-glyph advance table `GLYPH_UPPER` against the shipped |
 | `tools/mutate-guide-gestures.mjs` | mutate-guide-gestures — break what each test NAMES, and watch it go red. |
+| `tools/palette-sweep.js` | palette-sweep — the rendered-DOM contrast probe, over EVERY shipped palette. |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |
 | `tools/sweep-guide-gestures.mjs` | sweep-guide-gestures — what does the Guide vocabulary ACTUALLY do to our decks? |
@@ -405,6 +407,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |
 | `tools/component-gen-eval.mjs` | AI component-generation evaluator — runs the FROZEN, held-out adversarial prompt |
 | `tools/composed-contrast.js` | composed-contrast — WCAG audit of the surfaces a COMPONENT composes, not the |
+| `tools/contrast-exemptions.js` | The adjudicated decorative-exemption ledger, shared by every rendered-DOM contrast gate. |
 | `tools/cvd-audit.js` | Colour-vision-deficiency (CVD) collapse audit for Lattice themes. |
 | `tools/derive-cat-ink.js` | Generate the curated `--cat-1-ink … --cat-12-ink` block for every palette. |
 | `tools/derive-chart-cat-ink.js` | Generate the curated `--chart-cat1-ink … --chart-cat8-ink` block for every |
@@ -416,6 +419,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
+| `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |

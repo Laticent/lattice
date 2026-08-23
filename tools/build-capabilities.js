@@ -284,6 +284,7 @@ const TOOL_GROUP = {
   'check-chart-responsiveness.js': 'Check / gate', 'check-svg-scaling.js': 'Check / gate', 'affected-tests.js': 'Check / gate',
   // Lint/audit
   'lint-deck.js': 'Lint / audit', 'contrast-audit.js': 'Lint / audit', 'theme-scorecard.js': 'Lint / audit',
+  'palette-sweep.js': 'Lint / audit',
   'pixel-check.js': 'Lint / audit', 'sweep-guide-gestures.mjs': 'Lint / audit', 'mutate-guide-gestures.mjs': 'Lint / audit', 'check-shadcn-bridge-contrast.js': 'Lint / audit',
   'measure-glyph-advances.js': 'Lint / audit', 'quality-assessment.js': 'Lint / audit', 'change-coupling.js': 'Lint / audit', 'complexity-report.js': 'Lint / audit',
   // Render/visual

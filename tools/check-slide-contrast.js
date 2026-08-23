@@ -545,7 +545,13 @@ const PROBE = () => {
       // initial `fill: rgb(0,0,0)`, so reading fill without excluding them invents
       // failures — a <desc> on a dark canvas scored 1.22:1 for ink that does not
       // exist. (This is the false-positive class the `fill` fix itself introduced.)
-      const SVG_NON_RENDERING = new Set(['desc', 'title', 'metadata']);
+      // `style` and `script` are here for the same reason as desc/title/metadata: they carry
+      // TEXT that never paints. Chrome does not report `display:none` for an SVG-scoped
+      // <style>, so its CSS source was walked as a visible run and scored — a Mermaid
+      // diagram's own stylesheet showed up as a 1.17:1 offender reading
+      // "#lattice-mmd-1{font-family:'Outfit'…". Found by the palette sweep, which scores
+      // every palette and so surfaced it on the ones where the ratio happened to fail.
+      const SVG_NON_RENDERING = new Set(['desc', 'title', 'metadata', 'style', 'script']);
       const inSvg = typeof el.ownerSVGElement !== 'undefined' && el.ownerSVGElement !== null;
       if (inSvg && SVG_NON_RENDERING.has(el.tagName.toLowerCase())) continue;
       let fg = null;

@@ -228,6 +228,19 @@ const PAIRS = [
   ['text-body',      'accent-soft', 'slide: body prose on accent-soft (key-insight / split-compare verdict / converge)'],
   ['accent',         'accent-soft', 'slide: accent ink on accent-soft (verdict-grid / pricing / glossary / compare-prose winner)'],
   ['on-accent',    'accent',     'slide: on-accent on accent'],
+  // --accent AS INK ON THE TWO PLAIN CANVASES. It was scored on `accent-soft`, and scored
+  // as a BACKDROP under `--on-accent` — but never as the foreground it most often is. This
+  // engine inks a lot of small text with it: the glossary term, the stats figure, every
+  // decimal-leading-zero list counter (`list`, `list-tabular`, `list-criteria`,
+  // `inventory`, `q-and-a`, `math`, `list principles`, `regulatory-update`), `big-number`,
+  // the `cards-grid` / `compare-table` bullet stars, `cycle`'s chevrons, `timeline-list`,
+  // `split-compare`. Measured on the rendered gallery, ONE palette's `--accent` accounts
+  // for 79 sub-threshold runs across fourteen component classes — 4.35:1 on the canvas and
+  // 3.89:1 on the card — while every analytic gate reported that palette clean, because no
+  // row asked this question. Same shape as the `--text-muted` hole (#1768): a role that is
+  // obviously ink, asserted nowhere.
+  ['accent', 'bg',     'slide: accent ink on canvas (glossary term / stats figure / list counters / big-number)'],
+  ['accent', 'bg-alt', 'slide: accent ink on card'],
   ['bg',           'fail',       'slide: bg on fail (error chip)'],
 
   // ── Mermaid / chart categorical node fills — NOT re-audited here ──────
@@ -381,7 +394,12 @@ function auditTheme(theme) {
   return { theme, fails, missing, checks, isDark };
 }
 
-module.exports = { auditTheme, listAllThemes, PAIRS };
+// `paletteChainCss` + `parsePaletteVars` are exported for tools/palette-sweep.js, which
+// needs BOTH: the flattened chain to inject into a rendered page, and the static
+// resolution of the same chain to check the browser against. Exported rather than
+// copied — a second @import flattener that drifted from this one would give the sweep
+// a different palette than every analytic gate scores (HARD RULE #15).
+module.exports = { auditTheme, listAllThemes, PAIRS, paletteChainCss, parsePaletteVars };
 
 // ── CLI runner ──────────────────────────────────────────────────────────────
 

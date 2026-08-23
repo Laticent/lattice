@@ -292,9 +292,17 @@ section.journey .journey-mood-key-swatch {
   border-radius: 0.3cqi;
   background: var(--mood-color);
 }
+/* The ramp's numeric keys (1-5). NO `opacity`, for the same reason the PAIN / DELIGHT
+ * labels above carry none — and this rule is why measuring ONE palette family is not
+ * measuring. When the wash came off those labels, this one kept `opacity: 0.85` over the
+ * same inherited `--text-secondary`, and the gate stayed green because it only ever
+ * rendered `indaco`, where the pair lands at 4.72:1 and passes. Across the full palette
+ * matrix it does not: 35 sub-threshold runs on seven palettes, worst 3.72:1, with
+ * `concrete` at 4.10:1 and `atelier` at 4.34:1. `--text-secondary` on both plain canvases
+ * is already held to 4.5 for all 32 palettes (tools/contrast-audit.js), so removing the
+ * wash — rather than re-tuning anything — is what makes these numerals clear it too. */
 section.journey .journey-mood-key-label {
   font-size: var(--fs-body-compact);
-  opacity: 0.85;
 }
 section.journey .journey-mood-key[data-mood="5"] { --mood-color: var(--journey-mood-5); }
 section.journey .journey-mood-key[data-mood="4"] { --mood-color: var(--journey-mood-4); }

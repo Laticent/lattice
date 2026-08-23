@@ -138,7 +138,11 @@ describe('bless-palette-baselines · the table parser', () => {
     // The real proof the strict parser did not break the tool: a dry run over the
     // shipped tables reports every entry, and blessing them is a no-op.
     const out = execFileSync(process.execPath, [TOOL, '--dry-run'], { encoding: 'utf8' });
-    assert.match(out, /110 entries/, 'the contrast table still parses in full');
+    // 108, down from 110: deepening `mustard`'s `--accent` for AA cleared both
+    // `policy-recommendation/default-badge` rows, and `composed-contrast.js` FAILS on a
+    // stale entry — a frozen pair that now passes has to be deleted, not left to rot. This
+    // number tracks the size of that shrinking baseline and is expected to keep falling.
+    assert.match(out, /108 entries/, 'the contrast table still parses in full');
     assert.match(out, /576 entries/, 'the CVD table still parses in full');
     assert.match(out, /0 ratcheted up · 0 new · 0 dropped/, 'blessing the committed tree is a no-op');
   });
