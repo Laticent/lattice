@@ -9,41 +9,44 @@
  * thirty of the thirty-two shipped palettes had never been measured that way on any deck.
  *
  * The selection effect that hid this is worth stating plainly, because it is the reason a
- * palette-wide defect could sit in `main` indefinitely: measured across all 32, the gated
- * palette scores 5 sub-threshold runs and SIXTEEN palettes score worse. The one palette
- * anybody looks at is very nearly the best one.
+ * palette-wide defect could sit in `main` indefinitely: the one palette anybody looks at is
+ * very nearly the best one. Two defects this file found on its first honest run, both
+ * invisible to every existing gate:
+ *
+ *   · `mustard`'s `--accent` was ink on both plain canvases at 4.35:1 and 3.89:1 — 79
+ *     sub-threshold runs across fourteen component classes. No analytic gate scored
+ *     `--accent` AS INK on `--bg` / `--bg-alt`; the row exists now.
+ *   · the `journey` mood legend's numeric keys carried an `opacity: 0.85` wash over
+ *     `--text-secondary` — 35 runs on seven palettes, worst 3.72:1. The labels DIRECTLY
+ *     ABOVE them in the same file had that exact wash removed for that exact reason; this
+ *     rule kept it and stayed green, because `indaco` lands at 4.72:1 and passes.
  *
  * WHY IT IS AFFORDABLE. The palette is not the expensive part of a render. Parsing the
  * markdown, rendering Mermaid, running KaTeX and laying out 117 slides produce the same DOM
  * whatever the colors are; only paint changes. `tools/palette-sweep.js` renders ONCE and
- * re-themes in place. Measured on this suite's own box: ~15 s for the render and ~80 s
- * for all 32 probes, against ~19 minutes to re-render the matrix. See that tool's header
- * for the two mechanisms that keep it honest (per-channel baked-paint detection, and the
- * oracle check below).
+ * re-themes in place: ~15 s for the render and ~2 min for all 32 palettes, against ~7
+ * minutes to re-render the matrix natively.
  *
- * WHAT THIS FILE ASSERTS, read literally. Not "every palette clears AA" — three of the four
- * assertions below are integrity checks on the measurement itself, and the fourth is an
- * exceed-only CEILING seeded at measured truth. A ratchet, not a bar: today's counts are
- * recorded so they can only fall, and a palette that regresses fails immediately. Seeding
- * at zero would have meant blocking on a re-tune of `mustard` — 95 runs across eight
- * component classes, 90 of them in the 3.5-4.5 band, i.e. runs that clear WCAG's large-text
- * allowance and fail the flat 4.5 floor this repo deliberately holds instead (see PROBE's
- * `AA` note and 2026-08-18-contrast-floor-deck-scale.md). That re-tune is a palette change
- * with its own blast radius and does not belong in the change that first measured it
- * (HARD RULE #18's pre-existing / off-path arm). The number is in the table below, in the
- * open, and it can only go down.
+ * WHY THE FAST PATH CAN BE TRUSTED, WHICH IS A SEPARATE QUESTION FROM WHETHER IT IS FAST.
+ * The sweep's first version APPENDED its stylesheet to `<head>` instead of replacing the
+ * palette in place. The export shell puts the palette FIRST and `dist/lattice.css` after,
+ * so appending inverted the cascade for 30 of 126 tokens and produced confident numbers
+ * that were wrong in BOTH directions — `onyx` 3 where the truth is 5 (two real `redline`
+ * runs missed), `atelier` 19 where the truth is 16 (three invented). No gate could tell; a
+ * human reading the diff caught it. So the assumption now has two guards: this file's
+ * oracle check, and `tools/palette-native.js`, which re-renders all 32 for real on the
+ * nightly and fails if the two disagree. The sweep has been reconciled against a native
+ * render of every palette, and agrees on 32 of 32.
  *
  * WHAT IT STILL DOES NOT COVER:
  *   · ONE deck (`gallery.md`) and ONE viewport (1280x720) — the palette axis is what this
  *     file buys; the surface axis is still `slide-contrast.test.js`'s three.
- *   · Runs whose ink or ground never moved across the sweep are DROPPED, because a stale
- *     ink scored against a live ground describes no rendered pixel. That is Mermaid's baked
- *     label paint, and it is covered analytically over all 32 palettes by
- *     `diagram-ink-contrast` / `diagram-nontext-contrast` / `checkCatContrast`. The count is
- *     asserted below so the coverage given up is pinned rather than silent.
- *   · The exclusion ledgers in `slide-contrast.test.js` (decorative watermark, raster
- *     backdrop) are NOT re-litigated here; those runs fail on every palette and so sit
- *     inside every ceiling below.
+ *   · Runs painted by a stylesheet a third-party renderer ships INSIDE its own `<svg>` are
+ *     dropped, because no palette swap can move them: Mermaid resolves its stylesheet
+ *     against whatever palette was in force at RENDER time. They are not unmeasurable, only
+ *     unmeasurable by swapping — `tools/palette-native.js` scores them on the nightly.
+ *   · The decorative exclusions are NOT re-litigated here. They are the same adjudications
+ *     `slide-contrast.test.js` made, imported from the module both gates share.
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -55,63 +58,93 @@ const puppeteer = require('puppeteer');
 
 const { ROOT, runEmulator } = require('../../helpers/render');
 const { sweep, offenders, listSweepThemes } = require('../../../tools/palette-sweep.js');
+const { SANCTIONED_CONTRAST_EXEMPTIONS } = require('../../../tools/contrast-exemptions.js');
 
 const DECK = path.join(ROOT, 'test/integration/baseline-decks/gallery.md');
 
 /**
- * Exceed-only ceilings, seeded at the measured truth of `gallery.md` at 1280x720.
+ * Exceed-only ceilings, measured on `gallery.md` at 1280x720 AFTER the shared decorative
+ * exemptions apply.
  *
  * A number here is a debt, not a budget: lowering one is always correct and never needs
- * this comment updated. `mustard` is the outlier and the reason this landed as a ratchet —
- * its 95 are spread across glossary / list-tabular / list / journey / stats / list-criteria
- * / timeline-list, which is a palette-wide ink tuning question rather than any component's
- * bug.
+ * this comment updated. What remains is ONE population, and naming it is the point —
+ * every row below is status or accent ink sitting on a tint OF ITSELF:
+ *
+ *   · `redline`'s `<ins>` / `<del>` on `--pass-bg` / `--fail-bg` (82 runs, 19 palettes)
+ *   · the inline-code chip inside a `kanban` card, dark mode only (28 runs, 5 palettes)
+ *   · `policy-recommendation`'s adopt badge (2 runs) and one `kpi target` row
+ *
+ * The background MOVES WITH THE INK, so re-tuning a hue gains nothing on its own and
+ * lowering the tint alone plateaus — measured across all 32 palettes, dropping the tint
+ * from 12% to 3% clears roughly a third and stalls. Clearing the rest means re-curating
+ * the status trios across the fifteen palettes that self-curate them, which is a palette
+ * change with its own blast radius and its own visual sign-off, and is already tracked as
+ * its own slice (#1698). It does not belong in the change that first measured it — HARD
+ * RULE #18's pre-existing / off-path arm. `tools/composed-contrast.js` holds the same
+ * population analytically, at 108 frozen pairs.
+ *
+ * `indaco` is at zero. It is the only one, and that is the whole argument for this file.
  */
 const CEILING = {
-  'a11y-achromatopsia': 3,
-  'a11y-base': 3,
-  'a11y-deuteranopia': 3,
-  'a11y-protanopia': 3,
-  'a11y-tritanopia': 5,
-  ardesia: 5,
-  'ardesia-dark': 5,
-  atelier: 19,
-  'atelier-dark': 5,
-  brina: 11,
-  'brina-dark': 5,
-  burgundy: 9,
-  'burgundy-dark': 8,
-  carbone: 7,
-  carta: 5,
-  'carta-dark': 5,
-  concrete: 14,
-  'concrete-dark': 10,
-  crepuscolo: 7,
-  'crepuscolo-dark': 10,
-  cuoio: 10,
-  'cuoio-dark': 8,
-  indaco: 5,
-  'indaco-dark': 5,
-  laguna: 10,
-  'laguna-dark': 10,
-  magnolia: 14,
-  'magnolia-dark': 5,
-  mustard: 95,
-  'mustard-dark': 10,
-  onyx: 3,
-  'onyx-dark': 3,
+  'a11y-achromatopsia': 2,
+  'a11y-base': 2,
+  'a11y-deuteranopia': 2,
+  'a11y-protanopia': 2,
+  'a11y-tritanopia': 2,
+  ardesia: 2,
+  'ardesia-dark': 3,
+  atelier: 6,
+  'atelier-dark': 2,
+  brina: 3,
+  'brina-dark': 3,
+  burgundy: 2,
+  'burgundy-dark': 7,
+  carbone: 5,
+  carta: 2,
+  'carta-dark': 2,
+  concrete: 9,
+  'concrete-dark': 7,
+  crepuscolo: 2,
+  'crepuscolo-dark': 7,
+  cuoio: 2,
+  'cuoio-dark': 5,
+  indaco: 0,
+  'indaco-dark': 2,
+  laguna: 2,
+  'laguna-dark': 7,
+  magnolia: 4,
+  'magnolia-dark': 2,
+  mustard: 6,
+  'mustard-dark': 7,
+  onyx: 2,
+  'onyx-dark': 2,
 };
 
 /**
- * Runs dropped from the per-palette scores. Pinned so the coverage given up stays visible.
+ * Runs dropped from the per-palette scores, pinned so the coverage given up stays visible.
  *
- * Two reasons a run lands here, and they are different: ELEVEN because a channel never
- * followed the swap (Mermaid's baked paint), and SIX because their `runKey` is ambiguous —
- * `page|tag|class|text` is not unique, and a component may legitimately repeat the same text
- * in the same tag on one slide. See the tool's `ambiguous` block for why dropping those is
- * strictly conservative.
+ * FIVE because a third-party stylesheet inside an `<svg>` paints one of their channels —
+ * Mermaid's baked edge-label pills — and SIX because their `runKey` (`page|tag|class|text`)
+ * is not unique and the colliding members paint differently, so a per-key verdict describes
+ * neither of them.
+ *
+ * Pinned BOTH ways. A jump means new un-swappable paint shipped. A drop toward zero means
+ * the detection broke and stale ink is being scored as if it followed the swap — which is
+ * not hypothetical: the rule this replaced identified third-party paint by INVARIANCE ("a
+ * channel that never changed must be baked"), and that cannot distinguish Mermaid's pill
+ * from a hardcoded hex in our own CSS. It dropped 17 runs, six more than provenance does,
+ * and the six it over-dropped were ours to score.
  */
-const UNSWEPT_RUNS = 17;
+const UNSWEPT_RUNS = 11;
+const FOREIGN_RUNS = 5;
+const AMBIGUOUS_RUNS = 6;
+
+/**
+ * The `<svg>`-scoped stylesheets provenance detection keys on. Zero would mean the
+ * detection silently found nothing to disable — at which point every "clean" verdict below
+ * is the same measurement repeated, so it is pinned rather than assumed.
+ */
+const FOREIGN_SHEETS = 3;
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -123,6 +156,12 @@ function resolveChrome() {
     }
   }
   return undefined;
+}
+
+/** Sub-threshold runs this tier simulates, minus the adjudications both gates share. */
+function scored(rows, unswept) {
+  return offenders(rows, unswept)
+    .filter((r) => !SANCTIONED_CONTRAST_EXEMPTIONS.some((e) => e.match(r)));
 }
 
 describe('palette sweep — the rendered gallery, across every shipped palette', () => {
@@ -173,15 +212,15 @@ describe('palette sweep — the rendered gallery, across every shipped palette',
    * that exist in no build — `mustard` and `a11y-base`, unrelated palettes, produced
    * byte-identical offender breakdowns, which is the only reason it was caught.
    *
-   * So every palette is now checked against the static resolver every ANALYTIC gate uses:
-   * the browser's resolved `--bg` and `--text-body` must equal what `contrast-audit.js`
-   * says that palette declares. Two independent paths to the same answer.
+   * So every palette is checked against the static resolver every ANALYTIC gate uses: the
+   * browser's resolved `--bg` and `--text-body` must equal what `contrast-audit.js` says
+   * that palette declares. Two independent paths to the same answer.
    */
   test('every palette fully applied — browser agrees with the static resolver', () => {
     const bad = result.palettes.filter((p) => !p.applied).map(
       (p) => `${p.theme}: painted ${p.paint.bg} / ${p.paint.ink}, declared ${p.expected.bg} / ${p.expected.ink}`,
     );
-    assert.deepEqual(bad, [], `palettes whose injected stylesheet did not fully apply:\n  ${bad.join('\n  ')}`);
+    assert.deepEqual(bad, [], `palettes whose swapped stylesheet did not fully apply:\n  ${bad.join('\n  ')}`);
   });
 
   /** A matrix that collapses to one painted canvas measured one palette 32 times. */
@@ -191,14 +230,25 @@ describe('palette sweep — the rendered gallery, across every shipped palette',
   });
 
   /**
-   * Baked paint is dropped rather than mis-scored (see the tool's header). Pinned BOTH
-   * ways: a jump means new un-swappable paint shipped, and a drop to zero means the
-   * detection broke and stale ink is being scored as if it followed the swap.
+   * Provenance detection is live. It works by DISABLING the stylesheets a third-party
+   * renderer ships inside its own `<svg>` and re-probing; if it finds none to disable, it
+   * silently classifies nothing as foreign and every baked run gets scored with a stale
+   * channel. This deck renders Mermaid, so the count is known and pinned.
    */
-  test(`exactly ${UNSWEPT_RUNS} runs are dropped for not following the swap`, () => {
+  test(`provenance detection found the ${FOREIGN_SHEETS} svg-scoped stylesheets it keys on`, () => {
+    assert.equal(result.foreignSheets, FOREIGN_SHEETS,
+      `svg-scoped stylesheets moved from ${FOREIGN_SHEETS} to ${result.foreignSheets} — `
+      + 'either the renderer changed shape, or the detection stopped finding them');
+  });
+
+  /** The drop set, pinned both ways and split by reason — see UNSWEPT_RUNS. */
+  test(`exactly ${UNSWEPT_RUNS} runs are dropped (${FOREIGN_RUNS} foreign, ${AMBIGUOUS_RUNS} ambiguous)`, () => {
+    assert.equal(result.foreign.size, FOREIGN_RUNS,
+      `runs dropped as third-party-painted moved from ${FOREIGN_RUNS} to ${result.foreign.size}`);
+    assert.equal(result.ambiguous.size, AMBIGUOUS_RUNS,
+      `runs dropped for an ambiguous key moved from ${AMBIGUOUS_RUNS} to ${result.ambiguous.size}`);
     assert.equal(result.unswept.size, UNSWEPT_RUNS,
-      `runs dropped as un-swept moved from ${UNSWEPT_RUNS} to ${result.unswept.size} — `
-      + 'either new baked paint shipped, or the per-channel detection changed shape');
+      `total dropped moved from ${UNSWEPT_RUNS} to ${result.unswept.size}`);
   });
 
   /**
@@ -206,8 +256,9 @@ describe('palette sweep — the rendered gallery, across every shipped palette',
    * filter, a renamed row field, a threshold that stopped being attached — would satisfy
    * EVERY ceiling below and this file would report 32 clean palettes. The ceilings are all
    * upper bounds, so nothing else here can tell the difference between "clean" and "not
-   * measuring". Zero is not a plausible reading of this deck: the decorative watermark and
-   * the raster-backdrop runs are sub-threshold on every palette by construction.
+   * measuring". Asserted on the RAW count, before the exemptions, because the exemptions
+   * are themselves a filter that could swallow everything: the decorative watermark and the
+   * pullquote glyph are sub-threshold on every palette by construction.
    */
   test('the offender detection is actually returning rows', () => {
     const totals = result.palettes.map((p) => offenders(p.rows, result.unswept).length);
@@ -228,14 +279,14 @@ describe('palette sweep — the rendered gallery, across every shipped palette',
     const over = [];
     const under = [];
     for (const p of result.palettes) {
-      const n = offenders(p.rows, result.unswept).length;
+      const bad = scored(p.rows, result.unswept);
       const ceiling = CEILING[p.theme];
-      if (n > ceiling) {
-        const worst = offenders(p.rows, result.unswept).sort((a, b) => a.r - b.r).slice(0, 5);
-        over.push(`${p.theme}: ${n} > ${ceiling}\n${worst.map(
+      if (bad.length > ceiling) {
+        const worst = [...bad].sort((a, b) => a.r - b.r).slice(0, 5);
+        over.push(`${p.theme}: ${bad.length} > ${ceiling}\n${worst.map(
           (r) => `        ${r.r}:1 <${r.tag}> ${r.cls || ''} "${String(r.text).slice(0, 56)}"`).join('\n')}`);
-      } else if (n < ceiling) {
-        under.push(`${p.theme}: ${n} (ceiling ${ceiling})`);
+      } else if (bad.length < ceiling) {
+        under.push(`${p.theme}: ${bad.length} (ceiling ${ceiling})`);
       }
     }
     // Progress prints and invites lowering the number, exactly as the sibling gate's

@@ -6,63 +6,81 @@
  * contrast defect this repo has shipped. It is also, structurally, the only tier that can
  * see a CASCADE defect — a token that is correct in the table and still loses to whichever
  * rule actually wins. `slide-contrast.test.js` wires it to CI, and covers `indaco` and
- * `indaco-dark`. Thirty of the thirty-two shipped palettes have never been measured this
+ * `indaco-dark`. Thirty of the thirty-two shipped palettes had never been measured this
  * way, on any deck, ever. Analytic gates cover them — and analytic gates are precisely the
  * layer that certified a 1:1 invisible label as correct (2026-08-19-website-accessibility-gate).
  *
- * WHY IT WAS NOT DONE BEFORE, AND WHY THAT REASONING WAS WRONG. A palette matrix reads as
- * unaffordable: one gallery render is 36 s, so 32 of them is roughly 19 minutes of wall
- * clock for one deck. But the render is not the palette-dependent part. Parsing the
- * markdown, rendering Mermaid, running KaTeX and laying out 117 slides produce the same DOM
- * whatever the colors are; only the PAINT changes. So the document is rendered ONCE and
- * re-themed in place, and the measured cost of a swap plus a full re-probe is
- * 150-270 ms. The matrix is ~45x cheaper than re-rendering, which is the difference between
- * a nightly job nobody runs and a per-PR gate.
+ * WHY IT IS AFFORDABLE. A palette matrix reads as unaffordable: one gallery render is
+ * 11-36 s, so 32 of them is 6-19 minutes of wall clock for one deck. But the render is not
+ * the palette-dependent part. Parsing the markdown, rendering Mermaid, running KaTeX and
+ * laying out 117 slides produce the same DOM whatever the colors are; only the PAINT
+ * changes. So the document is rendered ONCE and re-themed in place. That is fast enough to
+ * gate every PR, which is the difference between a nightly job nobody reads and a merge gate.
  *
- * THE TWO THINGS THAT MAKE THIS HONEST RATHER THAN FAST.
+ * ─────────────────────────────────────────────────────────────────────────────────────
+ * THE THREE THINGS THAT MAKE THIS HONEST RATHER THAN MERELY FAST.
  *
- *   1. BAKED PAINT DOES NOT FOLLOW A STYLESHEET, AND IT POISONS PER-CHANNEL. The exported
- *      gallery carries 6,197 `var()` reads — which re-resolve — and 755 raw hex values
- *      which do not: Mermaid bakes its label ink and node fills at render time. The
- *      dangerous case is not a run where BOTH channels are baked; it is a run where ONE is.
- *      A Mermaid label keeps a stale ink while the canvas behind it follows the swap, so
- *      the ratio scored is a color from palette A against a ground from palette B — a
- *      number that describes no rendered pixel anywhere. Measured: it reported Mermaid
- *      labels at 1.09:1 and 1.17:1 on every dark palette, which is neither a real defect
- *      nor a real pass. So invariance is tracked PER CHANNEL, and a run is dropped from
- *      the per-palette scores if EITHER its ink or its ground never moved across the whole
- *      sweep. Those runs belong to the analytic tier, which covers all 32 palettes at
- *      their own source (`diagram-ink-contrast`, `diagram-nontext-contrast`,
- *      `checkCatContrast`). The count of dropped runs is reported, so the coverage this
- *      sweep gives up is a number on the screen rather than a silence. Detection is
- *      empirical rather than a guess about which selectors are baked, so a legitimately
- *      palette-invariant ink lands in the same bucket — the conservative direction.
+ *   1. THE SWAP REPRODUCES THE SHIPPED CASCADE, BECAUSE IT HAPPENS WHERE THE PALETTE
+ *      ALREADY IS. This tool's first version APPENDED a `<style>` to `<head>`. The export
+ *      shell emits ONE stylesheet in which the palette comes FIRST and `dist/lattice.css`
+ *      follows (`/* @theme <name>` … `/* dist/lattice.css`), so appending inverted that
+ *      order and 30 of 126 tokens resolved from the wrong side. It was wrong in BOTH
+ *      directions and quietly: measured against native renders, `onyx` reported 3 where the
+ *      truth is 5 (it MISSED two `redline` runs at 4.29:1) and `atelier` reported 19 where
+ *      the truth is 16 (three phantom `journey` runs). A gate that invents findings and
+ *      hides real ones is worse than no gate.
  *
- *   2. A SWAP THAT SILENTLY FAILS MUST NOT READ AS A CLEAN PALETTE. If the injected
- *      stylesheet were ignored — a CSP change, a specificity change in the export shell, a
- *      renamed dist path — every palette would probe identically and the sweep would report
- *      32 clean palettes having measured one. So each palette's painted canvas and ink are
- *      recorded as a signature and the DISTINCT COUNT is reported; a caller fails when the
- *      matrix collapses. The first version of this compared each palette against the one
- *      BEFORE it and reported six false alarms, because sibling palettes legitimately paint
- *      the same canvas — the four `a11y-*` variants share a ground by construction. An
- *      adjacent-pair test measures sort order, not repaint. This is the failure mode this
- *      repo has been bitten by twice (a probe returning [] scoring as zero failures, a token
- *      audit reporting 0 fails because every pair was unresolvable), so it fails CLOSED.
+ *      So the palette region is REPLACED IN PLACE — the span between the two markers above
+ *      is overwritten and everything around it is left alone. The swapped palette then
+ *      occupies the exact byte range, and therefore the exact cascade position, that the
+ *      shipped palette did. Verified against native renders: `onyx` 5, `atelier` 16,
+ *      `mustard` 95, all three matching to the row.
  *
- * CSP. `page.addStyleTag()` is blocked by the export shell's Content-Security-Policy —
- * measured, it throws "Could not load style". The stylesheet is therefore built from inside
- * the page with `page.evaluate`, the same idiom `axe-a11y.test.js` uses to get the axe
- * bundle past the player's CSP.
+ *      This is a TEXTUAL assumption about the export shell, so it fails LOUDLY rather than
+ *      falling back: exactly one stylesheet must carry both markers, in order. If the shell
+ *      ever stops emitting them the sweep stops, instead of silently measuring fiction the
+ *      way its first version did. The nightly native referee (see below) is the second
+ *      guard on the same assumption.
  *
- * SPECIFICITY. The injected `<style>` is appended to `<head>` and targets `:root`, exactly
- * as the shell's own inlined palette does, so it wins on source order at equal specificity.
- * That includes `color-scheme`, which is what lets a dark-pinned theme file flip
- * `light-dark()` for the whole document — 14 of the 32 theme files are dark-pinned, so the
- * 32 files ARE the shipped matrix and no media emulation is needed.
+ *   2. THIRD-PARTY PAINT IS DROPPED BY PROVENANCE, NOT BY GUESSWORK. Mermaid ships its own
+ *      stylesheet INSIDE the `<svg>` it renders, resolved against whatever palette was in
+ *      force AT RENDER TIME. Swapping our palette cannot move it: on a native `indaco-dark`
+ *      render a flowchart edge label paints white-on-#001D33, but after an in-place swap
+ *      from `indaco` the ink follows (ours, `!important`) while the pill stays baked white
+ *      — 1:1, a number describing no rendered pixel anywhere. Those runs must not be scored.
+ *
+ *      The FIRST version identified them by INVARIANCE — "if a channel never changed across
+ *      all 32 palettes it must be third-party." That rule cannot do the one job it exists
+ *      for. A HARDCODED HEX IN OUR OWN CSS also never changes, so a literal `#888` that
+ *      fails contrast was classified as third-party paint and silently dropped — the exact
+ *      regression class this gate is built to catch was the one it was blind to.
+ *
+ *      So provenance is asked directly instead: a stylesheet whose `ownerNode` sits inside
+ *      an `<svg>` came from whatever renderer produced that SVG, not from us. Disabling
+ *      those sheets and re-probing says, per run and PER CHANNEL, whether a third-party
+ *      sheet was contributing. A channel painted from our document stylesheets is KEPT and
+ *      scored even when it never varies — which is the whole point.
+ *
+ *   3. A SWAP THAT SILENTLY FAILS MUST NOT READ AS A CLEAN PALETTE. If the replacement were
+ *      inert, every palette would probe identically and the sweep would report 32 clean
+ *      palettes having measured one. So each palette is checked against the static resolver
+ *      every ANALYTIC gate uses (`parsePaletteVars`) — two independent paths to the same
+ *      answer — and the count of DISTINCT painted canvases is reported so a collapsed matrix
+ *      fails closed. The first version of this compared each palette to the one BEFORE it
+ *      and reported six false alarms, because sibling palettes legitimately share a canvas
+ *      (the four `a11y-*` variants do so by construction). An adjacent-pair test measures
+ *      sort order, not repaint.
+ *
+ * WHAT THIS TIER STILL CANNOT SEE, AND WHO DOES. Anything baked at render time — Mermaid's
+ * node fills and label pills above all — is dropped here BY CONSTRUCTION, because no swap
+ * can move it. That coverage is not abandoned: `tools/palette-native.js` re-renders all 32
+ * palettes for real on a nightly schedule and scores what this tool dropped, and it also
+ * re-scores what this tool KEPT and fails if the two disagree. That referee is what stops
+ * the fast path from drifting back into measuring fiction — the failure mode above was
+ * found by a reviewer, and a reviewer is not a gate.
  *
  * Usage:
- *   node tools/palette-sweep.js <rendered-deck.html> [--themes a,b,c] [--json out.json]
+ *   node tools/palette-sweep.js <rendered-deck.html> [--themes=a,b,c] [--json=out.json]
  *
  * Exits non-zero if any palette fails its canary. Sub-threshold RUNS are reported but do
  * not set the exit code here — policy belongs to the gate
@@ -76,7 +94,17 @@ const path = require('node:path');
 const { PROBE } = require('./check-slide-contrast.js');
 const { paletteChainCss, parsePaletteVars, listAllThemes } = require('./contrast-audit.js');
 
-const STYLE_ID = '__palette_sweep__';
+/**
+ * The two markers that bracket the palette inside the export shell's stylesheet.
+ *
+ * `/* @theme <name>` opens every file in `themes/` (all 32 carry it — Marp's own theme
+ * annotation, which this engine kept). `/* dist/lattice.css` opens the generated bundle
+ * that `build-css.js` emits. The export path concatenates them in that order — palette
+ * first, engine second — which is why an APPENDED stylesheet inverted the cascade and why
+ * `hljs-contrast.test.js` already gates its tokens in both concat orders.
+ */
+const PALETTE_MARK = '/* @theme ';
+const BASE_MARK = '/* dist/lattice.css';
 const PROBE_ID = '__palette_sweep_probe__';
 
 /** Every palette the engine ships, from `themes/` — the same list every analytic gate uses. */
@@ -99,29 +127,51 @@ function listSweepThemes() {
  * `paletteChainCss` flattens the chain the way every analytic gate already resolves it,
  * and its order is already the one a cascade needs: `themeChain` returns [base, …, self]
  * (`cuoio-dark` → ["cuoio","cuoio-dark"]), so the override lands last and wins.
+ *
+ * The theme files' own `@import 'lattice';` is stripped. Mid-sheet it would be ignored by
+ * the parser anyway (CSS requires `@import` before other rules), but leaving a directive in
+ * that reads as "and now pull in the entire engine" invites exactly the misreading that
+ * produced the hybrid-palette bug.
  */
 function themeCss(name) {
-  return paletteChainCss(name);
+  return paletteChainCss(name).replace(/^\s*@import\s+[^;]+;\s*$/gm, '');
 }
 
 /**
- * Swap the document's palette from inside the page (CSP-safe) and read back what the
- * browser ACTUALLY resolved, so the caller can prove the swap landed rather than assume it.
+ * Overwrite the palette region of the shipped stylesheet, IN PLACE (see header note 1).
+ *
+ * Returns `{ ok:false, why }` rather than throwing so the caller can name the palette that
+ * failed. It never falls back to appending: an inverted cascade that reports numbers is the
+ * bug this replaced.
+ */
+const APPLY = (cssText, paletteMark, baseMark) => {
+  const sheets = [...document.querySelectorAll('style')].filter(
+    (s) => s.textContent.includes(paletteMark) && s.textContent.includes(baseMark),
+  );
+  if (sheets.length !== 1) {
+    return { ok: false, why: `expected exactly 1 stylesheet carrying both markers, found ${sheets.length}` };
+  }
+  const el = sheets[0];
+  const text = el.textContent;
+  const start = text.indexOf(paletteMark);
+  const end = text.indexOf(baseMark, start);
+  if (start < 0 || end <= start) {
+    return { ok: false, why: `markers out of order (palette@${start}, base@${end})` };
+  }
+  el.textContent = `${text.slice(0, start) + cssText}\n${text.slice(end)}`;
+  return { ok: true, replaced: end - start, wrote: cssText.length };
+};
+
+/**
+ * Read back what the browser ACTUALLY resolved, so the caller can prove the swap landed
+ * rather than assume it.
  *
  * The read is done through a dedicated, empty probe element styled `background:var(--bg);
  * color:var(--text-body)` rather than off a slide: a slide's own background may be a finish,
  * a gradient or `--surface-inverse`, none of which answer "did this palette's tokens take".
  * The element carries no text, so the contrast PROBE — which walks text runs — never sees it.
  */
-const APPLY = (cssText, styleId, probeId) => {
-  let el = document.getElementById(styleId);
-  if (!el) {
-    el = document.createElement('style');
-    el.id = styleId;
-    document.head.appendChild(el);
-  }
-  el.textContent = cssText;
-
+const READ_PAINT = (probeId) => {
   let probe = document.getElementById(probeId);
   if (!probe) {
     probe = document.createElement('div');
@@ -133,6 +183,24 @@ const APPLY = (cssText, styleId, probeId) => {
   }
   const pcs = getComputedStyle(probe);
   return { bg: pcs.backgroundColor, ink: pcs.color };
+};
+
+/**
+ * Enable or disable every stylesheet that a third-party renderer shipped inside its own
+ * `<svg>` — see header note 2. Returns how many were touched, so the caller can fail closed
+ * when the count is zero (this deck renders Mermaid; zero means the detection broke, not
+ * that the paint went away).
+ */
+const SET_FOREIGN_SHEETS = (disabled) => {
+  let n = 0;
+  for (const sheet of document.styleSheets) {
+    const owner = sheet.ownerNode;
+    if (owner && typeof owner.closest === 'function' && owner.closest('svg')) {
+      sheet.disabled = disabled;
+      n += 1;
+    }
+  }
+  return n;
 };
 
 /** `rgb(250, 247, 242)` / `#FAF7F2` → `250,247,242`, so browser and resolver can be compared. */
@@ -151,61 +219,105 @@ function rgbKey(v) {
 const runKey = (r) => `${r.page}|${r.tag}|${r.cls || ''}|${r.text}`;
 
 /**
+ * Which runs are painted — on EITHER channel — by a stylesheet a third-party renderer
+ * shipped inside its own `<svg>`, AT THE PALETTE CURRENTLY APPLIED.
+ *
+ * The test is a mutation, not a guess: disable the foreign sheets, re-probe, and compare
+ * against the paints already measured for this palette. A channel whose resolved color
+ * MOVED was being supplied by one of those sheets. That answers the provenance question
+ * with the browser's own cascade rather than by re-implementing rule matching, and — unlike
+ * the invariance rule it replaces — it says nothing about whether a color VARIES, so a
+ * hardcoded literal in OUR CSS stays in scope and gets scored.
+ *
+ * IT MUST RUN AT EVERY PALETTE, AND THAT IS NOT THOROUGHNESS. Run once on the document as
+ * rendered (`indaco`), it MISSES the very run it was built for: Mermaid bakes a white pill
+ * behind its edge labels, `indaco`'s canvas is also white, and removing a white pill from
+ * in front of a white canvas changes nothing measurable. The signal only appears at a
+ * palette whose canvas differs from the baked value — so the caller unions the verdict
+ * across the whole matrix, and a key is foreign if ANY palette reveals it. Measured: run
+ * once at `indaco` this left one baked run scored on all 13 dark palettes; unioned, the
+ * sweep matches a native render on 32 of 32.
+ */
+async function foreignPaintedAt(page, before) {
+  const sheets = await page.evaluate(SET_FOREIGN_SHEETS, true);
+  const after = await page.evaluate(PROBE);
+  await page.evaluate(SET_FOREIGN_SHEETS, false);
+
+  // Paints are collected PER KEY AS A LIST, in DOM order, not as one value per key.
+  // `runKey` is not unique — a component may repeat the same text in the same tag on one
+  // slide — and keeping only the last paint per key hid a real detection: the Mermaid edge
+  // label `5|p|diagram|monthly retrospective` shares its key with a sibling that our own
+  // CSS paints, so a last-write-wins compare found "no change" and let a baked run through
+  // on all 13 dark palettes. Comparing the whole ordered list marks the key foreign if ANY
+  // member moved, which is the conservative direction and the correct one.
+  const listPaints = (rows) => {
+    const m = new Map();
+    for (const r of rows) {
+      const k = runKey(r);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(`${r.fg}|${r.bg}`);
+    }
+    return m;
+  };
+
+  const seen = listPaints(before);
+  const now = listPaints(after);
+  const foreign = new Set();
+  for (const [k, was] of seen) {
+    const is = now.get(k);
+    if (!is || is.length !== was.length || was.some((v, i) => v !== is[i])) foreign.add(k);
+  }
+  return { foreign, sheets, probed: seen.size };
+}
+
+/**
  * Probe one already-rendered page across many palettes.
  *
  * @param {import('puppeteer').Page} page  a page already navigated to the rendered deck
- * @param {string[]} themes                palette names present in dist/themes/
- * @returns {Promise<{palettes: object[], unswept: Set<string>, distinctPaints: number, probedRuns: number}>}
+ * @param {string[]} themes                palette names present in themes/
  */
 async function sweep(page, themes) {
   const palettes = [];
+  const foreign = new Set();
+  let foreignSheets = 0;
 
   for (const theme of themes) {
-    const paint = await page.evaluate(APPLY, themeCss(theme), STYLE_ID, PROBE_ID);
+    const applied = await page.evaluate(APPLY, themeCss(theme), PALETTE_MARK, BASE_MARK);
+    if (!applied.ok) {
+      throw new Error(`palette-sweep: could not swap to ${theme} — ${applied.why}`);
+    }
+    const paint = await page.evaluate(READ_PAINT, PROBE_ID);
     const rows = await page.evaluate(PROBE);
 
+    // Provenance, at THIS palette, unioned into the running verdict — see
+    // `foreignPaintedAt` for why one palette is not enough.
+    const at = await foreignPaintedAt(page, rows);
+    for (const k of at.foreign) foreign.add(k);
+    foreignSheets = at.sheets;
+
     // THE ORACLE CHECK. What the browser resolved, against what the static resolver every
-    // analytic gate uses says this palette's tokens are. Disagreement means the injected
-    // stylesheet did not fully apply — which is exactly the hybrid-palette bug that made
-    // this tool's first 18 palettes fiction while reporting confident numbers. Cheap, and
-    // it fails on the specific palette rather than on an aggregate that can absorb it.
+    // analytic gate uses says this palette's tokens are. Disagreement means the replacement
+    // did not fully take — which is the hybrid-palette bug that made this tool's first 18
+    // palettes fiction while reporting confident numbers. Cheap, and it fails on the
+    // specific palette rather than on an aggregate that can absorb it.
     const declared = parsePaletteVars(paletteChainCss(theme));
-    const applied =
+    const matches =
       rgbKey(paint.bg) === rgbKey(declared.bg) && rgbKey(paint.ink) === rgbKey(declared['text-body']);
 
     palettes.push({
-      theme, paint, rows, applied,
+      theme, paint, rows, applied: matches,
       expected: { bg: declared.bg, ink: declared['text-body'] },
       signature: `${paint.bg}|${paint.ink}`,
     });
-  }
-
-  // PER-CHANNEL invariance. See header note 1: a run with one baked channel scores a
-  // color from one palette against a ground from another, which describes no pixel.
-  const ink = new Map();    // key -> Set(fg)
-  const ground = new Map(); // key -> Set(bg)
-  for (const p of palettes) {
-    for (const r of p.rows) {
-      const k = runKey(r);
-      if (!ink.has(k)) { ink.set(k, new Set()); ground.set(k, new Set()); }
-      ink.get(k).add(String(r.fg));
-      ground.get(k).add(String(r.bg));
-    }
   }
 
   // AMBIGUOUS KEYS. `runKey` is position + element + text, and that is NOT unique: on
   // `gallery.md` 1,541 rows collapse to 1,391 keys — 70 keys covering 220 rows — because a
   // component can legitimately repeat the same text in the same tag on the same slide
   // (`journey` stage spans, `pricing` row labels). Where the colliding members paint
-  // DIFFERENTLY inside a single palette, the invariance sets above are a union over runs
-  // that are not the same run, so neither channel's verdict describes either of them.
-  //
-  // Six such keys today, all `var()`-driven and all correctly kept, so this changes almost
-  // nothing NOW. It is fixed anyway because the failure it permits is the one this whole
-  // mechanism exists to prevent: let a baked run share a key with a live one and the baked
-  // one looks like it varied, survives the drop, and is scored with a stale ink. Dropping
-  // an ambiguous key is strictly conservative — it can only remove a run from scoring,
-  // never admit a mis-scored one.
+  // DIFFERENTLY inside a single palette, a per-key verdict describes neither of them, so
+  // the key is dropped. Strictly conservative: it can only remove a run from scoring, never
+  // admit a mis-scored one.
   const ambiguous = new Set();
   for (const p of palettes) {
     const seen = new Map(); // key -> "fg|bg" of the first member in THIS palette
@@ -217,22 +329,29 @@ async function sweep(page, themes) {
     }
   }
 
-  const unswept = new Set(ambiguous);
-  for (const k of ink.keys()) {
-    if (ink.get(k).size === 1 || ground.get(k).size === 1) unswept.add(k);
-  }
-
+  const unswept = new Set([...foreign, ...ambiguous]);
   const distinctPaints = new Set(palettes.map((p) => p.signature)).size;
 
-  return { palettes, unswept, distinctPaints, probedRuns: ink.size };
+  return {
+    palettes,
+    unswept,
+    foreign,
+    ambiguous,
+    foreignSheets,
+    distinctPaints,
+    probedRuns: new Set(palettes.flatMap((p) => p.rows.map(runKey))).size,
+  };
 }
 
-/** Sub-threshold, non-exempt runs whose ink AND ground both followed the swap. */
+/** Sub-threshold, non-exempt runs this tier can faithfully simulate. */
 function offenders(rows, unswept) {
   return rows.filter((r) => r.r < r.need && !r.exempt && !unswept.has(runKey(r)));
 }
 
-module.exports = { sweep, offenders, listSweepThemes, runKey, rgbKey, STYLE_ID };
+module.exports = {
+  sweep, offenders, listSweepThemes, runKey, rgbKey, themeCss,
+  PALETTE_MARK, BASE_MARK,
+};
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 if (require.main === module) {
@@ -250,7 +369,7 @@ if (require.main === module) {
     const puppeteer = require('puppeteer');
     const themes = only ? only.split(',') : listSweepThemes();
     if (!themes.length) {
-      console.error('no palettes found in dist/themes — run `npm run build` first');
+      console.error('no palettes found in themes/ — run `npm run build` first');
       process.exit(2);
     }
 
@@ -263,25 +382,21 @@ if (require.main === module) {
     await page.goto(`file://${path.resolve(html)}`, { waitUntil: 'networkidle0' });
 
     const started = Date.now();
-    const { palettes, unswept, distinctPaints, probedRuns } = await sweep(page, themes);
+    const result = await sweep(page, themes);
+    const { palettes, unswept, foreign, ambiguous, foreignSheets, distinctPaints, probedRuns } = result;
     const elapsed = ((Date.now() - started) / 1000).toFixed(1);
     await browser.close();
 
     console.log('');
     console.log('  Lattice · palette sweep');
     console.log('  ══════════════════════════════════════════════════════════════');
-    console.log(`  ${palettes.length} palettes · ${probedRuns} distinct runs · ${unswept.size} dropped (a channel never moved)`);
-    // The drop count is only meaningful over the FULL set. Across two palettes plenty of
-    // runs coincidentally share an ink or a ground, so a `--themes=a,b` run reports
-    // hundreds of drops and none of them mean baked paint. Say so rather than let the
-    // number be read as a finding.
-    if (palettes.length < 8) {
-      console.log(`  ⚠ ${palettes.length} palettes only — the drop count is not meaningful below the full set`);
-    }
+    console.log(`  ${palettes.length} palettes · ${probedRuns} distinct runs`);
+    console.log(`  ${unswept.size} dropped — ${foreign.size} painted by a third-party sheet, ${ambiguous.size} ambiguous keys`);
+    console.log(`  ${foreignSheets} third-party stylesheet(s) inside <svg>`);
     console.log(`  ${distinctPaints} distinct painted canvases`);
     const notApplied = palettes.filter((p) => !p.applied);
     console.log(`  ${palettes.length - notApplied.length}/${palettes.length} palettes matched the static resolver`);
-    console.log(`  ${elapsed}s for the whole matrix (one render, ${palettes.length} re-probes)`);
+    console.log(`  ${elapsed}s for the whole matrix (one render, ${palettes.length} in-place swaps)`);
     console.log('');
 
     let worst = 0;
@@ -298,13 +413,19 @@ if (require.main === module) {
 
     if (jsonOut) {
       fs.writeFileSync(jsonOut, `${JSON.stringify(
-        palettes.map((p) => ({ theme: p.theme, offenders: offenders(p.rows, unswept).length, runs: p.rows.length })),
+        palettes.map((p) => ({
+          theme: p.theme,
+          offenders: offenders(p.rows, unswept).map(
+            (r) => ({ page: r.page, tag: r.tag, cls: r.cls, text: r.text, r: r.r }),
+          ),
+          runs: p.rows.length,
+        })),
         null, 2)}\n`);
       console.log(`\n  wrote ${jsonOut}`);
     }
 
-    // Fails CLOSED on a collapsed matrix: distinct paints at or near 1 means the injected
-    // stylesheet is inert and every "clean" palette above is the same measurement repeated.
+    // Fails CLOSED: an inert replacement, or a provenance probe that found no foreign
+    // sheets at all, means every "clean" palette above is the same measurement repeated.
     if (notApplied.length) {
       console.error(`\n  ✗ ${notApplied.length} palette(s) did not fully apply — their numbers above are fiction:`);
       for (const p of notApplied.slice(0, 8)) {

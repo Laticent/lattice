@@ -48,7 +48,16 @@
 
 :root {
   /* ── Mustard brand axis ──────────────────────────────────────────── */
-  --brand-accent:    #8C6A18;  /* accent (light), text-label        */
+  /* Deepened from #8C6A18 (2026-08-23). That value was ink on BOTH plain canvases —
+   * glossary terms, stats figures, every decimal-leading-zero list counter, big-number,
+   * the cards-grid / compare-table stars, cycle's chevrons, timeline-list, split-compare —
+   * and it cleared neither: 4.35:1 on --bg and 3.89:1 on --bg-alt against a 4.5 floor. It
+   * measured as 79 sub-threshold runs across fourteen component classes on the rendered
+   * gallery, the largest single defect in the palette matrix, while every analytic gate
+   * reported mustard clean because none scored --accent AS INK on --bg / --bg-alt (the row
+   * now exists in tools/contrast-audit.js). The line below used to claim "L:5.36:1 on bg",
+   * which no gate checked and which was wrong by a full point. Now 5.31:1 / 4.75:1. */
+  --brand-accent:    #7B5D15;  /* accent (light), text-label        */
   --brand-alt:        #6E2A1F;  /* mermaid-accent-warm (light)       */
 
   /* ── Surfaces ──────────────────────────────────────────────────────── */
@@ -67,7 +76,7 @@
   --muted-mark:   light-dark(#80704A, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
   /* ── Brand accent ──────────────────────────────────────────────────── */
-  --accent:      light-dark(var(--brand-accent), #D4A848); /* L:5.36:1 / D:8.45:1 on bg */
+  --accent:      light-dark(var(--brand-accent), #D4A848); /* L:5.31:1 on bg, 4.75:1 on bg-alt / D:8.45:1 on bg */
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
   --code-inline-fg: light-dark(#6A5112, var(--accent)); /* light ink deepened for AA on card (L:5.63/5.06 · D:7.76/6.04) */

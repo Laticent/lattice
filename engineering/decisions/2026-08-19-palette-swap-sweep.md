@@ -3,34 +3,42 @@ status: shipped
 summary: >
   The rendered-DOM contrast probe is the only tier that can see a cascade or composition
   defect, and it ran on ONE palette family — `indaco` — because a 32-palette matrix reads as
-  unaffordable at 36s per render. The render is not the palette-dependent part: markdown,
-  Mermaid, KaTeX and layout produce the same DOM whatever the colors are, so the deck is
-  rendered ONCE and re-themed in place. Measured: ~15s render + ~80s for all 32 probes,
-  against ~19 minutes to re-render the matrix. What that bought immediately is a selection
-  effect nobody had measured — the gated palette scores 5 sub-threshold runs and SIXTEEN of
-  the 32 score worse, `mustard` at 95 (90 of them in the 3.5-4.5 band, spread over eight
-  component classes, i.e. a palette-wide ink tune rather than any component's bug). Two traps
-  are recorded here because the first version fell into one and reported confident numbers
-  for 18 fictional palettes: `dist/themes/*.min.css` are OVERRIDE LAYERS joined by `@import`
-  (`cuoio-dark` is 1,948 bytes and declares no `--bg`), and an `@import` inside an injected
-  `<style>` does not load — so each injection landed on top of whichever palette went before
-  it. The fix is to inject the flattened chain `contrast-audit.js` already builds, and the
-  durable guard is an ORACLE CHECK: the browser's resolved `--bg`/`--text-body` must equal
-  what the static resolver says the palette declares, per palette, every run. Also fixes a
-  pre-existing probe bug the sweep surfaced — an SVG-scoped `<style>` element's CSS source
-  was walked as visible text and scored, so a Mermaid diagram's own stylesheet appeared as a
-  1.17:1 offender.
+  unaffordable. The render is not the palette-dependent part: markdown, Mermaid, KaTeX and
+  layout produce the same DOM whatever the colors are, so the deck is rendered ONCE and
+  re-themed in place (~2 min for all 32, against ~7 to re-render them natively). Getting that
+  right took three corrections, each of which produced confident numbers while being wrong.
+  (1) Injecting `dist/themes/*.min.css` was fiction for 18 of 32 — they are override layers
+  joined by `@import`, which does not load inside an injected `<style>`, so each landed on
+  whichever palette went before it. (2) APPENDING the corrected stylesheet to `<head>`
+  inverted the shipped cascade — the export puts the palette FIRST and `lattice.css` after —
+  so 30 of 126 tokens resolved from the wrong side and the sweep both invented findings
+  (`atelier` 19 vs 16) and MISSED real ones (`onyx` 3 vs 5). The palette region is now
+  replaced IN PLACE. (3) Identifying Mermaid's baked paint by INVARIANCE ("a channel that
+  never changes must be third-party") cannot distinguish it from a hardcoded hex in our own
+  CSS — the exact regression class the gate exists to catch. Provenance replaces it: disable
+  the stylesheets a renderer ships inside its own `<svg>`, re-probe, see which channels move.
+  The durable guard for all three is `tools/palette-native.js`, a nightly that re-renders all
+  32 for real and fails if the fast path disagrees; today they agree on 32 of 32. What the
+  corrected sweep found: `mustard`'s `--accent` was ink on both plain canvases at 4.35:1 and
+  3.89:1 (79 runs across fourteen component classes, and NO analytic gate scored `--accent`
+  as ink — the row exists now), and the `journey` mood legend kept an `opacity: 0.85` wash
+  the labels directly above it had removed for that same reason (35 runs, seven palettes).
 ---
 
 # One render, thirty-two palettes
 
 **Status:** shipped.
-**Scope:** `tools/palette-sweep.js` (new), `test/integration/invariants/palette-sweep.test.js`
-(new), `tools/check-slide-contrast.js` (probe fix), `tools/contrast-audit.js` (two exports).
+**Scope:** `tools/palette-sweep.js`, `tools/palette-native.js` (new),
+`test/integration/invariants/palette-sweep.test.js`,
+`test/integration/invariants/contrast-exemptions.js` (new, shared),
+`tools/check-slide-contrast.js` (probe fix), `tools/contrast-audit.js` (two new pairs, two
+exports), `themes/mustard.css`, `lib/components/chart/journey/journey.styles.css`,
+`.github/workflows/integration-nightly.yml`.
 **Related:** `2026-08-19-website-accessibility-gate.md` (the same "analytic gates cannot see a
 cascade" lesson, on the website), `slide-contrast.test.js` (owns rendered-DOM policy on three
-surfaces), HARD RULE #15 (one flattener, not two), HARD RULE #18 (why `mustard` is a recorded
-ceiling and not a fix in this change).
+surfaces), `2026-08-18-contrast-floor-deck-scale.md` (why 4.5 and not 3.0), HARD RULE #15
+(one flattener, one exemption ledger), HARD RULE #18 (why the status-trio residue is a
+recorded ceiling and not a fix here).
 
 ---
 
@@ -41,7 +49,7 @@ where the tokens are right and the cascade is wrong. That tier ran on `gallery.m
 `indaco`, the same gallery at `indaco-dark`, and prose at `indaco`. Thirty of the thirty-two
 shipped palettes had never been measured on any deck, ever.
 
-The reason is a cost assumption: one gallery render is 36 s, so the matrix is ~19 minutes.
+The reason was a cost assumption: a gallery render is 11–36 s, so the matrix is 6–19 minutes.
 
 The assumption is wrong in a specific and useful way. **The palette is not the expensive part
 of a render.** Parsing markdown, rendering Mermaid, running KaTeX and laying out 117 slides
@@ -50,91 +58,122 @@ place, re-probe:
 
 | | measured |
 |---|---|
-| Full gallery render | ~15–36 s (cache-dependent) |
-| Theme injection + full re-probe | 150–270 ms |
-| **All 32 palettes** | **~80 s** |
+| Full gallery render | ~11–36 s (cache-dependent) |
+| In-place swap + full re-probe + provenance probe | ~4 s / palette |
+| **All 32 palettes** | **~2 min** |
+| All 32 rendered NATIVELY (the nightly referee) | ~7 min |
 
-## 2. What it found on the first honest run
+## 2. Three ways to be confidently wrong
 
-The distribution is the finding. Sub-threshold runs on `gallery.md` at 1280×720:
+Every one of these produced a clean-looking run with per-palette numbers. None of them was
+caught by a gate; two were caught by a reviewer and one by an oracle built after the fact.
+That is the real lesson of this note.
 
-| palette | runs |
-|---|---|
-| `mustard` | **95** |
-| `atelier` | 19 |
-| `concrete`, `magnolia` | 14 |
-| … 12 palettes | 7–11 |
-| **`indaco` (the gated one)** | **5** |
-| `onyx`, four `a11y-*` | 3 |
+### 2a. The palette files are override layers (`@import` does not load)
 
-**Sixteen of thirty-two palettes score worse than the one palette anybody measures**, and the
-gated palette is very nearly best-case. That is a selection effect, not bad luck: the palette
-someone chose to gate is the one that looked clean when they chose it.
-
-`mustard` is the outlier and its shape matters. Its 95 are spread across `glossary`,
-`list-tabular`, `list`, `journey`, `stats`, `list-criteria` and `timeline-list` — seven-plus
-component classes — and **90 of them sit in the 3.5–4.5 band**. Those clear WCAG's large-text
-allowance and fail the flat 4.5 floor this repo deliberately holds instead
-(`2026-08-18-contrast-floor-deck-scale.md`). So it is one palette-wide ink tuning question,
-not seven component bugs. It is recorded as a ceiling rather than fixed here: a palette
-re-tune has its own blast radius and does not belong in the change that first measured it
-(HARD RULE #18's pre-existing / off-path arm).
-
-## 3. The trap this fell into, written down because the next person will too
-
-The obvious way to swap a palette is to inject `dist/themes/<name>.min.css`. It runs, it
-changes colors, it produces per-palette numbers, and for **18 of the 32 palettes it is
-fiction**.
-
-Those files are override layers that reach their base through `@import`:
+The obvious way to swap is to inject `dist/themes/<name>.min.css`:
 
 ```
 cuoio-dark   1,948 bytes   @import "cuoio"    — declares no --bg at all
 a11y-base    9,167 bytes   @import "onyx"     — declares no --bg, --text-body or --accent
 ```
 
-An `@import` inside a `<style>` injected mid-document does not load. So each injection landed
-its override layer on top of **whichever palette was injected before it** — a hybrid that
-exists in no build, scored and reported with full confidence.
+An `@import` inside a `<style>` injected mid-document does not load, so each injection landed
+its override layer on top of **whichever palette went before it** — a hybrid that exists in no
+build, for 18 of the 32. The tell was that `mustard` and `a11y-base`, unrelated palettes,
+reported byte-identical offender breakdowns.
 
-Nothing about the output looked wrong. It was caught by one tell: `mustard` and `a11y-base`,
-unrelated palettes, reported byte-identical offender breakdowns (13 / 6 / 5 / 5 / 4 / 4).
+**Fix:** inject the flattened chain `contrast-audit.js` already builds (`paletteChainCss`, via
+`themeChain`, which returns `[base, …, self]` so the override lands last). Exported rather
+than reimplemented — a second flattener that drifted would hand the sweep a different palette
+than every analytic gate scores (HARD RULE #15).
 
-Two corrections followed:
+**Guard:** an ORACLE CHECK, per palette, every run. The browser's resolved `--bg` and
+`--text-body` must equal what the static resolver says that palette declares.
 
-- **Inject the flattened chain.** `contrast-audit.js` already builds it (`paletteChainCss`,
-  via `themeChain`), and its order is already what a cascade needs — `themeChain` returns
-  `[base, …, self]`, so the override lands last. That function is now exported rather than
-  reimplemented: a second flattener that drifted would hand the sweep a different palette
-  than every analytic gate scores (HARD RULE #15).
-- **An oracle check, per palette, every run.** The browser's resolved `--bg` and
-  `--text-body` must equal what the static resolver says that palette declares. Two
-  independent paths to the same answer, and the sweep fails on the specific palette rather
-  than on an aggregate that can absorb it. Verified by re-introducing the bug: it names
-  `a11y-base: painted rgb(245,239,216), expected #FFFFFF` — mustard's canvas, exactly as
-  predicted.
+### 2b. Appending inverted the cascade
 
-An earlier canary compared each palette against the one *before* it and produced six false
-alarms, because sibling palettes legitimately share a canvas (the four `a11y-*` variants do
-by construction). An adjacent-pair test measures sort order, not repaint.
+With the right CSS, the sweep still appended it to `<head>`. The export shell emits ONE
+stylesheet in which the palette comes **first** and `dist/lattice.css` **after** — so
+appending put the palette last, the reverse of what ships, and **30 of 126 tokens resolved
+from the wrong side.**
 
-## 4. Baked paint, and refusing to score it
+It was wrong in both directions, which is what makes it worse than no gate:
 
-6,197 `var()` reads in the exported gallery re-resolve on a swap. **755 raw hex values do
-not** — Mermaid bakes its label ink and node fills at render time.
+| palette | native truth | the appending sweep said |
+|---|---|---|
+| `onyx` | 5 | **3** — missed two real `redline` runs at 4.29:1 |
+| `atelier` | 16 | **19** — three `journey` runs that do not exist |
 
-The dangerous case is not a run where both channels are baked; it is a run where **one** is.
-A Mermaid label keeps a stale ink while the canvas behind it follows the swap, so the ratio
-scored is a color from palette A against a ground from palette B — a number describing no
-rendered pixel anywhere. Measured, it reported Mermaid labels at 1.09:1 and 1.17:1 on every
-dark palette: neither a real defect nor a real pass.
+**Fix:** replace the palette region IN PLACE — overwrite the span between `/* @theme ` and
+`/* dist/lattice.css` and leave everything around it. The swapped palette then occupies the
+exact byte range, and therefore the exact cascade position, the shipped one did. This is a
+textual assumption about the shell, so it fails LOUDLY: exactly one stylesheet must carry both
+markers, in order, or the sweep stops.
 
-So invariance is tracked **per channel**, and a run is dropped if either its ink or its ground
-never moved across the whole sweep. Eleven runs on this deck, pinned in both directions — a
-jump means new un-swappable paint shipped, a drop to zero means the detection broke and stale
-ink is being scored as live. Those runs belong to the analytic tier, which covers all 32
-palettes at their own source (`diagram-ink-contrast`, `diagram-nontext-contrast`,
-`checkCatContrast`).
+### 2c. Invariance cannot identify third-party paint
+
+Mermaid ships its own stylesheet INSIDE the `<svg>` it renders, resolved against whatever
+palette was in force AT RENDER TIME. A swap cannot move it: natively, an `indaco-dark`
+flowchart edge label paints white on `#001D33`; after an in-place swap from `indaco` the ink
+follows (ours, `!important`) while the pill stays baked white — 1:1, a number describing no
+rendered pixel. Those runs must not be scored.
+
+The first rule identified them by INVARIANCE: "a channel that never changed across all 32
+palettes must be third-party." **That cannot do the one job it exists for.** A hardcoded hex
+in our own CSS also never changes, so a literal `#888` that fails contrast was classified as
+third-party paint and silently dropped — precisely the regression class this gate is built to
+catch.
+
+**Fix:** ask provenance directly. A stylesheet whose `ownerNode` sits inside an `<svg>` came
+from whatever renderer produced that SVG. Disable those, re-probe, and see which channels
+move. A channel painted from our own stylesheets is KEPT and scored even when it never varies.
+
+Two details cost a debugging round each, and both are in the tool's header:
+
+- **It must run at EVERY palette.** Run once on the document as rendered (`indaco`), it misses
+  the very run it was built for — Mermaid's baked pill is white, `indaco`'s canvas is white,
+  and removing a white pill from in front of a white canvas changes nothing measurable.
+- **Paints must be compared per key as an ordered LIST.** `runKey` is not unique, and
+  last-write-wins hid a baked run that shares its key with one we paint.
+
+The new rule drops **11** runs where invariance dropped 17 — six of those six were ours to
+score.
+
+## 3. The durable guard: a nightly that renders for real
+
+Each correction above was found by a person reading a diff. That is not repeatable, so
+`tools/palette-native.js` re-renders all 32 palettes natively on the nightly
+(`integration-nightly.yml`) and reconciles against the fast sweep. It answers two questions
+the fast path cannot answer about itself: whether the in-place swap still reproduces a real
+render, and what the dropped runs actually score — the Mermaid paint is not unmeasurable, only
+unmeasurable *by swapping*.
+
+**Today they agree on 32 of 32 palettes.** That reconciliation is the evidence for every
+number in this note.
+
+## 4. What the corrected sweep found
+
+Both were invisible to every existing gate, and both are the same shape: a role that is
+obviously ink, asserted nowhere, on a palette nobody measured.
+
+**`mustard`'s `--accent` was ink on both plain canvases** — 4.35:1 on `--bg`, 3.89:1 on
+`--bg-alt`, against a 4.5 floor. That is 79 sub-threshold runs across fourteen component
+classes: glossary terms, stats figures, every decimal-leading-zero list counter, `big-number`,
+the `cards-grid` / `compare-table` stars, `cycle`'s chevrons, `timeline-list`,
+`split-compare`. `tools/contrast-audit.js` scored `--accent` on `accent-soft`, and scored it
+as a BACKDROP under `--on-accent`, but never as the foreground it most often is. The theme
+file asserted "L:5.36:1 on bg" in a comment no gate read, and that number was wrong by a full
+point. Two rows now exist; deepening `#8C6A18` → `#7B5D15` gives 5.31:1 / 4.75:1 and clears
+all 79. It also cleared two frozen pairs in `composed-contrast.js`, taking that baseline from
+110 to 108.
+
+**The `journey` mood legend's numeric keys carried `opacity: 0.85`** over an inherited
+`--text-secondary` — 35 runs on seven palettes, worst 3.72:1. The `PAIN` / `DELIGHT` labels
+DIRECTLY ABOVE them in the same file had that exact wash removed for that exact reason, with a
+long docblock explaining why. This rule kept it and stayed green, because `indaco` lands at
+4.72:1 and passes. Removing the wash — rather than re-tuning anything — clears it everywhere,
+because `--text-secondary` on both canvases is already held to 4.5 for all 32 palettes.
 
 ## 5. A pre-existing probe bug this surfaced
 
@@ -144,14 +183,49 @@ text was walked as a visible run and scored: a Mermaid diagram's own stylesheet 
 1.17:1 offender reading `#lattice-mmd-1{font-family:'Outfit'…`. It never fired on `indaco`,
 which is the only palette the sibling gate measures. Fixed in place, on-path.
 
-## 6. What this does not cover
+## 6. What is left, and why it is a ceiling rather than a fix
 
-- **One deck, one viewport.** The palette axis is what this file buys; the surface axis is
-  still the sibling gate's three.
-- **A ceiling, not a bar.** Seeded at measured truth, exceed-only. It proves no palette gets
-  worse; it does not claim any palette is clean.
-- **The exclusion ledgers are not re-litigated.** The decorative watermark and raster-backdrop
-  runs fail on every palette and sit inside every ceiling.
+After the shared decorative exemptions and the two fixes above, **113 sub-threshold runs
+remain, and they are ONE population**: status or accent ink sitting on a tint OF ITSELF.
+
+| | runs | palettes |
+|---|---|---|
+| `redline` `<ins>` / `<del>` on `--pass-bg` / `--fail-bg` | 82 | 19 |
+| the inline-code chip inside a `kanban` card (dark only) | 28 | 5 |
+| `policy-recommendation` adopt badge, one `kpi target` row | 3 | 2 |
+
+The background MOVES WITH THE INK, so re-tuning a hue gains nothing on its own — and lowering
+the tint alone plateaus. Measured across all 32 palettes against `composed-contrast.js`:
+
+| status tint | composed pairs below bar |
+|---|---|
+| 18% (`carbone` only) | 190 |
+| 12% (most palettes) | 110 |
+| 8% | 86 |
+| 6% | 78 |
+| 3% | 64 |
+
+Clearing the rest means re-curating the status trios across the **fifteen palettes that
+self-curate them**, which is a palette change with its own blast radius and its own visual
+sign-off, and is already tracked as its own slice (#1698). It does not belong in the change
+that first measured it — HARD RULE #18's pre-existing / off-path arm. `composed-contrast.js`
+holds the same population analytically at 108 frozen pairs, so the two gates agree about the
+size of the debt.
+
+`indaco` is at zero. It is the only palette that is, and that is the whole argument for this
+file.
+
+## 7. What this does not cover
+
+- **One deck, one viewport.** The palette axis is what this buys; the surface axis is still
+  the sibling gate's three.
+- **A ceiling, not a bar.** Exceed-only, seeded at measured truth. It proves no palette gets
+  worse; it claims only `indaco` is clean.
+- **The decorative exemptions are not re-litigated.** They are the same adjudications
+  `slide-contrast.test.js` made, now imported from `contrast-exemptions.js` so one matcher
+  serves both gates. The per-surface `counts` pin stays with each gate, in its own terms —
+  one adjudication, two independently falsifiable ledgers.
 - **Both failure arms are proven, not assumed.** The ratchet was verified by lowering a
-  ceiling (`onyx: 3 > 2` fails); the oracle by re-introducing the `@import` bug. A gate that
-  has only ever been green is a green light, not a gate.
+  ceiling; the oracle by re-introducing the `@import` bug; the cascade fix by reconciling
+  against a native render of all 32. A gate that has only ever been green is a green light,
+  not a gate.

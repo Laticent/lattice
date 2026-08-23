@@ -131,6 +131,42 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # THE PALETTE MATRIX, RENDERED FOR REAL — the referee for the per-PR sweep.
+      #
+      # `test/integration/invariants/palette-sweep.test.js` gates all 32 palettes on every
+      # PR by rendering the gallery ONCE and re-theming it in place. That is ~70x cheaper
+      # than re-rendering the matrix and it is what makes the palette axis affordable at
+      # all — but it buys the speed with an assumption: that overwriting the palette region
+      # of the export shell's stylesheet paints what a real render would paint.
+      #
+      # That assumption has already been wrong once, silently. The sweep's first version
+      # APPENDED its stylesheet instead of replacing in place, inverting the cascade for 30
+      # of 126 tokens, and reported confident per-palette numbers that were wrong in both
+      # directions — `onyx` 3 where the truth is 5 (two real `redline` runs MISSED),
+      # `atelier` 19 where the truth is 16 (three invented). Nothing in CI could tell. It
+      # was caught by a human reading the diff, and a human reading a diff is not a gate.
+      #
+      # So this step re-renders every palette natively and reconciles. It is the only thing
+      # that can catch the fast path drifting back into measuring fiction, and it is also
+      # where the runs the sweep DROPS get scored: Mermaid bakes its own stylesheet into the
+      # SVG at render time, so no swap can move it, and those runs are only measurable here.
+      # ~11-13s per palette warm, so ~6-7 minutes — off the PR critical path by design, same
+      # as every other render-regression watch in this file.
+      - name: Palette matrix referee (32 native renders vs the per-PR sweep)
+        id: palette
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- palette matrix (native renders, all 32 palettes) ---'
+          } >> "$REPORT"
+          if npm run --silent contrast:palette-native 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # The `code-line-clipped` budgets are five numbers MEASURED in a browser
       # (lib/authoring/lint-core.js CODE_LINE_BUDGET). Their guard re-measures
       # them against a real render — but it skips with no Chromium, and the PR
@@ -190,7 +226,7 @@ jobs:
       # title marker). Self-labelled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true'
+        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -472,8 +472,6 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['mustard-dark|light|policy-recommendation/amend-badge', 4.39],
   ['mustard|light|policy-recommendation/amend-badge', 4.39],
   // ── policy-recommendation/default-badge ── 2
-  ['mustard-dark|light|policy-recommendation/default-badge', 3.76],
-  ['mustard|light|policy-recommendation/default-badge', 3.76],
   // ── policy-recommendation/defer-badge ── 6
   ['brina-dark|light|policy-recommendation/defer-badge', 4.30],
   ['brina|light|policy-recommendation/defer-badge', 4.30],
