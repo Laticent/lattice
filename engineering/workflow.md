@@ -64,6 +64,43 @@ rule *"land a large migration as one squash, not N separately-merged commits"*
 moved upstream to PR *creation*. See
 `engineering/decisions/2026-06-17-stacked-pr-fragmentation.md`.
 
+### Batch a session's slices into one PR — the merge cost is per PR, not per commit
+
+The section above settles how a *feature* is shaped. This one settles how a
+**session's output** is shaped, and it is the more expensive question. Measured
+over the fortnight to 2026-08-23: 50 merges, **48 of them on two days** — 25 on
+the 17th, 23 on the 18th. Every one of those cost a human authorization, and
+§Merging's own argument applies unchanged at this granularity: *every separate
+merge to `main` is a drift event for every open PR.* A productive night spent as
+25 PRs is 25 interruptions and 25 drift events for the same work.
+
+**So the default is one PR per session's line of work, with one commit per
+item** — the shape the continuation brief already hands the next session
+(§The continuation brief). Not a PR per slice.
+
+Four things still take their own PR:
+
+- **Urgent** — a fix that must not wait behind the rest of the batch.
+- **Risky** — a change you want revertable on its own, uncoupled from the batch.
+- **A different swimlane** — unrelated work does not become related by sharing a
+  session.
+- **A gallery graduation** — HARD RULE #8 keeps that a separate post-review
+  commit regardless.
+
+Note what #17's independence test does and does not say. "It compiles and tests
+with only `main`" licenses a slice to have its own branch; it does not *require*
+one. Independence is permission, not obligation — and taking that permission
+every time is what turns one night into 25 approvals.
+
+**A batched PR is the sanctioned `rebase-and-merge` case.** Squash is the default
+because a normal feature branch carries 20+ noisy commits, and squashing keeps
+`main` one revertable commit per PR. A batched PR is the exception §Merging
+already names — "a deliberately curated, atomic commit series, each commit
+independently meaningful" — because that is exactly what one-commit-per-item is.
+Rebase-merging it keeps **per-item revert granularity on `main`** while still
+costing **one** merge event, which a squash of the same branch would throw away.
+Say which method you are asking for when you ask for authorization.
+
 ## The gallery decks
 
 Three top-level decks survive in `examples/` after the docs refactor.
@@ -697,6 +734,15 @@ The contract, and its limits — be precise about what it does and doesn't cover
   authorization), and patch/minor dependency bumps
   (`dependabot-auto-merge.yml`; majors wait). See
   § Automation vs. the main ruleset.
+- **Batch the ask when more than one PR is green.** The authorization itself does
+  not change — a human still authorizes every merge, and one PR's approval is
+  never license for the next. What changes is the *delivery*: when several PRs
+  are green and review-ready, put them in **one** round rather than pinging once
+  per PR. List each as `#N — one line — <check state>`, ordered so the answer can
+  be "all of them" or "all but #N". A night that produced 25 PRs produced 25
+  interruptions under the old habit; the gate was never what made that expensive.
+  Ask immediately, without batching, when only one PR is green and nothing else
+  is close — a batch that waits on work not yet finished is just a delay.
 - PRs merge into `main` via **squash-and-merge by default** — across many
   parallel AI sessions a single PR can carry 20+ noisy commits, and squashing
   keeps `main` one reviewable, revertable commit per PR. Use rebase-and-merge
@@ -1172,6 +1218,18 @@ A card is `status:ready` only with **both**: a linked governing doc/spec
 captures them as the two ★ fields; the **Definition of Ready gate** workflow
 re-checks on every `status:ready` application and strips the label + comments if
 either is missing — so `status:ready` is a guarantee, not a hope.
+
+**A hand-written card counts too.** The gate reads the two fields out of the
+body, and it used to recognize only the headings the *form* renders — so a card
+typed into the web UI or opened by an agent, carrying a repro and a
+`## Definition of done`, met the bar in substance and failed it on form. That is
+why the Ready column could not fill: **6 of 167 open cards on 2026-08-23**, all
+of them stale. `parseForm` now also accepts the headings people actually write
+(`Definition of done`, `Acceptance criteria`, `Acceptance`, `Done when`;
+`Swimlane`, `Governing doc`, `Design doc`), resolved in a second pass that runs
+only for a field the form headings left empty — so a form-filed card parses
+exactly as before. Grooming a card is therefore *adding what it lacks*, not
+reformatting what it already says.
 
 ### BACKLOG.md — the one-way mirror
 
