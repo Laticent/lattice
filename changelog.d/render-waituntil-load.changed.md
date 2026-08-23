@@ -32,7 +32,8 @@
   a deferred image is markup the browser chose to defer and the export genuinely owes it, whereas
   an author timer is code racing the exporter, where no finite wait is the right answer. The
   engine emits no such scripts and the grace period was never a contract (it varied from ~0.6 s
-  to ~1.9 s run to run), but if you relied on it, you will notice.
+  to ~1.9 s run to run), but if you relied on it, you will notice. Tracked as #1792, where the
+  choice is a bounded settle or an explicit decline plus a warning.
 - **Verified against the whole shipped corpus, not a sample.** 277 decks rendered before and
   after: **identical page counts, identical clipped-page sets, identical auto-split decisions —
   0 differences in all three.** Some decks differ in PDF *bytes*, and that channel is
