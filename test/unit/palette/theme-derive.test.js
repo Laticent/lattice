@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 
 const { deriveTheme, validateEssentials, requiredTokenList, ESSENTIAL_KEYS, RAMP_STRATEGIES, normalizeStrategy } = require('../../../lib/theme/derive.js');
 const { auditBoth } = require('../../../lib/theme/contrast.js');
-const { contrastRatio, oklchToHex } = require('../../../lib/theme/color.js');
+const { contrastRatio, oklchToHex, mix, ensureContrast, oklabDistance } = require('../../../lib/theme/color.js');
 const { STARTERS } = require('../../../lib/theme/starters.js');
 
 describe('theme-derive', () => {
@@ -237,6 +237,91 @@ describe('theme-derive', () => {
           assert.ok((l1 - lc) * (l2 - l1) > 0, `${name} (mode ${m}): --c-subcontainer steps back toward the canvas`);
         }
       }
+    });
+
+    /**
+     * THE DE-EMPHASIS LADDER IS MONOTONE, in both modes, and it was not.
+     *
+     * `--text-body` / `--text-secondary` / `--text-muted` are one ordered contract —
+     * design/theming.md says muted is "Still quieter than --text-secondary", which
+     * only means anything if secondary is quieter than body in turn. Solving each
+     * tier independently against the canvas broke it in two different ways, and only
+     * one of them was visible to a separation predicate:
+     *
+     *   · LIGHT — CONVERGENCE. `solveInk` walked the author's pale muted seed DOWN to
+     *     the AA floor while `ensureContrast` walked a body/muted mix down to the same
+     *     floor, so the two met: dusk emitted --text-muted and --text-secondary
+     *     BYTE-IDENTICAL at #646c7a, and the other three starters within dE 0.0049.
+     *   · DARK — INVERSION, which no ΔE row can see because the two ARE far apart.
+     *     The dark muted lifted the LIGHT-mode seed toward white, and against a
+     *     near-black canvas that is the LOUDEST ink in the ramp. Measured on all four
+     *     starters: dusk's muted read 10.30:1 where body read 7.46:1.
+     *
+     * So this asserts the ORDER, on the same worst-case-of-both-surfaces reading the
+     * gates use, rather than a distance — a distance would have passed the dark arm.
+     */
+    test('the de-emphasis ladder is monotone: body louder than secondary, louder than muted', () => {
+      const worst = (t, k, m) => Math.min(
+        contrastRatio(arm(t[k], m), arm(t.bg, m)),
+        contrastRatio(arm(t[k], m), arm(t['bg-alt'], m)),
+      );
+      for (const [name, t] of cases) {
+        for (let m = 1; m <= 2; m++) {
+          const [body, secondary, muted] = ['text-body', 'text-secondary', 'text-muted']
+            .map((k) => worst(t, k, m));
+          assert.ok(body >= secondary, `${name} (mode ${m}): --text-secondary ${secondary.toFixed(2)}:1 is LOUDER than --text-body ${body.toFixed(2)}:1`);
+          assert.ok(secondary >= muted, `${name} (mode ${m}): --text-muted ${muted.toFixed(2)}:1 is LOUDER than --text-secondary ${secondary.toFixed(2)}:1`);
+          // …and the ladder is a ladder, not three names for one value.
+          assert.ok(muted >= 4.5, `${name} (mode ${m}): --text-muted ${muted.toFixed(2)}:1 is below AA`);
+          for (const [a, b, ka, kb] of [[body, secondary, 'body', 'secondary'], [secondary, muted, 'secondary', 'muted']]) {
+            assert.notEqual(arm(t[`text-${ka === 'body' ? 'body' : ka}`], m), arm(t[`text-${kb}`], m),
+              `${name} (mode ${m}): --text-${ka} and --text-${kb} are the same value (${a.toFixed(2)}:1 / ${b.toFixed(2)}:1)`);
+          }
+        }
+      }
+    });
+
+    /**
+     * And prove the assertion bites, on the population that showed the defect: the
+     * OLD recipes, re-applied to each sampled theme. If either mutant passes, this
+     * test has stopped seeing what it exists for.
+     */
+    test('BITES: the pre-#1776-follow-up recipes fail the ladder in bulk', () => {
+      let seed = 7;
+      const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+      const sets = Array.from({ length: 40 }, () => {
+        const h = rnd() * 360;
+        const bgL = 0.9 + rnd() * 0.09;
+        return {
+          bg: oklchToHex({ L: bgL, C: 0.005, h }),
+          bgAlt: oklchToHex({ L: bgL - 0.03 - rnd() * 0.06, C: 0.01, h }),
+          textHeading: oklchToHex({ L: 0.15 + rnd() * 0.1, C: 0.02, h }),
+          textBody: oklchToHex({ L: 0.35 + rnd() * 0.1, C: 0.02, h }),
+          textMuted: oklchToHex({ L: 0.55 + rnd() * 0.15, C: 0.02, h }),
+          accent: oklchToHex({ L: 0.35 + rnd() * 0.3, C: 0.1 + rnd() * 0.08, h }),
+          accentSoft: oklchToHex({ L: 0.92, C: 0.03, h }),
+          pass: '#1F7A4D', warn: '#B26A00', fail: '#C0392B',
+        };
+      });
+      const worst = (hex, t, m) => Math.min(
+        contrastRatio(hex, arm(t.bg, m)), contrastRatio(hex, arm(t['bg-alt'], m)));
+      let inverted = 0, converged = 0;
+      for (const e of sets) {
+        const t = deriveTheme(e);
+        // The OLD dark muted: the light-mode seed lifted toward white, unclamped.
+        const oldDarkMuted = mix(e.textMuted, '#ffffff', 0.35);
+        if (worst(oldDarkMuted, t, 2) > worst(arm(t['text-body'], 2), t, 2)) inverted++;
+        // The OLD light secondary: a body/SEED mix repaired down to the same AA floor
+        // the muted tier is solved to, which is how the two converged.
+        const oldSecondary = ensureContrast(
+          ensureContrast(mix(e.textBody, e.textMuted, 0.45), arm(t.bg, 1), 4.5, 'darken'),
+          arm(t['bg-alt'], 1), 4.5, 'darken');
+        if (oklabDistance(oldSecondary, arm(t['text-muted'], 1)) < 0.03) converged++;
+      }
+      assert.ok(inverted > 20,
+        `the old dark recipe inverted the ladder on only ${inverted}/40 sampled themes — this test can no longer see the inversion it exists for`);
+      assert.ok(converged > 10,
+        `the old light recipe converged secondary onto muted on only ${converged}/40 — this test can no longer see the collapse it exists for`);
     });
 
     test('the spectrum ribbon is a usable gradient value, and the mono ramp keeps one hue', () => {
