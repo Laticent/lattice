@@ -20,9 +20,11 @@ describe('theme-cvd', () => {
   });
 
   // ACHROMATOPSIA is a MONOCHROMACY, not a dichromacy — it has no Machado matrix and is
-  // deliberately absent from CVD_TYPES (tools/cvd-audit.js loops over that list). It was
-  // added for #1715, where a11y-achromatopsia's syntax family has to be measured under the
-  // condition the palette is named for.
+  // deliberately absent from CVD_TYPES. It was added for #1715, where a11y-achromatopsia's
+  // syntax family has to be measured under the condition the palette is named for.
+  // `tools/cvd-audit.js` loops SIMULATED_TYPES (its achromatopsia arm carries its own,
+  // lower collapse floor); cvd-audit-achromatopsia.test.js asserts from that side that
+  // widening the audit did not widen this list.
   test('SIMULATED_TYPES adds the monochromacy without changing CVD_TYPES', () => {
     assert.deepEqual([...SIMULATED_TYPES].sort(),
       ['achromatopsia', 'deuteranopia', 'protanopia', 'tritanopia']);
