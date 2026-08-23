@@ -314,18 +314,23 @@ export function ComposeSkeleton() {
 
 export function EditorSkeleton() {
 	return (
-		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]" aria-hidden="true">
-			<div className="flex select-none flex-col items-end gap-[7px] pr-3 text-muted-foreground/25">
-				{EDITOR_SKELETON_LINES.map((w, i) => (
-					<span key={w}>{i + 1}</span>
-				))}
+		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]">
+			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper — see
+			    ComposeSkeleton above. An aria-hidden ancestor removes its whole subtree from
+			    the accessibility tree, so an `sr-only` span inside one announces nothing. */}
+			<div className="contents" aria-hidden="true">
+				<div className="flex select-none flex-col items-end gap-[7px] pr-3 text-muted-foreground/25">
+					{EDITOR_SKELETON_LINES.map((w, i) => (
+						<span key={w}>{i + 1}</span>
+					))}
+				</div>
+				<div className="flex flex-1 flex-col gap-[7px] pt-[3px]">
+					{EDITOR_SKELETON_LINES.map((w) => (
+						<div key={w} className="h-[9px] rounded-sm bg-muted-foreground/10" style={{ width: `${w}%` }} />
+					))}
+				</div>
 			</div>
-			<div className="flex flex-1 flex-col gap-[7px] pt-[3px]">
-				{EDITOR_SKELETON_LINES.map((w) => (
-					<div key={w} className="h-[9px] rounded-sm bg-muted-foreground/10" style={{ width: `${w}%` }} />
-				))}
-			</div>
-			<span className="sr-only">Loading the editor…</span>
+			<span className="sr-only" role="status">Loading the editor…</span>
 		</div>
 	);
 }
