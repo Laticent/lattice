@@ -143,9 +143,10 @@ USAGE
 
 ARGUMENTS
   source.md          Markdown source (required)
-  output             Output path (required); the extension picks the format, and
-                     an extension that is not on this list is a usage error (there
-                     is no fallback — a mislabeled artifact is worse than a refusal):
+  output             Output path (required); the extension picks the format, and an
+                     extension that is not on this list is a usage error rather than
+                     a PDF under the wrong name (a path with NO extension is still
+                     the PDF path — nothing is mislabeled when nothing is labeled):
                        .pdf   vector PDF, selectable text (+ HTML sidecar; or one
                               image per page with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
@@ -567,17 +568,27 @@ const OUT_FORMATS = Object.freeze({
 // per-slide output. A caller who typed one meant "one image per slide in this format",
 // so the error hands them the command that does exactly that.
 const IMAGE_SET_EXTS = Object.freeze({ '.webp': 'webp', '.jpeg': 'jpeg', '.jpg': 'jpeg' });
-const OUT_FORMAT = OUT_FORMATS[OUT_EXT];
+// NO extension is NOT an unknown format — it is the sidecar idiom, and it stays PDF.
+// `lattice deck.md .scratch/out/player-input --player` is how this repo's own player
+// verifiers render (tools/verify-player-input.mjs, tools/verify-narrated-player.mjs):
+// the deliverable is the `<out>.html` sidecar, the PDF is a byproduct nobody opens, so
+// the output path deliberately carries no extension. Nothing is mislabeled there —
+// there is no label — which is the whole difference from `out.webp`. Refusing it broke
+// all three call sites, and they are the committed HARD RULE #23 evidence for the
+// exported player, so a refusal here costs a verification surface and buys nothing.
+const OUT_FORMAT = OUT_EXT ? OUT_FORMATS[OUT_EXT] : 'pdf';
 if (!OUT_FORMAT) {
-  const supported = Object.keys(OUT_FORMATS).join(', ');
-  console.error(OUT_EXT
-    ? `error: unsupported output extension '${OUT_EXT}' — lattice writes ${supported}.`
-    : `error: the output path '${outFile}' has no extension — the extension picks the format (${supported}).`);
+  // Report the extension AS TYPED. OUT_EXT is lowercased for the lookup, and telling
+  // someone who typed `out.WEBP` that '.webp' is unsupported invites the reply "I did
+  // not write that".
+  const typed = path.extname(outFile);
+  console.error(`error: unsupported output extension '${typed}' — lattice writes ${Object.keys(OUT_FORMATS).join(', ')}.`);
   const asImageSet = IMAGE_SET_EXTS[OUT_EXT];
   if (asImageSet) {
-    const zipName = path.basename(outFile).replace(/\.[^.]+$/, '.zip');
+    // The command has to run AS PRINTED, so both paths keep the form the caller gave —
+    // a basename would resolve against the cwd and quietly mean a different file.
     console.error(`  ${asImageSet.toUpperCase()} slides ship as an image set — one image per slide in a zip:`);
-    console.error(`    lattice ${path.basename(mdFile)} ${zipName} --image-format ${asImageSet}`);
+    console.error(`    lattice ${mdFile} ${outFile.slice(0, -typed.length)}.zip --image-format ${asImageSet}`);
   }
   process.exit(1);
 }

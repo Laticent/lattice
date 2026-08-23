@@ -29,11 +29,17 @@ per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 `.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
 the output file.
 
-**That list is closed** — an extension not on it is a usage error, and there is
-no default. It used to fall through to the PDF path, which wrote PDF bytes under
-whatever name was asked for: `lattice deck.md out.webp` exited 0 and left a file
-`file(1)` reads as *"PDF document"*. For per-slide JPEG or WebP, ask for a `.zip`
-and pass `--image-format jpeg|webp` (§5) — the refusal prints that command.
+**That list is closed** — an extension not on it is a usage error. It used to fall
+through to the PDF path, which wrote PDF bytes under whatever name was asked for:
+`lattice deck.md out.webp` exited 0 and left a file `file(1)` reads as *"PDF
+document"*. For per-slide JPEG or WebP, ask for a `.zip` and pass
+`--image-format jpeg|webp` (§5) — the refusal prints that command.
+
+An output path with **no** extension is not an unknown format and still renders the
+PDF. That is the sidecar idiom: `tools/verify-player-input.mjs` and
+`tools/verify-narrated-player.mjs` render `.scratch/out/<name> --player` and read
+`<name>.html`, where the sidecar is the deliverable and the PDF a byproduct.
+Nothing is mislabeled when nothing is labeled.
 
 **Pick by cost, and it is not the ordering people expect.** Measured on a
 58-slide deck (`2026-08-16-render-format-cost-assessment.md`):

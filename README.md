@@ -173,8 +173,9 @@ if no system Chrome is found.
 
 The recognized extensions are `.pdf`, `.pptx`, `.png`, `.zip` (an image set) and
 `.html`; anything else is a usage error rather than a silent PDF under the wrong
-name. For per-slide JPEG or WebP, render a `.zip` with
-`--image-format jpeg|webp`.
+name. (An output path with no extension at all still renders the PDF — nothing is
+mislabeled when nothing is labeled.) For per-slide JPEG or WebP, render a `.zip`
+with `--image-format jpeg|webp`.
 
 > **PPTX note.** Slides export as one full-bleed *image* per slide (not editable
 > text/shapes). Editable PPTX export (which needs LibreOffice) is not included.

@@ -1,14 +1,17 @@
-- **Fixed: `lattice deck.md out.webp` no longer writes a PDF under the name you asked
-  for.** The CLI's extension dispatch handled `.pptx`, `.png`, `.zip` and `.html` and fell
-  through to the PDF path for **everything else**, so any unrecognized extension exited 0
-  and left an artifact whose bytes `file(1)` reads as *"PDF document"* and whose name says
-  something else. The table is closed now: an extension that is not `.pdf`, `.pptx`,
-  `.png`, `.zip` or `.html` is a usage error that names the supported set and writes
-  nothing, and an output path with no extension is refused too (nothing picks the format).
-  `.webp` / `.jpeg` / `.jpg` are the ones actually asked for — they are supported formats,
-  just as an image set — so their refusal prints the command that does the job:
-  `lattice deck.md out.zip --image-format webp`. The refusal runs before Chromium is
-  launched, so a typo costs milliseconds instead of a full render.
+- **Breaking: `lattice deck.md out.webp` no longer writes a PDF under the name you asked
+  for — it is a usage error now.** The CLI's extension dispatch handled `.pptx`, `.png`,
+  `.zip` and `.html` and fell through to the PDF path for **everything else**, so any
+  unrecognized extension exited 0 and left an artifact whose bytes `file(1)` reads as
+  *"PDF document"* and whose name says something else. The table is closed now: an
+  extension that is not `.pdf`, `.pptx`, `.png`, `.zip` or `.html` names the supported set
+  and writes nothing. A script that relied on the old fallthrough gets an exit 1 where it
+  used to get a mislabeled PDF, which is why this is marked breaking. `.webp` / `.jpeg` /
+  `.jpg` are the ones actually asked for — they are supported formats, just as an image
+  set — so their refusal prints the command that does the job, with the paths as you typed
+  them: `lattice deck.md out.zip --image-format webp`. An output path with **no**
+  extension is unaffected and still renders the PDF: that is the sidecar idiom the
+  `--player` verifiers use, and nothing is mislabeled when nothing is labeled. The refusal
+  runs before Chromium is launched, so a typo costs milliseconds instead of a full render.
 
 - **Fixed: the changelog's pointer to the pre-1.0.0 archive now resolves in the copy that
   ships.** `package.json` `files` carries `CHANGELOG.md` and not `changelog/`
@@ -24,9 +27,10 @@
   section leaves a body in which every line is a heading, a bullet or a continuation, so
   duplicating the entire `## Unreleased` body passed every check. Entry lines are counted
   now, in the file AND in the assembled release body, so a fragment copied to a second
-  filename fails too. The check was removed once because the pre-1.0.0 backlog carried 18
-  pre-existing duplicates; that backlog is archived, the body carries 386 entries and no
-  repeats, and deliberate repetition goes in a sanction list that fails when it goes stale.
+  filename fails too. The check was removed once because the pre-1.0.0 backlog carried
+  pre-existing duplicates; that backlog is archived, the body carries 390 entries and no
+  repeats, and deliberate repetition goes in a sanction list that records how many copies a
+  human looked at — a further copy fails, and so does a stale entry.
 
 - **Fixed: writing a changelog entry no longer triggers a full-deck preview render.**
   `npm run preview` listed `CHANGELOG.md` as having no visual impact but not

@@ -108,50 +108,44 @@ const SANCTIONED_UNRELEASED_PROSE = [];
  *
  * What that damage DOES leave is a repeated entry, so entries are counted here.
  *
- * KEYED ON THE TRIMMED TEXT, so a copy that landed at a different indent still counts as
- * a copy. The cost of that choice is that a top-level `- Foo` and a nested `  - Foo`
- * collide; that has never occurred and it is what the sanction list below is for.
+ * NORMALIZED, so a copy is still a copy when the paste moved it: the indent goes, the
+ * bullet marker and the space after it are flattened (`* Foo`, `-  Foo` and `  - Foo` all
+ * key as `- Foo`). The cost is that a top-level entry and a nested sub-bullet with the
+ * same words collide — that has never occurred here, and the sanction list below is where
+ * it would go. What still slips is a copy whose TEXT differs (an added period, a
+ * substituted space); keep-both-sides preserves bytes, so those are damage only when the
+ * two sides had genuinely diverged.
  *
- * FENCED BLOCKS ARE SKIPPED. A fragment may show a snippet — a YAML list, a shell
- * transcript — whose lines begin with `- `, and two fragments quoting the same snippet is
- * authorship, not damage. Prose bullets are the signal; fenced sample text is not.
+ * NO LINE IS SKIPPED — not even a bullet inside a fenced code sample, which is a real
+ * false positive this deliberately accepts. Two earlier cuts skipped fenced regions, and
+ * BOTH had a blind window instead of a false positive:
  *
- * SKIPPING IS THE DANGEROUS HALF, so `fencedLines` below is deliberately grudging. A first
- * cut here toggled a flag on any line starting with three backticks, and one pending
- * fragment happens to say "(```markdown) cannot leak…" mid-sentence: that odd toggle turned
- * the skip on and nothing ever turned it off, so every entry after it — most of the body —
- * went uncounted, and the check passed on a body it had stopped reading. A region counts as
- * fenced only when an opener whose info string is a bare language word finds a matching
- * closer; an unmatched marker is prose and is read as prose.
+ *   1. A flag toggled by any line starting with three backticks. One pending fragment has
+ *      a continuation line beginning "```markdown) cannot leak…" — mid-sentence prose, an
+ *      odd toggle — so the skip turned on and nothing turned it off, and the check passed
+ *      on a body it had stopped reading from that line to the end.
+ *   2. A strict opener paired with its closer. Two stray markers, or one stray plus the
+ *      closer of an unrelated real fence later in the body, swallow everything between
+ *      them: measured on a three-fragment corpus where genuine duplicated entries sat in
+ *      that gap and the whole suite stayed green.
+ *
+ * A guard that goes quiet is worse than one that shouts at the wrong thing. There is no
+ * fenced sample in the assembled body today, and if one lands with a repeated `- ` line
+ * the failure is LOUD and its remedy is one sanctioned entry with a reason.
  */
-function fencedLines(lines) {
-  const OPEN = /^(`{3,}|~{3,})[A-Za-z0-9_+-]*$/;
-  const inside = new Set();
-  for (let i = 0; i < lines.length; i++) {
-    const open = OPEN.exec(lines[i].trim());
-    if (!open) continue;
-    const close = new RegExp(`^${open[1][0] === '`' ? '`' : '~'}{${open[1].length},}$`);
-    for (let j = i + 1; j < lines.length; j++) {
-      if (!close.test(lines[j].trim())) continue;
-      for (let k = i; k <= j; k++) inside.add(k);
-      i = j;
-      break;
-    }
-  }
-  return inside;
+function entryLines(section) {
+  const found = [];
+  section.split('\n').forEach((line, i) => {
+    const text = line.trim();
+    if (!/^[-*]\s+\S/.test(text)) return;
+    found.push({ text: text.replace(/^[-*]\s+/, '- '), at: `line ${i + 1}` });
+  });
+  return found;
 }
 
-function entryLines(section) {
-  const lines = section.split('\n');
-  const fenced = fencedLines(lines);
-  const found = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (fenced.has(i)) continue;
-    const text = lines[i].trim();
-    if (!/^[-*]\s+\S/.test(text)) continue;
-    found.push({ text, at: `line ${i + 1}` });
-  }
-  return found;
+/** How many entry lines in `section` normalize to `text`. */
+function entryCount(section, text) {
+  return entryLines(section).filter((e) => e.text === text).length;
 }
 
 /** Entry text that appears more than once, with where each copy sits. */
@@ -167,22 +161,34 @@ function duplicateEntries(section) {
 }
 
 /**
- * Entry lines the release body is ALLOWED to repeat, matched on their trimmed text.
+ * Entry lines the release body is ALLOWED to repeat: `[text, copies, why]`.
  *
- * EMPTY, and that is the healthy state — measured, not assumed: the assembled body carries
- * 386 entry lines today and not one of them repeats.
+ * EMPTY, and that is the healthy state — measured through the detector above rather than
+ * assumed: the assembled body carries 390 entry lines today and not one of them repeats.
  *
  * A duplicate-entry check was tried in this file once before and REMOVED, because
- * `## Unreleased` then spanned the entire pre-1.0.0 backlog and already carried 18
- * verbatim-repeated entries on `main` — "a gate red on `main` is not a gate", and that was
- * the right call at the time. #1735 moved that backlog to `changelog/pre-release-archive.md`
- * and #1777 emptied the section, so the blocker is gone and the check is back.
+ * `## Unreleased` then spanned the entire pre-1.0.0 backlog and already carried repeated
+ * entries on `main` (the note that removed it counted 18) — "a gate red on `main` is not a
+ * gate", and that was the right call at the time. #1735 moved that backlog to
+ * `changelog/pre-release-archive.md` and #1777 emptied the section, so the blocker is gone
+ * and the check is back. Worth knowing about that backlog, because it undercuts the claim
+ * that those repeats were all authorship: `changelog/pre-release-archive.md:11618` and
+ * `:11654` carry a block repeated verbatim 36 lines apart (2 entries repeat in that
+ * window), and the first copy breaks off mid-sentence — "…because the radar's / neighbor."
+ * That is keep-both-sides, and the seam lands on an indented continuation line where the
+ * orphan detector above cannot see it.
  *
- * Same `SANCTIONED_*` idiom as the list above, failing both ways: an unsanctioned duplicate
- * is a failure, and a sanctioned line that no longer repeats is a failure too, so an entry
- * cannot outlive the duplicate it excuses.
+ * COPIES IS A COUNT, not a licence. The sibling prose list insists a sanctioned line appear
+ * EXACTLY once for the same reason: a keep-both-sides duplicates the sanctioned line rather
+ * than removing it, so "is it in the list" reads damage as health. A sanction here says how
+ * many copies a human looked at; a further copy fails, and so does dropping to one.
  */
 const SANCTIONED_DUPLICATE_ENTRIES = [];
+
+/** A duplicate is excused only when its COPY COUNT is the sanctioned one. */
+function sanctionedFor(dupe) {
+  return SANCTIONED_DUPLICATE_ENTRIES.some(([text, copies]) => text === dupe.text && copies === dupe.at.length);
+}
 
 describe('CHANGELOG integrity — it is a published file', () => {
   const src = fs.readFileSync(CHANGELOG, 'utf8');
@@ -264,9 +270,8 @@ describe('CHANGELOG integrity — it is a published file', () => {
   // section leaves no orphan paragraph, so every check above reads it as healthy. What it
   // leaves is a repeated entry.
   test('`## Unreleased` repeats no entry line', () => {
-    const sanctioned = new Set(SANCTIONED_DUPLICATE_ENTRIES.map(([text]) => text));
     const dupes = duplicateEntries(unreleased(src))
-      .filter((d) => !sanctioned.has(d.text))
+      .filter((d) => !sanctionedFor(d))
       .map((d) => `${d.at.join(', ')} (×${d.at.length}): ${d.text.slice(0, 90)}`);
     assert.deepEqual(dupes, [],
       'an entry line appears more than once in `## Unreleased` — the signature of a '
@@ -281,9 +286,8 @@ describe('CHANGELOG integrity — it is a published file', () => {
   // and nowhere else.
   test('the ASSEMBLED release body repeats no entry line either', () => {
     const cl = require('../../../tools/changelog.js');
-    const sanctioned = new Set(SANCTIONED_DUPLICATE_ENTRIES.map(([text]) => text));
     const dupes = duplicateEntries(`## Unreleased\n${cl.unreleasedWithFragments(src)}`)
-      .filter((d) => !sanctioned.has(d.text))
+      .filter((d) => !sanctionedFor(d))
       .map((d) => `×${d.at.length}: ${d.text.slice(0, 90)}`);
     assert.deepEqual(dupes, [],
       'an entry line is repeated in the assembled release notes — two fragments carrying '
@@ -291,17 +295,19 @@ describe('CHANGELOG integrity — it is a published file', () => {
       + '`## Unreleased`. This is the text that becomes the public GitHub Release body.');
   });
 
-  test('every sanctioned duplicate entry still repeats', () => {
+  // Both ways, and on the COUNT. A sanction that only says "this line may repeat" would be
+  // permanently blind to the next copy of it — the same presence-check mistake the prose
+  // list above avoids by insisting on exactly once.
+  test('every sanctioned duplicate still repeats exactly as many times as sanctioned', () => {
     const cl = require('../../../tools/changelog.js');
-    const repeated = new Set(
-      duplicateEntries(`## Unreleased\n${cl.unreleasedWithFragments(src)}`).map((d) => d.text),
-    );
-    const stale = SANCTIONED_DUPLICATE_ENTRIES
-      .filter(([text]) => !repeated.has(text))
-      .map(([text, why]) => `${why}: no longer repeats — ${text.slice(0, 70)}`);
-    assert.deepEqual(stale, [],
-      'a sanctioned duplicate no longer appears twice — delete the entry, or the list '
-      + 'starts excusing damage nobody has looked at');
+    const body = `## Unreleased\n${cl.unreleasedWithFragments(src)}`;
+    const wrong = SANCTIONED_DUPLICATE_ENTRIES
+      .map(([text, copies, why]) => ({ text, copies, why, seen: entryCount(body, text) }))
+      .filter((s) => s.seen !== s.copies)
+      .map((s) => `${s.why}: sanctioned ${s.copies}, seen ${s.seen} — ${s.text.slice(0, 70)}`);
+    assert.deepEqual(wrong, [],
+      'a sanctioned duplicate appears a different number of times than the sanction '
+      + 'records — a new copy nobody looked at, or a stale entry to delete');
   });
 
   // FIXTURES for the detector itself, because a guard that is never shown failing is a
@@ -340,30 +346,38 @@ describe('CHANGELOG integrity — it is a published file', () => {
       assert.deepEqual(duplicateEntries(wrapped), []);
     });
 
-    test('a bullet quoted inside a fence is sample text, not an entry', () => {
-      const fenced = [SECTION, '', '- **Added: a config key.**', '', '  ```yaml', '  - item', '  - item', '  ```', ''].join('\n');
-      assert.deepEqual(duplicateEntries(fenced), []);
+    test('a copy with a different bullet marker or spacing is still a copy', () => {
+      const damaged = `${SECTION}\n${ENTRY_A.replace(/^- /, '*  ')}\n`;
+      assert.deepEqual(duplicateEntries(damaged).map((d) => d.text), [ENTRY_A],
+        'the paste normalizes to the same entry — marker and spacing are not content');
     });
 
-    // The hole this check shipped with for about an hour, and the reason the skip is
-    // grudging: a fragment on `main` says "(```markdown) cannot leak…" mid-sentence. Read
-    // as a fence opener with no closer, it blinds the detector for the whole rest of the
-    // body — a check that passes because it stopped looking is worse than no check.
-    test('an unmatched fence marker in prose does not blind the detector', () => {
-      const damaged = [
-        '## Unreleased',
-        '',
-        '### Changed',
-        '',
-        '- **Changed: a nested body (```markdown) cannot leak its headings.** Prose, not a fence.',
-        '',
-        ENTRY_A,
-        '',
-        ENTRY_A,
-        '',
-      ].join('\n');
+    // THE FENCE CASES, and they are the accepted cost rather than a capability. Two
+    // earlier cuts skipped fenced regions and both had a blind window instead: the
+    // stray-marker line below is real prose from a pending fragment, and under a naive
+    // fence toggle it turns the detector off for the rest of the body. Skipping nothing
+    // means a repeated `- ` inside a code sample is reported — loudly, and sanctionable —
+    // while damage after a stray marker can never go unread.
+    const STRAY = '  ```markdown) cannot leak the headings inside it as real fields.';
+
+    test('sample text in a fence IS counted — the deliberate false positive', () => {
+      const fenced = [SECTION, '', '- **Added: a config key.**', '', '  ```yaml', '  - item', '  - item', '  ```', ''].join('\n');
+      assert.deepEqual(duplicateEntries(fenced).map((d) => d.text), ['- item'],
+        'a repeated bullet in a sample is reported; the remedy is a sanction with a reason, '
+        + 'not a skip rule that can go quiet');
+    });
+
+    test('a stray fence marker in prose does not blind the detector', () => {
+      const damaged = ['## Unreleased', '', '### Changed', '', '- **Changed: a nested body.**', STRAY, '', ENTRY_A, '', ENTRY_A, ''].join('\n');
       assert.deepEqual(duplicateEntries(damaged).map((d) => d.text), [ENTRY_A],
         'the duplicate sits AFTER the stray marker — it must still be seen');
+    });
+
+    test('two stray markers do not swallow the damage between them', () => {
+      // The second cut's hole: a strict opener paired with the closer of an unrelated
+      // fence later on, with real duplicates in the gap and the suite green.
+      const damaged = ['## Unreleased', '', '### Changed', '', '- **Changed: a nested body.**', STRAY, '', ENTRY_A, '', ENTRY_A, '', '  ```', '', ENTRY_B, ''].join('\n');
+      assert.deepEqual(duplicateEntries(damaged).map((d) => d.text), [ENTRY_A]);
     });
   });
 });

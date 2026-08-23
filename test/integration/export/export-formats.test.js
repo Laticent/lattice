@@ -943,15 +943,9 @@ describe('export-formats', () => {
   // cheap: the check runs before Chromium is launched, which is why these tests carry
   // no timeout while every render test above needs 60s.
   describe('an unsupported output extension is refused, never mislabeled', () => {
-    function runOut(out) {
-      return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet'], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
-      });
-    }
-
     test('.webp exits non-zero, names the supported set, and writes nothing', () => {
       const out = path.join(tmpDir(), 'deck.webp');
-      const r = runOut(out);
+      const r = run(out);
       assert.notEqual(r.status, 0, 'should exit non-zero on an unsupported extension');
       assert.equal(fs.existsSync(out), false, 'no artifact may be written under a name we cannot honor');
       assert.match(r.stderr, /unsupported output extension '\.webp'/);
@@ -964,25 +958,45 @@ describe('export-formats', () => {
 
     test('.webp / .jpeg / .jpg point at the image-set route that does support them', () => {
       for (const [ext, fmt] of [['webp', 'webp'], ['jpeg', 'jpeg'], ['jpg', 'jpeg']]) {
-        const r = runOut(path.join(tmpDir(), `deck.${ext}`));
+        const out = path.join(tmpDir(), `deck.${ext}`);
+        const r = run(out);
         assert.notEqual(r.status, 0, `.${ext} should be refused`);
         assert.match(r.stderr, new RegExp(`--image-format ${fmt}`),
           `.${ext} is a format the image set DOES encode — say how to ask for it`);
-        assert.match(r.stderr, /deck\.zip/, 'the suggested command carries a .zip output');
+        // The suggestion has to RUN as printed: full paths, not basenames resolved
+        // against whatever the caller's cwd happens to be.
+        assert.ok(r.stderr.includes(`${out.slice(0, -(ext.length + 1))}.zip`),
+          'the suggested command carries the output path the caller actually asked for');
+        assert.ok(r.stderr.includes(FIXTURE), 'and the source path they actually gave');
       }
     });
 
+    test('the extension is reported as TYPED, not as lowercased for the lookup', () => {
+      const r = run(path.join(tmpDir(), 'deck.WEBP'));
+      assert.notEqual(r.status, 0, 'should exit non-zero');
+      assert.match(r.stderr, /unsupported output extension '\.WEBP'/);
+      assert.match(r.stderr, /--image-format webp/, 'still routed to the image set');
+    });
+
     test('a plain unknown extension is refused with no image-set advice', () => {
-      const r = runOut(path.join(tmpDir(), 'deck.docx'));
+      const r = run(path.join(tmpDir(), 'deck.docx'));
       assert.notEqual(r.status, 0, 'should exit non-zero');
       assert.match(r.stderr, /unsupported output extension '\.docx'/);
       assert.ok(!/--image-format/.test(r.stderr), 'docx is not an image set — do not suggest one');
     });
 
-    test('an output path with no extension is refused too (nothing picks the format)', () => {
-      const r = runOut(path.join(tmpDir(), 'deck'));
-      assert.notEqual(r.status, 0, 'should exit non-zero');
-      assert.match(r.stderr, /has no extension/);
+    // NO extension is the sidecar idiom, not an unknown format, and it stays on the PDF
+    // path. `tools/verify-player-input.mjs` and `tools/verify-narrated-player.mjs` render
+    // `.scratch/out/<name> --player` and read `<name>.html`: the deliverable is the
+    // sidecar and the PDF is a byproduct, so the output path carries no extension on
+    // purpose. Nothing is mislabeled when nothing is labeled — and refusing it broke both
+    // tools, which are the committed HARD RULE #23 evidence for the exported player.
+    test('an output path with NO extension still renders (the sidecar idiom)', { timeout: TIMEOUT }, () => {
+      const out = path.join(tmpDir(), 'sidecar-deck');
+      const r = run(out);
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+      assert.equal(fs.readFileSync(out).subarray(0, 5).toString(), '%PDF-', 'extensionless output is the PDF');
+      assert.ok(fs.existsSync(`${out}.html`), 'and the HTML sidecar the player verifiers read');
     });
 
     // That the table is CLOSED but not EMPTY is proven by the render tests above rather
