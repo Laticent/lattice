@@ -37,11 +37,19 @@ describe('auditMeterRows', () => {
 		expect(rows).toEqual([{ role: 'heading', ratio: 2.1, status: 'fail' }]);
 	});
 
-	test('every failing role survives, even when failures alone exceed the cap', () => {
+	// NAMED FOR WHAT IT PROVES. It used to be called "every failing role survives, even
+	// when failures alone exceed the cap", which is not what it asserts and not what the
+	// code does: with nine failures and a cap of six, three failing roles ARE dropped.
+	// What survives is the guarantee that matters — every row the panel shows is a real
+	// failure, so the #1457 shape (a red badge over six green checks) cannot recur.
+	test('when failures exceed the cap, every row shown is still a failure', () => {
 		const results = Array.from({ length: 9 }, (_, i) => fail(`role-${i}`, 1 + i / 10));
 		const rows = auditMeterRows({ light: { results } });
 		expect(rows).toHaveLength(AUDIT_METER_ROWS);
 		expect(rows.every((r) => r.status === 'fail')).toBe(true);
+		// …and be explicit that three are not shown, so nobody reads the line above as
+		// "all nine are visible".
+		expect(rows.map((r) => r.role)).toEqual(['role-0', 'role-1', 'role-2', 'role-3', 'role-4', 'role-5']);
 	});
 
 	test('passing rows keep their audit order behind the failures', () => {
@@ -94,7 +102,7 @@ describe('auditMeterRows', () => {
 			expect(rows[0].distance).toBe(0.05);
 		});
 
-		test('a failing separation row is never evicted by the cap', () => {
+		test('a failing separation row outranks every passing contrast row', () => {
 			const results = [
 				pass('categorical-pale', 8.52), pass('categorical-deep', 7.42),
 				pass('categorical-edge', 6.47), pass('categorical-ink', 5.15),
@@ -104,6 +112,31 @@ describe('auditMeterRows', () => {
 			const rows = auditMeterRows({ light: { results } });
 			expect(rows).toHaveLength(AUDIT_METER_ROWS);
 			expect(rows[0]).toMatchObject({ role: 'muted-separation', status: 'fail' });
+		});
+
+		/**
+		 * THE EDGE, pinned rather than glossed. `contrast.js` appends separation rows LAST,
+		 * so among FAILURES they sort last, so they are the first dropped once more than
+		 * `limit` roles fail. That is arithmetic — a cap of six cannot show seven failures —
+		 * but it is worth a test because the honest claim ("a failure is never evicted by a
+		 * PASSING row") is one word away from the false one this file used to make.
+		 *
+		 * Reachable from the Studio's own pickers, not a contrivance: the essentials that
+		 * produce seven failing roles are in the module header's sibling note.
+		 */
+		test('once failures exceed the cap, a separation row is the first dropped', () => {
+			const results = [
+				fail('heading', 1.9), fail('label', 2.1), fail('accent-soft-body', 2.4),
+				fail('accent-text', 2.6), fail('code-chip', 3.1), fail('secondary', 4.2),
+				sep('muted-separation', 0.004, 'fail'), sep('secondary-separation', 0.0, 'fail'),
+			];
+			const rows = auditMeterRows({ light: { results } });
+			expect(rows).toHaveLength(AUDIT_METER_ROWS);
+			expect(rows.every((r) => r.status === 'fail')).toBe(true);
+			expect(rows.map((r) => r.role)).not.toContain('muted-separation');
+			// The badge still reads `review` (the caller drives that off `audit.ok`, not off
+			// these rows), and six actionable failures are on screen — so the author is not
+			// left with nothing, which is the property #1457 was actually about.
 		});
 
 		test('skipped / missing separation rows are hidden, exactly like contrast ones', () => {

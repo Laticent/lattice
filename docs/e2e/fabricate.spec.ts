@@ -1,7 +1,7 @@
 import { expect, gotoStudio, test } from './studio-fixture';
 
 // Fabricate — the Theme / Component studio. Deterministic surfaces: the derived
-// contract + WCAG audit recompute from the theme colors, the light/dark specimen
+// contract + palette audit recompute from the theme colors, the light/dark specimen
 // toggles, and the Component tab's gate reports palette-blind/scoped status.
 
 test.beforeEach(async ({ page }) => {
@@ -11,10 +11,10 @@ test.beforeEach(async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Back to Compose' })).toBeVisible();
 });
 
-test('fabricate opens on the Theme tab with the derived contract and WCAG audit', async ({ page }) => {
+test('fabricate opens on the Theme tab with the derived contract and palette audit', async ({ page }) => {
 	await expect(page.getByRole('textbox', { name: 'Theme name' })).toBeVisible();
 	await expect(page.getByText(/Contract . \d+ roles/)).toBeVisible();
-	await expect(page.getByText(/WCAG audit/)).toBeVisible();
+	await expect(page.getByText(/Palette audit/)).toBeVisible();
 });
 
 test('the theme specimen toggles between light and dark', async ({ page }) => {
@@ -69,14 +69,14 @@ test('returning to Compose restores the editor', async ({ page }) => {
  *
  * The two inks below put a body already at its AA ceiling on the Dusk canvas next to
  * a muted far too pale to keep: the derivation repairs muted UP to AA and lands it on
- * body. Before this change the panel read six green rows and "AA verified" on exactly
- * this palette.
+ * body. Before this change the panel read six green rows and an all-clear badge on
+ * exactly this palette.
  */
 test('a collapsed muted tier shows a failing separation row with its dE', async ({ page }) => {
-	const panel = page.getByText('WCAG audit').locator('xpath=ancestor::div[1]/..');
+	const panel = page.getByText('Palette audit').locator('xpath=ancestor::div[1]/..');
 	// Six green contrast rows to begin with — a PASSING separation row is correctly
 	// evicted by the cap, which is why only a failure has to surface.
-	await expect(panel.getByText('AA verified')).toBeVisible();
+	await expect(panel.getByText('AA + tiers')).toBeVisible();
 	await expect(panel.getByText('Muted-separation')).toHaveCount(0);
 
 	// Edit each essential the way an author does: pick the role in the token tree,
@@ -102,5 +102,5 @@ test('a collapsed muted tier shows a failing separation row with its dE', async 
 	await expect(row).not.toContainText(': 1');
 	// …and it drags the aggregate verdict down, so the badge and the rows agree.
 	await expect(panel.getByText('review')).toBeVisible();
-	await expect(panel.getByText('AA verified')).toHaveCount(0);
+	await expect(panel.getByText('AA + tiers')).toHaveCount(0);
 });

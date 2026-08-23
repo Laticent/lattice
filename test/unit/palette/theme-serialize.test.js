@@ -61,7 +61,10 @@ describe('theme-serialize', () => {
       const css = serializeTheme(map, { name: s.name });
       for (const mode of ['light', 'dark']) {
         const audit = auditVars(parsePaletteVars(css, mode), { mode, level: 'gate' });
-        const fmt = audit.failures.concat(audit.missing).map(f => `${f.fill}/${f.ink}[${f.status}]`);
+        // See theme-derive.test.js: a separation row has no fill/ink, so name the role.
+        const fmt = audit.failures.concat(audit.missing).map(f => f.kind === 'separation'
+          ? `${f.role}: ${f.quiet}^${f.loud}[${f.status}]`
+          : `${f.fill}/${f.ink}[${f.status}]`);
         assert.ok(audit.ok, `${mode}: ${fmt.join(', ')}`);
       }
     });

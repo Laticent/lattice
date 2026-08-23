@@ -11,9 +11,19 @@
  * act on: the aggregate verdict said something was wrong and the rows all said it was
  * fine.
  *
- * FAILURES COME FIRST, so the cap can only ever hide a PASSING row. That makes the
- * eviction harmless whatever the contract grows to next, which is the point — the
- * contract is computed now (`checkNoSafeDefaultTokens`) and will grow again.
+ * FAILURES COME FIRST, so a failure is never evicted BY A PASSING ROW however far the
+ * contract grows — and the contract is computed now (`checkNoSafeDefaultTokens`) and
+ * will grow again. That is what kills the #1457 symptom: a red badge over six green
+ * checks cannot recur, because any failure outranks every pass.
+ *
+ * BE PRECISE ABOUT THE REST OF IT. This is not "the cap can only ever hide a passing
+ * row", which is what this comment used to claim and is false: once MORE THAN `limit`
+ * roles fail, the cap hides a failing one too — arithmetic, not a bug. Order among
+ * failures is the audit's own row order, so the tier that `lib/theme/contrast.js`
+ * appends LAST (separation) is the first failure dropped. The panel still shows six
+ * real failures and a `review` badge, so the author has somewhere to start; they just
+ * are not guaranteed to see EVERY failing role. `audit-meter.test.ts` pins both halves
+ * — the guarantee and its edge — under names that say which is which.
  *
  * Extracted so this is provable without driving the Studio: the surface it renders
  * on is reachable only through the Library with a saved theme, and a reduction rule
@@ -43,8 +53,15 @@ const statusRank = (r: AuditResult) => (r.status === 'fail' ? 0 : r.status === '
 
 /**
  * The row's own magnitude, whichever kind it is — a contrast ratio or an OKLab
- * distance. Only ever compared against the SAME role in the other mode, so the two
- * scales never meet.
+ * distance. Only ever compared against another row WITH THE SAME ROLE (that is the
+ * Map key), and a role belongs to exactly one kind — `secondary` and
+ * `secondary-separation` are distinct strings — so a ratio and a distance are never
+ * compared with each other. Note a role can recur many times within ONE mode
+ * (`categorical-ink` appears 24 times); those are all the same kind, so the
+ * scale-safety holds there too.
+ *
+ * `??` and not `||`: a `distance` of exactly 0 — a byte-identical collapse, the worst
+ * possible reading — must not fall through to the `ratio`.
  */
 const magnitude = (r: AuditResult) => r.distance ?? r.ratio ?? Number.POSITIVE_INFINITY;
 

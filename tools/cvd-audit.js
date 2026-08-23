@@ -199,8 +199,10 @@ function tokenGroups() {
  * normal-vision half stays at `NORMAL_DISTINCT` for every condition because it
  * measures the palette, not the condition. See both docblocks above.
  *
- * Returns `{ count, minNormal, minCvd, floor, induced: [...] }`, or null if fewer
- * than two tokens resolve to hex.
+ * Returns `{ count, minNormal, minCvd, induced: [...] }`, or null if fewer than
+ * two tokens resolve to hex. NOTE `minCvd` is the group MINIMUM over every pair,
+ * including pairs that are not induced collapses — the report prints it as the
+ * group's headline number, so it is not the ΔE of any particular flagged pair.
  */
 function analyzeGroup(hexByToken, tokens, type) {
   const present = tokens
@@ -223,7 +225,7 @@ function analyzeGroup(hexByToken, tokens, type) {
       if (dn >= NORMAL_DISTINCT && dc < floor) induced.push({ a: present[i].t, b: present[j].t, dn, dc });
     }
   }
-  return { count: present.length, minNormal, minCvd, floor, induced };
+  return { count: present.length, minNormal, minCvd, induced };
 }
 
 // ── Runner ───────────────────────────────────────────────────────────────────
@@ -298,9 +300,20 @@ for (const theme of themes) {
       measured++;
       totalCollapsed += r.induced.length;
       const flag = r.induced.length ? '✗' : '✓';
+      // TWO DIFFERENT NUMBERS, and printing only the first is how a reader gets it
+      // wrong. `minCvd` is the group MINIMUM over every pair — it can come from a pair
+      // that is NOT an induced collapse (one already indistinct to normal vision), so
+      // reading it as "the collapsed pair sits here" is a category error. concrete is
+      // the live example: the group prints ΔE 0.000 from `pass^warn`, which is not
+      // flagged, while the pair that IS flagged (`pass^fail`) sits at 0.004. So when
+      // there are induced pairs, name the WORST INDUCED one too.
+      const worstInduced = r.induced.length
+        ? Math.min(...r.induced.map((p) => p.dc)) : null;
       lines.push(
         `       ${flag} ${label.padEnd(18)} ΔE ${r.minCvd.toFixed(3)} (normal ${r.minNormal.toFixed(3)})` +
-        (r.induced.length ? `  ${r.induced.length} collapsed by CVD` : ''),
+        (r.induced.length
+          ? `  ${r.induced.length} collapsed by CVD, worst ${worstInduced.toFixed(3)}`
+          : ''),
       );
     }
     console.log(`     ${type}  (collapse < ${collapseFloor(type)})`);

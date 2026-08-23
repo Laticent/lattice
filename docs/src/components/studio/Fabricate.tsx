@@ -721,7 +721,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 						</div>
 					</div>
 
-					{/* RIGHT — per-token inspector + the WCAG audit */}
+					{/* RIGHT — per-token inspector + the palette audit */}
 					<aside className="shrink-0 border-t border-border bg-card lg:overflow-y-auto lg:border-l lg:border-t-0">
 						{/* Desktop-only column inspector; below desktop it renders inline under the
 						    selected row (above), so the column hides to avoid a far-below scroll. */}
@@ -1183,7 +1183,7 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
 	);
 }
 
-// The overall WCAG audit (right column, under the inspector) — the AI's delivered
+// The overall palette audit (right column, under the inspector) — the AI's delivered
 // palette reads all-pass; a manual override that breaks a pair turns it red here.
 //
 // TWO ROW KINDS. Most rows are a WCAG contrast ratio. A `separation` row is an OKLab
@@ -1191,13 +1191,20 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
 // — and it has no ratio and no WCAG tier, so it renders its dE and an OK/FAIL grade
 // rather than a fabricated `4.5 : 1` and an `AA` badge that would be claiming a
 // conformance level for a measurement WCAG does not define. See lib/theme/contrast.js.
+//
+// THE HEADING MOVED FOR THE SAME REASON. It read "WCAG audit / AA verified", and `ok`
+// now folds in the separation rows — so a palette whose contrast is entirely clean and
+// whose muted tier has collapsed rendered `WCAG AUDIT … review`, telling the author
+// WCAG was unmet when it was met. (Reachable: Dusk with Body ink #333333 and Muted ink
+// #282828 fails `secondary-separation` and nothing else.) Careful not to put an `AA`
+// badge on the ROW and then leave the PANEL making the same claim in aggregate.
 function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; status: string; kind?: string; distance?: number | null }[]; ok: boolean }) {
 	return (
 		<div className="px-4 py-4">
 			<div className="mb-2.5 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 				{ok ? <Check className="size-3.5 text-[var(--pass)]" /> : <TriangleAlert className="size-3.5 text-[var(--fail)]" />}
-				<span>WCAG audit</span>
-				<span className={cn('ml-auto normal-case tracking-normal', ok ? 'text-[var(--pass)]' : 'text-[var(--fail)]')}>{ok ? 'AA verified' : 'review'}</span>
+				<span>Palette audit</span>
+				<span className={cn('ml-auto normal-case tracking-normal', ok ? 'text-[var(--pass)]' : 'text-[var(--fail)]')}>{ok ? 'AA + tiers' : 'review'}</span>
 			</div>
 			{rows.map((r) => {
 				const good = r.status === 'pass';

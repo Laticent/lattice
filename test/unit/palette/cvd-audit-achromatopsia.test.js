@@ -34,14 +34,21 @@ function run(...args) {
   }
 }
 
-/** The `✓`/`✗` and collapse count the report prints for one group under one condition. */
+/** The `✓`/`✗`, the collapse count, and the worst INDUCED ΔE for one group + condition. */
 function groupRow(out, condition, label) {
   const lines = out.split('\n');
   const start = lines.findIndex((l) => l.trim().startsWith(`${condition}  (collapse <`));
   assert.notEqual(start, -1, `no "${condition}" section in:\n${out}`);
   for (let i = start + 1; i < lines.length && /^\s+[✓✗]/.test(lines[i]); i++) {
     if (lines[i].includes(label)) {
-      return { flag: lines[i].trim()[0], collapsed: Number(lines[i].match(/(\d+) collapsed/)?.[1] ?? 0) };
+      const worst = lines[i].match(/worst ([\d.]+)/);
+      return {
+        flag: lines[i].trim()[0],
+        collapsed: Number(lines[i].match(/(\d+) collapsed/)?.[1] ?? 0),
+        // The WORST INDUCED pair's ΔE — distinct from the group minimum the line leads
+        // with, which can come from a pair that is not an induced collapse at all.
+        worst: worst ? Number(worst[1]) : null,
+      };
     }
   }
   assert.fail(`no "${label}" row under ${condition} in:\n${out}`);
@@ -104,15 +111,38 @@ describe('cvd-audit achromatopsia arm', () => {
   });
 
   /**
-   * THE ARM FINDS SOMETHING, and something no other arm can see. concrete's `--pass` and
-   * `--fail` render the IDENTICAL gray under a monochromacy (ΔE 0.000) while staying
-   * clean under tritanopia. Without this arm the tool exited 0 on it in silence.
+   * THE ARM FINDS SOMETHING, and something no other arm can see: concrete's `--pass` and
+   * `--fail` render ΔE 0.004 apart under a monochromacy — two grays one step from
+   * identical — while the tritanopia arm reads the same group clean.
+   *
+   * READ THE TWO NUMBERS ON THAT LINE CAREFULLY; a first cut of this note did not, and
+   * shipped a wrong measurement into three docs. `ΔE 0.000` is the GROUP MINIMUM over
+   * every pair, and on concrete it comes from `pass^warn`, which the tool does NOT flag
+   * (dn 0.1138, under the 0.15 normal-vision half). The flagged pair is `pass^fail` at
+   * 0.0038. The report prints `worst <n>` beside the count for exactly this reason.
    */
-  test('FINDS: concrete pass/fail collapse to one gray, invisible to the dichromacies', () => {
+  test('FINDS: concrete pass/fail nearly collapse, and the dichromacies read it clean', () => {
     const { out } = run('concrete');
-    assert.equal(groupRow(out, 'achromatopsia', 'semantic signals').flag, '✗');
+    const ach = groupRow(out, 'achromatopsia', 'semantic signals');
+    assert.equal(ach.flag, '✗');
+    assert.equal(ach.collapsed, 1);
+    // The FLAGGED pair's own reading, not the group minimum.
+    assert.ok(ach.worst !== null && ach.worst > 0 && ach.worst < 0.005,
+      `expected the flagged pair around 0.004, got ${ach.worst}`);
     assert.equal(groupRow(out, 'tritanopia', 'semantic signals').flag, '✓',
       'the point is that a dichromacy arm reads this palette clean');
+  });
+
+  /**
+   * A pair that IS byte-identical under the condition, and IS flagged — so the report
+   * can say `worst 0.000` truthfully somewhere. ardesia-dark's categorical fills carry
+   * 38 induced collapses, several at exactly ΔE 0.
+   */
+  test('FINDS: ardesia-dark fills that a monochromat sees as one identical gray', () => {
+    const row = groupRow(run('ardesia-dark').out, 'achromatopsia', 'categorical fills');
+    assert.equal(row.flag, '✗');
+    assert.ok(row.collapsed > 20, `expected many, got ${row.collapsed}`);
+    assert.equal(row.worst, 0, 'at least one flagged pair renders byte-identical');
   });
 
   /**

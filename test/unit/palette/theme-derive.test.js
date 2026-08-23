@@ -43,7 +43,13 @@ describe('theme-derive', () => {
     test(`derive(${s.name}) is contrast-clean in both modes (gate parity)`, () => {
       const t = deriveTheme(s.essentials);
       const audit = auditBoth(t, { level: 'gate' });
-      const fmt = a => a.failures.concat(a.missing).map(f => `${f.fill}/${f.ink}=${(f.ratio || 0).toFixed(2)}[${f.status}]`);
+      // Name the ROLE first: a separation row has no fill/ink (it measures two inks
+      // against each other, not an ink against a canvas), so the old `${f.fill}/${f.ink}`
+      // rendered `undefined/undefined` for exactly the tier this message would be
+      // diagnosing — and only ever printed once the assertion had already failed.
+      const fmt = a => a.failures.concat(a.missing).map(f => f.kind === 'separation'
+        ? `${f.role}: ${f.quiet}^${f.loud}=ΔE${(f.distance ?? 0).toFixed(4)}[${f.status}]`
+        : `${f.fill}/${f.ink}=${(f.ratio || 0).toFixed(2)}[${f.status}]`);
       assert.ok(audit.light.ok, `light failures: ${fmt(audit.light).join(', ')}`);
       assert.ok(audit.dark.ok, `dark failures: ${fmt(audit.dark).join(', ')}`);
     });

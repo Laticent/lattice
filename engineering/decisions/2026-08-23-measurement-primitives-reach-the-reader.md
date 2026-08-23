@@ -17,8 +17,11 @@ summary: >
   1.91x the worst dichromacy arm, with seven palettes where every group reads ✗. The
   normal-vision half of the induced test keeps 0.15 for every condition, and that asymmetry is
   measured too: lowering it as well adds 996 pairs a sighted reader already cannot separate.
-  The new arm finds a status-trio collapse on 25 of 32 palettes, `concrete` at ΔE 0.000, and
-  the only fully clean palette is `a11y-achromatopsia`. No palette value was re-tuned.
+  The new arm finds a status-trio collapse on 25 of 32 palettes, worst ΔE 0.003, and the only
+  palette with no induced collapse anywhere is `a11y-achromatopsia`. No palette value was
+  re-tuned. A checker caught the first cut of this note misreading the tool's own report — the
+  ΔE a group line leads with is the group MINIMUM, not the flagged pair's — so the report now
+  names the worst induced pair beside the count.
 builds-on: 2026-08-18-undeclared-color-tokens.md
 ---
 
@@ -80,6 +83,21 @@ STARTERS plus five hand-built essential sets:
 | `muted^secondary` | 0.0021 brina/light | 0.0000–0.0049 on **all four starters**, light | rejected |
 | `muted-mark^muted` | 0.0000 on **18** palette-modes | 0.0000 — by design | rejected |
 | `label^body` | 0.0118 cuoio/light | — | rejected |
+
+The five hand-built sets, recorded so the table above can be re-derived — each is the ten
+ESSENTIAL_KEYS, varying only what is named:
+
+| set | shape |
+|---|---|
+| `cruel` | `bg #FFFFFF`, `bgAlt #111111`, body `#333333`, muted `#BBBBBB` (theme-derive.test.js's own) |
+| `cuoio-like` | low-contrast warm on cream: `bg #F7F1E6`, `bgAlt #EFE6D6`, body `#6B5D4F`, muted `#A69882` |
+| `flat` | body and muted the SAME ink (`#595959`) — an author supplying one value twice |
+| `near-ceiling` | body just clears AA (`#767676` on `#FFFFFF`/`#FAFAFA`), muted far too pale (`#DDDDDD`) |
+| `dark-first` | `bg #12141A`, `bgAlt #1C1F27`, body `#C7CCD6`, muted `#7C838F` |
+
+`near-ceiling` is the one that produces a byte-identical `secondary^body`; `cuoio-like` and
+`flat` collapse `muted^body`; `dark-first` collapses `secondary^body` on the dark canvas only —
+which is what the meter's worst-wins reduction had to be fixed to surface (§2.4).
 
 `secondary^body` earns its row: it is the same contract ("quieter than body"), solved by the
 same AA repair a few lines up in `derive.js`, with a committed worst four ten-thousandths from
@@ -147,8 +165,11 @@ Those counts are the **check**, not the derivation. 0.065 comes from the ratio t
 already measured and shipped for the same question one tier down: `checkHljsSeparation` holds
 the syntax family to 0.11 under a dichromacy and **0.048** under monochromacy — 0.436× — after
 measuring both. `0.15 × 0.436 = 0.0655`. An independent reading agrees: the median per-group
-ratio of the achromatopsia reachable ceiling to the best dichromacy ceiling is 0.644 for the
-categorical and chart groups and 0.303 for the semantic trio, and 0.436 sits between them.
+ratio of the achromatopsia reachable ceiling to the best dichromacy ceiling is **0.677** for the
+categorical and chart groups (n=64) and **0.303** for the semantic trio (n=32), and 0.436 sits
+between them. (An earlier draft said 0.644 for the first figure; a checker failed to reproduce
+it and 0.677 is the value that re-derives. The conclusion is unchanged — 0.436 still falls
+between the two.)
 
 **What did NOT calibrate it**, recorded because it is the obvious candidate and it is empty:
 `a11y-achromatopsia` reports zero induced collapses at 0.15 as readily as at 0.065, so it
@@ -174,9 +195,23 @@ categorical fills read ✓ today and would read `✗ … 26 collapsed` if the no
 **711 induced collapses across all 32 palettes.** Not nothing.
 
 The reportable part is the semantic trio, the one group whose whole job is to carry meaning:
-**25 of 32 palettes have a `--pass`/`--warn`/`--fail` pair that collapses under achromatopsia**,
-with `concrete` at **ΔE 0.000** — pass and fail are the identical gray. `a11y-achromatopsia` is
+**25 of 32 palettes have a `--pass`/`--warn`/`--fail` pair that collapses under achromatopsia.**
+The worst is `pass^warn` at **ΔE 0.0032** on ardesia-dark, brina-dark and laguna-dark;
+`concrete`'s `pass^fail` sits at 0.0038 (`#464646` against `#454545`). `a11y-achromatopsia` is
 the only palette with zero induced collapses anywhere.
+
+Byte-identical flagged pairs do exist — 66 of them, all in the categorical and chart groups.
+ardesia-dark's fills are the sharpest: 38 induced collapses, several at exactly **ΔE 0**, from
+pairs a sighted reader separates easily (`cat-1-fill^cat-11-fill` is dn 0.2732).
+
+**A number in this note was wrong before a checker re-derived it, and the fix is in the tool as
+well as the prose.** The first cut read `✗ semantic signals ΔE 0.000 … 1 collapsed` on concrete
+and reported "pass and fail are the identical gray". They are not: the `0.000` is `minCvd`, the
+group MINIMUM over every pair, and on concrete it comes from `pass^warn` — which the tool does
+**not** flag, because dn 0.1138 is under the normal-vision half. The flagged pair is `pass^fail`
+at 0.0038. The report line now prints `worst <n>` beside the count so the flagged pair's own
+reading is on screen, because the ambiguity that produced the error is in the tool's output, not
+only in one reader.
 
 `a11y-deuteranopia` and `a11y-protanopia` sit at `pass^fail` ΔE 0.034; `a11y-tritanopia` at
 `pass^warn` 0.042. That is **not** a defect in those palettes — a reader with achromatopsia
@@ -191,8 +226,12 @@ Nothing here was re-tuned. This change adds measurement.
 `node tools/cvd-audit.js a11y-deuteranopia --strict` exits 1 where it exited 0. The reading is
 true; the fix is not to look away. `--strict --type <condition>` gates a palette against the
 condition it is named for, all four pass that way, and the usage docblock now shows that form.
-Nothing in `package.json` or CI runs this tool — it is a diagnostic that exits 0 by default —
-so no gate changes color. `a11y-tritanopia --strict` already exited 1 on `main` (two
+No npm script or workflow invokes the tool, so no gate changes color. It is not true that
+*nothing* depends on its exit code any more, and that is worth stating precisely for whoever
+widens `--strict` next: this change's own
+`test/unit/palette/cvd-audit-achromatopsia.test.js` spawns the CLI eleven times and asserts its
+exit status, and that file runs under `npm test`, which CI runs. Every one of those assertions
+scopes with `--type`, which is why the default-run widening left them green. `a11y-tritanopia --strict` already exited 1 on `main` (two
 cross-condition collapses); that is pre-existing and untouched.
 
 ## 4. Verification (HARD RULE #23)
@@ -219,6 +258,18 @@ cross-condition collapses); that is pre-existing and untouched.
   a number, `null`, `{}`) asserting none becomes a pass and none THROWS — the throw being the
   one that matters, since `normalizeHex` raises and an exception takes out the whole panel
   rather than one row. That version bites both widenings.
+- **The panel heading moved, and that is a chrome change.** `WCAG audit / AA verified` became
+  `Palette audit / AA + tiers`, because `ok` now folds in a predicate WCAG does not define — a
+  palette with clean contrast and a collapsed muted tier rendered `WCAG AUDIT … review`, which
+  is a false statement about WCAG. Every reference swept: `Fabricate.tsx`, `fabricate.spec.ts`,
+  `studio.controls.test.tsx`. No control's accessible name, role, presence or location changed,
+  so `docs/e2e/studio-fixture.ts`'s `CHROME` map is untouched.
+- **An independent checker re-derived every headline number** rather than taking the note's
+  word (HARD RULE #25). It reproduced the §2.2 separation table exactly, the 0.15/0.065/0.048
+  induced counts, the dichromacy band, the 996-pair figure, and the a11y readings; it refuted
+  the `concrete ΔE 0.000` example and the 0.644 median, both fixed above, and found the CI
+  claim in §3.4, the stale line in the #1715 note, and the cap edge in §5. It also drove the
+  failing panel at 820px and 390px — renders correctly, no truncation, identical row text.
 - `npm run lint`, `npm test` (6984), `npm run build`, `npm run build:check`,
   `cd docs && npm run typecheck`, and the 1563-test Studio vitest suite: green.
 
@@ -231,6 +282,21 @@ cross-condition collapses); that is pre-existing and untouched.
   own sign-off. `cvd-trio-floor.test.js` freezes the trio under the three dichromacies only and
   `cvd-palette.test.js`'s achromatopsia arm covers only `a11y-achromatopsia`, so nothing gates
   this today. A ratchet over the monochromacy arm is the obvious next pass.
+- **A byte-identical status pair the tool stays SILENT about.** `concrete`'s `--pass` and
+  `--warn` both render `#464646` under achromatopsia — the same pixel — and the audit does not
+  flag them, because `dn` is 0.1138 and the normal-vision half is 0.15. Two meaning-bearing
+  signals rendering identically is arguably exactly what this arm exists to find, and the half
+  that (correctly, §3.2) keeps out never-distinct pairs hides it. The half is not the place to
+  fix that; a "byte-identical under simulation, whatever `dn` says" arm would be, and it is a
+  separate pass. Found by a checker, not by the change.
+- **A FAILING separation row can be pushed off the meter's six-row cap.** `contrast.js` appends
+  separation rows last, so among failures they sort last, so once more than six roles fail they
+  are the first dropped — reachable from the Studio's own pickers. The #1457 property still
+  holds (a failure is never evicted by a PASSING row, so a red badge over six green checks
+  cannot recur) and the panel still shows six real failures; but "the cap can only ever hide a
+  passing row", which `audit-meter.ts` claimed in as many words, is false once failures exceed
+  the cap. The comment and two test names now say which half is guaranteed. Widening the cap or
+  ranking failures across kinds would close it; neither is this change.
 - **`--text-label` is unmeasured against anything.** §2.2 rejects it as a separation row
   because it is a hue distinction; it does not follow that nothing should measure it. Off-path.
 - **`checkMutedTierFloors` still cannot see `--text-secondary`.** This change gave the STUDIO

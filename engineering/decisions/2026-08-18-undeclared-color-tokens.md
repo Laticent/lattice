@@ -346,7 +346,7 @@ statement is narrower.
 
 **`lib/theme/cvd.js` gained an ACHROMATOPSIA arm**, because measuring this needed a primitive
 that did not exist. It is a monochromacy, not a dichromacy, so it stays OUT of `CVD_TYPES` —
-that list is the three Machado matrices, `tools/cvd-audit.js` loops over it, and a unit test
+that list is the three Machado matrices and a unit test
 pins it as exactly three — and lands in a new `SIMULATED_TYPES`. There is no matrix because it
 is not a matrix problem: with no functioning cones only luminance survives, so the simulation
 is WCAG relative luminance (the same function the contrast gates use, not an ad-hoc
@@ -686,4 +686,4 @@ that resolve to literals). The shape of both claims held; the magnitudes are cor
   **DONE — `2026-08-23-measurement-primitives-reach-the-reader.md` §3.** The audit loops
   `SIMULATED_TYPES` with a per-condition collapse floor (0.065 for the monochromacy, derived
   from this note's own 0.048/0.11 ratio); `CVD_TYPES` is still the three matrices. It finds a
-  status-trio collapse on 25 of 32 palettes, `concrete` at ΔE 0.000.
+  status-trio collapse on 25 of 32 palettes, worst ΔE 0.003.
