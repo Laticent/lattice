@@ -31,16 +31,16 @@ An evidence-backed audit — the inventions, the libraries, and the parts that d
 
 `How this was built`
 
-## Eight agents read the repo before a slide was written.
+## Twenty-two agents, then a bake-off against four rivals.
 
-Every claim carries a file path, a line number, or a number I ran myself. Nothing is quoted from the README without checking it against code.
+Every claim carries a path, a count, or a command that reproduces it.
 
 - 220 findings, each with evidence
-  - Every claim had to cite a path. Vague praise was rejected by contract.
-- 92 of them are weaknesses
-  - The brief said zero weaknesses means you did not look.
-- Zero were graded paradigm shift
-  - All eight had the grade available. None used it.
+  - 92 of them are weaknesses. Vague praise was rejected by contract.
+- One brief, five tools, five decks
+  - Marp, Slidev, Beamer and Quarto installed and rendered here, not recalled.
+- Two claims died on measurement
+  - Auto-split does not fire at 16:9. The catalog cost 62k, not 3.8k.
 
 ---
 
@@ -50,10 +50,10 @@ Every claim carries a file path, a line number, or a number I ran myself. Nothin
 
 1. The shape of the thing — page 5
 2. What is genuinely new — page 12
-3. The paradigm question — page 25
-4. Position against the field — page 29
-5. Metrics, libraries, extraction — page 33
-6. The autopsy, and where it goes — page 52
+3. The paradigm question — page 28
+4. The bake-off against four rivals — page 32
+5. Metrics, libraries, extraction — page 37
+6. The autopsy, and where it goes — page 56
 
 ---
 
@@ -209,18 +209,42 @@ Every other deck tool answers “too much content” by making the type smaller.
 
 `Auto-split`
 
-## Pagination is measured in a browser, not counted in a parser.
+## Pagination is measured in a browser — but not at 16:9.
 
 ```mermaid
 flowchart LR
   R["render in Chromium"] --> M["measure scrollHeight<br/>÷ clientHeight"]
-  M --> Q{"overflows,<br/>and splittable?"}
-  Q -->|"no"| DONE["deck fits — emit"]
+  M --> Q{"overflows, splittable,<br/>and NOT wide?"}
+  Q -->|"no"| RING["clip, and say so"]
   Q -->|"yes"| D["divide by the<br/>measured ratio"]
   D --> E["re-emit as COVER<br/>→ BODY → CLOSING"]
   E --> R
-  Q -->|"5 passes"| RING["honest overflow ring"]
 ```
+
+— Splitting is intrinsic at presentation sizes and deliberately off at `wide`: a deck is authored once and shown at many sizes, so the engine will not change slide COUNT under the author at the size they are editing.
+
+---
+
+<!-- _class: list-tabular metric -->
+
+`Measured · 12 risk items forced onto one slide`
+
+## What each size actually does when the content will not fit.
+
+1. `16:9` wide
+   - Clips. Stamps a visible badge and names the page on stderr
+   - _14 → 14 pages_
+2. `1:1` square
+   - Splits. Every item survives
+   - _14 → 18 pages_
+3. `9:16` story
+   - Splits harder
+   - _14 → 23 pages_
+4. `4:5` portrait
+   - Splits hardest
+   - _14 → 34 pages_
+
+— The same stressed deck, rendered four times. The loop is real; at the size a board deck uses, it is a warning rather than a repagination.
 
 ---
 
@@ -313,20 +337,37 @@ About a dozen name patterns replace a 383-entry lookup table — so a token adde
 
 ---
 
+<!-- _class: split-panel mirror -->
+
+`Prose budgets`
+
+## The engine has an opinion about how many words belong on a slide.
+
+Title 10 words, eyebrow 5, subtitle 12, key insight 18, pill 2 — with a 70-word whole-slide backstop, and a per-component body budget beside it.
+
+- The numbers are sourced, not invented
+  - Reynolds, Duarte, Minto, Knaflic — set deliberately below where anything would overflow.
+- It advises, it does not block
+  - Budgets are traps, not footguns: verbosity renders fine, it just communicates poorly.
+- No competitor ships anything like it
+  - Marp, Slidev, Beamer and Quarto have no word or density budget at all. Checked.
+
+---
+
 <!-- _class: split-panel metric -->
 
-`Catalog cost for an agent`
+`What authoring one deck actually cost`
 
-## 3.8k
+## 62k
 
-The component catalog an AI agent must read before writing any slide fell from about 95,000 tokens to 3,800 — small enough to hold all 61 at once.
+The pick surface is 3,800 tokens and it is an INDEX, not the price. Authoring a real 14-slide deck meant opening each chosen component's full contract: 62,000 tokens read.
 
+- The index is still the win
+  - It is what lets a model hold all 61 candidates at once before spending anything.
 - The compression was measured, and it cost
   - Top-1 retrieval fell 59.8% to 42.0% against the full prose, on 264 cases. Shipped anyway.
-- A separate ranker paid it back
-  - A local search index moved top-1 from 16% to 86% on intent phrasings.
-- The fancier design was refuted
-  - A weight tuner zeroed every signal in the facet scorer meant to replace it.
+- It is the only catalog learnable from disk
+  - Beamer needed 4,200 tokens of source and the entire API from prior knowledge.
 
 ---
 
@@ -342,6 +383,23 @@ The component catalog an AI agent must read before writing any slide fell from a
   - Two sinks certified as already-sanitized decoded entities on read. Both are now deleted.
 
 > Every arm of this rule was added after a real miss, not designed up front.
+
+---
+
+<!-- _class: split-panel -->
+
+`The Studio · 65,018 lines`
+
+## The model proposes. A deterministic kernel disposes.
+
+The same split recurs in four places — themes, components, finishes and deck edits. The model proposes intent inside a vocabulary; code derives the output.
+
+- A generated palette cannot be inaccessible
+  - The model picks a ramp; `deriveTheme` fans it to ~80 AA-repaired tokens. It never writes them.
+- Edits are re-scored on landing
+  - The model emits tagged edit blocks. The engine re-grades at once; it never owns correctness.
+- The Coach refuses to guess
+  - A real scorecard grade, and a null assessment rather than a fabricated one.
 
 ---
 
@@ -397,14 +455,14 @@ The component catalog an AI agent must read before writing any slide fell from a
 
 ## Is "vocabulary instead of canvas" a paradigm shift?
 
-The honest version of this argument has to survive someone who already knows LaTeX.
+Argued from a real bake-off this time: one brief, five tools, every deck built and rendered.
 
-1. Yes, arguably
-   - No prior tool makes fit a machine-checked property. Content that does not fit becomes more slides, decided by measurement.
-2. No, on the evidence
-   - The vocabulary has four precedents, one of them Marp's own class mechanism — the exact mechanism Lattice uses.
+1. No, on the vocabulary
+   - Slidev ships 21 layouts; Beamer has had block and theorem environments since 2003; Marp's class mechanism is the one Lattice uses.
+2. Yes, on the enforcement
+   - Every rival rendered an over-long caption without comment. One tool said the caption was too long, and cited the literature.
 
-*Design systems have paired tokens, components and accessibility gates for a decade.*
+*The idea is old. Having a machine hold you to it is not.*
 
 ---
 
@@ -414,18 +472,18 @@ The honest version of this argument has to survive someone who already knows LaT
 
 ## Which half of the claim is load-bearing?
 
-The vocabulary is the visible half and the derivative half. The verification is the invisible half, and the original one.
+Measured on one brief across five tools. The vocabulary is the visible half; the enforcement is the half nothing else has.
 
 - The vocabulary framing
-  - Reaches the widest audience
-  - Has four strong precedents
-  - Loses every argument with Beamer
-- The verification framing
-  - Narrower, harder to explain
-  - Survives a hostile reviewer
-  - No competitor does it at all
+  - Slidev has 21 layouts
+  - Beamer had environments in 2003
+  - Loses this argument on merit
+- The enforcement framing
+  - 14/14 slides native, zero custom CSS
+  - Only tool that reports its own clipping
+  - Only tool with a word budget
 
-> Lead with verification. The vocabulary is table stakes; compiled fit and contrast are not.
+> Lead with enforcement. The vocabulary is table stakes; a machine that holds the line is not.
 
 ---
 
@@ -433,13 +491,13 @@ The vocabulary is the visible half and the derivative half. The verification is 
 
 `Section 03 · Recap`
 
-## Where the shift is real, stated precisely.
+## Where the needle actually moves, stated precisely.
 
-- Slide count is derived from content and geometry, not authored. → page 14
-- Contrast is a property of rendered pixels, gated per pull request. → page 17
-- Shrink-to-fit is structurally unavailable, so illegibility cannot be the fix. → page 13
-- The component catalog is a machine surface, benchmarked for retrieval. → page 20
-- Everything else is excellent execution of ideas that already existed. → page 25
+- The only tool of five that reports its own clipping instead of losing content quietly.
+- The only one with a sourced word budget — and it advises rather than blocks.
+- The only one where a generated palette cannot be inaccessible, because the model never writes the tokens.
+- 211 source lines and zero custom CSS, against 291 to 611 everywhere else.
+- Everything about the vocabulary itself is prior art, well executed.
 
 ---
 
@@ -455,34 +513,49 @@ The vocabulary is the visible half and the derivative half. The verification is 
 
 <!-- _class: compare-table -->
 
-## What each tool has that Lattice does not.
+## One brief, five tools, every deck built and rendered.
 
-`Left column audited · right column recalled`
+`Measured 2026-08-23 · all five installed locally · 14 pages each`
 
-| Tool | Lattice's edge `verified` | What it has that Lattice lacks `unaudited` |
-| --- | --- | --- |
-| Marp | Components, tokens, measured split | User base, real editor preview |
-| Slidev | Verification layer, agent catalog | Click builds, a hot-reload dev server |
-| Beamer | Sub-second render, swappable palettes | Overlays, citations, cross-refs |
-| Quarto | The design layer it leaves to a theme | Executable code chunks |
-| PowerPoint | Text-diffable source, deterministic output | Co-editing, an editable artifact |
+| Tool | Source lines | Custom styling | Native constructs |
+| --- | --- | --- | --- |
+| **Lattice** | **211** | **0** | **14 / 14** |
+| Slidev | 290 | 298 | 5 / 14 |
+| Marp | 569 | 291 | 1 / 14 |
+| Beamer | 594 | 390 | 0 / 14 |
+| Quarto | 341 | 611 | 3 / 14 |
 
-_This is the one slide in the deck that breaks its own rule: the right column is recalled, not checked against a running install. Treat it as the hypothesis to test, not the finding._
+_Five agents, each blind to the others and to every tool but its own, given the same tool-neutral content brief. Custom styling counts hand-written CSS, SCSS, Vue and TeX._
 
 ---
 
 <!-- _class: cards-grid three -->
 
-## Three things every competitor has that Lattice structurally does not.
+## The same test, on what happens when content will not fit.
+
+- Lattice clips and says so
+  - A visible badge on the slide and a stderr line naming the page. Five of six overflow items retained.
+- Beamer drops everything, quietly
+  - All six added items gone from the PDF. Four `Overfull \vbox` lines in the log, if you read the log.
+- Marp and Slidev lose it in silence
+  - Four of six gone, no warning at any layer. Slidev's bleed onto the next page and vanish under it.
+
+> Nobody fits twelve items. Only one of the five tells you.
+
+---
+
+<!-- _class: cards-grid three -->
+
+## What the other four have that Lattice does not.
 
 - A recipient who can edit
   - The PowerPoint export is one flat image per slide. It presents; it does not open.
 - Live collaboration
   - Collaboration is git. No co-editing, no comment thread, no presence.
 - Incremental build
-  - No click-through reveals and zero transition rules in the engine. A speaker view does ship.
+  - No click-through reveals and zero transition rules. Slidev and reveal both have them.
 
-> Deliberate scope choices — but a room will read them as gaps.
+> Beamer's TikZ also drew the best diagram in the bake-off, inline and vector, first try.
 
 ---
 
@@ -1033,15 +1106,15 @@ There are 143,489 lines of internal engineering prose behind 13 published pages.
 Both readings are true. The deck fails if it delivers only one of them.
 
 - The generous reading
-  - An unusually rigorous engine
-  - Real inventions in fit and contrast
-  - Verification above category norms
+  - 14/14 native, zero custom CSS
+  - The only tool that reports its clipping
+  - The only sourced word budget
 - The accurate reading
-  - The inventions are narrow and real
-  - The framing around them overstates
+  - Every idea has prior art
+  - Coverage is thinner than the framing
   - It has never shipped to anyone
 
-> The engineering is better than the pitch, and the pitch is what is failing.
+> The needle moves on enforcement, not vocabulary. And it has still never shipped.
 
 ---
 
