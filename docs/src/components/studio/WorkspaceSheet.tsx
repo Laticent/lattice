@@ -1,6 +1,6 @@
 import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
-import { orSupportsCache } from '@/components/studio/ai/architect-model.js';
+import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
 import { readCachingEnabled, readDedupEnabled, writeCachingEnabled, writeDedupEnabled } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';

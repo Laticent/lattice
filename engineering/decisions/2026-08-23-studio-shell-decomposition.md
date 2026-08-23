@@ -444,6 +444,53 @@ branch.
 **Logged, not fixed here** (HARD RULE #18, off-path for this PR): filed as #1773 with
 this exact scoping, rather than shipped speculatively.
 
+**Resolved (2026-08-23, #1773) — option (a), and the sync/async framing above was half
+wrong.** `orSupportsCache` and its `withCachedSystem` sibling moved to a new
+dependency-free `docs/src/components/studio/ai/or-cache.js`; `WorkspaceSheet` imports the
+predicate from there, `architect-model.js` imports `withCachedSystem` back from it, and
+nothing in `docs/src` statically imports the provider layer any more. Measured on one
+machine, `npm run build` either side of the change: studio `eagerJsGz` **640,868 →
+635,121 bytes (−5.6KB gz)**, raw **−16.0KB**, chunk count unchanged at 57, playground
+byte-identical. The chunk graph shows the swap directly — before, `architect-model.js`
+sat in the monolith's `moduleIds`; after, it is its own 15.8KB raw / 6.1KB gz chunk, and
+`or-cache.js` (the tiny replacement) is what the monolith carries.
+
+Two corrections to the analysis above, both found while doing it:
+
+- **The predicate being synchronous was never the risk.** Its ARGUMENT was already
+  async: `ai.modelId` comes from `useArchitectStatus`, which starts at `FLOOR_STATUS` and
+  fills in only after `await architectModel()` resolves (`architect.ts:1693-1718`). So
+  first paint always drew the "no model connected" copy, before and after. Option (b) —
+  the one this section called riskier — would have been restructuring a render for an
+  answer the render never had. What the static import actually bought was bytes, nothing
+  else.
+- **This defers the cost; it does not remove it.** `StudioShell.tsx:2055` calls
+  `useArchitectStatus()` unconditionally, so `architect-model.js` is still fetched on
+  every real Studio load — just after hydration, as a separate on-demand chunk, instead
+  of being parsed before it. That is the same trade every other dynamic import on this
+  route makes, and it is what the eager-byte ledger measures; it is not "the AI layer is
+  no longer downloaded". Deferring the fetch also makes a stale-tab 404 reachable where
+  it previously could not be, which `architectModel()`'s existing `.catch(() => null)`
+  already degrades to the honest no-model floor (`chunk-load.spec.ts` covers that shape for
+  the one `React.lazy` a stale tab can reach; this path never touches a boundary).
+
+The ledger is ratcheted to the new measurement in `docs/route-budget.json`. Its ~3%
+headroom is wider than this win, so the ledger alone would NOT catch the static import
+coming back — the invariant is pinned instead by a source scan in
+`docs/src/components/studio/ai/or-cache.test.ts` (no `docs/src` module statically imports
+`architect-model.js`; `or-cache.js` imports nothing), verified to fail when the old import
+line is restored.
+
+**A text scan has to match module IDENTITY, not one spelling of it** — the first cut of
+that pin matched neither `export … from` nor an extension-less specifier, and the
+maker-checker pass reproduced both: either spelling re-inlines the module into the
+monolith, gives the full 5,747 bytes back, and leaves `check:route-budget` GREEN inside its
+own headroom. Extension-less is not a hypothetical spelling here — `StudioShell` already
+imports `@/lib/resolve-captions` and `@/lib/resolve-pace` that way, both resolving to `.js`.
+The pin now matches `/(?:^|\/)architect-model(?:\.(?:js|mjs|ts))?$/` and sweeps `.astro`
+too, since `src/pages/studio.astro` statically imports eight `components/studio/*` modules
+and is as capable of reinstating the edge as any `.tsx`. Each arm is mutation-tested.
+
 ---
 
 ## 6. What genuinely shared state would an async mount boundary reorder
@@ -502,7 +549,9 @@ StudioShell's own irreducible size, not mount-ordering hazards.
   a feature, they're infrastructure the features and the shell both depend on.
 - **Follow-up filed: #1773** for §5.2 (`orSupportsCache` / `architect-model.js`) — real,
   bounded, but needs its own scoping (split the predicate out, or restructure the sync
-  read), not a speculative fix in a spike PR.
+  read), not a speculative fix in a spike PR. **Shipped 2026-08-23** as the split
+  (option (a)), for a measured −5.6KB gz; see §5.2's resolution note, including the two
+  corrections it makes to the analysis here.
 - **Leave §5.1** (`PrintOptionsPanel` → `authoring-core.generated.js`) as a documented
   non-issue — no byte win available under the current allowlist policy; a style-consistency
   cleanup only, not worth its own issue.
