@@ -435,6 +435,14 @@ how they drifted:
 - `editor-lint.spec.ts` "an unknown component makes Fix-all actionable" — times out finding
   the Inspector's "Inline validation" switch. The lint assertion before it passes.
 
+**Update (2026-08-23):** both were resolved independently by #1740, which retargeted six
+Studio specs whose controls had moved out from under them — `architect:24` was scoped off
+the substring-matching `getByText('Structure')` to the Board readiness card, and
+`editor-lint:16` now opens the Inspector's collapsed "Developer" disclosure before locating
+the "Inline validation" switch. Verified 2026-08-18:
+`npx playwright test --project=desktop e2e/architect.spec.ts e2e/editor-lint.spec.ts` → 5
+passed. This note stays so nobody is sent chasing already-closed work.
+
 **One thing the fixes revealed:** the shipped welcome deck trips the math detector itself,
 because its copy contains a literal `` `$math$` `` inside a code span and the engine
 matches math in code spans on purpose. So a first-run visitor still pays the KaTeX faces;
@@ -475,7 +483,8 @@ rather than from a round number.
 the same inert-`sr-only` bug the new `ComposeSkeleton` shipped with and has now fixed —
 an `aria-hidden` wrapper removes its own `sr-only` status from the accessibility tree, so
 "Loading the editor…" announces nothing. Pre-existing, and its fix belongs with an
-accessibility pass rather than a loading one.
+accessibility pass rather than a loading one. **Fixed** in the follow-ups PR that closed
+#1751 — `EditorSkeleton` now mirrors `ComposeSkeleton`'s shape.
 
 ## What this audit does not cover
 
