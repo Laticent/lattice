@@ -1310,6 +1310,51 @@ only for a field the form headings left empty — so a form-filed card parses
 exactly as before. Grooming a card is therefore *adding what it lacks*, not
 reformatting what it already says.
 
+#### What the queue actually looked like once someone measured it
+
+The gate was then run against every open card, and the paragraph above turns out
+to have named the wrong cause. Measured 2026-08-23, the evening #1779 merged:
+**215 open issues, 64 of which already met the Definition of Ready — and 4 of
+those 64 carried `status:ready`.** The Ready column was not empty because the
+parser was too strict. It was empty because **nobody had applied the label**, to
+sixty cards that had passed the bar all along.
+
+The alias pass is worth keeping and it rescued **zero** of them. All 64 parse on
+the canonical form headings; the only card in the queue that needs an alias is
+one this pass wrote the aliases into (#1524). That is not an argument against
+the aliases — a hand-written card that *does* write `## Done when` now works,
+which it did not before — but it does correct what the aliases were sold as.
+They were sold as the thing standing between the queue and a full Ready column,
+and they were not.
+
+The cards that genuinely fail are failing on **content, not form**. Their
+headings are `## The gap`, `## Suggested shape`, `## What happens`,
+`## Reproduce` — a vocabulary no alias list will ever cover, because those
+sections are not a Definition of Ready. They are missing a swimlane, and
+sometimes an acceptance check, and the only fix is to write one. Widening the
+alias list further would buy nothing and would raise the odds of a false accept,
+which is the one failure the gate exists to prevent.
+
+**Two lessons for the next person who groups a backlog.** First, count before
+you build: the "6 of 167" figure that motivated the parser work was itself
+undercounted — `GET /issues` returns pull requests too, so a two-page fetch of
+100 looks complete at 166 issues while silently dropping page three. Paginate to
+exhaustion and filter PRs, or you will measure a subset and generalize from it.
+Second, the cheap move dominates: applying a label to cards that already pass
+costs one API call each and needs no judgment, and it moved the column from 4 to
+64 in about a minute. Rewriting card bodies is the expensive move, and it is only
+ever needed for the cards that truly lack the fields.
+
+The gate itself was verified live, in both directions, on real cards rather than
+in a harness (HARD RULE #23). Applying `status:ready` to a card missing both
+fields stripped it within 30 seconds and left the explanatory comment; adding
+only alias headings — deliberately *not* the canonical ones — and re-applying it
+left the label on, with `Definition of Ready satisfied.` in the run log. That
+second run is the discriminating one: the pre-#1779 parser would have stripped
+it. Across all 64 cards the live gate's verdict matched the local parser's
+exactly, with no card labeled that the parser rejects and none rejected that it
+accepts.
+
 ### BACKLOG.md — the one-way mirror
 
 `BACKLOG.md` is a committed, read-only snapshot of open issues grouped by column,
