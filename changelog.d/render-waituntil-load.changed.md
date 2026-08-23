@@ -6,7 +6,7 @@
   scales with how much a deck splits: `portrait-roadmap` (1 navigation) **2.14 s → 1.48 s
   (−31%)**, `auto-split` (3) **4.09 s → 1.80 s (−56%)**, `cover-paginate` (4) **5.48 s → 2.27 s
   (−59%)**. The −31% row is the typical one — 265 of the 277 shipped decks drive exactly one
-  navigation. Sweeping all **277**: **299.4 s → 226.4 s (−24%)** wall clock at 4× parallelism.
+  navigation. Sweeping all **277**: **299.4 s → 223.9 s (−25%)** wall clock at 4× parallelism (one sweep each way).
 - The change is `waitUntil: 'load'` on the three `page.goto` calls, and it is safe because
   `load` was never the weaker wait for anything this document contains. Serving each resource
   kind from a local server behind a deliberate 1,500 ms delay, `load` **waits** for `<img>`,
