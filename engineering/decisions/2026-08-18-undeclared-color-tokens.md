@@ -346,7 +346,7 @@ statement is narrower.
 
 **`lib/theme/cvd.js` gained an ACHROMATOPSIA arm**, because measuring this needed a primitive
 that did not exist. It is a monochromacy, not a dichromacy, so it stays OUT of `CVD_TYPES` —
-that list is the three Machado matrices, `tools/cvd-audit.js` loops over it, and a unit test
+that list is the three Machado matrices and a unit test
 pins it as exactly three — and lands in a new `SIMULATED_TYPES`. There is no matrix because it
 is not a matrix problem: with no functioning cones only luminance survives, so the simulation
 is WCAG relative luminance (the same function the contrast gates use, not an ad-hoc
@@ -672,6 +672,10 @@ that resolve to literals). The shape of both claims held; the magnitudes are cor
   equal to `--text-body`, and nothing surfaces it: `lib/theme/contrast.js` — the meter the
   Studio actually shows — has no separation concept at all (no `oklabDistance` import). Wiring
   a separation row into that meter is the real repair and is its own change.
+  **DONE — `2026-08-23-measurement-primitives-reach-the-reader.md` §2.** The meter carries
+  `muted^body` AND `secondary^body` as a second row KIND; measured, `--text-secondary` has the
+  same defect and `deriveTheme` collapses it harder (byte-identical to body on a near-ceiling
+  essential set, where muted merely gets close).
 - **`checkMutedTierFloors` cannot catch a `--muted-mark` READ that paints text.** It polices
   the token's value, not its use sites; the three the checker found were caught by reading,
   not by a gate. A use-site classifier is what `lib/tokens/contracts.js` argues against
@@ -679,3 +683,8 @@ that resolve to literals). The shape of both claims held; the magnitudes are cor
 - **`tools/cvd-audit.js` still has no achromatopsia arm.** `lib/theme/cvd.js` can now simulate
   it and `checkHljsSeparation` uses it, but wiring it through the audit's own CLI and its
   categorical/status groups is a separate pass.
+  **DONE — `2026-08-23-measurement-primitives-reach-the-reader.md` §3.** The audit loops
+  `SIMULATED_TYPES` with a per-condition AND per-group collapse floor (0.065 for the crowded
+  groups, from this note's own 0.048/0.11 ratio; 0.11 for the three-token status trio, which is
+  small enough to reach the dichromacy floor and does); `CVD_TYPES` is still the three matrices. It finds a
+  status-trio collapse on 31 of 32 palettes, worst ΔE 0.003.

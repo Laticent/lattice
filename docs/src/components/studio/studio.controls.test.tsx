@@ -449,7 +449,7 @@ describe('Studio — Fabricate + Present dock respond', () => {
 		expect(await screen.findByRole('option', { name: 'comparison', selected: true })).toBeInTheDocument();
 	});
 
-	it('Fabricate derives a REAL token contract + WCAG audit from the engine', async () => {
+	it('Fabricate derives a REAL token contract + palette audit from the engine', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
 		await user.click(await screen.findByText('Fabricate'));
@@ -463,9 +463,9 @@ describe('Studio — Fabricate + Present dock respond', () => {
 		await user.click(accentRows[accentRows.length - 1]);
 		expect(await screen.findByLabelText('Accent light')).toBeInTheDocument();
 		expect(screen.getByLabelText('Accent dark')).toBeInTheDocument();
-		// The WCAG audit renders real computed rows: a role with an `N.N : 1` ratio
+		// The palette audit renders real computed rows: a role with an `N.N : 1` ratio
 		// and a tier badge (AAA/AA/FAIL) — auditBoth output, not a static list.
-		expect(screen.getByText(/WCAG audit/)).toBeInTheDocument();
+		expect(screen.getByText(/Palette audit/)).toBeInTheDocument();
 		expect(screen.getAllByText(/\d+\.\d+ : 1/).length).toBeGreaterThan(0);
 		// Picking a curated starter reseeds the core colors and re-derives.
 		await user.click(screen.getByRole('button', { name: /Start from Ember/ }));
