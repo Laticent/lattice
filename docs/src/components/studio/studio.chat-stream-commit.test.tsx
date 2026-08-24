@@ -1,0 +1,225 @@
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ArchitectChat } from './ArchitectChat';
+import { loadChat } from './studio-store';
+
+// #1787 — the streaming bubble has to be GONE once the reply commits.
+//
+// A chat turn paints tokens through a rAF-coalesced `setStreaming`, and clears that
+// bubble in the turn's `finally`. If the last token's frame is still QUEUED when
+// `chatComplete` resolves, the ordering is: commit appends the message → `finally`
+// nulls `streaming` → the queued frame fires and sets `streaming` back to the full
+// buffer. Nothing clears it again, so the reply renders TWICE, identically, until the
+// next send. Observed on a live Playwright run (two identical Architect bubbles).
+//
+// The race is DETERMINISTIC once the frame is held, which is what these tests do:
+// `requestAnimationFrame` is stubbed to a queue that only this file drains, so
+// "a frame was still pending at completion" is a state we enter on purpose rather
+// than one we wait for.
+
+const REPLY = 'Slide two is already a closing layout.';
+const REPLY_TWO = 'Here is a second answer entirely.';
+
+let frames: Array<{ id: number; cb: FrameRequestCallback }> = [];
+let nextFrameId = 1;
+const flushFrames = async () => {
+	const queued = frames;
+	frames = [];
+	await act(async () => {
+		for (const f of queued) f.cb(0);
+	});
+};
+
+const chatSpy = vi.hoisted(() =>
+	vi.fn(async (_turns: unknown, _src: unknown, _docs: unknown, opts?: { onToken?: (t: string) => void }) => {
+		opts?.onToken?.(REPLY);
+		return { status: 'ok', reply: REPLY, proposed: null };
+	}),
+);
+const statusSpy = vi.hoisted(() => vi.fn((): Record<string, unknown> => ({ ready: true, generation: 'openrouter', modelName: 'test', remaining: null, price: { promptPerM: 1, completionPerM: 2 } })));
+vi.mock('./architect', () => ({
+	chatComplete: chatSpy,
+	useArchitectStatus: statusSpy,
+	applyProposedEditsChecked: vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] })),
+	estimateUsd: () => 0.004,
+	CHAT_OUTPUT_EST: 4096,
+	chatSystemTokens: () => 0,
+	CHAT_MAX_TOKENS: 16384,
+	architectSpend: () => ({ total: 0, session: 0, totalTokens: 0, sessionTokens: 0, cap: 0, mode: 'alert', status: { level: 'ok', blocked: false, message: null } }),
+}));
+
+const props = { deckId: 'deck-1', source: '# One\n', aiReady: true, onApply: () => {}, onConnect: () => {}, notify: () => {} };
+
+beforeEach(() => {
+	localStorage.clear();
+	frames = [];
+	nextFrameId = 1;
+	vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+		const id = nextFrameId++;
+		frames.push({ id, cb });
+		return id;
+	});
+	vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+		frames = frames.filter((f) => f.id !== id);
+	});
+});
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.clearAllMocks();
+	statusSpy.mockReturnValue({ ready: true, generation: 'openrouter', modelName: 'test', remaining: null, price: { promptPerM: 1, completionPerM: 2 } });
+});
+
+const sendOnce = async (user: ReturnType<typeof userEvent.setup>, text: string) => {
+	await user.type(screen.getByLabelText('Message the Architect'), text);
+	await user.click(screen.getByRole('button', { name: 'Send' }));
+};
+
+/** A turn that emits its whole reply as one token and then WAITS to be released. */
+const deferredTurn = (reply: string) => {
+	let release: (v: { status: string; reply: string; proposed: null }) => void = () => {};
+	chatSpy.mockImplementationOnce((_t: unknown, _s: unknown, _d: unknown, opts?: { onToken?: (t: string) => void }) => {
+		opts?.onToken?.(reply);
+		return new Promise((resolve) => {
+			release = resolve;
+		});
+	});
+	return {
+		release: async () => {
+			await act(async () => {
+				release({ status: 'ok', reply, proposed: null });
+			});
+		},
+	};
+};
+
+describe('Architect chat — a committed reply is not re-shown by a late frame (#1787)', () => {
+	it('renders the reply ONCE when a paint frame is still queued as the turn completes', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} />);
+
+		// Hold the completion open so we can OBSERVE the pending frame first — asserting
+		// it after the turn ends would be checking the fix with the fix's own effect.
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'tighten slide two');
+		expect(frames.length, 'no frame was queued — this test proves nothing without one pending').toBeGreaterThan(0);
+
+		// The completion lands with that frame STILL queued: the #1787 window exactly.
+		await turn.release();
+		expect(screen.getAllByText(REPLY)).toHaveLength(1);
+
+		await flushFrames();
+		expect(screen.getAllByText(REPLY), 'the late frame re-mounted the streaming bubble over the committed message').toHaveLength(1);
+	});
+
+	it('leaves no live Architect bubble behind after the late frame fires', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'tighten slide two');
+		await turn.release();
+		await flushFrames();
+
+		// Two "Architect" captions means two bubbles: the committed message and a
+		// streaming block the panel can no longer clear.
+		expect(screen.getAllByText('Architect')).toHaveLength(1);
+	});
+
+	it('still paints tokens on the NEXT turn — the frame guard is reset, not just canceled', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} />);
+		await sendOnce(user, 'tighten slide two');
+		await flushFrames();
+
+		// Turn two: hold the completion open so the stream is observable mid-flight.
+		const turn = deferredTurn(REPLY_TWO);
+		await sendOnce(user, 'and again');
+		await flushFrames();
+
+		// If the completion canceled the frame WITHOUT zeroing `rafRef`, `onToken` reads
+		// the stale id as "a frame is already scheduled" and never queues another — the
+		// reply would stream to a permanently blank bubble.
+		expect(screen.getByText(REPLY_TWO), 'no frame was scheduled for the second turn — the rAF guard was left stale').toBeTruthy();
+
+		await turn.release();
+	});
+});
+
+// A SECOND stale-bubble defect, found in the same teardown block while fixing #1787 and
+// fixed with it (HARD RULE #18 — on the path of this change). `busy` and `streaming`
+// describe the PANEL, but their teardown was gated on the turn's deck still being the one
+// on screen. Switch decks mid-reply and neither ever cleared: the composer kept Stop in
+// place of Send permanently, and the other deck's partial answer sat in this deck's
+// transcript.
+describe('Architect chat — a turn that ends on another deck still tears down', () => {
+	it('clears busy when the turn completes after a deck switch', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'tighten slide two');
+		expect(screen.getByRole('button', { name: 'Stop' }), 'the turn should be in flight').toBeTruthy();
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+
+		expect(screen.queryByRole('button', { name: 'Stop' }), 'busy was stranded — this deck can never be sent from again').toBeNull();
+		expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy();
+	});
+
+	it('brings the in-flight reply BACK when the author returns mid-turn, with no new token', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'tighten slide two');
+		await flushFrames();
+		expect(screen.getByText(REPLY)).toBeTruthy();
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		expect(screen.queryByText(REPLY)).toBeNull();
+
+		// Back to deck-1 while the model is still streaming. No token arrives — a slow model,
+		// or the tail after the last content chunk — so anything that CLEARED the buffer on the
+		// way out leaves this deck showing a Stop button over an empty transcript.
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(REPLY), 'the partial reply vanished on the round trip').toBeTruthy();
+
+		await turn.release();
+		await flushFrames();
+	});
+
+	it('shows no empty-state placeholder on a fresh deck while a turn runs elsewhere', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'tighten slide two');
+		await flushFrames();
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		// deck-2 has no history, so the "nothing has happened here" placeholder is eligible —
+		// beside a composer showing Stop, which says the opposite.
+		expect(screen.queryByText(/Ask the Architect to tighten a slide/), 'the empty-state invitation is showing next to a Stop button').toBeNull();
+		expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy();
+
+		await turn.release();
+		await flushFrames();
+	});
+
+	it('does not paint the other deck\'s reply into this deck\'s transcript', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'tighten slide two');
+		await flushFrames();
+		expect(screen.getByText(REPLY), 'deck-1 should be streaming its own reply').toBeTruthy();
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		expect(screen.queryByText(REPLY), "deck-1's in-flight reply is showing in deck-2's transcript").toBeNull();
+
+		// It commits to its ORIGINATING deck regardless — the survival contract holds.
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText(REPLY)).toBeNull();
+		expect(loadChat('deck-1').at(-1)?.content, 'the survival contract: the reply still commits to the deck that asked for it').toBe(REPLY);
+	});
+});

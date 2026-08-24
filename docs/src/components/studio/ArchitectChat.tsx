@@ -47,6 +47,14 @@ function AssistantBody({ text, streaming }: { text: string; streaming: boolean }
 	);
 }
 
+// Drop a queued paint frame and clear the guard, together. Zeroing the id matters as
+// much as the cancel: `onToken` reads a non-zero `rafRef` as "a frame is already
+// scheduled" and would never queue another one (#1787).
+function cancelPaint(ref: React.MutableRefObject<number>) {
+	if (ref.current) cancelAnimationFrame(ref.current);
+	ref.current = 0;
+}
+
 export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
@@ -55,8 +63,14 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// change any number/date/name/claim (threaded to chatComplete as constrainFacts). Off by
 	// default; a deliberate opt-in for a "polish, don't touch the numbers" pass.
 	const [factsLocked, setFactsLocked] = React.useState(false);
-	// The in-flight assistant buffer (null when idle). Painted rAF-coalesced during stream.
-	const [streaming, setStreaming] = React.useState<string | null>(null);
+	// The in-flight assistant buffer (null when idle), CARRYING THE DECK IT BELONGS TO.
+	// Painted rAF-coalesced during stream. The deck travels with the text because the panel
+	// renders one deck at a time while a turn keeps streaming across a deck switch: without
+	// it, the pair "which text" / "which deck" lives in two places and they disagree for a
+	// render — which is how the other deck's partial reply used to paint into this
+	// transcript. Filtered at the render (`live`), never cleared on the switch, so switching
+	// BACK shows the reply still arriving rather than a blank turn (#1787, checker F1).
+	const [streaming, setStreaming] = React.useState<{ deck: string; text: string } | null>(null);
 	// An EPHEMERAL notice (offline / blocked / error). NEVER persisted as an assistant
 	// turn — a persisted notice would re-enter the model history and be re-sent.
 	const [notice, setNotice] = React.useState<{ kind: 'offline' | 'blocked' | 'error'; text: string } | null>(null);
@@ -83,7 +97,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		mountedRef.current = true;
 		return () => {
 			mountedRef.current = false;
-			if (rafRef.current) cancelAnimationFrame(rafRef.current);
+			cancelPaint(rafRef);
 			// NOTE: we deliberately do NOT abort on unmount — the request keeps completing
 			// and commits to its originating deck (the survival contract). Only Stop aborts.
 		};
@@ -122,13 +136,16 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		const controller = new AbortController();
 		abortRef.current = controller;
 		bufferRef.current = '';
-		setStreaming('');
+		setStreaming({ deck: sendDeckId, text: '' });
 		const onToken = (tok: string) => {
 			bufferRef.current += tok;
 			if (!rafRef.current)
 				rafRef.current = requestAnimationFrame(() => {
 					rafRef.current = 0;
-					if (mountedRef.current && deckIdRef.current === sendDeckId) setStreaming(bufferRef.current);
+					// No deck guard here — the RENDER decides what is on screen. Keeping the buffer
+					// current while the author is on another deck is the point: come back mid-turn
+					// and the reply is where they left it, still arriving.
+					if (mountedRef.current) setStreaming({ deck: sendDeckId, text: bufferRef.current });
 				});
 		};
 		try {
@@ -146,7 +163,19 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			setNotice({ kind: 'error', text: 'Something went wrong reaching the model — try again.' });
 		} finally {
 			abortRef.current = null;
-			if (mountedRef.current && deckIdRef.current === sendDeckId) {
+			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
+			// still be queued when `chatComplete` resolves; it would fire after `setStreaming(null)`
+			// and set the buffer BACK, so the committed reply renders twice — permanently, since
+			// nothing clears `streaming` again until the next send (#1787). Unconditional: the
+			// frame is this turn's regardless of which deck is on screen or whether we still are.
+			cancelPaint(rafRef);
+			// TEARDOWN IS PANEL STATE, NOT DECK STATE. `busy` and `streaming` describe this
+			// panel, and the panel has exactly one turn in flight — so they must clear when it
+			// ends, whichever deck is on screen. Gated on the deck (as this was), switching
+			// decks mid-turn stranded `busy` at true FOREVER: Send stayed replaced by Stop and
+			// that deck could never be sent from again. Only the COMMIT is deck-scoped, and it
+			// carries its own guard inside `commit`.
+			if (mountedRef.current) {
 				setBusy(false);
 				setStreaming(null);
 				setPulse((p) => p + 1);
@@ -215,7 +244,15 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// slot via a portal) — built once so the two can't drift.
 	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} />;
 
-	const empty = messages.length === 0 && !streaming && !notice;
+	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
+	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
+	// the turn but the Stop button (which is panel-wide — the single-slot abort/buffer refs
+	// make a second concurrent turn impossible, so the guard has to be).
+	const live: string | null = streaming && streaming.deck === deckId ? streaming.text : null;
+	// `!busy` is part of "empty": without it a deck with no history showed the *nothing has
+	// happened here* placeholder while the composer showed Stop — a contradiction on screen
+	// (checker F2). A turn in flight elsewhere leaves this transcript blank, not reassuring.
+	const empty = messages.length === 0 && live === null && !notice && !busy;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
@@ -272,12 +309,12 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						</div>
 					),
 				)}
-				{streaming !== null && (
+				{live !== null && (
 					<div className="flex flex-col gap-1.5">
 						<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 							<Sparkles className="size-3 animate-pulse text-[var(--accent)]" /> Architect
 						</div>
-						{streaming === '' ? (
+						{live === '' ? (
 							<div className="flex gap-1 py-1" role="status" aria-label="Thinking">
 								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.2s]" />
 								<span className="size-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:-0.1s]" />
@@ -285,7 +322,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							</div>
 						) : (
 							<div className="text-[12.5px] leading-relaxed text-foreground">
-								<AssistantBody text={streaming} streaming={true} />
+								<AssistantBody text={live} streaming={true} />
 								<span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-[var(--accent)] align-text-bottom" aria-hidden />
 							</div>
 						)}
