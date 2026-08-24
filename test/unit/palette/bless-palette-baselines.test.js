@@ -145,19 +145,24 @@ describe('bless-palette-baselines · the table parser', () => {
     // whose ground moves with the ink, so only the ink can move. `composed-contrast.js`
     // FAILS on a stale entry — a frozen pair that now passes has to be deleted, not left
     // to rot.
-    // 85, and this is the one direction the number is allowed to RISE in: 19 entries are
-    // a newly MODELLED surface, not a new defect. `chart/status-pill-*` gates the
-    // .chart-status pill's own depth gradient, which no catalog entry covered — its
-    // ground is a raw color-mix rather than a `*-bg` token, so nothing analytic could see
-    // it and it took a rendered `--player` export to surface. The pill's DARK arm was
-    // fixed in the same change; the 19 frozen entries are its LIGHT arm, which carries no
-    // regression and needs a visible retune of every palette (#1807). Adding a surface
-    // that finds real sub-AA pairs is the gate working — what must never rise is the
-    // count at a FIXED surface set.
+    // 66 again, and the round trip through 85 is worth keeping. Those 19 were the
+    // `chart/status-pill-*` LIGHT arm: a newly MODELLED surface rather than a new defect,
+    // frozen because retuning it is visible on every palette (#1807). #1807 landed, so
+    // they are DELETED rather than re-frozen — the light gradient stops moved 33%/54% to
+    // 18%/30% and every one of them clears.
+    //
+    // Two corrections to what this comment used to say, both of which measurement
+    // refutes. The 19 did NOT "carry no regression": composed-contrast's regression arm
+    // ranks root blocks by specificity, and the status trio's `:root:root` copy won its
+    // base-wins map too, so that arm was VACUOUS for the trio and could not report one.
+    // Removing the copy (2026-08-24-status-trio-single-root.md) surfaced 18 regressions on
+    // exactly these pairs. And the pill's dark arm was not the only unmodelled stop — the
+    // gradient's 0% stop was sub-AA too, at 4.38:1, and is catalogued now, which is why
+    // the DENOMINATOR rises to 2624 while the numerator falls.
     // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
     // "768 entries" as a substring, so the contrast assertion passed while reading the
     // wrong line — and would have kept passing whatever the contrast table said.
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*85 entries/,
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*66 entries/,
       'the contrast table still parses in full');
     // 768, up from 576: the monochromacy arm is 192 more (theme x mode x pair), added
     // when the trio was respaced to clear it. 32 x 2 x 3 x 4.

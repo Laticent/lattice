@@ -174,6 +174,47 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 // a rounding-level difference in the last decimal is not reported as a regression.
 const REGRESSION_EPSILON = 0.01;
 
+/**
+ * One `.chart-status` gradient stop as a scored surface.
+ *
+ * The pill's ground is `color-mix(in oklab, var(--pill-hue) N%, <base>)` — `--bg` on the
+ * light arm, `black` on the dark one — and its label is the shared `--text-heading`,
+ * which flips dark-on-light / light-on-dark. So each stop is a real, separately-failing
+ * surface on each arm, and both are listed rather than one being argued safe.
+ *
+ * `requires` pins the stop percentages AND the state's hue mapping in the component CSS,
+ * so a retune of either reddens the gate instead of silently re-pointing what is measured.
+ */
+const PILL_STATE_FALLBACK = {
+  pass: 'light-dark(#1E9E48, #34D058)',
+  warn: 'light-dark(#C2790A, #FFB02E)',
+  fail: 'light-dark(#CE2F2F, #FF5B52)',
+  info: 'light-dark(#0A6CE0, #2E8BFF)',
+  mute: 'light-dark(#6B7480, #9AA7B6)',
+};
+
+function pillStop(state, which, lightPct, darkPct) {
+  const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
+  const stop = which === 'high' ? '100%' : '0%';
+  return {
+    id: `chart/status-pill-${state}${which === 'low' ? '-low' : ''}`,
+    ctx: `chart-family .chart-status[${state}]: --text-heading on the pill gradient's ${stop} stop`,
+    base: '--bg',
+    groups: [{
+      bg: `light-dark(color-mix(in oklab, ${hue} ${lightPct}%, var(--bg)), `
+        + `color-mix(in oklab, ${hue} ${darkPct}%, black))`,
+    }],
+    ink: '--text-heading',
+    min: 4.5,
+    src: CHARTFAMILY,
+    requires: [
+      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
+      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${darkPct}%, black\\)`),
+      new RegExp(`--pill-hue: var\\(--state-${state}-hue\\)`),
+    ],
+  };
+}
+
 const SURFACES = [
   // ── split frames · the panel's own top-edge mark on the panel fill ────────
   // NOT text: a 4px structural rule, so the bar is WCAG 1.4.11's non-text 3:1 rather
@@ -452,84 +493,19 @@ const SURFACES = [
   // "on-track", 4.40:1) and NOTHING analytic could see it, because the pill's ground
   // is a raw color-mix rather than a `*-bg` token.
   //
-  // The ground modelled here is the gradient's 100% stop, which is the light end on
-  // both arms and therefore the worst for each arm's ink. The 0% stop is quieter by
-  // construction and is not separately listed.
-  {
-    id: 'chart/status-pill-pass',
-    ctx: 'chart-family .chart-status[pass]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-pass, light-dark(#1E9E48, #34D058)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-pass, light-dark(#1E9E48, #34D058)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-pass-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-warn',
-    ctx: 'chart-family .chart-status[warn]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-warn, light-dark(#C2790A, #FFB02E)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-warn, light-dark(#C2790A, #FFB02E)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-warn-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-fail',
-    ctx: 'chart-family .chart-status[fail]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-fail-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-info',
-    ctx: 'chart-family .chart-status[info]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-info-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-mute',
-    ctx: 'chart-family .chart-status[mute]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-mute, light-dark(#6B7480, #9AA7B6)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-mute, light-dark(#6B7480, #9AA7B6)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-mute-hue\)/,
-    ],
-  },
+  // BOTH STOPS ARE LISTED, and the reason the 0% one was not is worth keeping. The
+  // original entries modelled only the 100% stop, on the argument that the 0% stop is
+  // "quieter by construction". That is true of the DARK arm — less hue mixed into black
+  // is a darker ground under a LIGHT label — and false of the light arm, where less hue
+  // mixed into `--bg` is a LIGHTER ground under a DARK label, so quieter means safer on
+  // one arm and says nothing on the other. Measured on the shipped tree, the light 0%
+  // stop was itself sub-AA at 4.38:1 on concrete|pass while every gate was green (#1807).
+  // A stop nobody lists is a stop nobody scores, which is the fourth time in this
+  // swimlane that a raw color-mix ground has been invisible.
+  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((state) => [
+    pillStop(state, 'high', 30, 54),
+    pillStop(state, 'low', 18, 42),
+  ]),
 ];
 
 // ── The frozen sub-threshold baseline ───────────────────────────────────────
@@ -600,26 +576,7 @@ const KNOWN_SUB_THRESHOLD = new Map([
   // every palette in light mode. That wants its own visual sign-off (QUALITY BAR), not
   // a number nudged inside a regression fix. Tracked as #1807.
   // ── chart/status-pill-fail (light) ── 12
-  ['atelier-dark|light|chart/status-pill-fail', 3.94],
-  ['atelier|light|chart/status-pill-fail', 3.94],
-  ['brina-dark|light|chart/status-pill-fail', 3.54],
-  ['brina|light|chart/status-pill-fail', 3.54],
-  ['burgundy-dark|light|chart/status-pill-fail', 4.28],
-  ['burgundy|light|chart/status-pill-fail', 4.28],
-  ['concrete-dark|light|chart/status-pill-fail', 4.32],
-  ['concrete|light|chart/status-pill-fail', 4.32],
-  ['laguna-dark|light|chart/status-pill-fail', 3.16],
-  ['laguna|light|chart/status-pill-fail', 3.16],
-  ['mustard-dark|light|chart/status-pill-fail', 3.90],
-  ['mustard|light|chart/status-pill-fail', 3.90],
   // ── chart/status-pill-pass (light) ── 7
-  ['carbone|light|chart/status-pill-pass', 4.42],
-  ['concrete-dark|light|chart/status-pill-pass', 2.48],
-  ['concrete|light|chart/status-pill-pass', 2.48],
-  ['cuoio-dark|light|chart/status-pill-pass', 3.43],
-  ['cuoio|light|chart/status-pill-pass', 3.43],
-  ['laguna-dark|light|chart/status-pill-pass', 4.11],
-  ['laguna|light|chart/status-pill-pass', 4.11],
   // ── checklist/fail-row ── 1
   ['carbone|light|checklist/fail-row', 2.14],
   // ── kpi/hero-pass-pill ── 1
