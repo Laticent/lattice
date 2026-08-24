@@ -208,7 +208,9 @@ The **11 required core tokens** — `build:check` fails without these, defined
 `--text-body`, `--text-secondary`, `--text-muted`, `--muted-mark`, `--accent`,
 `--accent-soft`, `--surface-inverse`. (`checkMutedTierFloors` fails a palette that
 authors `--text-muted` without its `--muted-mark` sibling, and each `--scheme-dark-*`
-half likewise.)
+half likewise. It also fails one whose `--text-muted` OR `--text-secondary` sits
+within OKLab 0.030 of `--text-body` — a quiet tier has to be quieter, and a contrast
+floor alone cannot say that.)
 
 But those 11 are the floor, not the contract. A **from-scratch theme must define
 the full 97-token per-theme contract directly** (the `CONTRACT` list in
