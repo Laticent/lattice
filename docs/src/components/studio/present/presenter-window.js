@@ -26,6 +26,7 @@ import { createWheelGate, createZoomGesture, fitScale, keyAction, PRESENT_KEYMAP
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
+import { placeOnExternalScreen } from './screen-placement.js';
 
 /**
  * The single-slide stage document — one `<section>` of `html` shown at a time,
@@ -364,20 +365,6 @@ export function buildPresenterDoc() {
 	].join('');
 }
 
-/**
- * Auto-place the presenter window on a second screen when the Window Management
- * permission is granted. Enhancement only; a no-op (and manual drag) otherwise.
- */
-async function autoPlacePresenter(win) {
-	try {
-		if (!('getScreenDetails' in window)) return;
-		const details = await window.getScreenDetails();
-		const ext = details.screens.find((s) => !s.isInternal) || details.screens.find((s) => s !== details.currentScreen);
-		if (ext) win.moveTo(ext.availLeft, ext.availTop);
-	} catch {
-		/* permission denied / unsupported */
-	}
-}
 
 /**
  * The opener-side presenter manager. Hooks:
@@ -470,7 +457,7 @@ export function createPresenterController({ buildDoc, getState, onGo, onToggle }
 		win.document.open();
 		win.document.write(buildPresenterDoc());
 		win.document.close();
-		autoPlacePresenter(win);
+		placeOnExternalScreen(win);
 		onToggle?.(true);
 	}
 	function isOpen() {
