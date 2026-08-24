@@ -151,6 +151,62 @@ Design record: [2026-07-30-overflow-marker-register.md](../engineering/decisions
 
 ---
 
+## Raw HTML in a deck (quick reference)
+
+A deck can carry raw HTML — markdown-it runs with `html: true`, so a `<div>`, an
+`<img>` or a `<script>` in your markdown reaches the page verbatim. Two things
+about that are worth knowing before you rely on it.
+
+**The export captures the page at the `load` event.** Everything the browser has
+painted by then is in your PDF. Lattice adds one explicit step past that — it
+promotes deferred media (`loading="lazy"`) to eager and waits for the pixels,
+because the browser deferred that on its own and the document did ask for it.
+
+**It does not wait for your `<script>`'s timers.** A slide that paints itself from
+a `setTimeout`, a `fetch(...).then(...)`, or a `Worker` reply ships **without** that
+content. This is deliberate: there is no wait that is correct for author code racing
+the exporter — whatever budget we published, the next deck could ask for one
+millisecond more.
+
+`requestAnimationFrame` is the exception, and it is safe: a rAF scheduled while the
+page parses runs at the next paint, which happens well before the export captures. Its
+output does land in the PDF.
+
+```md
+<div id="chart">loading…</div>
+
+<script>
+  // ✗ 400 ms too late — the PDF says "loading…"
+  setTimeout(() => { document.getElementById('chart').textContent = 'ready'; }, 400);
+
+  // ✓ runs before the export captures
+  document.getElementById('chart').textContent = 'ready';
+</script>
+```
+
+**You will be told, twice.** `lint:deck` flags a deferring inline `<script>` while
+you are writing (rule `author-script-defers`), and the render names what had not run
+at the moment it captured. The linter is the wider net of the two — it also catches
+`fetch`, `Worker`, `requestIdleCallback` and a `<script type="module">`, which the
+render cannot attribute to you — so **run it**:
+
+```
+  ⚠ 1 deck-authored script task had not run when the export captured:
+      slide 3 · inline <script> · setTimeout(400ms)
+    …so anything that task would have written is NOT in this file.
+```
+
+The fix is to do the work synchronously, or — better — to author the content in
+markdown and let a component render it. One deliverable is exempt: a plain `.html`
+export keeps your `<script>` live in the file, so the recipient's browser runs it.
+Every captured format (PDF, PPTX, PNG, image set) and `--player` freeze the DOM as
+it stands.
+
+Design record:
+[2026-08-16-render-format-cost-assessment.md § 2a-ter](../engineering/decisions/2026-08-16-render-format-cost-assessment.md).
+
+---
+
 ## Custom logo (quick reference)
 
 Discreet top-right brand mark; the img is desaturated to a faint

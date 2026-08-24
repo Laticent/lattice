@@ -993,3 +993,49 @@ describe('lint-core: block-unsupported', () => {
     assert.deepEqual(bu('insight-key'), []);
   });
 });
+
+describe('lint-core: author-script-defers (#1792)', () => {
+  // The export captures at the load event and does not wait on author timers, so a slide
+  // painted from a `setTimeout` ships empty. The render says so at capture; this rule says
+  // it while the deck is still being written, and covers the one shape the render probe
+  // structurally cannot see — a `<script type="module">`, where `document.currentScript` is
+  // null and there is nobody to attribute the timer to.
+  const deckWith = (script) => `${FM}# Deck\n\n---\n\n## Slide\n\n<div id="a">x</div>\n\n${script}\n`;
+
+  test('flags an inline script that defers, and names the call and the slide', () => {
+    const f = ruleFor(deckWith('<script>\nsetTimeout(function(){}, 400);\n</script>'), 'author-script-defers');
+    assert.ok(f, 'a deferring inline script must be flagged');
+    assert.equal(f.slide, 2, 'slide numbering follows the file convention, not a raw chunk index');
+    assert.match(f.line, /setTimeout/);
+    assert.match(f.message, /MISSING from the PDF/);
+    assert.equal(f.severity, 'warning');
+  });
+
+  test('a synchronous script is NOT flagged — it lands in the export', () => {
+    const src = deckWith('<script>\ndocument.getElementById("a").textContent = "now";\n</script>');
+    assert.equal(ruleFor(src, 'author-script-defers'), undefined);
+  });
+
+  test('a `<script src>` is NOT flagged — all three shipped decks carry one', () => {
+    // examples/gallery-jargon.md, diagram.gallery.md and the baseline gallery each embed
+    // mermaid + lattice-runtime for the LIVE preview. Flagging src would fire on every one
+    // of them, which is how a rule gets ignored.
+    const src = deckWith('<script src="../mermaid-v11.min.js"></script>');
+    assert.equal(ruleFor(src, 'author-script-defers'), undefined);
+  });
+
+  test('a module script that awaits IS flagged — the render probe cannot see this one', () => {
+    const src = deckWith('<script type="module">\nawait fetch("./d.json");\n</script>');
+    assert.ok(ruleFor(src, 'author-script-defers'), 'the static net exists for exactly this case');
+  });
+
+  test('a fenced code sample showing a timer is NOT flagged', () => {
+    const src = `${FM}# Deck\n\n---\n\n## Slide\n\n\`\`\`html\n<script>\nsetTimeout(fn, 400);\n</script>\n\`\`\`\n`;
+    assert.equal(ruleFor(src, 'author-script-defers'), undefined, 'this rule must not trip on its own documentation');
+  });
+
+  test('the inert export-settings block is left to its own rule', () => {
+    const src = deckWith('<script type="application/lattice+json">{"then":"(not code)"}</script>');
+    assert.equal(ruleFor(src, 'author-script-defers'), undefined, 'a JSON data block never executes');
+  });
+});
