@@ -42,12 +42,18 @@ export default defineConfig({
 		// nothing — 1.99s vs 1.78s — and a bare `render(<StudioShell/>)` is 90-205ms,
 		// so the cost is the interactions, not mount and not the inter-event delay.)
 		//
-		// FIVE tests relying on this default crossed 5s in that run, across THREE
-		// files — the theme-depth pair, `StudioShell.test.tsx`'s human-in-the-loop
-		// Present gate (5.09s), and two in `lib/vetrina/deictic.test.ts` (5.20s,
-		// 5.07s). That is why this is set here and not on a `studio.*` glob: the flake
-		// pool is wider than the file #1328 was filed against and reaches outside the
-		// Studio entirely, which is also why its failing set differed every run.
+		// TWO tests relying on this default crossed 5s in that run — `studio.theme-depth`
+		// (6.09s) and `StudioShell.test.tsx`'s human-in-the-loop Present gate (5.09s),
+		// with a third at 4.94s just under. Both files are under `components/studio/`.
+		//
+		// So why is this here and not on a `studio.*` glob? NOT because the flake pool
+		// reaches outside the Studio — an earlier draft claimed that and it was a regex
+		// artifact (a per-test budget is written two ways in this repo, and the scan saw
+		// only one; see the decision note). It is because the suite already carries TEN
+		// private per-test budgets across FIVE files, every one >=20s: five authors who
+		// each hit this default and worked around it in their own file. The two files
+		// nobody had patched yet are the two that flaked. Fix the default, not the two
+		// files that happened to surface first.
 		//
 		// 20s is ~3.3x the slowest test that relies on this default under that
 		// contention (6.09s) and ~10x its idle cost. It is deliberately generous:

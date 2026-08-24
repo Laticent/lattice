@@ -4,9 +4,11 @@ summary: >
   The docs vitest suite flaked in the `studio.*` family under full-suite load (#1328) — a
   different failing set every run, which is the failure mode that trains people to dismiss
   failures, and did: a real regression in #1312 was very nearly waved through as contention.
-  The pool turned out to be wider than the file it was filed against: FIVE tests crossed 5s
-  in one instrumented contended run, across three files, two of them outside `studio.*`
-  entirely — which is why the budget lands in the config rather than on a `studio.*` glob.
+  The budget lands in the config rather than on a `studio.*` glob because the suite already
+  carried TEN private per-test budgets across five files, every one ≥20s — five authors
+  working around the same default, and the two files nobody had patched yet are the two that
+  flaked. (An earlier draft justified this with a measured counterexample outside `studio.*`;
+  an independent checker showed that was a regex artifact. See §"The near-5s pool".)
   Root cause is not a race and not a slow test. It is the framework's generic 5s
   `testTimeout`, never chosen for a suite whose heaviest tests drive a full 5,000-line
   `StudioShell` render plus ~10 real-timer `userEvent` interactions. Measured on one box:
@@ -75,29 +77,65 @@ is the whole flake. Contended durations were captured by re-running the full sui
 same four burners with `--testTimeout=60000 --reporter=json` — which finished **0 failures**,
 which is itself the proof that the budget was the only thing wrong.
 
-### The flake pool is wider than the file it was filed against
+### The near-5s pool, and where the fix belongs
 
-That same run is worth reading for what else it caught. **Five tests relying on the 5s
-default exceeded it, across three files** — so at the real default that run would have been
-red in three places, not one:
+**A correction, kept in place because the error is instructive.** The first version of this
+note claimed FIVE default-reliant tests crossed 5s across THREE files, two of them in
+`lib/vetrina/deictic.test.ts`, and rested the global-vs-glob decision on that: a `studio.*`
+carve-out "would have left deictic flaking." **That was false, and an independent checker
+caught it.**
+
+Both deictic rows carry their own explicit 25-second budgets and have since 2026-08-17
+(`e510b3f`) — written in the **options-object** form, which the scan that produced the table
+did not match:
+
+```js
+// deictic.test.ts:295 and :340 — invisible to a `}, 30_000);` grep
+it('underline still sweeps its line before withdrawing to a rest behind it', { timeout: 25_000 }, async () => {
+it(`${kind} goes straight there`, { timeout: 25_000 }, async () => {
+```
+
+Proof, rather than a second reading of the source — force the default to 50ms and see which
+tests survive on a budget of their own:
+
+```
+$ npx vitest run src/lib/vetrina/deictic.test.ts --testTimeout=50
+ ✓ underline still sweeps its line before withdrawing to a rest behind it   3538ms
+ ✓ underline goes straight there                                            3656ms
+ × (every test in the file without an explicit budget)   Test timed out in 50ms.
+```
+
+**The corrected pool is two tests, in two files, both under `docs/src/components/studio/`:**
 
 | test | file | contended |
 |---|---|---:|
 | removes a saved theme… | `studio.theme-depth.test.tsx` | 6.09s |
-| underline goes straight there | `lib/vetrina/deictic.test.ts` | 5.20s |
 | the human-in-the-loop gate: Present offers a reader view… | `StudioShell.test.tsx` | 5.09s |
-| underline still sweeps its line before withdrawing… | `lib/vetrina/deictic.test.ts` | 5.07s |
-| saves a named theme… | `studio.theme-depth.test.tsx` | 4.94s |
+| *(saves a named theme… — just under, at 4.94s)* | `studio.theme-depth.test.tsx` | 4.94s |
 
-This is #1328's "different failing set every time" seen from the other side: which of a pool
-of near-5s tests trips depends on how the scheduler happened to interleave that run. It also
-decides **where the fix belongs** — a `studio.*` glob carve-out, the issue's own first
-suggestion, would have left `lib/vetrina/deictic.test.ts` flaking. The budget goes in the
-config, for the whole suite.
+**So a directory-scoped carve-out WOULD have covered the whole observed flake pool.** The
+empirical argument for a suite-wide default does not exist; it was an artifact of a regex
+that could see one of the two ways this repo writes a per-test budget.
+
+**The decision still stands, on the argument that survives.** The suite carries **ten**
+explicit per-test budgets across five files, every one of them ≥20s, each added when someone
+hit the wall in that file — `studio.fuzz`, `studio.present-autoplay-chain`,
+`studio.present-pace`, `PlaygroundApp`, and `deictic` twice over in two different syntaxes.
+That patchwork **is** the evidence: five independent authors concluded the 5s default was
+wrong for their file and worked around it privately, and the two files that had not yet been
+patched are the two that flaked. A glob would fix those two and leave the sixth author to
+rediscover the same thing. The default is what is wrong, so the default is what this changes.
+
+That is a weaker claim than the one it replaces — it argues from a pattern rather than from
+a measured counterexample — and it is the true one.
 
 (The three slowest tests in that run — `studio.fuzz` at 43.1s, `PlaygroundApp`'s toolbar
 fuzz at 11.2s, and a `deictic` case at 8.8s — all carry their own explicit budgets already
 and were never part of the flake.)
+
+**Lesson worth keeping: a per-test budget in this repo is written two ways.** Any future
+scan for one must match `it(name, fn, 30_000)` AND `it(name, { timeout: 25_000 }, fn)`, and
+should be checked by forcing the default down rather than by reading the source.
 
 ### The tests are not wasteful, and could not be cheaply made cheaper
 
@@ -130,7 +168,10 @@ wall: `studio.fuzz` carries `60_000`, `studio.present-autoplay-chain` `30_000` a
 `20_000`, `studio.present-pace` `30_000`. `studio.theme-depth` and `studio.controls` never
 got theirs. Worse, the patchwork had produced a contradiction — `studio.controls.test.tsx`
 waits `{ timeout: 6000 }` at `:257` and `{ timeout: 6000 }` at `:388`, **inside a 5000ms
-test**, so that grace was unreachable and the test always died first.
+test**, so the last second of that grace was unreachable: the test would have died at 5s
+with a second still on the inner clock. (Those tests pass today — the grace was never
+*reached*, not "always died". The same contradiction sits at `studio.controls.test.tsx:398`
+and `StudioShell.test.tsx:326`, both `{ timeout: 5000 }` inside a 5000ms test.)
 
 ## The change
 
@@ -148,6 +189,17 @@ test**, so that grace was unreachable and the test always died first.
   which would have bought the margin with fuzz coverage. Its sibling property (1.05s idle)
   keeps its `60_000` — it is nowhere near its ceiling.
 
+**Nothing replaces the perf signal this gives up, and that is worth stating.** At 5s a test
+regressing from 2s to 4.9s would eventually have gone red by accident; at 20s it will not.
+The docs side does have real perf guards — `perf-nightly.yml`, `docs/e2e/studio-preview-perf.spec.ts`
+(hard render/frame ceilings), and the blocking `check-route-budget.mjs` — but **none of them
+measures StudioShell mount + interaction cost**, which is exactly what these jsdom tests
+exercise. So this trades an accidental canary for none at all on that specific cost. That is
+consistent with `2026-08-03-performance-guard.md` (wall clock on a shared runner cannot gate
+a merge) and with this repo having removed a wall-clock assertion for the same reason
+(`docs/src/lib/intent-search.test.ts:90-113`) — but it is a real thing given up, not a free
+win.
+
 **`hookTimeout` is deliberately untouched** at vitest's 10s default. The same argument would
 apply to it, but no hook failure was observed in any run, and widening a budget with no
 evidence behind it is how you mask the next real defect rather than the last one.
@@ -156,6 +208,53 @@ evidence behind it is how you mask the next real defect rather than the last one
 the budget — it hides it by removing the contention, and pays for that with a much slower
 suite on every developer's machine and in CI. The flake would come back the first time CI's
 runner is busy for its own reasons.
+
+## What this does NOT fix: a second flake class, one level in
+
+**The outer budget is not the only clock in these tests, and this change does not touch the
+other one.** An independent checker running the reproduction recipe above against the
+COMMITTED config still got a red run — a different failure:
+
+```
+FAIL  studio.theme-depth.test.tsx > edits all ten essentials and auditions the derived theme…
+Error: Fabricate not loaded yet
+```
+
+That is thrown from a bare `waitFor` (`studio.theme-depth.test.tsx:66-68`) waiting for the
+`React.lazy` Fabricate chunk. A bare `waitFor` runs on Testing Library's own
+`asyncUtilTimeout`, which this repo leaves at the library default:
+
+```
+$ node -e "console.log(require('@testing-library/dom/dist/config.js').getConfig().asyncUtilTimeout)"
+1000
+```
+
+`testTimeout` cannot rescue that wait — the inner clock expires first and the outer 20s is
+never consulted. The exposed surface is not small: `docs/src/components/studio/*.test.tsx`
+holds **83** `waitFor` calls of which **10** carry an explicit timeout, plus **280**
+`findBy*` calls, essentially all on the 1000ms default.
+
+**It is deliberately NOT fixed here, and the reason is the rule this note already states for
+`hookTimeout`: no evidence of marginality, no change.** Measured, instrumenting that exact
+wait:
+
+| condition | first (cold) wait | subsequent |
+|---|---:|---:|
+| idle, file alone | 423ms | ~2ms |
+| 4-way contention, file alone | 501 / 474 / 594ms | ~3ms |
+| **4-way contention, inside the FULL suite** | **324 / 269ms** | ~3ms |
+
+Both full-suite contended runs passed (249 files / 3280 tests, the instrumented copy
+included). The wait sits at **3.1-3.7x headroom** under its 1000ms budget in the condition
+where the failure was actually observed — *healthier* than the outer timeout's 2.5x was
+before this change. The arithmetic that predicted otherwise (423ms x the 3.3x whole-test
+contention factor) is wrong: this wait is dominated by module resolution, not React work,
+and does not scale with CPU pressure the way a render-and-interact test does.
+
+So the class is **real** — one observed red, with a mechanism that is fully understood — but
+it is a **tail event I could not reproduce in five contended attempts**, and raising a second
+global budget to chase an uncharacterized tail is how a suite stops being able to fail at
+all. Filed as **#1806** with the artifact and this measurement instead.
 
 ## Verified
 
@@ -166,6 +265,12 @@ runner is busy for its own reasons.
 - The reproduction above, run before the change, fails on the first attempt.
 
 ## What this does NOT claim
+
+**It does not claim the suite no longer flakes.** It claims one specific class is gone — the
+one whose failure text is `Test timed out in 5000ms`. A second class survives, on Testing
+Library's inner 1000ms clock (above), and this note's "3 contended runs, zero failures"
+below is exactly three samples of an intermittent, not a proof. An independent checker
+running the same recipe got a red on a different class; both results are reported.
 
 It does not claim the `studio.*` tests are free of `act(...)` warnings — they are not, and
 the suite prints many. None of them produced a failure in any run recorded here, so they are
