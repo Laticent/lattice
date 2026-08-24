@@ -203,7 +203,11 @@ purpose, and says why.
 1. **Re-blesses the deck scope** — `node tools/regression-gate.mjs --scope decks --bless`,
    which promotes only what actually drifted rather than blanket re-rendering (`:259–263`).
    184 of 200 promoted, one (`portrait-roadmap`) restored per §5b.
-2. **Re-checks the gallery scope** and blesses what the #1804 pass left.
+2. **Re-checks the gallery scope, which needed nothing** — `75 galleries × 2 moods. all match
+   committed goldens`, 75/75 clean. The 12 that drifted at `fd3176e` were caught by #1804's
+   own bless. **That clean run is the seam thesis's control**: the half the default `--bless`
+   reaches is current; the half it does not had rotted 92%. Same engine, same commit, same
+   hour.
 3. **Closes the seam it found**, at zero cost: a galleries-default `--bless` now prints that
    it did NOT touch the deck scope and names the flag that would. It does not go and measure
    the deck drift — that is a multi-hour render and would defeat the reason the default is
