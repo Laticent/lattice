@@ -205,8 +205,10 @@ describe('dropCoveredSheetFaces: scanner cases that used to MISS a rule', () => 
   });
 });
 
+const sheetPath = path.resolve(__dirname, '../../../dist/lattice.css');
+
 describe('dropCoveredSheetFaces: against the real engine sheet', () => {
-  const sheet = path.resolve(__dirname, '../../../dist/lattice.css');
+  const sheet = sheetPath;
 
   test('every relative face goes, and NOT ONE style rule is lost', () => {
     if (!fs.existsSync(sheet)) return; // pre-build tree
@@ -235,5 +237,70 @@ describe('dropCoveredSheetFaces: against the real engine sheet', () => {
     const after = selectors(r.css);
     assert.equal(after.length, before.length, 'a style rule was lost');
     assert.deepEqual(after, before, 'the style-rule selectors must be identical');
+  });
+});
+
+describe('the css-tree span guard', () => {
+  // WHY THIS EXISTS. The scanner above is hand-rolled and its worst failure is a wrong rule
+  // boundary: the drop arm then splices out a span ending mid-rule, deleting real CSS and
+  // reporting success. Two independent reviews each found a live instance of exactly that.
+  // Rather than keep naming inputs, every span is now second-opinioned by a real parser
+  // before it is removed — anything that is not exactly one whole `@font-face` is KEPT.
+  //
+  // Honest scope: differentially fuzzing the scanner against css-tree over 80 adversarial
+  // inputs found 0 mis-spans and 10 misses, all in the safe direction. So this is a net for
+  // the unknown, not a fix for a known bug, and its own live risk is a FALSE refusal —
+  // which costs the perf win rather than the CSS. Both directions are pinned below.
+  const { spanValidator } = require('../../../lib/fonts/face-css.js');
+
+  test('accepts exactly one whole @font-face rule', () => {
+    const ok = spanValidator();
+    assert.equal(ok(face('Outfit', 'fonts/o.woff2')), true);
+    assert.equal(ok('@font-face{font-family:Outfit;src:url(fonts/o.woff2);x:y\\}}'), true,
+      'a backslash-escaped brace is still one whole rule');
+  });
+
+  test('rejects the three shapes a MIS-SCAN produces', () => {
+    const ok = spanValidator();
+    assert.equal(ok('@font-face{font-family:Outfit;src:url(fonts/o.woff2)'), false,
+      'truncated — no closing brace');
+    assert.equal(ok('@font-face{font-family:Outfit}h1{color:red'), false,
+      'rule plus the head of the next one');
+    assert.equal(ok('@font-face{font-family:Outfit}h1{color:red}'), false,
+      'rule plus a whole second rule');
+    assert.equal(ok(''), false, 'nothing at all');
+  });
+
+  test('rejects a span that is not a font-face at all', () => {
+    assert.equal(spanValidator()('@media screen{p{a:b}}'), false);
+  });
+
+  test('does NOT refuse any real rule in the engine sheet — the false-positive risk', () => {
+    if (!fs.existsSync(sheetPath)) return;
+    const css = fs.readFileSync(sheetPath, 'utf8');
+    const { TEXT_FACES } = require('../../../lib/fonts/text-faces.js');
+    const katex = [...new Set(scanFontFaceRules(css).map((r) => r.family)
+      .filter((f) => f?.startsWith('KaTeX_')))];
+    const covered = [...new Set(TEXT_FACES.map((f) => f.family)), ...katex];
+    const guarded = dropCoveredSheetFaces(css, { covered, validate: true });
+    const plain = dropCoveredSheetFaces(css, { covered, validate: false });
+    assert.equal(guarded.refused, 0, 'the guard must not reject a legitimate rule');
+    assert.equal(guarded.dropped, plain.dropped, 'guarded and unguarded must agree');
+    assert.equal(guarded.css, plain.css, 'byte-identical either way');
+  });
+
+  test('a refusal KEEPS the rule rather than dropping it, and is counted', () => {
+    // The wiring test. No natural input reaches the refusal path (0 mis-spans in the fuzz),
+    // so a stub predicate is the only way to prove the guard is actually consulted —
+    // without it, deleting the guard leaves every other test in this file green.
+    const css = `a{color:red}${face('Outfit', 'fonts/o.woff2')}b{color:blue}`;
+    const refusing = dropCoveredSheetFaces(css, { covered: ['Outfit'], validate: () => false });
+    assert.equal(refusing.dropped, 0, 'a refused span must not be removed');
+    assert.equal(refusing.refused, 1, 'and the refusal must be reported, not swallowed');
+    assert.equal(refusing.css, css, 'not one byte moves when the guard refuses');
+
+    const accepting = dropCoveredSheetFaces(css, { covered: ['Outfit'], validate: () => true });
+    assert.equal(accepting.dropped, 1, 'the same input drops when the guard accepts');
+    assert.equal(accepting.refused, 0);
   });
 });

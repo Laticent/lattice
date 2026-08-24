@@ -7,4 +7,6 @@
   `<link>` — and the browser fell back within the family group), so nothing showed. The
   inlined copy now drops a face the document already supplies and leaves everything else
   byte for byte: **37 failed requests → 0**, ~21 ms saved per navigation against ~17 ms
-  of one-off scan cost per render.
+  of one-off scan cost per render. For a caller-supplied `--css` sheet, every rule is
+  second-opinioned by a real CSS parser before it is removed, so an unanticipated
+  stylesheet degrades to the old behavior rather than losing CSS.

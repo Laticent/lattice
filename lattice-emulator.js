@@ -915,7 +915,23 @@ const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   // A family is COVERED when this document supplies it another way: the engine's own
   // faces via the base64 block, KaTeX's via the `<link>`.
   covered: [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES],
+  // SECOND-OPINION EVERY SPAN WITH css-tree — but only for a sheet we have not already
+  // pinned. The bundled `dist/lattice.css` is fixed bytes whose exact drop behavior is
+  // asserted at build time by that same oracle (`inlined-sheet-faces.test.js`: 37 rules
+  // out, all 3,215 style-rule selectors identical), so a runtime re-check of bytes that
+  // cannot vary costs ~70 ms and proves nothing new. A caller-supplied `--css` sheet is
+  // arbitrary and unseen, and is the only place the hand-rolled scanner can meet an input
+  // class nobody anticipated — there the guard turns a silent mis-splice into a kept rule.
+  validate: !cssIsDefault,
 });
+// A refusal is the guard catching the scanner, which should never happen — say so rather
+// than let it pass as a quiet no-op, since it means a face stayed doomed AND the scanner
+// disagreed with a real parser about where a rule ends.
+if (inlinedFaces.refused && !QUIET) {
+  console.warn(`  ⚠ ${inlinedFaces.refused} @font-face rule(s) in the layout sheet could not be`
+    + ' verified as whole rules and were left in place. They will fail to load; the export is'
+    + ' otherwise unaffected. Please report the stylesheet that triggered this.');
+}
 const layoutCSS = inlinedFaces.css;
 // THE CASCADE, in the order every theme declares it (#1527). The engine sheet
 // FIRST, the palette chain LAST, so a palette's `:root` beats the base's at equal
