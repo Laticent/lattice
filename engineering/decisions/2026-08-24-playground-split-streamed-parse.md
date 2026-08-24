@@ -168,6 +168,12 @@ On the built site (`astro preview` on a production build), real Chromium:
   `--grep-invert ai-architect` was noise too — that spec carries no `@smoke` tag, so the tier
   never collected it; the NIGHTLY live-AI tier is what spends the real key.)
 - The stall reproduction above, before and after, plus the newcomer path.
+- **Three engines, not one.** The committed `webkit-*` / `gecko` projects grep for their own
+  tags and collect none of these specs, so a scratch config ran them on real WebKit 26 and
+  Firefox 142 at this file's viewport: the new guard passes on **Chromium, WebKit and Firefox**,
+  and `split` + `playground-state` pass on both non-Chromium engines. A percentage `flex-basis`
+  is exactly the shape of thing the config's #1227 note flags as resolving differently in
+  WebKit, so this was worth buying rather than caveating.
 
 ## Two things worth knowing that this does not fix
 
@@ -177,6 +183,14 @@ the PR path. Its own comment notes Explore "is the surface a PRISTINE visitor la
 first paint is the one most people see." The break was an ~1s gap (857px → 1194px), which the
 sampler catches robustly on any machine, so it is not fragile; but the new deterministic guard
 covers Edit only.
+
+**A pre-existing Firefox failure, not this diff's.** `split.spec.ts:117` — "a divider drag
+released over the preview iframe commits the new ratio" — fails on Firefox and passes on
+Chromium and WebKit at the same viewport. It fails **identically against the pre-fix
+stylesheet**, so it is not this change; it is an untested combination (the `gecko` project greps
+`@gecko`, so this spec has never run there) and most likely the same synthetic-drag limitation
+`playground-first-paint.spec.ts` already documents for this splitter. Recorded here rather than
+filed, because it is not yet established to be a product defect rather than a harness one.
 
 **A pre-existing mobile flake, not this diff's.** An independent checker saw
 `playground-paint.spec.ts:29-31` fail once on `mobile` under two workers and pass 8/8 at
