@@ -85,12 +85,27 @@ describe('dropCoveredSheetFaces: what it must never touch', () => {
 
 describe('dropCoveredSheetFaces: the four boundary bugs the checker found', () => {
   // Each of these silently LOST real CSS under the first `indexOf`-based scanner.
-  test('a `}` inside a COMMENT does not end the rule', () => {
+  test('an UNBALANCED `}` inside a COMMENT does not end the rule', () => {
+    // UNBALANCED on purpose. The first version of this test used `/* TODO {see #123} */`,
+    // whose braces are balanced — so `depth` went 1→2→1 and the case passed even with
+    // comment-awareness deleted from the brace matcher. It was green for the wrong reason,
+    // which a mutation run proved. This input is the one that actually kills that mutant.
     const css = '@font-face{font-family:"Outfit";src:url("fonts/a.woff2")'
-      + '/* TODO {see #123} */;font-display:swap}KEEP{color:red}';
+      + '/* TODO see } #123 */;font-display:swap}KEEP{color:red}';
     const r = drop(css);
     assert.equal(r.dropped, 1);
-    assert.equal(r.css, 'KEEP{color:red}', 'previously left " */;font-display:swap}KEEP{color:red}"');
+    assert.equal(r.css, 'KEEP{color:red}', 'a wrong boundary leaves " #123 */;font-display:swap}KEEP…"');
+  });
+
+  test('a BALANCED brace pair inside a comment is also survivable', () => {
+    const css = '@font-face{font-family:"Outfit";src:url("fonts/a.woff2")'
+      + '/* TODO {see #123} */;font-display:swap}KEEP{color:red}';
+    assert.equal(drop(css).css, 'KEEP{color:red}');
+  });
+
+  test('a real nested `{}` in the body is matched, not mistaken for the end', () => {
+    const css = '@font-face{font-family:Outfit;src:url(fonts/o.woff2);x:{a:b}}h1{color:red}';
+    assert.equal(drop(css).css, 'h1{color:red}');
   });
 
   test('a `}` inside a STRING does not end the rule', () => {
@@ -122,6 +137,45 @@ describe('dropCoveredSheetFaces: the four boundary bugs the checker found', () =
     assert.equal(r.dropped, 0);
     assert.equal(r.css, css);
     assert.equal(scanFontFaceRules(css)[0].hasRelativeUrl, false);
+  });
+});
+
+describe('dropCoveredSheetFaces: the boundary bugs the SECOND checker found', () => {
+  // The rewrite that closed the first four claimed "every ambiguity resolves toward
+  // KEEPING the rule". These two were still counter-examples, and both DELETE real CSS.
+  test('a backslash-escaped `}` is an identifier character, not a terminator', () => {
+    // `font-feature-settings:x\}` is legal CSS. Chromium confirmed the loss: the h1 rule
+    // went from rgb(255,0,0) to the UA default after the drop.
+    const css = '@font-face{font-family:Outfit;src:url(fonts/o.woff2);'
+      + 'font-feature-settings:x\\};font-display:swap}h1{color:red}';
+    const r = drop(css);
+    assert.equal(r.dropped, 1);
+    assert.equal(r.css, 'h1{color:red}', 'previously left ";font-display:swap}h1{color:red}"');
+  });
+
+  test('a `}` inside an UNQUOTED url() is a url-token code point, not a terminator', () => {
+    const css = "@font-face{font-family:'Outfit';src:url('fonts/o.woff2');-x:url(a}b)}h1{color:red}";
+    const r = drop(css);
+    assert.equal(r.dropped, 1);
+    assert.equal(r.css, 'h1{color:red}', 'previously left "b)}h1{color:red}"');
+  });
+
+  test('a REPEATED font-family descriptor is last-wins, as in CSS', () => {
+    // No exotic syntax needed — duplicated declarations are ordinary in concatenated
+    // sheets. Reading the FIRST match deleted a face declaring a family nothing supplies.
+    const css = "@font-face{font-family:'Outfit';font-family:'MyFont';src:url('fonts/my.woff2')}h1{c:red}";
+    const r = drop(css);
+    assert.equal(r.dropped, 0, 'the face really declares MyFont, which is not covered');
+    assert.equal(r.css, css);
+    assert.equal(scanFontFaceRules(css)[0].family, 'MyFont');
+  });
+
+  test('an unquoted at-keyword LOOK-ALIKE is not paired with the next block', () => {
+    // What the whitespace/comment gap test actually guards. The quoted `content:"@font-face"`
+    // case is handled by the top-level string skip and never reaches it.
+    const css = '@font-face-legacy{font-family:Outfit;src:url("fonts/x.woff2")}h1{color:red}';
+    assert.equal(scanFontFaceRules(css).length, 0);
+    assert.equal(drop(css).css, css);
   });
 });
 

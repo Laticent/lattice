@@ -753,7 +753,7 @@ const { resolveDiagramLook, resolveDiagramHandType, paletteUsesTextureChannel } 
 // the other font plumbing further down, these were in the TDZ when `warnOnUnloadedFaces`
 // fired — the same trap `escAttrLocal` documents a few hundred lines below, and it
 // surfaced the same way: a misleading "Mermaid render failed" for a bug in our own code.
-const { fontFaceCss, scanFontFaceRules, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, emittedFamilies, scanFontFaceRules, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { TEXT_FACES } = require('./lib/fonts/text-faces.js');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
@@ -886,21 +886,31 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 // DROPPING is also the fast answer, measured before it was chosen: making all 37 resolve
 // really fetches 37 woff2 the document already carries inline — 405 ms per navigation
 // against 229 ms for the broken status quo, and 204 ms for dropping them.
-const KATEX_FAMILIES = katexCssAbsPath
-  // Whatever families the LINKED sheet actually declares — read from its bytes rather
-  // than a hardcoded KaTeX list here, which would rot the first time KaTeX added a face.
-  ? [...new Set(scanFontFaceRules(fs.readFileSync(katexCssAbsPath, 'utf8'))
-      .map((r) => r.family).filter(Boolean))]
-  : [];
+// Whatever families the LINKED sheet actually declares — read from its bytes rather than a
+// hardcoded KaTeX list here, which would rot the first time KaTeX added a face. GUARDED:
+// `require.resolve` proves the path resolves, not that the file READS, and an unguarded
+// throw at module scope kills every CLI invocation before an argument is even validated.
+// `lib/export/html-player.js` wraps this exact read for this exact reason; matched here.
+// Losing the list is safe — the sheet's KaTeX faces then stay in place, inert, as before.
+const KATEX_FAMILIES = (() => {
+  if (!katexCssAbsPath) return [];
+  try {
+    return [...new Set(scanFontFaceRules(fs.readFileSync(katexCssAbsPath, 'utf8'))
+      .map((r) => r.family).filter(Boolean))];
+  } catch (_e) { return []; }
+})();
 // THE FACES THE BASE64 BLOCK ACTUALLY EMITS, not the families the manifest lists.
-// `fontFaceCss` skips any face whose woff2 is missing from disk (`if (!fs.existsSync(fp))
-// continue`), so a `covered` list built from `TEXT_FACES` alone could claim a family the
-// block does not in fact supply — and this path would then delete the sheet's copy of it,
-// silently losing the face. Reading the emitted CSS back is authoritative and cannot
-// drift. Computed once here and handed to `embeddedFontsStyle` below rather than built
-// twice. (Caught by the HARD RULE #25 checker.)
+// `fontFaceCss` skips any face whose woff2 is missing from disk, so a `covered` list built
+// from `TEXT_FACES` alone could claim a family the block does not in fact supply — and this
+// path would then delete the sheet's copy of it, silently losing the face. `emittedFamilies`
+// applies the SAME `existsSync` test, so the two cannot disagree.
+//
+// It replaces `scanFontFaceRules(embeddedFaceCss)`, which was equally authoritative and cost
+// 60-70 ms per render walking 845 KB of base64 to recover five names — against the ~21 ms per
+// navigation this whole change saves. Measured, and it made a 1-navigation export a net LOSS.
+// (Second HARD RULE #25 checker; see the PR's ## Performance section.)
 const embeddedFaceCss = fontFaceCss(PKG_ROOT);
-const EMBEDDED_FAMILIES = [...new Set(scanFontFaceRules(embeddedFaceCss).map((r) => r.family).filter(Boolean))];
+const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   // A family is COVERED when this document supplies it another way: the engine's own
   // faces via the base64 block, KaTeX's via the `<link>`.
@@ -3799,9 +3809,13 @@ async function renderBody(browser, g, closeBrowser) {
                 // This page issues NO subresource request AT ALL, and the reason is the
                 // one the comment above already gives: `setContent` leaves the document
                 // at `about:blank`, against which a relative url cannot resolve, so it is
-                // never even requested. Measured on a real Chromium in this exact document
-                // shape: 0 requests started, 0 failed, `document.fonts` at 36 `unloaded`
-                // + 1 `error`. `load` therefore fires with nothing outstanding and
+                // never even requested. Instrumented on the real navigation, both revisions:
+                // BEFORE the `@font-face` fix the page declared 37 faces (36 `unloaded` +
+                // 1 `error`) and started 0 requests; AFTER it declares 0 faces and starts 0.
+                // Zero either way — which is the point. A first draft quoted the 36+1 as
+                // though it described THIS build; it is the pre-fix census, and the comment
+                // 20 lines up already says this page carries no usable face at all.
+                // `load` therefore fires with nothing outstanding and
                 // `networkidle0` can only add its own idle floor on top — 1,986 ms against
                 // 154 ms, measured through the real CLI on an image-set export.
                 //

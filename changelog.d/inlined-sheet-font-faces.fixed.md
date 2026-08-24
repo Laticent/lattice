@@ -6,4 +6,5 @@
   was never wrong (each doomed face had a working twin — the base64 block, or KaTeX's
   `<link>` — and the browser fell back within the family group), so nothing showed. The
   inlined copy now drops a face the document already supplies and leaves everything else
-  byte for byte: 37 failed requests → 0, and ~21 ms per navigation.
+  byte for byte: **37 failed requests → 0**, ~21 ms saved per navigation against ~17 ms
+  of one-off scan cost per render.
