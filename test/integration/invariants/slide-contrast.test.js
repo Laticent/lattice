@@ -133,20 +133,19 @@ const { SANCTIONED_CONTRAST_EXEMPTIONS } = require('../../../tools/contrast-exem
  * deletion — as it just did, twice.
  */
 const PREEXISTING_CONTRAST_BACKLOG = [
-  {
-    id: 'redline-strike-ink',
-    why: '`section.redline del` paints --fail ink on --fail-bg (a 10% tint of --fail over '
-      + 'the canvas). On the dark canvas that is 4.25:1 against the 4.5:1 normal-text floor. '
-      + 'No opacity is involved — the rule removed one deliberately — so the fix is a palette '
-      + 'tune of the --fail / --fail-bg pair across 32 themes, not a component edit. Owned by '
-      + 'engineering/decisions/2026-08-17-composed-surface-contrast.md.',
-    match: (r) => /\bredline\b/.test(r.cls) && r.tag === 'del',
-    counts: {
-      'gallery @ indaco': {},
-      'gallery @ indaco-dark': { del: 2 },
-      'gallery-jargon @ indaco': {},
-    },
-  },
+  // EMPTY, and that is the ratchet closing rather than the list going unused.
+  //
+  // The last entry was `redline-strike-ink`: `section.redline del` inking `--fail` on a
+  // tint of `--fail`, 4.25:1 on `gallery @ indaco-dark`. Its own `why` named the fix —
+  // "a palette tune of the --fail / --fail-bg pair across 32 themes, not a component
+  // edit" — and #1698's second pass did exactly that, so the staleness arm below fired
+  // and forced this deletion. Two entries have now been retired this way and none has
+  // been added.
+  //
+  // ADD ONE ONLY for a real defect that predates the change in hand and is off its path
+  // (HARD RULE #18). It is not a parking space for a run this gate started failing: a
+  // regression YOUR change caused gets fixed, and a run that no contrast change could
+  // ever satisfy belongs in SANCTIONED_CONTRAST_EXEMPTIONS with its adjudication.
 ];
 
 /**

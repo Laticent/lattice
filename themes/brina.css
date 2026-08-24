@@ -58,7 +58,7 @@
   --text-heading: light-dark(#1A2330, var(--scheme-dark-text-heading));     /* L:13.97:1 / D:14.18:1 */
   --text-body:    light-dark(#475260, var(--scheme-dark-text-body));        /* L:7.05:1 / D:8.32:1   */
   --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label)); /* L:5.10:1 / D:6.30:1 AA */
-  --text-secondary: light-dark(#606A76, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
+  --text-secondary: light-dark(#5c6672, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
   --text-muted:   light-dark(#616A75, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
   --muted-mark:   light-dark(#7A848F, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
@@ -67,7 +67,7 @@
   --accent-soft: light-dark(#DAE6EE, var(--bg-warm-mid));
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg: light-dark(#386076, var(--accent)); /* light ink deepened for AA on card (L:5.36/5.01 · D:8.07/6.12) */
+  --code-inline-fg: light-dark(#386076, #9dc1d3); /* light ink deepened for AA on card (L:5.36/5.01 · D:8.07/6.12) */
   --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));    /* L:5.40:1 / D:7.20:1 */
 
   /* ── Semantic signals — derived backgrounds only ───────────────────
@@ -315,4 +315,35 @@
   --chart-state-fail: var(--fail);                  /* alarm red     */
   --chart-state-info: light-dark(#1E5280, #5C97E0); /* deep steel    */
   --chart-state-mute: light-dark(#737992, #ABBCCC); /* cool-steel taupe */
+}
+
+/* ── Semantic status trio, declared a SECOND time at (0,2,0) ─────────────────
+ *
+ * The trio above is the curated one; this block repeats it verbatim, and both are
+ * load-bearing because the three render paths do not agree on selectors.
+ *
+ *   · the `:root` above — `lib/engine/css.js` packs a theme the way Marpit does,
+ *     rewriting `:root` onto the slide `<section>`. That is the form the ENGINE path
+ *     (Studio, docs Playground, Specimen) and export-to-Marp can see, and it wins there
+ *     on source order. On the CLI export path it LOSES — nothing is packed there and
+ *     `lattice-emulator.js` concatenates the bundle last, so base's `:root` (0,1,0)
+ *     beats it at equal specificity.
+ *
+ *   · this `:root:root` — (0,2,0), so it beats the bundle whatever the source order,
+ *     which is what the CLI export path needs. It is INERT on the packed paths:
+ *     Marpit's rewrite only touches a `:root` preceded by a combinator, so the second
+ *     one survives literally and lands on the `<section>`, where `:root` cannot match.
+ *     Measured under real marp-cli too, not just ours — see §2c of the note below.
+ *
+ * Ship one and the other path silently reads base's trio. Before this change every
+ * palette's curated trio was inert in a CLI export — an exported deck painted base's
+ * own values on all 32 palettes, including the ones #1801 had just re-solved.
+ *
+ * The two blocks must carry identical values; `checkStatusTrioParity` in
+ * tools/check-ownership.js fails the build if they drift.
+ * engineering/decisions/2026-08-23-status-trio-export-cascade.md */
+:root:root {
+  --pass: light-dark(#004331, #b4ffd1);
+  --warn: light-dark(#7d5201, #f4bf63);
+  --fail: light-dark(#43000d, #f07f92);
 }

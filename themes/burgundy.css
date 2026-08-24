@@ -75,7 +75,7 @@
   --accent-soft: light-dark(#EAD4D8, var(--bg-warm-mid));
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg: light-dark(var(--accent), #CD838E); /* dark ink lifted for AA on card (L:7.75/7.06 · D:6.04/5.04) */
+  --code-inline-fg: light-dark(var(--accent), #e296a1); /* dark ink lifted for AA on card (L:7.75/7.06 · D:6.04/5.04) */
   --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));    /* L:6.71:1 / D:5.40:1 */
 
   /* ── Semantic signals — derived backgrounds only ───────────────────
@@ -314,4 +314,35 @@
   --chart-state-fail: var(--fail);                  /* wine alarm    */
   --chart-state-info: light-dark(#3E6A9E, #75A5D9); /* dusty slate   */
   --chart-state-mute: light-dark(#674B51, #A69882); /* warm taupe    */
+}
+
+/* ── Semantic status trio, declared a SECOND time at (0,2,0) ─────────────────
+ *
+ * The trio above is the curated one; this block repeats it verbatim, and both are
+ * load-bearing because the three render paths do not agree on selectors.
+ *
+ *   · the `:root` above — `lib/engine/css.js` packs a theme the way Marpit does,
+ *     rewriting `:root` onto the slide `<section>`. That is the form the ENGINE path
+ *     (Studio, docs Playground, Specimen) and export-to-Marp can see, and it wins there
+ *     on source order. On the CLI export path it LOSES — nothing is packed there and
+ *     `lattice-emulator.js` concatenates the bundle last, so base's `:root` (0,1,0)
+ *     beats it at equal specificity.
+ *
+ *   · this `:root:root` — (0,2,0), so it beats the bundle whatever the source order,
+ *     which is what the CLI export path needs. It is INERT on the packed paths:
+ *     Marpit's rewrite only touches a `:root` preceded by a combinator, so the second
+ *     one survives literally and lands on the `<section>`, where `:root` cannot match.
+ *     Measured under real marp-cli too, not just ours — see §2c of the note below.
+ *
+ * Ship one and the other path silently reads base's trio. Before this change every
+ * palette's curated trio was inert in a CLI export — an exported deck painted base's
+ * own values on all 32 palettes, including the ones #1801 had just re-solved.
+ *
+ * The two blocks must carry identical values; `checkStatusTrioParity` in
+ * tools/check-ownership.js fails the build if they drift.
+ * engineering/decisions/2026-08-23-status-trio-export-cascade.md */
+:root:root {
+  --pass: light-dark(#0d5026, #9dfb7d);
+  --warn: light-dark(#935800, #f8af50);
+  --fail: light-dark(#550004, #e87677);
 }
