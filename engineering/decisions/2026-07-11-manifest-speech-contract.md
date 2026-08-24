@@ -490,6 +490,17 @@ it lands; a length mismatch (autosplit) drops the projection wholesale, the same
 `mergeNarration` applies. Precedence is unchanged: authored note → chart computed-facts
 (`narrateChart`) → projection.
 
+> **SUPERSEDED 2026-08-24 — the note rung is gone.** The ladder above described the design
+> as of this record; it no longer describes the engine. A speaker note ranked *above* the
+> slide's own content, so any slide carrying a note narrated the note — into Present's
+> caption crawl, the exported `.vtt` sidecars, and baked narration audio, which carried a
+> private remark to whoever opened the file. Precedence is now **inline caption →
+> front-matter `captions:` → chart computed-facts → projection**, with no note rung on
+> either surface: an author override *replaces* the generated line entirely, and a note is
+> never spoken or captioned. Nothing else in this record changes.
+> See `changelog.d/1810-notes-are-not-captions.fixed.md` and
+> `./2026-08-24-stage-console-split.md` §10.
+
 *Scope honesty (the chart caveat, confirmed with the user):* this unifies **prose**. Charts stay
 on their richer markdown `narrateChart` on **both** surfaces — and the EXPORT still narrates a
 chart from the visual-skipping projection, so a chart still narrates differently in Present (rich)

@@ -255,7 +255,7 @@ Render with narration sidecars: `node lattice-emulator.js deck.md deck.pdf
 - [ ] Notes add spoken subtext, never restate the slide.
 - [ ] Any private/reviewer remark is a **review comment** (Studio), not a note.
 - [ ] Captions read naturally aloud; acronyms expanded via `acronyms:`.
-- [ ] Caption precedence understood (a `caption:` replaces; a note is additive).
+- [ ] Caption precedence understood (a `caption:` replaces the generated line entirely; a note is never narrated at all).
 - [ ] Review comments are specific, actionable, and left off the default export.
 - [ ] `--notes` / `--captions` sidecars generated and spot-checked if narration
       ships.

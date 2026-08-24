@@ -394,3 +394,96 @@ the narration ladder losing a rung plus the dead painter being deleted more than
 - **A stranded page still holds `window.opener`.** That is inherent to `window.open`, and
   cannot be revoked from our side once the window has been navigated away. What is closed is
   the VECTOR: a deck's links no longer navigate the Stage.
+
+---
+
+## 10. The scoped trio on the narration change — and the leak it found
+
+§9 records a trio run against the **Stage**. The narration change (`ea86fa5`) landed
+*after* that scoping, at the maintainer's direction, and never got one — so it shipped a
+kernel edit at kernel depth with none of the product around it. A second trio, scoped to
+that commit alone, was run before merge. It found a live privacy leak, one of them a
+regression this branch created.
+
+### One line-prefix test, three measured leaks
+
+A speaker note in this engine **is** a non-directive HTML comment, and the Studio's own
+note editor writes multi-line ones. Both narration flatteners recognized a comment with
+
+```js
+if (/^<!--/.test(line)) continue;   // lib/core/slide-speech.js
+return !line || /^<!--/.test(line) || …;  // isCommonlyConsumed, lib/core/chart-narration.js
+```
+
+— a test that sees only the line a comment **opens** on. Every continuation line was
+therefore ordinary prose. `speakLeftover` feeds that flattener the lines a chart narrator
+did not consume, at projection precedence, from the raw source. Measured on real exported
+bytes:
+
+| flags | before the fix | after |
+|---|---|---|
+| `--captions` (default), chart slide | the note is in the `.vtt` | clean |
+| `--captions --strip-notes` | the note is in the `.vtt`, while the player HTML beside it is correctly scrubbed | clean |
+| `--captions --strip-captions`, multi-line override | the override survives its own strip | clean |
+
+The second row is the serious one, and it is **a regression this branch introduced**: at
+`ea86fa5^` that flag pair wrote no `.vtt` at all, so there was nothing to leak. Removing
+the `STRIP_NOTES` guard on the projection (correct in itself) also un-gated the chart
+substitution, which reads the *unstripped* source. HARD RULE #18, first bullet.
+
+The fix is `blankHtmlComments` in `lib/core/slide-speech.js`: comment spans are blanked as
+whole blocks before either flattener sees them. It **preserves the line count**, because
+`speakLeftover` filters by original line index against a `consumed` Set — deleting lines
+would shift every index and silently mis-drop real authored content. That also closes the
+second-order half: `isCommonlyConsumed` carried the same line-prefix test, so it dropped a
+note's *opening* line and left the body as an orphan no block-aware pass downstream could
+recognize.
+
+### Why every gate was green while this was live
+
+The ladder cells pinned that no `note` **rung** exists — and they were right, and they
+passed, while the note reached the shipped `.vtt` through a different door. Every note in
+them is single-line and sits on a non-chart slide: the one shape that never leaked. The
+integration file was 29/29 green throughout.
+
+**A gate that cannot see the channel it is named for is worse than no gate, because it
+certifies.** This is the third instance of the same mistake on this branch — the rail cell
+and the caption cell were both vacuous passes caught by the visual sweep (§8) — and the
+first two did not teach it, because each was fixed as a one-off rather than as a class.
+The new cells drive the *shapes* (multi-line note, chart slide, both strip flags) on real
+bytes, and each was mutation-tested: reverting `slide-speech.js` turns all three red.
+
+One more of the same kind, in the new cells themselves: the first draft asserted
+`/one thousand/` as a positive control and failed against a track that plainly said it —
+a read-along cue interleaves a `<00:00:06.460>` tag between every pair of words, so a
+multi-word phrase never appears contiguously. A positive control written that way is
+unfalsifiable. The cells strip the timestamp tags and assert on the spoken text.
+
+### The half-landed product
+
+The kernel was right and everything around it still described the retired rule:
+
+| Surface | Was | Now |
+|---|---|---|
+| `WebpageOptionsPanel.tsx:67` | `narrationBlocked = stripNotes` — vetoed captions *and* audio | the coupling is gone; the CLI had already been made orthogonal, so the two render paths disagreed on one user intent (HARD RULE #1) |
+| `lattice-emulator.js:4748` | user-visible: "falling back to speaker notes only" | there is no fallback — it says no caption track will be written, and is un-gated by `--quiet`, since a missing deliverable is not chatter |
+| `ShareSheet.tsx:235` | "Read-along WebVTT from your speaker notes" | "…from your slide content" |
+| `NarrationExportOptions.tsx:301,322` | a hardcoded strip-notes reason; "add speaker notes" as the fix for a silent deck | renders the caller's reason; advises a caption |
+| 7 docblocks in `lib/` and `docs/src` | the `note →` ladder | corrected in place |
+| `examples/read-along-captions.md` | taught "Speaker notes become timed WebVTT captions" — the HARD RULE #9 demo deck for this exact feature, teaching its opposite | rewritten; PDF rebuilt |
+| 8 committed `examples/*.vtt` | frozen output of the retired ladder (3 echoed their decks' notes verbatim) | regenerated; nothing regenerates or gates these, which is why they rotted |
+| `changelog.d/…notes-are-not-captions.fixed.md` | "**A note is the author's alone**" | that was an over-claim: this closes the three *narration* channels; a note still ships via PDF annotation, HTML `aside`, PPTX notes, the `--notes` sidecar and the player's notes sheet. `--strip-notes` remains the control |
+| `2026-07-11-manifest-speech-contract.md:490` | the canonical precedence record, unamended | amended in place |
+
+### Filed, not fixed (pre-existing, off-path — HARD RULE #18)
+
+- **#1833** — a note still reaches a recipient through the exported player's own
+  `Speaker notes (n)` sheet, gated behind its Present view. Measured; a deliberate
+  boundary question rather than an obvious bug, so it is the maintainer's call.
+- **`--strip-notes` leaves the note in the PPTX** (`lattice-emulator.js:4035` passes the
+  unstripped `slideNotes` where every sibling passes `materializedNotes`). Present at
+  `ea86fa5^`; the comment 43 lines above documents this exact bug class being fixed for
+  the HTML sidecar and the PPTX call site was missed.
+- An inline `<!-- caption: -->` may misbind across an autosplit — it is the only channel
+  never remapped to rendered pages. The red team could not force a real split to
+  demonstrate it, so it is a code path and a hunch, not a break.

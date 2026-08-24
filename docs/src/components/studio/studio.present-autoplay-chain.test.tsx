@@ -23,8 +23,18 @@ vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc:
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
-/** A slide whose spoken text is exactly `note` — the speaker note outranks the projection. */
-const slide = (heading: string, note: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- note: ${note} -->`;
+/** A slide whose spoken text is exactly `spoken`, pinned with a `<!-- caption: -->` override.
+ *
+ *  This used to author a `<!-- note: -->`, back when a speaker note outranked the slide's own
+ *  content in the narration ladder. That rung was removed on 2026-08-24 — a note is never
+ *  spoken now — which silently GUTTED these cells: two slides built with the same `note` began
+ *  narrating their own headings ("One." and "Two."), so the very condition the first test names
+ *  in its title, two consecutive slides that narrate IDENTICALLY, stopped being constructed.
+ *  Both cells still passed, which is the only reason it was not noticed.
+ *
+ *  A caption override is the channel that sets a slide's spoken line now, so it restores the
+ *  fixture's meaning rather than just its green. */
+const slide = (heading: string, spoken: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- caption: ${spoken} -->`;
 
 beforeEach(() => {
 	// Brisk with an explicit 0 beat: the chain plays straight through, so a 3-slide run

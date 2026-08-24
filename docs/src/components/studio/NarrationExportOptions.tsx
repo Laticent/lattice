@@ -298,7 +298,12 @@ export function NarrationExportOptions({
 							    which reads as the panel changing its mind (#1462 item 2). So the un-measured
 							    case describes what the option IS, and says nothing about this deck. */}
 							{blocked
-								? 'Unavailable while speaker notes are stripped.'
+								? // The REASON THE CALLER GAVE, not a restatement of it. This used to hardcode
+									// "Unavailable while speaker notes are stripped." — which outlived the only
+									// caller that passed that reason and became a false sentence shown to users
+									// (stripping notes no longer affects narration at all; see WebpageOptionsPanel).
+									// Rendering the prop means this line cannot go stale again.
+									blockedReason
 								: cloudReady === false && !canPickDevice
 									? 'Connect a cloud voice in the Workspace, or summon the on-device voice — either way the audio has to ship inside the file, because the recipient has no key of their own.'
 									: fullyOnDevice
@@ -319,7 +324,7 @@ export function NarrationExportOptions({
 						</p>
 					)}
 					{measureError && <p className="text-[11.5px] text-[var(--fail,#b3261e)]">Could not measure this deck: {measureError}. Narration is unavailable for this export.</p>}
-					{nothingToSay && !measuring && <p className="text-[11.5px] text-muted-foreground">This deck has nothing to narrate — add speaker notes or captions, or give its slides some prose.</p>}
+					{nothingToSay && !measuring && <p className="text-[11.5px] text-muted-foreground">This deck has nothing to narrate — give its slides some prose, or add a caption to each one. (A speaker note will not do it: notes are yours alone and are never narrated.)</p>}
 
 					{/* Captions alone still cost something and still have a count — saying so is what
 					    keeps the section from being an empty box under a divider. */}

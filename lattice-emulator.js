@@ -444,7 +444,7 @@ const STRIP_NOTES = !!flags['strip-notes'];
 // orthogonal to `--strip-notes`. Notes (what you SAY) and captions (what a slide READS)
 // are independent channels, so each has its own strip. This scrubs the author's caption
 // OVERRIDES — inline `<!-- caption: -->` AND the front-matter `captions:` map — from the
-// baked copies: the read-along `.vtt` (those slides fall back to note → projection) and
+// baked copies: the read-along `.vtt` (those slides fall back to the generated projection) and
 // the envelope/attached `source`. Notes and the auto DOM projection are untouched.
 const STRIP_CAPTIONS = !!flags['strip-captions'];
 // Compose the privacy strips for any re-embedded SOURCE copy (the player envelope, the
@@ -4164,9 +4164,11 @@ async function renderBody(browser, g, closeBrowser) {
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next to the deck,
-  // not baked into its bytes. `--strip-notes` blanks the note channel (materializedNotes) and the
-  // projection, but NOT the captions: a caption is public-facing narration the author opts into via
-  // `--captions`, not a private note, so it composes with `--strip-notes` (ship captions, drop notes).
+  // not baked into its bytes. `--strip-notes` blanks the note channel (materializedNotes) but NOT
+  // the projection and NOT the captions: a caption is public-facing narration generated from slide
+  // content, so it composes with `--strip-notes` (ship captions, drop notes). It used to suppress
+  // the projection too, which was the only way to stop the flag leaking the notes it had just
+  // scrubbed — unnecessary now that nothing promotes a note into narration.
   if (CAPTIONS) {
     // PAGE-bound notes, not authored ones: `projectDeckSpeechFromHtml` projects the
     // RENDERED sections, so feeding it the authored array made the two lengths disagree
@@ -4743,9 +4745,16 @@ async function projectDeckSpeechFromHtml(docHtml) {
       .filter(Boolean);
     return projectDeckToSpeech(clean);
   } catch (e) {
-    // Degrade to notes-only, but SURFACE the failure — a swallowed projection
-    // crash is otherwise indistinguishable from "nothing to project".
-    if (!QUIET) console.warn(`  note: caption projection failed (${e?.message}); falling back to speaker notes only`);
+    // SURFACE THE FAILURE, and say what actually happens now. This used to read
+    // "falling back to speaker notes only" — true of the old ladder, false since the
+    // note rung was removed: there is no fallback left, so the deck gets NO caption
+    // track at all. A wrong message is worse than none, because it tells an operator
+    // whose projection just crashed that their captions survived it.
+    //
+    // UNGATED by --quiet, matching the honesty warnings above (`--quiet is exactly the
+    // mode a pipeline runs in`): the user asked for --captions and is not getting them,
+    // which is a silently missing deliverable, not chatter.
+    console.warn(`  warning: caption projection failed (${e?.message}); no caption track will be written for this deck.`);
     return [];
   }
 }
@@ -4754,14 +4763,14 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // estimate tracks via the shared root producer, then derives one deck-level .vtt
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
 // offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
-// EXPORT NARRATION SOURCE (§6 Phase 2): an authored speaker note wins per slide;
-// where a slide has none, the component-aware DOM speech projection narrates it —
-// so a deck with no notes still gets read-along captions (the old behavior wrote
-// nothing). This narrates the EXPORT's projected prose; the live Studio Present
-// path is markdown-only and still narrates differently for the chart family —
-// giving Present the same DOM projection is Phase 3, not done here.
-// `--strip-notes` intentionally suppresses BOTH notes AND projection (a stripped
-// deck emits no narration, honoring the documented contract).
+// EXPORT NARRATION SOURCE: the slide's own CONTENT, narrated by the component-aware
+// DOM speech projection, unless the author overrode it — an inline `<!-- caption: -->`
+// or a front-matter `captions:` entry replaces the generated line entirely. A speaker
+// note is NOT a source: it is the author's, and nothing here reads it. (It was the top
+// rung until 2026-08-24, which is how a private remark reached a recipient's caption
+// sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)
+// `--strip-notes` does not touch this path — it scrubs the note channel, and captions
+// narrate content, so the two flags are independent.
 async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = []) {
   const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');

@@ -348,8 +348,11 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 
 // The caption channel strips SEPARATELY from notes (`--strip-captions`), and the two flags
 // are orthogonal. This pins the HARD RULE #23 "verified on the real .vtt" claim with a
-// committed artifact: caption text gone from the .vtt AND the envelope source, notes retained
-// (the fallback), and both flags together → a silent track.
+// committed artifact: caption text gone from the .vtt AND the envelope source, and the
+// stripped slides falling back to the GENERATED caption rather than to the speaker note.
+// (The old text here said "notes retained (the fallback)" and "both flags together → a
+// silent track" — both describe the retired ladder and were contradicted by the four cells
+// directly beneath them.)
 describe('html-player export — captions + --strip-captions (orthogonal to --strip-notes)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
 	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
@@ -696,5 +699,87 @@ describe('html-player export — a baked label halo follows, or its ink freezes 
 		assert.match(own.rect, /fill:rgb\(18, ?52, ?86\)/, 'the halo keeps the color the author chose');
 		assert.doesNotMatch(own.span, /var\(/, 'so the ink is frozen to its bake-time literal');
 		assert.equal(own.marked, true, 'and marked lp-own-ink, which takes the theme rule off it');
+	});
+});
+
+// ── THE CHANNEL, NOT THE LADDER ──────────────────────────────────────────────
+//
+// The cells above pin the narration LADDER: no `note` rung, so a note cannot win.
+// They passed — 29/29 — while a speaker note was still reaching the shipped `.vtt`
+// through a completely different door, because every note in them is SINGLE-LINE and
+// sits on a NON-CHART slide, which is the one shape that never leaked.
+//
+// The door was a line-prefix test (`/^<!--/`) in two places — `slideToSpeech` and
+// `isCommonlyConsumed` — that recognizes only the line a comment OPENS on. A speaker
+// note is a multi-line HTML comment, and the Studio's own note editor writes them that
+// way, so every continuation line was spoken. `speakLeftover` feeds that flattener the
+// lines a chart narrator did not consume, at projection precedence, from the raw source.
+//
+// Three measured leaks, one cause (2026-08-24-stage-console-split.md §10):
+//   • default flags, chart slide → the note in the .vtt
+//   • `--strip-notes` — the PRIVACY flag — → the note in the .vtt, while the player
+//     HTML beside it was correctly scrubbed. A regression this branch created: before
+//     it, that flag combination wrote no .vtt at all.
+//   • `--strip-captions` → a multi-line caption override survived its own strip.
+//
+// So these cells drive the SHAPES, on real bytes. A gate that cannot see the channel
+// it is named for is worse than no gate: it certifies.
+describe('html-player export — a MULTI-LINE note on a CHART slide (the leak the ladder cells could not see)', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const TIMEOUT = 120000;
+
+	// `funnel` narrates through `narrateFunnel` → `speakLeftover`, the path that reads
+	// raw markdown. The note is multi-line and uses the `note:` form the Studio writes.
+	const DECK = [
+		'---', 'theme: indaco', '---', '',
+		'# Cover', '', 'Opening body text for the cover slide.', '',
+		'---', '<!-- _class: funnel -->', '# Signup funnel', '',
+		'<!-- note:', 'PRIVATELEAK churn is forty percent and legal has not cleared it', '-->', '',
+		'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',
+	].join('\n');
+
+	const CAPDECK = DECK.replace('<!-- note:', '<!-- caption:').replace('PRIVATELEAK churn is forty percent and legal has not cleared it', 'CAPLEAK the second line of a two line caption override');
+
+	function render(deck, flags) {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chartnote-'));
+		const out = path.join(dir, 'deck.pdf');
+		fs.writeFileSync(path.join(dir, 'deck.md'), deck);
+		const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), out, '--quiet', '--captions', ...flags], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const vtt = out.replace(/\.pdf$/, '.vtt');
+		// STRIP THE WORD TIMESTAMPS BEFORE ASSERTING. A read-along cue interleaves a
+		// `<00:00:06.460>` tag between every pair of words, so a multi-word phrase never
+		// appears contiguously in the raw bytes — a phrase assertion silently matches
+		// nothing and a POSITIVE control written that way passes by being unfalsifiable.
+		// (Caught the hard way: the first draft of these cells asserted /one thousand/ and
+		// failed against a track that plainly said it.) The cells below therefore read the
+		// spoken text, not the file format.
+		const raw = fs.existsSync(vtt) ? fs.readFileSync(vtt, 'utf8') : '';
+		return raw.replace(/<\d\d:\d\d:\d\d\.\d\d\d>/g, '');
+	}
+
+	test('DEFAULT flags: the note stays out of the .vtt, and the chart still narrates its own facts', { timeout: TIMEOUT }, () => {
+		const vtt = render(DECK, []);
+		assert.equal(vtt.includes('PRIVATELEAK'), false, 'a multi-line note must not reach the caption track');
+		assert.equal(vtt.includes('cleared'), false, 'and neither may any word of its body');
+		// The positive control. Without it this cell also passes on a deck that narrates
+		// nothing at all — which is precisely how the leak survived the first review.
+		assert.ok(/one thousand/i.test(vtt), 'the funnel still narrates its computed facts');
+	});
+
+	test('--strip-notes: the PRIVACY flag does not hand the note back through the sidecar', { timeout: TIMEOUT }, () => {
+		const vtt = render(DECK, ['--strip-notes']);
+		assert.equal(vtt.includes('PRIVATELEAK'), false, '--strip-notes must not leave the note in the .vtt');
+		// The flag's whole promise is that captions SURVIVE it (they narrate content, not
+		// notes). A cell that only asserted absence would pass on an empty file — which is
+		// what the pre-fix behavior did, and calling that a pass would re-hide the bug.
+		assert.ok(/one thousand/i.test(vtt), 'and the caption track still ships, generated from content');
+	});
+
+	test('--strip-captions: a MULTI-LINE caption override is stripped whole, not half', { timeout: TIMEOUT }, () => {
+		const vtt = render(CAPDECK, ['--strip-captions']);
+		assert.equal(vtt.includes('CAPLEAK'), false, 'the override must not survive its own strip');
+		assert.ok(/one thousand/i.test(vtt), 'the slide falls back to the generated caption');
 	});
 });

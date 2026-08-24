@@ -888,7 +888,7 @@ export async function shareCaptions(
 
 	// The FULL narration chain, identical to the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`
-	// entry → its speaker note → the component-aware DOM projection. So a note-free deck
+	// entry → the component-aware DOM projection. A speaker note is not a rung. So a deck
 	// exported from the docs site now produces the SAME projected captions the CLI does —
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
@@ -904,8 +904,9 @@ export async function shareCaptions(
 	const lexicon = resolveCaptionsMod.lexiconMap(source); // author lexicon beats the built-in commons
 	const lang = resolveCaptionsMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
-	// by construction). Failure degrades to notes-only, exactly as the CLI's projection does
-	// (lattice-emulator.js projectDeckSpeechFromHtml), so a notes-full deck still exports.
+	// by construction). Failure leaves the projection empty, exactly as the CLI's does
+	// (lattice-emulator.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
+	// so a deck whose projection fails exports only its authored caption overrides.
 	let projected: string[] = [];
 	try {
 		projected = await projectionMod.projectSectionsToSpeech(sections);
@@ -931,7 +932,7 @@ export async function shareCaptions(
 		lexicon,
 		lang: lang ?? undefined,
 	});
-	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no notes, captions, or projectable slide content');
+	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no captions and no projectable slide content (a speaker note is never narrated)');
 
 	onStatus?.('Packaging…');
 	const { default: JSZip } = await import('jszip');

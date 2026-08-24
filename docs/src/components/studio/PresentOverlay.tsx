@@ -265,7 +265,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 
 	// Resolve a slide's narration by its index in the presented set, through the ONE shared
 	// precedence ladder (`narration-resolve.ts`): inline caption → front-matter caption →
-	// note → chart facts → DOM projection. Index-based (not text-based) because the
+	// chart facts → DOM projection. NO note rung. Index-based (not text-based) because the
 	// projection is index-aligned to `set`.
 	//
 	// The ladder is shared with the exports because a mismatch there does not degrade, it
@@ -310,7 +310,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// The auto-advance effect below needs a signal meaning "the reader is now ready for the
 	// slide we just moved to". A bare string cannot say that: React bails out of the whole
 	// re-render when a `useState` setter is handed an equal string, so two consecutive slides
-	// whose narration resolves IDENTICALLY (the same speaker note, two contentless slides)
+	// whose narration resolves IDENTICALLY (the same caption override, or two slides carrying
+	// the same words)
 	// produced no commit, no new track, and therefore no effect — `autoAdvanceRef` stayed
 	// armed, the new slide never spoke, and the chain was dead until the presenter stepped in.
 	// A fresh record commits on every navigation regardless of what the text says, while the
@@ -484,10 +485,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Real read-aloud: a synchronized teleprompter over the current slide's prose,
 	// with spoken audio when a voice is connected. Owns its own transport (the dock
 	// play button drives it in read-aloud mode; the rehearsal clock in Rehearse).
-	// Narration priority: the slide's speaker note when it has one (the real talk
-	// track) — else a recognized chart's computed facts (narrateChart; a funnel's
+	// Narration priority: an author's caption override when the slide carries one —
+	// else a recognized chart's computed facts (narrateChart; a funnel's
 	// stage-to-stage conversion % exists only in the render, never the source
-	// slideToSpeech reads) — else the generic on-slide prose.
+	// slideToSpeech reads) — else the generic on-slide prose. A speaker note is NOT
+	// in this list: it is the author's alone and is never spoken or captioned.
 	// Autoplay = read-aloud that chains across slides. Refs (declared above, near the
 	// narration state the projection-upgrade guard reads) let the once-bound onFinish read
 	// live position/intent without re-binding the reader each slide.
