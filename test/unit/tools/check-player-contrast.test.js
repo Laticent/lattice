@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 // export, so it lives in the nightly; what is unit-testable is the part that decides what
 // counts as the same finding and what counts as a regression — which is precisely the part
 // that can be wrong while every render is perfect.
-const { collapse, diffBaseline, findingKey, over, ratio, HIDE_INK } = require('../../../tools/check-player-contrast.js');
+const { collapse, diffBaseline, findingKey, over, ratio, HIDE_INK, blessRatchet } = require('../../../tools/check-player-contrast.js');
 
 const row = (over_) => ({ deck: 'd', state: 'as exported', page: '5', cls: 'kanban', tag: 'span', text: 'growth', need: 4.5, ...over_ });
 
@@ -71,4 +71,54 @@ test('HIDE_INK erases SVG paint on TEXT only, never on shapes', () => {
 	// It must still erase the things that only affect glyphs.
 	assert.match(universal, /color:transparent/);
 	assert.match(universal, /text-shadow:none/);
+});
+
+// ── the bless ratchet (#1808) ───────────────────────────────────────────────
+
+test('blessRatchet refuses to write a ratio DOWN', () => {
+	// The defect: `--bless` wrote whatever tonight measured, in both directions. Writing a
+	// ratio down records that a surface got worse and files it as known — the one edit a
+	// baseline must never make on its own, because the gate's entire question is "did
+	// tonight make something worse" and a bless can answer it by moving the goalposts.
+	const seen = collapse([row({ text: 'a', r: 2.00 })]);
+	const { blessed, held } = blessRatchet(seen, { 'd|as exported|5|kanban|span|a': 3.20 });
+	assert.equal(blessed['d|as exported|5|kanban|span|a'], 3.20, 'the committed value is KEPT');
+	assert.deepEqual(held.map((h) => [h.key, h.was, h.now]), [['d|as exported|5|kanban|span|a', 3.20, 2.00]]);
+});
+
+test('a held row leaves the nightly RED, which is the point', () => {
+	// Holding is not cosmetic: the next comparison scores the measurement against the value
+	// that was kept, so the finding still reports WORSE until a human explains it.
+	const rows = [row({ text: 'a', r: 2.00 })];
+	const { blessed } = blessRatchet(collapse(rows), { 'd|as exported|5|kanban|span|a': 3.20 });
+	assert.equal(diffBaseline(rows, blessed).worse.length, 1);
+});
+
+test('--allow-loosen is the only way down, and it takes the measurement', () => {
+	const seen = collapse([row({ text: 'a', r: 2.00 })]);
+	const { blessed, held } = blessRatchet(seen, { 'd|as exported|5|kanban|span|a': 3.20 }, { allowLoosen: true });
+	assert.equal(blessed['d|as exported|5|kanban|span|a'], 2.00);
+	assert.equal(held.length, 1, 'still REPORTED — a loosening is never silent, only permitted');
+});
+
+test('an improvement, a new finding and a fixed one all pass straight through', () => {
+	const seen = collapse([row({ text: 'a', r: 4.00 }), row({ text: 'b', r: 1.50 })]);
+	const prior = { 'd|as exported|5|kanban|span|a': 3.20, 'd|as exported|5|kanban|span|gone': 2.0 };
+	const { blessed, held, tightened, added, dropped } = blessRatchet(seen, prior);
+	assert.equal(blessed['d|as exported|5|kanban|span|a'], 4.00, 'a better ratio is recorded');
+	assert.deepEqual(tightened, ['d|as exported|5|kanban|span|a']);
+	assert.deepEqual(added, ['d|as exported|5|kanban|span|b']);
+	assert.deepEqual(dropped, ['d|as exported|5|kanban|span|gone'], 'a finding that no longer reproduces is dropped');
+	assert.deepEqual(held, []);
+});
+
+test('there is NO slack, and the asymmetry with diffBaseline is deliberate', () => {
+	// `diffBaseline` carries a 0.05 band so sub-pixel jitter does not cry wolf. The ratchet
+	// carries none: holding the higher of two numbers a few thousandths apart costs nothing,
+	// because that same band absorbs it on the next comparison — while any slack HERE
+	// compounds across blesses, and a floor that can be walked down a digit per run is not a
+	// floor. The 1e-9 below is binary representation, not policy.
+	const held = (now, was) => blessRatchet(collapse([row({ text: 'a', r: now })]), { 'd|as exported|5|kanban|span|a': was }).held.length;
+	assert.equal(held(3.19, 3.20), 1, 'a hundredth down is still down');
+	assert.equal(held(3.20, 3.20), 0, 'equal is not a loosening');
 });

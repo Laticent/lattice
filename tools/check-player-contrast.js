@@ -57,7 +57,8 @@
  *   node tools/check-player-contrast.js --json out.json examples/*.md
  *   node tools/check-player-contrast.js already-exported-player.html
  *   npm run contrast:player                                   # the corpus, vs the baseline
- *   npm run contrast:player:bless                             # re-record the baseline
+ *   npm run contrast:player:bless                             # re-record the baseline (ratchet-only)
+ *   npm run contrast:player:bless -- --allow-loosen           # …and accept a WORSE ratio, with a reason
  *
  * A `.md` is exported with `--player` first; a `.html` is opened as given.
  *
@@ -224,7 +225,12 @@ async function auditState(page, label) {
 			for (let k = 0; k < frames.length; k++) frames[k].classList.toggle('lp-active', k === n);
 			window.scrollTo(0, 0);
 		}, i);
-		await new Promise((r) => setTimeout(r, 120));
+		// PER SLIDE, not once per page, and that is where the old oracle's instability lived.
+		// Making a frame `lp-active` is what STARTS its scene: the runtime begins playing, the
+		// play control flips to `⏸`, and its chrome fades to rest over a few hundred ms. The
+		// bare 120ms sleep that used to be here sampled that fade at whatever instant it
+		// happened to end — see `settle` for the measurements.
+		await settle(page, 120);
 		const slideRows = (await page.evaluate(PROBE)).filter((row) => row.rect && row.rect.w > 0 && row.rect.h > 0);
 		if (!slideRows.length) continue;
 		const handle = await page.addStyleTag({ content: HIDE_INK });
@@ -281,6 +287,79 @@ async function auditState(page, label) {
 	return rows;
 }
 
+/**
+ * Bring the page to a DETERMINISTIC frame before anything is measured.
+ *
+ * This tool used to `setTimeout` for 400ms and screenshot whatever it found. That is not a
+ * settle, it is a guess, and it made the oracle load-sensitive: the same three `anima-scene`
+ * pause controls were blessed at 3.20 / 3.19 / 3.20 and re-measured at 2.56 / 1.93 inside a
+ * full 139-deck sweep (#1808). Re-run in ISOLATION on the shipped tree they read 2.55 / 2.56 /
+ * 3.78 — so the instability was never really about load. It is that the run's own INK is
+ * mid-animation: the `⏸` glyph reported `rgb(151,163,180)`, `rgb(146,160,179)` and
+ * `rgb(114,131,155)` on three consecutive runs of one deck. `PROBE` reads ink from computed
+ * style, and computed style during an animation is the interpolated value at whatever instant
+ * the sleep happened to end. A busier machine simply widens the spread.
+ *
+ * So the fix is to stop sampling a moving target rather than to sleep longer:
+ *
+ *   · a FINITE animation is `finish()`ed — its resting state is the one a reader settles on,
+ *     and it is what the fixed sleep was trying and failing to wait for;
+ *   · an INFINITE one is paused at `currentTime = 0`. No frame of a loop is more "correct"
+ *     than another, so the only property worth having is that every run picks the same one.
+ *     A pulsing control is then measured at a fixed phase instead of a random one.
+ *
+ * `document.fonts.ready` is awaited first because a font swap changes glyph geometry, and the
+ * backdrop sample is taken from the glyph's box. The two rAFs let the settled state paint
+ * before the screenshot. The old sleep is kept AFTER all of that, as a floor for work this
+ * cannot see (a JS-driven layout, a deferred component bake) — it is now a margin rather than
+ * the mechanism.
+ */
+async function settle(page, floorMs) {
+	// The floor comes FIRST, and that ordering is the whole fix. Settling once on load
+	// pins nothing: the player's controls fade in on a transition the runtime starts
+	// AFTER first paint, so a settle at t=0 finds an empty animation set, and the sleep
+	// that follows lands the screenshot in the middle of a transition that began at
+	// t=50ms. Sleep, then settle, then check whether settling started anything new.
+	await new Promise((r) => setTimeout(r, floorMs));
+	// Up to five rounds. Finishing one animation can start the next (a staggered entrance,
+	// a transitionend handler), so one pass is not a fixed point; five is well past what
+	// the corpus needs and still bounded, and the count is reported so a deck that never
+	// settles is visible rather than silently sampled mid-flight.
+	let rounds = 0;
+	for (; rounds < 5; rounds++) {
+		const running = await page.evaluate(async () => {
+			try {
+				await document.fonts.ready;
+			} catch {}
+			const live = document.getAnimations();
+			for (const a of live) {
+				try {
+					const end = a.effect?.getComputedTiming?.().endTime;
+					if (Number.isFinite(end)) a.finish();
+					else {
+						a.pause();
+						a.currentTime = 0;
+					}
+				} catch {
+					// An animation can refuse `finish()` (an infinite iteration count reported
+					// as a finite endTime by an older engine). Pausing it is still better than
+					// leaving it running, and a throw must not lose the whole deck.
+					try {
+						a.pause();
+					} catch {}
+				}
+			}
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			return live.length;
+		});
+		if (!running) break;
+		// A short beat, so a transition started BY the settle has begun and is visible to
+		// `getAnimations()` on the next round rather than after the screenshot.
+		await new Promise((r) => setTimeout(r, 120));
+	}
+	return rounds;
+}
+
 async function auditPlayer(browser, file) {
 	const page = await browser.newPage();
 	// A deliberate LIGHT system preference, so a `system` export is scored in a known
@@ -288,7 +367,7 @@ async function auditPlayer(browser, file) {
 	await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
 	await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
 	await page.goto(`file://${path.resolve(file)}`, { waitUntil: 'networkidle0' });
-	await new Promise((r) => setTimeout(r, 400));
+	await settle(page, 400);
 	const asExported = await auditState(page, 'as exported');
 	const toggled = await page.evaluate(() => {
 		const btn = document.getElementById('lp-mode');
@@ -298,7 +377,7 @@ async function auditPlayer(browser, file) {
 	});
 	let after = [];
 	if (toggled) {
-		await new Promise((r) => setTimeout(r, 300));
+		await settle(page, 300);
 		after = await auditState(page, `after the toggle (${toggled})`);
 	}
 	await page.close();
@@ -370,6 +449,57 @@ function diffBaseline(rows, baseline) {
 	return { added, worse, fixed, current: Object.fromEntries([...seen].map(([key, row]) => [key, row.r])) };
 }
 
+/**
+ * The ratchet `--bless` had no notion of, expressed as a pure function so it is testable
+ * rather than asserted in prose (the shape `tools/bless-palette-baselines.js` already uses
+ * for the palette tables — HARD RULE #15).
+ *
+ * `--bless` used to write whatever tonight measured, in both directions. Writing a ratio
+ * DOWN records that a surface got worse and files it as known, which is the one edit a
+ * baseline must never make silently: the gate's whole question is "did tonight make
+ * something worse", and a bless can answer it by moving the goalposts.
+ *
+ * That is not a hypothetical here. This tool samples RENDERED PIXELS, and its numbers are
+ * load-sensitive: two `anima-scene` pause rows read 3.20 / 3.19 measured alone and
+ * 2.56 / 1.93 inside a full 139-deck sweep (#1808). Blessing under load would have written
+ * both down by more than a point, and the deck they belong to would then have had to
+ * regress past 1.93 before anything complained. So a measurement BELOW the committed value
+ * is held, printed, and left for a human — the nightly stays red, which is the correct
+ * state for a finding nobody has explained.
+ *
+ * NO SLACK, unlike `diffBaseline`'s 0.05 band, and the asymmetry is deliberate. That band
+ * exists so sub-pixel jitter does not cry wolf; holding the HIGHER of two numbers a few
+ * thousandths apart costs nothing, because the same band absorbs it on the next comparison.
+ * The 1e-9 is binary representation, not policy.
+ *
+ * @param {Map<string, {r: number}>} seen collapsed findings, key → worst row
+ * @param {Record<string, number>} prior the committed baseline
+ */
+function blessRatchet(seen, prior, { allowLoosen = false } = {}) {
+	const blessed = {};
+	const held = [];
+	const tightened = [];
+	const added = [];
+	for (const [key, row] of seen) {
+		const was = prior[key];
+		if (was === undefined) {
+			added.push(key);
+			blessed[key] = row.r;
+		} else if (row.r >= was - 1e-9) {
+			if (row.r > was + 1e-9) tightened.push(key);
+			blessed[key] = row.r;
+		} else {
+			held.push({ key, was, now: row.r });
+			blessed[key] = allowLoosen ? row.r : was;
+		}
+	}
+	// A key the sweep no longer reports is a fixed finding, and dropping it is the point of
+	// re-blessing. It is counted rather than silent, because a deck that failed to export
+	// looks identical to a deck that got better.
+	const dropped = Object.keys(prior).filter((k) => !seen.has(k));
+	return { blessed, held, tightened, added, dropped };
+}
+
 function report(name, rows) {
 	const failing = rows.filter((x) => !x.exempt && !x.patterned && x.r < x.need);
 	const exempt = rows.filter((x) => x.exempt && x.r < x.need);
@@ -404,12 +534,14 @@ async function main() {
 	let jsonOut = null;
 	let baselinePath = null;
 	let bless = false;
+	let allowLoosen = false;
 	let quiet = false;
 	const inputs = [];
 	for (let i = 0; i < argv.length; i++) {
 		if (argv[i] === '--json') jsonOut = argv[++i];
 		else if (argv[i] === '--baseline') baselinePath = argv[++i];
 		else if (argv[i] === '--bless') bless = true;
+		else if (argv[i] === '--allow-loosen') allowLoosen = true;
 		else if (argv[i] === '--quiet') quiet = true;
 		else inputs.push(argv[i]);
 	}
@@ -458,9 +590,29 @@ async function main() {
 	}
 
 	if (bless) {
-		const blessed = Object.fromEntries([...collapse(findings)].map(([key, row]) => [key, row.r]));
+		const prior = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : {};
+		const { blessed, held, tightened, added: newKeys, dropped } = blessRatchet(collapse(findings), prior, { allowLoosen });
 		fs.writeFileSync(baselinePath, `${JSON.stringify(blessed, null, '\t')}\n`);
-		console.log(`blessed ${Object.keys(blessed).length} known finding(s) into ${path.relative(ROOT, baselinePath)}\n`);
+		console.log(
+			`blessed ${Object.keys(blessed).length} known finding(s) into ${path.relative(ROOT, baselinePath)}\n` +
+				`  ${newKeys.length} new · ${tightened.length} improved · ${dropped.length} dropped (no longer reproduce) · ` +
+				`${held.length} ${allowLoosen ? 'LOOSENED (--allow-loosen)' : 'held at the committed value'}`,
+		);
+		for (const h of held) {
+			console.log(
+				`  ${allowLoosen ? 'loosened' : 'held'}  ${h.key}  committed ${h.was.toFixed(2)} > measured ${h.now.toFixed(2)}` +
+					`${allowLoosen ? '' : ' — NOT written down. Re-run to confirm it reproduces, then pass --allow-loosen with the reason.'}`,
+			);
+		}
+		if (held.length && !allowLoosen) {
+			console.log(
+				'\n  A bless that writes a ratio DOWN records that a surface got worse and calls it known.\n' +
+					'  This tool measures rendered pixels, and its numbers are load-sensitive — the same run\n' +
+					'  reads differently alone and inside a full-corpus sweep (#1808) — so a quiet loosening is\n' +
+					'  as likely to be the harness as the page. Those rows keep their committed value, which\n' +
+					'  leaves the nightly RED until someone says why.\n',
+			);
+		}
 		process.exit(0);
 	}
 
@@ -491,6 +643,6 @@ async function main() {
 	process.exit(added.length || worse.length ? 1 : 0);
 }
 
-module.exports = { sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, DEFAULT_BASELINE };
+module.exports = { sampleBackdrop, ratio, over, HIDE_INK, findingKey, collapse, diffBaseline, blessRatchet, DEFAULT_BASELINE };
 
 if (require.main === module) main();
