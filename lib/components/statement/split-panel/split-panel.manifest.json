@@ -23,6 +23,7 @@
   },
   "function": "statement",
   "form": "panel",
+  "coda": { "dock": "row", "claims": ["blockquote", "trailing-paragraph"] },
   "substance": "structure",
   "density": {
     "axis": "item",

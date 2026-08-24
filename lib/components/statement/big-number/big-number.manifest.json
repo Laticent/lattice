@@ -16,6 +16,7 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
+  "coda": { "claims": ["trailing-paragraph"] },
   "tags": [
     "hero-number",
     "metric",

@@ -109,12 +109,17 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * the entire body to the floor under a third of a blank slide. Rendered, and it
  * reads as a failure rather than a composition. With no body to sit under, there
  * is no slack to place — leave the slide alone. */
-section.content > .cell-stage:where(:has(> :not(.below-note):not(blockquote)))
-  > :where(.below-note:last-child,
-           blockquote:last-child,
-           blockquote:has(+ .below-note:last-child)) { order: 1; }
+/* The `order: 1` rule that used to lead this pair is GONE, not lost: the trailing
+ * run is now one `.cell-coda` cell that the coda kernel places at the end of the
+ * body by construction (lib/core/coda.js), so there is no longer an ordering to
+ * assert. What remains is the SPACER, which is a different decision — not how far
+ * the band sits from the body (that is `--coda-step`, universal), but WHERE on the
+ * slide it sits: on a prose slide the note drops to the stage floor rather than
+ * trailing the paragraph. The selector is simply the cell now; enumerating
+ * `.below-note` and `blockquote` as direct stage children stopped matching the
+ * moment they moved into it. */
 section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
-  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child)):where(:has(> :not(.below-note):not(blockquote)))::after {
+  > .cell-stage:where(:has(> .cell-coda)):where(:has(> :not(.cell-coda)))::after {
   content: ''; flex: 1 1 0; min-height: 0;
 }
 

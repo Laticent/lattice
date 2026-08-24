@@ -11,6 +11,7 @@
   },
   "function": "imagery",
   "form": "canvas",
+  "coda": { "dock": "grid", "claims": ["trailing-paragraph"] },
   "substance": "prose",
   "orientation": [
     "landscape",

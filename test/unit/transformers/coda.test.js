@@ -1,0 +1,194 @@
+/**
+ * Unit tests for the universal CODA kernel (lib/core/coda.js) and its registry
+ * adapter (lib/transformers/coda.js).
+ *
+ * Contract: a slide's trailing editorial beats — a `> …` blockquote (the Key
+ * Insight) and a trailing `<p>` after a structural block (the below-note) — are
+ * lifted into one `<div class="cell-coda" data-dock="…">` at the END of the
+ * section body, before any Marp `<footer>` chrome. A layout that declares
+ * `coda.claims` keeps that element; the cell is never built for it.
+ *
+ * The two arms must AGREE — `applyToHtml` runs on the engine/export path,
+ * `applyToDom` in the browser runtime — so every behavioral case below is
+ * asserted through both. That parity is the point of the kernel: a
+ * DOM-path-only or string-path-only rule is how the two renderers diverged
+ * before (see the below-note kernel's header).
+ */
+
+const { test, describe } = require('node:test');
+const assert = require('node:assert/strict');
+const { JSDOM } = require('jsdom');
+const coda = require('../../../lib/core/coda');
+const adapter = require('../../../lib/transformers/coda');
+
+const sec = (cls, inner) => `<section class="${cls}">${inner}</section>`;
+const CELL = 'class="cell-coda"';
+
+/** Run BOTH arms on the same section and return the two resulting inner HTMLs. */
+function bothArms(cls, inner) {
+  const html = adapter.applyToHtml(sec(cls, inner));
+  const dom = new JSDOM(`<body>${sec(cls, inner)}</body>`);
+  adapter.applyToDom(dom.window.document.body);
+  return {
+    html: html.replace(/^<section[^>]*>/, '').replace(/<\/section>$/, ''),
+    dom: dom.window.document.querySelector('section').innerHTML,
+  };
+}
+
+/** Normalize whitespace between tags so the two arms are comparable. */
+const norm = (s) => s.replace(/>\s+</g, '><').trim();
+
+describe('coda — what gets harvested', () => {
+  test('a trailing blockquote becomes the cell', () => {
+    const { html, dom } = bothArms('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>');
+    for (const out of [html, dom]) {
+      assert.match(out, /class="cell-coda"/);
+      assert.match(out, /<div class="cell-coda"[^>]*><blockquote>/);
+    }
+    assert.equal(norm(html), norm(dom), 'the two arms must produce the same markup');
+  });
+
+  test('a trailing paragraph after a structural block becomes a below-note inside the cell', () => {
+    const { html, dom } = bothArms('list', '<ul><li>a</li></ul><p>note</p>');
+    for (const out of [html, dom]) {
+      assert.match(out, /<div class="cell-coda"[^>]*><div class="below-note"><p>note<\/p><\/div><\/div>/);
+    }
+    assert.equal(norm(html), norm(dom));
+  });
+
+  test('both beats share one cell, insight first', () => {
+    const { html, dom } = bothArms('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>note</p>');
+    for (const out of [html, dom]) {
+      const cell = out.slice(out.indexOf(CELL));
+      assert.ok(cell.indexOf('<blockquote>') < cell.indexOf('below-note'), 'insight must precede the note');
+    }
+    assert.equal(norm(html), norm(dom));
+  });
+
+  test('a paragraph after a paragraph is body copy, not a note — on either arm', () => {
+    const { html, dom } = bothArms('list', '<p>one</p><p>two</p>');
+    assert.doesNotMatch(html, /cell-coda/);
+    assert.doesNotMatch(dom, /cell-coda/);
+  });
+
+  test('nothing to harvest leaves the body untouched', () => {
+    const inner = '<h2>T</h2><ul><li>a</li></ul>';
+    const { html, dom } = bothArms('list', inner);
+    assert.equal(norm(html), norm(inner));
+    assert.equal(norm(dom), norm(inner));
+  });
+});
+
+describe('coda — claims', () => {
+  test('a layout that claims the blockquote never gets a cell for it', () => {
+    const { html, dom } = bothArms('quote', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>');
+    assert.doesNotMatch(html, /cell-coda/);
+    assert.doesNotMatch(dom, /cell-coda/);
+  });
+
+  test('a CLAIMED trailing element is STEPPED OVER, not treated as a wall', () => {
+    // A chart claims its final <p> for the caption. The insight before it must
+    // still be harvested — and the cell still lands last, after the caption.
+    const { html, dom } = bothArms('radar', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>caption</p>');
+    for (const out of [html, dom]) {
+      assert.match(out, /<p>caption<\/p><div class="cell-coda"/, 'the caption stays put and the cell follows it');
+      assert.match(out, /<div class="cell-coda"[^>]*><blockquote>/);
+      assert.doesNotMatch(out, /cell-coda[^>]*>[\s\S]*caption/, 'the claimed caption must not be swept into the cell');
+    }
+    assert.equal(norm(html), norm(dom));
+  });
+
+  test('the `no-note` opt-out withholds the note and keeps the insight', () => {
+    const { html, dom } = bothArms('list no-note', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>note</p>');
+    for (const out of [html, dom]) {
+      assert.match(out, /cell-coda/);
+      assert.doesNotMatch(out, /below-note/);
+      assert.match(out, /<p>note<\/p>/, 'the paragraph stays as body copy');
+    }
+  });
+});
+
+describe('coda — placement', () => {
+  test('the cell goes BEFORE a Marp running <footer>', () => {
+    const { html, dom } = bothArms('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><footer>f</footer>');
+    for (const out of [html, dom]) {
+      assert.ok(out.indexOf(CELL) < out.indexOf('<footer>'), 'chrome stays last');
+    }
+    assert.equal(norm(html), norm(dom));
+  });
+
+  test('the declared dock is stamped on the cell', () => {
+    assert.match(bothArms('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>').html, /data-dock="column"/);
+    assert.match(bothArms('premise', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>').html, /data-dock="row"/);
+    assert.match(bothArms('image', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>').html, /data-dock="grid"/);
+  });
+
+  test('an unknown layout takes both beats in a column — opt-out means a new component works untouched', () => {
+    const { html } = bothArms('some-new-layout', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>note</p>');
+    assert.match(html, /data-dock="column"/);
+    assert.match(html, /below-note/);
+  });
+});
+
+describe('coda — idempotence and safety', () => {
+  test('a second pass is a no-op on both arms', () => {
+    const once = adapter.applyToHtml(sec('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>'));
+    assert.equal(adapter.applyToHtml(once), once);
+    const dom = new JSDOM(`<body>${sec('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>')}</body>`);
+    adapter.applyToDom(dom.window.document.body);
+    const after = dom.window.document.querySelector('section').innerHTML;
+    adapter.applyToDom(dom.window.document.body);
+    assert.equal(dom.window.document.querySelector('section').innerHTML, after);
+  });
+
+  test('safely returns on null / non-DOM root and non-string html', () => {
+    assert.doesNotThrow(() => adapter.applyToDom(null));
+    assert.doesNotThrow(() => adapter.applyToDom({}));
+    assert.equal(adapter.applyToHtml(''), '');
+    assert.equal(adapter.applyToHtml('no sections here'), 'no sections here');
+  });
+
+  test('peelCoda round-trips: rest + coda reconstructs the body', () => {
+    const inner = coda.harvestBody('<h2>T</h2><ul><li>a</li></ul><blockquote><p>k</p></blockquote>', 'list');
+    const { rest, coda: cell } = coda.peelCoda(inner);
+    assert.match(cell, /^<div class="cell-coda"/);
+    assert.doesNotMatch(rest, /cell-coda/);
+    assert.equal(norm(rest + cell), norm(inner));
+  });
+
+  test('peelCoda is a no-op when there is no cell', () => {
+    const { rest, coda: cell } = coda.peelCoda('<ul><li>a</li></ul>');
+    assert.equal(cell, '');
+    assert.equal(rest, '<ul><li>a</li></ul>');
+  });
+
+  test('isFrameCell recognizes the frame cells a rebuilder must step over', () => {
+    const dom = new JSDOM('<body><div class="cell-coda"></div><div class="cell-stage"></div><div class="code-col"></div></body>');
+    const [codaEl, stageEl, colEl] = [...dom.window.document.body.children];
+    assert.equal(coda.isFrameCell(codaEl), true);
+    assert.equal(coda.isFrameCell(stageEl), true);
+    assert.equal(coda.isFrameCell(colEl), false);
+    assert.equal(coda.isFrameCell(null), false);
+  });
+});
+
+
+describe('coda — the class is matched as a TOKEN, not an exact attribute', () => {
+  test('a cell carrying a second class is still recognized by both call sites', () => {
+    // The split envelope stamps `lat-split-note` onto a carried note's own open
+    // tag, so the cell reads `class="cell-coda lat-split-note"`. An exact-string
+    // guard stops recognizing the kernel's own output at exactly that point.
+    const marked = '<ul><li>a</li></ul><div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>n</p></div></div>';
+    assert.equal(coda.harvestBody(marked, 'list'), marked, 'idempotence must survive a second class');
+    const { rest, coda: cell } = coda.peelCoda(marked);
+    assert.match(cell, /lat-split-note/);
+    assert.equal(rest, '<ul><li>a</li></ul>');
+  });
+
+  test('hasCodaClass does not match a merely similar class name', () => {
+    assert.equal(coda.hasCodaClass(' class="cell-coda"'), true);
+    assert.equal(coda.hasCodaClass(' class="x cell-coda y"'), true);
+    assert.equal(coda.hasCodaClass(' class="cell-coda-inner"'), false);
+    assert.equal(coda.hasCodaClass(' class="not-cell-coda"'), false);
+  });
+});

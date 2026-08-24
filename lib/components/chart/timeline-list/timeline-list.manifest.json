@@ -15,6 +15,7 @@
   "render": "html",
   "renderNote": "Entries stack as HTML rows against a CSS rule. The only geometry is the ordering, and document order already carries it; the bodies are paragraphs that need to wrap, so they stay HTML.",
   "stage": "canvas",
+  "coda": { "claims": ["trailing-paragraph"] },
   "density": {
     "axis": "item",
     "soft": 16,

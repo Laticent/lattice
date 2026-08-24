@@ -51,6 +51,24 @@ const formInner = ({ eyebrow = '', subtitle = '', lede = '', n = 9, note = '', i
   '</div>' +
   '<div class="cell-footer"><footer>Probe</footer><span class="lat-pagination">1</span></div>';
 
+// The shape the engine ACTUALLY emits since the universal coda cell (lib/core/coda.js):
+// both trailing beats live inside one `.cell-coda`, not as bare siblings. The envelope
+// still has to tell them apart — the insight earns its own page, the note rides the last
+// body page — so it decomposes the cell rather than treating it as one opaque block.
+const codaInner = ({ n = 9, note = '', insight = '' } = {}) =>
+  '<header>Deck</header>' +
+  band({}) +
+  '<div class="cell-stage">' +
+    items(n) +
+    ((insight || note)
+      ? '<div class="cell-coda" data-dock="column">' +
+          (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
+          (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
+        '</div>'
+      : '') +
+  '</div>' +
+  '<div class="cell-footer"><footer>Probe</footer><span class="lat-pagination">1</span></div>';
+
 const openTag = '<section data-lattice-slide="4" id="s4" data-lattice-pagination="4" class="checklist form">';
 const build = (inner, per = 4, opts = {}) =>
   splitEnvelope(openTag, inner, chromeOf(inner), { axis: 'item', per, layoutName: 'checklist', ...opts });
@@ -789,5 +807,44 @@ describe('core: dockInFooterCell — ONE docking rule for both footer marks (HAR
       dockInFooterCell(inner, mark),
       `<div class="cell-footer"><div class="x"><footer>F</footer></div>${mark}</div>`,
     );
+  });
+});
+
+
+describe('core: the universal CODA cell rides the split (lib/core/coda.js)', () => {
+  test('an insight inside the cell still earns its own page, wrapped in a cell', () => {
+    const secs = build(codaInner({ n: 9, insight: 'Ship it.' }));
+    const last = secs[secs.length - 1];
+    assert.ok(last.includes('Ship it.'), 'the insight should be on the final page');
+    assert.ok(last.includes('class="cell-coda"'), 'the insight page must carry a real coda cell, not a bare blockquote');
+    for (const s of secs.slice(0, -1)) {
+      assert.ok(!s.includes('Ship it.'), 'the insight must not repeat on a body page (FM-2)');
+    }
+  });
+
+  test('a note inside the cell rides the LAST body page, wrapped in a cell', () => {
+    const secs = build(codaInner({ n: 9, note: 'Source: filings.' }));
+    const withNote = secs.filter((s) => s.includes('Source: filings.'));
+    assert.equal(withNote.length, 1, 'the note must appear exactly once');
+    // `markNote` stamps `lat-split-note` onto the span's own open tag, which is now the
+    // CELL — so the class list is `cell-coda lat-split-note`, and the `.lat-split-note >
+    // .below-note > p` arm in base.modifiers.css is the one that fires.
+    assert.match(withNote[0], /class="[^"]*\bcell-coda\b[^"]*"/, 'the note must stay inside a coda cell');
+    assert.match(withNote[0], /class="[^"]*\blat-split-note\b[^"]*"/, 'and be marked for the split-note treatment');
+    assert.ok(withNote[0].includes('class="below-note"'), 'and keep its below-note wrapper');
+  });
+
+  test('both beats in one cell separate cleanly and leave no empty shell', () => {
+    const secs = build(codaInner({ n: 9, insight: 'Ship it.', note: 'Source: filings.' }));
+    const joined = secs.join('');
+    assert.equal(joined.split('Ship it.').length - 1, 1, 'insight appears once');
+    assert.equal(joined.split('Source: filings.').length - 1, 1, 'note appears once');
+    // An empty cell would render as a 24px band of nothing.
+    assert.ok(
+      !/<div class="cell-coda"[^>]*>\s*<\/div>/.test(joined),
+      'decomposing the cell must not leave an empty coda shell on a body page',
+    );
+    const insightPage = secs.find((s) => s.includes('Ship it.'));
+    assert.ok(!insightPage.includes('Source: filings.'), 'the note must not follow the insight onto its own page');
   });
 });

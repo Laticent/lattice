@@ -26,6 +26,7 @@
   "form": "ledger",
   "substance": "structure",
   "stage": "flow",
+  "coda": { "claims": ["blockquote"] },
   "adapt": {
     "mode": "reflow",
     "families": [

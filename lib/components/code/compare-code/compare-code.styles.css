@@ -89,8 +89,13 @@ section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--
  * Marp injects <header> into every section, so :has(> h2:first-child) is unreliable.
  * :has(> p ~ h2) is not nested :has() — p and h2 are both direct child refs.
  *
- * Without eyebrow: h2 row1; p(1) col1 row2; p(2) col2 row2; pre(1/2) row3; bq row4
- * With eyebrow:    p(1)=eyebrow row1; h2 row2; p(2) col1 row3; p(3) col2 row3; pre(1/2) row4; bq row5 */
+ * Without eyebrow: h2 row1; p(1) col1 row2; p(2) col2 row2; pre(1/2) row3; coda row4
+ * With eyebrow:    p(1)=eyebrow row1; h2 row2; p(2) col1 row3; p(3) col2 row3; pre(1/2) row4; coda row5
+ *
+ * The final row holds the universal CODA CELL, not a bare `> blockquote`: the
+ * trailing beats are harvested into `.cell-coda` before this fallback path is
+ * reached (lib/core/coda.js), and the cell carries its own `--coda-step`, so the
+ * `padding-top` these rules used to add is gone with it. */
 
 /* Shared grid shell */
 section.compare-code:not(:has(.code-cols)) {
@@ -121,7 +126,7 @@ section.compare-code:not(:has(.code-cols)):not(:has(> p ~ h2)) > p:nth-of-type(1
 section.compare-code:not(:has(.code-cols)):not(:has(> p ~ h2)) > p:nth-of-type(2) { grid-column:2; grid-row:2; }
 section.compare-code:not(:has(.code-cols)):not(:has(> p ~ h2)) > pre:nth-of-type(1) { grid-column:1; grid-row:3; margin:0; }
 section.compare-code:not(:has(.code-cols)):not(:has(> p ~ h2)) > pre:nth-of-type(2) { grid-column:2; grid-row:3; margin:0; }
-section.compare-code:not(:has(.code-cols)):not(:has(> p ~ h2)) > blockquote         { grid-column:1 / -1; grid-row:4; padding-top:var(--sp-xs); }
+section.compare-code:not(:has(.code-cols)):not(:has(> p ~ h2)) > .cell-coda         { grid-column:1 / -1; grid-row:4; }
 
 /* ── WITH eyebrow (p>code precedes h2 among siblings) ── */
 section.compare-code:not(:has(.code-cols)):has(> p ~ h2) {
@@ -133,7 +138,7 @@ section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > p:nth-of-type(2) { gr
 section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > p:nth-of-type(3) { grid-column:2; grid-row:3; }
 section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > pre:nth-of-type(1) { grid-column:1; grid-row:4; margin:0; }
 section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > pre:nth-of-type(2) { grid-column:2; grid-row:4; margin:0; }
-section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > blockquote         { grid-column:1 / -1; grid-row:5; padding-top:var(--sp-xs); }
+section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > .cell-coda         { grid-column:1 / -1; grid-row:5; }
 
 /* ── Cover-code carousel — compare-code's owned SPLIT forms ────────────────────
    Two labelled code blocks read across; code can't reflow into a row, so an overflowing

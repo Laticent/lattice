@@ -4,6 +4,7 @@
   "function": "evidence",
   "bucket": "math",
   "form": "canvas",
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "substance": "prose",
   "adapt": {
     "mode": "reflow",

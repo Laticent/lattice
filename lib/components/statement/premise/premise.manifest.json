@@ -24,6 +24,7 @@
   },
   "function": "statement",
   "form": "split",
+  "coda": { "dock": "row" },
   "substance": "series",
   "bucket": "statement",
   "density": {

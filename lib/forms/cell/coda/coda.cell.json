@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schema/cell.schema.json",
+  "id": "coda",
+  "region": "coda",
+  "z": 2,
+  "accepts": ["content"],
+  "capacity": "stack",
+  "fill": "start",
+  "gap": "--coda-step",
+  "geometry": { "inset": "--frame-inset-x" },
+  "clip": false
+}

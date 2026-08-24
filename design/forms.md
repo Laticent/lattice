@@ -228,8 +228,8 @@ authored by a *designer*; a **Tile** binds a *source*.
 - **`suppresses`** — chrome Cells a sovereign Frame hides.
 
 ### Cell — the typed slot
-- **`id` / `region`** — name and band position (masthead · stage · footer ·
-  left/centre/right).
+- **`id` / `region`** — name and band position (masthead · stage · **coda** ·
+  footer · left/centre/right).
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
@@ -272,14 +272,39 @@ special cases. It reconciles with the component model's slot vocabulary
 | title (`h2`) | `masthead-lede` | hoisted |
 | lede — the lead statement | `masthead-lede` | hoisted as the **`subtitle`**. There is **no "heart" noun** — the lead statement *is* the existing subtitle/lede; do not coin a synonym. |
 | content (the body) | `stage` | the body Cell, `.cell-stage` |
-| key-insight (`> blockquote`) | `stage` | lives *in* the stage Cell (it co-occurs with below-note) |
-| below-note (em-dash trailing `p`) | `stage` | lives *in* the stage Cell — **distinct** from key-insight; the two co-occur, they are not one "note" slot |
+| key-insight (`> blockquote`) | `coda` | harvested into the `coda` Cell — **distinct** from below-note; the two co-occur in the same Cell, in that order, but they are not one "note" slot |
+| below-note (em-dash trailing `p`) | `coda` | harvested into the `coda` Cell, after the key-insight |
 | annotation (review italic) | `overlay` | the existing `overlay` Cell (`tile/annotation`) — **not** a stage note |
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
 | logo · meta · status | `masthead-bay` tiles | docked |
 | pagination · progress | `pagination-right` · `progress-centre` | docked |
 | watermark | `stage` | per the `watermark` Tile's `fits: ["stage"]` |
+
+**The `coda` Cell — the trailing editorial band.** Both trailing beats used to be
+listed as living *in* the stage Cell, which was true of where they ended up and said
+nothing about how they got there: they attached by SELECTOR SHAPE, matching two exact
+DOM positions, so any component whose transform introduced a wrapper silently lost
+them (eight of 61 layouts, measured). They now have a Cell of their own, built by
+`lib/core/coda.js` BEFORE any structural transform runs.
+
+Its geometry is unusual among the Cells and worth stating: the coda has no fixed band
+of its own. It **docks into whatever structure the section already is** — declared per
+layout as `coda.dock`, and there are only three shapes in the whole catalog:
+
+| dock | layouts | placement |
+|---|---|---|
+| `column` (default) | 57 | the last in-flow child; nothing to declare |
+| `row` | 3 | breaks to a full line (`flex-wrap` + `flex: 0 0 100%`), and the section's `row-gap` is zeroed — a row layout's `gap` is a COLUMN gutter, and the shorthand would otherwise reappear vertically above the band |
+| `grid` | 1 | `grid-column: 1 / -1` in an implicit final row |
+
+On a `flow` layout the Cell is the last child of `.cell-stage`, so it keeps the stage's
+clip; on a `canvas` or `sovereign` layout it is a direct child of the section. Either
+way it carries one `--coda-step` of separation from the body, SUBTRACTING any gap the
+host already puts before its last child (`--coda-host-gap`), so the step is the same on
+every layout. A layout that uses the trailing element for its own anatomy — or is a
+poster with no room for a band — declares `coda.claims` and the Cell is never built.
+See `engineering/decisions/2026-08-24-universal-coda-cell.md`.
 
 **Two rules the map obeys:**
 

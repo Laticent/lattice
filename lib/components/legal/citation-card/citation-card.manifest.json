@@ -24,6 +24,7 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
+  "coda": { "claims": ["blockquote"] },
   "tags": [
     "citation",
     "quotation",

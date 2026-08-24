@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schema/tile.schema.json",
+  "id": "coda",
+  "kind": "content",
+  "fits": ["coda"],
+  "z": 2,
+  "population": "authoring grammar — a trailing `> …` key insight and/or a below-note paragraph, harvested into the cell by lib/core/coda.js",
+  "hideToken": "no-note",
+  "status": "shipped"
+}

@@ -67,8 +67,11 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
   test('insight page blockquote reads at --fs-emphasis, not the base --fs-body', async () => {
     for (const slide of [1, 2]) { // checklist, stats — two distinct components
       const got = await page.evaluate((slide) => {
+        // The beat lives in the frame's coda cell now (lib/core/coda.js), not as a
+        // direct child of the stage — the whole point of that change being that the
+        // panel stops depending on an exact DOM position.
         const p = document.querySelector(
-          `section[data-lattice-slide="${slide}"] > .cell-stage > blockquote p`,
+          `section[data-lattice-slide="${slide}"] > .cell-stage > .cell-coda > blockquote p`,
         );
         if (!p) return null;
         const probe = document.createElement('span');
