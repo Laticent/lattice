@@ -172,13 +172,16 @@ instead of 1s, and 187 test blocks carry at least one bare Testing Library wait 
 shared selector makes a red run meaningfully longer. Green runs are unaffected (a wait resolves
 as soon as its condition does, measured). The first draft did not disclose this at all.
 
-**A pre-existing flake found while checking this, not fixed here.** `studio.controls.test.tsx:431`
-carries its own explicit `{ timeout: 5000 }` and expired once in three runs on an **idle** box,
-with none of #1328's busy loops running. This change does not touch it — an explicit per-call
-budget wins over the default either way — so it is off the path (HARD RULE #18) and recorded
-rather than pulled in. It is also a data point worth keeping: a 5000ms wait in this suite can
-expire under mere self-contention, which is a reason to treat any future "just raise it" with
-suspicion.
+**A pre-existing flake found while checking this, not fixed here — filed as #1831.**
+`studio.controls.test.tsx:431` carries its own explicit `{ timeout: 5000 }`, which bypasses
+`asyncUtilTimeout` entirely, so neither this change nor #1799's reaches it. It expired once in
+three runs for the checker and twice in about five for me, both on an **idle** box with none of
+#1328's busy loops running — roughly 1 in 4, which is frequent enough to matter. Off the path
+(HARD RULE #18), so filed rather than pulled in.
+
+It is also the sharpest available warning against the move this note declined to make. A 5000ms
+wait in this suite expires on an idle machine; a *global* default of 5000 would have been set
+just below a demonstrated failure point, and would have looked fine in every green run.
 
 **It does not claim the docs suite no longer flakes.** It claims a second specific class is
 addressed: waits that expire on Testing Library's inner clock. What remains unmeasured is
