@@ -114,10 +114,15 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `lib/components/chart/journey/journey.styles.css` that `fbb6287` changed: a
   nine-line comment added above `section.journey .journey-mood-key-label`, less
   the `opacity: 0.85` line the same commit deleted from the rule.
-- **What checks this properly, and where:** `node tools/build-css.js --check`
-  (`npm run css:check`) asks whether `dist/lattice.css` matches `bundle()`. It is
-  meaningful only right after a build — which is why CI runs it there, and why the
-  unit suite does not run it at all. A unit test asking it was removed in #1783:
-  vacuous in CI, which full-builds first, and spuriously red locally after the
-  rebase the repo requires.
+- **What checks this properly, and where:** `npm run build:check:all` runs in
+  CI's `unit` job right after the full build, re-checking all 38 generated
+  artifacts. It is meaningful *only* there — on a freshly built tree it asks
+  whether each generator wrote what its own `--check` recomputes, and whether a
+  later step clobbered an earlier one. Do not confuse it with the `lint` job's
+  `build:check`, which asks the opposite-facing question ("did you commit the
+  regenerated artifact?"), must therefore run *before* any build, and skips
+  `dist/` entirely via `--exclude-uncommitted`. By hand, `npm run css:check` is
+  the same check narrowed to the CSS, in about half a second. A unit test asking
+  it was removed in #1783: vacuous in CI, which full-builds first, and spuriously
+  red locally after the rebase the repo requires.
 - **Triggered by:** #1783, found while pushing #1779.

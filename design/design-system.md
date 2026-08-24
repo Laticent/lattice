@@ -893,14 +893,27 @@ Output: `lattice.css` (committed). Header comment lists source files.
 | `npm run css:build` | Regenerate `lattice.css` from sources |
 | `npm run css:check` | Fail if `lattice.css` is stale relative to sources (CI gate) |
 
-`css:check` runs in **CI's `unit` job, immediately after the full build** — not
-in the pre-push hook, which this section claimed until #1783. The distinction is
-the whole point of where it sits: after a full build the check asks whether
-`main()` wrote what `bundle()` computes, which is a real question about the code.
-Asked on a developer's machine it only measures how recently they built, and
+`css:check` does **not** run in the pre-push hook, which this section claimed
+until #1783. It is on-demand: the narrow, ~0.5s answer to "is `dist/lattice.css`
+what `bundle()` computes?" when you want just that one.
+
+What runs in CI is the broader `build:check:all`, in the **`unit` job immediately
+after the full build**, covering all 38 generated artifacts. Where it sits is the
+whole point, and it is a different question from the `lint` job's `build:check`:
+
+- **`build:check` (lint job, before any build)** — "did you *commit* the
+  regenerated artifact?" A staleness question about the checkout, so it must run
+  before a build or it passes vacuously. It uses `--exclude-uncommitted` and so
+  never looks at `dist/`.
+- **`build:check:all` (unit job, after the build)** — "does each generator
+  *write* what its own `--check` recomputes, and does a later step clobber an
+  earlier one's output?" A question about the writers, answerable only on a
+  freshly built tree.
+
+Asked on a developer's machine, either one only measures how recently they built:
 `dist/` has been gitignored since #1742, so a rebase makes it stale by
-definition. A unit test asking it locally was removed in #1783 for exactly that;
-`engineering/gotchas/ci.md` has the full account.
+definition. A unit test that asked it locally was removed in #1783 for exactly
+that; `engineering/gotchas/ci.md` has the full account.
 
 If a per-component `styles.css` changes without a regeneration, CI fails there —
 and the remedy is a full `npm run build`, not `css:build` alone, which leaves

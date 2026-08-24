@@ -180,21 +180,37 @@ jobs:
       # `--check` after it passes vacuously and stops being a gate at all.
       - name: Build the generated bundles
         run: npm run build
-      # The END-TO-END half of the CSS contract, and the ONLY place it can be
-      # asked: does `main()` actually write what `bundle()` computes, and does no
-      # later build step clobber `dist/lattice.css` on its way past? Both are
-      # questions about a tree that has just been fully built, which is why this
-      # sits AFTER the build — and why the unit suite is the wrong home for it. A
-      # developer's `dist/` is stale the moment they rebase, so the same
-      # comparison there fails for reasons that are not about the code (#1783).
+      # EVERY generated artifact is re-checked here, against a tree that has just
+      # been fully built. Note carefully what this asks, because it is NOT the
+      # question the `lint` job's `build:check` asks and the two look alike.
       #
-      # Not vacuous despite following the build: `build-css.js --check` recomputes
-      # `bundle()` and byte-compares, so writing the wrong string, or a later step
-      # overwriting the file, is caught here and nowhere else. `build:check` in the
-      # `lint` job cannot cover it — it runs `--exclude-uncommitted`, which skips
-      # every `dist/` step by design.
-      - name: CSS artifact matches the bundler (post-build, end-to-end)
-        run: npm run css:check
+      #   lint / build:check  — "did you COMMIT the regenerated artifact?" That is a
+      #     staleness question about the checkout, so it must run BEFORE any build
+      #     (see the comment above) or it passes vacuously. It runs
+      #     `--exclude-uncommitted`, so it never looks at `dist/` at all.
+      #
+      #   here / build:check:all — "does each generator WRITE what its own --check
+      #     recomputes, and does a later step clobber an earlier one's output?"
+      #     That is a question about the writers, and a freshly built tree is the
+      #     only place it can be asked. Non-vacuous despite following the build:
+      #     each step recomputes and byte-compares, so a generator that emits
+      #     something other than what it verifies, or a step that overwrites a
+      #     sibling's artifact, is caught here and nowhere else. Measured by
+      #     mutation — making build-css.js write `freshMin` to OUTPUT turns this
+      #     red while the whole unit suite stays green.
+      #
+      # This replaces a unit test that byte-compared dist/lattice.css against
+      # bundle() on whatever the developer had last built. That test was vacuous in
+      # CI (which full-builds first) and spuriously red locally after the rebase
+      # HARD RULE #16 requires before every push (#1783).
+      #
+      # build:check:all rather than css:check: it covers 38 artifacts instead of
+      # one, for ~12s, and it gives the script a caller. It had none, while
+      # workflow.md and build-dist-readme.js both describe it as the live release
+      # check — a gap recorded in
+      # engineering/decisions/2026-08-17-bot-owned-bundles.md.
+      - name: Generated artifacts match their generators (post-build, end-to-end)
+        run: npm run build:check:all
       # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
       # bundle stale?" — a question with no meaning now that the bundle is built
       # rather than committed. The staleness it guarded against is gone at the

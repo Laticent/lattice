@@ -7,4 +7,6 @@
   push. It is replaced by the two properties that make the comparison
   unnecessary: `bundle()` reads only sources, never the repo's own `dist/`, and
   it is deterministic. `--only-uncommitted` was never a second producer — it and
-  a full build emit byte-identical CSS from the same sources.
+  a full build emit byte-identical CSS from the same sources. The end-to-end
+  check moves to `build:check:all` in CI's `unit` job after the build, which also
+  gives that script its first caller.
