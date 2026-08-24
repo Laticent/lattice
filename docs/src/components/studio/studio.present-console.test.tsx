@@ -97,3 +97,36 @@ describe('Present — the console keeps the instruments the second window carrie
 		expect(screen.getByRole('button', { name: 'Confirm reset of the talk clock' })).toBeInTheDocument();
 	});
 });
+
+// ── the console's own <style> sink ───────────────────────────────────────────
+//
+// The console injects `STAGE_CHROME_CSS` into ITS document so one PresentCaption and one
+// PresentRail render correctly in either host. That element is a genuine stylesheet sink and
+// NO ARM OF HARD RULE #22 CAN SEE IT: `checkDocumentStyleSinks` keys on a doctype opener and
+// this assembles no document; `checkPreviewHtmlSinks` keys on the split runtime-`<script>`
+// idiom and this is no preview builder; `checkCssTreeRewrapSinks` wants a CSS serializer and
+// there is none. So the safety is structural — a JSX TEXT CHILD sets `textContent`, where a
+// `</style>` carried in theme or author CSS is inert — or it is nothing at all.
+//
+// Structural safety with no gate behind it is one careless edit from gone, and the edit that
+// would end it is a one-word swap back to `dangerouslySetInnerHTML` that reviews as a
+// no-op. This is the same reasoning as `test/unit/export/style-guard-census.test.js`: the
+// #22 gates are text matchers, so what they cannot see needs a pin of its own. It reads the
+// source because the hazard is in the SOURCE — a rendered `<style>` looks identical either
+// way, so no behavioral assertion can tell the two apart.
+describe('PresentOverlay — the audience-chrome stylesheet is a text child', () => {
+	it('never reaches the DOM through dangerouslySetInnerHTML', async () => {
+		const { readFileSync } = await import('node:fs');
+		const { join } = await import('node:path');
+		// From the vitest root (`docs/`), not `import.meta.url` — under Vite that is an http
+		// URL, not a file one, and `fileURLToPath` throws on it.
+		const src = readFileSync(join(process.cwd(), 'src/components/studio/PresentOverlay.tsx'), 'utf8');
+		// The sink itself, in the shape that makes the terminator inert.
+		expect(src).toContain('<style>{STAGE_CHROME_CSS}</style>');
+		// And no `<style>` anywhere in this file takes parsed markup. Deliberately scoped to
+		// `<style` rather than banning the prop outright: it has legitimate uses elsewhere in
+		// a React tree, and a rule that fires on those would be turned off rather than obeyed.
+		const parsedStyle = /<style[^>]*\bdangerouslySetInnerHTML/.test(src);
+		expect(parsedStyle).toBe(false);
+	});
+});
