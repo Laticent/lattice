@@ -267,6 +267,13 @@ whose inks come from somewhere else: `journey` and `diagram` (via `--chart-state
 `--diagram-critical`, which the a11y palettes carry directly) and `compare-table` (via
 cuoio's `--text-label`).
 
+**CI's own instrument confirmed it a third way, and contradicted this change's own claim.**
+The goldens were rebuilt so `golden-diff` would post the visual delta; it posted
+*"✅ No visual changes to committed goldens on this branch."* The five PDFs whose BYTES moved
+produce no pixel difference the rasterizing diff can see. So the honest statement is not
+"the goldens show the delta" — it is that there is no delta to show on that path, which is
+the same finding arriving from the tool built to catch exactly this.
+
 So a Studio or Playground preview gets the respaced trio today; a rendered PDF does not.
 The a11y palettes' own comments have said this about their dark arms since #1681 — "these
 arms are inert until #1527 flips the order" — and it applies to this change in full.
