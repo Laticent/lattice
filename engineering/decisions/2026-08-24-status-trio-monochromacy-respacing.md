@@ -136,9 +136,29 @@ does not own, HARD RULE #18), improved on all three: 2.82→3.39, 3.35→5.44, 1
   considered and refused: protanopia is orders of magnitude more common than achromatopsia,
   and the frozen value is a floor a real reader is standing on.
 
-Rendered and looked at (§6): both still read as dark green rather than as black, because
-the components that carry them paint on a pale tint of the same token. It is the honest
-price of the choice, and it is named here rather than left for a reviewer to find.
+**Rendered on the DEPLOYED docs site, cuoio reads as BLACK, not dark green** — the
+checklist's done-marks and redline's `<ins>` both. An earlier read of the PDF renders
+called this "still reads as dark green"; on the real deployed surface at 1440px it does
+not, and the corrected reading is the one that counts (HARD RULE #23).
+
+The escape route was tested and does not exist:
+
+- `--fail` is boxed at >= 0.38 by `obligation-matrix/heat-fail` (text on a tint OF the
+  token, so darkening the ink darkens the ground under the text), `--pass` must sit 0.115
+  below it, and `pass^fail` must hold its protanopia floor — which together force `--pass`
+  to weight 0.17.
+- Rotating `--warn`'s hue to buy back `warn^fail` under protanopia fails at every shift
+  tried (-10 deg to +22 deg, four placements each): it stays at 0.065-0.083 against a 0.15
+  floor. The reason is structural — a protanope loses the L-cone, so the RED must stay
+  DARKER than the amber to separate from it, and every arrangement that frees `--pass`
+  puts the red on the light side.
+- Taking the remaining option — an argued write-down of cuoio's `pass^fail` protanopia
+  entry, which sits at 0.1388 and is ALREADY below the 0.15 collapse floor — buys `#002a0f`
+  in place of `#001305`. Rendered side by side on the tint the components paint, that is not
+  a green either: chroma 0.068 against 0.043, both reading black at body size. A floor a
+  real reader stands on is not worth spending for a difference that is not visible.
+
+So the price is real, it is named, and it is the minimum available.
 
 ## 5. Three more defects, same predicate
 
@@ -220,7 +240,14 @@ blind to it in exactly the same way.
 - **An assertion that passed for the wrong reason, fixed:** `/68 entries/` was matching the
   CVD table's `768 entries` as a substring, so the contrast-table pin read the wrong line and
   would have kept passing whatever that table said. Both are anchored to their labels now.
-- `npm run lint`, `npm test` (7036), `npm run build`, `npm run build:check`: green.
+- **The DEPLOYED preview, driven through the loopback proxy this change documents.** Not a
+  local rebuild: Cloudflare's build of this branch at `d41cd2a`, fetched by Node and
+  rendered by Chromium against `127.0.0.1`, at 1440px. `/components/chart/journey/`,
+  `/components/inventory/checklist/` and `/components/comparison/redline/` all render
+  correctly with the respaced trio — and it is what corrected the cuoio reading in §4.
+  This is the check #1776's body called impossible.
+- `npm run lint`, `npm test` (7050), `npm run build`, `npm run build:check`,
+  `npm run test:integration`: green.
 - **The deployed-preview caveat in #1776's body is false, and the correction is now durable.**
   Chromium here does not inherit the agent proxy, so it cannot reach an external host — but
   Node can, so a loopback reverse proxy renders the real deployed bytes with Chromium
