@@ -189,11 +189,25 @@ It holds, because `composeCss` inlines the base bundle INTO the theme and packs 
 so `section.dark` takes the same `article.lattice >` prefix and keeps its class advantage.
 Measured on the packed composition, before and after:
 
-| section | before commit 5 (`:root:root` only) | after (both halves) |
-|---|---|---|
-| plain | `color-scheme: normal` — no pin at all | **`light`** — the fix landing |
-| `_class: dark` | `dark`, rgb(0,0,0) | **`dark`, rgb(0,0,0)** — seam intact |
-| `.title` (bookend) | `dark`, rgb(0,0,0) | **`dark`, rgb(0,0,0)** — seam intact |
+| section | before (`:root:root` only) | after (both halves) | canvas moved? |
+|---|---|---|---|
+| plain | `normal`, rgb(255,255,255) | **`light`**, rgb(255,255,255) | no — the fix landing |
+| `.dark` | `dark`, rgb(0,0,0) | `dark`, rgb(0,0,0) | no |
+| `.light` | `light`, rgb(255,255,255) | `light`, rgb(255,255,255) | no |
+| `.print` | `light`, rgb(255,255,255) | `light`, rgb(255,255,255) | no |
+| `.title` | `dark`, rgb(0,0,0) | `dark`, rgb(0,0,0) | no |
+| `.closing` | `dark`, rgb(0,0,0) | `dark`, rgb(0,0,0) | no |
+| `.divider` | `dark`, rgb(0,0,0) | `dark`, rgb(0,0,0) | no |
+| `.dark.title` | `dark`, rgb(0,0,0) | `dark`, rgb(0,0,0) | no |
+| `.confidential` | `normal`, rgb(255,255,255) | `light`, rgb(255,255,255) | no |
+
+**Nine modifier combinations, not the three the first pass checked.** No canvas moves anywhere.
+The only column that changes is `color-scheme` on the un-modified sections, `normal` → `light`,
+and that is the fix rather than a side effect: `normal` already resolves `light-dark()` to its
+light arm, so nothing repaints — what changes is that the value is now DECLARED on the section
+and can no longer be overridden by a dark scheme inherited from `<html>`, which is the entire
+defect. A palette whose whole premise is mode-invariance should not have been relying on the
+absence of a competing declaration.
 
 The `::before` seam is safe for a different reason worth stating: a pseudo-element is a separate
 element, so a rule setting `color-scheme` on it beats INHERITANCE from the section regardless of
