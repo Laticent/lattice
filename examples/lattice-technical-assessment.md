@@ -954,8 +954,8 @@ There are 143,489 lines of internal engineering prose behind 13 published pages.
 ## The canonical docs have drifted from their own artifacts.
 
 1. Design system
-   - Says 53 components in three places; the catalog says 61
-   - `stale`
+   - Said 53 in three places; main corrected it to 61 hours after this audit named it
+   - `fixed`
 2. Architecture
    - Calls the renderer 1,000 lines with no build system; it is 4,569 with three
    - `wrong`
