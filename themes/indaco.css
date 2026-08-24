@@ -136,7 +136,7 @@
    * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
-   * engineering/decisions/2026-08-23-status-trio-monochromacy-respacing.md */
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
   --pass: light-dark(#1c5000, #a0ff7f);
   /* Self-curated semantic trio — cool green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */

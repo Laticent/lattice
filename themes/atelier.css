@@ -89,7 +89,7 @@
    * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
-   * engineering/decisions/2026-08-23-status-trio-monochromacy-respacing.md */
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
   --pass: light-dark(#054b22, #a0ff7f);
   --warn: light-dark(#8d5200, #d38c25);
   --fail: light-dark(#4d0003, #ffaba8);
