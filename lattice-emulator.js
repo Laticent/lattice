@@ -482,6 +482,18 @@ const {
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { readClassAttr } = require('./lib/core/section-walk');
+const {
+  ENGINE_SCRIPT_ATTR,
+  INSTALL_AUTHOR_DEFERRAL_PROBE_SRC,
+  READ_AUTHOR_DEFERRAL_PROBE_SRC,
+  formatAuthorDeferralWarning,
+} = require('./lib/core/author-deferral-probe');
+// EVERY `<script>` this file emits into the rendered document opens with this, and a
+// census test pins that (test/unit/export/engine-script-marker.test.js). The attribute
+// is what the author-deferral probe uses to tell OUR script from the deck's: an
+// unmarked emitter would make the probe blame us for the engine's own timers, i.e. a
+// false-positive warning on every deck that uses that feature.
+const ENGINE_SCRIPT_OPEN = `<script ${ENGINE_SCRIPT_ATTR}>`;
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
@@ -2324,8 +2336,8 @@ const katexCssLink = katexCssAbsPath
 // already precedes `load`, so the extra idle wait was never what covered this.)
 const hasFunctionPlot = highlightedSlides.some(s => s.includes('class="functionplot"'));
 const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
-  ? `<script src="file://${functionPlotJsAbsPath}"></script>
-<script>
+  ? `<script ${ENGINE_SCRIPT_ATTR} src="file://${functionPlotJsAbsPath}"></script>
+${ENGINE_SCRIPT_OPEN}
 (function(){
   function inflate() {
     if (typeof window.functionPlot !== 'function') return;
@@ -2371,7 +2383,7 @@ let stateChartScript = '';
 if (hasStateChart) {
   try {
     const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    stateChartScript = `<script>\n${STATE_CHART_BROWSER_JS}\n</script>`;
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${STATE_CHART_BROWSER_JS}\n</script>`;
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 
@@ -2451,7 +2463,7 @@ ${slidesWithMeta2}
 </main>
 ${functionPlotScript}
 ${stateChartScript}
-<script>
+${ENGINE_SCRIPT_OPEN}
 /* Overflow watcher — tags any section whose content exceeds the slide
    frame with class "overflow" so lattice.css can draw the red warning ring.
    Mirrors the watcher in lattice-runtime.js (used by the VS Code preview). */
@@ -2647,7 +2659,7 @@ function toFluidViewer(cleanHtml) {
     .replace(/<html\b/i, '<html data-lattice-fluid-capable')
     // Function replacement (not a string) so `$&`/`$1`/`$$` inside the minified
     // runtime are inserted literally, not interpreted as replace patterns.
-    .replace(/<\/body>/i, () => `<script>\n${runtimeJs}\n</script>\n</body>`);
+    .replace(/<\/body>/i, () => `${ENGINE_SCRIPT_OPEN}\n${runtimeJs}\n</script>\n</body>`);
 }
 
 // Write the clean export HTML now; the raster path below loads it. If --fluid,
@@ -2744,6 +2756,15 @@ async function renderExport({ hardened }) {
 
 async function renderBody(browser, g, closeBrowser) {
   const page = await g(() => browser.newPage(), 'new page');
+  // AUTHOR-DEFERRAL PROBE — installed here, before the first navigation, because
+  // `evaluateOnNewDocument` is the only hook that runs ahead of the document's own
+  // scripts, and it re-runs on every re-navigation (auto-split, rails) for free.
+  // It patches the scheduling APIs to COUNT what deck-authored script still owes;
+  // it never waits. The export's contract is capture at `load` + an explicit media
+  // settle, and the warning below is how a deck author learns their timer lost the
+  // race instead of finding a hole in the PDF. See lib/core/author-deferral-probe.js
+  // and engineering/decisions/2026-08-16-render-format-cost-assessment.md §2a-ter.
+  await g(() => page.evaluateOnNewDocument(INSTALL_AUTHOR_DEFERRAL_PROBE_SRC), 'install author-deferral probe');
   // Set viewport to slide dimensions so section's own cqi properties (padding,
   // border-top) resolve against the correct ICB in screen mode.  Without this,
   // Puppeteer's default 800×600 viewport causes section's cqi fallback to
@@ -3297,6 +3318,21 @@ async function renderBody(browser, g, closeBrowser) {
     }
   }
 
+  // WHAT DECK SCRIPT STILL OWES, read at the last moment the page is still the page —
+  // after every navigation, auto-split pass and in-page paint, before the player bake
+  // and the raster freeze it. Anything still outstanding here does not make it into the
+  // artifact, and the export says so rather than shipping a hole at exit 0 (#1792).
+  //
+  // SKIPPED for a plain `.html` deliverable, and that is not laziness: the sidecar is
+  // written from the rendered HTML with the deck's `<script>` intact, so the recipient's
+  // browser runs the timer and nothing is lost. `--player` is the exception inside the
+  // exception — it strips every inline script from the doc it ships — so it warns.
+  if (OUT_FORMAT !== 'html' || PLAYER) {
+    const deferral = await g(() => page.evaluate(`(${READ_AUTHOR_DEFERRAL_PROBE_SRC})()`), 'read author-deferral probe');
+    if (!QUIET) {
+      for (const line of formatAuthorDeferralWarning(deferral?.pending)) console.warn(line);
+    }
+  }
   // Bake the player's DOM NOW — after the level above is applied, before the raster's
   // SVG-image swap mutates the page. One capture carries two things:
   //

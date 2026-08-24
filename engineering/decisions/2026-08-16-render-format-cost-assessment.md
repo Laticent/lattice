@@ -262,6 +262,85 @@ the split suites. That is an afternoon with a real test, not a project — and i
 is the opening move, with the settle-promise plumbing as the fallback if it
 fails.
 
+### 2a-ter. What the export waits for, and what it declines — the author-timer decision
+
+**Settled 2026-08-24 (#1792). The export captures at the `load` event plus an
+explicit media settle, and it DOES NOT WAIT ON AUTHOR TIMERS. It now says so
+when a deck's script loses that race.**
+
+This is the imperative half of the hole row 19 opened. The declarative half —
+`<img loading="lazy">`, which Chromium defers past `load` — shipped with L2 as
+`settleDeferredMedia`. The two look alike and are not:
+
+| | deferred media | an author timer |
+|---|---|---|
+| who deferred it | the BROWSER, from markup the document declared | the DECK's own code, racing the exporter |
+| does the export owe it | yes — the document asked for it | no finite wait is correct |
+| what shipped | promote to eager, await decode, bound each wait at 10 s | **decline the wait, report the loss** |
+
+**Why decline.** There is no number that is right. A bounded settle that admits
+a 400 ms timer excludes a 500 ms one, and the deck that needs 500 ms is written
+the day after the budget is published; the budget would also be spent on every
+navigation of every deck, against a class **no shipped deck uses** — all 277
+were scanned, 3 carry a raw `<script>`, and all 3 are parser-blocking
+`<script src>` scaffolding for the live preview with no deferral of their own.
+Picking a number is a product promise, not a measurement, and this is the
+promise: **what the page has painted by `load` is what the export captures.**
+
+**Why the grace period was never a contract.** Under `networkidle0` a deck could
+appear to work — its idle floor granted a few hundred ms incidentally. Bisected
+on a 2-slide deck: 40 ms and 80 ms landed, 120 ms, 200 ms and 400 ms did not. The
+floor itself is bimodal and machine-dependent (§2a, §9 rows 2 and 16), so a deck
+relying on a 400 ms timer was relying on the fast arm not being hit.
+
+**Why it still needed a change.** Declining is fine; declining SILENTLY is the
+defect, and it is the same failure shape as the lazy-image class: a page missing
+content, exit 0, no diagnostic. Two nets now say it out loud:
+
+- **At capture** — `lib/core/author-deferral-probe.js`, installed through
+  `page.evaluateOnNewDocument` before the document's first script and read at the
+  last moment the page is still the page. It patches `setTimeout`, `setInterval`,
+  `requestAnimationFrame`, `requestIdleCallback`, `fetch` and `XMLHttpRequest`,
+  attributes each schedule to the `<script>` element that made it via
+  `document.currentScript`, and reports what has NOT run. **It never waits.**
+  Every `<script>` the export emits carries `data-lattice-script` so the probe can
+  tell our timers from the deck's — the overflow watcher arms a 2,000 ms
+  `settleFonts` race on every deck in the repo, and counting it would have made
+  the warning fire everywhere and mean nothing.
+- **At authoring** — `lint:deck` rule `author-script-defers`, which is also the
+  answer to the probe's structural blind spot: `document.currentScript` is null
+  inside a `<script type="module">` and inside any promise continuation, so those
+  are invisible at capture. Unknown provenance is deliberately NOT reported —
+  defaulting it to "the deck" would blame the deck for the engine's own
+  `settleFonts(...).then(check)` work, on every render.
+
+**Scope of the warning.** Every captured format (PDF/PPTX/PNG/image set) and
+`--player`, which strips every inline script from the file it ships. A plain
+`.html` export does not warn: its sidecar carries the deck's `<script>` intact,
+so the recipient's browser runs the timer and nothing is lost.
+
+**What it costs.** Nothing measurable. One `evaluateOnNewDocument` per page and
+one `page.evaluate` per render, no waiting anywhere. Through
+`npm run bench -- --cli --check` against the baseline blessed before the change,
+on the same machine: **−4.5% / +1.5% / +0.2%** on the decks that drive 1, 3 and 4
+navigations — inside those datasets' own 3–8% RME. L2's saving is intact; the
+baseline was not re-blessed, because there is nothing to ratchet.
+
+**And it changes nothing about what ships.** Patching `setTimeout` in the page
+is the part of this with real blast radius, so it was checked at the artifact
+rather than argued: the same deck rendered on the commit before and the commit
+after is **byte-identical**, on `test/fixtures/preview-deck.md` (143,917 B) and
+on `examples/state-chart-stress.md` (1,279,338 B) — the second chosen because
+its geometry is MEASURED in the page after `fonts.ready`, so a wrapper that
+perturbed timing would move those bytes. Neither moved, and neither moved the
+AX-node channel of §9 row 17 either.
+
+**Verified on the real surface** (HARD RULE #23): a rendered PDF carries the
+synchronous script's text and not the 400 ms one, and the warning names the
+second and not the first — `test/integration/export/author-script-deferral.test.js`.
+A `lint:deck --all` sweep over the 274 shipped decks reports the new rule zero
+times.
+
 ### 2b. mmdc launches a second browser **per diagram** — the largest cost here
 
 **Corrected.** The first pass wrote: "`mmdc` costs 2,659 ms on a 58-slide deck
@@ -626,7 +705,7 @@ timing signature, and the measurements themselves all held.**
 | 16 | The 2,003 ms arm is a clean three-way **condition**: fresh page in a warm browser 6/6, reused page 0/6, **fresh browser's first page 0/6** | **Refuted twice, in the same change.** This is the SIXTH inferred mechanism in this log, written by the person who had just finished reading the other five — and then the *correction* to it was itself too confident and had to be corrected again. Round one (n=10, two documents): fresh browser's first page **7/10 and 1/10**, not 0/6. Round two, an independent re-run: **0/10 and 10/10**, and the *reused-page* leg came in at **1/10** rather than 0. So across four runs only ONE leg survives — a fresh page in a warm browser, 6/6 / 9/10 / 10/10 / 10/10. The other two span nearly their whole range and are document- and run-dependent. **There is no clean condition, and the cause remains unidentified.** Row 15's number is unaffected: it was measured end to end and never rested on this | The adversarial trio (HARD RULE #25), then a second independent review of the correction |
 | 17 | Renders are byte-reproducible (rows 13-14; and `2026-08-18-golden-corpus-purpose-and-medium.md`: "4 decks of 30 are byte-irreproducible, driven by `classDiagram`, not by mermaid") | **True of the decks that were sampled, not of the corpus — and the mechanism is now MEASURED rather than guessed.** Two same-code runs over all 277 shipped decks differ on **at least 11**, and the count is a function of MACHINE CONTENTION rather than of any code: across seven sweeps the pairwise counts run 9–28, and **same-code controls (11 and 19) land inside the range of cross-code comparisons (9–28)**, the busiest sweep producing the most churn. The set is not fixed either — `cover-paginate.md`, outside the original 11, reproduces it in 39 bytes. Only 5 of the 11 contain `classDiagram` and four contain no mermaid at all, so `classDiagram` is not the driver. **What it is:** Chrome's tagged-PDF accessibility node IDs. Four states of `muted-tier-and-syntax.md` are all exactly 304,496 B / 8 pages and differ in **26 bytes**: 20 inside `/ID (node0000046N)` and the `/Headers [(node0000046N)]` that references it, and **6 more in the `/Limits` and `/Names` of the structure-ID name tree** — definitions, references and the index shifting together. All states rasterize **pixel-identical**. Page counts, clipped-page sets and split decisions never varied | The corpus sweep for L2, then the adversarial trio isolating the bytes |
 | 18 | L2 (`waitUntil: 'load'`) changes nothing about what is exported — "0 page-count, 0 clipped-page, 0 auto-split differences across 277 decks" | **The corpus was right and the generalization was wrong, twice.** (a) `load` does not wait for `<img loading="lazy">` or `<iframe loading="lazy">`, which Chromium defers past the load event; a deck can carry raw HTML (`html: true`), and a lazy remote image rendered under `load` was **absent from the PDF entirely** — `pdfimages -list` showing the object under `networkidle0` and no image objects at all under `load`, exit 0, no warning. The corpus could not see it: it contains **zero** raw `<img>`, remote assets, `<iframe>`, `<video>` or `url()`. Fixed in the same change by promoting deferred media to eager and awaiting decode after each navigation. (b) One reviewer measured the change **widening** row 17's AX-node churn — `muted-tier-and-syntax.md` at 2 distinct byte states before and 4 after, under 24-way contention. **Treat that as unconfirmed**: a second reviewer got 3 states in 12 renders and could not settle it, and the corpus-wide count is now known to track machine contention rather than code (row 17), with same-code controls landing inside the cross-code range. Either way the HTML sidecar and the raster are identical, so nothing user-visible turns on it | The adversarial trio, attacking a class the corpus does not contain |
-| 19 | Deferred media is "the one class `load` does not wait for", and `settleDeferredMedia` handles it | **Both halves wrong, and the fix was worse than the bug it fixed.** (a) It is not the only class: `networkidle0` also granted a few hundred ms of incidental post-load grace, and a deck-authored `<script>` writing on a 400 ms timer landed before and does not now — disclosed in the changelog rather than fixed, because no finite wait is correct for author code racing the exporter — the choice between a bounded settle and an explicit decline is tracked as **#1792**. (b) The first `settleDeferredMedia` **wedged the render on any `<iframe>`**: `contentDocument` is `null` (not a throw) for an opaque-origin frame, so a frame whose load had already fired was awaited forever — ~190 s, then a FAILED export, where the old code rendered in 1.9 s. The same line skipped a same-origin lazy frame, whose initial `about:blank` reads `complete`, so it was promoted and never awaited. Rewritten: every wait bounded at 10 s with a warning, frames awaited only if promoted, images left alone because `decode()` alone settles them — which also stopped `loading="eager"` leaking into the `--player` bake | An independent checker + fact-checker on the post-trio delta — i.e. on the fix for the previous row |
+| 19 | Deferred media is "the one class `load` does not wait for", and `settleDeferredMedia` handles it | **Both halves wrong, and the fix was worse than the bug it fixed.** (a) It is not the only class: `networkidle0` also granted a few hundred ms of incidental post-load grace, and a deck-authored `<script>` writing on a 400 ms timer landed before and does not now — disclosed in the changelog rather than fixed, because no finite wait is correct for author code racing the exporter — the choice between a bounded settle and an explicit decline was tracked as **#1792** and is now **settled — declined on the record, with the loss reported rather than silent (§2a-ter)**. (b) The first `settleDeferredMedia` **wedged the render on any `<iframe>`**: `contentDocument` is `null` (not a throw) for an opaque-origin frame, so a frame whose load had already fired was awaited forever — ~190 s, then a FAILED export, where the old code rendered in 1.9 s. The same line skipped a same-origin lazy frame, whose initial `about:blank` reads `complete`, so it was promoted and never awaited. Rewritten: every wait bounded at 10 s with a warning, frames awaited only if promoted, images left alone because `decode()` alone settles them — which also stopped `loading="eager"` leaking into the `--player` bake | An independent checker + fact-checker on the post-trio delta — i.e. on the fix for the previous row |
 | 20 | Row 17: "`classDiagram` is not the driver" of byte-irreproducibility, the mechanism being Chrome's tagged-PDF accessibility node IDs | **Right about the AX nodes, over-general about `classDiagram` — there are TWO mechanisms and the second is now fixed.** Row 17's actual evidence was a population argument (only 5 of 11 churning decks contain `classDiagram`, four contain no mermaid), which refutes "`classDiagram` is the ONLY driver" and does not touch "`classDiagram` churns." It does: a classic `classDiagram` fence rendered twice differs by **1,207 bytes inside a Flate-compressed CONTENT stream**, a different place and two orders of magnitude off row 17's 26 bytes in `/ID` + `/Headers`. Decompressed they are bezier control points. Mermaid's `classBox` draws through rough.js on EVERY render and merely flattens the wobble after (`if (node.look !== 'handDrawn') { options.roughness = 0 }`); `roughness` multiplies the draws AFTER they are taken, and rough.js `_line` spends one on `divergePoint = 0.2 + random(o) * 0.2`, which it never scales. Lattice emitted `handDrawnSeed` only under `look: handDrawn`, so a classic deck got Mermaid's default `0` and rough.js read that as `Math.random()`. Both control points land ON the segment between the endpoints, so the cubic IS that segment: pixel-identical output, different `<path d>` text — which is precisely why every pixel oracle in the repo was blind to it, and why the AX-node hunt found the other mechanism instead. Fixed by stating the seed on both looks. Measured across all 31 committed mermaid decks: **7 changed bytes, 0 changed pixels** — the two decks that showed 1 px and 7 px were already flickering 2-3 px and 5-7 px between consecutive PRE-fix renders, and now render byte-identically. Two of the 7 contain no `classDiagram`, so the rough.js path reaches past that one diagram type. **Row 17 is otherwise unamended**: the AX-node churn is a genuinely separate mechanism, still unpinned, and still the one that explains the churning decks with no mermaid in them | Reproducing row 17's own repro and decompressing the stream instead of diffing the PDF |
 
 The red team's findings were defects in the shipping code rather than in this

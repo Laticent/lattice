@@ -137,3 +137,10 @@ edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
   `<name>.gallery.md`, the snippets file). Edit the manifest and regenerate.
 - **Tags, slots, and skeletons come from the catalog**, not from training
   memory — they change as the engine evolves.
+- **A raw `<script>` in a deck must do its work synchronously.** The export
+  captures the page at the `load` event (plus an explicit wait for deferred
+  media) and does **not** wait on `setTimeout` / `requestAnimationFrame` /
+  `fetch` — a slide painted from a timer ships empty into the PDF. `lint:deck`
+  flags it (`author-script-defers`) and the render names what had not run at
+  capture. Only a plain `.html` export keeps your script live.
+  See `design/skill.md` § Raw HTML in a deck.
