@@ -952,9 +952,24 @@ section.chart-frame .chart-status {
    * info; each status below re-points --pill-hue / --pill-ink. */
   --pill-hue: var(--state-info-hue);
   --pill-ink: var(--state-info-ink);
+  /* THE DARK ARM'S STOPS WERE CALIBRATED FOR DIMMER STATUS HUES, and #1801 respaced
+   * every palette's trio to clear the achromatopsia floor — which, for the pass arm,
+   * meant moving it LIGHTER. A lighter hue at the old 64% end lifted the ground toward
+   * the light `--text-heading` label: measured across all 32 palettes x 5 states, the
+   * worst pair was laguna|pass at 3.12:1, and crepuscolo|pass surfaced as a real
+   * sub-AA finding on a rendered `--player` export once #1789 let curated trios reach
+   * the page at all. 64% -> 54% is the minimum that clears (worst 4.62:1, still
+   * laguna|pass); the 0% stop moves 48% -> 42% only to keep the gradient's depth range
+   * near its original 16pp rather than flattening it to 6pp — it was passing at 5.96:1
+   * and is 7.51:1 now.
+   * This is the same correction #1801 made one file over for --state-*-fill (58% ->
+   * 50%, "calibrated for the old, dimmer status hues"); the pill's own gradient was
+   * its missed sibling. The LIGHT arm is NOT retuned here — see
+   * `chart/status-pill` in tools/composed-contrast.js for what it measures and what
+   * is frozen. */
   background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--pill-hue) 33%, var(--bg)), color-mix(in oklab, var(--pill-hue) 48%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--pill-hue) 54%, var(--bg)), color-mix(in oklab, var(--pill-hue) 64%, black)) 100%);
+    light-dark(color-mix(in oklab, var(--pill-hue) 33%, var(--bg)), color-mix(in oklab, var(--pill-hue) 42%, black)) 0%,
+    light-dark(color-mix(in oklab, var(--pill-hue) 54%, var(--bg)), color-mix(in oklab, var(--pill-hue) 54%, black)) 100%);
   border: var(--chart-hairline) solid var(--pill-ink);
   color: var(--text-heading);
 }
