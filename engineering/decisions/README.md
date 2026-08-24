@@ -290,6 +290,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-08-24-overflow-oracle-was-inert.md](2026-08-24-overflow-oracle-was-inert.md) — The universal "slide does not overflow its frame" invariant read `scrollHeight > clientHeight` on the `<section>`, which is…
 - ☑ [2026-08-24-palette-cascade-flip.md](2026-08-24-palette-cascade-flip.md) — #1527, landed. `lattice-emulator.js` built the deck stylesheet palette-FIRST, so `lib/base/base.tokens.css`'s plain `:root` block landed…
 - ☑ [2026-08-24-present-fullscreen.md](2026-08-24-present-fullscreen.md) — Present covered the viewport but never the SCREEN — no way to shed the tab strip, URL bar and OS dock for a deck in a room.
 - ☑ [2026-08-24-spectrum-ramp-floor.md](2026-08-24-spectrum-ramp-floor.md) — #1804 landed the #1527 export-cascade flip and left one defect behind, which this closes.
