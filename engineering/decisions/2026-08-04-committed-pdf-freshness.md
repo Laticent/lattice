@@ -163,6 +163,34 @@ exercised from this sandbox.** Adding CI I cannot run and then describing it as 
 would be the same species of claim this whole swimlane exists to stamp out (HARD RULE
 #23). It wants its own change, on a surface where it can be watched working.
 
+**SHIPPED (2026-08-24), with two deviations from the paragraph above.** The step is in
+`integration-nightly.yml`, report-only, feeding the existing rolling issue.
+
+- **Scope is BOTH, not `--scope decks`.** A full run on `main` at 5ce794d — the first
+  anyone has taken — reports **75/75 galleries green and 184 of 199 deck goldens drifted**,
+  worst page 64%. On those numbers `--scope decks` looks vindicated, but that is hindsight
+  luck: the gallery half is clean only because #1777 re-blessed it on 2026-08-23 (closing
+  #1730), and three days earlier `2026-08-18-golden-corpus-purpose-and-medium.md` §2.3 was
+  documenting 17,044 drifted pixels in exactly that half. Each note picked the scope that
+  happened to be rotten when it was written, and each would have been wrong within the
+  week. Run both. Measured cost: **78 minutes** for the pair on 4 cores, against this
+  note's ~35 min for the deck scope alone — and that run was 184-red, so it also paid for
+  184 montages. Budget ~2h15m on top of the nightly's ~45-55 min, well inside the 6h
+  per-job ceiling.
+- **The ~3% tolerance was NOT applied, and recommending it was a scoping error.** That
+  figure came from the four `--scope decks` drifts named just above — 8.9 / 8.3 / 5.3 /
+  3.7%. Gallery drift scores an order of magnitude lower: the 17,044-pixel `quote` drift
+  §2.3 documents, visible across 7 of 9 slides, reports `worst 0.26%`. A 3% floor would
+  have admitted it silently, i.e. defeated the gate on the scope it was being widened to
+  cover. `FAIL_FRACTION` is unchanged at 0.0005; if cross-runner noise ever proves to need
+  headroom, the shape is a measured per-scope constant like `FAIL_FRACTION_MERMAID`, not
+  one global loosening.
+
+The HARD RULE #23 caveat above still stands and is the whole reason the step is
+report-only: the workflow arm has still never run on a GitHub runner, and cross-runner
+rasterization flakiness is why this gate left CI in the first place. Report-only is how
+that gets measured instead of assumed.
+
 ## Verified
 
 - The gate reproduces the drift it was built to find: `examples/pricing` p2 at 8.9%,

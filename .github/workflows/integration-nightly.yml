@@ -47,10 +47,13 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install poppler-utils (pdfinfo) + color emoji font
+      - name: Install poppler-utils (pdfinfo) + ImageMagick + color emoji font
         # Mirror the PR integration job: pdfinfo for page counts, and an installed
         # colour emoji font so headless-Chromium PDF renders emit emoji in colour.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils fonts-noto-color-emoji
+        # ImageMagick (`identify` / `compare` / `convert`) is what tools/pixel-check.js
+        # shells out to, so the `regress` step below dies on its first page comparison
+        # without it — same install ci.yml's golden-diff job does.
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
 
       # The suite exits non-zero on a render regression. Capture the verdict into
@@ -190,6 +193,70 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # COMMITTED-GOLDEN FRESHNESS — the cadence `2026-08-04-committed-pdf-freshness.md`
+      # prescribed and nobody wired. `tools/regression-gate.mjs` renders every committed
+      # deck fresh through the emulator and pixel-diffs it against its golden PDF, which
+      # is the only thing in the repo that can see a stale golden.
+      #
+      # WHY IT IS NOT ALREADY COVERED. `build:galleries:check` is a pre-commit input-hash
+      # guard that compares against HEAD and documents its own blind spot
+      # (tools/lib/render-inputs.js:40): once both sides are at HEAD the pairing looks
+      # sound whether or not anyone re-rendered. `golden-diff` only reads the goldens a PR
+      # actually TOUCHES, so a golden nobody edits is watched by nothing at all. Between
+      # them there is no watcher for "a shared change moved a deck nobody is editing" —
+      # which is every palette, token and engine change in the repo. This step is it.
+      #
+      # BOTH SCOPES, and the measurement is the reason. `--scope decks` is what
+      # `2026-08-04-committed-pdf-freshness.md:153` recommended; `2026-08-18-golden-corpus-
+      # purpose-and-medium.md` §2.3 then documented the drift in GALLERIES instead, which
+      # argued for the other one. A full run on `main` at 5ce794d settles it in a third
+      # direction: **75/75 galleries green, 184 of 199 deck goldens drifted**, worst page
+      # 64%. The gallery half is clean only because #1777 re-blessed it three days earlier
+      # (closing #1730) — i.e. whichever scope you pick, you are betting on which half went
+      # stale most recently, and that bet has now been wrong twice. Run both.
+      #
+      # RUNTIME, measured rather than estimated: **78 minutes** for both scopes on 4 cores,
+      # against the gate header's ~45 min guess — and that run was 184-red, so it paid for
+      # 184 before/after/overlay montages (225 MB into .scratch/) that a green run does not.
+      # The job runs ~45-55 min today, so budget ~2h15m worst case. Well inside the 6h
+      # per-job ceiling, and it is why this belongs nightly and could never go on a PR.
+      #
+      # TOLERANCE IS UNCHANGED — no `FAIL_FRACTION` was touched for this, and the 2026-08-04
+      # note's "~3%" was NOT applied. That figure came from four `--scope decks` drifts of
+      # 3.7-8.9%, and raising the floor to it would admit a great deal that is plainly
+      # visible: §2.3's 17,044-pixel `quote` drift, across 7 of 9 slides, scored `worst
+      # 0.26%`. A gate that cannot see that is not worth 78 minutes. If cross-runner noise
+      # ever proves to need headroom, the shape is a measured per-scope constant like
+      # `FAIL_FRACTION_MERMAID = 0.01`, justified by a runner-vs-runner comparison — not one
+      # global loosening, and not a number carried over from a differently-scoped note.
+      #
+      # REPORT-ONLY, and it must stay that way for now. This gate was removed from CI
+      # (`ci.yml:278`) for cross-runner rasterization flakiness, and NOTHING HERE HAS RUN ON
+      # A GITHUB RUNNER — only on a local sandbox, which is the one thing that cannot
+      # measure a cross-runner flake. The capture-into-an-output pattern every gate above
+      # uses keeps the job green; the rolling issue is the signal. EXPECT THE FIRST RUNS
+      # RED: the 184 above are real and land the morning this merges. Two things to read
+      # from those first reports before anyone proposes making this blocking — does the
+      # drifted SET stay stable run to run (a moving set is cross-runner noise, a fixed one
+      # is genuine staleness), and does anything in the clean gallery half start flapping.
+      # The one-time re-bless is deliberately NOT in this change: it is ~50 MB of binary
+      # churn that would bury the diff, and it should follow observing the gate rather than
+      # precede it.
+      - name: Committed-golden freshness (regress, report-only)
+        id: regress
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- npm run regress (committed-golden freshness) ---'
+          } >> "$REPORT"
+          if npm run --silent regress 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # WHY NOT A BARE TAIL. This used to be `tail -n 40`, which worked only while the
       # last gate in the report was also the noisiest thing in it. `check:family-conformance`
       # prints a 33-row table, a legend and a per-rule shortfall listing before its verdict,
@@ -202,7 +269,7 @@ jobs:
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|difference\(s\) from|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|difference\(s\) from|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
@@ -226,7 +293,7 @@ jobs:
       # title marker). Self-labelled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true'
+        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.regress.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -239,7 +306,7 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|difference\(s\) from|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|difference\(s\) from|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
             echo '```'
             echo ""

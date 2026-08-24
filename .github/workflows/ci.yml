@@ -323,11 +323,16 @@ jobs:
   # the CI visual gate. That pixel gate is RETIRED: across GitHub's heterogeneous
   # runners Skia's CPU-dispatched rasterization isn't bit-identical, so it flaked
   # ~0.4–2% on a *different* gallery each run — and post-marp a self-golden pixel
-  # gate detects *change*, not *correctness*. `npm run regress` survives as a
-  # LOCAL spot-check only. The CI visual-correctness gate is now the per-component
-  # SEMANTIC-INVARIANT suite (render via lib/engine → assert computed-style /
-  # structure; deterministic + machine-independent). `golden-diff` below stays —
-  # it diffs two committed PDFs on one runner, so it isn't flaky. See
+  # gate detects *change*, not *correctness*. It stays out of PR CI for both of
+  # those reasons — but "LOCAL spot-check only", which this said until 2026-08-24,
+  # was the whole defect behind #1730: the only tool that can see a stale golden ran
+  # on no cadence, so nothing ever ran it. It now runs NIGHTLY and REPORT-ONLY in
+  # `integration-nightly.yml`, where a cross-runner flake costs a line in a rolling
+  # tracking issue instead of a red PR — which is also how the flake rate finally
+  # gets MEASURED rather than assumed. The CI visual-correctness gate is still the
+  # per-component SEMANTIC-INVARIANT suite (render via lib/engine → assert
+  # computed-style / structure; deterministic + machine-independent). `golden-diff`
+  # below stays — it diffs two committed PDFs on one runner, so it isn't flaky. See
   # engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md §0.
 
   # ── Golden before/after — post the intended visual change on the PR ────────
