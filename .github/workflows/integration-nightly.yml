@@ -278,13 +278,27 @@ jobs:
       # so a `NEW CLIPS` line from the gate BEFORE it falls off the end — the one line a
       # reader needs, dropped by the reporter. So: grep the failure markers the gates
       # actually print and lead with those, then tail for context.
+      #
+      # `FAIL (want ` was added 2026-08-24 for the same class of loss, found the hard
+      # way. `check-family-tiers` has TWO halves, and only the oracle half prints markers
+      # this list knew. The probe half prints a TABLE, one row per @size, and says which
+      # one broke in the row itself:
+      #
+      #   portrait  tall  tall  column  column  MISSING  MISSING  FAIL (want column/column/column/nowrap)
+      #
+      # None of the patterns above match that, so for fifteen nights (#1529, from
+      # 2026-08-10) the rolling issue carried a bare `1 FAILURES` with the line that
+      # explains it dropped — long enough that the failure was read as part of the
+      # oracle half's clip findings rather than a distinct, and as it turned out
+      # spurious, one. The lesson generalizes past this pattern: a gate that reports
+      # per-row instead of per-marker is invisible here until someone adds its shape.
       - name: Job summary
         if: always()
         run: |
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|difference\(s\) from|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
@@ -321,7 +335,7 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|difference\(s\) from|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
             echo '```'
             echo ""
