@@ -8707,6 +8707,29 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
         }
       }
 
+      // THE SAME PREDICATE, THE OPPOSITE ROLE. `--text-label` is EMPHASIS, not a quiet
+      // tier — "accent-hued labels / kickers" (design/theming.md) — and on palettes with
+      // chroma to spare it is separated from body by HUE rather than by a lightness step,
+      // which is why it is measured here and not in the loop above. It still has to be
+      // TELLABLE FROM BODY, and on cuoio it had stopped being: light label #6F604F against
+      // body #6b5d4f decomposed to dL 0.0109, da -0.0002, db 0.0045 — no hue distinction at
+      // all, OKLab 0.0118 from body and 0.0638 from the accent it is meant to carry. AA held
+      // the whole time (contentPairs() and structural-text-contrast.test.js both pass it),
+      // because a floor against the CANVAS cannot see two inks converging on each other.
+      // Committed worst after that palette was re-tuned: 0.0355 (brina/dark).
+      const labelForSep = catResolve(map, '--text-label', mode);
+      if (labelForSep && bodyForSep) {
+        const sep = oklabDistance(labelForSep, bodyForSep);
+        if (!(sep >= MUTED_SEPARATION_FLOOR)) {
+          errors.push(
+            `${name}/${mode}: --text-label ${labelForSep} sits OKLab ${sep.toFixed(4)} from `
+            + `--text-body ${bodyForSep}, under the ${MUTED_SEPARATION_FLOOR} separation floor. `
+            + 'A label tier is accent-hued EMPHASIS; one that has drifted onto the body ink is '
+            + 'a kicker nobody can see is a kicker, and its AA reading against the canvas says '
+            + 'nothing about that.');
+        }
+      }
+
       for (const [token, floor, what] of [
         ['--text-muted', MUTED_TEXT_FLOOR, 'de-emphasized TEXT'],
         ['--muted-mark', MUTED_MARK_FLOOR, 'de-emphasized DECORATION'],

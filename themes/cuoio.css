@@ -103,7 +103,15 @@
   --text-display: #FAF7F2;      /* on dark surfaces — 16.19:1 on bg-dark         */
   --text-heading: light-dark(var(--brand-canvas), var(--scheme-dark-text-heading)); /* 16.19:1 / 17.58:1 */
   --text-body:    light-dark(#6B5D4F, var(--scheme-dark-text-body));   /* 5.95:1 / 11.02:1 AA  */
-  --text-label:   light-dark(#6F604F, var(--scheme-dark-text-label));  /* 5.68:1 /  9.63:1 AA  */
+  /* ACCENT-HUED, which it had stopped being. --text-label is emphasis: design/theming.md
+   * calls it "accent-hued labels / kickers", and on palettes with chroma to spare it is
+   * separated from body by HUE rather than by a lightness step. cuoio had neither. The
+   * light arm was #6F604F against body #6b5d4f — dL 0.0109, da -0.0002, db 0.0045, so no
+   * hue distinction at all, OKLab 0.0118 from body and 0.0638 from the saddle gold it is
+   * supposed to carry; the dark arm was a pale tan at chroma 0.026 against the accent's
+   * 0.122. Both arms are the accent now (C 0.094 / 0.122), which clears AA on --bg and
+   * --bg-alt on both canvases without repair. */
+  --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label));  /* 5.47:1 / 7.05:1 AA */
   --text-secondary: light-dark(#75685C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA on bg + bg-alt both sides */
   --text-muted:   light-dark(#766854, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
   --muted-mark:   light-dark(#92856F, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
@@ -244,7 +252,7 @@
   --scheme-dark-text-muted:   #A69882;
   --scheme-dark-muted-mark:   #A69882;
   --scheme-dark-text-secondary: #AB9C85;
-  --scheme-dark-text-label:   #C4B8A8;  /* pale tan — 9.63:1 on dark-bg AAA      */
+  --scheme-dark-text-label:   #C8A040;  /* saddle gold (= --accent) — 7.05:1 AA   */
   --scheme-dark-text-display: #FAF7F2;
 }
 

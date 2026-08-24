@@ -1,5 +1,5 @@
 /**
- * Unit: `checkMutedTierFloors`' SEPARATION arm — the ceiling on a quiet tier.
+ * Unit: `checkMutedTierFloors`' SEPARATION arm — an ink measured against another INK.
  *
  * `--text-muted` and `--text-secondary` are both defined as "quieter than body"
  * (design/theming.md). A contrast FLOOR cannot express that: an ink that clears
@@ -14,6 +14,12 @@
  * (0.0384, cuoio/light) is 0.0004 from muted's — the same number to within noise.
  * #1776 gave the STUDIO meter that row and left this gate without it, so the two
  * surfaces that measure the same contract disagreed about which tokens it covers.
+ *
+ * `--text-label` is the same predicate applied to the OPPOSITE role: accent-hued
+ * EMPHASIS rather than a quiet tier, separated from body by HUE on palettes with
+ * chroma to spare. It is measured because on cuoio it had stopped being either —
+ * label #6F604F against body #6b5d4f is dL 0.0109 / da -0.0002 / db 0.0045, a
+ * kicker nobody can see is a kicker, with AA green the whole time.
  *
  * Driven through the real gate over a MUTATED COPY of the whole corpus, not over a
  * synthetic one-file dir: `checkMutedTierFloors` fails closed on a thin scan
@@ -59,7 +65,7 @@ function corpusWithCollapse(token) {
   return { dir, ...patched };
 }
 
-describe('checkMutedTierFloors · the quiet-tier separation ceiling', () => {
+describe('checkMutedTierFloors · the ink-vs-ink separation arm', () => {
   test('the live tree is clean', () => {
     const errors = [];
     checkMutedTierFloors(errors);
@@ -71,7 +77,7 @@ describe('checkMutedTierFloors · the quiet-tier separation ceiling', () => {
    * an aggregate count would let the second row be dropped again without a test
    * going red, which is the shape of the gap this file closes.
    */
-  for (const token of ['--text-muted', '--text-secondary']) {
+  for (const token of ['--text-muted', '--text-secondary', '--text-label']) {
     test(`BITES: ${token} collapsed onto --text-body fails the gate`, () => {
       const { dir, theme } = corpusWithCollapse(token);
       const errors = [];
