@@ -65,35 +65,56 @@ describe('toggleFullscreen', () => {
 		// element `position:fixed !important` and a black `::backdrop`, and nothing in
 		// the DOM moves — so the live-preview iframe is untouched.
 		const doc = fakeDoc();
-		await expect(toggleFullscreen(doc)).resolves.toBe(true);
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: true });
 		expect(doc.documentElement.requestFullscreen).toHaveBeenCalledTimes(1);
 	});
 
 	it('exits when already fullscreen', async () => {
 		const doc = fakeDoc({ fullscreenElement: {} });
-		await expect(toggleFullscreen(doc)).resolves.toBe(false);
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: true });
 		expect(doc.exitFullscreen).toHaveBeenCalledTimes(1);
 		expect(doc.documentElement.requestFullscreen).not.toHaveBeenCalled();
 	});
 
 	it('does nothing at all where the API is unavailable', async () => {
 		const doc = fakeDoc({ fullscreenEnabled: undefined });
-		await expect(toggleFullscreen(doc)).resolves.toBe(false);
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: false, reason: 'unsupported' });
 		expect(doc.documentElement.requestFullscreen).not.toHaveBeenCalled();
 	});
 
-	// A refusal is not a crash: the browser can reject for reasons the caller cannot fix
-	// (an untrusted gesture, a permissions policy, an OS refusal). We report the state
-	// that actually holds, and the button — driven by the event — stays un-pressed.
-	it('reports the real state when the request is refused', async () => {
-		const doc = fakeDoc({ documentElement: { requestFullscreen: vi.fn(async () => { throw new Error('denied'); }) } });
-		await expect(toggleFullscreen(doc)).resolves.toBe(false);
+	// A refusal must be REPORTABLE, not swallowed. The browser can reject for reasons the
+	// caller cannot fix (an untrusted gesture, a permissions policy, an OS refusal) — and
+	// every one of them looks to the reader like a button that does nothing, which is the
+	// dead affordance this whole module exists to prevent. The first version returned a
+	// bare boolean and ate the error; a user reported the result as "seems like a no-op",
+	// which is precisely what a silent refusal feels like from the outside.
+	it('carries the browser\'s own reason back when the request is refused', async () => {
+		const doc = fakeDoc({
+			documentElement: {
+				requestFullscreen: vi.fn(async () => {
+					throw new TypeError('Request for fullscreen was denied because Element.requestFullscreen() was not called from inside a short running user-generated event handler.');
+				}),
+			},
+		});
+		const res = await toggleFullscreen(doc);
+		expect(res.ok).toBe(false);
+		expect(res.reason).toContain('short running user-generated event handler');
+	});
+
+	it('falls back to the error NAME when a rejection carries no message', async () => {
+		const doc = fakeDoc({ documentElement: { requestFullscreen: vi.fn(async () => { throw new DOMException('', 'NotAllowedError'); }) } });
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: false, reason: 'NotAllowedError' });
+	});
+
+	it('reports a refusal from the EXIT path too', async () => {
+		const doc = fakeDoc({ fullscreenElement: {}, exitFullscreen: vi.fn(async () => { throw new Error('nope'); }) });
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: false, reason: 'nope' });
 	});
 
 	it('falls back to the -webkit- entry points', async () => {
 		const webkitRequestFullscreen = vi.fn();
 		const doc = fakeDoc({ fullscreenEnabled: undefined, webkitFullscreenEnabled: true, documentElement: { webkitRequestFullscreen } });
-		await expect(toggleFullscreen(doc)).resolves.toBe(true);
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: true });
 		expect(webkitRequestFullscreen).toHaveBeenCalledTimes(1);
 	});
 });

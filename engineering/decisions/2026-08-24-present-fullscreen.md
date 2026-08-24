@@ -147,6 +147,56 @@ iPhone does not" has not been observed on the hardware. Two iPad specifics also
 remain unseen: WebKit's non-dismissible exit chip may overlap the top bar's
 Exit ✕ at the far left, and Stage Manager's window model is untested.
 
+## Amendment (same day): a refusal must be said out loud
+
+Reported from the outside, hours after this shipped to review: *"in firefox the
+fullscreen button seems like a no-op."*
+
+The first version of `toggleFullscreen` ended with this:
+
+```js
+} catch {
+    return isFullscreen(doc);   // swallow
+}
+```
+
+with a docblock arguing that a refusal is "not usefully reportable" because the
+caller cannot fix it. That reasoning is wrong, and wrong in the exact way this
+note spends three sections warning about: **it reintroduces the dead affordance.**
+A hidden button and a button that silently declines are the same experience — a
+control that does nothing and does not say why — and the second is worse, because
+the reader can see it and keeps pressing it. The rule this module already states
+for iPhone ("hidden, not disabled, because a greyed-out control makes a promise
+the device cannot keep") applies with equal force to a *refused* request, and the
+first draft applied it in one place and violated it in the other.
+
+`toggleFullscreen` now returns `{ ok, reason }` and the overlay surfaces a refusal
+through `notify` — the same channel the presenter-popup blocker already uses. The
+`reason` is the browser's own message, which matters: Firefox rejects with a
+`TypeError` that names the actual cause (*"...not called from inside a short
+running user-generated event handler"*, *"...fullscreen is not enabled"*), so the
+report a user can now give has a cause in it instead of a shrug.
+
+**The Firefox report itself did not reproduce here.** Firefox 142 on Linux was
+driven headless, headed under Xvfb at 900×700 (fullscreen crossing three
+breakpoints) and at 1200×800, through repeated button toggles, the `f` key, and a
+click after the pointer-idle timer: every one entered and left fullscreen
+correctly, with `document.fullscreenElement` set to `HTML` and the viewport
+growing as expected. So the cause is environmental to the reporter's browser —
+a permissions or enterprise setting, a hardened profile, an extension — which is
+precisely the class the swallowed `catch` made undiagnosable, and precisely the
+class the new message names.
+
+The durable fix for the coverage gap is the **`gecko` Playwright project**
+(`playwright.config.ts`): the fullscreen specs now carry `@gecko` and run on
+Chromium AND Firefox at the same viewport. The Fullscreen API is granted or
+refused by the browser, against its own permissions model and its own rule for
+what counts as a user gesture — none of which Blink's answer predicts, so a
+Chromium-only suite could certify this feature green forever while it was broken
+on a third of the web. Same argument the `webkit-*` projects were added under,
+one engine later. The nightly workflow provisions Firefox alongside Chromium and
+WebKit.
+
 ## What this does NOT cover
 
 The exported HTML player keeps its own, older fullscreen implementation. It

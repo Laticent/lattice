@@ -194,6 +194,21 @@ export default defineConfig({
 			use: { browserName: 'webkit', viewport: { width: 1180, height: 703 } },
 			grep: /@webkit-tablet/,
 		},
+		// GECKO — the third engine, and the newest of these projects for the oldest reason:
+		// a capability shipped as "verified" was reported broken on Firefox by a human, on a
+		// surface the Chromium suite had certified green. The Fullscreen API is exactly the
+		// shape of thing that needs its own engine: the request is granted or refused by the
+		// BROWSER, against its own permissions model and its own rule for what counts as a
+		// user gesture, none of which Blink's answer predicts.
+		//
+		// Deliberately NOT grepInverted out of `desktop`: a `@gecko` spec runs on BOTH, at the
+		// same viewport, which is the whole point — the value is in the two engines
+		// disagreeing, and that is invisible if only one of them runs the test.
+		{
+			name: 'gecko',
+			use: { browserName: 'firefox', viewport: { width: 1440, height: 900 } },
+			grep: /@gecko/,
+		},
 	],
 	webServer: {
 		command: 'npm run build:e2e && npm run preview:e2e',

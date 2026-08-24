@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PresentOverlay } from './PresentOverlay';
@@ -116,6 +116,38 @@ describe('Present — full screen', () => {
 		render(<PresentOverlay open onClose={onClose} options={options} slides={slides} notify={() => {}} />);
 		await user.keyboard('{Escape}');
 		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	// A REFUSAL MUST BE SAID OUT LOUD. Reported from the outside as "the fullscreen
+	// button seems like a no-op in Firefox" — which is exactly how a swallowed rejection
+	// presents: the browser declines, the code catches, and nothing on screen changes.
+	// The browser's own reason rides along, because Firefox's rejection message names
+	// the actual cause and that is what turns a shrug into a bug report.
+	it('tells the reader when the browser refuses, and passes its reason through', async () => {
+		withFullscreenApi();
+		Object.defineProperty(Element.prototype, 'requestFullscreen', {
+			value: vi.fn(async () => { throw new TypeError('Request for fullscreen was denied because the request was not user-initiated.'); }),
+			configurable: true,
+			writable: true,
+		});
+		const notify = vi.fn();
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		await user.click(screen.getByRole('button', { name: 'Full screen' }));
+		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
+		expect(notify.mock.calls[0][0]).toContain('not user-initiated');
+		// And the control stays un-pressed — the state is the document's, not our optimism.
+		expect(screen.getByRole('button', { name: 'Full screen' })).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	it('says nothing when the browser accepts', async () => {
+		withFullscreenApi();
+		const notify = vi.fn();
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		await user.click(screen.getByRole('button', { name: 'Full screen' }));
+		await screen.findByRole('button', { name: 'Leave full screen' });
+		expect(notify).not.toHaveBeenCalled();
 	});
 
 	// Closing Present must give the window back. Otherwise the EDITOR is left

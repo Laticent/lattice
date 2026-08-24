@@ -86,7 +86,7 @@ jobs:
       # device. Both are grep-scoped to their own tag, so this buys a second engine for a
       # handful of oracles, not a second full suite.
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium webkit firefox
         working-directory: docs
 
       # playwright.config.ts's webServer builds (without the slow showcase:check)

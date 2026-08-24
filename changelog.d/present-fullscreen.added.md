@@ -6,3 +6,5 @@
   desktop and iPad, absent on iPhone Safari, which ships no Fullscreen API for
   anything but native video. The capability is detected, so nothing needs
   updating if that changes.
+- If a browser refuses the request, Present now says so — with the reason the
+  browser gave — instead of leaving a button that appears to do nothing.

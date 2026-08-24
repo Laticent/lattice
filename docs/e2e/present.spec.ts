@@ -199,7 +199,7 @@ test('@parity a one-finger swipe still turns the deck in Present', async ({ page
 // we called the method (studio.present-fullscreen.test.tsx does exactly that);
 // only this one can show the screen actually changed hands.
 
-test('full screen is offered, granted, and driven from the button', async ({ page }) => {
+test('@gecko full screen is offered, granted, and driven from the button', async ({ page }) => {
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const btn = dialog.getByRole('button', { name: 'Full screen' });
 	await expect(btn).toBeVisible();
@@ -219,14 +219,14 @@ test('full screen is offered, granted, and driven from the button', async ({ pag
 	await expect(dialog.getByRole('button', { name: 'Full screen' })).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('`f` toggles full screen', async ({ page }) => {
+test('@gecko `f` toggles full screen', async ({ page }) => {
 	await page.keyboard.press('f');
 	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
 	await page.keyboard.press('f');
 	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
 });
 
-test('Escape leaves full screen without closing Present', async ({ page }) => {
+test('@gecko Escape leaves full screen without closing Present', async ({ page }) => {
 	// The two-step every video player has trained people to expect, and the reason the
 	// overlay's Escape branch consults the document first: Safari DELIVERS the keydown
 	// that leaves fullscreen (Chromium and Firefox swallow it), so an unguarded handler
@@ -250,7 +250,7 @@ test('Escape leaves full screen without closing Present', async ({ page }) => {
 	await expect(dialog).toBeHidden();
 });
 
-test('closing Present hands the window back', async ({ page }) => {
+test('@gecko closing Present hands the window back', async ({ page }) => {
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	await dialog.getByRole('button', { name: 'Full screen' }).click();
 	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);

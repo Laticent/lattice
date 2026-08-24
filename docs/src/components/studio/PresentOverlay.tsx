@@ -1096,7 +1096,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		setCanFull(fullscreenSupported());
 		return watchFullscreen(setFull);
 	}, []);
-	const toggleFull = React.useCallback(() => { void toggleFullscreen(); }, []);
+	// A REFUSAL IS REPORTED, never silent. The browser can decline — a permissions
+	// policy, an enterprise setting, an OS that says no — and to the reader every one
+	// of those is a button that did nothing, which is the exact dead affordance the
+	// hidden-not-disabled rule above exists to prevent. Saying so also turns "it's a
+	// no-op in my browser" into a bug report with a cause in it, since Firefox's
+	// rejection message names the reason.
+	const toggleFull = React.useCallback(() => {
+		void toggleFullscreen().then(({ ok, reason }) => {
+			if (!ok) notify(`Your browser would not switch to full screen${reason ? ` — ${reason}` : ''}. Its own full screen (F11) still works.`);
+		});
+	}, [notify]);
 	// Closing Present gives the window back at the size the reader had it. Without
 	// this, exiting the deck leaves the EDITOR full-screen — a state nothing in the
 	// Studio chrome explains, since the button that produced it just went away.

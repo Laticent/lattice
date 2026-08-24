@@ -68,8 +68,21 @@ export function isFullscreen(doc: Document | undefined = globalThis.document): b
 }
 
 /**
- * Toggle fullscreen, resolving to the state we asked for (not the state that
- * resulted — that arrives on the event; see {@link watchFullscreen}).
+ * The outcome of a toggle. `ok:false` means the browser REFUSED — the request
+ * rejected, or the API is not available here.
+ *
+ * This exists because the first version returned a bare boolean and swallowed the
+ * rejection, which made a refusal indistinguishable from a dead button: the one
+ * failure mode this whole module was written to avoid, reintroduced at the point
+ * where it is least visible. A refusal is not the caller's fault and not always
+ * fixable, but it is ALWAYS worth saying out loud — the reader is standing in
+ * front of a room wondering why nothing happened.
+ */
+export type FullscreenResult = { ok: boolean; reason?: string };
+
+/**
+ * Toggle fullscreen, resolving to whether the browser ACCEPTED the request (not
+ * to the resulting state — that arrives on the event; see {@link watchFullscreen}).
  *
  * The target is `documentElement` and that is deliberate. Fullscreening the
  * Present dialog instead would drag two problems in for no gain: the UA stylesheet
@@ -81,24 +94,32 @@ export function isFullscreen(doc: Document | undefined = globalThis.document): b
  * and every other Studio layer (toasts, popovers portaled to `<body>`, the
  * chart-detail layer) keeps working because nothing moved in the DOM.
  *
- * Rejections are swallowed: the request can be refused for reasons the caller
- * cannot fix or usefully report (gesture no longer trusted, a permissions policy,
- * an OS refusal). The button's pressed state is driven by the event, so a refused
- * request simply leaves it un-pressed — which is the honest outcome.
+ * A rejection is REPORTED, never swallowed. A browser can refuse for reasons the
+ * caller cannot fix — the gesture is no longer trusted, a permissions policy or
+ * enterprise setting forbids it, the OS declines — and every one of those looks
+ * to the reader like a button that does nothing. The caller turns `reason` into
+ * something a human can act on; `watchFullscreen` still owns the pressed state,
+ * so a refused request correctly leaves the control un-pressed as well.
+ *
+ * `requestFullscreen` is called SYNCHRONOUSLY inside the caller's event handler —
+ * `await X` evaluates X before it suspends — which is what keeps the transient
+ * user activation the API requires. Do not hoist an `await` above it.
  */
-export async function toggleFullscreen(doc: Document | undefined = globalThis.document): Promise<boolean> {
-	if (!doc || !fullscreenSupported(doc)) return false;
+export async function toggleFullscreen(doc: Document | undefined = globalThis.document): Promise<FullscreenResult> {
+	if (!doc) return { ok: false, reason: 'no document' };
+	if (!fullscreenSupported(doc)) return { ok: false, reason: 'unsupported' };
 	const d = doc as WebkitDocument;
 	const el = doc.documentElement as WebkitElement;
 	try {
-		if (isFullscreen(doc)) {
-			await (d.exitFullscreen?.() ?? d.webkitExitFullscreen?.());
-			return false;
-		}
-		await (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
-		return true;
-	} catch {
-		return isFullscreen(doc);
+		if (isFullscreen(doc)) await (d.exitFullscreen?.() ?? d.webkitExitFullscreen?.());
+		else await (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
+		return { ok: true };
+	} catch (err) {
+		// Firefox rejects with a TypeError whose message names the actual cause
+		// ("...not called from inside a short running user-generated event handler",
+		// "...fullscreen is not enabled"), which is exactly what a bug report needs.
+		const e = err as { name?: string; message?: string } | null;
+		return { ok: false, reason: e?.message || e?.name || 'refused' };
 	}
 }
 
