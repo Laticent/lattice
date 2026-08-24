@@ -465,7 +465,7 @@ export async function shareHtmlPlayer(
 	let katexText: string | null = null;
 	if (needsKatex) {
 		// Fall back to the bundled KATEX_URL when the caller didn't pass one (mirrors
-		// studio-presenter) — else a math deck would ship with KaTeX unstyled.
+		// studio-stage) — else a math deck would ship with KaTeX unstyled.
 		const katexUrl = options.katexUrl || deck.KATEX_URL;
 		try {
 			katexText = await (await fetch(katexUrl)).text();

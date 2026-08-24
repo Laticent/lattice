@@ -59,7 +59,7 @@ export function hasFinePointer(): boolean {
 // buries the caret the moment you type (there's nowhere for it to go). This detects
 // that state — landscape, short, touch — so the Studio can lock it to a full-bleed
 // PREVIEW (no editor, so no keyboard). The `max-height: 500px` + `orientation:
-// landscape` + `pointer: coarse` triad is the SAME signal the presenter view already
+// landscape` + `pointer: coarse` triad is the SAME signal the Present surface already
 // used for landscape phones (`@media (orientation: landscape) and
 // (max-height: 500px)`); `pointer: coarse` additionally excludes a short desktop
 // window. A small tablet in landscape (iPad mini ~744px tall) clears max-height and

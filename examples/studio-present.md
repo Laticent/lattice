@@ -14,7 +14,7 @@ footer: "SlideWright · Studio Present"
 
 `Studio · Present mode`
 
-Sections become a progress rail, speaker notes ride to your second screen, and the narration reads itself aloud — the same source you authored, now a live talk.
+Sections become a progress rail, your speaker notes sit beside the slide, and the narration reads itself aloud — the same source you authored, now a live talk.
 
 <!-- note: Open by naming what they're about to see: this is one Markdown deck, presented. Nothing here was staged for the demo — the rail, the notes, and the read-aloud all come from the source. -->
 
@@ -39,7 +39,7 @@ Sections become a progress rail, speaker notes ride to your second screen, and t
 
 ## A viewer built for reading vs. a room built for speaking.
 
-Both show the slide. Only one carries the talk track, the pacing, and the second screen.
+Both show the slide. Only one carries the talk track, the pacing, and a window for the room.
 
 - Read
   - You scroll; the deck is a document
@@ -47,7 +47,7 @@ Both show the slide. Only one carries the talk track, the pacing, and the second
   - No sense of where you are in the arc
 - Present
   - You speak; the deck is a performance
-  - Notes ride to your presenter screen
+  - Notes sit beside the slide, for you
   - The section rail shows the whole shape
 
 <!-- note: The insight: presenting is not just reading bigger. It needs a talk track, a clock, and a sense of place. That's what this redesign adds without changing a single line of your deck. -->
@@ -95,8 +95,8 @@ Both show the slide. Only one carries the talk track, the pacing, and the second
   - The narration reads as a teleprompter crawl, so a muted room still follows every word.
 - Rail.
   - One segmented, section-grouped bar — where you are, click to jump, no dueling counters.
-- Present.
-  - A brand-dark second screen: current and next slide, your notes, the clock.
+- Stage.
+  - A chrome-free window for the room: the deck, the captions, the rail.
 
 <!-- note: This is the spine of the talk. Four capabilities, one source file. Don't rush — each card is a beat, and the audience should feel how little you had to do to get all of it. -->
 
@@ -149,4 +149,4 @@ Both show the slide. Only one carries the talk track, the pacing, and the second
 
 `Present · ready when you are`
 
-<!-- note: Close on the promise and pause. One source file became a document, a narrated deck, and a live presenter view — you wrote the substance, the engine carried the rest. Then stop and take questions. -->
+<!-- note: Close on the promise and pause. One source file became a document, a narrated deck, and a live talk — you wrote the substance, the engine carried the rest. Then stop and take questions. -->

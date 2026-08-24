@@ -323,9 +323,9 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// ComposeView, so — unlike those two — nothing in this test file has already paid the
 		// dynamic import()'s cost before this assertion. The default findBy timeout (1000ms) is
 		// tight for a cold module transform under test-suite load; give it real headroom.
-		expect(await screen.findByText('Presenter screen', {}, { timeout: 5000 })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Stage' }, { timeout: 5000 })).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Exit present' }));
-		expect(screen.queryByText('Presenter screen')).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Stage' })).not.toBeInTheDocument();
 	});
 
 	it('Present navigates the deck; an untagged deck shows a static "Full deck" (no reader-view switcher)', async () => {
@@ -403,7 +403,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Share' }));
 		await user.click(await screen.findByText('Present link'));
-		expect(await screen.findByText('Presenter screen')).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Stage' })).toBeInTheDocument();
 	});
 
 	it('opens Workspace settings ("your setup") with the REAL model status + tabs', async () => {

@@ -1,6 +1,5 @@
 import * as React from 'react';
 import type { Active, CaptionTrack } from '@/lib/cadenza';
-import { cn } from '@/lib/utils';
 
 // The read-aloud caption as a TELEPROMPTER CRAWL (2026-07-12-studio-present-redesign.md, S2)
 // — a "Star Wars intro without the warp": the word being read sits CENTERED, read lines lift
@@ -16,8 +15,14 @@ import { cn } from '@/lib/utils';
 //    spoken word stays in the opaque band instead of scrolling into the fade.
 //  • The visual crawl is aria-hidden; a scoped polite live region announces only the ACTIVE
 //    sentence (not the whole narration).
-const MASK = 'linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%)';
-
+//
+// TWO HOSTS, ONE LOOK (2026-08-24-stage-console-split.md). Captions are an accessibility
+// feature FOR THE ROOM, so they live on whatever surface the room is watching: normally the
+// Stage window, whose document is assembled as a string and therefore has no Tailwind — and
+// the console's own dock when no Stage is open. That is why every class here is a scoped name
+// out of `present/stage-chrome.js` rather than a utility: the sheet is injected into both
+// documents, so there is one implementation instead of a utility version and a hand-written
+// twin that drift.
 export function PresentCaption({ track, active, className, announce = true }: { track: CaptionTrack; active: Active | null; className?: string; announce?: boolean }) {
 	const winRef = React.useRef<HTMLDivElement>(null);
 	const trackRef = React.useRef<HTMLDivElement>(null);
@@ -43,48 +48,50 @@ export function PresentCaption({ track, active, className, announce = true }: { 
 	React.useLayoutEffect(() => {
 		recenter();
 	}, [recenter, track]);
+	// The RESIZE that matters is the HOST window's, and when this is portalled into the Stage
+	// that is not the window this module's `window` refers to. `ownerDocument.defaultView` is
+	// the one the band is actually laid out in — bound after mount, so it is right in both hosts.
 	React.useEffect(() => {
+		const view = winRef.current?.ownerDocument.defaultView;
+		if (!view) return;
 		const onResize = () => recenter();
-		window.addEventListener('resize', onResize);
-		return () => window.removeEventListener('resize', onResize);
+		view.addEventListener('resize', onResize);
+		return () => view.removeEventListener('resize', onResize);
 	}, [recenter]);
 
 	if (!cueCount) return null;
 	const activeText = track.cues[activeCue].words.map((w) => w.display).join(' ');
 	return (
 		// Film-subtitle, NOT a pill (2026-07-12 redesign): transparent, full-width, docked
-		// between the slide and the transport — no card/border/shadow to read as a box. The
-		// vertical mask alone fades read/upcoming lines so the active line reads clean.
-		<div className={cn('block h-[76px] w-full max-w-[720px] overflow-hidden px-4', className)}>
+		// below the slide — no card/border/shadow to read as a box. The vertical mask alone
+		// fades read/upcoming lines so the active line reads clean.
+		<div className={`latt-cc${className ? ` ${className}` : ''}`}>
 			{/* Scoped live status region — announces only the sentence being read (not the whole
 			    narration). role=status makes the read-along queryable as the live prompter. Skipped
 			    when Voice (TTS) is speaking, so a screen-reader user doesn't hear each line twice. */}
 			{announce ? (
-				<span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+				<span className="latt-sr" role="status" aria-live="polite" aria-atomic="true">
 					{activeText}
 				</span>
 			) : null}
-			<div ref={winRef} aria-hidden="true" className="relative h-full" style={{ WebkitMaskImage: MASK, maskImage: MASK }}>
-				<div ref={trackRef} className="absolute inset-x-0 will-change-transform [transition:transform_.5s_cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none">
-					{track.cues.map((cue, ci) => {
-						const read = ci < activeCue;
-						const up = ci > activeCue;
-						return (
-							// biome-ignore lint/suspicious/noArrayIndexKey: a static caption track never reorders; the cue index is its stable identity
-							<div key={ci} data-cue={ci} className={cn('px-2 py-0.5 text-center text-[16px] font-semibold leading-snug transition-colors duration-300 sm:text-[18px]', read ? 'text-muted-foreground/45' : up ? 'text-muted-foreground/55' : 'text-[var(--text-heading)]')}>
-								{cue.words.map((w, wi) => (
-									<span
-										// biome-ignore lint/suspicious/noArrayIndexKey: (cueIndex, wordIndex) IS the word's stable identity on a static track
-										key={`${ci}:${wi}`}
-										data-cw={`${ci}-${wi}`}
-										className={cn('transition-colors', ci === activeCue ? (wi <= activeWord ? 'text-[var(--accent)]' : 'text-muted-foreground') : '')}
-									>
-										{w.display}{' '}
-									</span>
-								))}
-							</div>
-						);
-					})}
+			<div ref={winRef} aria-hidden="true" className="latt-cc-win">
+				<div ref={trackRef} className="latt-cc-track">
+					{track.cues.map((cue, ci) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: a static caption track never reorders; the cue index is its stable identity
+						<div key={ci} data-cue={ci} data-state={ci < activeCue ? 'read' : ci > activeCue ? 'up' : 'now'} className="latt-cc-line">
+							{cue.words.map((w, wi) => (
+								<span
+									// biome-ignore lint/suspicious/noArrayIndexKey: (cueIndex, wordIndex) IS the word's stable identity on a static track
+									key={`${ci}:${wi}`}
+									data-cw={`${ci}-${wi}`}
+									data-spoken={ci === activeCue ? (wi <= activeWord ? '1' : '0') : undefined}
+									className="latt-cc-w"
+								>
+									{w.display}{' '}
+								</span>
+							))}
+						</div>
+					))}
 				</div>
 			</div>
 		</div>

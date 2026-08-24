@@ -89,9 +89,15 @@ test('the present-transport kernels the player already inlines are still self-co
 		assert.throws(() => keyAction('ArrowRight'), ReferenceError, 'the no-map form is NOT inlinable — the player must pass the keymap');
 
 		// The zoom rule joined the inlined set when the presenter screen gained pinch
-		// (2026-08-10-preview-pinch-zoom.md). `createZoomGesture` is the biggest kernel
-		// the popup carries and the easiest to break this way — it closes over `emit`,
-		// `bound` and `about`, all of which must be INTERNAL, not module-scope.
+		// (2026-08-10-preview-pinch-zoom.md). That window is retired — the Stage/console
+		// split gave the room a deck with no controls on it and left zooming to the
+		// console, which is bundled and imports normally (2026-08-24-stage-console-split.md)
+		// — so NOTHING inlines these two today. The guard stays because the requirement
+		// does: `present-transport.mjs`'s header promises every export is self-contained,
+		// and `createZoomGesture` is the biggest kernel in the file and the easiest to
+		// break this way (it closes over `emit`, `bound` and `about`, all of which must be
+		// INTERNAL, not module-scope). The export player is one sign-off away from wanting
+		// it, and a promise re-verified only when someone needs it is not a promise.
 		const zoomStep = inlineIntoEmptyScope(t.zoomStep, 'zoomStep');
 		assert.ok(zoomStep(-100) > 1, 'the inlined step still zooms in on a push away');
 

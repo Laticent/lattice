@@ -7,7 +7,7 @@ import { PresentOverlay } from './PresentOverlay';
 // APPEARED — two opposite failures: look away and you lose it forever; reload
 // inside those five seconds and you never see it at all.
 vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
-vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () => ({ doc: '', total: 0 })) }));
+vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const slides = ['<!-- _class: title -->\n\n# One', '<!-- _class: kpi -->\n\n# Two'];

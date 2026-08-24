@@ -659,7 +659,7 @@ never turn "passed in headless" into "works on iOS."
 - **Cause:** this is not a JavaScript exception, so no in-page handler can see it.
   Either the tab's **renderer process died** (out of memory is by far the most
   common — the Studio holds a live preview iframe, Present's second render surface,
-  a presenter popup, export workers and on-device model workers at once) or the
+  a Stage window, export workers and on-device model workers at once) or the
   browser **discarded** a backgrounded tab under memory pressure. In both cases the
   page's JS is already gone: `beforeunload`, `pagehide` and every boundary are
   dead, and the reload that follows wipes the console.
@@ -689,7 +689,7 @@ never turn "passed in headless" into "works on iOS."
   Firefox there are no memory readings at all: `performance.memory` is
   Chromium-only, and the report says so rather than implying a healthy heap.
 - **Triggered by:** long Studio sessions, decks with many chart/diagram slides,
-  leaving Present or the presenter window open, or a phone backgrounding the tab.
+  leaving Present or the Stage window open, or a phone backgrounding the tab.
   See `engineering/decisions/2026-08-10-studio-crash-sentinel.md`; to hunt the leak
   behind a report showing memory growth, reach for `npm run torture`
   (`tools/perf-torture/`).

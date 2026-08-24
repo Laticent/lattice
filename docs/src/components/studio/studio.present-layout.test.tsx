@@ -17,7 +17,7 @@ import { PresentOverlay } from './PresentOverlay';
 // definite, and the slide grows out of its row, over the header and under the
 // caption crawl. `items-center` on the sizer removes that path on every engine.
 vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
-vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () => ({ doc: '', total: 0 })) }));
+vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const slides = ['<!-- _class: title -->\n\n# One\n\nThe first slide.', '<!-- _class: kpi -->\n\n# Two\n\nThe second slide.'];
