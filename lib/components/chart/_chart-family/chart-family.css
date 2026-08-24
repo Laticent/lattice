@@ -969,8 +969,9 @@ section.chart-frame .chart-status {
    * THE LIGHT ARM HAD THE SAME DEFECT, one arm over, and it is fixed here (#1807).
    * On a light canvas `--text-heading` is DARK ink, so the failure runs the other way:
    * the more hue the mix carries, the darker the ground and the closer it sits to its
-   * own label. At the old 54% end nine palettes were sub-AA, worst concrete|pass at
-   * 2.48:1 — nineteen frozen pairs. Swept against composed-contrast's own evalSurface
+   * own label. At the old 54% end EIGHT palette families were sub-AA (15 theme
+   * files once the -dark wrappers are counted, 19 pairs): atelier, brina, burgundy,
+   * carbone, concrete, cuoio, laguna, mustard, worst concrete|pass at 2.48:1. Swept against composed-contrast's own evalSurface
    * over all 32 palettes x 5 states, the light end clears at 31% (4.59:1) and 30% is
    * taken for the margin (4.72:1, still concrete|pass); 32% misses at 4.46:1.
    *

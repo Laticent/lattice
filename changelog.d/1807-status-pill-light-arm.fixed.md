@@ -1,4 +1,4 @@
-- **Fixed: status pills were sub-AA in light mode on nine palettes.** The
+- **Fixed: status pills were sub-AA in light mode on eight palettes.** The
   `.chart-status` pill paints `--text-heading` on a gradient of its own state
   hue mixed into the canvas. #1809 corrected the dark arm's stops; the light arm
   had the same defect running the other way — on a light canvas the label is

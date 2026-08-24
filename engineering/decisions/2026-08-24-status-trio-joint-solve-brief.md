@@ -10,7 +10,8 @@ summary: >
   pairs are trio-driven, and THIRTY of those are `--warn` on two KPI pill surfaces alone, so the
   problem is mostly one token on one component rather than three tokens spread evenly. The
   search space is 18 free trios (not 32 — the 13 `-dark` wrappers and `a11y-base` inherit),
-  scored across 64 palette-modes against 25 trio-bearing composed surfaces plus two frozen
+  scored across 64 palette-modes against 19 directly trio-bearing composed surfaces (25 counting
+  those that reach the trio through `--chart-state-*`) plus two frozen
   tables and a tier of hard-floor gates. And the one arm already proved INFEASIBLE stays
   infeasible: concrete's dark `--fail` cannot be solved at the current 12% own-hue tint, because
   the band moves with the ink — the escape is a component-level tint cut, which is a visible
@@ -105,7 +106,11 @@ each trio is a `light-dark()` pair, i.e. 6 hexes per palette, 108 free values.
 Two frozen tables, both ratchet-only via `npm run palette:bless`, both of which a solve must
 re-bless and neither of which may be walked DOWN without a hand edit and a stated reason:
 
-- `KNOWN_SUB_THRESHOLD` — 66 entries, and **25 of `SURFACES`'s 41 entries carry the trio**;
+- `KNOWN_SUB_THRESHOLD` — 66 entries. Of `SURFACES`'s 41 entries, **19 name `--pass` /
+  `--warn` / `--fail` directly**, and 6 more reach them through `--chart-state-*`, which
+  10 of the 14 brand palettes wire to `var(--pass)` and the rest curate independently —
+  so 25 by that route and 19 by the strict one. Quote whichever you mean; an earlier
+  draft of this brief said "25" flat, which is the union without saying so;
 - `CVD_FROZEN` — 768 entries (32 themes × 2 modes × 3 pairs × 4 conditions), with floors
   `0.15` for the dichromacies, `0.11` for achromatopsia, and an erosion tolerance of `0.002`.
 

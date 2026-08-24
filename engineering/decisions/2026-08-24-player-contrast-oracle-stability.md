@@ -113,8 +113,24 @@ the bare 120ms.
   is what the fixed sleep was trying and failing to wait for;
 - **infinite ones paused at `currentTime = 0`** — no frame of a loop is more correct than
   another, so the only property worth having is that every run picks the same one;
-- **repeated, up to five rounds** — finishing one animation can start the next (a staggered
-  entrance, a `transitionend` handler), so a single pass is not a fixed point;
+- **repeated until TWO consecutive quiet rounds, capped at five** — finishing one animation can
+  start the next (a staggered entrance, a `transitionend` handler), so a single pass is not a
+  fixed point. Two details here were wrong in the first cut and both were caught by an
+  independent checker:
+  - it returned the count of animations found BEFORE pausing them, which never reaches zero (a
+    paused animation and a `fill: forwards` finished one both stay in `getAnimations()`), so the
+    loop always ran all five rounds — 812ms per slide instead of 120ms, measured in Chromium, on
+    any deck holding an animation. Latent today because no deck in the corpus holds one;
+  - fixing that to break on the first quiet round **reintroduced the instability**, and this is
+    the interesting part: the player's control fade starts on a delay, so round 0 finds nothing
+    running, exits, and the screenshot lands mid-fade again. Three runs went 3 / 2 / 3 findings.
+    The always-five-rounds bug had been accidentally load-bearing. One quiet round only says
+    nothing is running *now*; the 120ms beat is what gives a delayed transition time to declare
+    itself, and a **second** quiet round is what says none did. Four consecutive runs identical
+    after that;
+  - and hitting the five-round cap now WARNS. The first cut's docblock claimed "the count is
+    reported so a deck that never settles is visible" while all three call sites discarded the
+    return value — the same silence it was written to prevent;
 - the old sleep is **kept, after all of that**, as a floor for work this cannot see (a
   JS-driven layout, a deferred component bake). It is a margin now, not the mechanism.
 
@@ -126,6 +142,7 @@ Three consecutive isolated runs, after the fix:
 44 runs across 1 deck(s) · 3 below AA      ← run 1
 44 runs across 1 deck(s) · 3 below AA      ← run 2
 44 runs across 1 deck(s) · 3 below AA      ← run 3
+44 runs across 1 deck(s) · 3 below AA      ← run 4, after the two-quiet-rounds correction
 ```
 
 Identical rows, identical pages, identical ratios. And the same question asked of a

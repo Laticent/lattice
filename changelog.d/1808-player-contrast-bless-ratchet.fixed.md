@@ -13,7 +13,9 @@
   were recorded at 3.20 / 3.19 / 3.20 and re-measured anywhere between 1.93 and
   4.27, with the values shuffling between pages run to run. Each slide is now
   settled before it is read: fonts awaited, finite animations finished, infinite
-  ones paused at a fixed phase, repeated until nothing new starts. Three
-  consecutive runs of `anima-scene` now report identical rows, and the three
+  ones paused at a fixed phase, repeated until two consecutive rounds find
+  nothing running (one is not enough — the fade starts on a delay, so a single
+  quiet round exits before it has begun). Four consecutive runs of `anima-scene`
+  now report identical rows, and the three
   "as exported" findings turn out not to be findings at all — they were the fade
   being caught halfway.

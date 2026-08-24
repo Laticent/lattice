@@ -519,10 +519,12 @@ const SURFACES = [
 // It is a SHRINKING baseline, and it has shrunk twice. The 24 `word-cloud/seq-*`
 // rows left when this file landed were the canvas-blind sequential ramp, and #1697
 // made the ramp's poles canvas-relative. Then #1698's second pass took the status
-// population from 106 to 0: the trios were re-solved against the bands they land on
-// AND declared at BOTH `:root` and `:root:root`, without which the curated values never
-// reached one render path or the other (the concat order vs Marpit's `:root` rewrite — see
-// engineering/decisions/2026-08-23-status-trio-export-cascade.md). All of them are
+// population from 106 to 0: the trios were re-solved against the bands they land on AND
+// made to reach every render path — at the time by declaring them at BOTH `:root` and
+// `:root:root`, since neither form alone reached all three (the concat order vs Marpit's
+// `:root` rewrite). #1527 then flipped the concat and the duplicate was retired; a plain
+// `:root` declaration reaches every path on its own now
+// (engineering/decisions/2026-08-24-status-trio-single-root.md). All of them are
 // gone — deleted, not re-frozen, which is what the stale arm below exists to force.
 //
 // WHAT THE TWO SURVIVORS ARE, because a two-row baseline is read as "nearly done"
@@ -557,26 +559,22 @@ const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
   // ── chart/status-pill · the LIGHT arm ──
-  // FROZEN, NOT ACCEPTED, and deliberately not fixed in the change that added this
-  // surface. The pill's light gradient mixes the status hue into `--bg` and labels it
-  // with `--text-heading` — a DARK ink on a light canvas. #1801 respaced every trio to
-  // hold three distinct weights under a monochromacy, and for the palettes below that
-  // moved --pass / --fail toward the dark end: concrete's `--pass` is `#000f01`, so a
-  // 54% mix of it into a light canvas lands a mid-gray under near-black ink (2.48:1).
+  // The `chart/status-pill-*` LIGHT arm used to be frozen here — 19 pairs, worst
+  // `concrete|pass` at 2.48:1 — with a long note arguing it carried no regression and
+  // wanted its own change. Both halves of that argument turned out to be wrong, and the
+  // entries are gone rather than re-frozen (#1807):
   //
-  // The DARK arm of the same gradient WAS retuned in place (48%/64% -> 42%/54%) because
-  // that arm carried a REGRESSION — a real sub-AA finding on a rendered `--player`
-  // export (gallery-jargon p50, crepuscolo, "on-track", 4.40:1). The light arm carries
-  // no regression: it fails identically before that change, and no swept deck reaches
-  // it — which is why 139 decks of player-contrast surfaced the dark arm and none of
-  // these.
+  //   · it DID carry a regression, and nothing could see it. This file's regression arm
+  //     ranks root blocks by specificity, so the status trio's since-retired `:root:root`
+  //     copy won the base-wins reference map too and both arms resolved the same value.
+  //     The arm was vacuous for the trio from the moment that copy landed, and these
+  //     surfaces were added straight into the blind spot. Removing the copy surfaced 18
+  //     real regressions, every one of them a pair from this group.
+  //   · the fix was a percentage after all: 33%/54% -> 18%/30%, the light arm's twin of
+  //     the dark retune, taking the worst pair to 4.72:1. Both gradient stops are modelled
+  //     now — the 0% one was itself sub-AA at 4.38:1 and listed nowhere.
   //
-  // Fixing it is a DIFFERENT change, and a visible one: the light end has to come down
-  // from 54% to <=30% for the worst pair to clear, which restyles every status pill on
-  // every palette in light mode. That wants its own visual sign-off (QUALITY BAR), not
-  // a number nudged inside a regression fix. Tracked as #1807.
-  // ── chart/status-pill-fail (light) ── 12
-  // ── chart/status-pill-pass (light) ── 7
+  // engineering/decisions/2026-08-24-status-trio-single-root.md
   // ── checklist/fail-row ── 1
   ['carbone|light|checklist/fail-row', 2.14],
   // ── kpi/hero-pass-pill ── 1
@@ -731,18 +729,19 @@ const ROOT_COMPOUND = /^(?::root|:root:root|:where\(:root\))(?:\[[^\]]*\]|:(?!:)
  * palettes that had already escaped it, and it would score a re-curated trio as
  * inert on the one path where it is the whole point.
  *
- * "PHANTOM" IS TOO KIND FOR THOSE 13, and an earlier version of this note called
- * them pairs "on an arm that renders correctly". They are not. `--panel-edge-mark`
- * is declared ONLY at `:root:root` in ardesia / atelier / concrete / onyx, and this
- * change's own measurement is that `:root:root` is inert on the packed engine path —
- * so the Studio and the docs Playground resolve base's `var(--accent)` there, which
- * on onyx IS `--surface-inverse`: `light-dark(#000000, #FFFFFF)` against a black
- * panel, 1.00:1, no visible edge. This arm now reports 3.66 for a surface that
- * renders at 1.00. The specificity fix is still right — it makes the EXPORT arm
- * truthful, which is what it models — but the four palettes need the `:root` half
- * too, and that is #1797, not this change (pre-existing, off this diff's path,
- * HARD RULE #18's found-not-caused arm). `:where(:root)` is 0 and loses to everything,
- * which is what it is for.
+ * BOTH OF THOSE MOTIVATING CASES ARE GONE, and the ranking is kept anyway. #1527
+ * flipped the concat — the engine sheet loads FIRST now, so a plain `:root` palette
+ * declaration wins the export on source order and needs no bump — and #1797 moved
+ * `--panel-edge-mark` to plain `:root` in all four palettes, closing the 1.00:1 onyx
+ * panel edge this docblock used to describe as live. `checkPackedRootReach` fails any
+ * theme custom property declared above plain `:root`, so no palette should present a
+ * ranked tie again.
+ *
+ * It stays because the ranking is what makes the arm TRUTHFUL rather than lucky: a flat
+ * merge would be wrong the moment anything reintroduces the shape, and it would be wrong
+ * silently, which is the failure mode this whole file exists to catch. `:where(:root)`
+ * is 0 and loses to everything, which is what it is for.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md
  */
 function rootSpecificity(compound) {
   // `:where()` contributes ZERO — but only for what is INSIDE it. `:where(:root):root` is
@@ -875,9 +874,14 @@ function mergedVars(theme, { baseWins = false } = {}) {
   for (const f of paletteChainFiles(theme)) parseRootVars(fs.readFileSync(f, 'utf8'), palette);
   const bundle = bundleVars();
   if (!baseWins) return { ...bundle.vars, ...palette.vars };
-  // EXPORT ORDER. The bundle is concatenated last, so it wins every tie — but a
-  // tie is what source order decides, and specificity outranks it. A palette
-  // declaration at a HIGHER root specificity (`:root:root`) still paints.
+  // THE BASE-WINS REFERENCE MAP. It is NOT "what the export does" any more — since #1527
+  // the export loads the engine sheet first and the palette wins there too. What this arm
+  // models is the REGRESSION question: is a palette's curated value worse than the base
+  // default it overrides? Specificity still outranks source order in it, and that is
+  // load-bearing in a way that bit once: while the status trio carried a `:root:root`
+  // copy, the copy won THIS map too, both arms resolved the same value, and the regression
+  // arm was silently vacuous for the trio. Removing the copy surfaced 18 real regressions.
+  // engineering/decisions/2026-08-24-status-trio-single-root.md
   const out = { ...palette.vars };
   for (const [k, v] of Object.entries(bundle.vars)) {
     if ((palette.spec[k] ?? -1) <= (bundle.spec[k] ?? 0)) out[k] = v;

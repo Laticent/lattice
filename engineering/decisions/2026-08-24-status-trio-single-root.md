@@ -144,6 +144,47 @@ gets — `:root:root` → `:root` — and the same slide now reads onyx's own `-
 `#C71F2D`, **3.66:1** against the panel. Four palettes, one line each, and #1797 is closed by
 the change that made the shape illegal rather than by a separate repair.
 
+### 3a. The exemption was right and its reason was wrong, and that hid a live defect
+
+The first cut of this change scoped the gate to `--*` properties and justified it by calling
+`a11y-base`'s `:root:root { color-scheme: light }` "a deliberate specificity war with an
+author's INJECTED `:root{color-scheme:dark}` … the one legitimate use of the shape left in
+the tree." An independent checker attacked that sentence and it does not survive.
+
+**The pin was defeated on exactly the paths this note is about.** The docs preview injects a
+raw, UNPACKED `:root{color-scheme:MODE}` into the frame (`docs/src/lib/single-slide-render.ts`,
+`docs/src/playground/deck-preview.js`), and the theme's pin is packed to
+`article.lattice > :where(section):not([\20 root]):root` — a selector that can never match.
+Measured in real Chromium on the packed composition, `a11y-deuteranopia` with the dark toggle
+applied:
+
+| pin form | packed (docs-style injected dark) | CLI export (author `style:` dark) |
+|---|---|---|
+| `:root:root` — **as shipped** | `color-scheme: dark`, canvas **rgb(0,0,0)** ✗ | light ✓ |
+| `:root` alone | light ✓ | `color-scheme: dark`, canvas **rgb(0,0,0)** ✗ |
+| **both** — as shipped here | **light ✓** | **light ✓** |
+
+So all four `a11y-*` palettes followed the dark toggle in the Playground and painted black —
+on the one surface a fixed, mode-invariant CVD-safe canvas exists for.
+
+**The fix is to ADD the plain half, not to remove the doubled one**, and the reason the pair is
+permanent here is genuinely different from the trio's:
+
+- on the **unpacked CLI export**, the rival is the deck's own `style:` directive, which the
+  shell emits LAST by construction. No concat order can outrank it — #1527 cannot help, because
+  the author is always after the palette. **Specificity is the only lever**, so `:root:root` stays.
+- on the **packed** paths, the plain half wins not by specificity but by **directness**: the
+  rewrite puts it on the `<section>` as a real declaration, and a declaration on the element
+  beats a value inherited from `<html>` whatever the specificity of the rule that set it.
+
+The gate's `--*` scoping is therefore still correct, but as a statement about the COMPETITOR
+rather than about the shape — and the docblock, this note and the unit test all said the wrong
+thing. The test is worse than the prose was: it pinned `:root:root` and would have **failed if
+someone fixed the defect**. It now pins both halves and says why.
+
+This is squarely HARD RULE #18's on-path arm — the change is literally "find every repeated
+`:root` that cannot reach a packed render" — so it is fixed here rather than filed.
+
 **Envelope, stated rather than implied.** The gate matches `(:root){2,}` only. It does not
 judge `:root.print` / `:root[data-x]` (conditional overrides, a different contract) or
 `:where(:root)` (the zero-specificity default), and it is scoped to `--*` properties so that
@@ -169,7 +210,11 @@ which renders the real CLI and reads tokens off the rendered `<section>` in Chro
 that test is **better off** for the removal, by its own account: its vacuity guard notes that
 `--pass` / `--warn` / `--fail` were spelled differently in the two files and resolved
 identically, so three of its four probed tokens could have been order-BLIND while the guard
-read satisfied. They are live discriminators again.
+read satisfied. They are live discriminators again: of the seven tokens it probes, six are eligible
+(`--hljs-keyword` is spelled identically in both files, so it can never discriminate), and
+the count goes **3 of 6 to 6 of 6** — measured by instrumenting the real test at the branch
+base and at HEAD. Worth stating precisely because 3 was sitting exactly ON the test's own
+`>= 3` floor, not comfortably above it.
 
 So the choice was not "safety versus tidiness". It was a dead mechanism that also blunted the
 live one.
@@ -252,23 +297,32 @@ caught it; comparing the two computed gradients showed them identical when they 
 |---|---|---|
 | palettes declaring the trio twice | 18 | **0** |
 | lines of duplicated declaration + docblock removed | — | **~500** |
-| `:root:root` custom-property declarations in `themes/` | 22 | **0** |
-| — remaining `:root:root` uses | — | **1**, `a11y-base`'s `color-scheme` pin |
+| `:root:root` custom-property BLOCKS in `themes/` | 22 | **0** |
+| — remaining `:root:root` uses | — | **1**, `a11y-base`'s `color-scheme` pin (which gains its plain-`:root` twin here — §3a) |
 | `composed-contrast` — cascade regressions | 0 *(vacuous for the trio)* | **0** *(and load-bearing again)* |
 | `composed-contrast` — pairs below bar | 85 of 2304 | **66 of 2624** |
 | — frozen entries DELETED, not re-frozen | — | **19** (`chart/status-pill-*`) |
 | — newly-modelled surfaces added | — | **5** (the gradient's 0% stop), all passing |
-| order test's live discriminators | 4 of 7 probed | **7 of 7 eligible** |
+| order test's live discriminators | 3 of 6 eligible | **6 of 6** |
 
 ## 7. What this does NOT fix
 
-- **`state-chart` has the same gradient defect, on BOTH arms, and no catalog entry at all.**
-  `state-chart.styles.css:257-258` still carries `33%/54%` light and `48%/64%` dark — the dark
-  pair is the value #1809 replaced one file over, so it never received that fix, and the light
-  pair is what this change replaced. Nothing in `SURFACES` models a state-chart pill, so no gate
-  can see either. **Pre-existing and off the path** of both #1797 and #1807 (a different
-  component, needing its own surfaces and its own visual pass), so it is logged rather than
-  pulled in, per HARD RULE #18. It is the natural next slice after this one.
+- **`state-chart` has the same gradient defect, on BOTH arms, at THREE sites, and no catalog
+  entry at all.** `state-chart.styles.css:257-258` (the HTML badge / legend swatch) and
+  `:705-710` (the SVG `.state-index-disc`, which an earlier draft of this note missed) both
+  carry `33%/54%` light and `48%/64%` dark — the dark pair is the value #1809 replaced one file
+  over, so it never received that fix, and the light pair is what this change replaced.
+  Measured through `composed-contrast`'s own `evalSurface` over 32 palettes x 5 states:
+  **19 sub-AA pairs on the light arm** (worst `concrete|pass` 2.48:1) and **28 on the dark**
+  (worst `laguna|pass` 3.12:1) — 47 in total, none gated and none frozen, because nothing in
+  `SURFACES` models a state-chart pill. That is a larger population than this change fixed.
+  **Pre-existing and off the path** of both #1797 and #1807 (a different component, needing its
+  own surfaces and its own visual pass), so it is logged rather than pulled in, per HARD RULE
+  #18. It is the natural next slice, and the fix is already known — the same stops.
+  What this change DID owe there and pays: two comments in that file claimed the badge "shares
+  the .chart-status pill fill recipe (AA-vetted)" and "reads identically to its legend key".
+  Both were true before this diff and false after it — a doc-truth window this change created
+  rather than found. Corrected in place to name the divergence and its measured numbers.
 - **The joint trio re-solve** is untouched. 66 pairs remain below bar and cannot be cleared one
   token at a time; `2026-08-23-status-trio-export-cascade.md` §8 still carries it, and the
   removal of the duplicate makes it materially cheaper — every value now has ONE edit site per

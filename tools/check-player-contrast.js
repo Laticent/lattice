@@ -323,9 +323,12 @@ async function settle(page, floorMs) {
 	await new Promise((r) => setTimeout(r, floorMs));
 	// Up to five rounds. Finishing one animation can start the next (a staggered entrance,
 	// a transitionend handler), so one pass is not a fixed point; five is well past what
-	// the corpus needs and still bounded, and the count is reported so a deck that never
-	// settles is visible rather than silently sampled mid-flight.
+	// the corpus needs and still bounded. Hitting the cap means something is STILL running
+	// when the screenshot is taken, so it is warned about rather than returned and dropped
+	// — an earlier version claimed "the count is reported" while all three call sites
+	// discarded it, which is the same silence it was written to prevent.
 	let rounds = 0;
+	let quiet = 0;
 	for (; rounds < 5; rounds++) {
 		const running = await page.evaluate(async () => {
 			try {
@@ -350,12 +353,30 @@ async function settle(page, floorMs) {
 				}
 			}
 			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-			return live.length;
+			// What matters is whether anything is STILL running after the pass, not how many
+			// there were before it. Returning `live.length` never reaches zero — a paused
+			// animation and a `fill: forwards` finished one both stay in `getAnimations()` —
+			// so the loop below always ran its full five rounds, at 812ms per slide instead
+			// of 120ms on any deck that holds an animation. Measured in Chromium; no deck in
+			// the corpus holds one today, which is why it was latent rather than slow.
+			return document.getAnimations().filter((a) => a.playState === 'running').length;
 		});
-		if (!running) break;
-		// A short beat, so a transition started BY the settle has begun and is visible to
-		// `getAnimations()` on the next round rather than after the screenshot.
+		// TWO consecutive quiet rounds, not one, and the difference is measured rather than
+		// defensive. Breaking on the first quiet round reintroduced the exact instability
+		// this function exists to remove: the player's control fade starts on a delay, so
+		// round 0 finds nothing running, exits, and the screenshot lands mid-fade again —
+		// three runs of anima-scene went 3 / 2 / 3 findings. One round of silence only says
+		// nothing is running NOW; the beat below is what gives a delayed transition time to
+		// declare itself, and a second quiet round is what says none did.
+		quiet = running ? 0 : quiet + 1;
+		if (quiet >= 2) break;
+		// A short beat, so a transition started BY the settle (or on its own delay) has
+		// begun and is visible to `getAnimations()` on the next round rather than after the
+		// screenshot.
 		await new Promise((r) => setTimeout(r, 120));
+	}
+	if (rounds >= 5) {
+		console.warn(`  !! still animating after ${rounds} settle rounds — this slide is sampled mid-flight`);
 	}
 	return rounds;
 }

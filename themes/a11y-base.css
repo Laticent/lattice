@@ -48,10 +48,33 @@
 
 @import 'onyx';
 
-/* Force the light scheme so the light/dark toggle is inert for a11y palettes.
- * `:root:root` (0,2,0) outranks the toggle's injected `:root{color-scheme:dark}`
- * (0,1,0) regardless of source order; color-scheme cascades, so every
- * light-dark() down-tree resolves to its light side. */
+/* Force the light scheme so the light/dark toggle is inert for a11y palettes —
+ * declared TWICE, because the two surfaces defeat it in opposite ways and neither
+ * form reaches both. Measured on a real render of each, not reasoned:
+ *
+ *   · `:root:root` (0,2,0) is what the UNPACKED CLI export needs. There the deck's
+ *     own `style:` directive is emitted LAST in the shell's single <style>, so an
+ *     author's `:root{color-scheme:dark}` wins on source order at equal specificity
+ *     — and no concat order can help, because the author's block is always last.
+ *     Specificity is the only lever. With plain `:root` alone, an a11y deck exported
+ *     with that directive renders `color-scheme: dark`, canvas rgb(0,0,0).
+ *   · plain `:root` is what the PACKED paths need — the Studio, the docs Playground
+ *     and Specimen, which inject their own unpacked `:root{color-scheme:MODE}` into
+ *     the preview frame (docs/src/lib/single-slide-render.ts, deck-preview.js).
+ *     `lib/engine/css.js` rewrites a plain `:root` onto the slide <section>, and a
+ *     DIRECT declaration on the section beats a value inherited from <html> whatever
+ *     its specificity. The doubled form gets `…:not([\20 root]):root` instead, whose
+ *     trailing `:root` can never match a section — so with `:root:root` alone the pin
+ *     is inert there and all four a11y palettes FOLLOW the dark toggle, painting
+ *     rgb(0,0,0) on the one surface their fixed CVD-safe canvas exists for.
+ *
+ * So this is NOT the same case as the status trio, which lost its duplicate when
+ * #1527 flipped the engine/palette concat (2026-08-24-status-trio-single-root.md).
+ * There the competitor was the engine bundle and an order flip settled it. Here the
+ * competitor is the AUTHOR, emitted last by construction, so the pair is permanent.
+ * `checkPackedRootReach` is scoped to custom properties and therefore does not judge
+ * this; that scoping is the reason, not an oversight. */
+:root { color-scheme: light; }
 :root:root { color-scheme: light; }
 
 :root {

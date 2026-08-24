@@ -1425,17 +1425,33 @@ const RETIRED_TOKEN_NAMES = new Set(TOKEN_CROSSWALK.map((p) => `--${p.old}`));
  * CUSTOM PROPERTY that appears under a repeated-`:root` selector without also appearing
  * at plain `:root` in the same file.
  *
- * ENVELOPE, stated rather than implied. It matches `(:root){2,}` only — an unconditional
- * root compound whose specificity exceeds plain `:root`. It deliberately does NOT judge
- * `:root.print` / `:root[data-x]` (conditional overrides, a different contract), nor
- * `:root :root` (a descendant, inert everywhere and not a shape anything here writes),
- * and it is scoped to `--*` properties so `a11y-base`'s `:root:root { color-scheme }`
- * pin stays out of scope — that one is a deliberate specificity war with an author's
- * INJECTED `:root{color-scheme:dark}`, not a cascade-order workaround, and it is the one
- * legitimate use of the shape left in the tree.
+ * ENVELOPE, stated rather than implied, INCLUDING where it is porous. It matches a
+ * selector that is `(:root){2,}` and nothing else, or a comma-separated list with such a
+ * part in it. It deliberately does NOT judge `:root.print` / `:root[data-x]` (conditional
+ * overrides, a different contract) or `:root :root` (a descendant, inert everywhere and a
+ * shape nothing here writes). Two known holes, neither reachable by anything in `themes/`
+ * today and both left rather than papered over: a `:root` nested inside an `@media` /
+ * `@supports` block counts as an unconditional plain declaration, and a `{` or `}` inside
+ * a declaration value (a `url()`, a quoted string) desyncs the brace scan for that block.
+ * If a theme ever needs either, this needs a real parser rather than a wider regex.
+ *
+ * SCOPED TO `--*` PROPERTIES, and the reason is not "custom properties are what we care
+ * about". It is that `color-scheme` has a DIFFERENT competitor. `a11y-base` declares its
+ * `color-scheme: light` pin at BOTH forms and that pair is permanent: on the unpacked CLI
+ * export the thing it must outrank is the deck's own `style:` directive, which the shell
+ * emits LAST by construction, so no concat order can help and specificity is the only
+ * lever; on the packed paths the plain half is what lands, as a DIRECT declaration on the
+ * section, beating the preview frame's injected `:root{color-scheme:MODE}` by directness
+ * rather than by specificity. Measured both ways — with `:root:root` alone all four a11y
+ * palettes followed the dark toggle in the Playground and painted rgb(0,0,0), which is the
+ * defect their fixed CVD-safe canvas exists to prevent. So this gate must not judge that
+ * property, and the exemption is a statement about the competitor, not about the shape.
  * engineering/decisions/2026-08-24-status-trio-single-root.md
  */
 const REPEATED_ROOT = /^(?::root){2,}$/;
+// A list can hide the shape behind a comma (`:root:root, section { … }`), so each part is
+// tested on its own rather than the whole selector string.
+const hasRepeatedRoot = (sel) => sel.split(',').some((part) => REPEATED_ROOT.test(part.trim()));
 
 function rootDeclSites(css) {
   const out = { plain: new Set(), overSpecific: new Map() };   // token -> selector
@@ -1452,7 +1468,7 @@ function rootDeclSites(css) {
     // brace scan otherwise swallows into the next rule's "selector".
     const sel = m[1].replace(/^[\s\S]*;/, '').trim();
     const plain = sel === ':root';
-    const over = REPEATED_ROOT.test(sel);
+    const over = hasRepeatedRoot(sel);
     if (!plain && !over) continue;
     for (const d of m[2].matchAll(/(--[a-z0-9-]+)\s*:/gi)) {
       if (plain) out.plain.add(d[1]);
@@ -1462,8 +1478,11 @@ function rootDeclSites(css) {
   return out;
 }
 
-function checkPackedRootReach(errors) {
-  const dir = path.join(ROOT, 'themes');
+// `dir` is a parameter ONLY so the two error branches can be driven from a fixture. The
+// live-tree call passes nothing. Without it the error paths were untestable, and the first
+// cut of their test asserted an empty array nothing wrote to — a test that read as coverage
+// and certified the gate instead of exercising it.
+function checkPackedRootReach(errors, dir = path.join(ROOT, 'themes')) {
   if (!fs.existsSync(dir)) return;
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.css')).sort()) {
     const { plain, overSpecific } = rootDeclSites(fs.readFileSync(path.join(dir, f), 'utf8'));
