@@ -283,10 +283,10 @@ const SURFACES = [
   // off `var(--accent)` and onto the ramp — while that tier was a brand hue this
   // gate could not score it as a ramp stop, and contrast-audit scores --accent
   // against the canvas anyway.
-  ...['900', '700', '500', '400'].map((stop) => ({
+  ...['900', '700', '600', '500'].map((stop) => ({
     id: `word-cloud/seq-${stop}`,
     ctx: `word-cloud spectrum: the --seq-${stop} word fill on the canvas`,
-    base: '--bg', groups: [], ink: `--seq-${stop}`, min: 3,
+    base: '--bg', groups: [], ink: `--seq-${stop}`, min: 4.5,
     src: WORDCLOUD,
     requires: [new RegExp(`return 'var\\(--seq-${stop}\\)'`)],
   })),

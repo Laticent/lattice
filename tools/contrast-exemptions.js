@@ -67,6 +67,8 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
       'gallery @ indaco': { div: 2, 'div::before': 1 },
       'gallery @ indaco-dark': { div: 2, 'div::before': 1 },
       'gallery-jargon @ indaco': { div: 2 },
+      // The spectrum deck writes no oversized decorative glyph.
+      'seq-ramp @ indaco': {},
     },
   },
   {
@@ -87,6 +89,8 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
       'gallery @ indaco': { h2: 1, p: 1 },
       'gallery @ indaco-dark': {},
       'gallery-jargon @ indaco': {},
+      // No raster backdrop on the spectrum deck either.
+      'seq-ramp @ indaco': {},
     },
   },
 ];

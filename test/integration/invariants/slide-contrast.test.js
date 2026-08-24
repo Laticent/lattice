@@ -86,6 +86,20 @@ const SURFACES = [
   { id: 'gallery @ indaco', deck: path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), palette: 'indaco' },
   { id: 'gallery @ indaco-dark', deck: path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), palette: 'indaco-dark' },
   { id: 'gallery-jargon @ indaco', deck: path.join(ROOT, 'examples/gallery-jargon.md'), palette: 'indaco' },
+  // FOURTH SURFACE, naming the failure mode it buys, per the ceiling note above: an
+  // ungated VARIANT. The three surfaces above all carry the DEFAULT `word-cloud`, so
+  // until this row existed the 4.5:1 floor had never scored a single `--seq-*` run on
+  // any palette — the sequential ramp was invisible to this gate. That is how a plain
+  // AA failure shipped past a green tier: `word-cloud spectrum`'s quiet tier renders
+  // below 18.66px for any normalized weight in [1.5, 1.588), owing 4.5:1 as ordinary
+  // text, and `--seq-400` measured 3.17:1 there. This deck carries
+  // `word-cloud spectrum dark`. The list's own framing was the hole — it enumerated
+  // ungated COMPONENTS and had no notion of an ungated variant.
+  //
+  // `minRows` because the 400 floor below is calibrated for the multi-hundred-slide
+  // galleries; this is a focused deck. The floor still has to exist — its job is
+  // catching a probe that silently stops reaching the deck.
+  { id: 'seq-ramp @ indaco', deck: path.join(ROOT, 'examples/seq-ramp-canvas-aware.md'), palette: 'indaco', minRows: 60 },
 ];
 
 // The decorative-exemption predicates are shared with `palette-sweep.test.js`; the
@@ -209,6 +223,7 @@ const EXEMPT_TIER_FLOOR = {
     'gallery @ indaco': 1,
     'gallery @ indaco-dark': 1,
     'gallery-jargon @ indaco': 0,
+    'seq-ramp @ indaco': 0,
   },
   size: {
     'gallery @ indaco': 333,
@@ -219,6 +234,8 @@ const EXEMPT_TIER_FLOOR = {
     // failing body copy. It sits at 3.24:1, above the graphical floor. Raised here with its
     // reason attached, which is exactly what this ceiling exists to force.
     'gallery-jargon @ indaco': 185,
+    // The spectrum deck's exempt tier, pinned like the rest so it cannot grow quietly.
+    'seq-ramp @ indaco': 27,
   },
 };
 
@@ -283,11 +300,12 @@ describe('slide contrast — the rendered galleries, against written-down exclus
    * empty row set, so a render that silently produced no slides — or a PROBE that threw
    * and returned [] — would pass this file as "0 failures". Measured today: 1542/1542/861.
    */
-  test('the sweep actually measured all three surfaces', () => {
+  test('the sweep actually measured every surface', () => {
     assert.equal(measured.length, SURFACES.length, 'a surface failed to render or probe');
     for (const m of measured) {
-      assert.ok(m.rows.length >= 400,
-        `${m.surface}: only ${m.rows.length} text runs measured — the probe is not reaching the deck`);
+      const floor = SURFACES.find((x) => x.id === m.surface)?.minRows ?? 400;
+      assert.ok(m.rows.length >= floor,
+        `${m.surface}: only ${m.rows.length} text runs measured (floor ${floor}) — the probe is not reaching the deck`);
       // …and that every run carries a threshold. One flat 4.5:1 applies to all of them
       // (see PROBE's `AA`), so a run without one means the shape changed under this file.
       const ungraded = m.rows.filter((r) => r.need !== 4.5);
