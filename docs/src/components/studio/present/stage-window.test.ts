@@ -15,9 +15,17 @@ describe('stage-window — buildStageDoc', () => {
 		expect(doc).toContain('background:#111');
 	});
 	it('omits the katex/mermaid tags when not supplied', () => {
+		// BOTH halves. This asserted only `not.toContain('stylesheet')` — the KaTeX link — so
+		// the mermaid half of its own name was unchecked, and a deck with no diagram could
+		// have gone on pulling a multi-hundred-KB script into the room's window unnoticed.
 		const doc = buildStageDoc({ html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' });
 		expect(doc).not.toContain('stylesheet');
+		expect(doc).not.toContain('mermaid');
 		expect(doc).toContain('/r.js');
+		// …and the positive control, so the cell cannot pass by emitting nothing at all.
+		const both = buildStageDoc({ html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', katexUrl: '/k.css', mermaidUrl: '/m.js' });
+		expect(both).toContain('/k.css');
+		expect(both).toContain('/m.js');
 	});
 	it('binds the inlined fit kernel to the names its call sites use (the stage-crop guard)', () => {
 		// The fit inlines fitScale/padInset via Function.toString(); the bundler renames the

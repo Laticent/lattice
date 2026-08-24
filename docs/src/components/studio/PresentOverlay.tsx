@@ -1587,9 +1587,23 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		<>
 			{/* The audience chrome's sheet, in THIS document. The Stage bakes the identical
 			    string into its own (buildStageDoc), which is what lets one PresentCaption and
-			    one PresentRail render correctly in either. */}
-			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: a module-constant stylesheet with no interpolation — see present/stage-chrome.js */}
-			<style dangerouslySetInnerHTML={{ __html: STAGE_CHROME_CSS }} />
+			    one PresentRail render correctly in either.
+
+			    A TEXT CHILD, not `dangerouslySetInnerHTML`. Both render the same stylesheet
+			    today — the content is a module constant — but they differ in what a FUTURE
+			    edit can do: `innerHTML` parses, so a `</style>` reaching it would end the
+			    element and turn the rest into markup, which is the exact channel HARD RULE
+			    #22's stylesheet arm exists for. A text child sets `textContent`, where that
+			    sequence is inert. Worth noting because no arm of #22 can see this sink: it
+			    assembles no whole document (`checkDocumentStyleSinks` keys on a doctype
+			    opener) and is no preview builder (`checkPreviewHtmlSinks` keys on the split
+			    runtime-`<script>` idiom), so the safety here is structural or it is nothing.
+
+			    And the wording above is deliberate: an earlier draft SPELLED the doctype
+			    opener out, which is the literal string `DOC_ASSEMBLER_MARKER` matches — so
+			    a comment explaining why the gate stays quiet was itself enough to make it
+			    fire. These gates are text matchers over the source; prose is source. */}
+			<style>{STAGE_CHROME_CSS}</style>
 			{/* THE PORTALS. Same-origin, so the room's caption crawl and progress rail are the
 			    console's own React subtree rendered into two empty hosts in the Stage document.
 			    They are torn down with the window: `stageHost` goes null on `{stage:'closed'}`,

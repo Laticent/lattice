@@ -242,13 +242,16 @@ there is now a Stage one, and the reserved-key list says `stage s`.
 | The Stage opens, paints the deck, and carries no presenter instrument | real Chromium popup, production build | `docs/e2e/stage-window.spec.ts` |
 | The console drives the room; the room cannot drive the console | ditto — every deck key pressed INSIDE the Stage | ditto |
 | The rail is on exactly one surface, and moves back on close | ditto | ditto |
-| A hand-closed Stage is reported, not left driving a dead window | ditto — `page.close()` → the `{stage:'closed'}` unload beat | ditto |
+| A Stage is reported gone on ALL FOUR paths — hand-close, same-origin navigation, cross-origin navigation, killed renderer | real popup + unit interleavings | ditto + `present/stage-window.test.ts` |
+| A navigated Stage does not take the Studio down with it | real popup, cross-origin, then a re-render | `docs/e2e/stage-window.spec.ts` + the §9 probe |
+| A link click on the Stage navigates nowhere | real popup | `docs/e2e/stage-window.spec.ts` |
+| Nothing Stage-related is in the EAGER bundle; the eager total did not grow | production build, both branches | §9 table |
 | The console carries the note and a rendered next slide | real Studio at ≥ lg | `docs/e2e/scenarios/present-run.spec.ts` |
 | `standalone` adds nothing to the iframe hosts | unit | `present/stage-window.test.ts` |
 | The rail spans the display, with segments and painted ink | real popup, measured | `docs/e2e/stage-window.spec.ts` |
 | The caption crawl plays on the Stage and clears 4.5:1 on the letterbox | ditto | ditto + `present/stage-chrome.test.ts` |
 | The Guide cursor is drawn in the Stage document and leaves its spawn point | ditto | `docs/e2e/stage-window.spec.ts` |
-| The console at 1440 / 820 / 390 | real built site, screenshots | Playwright captures, reviewed in-session |
+| The console at 1440 / 820 / 390, notes readable at each | real built site, measured + screenshots | `scratchpad` Playwright captures, reviewed in-session; the pill/panel geometry is measured, not eyeballed |
 
 ### What the visual pass found that the gates could not
 
@@ -304,3 +307,90 @@ re-verified only when someone needs it is not a promise.
 - **The export player's "Present mode"** (`#lp-full`) remains the fifth sense of the
   word and remains out of scope: changing it moves export bytes, which needs sign-off
   with dark and light renders.
+
+---
+
+## 9. What the adversarial trio found after §8 was written
+
+§8 was written believing the Stage was verified. It was not, and the gap was not a
+missing assertion — it was a whole failure CLASS that every tier was blind to. Recorded
+here because §8's own verification table is the thing that was wrong, and a note that
+only records what it got right is not worth reading.
+
+### The Stage noticed one of four ways of going away
+
+`createStageController` identified its window by the message event's `source`. The
+goodbye a NAVIGATION fires arrives with a different one — measured in Chromium — so the
+guard dropped the one message it exists to receive. `window.close()` is the only teardown
+path where source identity survives, and it is exactly the path the e2e cell drove
+(`page.close()`). One of four, certified as the class.
+
+Measured on the real popup, before the fix:
+
+```
+SAME-ORIGIN navigation   before → pill true,  console rail 0
+                         after  → pill true,  console rail 0     (never noticed)
+CROSS-ORIGIN navigation  after  → pill true,  console rail 0
+                         + one re-render → dialog 0, crash card 2
+```
+
+Three consequences, in rising order of how much they cost:
+
+1. **The audience chrome went to NEITHER surface.** `stageHost` stayed truthy, so the
+   portals rendered into a detached document while the console's dock kept refusing to
+   show its own copies — the §3 invariant "never both at once" failing into *neither*.
+2. **The presenter's live slide index streamed to a foreign origin.** `show()` posted with
+   `'*'`, and `ready` was still true, so it kept posting at whatever page now owned the
+   window. That page also holds `window.opener` on the origin HARD RULE #24 puts the
+   user's API key on.
+3. **The Studio crashed.** `guideRoot` dereferences that window in the RENDER BODY; once
+   cross-origin the read threw a `SecurityError`, and with no boundary before
+   `StudioIsland`'s ErrorBoundary the next keystroke swapped the entire Studio for its
+   crash card, mid-talk.
+
+The fix is a MARKER every document the controller writes carries, not `e.source` and not a
+URL — `window.open('')` reports `about:blank` at the instant it opens and the opener's href
+once written into, so an href captured at open never matches again (one wrong attempt, and
+a deadlock where requiring the marker in order to write it meant nothing was ever painted).
+Backed by a slow liveness poll for the killed-renderer case an unload beat cannot report at
+all, and by a token the document echoes so a navigation's goodbye lands immediately.
+Link clicks are inert on the Stage, which is the vector that made any of it cross-origin.
+
+### And the rest
+
+| Finding | Lens | Status |
+|---|---|---|
+| The Guide searched the WHOLE DECK on the Stage — 49 blocks across 7 sections vs the console's 4, because the filmstrip keeps every hidden slide measurable | checker | fixed: it searches the shown slide, and reads `slideW` off the fit box rather than the letterboxed window |
+| `paintStageTokens` was INERT — an inline property on the popup's `<html>` is shadowed by the baked rule on `#latt-chrome` itself | checker | deleted; the real gap (a live site-palette change never reaching the room) closed by subscribing to `site-chrome.ts` |
+| `resolveColor` read `color(srgb 0.68 …)`'s 0–1 channels as 0–255, walking a brand accent to gray, and `oklch()`'s hue angle as blue | checker | fixed; the cell meant to cover it passed a form needing no resolution at all |
+| `css()` coerced nothing — the one string interpolated into the Stage's `<style>` was numeric only by caller discipline | red team | clamped at the source (#22) |
+| Fullscreen was requested during opening, which `document.open()` then destroyed, and unconditionally, so a single-screen laptop could cover the console | checker + inversion | after the deck lands, and only onto a screen we placed on |
+| `window.open` takes focus, and every deck key is bound on the console — the first clicker press did nothing | inversion | `window.focus()` on the opener. NOT verifiable here: Playwright's CDP input bypasses OS focus and headless has no window manager |
+| A rejected render left "Preparing the stage…" up forever; a tab close stranded the deck; a throwing write latched the document out of ever being replaced | inversion | each fixed, each with a cell |
+
+### The bundle, measured on both branches
+
+The Stage is reached only through `PresentOverlay`, which is `React.lazy` (#1751). That
+property is worth a number rather than an assumption, so both branches were built and the
+studio route measured through the real pipeline (`inject-modulepreload` + `hoist-stylesheets`
+before the gate — a `build:e2e` output measures 9 chunks instead of 57 and means nothing):
+
+| | `origin/main` | this branch | delta |
+|---|---|---|---|
+| eager chunks | 57 | 57 | 0 |
+| eager JS, gzip | 635,722 B | 635,687 B | **−35 B** |
+| lazy `PresentOverlay` chunk, gzip | 25,502 B | 26,408 B | +906 B |
+
+No eager chunk contains any Stage marker (`latt-cc`, `latt-holding`, `Preparing the stage`)
+— all of it is in the lazy chunk a presenter pays for only on pressing Present. The eager
+total is a hair SMALLER than main's: the corrected Inspector copy grew `StudioIsland`, and
+the narration ladder losing a rung plus the dead painter being deleted more than paid for it.
+
+### What is still not verified
+
+- **Auto-fullscreening the Stage.** §7's caveat stands unchanged; it needs a real
+  two-monitor desktop. The `placed` / `full` split reports the outcome rather than assuming it.
+- **The focus fix.** Reasoned from platform behavior, not measured — see the table above.
+- **A stranded page still holds `window.opener`.** That is inherent to `window.open`, and
+  cannot be revoked from our side once the window has been navigated away. What is closed is
+  the VECTOR: a deck's links no longer navigate the Stage.

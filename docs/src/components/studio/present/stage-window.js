@@ -54,8 +54,13 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  *   • `f` for fullscreen, because auto-fullscreening a popup from the opener's
  *     gesture is not something a browser is obliged to allow (§7 of the decision
  *     note); when it is declined, this key is the whole fallback.
- * All three are gated on `window.opener`, which is null in an iframe — so the
- * srcdoc hosts are byte-identical to what they were before the split.
+ * All three are gated on `window.opener`, which is null in an iframe — so they are INERT
+ * in the srcdoc hosts. Not "byte-identical", which is what this said and was not true:
+ * `#latt-view` is a new wrapper and `#latt-stage` gained `flex-direction: column`, both
+ * unconditionally. Behaviorally equivalent (the chrome row is absent, so the view box IS
+ * the stage box), but the cell named for this claim only asserts the ABSENCE of three
+ * strings and could never have seen the difference — so the comment is the only place the
+ * distinction can live, and it may as well be accurate.
  */
 export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '' }) {
 	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
