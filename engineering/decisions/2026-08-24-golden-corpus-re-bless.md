@@ -61,6 +61,12 @@ So one of the 196 was re-run here, on a different host from the GitHub runner:
 The worst-page figure reproduces to two decimals on a different machine. The drift is in the
 artifact, not in the rasterizer.
 
+**The full re-bless then settled it far more strongly than one deck could.** Running
+`--scope decks --bless` here promoted **184 of 200** deck goldens — and comparing that set
+against the 184 deck names in the runner's report gives **zero symmetric difference**. Not a
+matching count: the same 184 artifacts, chosen independently on two different hosts. A
+cross-host rasterization effect would not agree on *which* artifacts it touches.
+
 **The 7-vs-5 page count is the band showing up at the margin, and it is worth stating rather
 than smoothing over:** two of the seven pages the runner scored over `FAIL_FRACTION` fell
 under it here. Those two are the cross-host component. Five are not, and one deck of 196 is
@@ -130,10 +136,73 @@ the better composition. **That is the whole check a re-bless owes** — blessing
 whatever renders today, so the question is never "did pixels move" (196 artifacts say yes)
 but "does anything on the after side look broken".
 
+### 5a. One of them was broken — #1821
+
+`examples/state-marks` (cuoio, dark) drifted 18.23%, and the sample found a real defect rather
+than a re-tune. The `- [ ]` "not yet started" ring goes **neutral gray → accent gold**, which
+on that canvas reads as the `--warn` signal one row above it. Read off the render at 200 dpi,
+not off a token table.
+
+Two contracts landed on one token. `checklist.styles.css:93–99` sets the todo ring from
+`--text-label` under a docblock that calls the state "a NEUTRAL state, not a failure"; #1801
+(`themes/cuoio.css:114`) re-pointed `--text-label` at `--brand-accent`, and
+`2026-08-23-measurement-primitives-reach-the-reader.md:357` states the contract outright —
+"`--text-label` is accent-hued EMPHASIS, not a de-emphasis tier." Both edits are right on their
+own. Ten palettes declare `--text-label` from the accent, so ten render it this way.
+
+**It is pre-existing and off this change's path, so it is logged, not fixed here** (HARD RULE
+#18) — the fix is a component-side token choice with its own design question (`todo` and `skip`
+would collide on `--muted-mark`), and it moves goldens again.
+
+**The golden is still blessed to the accent-hued render, deliberately.** A golden's job is to
+match what the engine renders; holding one deck back leaves the corpus red and the gate
+untrustworthy for the other 195. The cost is that the baseline stops flagging this — precisely
+the hazard #688 names, "a drifted golden can also hide a real regression" — which is why it is
+an issue with an acceptance check rather than a line in a diff.
+
+## 5b. The eyeball #688 asks for, in a form that scales to 184
+
+#688's acceptance criteria are explicit that a blind bless fails the card — that is how #685's
+quadrant shrink got baked into a baseline. An eyeball per artifact does not scale to 184 decks.
+What the eyeball is *looking for* does: content that appears on one side and not the other. So
+every re-blessed golden went through the same test
+`2026-08-17-portrait-roadmap-pagination-drift.md` §2 used — `pdftotext -layout` on both sides,
+compared as a MULTISET (duplicates kept, so a card appearing twice on one side and once on the
+other cannot hide), page numbers stripped.
+
+**Two of 184 differ in words, and they point in opposite directions:**
+
+| | delta | reading |
+|---|---|---|
+| `examples/portrait-roadmap` | −72 / +0 | 3 × repeated per-slide chrome (`(cont.)`, header, footer, legend). Zero body content — the finding its own note reached. |
+| `examples/overflow-fix-me` | −0 / +7 | The fresh render **recovers** an authored line the golden had dropped: `overflow-fix-me.md:71`, `- A tag names the milestone's kind.`, absent from the committed PDF and present now. |
+
+The other 182 are word-identical. A first pass compared LINE multisets instead and flagged 20
+— every one of them `pdftotext` re-wrapping the same words (an opening quote glyph moving to
+its own line, two columns joining). Lines are a layout artifact; words are the content. The
+line-level number is recorded here because it is the one a careless run would have reported as
+twenty content changes.
+
+### The one artifact NOT blessed
+
+`examples/portrait-roadmap` is the corpus's only **page-count flip** — 8-page golden, 5-page
+render — and `2026-08-17-portrait-roadmap-pagination-drift.md` is a SHIPPED note that already
+weighed exactly this and decided: *"Nothing is re-blessed: the golden is not wrong about
+content, only about a machine, and re-blessing bakes this host's metrics into a file the whole
+team renders against."* A mechanical sweep does not know that, and promoted it. It is restored
+to `HEAD`.
+
+**The rule this change follows, then:** pixel-only drift is blessed; a page-count flip is
+restored and reported. A flip is the class that shipped note treats as host-dependent, and the
+same class that could hide a content-dropping auto-split bug — it wants a human, not a sweep.
+The cost is that the deck scope does not come back 100% green: one deck stays drifted, on
+purpose, and says why.
+
 ## 6. What this change does
 
 1. **Re-blesses the deck scope** — `node tools/regression-gate.mjs --scope decks --bless`,
    which promotes only what actually drifted rather than blanket re-rendering (`:259–263`).
+   184 of 200 promoted, one (`portrait-roadmap`) restored per §5b.
 2. **Re-checks the gallery scope** and blesses what the #1804 pass left.
 3. **Closes the seam it found**, at zero cost: a galleries-default `--bless` now prints that
    it did NOT touch the deck scope and names the flag that would. It does not go and measure
