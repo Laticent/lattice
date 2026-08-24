@@ -213,6 +213,33 @@ purpose, and says why.
    the deck drift — that is a multi-hour render and would defeat the reason the default is
    narrow — it just stops the omission being silent.
 
+## 6a. The seam is wider than the bless default — `golden-diff` has it too
+
+Found on this change's own PR, which is the honest way to find it: `golden-diff` concluded
+green in 59 seconds on a PR touching 183 golden PDFs and posted no before/after comment. It was
+right to. `tools/golden-diff.mjs` excludes deck goldens **twice over** — the pathspec at :85 is
+`git diff --name-only <base> -- lib`, and `GOLDEN_RE` at :69 is `/\.gallery\.(light|dark)\.pdf$/`.
+Neither matches `examples/**.pdf`, `exemplars/**.pdf`, `design/*.gallery.pdf` or
+`themes/palette-audit.pdf`.
+
+So the corpus has three surfaces and they do not agree on what the corpus IS:
+
+| surface | scope |
+|---|---|
+| `--check`, and the nightly that runs it | all 349 |
+| `--bless` with no `--scope` | galleries only |
+| `golden-diff` — the REVIEWER's before/after | galleries only |
+
+**The deck half is watched by the gate and invisible to both the refresh path and the review
+path.** That is a better account of why it rotted than the bless default alone, and it has a
+sharp consequence for this very change: a reviewer of a 183-golden re-bless gets no visual
+before/after at all, which is exactly the surface #688 wants a human looking at.
+
+**Not fixed here, deliberately.** Widening `golden-diff` means rasterizing up to 183 decks on
+a PR that touches them, in a job that currently finishes in a minute — every future PR pays
+that, and the right shape (a cap, a sampling rule, a deck-scope opt-in) is a design question
+with a real CI budget attached, not a regex edit. Recorded, not smuggled in.
+
 ## 7. What this does NOT fix
 
 - **The nightly is still report-only, and should stay that way for now.** #1803's argument is
