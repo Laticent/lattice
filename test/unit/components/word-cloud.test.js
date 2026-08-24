@@ -226,8 +226,11 @@ describe('word-cloud', () => {
     // pre-#1697 map, whose top tier was a brand hue of arbitrary lightness.
     assert.equal(colorForWord(1, 5, opts),   'var(--seq-900)');
     assert.equal(colorForWord(1, 4, opts),   'var(--seq-700)');
-    assert.equal(colorForWord(1, 3, opts),   'var(--seq-500)');
-    assert.equal(colorForWord(1, 2, opts),   'var(--seq-400)');
+    // The ramp FLOOR is --seq-500, not --seq-400: the >=1.5 tier can render below
+    // the 18.66px large-text threshold, so it owes 4.5:1 as ordinary text, and
+    // --seq-400 (a 22% mix toward the canvas) measured 3.17:1 there.
+    assert.equal(colorForWord(1, 3, opts),   'var(--seq-600)');
+    assert.equal(colorForWord(1, 2, opts),   'var(--seq-500)');
     assert.equal(colorForWord(1, 1, opts),   'var(--text-muted)');
   });
 
