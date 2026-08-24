@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ☐ [2026-08-24-stage-console-split.md](2026-08-24-stage-console-split.md) — Present has TWO presenter cockpits and NO audience surface.
 - ◐ [2026-08-18-golden-corpus-purpose-and-medium.md](2026-08-18-golden-corpus-purpose-and-medium.md) — Re-blessing 359 committed PDFs hurts, and the cause is NOT the artifact format — it is that the one tool capable of catching a stale golden…
 - ◐ [2026-08-18-inspection-oracle-catalog.md](2026-08-18-inspection-oracle-catalog.md) — Asked whether the build leans too hard on visual inspection and whether CSS-based checking could replace it.
 - ⏸ [2026-08-17-codeql-merge-gate.md](2026-08-17-codeql-merge-gate.md) — CodeQL is NOT a required status check on this repo — the "Main Merge Queue" ruleset requires exactly one context, `ci`, so a red CodeQL…
