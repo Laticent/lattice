@@ -279,8 +279,9 @@ function _pageCount(pdf) {
 // only the fresh render has was ADDED.
 //
 // This read BACKWARDS in both copies of it until #1686's follow-on. Investigating
-// examples/portrait-roadmap — a deck whose fresh render is 5 pages against an
-// 8-page golden — the report labeled the three DROPPED pages "new page added",
+// examples/portrait-roadmap — a deck whose fresh render was then 5 pages against
+// an 8-page golden, re-blessed to 5 in #1827 so it no longer shows the delta —
+// the report labeled the three DROPPED pages "new page added",
 // which is precisely the wrong steer for the question the gate exists to answer:
 // did this render lose content? One definition now, imported by pixel-check.js,
 // so the two cannot drift apart again (HARD RULE #1).
