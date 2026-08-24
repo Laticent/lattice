@@ -138,49 +138,90 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
 }
 
 /**
- * Ink keys that are BELOW AA today, on every palette, and were before this gate
- * existed. Sanctioned so the gate can ship green over the pairs it was written
- * for, without pretending these are fine.
+ * Ink keys sanctioned as BELOW AA. **This list is now EMPTY, and that is the point of
+ * #1348:** every ink key the map feeds clears AA against the surface it is drawn on, on
+ * all 32 palettes in both schemes. It is kept as a named, exceed-only escape hatch rather
+ * than deleted, because deleting it would make the next below-AA pair look like a choice
+ * between "fix it" and "delete the assertion".
  *
- * They share a shape: `--cat-on-fill` is curated to sit on the PALE `--cat-N-fill`
- * band, and each of these keys puts it on something else.
+ * All four entries it once held shared ONE shape — `--cat-on-fill` is curated for the PALE
+ * `--cat-N-fill` band, and each key put it somewhere else — and each needed a different
+ * answer, which is why they came off the list one at a time:
  *
- *   noteTextColor      on `--diagram-note`, 3.83:1 in five palettes. Marginal, and
- *                      the same "ink curated for one tier, used on another" story.
+ *   gitBranchLabel0-7  on `git0-7` = `--cat-N-MARK`, 1.2-3.0:1 EVERYWHERE. The sanction
+ *                      asked for "a third ink tier or move the chips to the pale band".
+ *                      The third tier already existed — `--cat-on-mark`, with nothing
+ *                      pointing at it. `themes/a11y-base.css` additionally pins that ink,
+ *                      because the a11y family holds its categorical ramp mode-invariant
+ *                      while inheriting a flipping `--cat-on-mark` from onyx.
  *
- * RETIRED (#1348): `gitBranchLabel0-7` on `git0-7` = `--cat-N-MARK`, 1.2-3.0:1 in
- * every palette, both schemes. The sanction called for "a third ink tier (an
- * 'on-mark' token) or moving the branch chips to the pale band". The third tier
- * turned out to already exist — `--cat-on-mark` — with nothing pointing at it, so the
- * fix was to point these eight keys at it. (`checkCatContrast` holds that token
- * >=4.5:1 against every `--cat-N-mark`, but only on the 27 HUE palettes; it skips
- * a11y-*, which is why the a11y half needed its own fix and why THIS gate, which
- * runs all 32, is what actually holds the pair.) That fixed 27 of the 32; the
- * a11y family still failed at 1.55:1 because it PINS its categorical ramp
- * mode-invariant while inheriting a flipping `--cat-on-mark` from onyx, so
- * `themes/a11y-base.css` now pins that ink to the value it already resolved to.
+ *   noteTextColor      on `--diagram-note`, 3.83:1 on the five a11y palettes in dark.
+ *                      `--diagram-note` is not in the categorical band at all, so the ink
+ *                      already curated against the non-categorical diagram surfaces —
+ *                      `--text-heading` — is the tier that belongs there. Clears all 64,
+ *                      worst 4.63:1.
  *
- * The list is exceed-only: an entry that starts PASSING everywhere is a stale
- * sanction and fails below, so it cannot rot. Adding a row means arguing for it.
+ *   sequenceNumberColor  on `signalColor` = `--diagram-LINE`. The worst of the four and
+ *                      the least visible: 57 of 64 combos below AA, and 45 of those at
+ *                      exactly 1.00:1, because most palettes derive `--cat-on-fill` and
+ *                      `--diagram-line` from the same end of the ramp — the autonumber
+ *                      badge rendered as a blank disc. The fill is a FOREGROUND tier, so
+ *                      the ink that belongs on it is the CANVAS (`--bg`), the same
+ *                      inversion `errorTextColor` already uses on `--fail`. Of seven
+ *                      candidate inks measured, it was the only one close: worst 3.59:1
+ *                      against `--cat-on-mark`'s 7 failures and `--text-heading`'s 62.
+ *                      The residual two combos were cuoio's dark `--diagram-line`, lifted
+ *                      #786A5B -> #8C7C6B, which also raises every cuoio-dark edge and
+ *                      arrow against the canvas from 3.59:1 to 4.66:1.
+ *
+ *   errorTextColor     (`--bg`) on `errorBkgColor` (`--fail`), 2.34:1 — by the end, ONE
+ *                      combo of 64, and not a diagram defect at all. carbone pins `--bg`
+ *                      flat dark while still declaring its status trio as `light-dark()`
+ *                      pairs whose LIGHT arms were tuned for an off-white canvas the
+ *                      palette does not have; measured against the canvas it does have,
+ *                      `--pass` read 3.90:1 and `--fail` 2.34:1. Reachable through
+ *                      `section.light` / `section.print`, which govern their own subtree
+ *                      past carbone's `:where(:root)` pin. Fixed palette-side by pinning
+ *                      the trio flat, as #1348 said it had to be ("a palette-side --fail
+ *                      curation, not a map edit").
+ *
+ * The list is exceed-only: an entry that starts PASSING everywhere is a stale sanction and
+ * fails below, so it cannot rot. Adding a row means arguing for it.
  */
 const KNOWN_BELOW_AA = new Set([
-  'noteTextColor',
-  // errorTextColor (--bg) on errorBkgColor (--fail): 1.55-2.28:1 on the four
-  // a11y palettes in dark and on carbone in light. Identical on origin/main —
-  // #1181 decoupled this pair from --cat-on-mark/--diagram-critical precisely to
-  // fix a worse version of it, on the stated grounds that the ['bg','fail'] pair
-  // "the slide-surface audit already holds to AA in both modes". That audit
-  // evidently does not cover these five combos. Untouched here; the fix is a
-  // palette-side --fail curation, not a map edit.
+  // The LAST one, down from four, and by the end it is not a diagram defect at all.
+  // `errorTextColor` (`--bg`) on `errorBkgColor` (`--fail`) — the Mermaid parse-error box.
+  // ONE combo of 64: **carbone light, 2.34:1**. Everything #1348 said about this pair —
+  // "the fix is a palette-side --fail curation, not a map edit" — holds, and the map side
+  // is already optimal: of seven candidate inks measured against `--fail` across all 64
+  // combos, `--bg` fails 1, `--bg-alt` fails 1, `--cat-on-mark` fails 6 and every other
+  // ink tier fails 58 or more. There is no map edit that improves this.
+  //
+  // WHAT IT ACTUALLY IS. carbone pins `--bg` FLAT dark (#1A1A1C, no `light-dark()`
+  // wrapping) while still declaring its status trio as `light-dark()` pairs whose LIGHT
+  // arms are tuned, in the palette's own words, for "the off-white canvas" — a canvas this
+  // palette does not have. Measured against the canvas it does have: `--pass` 3.90:1,
+  // `--fail` 2.34:1, both short of AA as TEXT, before any diagram is involved. It is
+  // reachable, not theoretical: `section.light` / `section.print` set color-scheme on the
+  // ELEMENT and govern their own subtree past carbone's `:where(:root)` pin, which is the
+  // same seam `paired-token-parity.test.js` spells out as the cost of carbone's exemption
+  // there — so a `_class: light` slide flips the status ink to a light-canvas tuning while
+  // the canvas stays dark. `tools/contrast-audit.js` does not see it because it audits
+  // carbone in `[dark]` only.
+  //
+  // WHY IT IS NOT FIXED HERE, having been tried. Pinning the trio flat to its dark arms
+  // was implemented and measured end-to-end: it fixes this pair, lifts `--pass` to 14.13:1
+  // and `--fail` to 9.63:1, and RETIRES TEN `KNOWN_SUB_THRESHOLD` sanctions in
+  // `tools/composed-contrast.js` (every `carbone|light|*` entry). It also drops
+  // `warn^fail` under deuteranopia from 0.2386 to 0.1465, through the 0.15 collapse floor
+  // in `cvd-trio-floor.test.js`. That number is not incidental: carbone's DARK arms — the
+  // trio it actually renders — are frozen at that same 0.1465 and grandfathered, so the
+  // pin does not introduce the weakness, it propagates an existing one onto a second
+  // reading. Choosing between WCAG AA on the canvas and CVD separation, on values
+  // `2026-08-24-status-trio-monochromacy-respacing.md` set the same day, is a palette
+  // contract decision rather than a gate fix. Raised with the measured trade rather than
+  // taken; see `engineering/decisions/2026-08-24-diagram-ink-tier-errors.md` §4.
   'errorTextColor',
-  // sequenceNumberColor (--cat-on-fill) on the autonumber badge, which mermaid fills
-  // from --diagram-line. It RHYMES with gitBranchLabel — pale-band ink on a saturated
-  // surface — but it is not the same fix: the badge is not a --cat-N-mark, so the
-  // --cat-on-mark contract (gated against the mark tier, and only that) says nothing
-  // about this pair. Repointing it here would swap one ungated pairing for another.
-  // Needs its own answer, either an ink curated for --diagram-line or a badge fill
-  // moved onto a tier that already has one.
-  'sequenceNumberColor',
 ]);
 
 /** Every palette, with its `@import` chain flattened (base first, then overrides). */

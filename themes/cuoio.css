@@ -298,7 +298,14 @@
    * Universal stroke for any band fill; deep taupe reads on every
    * cream tint. Line is for edges/arrows — warm brown ink. */
   --diagram-stroke: #8B7E6D;  /* deep taupe */
-  --diagram-line:   light-dark(#6B5D4F, #786A5B);  /* warm brown ink */
+  /* The DARK arm was lifted #786A5B -> #8C7C6B (#1348). Mermaid fills the sequence
+   * autonumber badge from this token and draws the number on it in canvas ink, so
+   * the line tier has to carry TEXT, not just an edge: at #786A5B that pair read
+   * 3.59:1 against cuoio's #15110D canvas — the only palette of 32 still short of
+   * AA once the badge ink moved to `--bg`. The lift also raises every edge and
+   * arrow against the dark canvas, 3.59:1 -> 4.66:1, so nothing trades away. The
+   * LIGHT arm is untouched; it was never short. */
+  --diagram-line:   light-dark(#6B5D4F, #8C7C6B);  /* warm brown ink */
 
   /* Cross-deck contrast accent — radar's second curve, where a single
    * warm hue against the cream band reads better than a second pale
