@@ -127,6 +127,16 @@ const SIZES = [
 
 // ── The overflow oracle ────────────────────────────────────────────────────
 const ORACLE = path.join(ROOT, 'test', 'oracle', 'family-overflow.json');
+const SPLIT_ORACLE = path.join(ROOT, 'test', 'oracle', 'split-oracle.json');
+
+/**
+ * `{ <component>: { enrolled } }` — which components paginate instead of clipping once
+ * `autosplit: on`. Read by BOTH the verdict below and `--ladder`, because they are asking
+ * the same question and a second copy of the path is a second thing to drift.
+ */
+function splitEnrollment() {
+  return JSON.parse(fs.readFileSync(SPLIT_ORACLE, 'utf8')).components;
+}
 const BLESS = process.argv.includes('--bless');
 
 /** Every component whose stylesheet carries a `[data-family]` reflow rule. */
@@ -401,6 +411,7 @@ function overflowOracle() {
   }
 
   let bad = 0;
+  const split = splitEnrollment();
   console.log('\noverflow oracle — gallery slide per family-reflowing component');
   for (const s of SIZES) {
     const now = fresh[s.size];
@@ -409,7 +420,23 @@ function overflowOracle() {
     const gone = was.filter((c) => !now.includes(c));
     if (added.length) {
       bad++;
-      console.log(`  ${s.size.padEnd(9)} NEW CLIPS: ${added.join(', ')} — this family's reflow now overflows the frame where it did not. Fix the layout; do not bless it away.`);
+      // NOT every new clip is a defect, and saying so flatly cost fifteen nights of
+      // #1529 being read as a layout regression it was not. This sweep sets no
+      // `autosplit`, so a clip here means "overflows when the author has not opted in"
+      // — and at a PRESENTATION @size an ENROLLED component paginates instead, which is
+      // the ORACLE's own note ("most of that set paginates in a real export"). What is
+      // always a defect is a clip that RINGS: no reflow fits it and no split is
+      // available, so the export shows it clipped. At a LANDSCAPE @size the split move
+      // does not run at all, so everything there rings by construction — which is why
+      // that row, and only that row, is the one the note calls a real terminal.
+      const rings = s.family === 'wide' ? added : added.filter((c) => !split[c]?.enrolled);
+      const paginates = added.filter((c) => !rings.includes(c));
+      if (rings.length) {
+        console.log(`  ${s.size.padEnd(9)} NEW CLIPS (ring): ${rings.join(', ')} — no reflow fits these and no split is available, so the export rings them. Fix the layout; do not bless it away.`);
+      }
+      if (paginates.length) {
+        console.log(`  ${s.size.padEnd(9)} NEW CLIPS (paginate): ${paginates.join(', ')} — these overflow only UN-SPLIT and paginate in a real export, so this is baseline drift rather than a regression a reader sees. Re-bless and justify it in the PR, showing that --ladder's rings column is unchanged.`);
+      }
     }
     if (gone.length) {
       bad++;
@@ -449,8 +476,7 @@ function overflowOracle() {
  */
 function ladderReport() {
   const fam = JSON.parse(fs.readFileSync(ORACLE, 'utf8'));
-  const splitPath = path.join(ROOT, 'test', 'oracle', 'split-oracle.json');
-  const split = JSON.parse(fs.readFileSync(splitPath, 'utf8')).components;
+  const split = splitEnrollment();
   console.log('The Fit Ladder, per @size — REFLOW\'s clipped set against SPLIT\'s enrolled set.');
   console.log('A component in both columns clips un-split and paginates once `autosplit: on`.\n');
   console.log('size      clipped  enrolled  rings  components that still ring (no opt-in)');
