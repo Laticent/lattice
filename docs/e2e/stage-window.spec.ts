@@ -215,3 +215,48 @@ test('the Guide cursor is drawn in the Stage document, not on the console', asyn
 		)
 		.toBeGreaterThan(40);
 });
+
+test('a Stage that is NAVIGATED away is noticed, and does not take the Studio with it', async ({ page, context }) => {
+	// THE CELL THAT DID NOT EXIST, and its absence is why this shipped. "A hand-closed Stage
+	// is reported" passed while covering ONE of four teardown paths: `window.close()` is the
+	// only one where the unload beat keeps its `e.source`, so the guard silently dropped the
+	// beat from a link click, an F5 or a Back. The console then held a dead handle — pill
+	// lit, captions and rail on NEITHER surface — and kept posting the live slide index at a
+	// page it no longer owned. Worse, reading that window during render threw a SecurityError
+	// once it was cross-origin, and the next keystroke swapped the whole Studio for its crash
+	// card. Measured, both of those, before the fix.
+	const { stage, dialog, launcher } = await openStage(page, context);
+	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
+	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(0);
+
+	// Same-origin is the reachable case here; the cross-origin escalation needs a second
+	// origin, which `s1`-style probes cover outside the suite.
+	await stage.goto('/');
+
+	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
+	// The audience chrome comes HOME rather than vanishing from both surfaces.
+	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
+	// And the Studio is still standing — this is the crash the render-time deref caused.
+	await expect(dialog).toBeVisible();
+	await page.keyboard.press('ArrowRight'); // force a re-render, which is what used to kill it
+	await expect(dialog).toBeVisible();
+});
+
+test('the Stage does not follow links — the room cannot navigate the deck away', async ({ page, context }) => {
+	// A deck's own `<a href>` survives sanitizing and is clickable on the projected copy.
+	// A click there stranded the console and handed a foreign origin `window.opener` on the
+	// origin that holds the user's API key. On the audience surface a link click is always
+	// accidental, so it is simply not a gesture.
+	const { stage, launcher } = await openStage(page, context);
+	const before = stage.url();
+	await stage.evaluate(() => {
+		const a = document.createElement('a');
+		a.href = '/';
+		a.textContent = 'link';
+		document.body.appendChild(a);
+		a.click();
+	});
+	await page.waitForTimeout(800);
+	expect(stage.url(), 'a link click navigated the Stage').toBe(before);
+	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
+});

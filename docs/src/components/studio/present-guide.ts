@@ -1181,8 +1181,29 @@ export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: stri
  * the elements it points at are laid out in ONE viewport and every rect is already in the space
  * the cursor moves in. No `frameGeom`, no `/ S`, nothing to map.
  */
+/**
+ * THE SHOWN SLIDE, not the document.
+ *
+ * The Stage is a FILMSTRIP: every section of the deck is in the DOM at once, and the
+ * non-current ones are hidden with `visibility` (deliberately — `stage-window.js` needs
+ * their `offsetTop` to survive). `visibility: hidden` keeps the boxes, so every block on
+ * every other slide still measures non-zero and is still a candidate. Handing the whole
+ * `Document` to the matcher therefore searched the ENTIRE DECK — measured at 49 blocks
+ * across 7 sections where the console's framed path sees 4, because
+ * `single-slide-render` narrows that one to a single section before the pointer ever
+ * looks. Two consequences, both on the audience surface: a sentence that also appears on
+ * another slide (a repeated heading, a running kicker) could resolve to a block nobody
+ * can see, and the obstacle scan measured twelve times as many rects per spoken
+ * sentence — on the thread this module's own cadence notes promise not to stall.
+ */
+function shownSection(doc: Document | null): Document | Element | null {
+	if (!doc) return null;
+	const secs = Array.from(doc.querySelectorAll('.lattice > section')) as HTMLElement[];
+	return secs.find((sec) => sec.style.visibility !== 'hidden') ?? doc;
+}
+
 export function guideAimIn(doc: Document | null, text: string): Element | null {
-	const block = findCueTarget(doc, text);
+	const block = findCueTarget(shownSection(doc), text);
 	return block ? aimTarget(block, text).el : null;
 }
 
@@ -1205,7 +1226,18 @@ export function guideCueInDoc(doc: Document | null, text: string): GuideCue | nu
 	const view = doc?.defaultView;
 	if (!doc || !view) return null;
 	const half = POINTER_BOX / 2;
-	const cue = guideCueIn(doc, text, { left: 0, top: 0, width: view.innerWidth, height: view.innerHeight }, half, half + 5);
+	// TWO DIFFERENT BOXES, and conflating them re-tunes every gesture. The ROOT is the shown
+	// section (see `shownSection`) — that is what may be searched and measured. The FRAME is
+	// the fit box, which is what `chooseGesture` reads `slideW` from: its width fractions
+	// (`TAP_WIDTH` 0.1, `RING_WIDTH` 0.42) are fractions OF THE SLIDE, and the Stage
+	// letterboxes, so passing `innerWidth` over-reported the slide by 7.6% at rest and ~20%
+	// with the caption band up — the same content classifying differently on the Stage than
+	// on the console. `#latt-fit` is the slide's own painted box; the window is only the
+	// clamp the cursor may come to rest inside.
+	const fit = doc.getElementById('latt-fit');
+	const box = fit ? fit.getBoundingClientRect() : null;
+	const frame = box && box.width > 0 ? { left: box.left, top: box.top, width: box.width, height: box.height } : { left: 0, top: 0, width: view.innerWidth, height: view.innerHeight };
+	const cue = guideCueIn(shownSection(doc) ?? doc, text, frame, half, half + 5);
 	if (!cue) return null;
 
 	const { el, inkRange, markerOffset, role } = cue;

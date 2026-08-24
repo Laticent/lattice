@@ -20,7 +20,7 @@
 // `--text-heading`, `--text-muted` — unchanged from what the Tailwind classes
 // resolved to. In the console they are simply in the cascade. A popup cannot
 // inherit its opener's cascade, so the controller WRITES the four resolved
-// values onto the Stage's root when the window opens (`paintStageTokens`). That
+// values into the document when it is BUILT (`stageChromeDecls`). That
 // is also why `present-rail-tiers.ts` needs no change: its `color-mix(… var(--accent)
 // …, var(--bg))` ladder — whose ink levels are measured, not chosen — resolves
 // identically in both documents.
@@ -84,11 +84,24 @@ export const STAGE_CHROME_CSS = `
  * @param accent     the app's accent as [r,g,b], or null for the fallback gold
  */
 export function stageChromeTokens(letterbox, accent) {
-	const bg = letterbox || [21, 17, 13];
-	// Lighten the accent until it is legible ON THE LETTERBOX. Bounded: 12 steps is
-	// white, and white always clears — so this terminates whatever it is handed.
-	let ink = accent || [200, 160, 64];
+	// VALIDATE, don't just null-check. `NaN` survives `||`, and a NaN accent poisoned every
+	// comparison downstream: `contrast()` returned NaN, `NaN < 4.5` is false so neither the
+	// lightening loop nor the floor below ever ran, and `css()` clamped the result to black —
+	// on a near-black letterbox. A color we cannot read is the default's job, not a value to
+	// carry forward.
+	const bg = finite3(letterbox) ? letterbox : [21, 17, 13];
+	const seed = finite3(accent) ? accent : [200, 160, 64];
+	// Lighten the accent until it is legible ON THE LETTERBOX. Bounded by the COUNTER, not
+	// by reaching white: twelve 8% steps toward white covers 1 - 0.92^12 ≈ 63% of the way,
+	// not 100%, so the "12 steps is white" argument this comment used to make was simply
+	// wrong. It terminates because `i < 12` says so; the fallback below is what guarantees a
+	// legible result when twelve steps are not enough (a mid-tone accent on a mid-tone
+	// letterbox, which `stageChromeTokens` accepts because it is exported and takes both).
+	let ink = seed;
 	for (let i = 0; i < 12 && contrast(ink, bg) < 4.5; i++) ink = mix(WHITE, ink, 0.08);
+	// The floor. If lightening ran out of steps, take whichever pole actually clears —
+	// legible-and-off-brand beats on-brand-and-unreadable on the surface a room is reading.
+	if (contrast(ink, bg) < 4.5) ink = contrast(WHITE, bg) >= contrast(BLACK, bg) ? WHITE : BLACK;
 	return {
 		'--bg': css(bg),
 		'--accent': css(ink),
@@ -113,35 +126,10 @@ export function resolveTokenColor(from, name) {
 	return resolveColor(view.getComputedStyle(from).getPropertyValue(name), from.ownerDocument);
 }
 
-/**
- * Paint the chrome band's palette onto the Stage's root — the LIVE-UPDATE path.
- *
- * The document already ships legible (`stageChromeDecls`, baked in at build time);
- * this exists so a mid-talk palette change reaches the room, since a Stage left on
- * the previous palette is a mismatch the audience sees. Inline properties on the
- * root beat the baked rule, which is the ordering we want.
- *
- * Two problems, and the second one is why this is not a five-line copy of the
- * opener's tokens (which is what it was, and it shipped dark text on a near-black
- * surround — the caption crawl unreadable on the one surface a whole ROOM is
- * looking at).
- *
- * ONE — a custom property is not a color. `getComputedStyle().getPropertyValue`
- * hands back the token's TEXT, so a palette written as `light-dark(…)` or
- * `color-mix(…)` copies across unresolved and then resolves against the Stage's
- * cascade, which has neither. Every value is therefore resolved through a probe
- * element's `color` first, which is the one place the engine does the work for us.
- *
- * TWO — the Stage's letterbox is DARK IN BOTH MODES (see `buildStageDocument`: a
- * projected deck sits on a black surround whatever the app is set to). So the
- * app's ink, which is authored against the app's background, is exactly wrong
- * here. The band gets an on-dark ramp instead — white composited over the real
- * letterbox at the same 90% / 65% rungs the themes use for text on a dark canvas
- * — and the accent is forwarded only while it CLEARS 4.5:1 against that
- * letterbox, lightened toward white in 8% steps until it does. Measured, not
- * chosen: a light-mode accent (cuoio's `#7a5a10`) reaches 2.4:1 on `#15110d`,
- * which is the spoken word in the caption crawl and the rail's progress fill.
- */
+/** Three real numbers — the only shape the ramp arithmetic is defined for. */
+const finite3 = (c) => Array.isArray(c) && c.length >= 3 && c.slice(0, 3).every((n) => Number.isFinite(Number(n)));
+
+
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 /** Resolve a color STRING (token text, hex, color-mix, light-dark) to [r,g,b]. */
@@ -160,6 +148,21 @@ function resolveColor(value, doc) {
 		doc.body.appendChild(probe);
 		const out = doc.defaultView.getComputedStyle(probe).color;
 		probe.remove();
+		// A COMPUTED COLOR HAS MORE THAN ONE SERIALIZATION, and reading only the first is how
+		// this silently turned a brand accent gray. Chromium reports a plain color as
+		// `rgb(122, 90, 16)` — 0–255 — and the result of a `color-mix()` as
+		// `color(srgb 0.68 0.61 0.44)`, where the channels are 0–1. Taking "the first three
+		// numbers" read the second form as near-black, and the lightening loop then walked it
+		// to mid-gray. `color-mix()` is the exact case this probe path exists for.
+		if (/^color\(\s*srgb/i.test(out)) {
+			const m = out.match(/-?[\d.]+/g);
+			return m && m.length >= 3 ? [Number(m[0]) * 255, Number(m[1]) * 255, Number(m[2]) * 255] : null;
+		}
+		// Anything that is not `rgb()`/`rgba()` is a color space whose three numbers are NOT
+		// sRGB channels — `oklch(0.7 0.13 70)` read as sRGB hands a hue ANGLE to the blue
+		// channel. There is no honest reading, so say so and let the caller fall back to its
+		// own default rather than bake a wrong color into the room's document.
+		if (!/^rgba?\(/i.test(out)) return null;
 		const m = out.match(/-?[\d.]+/g);
 		return m && m.length >= 3 ? [Number(m[0]), Number(m[1]), Number(m[2])] : null;
 	} catch {
@@ -178,18 +181,12 @@ function contrast(a, b) {
 }
 /** `over` composited on `under` at `alpha` — the on-dark ink ramp, resolved to a solid. */
 const mix = (over, under, alpha) => over.map((c, i) => Math.round(c * alpha + under[i] * (1 - alpha)));
-const css = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
+/** CLAMPED, and that is a containment boundary rather than tidiness. This string is
+ *  interpolated into the Stage document's `<style>` — the one channel HARD RULE #22's
+ *  stylesheet arm is about — and it was the CALLER's discipline, not this function, keeping
+ *  it numeric. `Number(c) || 0` also swallows NaN, which otherwise emitted an invalid
+ *  declaration that failed silently at `var()` substitution. */
+const chan = (c) => Math.max(0, Math.min(255, Math.round(Number(c) || 0)));
+const css = ([r, g, b]) => `rgb(${chan(r)}, ${chan(g)}, ${chan(b)})`;
 const WHITE = [255, 255, 255];
-
-/**
- * @param root      the Stage document's `documentElement`
- * @param from      the opener's `documentElement` (where the app's accent lives)
- * @param letterbox the Stage's surround color, from `buildStageDocument`
- */
-export function paintStageTokens(root, from, letterbox) {
-	if (!root || !from) return;
-	const doc = from.ownerDocument;
-	if (!doc?.defaultView) return;
-	const t = stageChromeTokens(resolveColor(letterbox, doc), resolveTokenColor(from, '--accent'));
-	for (const name of Object.keys(t)) root.style.setProperty(name, t[name]);
-}
+const BLACK = [0, 0, 0];

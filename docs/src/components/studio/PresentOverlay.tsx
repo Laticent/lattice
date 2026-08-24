@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
-import { paintStageTokens, STAGE_CHROME_CSS } from '@/components/studio/present/stage-chrome.js';
+import { STAGE_CHROME_CSS } from '@/components/studio/present/stage-chrome.js';
 import { createStageController } from '@/components/studio/present/stage-window.js';
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
@@ -13,6 +13,7 @@ import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, 
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
 import { createStage, resolveTheme, type Stage as VetrinaStage } from '@/lib/vetrina';
 import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
@@ -364,6 +365,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// there is one implementation of each, not a second hand-rolled copy — the cost
 	// that ruled out putting the browser itself on the projector.
 	const [stageHost, setStageHost] = React.useState<{ win: Window; cc: HTMLElement | null; rail: HTMLElement | null } | null>(null);
+	/** Bumped when the SITE palette or mode changes, to force a Stage rebuild — see the
+	 *  subscription effect below for why the deck-theme props cannot carry that signal. */
+	const [chromeGen, setChromeGen] = React.useState(0);
 	const stageDocRef = React.useRef('');
 	/** The Stage's letterbox color — what the audience chrome's ink is resolved against. */
 	const stageBgRef = React.useRef('#15110d');
@@ -387,7 +391,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// bail out on `Object.is` and leave both portals rendering into two detached
 			// nodes in a document nobody is looking at any more.
 			onChange: (win: Window | null) =>
-				setStageHost(win ? { win, cc: win.document.getElementById('latt-cc'), rail: win.document.getElementById('latt-rail') } : null),
+				setStageHost(() => {
+					if (!win) return null;
+					try {
+						return { win, cc: win.document.getElementById('latt-cc'), rail: win.document.getElementById('latt-rail') };
+					} catch {
+						return null; // not ours any more — the controller's poll will confirm it
+					}
+				}),
 			// STAGE DISCONNECTED, said out loud (§4). Only a close the console did NOT ask
 			// for reaches this — the presenter closing the window by hand, or a browser
 			// taking it. Everything else about it is already visible (the pill goes off,
@@ -408,6 +419,26 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			},
 		});
 	}
+	// ONE door for the Stage, from the pill and from `S` alike — and it hands the keyboard
+	// BACK. `window.open` gives the new window focus, so the console's own keydown listener
+	// (which is where every deck key is bound; the Stage binds only `f`) stopped receiving
+	// anything the moment the Stage appeared. The first press of a presentation clicker did
+	// nothing, and the remedy for a presenter looking at a dead clicker is to click the
+	// laptop — which nothing on screen tells them. This cannot be driven from here
+	// (Playwright's CDP input bypasses OS window focus, and headless has no window manager),
+	// so it is reasoned from the platform rather than measured: `focus()` on the opener is a
+	// no-op where the assumption is wrong and the whole fix where it is right.
+	const openStage = React.useCallback(() => {
+		const wasOpen = stageRef.current?.isOpen();
+		stageRef.current?.toggle();
+		const nowOpen = stageRef.current?.isOpen();
+		if (!wasOpen && !nowOpen) {
+			notify('Allow pop-ups to open the Stage on your second screen.');
+			return;
+		}
+		if (!wasOpen && nowOpen) window.focus();
+	}, [notify]);
+
 	// Build (and rebuild) the Stage document while presenting — async (engine render),
 	// so a Stage already open is rewritten once the new doc lands.
 	const fmAll = frontMatter;
@@ -416,29 +447,39 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (!open) return;
 		let cancelled = false;
 		const source = fmAll + set.join(SLIDE_SEP);
-		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride)
+		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token)
 			.then(({ doc, bg }) => {
 				if (cancelled) return;
 				stageDocRef.current = doc;
 				stageBgRef.current = bg;
 				stageRef.current?.write(doc);
 			})
-			.catch(() => {});
+			.catch(() => {
+				// NOT SILENT. A rejected render left the Stage on "Preparing the stage…"
+				// forever while the console's pill read *not* pressed — the console telling
+				// the presenter no Stage exists while the room reads a loading message.
+				if (!cancelled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
+			});
 		return () => { cancelled = true; };
-	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
+	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen]);
 	// Keep the room's slide in step with the console's.
 	React.useEffect(() => { stageRef.current?.show(clamped); }, [clamped]);
-	// The audience chrome's palette, resolved against the LETTERBOX rather than copied
-	// from the app: a popup inherits none of its opener's cascade, and the Stage's
-	// surround is dark in both modes, so the app's own ink would be dark-on-dark for a
-	// whole room (see paintStageTokens). Re-run on every palette change as well as on
-	// open — the Studio's picker is live, and a Stage left on the previous palette is a
-	// mismatch the ROOM sees.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the palette props ARE the triggers — the values painted are resolved off the live cascade, not off these.
+	// A SITE PALETTE CHANGE HAS TO REACH THE ROOM, and it could not.
+	//
+	// The chrome's palette is baked into the Stage document when it is BUILT, which is the
+	// mechanism that works — an inline property on the popup's `<html>` is SHADOWED by the
+	// baked rule on `#latt-chrome` itself (measured), so the painter that used to sit here
+	// was writing where nothing could read it. Baking is only CURRENT, though, if the
+	// document gets rebuilt: and the rebuild keys on `paletteOverride`, which is the deck's
+	// own theme name and does not move when the SITE palette changes underneath it. So the
+	// Stage kept the palette it opened with while the console changed around it — a mismatch
+	// the audience is the one looking at. `site-chrome.ts` announces its own changes; listen.
 	React.useEffect(() => {
-		if (!stageHost) return;
-		paintStageTokens(stageHost.win.document.documentElement, document.documentElement, stageBgRef.current);
-	}, [stageHost, paletteOverride, modeOverride]);
+		if (!open) return;
+		const bump = () => setChromeGen((n) => n + 1);
+		window.addEventListener(CHROME_CHANGE_EVENT, bump);
+		return () => window.removeEventListener(CHROME_CHANGE_EVENT, bump);
+	}, [open]);
 
 	// Real read-aloud: a synchronized teleprompter over the current slide's prose,
 	// with spoken audio when a voice is connected. Owns its own transport (the dock
@@ -802,7 +843,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// the only surface and the cursor stays here, exactly as before. The stage is rebuilt
 	// when this flips (`stageHost` is in the deps), because a Vetrina stage is bound to
 	// the document it was created in.
-	const guideRoot = stageHost?.win.document.body ?? null;
+	// GUARDED, because this runs in the RENDER BODY and the window it reaches into is not
+	// always ours any more. Once the Stage had been navigated cross-origin, reading
+	// `.document` threw a SecurityError during render — and there is no boundary between
+	// here and the Studio's own ErrorBoundary, so the next re-render swapped the entire
+	// Studio for its crash card, mid-talk. Measured: one ArrowRight after the navigation
+	// took the whole surface down. The controller now notices and clears `stageHost`, but
+	// a render can land inside that window, so this refuses to be the thing that crashes.
+	const guideRoot = React.useMemo(() => {
+		try {
+			return stageHost?.win.document.body ?? null;
+		} catch {
+			return null;
+		}
+	}, [stageHost]);
 	React.useEffect(() => {
 		if (!guideLive) return;
 		const host = guideRoot ?? dialogRef.current;
@@ -1327,6 +1381,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		void exitFullscreen();
 		stageRef.current?.close();
 	}, []);
+	// …and the path React never runs: closing the tab, or quitting the browser. Unmount
+	// cleanup does not fire there, so the Stage would outlive the Studio and sit frozen on
+	// a projector with nothing left able to take it down.
+	React.useEffect(() => {
+		const drop = () => stageRef.current?.close();
+		window.addEventListener('pagehide', drop);
+		return () => window.removeEventListener('pagehide', drop);
+	}, []);
 
 	// First-run hint — teach the bloom + gestures exactly once, then never again.
 	//
@@ -1415,9 +1477,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// covers a browser that refuses.
 			if (e.key === 's' || e.key === 'S') {
 				e.preventDefault();
-				const wasOpen = stageRef.current?.isOpen();
-				stageRef.current?.toggle();
-				if (!wasOpen && !stageRef.current?.isOpen()) notify('Allow pop-ups to open the Stage on your second screen.');
+				openStage();
 				return;
 			}
 			// Everything that MOVES the deck comes from the shared keymap: arrows, Space,
@@ -1438,7 +1498,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull, notify, wideConsole]);
+	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull, wideConsole, openStage]);
 	// Close the sorter whenever Present closes, so re-opening starts on the slide.
 	React.useEffect(() => {
 		if (!open) setOverviewOpen(false);
@@ -1619,7 +1679,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				    (2026-08-24-stage-console-split.md §5). This opens the AUDIENCE's window.
 				    Still a ≥ md affordance — a phone has no second display to stage onto — and
 				    still the same pill as the rest of the staging cluster. */}
-				<Tip label={stageHost ? 'Close the Stage (S) — the deck window on your second screen' : 'Stage (S) — send the deck to your second screen, chrome-free'}><button type="button" onClick={() => { const wasOpen = stageRef.current?.isOpen(); stageRef.current?.toggle(); if (!wasOpen && !stageRef.current?.isOpen()) notify('Allow pop-ups to open the Stage on your second screen.'); }} aria-pressed={!!stageHost} aria-label="Stage" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', stageHost ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. A label that
+				<Tip label={stageHost ? 'Close the Stage (S) — the deck window on your second screen' : 'Stage (S) — send the deck to your second screen, chrome-free'}><button type="button" onClick={() => openStage()} aria-pressed={!!stageHost} aria-label="Stage" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', stageHost ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. A label that
 						    changes with state reads to a screen reader as the control itself becoming a
 						    different control, and it is jarring mid-delivery. One rule, applied to every
 						    toggle on this bar. */}

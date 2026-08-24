@@ -68,7 +68,12 @@ describe('stage-window — buildStageDoc({ standalone })', () => {
 		const doc = solo();
 		expect(doc).toContain('tell("ready")');
 		expect(doc).toContain('tell("closed")');
-		expect(doc).toContain('{stage:k}');
+		expect(doc).toContain('{stage:k,tok:TOK}');
+		// pagehide AS WELL AS unload: `unload` is on Chrome's deprecation path and does not
+		// fire for a discarded tab, and neither alone covers every way a window goes away.
+		expect(doc).toContain('"pagehide"');
+		// And it posts to a TARGETED origin, never `'*'` — the window may not be ours by then.
+		expect(doc).toContain('OP.postMessage({stage:k,tok:TOK},OR)');
 	});
 	it('binds `f` for fullscreen — and NOTHING that turns the deck', () => {
 		// The room does not drive the deck: the Stage has no navigation keys at all, which is
@@ -92,8 +97,45 @@ describe('stage-window — buildStageDoc({ standalone })', () => {
 });
 
 // A fake second window, as window.open would return.
+//
+// `getElementById` is not decoration. The controller decides whether the Stage is still
+// OURS by looking for a marker every document it writes carries (`#latt-stage` for the
+// deck, `#latt-holding` for the "Preparing the stage…" page) — because a URL cannot answer
+// it: `window.open('')` reports `about:blank` at the instant it opens and the opener's href
+// once written into. A page the window was NAVIGATED to carries neither marker, which is
+// what `navigateSameOrigin` models below.
 function fakeWindow() {
-	return { document: { open: vi.fn(), write: vi.fn(), close: vi.fn(), getElementById: vi.fn(() => null), documentElement: { requestFullscreen: vi.fn(() => Promise.reject(new Error('no activation'))) } }, postMessage: vi.fn(), closed: false, moveTo: vi.fn(), resizeTo: vi.fn(), close: vi.fn(function (this: { closed: boolean }) { this.closed = true; }) };
+	const state = { ours: true };
+	return {
+		__state: state,
+		document: {
+			open: vi.fn(),
+			write: vi.fn(),
+			close: vi.fn(),
+			getElementById: vi.fn((id: string) => (state.ours && (id === 'latt-stage' || id === 'latt-holding') ? ({} as HTMLElement) : null)),
+			documentElement: { requestFullscreen: vi.fn(() => Promise.reject(new Error('no activation'))) },
+		},
+		postMessage: vi.fn(),
+		closed: false,
+		moveTo: vi.fn(),
+		resizeTo: vi.fn(),
+		close: vi.fn(function (this: { closed: boolean }) {
+			this.closed = true;
+		}),
+	};
+}
+/** The presenter clicked a link in the deck, or pressed F5: a real document, none of ours. */
+function navigateSameOrigin(win: ReturnType<typeof fakeWindow>) {
+	win.__state.ours = false;
+}
+/** …or the link was off-site: touching `document` now THROWS, exactly as Chromium does. */
+function navigateCrossOrigin(win: ReturnType<typeof fakeWindow>) {
+	Object.defineProperty(win, 'document', {
+		get() {
+			throw new DOMException('Blocked a frame', 'SecurityError');
+		},
+		configurable: true,
+	});
 }
 // Deliver a message to the controller's window listener with a forgeable `source`
 // (jsdom's MessageEvent coerces `source` to null, so build a plain event).
@@ -132,13 +174,13 @@ describe('stage-window — createStageController', () => {
 
 		// The Stage announces itself → the current index goes over, and the console adopts it.
 		postFromStage({ stage: 'ready' }, win);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 2 }, '*');
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 2 }, location.origin);
 		expect(onChange).toHaveBeenLastCalledWith(win);
 
 		// Navigation relays one way only: console → Stage.
 		win.postMessage.mockClear();
 		ctl.show(3);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 3 }, '*');
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 3 }, location.origin);
 
 		// A message from a FOREIGN source is ignored (the handle check is the trust).
 		onChange.mockClear();
@@ -188,13 +230,19 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'ready' }, win);
 		expect(onChange).toHaveBeenCalledTimes(1);
 		ctl.write('<stage-v2/>');
-		// Silent in between — and nothing is posted at the old document either.
+		// THE CONSOLE LETS GO FIRST. `document.open()` detaches the `#latt-cc` / `#latt-rail`
+		// nodes being portalled into, so between the rewrite and the new document's `ready`
+		// there is no live host — and without this the caption crawl and the rail rendered
+		// into limbo while the dock still refused to show them, leaving them on NEITHER
+		// surface for the length of an engine boot.
+		expect(onChange).toHaveBeenLastCalledWith(null);
+		// Nothing is posted at the old document either.
 		win.postMessage.mockClear();
 		ctl.show(4);
 		expect(win.postMessage).not.toHaveBeenCalled();
 		postFromStage({ stage: 'ready' }, win);
-		expect(onChange).toHaveBeenCalledTimes(2);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, '*');
+		expect(onChange).toHaveBeenLastCalledWith(win);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, location.origin);
 	});
 
 	it('reports a Stage that went away on its own — and stays silent when WE closed it', () => {
@@ -217,6 +265,81 @@ describe('stage-window — createStageController', () => {
 		ctl.close(); // WE closed it — the window's own unload beat must not announce anything
 		postFromStage({ stage: 'closed' }, win);
 		expect(onLost).not.toHaveBeenCalled();
+	});
+
+	it('notices a Stage that was NAVIGATED away — the case `e.source` cannot see', () => {
+		// THE REGRESSION CELL. A deck's own `<a href>` survives sanitizing, so a click on the
+		// projected copy navigated the window; F5 and Back do the same. The unload beat IS
+		// posted, but Chromium delivers it with a different `e.source` — measured — so the
+		// guard dropped the one message it exists to receive. `window.close()` was the only
+		// teardown path that ever reported itself, and it is the only one the popup e2e cell
+		// exercises. Downstream the console kept a dead handle: pill lit, captions and rail on
+		// NEITHER surface, and the live slide index still being posted at a foreign page.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onChange = vi.fn();
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange, onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		expect(ctl.isOpen()).toBe(true);
+
+		navigateSameOrigin(win);
+		// The beat arrives from a source we cannot match — the TOKEN is what identifies it.
+		postFromStage({ stage: 'closed', tok: ctl.token }, {});
+		expect(onLost).toHaveBeenCalledTimes(1);
+		expect(onChange).toHaveBeenLastCalledWith(null);
+		expect(ctl.isOpen()).toBe(false);
+	});
+
+	it('a cross-origin Stage is gone, and asking about it never throws', () => {
+		// Reading `location` on a cross-origin window THROWS (measured). Every path that
+		// touches the handle has to treat that as "not ours" rather than propagate it: the
+		// console dereferences this window during RENDER, and a SecurityError there took the
+		// whole Studio down to its crash card.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		navigateCrossOrigin(win);
+		expect(() => ctl.isOpen()).not.toThrow();
+		expect(ctl.isOpen()).toBe(false);
+		expect(() => ctl.show(2)).not.toThrow();
+		expect(() => ctl.write('<v2/>')).not.toThrow();
+	});
+
+	it('a token-matched goodbye is ignored while the Stage is still demonstrably alive', () => {
+		// The token outlives one window (it has to — the deck document is built before the
+		// window exists), so an OLD document unloading just as a new one opens would otherwise
+		// tear down the new one. Reality is the arbiter.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		postFromStage({ stage: 'closed', tok: ctl.token }, {}); // stale beat, window still ours
+		expect(onLost).not.toHaveBeenCalled();
+		expect(ctl.isOpen()).toBe(true);
+	});
+
+	it('a throwing write does not latch the document out of ever being replaced', () => {
+		// `written = doc` used to be assigned BEFORE the try, so a write that threw left the
+		// controller believing that doc was on screen — and `write(doc)` is idempotent on an
+		// unchanged doc, so nothing could ever replace it again.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const ctl = createStageController({ getDoc: () => '', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn() });
+		ctl.toggle();
+		win.document.write.mockImplementationOnce(() => {
+			throw new Error('gone');
+		});
+		ctl.write('<stage/>');
+		const n = writes(win).length;
+		ctl.write('<stage/>'); // the SAME doc must still be attempted
+		expect(writes(win).length).toBeGreaterThan(n);
 	});
 
 	it('toggling again closes the held window', () => {

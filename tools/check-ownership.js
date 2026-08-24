@@ -4692,6 +4692,18 @@ function listSourceFiles(dir, out = []) {
 //   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
+  {
+    file: 'docs/e2e/stage-window.spec.ts', ms: 800, count: 1,
+    why: 'ABSENCE ASSERTION. The Stage suppresses link navigation — a deck\'s own `<a href>` is '
+       + 'clickable on the projected copy, and a click there used to strand the console and hand a '
+       + 'foreign origin `window.opener` on the origin holding the user\'s API key. The cell clicks '
+       + 'a real link and then asserts the URL did NOT change, which has no signal to poll: a poll '
+       + 'goes green on its first tick, before a navigation it is meant to catch could have '
+       + 'committed. Everything POLLABLE around it already is — the popup is awaited via '
+       + '`context.waitForEvent(\'page\')`, the deck paint via `expect(...).not.toBeEmpty()`, and the '
+       + 'pill state via `toHaveAttribute` — so this covers only the gap between "the click was '
+       + 'dispatched" and "we conclude it navigated nowhere".',
+  },
   // ── #1246, the post-sanitize injection suite ─────────────────────────────────
   // Both are the canonical "and then nothing happened" shape this allowlist exists for:
   // the assertion is that a payload did NOT execute and did NOT reach the network, and an

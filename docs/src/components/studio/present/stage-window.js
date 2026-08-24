@@ -57,7 +57,7 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  * All three are gated on `window.opener`, which is null in an iframe — so the
  * srcdoc hosts are byte-identical to what they were before the split.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '' }) {
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '' }) {
 	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
@@ -146,9 +146,24 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// multi-megabyte, so an index posted at open time would land on nothing), and
 		// `closed` is how a presenter closing the window by hand reaches the console —
 		// polling `win.closed` would report it up to a poll late, mid-sentence.
-		'if(window.opener){var OP=window.opener;' +
-		'function tell(k){try{OP.postMessage({stage:k},"*")}catch(e){}}' +
+		'if(window.opener){var OP=window.opener;var OR=location.origin;var TOK=' + JSON.stringify(String(token || '')) + ';' +
+		// TARGETED, and carrying the token. The opener identifies its Stage by `e.source`
+		// where it can — but a beat fired by a NAVIGATION arrives with a different source
+		// (measured), so it would drop the one message it most needs. The token is how the
+		// console recognizes its own document's goodbye.
+		'function tell(k){try{OP.postMessage({stage:k,tok:TOK},OR)}catch(e){}}' +
+		// BOTH, because neither alone is enough: `unload` is on Chrome's deprecation path
+		// and does not fire for a discarded tab, and `pagehide` is the modern beat. They
+		// are idempotent at the other end — teardown clears the handle before onLost.
+		'window.addEventListener("pagehide",function(){tell("closed")});' +
 		'window.addEventListener("unload",function(){tell("closed")});' +
+		// THE ROOM DOES NOT FOLLOW LINKS. A deck's own `<a href>` survives sanitizing, and
+		// a click on the projected copy navigated this window away — which stranded the
+		// console (it went on posting the live slide index at a page it no longer owned)
+		// and handed a foreign origin `window.opener` on the origin that holds the user's
+		// API key. On the audience surface a link click is always accidental, so it is
+		// simply not a gesture here.
+		'document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a)e.preventDefault()},true);' +
 		// `f` is the fallback for a browser that declines to fullscreen a fresh popup
 		// (§7 — UNVERIFIED until a real two-monitor desktop says otherwise). It is the
 		// ONLY key this document binds: the Stage does not navigate, because the room
@@ -227,16 +242,10 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
  * one carrying the deck, and the browser stays on the laptop with the console.
  *
  * Enhancement only: no Window Management permission, no second screen, or a
- * refusal, and the presenter drags the window themselves. The RESOLVED VALUE is
- * what the caller reports on, and the two halves are deliberately separate —
- * `placed` says we found a screen to aim at (detect, to decide whether to
- * offer), `full` says the window actually filled it (verify, to decide whether
- * it worked). Auto-fullscreening a just-opened popup from the opener's gesture
- * is NOT something a browser owes us: the popup has no transient activation of
- * its own, so `requestFullscreen` inside it may reject. §7 of the decision note
- * records that as UNVERIFIED until a real two-monitor desktop says otherwise,
- * and `full: false` is what lets the console say so out loud instead of leaving
- * a presenter looking at a windowed deck with no explanation.
+ * refusal, and the presenter drags the window themselves. Resolves to whether we
+ * found an external screen to aim at — the DETECT half of §7's "detect to decide
+ * whether to offer; verify the outcome to decide whether it worked". The VERIFY
+ * half is `fillExternalScreen` below, and it runs later for a reason given there.
  */
 async function autoPlaceStage(win) {
 	let placed = false;
@@ -260,14 +269,35 @@ async function autoPlaceStage(win) {
 	} catch {
 		/* permission denied / unsupported */
 	}
-	let full = false;
+	return placed;
+}
+
+/**
+ * Fill the external display — AFTER the deck document is live, and only when we
+ * actually placed the window on one.
+ *
+ * Both halves of that sentence are measured corrections. `document.open()` destroys
+ * `documentElement`, and fullscreen exits with it, so requesting it during `toggle()`
+ * either targeted the HOLDING page (which the deck write then replaced, dropping the
+ * room back to a window) or reported `full: true` for a document that no longer
+ * existed. And requesting it unconditionally meant a single-screen laptop could have
+ * the Stage cover the console — the surface the presenter drives from.
+ */
+async function fillExternalScreen(win) {
 	try {
 		await win.document.documentElement.requestFullscreen();
-		full = !!win.document.fullscreenElement;
+		return !!win.document.fullscreenElement;
 	} catch {
-		/* declined — the Stage's own `f` key is the fallback */
+		return false; // declined — the Stage's own `f` key is the fallback
 	}
-	return { placed, full };
+}
+
+/** A per-open identifier for one Stage document. Not a secret and not a nonce in the
+ *  crypto sense — it only has to be unlikely to collide with another window's beat, so
+ *  the console can recognize its own Stage's unload message when `e.source` no longer
+ *  can (see `onMsg`). */
+function stageToken() {
+	return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
@@ -300,6 +330,13 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	 *  an unrelated re-render doesn't tear down a live Stage and re-run the
 	 *  engine's boot for no change. */
 	let written = '';
+	/** Baked into every document this controller writes and echoed in that document's
+	 *  beats. Per CONTROLLER rather than per open, because the deck document is built
+	 *  asynchronously and often BEFORE the window exists — a per-open token could not be
+	 *  in it. That it outlives one window is handled where it is read (`onMsg`), by
+	 *  requiring the window to actually be gone before a token-matched goodbye counts. */
+	const token = stageToken();
+	let pollId = 0;
 
 	// The holding page, written synchronously inside the gesture. Without it the
 	// room watches `about:blank` for as long as the deck takes to render, which on a
@@ -310,46 +347,116 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		'<!doctype html><html><head><meta charset="utf-8"><title>Stage</title>' +
 		'<style>html,body{margin:0;height:100%;background:#15110D;color:#B6A488;' +
 		"font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center}" +
-		'p{font-size:.95rem;letter-spacing:.02em}</style></head><body><p>Preparing the stage…</p></body></html>';
+		'p{font-size:.95rem;letter-spacing:.02em}</style></head><body id="latt-holding"><p>Preparing the stage…</p></body></html>';
+
+	/**
+	 * Is the Stage still OUR document?
+	 *
+	 * `closed` is not the question, and assuming it was is what left a navigated Stage
+	 * driving a console that had no idea. A window the presenter clicked a deck link in,
+	 * reloaded, or went Back in is `closed === false` and is not the Stage any more.
+	 * Measured in Chromium: a same-origin navigation changes `location.href`, and a
+	 * cross-origin one makes reading it THROW. Both are answered here, in one place.
+	 */
+	/**
+	 * Can we still TOUCH the window? Open, and not cross-origin.
+	 *
+	 * Separate from `alive()` because a freshly opened popup is reachable and carries no
+	 * marker yet — it is empty until we write one. Requiring the marker in order to write
+	 * it was a deadlock: nothing was ever painted, so the Stage never opened at all.
+	 */
+	function reachable() {
+		if (!stageWin || stageWin.closed) return false;
+		try {
+			return !!stageWin.document;
+		} catch {
+			return false;
+		}
+	}
+
+	function alive() {
+		if (!reachable()) return false;
+		try {
+			// OUR OWN MARKER, not the URL. A `window.open('')` reports `about:blank` at the
+			// instant it opens and the opener's href once written into, so an href captured at
+			// open never matches again — and a URL comparison would depend on the Studio's own
+			// routing besides. Every document this controller writes carries `#latt-stage` (the
+			// deck) or `#latt-holding` (the "Preparing the stage…" page); a page the window was
+			// NAVIGATED to carries neither. Reading `.document` at all THROWS once the window is
+			// cross-origin, which is the same answer by a different route.
+			const d = stageWin.document;
+			return !!d && !!(d.getElementById('latt-stage') || d.getElementById('latt-holding'));
+		} catch {
+			return false; // cross-origin: not ours any more, and we can no longer look
+		}
+	}
 
 	function paint(doc) {
-		if (!stageWin || stageWin.closed) return;
+		if (!reachable()) return;
+		// A REWRITE MAKES THE CONSOLE LET GO FIRST. `document.open()` detaches the
+		// `#latt-cc` / `#latt-rail` nodes the console is portalling into, and until the
+		// new document announces itself there is no live host — so without this the
+		// caption crawl and the rail render into limbo while the dock still refuses to
+		// show them, and they are on NEITHER surface for the length of an engine boot.
+		if (written) onChange?.(null);
 		ready = false;
-		written = doc;
 		try {
 			stageWin.document.open();
 			stageWin.document.write(doc);
 			stageWin.document.close();
+			// Only once the write actually lands. Assigning before the `try` latched a
+			// throwing write: `written === doc` made `write(doc)` a no-op forever after,
+			// so the room kept whatever was on screen and nothing could replace it.
+			written = doc;
 		} catch {
-			/* gone between the check and the write */
+			written = '';
 		}
 	}
 	/** Post the current slide index. No-op until the Stage's fit says it is listening. */
 	function show(index) {
-		if (!stageWin || stageWin.closed || !ready) return;
+		if (!alive() || !ready) return;
 		try {
+			// TARGETED, never `'*'`. A wildcard kept posting the presenter's live slide
+			// index at the window after it had been navigated somewhere else — handing a
+			// foreign origin a running read of where in the deck the talk was. Measured:
+			// a targeted post still delivers to our own written document.
 			// `?? 0` not `|| 0` — slide index 0 is a legitimate value, not "missing".
-			stageWin.postMessage({ pv: index ?? 0 }, '*');
+			stageWin.postMessage({ pv: index ?? 0 }, location.origin);
 		} catch {
 			/* gone */
 		}
 	}
 	/** (Re)write the Stage with a freshly rendered deck. Idempotent on an unchanged doc. */
 	function write(doc) {
-		if (!doc || !stageWin || stageWin.closed || doc === written) return;
+		if (!doc || !alive() || doc === written) return;
 		paint(doc);
 	}
 	function onMsg(e) {
-		// Only ever act on messages from OUR Stage — `e.source` must be the exact
-		// handle we opened (unforgeable). Same-origin popup → permissive
-		// targetOrigin on sends; trust rides on the handle check.
-		if (!stageWin || e.source !== stageWin) return;
+		if (!stageWin) return;
 		const d = e.data || {};
+		if (typeof d.stage !== 'string') return;
+		// TWO WAYS TO BE OURS, and the second one is why a navigated Stage is noticed.
+		// `e.source === stageWin` is the strong check and stays the primary. But the
+		// unload beat fired by a NAVIGATION arrives with a different source — measured —
+		// so the guard dropped the one message it exists to receive, and `window.close()`
+		// was the only teardown path that ever reported itself. The token is baked into
+		// the document we wrote and echoed in its beats; a forged one can at worst make
+		// us believe our own Stage closed, because we never post anywhere but our held
+		// handle.
+		const ours = e.source === stageWin;
+		if (!ours && d.tok !== token) return;
 		if (d.stage === 'ready') {
+			if (!ours) return; // a `ready` is only meaningful from the handle we hold
 			ready = true;
 			show(getIndex?.() ?? 0);
 			onChange?.(stageWin);
 		} else if (d.stage === 'closed') {
+			// A goodbye we matched only by TOKEN has to be checked against reality: the
+			// token outlives a window, so an old document unloading just as a new one opens
+			// would otherwise tear down the new one. `alive()` is the arbiter — and in the
+			// case this exists for (a navigated Stage) it is already false, so the beat
+			// still lands immediately rather than waiting for the poll.
+			if (!ours && alive()) return;
 			teardown();
 			onLost?.();
 		}
@@ -357,6 +464,10 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	function teardown() {
 		ready = false;
 		written = '';
+		if (pollId) {
+			window.clearInterval(pollId);
+			pollId = 0;
+		}
 		if (stageWin) {
 			window.removeEventListener('message', onMsg);
 			stageWin = null;
@@ -374,10 +485,14 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		teardown();
 	}
 	function toggle() {
-		if (stageWin && !stageWin.closed) {
+		if (isOpen()) {
 			close();
 			return;
 		}
+		// A named window that is no longer ours would be HANDED BACK by `window.open`
+		// rather than reopened, and painting into it throws into a silent catch — so the
+		// presenter presses S and nothing happens. Let go of it first.
+		if (stageWin) teardown();
 		// Must open from the user gesture (popup-blocker-safe).
 		const win = window.open('', 'lattice-stage', 'width=1280,height=720');
 		if (!win) return; // blocked — leave the toggle off
@@ -387,12 +502,31 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		window.addEventListener('message', onMsg);
 		paint(HOLDING);
 		written = ''; // the holding page is not a deck — the real doc must still land
-		autoPlaceStage(win).then((r) => onPlaced?.(r)).catch(() => {});
+		// THE POLL IS THE BACKSTOP THE BEAT CANNOT BE. An unload beat catches a hand-close
+		// instantly, and catches nothing when the renderer is killed — which
+		// 2026-08-10-studio-crash-sentinel.md exists because it happens here. Slow on
+		// purpose: this is a liveness check on one window, not a sync channel.
+		pollId = window.setInterval(() => {
+			if (alive()) return;
+			teardown();
+			onLost?.();
+		}, 2000);
+		autoPlaceStage(win)
+			.then(async (placed) => {
+				if (win !== stageWin || win.closed) return; // toggled off while we were asking
+				// Fullscreen AFTER the deck document is live, and only onto a screen we
+				// actually placed onto — see `fillExternalScreen`.
+				const full = placed ? await fillExternalScreen(win) : false;
+				if (win !== stageWin) return;
+				onPlaced?.({ placed, full });
+			})
+			.catch(() => {});
 		const doc = getDoc?.();
 		if (doc) paint(doc);
 	}
 	function isOpen() {
-		return !!(stageWin && !stageWin.closed);
+		return alive();
 	}
-	return { toggle, write, show, close, isOpen };
+	// `token` is read by the caller so the document it builds can echo it back.
+	return { toggle, write, show, close, isOpen, token };
 }
