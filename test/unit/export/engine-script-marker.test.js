@@ -39,12 +39,14 @@ const ATTR_PLACEHOLDER_RE = /\$\{ENGINE_SCRIPT_ATTR\}/;
  * and regex literals. What survives is markup the file writes into the document.
  *
  * Regex literals are matched narrowly (`/…/` with flags, on one line, not preceded by a
- * word character or `*`). The alternation keeps `[` out of the catch-all branch so exactly
- * one branch can open a character class — with both able to, CodeQL measured exponential
- * backtracking on input like `/[][][]…` rather than by a general JS parse: the only two in this file are
+ * word character or `*`) rather than by a general JS parse: the only two in this file are
  * `RUNTIME_SCRIPT` and the `</script` escape in `toFluidViewer`, and both MATCH markup
  * rather than emitting it — `RUNTIME_SCRIPT` in particular exists to strip a DECK-authored
  * runtime tag, which must never be marked as ours.
+ *
+ * The alternation keeps `[` out of the catch-all branch so exactly one branch can open a
+ * character class. With both able to, the pattern was ambiguous and CodeQL measured
+ * exponential backtracking — 22,459 ms on 59 characters of `/[][][]…`, against 0 ms now.
  */
 function emittedMarkupOnly(source) {
   return source
