@@ -3,11 +3,12 @@
  *
  * This existed as an INVERTED ternary, duplicated in tools/pixel-check.js and
  * tools/preview.js, until #1686's follow-on. Investigating
- * examples/portrait-roadmap (a fresh render of 5 pages against an 8-page
- * committed golden), the regression gate's report labeled the three DROPPED
- * pages `"new page added"` — the exact opposite of what happened, and the wrong
- * steer for the one question the gate exists to answer: did this render lose
- * content?
+ * examples/portrait-roadmap — whose fresh render was then 5 pages against an
+ * 8-page committed golden — the regression gate's report labeled the three
+ * DROPPED pages `"new page added"` — the exact opposite of what happened, and
+ * the wrong steer for the one question the gate exists to answer: did this
+ * render lose content? (That deck's golden was re-blessed to 5 pages in #1827,
+ * so it no longer shows the delta; the bug and this test outlive the example.)
  *
  * A label that lies about direction is worse than no label, because it is
  * believed. These assertions are the direction, pinned.
