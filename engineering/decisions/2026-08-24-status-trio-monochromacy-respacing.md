@@ -227,6 +227,65 @@ blind to it in exactly the same way.
   speaking only to `127.0.0.1`. Verified in this sandbox against a live page and written into
   `engineering/development.md` with the code.
 
+## 6a. The re-tune is LIVE on the engine path and INERT on the export path
+
+This is the most important limitation in the note, and it was found by rebuilding the
+component goldens rather than by reasoning: **five of 122 changed.**
+
+The galleries render through the export path, where `lib/base/base.tokens.css` still wins
+the cascade over the palette for the status trio (#1527). Measured, not inferred:
+re-rendering `checklist.gallery.md` at `indaco` and sampling the result puts **`#2D6A3F`**
+on the ticks — base's default `--pass`, not indaco's. The five that DID move are the ones
+whose inks come from somewhere else: `journey` and `diagram` (via `--chart-state-*` /
+`--diagram-critical`, which the a11y palettes carry directly) and `compare-table` (via
+cuoio's `--text-label`).
+
+So a Studio or Playground preview gets the respaced trio today; a rendered PDF does not.
+The a11y palettes' own comments have said this about their dark arms since #1681 — "these
+arms are inert until #1527 flips the order" — and it applies to this change in full.
+
+**And base's own default is collapsed, worse than any palette's was:** 0.0580 light,
+**0.0033** dark, where `--warn` `#F97316` and `--fail` `#F87171` are the same gray to an
+achromat. So on the export path, today, the status trio is unreadable under monochromacy on
+every deck regardless of palette.
+
+### Why respacing it is NOT in this change
+
+It was tried, measured, and reverted, and the reason is worth recording because it is not
+"out of scope" hand-waving:
+
+1. A respaced base default solves cleanly on its own — light `#17572d` / `#b35308` /
+   `#5f0005` at 0.1252, dark `#a1ffbb` / `#fa7419` / `#ffadaa` at 0.1246, with worst-case AA
+   improving or holding on every shipped canvas.
+2. But `composed-surface-contrast.test.js` then fails **six** surfaces on `concrete`:
+   *"no palette override is below its bar AND worse than the base default"*. Improving the
+   fallback raises the bar a curated value is measured against, and concrete's `--fail` —
+   sub-AA on those composites already — becomes a **cascade regression**. That gate has no
+   exemption, deliberately (see `a11y-achromatopsia.css`: "a curated value worse than the
+   default it overrides… has no exemption").
+3. Re-solving concrete against the raised bar drives its light trio to `#000400` /
+   `#2e1800` / `#7b000b` — black, brown-black, and maroon — and its **dark arm has no
+   feasible placement at all.**
+
+So respacing the fallback forces a second, worse palette re-tune to keep one gate green,
+to fix a rendering that exists only because of a defect (#1527) whose fix makes the whole
+question moot: once the palette wins the cascade, base's default stops rendering.
+
+**The specified follow-up, for whoever lands #1527:** flip the order first, then respace
+base's default (the values above are a solved starting point), then re-check concrete —
+because with the palette winning, concrete's own trio is what renders and the
+cascade-regression bar no longer binds it.
+
+### An asymmetry worth knowing before that work starts
+
+The light arm can carry a prominence CONVENTION and the dark arm cannot. Light: `--fail`
+heaviest, `--warn` lightest, `--pass` between — what `a11y-achromatopsia` does, and what an
+achromat reads prominence from. Dark cannot mirror it: the loud end of a dark canvas is
+WHITE, and AA against the shipped dark canvases floors every ink at weight 0.69, so a red
+pushed to the loud end lands at `#ffe5e3` — chroma 0.166 → 0.029, a pink with no red left.
+A chromatic status trio therefore cannot hold one prominence ranking across both canvases
+while holding its hues. `a11y-achromatopsia` can only because it is already gray.
+
 ## 7. What this does NOT fix
 
 - **`muted^secondary` is still not a Studio meter row, and the reason CHANGED.** #1776
@@ -258,5 +317,7 @@ blind to it in exactly the same way.
   not the value, and #1685 argues it should be decided together with #1615 — so re-pointing
   them keeps the family as consistent as it was and leaves the fork open, rather than
   answering it in a diff about something else (HARD RULE #18).
+- **The EXPORT path still paints base's collapsed default** — see 6a, which specifies the
+  follow-up and why it belongs with #1527 rather than here.
 - **#1527's base/theme concat-order flip.** Untouched; the a11y palettes' comments about
   their arms being inert on the EXPORT path until it lands are still accurate.
