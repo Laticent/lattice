@@ -6940,12 +6940,13 @@ function catInkCollapsePairs(inks, marks) {
  *
  * #1527. Twelve tokens x 32 themes x 2 modes and **no contrast test anywhere** —
  * the one large token family the categorical gate above does not reach. That gap
- * hid a real defect: `cuoio`'s `--hljs-literal` sits at 4.05:1 on its own
- * `--code-bg`, under the AA floor for code text. Nobody saw it because the export
- * bundle concatenates the theme BEFORE the base, so the base's `#ff5874` has been
- * painting instead of the theme's value — which is exactly why #1527's concat flip
- * needs this gate to land with it. A curated value nobody has ever rendered is a
- * value nobody has ever checked.
+ * hid a real defect: `cuoio`'s `--hljs-literal` sat at 4.05:1 on its own `--code-bg`,
+ * under the AA floor for code text. Nobody saw it because the export bundle then
+ * concatenated the theme BEFORE the base, so the base's `#ff5874` painted instead of
+ * the theme's value — which is exactly why #1527's concat flip needed this gate to land
+ * ahead of it. A curated value nobody has ever rendered is a value nobody has ever
+ * checked. The flip has landed; every value this gate scores is now a value that
+ * paints.
  *
  * FLOOR: `CAT_TEXT_FLOOR` (4.5). Syntax highlighting is small text on a panel;
  * there is no "graphical" reading of it. Held to the bare AA floor rather than
@@ -7014,19 +7015,39 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
     .map((f) => f.replace(/\.css$/, ''))];
   const maps = new Map(scan.map((n) => [n, catParseTokens(catPaletteSource(n, new Set(), themesDir))]));
 
-  // EVERY panel a token can land on. The base's tokens do not only paint on the
-  // base's own --code-bg: `lattice-emulator.js` concatenates `paletteCSS +
-  // layoutCSS`, so on the EXPORT path the base is loaded AFTER the theme and its
-  // --hljs-* WIN over the theme's. Pairing base-with-base and theme-with-theme
-  // models the post-flip world (#1527) and leaves the shipping one unmeasured:
-  // that hole hid indaco rendering --hljs-literal at 3.71:1 and --hljs-comment at
-  // 3.06:1 while this gate reported clean and a "Fixed" changelog entry shipped.
-  // Until the flip lands, a base value must clear the floor on EVERY panel.
+  // WHICH PANELS A BASE VALUE CAN LAND ON — the pair that actually renders, which is
+  // the thing this gate has been wrong about twice.
+  //
+  // Before #1527 the export concatenated `paletteCSS + layoutCSS`, so the base loaded
+  // AFTER the theme and its `--hljs-*` won on EVERY panel; a theme's own syntax ramp
+  // never painted there. Pairing base-with-base and theme-with-theme modeled a world
+  // that did not exist yet and left the shipping one unmeasured — the hole that hid
+  // indaco rendering `--hljs-literal` at 3.71:1 and `--hljs-comment` at 3.06:1 while
+  // this gate reported clean and a "Fixed" changelog entry shipped.
+  //
+  // The flip landed, so the base no longer wins anywhere: its value is the FALLBACK
+  // for a token a theme's chain never declares, and it paints on that theme's panel.
+  // Widening back to "every panel in the corpus" would now score a combination nothing
+  // renders — the same defect from the other side.
+  //
+  // TODAY THAT FALLBACK SET IS EMPTY: all 32 palettes declare all twelve. An empty
+  // population is a gate that cannot fail, so it is not left implicit — the base is
+  // always judged against its OWN panel (`dist/lattice.css` with no theme is what the
+  // golden corpus and every un-themed consumer render with), and a theme that stops
+  // declaring a token adds its panel here the moment it does.
   const panels = new Map();   // bg -> the palette/mode that owns it, for the message
+  const inheritedPanels = new Map();   // token -> Map(bg -> owner) for themes that inherit it
   for (const [name, map] of maps) {
     for (const mode of ['light', 'dark']) {
       const bg = catResolve(map, '--code-bg', mode);
-      if (bg && !panels.has(bg)) panels.set(bg, `${name}/${mode}`);
+      if (!bg) continue;
+      if (!panels.has(bg)) panels.set(bg, `${name}/${mode}`);
+      if (name === 'lattice') continue;
+      for (const token of HLJS_TOKENS) {
+        if (map.has(token)) continue;
+        if (!inheritedPanels.has(token)) inheritedPanels.set(token, new Map());
+        if (!inheritedPanels.get(token).has(bg)) inheritedPanels.get(token).set(bg, `${name}/${mode}`);
+      }
     }
   }
 
@@ -7039,9 +7060,10 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
     for (const mode of ['light', 'dark']) {
       const own = catResolve(map, '--code-bg', mode);
       if (!own) continue;   // unresolvable surface — the token-parity gate owns that
-      // The base is judged against the whole corpus of panels; a theme only against
-      // its own, because a theme's value can never paint on another theme's panel.
-      const against = name === 'lattice' ? [...panels.keys()] : [own];
+      // The base is judged against its own panel plus every panel that INHERITS the
+      // token; a theme only against its own, because a theme's value cannot paint on
+      // another theme's panel.
+      const inheritedFor = (token) => [...(inheritedPanels.get(token)?.keys() ?? [])];
       for (const token of HLJS_TOKENS) {
         if (!map.has(token)) continue;
         const fg = catResolve(map, token, mode);
@@ -7053,11 +7075,12 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
           unreadable.push(`${name} ${token} = ${String(map.get(token)).trim()}`);
           continue;
         }
+        const against = name === 'lattice' ? [own, ...inheritedFor(token).filter((b) => b !== own)] : [own];
         for (const bg of against) {
           evaluated += 1;
           const ratio = catContrast(fg, bg);   // the same helper the categorical arms use
           if (ratio < CAT_TEXT_FLOOR) {
-            const where = bg === own ? '--code-bg' : `--code-bg of ${panels.get(bg)}`;
+            const where = bg === own ? '--code-bg' : `--code-bg of ${inheritedPanels.get(token)?.get(bg) ?? panels.get(bg)}`;
             failures.push(`${name}/${mode} ${token} ${fg} on ${where} ${bg} = ${ratio.toFixed(2)}:1`);
           }
         }
@@ -7102,10 +7125,9 @@ function checkHljsContrast(errors, themesDir = THEMES_DIR) {
       `${failures.length} \`--hljs-*\` syntax color(s) fall below the ${CAT_TEXT_FLOOR}:1 AA floor on their own ` +
       `--code-bg: ${failures.slice(0, 8).join('; ')}${failures.length > 8 ? `, +${failures.length - 8} more` : ''}. ` +
       'Lift the value in OKLCH holding hue and chroma (the move derive-cat-ink makes for the ink tier) rather ' +
-      'than picking a new colour by eye — the palette author chose the hue. NOTE these values may not be ' +
-      'rendering today: the export loads the base AFTER the theme, so a theme\'s syntax colors are dead on ' +
-      'the export path until #1527\'s concat flip lands. A value nobody has rendered is a value nobody has ' +
-      'checked, which is why this gate exists before the flip rather than after it.',
+      'than picking a new color by eye — the palette author chose the hue. Since #1527 the export loads ' +
+      'the base BEFORE the theme, so a theme\'s own syntax ramp is what paints on every path — a failure ' +
+      'here is a failure a reader sees, not a latent one.',
     );
   }
 }
@@ -8473,15 +8495,20 @@ function checkCommittedPdfs(errors) {
  * Two families, and they are not equally defensible:
  *
  *  (a) `--cat-N-ink → --cat-N-mark` — REQUIRED by `checkCatInkFallback`, and a
- *      known 4.5→3.0 drop. The tier has no `:root` default on purpose: the export
- *      bundle concatenates the theme BEFORE the base, so a default there would win
- *      and revert every curated ink to its mark (#1527). The fallback therefore
+ *      known 4.5→3.0 drop. The tier has no `:root` default, originally because the
+ *      export bundle concatenated the theme BEFORE the base, so a default there would
+ *      win and revert every curated ink to its mark (#1527). The fallback therefore
  *      lives at each consumer, and `--cat-N-mark` is the only same-slot value that
  *      exists. In practice the drop is off the path — `derive-cat-ink.js` emits the
- *      tier for every shipped palette — but a theme generated outside this repo
- *      lands on it, which is exactly the 176-of-200 measurement. **#1527's concat
- *      flip would remove the reason this drop has to exist**, and that is the
- *      cheapest way to drain eight of these rows.
+ *      tier for every shipped palette — but a theme generated outside this repo lands
+ *      on it, which is exactly the 176-of-200 measurement.
+ *
+ *      **#1527's concat flip has landed, and it removed the REASON this drop has to
+ *      exist** — a `:root` ink default would now lose to a palette's own, as intended.
+ *      Draining these eight rows is therefore unblocked and still not done: it means
+ *      declaring twelve more defaults and holding them to AA on every canvas, which is
+ *      its own change with its own case (base.tokens.css records the same at the
+ *      `--cat-N-ink` block).
  *
  *  (b) `→ --accent` — the second `--cat-N-ink`, and NOT audited. `--accent` carries
  *      no floor against anything: it is the theme's brand hue, near-black in onyx

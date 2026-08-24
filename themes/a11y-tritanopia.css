@@ -24,9 +24,9 @@
    * 12% band, and 7.24:1 on the deepest stack the component ships (that band on a
    * .stacked card's own 5% tint; redline's `del` no longer carries an opacity,
    * #1640). Separation
-   * under tritanopia is ΔE 0.177. (Base's trio scores
-   * 0.019 here — fully collapsed — but that is what the EXPORT path renders,
-   * where these arms stay inert until #1527.)
+   * under tritanopia is ΔE 0.177. (Base's trio scores 0.019 here — fully collapsed —
+   * and that is what the EXPORT path used to render, with these arms inert; #1527
+   * flipped the order, so what paints there is this palette's own.)
    *
    * #1698 lifted pass and warn another dL +0.016, jointly, for the surface the
    * catalog was missing: `kpi.attention` puts the warn pill on the HERO tile
@@ -102,21 +102,21 @@
    * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
    * path, and the difference is the whole caveat:
    *
-   *   lattice-emulator.js (the PDF / HTML-player EXPORT) concatenates
-   *     `paletteCSS + layoutCSS`, so the base is loaded AFTER the theme and
-   *     lib/base/base.tokens.css's own --hljs-* WIN — that file says so in as many words,
-   *     and the inversion is #1527, unshipped. Verified on a rendered PDF of this palette:
-   *     the `function` keyword samples #C792EA, the BASE's --hljs-keyword, byte-exact.
+   *   lattice-emulator.js (the PDF / HTML-player EXPORT) used to concatenate
+   *     `paletteCSS + layoutCSS`, so the base loaded AFTER the theme and
+   *     lib/base/base.tokens.css's own --hljs-* WON. Measured on a rendered PDF of this
+   *     palette at the time: the `function` keyword sampled #C792EA, the BASE's
+   *     --hljs-keyword, byte-exact. #1527 flipped it and this palette's own value paints.
    *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
    *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
    *     --hljs-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
    *   The live slide preview (Studio + docs site) loads the theme last too, measured on
    *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
    *
-   * So these families paint today on the engine path and the live preview, and not in an
-   * emulator-exported PDF until #1527 flips that order. A first cut of this comment said
-   * flatly "the export path" and was too broad in one direction after being too narrow in
-   * the other.
+   * So these families paint on every path now. They painted on the engine path and the
+   * live preview first and on the export only after #1527 — an asymmetry a first cut of
+   * this comment described as flatly "the export path", too broad in one direction after
+   * being too narrow in the other.
    * Measured on THESE values, simulated: worst pair dE 0.1285
    * (numeric/code-text), against 0.0204 for what was inherited. Lowest contrast on
    * the panel 4.62:1. Gated by checkHljsSeparation, which

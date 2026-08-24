@@ -22,8 +22,8 @@
  *
  *   1. THE SWAP REPRODUCES THE SHIPPED CASCADE, BECAUSE IT HAPPENS WHERE THE PALETTE
  *      ALREADY IS. This tool's first version APPENDED a `<style>` to `<head>`. The export
- *      shell emits ONE stylesheet in which the palette comes FIRST and `dist/lattice.css`
- *      follows (`/* @theme <name>` … `/* dist/lattice.css`), so appending inverted that
+ *      shell emits ONE stylesheet in which `dist/lattice.css` comes FIRST and the palette
+ *      follows (`/* @theme <name>` … `PALETTE_END_MARK`), so appending inverted that
  *      order and 30 of 126 tokens resolved from the wrong side. It was wrong in BOTH
  *      directions and quietly: measured against native renders, `onyx` reported 3 where the
  *      truth is 5 (it MISSED two `redline` runs at 4.29:1) and `atelier` reported 19 where
@@ -95,16 +95,21 @@ const { PROBE } = require('./check-slide-contrast.js');
 const { paletteChainCss, parsePaletteVars, listAllThemes } = require('./contrast-audit.js');
 
 /**
- * The two markers that bracket the palette inside the export shell's stylesheet.
+ * The two markers that bracket the palette inside the export shell's stylesheet, taken from
+ * the ONE module the export shell writes them with (`lib/core/export-shell-marks.js`).
  *
  * `/* @theme <name>` opens every file in `themes/` (all 32 carry it — Marp's own theme
- * annotation, which this engine kept). `/* dist/lattice.css` opens the generated bundle
- * that `build-css.js` emits. The export path concatenates them in that order — palette
- * first, engine second — which is why an APPENDED stylesheet inverted the cascade and why
- * `hljs-contrast.test.js` already gates its tokens in both concat orders.
+ * annotation, which this engine kept). The region used to be CLOSED by the engine bundle's
+ * own `/* dist/lattice.css` banner, because the export concatenated the palette FIRST and
+ * the bundle second. #1527 flipped that — the palette is last now, which is the order every
+ * theme's own `@import 'lattice';` declares — so no banner follows it and the shell emits an
+ * explicit end sentinel instead. Inferring the end from whatever rule happens to come next
+ * would put this tool back to measuring a hybrid the first time that rule moved.
  */
-const PALETTE_MARK = '/* @theme ';
-const BASE_MARK = '/* dist/lattice.css';
+const {
+  PALETTE_START_MARK: PALETTE_MARK,
+  PALETTE_END_MARK,
+} = require('../lib/core/export-shell-marks.js');
 const PROBE_ID = '__palette_sweep_probe__';
 
 /** Every palette the engine ships, from `themes/` — the same list every analytic gate uses. */
@@ -144,9 +149,9 @@ function themeCss(name) {
  * failed. It never falls back to appending: an inverted cascade that reports numbers is the
  * bug this replaced.
  */
-const APPLY = (cssText, paletteMark, baseMark) => {
+const APPLY = (cssText, paletteMark, endMark) => {
   const sheets = [...document.querySelectorAll('style')].filter(
-    (s) => s.textContent.includes(paletteMark) && s.textContent.includes(baseMark),
+    (s) => s.textContent.includes(paletteMark) && s.textContent.includes(endMark),
   );
   if (sheets.length !== 1) {
     return { ok: false, why: `expected exactly 1 stylesheet carrying both markers, found ${sheets.length}` };
@@ -154,9 +159,9 @@ const APPLY = (cssText, paletteMark, baseMark) => {
   const el = sheets[0];
   const text = el.textContent;
   const start = text.indexOf(paletteMark);
-  const end = text.indexOf(baseMark, start);
+  const end = text.indexOf(endMark, start);
   if (start < 0 || end <= start) {
-    return { ok: false, why: `markers out of order (palette@${start}, base@${end})` };
+    return { ok: false, why: `markers out of order (palette@${start}, end@${end})` };
   }
   el.textContent = `${text.slice(0, start) + cssText}\n${text.slice(end)}`;
   return { ok: true, replaced: end - start, wrote: cssText.length };
@@ -282,7 +287,7 @@ async function sweep(page, themes) {
   let foreignSheets = 0;
 
   for (const theme of themes) {
-    const applied = await page.evaluate(APPLY, themeCss(theme), PALETTE_MARK, BASE_MARK);
+    const applied = await page.evaluate(APPLY, themeCss(theme), PALETTE_MARK, PALETTE_END_MARK);
     if (!applied.ok) {
       throw new Error(`palette-sweep: could not swap to ${theme} — ${applied.why}`);
     }
@@ -350,7 +355,7 @@ function offenders(rows, unswept) {
 
 module.exports = {
   sweep, offenders, listSweepThemes, runKey, rgbKey, themeCss,
-  PALETTE_MARK, BASE_MARK,
+  PALETTE_MARK, PALETTE_END_MARK,
 };
 
 // ── CLI ─────────────────────────────────────────────────────────────────────

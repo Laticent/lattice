@@ -49,10 +49,24 @@
 @import 'lattice';
 
 /* Zero-specificity dark default — same pattern indaco uses for light, but
- * inverted. Carbone's identity is dark canvas; if an author flips
- * color-scheme to light at higher specificity they get an unstyled deck
- * (no light values defined), which is the correct failure mode for "this
- * palette doesn't support light mode." */
+ * inverted. Carbone's identity is dark canvas, and the manifest says so:
+ * `modes: ["dark"]`, no `-dark` counterpart, "an author needing a light
+ * carbone should pick a different palette rather than override color-scheme".
+ *
+ * WHAT ACTUALLY HAPPENS IF THEY OVERRIDE IT ANYWAY is not what this comment
+ * used to claim. It said they "get an unstyled deck (no light values defined),
+ * which is the correct failure mode" — they do not. A deck with
+ * `color-mode: light` renders fully styled: every token this palette leaves to
+ * the engine resolves to the engine's LIGHT arm, so the canvas, the text tiers
+ * and the status trio all come out legible. What breaks is the handful of
+ * tokens carbone declares FLAT, `--on-accent` above all — its near-black is
+ * paired with carbone's own bright lime, and on the engine's light `--fail` a
+ * `confidential` stamp reads 2.60:1. Measured on a real CLI render, #1527.
+ *
+ * So the failure mode is a styled deck with a few illegible spots, which is
+ * harder to notice than an unstyled one. `paired-token-parity.test.js` exempts
+ * this palette and records the cost; nothing in the engine refuses the
+ * configuration. Both are open, and both are why this note is precise now. */
 :where(:root) { color-scheme: dark; }
 
 :root {

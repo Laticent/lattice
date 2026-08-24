@@ -10,9 +10,10 @@
  * and the OKLab ramp stops the BASE derives from a palette's `--seq-500` anchor
  * (`word-cloud spectrum`'s word fills).
  *
- * Born from #1640. Five brand palettes' redline runs and the word-cloud spectrum
- * on onyx / concrete / the four a11y palettes fell sub-threshold the moment the
- * palette wins the cascade (#1527) — and every gate in the repo stayed green,
+ * Born from #1640, when the palette winning the cascade was still a proposal. Five
+ * brand palettes' redline runs and the word-cloud spectrum on onyx / concrete / the
+ * four a11y palettes fell sub-threshold the moment it did (#1527, since landed — so
+ * those are shipped readings now) — and every gate in the repo stayed green,
  * because contrast-audit checks each ink against `--bg` and never against the
  * `-bg` mix a component paints it on.
  *

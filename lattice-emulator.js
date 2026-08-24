@@ -700,6 +700,7 @@ const {
   withPrintColorMode, deckColorModeToken, classTokens,
 } = require('./lib/core/resolve-color-mode');
 const { frontMatterValue } = require('./lib/core/front-matter-key');
+const { PALETTE_END_MARK } = require('./lib/core/export-shell-marks');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 const md = WANT_PRINT ? withPrintColorMode(mdRaw) : mdRaw;
 
@@ -844,7 +845,28 @@ const layoutCSS  = flattenCssImports(cssFile, {
   resolve: (from, name) => path.join(path.dirname(from), `${name}.css`),
   exists: fs.existsSync,
 });
-const css = paletteCSS + '\n' + layoutCSS;
+// THE CASCADE, in the order every theme declares it (#1527). The engine sheet
+// FIRST, the palette chain LAST, so a palette's `:root` beats the base's at equal
+// specificity — which is exactly what `@import 'lattice';` at the top of every
+// theme file means, and what `loadPaletteWithImports` strips out before we get here.
+//
+// This file held the opposite order for the whole life of the export path, and it was
+// the ONLY one of four sites that did: the Mermaid token reader below parses
+// `layoutCSS + paletteCSS` and cites the `@import` rationale in as many words,
+// `engine.addThemes` hands the layout first, and `lib/engine`'s `composeCss` inlines
+// the base AT the theme's own `@import` position. So a deck looked one way in the
+// Playground and another in the PDF it exported, on all 32 themes — 925 palette
+// declarations across 37 tokens resolved to the base's value on this path and painted
+// nothing the palette's author wrote. Measured, swept and signed off across every theme
+// in both modes before it moved: engineering/decisions/2026-08-10-palette-concat-order.md,
+// 2026-08-11-palette-concat-signoff.md, 2026-08-24-palette-cascade-flip.md.
+//
+// PALETTE_END_MARK closes the palette region for `tools/palette-sweep.js`, which
+// overwrites that exact byte range in a rendered deck to re-theme it in place. Before
+// the flip the region was bounded by the two sheets' own opening banners; with the
+// palette last there is no banner after it, and a sweep that guessed the end would be
+// measuring a hybrid. The sentinel is emitted here, beside the concat it describes.
+const css = layoutCSS + '\n' + paletteCSS + '\n' + PALETTE_END_MARK + '\n';
 
 // ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
 // This file used to carry four hand-written copies of "match the front matter" and three of

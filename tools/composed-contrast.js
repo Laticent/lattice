@@ -19,17 +19,18 @@
  *     `lattice` @import entirely, so it never sees a base-derived ink at all.
  *
  * That blind spot is the root cause this file exists to close. It was measured on
- * #1640: five brand palettes' `redline` runs and the `word-cloud` spectrum on
- * onyx / concrete / the four a11y palettes fell sub-threshold the moment the
- * palette wins the cascade (#1527), and every gate in the repo stayed green
- * because no gate looks at a composed surface.
+ * #1640, when the palette winning the cascade was still a proposal: five brand
+ * palettes' `redline` runs and the `word-cloud` spectrum on onyx / concrete / the
+ * four a11y palettes fell sub-threshold the moment it did, and every gate in the
+ * repo stayed green because no gate looks at a composed surface. #1527 has since
+ * landed, so those readings are what ships rather than what would.
  *
  * ── What it resolves ──────────────────────────────────────────────────────────
  * The merged token map is `dist/lattice.css`'s `:root` defaults with the palette
  * chain's `:root` on top — PALETTE WINS. That is the order `lib/engine/css.js`
- * `composeCss` has always used (Studio, docs Playground) and the order the export
- * path takes once #1527 lands, so this gate is truthful for the engine path today
- * and for both paths after the flip. Evaluation is delegated to
+ * `composeCss` has always used (Studio, docs Playground) and, since #1527, the order
+ * the export path takes too — so this gate is truthful for every path that renders a
+ * slide. Evaluation is delegated to
  * `lib/core/resolve-token-expr` — the engine's own custom-property evaluator
  * (var() with fallback, light-dark() arms, color-mix() in oklab/srgb, a
  * `transparent` stop reduced to rgba) — so this gate cannot disagree with the
@@ -51,10 +52,23 @@
  *
  *   1. REGRESSION (budget 0, no exemptions). A palette's own curated value must
  *      not be WORSE than the base default it overrides, on a surface a component
- *      composes: base-wins clears the bar, palette-wins does not. This is the
- *      invariant #1527 needs — both #1640 findings are exactly this shape — and it
- *      outlives the flip as a palette-curation rule, since `base.tokens.css` is
- *      the reference standard an override is meant to improve on.
+ *      composes: base-wins clears the bar, palette-wins does not. This was the
+ *      invariant #1527 needed — both #1640 findings are exactly this shape — and it
+ *      outlived the flip as a palette-curation rule, since `base.tokens.css` is the
+ *      reference standard an override is meant to improve on.
+ *
+ *      NOTE WHAT THAT COUPLING MEANS, because it is not obvious and it has already
+ *      blocked one change. BOTH arms are computed analytically from the two merged
+ *      maps, so this arm does not depend on which order the export actually uses:
+ *      the flip did not relax it and could not. It is a comparison of two INKS on
+ *      the SAME canvas (the base declares no `--bg`), so it is apples-to-apples —
+ *      and it means improving a base default RAISES the bar every palette override
+ *      is measured against. Respacing the status trio's default to clear the
+ *      achromatopsia floor fires six regressions on `concrete`, whose dark `--fail`
+ *      cannot be re-solved: `redline/del` floors it at achromatopsia weight 0.786
+ *      while AA floors `--pass`/`--warn` at ~0.79, leaving 0.21 of range where three
+ *      signals mutually >= 0.11 need 0.22. See
+ *      engineering/decisions/2026-08-24-palette-cascade-flip.md 5.
  *
  *   2. ABSOLUTE (a frozen baseline, target zero). Which composed pairs are below
  *      their bar at all, and at what ratio. This population is large and mostly
@@ -763,11 +777,12 @@ function bundleVars() {
 /**
  * Merged token map for one palette.
  *
- * `baseWins` composes the OTHER way — the order `lattice-emulator.js` uses for
- * the document shell until #1527 flips it, where `base.tokens.css`'s universal
- * defaults override everything a palette curated. The REGRESSION arm needs both
- * so it can ask whether the palette's own value is worse than the default it
- * replaces.
+ * `baseWins` composes the OTHER way, with `base.tokens.css`'s universal defaults
+ * overriding everything a palette curated. That was the order `lattice-emulator.js`
+ * used for the document shell until #1527 flipped it; no path renders it now, and it
+ * is kept because the REGRESSION arm needs it as a REFERENCE — "is the palette's own
+ * value worse than the default it replaces" is a question about two inks on one
+ * canvas, not about a cascade anyone still ships.
  */
 function mergedVars(theme, { baseWins = false } = {}) {
   const palette = { vars: {}, spec: {} };
@@ -1084,7 +1099,7 @@ if (require.main === module) {
 
   console.log('\n  Lattice · Composed-surface contrast');
   console.log('  ══════════════════════════════════════════════════════════════');
-  console.log('  Palette wins the cascade (engine order / post-#1527 export order)\n');
+  console.log('  Palette wins the cascade (engine order and, since #1527, export order too)\n');
 
   if (showAll) {
     for (const r of res.rows) {
