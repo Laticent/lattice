@@ -1026,7 +1026,15 @@ const PRESETS_ONLY = process.argv.includes('--presets');
     await page.setViewport({ width: s.vp[0], height: s.vp[1] });
     await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120000 });
     rows.push(await page.evaluate(() => {
-      const pick = (cls) => [...document.querySelectorAll('section')].find(x => x.className.includes(cls));
+      // By class TOKEN, not substring — the same distinction `classTokens` below
+      // makes for the oracle half, and for the same reason. At `portrait` the stats
+      // slide AUTO-SPLITS into a generated cover plus two native sections, and the
+      // cover's class is `content lat-split-cover form split-cover-stats`. A substring
+      // match finds that cover FIRST, it has no `.cell-stage > ol`, and the probe reads
+      // MISSING off a section that was never the stats layout — reporting the square
+      // tier dead while the real sections read `column`/`nowrap` exactly as expected.
+      const pick = (cls) => [...document.querySelectorAll('section')]
+        .find((x) => x.className.split(/\s+/).includes(cls));
       const dec = pick('decision'), mat = pick('matrix-2x2'), st = pick('stats');
       const dir = (sec, sel) => {
         const el = sec?.querySelector(sel);
