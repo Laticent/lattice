@@ -192,35 +192,29 @@ A base palette's spine (from `themes/indaco.css`):
   /* Structural — stroke MUST read on white */
   --diagram-stroke: #1F6E60; --diagram-line: light-dark(#0A211D, #EAF3F0);
 
-  /* Semantic signals — and see the SECOND copy below, which is not optional. */
+  /* Semantic signals — declared ONCE, at plain `:root`. */
   --pass: light-dark(#2D6A3F, #4ADE80);
   --warn: light-dark(#B45309, #F97316);
   --fail: light-dark(#991B1B, #F87171);
 }
 
-/* THE STATUS TRIO IS DECLARED TWICE, and both copies are load-bearing. The values here
- * are base.tokens.css's DEFAULTS, shown for shape — a real palette curates its own
- * against the bands its components paint them on (`tools/composed-contrast.js`), not
- * against the canvas. The three render paths disagree about selectors, and neither form
- * reaches all of them:
- *   · `:root`      packs onto the slide <section> (lib/engine/css.js, mirroring Marpit),
- *                  so it is the form the ENGINE path — Studio, docs Playground,
- *                  Specimen — and export-to-Marp can see. It LOSES on the CLI export
- *                  path, where nothing is packed and the bundle is concatenated after
- *                  the palette, so base's `:root` wins on source order at equal
- *                  specificity.
- *   · `:root:root` is (0,2,0) and beats the bundle whatever the order, which is what
- *                  the CLI export needs — and is INERT on the packed paths, because the
- *                  second `:root` survives the rewrite literally onto a <section>, where
- *                  it cannot match. Confirmed under real marp-cli, not only ours.
- * Ship one and the other path silently paints base's trio. Values must be IDENTICAL in
- * both blocks; `checkStatusTrioParity` fails the build if they drift.
- * engineering/decisions/2026-08-23-status-trio-export-cascade.md */
-:root:root {
-  --pass: light-dark(#2D6A3F, #4ADE80);
-  --warn: light-dark(#B45309, #F97316);
-  --fail: light-dark(#991B1B, #F87171);
-}
+/* PLAIN `:root`, AND ONLY PLAIN `:root`. The values here are base.tokens.css's
+ * DEFAULTS, shown for shape — a real palette curates its own against the bands its
+ * components paint them on (`tools/composed-contrast.js`), not against the canvas.
+ *
+ * The trio used to be declared a SECOND time at `:root:root` (0,2,0), because the CLI
+ * export concatenated the engine bundle AFTER the palette and a plain `:root` override
+ * lost there on source order. That bought the export and cost the packed paths: Marpit's
+ * rewrite moves only a `:root` preceded by a combinator, so the second one survives
+ * literally onto the <section>, where `:root` can never match. #1527 flipped the concat
+ * (2026-08-24-palette-cascade-flip.md) — the engine sheet loads first now — so one plain
+ * declaration wins the export AND packs everywhere else, and the duplicate became dead
+ * weight on 18 palettes plus a gate to keep the halves in sync.
+ *
+ * Do not re-add it. `checkPackedRootReach` fails a palette that declares a custom
+ * property above plain `:root`, whether as a duplicate (dead weight) or on its own
+ * (inert on every packed path — that was a live 1.00:1 panel edge, #1797).
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */
 
 :root { /* the --scheme-dark-* inputs consumed by the pairs above */
   --scheme-dark-bg: #0C1A17; --scheme-dark-bg-alt: #12241F; /* … */

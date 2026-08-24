@@ -413,41 +413,21 @@ section.color-light:not(.print) {
  * endpoint on both arms would replace a correct color with a worse one — the flat-
  * override defect paired-token-parity.test.js exists to catch.
  *
- * `:root:root`, NOT `:root`, and that is load-bearing. The export path concatenates
- * base.tokens.css AFTER the palette, so at equal specificity the engine default wins
- * on source order and a plain `:root` override is silently discarded in the rendered
- * PDF while every static check still passes. Verified by rendering, not by the token
- * map. Gated: composed-contrast surface `split-panel/edge-mark` (floor 1.5:1).
+ * Plain `:root`, and the specificity bump it used to carry is gone. This was
+ * `:root:root` (0,2,0) because the export path concatenated base.tokens.css AFTER the
+ * palette, so a plain `:root` override lost on source order in the rendered PDF. That
+ * bought the export path and cost the PACKED ones: Marpit's rewrite leaves the second
+ * `:root` literally on the <section>, where it can never match, so the Studio, the
+ * docs Playground and export-to-Marp all fell back to base's `var(--accent)` — on this
+ * palette the panel fill itself, the 1.00:1 edge this block exists to fix (#1797).
+ * #1527 flipped the concat (2026-08-24-palette-cascade-flip.md): the engine sheet loads
+ * FIRST now, so plain `:root` wins on source order in the export AND packs onto the
+ * slide everywhere else. One declaration, all four paths. Gated: composed-contrast
+ * surface `split-panel/edge-mark` (floor 1.5:1), and `checkPackedRootReach` refuses a
+ * theme token declared ONLY above plain `:root`.
  * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
-:root:root { --panel-edge-mark: light-dark(var(--spectrum-end), var(--accent)); }
+:root { --panel-edge-mark: light-dark(var(--spectrum-end), var(--accent)); }
 
-/* ── Semantic status trio, declared a SECOND time at (0,2,0) ─────────────────
- *
- * The trio above is the curated one; this block repeats it verbatim, and both are
- * load-bearing because the three render paths do not agree on selectors.
- *
- *   · the `:root` above — `lib/engine/css.js` packs a theme the way Marpit does,
- *     rewriting `:root` onto the slide `<section>`. That is the form the ENGINE path
- *     (Studio, docs Playground, Specimen) and export-to-Marp can see, and it wins there
- *     on source order. On the CLI export path it LOSES — nothing is packed there and
- *     `lattice-emulator.js` concatenates the bundle last, so base's `:root` (0,1,0)
- *     beats it at equal specificity.
- *
- *   · this `:root:root` — (0,2,0), so it beats the bundle whatever the source order,
- *     which is what the CLI export path needs. It is INERT on the packed paths:
- *     Marpit's rewrite only touches a `:root` preceded by a combinator, so the second
- *     one survives literally and lands on the `<section>`, where `:root` cannot match.
- *     Measured under real marp-cli too, not just ours — see §2c of the note below.
- *
- * Ship one and the other path silently reads base's trio. Before this change every
- * palette's curated trio was inert in a CLI export — an exported deck painted base's
- * own values on all 32 palettes, including the ones #1801 had just re-solved.
- *
- * The two blocks must carry identical values; `checkStatusTrioParity` in
- * tools/check-ownership.js fails the build if they drift.
- * engineering/decisions/2026-08-23-status-trio-export-cascade.md */
-:root:root {
-  --pass: light-dark(#1b4921, #a0f5a8);
-  --warn: light-dark(#835800, #e5b255);
-  --fail: light-dark(#4d0004, #dd7878);
-}
+/* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
+ * retired the `:root:root` duplicate that used to reach the CLI export.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */

@@ -1398,92 +1398,92 @@ function listCssFiles(dir, out = []) {
 const RETIRED_TOKEN_NAMES = new Set(TOKEN_CROSSWALK.map((p) => `--${p.old}`));
 
 /**
- * The status trio is declared TWICE in every palette that curates it, and the two
- * blocks must agree.
+ * A palette token declared ONLY above plain `:root` never reaches a packed render.
  *
- * Not redundancy — the three render paths disagree about selectors, and neither form
- * reaches all of them:
+ * `lib/engine/css.js` packs a theme the way Marpit does, rewriting `:root` onto the
+ * slide `<section>` — but the rewrite only touches a `:root` preceded by a combinator
+ * or start-of-string, so in `:root:root` the SECOND one survives literally:
  *
- *   · `:root` packs to `:where(section)…` (lib/engine/css.js, mirroring Marpit), so it
- *     is what the ENGINE path — Studio, docs Playground, Specimen — and export-to-Marp
- *     can see. It LOSES on the CLI export path, where nothing is packed and
- *     `lattice-emulator.js` concatenates the bundle last: base's `:root` wins on source
- *     order at equal specificity.
- *   · `:root:root` is (0,2,0) and beats the bundle whatever the order, which is what
- *     the CLI export path needs. It is INERT on the packed paths — Marpit rewrites only
- *     a `:root` preceded by a combinator, so the second one survives literally onto the
- *     `<section>`, where `:root` cannot match (engineering/gotchas/marp.md documents the
- *     class for `:root[…]`).
+ *   :root:root { --x: red }  ->  article.lattice > :where(section):not([\20 root]):root
  *
- * MEASURED BOTH WAYS, because each single-form version shipped a real defect. Before
- * #1698's second pass every palette's curated trio was inert in a CLI export. Promoting
- * it to `:root:root` alone moved the defect to the engine path — the four `a11y-*`
- * palettes rendered base's trio in the Playground, the one place their CVD-safe values
- * exist to be seen. Neither was visible to any ratio gate.
+ * That trailing `:root` needs the `<section>` to be the document root. It never matches.
+ * So `(:root){2,}` is INERT on every packed path — the Studio, the docs Playground, the
+ * Specimen, and export-to-Marp, whose rewrite is marp-core's own (measured under real
+ * marp-cli: a `:root:root`-only trio paints base's `#2D6A3F`, a `:root` one paints the
+ * palette's). `engineering/gotchas/marp.md` documents the same class for `:root[…]`.
  *
- * So the pair is the contract, and drift between the halves is the failure this check
- * exists to prevent: edit one and a palette silently ships two different greens
- * depending on which surface a reader is looking at.
- * engineering/decisions/2026-08-23-status-trio-export-cascade.md
+ * The bump existed because the CLI export used to concatenate the engine bundle AFTER
+ * the palette, so a plain `:root` override lost on source order there while every static
+ * check passed. #1527 flipped that concat (2026-08-24-palette-cascade-flip.md): the
+ * engine sheet loads first now, so plain `:root` wins the export on source order AND
+ * packs everywhere else. One declaration reaches all four paths, and the bump became
+ * either dead weight (the status trio, declared at both — #1698) or an outright defect
+ * (`--panel-edge-mark`, declared ONLY there: base's `var(--accent)` painted instead,
+ * which on onyx IS the panel fill — a 1.00:1 edge, #1797).
+ *
+ * So the contract is now the simple one: declare it at plain `:root`. This gate fails a
+ * CUSTOM PROPERTY that appears under a repeated-`:root` selector without also appearing
+ * at plain `:root` in the same file.
+ *
+ * ENVELOPE, stated rather than implied. It matches `(:root){2,}` only — an unconditional
+ * root compound whose specificity exceeds plain `:root`. It deliberately does NOT judge
+ * `:root.print` / `:root[data-x]` (conditional overrides, a different contract), nor
+ * `:root :root` (a descendant, inert everywhere and not a shape anything here writes),
+ * and it is scoped to `--*` properties so `a11y-base`'s `:root:root { color-scheme }`
+ * pin stays out of scope — that one is a deliberate specificity war with an author's
+ * INJECTED `:root{color-scheme:dark}`, not a cascade-order workaround, and it is the one
+ * legitimate use of the shape left in the tree.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md
  */
-const STATUS_TRIO = ['pass', 'warn', 'fail'];
+const REPEATED_ROOT = /^(?::root){2,}$/;
 
-function trioBlocks(css) {
-  const out = { root: new Map(), rootRoot: new Map(), odd: new Set() };
-  // Comment-stripped, so the docblock above each pair (which names the selectors in
-  // prose) cannot be mistaken for a rule — a live trap: the first cut of the tool that
-  // wrote these blocks matched `:root:root` inside its own explanation.
+function rootDeclSites(css) {
+  const out = { plain: new Set(), overSpecific: new Map() };   // token -> selector
+  // Comment-stripped, so a docblock naming these selectors in prose cannot be mistaken
+  // for a rule — a live trap: the first cut of the tool that WROTE these blocks matched
+  // `:root:root` inside its own explanation.
   const src = stripComments(css);
   // Every rule, then the selector tested WHOLE. An anchor-on-the-previous-`}` form reads
   // fine and silently halves the result: the first match consumes the brace the second
-  // one needs, so two adjacent `:root` / `:root:root` blocks parse as one. Measured — it
-  // reported all 18 palettes missing their `:root:root` half while every file had it.
+  // one needs, so two adjacent root blocks parse as one. Measured — the predecessor of
+  // this scan reported all 18 palettes missing a block every file had.
   for (const m of src.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
     // Drop anything up to the last `;` — a theme opens with `@import 'parent';`, which the
     // brace scan otherwise swallows into the next rule's "selector".
     const sel = m[1].replace(/^[\s\S]*;/, '').trim();
-    // A trio declared under ANY OTHER root-family shape is a shape this gate cannot pair
-    // up, and silence there is the worst answer available: an unmatched shape used to fall
-    // through to the `declares neither half` branch and be read as "inherits its parent's
-    // trio", so `:root, .x { --pass: … }` shipped export-inert with the gate green. It is
-    // now reported rather than skipped. `:root :root` (a descendant, inert everywhere) and
-    // `:root:root:root` both land here too, which is right — neither is the sanctioned pair.
-    const into = sel === ':root:root' ? out.rootRoot : sel === ':root' ? out.root : null;
-    if (!into) {
-      if (/(^|[\s,>+~(]):root\b/.test(sel) && /--(?:pass|warn|fail)\s*:/.test(m[2])) out.odd.add(sel);
-      continue;
-    }
-    for (const d of m[2].matchAll(/--([a-z-]+)\s*:\s*([^;]+)/gi)) {
-      if (STATUS_TRIO.includes(d[1])) into.set(d[1], d[2].trim().replace(/\s+/g, ' '));
+    const plain = sel === ':root';
+    const over = REPEATED_ROOT.test(sel);
+    if (!plain && !over) continue;
+    for (const d of m[2].matchAll(/(--[a-z0-9-]+)\s*:/gi)) {
+      if (plain) out.plain.add(d[1]);
+      else if (!out.overSpecific.has(d[1])) out.overSpecific.set(d[1], sel);
     }
   }
   return out;
 }
 
-function checkStatusTrioParity(errors) {
+function checkPackedRootReach(errors) {
   const dir = path.join(ROOT, 'themes');
   if (!fs.existsSync(dir)) return;
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.css')).sort()) {
-    const { root, rootRoot, odd } = trioBlocks(fs.readFileSync(path.join(dir, f), 'utf8'));
-    for (const sel of odd) {
+    const { plain, overSpecific } = rootDeclSites(fs.readFileSync(path.join(dir, f), 'utf8'));
+    for (const [tok, sel] of overSpecific) {
+      if (plain.has(tok)) {
+        errors.push(
+          `themes/${f}: ${tok} is declared at BOTH \`:root\` and \`${sel}\`. The second is dead `
+          + 'weight since #1527 flipped the export concat — plain `:root` now wins the CLI '
+          + 'export on source order and packs onto the slide everywhere else. Drop the '
+          + `\`${sel}\` copy; two declarations that must be hand-kept in sync is how a palette `
+          + 'ends up shipping two different greens depending on the surface.',
+        );
+        continue;
+      }
       errors.push(
-        `themes/${f}: the status trio is declared under \`${sel}\`, which is neither \`:root\` `
-        + 'nor `:root:root`. It must be declared at BOTH, identically — `:root` reaches the '
-        + 'engine / Marp paths and `:root:root` reaches the CLI export. A shape this gate '
-        + 'cannot pair up reads as "inherits its parent\'s trio" and ships export-inert.',
-      );
-    }
-    if (!root.size && !rootRoot.size) continue;               // inherits its parent's trio
-    for (const tok of STATUS_TRIO) {
-      const a = root.get(tok);
-      const b = rootRoot.get(tok);
-      if (a && b && a === b) continue;
-      if (!a && !b) continue;                                 // declares neither half
-      errors.push(
-        `themes/${f}: --${tok} must be declared IDENTICALLY at \`:root\` and \`:root:root\` — `
-        + `\`:root\` reaches the engine / Marp paths, \`:root:root\` reaches the CLI export, and `
-        + `neither reaches both. Got :root ${a ? `"${a}"` : '(missing)'} vs :root:root `
-        + `${b ? `"${b}"` : '(missing)'}. See the docblock beside the pair.`,
+        `themes/${f}: ${tok} is declared ONLY at \`${sel}\`, so it is inert on every PACKED `
+        + 'path — the Studio, the docs Playground, the Specimen and export-to-Marp all rewrite '
+        + '`:root` onto the slide <section> and the repeated `:root` survives literally, where '
+        + `it can never match. The slide falls back to the engine default. Declare ${tok} at `
+        + 'plain `:root`: since #1527 that reaches the CLI export too.',
       );
     }
   }
@@ -5078,15 +5078,17 @@ function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctio
 // `lib/engine/css.js` packs a theme the way Marpit does, rewriting a `:root` that follows a
 // combinator; the SECOND `:root` in `:root:root` follows neither, so it survives literally
 // onto the `<section>` — where `:root` cannot match. The doubled form is therefore INERT on
-// the engine and export-to-Marp paths and live only on the unpacked CLI export path, which
-// is exactly why a palette declares the status trio at BOTH forms (themes/*.css, and
-// `checkStatusTrioParity` above pins the pair). `engineering/gotchas/marp.md` documents the
-// same class for `:root[…]`.
+// the engine and export-to-Marp paths and live only on the unpacked CLI export path.
+// `engineering/gotchas/marp.md` documents the same class for `:root[…]`.
 //
-// Rejecting it outright forced a choice between a diagram token that resolves per-slide
-// correctly and one that resolves AT ALL in a CLI export — not the trade this check is
-// about. The rejected shapes are unchanged: positional pseudo-class, attribute selector,
-// `:has()`, descendant / sibling combinator.
+// It is admitted here on the per-slide axis alone, and it is not a form anything should be
+// WRITING any more: since #1527 flipped the export concat, plain `:root` wins there too, and
+// `checkPackedRootReach` above fails a theme token declared only above plain `:root` (that
+// inertness was a live 1.00:1 defect, #1797). This check is the wrong place to enforce that
+// — rejecting the shape outright would forbid a selector that is merely useless rather than
+// per-slide-variant, which is not the trade this check is about. The rejected shapes are
+// unchanged: positional pseudo-class, attribute selector, `:has()`, descendant / sibling
+// combinator.
 const CLASS_OR_CLASS_ONLY_PSEUDO = String.raw`(?:\.[\w-]+|:(?:not|is|where)\((?:\s*\.[\w-]+\s*,?)+\))`;
 const DIAGRAM_SCOPE_SAFE_SELECTOR = new RegExp(`^(?:(?::root)+|section${CLASS_OR_CLASS_ONLY_PSEUDO}*)$`);
 
@@ -10070,7 +10072,7 @@ function run() {
   checkThemeTokenParity(errors);
   checkNoSafeDefaultTokens(errors);
   checkRetiredTokenNames(errors);
-  checkStatusTrioParity(errors);
+  checkPackedRootReach(errors);
   checkTypographyTokens(errors);
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
@@ -10225,8 +10227,8 @@ module.exports = {
   SANCTIONED_DENSITY_EXEMPT,
   checkTagClustering,
   checkRetiredTokenNames,
-  checkStatusTrioParity,
-  trioBlocks,
+  checkPackedRootReach,
+  rootDeclSites,
   RETIRED_TOKEN_NAMES,
   checkTypographyTokens,
   nonCanonicalFsTokens,
