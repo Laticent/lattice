@@ -753,7 +753,7 @@ const { resolveDiagramLook, resolveDiagramHandType, paletteUsesTextureChannel } 
 // the other font plumbing further down, these were in the TDZ when `warnOnUnloadedFaces`
 // fired — the same trap `escAttrLocal` documents a few hundred lines below, and it
 // surfaced the same way: a misleading "Mermaid render failed" for a bug in our own code.
-const { fontFaceCss } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, fontDir, resolveInlinedSheetFaces } = require('./lib/fonts/face-css.js');
 const { TEXT_FACES } = require('./lib/fonts/text-faces.js');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
@@ -852,11 +852,58 @@ const PALETTE_USES_TEXTURE = paletteUsesTextureChannel(paletteCSS);
 // own bytes. The default `dist/lattice.css` declares no theme-name import, but a custom
 // sheet may — dropping to a plain read here silently stopped inlining it, which the
 // adversarial trio caught as a real regression. One named helper, not a fourth regex.
-const layoutCSS  = flattenCssImports(cssFile, {
+const layoutCSSLinked = flattenCssImports(cssFile, {
   read: (f) => readFileOrDie(f, 'layout CSS'),
   resolve: (from, name) => path.join(path.dirname(from), `${name}.css`),
   exists: fs.existsSync,
 });
+// A STYLESHEET'S RELATIVE `url()` RESOLVES AGAINST THE STYLESHEET — and this path does
+// not link the sheet, it INLINES it, which silently rebases every one of them onto the
+// OUTPUT directory. `dist/lattice.css` declares its 37 self-hosted faces as
+// `url('fonts/<file>.woff2')`, correct beside the `dist/fonts/` the build writes and
+// wrong the moment the bytes land in a deck document somewhere else. Measured on a real
+// sidecar (the math gallery, exported to `.html`): 74 declared faces, 37 `loaded` and
+// 37 `error`, every error an `ERR_FILE_NOT_FOUND` on one of those relative urls — on
+// every navigation, in every export this path has ever produced.
+//
+// It never SHOWED because each doomed face has a working twin in the same document: the
+// 17 engine text faces are base64-inlined in `embeddedFonts` below, the 20 KaTeX faces
+// arrive through the `<link>` to `katex.min.css` (linked, so its own relative urls DO
+// resolve). The doomed copies are declared LAST and would win the match, but they fail,
+// and Chromium falls back within the family group to the twin. Confirmed on the real
+// page rather than assumed — CDP `CSS.getPlatformFontsForNode` reports Playfair Display
+// / Outfit / JetBrains Mono / KaTeX_Math / KaTeX_Main on the text nodes that use them,
+// identically before and after this line. So the export was correct by accident, resting
+// on within-family fallback that nothing documented and nothing gated.
+//
+// `resolveInlinedSheetFaces` drops a doomed face whose family the document already
+// carries, and REBASES one it does not (a `--css` override's own face; the engine sheet
+// when `assets/` is missing so the base64 block is empty — the fallback the old comment
+// at `embeddedFontsStyle` claimed already worked, which it never did: those urls 404ed
+// from the output directory too).
+//
+// DROP, not rebase-everything, and that is measured. Rebasing all 37 makes them resolve
+// — and then really fetches 37 woff2 the document already carries inline: 405 ms median
+// per navigation against 229 ms for the broken status quo. Dropping is 204 ms with zero
+// failed requests. See the PR's ## Performance section.
+const KATEX_FAMILIES = katexCssAbsPath
+  // Whatever families the LINKED sheet actually declares — read from its bytes rather
+  // than a hardcoded KaTeX list here, which would rot the first time KaTeX added a face.
+  ? [...new Set([...fs.readFileSync(katexCssAbsPath, 'utf8')
+      .matchAll(/@font-face\s*\{[^{}]*font-family\s*:\s*([^;}]+)/g)]
+      .map((m) => m[1].trim().replace(/^['"]|['"]$/g, '')))]
+  : [];
+const inlinedFaces = resolveInlinedSheetFaces(layoutCSSLinked, {
+  sheetDir: path.dirname(path.resolve(cssFile)),
+  // A family is COVERED when this document supplies it another way: the engine's own
+  // faces via the base64 block (only when the woff2 are actually on disk — `fontDir`
+  // is the same test `fontFaceCss` makes), KaTeX's via the link.
+  covered: [
+    ...(fontDir(PKG_ROOT) ? [...new Set(TEXT_FACES.map((f) => f.family))] : []),
+    ...KATEX_FAMILIES,
+  ],
+});
+const layoutCSS = inlinedFaces.css;
 // THE CASCADE, in the order every theme declares it (#1527). The engine sheet
 // FIRST, the palette chain LAST, so a palette's `:root` beats the base's at equal
 // specificity — which is exactly what `@import 'lattice';` at the top of every
@@ -2170,8 +2217,11 @@ aside.lattice-notes { display: none !important; }
 // These local faces embed the real type into the printed PDF with zero network —
 // the whole point of the library carrying its own fonts. The face list is the
 // canonical manifest (lib/fonts/text-faces.js), shared with the build emitter
-// and the parity gate. Absent (assets/ isn't in the tarball) it returns '' and
-// the stylesheet's own `fonts/` URLs are used unchanged. Covers the full engine
+// and the parity gate. Absent (assets/ isn't in the tarball) it returns '', and the
+// stylesheet's own `fonts/` URLs carry the faces instead — REBASED onto the sheet's real
+// directory by `resolveInlinedSheetFaces` above, which is what makes that fallback real.
+// This comment used to say those URLs "are used unchanged"; unchanged, they 404ed off the
+// output directory, so the documented fallback had never worked. Covers the full engine
 // type stack: display serif (Playfair, incl. italics), body sans (Outfit), mono
 // (JetBrains), and the `sketch` hand pair (Caveat, Shantell). See
 // assets/fonts/README.md.
@@ -2902,14 +2952,25 @@ async function renderBody(browser, g, closeBrowser) {
   // `unloaded` switches the FontFaceSet back to loading and REPLACES `document.fonts.ready`
   // with a new promise — measured — at which point the two awaits are on different objects
   // and registration order buys nothing. What actually holds it today is that no face is left
-  // `unloaded` when the navigation returns: measured across five real sidecars, 74 declared
-  // faces resolve to 37 `loaded` + 37 `error`, and the force-load does NOT replace
-  // `document.fonts.ready`. Note BOTH halves, because the tempting one-line version ("deck
-  // fonts are `data:` URIs") is false — only 17 faces are base64 `data:`; the other 37 are
-  // KaTeX's relative `fonts/…woff2`, fetched and 404. It is their prompt FAILURE, not
-  // inlining, that keeps them out of `unloaded`. A theme or `--css` override adding a
-  // genuinely remote face that resolves SLOWLY rather than failing would break the invariant
-  // and orphan the redraw. Tracked in the cost assessment's §8 rather than guarded here.
+  // `unloaded` when the navigation returns — and the REASON for that changed with the
+  // `@font-face` fix at `layoutCSSLinked` above, so the old note here is worth correcting
+  // rather than deleting.
+  //
+  // It used to hold by FAILURE. The document declared 74 faces and settled at 37 `loaded`
+  // + 37 `error`: the engine sheet was inlined with its relative `url('fonts/…')` intact,
+  // so every one of its faces 404ed off the output directory, PROMPTLY, which is what kept
+  // them out of `unloaded`. The note recording that got the composition wrong — it called
+  // all 37 errors "KaTeX's relative fonts/…woff2", when only 20 were KaTeX and the other
+  // 17 were the engine's own text faces, duplicating the base64 block verbatim.
+  //
+  // It now holds by RESOLUTION. The doomed duplicates are gone; the document declares 37
+  // faces and all 37 load, every one of them local — 17 base64 `data:` in `embeddedFonts`,
+  // 20 from the `<link>` to katex.min.css in node_modules. Measured on the same sidecar.
+  // That is a stronger footing than prompt failure was, but it is the SAME invariant and it
+  // has the SAME hole: a theme or `--css` override adding a genuinely remote face — one that
+  // resolves SLOWLY rather than failing or resolving locally — still leaves a face `unloaded`
+  // here, still replaces `document.fonts.ready`, and still orphans the redraw. Tracked in the
+  // cost assessment's §8 rather than guarded here.
   await g(() => page.evaluate(async () => {
     try {
       await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
@@ -3711,9 +3772,12 @@ async function renderBody(browser, g, closeBrowser) {
             if (parts.length) {
               // Clean look-scheme doc: engine layout CSS + the look palette + a section in the look scheme,
               // holding just the re-rendered diagrams. No slide content, no rendered-scheme CSS. NOTE: the
-              // scratch page is trusted for COLOR only — its `@font-face` urls are relative to about:blank
-              // so text renders in a fallback font, but glyph geometry is baked by mmdc and font bytes are
-              // embedded post-hoc (standaloneFontFaceCss), so only the flattened COLORS are ever read here.
+              // scratch page is trusted for COLOR only — it carries no usable `@font-face` (the engine
+              // sheet's are dropped as covered upstream, and the base64 block is not inlined here), so
+              // text renders in a fallback font. That costs nothing: glyph geometry is baked by mmdc and
+              // font bytes are embedded post-hoc (standaloneFontFaceCss), so only the flattened COLORS
+              // are ever read here. It is also why this page can navigate on `load` — it asks the
+              // network for nothing at all.
               // Same `<style>` RAWTEXT rule as the deliverable document (HARD RULE #22), and
               // `layoutCSS` is the caller's `--css` sheet: a `</style>` here would end the
               // element and hand the remainder to the parser as markup in a live page THIS
@@ -3722,7 +3786,18 @@ async function renderBody(browser, g, closeBrowser) {
               const scratchDoc = `<!DOCTYPE html><html style="color-scheme:${lookMode === 'dark' ? 'dark' : 'light'}"><head><meta charset="utf-8"><style>${sanitizeStyleText(`${layoutCSS}\n${lookPaletteCss}`)}</style></head><body><section class="${sectionLookClass}" data-lattice-slide="1">${parts.join('')}</section></body></html>`;
               const scratch = await g(() => page.browser().newPage(), 'look-diagram scratch page');
               try {
-                await g(() => scratch.setContent(scratchDoc, { waitUntil: 'networkidle0', timeout: 60000 }), 'load look scratch');
+                // `load`, not `networkidle0` — the fourth and last navigation wait on this
+                // path to be sized rather than inherited (#1795 did the other three).
+                // This document is the easiest of the four to argue and the numbers say
+                // so: it is a string this process just built, holding pre-rendered
+                // Mermaid SVG and two stylesheets, and after the `@font-face` fix above
+                // it issues NO subresource request at all — the engine sheet's relative
+                // `fonts/` urls, the only requests it ever made, are dropped as covered
+                // before they reach here. `load` therefore fires with nothing outstanding
+                // and `networkidle0` can only add its own idle floor on top.
+                // The 120 ms settle below is unchanged: it is a LAYOUT wait for the SVG,
+                // not a network one, and it is what the flatten pass actually depends on.
+                await g(() => scratch.setContent(scratchDoc, { waitUntil: 'load', timeout: 60000 }), 'load look scratch');
                 await g(() => scratch.evaluate(`window.__flattenSvgStyles = ${flatten.toString()};`), 'inject flattener (scratch)');
                 await g(() => scratch.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle scratch');
                 const flat = await g(() => scratch.evaluate(() => {

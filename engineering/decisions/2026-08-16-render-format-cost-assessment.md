@@ -726,15 +726,44 @@ divided by a factor that was never measured.
 - **A latent font-ordering hazard, deliberately not guarded.** The state-chart's
   in-page `document.fonts.ready.then(drawAll)` feeds measured geometry, and
   `f.load()` on a face that is still `unloaded` REPLACES `document.fonts.ready` —
-  measured — which would orphan that redraw. It holds today only because deck
-  fonts are `data:` URIs and every face is already `loaded` when the navigation
-  returns (measured across five sidecars: `unloaded=0`, ready not replaced). A
-  theme or `--css` override adding one genuinely remote `@font-face` breaks the
-  invariant. Nobody has built that deck; the invariant is now written beside the
-  force-load rather than left implied.
-- **37 of 74 declared `@font-face` are in `error` state** on a real sidecar, under
-  both waits, swallowed by the force-load's `.catch(() => {})`. Pre-existing and
-  off the path of L2 — logged here rather than chased.
+  measured — which would orphan that redraw. It holds because every face is
+  already resolved when the navigation returns (`unloaded=0`). **The stated REASON
+  was wrong and has been corrected twice** (§9 row 21): it was never "deck fonts
+  are `data:` URIs" — only 17 of the 74 were — and after that it was "the other 37
+  fail promptly", which was true but was itself the defect. Both are now moot: the
+  doomed 37 are gone and all remaining faces resolve locally. The hazard is
+  unchanged and still unguarded — a theme or `--css` override adding one genuinely
+  REMOTE `@font-face`, slow rather than local, still breaks it. Nobody has built
+  that deck; the invariant is written beside the force-load rather than implied.
+- ~~**37 of 74 declared `@font-face` are in `error` state** on a real sidecar, under
+  both waits, swallowed by the force-load's `.catch(() => {})`.~~ — **CHASED, and it
+  was a real defect in every export this path has ever produced.** A stylesheet's
+  relative `url()` resolves against THE STYLESHEET; the export INLINES
+  `dist/lattice.css` rather than linking it, which silently rebased its 37
+  self-hosted `url('fonts/…woff2')` faces onto the OUTPUT directory, where every one
+  404ed. The composition was also mis-stated where it was recorded — 20 KaTeX and 17
+  engine text faces, not "37 KaTeX" (§9 row 21). It never SHOWED because each doomed
+  face has a working twin in the same document (the base64 block; KaTeX's `<link>`,
+  which resolves relatively *because* it is linked), and Chromium falls back within
+  the family group — verified on the real page with CDP
+  `CSS.getPlatformFontsForNode`, identical before and after. Fixed by dropping a face
+  the document already supplies and rebasing one it does not: **74 declared → 37, 37
+  `error` → 0, 37 failed requests → 0, ~21 ms per navigation.**
+- **The `exportTier()` rows are still neither blessed nor checked.** `main()` computes
+  `exp` and passes it only to the `--json` dump, though that tier was given a
+  `{ main, summary }` shape precisely so it could be compared. The block that reads
+  like it does the comparing was headed `=== EXPORT CHECK ===` while comparing the
+  PRINT tier — the label is fixed, the hole is not. Off-path, logged rather than
+  widened into the font/wait change.
+- **`bench:check`'s render tier is red on `main` on this sandbox class**, by +24-26%
+  on all three datasets, reproduced with every local change stashed. The calibration
+  probe reads 1.07-1.19× the blessed value — flickering across the ±15%
+  comparability band from one run to the next — so the same tree reports
+  `REGRESSION` or `not gated` depending on the minute. This is #1382's failure
+  recurring against a slower sandbox instance, and it is why the font/wait change
+  did **not** re-bless: a plain `bench:bless` rewrites the render-tier `datasets`
+  from whatever state the machine is in, which would ratchet a pre-existing 24%
+  slowdown in as the new normal and destroy the record #19(b) wants.
 
 ---
 
@@ -767,7 +796,7 @@ timing signature, and the measurements themselves all held.**
 | 18 | L2 (`waitUntil: 'load'`) changes nothing about what is exported — "0 page-count, 0 clipped-page, 0 auto-split differences across 277 decks" | **The corpus was right and the generalization was wrong, twice.** (a) `load` does not wait for `<img loading="lazy">` or `<iframe loading="lazy">`, which Chromium defers past the load event; a deck can carry raw HTML (`html: true`), and a lazy remote image rendered under `load` was **absent from the PDF entirely** — `pdfimages -list` showing the object under `networkidle0` and no image objects at all under `load`, exit 0, no warning. The corpus could not see it: it contains **zero** raw `<img>`, remote assets, `<iframe>`, `<video>` or `url()`. Fixed in the same change by promoting deferred media to eager and awaiting decode after each navigation. (b) One reviewer measured the change **widening** row 17's AX-node churn — `muted-tier-and-syntax.md` at 2 distinct byte states before and 4 after, under 24-way contention. **Treat that as unconfirmed**: a second reviewer got 3 states in 12 renders and could not settle it, and the corpus-wide count is now known to track machine contention rather than code (row 17), with same-code controls landing inside the cross-code range. Either way the HTML sidecar and the raster are identical, so nothing user-visible turns on it | The adversarial trio, attacking a class the corpus does not contain |
 | 19 | Deferred media is "the one class `load` does not wait for", and `settleDeferredMedia` handles it | **Both halves wrong, and the fix was worse than the bug it fixed.** (a) It is not the only class: `networkidle0` also granted a few hundred ms of incidental post-load grace, and a deck-authored `<script>` writing on a 400 ms timer landed before and does not now — disclosed in the changelog rather than fixed, because no finite wait is correct for author code racing the exporter — the choice between a bounded settle and an explicit decline was tracked as **#1792** and is now **settled — declined on the record, with the loss reported rather than silent (§2a-ter)**. (b) The first `settleDeferredMedia` **wedged the render on any `<iframe>`**: `contentDocument` is `null` (not a throw) for an opaque-origin frame, so a frame whose load had already fired was awaited forever — ~190 s, then a FAILED export, where the old code rendered in 1.9 s. The same line skipped a same-origin lazy frame, whose initial `about:blank` reads `complete`, so it was promoted and never awaited. Rewritten: every wait bounded at 10 s with a warning, frames awaited only if promoted, images left alone because `decode()` alone settles them — which also stopped `loading="eager"` leaking into the `--player` bake | An independent checker + fact-checker on the post-trio delta — i.e. on the fix for the previous row |
 | 20 | Row 17: "`classDiagram` is not the driver" of byte-irreproducibility, the mechanism being Chrome's tagged-PDF accessibility node IDs | **Right about the AX nodes, over-general about `classDiagram` — there are TWO mechanisms and the second is now fixed.** Row 17's actual evidence was a population argument (only 5 of 11 churning decks contain `classDiagram`, four contain no mermaid), which refutes "`classDiagram` is the ONLY driver" and does not touch "`classDiagram` churns." It does: a classic `classDiagram` fence rendered twice differs by **1,207 bytes inside a Flate-compressed CONTENT stream**, a different place and two orders of magnitude off row 17's 26 bytes in `/ID` + `/Headers`. Decompressed they are bezier control points. Mermaid's `classBox` draws through rough.js on EVERY render and merely flattens the wobble after (`if (node.look !== 'handDrawn') { options.roughness = 0 }`); `roughness` multiplies the draws AFTER they are taken, and rough.js `_line` spends one on `divergePoint = 0.2 + random(o) * 0.2`, which it never scales. Lattice emitted `handDrawnSeed` only under `look: handDrawn`, so a classic deck got Mermaid's default `0` and rough.js read that as `Math.random()`. Both control points land ON the segment between the endpoints, so the cubic IS that segment: pixel-identical output, different `<path d>` text — which is precisely why every pixel oracle in the repo was blind to it, and why the AX-node hunt found the other mechanism instead. Fixed by stating the seed on both looks. Measured across all 31 committed mermaid decks: **7 changed bytes, 0 changed pixels** — the two decks that showed 1 px and 7 px were already flickering 2-3 px and 5-7 px between consecutive PRE-fix renders, and now render byte-identically. Two of the 7 contain no `classDiagram`, so the rough.js path reaches past that one diagram type. **Row 17 is otherwise unamended**: the AX-node churn is a genuinely separate mechanism, still unpinned, and still the one that explains the churning decks with no mermaid in them | Reproducing row 17's own repro and decompressing the stream instead of diffing the PDF |
-
+| 21 | §8: the 74 declared faces settle at 37 `loaded` + 37 `error` because "only 17 faces are base64 `data:`; the other 37 are KaTeX's relative `fonts/…woff2`, fetched and 404" — and the state-chart ordering invariant holds "because deck fonts are `data:` URIs" | **The count was right, the composition was wrong, and the whole thing was a DEFECT rather than a fact about the document.** (a) Composition: of the 37 errors, **20** are KaTeX and **17** are the engine's OWN text faces, duplicating the base64 block verbatim — the sidecar carries 54 inline `@font-face` (17 `data:` + 37 relative) and the linked `katex.min.css` adds the 20 that actually work, which is where 74 comes from. (b) Cause: a stylesheet's relative `url()` resolves against THE STYLESHEET, and this path INLINES `dist/lattice.css` instead of linking it, rebasing all 37 onto the output directory. The comment beside the KaTeX `<link>` asserting the browser "resolves the font URLs against that origin" is true **of the link** and false of the inlined duplicate two screens below it. (c) Why it never showed: every doomed face has a working twin and Chromium falls back within the family group — CDP `CSS.getPlatformFontsForNode` reports Playfair Display / Outfit / JetBrains Mono / KaTeX_Math / KaTeX_Main on the real page, byte-identically before and after the fix. So the invariant held by prompt FAILURE, not by inlining; the `data:` explanation was never true of more than 17 faces. Fixed: 74 declared → 37, all `loaded`, **37 failed requests → 0**. (d) And the tempting fix was the wrong one — REBASING all 37 so they resolve costs real fetches for bytes the document already carries: **405 ms** per navigation against **229 ms** for the broken status quo and **204 ms** for dropping them. Measured before choosing, which is the only reason the slower option was not shipped as "the correct one" | Chasing §8's own logged-not-chased bullet, with a `document.fonts` census and a request log |
 The red team's findings were defects in the shipping code rather than in this
 document — the `--strip-notes` sidecar leak, the `.HTML` case mismatch, the
 orphaned pre-split file on a failed render, an inflatable page count, and a

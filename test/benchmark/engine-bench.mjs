@@ -30,7 +30,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
@@ -139,6 +139,26 @@ const cliDatasets = [
   // Splits twice: initial + 2 auto-split passes + rails — the deepest navigation loop
   // in the shipped corpus.
   { name: 'cli · cover-paginate (4 nav)', deck: 'examples/cover-paginate.md' },
+  // THE LOOK-SCRATCH ROW, and the only dataset anywhere in this file that reaches it.
+  //
+  // An image set that extracts standalone SVGs under a `--svg-background` differing from
+  // the deck's diagram bake mode opens a SECOND page — a scratch document holding the
+  // re-rendered Mermaid diagrams in the look's own scheme — and flattens the computed
+  // colors out of it. Its `setContent` was the fourth and last navigation wait on this
+  // path still on `networkidle0` after #1795 sized the other three, and it sits five
+  // conditions deep: `.zip` output → `extractSvg` → a non-`inherit` `--svg-background`
+  // → at least one Mermaid diagram → a bake mode that differs from the look. No PDF
+  // dataset can reach it, which is exactly the #19(c) case, and is why `renderOnce`
+  // above takes an output name and extra args at all.
+  //
+  // `--no-thumbnails` is not decoration: 8 extra rasters would be pure constant added
+  // to a row whose signal is one scratch navigation.
+  {
+    name: 'cli · imageset look-scratch (svg re-bake)',
+    deck: 'examples/mermaid-diagram-surface.md',
+    out: 'out.zip',
+    args: ['--svg-background', 'dark', '--no-thumbnails'],
+  },
 ];
 
 function overflowingDeck(slides) {
@@ -685,6 +705,17 @@ async function cliTier() {
   const { execFileSync, execSync } = await import('node:child_process');
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
+  // The image-set row's workload signal. Reading the central-directory entry count off the
+  // zip's End Of Central Directory record needs no unzip and no dependency; like the PDF
+  // page count it is a number that MOVES when the export starts producing a different
+  // amount of work, which is what makes it a re-bless trigger rather than a timing input.
+  const zipEntryCount = (file) => {
+    const buf = readFileSync(file);
+    for (let i = buf.length - 22; i >= 0; i--) {
+      if (buf.readUInt32LE(i) === 0x06054b50) return buf.readUInt16LE(i + 10);
+    }
+    throw new Error(`${file}: no zip end-of-central-directory record`);
+  };
 
   // Same resolution the browser tiers use. The emulator reads CHROME_PATH from the
   // environment, so this is passed down rather than handed over as an argument.
@@ -701,15 +732,20 @@ async function cliTier() {
   // the same file without rendering on iterations 2..N, so the tier would measure
   // fs.statSync. `test/integration/export/pdf-reproducible.test.js` bypasses it for the
   // same reason and says so in its header.
-  function renderOnce(deck) {
+  // `out` and `args` are per-dataset so a row can drive a NON-PDF export. The look-scratch
+  // row below needs `.zip` + `--svg-background`, and there is no other way into that code
+  // path — see its dataset comment. `pages` is the workload signal: a PDF's page count, or
+  // for a zip the number of entries, either of which moving means the row is measuring a
+  // different amount of work and must be re-blessed rather than compared.
+  function renderOnce({ deck, out: outName = 'out.pdf', args = [] }) {
     const dir = mkdtempSync(join(tmpdir(), 'bench-cli-'));
     try {
-      const out = join(dir, 'out.pdf');
-      execFileSync(process.execPath, [EMULATOR, join(ROOT, deck), out, '-q'], {
+      const out = join(dir, outName);
+      execFileSync(process.execPath, [EMULATOR, join(ROOT, deck), out, '-q', ...args], {
         cwd: ROOT, env, stdio: ['ignore', 'ignore', 'pipe'], timeout: 300000,
       });
-      if (!existsSync(out)) throw new Error(`${deck}: no PDF produced`);
-      return pageCount(out);
+      if (!existsSync(out)) throw new Error(`${deck}: no ${extname(outName)} produced`);
+      return outName.endsWith('.zip') ? zipEntryCount(out) : pageCount(out);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -719,7 +755,7 @@ async function cliTier() {
   // BEFORE the timed loop — a tier that renders nothing would otherwise read as fast.
   const pages = new Map();
   for (const d of cliDatasets) {
-    const n = renderOnce(d.deck);
+    const n = renderOnce(d);
     if (!n) throw new Error(`${d.deck}: rendered 0 pages`);
     pages.set(d.name, n);
   }
@@ -727,7 +763,7 @@ async function cliTier() {
   const bench = new Bench({ name: 'cli', warmup: false, time: 1, iterations: 3 });
   for (const d of cliDatasets) {
     bench.add(d.name, () => {
-      const n = renderOnce(d.deck);
+      const n = renderOnce(d);
       // A render that silently loses pages must not read as a win. Same guard the
       // diagram tier uses for a failed fence.
       if (n !== pages.get(d.name)) throw new Error(`${d.deck}: page count moved ${pages.get(d.name)} -> ${n}`);
@@ -1065,18 +1101,30 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
     }
   }
 
-  // THE EXPORT TIER, which this check used to bless and never read. `--bless` has always written
+  // THE PRINT TIER, which this check used to bless and never read. `--bless` has always written
   // four `printDatasets` rows (print full / print re-place, for normal and charts) and `--check`
-  // looped only `summary` — so the export path could double in cost with a green check, the same
+  // looped only `summary` — so the print path could double in cost with a green check, the same
   // blessed-but-never-compared hole the slice/deck baseline had. Only compared when THIS run
-  // produced them (`--export`), so a plain `bench:check` is unchanged.
+  // produced them (`--print`), so a plain `bench:check` is unchanged.
+  //
+  // IT SAYS PRINT NOW, AND IT MEANS IT. This block was headed `=== EXPORT CHECK ===` and its
+  // comment said "the export tier" and "(`--export`)", while every line under it read
+  // `printSummary` against `base.printDatasets` — the PRINT tier, fed from `print?.summary` in
+  // `main()`. A reader comparing an export change against this output was reading the wrong
+  // rows. The label is now the tier.
+  //
+  // The real `exportTier()` is STILL neither blessed nor checked: `main()` computes `exp` and
+  // passes it only to the `--json` dump, even though that tier was given a `{ main, summary }`
+  // shape (see its own note) precisely so it could be compared. That is a genuine hole in the
+  // harness rather than a mislabel, it is not this PR's path, and it is logged rather than
+  // widened into this diff (HARD RULE #18, off-path arm).
   //
   // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
   // they are far more exposed to machine and I/O noise than an in-process render. 50% catches a
   // doubling — which is the failure worth having — without firing on a slow disk.
   const EXPORT_BAND = 50;
   if (printSummary?.length) {
-    console.log('\n=== EXPORT CHECK · current vs committed baseline ===');
+    console.log('\n=== PRINT CHECK · current vs committed baseline ===');
     for (const s of printSummary) {
       const b = base.printDatasets?.[s.dataset];
       if (!b) {
