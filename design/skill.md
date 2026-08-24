@@ -18,7 +18,7 @@ Open the relevant file before starting work. Only load what the current task nee
 | Writing or editing slide content | [design.md](./design-principles.md) + `lib/components/<name>/<name>.docs.md` per component |
 | **Picking a component** by purpose (the *what kind of slide*) | [design-system.md §3](./design-system.md#3-the-7-functions) — function families table |
 | **Cross-cutting authoring patterns** (eyebrow, subtitle, key-insight, state markers, dark/mirror/numbered, etc.) | [../lib/base/base.docs.md](../lib/base/base.docs.md) |
-| Scaffolding a new slide from a known component | `npm run new:slide <component>` (skeleton via the manifest); `npm run new:slide -- --list` enumerates the 53 shipped components |
+| Scaffolding a new slide from a known component | `npm run new:slide <component>` (skeleton via the manifest); `npm run new:slide -- --list` enumerates the 61 shipped components |
 | Adding a treatment — tint or mark (`tint-*` / `mark-*` classes, `at-*` placement) | [treatments.md](../engineering/treatments.md) |
 | Adding a Mermaid diagram | [mermaid.md](../engineering/mermaid.md) |
 | Running the render pipeline (PDF/HTML/PPTX) | [pipeline.md](../engineering/pipeline.md) |

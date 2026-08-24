@@ -59,7 +59,7 @@ The full Marpit pipeline, re-implemented as 7 modules:
 | `math.js` | marp-core math → KaTeX (ours) |
 | `index.js` | the orchestrator |
 
-On top sits the value-add Marp never had: 53 components, native charts, Mermaid, the
+On top sits the value-add Marp never had: 61 components, native charts, Mermaid, the
 token design system. Output formats (PDF / PPTX / PNG / HTML) flow through the
 owned CLI.
 
@@ -152,7 +152,7 @@ The semantic-invariant suite (`test/integration/invariants/`) is our whole visua
 gate, so we deepen it ourselves rather than wish for a second renderer:
 
 - **Layers 1–2** (manifest-driven slot contract + overflow/contrast) auto-cover
-  **all 53 components** the moment a manifest lands.
+  **all 61 components** the moment a manifest lands.
 - **Layer 3** (per-component semantic truths — `.chart-body` rendered, `table`
   rows, `.katex` math, `.badge` states, …) now covers the **full catalog —
   53 / 53 components** as of 2026-06-14. Transform components assert their

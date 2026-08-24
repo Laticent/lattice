@@ -21,7 +21,7 @@ map on one page — see `design/concepts.md`.
 ## 1. The problem this solves
 
 Lattice grew organically from a small palette and a handful of card
-layouts into 53 components, ~18 modifiers, five native chart engines, one
+layouts into 61 components, ~18 modifiers, five native chart engines, one
 external diagram pipeline (Mermaid), three rendering paths, and 14
 palettes. Each addition was internally consistent; collectively they
 had no shared vocabulary.
@@ -188,12 +188,12 @@ layouts mapped cleanly into seven.
 
 The audience-function taxonomy organizes the catalog and the docs. On
 **disk**, components are grouped slightly differently: seven function
-buckets plus five substance- or domain-defined buckets (`chart`,
-`diagram`, `math`, `code`, `legal`) that colocate components sharing a
-renderer kernel or domain vocabulary. The `function` field on every
-manifest is unchanged; the disk grouping is reflected in an optional
-`bucket` field. For 31 of the 53 components `bucket === function`; for
-the other 22 the bucket diverges to keep maintenance localized. See §9.
+buckets plus six substance- or domain-defined buckets (`chart`,
+`diagram`, `math`, `code`, `legal`, `connect`) that colocate components
+sharing a renderer kernel or domain vocabulary. The `function` field on
+every manifest is unchanged; the disk grouping is reflected in an optional
+`bucket` field. For 35 of the 61 components `bucket === function`; for
+the other 26 the bucket diverges to keep maintenance localized. See §9.
 
 ---
 
@@ -723,26 +723,27 @@ lib/components/inventory/cards-grid/
 
 ### Buckets — the disk grouping
 
-Components live under one of twelve buckets. Seven match the audience-
-function families from §3; five are substance- or domain-defined
+Components live under one of thirteen buckets. Seven match the audience-
+function families from §3; six are substance- or domain-defined
 exceptions introduced for maintenance colocation:
 
 | Bucket       | Count | Origin |
 |--------------|-------|--------|
 | `anchor`     | 3     | function = anchor |
-| `statement`  | 4     | function = statement |
-| `inventory`  | 10    | function = inventory (statute-stack moved to legal) |
+| `statement`  | 5     | function = statement |
+| `inventory`  | 11    | function = inventory (statute-stack moved to legal) |
 | `comparison` | 8     | function = comparison (obligation-matrix → legal, compare-code → code) |
-| `progression`| 2     | function = progression (authority-chain, regulatory-update → legal; journey, roadmap → chart) |
+| `progression`| 3     | function = progression (authority-chain, regulatory-update → legal; journey, roadmap → chart) |
 | `evidence`   | 2     | function = evidence (citation-card → legal, math → math, code → code) |
-| `imagery`    | 1     | function = imagery |
-| `chart`      | 13    | substance = data visualizations (function stays evidence/progression); journey, word-cloud + roadmap folded into the chart family |
+| `imagery`    | 3     | function = imagery |
+| `chart`      | 14    | substance = data visualizations (function stays comparison/evidence/progression); journey, word-cloud + roadmap folded into the chart family |
 | `diagram`    | 1     | substance = topological visuals (function stays evidence) |
 | `math`       | 1     | substance = typeset equations (function stays evidence) |
 | `code`       | 2     | substance = syntax-highlighted source (function stays evidence for code, comparison for compare-code) |
-| `legal`      | 5     | domain = legal (function spans 4 families) |
+| `legal`      | 6     | domain = legal (function spans 5 families) |
+| `connect`    | 2     | substance = scannable handoff details, `contact` and `wifi` (function stays statement) |
 
-For 31 of the 53 components `bucket === function`. The 22 divergent
+For 35 of the 61 components `bucket === function`. The 26 divergent
 components declare their `bucket` explicitly in the manifest; their
 `function` field is unchanged in every case. Three reasons for
 divergence:
