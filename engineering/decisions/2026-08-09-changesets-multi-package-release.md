@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: The repo is already a five-package monorepo that has published nothing — @slidewright/lattice plus cadenza, lente, suono and vetrina, with npm `workspaces` declared and all four siblings publish-shaped (exports, dist, files allowlist, README). tools/release.js physically cannot release them: it only knows the root package.json. Adopts Changesets for versioning across the five, keeping the parts of the flow merged in #1443 that Changesets does not do — the ~100 MB showcase zip, the GitHub Release that carries it, and the PR-through-the-merge-queue shape. Corrects #1437 on two points: pnpm is not required (Changesets works with the npm workspaces already declared) and its release.yml block would clobber #1443. Also settles npm auth (OIDC trusted publishing — no NPM_TOKEN exists at all), the canary channel (@next on engine changes only, not every merge), the tag scheme (per-package `@scope/name@x.y.z`, replacing `v<x.y.z>`), the fate of a 17,000-line `## Unreleased` (closed under a dated pre-publish `## 1.0.0`, Changesets accumulates from there), and the HARD RULE #10 change from "edit ## Unreleased" to "add a changeset".
+status: blocked
+summary: DEFERRED (2026-08-24) until immediately before the first npm publish — npm is still clean, so nothing degrades by waiting. The repo is already a five-package monorepo that has published nothing — @workwel/lattice plus cadenza, lente, suono and vetrina, with npm `workspaces` declared and all four siblings publish-shaped (exports, dist, files allowlist, README). tools/release.js physically cannot release them: it only knows the root package.json. Adopts Changesets for versioning across the five, keeping the parts of the flow merged in #1443 that Changesets does not do — the ~100 MB showcase zip, the GitHub Release that carries it, and the PR-through-the-merge-queue shape. Corrects #1437 on two points: pnpm is not required (Changesets works with the npm workspaces already declared) and its release.yml block would clobber #1443. Also settles npm auth (OIDC trusted publishing — no NPM_TOKEN exists at all), the canary channel (@next on engine changes only, not every merge), the tag scheme (per-package `@scope/name@x.y.z`, replacing `v<x.y.z>`), the fate of a 17,000-line `## Unreleased` (closed under a dated pre-publish `## 1.0.0`, Changesets accumulates from there), and the HARD RULE #10 change from "edit ## Unreleased" to "add a changeset".
 ---
 
 # Changesets, and a release pipeline for five packages
@@ -20,14 +20,14 @@ declares **npm workspaces**, and every one of them is shaped to publish:
 
 | Package | Version | Published? | Evidence it is meant to ship |
 |---|---|---|---|
-| `@slidewright/lattice` | 1.0.0 | **no** | 16-entry `files` allowlist, `exports` map |
-| `@slidewright/cadenza` | 0.1.0 | **no** | `exports`, `dist/index.cjs`, files allowlist, README |
-| `@slidewright/lente` | 0.1.0 | **no** | same |
-| `@slidewright/suono` | 0.1.0 | **no** | same |
-| `@slidewright/vetrina` | 0.1.0 | **no** | same, plus a `react >=18` peer |
+| `@workwel/lattice` | 1.0.0 | **no** | 16-entry `files` allowlist, `exports` map |
+| `@workwel/cadenza` | 0.1.0 | **no** | `exports`, `dist/index.cjs`, files allowlist, README |
+| `@workwel/lente` | 0.1.0 | **no** | same |
+| `@workwel/suono` | 0.1.0 | **no** | same |
+| `@workwel/vetrina` | 0.1.0 | **no** | same, plus a `react >=18` peer |
 
 None is `private`. **None has ever been published** — npm returns *Not found*
-for `@slidewright/lattice`.
+for `@workwel/lattice`.
 
 Two consequences follow immediately:
 
@@ -112,7 +112,7 @@ then describe that release rather than five months of development, and the
 GitHub Release body stops being 1.4 MB against a 125,000-character cap.
 
 **From then on, Changesets owns new entries.** Each package gets its own
-`CHANGELOG.md`; the root one continues as `@slidewright/lattice`'s, with
+`CHANGELOG.md`; the root one continues as `@workwel/lattice`'s, with
 generated sections prepended above the pre-publish history.
 
 The honest cost: generated entries read differently from the hand-written prose
@@ -210,7 +210,7 @@ publisher cannot be attached to a package that does not exist.
 ## Risks and open questions
 
 - **The tag scheme changes.** Changesets tags per package
-  (`@slidewright/lattice@1.0.1`), not `v1.0.1`. `RELEASE.md` currently states
+  (`@workwel/lattice@1.0.1`), not `v1.0.1`. `RELEASE.md` currently states
   "a release is a git tag `v<x.y.z>`" as the contract. Per-package tags are the
   only coherent scheme once there are five packages, so the contract changes —
   but it must change *in writing*, not by accident. No consumer is pinned to the
@@ -231,3 +231,68 @@ publisher cannot be attached to a package that does not exist.
   READMEs verified for a public audience. Publishing creates a compatibility
   obligation on day one. Worth a look before slice 2 — the bootstrap publish is
   the moment their API becomes a promise.
+
+---
+
+## Disposition — deferred (2026-08-24)
+
+**Decision: defer.** Do not execute the four slices now. Revisit this record
+immediately before the first npm publish, which is the event that actually
+forces the question.
+
+Recorded by the owner after #1785 and #1793 closed the rest of the #1777
+follow-up brief. The design above is not withdrawn or superseded — when the
+migration happens, this is still the plan. What changed is the *timing*, and
+three premises the plan rested on.
+
+### Why deferring is safe, and what it costs
+
+The central argument survives intact: **npm is still clean.** Verified
+2026-08-24 against the live registry — `@workwel/lattice`, `@workwel/cadenza`,
+`@workwel/vetrina` and `@slidewright/lattice` all return 404. Nothing is
+published, so there is no version history to reconcile, no consumer pinned to a
+tag scheme, and no changelog format anyone has parsed. Every one of those stays
+true until the first publish, so nothing degrades by waiting.
+
+What the delay *does* cost, and why the trigger is the publish rather than a date:
+
+- **The fragment pile grows.** Slice 1 has to convert every pending
+  `changelog.d/<slug>.<category>.md` or the entries are silently lost — nothing
+  else reads that directory. There were **119** on 2026-08-24. Each additional
+  PR adds one.
+- **The tag-scheme change gets more expensive the later it lands**, because
+  every release cut under `v<x.y.z>` is another one the per-package scheme has
+  to explain. Today there is exactly one (`v1.0.0`).
+
+### Three corrections to the record above
+
+1. **The package scope is `@workwel`, not `@slidewright`.** Every package name
+   in the table in §"The finding that decides it", in §2, and in
+   §"Risks and open questions" has been corrected in place. The GitHub *org*
+   is still SlideWright; only the npm scope differs. This matters because
+   slice 2 (bootstrap publish) and the per-package tag scheme key off exact
+   names, and because "npm returns Not found" was originally checked against
+   the wrong scope. Re-checked against both: clean either way.
+2. **The migrate-before-first-publish window is half closed.** Recorded in
+   `2026-08-23-changelog-is-a-release-record.md` §8: a published `v1.0.0` tag
+   and GitHub Release exist as of 2026-08-09, so the *tagging* half of "no
+   consumer pinned to a tag scheme" no longer holds. The *publishing* half
+   does, and it is the half this deferral rests on.
+3. **`docs/package.json` is still not `private`.** The hygiene fix §1 calls
+   for is outstanding. It escapes Changesets today only because `docs/` is not
+   a workspace — luck, not design — so it stays harmless until the migration,
+   and it remains part of slice 1.
+
+### Re-check these before picking it up
+
+Two items above are flagged in the original as unproven, and deferral does not
+age them well:
+
+- **The npm CLI version question** (§4) — whether the workflow's npm is recent
+  enough for OIDC trusted publishing must be verified against the real
+  registry, not assumed. Node's bundled npm will have moved by then.
+- **`changesets/action` against a merge queue** (§"Risks") — still the main
+  integration risk in slice 1, and still unproven here.
+
+**Status is `blocked` rather than `proposed`** because the dependency is now
+explicit: the first npm publish. #1437 stays open and tracks it.
