@@ -1,0 +1,162 @@
+name: Overflow nightly (corpus clip ratchet)
+
+# NIGHTLY, REPORT-ONLY watch on the one gate that can see a slide shipping cut off.
+#
+# `tools/check-overflow-corpus.js` renders every deck that ships — 279 of them —
+# through the real emulator and reads the emulator's OWN "⚠ OVERFLOW — N slides"
+# report, then compares the per-deck page lists against
+# `test/integration/overflow-baseline.json`. It is a RATCHET: a deck that clips more
+# pages than its baseline fails; a deck that clips fewer is a win you bank with
+# `--bless`.
+#
+# WHY THIS FILE EXISTS. Until now the ratchet was wired to NO workflow and NO hook —
+# it ran when somebody remembered. `2026-08-18-inspection-oracle-catalog.md` §5 lever F
+# names it, alongside six other unscheduled gates, and gives the reason: a blessed
+# baseline that nothing evaluates is an assertion that rots. That is not a general
+# worry here, it is the specific one — `2026-08-24-overflow-oracle-was-inert.md` found
+# the UNIVERSAL "slide does not overflow its frame" invariant comparing scrollHeight to
+# clientHeight on an `overflow-y: hidden` section, so it could never fail for any of the
+# 61 components. This corpus sweep is the ratchet that WOULD have caught the drift that
+# oracle could not, and nothing was watching it either.
+#
+# COST, MEASURED RATHER THAN ESTIMATED. The catalog note sized this from the tool's own
+# header — "~185 renders, tens of minutes" — and filed it under a weekly tier on that
+# basis. Both halves were wrong. A full green sweep is **279 decks in 5m21** on 4 cores,
+# and `--jobs 4` comes in at 5m22, i.e. the box saturates at 3 and parallelism is not a
+# lever. ~5.5 runner-minutes a night is ~165 a month, against the ~1,900 runner-minutes
+# A DAY the same note measured for per-PR CI — roughly 0.3%, which is why "weekly" stopped
+# being the obvious answer once the number was real.
+#
+# WHY ITS OWN WORKFLOW, and not a step in `integration-nightly.yml`. That job already has
+# Chromium, poppler and `npm ci` warm, so a step there would be strictly cheaper in setup —
+# but two things make it the wrong home. It runs **~2h05m**, so a 6-minute check inherits a
+# two-hour blast radius: a timeout, a cancellation or a dead runner and this never executes.
+# And that job is **expected red** for now (its `regress` step says so in writing, until the
+# golden corpus is re-blessed), so a new signal added there lands inside a color nobody
+# reads — which is precisely the failure mode the catalog note records against
+# `studio-e2e-nightly`, red six nights running while everyone learned to ignore it. A cheap,
+# independent job with its own color is worth the ~90s of duplicated setup.
+#
+# REPORT-ONLY, deliberately. `2026-06-28-experience-gating-playwright.md` §3 is the standing
+# rule: a browser-dependent check becomes blocking only after an observed green streak on a
+# real cadence, never on hope. Nothing has ever observed this one on a GitHub runner. So the
+# job concludes SUCCESS even when the ratchet is red, and the signal is carried by a single
+# rolling tracking issue (found by a title marker, so it never spams), self-labeled at
+# creation — a GITHUB_TOKEN-opened issue cannot trip the triage gate, GitHub's
+# workflow-recursion guard. Promoting it to blocking is a separate, evidence-backed decision.
+
+on:
+  schedule:
+    # daily 02:41 UTC — ahead of integration-nightly 03:11, preview-e2e 04:23,
+    # studio-e2e 04:41, modulepreload 05:07, perf 05:37, backlog sync 06:17.
+    # A non-round minute on purpose, like every other cron in this repo: GitHub
+    # queues scheduled workflows heavily at the top of the hour, and a 6-minute
+    # job is the kind that sits behind that queue for longer than it runs.
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # open / append the rolling tracking issue
+
+concurrency:
+  group: overflow-nightly
+  cancel-in-progress: false
+
+jobs:
+  overflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Install color emoji font
+        # An installed color emoji font so headless-Chromium renders emit emoji in
+        # color. No poppler or ImageMagick here: this gate reads the emulator's own
+        # overflow report, never the PDF bytes and never a pixel — which is most of
+        # why it costs 5 minutes and the regression gate costs 72.
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
+      - run: npm ci
+
+      # The sweep exits 1 on a deck above its baseline and 2 on a setup error.
+      # Capture the verdict into an output and keep the JOB green, so the summary and
+      # issue steps always run and the issue keys off `failed` rather than the step's
+      # own exit — the report-only contract, same shape integration-nightly uses.
+      #
+      # CHROME_PATH is REQUIRED, not optional: check-overflow-corpus.js exits 2 without
+      # it (:145). The emulator itself would fall back to puppeteer's own resolution, so
+      # a missing env var here fails loudly rather than silently rendering with a
+      # different browser than the one this job installed.
+      - name: Overflow corpus sweep (report-only)
+        id: sweep
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/overflow-nightly-report.txt"
+          if npm run --silent overflow:check 2>&1 | tee "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '### Overflow nightly — corpus clip ratchet'
+            echo '```'
+            tail -n 60 "$GITHUB_WORKSPACE/overflow-nightly-report.txt" || echo '(no report)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overflow-nightly-${{ github.run_id }}
+          path: overflow-nightly-report.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      # One rolling issue, found by a title marker so it never spams. Self-labeled at
+      # creation with the four required axes (`area:`/`type:`/`priority:`/`status:`),
+      # because a GITHUB_TOKEN-opened issue cannot trigger the triage gate.
+      - name: Open / append overflow issue
+        if: steps.sweep.outputs.failed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[overflow-nightly]'
+          BODY="$GITHUB_WORKSPACE/overflow-nightly-body.md"
+          {
+            echo "The corpus overflow ratchet is above its baseline on \`main@${{ github.sha }}\`."
+            echo ""
+            echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
+            echo "if the change is deliberate and the content is right — re-bless with"
+            echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
+            echo ""
+            echo '```'
+            tail -n 60 "$GITHUB_WORKSPACE/overflow-nightly-report.txt" || echo '(no report)'
+            echo '```'
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$BODY"
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create \
+              --title "$MARKER corpus overflow ratchet above baseline on main" \
+              --label "area:engine" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
