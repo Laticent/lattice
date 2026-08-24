@@ -144,12 +144,20 @@ describe('bless-palette-baselines · the table parser', () => {
     // `policy-recommendation/defer-badge` entries — ink on its own 12% tint, a surface
     // whose ground moves with the ink, so only the ink can move. `composed-contrast.js`
     // FAILS on a stale entry — a frozen pair that now passes has to be deleted, not left
-    // to rot. This number tracks the size of that shrinking baseline and is expected to
-    // keep falling.
+    // to rot.
+    // 85, and this is the one direction the number is allowed to RISE in: 19 entries are
+    // a newly MODELLED surface, not a new defect. `chart/status-pill-*` gates the
+    // .chart-status pill's own depth gradient, which no catalog entry covered — its
+    // ground is a raw color-mix rather than a `*-bg` token, so nothing analytic could see
+    // it and it took a rendered `--player` export to surface. The pill's DARK arm was
+    // fixed in the same change; the 19 frozen entries are its LIGHT arm, which carries no
+    // regression and needs a visible retune of every palette (#1807). Adding a surface
+    // that finds real sub-AA pairs is the gate working — what must never rise is the
+    // count at a FIXED surface set.
     // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
     // "768 entries" as a substring, so the contrast assertion passed while reading the
     // wrong line — and would have kept passing whatever the contrast table said.
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*66 entries/,
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*85 entries/,
       'the contrast table still parses in full');
     // 768, up from 576: the monochromacy arm is 192 more (theme x mode x pair), added
     // when the trio was respaced to clear it. 32 x 2 x 3 x 4.
