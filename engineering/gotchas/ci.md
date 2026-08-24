@@ -211,16 +211,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   inside the factory cannot see a loader that lost its memo entirely — that
   assertion was vacuous and passed under mutation. Count namespace reads through a
   getter instead.
-- **Before you push a `docs/` test change, run `cd docs && npm run typecheck`.**
-  The pre-push hook runs `lint`, `lint:deck:all`, `build:check` and the root
-  `npm test` — it runs **neither `typecheck` nor the docs vitest suite**, both of
-  which live only in CI's `docs-build`. So a TypeScript-only error under `docs/`
-  passes every local gate and every hook, and first appears as a red required
-  check. Making one `setup()` helper `async` did exactly that: four sibling
-  helpers typed `user: ReturnType<typeof setup>` silently became
-  `Promise<UserEvent>`, which no test run can see because it is types-only. The
-  fix is `Awaited<ReturnType<typeof setup>>`; the lesson is that `npm test` green
-  is not evidence about `docs/`.
+- **A `docs/` TYPE error still passes the docs vitest suite — but the pre-push
+  hook now catches it.** As of the `docs-typecheck` job, pre-push runs
+  `tsc --noEmit` over the docs workspace whenever a push touches `docs/`
+  (~36-40s; skipped otherwise). Before that job existed, pre-push ran only
+  `lint`, `lint:deck:all`, `build:check` and the root `npm test` — **none of
+  which typecheck `docs/`**, because biome does not typecheck and vitest strips
+  types via esbuild without checking them, so the error first appeared as a red
+  required check in CI's `docs-build`. Two things that have NOT changed: the
+  docs **vitest** suite still runs only in CI, and the new job is scoped to
+  `docs/` pushes, so a root-`lib/` change that breaks docs types (docs imports
+  root `lib/` directly) still reaches you only via CI.
+  The case that motivated the job: making one `setup()` helper `async` silently
+  retyped four sibling helpers declared `user: ReturnType<typeof setup>` as
+  `Promise<UserEvent>` — invisible to every test run, because it is types-only.
+  The fix is `Awaited<ReturnType<typeof setup>>`; the lesson that outlives it is
+  that a green `npm test` is not evidence about `docs/`.
 - **Triggered by:** Any run with `--sequence.shuffle.tests`; otherwise latent.
   Found while working #1324.
 - **Removable when:** Nothing upstream — this is a test-authoring hazard, not a
