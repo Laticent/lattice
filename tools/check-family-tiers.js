@@ -306,7 +306,7 @@ function conformanceDeck(size, comps) {
  * but the render, the sentinel and the artifact handling are identical and belong in one
  * place.
  */
-function renderSweep(size, deck, tag) {
+function renderSweep(size, deck, tag, { split = false } = {}) {
   const { src, slides } = deck;
   const file = path.join(ROOT, '.scratch', `family-sweep-${tag}-${size}.md`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -324,7 +324,7 @@ function renderSweep(size, deck, tag) {
     // "no overflow" become the same string and the sentinel below has nothing to
     // check. The `HTML: N slides` tally is the proof the read worked.
     const r = spawnSync(process.execPath,
-      [path.join(ROOT, 'lattice-emulator.js'), file, pdf, 'indaco', '--no-split'],
+      [path.join(ROOT, 'lattice-emulator.js'), file, pdf, 'indaco', ...(split ? [] : ['--no-split'])],
       { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
     if (r.error) throw r.error;
     if (r.status !== 0) throw new Error(`emulator exited ${r.status} for ${size}:\n${r.stderr || r.stdout}`);
@@ -430,12 +430,13 @@ function overflowOracle() {
       // does not run at all, so everything there rings by construction — which is why
       // that row, and only that row, is the one the note calls a real terminal.
       const rings = s.family === 'wide' ? added : added.filter((c) => !split[c]?.enrolled);
-      const paginates = added.filter((c) => !rings.includes(c));
+      const mayPaginate = added.filter((c) => !rings.includes(c));
       if (rings.length) {
         console.log(`  ${s.size.padEnd(9)} NEW CLIPS (ring): ${rings.join(', ')} — no reflow fits these and no split is available, so the export rings them. Fix the layout; do not bless it away.`);
       }
-      if (paginates.length) {
-        console.log(`  ${s.size.padEnd(9)} NEW CLIPS (paginate): ${paginates.join(', ')} — these overflow only UN-SPLIT and paginate in a real export, so this is baseline drift rather than a regression a reader sees. Re-bless and justify it in the PR, showing that --ladder's rings column is unchanged.`);
+      if (mayPaginate.length) {
+        const spec = mayPaginate.map((c) => `${c}@${s.size}`).join(',');
+        console.log(`  ${s.size.padEnd(9)} NEW CLIPS (may paginate): ${mayPaginate.join(', ')} — these overflow only UN-SPLIT and each DECLARES a split path, so this MAY be baseline drift rather than a regression a reader sees. Enrollment is not proof — verify, then bless: node tools/check-family-tiers.js --verify-paginates ${spec}`);
       }
     }
     if (gone.length) {
@@ -452,6 +453,59 @@ function overflowOracle() {
     console.log(`  roster    CHANGED — ${added.length ? `+${added.join(', ')} ` : ''}${gone.length ? `-${gone.join(', ')}` : ''}. A component gaining or losing family reflow is a decision; re-bless and justify it.`);
   }
   return bad;
+}
+
+// ── Does it actually paginate? ─────────────────────────────────────────────
+/**
+ * Render each `<component>@<size>` with splitting ON and report whether it still
+ * overflows. Exit 1 on any that does.
+ *
+ * WHY THIS EXISTS. The verdict above can say a new clip "may paginate", on the strength
+ * of `enrolled` in `split-oracle.json`. That field is a component-TYPE opt-in recomputed
+ * from the manifest (`tools/bless-split-oracle.js`), NOT a promise that a seam exists for
+ * this content in this box: `lib/core/auto-split.js` bails to the ring on a specimen
+ * slide, a null carousel recipe, an underivable axis, `count <= 1`, `perSlide >= count`,
+ * and `parts.length <= 1`. An enrolled component CAN still clip a real export — measured,
+ * not supposed.
+ *
+ * An earlier cut of the verdict asked the author to prove the bless by showing
+ * `--ladder`'s `rings` column unchanged. That evidence cannot fail: `rings` is
+ * `clipped.filter((c) => !enrolled)` and the branch fires only where `enrolled` is true,
+ * so an added name is excluded from `rings` BY CONSTRUCTION. It asked for a rubber stamp
+ * and then read the stamp as proof. This is the falsifiable replacement.
+ *
+ * Usage: node tools/check-family-tiers.js --verify-paginates kpi@square,premise@story
+ */
+function verifyPaginates(spec) {
+  const pairs = String(spec || '').split(',').map((t) => t.trim()).filter(Boolean)
+    .map((t) => { const [c, size] = t.split('@'); return { c, size }; });
+  if (!pairs.length) {
+    console.log('usage: --verify-paginates <component>@<size>[,<component>@<size>…]');
+    return 2;
+  }
+  const known = new Set(SIZES.map((s) => s.size));
+  let bad = 0;
+  console.log('does it paginate? — one gallery slide per pair, rendered with splitting ON\n');
+  for (const { c, size } of pairs) {
+    if (!known.has(size)) {
+      console.log(`  ${`${c}@${size}`.padEnd(34)} UNKNOWN @size — one of ${[...known].join(', ')}`);
+      bad++; continue;
+    }
+    const cands = galleryCandidates(c);
+    if (!cands.length) {
+      console.log(`  ${`${c}@${size}`.padEnd(34)} NO GALLERY SLIDE — cannot verify`);
+      bad++; continue;
+    }
+    const deck = { src: deckSource(size, [cands[0].body]), slides: [{ comps: [c], body: cands[0].body }] };
+    const { log } = renderSweep(size, deck, `pag-${c}`, { split: true });
+    const clipped = /OVERFLOW/.test(log);
+    if (clipped) bad++;
+    console.log(`  ${`${c}@${size}`.padEnd(34)} ${clipped ? 'STILL CLIPS — it does NOT paginate. Fix the layout; do not bless it.' : 'paginates (no overflow with splitting on)'}`);
+  }
+  console.log(bad
+    ? `\n${bad} of ${pairs.length} did NOT paginate. Do not bless those.`
+    : `\nall ${pairs.length} paginate with splitting on — the bless is justified for these.`);
+  return bad ? 1 : 0;
 }
 
 // ── The ladder report ──────────────────────────────────────────────────────
@@ -953,6 +1007,9 @@ module.exports = {
 };
 
 if (IS_CLI && process.argv.includes('--ladder')) process.exit(ladderReport());
+if (IS_CLI && process.argv.includes('--verify-paginates')) {
+  process.exit(verifyPaginates(process.argv[process.argv.indexOf('--verify-paginates') + 1]));
+}
 
 // ── The preset report ──────────────────────────────────────────────────────
 /**
