@@ -142,7 +142,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   --sequence.seed=11`. It reproduces on the file ALONE in seconds; no full run is
   needed. The failure text is an element that cannot be found, or a boolean that
   is the exact opposite of what the test set up.
-- **Cause:** Two mechanisms, both of which make a case silently depend on a
+- **Cause:** Three mechanisms, each of which makes a case silently depend on a
   sibling having run first. Neither is the cross-file state leakage the flaky-docs
   cards hypothesize — these are *intra*-file, deterministic given a seed, and a
   different class from the load-dependent timeouts in
@@ -161,11 +161,39 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
     source')` or `getByRole('button', { name: /Component/ })` passes or fails on
     which case vitest happened to schedule first — in `studio.controls` that was
     49 of 50 green and whichever drew the short straw red.
-  A third mechanism, in `read-aloud.test.ts`, is the INVERSE of the first: a
-  describe that `vi.doMock`s a dependency and `vi.doUnmock`s it in `afterEach`
-  removes the file's HOISTED mock along with its own. That one is #1814, still
-  open — so `--sequence.shuffle.tests` is green suite-wide on seeds 11 and 42 but
-  not on 3001 or 999.
+  - **`vi.doUnmock` removes the file's HOISTED mock too**, not just the local
+    `vi.doMock` it was written to undo — the registration is keyed by resolved
+    path, and `doUnmock` deletes the entry rather than popping a layer. This is
+    the INVERSE of the first mechanism and it was `read-aloud.test.ts`'s (#1814,
+    fixed). **It only bites a dependency reached by DYNAMIC `import()`**, which is
+    why it can hide for so long: a static import is bound once at file load, while
+    `read-aloud.ts` reaches `voice-model.js` only through `import()` (its
+    `getVoice()` singleton, `listTtsCatalog`, `listTtsModels`), so each call
+    re-resolves against the *current* registry and quietly got the REAL module.
+    The failures read as a spy called 0 times or a highlight that never advanced —
+    they do not look like a mocking problem at all. The fix is to **restore**, not
+    unmock: extract the hoisted factory to a named `function` (declarations hoist,
+    so `vi.mock`'s own hoisting still finds it) and `vi.doMock(path, thatFactory)`
+    in `afterEach`. Note that *not* cleaning up is not an option either — the local
+    `doMock` would then outlive its describe.
+  A file's own comments can point at the wrong one of these: `read-aloud.test.ts`
+  blamed the module-level singleton in `read-aloud.ts`, which is the reason those
+  describes call `vi.resetModules()` at all but is NOT what leaked across cases.
+  Attribute by mutation, not by reading — breaking each of that file's two restores
+  separately reproduced exactly one of the two failing seeds each (999 → 10 failed,
+  3001 → 8 failed), which is what proved both load-bearing and the singleton a decoy.
+- **Do NOT read a red full-suite shuffle run as "another ordering bug".** All three
+  mechanisms above are *intra*-file and DETERMINISTIC given a seed, so the diagnostic
+  that separates them from everything else costs seconds: **run the one file alone at
+  that seed.** If it is green alone and red in the suite, ordering is not your
+  problem — you are looking at the separate load-dependent `asyncUtilTimeout` flake
+  (#1324/#1471), which is intermittent, moves between tests run to run, and **appears
+  in UNSHUFFLED runs too**. Measured while closing #1814: four consecutive full runs
+  failed a *different* test each time (`studio.findings-fix` ×2, then
+  `studio.controls` "deterministic Coach chips"), and the last of those was on clean
+  `main` with no shuffle flag at all. So one green full shuffled run is not evidence
+  the suite is order-independent, and one red one is not evidence it isn't; the
+  per-file runs are what carry the claim.
 - **Mitigation:** Wait for the pane in the shared setup helper (`editorReady`,
   `openFabricate` in
   [studio.controls.test.tsx](../docs/src/components/studio/studio.controls.test.tsx)),
