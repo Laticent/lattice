@@ -286,21 +286,31 @@ function parseThemeVars(css) {
   const clean = css
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/@import\s+(?:url\([^)]*\)|"[^"]*"|'[^']*')\s*[^;]*;/g, '');
-  const whereMap = new Map();
-  const rootMap = new Map();
+  // THREE tiers, not two, and the third is not decoration. `:root:root` is (0,2,0)
+  // and a palette reaches for it exactly when its value MUST outrank the engine
+  // default on the CLI export path, where the bundle is concatenated after the
+  // palette (`--panel-edge-mark`, and the status trio as of #1698). Matching the
+  // selector WHOLE — which is right, and is what keeps a descendant rule out — means
+  // `:root:root` fell through the `isRoot` test entirely, so the doubled block was
+  // invisible here while it was the winning declaration everywhere else.
+  const tiers = [new Map(), new Map(), new Map()];   // :where(:root) < :root < :root:root
   for (const m of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = m[1].trim();
     const body = m[2];
-    const isWhere = /:where\(\s*:root\s*\)/.test(selector);
-    const isRoot = /(^|,)\s*:root\s*(,|$)/.test(selector);
-    if (!isWhere && !isRoot) continue;
-    const target = isWhere ? whereMap : rootMap;
+    const tier = selector.split(',').reduce((best, raw) => {
+      const part = raw.trim();
+      if (/^:where\(\s*:root\s*\)$/.test(part)) return Math.max(best, 0);
+      if (/^:root$/.test(part)) return Math.max(best, 1);
+      if (/^(?::root){2,}$/.test(part)) return Math.max(best, 2);
+      return best;
+    }, -1);
+    if (tier < 0) continue;
     for (const d of body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-      target.set(d[1], d[2].trim());
+      tiers[tier].set(d[1], d[2].trim());
     }
   }
-  const merged = new Map(whereMap);
-  for (const [k, v] of rootMap) merged.set(k, v);
+  const merged = new Map(tiers[0]);
+  for (const t of [tiers[1], tiers[2]]) for (const [k, v] of t) merged.set(k, v);
   return merged;
 }
 

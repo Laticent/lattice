@@ -120,6 +120,17 @@ const KPI = 'lib/components/evidence/kpi/kpi.styles.css';
 const SPLITPANEL = 'lib/components/statement/split-panel/split-panel.styles.css';
 const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styles.css';
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
+const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
+const ELEMENTS = 'lib/base/base.elements.css';
+
+// The kanban card's own opaque fill — the base every in-card surface sits on. Light is
+// `--bg-alt` flat; DARK lifts it 12% toward white, so a dark card sits LIGHTER than the
+// canvas and an ink tuned against `--bg` has less to work with, not more.
+const KANBAN_CARD = 'light-dark(var(--bg-alt), color-mix(in oklab, var(--bg-alt) 88%, white))';
+// The inline-code chip's ink, spelled as base.elements.css spells it. Its own background
+// is `currentColor` at 10%, which resolves to exactly this — so the band moves with the
+// ink, the `redline` shape one layer deeper.
+const CHIP_INK = 'var(--code-inline-fg, var(--accent))';
 
 /**
  * The bar for the split frames' panel-edge mark, and why it is NOT 3:1.
@@ -369,21 +380,82 @@ const SURFACES = [
     src: OBLIGATION,
     requires: [new RegExp(`color-mix\\(in srgb, var\\(${tok}\\) ${pct}%, var\\(--bg\\)\\)`)],
   })),
+  // ── kanban · the inline-code chip inside a card ──────────────────────────
+  // Reached WITHOUT any status markup: the card transform consumes a trailing <code>
+  // only when it is a SIZE (chart-family.js KB_SIZE) and reads a status only off a
+  // SUB-BULLET, so `- Pilot retro pack \`done\`` on one line survives verbatim as a raw
+  // chip (test/integration/baseline-decks/gallery.md, the kanban slide). Rendered at
+  // 12.7px / weight 600, so the bar is 4.5 rather than 3.
+  {
+    id: 'kanban/card-code-chip',
+    ctx: 'kanban: the inline <code> chip in a card title, on its own 10% currentColor wash over the card',
+    base: KANBAN_CARD,
+    groups: [{ bg: `color-mix(in srgb, ${CHIP_INK} 10%, transparent)` }],
+    ink: CHIP_INK, min: 4.5,
+    src: ELEMENTS,
+    requires: [
+      /section code\s*\{[^}]*color:\s*var\(--code-inline-fg, var\(--accent\)\)/,
+      /section code\s*\{[^}]*background:\s*var\(--code-inline-bg, color-mix\(in srgb, currentColor 10%, transparent\)\)/,
+      [KANBAN, /\.kanban-card\s*\{[^}]*background:\s*light-dark\(\s*var\(--bg-alt\),\s*color-mix\(in oklab, var\(--bg-alt\) 88%, white\)\)/],
+    ],
+  },
+  // ── kanban · the done column's stepped-down card title ───────────────────
+  // The done column recedes by INK, not alpha — #1717 removed an `opacity: 0.52` here
+  // precisely because it dragged this pair under the bar — so this one pair IS the whole
+  // de-emphasis and it has to clear 4.5 on its own.
+  {
+    id: 'kanban/done-card-title',
+    ctx: 'kanban: the [data-done] card title stepped down to --text-body, on the card fill',
+    base: KANBAN_CARD, groups: [], ink: '--text-body', min: 4.5,
+    src: KANBAN,
+    requires: [
+      /\.kanban-column\[data-done\] \.kanban-card-title\s*\{[^}]*color:\s*var\(--text-body\)/,
+      /\.kanban-card\s*\{[^}]*background:\s*light-dark\(\s*var\(--bg-alt\),\s*color-mix\(in oklab, var\(--bg-alt\) 88%, white\)\)/,
+    ],
+  },
+  // ── kpi · the hero tile's target / trend line ────────────────────────────
+  // The SECOND nested bullet of a kpi metric. On the hero it lands on the tile's
+  // `--accent-soft` fill — the base kpi/hero-pass-pill already models — not the canvas,
+  // which is why scoring `--text-secondary` against `--bg` reports it clean.
+  {
+    id: 'kpi/hero-target-line',
+    ctx: 'kpi (default/briefing): the hero tile\'s target/trend line in --text-secondary on --accent-soft',
+    base: '--accent-soft', groups: [], ink: '--text-secondary', min: 4.5,
+    src: KPI,
+    requires: [
+      /li > :where\(ul, ol\) > li \+ li\s*\{[^}]*color:\s*var\(--text-secondary\)/,
+      /li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/,
+    ],
+  },
 ];
 
 // ── The frozen sub-threshold baseline ───────────────────────────────────────
 //
 // Every (theme × mode × surface) pair that is below its bar today, with the ratio
-// it scores. This is a real backlog, not a set of individually justified
-// exemptions: status ink on a 12% tint of ITSELF is a surface most curated hues do
-// not clear, and re-curating fifteen palettes' status trios is a slice of its own
-// (#1698). Recorded here so it is visible and bounded rather than invisible.
+// it scores. It started as a real backlog rather than a set of individually
+// justified exemptions — status ink on a 12% tint of ITSELF is a surface most
+// curated hues do not clear — and it is now down to TWO pairs, which means every
+// remaining row does have to carry its own argument.
 //
-// It is a SHRINKING baseline, and it has shrunk once: the 24 `word-cloud/seq-*`
+// It is a SHRINKING baseline, and it has shrunk twice. The 24 `word-cloud/seq-*`
 // rows left when this file landed were the canvas-blind sequential ramp, and #1697
-// made the ramp's poles canvas-relative and re-anchored every palette's dark arm
-// mid-range. All 24 are gone — deleted, not re-frozen, which is what the stale arm
-// below exists to force.
+// made the ramp's poles canvas-relative. Then #1698's second pass took the status
+// population from 106 to 0: the trios were re-solved against the bands they land on
+// AND declared at BOTH `:root` and `:root:root`, without which the curated values never
+// reached one render path or the other (the concat order vs Marpit's `:root` rewrite — see
+// engineering/decisions/2026-08-23-status-trio-export-cascade.md). All of them are
+// gone — deleted, not re-frozen, which is what the stale arm below exists to force.
+//
+// WHAT THE TWO SURVIVORS ARE, because a two-row baseline is read as "nearly done"
+// and these two are not nearly anything. `kpi.attention` inks `--warn` on
+// `--warn-bg` over the hero tile's `--accent-soft`, and carbone's `--accent-soft` is
+// a tint of its LIME accent: an orange pill on a green tile, both dark. Measured,
+// both exits cost more than they buy — lifting `--warn` to clear the pill drops
+// `pass^warn` under protanopia from 0.2327 to 0.1235, through the 0.15 collapse
+// floor; darkening `--accent-soft` until the pill clears puts the tile at ~1.06:1
+// against carbone's own canvas, i.e. no tile. Thinning the band does not reach it
+// (18% -> 12% -> 10% moves the pill 3.58 -> 3.67). Do not re-tune these two without
+// re-measuring both of those.
 //
 // It is a keyed map rather than a count, and the difference is load-bearing. A
 // count says "no MORE failures"; it says nothing about an existing failure getting
@@ -452,13 +524,9 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['burgundy|light|policy-recommendation/amend-badge', 4.42],
   ['mustard-dark|light|policy-recommendation/amend-badge', 4.42],
   ['mustard|light|policy-recommendation/amend-badge', 4.42],
-  // ── policy-recommendation/defer-badge ── 6
-  ['brina-dark|light|policy-recommendation/defer-badge', 4.30],
-  ['brina|light|policy-recommendation/defer-badge', 4.30],
+  // ── policy-recommendation/defer-badge ── 2
   ['cuoio-dark|light|policy-recommendation/defer-badge', 4.34],
   ['cuoio|light|policy-recommendation/defer-badge', 4.34],
-  ['laguna-dark|light|policy-recommendation/defer-badge', 4.49],
-  ['laguna|light|policy-recommendation/defer-badge', 4.49],
   // ── policy-recommendation/oppose-badge ── 3
   ['carbone|light|policy-recommendation/oppose-badge', 2.22],
   ['concrete-dark|light|policy-recommendation/oppose-badge', 3.98],
@@ -546,6 +614,55 @@ function stripComments(css) { return css.replace(/\/\*[\s\S]*?\*\//g, ''); }
  */
 const ROOT_COMPOUND = /^(?::root|:root:root|:where\(:root\))(?:\[[^\]]*\]|:(?!:)[a-z-]+(?:\([^()]*\))?)*$/i;
 
+/**
+ * The B column of a root-family compound, and it is LOAD-BEARING on the export arm.
+ *
+ * `lattice-emulator.js` concatenates the bundle AFTER the palette, so at EQUAL
+ * specificity the engine default wins on source order and the palette's value is
+ * silently discarded in the rendered PDF (#1527). `:root:root` is (0,2,0) and beats
+ * the bundle's (0,1,0) whatever the order — which is exactly why four palettes
+ * already reach `--panel-edge-mark` that way (themes/ardesia.css, atelier, concrete,
+ * onyx; 2026-08-18-split-frame-edge-ownership.md) and why the status trios reach
+ * `--pass` / `--warn` / `--fail` that way as of #1698.
+ *
+ * Scoring it flat — treating every root block as one bucket — is not a rounding
+ * error, it is a gate that reports the opposite of the truth in BOTH directions: it
+ * scored `split-panel/edge-mark` on the bundle's `var(--accent)` for the four
+ * palettes that had already escaped it, and it would score a re-curated trio as
+ * inert on the one path where it is the whole point.
+ *
+ * "PHANTOM" IS TOO KIND FOR THOSE 13, and an earlier version of this note called
+ * them pairs "on an arm that renders correctly". They are not. `--panel-edge-mark`
+ * is declared ONLY at `:root:root` in ardesia / atelier / concrete / onyx, and this
+ * change's own measurement is that `:root:root` is inert on the packed engine path —
+ * so the Studio and the docs Playground resolve base's `var(--accent)` there, which
+ * on onyx IS `--surface-inverse`: `light-dark(#000000, #FFFFFF)` against a black
+ * panel, 1.00:1, no visible edge. This arm now reports 3.66 for a surface that
+ * renders at 1.00. The specificity fix is still right — it makes the EXPORT arm
+ * truthful, which is what it models — but the four palettes need the `:root` half
+ * too, and that is #1797, not this change (pre-existing, off this diff's path,
+ * HARD RULE #18's found-not-caused arm). `:where(:root)` is 0 and loses to everything,
+ * which is what it is for.
+ */
+function rootSpecificity(compound) {
+  // `:where()` contributes ZERO — but only for what is INSIDE it. `:where(:root):root` is
+  // (0,1,0), not 0, so the test is the whole compound rather than its prefix; the prefix
+  // form scored that selector 0 and would have ranked a real override below a plain
+  // `:root`. Nothing in `themes/` writes it today; a scorer that is wrong only on the
+  // shapes nobody uses yet is a trap for whoever uses one first.
+  // `:where()` contributes ZERO, so its contents come out before anything is counted.
+  // That is one rule rather than two special cases, and it gets every shape right:
+  // `:where(:root)` -> 0, `:where(:root):root` -> 1, `:root:where(.x)` -> 1, `:root:root`
+  // -> 2, `:root[data-x]` -> 2. An earlier cut returned 0 for anything STARTING with
+  // `:where(:root)` — which scored a real override as zero — and the first fix moved it to
+  // 2, still not the (0,1,0) its own comment claimed.
+  const bare = compound.replace(/:where\([^()]*\)/gi, '');
+  const roots = (bare.match(/:root/gi) || []).length;
+  const quals = (bare.match(/\[[^\]]*\]|:(?!:)[a-z-]+(?:\([^()]*\))?/gi) || [])
+    .filter((q) => !/^:root$/i.test(q)).length;
+  return roots + quals;
+}
+
 function rootBlocks(css) {
   const s = stripComments(css);
   const out = [];
@@ -565,8 +682,14 @@ function rootBlocks(css) {
         }
         const bodyEnd = j - 1;
         if (sel.startsWith('@')) scan(i + 1, bodyEnd);              // at-rule: descend
-        else if (sel.split(',').some((part) => ROOT_COMPOUND.test(part.trim()))) {
-          out.push(s.slice(i + 1, bodyEnd));
+        else {
+          // A comma-list is scored by the WINNING part: `:root, :root:root { … }`
+          // applies at (0,2,0), so the block carries the highest specificity it has.
+          const spec = Math.max(-1, ...sel.split(',')
+            .map((part) => part.trim())
+            .filter((part) => ROOT_COMPOUND.test(part))
+            .map(rootSpecificity));
+          if (spec >= 0) out.push([spec, s.slice(i + 1, bodyEnd)]);
         }
         i = j;
         selStart = i;
@@ -585,8 +708,8 @@ function rootBlocks(css) {
   return out;
 }
 
-function parseRootVars(css, into = {}) {
-  for (const block of rootBlocks(css)) {
+function parseRootVars(css, into = { vars: {}, spec: {} }) {
+  for (const [spec, block] of rootBlocks(css)) {
     for (const d of (block.match(/--[a-z0-9-]+\s*:\s*[^;{}]+/gi) || [])) {
       // `s` flag: a custom-property value may span lines — a palette author is
       // free to write `--fail: light-dark(\n  #AF102D,\n  #FF6B72);`. Without it
@@ -595,7 +718,12 @@ function parseRootVars(css, into = {}) {
       // and the gate passes a value that does not exist. That contradicts this
       // file's own contract — an unresolvable token is a failure, not a skip.
       const m = d.match(/--([a-z0-9-]+)\s*:\s*([\s\S]+)$/i);
-      if (m) into[m[1]] = m[2].trim().replace(/\s+/g, ' ');
+      // Higher specificity always wins; at a TIE the later declaration does, which
+      // is plain source order within one stylesheet (and within one chain).
+      if (m && spec >= (into.spec[m[1]] ?? -1)) {
+        into.vars[m[1]] = m[2].trim().replace(/\s+/g, ' ');
+        into.spec[m[1]] = spec;
+      }
     }
   }
   return into;
@@ -627,7 +755,7 @@ function bundleVars() {
         'The base defaults this gate resolves through live in the bundle, not in the themes.',
       );
     }
-    bundleCache = parseRootVars(fs.readFileSync(BUNDLE, 'utf8'), {});
+    bundleCache = parseRootVars(fs.readFileSync(BUNDLE, 'utf8'));
   }
   return bundleCache;
 }
@@ -642,9 +770,18 @@ function bundleVars() {
  * replaces.
  */
 function mergedVars(theme, { baseWins = false } = {}) {
-  const palette = {};
+  const palette = { vars: {}, spec: {} };
   for (const f of paletteChainFiles(theme)) parseRootVars(fs.readFileSync(f, 'utf8'), palette);
-  return baseWins ? { ...palette, ...bundleVars() } : { ...bundleVars(), ...palette };
+  const bundle = bundleVars();
+  if (!baseWins) return { ...bundle.vars, ...palette.vars };
+  // EXPORT ORDER. The bundle is concatenated last, so it wins every tie — but a
+  // tie is what source order decides, and specificity outranks it. A palette
+  // declaration at a HIGHER root specificity (`:root:root`) still paints.
+  const out = { ...palette.vars };
+  for (const [k, v] of Object.entries(bundle.vars)) {
+    if ((palette.spec[k] ?? -1) <= (bundle.spec[k] ?? 0)) out[k] = v;
+  }
+  return out;
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -832,10 +969,21 @@ function checkSurfaceEvidence() {
     const file = path.join(ROOT, s.src);
     if (!fs.existsSync(file)) { errors.push(`${s.id}: ${s.src} is gone — re-derive this surface.`); continue; }
     const src = stripComments(fs.readFileSync(file, 'utf8'));
-    for (const re of s.requires || []) {
-      if (!re.test(src)) {
+    // A `requires` entry is a RegExp against `src`, OR a [relPath, RegExp] pair. Several
+    // surfaces span TWO files — the chip's ink rule is in base.elements.css while the card
+    // fill it sits on is in kanban.styles.css — and pinning only the half that happens to
+    // live in `src` leaves the other half free to move under a green gate.
+    for (const req of s.requires || []) {
+      const [rel, re] = Array.isArray(req) ? req : [s.src, req];
+      const target = rel === s.src ? file : path.join(ROOT, rel);
+      if (!fs.existsSync(target)) {
+        errors.push(`${s.id}: ${rel} is gone — re-derive this surface.`);
+        continue;
+      }
+      const text = rel === s.src ? src : stripComments(fs.readFileSync(target, 'utf8'));
+      if (!re.test(text)) {
         errors.push(
-          `${s.id}: the rule this surface models is no longer in ${s.src} ` +
+          `${s.id}: the rule this surface models is no longer in ${rel} ` +
           `(${re}). Re-derive the surface from the CSS; do not delete the check.`,
         );
       }

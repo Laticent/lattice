@@ -1397,6 +1397,98 @@ function listCssFiles(dir, out = []) {
 // Comments are stripped first, so historical "(was --bg-dark)" notes don't trip.
 const RETIRED_TOKEN_NAMES = new Set(TOKEN_CROSSWALK.map((p) => `--${p.old}`));
 
+/**
+ * The status trio is declared TWICE in every palette that curates it, and the two
+ * blocks must agree.
+ *
+ * Not redundancy — the three render paths disagree about selectors, and neither form
+ * reaches all of them:
+ *
+ *   · `:root` packs to `:where(section)…` (lib/engine/css.js, mirroring Marpit), so it
+ *     is what the ENGINE path — Studio, docs Playground, Specimen — and export-to-Marp
+ *     can see. It LOSES on the CLI export path, where nothing is packed and
+ *     `lattice-emulator.js` concatenates the bundle last: base's `:root` wins on source
+ *     order at equal specificity.
+ *   · `:root:root` is (0,2,0) and beats the bundle whatever the order, which is what
+ *     the CLI export path needs. It is INERT on the packed paths — Marpit rewrites only
+ *     a `:root` preceded by a combinator, so the second one survives literally onto the
+ *     `<section>`, where `:root` cannot match (engineering/gotchas/marp.md documents the
+ *     class for `:root[…]`).
+ *
+ * MEASURED BOTH WAYS, because each single-form version shipped a real defect. Before
+ * #1698's second pass every palette's curated trio was inert in a CLI export. Promoting
+ * it to `:root:root` alone moved the defect to the engine path — the four `a11y-*`
+ * palettes rendered base's trio in the Playground, the one place their CVD-safe values
+ * exist to be seen. Neither was visible to any ratio gate.
+ *
+ * So the pair is the contract, and drift between the halves is the failure this check
+ * exists to prevent: edit one and a palette silently ships two different greens
+ * depending on which surface a reader is looking at.
+ * engineering/decisions/2026-08-23-status-trio-export-cascade.md
+ */
+const STATUS_TRIO = ['pass', 'warn', 'fail'];
+
+function trioBlocks(css) {
+  const out = { root: new Map(), rootRoot: new Map(), odd: new Set() };
+  // Comment-stripped, so the docblock above each pair (which names the selectors in
+  // prose) cannot be mistaken for a rule — a live trap: the first cut of the tool that
+  // wrote these blocks matched `:root:root` inside its own explanation.
+  const src = stripComments(css);
+  // Every rule, then the selector tested WHOLE. An anchor-on-the-previous-`}` form reads
+  // fine and silently halves the result: the first match consumes the brace the second
+  // one needs, so two adjacent `:root` / `:root:root` blocks parse as one. Measured — it
+  // reported all 18 palettes missing their `:root:root` half while every file had it.
+  for (const m of src.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    // Drop anything up to the last `;` — a theme opens with `@import 'parent';`, which the
+    // brace scan otherwise swallows into the next rule's "selector".
+    const sel = m[1].replace(/^[\s\S]*;/, '').trim();
+    // A trio declared under ANY OTHER root-family shape is a shape this gate cannot pair
+    // up, and silence there is the worst answer available: an unmatched shape used to fall
+    // through to the `declares neither half` branch and be read as "inherits its parent's
+    // trio", so `:root, .x { --pass: … }` shipped export-inert with the gate green. It is
+    // now reported rather than skipped. `:root :root` (a descendant, inert everywhere) and
+    // `:root:root:root` both land here too, which is right — neither is the sanctioned pair.
+    const into = sel === ':root:root' ? out.rootRoot : sel === ':root' ? out.root : null;
+    if (!into) {
+      if (/(^|[\s,>+~(]):root\b/.test(sel) && /--(?:pass|warn|fail)\s*:/.test(m[2])) out.odd.add(sel);
+      continue;
+    }
+    for (const d of m[2].matchAll(/--([a-z-]+)\s*:\s*([^;]+)/gi)) {
+      if (STATUS_TRIO.includes(d[1])) into.set(d[1], d[2].trim().replace(/\s+/g, ' '));
+    }
+  }
+  return out;
+}
+
+function checkStatusTrioParity(errors) {
+  const dir = path.join(ROOT, 'themes');
+  if (!fs.existsSync(dir)) return;
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.css')).sort()) {
+    const { root, rootRoot, odd } = trioBlocks(fs.readFileSync(path.join(dir, f), 'utf8'));
+    for (const sel of odd) {
+      errors.push(
+        `themes/${f}: the status trio is declared under \`${sel}\`, which is neither \`:root\` `
+        + 'nor `:root:root`. It must be declared at BOTH, identically — `:root` reaches the '
+        + 'engine / Marp paths and `:root:root` reaches the CLI export. A shape this gate '
+        + 'cannot pair up reads as "inherits its parent\'s trio" and ships export-inert.',
+      );
+    }
+    if (!root.size && !rootRoot.size) continue;               // inherits its parent's trio
+    for (const tok of STATUS_TRIO) {
+      const a = root.get(tok);
+      const b = rootRoot.get(tok);
+      if (a && b && a === b) continue;
+      if (!a && !b) continue;                                 // declares neither half
+      errors.push(
+        `themes/${f}: --${tok} must be declared IDENTICALLY at \`:root\` and \`:root:root\` — `
+        + `\`:root\` reaches the engine / Marp paths, \`:root:root\` reaches the CLI export, and `
+        + `neither reaches both. Got :root ${a ? `"${a}"` : '(missing)'} vs :root:root `
+        + `${b ? `"${b}"` : '(missing)'}. See the docblock beside the pair.`,
+      );
+    }
+  }
+}
+
 function checkRetiredTokenNames(errors) {
   const files = [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)];
   for (const file of files) {
@@ -4978,8 +5070,25 @@ function checkE2ESleeps(errors, e2eDir = path.join(ROOT, 'docs', 'e2e'), sanctio
 // texture pin uses and which the class-list scope key covers exactly). What is REJECTED
 // is a qualifier the key cannot see: a positional pseudo-class, an attribute selector, a
 // `:has()`, or a descendant/sibling combinator.
+// A REPEATED `:root` is admitted, because it cannot vary per slide — the axis THIS check
+// guards. It matches the same single element and carries no qualifier the class-list key
+// can miss, so two same-classed slides can never resolve different palettes through it.
+//
+// It is NOT merely a specificity bump, and an earlier version of this comment said it was.
+// `lib/engine/css.js` packs a theme the way Marpit does, rewriting a `:root` that follows a
+// combinator; the SECOND `:root` in `:root:root` follows neither, so it survives literally
+// onto the `<section>` — where `:root` cannot match. The doubled form is therefore INERT on
+// the engine and export-to-Marp paths and live only on the unpacked CLI export path, which
+// is exactly why a palette declares the status trio at BOTH forms (themes/*.css, and
+// `checkStatusTrioParity` above pins the pair). `engineering/gotchas/marp.md` documents the
+// same class for `:root[…]`.
+//
+// Rejecting it outright forced a choice between a diagram token that resolves per-slide
+// correctly and one that resolves AT ALL in a CLI export — not the trade this check is
+// about. The rejected shapes are unchanged: positional pseudo-class, attribute selector,
+// `:has()`, descendant / sibling combinator.
 const CLASS_OR_CLASS_ONLY_PSEUDO = String.raw`(?:\.[\w-]+|:(?:not|is|where)\((?:\s*\.[\w-]+\s*,?)+\))`;
-const DIAGRAM_SCOPE_SAFE_SELECTOR = new RegExp(`^(?::root|section${CLASS_OR_CLASS_ONLY_PSEUDO}*)$`);
+const DIAGRAM_SCOPE_SAFE_SELECTOR = new RegExp(`^(?:(?::root)+|section${CLASS_OR_CLASS_ONLY_PSEUDO}*)$`);
 
 function diagramTokenClosure() {
   const { diagramThemeTokens } = require('../lib/core/mermaid-theme-map');
@@ -9910,6 +10019,7 @@ function run() {
   checkThemeTokenParity(errors);
   checkNoSafeDefaultTokens(errors);
   checkRetiredTokenNames(errors);
+  checkStatusTrioParity(errors);
   checkTypographyTokens(errors);
   checkLabelVoiceFont(errors);
   checkMarginDiscipline(errors);
@@ -10064,6 +10174,8 @@ module.exports = {
   SANCTIONED_DENSITY_EXEMPT,
   checkTagClustering,
   checkRetiredTokenNames,
+  checkStatusTrioParity,
+  trioBlocks,
   RETIRED_TOKEN_NAMES,
   checkTypographyTokens,
   nonCanonicalFsTokens,

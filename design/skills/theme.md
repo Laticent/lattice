@@ -192,7 +192,31 @@ A base palette's spine (from `themes/indaco.css`):
   /* Structural — stroke MUST read on white */
   --diagram-stroke: #1F6E60; --diagram-line: light-dark(#0A211D, #EAF3F0);
 
-  /* Semantic signals */
+  /* Semantic signals — and see the SECOND copy below, which is not optional. */
+  --pass: light-dark(#2D6A3F, #4ADE80);
+  --warn: light-dark(#B45309, #F97316);
+  --fail: light-dark(#991B1B, #F87171);
+}
+
+/* THE STATUS TRIO IS DECLARED TWICE, and both copies are load-bearing. The values here
+ * are base.tokens.css's DEFAULTS, shown for shape — a real palette curates its own
+ * against the bands its components paint them on (`tools/composed-contrast.js`), not
+ * against the canvas. The three render paths disagree about selectors, and neither form
+ * reaches all of them:
+ *   · `:root`      packs onto the slide <section> (lib/engine/css.js, mirroring Marpit),
+ *                  so it is the form the ENGINE path — Studio, docs Playground,
+ *                  Specimen — and export-to-Marp can see. It LOSES on the CLI export
+ *                  path, where nothing is packed and the bundle is concatenated after
+ *                  the palette, so base's `:root` wins on source order at equal
+ *                  specificity.
+ *   · `:root:root` is (0,2,0) and beats the bundle whatever the order, which is what
+ *                  the CLI export needs — and is INERT on the packed paths, because the
+ *                  second `:root` survives the rewrite literally onto a <section>, where
+ *                  it cannot match. Confirmed under real marp-cli, not only ours.
+ * Ship one and the other path silently paints base's trio. Values must be IDENTICAL in
+ * both blocks; `checkStatusTrioParity` fails the build if they drift.
+ * engineering/decisions/2026-08-23-status-trio-export-cascade.md */
+:root:root {
   --pass: light-dark(#2D6A3F, #4ADE80);
   --warn: light-dark(#B45309, #F97316);
   --fail: light-dark(#991B1B, #F87171);

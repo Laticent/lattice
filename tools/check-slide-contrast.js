@@ -409,9 +409,24 @@ const PROBE = () => {
       // A lower layer is under the run whatever the DOM order; an equal layer falls
       // back to the original "must precede" rule.
       if (!(layer < elLayer || (layer === elLayer && precedes))) continue;
-      const b = node.getBoundingClientRect();
-      if (!b.width || !b.height) continue;
-      if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) continue;
+      // THE BOXES THE NODE ACTUALLY GENERATES, not their union. `getBoundingClientRect()`
+      // on a LINE-WRAPPED INLINE returns the union of its line fragments, and an inline
+      // paints only the fragments — the union's empty corner is bare canvas. Measured on
+      // gallery.md p105 (`redline`) at atelier: `<ins>Provider's standard export format</ins>`
+      // wraps line 1 -> line 2, so its union spans the full column, and `<ins>ninety (90)</ins>`
+      // sitting mid-line-2 was scored on a DOUBLED `--pass-bg` band (bg 184,194,174) that is
+      // painted nowhere. The rasterized slide reads 204,208,190 there — one band — and the
+      // run goes 4.27:1 -> 5.02:1. Four runs on that one slide, on 19 palettes.
+      // A block box generates exactly one rect equal to its border box, so nothing else moves.
+      const rects = node.getClientRects();
+      const boxes = rects.length ? rects : [node.getBoundingClientRect()];
+      let hit = false;
+      for (const b of boxes) {
+        if (!b.width || !b.height) continue;
+        if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) continue;
+        hit = true; break;
+      }
+      if (!hit) continue;
       found.push({ node, layer, idx });
     }
     found.sort((a, b) => (a.layer - b.layer) || (a.idx - b.idx));
