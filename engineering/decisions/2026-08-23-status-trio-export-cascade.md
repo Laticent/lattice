@@ -132,15 +132,18 @@ docs site — `npm run dev`, the component reference at `/components/comparison/
 default palette `cuoio` — on the exact tree this change ships:
 
 ```
-<section class="redline form">   --pass  light-dark(#215F35, #6FCC4D)   ← cuoio's curated value
-                                 --fail  light-dark(#8F0A11, #F87171)
+<section class="redline form">   --pass  light-dark(#001305, #96f576)   ← cuoio's curated value
+                                 --fail  light-dark(#8a010c, #ed6868)
 document.documentElement         --pass  ""      (empty)
                                  --fail  ""      (empty)
-painted <ins>                    rgb(33, 95, 53)   = #215F35, cuoio's --pass
-painted <del>                    rgb(143, 10, 17)  = #8F0A11, cuoio's --fail
+painted <ins>                    rgb(0, 19, 5)     = #001305, cuoio's --pass
+painted <del>                    rgb(138, 1, 12)   = #8a010c, cuoio's --fail
 ```
 
-Base's values are `#2D6A3F` = `rgb(45,106,63)` and `#991B1B`; neither appears.
+Base's values are `#2D6A3F` = `rgb(45,106,63)` and `#991B1B`; neither appears. (These
+readings were retaken after the #1801 rebase — the first pass of this section quoted
+`#215F35` / `#8F0A11`, this branch's own since-dropped values, which is exactly the kind
+of stale evidence §7c is about.)
 
 **The empty root is the part worth keeping.** It is not incidental — it is the proof. If
 the trio were reaching the section by ordinary inheritance from the document root, the root
@@ -159,7 +162,13 @@ dual-mode scan — took the LAST declaration of a token as the cascade winner. T
 only at equal specificity, and it stopped being true the moment a palette declared the trio
 at two specificities. Measured on a real `--player` export at atelier, before the fix: the
 light base honored specificity and kept `#1f5d33`, while the dark block ended with base's
-`#2D6A3F` / `#4ADE80`. One exported file, two different greens depending on the viewer's
+`#2D6A3F` / `#4ADE80`. (That reading is from this branch's PRE-REBASE tree, where atelier's
+`--pass` was this branch's own `#1f5d33`; on `main` after #1801 it is `#054b22`. The defect
+and the fix are unaffected — the collectors' bug was "last declaration wins" regardless of
+which values were in the file — but the hex is a historical one and is left labelled rather
+than silently restated against values it was never measured on. What pins the fix on the
+CURRENT tree is `test/unit/export/html-player.test.js`, 118 passing.) One exported file,
+two different greens depending on the viewer's
 scheme toggle — and invisible to every ratio gate, because both values clear their bar.
 
 Both collectors now rank by root specificity (`rootSpec`), with source order as the
@@ -185,9 +194,10 @@ Read off the emitted HTML, this is what marp-core did to each half:
 | `:root:root` | `div#\:\$p > svg > foreignObject > :where(section):not([\20 root]):root` | **no** — the trailing `:root` survives literally |
 
 and the computed values on the slide agree: the `<section>` resolves cuoio's curated
-`light-dark(#215F35, #6FCC4D)` / `#885800` / `#8F0A11`, while `document.documentElement`
-returns EMPTY for all three — the same shape as §2a, so the values arrived by the packed
-rewrite and not by inheritance.
+`light-dark(#001305, #96f576)` / `light-dark(#8a5903, #f7a64f)` /
+`light-dark(#8a010c, #ed6868)` — #1801's values, verbatim — while `document.documentElement`
+returns EMPTY for all three, the same shape as §2a, so the values arrived by the packed
+rewrite and not by inheritance. Retaken after the rebase, on the tree that ships.
 
 **The part that justifies having measured it rather than reasoned it:** marp-core's
 wrapper is NOT ours. It packs onto `div#\:\$p > svg > foreignObject >`; `lib/engine/css.js`
