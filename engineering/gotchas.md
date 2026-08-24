@@ -80,6 +80,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 ### [CSS](gotchas/css.md)
 
 - [An ink passes every contrast gate and still renders sub-AA (own-hue band · element opacity)](gotchas/css.md#an-ink-passes-every-contrast-gate-and-still-renders-sub-aa-own-hue-band--element-opacity)
+- [A contrast gate reports sub-AA for a run the rendered pixels show clearing (phantom underlay)](gotchas/css.md#a-contrast-gate-reports-sub-aa-for-a-run-the-rendered-pixels-show-clearing-phantom-underlay)
 - [`margin` corrupts measured layout (virtual lists, the Fit Spine) — HARD RULE #20](gotchas/css.md#margin-corrupts-measured-layout-virtual-lists-the-fit-spine--hard-rule-20)
 - [A finish `::after` EDGE layer is clobbered by the pagination marker](gotchas/css.md#a-finish-after-edge-layer-is-clobbered-by-the-pagination-marker)
 - [On a `finish:` deck the running header/footer/logo moved, and ate stage height](gotchas/css.md#on-a-finish-deck-the-running-headerfooterlogo-moved-and-ate-stage-height)

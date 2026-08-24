@@ -43,9 +43,9 @@
    * That separation is why these are curated rather than inherited, but it is
    * NOT what was broken on this path: with the palette winning the engine
    * cascade a dark slide already got THESE hues, just at 1.6:1. Base's trio
-   * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) is
-   * what the EXPORT path renders, and these arms are inert there until #1527
-   * flips the order. */
+   * (#4ADE80/#F97316/#F87171 — ΔE 0.072 deutan / 0.092 protan, collapsed) was what the
+   * EXPORT path rendered while these arms sat inert there; #1527 flipped the order and
+   * they paint on both paths now. */
   /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
    * survives, so three signals need three distinct WEIGHTS against the canvas —
    * and WCAG contrast is a function of the same luminance, which is why moving
@@ -116,21 +116,21 @@
    * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
    * path, and the difference is the whole caveat:
    *
-   *   lattice-emulator.js (the PDF / HTML-player EXPORT) concatenates
-   *     `paletteCSS + layoutCSS`, so the base is loaded AFTER the theme and
-   *     lib/base/base.tokens.css's own --hljs-* WIN — that file says so in as many words,
-   *     and the inversion is #1527, unshipped. Verified on a rendered PDF of this palette:
-   *     the `function` keyword samples #C792EA, the BASE's --hljs-keyword, byte-exact.
+   *   lattice-emulator.js (the PDF / HTML-player EXPORT) used to concatenate
+   *     `paletteCSS + layoutCSS`, so the base loaded AFTER the theme and
+   *     lib/base/base.tokens.css's own --hljs-* WON. Measured on a rendered PDF of this
+   *     palette at the time: the `function` keyword sampled #C792EA, the BASE's
+   *     --hljs-keyword, byte-exact. #1527 flipped it and this palette's own value paints.
    *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
    *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
    *     --hljs-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
    *   The live slide preview (Studio + docs site) loads the theme last too, measured on
    *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
    *
-   * So these families paint today on the engine path and the live preview, and not in an
-   * emulator-exported PDF until #1527 flips that order. A first cut of this comment said
-   * flatly "the export path" and was too broad in one direction after being too narrow in
-   * the other.
+   * So these families paint on every path now. They painted on the engine path and the
+   * live preview first and on the export only after #1527 — an asymmetry a first cut of
+   * this comment described as flatly "the export path", too broad in one direction after
+   * being too narrow in the other.
    * Measured on THESE values, simulated: worst pair dE 0.1194
    * (structure/numeric), against 0.0104 for what was inherited. Lowest contrast on
    * the panel 4.69:1. Gated by checkHljsSeparation, which

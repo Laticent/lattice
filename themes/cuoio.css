@@ -271,10 +271,11 @@
    * the AA floor for code text. Lifted in OKLCH holding hue (12.2 -> 12.4) and
    * chroma, +0.036 lightness, the same move derive-cat-ink makes for the ink tier:
    * 4.68:1, clearing AA + the 0.15 margin cat-ink.js uses so an 8-bit round-trip
-   * cannot drop it back under. Found by #1527's sign-off sweep; the miss was
-   * invisible because the export loads the base AFTER the theme, so the base's
-   * #ff5874 has been painting instead. This changes nothing rendered TODAY and is
-   * a prerequisite for the concat flip. */
+   * cannot drop it back under. Found by #1527's sign-off sweep; the miss was invisible
+   * because the export loaded the base AFTER the theme, so the base's #ff5874 painted
+   * instead. It was landed as a PREREQUISITE for the concat flip, changing nothing
+   * rendered at the time — #1527 has since flipped the order, so this value is what a
+   * cuoio export paints. */
   --hljs-literal:    #CC6574;  /* warm rose-pink — booleans/null         */
   --hljs-string:     #C8885A;  /* warm terracotta                        */
   --hljs-title:      #D4B868;  /* warm amber-yellow, italic              */

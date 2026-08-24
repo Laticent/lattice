@@ -43,6 +43,41 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Commits:** the surface gate + the redline/palette fixes it found (#1640); the
   canvas-relative ramp + the fifteen re-anchored dark arms (#1697).
 
+## A contrast gate reports sub-AA for a run the rendered pixels show clearing (phantom underlay)
+
+- **Symptom:** the rendered-DOM sweeps (`tools/check-slide-contrast.js`,
+  `tools/palette-sweep.js`, and the gates over them) flag a text run well under its
+  floor, while `tools/composed-contrast.js` scores the same pairing comfortably above
+  it and the slide looks fine. Two runs of the SAME element type on the SAME slide can
+  disagree — one at 4.90:1 and its neighbor at 4.18:1 — with identical markup,
+  identical ancestors and identical computed colors.
+- **Cause:** the prober decides which boxes paint *under* a run by geometric
+  containment, and it used to test the run against each candidate's
+  `getBoundingClientRect()`. For an **inline** box that wraps onto more than one line,
+  that rectangle is the UNION of its line fragments — it spans the ragged gap at the end
+  of every line, where the element paints nothing. A translucent inline neighbor is then
+  counted as a backdrop for the runs it sits *beside* rather than behind, and its tint is
+  composited into their backdrop a second time. Measured on `redline` at `cuoio-dark`: a
+  two-line `<ins>` has a 3138x194 union box that swallows the whole paragraph, so the
+  `<del>`s on those lines scored against a doubly-tinted `rgb(68,43,37)` while the
+  screenshot shows `rgb(51,33,29)` behind all three.
+- **Fix / check:** containment is per `getClientRects()` fragment now (`under()` in
+  `tools/check-slide-contrast.js`); a block box has exactly one client rect and it IS
+  its border box, so block underlays are unaffected. If a rendered number still looks
+  wrong, **sample the pixels** — screenshot the run's rect and count colors — rather than
+  re-deriving from the model that produced it. And treat the analytic gate agreeing with
+  the rendered one as the check that a measurement fix was a fix: after this,
+  `concrete-dark`'s `redline/del` reads 3.91 modeled and 3.89 rendered, where the two
+  had differed by 0.7.
+- **Triggered by:** any component that puts translucent inline spans next to each other
+  inside flowing text — `redline`'s `<ins>`/`<del>` pairs above all — especially once a
+  palette's own darker ink is what paints there.
+- **Commits:** the per-fragment containment fix and the ratcheted palette ceilings (#1789);
+  the second, independent sighting on `cuoio-dark` that produced the pixel evidence above,
+  and this entry (#1527). Two branches reached the same line of `under()` from different
+  palettes in the same week, neither by reading the code — both were sent there by a rendered
+  number that disagreed with a screenshot.
+
 ## `margin` corrupts measured layout (virtual lists, the Fit Spine) — HARD RULE #20
 
 - **Symptom:** A measuring layout places boxes wrong — rows in a virtualised /

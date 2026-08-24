@@ -287,12 +287,14 @@ and re-hue it (the `new:theme` scaffold does this for you).
   non-text guarantee its stroke role is scoped to. Read it **with its fallback** —
   `var(--cat-N-ink, var(--cat-N-mark))` — at every consumer. That spelling is the
   contract, not a decoration: `lib/base/base.tokens.css` declares **no** `:root`
-  default for this tier, deliberately, because the emulator's export bundle
-  concatenates the theme *before* the base (`lattice-emulator.js`, `paletteCSS +
-  layoutCSS`), so a base default would win on equal specificity and silently
-  revert every curated ink to its mark on the PDF path — measured in Chromium, the
-  curated `#006D70` became the mark `#008386`. `var()`'s own fallback has no such
-  ordering hazard: it applies only when the token is genuinely absent, which is
+  default for this tier. The original reason was an ordering hazard — the emulator's
+  export bundle concatenated the theme *before* the base (`lattice-emulator.js`,
+  `paletteCSS + layoutCSS`), so a base default won on equal specificity and silently
+  reverted every curated ink to its mark on the PDF path; measured in Chromium, the
+  curated `#006D70` became the mark `#008386`. **#1527 flipped that concat**, so the
+  hazard is gone and a `:root` default could now be declared safely. It still is not:
+  `var()`'s own fallback expresses the rule exactly — it applies only when the token
+  is genuinely absent, which is
   what keeps a **third-party** palette on twelve distinct categorical marks rather
   than collapsing to one accent. The fallback is the floor, not the plan: it lands
   on a mark curated to the 3:1 *graphical* floor. Sampling 200 essential sets per ramp

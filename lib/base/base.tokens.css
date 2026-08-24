@@ -436,12 +436,18 @@
    * label in one color: measured 8 distinct row borders, 1 distinct row term.
    *
    * The fallback for that lives at the CONSUMERS, as `var(--cat-N-ink,
-   * var(--cat-N-mark))`, NOT as a default here. A `:root` default cannot be ordered
-   * safely: the emulator/export bundle concatenates the theme BEFORE this file, so a
-   * default declared here wins on equal specificity and silently reverts every
-   * curated ink to its mark — measured on a real render, premise dropped from 4.68:1
-   * back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no such
-   * ordering hazard: it applies only when the token is genuinely absent. */
+   * var(--cat-N-mark))`, NOT as a default here. The original reason was an ordering
+   * hazard: the emulator/export bundle concatenated the theme BEFORE this file, so a
+   * default declared here won on equal specificity and silently reverted every curated
+   * ink to its mark — measured on a real render, premise dropped from 4.68:1 back to
+   * the 4.25:1 that change existed to fix. #1527 flipped the concat, so that hazard is
+   * gone and a `:root` default COULD now be declared safely.
+   *
+   * It is still not, and deliberately so. `var()`'s fallback expresses the rule exactly
+   * — apply only when the token is genuinely absent — where a `:root` default would
+   * re-introduce a value that has to be kept correct against twelve slots on every
+   * canvas. Adding one is a change with its own case to make; it is not a tidy-up that
+   * rides along with the flip (2026-08-10-palette-concat-order.md 5). */
 
   /* ── Print band · categorical ink ──
    * The print marks are already dark enough to carry text on paper (worst 4.96:1
@@ -591,10 +597,11 @@
    * makes the deck-wide toggle inert but reaches neither a per-slide `_class:
    * dark`, which sets color-scheme on the SECTION (#1323), nor the status-marker
    * pseudo, which base.variants.css pins to `color-scheme: dark` on every title /
-   * closing / non-light divider. A flat override was
-   * survivable only while this base won the cascade over the palette in the
-   * export path, quietly lending its dark arm back; it is not once the palette
-   * wins (#1527). See engineering/decisions/2026-08-16-flat-palette-dark-companions.md.
+   * closing / non-light divider. A flat override was survivable only while this base
+   * won the cascade over the palette in the export path, quietly lending its dark arm
+   * back. #1527 landed and it does not any more: a palette's `:root` wins on every
+   * path now, so a flat override ships its light value onto a dark canvas.
+   * See engineering/decisions/2026-08-16-flat-palette-dark-companions.md.
    *
    * Background soft-tints (--pass-bg, --warn-bg, --fail-bg) live in
    * each theme and derive from these via color-mix with 10% alpha. */
@@ -696,18 +703,21 @@
    * optional seams for a theme that wants an opaque chip instead of the wash.
    * See engineering/decisions/2026-06-08-inline-code-contrast.md.
    *
-   * THE INK IS DELIBERATELY NOT DECLARED HERE. It used to be — `--code-inline-fg: var(--accent)`
-   * sat on this line — and on the CLI/export path that default silently beat the theme's own
-   * value. `lattice-emulator.js` composes a render as `paletteCSS + '\n' + layoutCSS`: the raw
-   * palette first, this bundle second, both declarations landing at the same specificity where
-   * source order decides. The same trap `tools/check-ownership.js` already records in prose —
-   * "the export bundle concatenates the theme BEFORE the base, so a default there would win."
+   * THE INK IS DELIBERATELY NOT DECLARED HERE, and since #1527 the reason is history rather
+   * than mechanism. It used to be — `--code-inline-fg: var(--accent)` sat on this line — and on
+   * the CLI/export path that default silently beat the theme's own value, because
+   * `lattice-emulator.js` composed a render as `paletteCSS + '\n' + layoutCSS`: the raw palette
+   * first, this bundle second, both declarations landing at the same specificity where source
+   * order decides.
    *
-   * Note it is path-specific, and the first version of this comment got that wrong by blaming
-   * `packTheme`. The packing path does the OPPOSITE: `composeCss` inlines this bundle AT the
+   * It was path-specific, and the first version of this comment got that wrong by blaming
+   * `packTheme`. The packing path did the OPPOSITE: `composeCss` inlines this bundle AT the
    * theme's `@import 'lattice'` line, so the base lands first and the theme last, and there
    * the theme's value won and always reached the page. That path is the browser runtime, the
-   * Playground and the Studio; the CLI is where it was lost.
+   * Playground and the Studio; the CLI is where it was lost. #1527 flipped the export to match,
+   * so a default here would no longer beat a theme — the line stays absent anyway, because
+   * nothing needs it and re-adding one is a change with its own argument to make, not a
+   * side effect of the flip (2026-08-10-palette-concat-order.md 5).
    *
    * What that cost: of the 14 themes declaring this token, 8 give it a value distinct from
    * `--accent`, deepened so the chip clears AA on a CARD and not merely on the canvas, each
@@ -879,14 +889,13 @@
    * out at the --on-dark-* block below: Marpit's root-replacement only fires for a
    * bare `:root`, so a `:where()`-wrapped block is scoped as a section INSIDE a
    * section, matches nothing, and leaves every token in it undefined on the engine
-   * path. On that path a palette wins anyway — a theme `@import 'lattice'` first, so
-   * the base is inlined ABOVE the palette's own `:root` and equal specificity is
-   * settled by source order. The EXPORT bundle concatenates the other way and the
-   * base wins there until #1527's concat flip, which is why concrete and onyx have
-   * carried hand-solved anchors no PDF has rendered; `--hljs-*` and `--cat-N-ink`
-   * sit in the same state, and the repo's answer is to curate and gate the value
-   * BEFORE the flip rather than after it. The poles are unaffected either way —
-   * they live in the base, which wins on both paths. */
+   * path. On that path a palette wins — a theme `@import 'lattice'` first, so the
+   * base is inlined ABOVE the palette's own `:root` and equal specificity is settled
+   * by source order. The EXPORT bundle used to concatenate the other way, which is why
+   * concrete and onyx carried hand-solved anchors no PDF had ever rendered; #1527
+   * flipped it, so the two paths agree and those anchors paint. The poles were
+   * unaffected either way — they live in the base, which wins wherever a palette is
+   * silent. */
   --seq-pole-low:  light-dark(white, black);
   --seq-pole-high: light-dark(black, white);
   --seq-500: var(--accent);
@@ -1353,21 +1362,23 @@
 
   /* hljs fallbacks — Night Owl values, EXCEPT the two solved below.
    *
-   * These are not only a fallback. `lattice-emulator.js` concatenates
-   * `paletteCSS + layoutCSS`, so on the EXPORT path the base is loaded AFTER the
-   * theme and these values WIN — a theme's own `--hljs-*` never paints there
-   * (that inversion is #1527, and the flip is not shipped yet). So each of these
-   * must clear AA on every panel it can land on: this base's `--code-bg`
-   * (#001d33) AND all 15 distinct `--code-bg` values across the theme corpus.
+   * A FALLBACK IS ALL THEY ARE AGAIN. `lattice-emulator.js` used to concatenate
+   * `paletteCSS + layoutCSS`, so on the EXPORT path the base loaded AFTER the theme
+   * and these values WON — a theme's own `--hljs-*` never painted there. #1527 flipped
+   * it, so what paints now is the theme's value where it declares one (all 32 declare
+   * all twelve) and these where it does not, plus the un-themed bundle: what the golden
+   * corpus and a bare `dist/lattice.css` consumer render with.
    *
-   * `--hljs-comment` and `--hljs-literal` are solved for that whole set rather
-   * than for Night Owl's own #011627 panel. Night Owl's #637777 read 3.63:1 here
-   * and 2.39:1 on indaco; #ff5874 read 3.71:1 on indaco. Both were repaired first
-   * against this base's panel alone, which fixed the docs/Studio path and left the
-   * export still painting sub-AA — the gate could not see it, because it paired
-   * base tokens only with the base's own panel. Worst case now: comment 4.51:1,
-   * literal 4.58:1, both on indaco's #003d66. `checkHljsContrast` measures the
-   * base against every theme panel so this cannot regress. */
+   * `--hljs-comment` and `--hljs-literal` are nonetheless solved for EVERY panel in the
+   * corpus rather than for this base's alone, and they are left that way. Night Owl's
+   * #637777 read 3.63:1 here and 2.39:1 on indaco; #ff5874 read 3.71:1 on indaco. Both
+   * were first repaired against this base's panel only, which fixed the docs/Studio path
+   * and left the export still painting sub-AA — the gate could not see it, because it
+   * paired base tokens only with the base's own panel. Worst case now: comment 4.51:1,
+   * literal 4.58:1, both on indaco's #003d66. `checkHljsContrast` now holds the base to
+   * its own panel plus any panel that INHERITS the token, which is the pair that
+   * renders; the extra margin above that is kept deliberately, so a palette that ever
+   * drops one of the twelve inherits a value already safe on its panel. */
   --hljs-comment:    #92a8a8;
   --hljs-keyword:    #c792ea;
   --hljs-built_in:   #addb67;

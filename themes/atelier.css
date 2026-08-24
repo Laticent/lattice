@@ -71,7 +71,18 @@
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
   --code-inline-fg: var(--accent); /* near-black/oat accent — chip AAA (L:12.25/10.87 · D:10.83/8.19) */
-  --on-accent:   light-dark(#F0EDE6, var(--surface-inverse));    /* L:15.42:1 / D:13.42:1 */
+  /* Lifted #F0EDE6 -> #FFFEFB (OKLCH L 0.946 -> 0.996, hue and chroma held) by #1527.
+   * The light arm is not only accent ink: `journey`'s actor dot is the ONE site in the
+   * component library that paints `--on-accent` over a CATEGORICAL MARK rather than over
+   * `--accent`, and this palette's warm off-white lands at 3.91:1 on `--cat-6-mark`
+   * (#078915). It cleared before only because the engine's white won the export cascade,
+   * and #1527 gave this palette's own value back. There is no headroom to find here: pure
+   * white is 4.57:1 on that same mark, so anything that clears sits within 0.05 of white.
+   * The structural fix is a per-slot ink curated against the MARK — no token in the repo
+   * carries that contract today — and it is its own slice; see
+   * engineering/decisions/2026-08-24-palette-cascade-flip.md 5b.
+   * Cost is confined to warmth: 15.42:1 -> 17.28:1 on --accent, both far above any floor. */
+  --on-accent:   light-dark(#FFFEFB, var(--surface-inverse));    /* L:17.28:1 / D:13.42:1 */
 
   /* ── Semantic signals — derived backgrounds only ───────────────────
    * --pass/--warn/--fail are defined as light-dark() pairs in

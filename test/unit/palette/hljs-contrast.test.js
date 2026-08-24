@@ -23,8 +23,11 @@
  *   4. comment and punctuation do not COLLAPSE into one gray — the second defect
  *      the lift introduced, invisible to any contrast number.
  *
- * Plus the axis that hid the worst of it: the EXPORT path loads the base AFTER the
- * theme, so base tokens paint on theme panels. See the export-path test.
+ * Plus the axis that hid the worst of it: the export path USED to load the base AFTER
+ * the theme, so base tokens painted on theme panels and no theme's own ramp ever
+ * rendered. #1527 flipped that. The base's value is the FALLBACK now — see the
+ * export-path test, which is also where the population of that fallback is pinned,
+ * because it is currently EMPTY and an empty population is a gate that cannot fail.
  */
 
 const { test, describe } = require('node:test');
@@ -55,6 +58,26 @@ function flatten(name, seen = new Set()) {
   }
   return out + css;
 }
+/**
+ * The same flatten WITHOUT the engine base — a theme's own declarations, through its
+ * `@import` chain of other THEMES only. `flatten` above merges the base in first, which
+ * is the post-#1527 effective cascade and therefore the right map for "what paints";
+ * this one answers the different question "did the palette declare this itself", which
+ * is what decides whether the base's value is a fallback or dead weight.
+ */
+function flattenOwn(name, seen = new Set()) {
+  if (name === 'lattice' || seen.has(name)) return '';
+  seen.add(name);
+  const file = path.join(THEMES, `${name}.css`);
+  if (!fs.existsSync(file)) return '';
+  const css = fs.readFileSync(file, 'utf8');
+  let out = '';
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@import\s+['"]([^'"]+)['"]/g)) {
+    out += `${flattenOwn(m[1], seen)}\n`;
+  }
+  return out + css;
+}
+
 function tokens(css) {
   const map = new Map();
   for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) map.set(m[1], m[2].trim());
@@ -182,50 +205,61 @@ describe('--hljs-* contrast against --code-bg', () => {
     assert.deepEqual(collapsed, [], `comment/punctuation collapsed: ${collapsed.join('; ')}`);
   });
 
-  test('EXPORT PATH — base tokens clear the floor on every theme panel', () => {
-    // `lattice-emulator.js` concatenates `paletteCSS + layoutCSS`, so the base is
-    // loaded AFTER the theme and its --hljs-* WIN there — a theme's own value never
-    // paints on the export. Pairing base-with-base and theme-with-theme models the
-    // post-flip world (#1527) and left indaco rendering --hljs-literal at 3.71:1
-    // and --hljs-comment at 3.06:1 while the gate reported clean and a "Fixed"
-    // changelog entry shipped. Until the flip lands, this is the real surface.
+  test('EXPORT PATH — the base value is a FALLBACK, and nothing inherits it today', () => {
+    // Before #1527 `lattice-emulator.js` concatenated `paletteCSS + layoutCSS`, so the
+    // base loaded AFTER the theme and its --hljs-* won on every panel; a theme's own
+    // value never painted on the export. That is what left indaco rendering
+    // --hljs-literal at 3.71:1 and --hljs-comment at 3.06:1 while the gate reported
+    // clean and a "Fixed" changelog entry shipped.
+    //
+    // The flip landed. The base's value now paints in exactly two places: on the
+    // UN-THEMED bundle (what the golden corpus and a bare `dist/lattice.css` consumer
+    // render with), and as the fallback for a token a theme's chain never declares.
+    //
+    // THE SECOND SET IS EMPTY — all 32 declare all twelve — and that is asserted rather
+    // than left to make this test quietly vacuous. If a palette ever drops one, this
+    // fails and names it, which is the moment the arm below starts doing work.
     const base = tokens(flatten('lattice'));
+    const inheriting = [];
     const panels = new Map();
     for (const f of fs.readdirSync(THEMES).sort()) {
       if (!f.endsWith('.css')) continue;
+      const own = tokens(flattenOwn(f.replace(/\.css$/, '')));
       const map = tokens(flatten(f.replace(/\.css$/, '')));
-      for (const mode of ['light', 'dark']) {
-        const bg = catResolve(map, '--code-bg', mode);
-        if (bg && !panels.has(bg)) panels.set(bg, `${f}/${mode}`);
-      }
-    }
-    assert.ok(panels.size >= 10, `expected the corpus to span many panels, found ${panels.size}`);
-    const under = [];
-    for (const t of HLJS_TOKENS) {
-      if (!base.has(t)) continue;
-      const fg = catResolve(base, t, 'light');
-      if (!fg) continue;
-      for (const [bg, who] of panels) {
-        if (catContrast(fg, bg) < FLOOR) {
-          under.push(`base ${t} ${fg} on ${who} ${bg} = ${catContrast(fg, bg).toFixed(2)}`);
+      for (const t of HLJS_TOKENS) {
+        if (own.has(t)) continue;
+        inheriting.push(`${f} inherits ${t}`);
+        for (const mode of ['light', 'dark']) {
+          const bg = catResolve(map, '--code-bg', mode);
+          if (bg) panels.set(`${t}|${bg}`, { t, bg, who: `${f}/${mode}` });
         }
       }
     }
-    assert.deepEqual(under, [], `base syntax colors sub-AA on a theme panel: ${under.join('; ')}`);
+    assert.deepEqual(inheriting, [],
+      `a palette stopped declaring a syntax color, so the base's value paints on its panel: ${inheriting.join('; ')}`);
+
+    const under = [];
+    for (const { t, bg, who } of panels.values()) {
+      const fg = catResolve(base, t, 'light');
+      if (fg && catContrast(fg, bg) < FLOOR) {
+        under.push(`base ${t} ${fg} on ${who} ${bg} = ${catContrast(fg, bg).toFixed(2)}`);
+      }
+    }
+    assert.deepEqual(under, [], `an inherited base syntax color is sub-AA: ${under.join('; ')}`);
   });
 
   test('indaco specifically — the live defect this gate was written by', () => {
-    // Both halves, because fixing only the theme's value is what shipped a "Fixed"
-    // claim that never reached the export: the theme value for the engine/docs
-    // path, the BASE value for the export path, both on indaco's own panel.
+    // Indaco declares Night Owl's `#ff5874` verbatim against a lighter panel than Night
+    // Owl's. Since #1527 indaco's OWN value is what the export paints, so that is the
+    // one assertion here; pairing the BASE's value with indaco's panel would now score
+    // a combination nothing renders, which is the mistake this file has made twice.
     const map = tokens(flatten('indaco'));
-    const base = tokens(flatten('lattice'));
+    const own = tokens(flattenOwn('indaco'));
     const bg = catResolve(map, '--code-bg', 'light');
     assert.equal(bg, '#003d66');
-    for (const [label, src] of [['theme', map], ['base (what the export paints)', base]]) {
-      const fg = catResolve(src, '--hljs-literal', 'light');
-      assert.ok(catContrast(fg, bg) >= FLOOR,
-        `${label} --hljs-literal ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
-    }
+    assert.ok(own.has('--hljs-literal'), 'indaco must declare its own --hljs-literal for this to be its surface');
+    const fg = catResolve(map, '--hljs-literal', 'light');
+    assert.ok(catContrast(fg, bg) >= FLOOR,
+      `indaco --hljs-literal ${fg} on ${bg} = ${catContrast(fg, bg).toFixed(2)}:1`);
   });
 });

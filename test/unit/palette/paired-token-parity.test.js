@@ -7,8 +7,9 @@
  * indirection, e.g. `--seq-500: var(--accent)` — while a palette may override the same
  * token with a single light-tuned value. Whichever sheet wins the cascade decides which
  * of the two ships, so a flat override is not merely "less adaptive": it is a dark-mode
- * value that nobody chose, and it only becomes visible when the cascade order changes
- * (#1527). Two P1 regressions were found that way rather than by anyone reading a
+ * value that nobody chose. It was invisible while the base won the export cascade, which
+ * quietly lent its own dark arm back; #1527 flipped that, so a flat override now ships.
+ * Two P1 regressions were found that way rather than by anyone reading a
  * palette: `word-cloud spectrum` fell from 14.50:1 to 1.16:1 on ardesia's dark canvas,
  * and `redline`'s struck clause to 1.25:1 on a11y-achromatopsia's dark slides.
  *
@@ -180,7 +181,7 @@ describe('paired-token parity: no flat override of a base light-dark() pair', ()
         flat,
         [],
         `${name} overrides a base light-dark() pair with a flat value — dark mode gets a value ` +
-        `nobody chose the moment the palette wins the cascade (#1527). Give it a dark arm:\n  ` +
+        `nobody chose, on every path since #1527 gave the palette the cascade. Give it a dark arm:\n  ` +
         flat.join('\n  '),
       );
     });

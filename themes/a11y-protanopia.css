@@ -93,21 +93,21 @@
    * WHERE THESE ACTUALLY PAINT, measured on each path rather than assumed. It differs by
    * path, and the difference is the whole caveat:
    *
-   *   lattice-emulator.js (the PDF / HTML-player EXPORT) concatenates
-   *     `paletteCSS + layoutCSS`, so the base is loaded AFTER the theme and
-   *     lib/base/base.tokens.css's own --hljs-* WIN — that file says so in as many words,
-   *     and the inversion is #1527, unshipped. Verified on a rendered PDF of this palette:
-   *     the `function` keyword samples #C792EA, the BASE's --hljs-keyword, byte-exact.
+   *   lattice-emulator.js (the PDF / HTML-player EXPORT) used to concatenate
+   *     `paletteCSS + layoutCSS`, so the base loaded AFTER the theme and
+   *     lib/base/base.tokens.css's own --hljs-* WON. Measured on a rendered PDF of this
+   *     palette at the time: the `function` keyword sampled #C792EA, the BASE's
+   *     --hljs-keyword, byte-exact. #1527 flipped it and this palette's own value paints.
    *   lib/engine/css.js `composeCss` inlines the base at the theme's `@import 'lattice'`
    *     position — base FIRST, theme last — so the theme wins. Verified by composing it:
    *     --hljs-keyword resolves #c792ea → #E05060 → #E39B00, last wins.
    *   The live slide preview (Studio + docs site) loads the theme last too, measured on
    *     the real built Studio at #E39B00 here and #A7A7A7 on a11y-achromatopsia.
    *
-   * So these families paint today on the engine path and the live preview, and not in an
-   * emulator-exported PDF until #1527 flips that order. A first cut of this comment said
-   * flatly "the export path" and was too broad in one direction after being too narrow in
-   * the other.
+   * So these families paint on every path now. They painted on the engine path and the
+   * live preview first and on the export only after #1527 — an asymmetry a first cut of
+   * this comment described as flatly "the export path", too broad in one direction after
+   * being too narrow in the other.
    * Measured on THESE values, simulated: worst pair dE 0.1143
    * (identifier/string), against 0.0041 for what was inherited. Lowest contrast on
    * the panel 4.69:1. Gated by checkHljsSeparation, which
