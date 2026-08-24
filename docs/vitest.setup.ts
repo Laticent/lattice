@@ -1,5 +1,37 @@
+import { configure } from '@testing-library/dom';
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
+
+// A CONSIDERED budget for Testing Library's OWN clock, replacing the library's generic
+// 1000ms default (#1806). This is a SECOND clock, one level inside `testTimeout`: a bare
+// `waitFor` / `findBy*` expires on `asyncUtilTimeout` and the outer 20s budget is never
+// consulted, so #1799's fix could not reach this class and did not claim to.
+//
+// The default was marginal on the real suite, not merely in theory. Measured on one box,
+// 4-way CPU contention against 4 vitest workers on 4 cores, inside a FULL run — the
+// condition, because the other workers are the dominant pressure:
+//
+//   StudioShell.test.tsx:470  findByPlaceholderText(/Describe a look/i)
+//     three instrumented runs:  634.5ms · 752.3ms · 996.0ms   ← against a 1000ms budget
+//   and uninstrumented, that same wait FAILED 2 of 3 contended runs.
+//
+// 996ms of a 1000ms budget is not a tail event; it is a wait sitting on its ceiling. Note
+// what it is NOT: the same React.lazy Fabricate chunk, waited on as the FIRST test of a
+// fresh file, costs 224-527ms across 72 samples in those same runs (p50 368ms). #1806
+// measured that one and concluded 3.1-3.7x headroom. The marginal site is the 23rd test in
+// a worker that has already rendered StudioShell 22 times — same chunk, twice the cost.
+//
+// 5000ms is 5.0x the slowest MEASURED wait. More than #1799's 3.3x on purpose: a run that
+// fails yields no measurement, so 996ms is a censored floor rather than a maximum — the
+// multiple has to be taken against a number known to be too small. It also stays 4x inside
+// `testTimeout` (20s), which is the constraint that actually matters: an inner budget the
+// outer one cannot reach is the contradiction #1799 found and fixed, and an inner wait that
+// expires first reports what it was waiting for ("Unable to find an element with the
+// placeholder text of: /Describe a look/i") instead of a bare "Test timed out".
+//
+// The 11 `waitFor`s that already carry explicit budgets keep them — every one is above this.
+// See engineering/decisions/2026-08-24-testing-library-async-budget.md.
+configure({ asyncUtilTimeout: 5_000 });
 
 // The Studio persists decks + settings to localStorage; without a reset between
 // tests, created/renamed decks bleed across cases and break "starts on deck 0"

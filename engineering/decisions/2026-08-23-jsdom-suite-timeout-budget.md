@@ -256,6 +256,14 @@ it is a **tail event I could not reproduce in five contended attempts**, and rai
 global budget to chase an uncharacterized tail is how a suite stops being able to fail at
 all. Filed as **#1806** with the artifact and this measurement instead.
 
+**Update (2026-08-24): the class was fixed, and the headroom above was measured on the wrong
+site.** Instrumenting the wait that actually FAILS — `StudioShell.test.tsx:470`, not a copy of
+`studio.theme-depth` — gives 634.5 / 752.3 / **996.0** ms against the same 1000ms budget, and
+it failed 2 of 3 contended full runs. The 3.1-3.7x headroom is real for that chunk waited on as
+the FIRST test of a fresh file (72 samples, 224-527ms); the failing site is the 23rd test in a
+worker that has already rendered `StudioShell` 22 times, and costs about twice as much. See
+`2026-08-24-testing-library-async-budget.md`.
+
 ## Verified
 
 - **10 consecutive full `npx vitest run` in `docs/`, zero failures** (248 files, 3,274
