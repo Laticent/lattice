@@ -78,7 +78,51 @@ export function isFullscreen(doc: Document | undefined = globalThis.document): b
  * fixable, but it is ALWAYS worth saying out loud — the reader is standing in
  * front of a room wondering why nothing happened.
  */
-export type FullscreenResult = { ok: boolean; reason?: string };
+export type FullscreenResult = {
+	ok: boolean;
+	reason?: string;
+	/** The refusal is STRUCTURAL — this browser will answer the same way every time,
+	 *  so the caller should stop offering the control rather than let the reader keep
+	 *  pressing it. False for a refusal that may be transient (an untrusted gesture). */
+	fatal?: boolean;
+};
+
+/** How long to wait for the screen to actually change before calling it a failure.
+ *  Generous on purpose: the toast it gates only ever appears when something is
+ *  already wrong, so a slow-but-working transition must never trip it. */
+const SETTLE_MS = 2000;
+
+/** The browser's own words for a rejection, which is what a bug report needs. */
+function reasonOf(err: unknown): string {
+	const e = err as { name?: string; message?: string } | null;
+	return e?.message || e?.name || 'refused';
+}
+
+/**
+ * Wait for the document to actually reach `want`, or give up.
+ *
+ * This is the load-bearing half, and it exists because **the promise is a claim,
+ * not proof**. Three real cases make the returned promise useless as an oracle:
+ * the legacy `-webkit-` entry points return `undefined` and there is no promise at
+ * all; a request can resolve while nothing happens; and a request can simply never
+ * settle. All three present to the reader as one thing — a button that does
+ * nothing — so the only honest test is to watch the state itself.
+ */
+function settled(doc: Document, want: boolean): Promise<boolean> {
+	if (isFullscreen(doc) === want) return Promise.resolve(true);
+	return new Promise((resolve) => {
+		const finish = (ok: boolean) => {
+			clearTimeout(timer);
+			doc.removeEventListener('fullscreenchange', onChange);
+			doc.removeEventListener('webkitfullscreenchange', onChange);
+			resolve(ok);
+		};
+		const onChange = () => { if (isFullscreen(doc) === want) finish(true); };
+		const timer = setTimeout(() => finish(isFullscreen(doc) === want), SETTLE_MS);
+		doc.addEventListener('fullscreenchange', onChange);
+		doc.addEventListener('webkitfullscreenchange', onChange);
+	});
+}
 
 /**
  * Toggle fullscreen, resolving to whether the browser ACCEPTED the request (not
@@ -106,21 +150,47 @@ export type FullscreenResult = { ok: boolean; reason?: string };
  * user activation the API requires. Do not hoist an `await` above it.
  */
 export async function toggleFullscreen(doc: Document | undefined = globalThis.document): Promise<FullscreenResult> {
-	if (!doc) return { ok: false, reason: 'no document' };
-	if (!fullscreenSupported(doc)) return { ok: false, reason: 'unsupported' };
+	if (!doc) return { ok: false, reason: 'no document', fatal: true };
+	if (!fullscreenSupported(doc)) return { ok: false, reason: 'this browser has no Fullscreen API', fatal: true };
 	const d = doc as WebkitDocument;
 	const el = doc.documentElement as WebkitElement;
+	const want = !isFullscreen(doc);
+	let rejection: string | undefined;
+	// The call is NEVER awaited directly. A request that never settles is a real browser
+	// behavior, not a hypothetical — awaiting one hangs this function forever, so the
+	// reader gets no screen AND no message, which is worse than the bug being reported.
+	// So: fire it, listen for a rejection on the side, and wait on the OUTCOME instead.
+	let signalRejected!: () => void;
+	const rejected = new Promise<void>((res) => { signalRejected = res; });
 	try {
-		if (isFullscreen(doc)) await (d.exitFullscreen?.() ?? d.webkitExitFullscreen?.());
-		else await (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
-		return { ok: true };
+		const call = want
+			? (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.())
+			: (d.exitFullscreen?.() ?? d.webkitExitFullscreen?.());
+		if (call && typeof (call as Promise<void>).then === 'function') {
+			(call as Promise<void>).catch((err) => { rejection = reasonOf(err); signalRejected(); });
+		}
 	} catch (err) {
-		// Firefox rejects with a TypeError whose message names the actual cause
-		// ("...not called from inside a short running user-generated event handler",
-		// "...fullscreen is not enabled"), which is exactly what a bug report needs.
-		const e = err as { name?: string; message?: string } | null;
-		return { ok: false, reason: e?.message || e?.name || 'refused' };
+		rejection = reasonOf(err);
+		signalRejected();
 	}
+	// Whichever comes first: the screen actually changing, or the browser saying no.
+	// Without the race, a spoken rejection would still sit out the full settle window
+	// before the reader heard about it.
+	if (await Promise.race([settled(doc, want), rejected.then(() => false)])) return { ok: true };
+	// A REJECTION is the browser saying no in words. It can be transient — a gesture that
+	// stopped counting as trusted — so it is reported but not treated as final. Firefox's
+	// message names the actual cause, which is why it rides along verbatim.
+	if (rejection) return { ok: false, reason: rejection };
+	// ACCEPTED AND NOTHING HAPPENED — the case that produced the original report, and
+	// the one a capability check cannot see. Firefox (and Chrome, and Edge) on iPad are
+	// not their own engines: iOS requires every browser to be a WKWebView, where Apple
+	// gates this API behind `WKPreferences.isElementFullscreenEnabled`, DEFAULT FALSE for
+	// third-party apps. So the engine can answer "supported" for a capability the
+	// embedding app will never hand over, and the request goes quiet.
+	//
+	// Structural, not transient: an app that will not grant fullscreen this time will not
+	// grant it next time either, so the caller stops offering the control.
+	return { ok: false, reason: 'this browser will not hand over the screen', fatal: true };
 }
 
 /** Leave fullscreen if we are in it. Used when Present closes — the window returns

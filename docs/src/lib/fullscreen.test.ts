@@ -13,8 +13,11 @@ function fakeDoc(over: Record<string, unknown> = {}) {
 	const doc = {
 		fullscreenEnabled: true,
 		fullscreenElement: null as unknown,
-		documentElement: { requestFullscreen: vi.fn(async () => {}) },
-		exitFullscreen: vi.fn(async () => {}),
+		// The default request/exit ACTUALLY change the state, because `toggleFullscreen`
+		// now believes the document rather than the promise — a stub that resolves without
+		// moving is a FAILING browser, and several tests below rely on that being detected.
+		documentElement: { requestFullscreen: vi.fn(async () => { doc.fullscreenElement = {}; doc.fire('fullscreenchange'); }) },
+		exitFullscreen: vi.fn(async () => { doc.fullscreenElement = null; doc.fire('fullscreenchange'); }),
 		addEventListener: (type: string, fn: () => void) => {
 			if (!listeners.has(type)) listeners.set(type, new Set());
 			listeners.get(type)?.add(fn);
@@ -78,7 +81,7 @@ describe('toggleFullscreen', () => {
 
 	it('does nothing at all where the API is unavailable', async () => {
 		const doc = fakeDoc({ fullscreenEnabled: undefined });
-		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: false, reason: 'unsupported' });
+		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: false, reason: 'this browser has no Fullscreen API', fatal: true });
 		expect(doc.documentElement.requestFullscreen).not.toHaveBeenCalled();
 	});
 
@@ -112,10 +115,43 @@ describe('toggleFullscreen', () => {
 	});
 
 	it('falls back to the -webkit- entry points', async () => {
-		const webkitRequestFullscreen = vi.fn();
-		const doc = fakeDoc({ fullscreenEnabled: undefined, webkitFullscreenEnabled: true, documentElement: { webkitRequestFullscreen } });
+		// The legacy entry point returns UNDEFINED — there is no promise to await, which is
+		// exactly why the outcome is what gets waited on. Model it the way old WebKit behaves:
+		// the call returns immediately and the state lands later, on the prefixed event.
+		const doc = fakeDoc({ fullscreenEnabled: undefined, webkitFullscreenEnabled: true, documentElement: {} });
+		const webkitRequestFullscreen = vi.fn(() => {
+			setTimeout(() => { (doc as unknown as { fullscreenElement: unknown }).fullscreenElement = {}; doc.fire('webkitfullscreenchange'); }, 10);
+		});
+		(doc.documentElement as unknown as Record<string, unknown>).webkitRequestFullscreen = webkitRequestFullscreen;
 		await expect(toggleFullscreen(doc)).resolves.toEqual({ ok: true });
 		expect(webkitRequestFullscreen).toHaveBeenCalledTimes(1);
+	});
+
+	// THE REPORTED BUG. Firefox on iPad is not Gecko — iOS requires every browser to be a
+	// WKWebView, where Apple gates this API behind `WKPreferences.isElementFullscreenEnabled`,
+	// DEFAULT FALSE for third-party apps. So the engine answers "supported", the request goes
+	// quiet, and the reader gets a button that does nothing. No capability check can see this
+	// coming; only watching the outcome catches it.
+	it('catches a browser that ACCEPTS the request and does nothing (WKWebView)', async () => {
+		const doc = fakeDoc({ documentElement: { requestFullscreen: vi.fn(async () => {}) } });
+		const res = await toggleFullscreen(doc);
+		expect(res.ok).toBe(false);
+		expect(res.fatal).toBe(true);
+		expect(res.reason).toContain('will not hand over the screen');
+	});
+	// The same shape, one degree worse: the call never settles at all. Awaiting it would
+	// hang forever and no message would ever reach the reader.
+	it('catches a request that never settles', async () => {
+		const doc = fakeDoc({ documentElement: { requestFullscreen: vi.fn(() => new Promise<void>(() => {})) } });
+		const res = await toggleFullscreen(doc);
+		expect(res.ok).toBe(false);
+		expect(res.fatal).toBe(true);
+	});
+	// A REJECTION is not fatal — the browser said no in words, and an untrusted gesture is
+	// the common transient cause. Only silence retires the control.
+	it('does not mark a spoken rejection as fatal', async () => {
+		const doc = fakeDoc({ documentElement: { requestFullscreen: vi.fn(async () => { throw new Error('nope'); }) } });
+		expect((await toggleFullscreen(doc)).fatal).toBeUndefined();
 	});
 });
 

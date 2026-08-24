@@ -1103,8 +1103,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// no-op in my browser" into a bug report with a cause in it, since Firefox's
 	// rejection message names the reason.
 	const toggleFull = React.useCallback(() => {
-		void toggleFullscreen().then(({ ok, reason }) => {
-			if (!ok) notify(`Your browser would not switch to full screen${reason ? ` — ${reason}` : ''}. Its own full screen (F11) still works.`);
+		void toggleFullscreen().then(({ ok, reason, fatal }) => {
+			if (ok) return;
+			// A FATAL refusal retires the control. `fullscreenEnabled` can say yes for a
+			// browser that will never deliver — Firefox/Chrome/Edge on iPad are WKWebViews,
+			// where Apple gates this behind a flag that is OFF by default for third-party
+			// apps — and a button that stays put after answering "no" is the dead affordance
+			// this feature is otherwise careful to avoid. It comes back on the next reload,
+			// which is the right cadence for a browser-level setting.
+			if (fatal) setCanFull(false);
+			notify(`${reason ? `Full screen unavailable — ${reason}.` : 'Your browser would not switch to full screen.'} Use the browser's own full screen instead.`);
 		});
 	}, [notify]);
 	// Closing Present gives the window back at the size the reader had it. Without

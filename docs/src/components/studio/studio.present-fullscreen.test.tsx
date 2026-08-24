@@ -118,12 +118,35 @@ describe('Present — full screen', () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	// A REFUSAL MUST BE SAID OUT LOUD. Reported from the outside as "the fullscreen
-	// button seems like a no-op in Firefox" — which is exactly how a swallowed rejection
-	// presents: the browser declines, the code catches, and nothing on screen changes.
-	// The browser's own reason rides along, because Firefox's rejection message names
-	// the actual cause and that is what turns a shrug into a bug report.
-	it('tells the reader when the browser refuses, and passes its reason through', async () => {
+	it('says nothing when the browser accepts', async () => {
+		withFullscreenApi();
+		const notify = vi.fn();
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		await user.click(screen.getByRole('button', { name: 'Full screen' }));
+		await screen.findByRole('button', { name: 'Leave full screen' });
+		expect(notify).not.toHaveBeenCalled();
+	});
+
+	// THE REPORTED BUG, at the component: Firefox on iPad is a WKWebView, where Apple gates
+	// this API behind a flag that is OFF by default for third-party apps — so the engine
+	// answers "supported", the request goes quiet, and the control does nothing. It must
+	// both SAY so and RETIRE itself, since the browser will answer the same way every time.
+	it('retires the control when the browser accepts and does nothing (WKWebView)', async () => {
+		withFullscreenApi();
+		Object.defineProperty(Element.prototype, 'requestFullscreen', { value: vi.fn(async () => {}), configurable: true, writable: true });
+		const notify = vi.fn();
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		await user.click(screen.getByRole('button', { name: 'Full screen' }));
+		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
+		expect(notify.mock.calls[0][0]).toContain('will not hand over the screen');
+		await waitFor(() => expect(screen.queryByRole('button', { name: /full screen/i })).toBeNull());
+	}, 10_000);
+
+	// A spoken rejection may be transient (an untrusted gesture), so it is reported but the
+	// control STAYS — retiring it would remove the way back for a reader who can retry.
+	it('keeps the control after a spoken rejection', async () => {
 		withFullscreenApi();
 		Object.defineProperty(Element.prototype, 'requestFullscreen', {
 			value: vi.fn(async () => { throw new TypeError('Request for fullscreen was denied because the request was not user-initiated.'); }),
@@ -134,21 +157,10 @@ describe('Present — full screen', () => {
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
 		await user.click(screen.getByRole('button', { name: 'Full screen' }));
-		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
 		expect(notify.mock.calls[0][0]).toContain('not user-initiated');
-		// And the control stays un-pressed — the state is the document's, not our optimism.
 		expect(screen.getByRole('button', { name: 'Full screen' })).toHaveAttribute('aria-pressed', 'false');
-	});
-
-	it('says nothing when the browser accepts', async () => {
-		withFullscreenApi();
-		const notify = vi.fn();
-		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
-		await user.click(screen.getByRole('button', { name: 'Full screen' }));
-		await screen.findByRole('button', { name: 'Leave full screen' });
-		expect(notify).not.toHaveBeenCalled();
-	});
+	}, 10_000);
 
 	// Closing Present must give the window back. Otherwise the EDITOR is left
 	// full-screen in a state nothing explains, since the control that caused it is gone.

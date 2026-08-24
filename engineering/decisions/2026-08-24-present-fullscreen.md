@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Present covered the viewport but never the SCREEN — no way to shed the tab strip, URL bar and OS dock for a deck in a room, on a desktop or an iPad. A fullscreen toggle joins the overlay's staging cluster (Slides · Rehearse · Presenter screen), bound to `f`, requesting on `documentElement`. The capability is DETECTED, never inferred from the device — iPhone Safari ships no Fullscreen API for arbitrary elements and iPad does (caniuse note 5, still true at iOS 26.x), and a UA sniff would be actively wrong because iPadOS reports itself as macOS. `document.fullscreenEnabled` is the exact bit: false on iPhone, false in a frame without `allow="fullscreen"` (which a method-existence check passes while the call rejects), true elsewhere. Two things the real browser taught that jsdom could not — pressed state must be driven by `fullscreenchange`, not by our own boolean, because Escape/F11/traffic lights/iPad's own exit chip never touch the button; and the overlay must exit fullscreen ITSELF on Escape rather than deferring, since headless Chromium neither swallows the key nor acts on it, which would trap the reader. The exported HTML player keeps its own older copy — aligning it changes export bytes and needs sign-off.
+summary: Present covered the viewport but never the SCREEN — no way to shed the tab strip, URL bar and OS dock for a deck in a room. A fullscreen toggle joins the overlay's staging cluster, bound to `f`, requesting on `documentElement` (the root is exempt from the UA rules that restyle a non-root fullscreen element). The capability is DETECTED, never inferred from the device — iPhone Safari ships no Fullscreen API for arbitrary elements and iPad Safari does, and a UA sniff would be actively wrong since iPadOS reports itself as macOS. Then a user reported it as a no-op in Firefox ON IPAD, which is the root cause and a correction to this note: iOS requires every browser to be a WKWebView, and Apple gates the API behind isElementFullscreenEnabled, DEFAULT FALSE for third-party apps — so `fullscreenEnabled` can answer yes for a capability the host app will never deliver. Two defects, both mine: the refusal was swallowed by a bare catch (a silent decline IS the dead affordance this feature exists to avoid), and the promise was trusted as proof (it resolves without proving the screen changed, the legacy -webkit- calls return undefined, and a request that never settles hung an await forever — no screen AND no message). toggleFullscreen now fires the call, listens for a rejection on the side, and waits on the OUTCOME via fullscreenchange against a 2s ceiling; it returns {ok,reason,fatal}, reporting the browser's own words and retiring the control when the refusal is structural. The durable rule: DETECT to decide whether to offer, VERIFY THE OUTCOME to decide whether it worked. A gecko Playwright project now runs the fullscreen specs on Chromium and Firefox. Real iPad remains unverified; the exported HTML player keeps its own older copy, since aligning it changes export bytes and needs sign-off.
 ---
 
 # Full screen in Present: detect the capability, never the device
@@ -147,55 +147,93 @@ iPhone does not" has not been observed on the hardware. Two iPad specifics also
 remain unseen: WebKit's non-dismissible exit chip may overlap the top bar's
 Exit ✕ at the far left, and Stage Manager's window model is untested.
 
-## Amendment (same day): a refusal must be said out loud
+## Amendment (same day): the capability bit can lie
 
 Reported from the outside, hours after this shipped to review: *"in firefox the
-fullscreen button seems like a no-op."*
+fullscreen button seems like a no-op."* Then, crucially: *"it's firefox on iPad
+iOS."*
 
-The first version of `toggleFullscreen` ended with this:
+That second sentence is the whole root cause, and it invalidates a claim made
+above. **Firefox on iPad is not Gecko.** iOS and iPadOS require every browser to
+render with WebKit, so Firefox, Chrome and Edge there are WKWebView shells — and
+WKWebView gates the element Fullscreen API behind
+[`WKPreferences.isElementFullscreenEnabled`](https://developer.apple.com/documentation/webkit/wkpreferences/iselementfullscreenenabled),
+**which defaults to `false` for third-party apps.**
 
-```js
-} catch {
-    return isFullscreen(doc);   // swallow
-}
-```
+So the table in "Why the capability is detected" is true and incomplete. It reads
+"iPad Safari: Yes", which is correct, and it was silently taken to mean *iPad:
+yes*. The honest row is:
 
-with a docblock arguing that a refusal is "not usefully reportable" because the
-caller cannot fix it. That reasoning is wrong, and wrong in the exact way this
-note spends three sections warning about: **it reintroduces the dead affordance.**
-A hidden button and a button that silently declines are the same experience — a
-control that does nothing and does not say why — and the second is worse, because
-the reader can see it and keeps pressing it. The rule this module already states
-for iPhone ("hidden, not disabled, because a greyed-out control makes a promise
-the device cannot keep") applies with equal force to a *refused* request, and the
-first draft applied it in one place and violated it in the other.
+| | Element Fullscreen API |
+|---|---|
+| Safari on iPad | **Yes** |
+| **Any other browser on iPad** | **Only if that app opted in** — default off |
+| Safari on iPhone | No |
+| Every desktop engine | Yes |
 
-`toggleFullscreen` now returns `{ ok, reason }` and the overlay surfaces a refusal
-through `notify` — the same channel the presenter-popup blocker already uses. The
-`reason` is the browser's own message, which matters: Firefox rejects with a
-`TypeError` that names the actual cause (*"...not called from inside a short
-running user-generated event handler"*, *"...fullscreen is not enabled"*), so the
-report a user can now give has a cause in it instead of a shrug.
+**The engine answers for the engine; the embedding app decides whether the
+capability is actually delivered.** `document.fullscreenEnabled` is computed by
+WebKit, and it does not necessarily know what the host app has refused. That is
+the mechanism behind the report: the button appears because the bit says yes, the
+request goes quiet, and the reader gets exactly the dead affordance this note
+spends three sections claiming to have prevented.
 
-**The Firefox report itself did not reproduce here.** Firefox 142 on Linux was
-driven headless, headed under Xvfb at 900×700 (fullscreen crossing three
-breakpoints) and at 1200×800, through repeated button toggles, the `f` key, and a
-click after the pointer-idle timer: every one entered and left fullscreen
-correctly, with `document.fullscreenElement` set to `HTML` and the viewport
-growing as expected. So the cause is environmental to the reporter's browser —
-a permissions or enterprise setting, a hardened profile, an extension — which is
-precisely the class the swallowed `catch` made undiagnosable, and precisely the
-class the new message names.
+### Two defects, both mine
 
-The durable fix for the coverage gap is the **`gecko` Playwright project**
-(`playwright.config.ts`): the fullscreen specs now carry `@gecko` and run on
-Chromium AND Firefox at the same viewport. The Fullscreen API is granted or
-refused by the browser, against its own permissions model and its own rule for
-what counts as a user gesture — none of which Blink's answer predicts, so a
-Chromium-only suite could certify this feature green forever while it was broken
-on a third of the web. Same argument the `webkit-*` projects were added under,
-one engine later. The nightly workflow provisions Firefox alongside Chromium and
-WebKit.
+**1. The refusal was swallowed.** The first `toggleFullscreen` ended in a bare
+`catch` with a docblock arguing a refusal is "not usefully reportable" because the
+caller cannot fix it. Wrong, and wrong in the way this note warns about
+everywhere else: a hidden button and a button that silently declines are the same
+experience, and the second is worse, because the reader can see it and keeps
+pressing. The iPhone rule — *hidden, not disabled, because a greyed-out control
+makes a promise the device cannot keep* — was applied in one place and violated in
+the other.
+
+**2. The promise was trusted as proof.** The fix for (1) still returned `{ok:true}`
+whenever the request resolved. But resolving is a claim about the call, not about
+the screen, and three real behaviors break the equivalence: the legacy `-webkit-`
+entry points return `undefined` and there is no promise at all; a request can
+resolve while nothing happens; and a request can **never settle**, which made an
+`await` on it hang forever — no screen and no message, strictly worse than the
+reported bug. Writing the never-settles test is what surfaced that one.
+
+`toggleFullscreen` now fires the call, listens for a rejection on the side, and
+waits on the **outcome** — `settled()` watches `fullscreenchange` (both spellings)
+against a 2s ceiling — racing that against the rejection. The result is
+`{ ok, reason, fatal }`:
+
+- a **rejection** carries the browser's own message (Firefox names the actual
+  cause) and is NOT fatal, since an untrusted gesture is a common transient one;
+- **accepted-and-nothing-happened** is fatal: an app that will not grant fullscreen
+  now will not grant it next time, so the overlay reports it and **retires the
+  control** for the session. It returns on reload, the right cadence for a
+  browser-level setting.
+
+### What this changes about the original design
+
+The "detect the capability, never the device" principle survives — a UA sniff
+would still be wrong, and is now wrong in a *second* way, since Firefox on iPad
+also reports as macOS. What does not survive is the assumption that a capability
+bit is trustworthy. **The durable version of the rule is: detect to decide whether
+to OFFER, verify the outcome to decide whether it WORKED.** A capability check
+answers a question the browser is willing to answer; only the outcome answers the
+question the reader actually asked.
+
+### Coverage
+
+Firefox 142 on Linux was driven headless, headed under Xvfb at 900×700 (fullscreen
+crossing three breakpoints) and 1200×800, through repeated toggles, the `f` key,
+and a click after the pointer-idle timer — all correct, which is why the first
+investigation found nothing: **it was the wrong engine on the wrong OS.** A
+`gecko` Playwright project now runs the fullscreen specs on Chromium AND Firefox
+at the same viewport (deliberately not `grepInvert`ed out of `desktop` — the value
+is in the two engines disagreeing), and the nightly provisions Firefox alongside
+WebKit. The WKWebView case is covered at the unit and component level by
+simulating the three silent shapes, since no runner here embeds a WKWebView.
+
+**Still UNVERIFIED: a real iPad.** The mechanism is documented by Apple and the
+handling is tested against a simulation of it, but neither the failure nor the new
+message has been observed on the device that reported it.
 
 ## What this does NOT cover
 
