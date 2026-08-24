@@ -68,3 +68,69 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   the sandbox ships chromium at one of the canonical system paths.
 - **Commits:** documentation-only — captured here so future sessions
   don't conclude no browser is available.
+
+## A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect
+
+- **Symptom:** You rebase on `origin/main` (HARD RULE #16 requires it right
+  before every push), the pre-push hook runs the unit suite, and a test fails
+  saying an artifact is stale — naming a subsystem you never touched. Meanwhile
+  `npm run build:check` says every artifact is up to date, so two gates appear to
+  contradict each other over the same file. `--no-verify` is banned (HARD RULE
+  #14), so the push is genuinely stuck until you work out what happened.
+- **Cause:** `dist/` has been gitignored since #1742, so everything in it is
+  whatever your last local build wrote. The SessionStart hook builds once, at
+  session start. Any source that arrives afterwards — a rebase, a `git pull`,
+  your own edit — leaves the artifacts behind the sources, and a test that
+  recomputes from current sources and compares to disk then differs for a reason
+  that has nothing to do with your change.
+- **The fix is a FULL `npm run build`. Not `npm run css:build`.** This is the
+  part that costs a second round: `css:build` refreshes `dist/lattice.css` and
+  `dist/lattice.min.css` and stops there, while `dist/marp-kit/` is built by a
+  later step from `dist/lattice.min.css`. Run it alone and you trade one stale
+  artifact for an internally *inconsistent* `dist/`, and
+  `test/unit/tools/marp-kit.test.js` goes red instead — same shape, one artifact
+  over. An independent reviewer of #1783 hit exactly this, following an earlier
+  version of this entry that recommended `css:build`.
+- **Note what the SessionStart hook actually runs.** `.claude/hooks/session-start.sh`
+  runs a full `npm run build`, with stdout and stderr discarded and `|| true` so a
+  failure cannot abort the hook. `node tools/build.js --only-uncommitted` is
+  reached earlier and separately, as the `prepare` lifecycle of that script's
+  `npm install`, and the full build supersedes it. So there are two ways to end a
+  session start with a partly-built tree: sources moving afterwards, or that full
+  build failing behind a one-line notice.
+- **`--only-uncommitted` is NOT a second producer,** which is where this wastes
+  the most time — #1783 was filed on that reading. `build-css.js main()` writes
+  `bundle()` verbatim to `dist/lattice.css`, the same step runs in both modes, and
+  the two emit byte-identical CSS from the same sources. Only the clock differs.
+- **Why the two gates disagreed, and why both were right:** `build:check` runs
+  `--exclude-uncommitted`. It deliberately does not look at `dist/`, because
+  `dist/` is generated rather than committed and so is not what that gate is
+  asking about.
+- **How to tell:** the delta is entirely content from commits you just pulled in.
+  On the instance that produced this entry, `bundle()` returned 1,595,126
+  characters (1,636,862 bytes — the numbers `.length` and `wc -c` give you differ,
+  and this file is full of multi-byte punctuation) against 1,594,354 on disk. The
+  whole 772-character difference is one hunk of
+  `lib/components/chart/journey/journey.styles.css` that `fbb6287` changed: a
+  nine-line comment added above `section.journey .journey-mood-key-label`, less
+  the `opacity: 0.85` line the same commit deleted from the rule.
+- **What checks this properly, and where:** `npm run build:check:all` runs in
+  CI's `unit` job right after the full build, re-running all 39 generators' own
+  `--check`. It is meaningful *only* there, and it is the one CI gate that looks
+  at the 25 built-not-committed artifacts. Do not confuse it with the `lint`
+  job's `build:check`, which asks the opposite-facing question ("did you commit
+  the regenerated artifact?"), must therefore run *before* any build, and skips
+  `dist/` entirely via `--exclude-uncommitted`. By hand, `npm run css:check` is
+  the same question narrowed to the CSS, in about half a second. A unit test
+  asking it was removed in #1783: vacuous in CI, which full-builds first, and
+  spuriously red locally after the rebase the repo requires.
+- **What `build:check:all` does NOT catch — and don't "fix" it:** it delegates to
+  each generator's own `--check`, and some are deliberately weaker than a
+  byte-diff. `build-decisions-index` asserts every note has one correctly-formatted
+  row rather than comparing to a regeneration, which is what lets two decision-doc
+  PRs share the merge queue (#1547); `build-component-docs` checks an *authored*
+  `*.gallery.md` for existence only. Both were measured: reversing the index's sort
+  and appending to an authored gallery each leave the gate green. Rebuilding the
+  tree and git-diffing it would catch them and has already re-opened #1547 once.
+  A generator wanting a true byte-diff says so in its own `--check`.
+- **Triggered by:** #1783, found while pushing #1779.

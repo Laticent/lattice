@@ -644,7 +644,14 @@ function main(argv) {
       return 0;
     }
     process.stderr.write('error: lattice.css / lattice.min.css / lattice-emoji.css / dist/fonts/ / dist/themes/*.min.css is stale relative to sources.\n');
-    process.stderr.write('       Run `npm run css:build` to regenerate.\n');
+    // `npm run build`, deliberately, NOT `css:build`. This message used to name
+    // the narrow script, and it points into a trap: `css:build` refreshes
+    // lattice.css and lattice.min.css and stops, while dist/marp-kit/ is built
+    // from lattice.min.css by a later step — so following the old hint trades a
+    // stale artifact for an inconsistent dist/ and turns marp-kit.test.js red
+    // instead. A reviewer of #1783 hit exactly that. See engineering/gotchas/ci.md.
+    process.stderr.write('       Run `npm run build` to regenerate (a full build — `css:build`\n');
+    process.stderr.write('       alone leaves dist/marp-kit/ derived from the older lattice.min.css).\n');
     return 1;
   }
   fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });

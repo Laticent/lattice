@@ -893,10 +893,40 @@ Output: `lattice.css` (committed). Header comment lists source files.
 | `npm run css:build` | Regenerate `lattice.css` from sources |
 | `npm run css:check` | Fail if `lattice.css` is stale relative to sources (CI gate) |
 
-The `css:check` script runs as part of the pre-push hook (along with
-the snippets freshness gate). If anyone modifies a per-component
-`styles.css` without regenerating, the push fails with a
-"`npm run css:build` to regenerate" message.
+`css:check` does **not** run in the pre-push hook, which this section claimed
+until #1783. It is on-demand: the narrow, ~0.5s answer to "is `dist/lattice.css`
+what `bundle()` computes?" when you want just that one.
+
+What runs in CI is the broader `build:check:all`, in the **`unit` job immediately
+after the full build**, re-running all 39 generators' own `--check`. Where it
+sits is the whole point, and it asks a different question from the `lint` job's
+`build:check`:
+
+- **`build:check` (lint job, before any build)** — "did you *commit* the
+  regenerated artifact?" A staleness question about the checkout, so it must run
+  before a build or it passes vacuously. It uses `--exclude-uncommitted` and so
+  never looks at `dist/`.
+- **`build:check:all` (unit job, after the build)** — "does each generator still
+  verify clean against a freshly built tree?" It is the only CI gate that looks
+  at the 25 built-not-committed artifacts.
+
+**What the second one does not catch, deliberately.** It delegates to each
+generator's `--check`, and those semantics differ on purpose. `build-decisions-index`
+verifies that every note has one correctly-formatted row, *not* that the file
+equals a regeneration — so two decision-doc PRs can share the merge queue without
+ejecting each other (#1547). Measured consequences: reversing that index's sort,
+or appending to an *authored* `*.gallery.md` (checked for existence only), both
+leave the gate green. What it does catch, mutation-tested, is a generator whose
+writer drifts from its own `--check`.
+
+Asked on a developer's machine, either one only measures how recently they built:
+`dist/` has been gitignored since #1742, so a rebase makes it stale by
+definition. A unit test that asked it locally was removed in #1783 for exactly
+that; `engineering/gotchas/ci.md` has the full account.
+
+If a per-component `styles.css` changes without a regeneration, CI fails there —
+and the remedy is a full `npm run build`, not `css:build` alone, which leaves
+`dist/marp-kit/` behind and simply moves the failure one artifact over.
 
 ### Migration
 

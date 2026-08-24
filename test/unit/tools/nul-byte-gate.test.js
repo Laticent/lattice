@@ -42,9 +42,15 @@ describe('findNulBytes — detection', () => {
     assert.deepEqual(findNulBytes(['a.js'], reader({ 'a.js': 'const k = a|b;' })), []);
   });
   test('a NUL PAST byte 8000 is still found', () => {
-    // git calls such a file text TODAY (`text=auto` inspects the first 8000
-    // bytes), so it diffs fine — until one prepended paragraph flips it. That
-    // latent case is why the allowlist names four files that still diff cleanly.
+    // git calls such a file text TODAY — `text=auto` runs `memchr(buf, 0,
+    // min(size, 8000))`, so it never sees this one — and it diffs fine until an
+    // edit brings the NUL inside the window. That edit is a DELETION above the
+    // NUL (a hoisted constant, a dropped block), not an insertion: prepending
+    // pushes the offset UP, away from the window. Measured on
+    // tools/check-family-tiers.js at NUL offset 47123 — prepending 2,200 bytes
+    // kept it a text diff, deleting 40,000 above the NUL turned it binary.
+    // Three of the five files #1780 cleaned up sat in that latent state, which is
+    // why the gate reads the whole file rather than the first 8000 bytes.
     assert.deepEqual(findNulBytes(['a.js'], reader({ 'a.js': 'x'.repeat(9000) + NUL })), ['a.js']);
   });
   test('binary payloads are out of scope — a .woff2 full of NULs is not a finding', () => {
@@ -77,11 +83,43 @@ describe('auditNulBytes — the allowlist is checked BOTH ways', () => {
 });
 
 describe('the shipped allowlist', () => {
-  test('names only files that really do carry a NUL right now', () => {
+  // The allowlist is EMPTY as of #1780, and an emptied allowlist quietly turns
+  // its own audit vacuous: the previous version of this test looped over
+  // SANCTIONED_NUL_FILES asserting each entry still carried a NUL, so with
+  // nothing to loop over it passed without executing a single assertion.
+  //
+  // What replaces it asserts the property the allowlist existed to bound —
+  // no tracked file carries a raw NUL — against the REAL tree rather than
+  // against the list. It cannot go vacuous, and it fails the moment anyone
+  // reintroduces one, which is the outcome the allowlist was only ever a
+  // placeholder for.
+  //
+  // Scope, stated precisely because the name cannot be: `findNulBytes` filters
+  // on NUL_TEXT_EXTENSIONS, so six tracked EXTENSIONLESS files are not read —
+  // LICENSE, LICENSE-EXCEPTIONS, docs/public/CNAME, docs/public/flags/LICENSE,
+  // .cell-stage, .vscode/lattice.code-snippets. All six are clean today; the
+  // sibling partition test below documents extensionless files as out of scope
+  // by design. This is "no tracked file WITH A SCANNED EXTENSION", and saying so
+  // is cheaper than someone later discovering the gap the hard way.
+  test('no tracked text file carries a raw NUL, and the allowlist is empty', () => {
+    const { execFileSync } = require('node:child_process');
     const root = path.join(__dirname, '..', '..', '..');
-    for (const f of SANCTIONED_NUL_FILES) {
-      assert.ok(fs.readFileSync(path.join(root, f)).includes(0), `${f} is sanctioned but clean — drop the entry`);
-    }
+    const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+      .split('\0')
+      .filter(Boolean);
+    assert.ok(tracked.length > 1000, 'a broken query, not an empty repo');
+
+    const hits = findNulBytes(tracked, (f) => fs.readFileSync(path.join(root, f)));
+    assert.deepEqual(
+      hits,
+      [],
+      'a tracked text file carries a raw NUL again — write it as the escape, which is byte-identical at runtime',
+    );
+    assert.deepEqual(
+      SANCTIONED_NUL_FILES,
+      [],
+      'the allowlist is empty and should stay that way — a separator never needs the raw byte',
+    );
   });
   test('every tracked extension is classified as text OR binary — nothing unclassified', () => {
     // The first draft of this test asserted a HAND-WRITTEN subset was present in

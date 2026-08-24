@@ -50,6 +50,36 @@ describe('AcronymEditor', () => {
 		expect(onChange).toHaveBeenLastCalledWith([['GTM', { expansion: 'go to market' }]]);
 	});
 
+	// The content SIGNATURE (#1780). `rows` is local state seeded from props, and the
+	// effect re-seeds only when the signature changes — so our own commit coming back
+	// as a new Map with identical content must not reset what someone is typing. That
+	// branch had no test: every case above rerenders with DIFFERENT content, which
+	// exercises only the re-seed side. These two pin the other side, and the reason the
+	// separator is a control character rather than nothing at all.
+	it('an echo of identical content does not clobber an in-progress edit', () => {
+		const same = () => map({ CRO: { expansion: 'chief revenue officer' } });
+		const { rerender } = render(<AcronymEditor acronyms={same()} onChange={() => {}} />);
+		const exp = screen.getByDisplayValue('chief revenue officer');
+		fireEvent.change(exp, { target: { value: 'chief revenue offi' } }); // mid-typing, no blur
+		expect(screen.getByDisplayValue('chief revenue offi')).toBeTruthy();
+		// A NEW Map instance carrying the SAME content — what our own commit round-trips
+		// back. Keyed on Map identity this would re-seed and eat the edit.
+		rerender(<AcronymEditor acronyms={same()} onChange={() => {}} />);
+		expect(screen.getByDisplayValue('chief revenue offi')).toBeTruthy();
+	});
+
+	it('re-seeds for two registries that would COLLIDE without the field separator', () => {
+		// `AB`/`C` and `A`/`BC` concatenate to the same "ABC". They are distinguishable
+		// only because term and expansion are joined by a character that cannot occur in
+		// either. Drop the separator and this rerender looks like an echo, so the editor
+		// silently keeps showing the wrong registry.
+		const { rerender } = render(<AcronymEditor acronyms={map({ AB: { expansion: 'C' } })} onChange={() => {}} />);
+		expect(screen.getByDisplayValue('AB')).toBeTruthy();
+		rerender(<AcronymEditor acronyms={map({ A: { expansion: 'BC' } })} onChange={() => {}} />);
+		expect(screen.getByDisplayValue('A')).toBeTruthy();
+		expect(screen.getByDisplayValue('BC')).toBeTruthy();
+	});
+
 	it('removing a row commits the remaining entries immediately', () => {
 		const onChange = vi.fn();
 		render(

@@ -831,7 +831,7 @@ async function conformanceReport(browser) {
   if (shortfall.length) {
     const byRule = new Map();
     for (const f of shortfall) {
-      const k = `${f.comp} ${f.kind} ${f.sel}`;
+      const k = `${f.comp}\u0000${f.kind}\u0000${f.sel}`;
       if (!byRule.has(k)) byRule.set(k, { ...f, sizes: [] });
       byRule.get(k).sizes.push(f.size);
     }

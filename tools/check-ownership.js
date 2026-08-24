@@ -8109,40 +8109,64 @@ function auditPdfOwnership(files) {
 // past `build:check`, which is what "caught by a human, twice" was standing in
 // for.
 //
-// Scope is tracked files with a TEXT extension. Binary payloads (fonts, PDFs,
-// images) legitimately carry NULs and are not listed; `dist/**` IS in scope,
-// because a NUL there means a generator emitted one.
-// The five files that already carried a raw NUL when this gate was written
-// (2026-08-23), each using one as a composite-key separator inside a string or
+// Scope is tracked files with a TEXT extension, as `git ls-files` reports them.
+// Binary payloads (fonts, PDFs, images) legitimately carry NULs and are skipped by
+// the extension partition below. `dist/**` is NOT in scope, contrary to what this
+// comment claimed until #1780: the whole tree is gitignored, so `git ls-files`
+// never returns a path under it and the gate has never once looked there. Nothing
+// is hiding — `dist/` was scanned directly and is clean, because esbuild
+// re-serializes a separator as an escape on its own (`dist/lattice-emulator.js`
+// carries `var BACK_SEP = "\0";`) — but a sentence claiming coverage that does
+// not exist is how a generator emitting one would go unnoticed.
+//
+// The ALLOWLIST is EMPTY, and that is the finished state — not a list nobody has
+// needed yet.
+//
+// This gate shipped (2026-08-23) sanctioning the five files that already carried
+// a raw NUL, each using one as a composite-key separator inside a string or
 // template literal — `${a}<NUL>${b}` — rather than the `\u0000` escape that is
-// byte-identical at runtime. They are a PRE-EXISTING defect this gate FOUND, not
-// one it caused, so per HARD RULE #18 they are logged and sanctioned here rather
-// than swept into the gate's own diff (tracked for cleanup; see the card).
+// byte-identical at runtime. Two of them, `AcronymEditor.tsx` (byte 2747) and
+// `tools/change-coupling.js` (byte 4089), carried theirs inside the first 8000
+// bytes `text=auto` inspects, so git called them binary and `git diff` on either
+// printed "Binary files … differ" — review saw nothing at all.
 //
-// TWO of them are not merely latent. `AcronymEditor.tsx` (NUL at byte 2747) and
-// `tools/change-coupling.js` (byte 4089) both sit inside the first 8000 bytes
-// `text=auto` inspects, so git classifies them binary TODAY — `git diff` on either
-// prints "Binary files … differ" and a reviewer sees nothing. Both measured by
-// appending a line and reading `git diff --numstat` return `-\t-`.
+// The other three carried theirs PAST byte 8000 and so still diffed as text. They
+// were latent, not safe — but not for the reason the first cut of this comment
+// gave. It said they were "one prepended paragraph from flipping," which has the
+// mechanism exactly backwards: git tests `memchr(buf, 0, min(size, 8000))`, so
+// PREPENDING moves the NUL to a higher offset, further from the window. What flips
+// such a file is DELETION above the NUL — a hoisted constant, a dropped block.
+// Measured on `tools/check-family-tiers.js` (NUL at 47123): prepending 2,200 bytes
+// left it a text diff; deleting 40,000 bytes above the NUL turned it binary. The
+// conclusion the sentence was defending survives — a latent NUL can become a
+// binary diff later, so the gate reads the WHOLE file rather than the first 8000
+// bytes — it just gets there by the opposite edit.
 //
-// An earlier revision of this comment said "Measured, not assumed" and named only
-// AcronymEditor, having checked one file and generalized from the byte offsets of
-// the rest. A sentence claiming measurement that was not measured is worse than
-// one that claims nothing.
+// #1780 rewrote all ten NULs as their `\uXXXX` escapes, and with them the two raw
+// 0x01 bytes sharing two of the same lines in `AcronymEditor.tsx`. Those two are
+// NOT the same defect: git's heuristic keys on NUL alone, so a 0x01 never makes a
+// file diff as binary (measured — inserting one at byte 200 still gives a text
+// diff, and the vendored `mermaid-v11.min.js` carries one unremarked). They went
+// because they were invisible bytes on a line being rewritten anyway, which is a
+// good enough reason on its own and a different one from the harm above.
 //
-// The other three carry theirs past byte 8000 and still diff as text; they are one
-// prepended paragraph from flipping, which is why they are listed, not ignored.
+// The rewrite was verified STRUCTURALLY rather than by re-running the transform:
+// the committed blob and the rewritten file were walked in lockstep, asserting
+// that every divergence was exactly one raw control byte standing against its
+// six-character escape, and that both streams were consumed to the end. That
+// shape matters more than it sounds. The obvious check — replace the escapes back
+// and compare — reports a false FAILURE on `lib/core/chart-narration.js`, whose
+// regex character class already contains the text `\u0000` as part of a
+// double-escaped `\\u0000`. A verifier that cannot tell those apart would have
+// been read as corruption and sent someone hunting a defect that was not there.
 //
 // The list is checked BOTH ways, like SANCTIONED_MARGINS: an unlisted file with a
-// NUL fails, and a listed file WITHOUT one fails as a stale sanction — so fixing
-// one forces its removal here and the allowlist cannot quietly outlive the defect.
-const SANCTIONED_NUL_FILES = [
-  'docs/src/components/studio/AcronymEditor.tsx',
-  'docs/src/components/studio/StudioShell.tsx',
-  'lib/core/chart-narration.js',
-  'tools/change-coupling.js',
-  'tools/check-family-tiers.js',
-];
+// NUL fails, and a listed file WITHOUT one fails as a stale sanction. With the
+// list empty the stale arm has nothing to say and the first arm covers every
+// tracked text file — which is the shape to keep. A future entry owes a reason
+// that a RAW byte is the only answer, and for a separator it never is: the escape
+// compiles to the identical string.
+const SANCTIONED_NUL_FILES = [];
 
 const NUL_TEXT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
