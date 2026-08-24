@@ -37,6 +37,50 @@ choice:
 the next step already dictated by CLAUDE.md / workflow.md?"* If yes, **do it.**
 Reserve questions for genuine forks.
 
+**SECOND FILTER — is this decision mine to make?** The filter above is about
+*hesitation*; this one is about *reach*, and it runs second. A step can be
+perfectly well dictated and still be too big to take alone.
+
+**Decide and proceed** when the change is reversible, its blast radius stops at
+this branch, and undoing it costs one commit: code, tests and docs inside the
+diff the card asks for; a fix a checker or gate found in code this PR already
+touches; anything the card's acceptance criteria explicitly delegate ("decide
+which is correct", "state which producer was authoritative").
+
+**Stop and put options to me — pros, cons, measured impact, a recommendation —**
+when the change touches any of these, *even when a rule points at it*:
+
+| Trigger | Why it is mine |
+|---|---|
+| **Shared state outside the branch** — issue labels, milestones, board columns, branch protection, anything other sessions read | Parallel sessions act on it before I can undo it |
+| **The CI / hook contract** — adding, removing or relocating a gate; changing what runs on every PR | Every future PR pays the cost, and a bad gate is a permanent tax |
+| **A number I gave you** — the brief says ~12 and you think 64 is better | The number *was* a decision; substituting yours silently discards it |
+| **A canonical doc's meaning** — CLAUDE.md, a HARD RULE, workflow.md's contracts | Rewriting the rules is not the same as following them |
+| **Anything irreversible or externally visible** — a merge, a release, a published artifact, a comment on someone else's PR | It cannot be taken back |
+
+**How to put it.** One `AskUserQuestion` round, batched with every other open
+decision. Each option carries what it costs, what it buys and what it risks —
+**measured, not estimated.** If a number can be measured in under a minute,
+measure it: a guessed "+~5s" that was really 0.52s argued for the wrong option.
+Lead with a recommendation; a question with no recommendation pushes the
+analysis back onto me.
+
+**Finding a better option mid-analysis is a reason to re-ask, not to proceed.**
+Writing out the pros and cons *is* the investigation — it is where
+`build:check:all` surfaced (a zero-caller script covering 38 artifacts instead of
+one). Presenting three options while knowing a fourth is better is worse than not
+asking.
+
+**This does NOT license backing off "don't settle" or "power through".**
+Reversible in-scope work is still driven to completion without asking. The test
+is **blast radius, not difficulty**: a hard refactor inside your own diff is
+yours; a one-line label change across sixty issues is not.
+
+*(discipline — no automated gate. The test is whether you can point at a change
+that altered shared state, the CI contract, or a number I set, without my having
+seen the options first. Born from a session that labelled 60 issues
+`status:ready` when the brief said ~12, and added a CI step on its own judgment.)*
+
 1. **Finish the loop.** Done = implemented, verified, documented, shipped — not
    "it compiles." Don't hand back at first green waiting for "now lint / test / push."
 2. **Don't settle.** "Builds + tests pass" is the floor. Self-critique and raise
