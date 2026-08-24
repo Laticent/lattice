@@ -358,6 +358,24 @@ caught it; comparing the two computed gradients showed them identical when they 
 | — newly-modelled surfaces added | — | **5** (the gradient's 0% stop), all passing |
 | order test's live discriminators | 3 of 6 eligible | **6 of 6** |
 
+### 6a. What the a11y claim now rests on, and what it does not
+
+Stated precisely, because getting this wrong once already cost a correction.
+
+- **Measured on the packed composition** built through `composeCss` in real Chromium — a
+  faithful reconstruction of what a preview frame loads, but a reconstruction.
+- **Driven on the real running site**: a component reference page served by `npm run dev`,
+  with the site's own palette and mode controls, at site-dark. Before `rgb(0,0,0)`, after
+  `rgb(255,255,255)`, for all four `a11y-*` palettes. This is the artifact the claim rests on.
+- **NOT driven on the deployed build.** The branch's Cloudflare preview exists, but headless
+  Chromium cannot reach an external host through this sandbox's egress proxy (`curl` can;
+  the browser's tunnel resets). The production bundle differs from the dev server only in
+  bundling and asset hashing, neither of which touches cascade order — but that is an
+  argument, not a measurement, so the deployed surface is **UNVERIFIED**.
+- **The Studio proper** (`/studio`) was not driven either. It imports the same
+  `single-slide-render` builder as the page that was driven, so it should follow; again an
+  inference. **UNVERIFIED.**
+
 ## 7. What this does NOT fix
 
 - **`state-chart` has the same gradient defect, on BOTH arms, at THREE sites, and no catalog
