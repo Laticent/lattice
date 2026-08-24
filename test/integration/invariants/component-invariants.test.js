@@ -47,6 +47,13 @@ const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { renderHtml, deckFromSample, deckFromSamples, ROOT } = require('../../helpers/semantic-render');
 const { LAYER3, TRANSFORM } = require('./component-invariants.layer3');
+// The overflow oracle comes from the shared kernel, never a local comparison
+// (HARD RULE #1). PROBE_SRC is the function's own source, exported for verbatim
+// injection into a page.evaluate context — the same string the emulator's inline
+// watcher uses, so this gate and the export warning cannot disagree.
+const {
+  PROBE_SRC, CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR,
+} = require('../../../lib/core/overflow-probe');
 
 /** Best-effort Chromium path — mirrors color-parity.test.js / tools/screenshot.js. */
 function resolveChrome() {
@@ -286,11 +293,43 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
       // ── Layer 2a — content fits the frame ──
       // Measure directly (post-fonts-settle) with the emulator's TOL=12, rather
       // than trust the sidecar's early `.overflow` class (set before fonts loaded).
+      //
+      // THIS USED TO READ `s.scrollHeight > s.clientHeight` ON THE SECTION, AND
+      // THAT ASSERTION COULD NOT FAIL — for any of the 61 components, ever. The
+      // section is `overflow-y: hidden`, and a clipped box has no scroll extent,
+      // so the two numbers are equal by construction. Measured on a deliberately
+      // overflowing `agenda` (24 stops) that the emulator itself reports as
+      // `⚠ OVERFLOW … CLIPPED`: the section read 716 === 716 while `.cell-stage`
+      // held a 1760px list in a 435px box. The suite scored 6/6 on that mutant.
+      //
+      // The real overflow is one level in, which is exactly what the flex
+      // cell-tree made true (2026-06-26-frames-as-flex-cell-trees.md): a bounded
+      // content Cell CONTAINS its overflow, so the section never sees it. So the
+      // oracle has to be cell-aware, and it already exists —
+      // `lib/core/overflow-probe.js` is the one source of truth behind the
+      // runtime ring, the export warning and autosplit. Injecting its own source
+      // is what keeps this gate from becoming a fourth opinion (HARD RULE #1).
+      //
+      // Deliberately NOT fixed by reading the `.overflow` class: the sidecar sets
+      // it before fonts load, and measuring post-settle is the whole point of
+      // doing it here. See #1750.
       test('universal: slide does not overflow its frame', async () => {
         const { page, slide } = at();
-        const over = await page.$eval(slideSel(slide), (s) =>
-          s.scrollHeight > s.clientHeight + 12 || s.scrollWidth > s.clientWidth + 12);
-        assert.equal(over, false, 'slide content overflows the 1280×720 frame');
+        const res = await page.$eval(
+          slideSel(slide),
+          (s, src, clipSel, ignoreSel) => {
+            // eslint-disable-next-line no-new-func
+            const probe = new Function(`return (${src})`)();
+            return probe(s, clipSel, 12, ignoreSel);
+          },
+          PROBE_SRC, CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR,
+        );
+        assert.equal(
+          res.over, false,
+          `slide content overflows the 1280×720 frame `
+          + `(effective ${res.scrollH}px in ${res.clientH}px`
+          + `${res.overCells?.length ? `; ${res.overCells.length} clip cell(s) spilling` : ''})`,
+        );
       });
 
       // ── Layer 2b — headings meet WCAG AA contrast ──
