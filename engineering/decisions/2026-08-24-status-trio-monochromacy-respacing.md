@@ -251,5 +251,12 @@ blind to it in exactly the same way.
   still logged.
 - **The `integration` job has no `timeout-minutes`** in `.github/workflows/ci.yml`, so an
   infra stall costs 6h instead of failing fast. Real, off-path, still recorded.
+- **#1685 — the a11y palettes' `--chart-state-*` and `--diagram-critical` are FLAT** where
+  the trio is a `light-dark()` pair, so they paint a light-tuned value on a dark slide. This
+  change TOUCHES those tokens and does not fix it: they were literal copies of the OLD light
+  arms, and they are literal copies of the NEW light arms now. The defect is the flatness,
+  not the value, and #1685 argues it should be decided together with #1615 — so re-pointing
+  them keeps the family as consistent as it was and leaves the fork open, rather than
+  answering it in a diff about something else (HARD RULE #18).
 - **#1527's base/theme concat-order flip.** Untouched; the a11y palettes' comments about
   their arms being inert on the EXPORT path until it lands are still accurate.
