@@ -469,20 +469,33 @@ the merge train would be flaky on shared runners (see HARD RULE #19's note and t
 reasoning that keeps the bench out of `npm test`). It's a tool you and the reviewer
 run; the baseline-diff + `## Performance` section are what make the claim auditable.
 
-### The three bench tiers, and what each costs
+### The bench tiers, and what each costs
 
-`bench` runs the render tier by default. The two puppeteer tiers are **separate
-flags** because they differ by ~6x in cost — they shared one flag until 2026-08-03,
-and the pair was too expensive for anything scheduled to pass it:
+`bench` runs the render tier by default. Everything that boots a browser is behind
+its **own flag**, because they differ by more than an order of magnitude in cost —
+`--export` and `--print` shared one flag until 2026-08-03, and the pair was too
+expensive for anything scheduled to pass it:
 
 | flag | tier | cost | blessed rows |
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
-| `--export` | rasterize — screenshot every slide | ~2 min | *(compared, not blessed)* |
+| `--export` | rasterize — screenshot every slide | ~2 min | *(compared by the nightly, not blessed)* |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
+| `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
+| `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
+| `--cli` | whole `lattice-emulator.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
 
-So a full re-bless is `npm run bench:bless -- --print`, and `bench:bless` **alone
-preserves** any existing `printDatasets` rather than dropping them.
+`--cli` is the only tier that spawns the CLI, so it is the only one that can see the
+export path: a change to its navigation strategy moves no other number in the file
+(that is the HARD RULE #19(c) hole it was added to close). Its `slides` column is the
+PDF **page count**, so the row doubles as a pagination guard that fails on any machine.
+
+So a full re-bless is `npm run bench:bless -- --print --sweep --cli`, and `bench:bless`
+**alone preserves** any existing `printDatasets` / `sweepDatasets` / `cliDatasets`
+rather than dropping them. One caveat that bites: the render tier always runs, so ANY
+bless restamps `blessedOn` and `calibration` to the blessing machine — bless the
+browser tiers together with it, or their preserved rows end up filed under a machine
+they were never measured on.
 
 ### What is guarded automatically, and what is not
 

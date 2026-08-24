@@ -2294,7 +2294,12 @@ const katexCssLink = katexCssAbsPath
 // ── function-plot script + bootstrap ──────────────────────────────────────
 // Only emitted if at least one slide actually contains a functionplot block,
 // so decks that don't use it pay nothing. The bootstrap runs synchronously
-// on DOMContentLoaded; puppeteer's `waitUntil: networkidle0` covers it.
+// on DOMContentLoaded, which any navigation wait already covers: the <script src>
+// above is parser-blocking, so `window.functionPlot` exists by DOMContentLoaded, and
+// `inflate()` is synchronous d3 with no fetch of its own. The render navigates with
+// `waitUntil: 'load'`, which fires strictly after DOMContentLoaded. (This comment used
+// to credit `networkidle0`; that was true but stronger than the facts — DOMContentLoaded
+// already precedes `load`, so the extra idle wait was never what covered this.)
 const hasFunctionPlot = highlightedSlides.some(s => s.includes('class="functionplot"'));
 const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
   ? `<script src="file://${functionPlotJsAbsPath}"></script>
@@ -2331,8 +2336,12 @@ const functionPlotScript = (hasFunctionPlot && functionPlotJsAbsPath)
 // state-chart emits HTML nodes + a transitions JSON attr + an empty SVG
 // overlay; the browser measures the laid-out nodes and draws the edges.
 // Only emitted if a slide actually contains a state-chart figure, and it
-// runs on DOMContentLoaded which puppeteer's networkidle0 wait covers —
-// the same pre-render-then-PDF flow function-plot uses. The function body
+// runs on DOMContentLoaded, which the navigation's `waitUntil: 'load'` covers —
+// the same pre-render-then-PDF flow function-plot uses. Its first draw is in fact
+// synchronous at parse time; the DOMContentLoaded and `fonts.ready` handlers are
+// re-draws. The `fonts.ready` one is a promise continuation no navigation wait ever
+// covered; what keeps it correct is NOT registration order — see the invariant written
+// beside the Node-side force-load below, which is the accurate account. The function body
 // is the canonical installStateChartLayout from the kernel, serialised so
 // the emulator and lattice-runtime share one implementation.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
@@ -2552,9 +2561,8 @@ ${stateChartScript}
   // correct it on a static file a human just opens and reads (found via a
   // Puppeteer/Playwright cross-check, #894). measureOverflow() (the pass
   // that generates the PDF export's console warning) was never affected —
-  // it already force-loads fonts first, via the same lib/core/font-settle.js
-  // helper. 2s bound: a hung font fetch must not suppress the ring FOREVER
-  // on a static file nothing else re-checks.
+  // its call sites force-load fonts first. 2s bound: a hung font fetch must
+  // not suppress the ring FOREVER on a static file nothing else re-checks.
   function settleFontsThenCheck(){
     try { settleFonts(document.fonts, 2000).then(check, check); }
     catch (e) { check(); }
@@ -2734,8 +2742,95 @@ async function renderBody(browser, g, closeBrowser) {
     ? resolveRasterScale(IMAGE_SET_OPTS.size, slideW, slideH)
     : (RASTER ? Math.max(1, Math.min(2, Math.floor(3840 / Math.max(slideW, slideH)))) : 1);
   await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: rasterScale }), 'set viewport');
+  // DEFERRED MEDIA — the one class `load` genuinely does not wait for, and the reason
+  // this step exists rather than riding on the navigation wait.
+  //
+  // The engine emits no lazy media, but the engine is not the only author of the
+  // document: `lib/engine/index.js` sets markdown-it `html: true`, so a deck can carry
+  // raw `<img loading="lazy">`. Chromium defers a below-viewport lazy image until AFTER
+  // the load event — measured against a 1,500 ms delayed server, `load` returned in 15 ms
+  // where `networkidle0` waited 2,014 ms — and every slide after the first is below a
+  // 1280x720 viewport. So under `load` alone the fetch never starts and the export ships
+  // WITHOUT the image, silently, exit 0: `pdfimages -list` showed the image object present
+  // under `networkidle0` and NO image objects at all under `load`.
+  //
+  // `networkidle0` only ever covered this by accident of timing. Lazy loading is
+  // meaningless in a one-shot static export, so this makes it explicit instead: promote
+  // every deferred image and frame to eager, then wait for the pixels. Runs after each
+  // navigation, and under `g()`'s watchdog, so a resource that never answers fails the
+  // render loudly rather than hanging it.
+  const settleDeferredMedia = async (label) => {
+    const timedOut = await g(() => page.evaluate(async () => {
+      // EVERY wait here is bounded, and that is not defensive noise — an unbounded one
+      // wedged the render. A first cut awaited `load` on every <iframe> that did not
+      // report `contentDocument.readyState === 'complete'`. For an opaque-origin frame
+      // (file://, http://, data: — i.e. all the ordinary ones) `contentDocument` is
+      // **null rather than a throw**, so the check said "not done" for a frame whose
+      // load event had ALREADY fired during the navigation; the listener could never
+      // fire and the render hung until the watchdog killed it, ~190 s, then failed.
+      // The mirror-image bug sat in the same line: a same-origin LAZY frame reports its
+      // initial about:blank as 'complete', so it was skipped and never awaited at all.
+      const BOUND_MS = 10000;
+      let expired = 0;
+      const bounded = (p) => Promise.race([
+        Promise.resolve(p).then(() => false, () => false),
+        new Promise((r) => setTimeout(() => { expired++; r(true); }, BOUND_MS)),
+      ]);
+
+      const waits = [];
+      // FRAMES. Only the ones we promote need awaiting: an already-eager frame was
+      // covered by the load event we navigated on. `readyState` cannot tell us whether a
+      // promoted frame has arrived (see above), so the listener is the only signal, and
+      // it is bounded because it may be attached after the event it waits for.
+      const frames = [...document.querySelectorAll('iframe[loading="lazy"]')];
+      for (const frame of frames) {
+        frame.loading = 'eager';
+        waits.push(bounded(new Promise((resolve) => {
+          frame.addEventListener('load', resolve, { once: true });
+          frame.addEventListener('error', resolve, { once: true });
+        })));
+      }
+      // IMAGES need no promotion: `decode()` on a deferred lazy image starts and
+      // completes the fetch by itself (measured). Not touching `loading` also keeps the
+      // attribute out of the DOM the --player bake captures, so the export still carries
+      // what the author wrote.
+      for (const img of document.images) {
+        if (typeof img.decode === 'function') waits.push(bounded(img.decode()));
+      }
+      await Promise.all(waits);
+      return expired;
+    }), `settle deferred media${label}`);
+    // A resource that never answers is a defect in the DECK, not in the render, so it
+    // must not fail the export — but it must not pass silently either, which is the
+    // whole complaint against the wait this change removed.
+    if (timedOut && !QUIET) {
+      console.warn(`  ⚠ ${timedOut} deferred resource(s) did not settle within 10s — exported without them.`);
+    }
+  };
+
+  // `load`, not `networkidle0`. The two are not a correctness/speed trade here: `load`
+  // already waits for every resource kind this document actually contains, and the
+  // document issues nothing after it. Both halves are measured, not inferred — the
+  // inferred answers in this area have a poor record (see the correction log in
+  // engineering/decisions/2026-08-16-render-format-cost-assessment.md §9).
+  //   • Serving each resource kind behind a deliberate delay, `load` WAITS for
+  //     <img>, CSS `background-image: url()`, <link rel=stylesheet> and the webfont
+  //     fetch. Those are exactly what the deck emits: author images are absolute
+  //     file:// URLs rather than inlined (`liftBgImages`, deckBaseUrl above), plus the
+  //     KaTeX <link> and the function-plot <script src>.
+  //   • Instrumenting five real sidecars (state-chart, function-plot, images, the
+  //     58-slide jargon gallery, portrait-roadmap): ZERO requests start after the load
+  //     event, watched a further 2s past networkidle0. Mermaid is pre-rendered in Node
+  //     and inlined, deck fonts are data: URIs, and nothing fetches at runtime.
+  // So networkidle0 only ever bought its own idle floor. Sized END TO END through the
+  // real CLI rather than from a sidecar probe (the probe read high — it opened a fresh
+  // page against a warm browser, a context that pins networkidle0 at 2,002 ms): the
+  // saving is 0.66-0.80 s per navigation, 31-59% of a deck's total render depending on
+  // how many auto-split passes it drives.
+  // Font correctness does NOT rest on this wait; it rests on the explicit unbounded
+  // force-load immediately below, which is unchanged.
   await g(() => page.goto('file://' + path.resolve(outHtml), {
-    waitUntil: 'networkidle0',
+    waitUntil: 'load',
     timeout: 60000
   }), 'navigate');
   // Force every declared @font-face to load (incl. the base64 self-hosted
@@ -2751,12 +2846,34 @@ async function renderBody(browser, g, closeBrowser) {
   // call shape differs from the browser-injected Promise-chain one and this
   // is the hot measure/auto-split path — not touched by the bug this file's
   // OTHER two copies had.
+  //
+  // WHERE THIS LIVES MATTERS, and a comment in the injected watcher below used to
+  // get it wrong: `measureOverflow` references `document.fonts` NOWHERE. The
+  // force-load is here, in the caller, once per navigation. A new call site added
+  // without this preamble would silently measure fallback metrics.
+  //
+  // AND ONE ORDERING INVARIANT, because the obvious reason for it is false.
+  // `STATE_CHART_BROWSER_JS` registers an in-page `document.fonts.ready.then(drawAll)`
+  // whose redraw feeds the geometry measured below. It is NOT safe merely because that
+  // `.then` was registered before this await: calling `f.load()` on a face that is still
+  // `unloaded` switches the FontFaceSet back to loading and REPLACES `document.fonts.ready`
+  // with a new promise — measured — at which point the two awaits are on different objects
+  // and registration order buys nothing. What actually holds it today is that no face is left
+  // `unloaded` when the navigation returns: measured across five real sidecars, 74 declared
+  // faces resolve to 37 `loaded` + 37 `error`, and the force-load does NOT replace
+  // `document.fonts.ready`. Note BOTH halves, because the tempting one-line version ("deck
+  // fonts are `data:` URIs") is false — only 17 faces are base64 `data:`; the other 37 are
+  // KaTeX's relative `fonts/…woff2`, fetched and 404. It is their prompt FAILURE, not
+  // inlining, that keeps them out of `unloaded`. A theme or `--css` override adding a
+  // genuinely remote face that resolves SLOWLY rather than failing would break the invariant
+  // and orphan the redraw. Tracked in the cost assessment's §8 rather than guarded here.
   await g(() => page.evaluate(async () => {
     try {
       await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
       await document.fonts.ready;
     } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
   }), 'load fonts');
+  await settleDeferredMedia('');
   // The self-contained player's DOM is captured further down, immediately after the
   // overflow-marker level is applied — see "Bake the player's DOM" below. Declared
   // here only because the autosplit loop between here and there may re-render the
@@ -2960,10 +3077,12 @@ async function renderBody(browser, g, closeBrowser) {
       if (!r.changed) break;
       cleanDocHtml = r.html;
       fs.writeFileSync(outHtml, cleanDocHtml);
-      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'networkidle0', timeout: 60000 }), 'navigate (autosplit)');
+      // `load` for the same measured reason as the initial navigation above.
+      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
       }), 'load fonts (autosplit)');
+      await settleDeferredMedia(' (autosplit)');
       overflow = await measureOverflow();
       if (!QUIET) console.log(`  auto-split (measured) pass ${pass}: ${r.changed} slide(s) divided to fit`);
     }
@@ -2985,10 +3104,12 @@ async function renderBody(browser, g, closeBrowser) {
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);
-      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'networkidle0', timeout: 60000 }), 'navigate (rails)');
+      // `load` for the same measured reason as the initial navigation above.
+      await g(() => page.goto(`file://${path.resolve(outHtml)}`, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
       }), 'load fonts (rails)');
+      await settleDeferredMedia(' (rails)');
     }
   }
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
