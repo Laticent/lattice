@@ -1165,6 +1165,21 @@ cannot see.
 card, no ask. When several PRs are green, the batched round (§Merging) carries
 **one card per PR**, trimmed hard — the point is comparability, not volume.
 
+**And the card goes on the PR, not only in the ask.** Post it as a comment on the
+PR *and* in the merge ask, same wording. A card that lives only in a chat
+transcript is invisible to anyone who opens the PR — a reviewer, me on a phone, a
+future session picking the branch up cold — which leaves the diff exactly where
+this section starts: green CI and no evidence. The transcript is not a durable
+surface; the PR is. This is HARD RULE #28.
+
+**Read this section, not the summary.** CLAUDE.md's DEFAULT-OP-MODE row lists the
+card's fields in one line as an index entry. It is not the spec, and a card built
+from it will be missing the parts that do the work — the four-level scale, the
+lowest-axis floor rule, the axis attribution and the raise path. That is not
+hypothetical: PR #1834 shipped a card with an invented `medium-high` level, three
+per-issue confidences instead of one floor, no axis named and no raise path,
+written from that one-liner by a session that never opened this section.
+
 ### The confidence level is derived, not asserted
 
 Four levels — `low` · `medium` · `high` · `very high` — and the rule that keeps
