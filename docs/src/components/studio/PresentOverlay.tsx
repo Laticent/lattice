@@ -1309,9 +1309,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				{zoomed && (
 					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} aria-label={`Reset zoom to fit — currently ${Math.round(zoomScaleRef.current * 100)}%`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] sm:text-[13px]"><Minimize2 className="size-4" />{`${Math.round(zoomScaleRef.current * 100)}%`}</button></Tip>
 				)}
-				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button></Tip>
-				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>
-				{/* Whole screen — the staging cluster (Slides · Rehearse · Presenter screen),
+				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden md:inline">Slides</span></button></Tip>
+				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" /><span className="hidden md:inline">Rehearse</span></button>
+				{/* ONE LADDER FOR THE WHOLE CLUSTER. Slides · Rehearse · Fullscreen · Presenter
+				    screen are all the same pill and all show their label at the SAME breakpoint,
+				    collapsing to bare icons together below it. They used to disagree three ways —
+				    Slides hid its label under `sm`, Rehearse never hid its own, and Presenter
+				    screen was not even a pill (a borderless ghost button) — so the row read as
+				    four unrelated controls that happened to sit together.
+
+				    Whole screen — the staging cluster (Slides · Rehearse · Presenter screen),
 				    NOT the delivery dock below. Fullscreen is a thing you do ONCE, before you
 				    start talking, alongside the other "put this on the right surface" verbs;
 				    the dock is Play/CC/Voice/Guide, it dims at rest, and its 760px width is
@@ -1324,13 +1331,24 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				    `aria-pressed` reads the DOCUMENT, so it is right after an Escape, an F11, or
 				    iPad Safari's own exit chip. */}
 				{canFull && (
-					<Tip label={full ? 'Leave full screen (F)' : 'Full screen (F) — hide the browser and fill the display'}>
-						<button type="button" onClick={toggleFull} aria-pressed={full} aria-label={full ? 'Leave full screen' : 'Full screen'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', full ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}>
+					<Tip label={full ? 'Leave fullscreen (F)' : 'Fullscreen (F) — hide the browser and fill the display'}>
+						{/* The accessible name is STABLE and matches the VISIBLE label exactly — "Fullscreen",
+						    not "Full screen" and not a state string. WCAG 2.5.3 (Label in Name) needs the
+						    name to contain the visible text, so a speech-input user saying "click
+						    Fullscreen" actually hits it; `aria-pressed` is what carries on/off, the same
+						    rule the Presenter and Voice buttons follow. */}
+						<button type="button" onClick={toggleFull} aria-pressed={full} aria-label="Fullscreen" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', full ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}>
 							{full ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+							<span className="hidden md:inline">Fullscreen</span>
 						</button>
 					</Tip>
 				)}
-				<Tip label="Presenter view on your second screen — current + next slide, speaker notes, timer"><button type="button" onClick={() => { const wasOpen = presenterRef.current?.isOpen(); presenterRef.current?.toggle(); if (!wasOpen && !presenterRef.current?.isOpen()) notify('Allow pop-ups to open the presenter view on your second screen.'); }} aria-pressed={presenterOn} className={cn('hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-semibold hover:text-foreground md:inline-flex', presenterOn ? 'text-[var(--accent)]' : 'text-muted-foreground')}><Monitor className="size-4" />{presenterOn ? 'Presenter on' : 'Presenter screen'}</button></Tip>
+				<Tip label="Presenter view on your second screen — current + next slide, speaker notes, timer"><button type="button" onClick={() => { const wasOpen = presenterRef.current?.isOpen(); presenterRef.current?.toggle(); if (!wasOpen && !presenterRef.current?.isOpen()) notify('Allow pop-ups to open the presenter view on your second screen.'); }} aria-pressed={presenterOn} className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', presenterOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. It used to swap
+						    to "Presenter on", which is the exact thing the Voice button below has a
+						    comment forbidding: a label that changes with state reads to a screen reader
+						    as the control itself becoming a different control, and it is jarring
+						    mid-delivery. One rule, now applied in both places. */}
+						<span className="hidden md:inline">Presenter screen</span></button></Tip>
 			</div>
 
 			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the

@@ -12,3 +12,10 @@
   happens in Firefox, Chrome and Edge on iPad: those are WebKit shells, and the
   API is off by default for non-Safari apps however capable the engine reports
   itself to be. Safari on iPad is unaffected.
+- **Present's staging controls read as one set.** Slides, Rehearse, Fullscreen
+  and Presenter screen are now the same pill, and all show their labels at the
+  same width, collapsing to bare icons together below it. They used to disagree
+  three ways — one hid its label early, one never hid it, and Presenter screen
+  was not even a pill. Presenter screen also keeps a stable label instead of
+  swapping to "Presenter on", which a screen reader announced as the control
+  becoming a different control.

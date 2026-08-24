@@ -50,40 +50,40 @@ describe('Present — full screen', () => {
 	// for a setting that does not exist.
 	it('shows no button at all where the browser has no Fullscreen API', () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
-		expect(screen.queryByRole('button', { name: /full screen/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull();
 	});
 
 	it('offers the button where the browser allows fullscreen, and requests it on the ROOT element', async () => {
 		const { requestFullscreen } = withFullscreenApi();
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
-		const btn = screen.getByRole('button', { name: 'Full screen' });
+		const btn = screen.getByRole('button', { name: 'Fullscreen' });
 		expect(btn).toHaveAttribute('aria-pressed', 'false');
 		await user.click(btn);
 		expect(requestFullscreen).toHaveBeenCalledTimes(1);
 		// documentElement, not the dialog — the overlay already covers the viewport, and
 		// the root is exempt from the UA rules that restyle a non-root fullscreen element.
 		expect(requestFullscreen.mock.instances[0]).toBe(document.documentElement);
-		expect(await screen.findByRole('button', { name: 'Leave full screen' })).toHaveAttribute('aria-pressed', 'true');
+		expect(await screen.findByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('tracks a change the button did not make', async () => {
 		withFullscreenApi();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
-		expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Fullscreen' })).toBeInTheDocument();
 		// What F11 / the traffic lights / iPad Safari's own exit chip look like from here.
 		act(() => {
 			Object.defineProperty(document, 'fullscreenElement', { value: document.documentElement, configurable: true });
 			document.dispatchEvent(new Event('fullscreenchange'));
 		});
-		expect(await screen.findByRole('button', { name: 'Leave full screen' })).toHaveAttribute('aria-pressed', 'true');
+		expect(await screen.findByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('toggles on `f`, and stays silent on a browser that cannot', async () => {
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
 		await user.keyboard('f'); // no API installed — must not throw, must do nothing
-		expect(screen.queryByRole('button', { name: /full screen/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull();
 	});
 
 	it('toggles on `f` where it is available', async () => {
@@ -123,8 +123,8 @@ describe('Present — full screen', () => {
 		const notify = vi.fn();
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
-		await user.click(screen.getByRole('button', { name: 'Full screen' }));
-		await screen.findByRole('button', { name: 'Leave full screen' });
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		await screen.findByRole('button', { name: 'Fullscreen' });
 		expect(notify).not.toHaveBeenCalled();
 	});
 
@@ -138,10 +138,10 @@ describe('Present — full screen', () => {
 		const notify = vi.fn();
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
-		await user.click(screen.getByRole('button', { name: 'Full screen' }));
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
 		expect(notify.mock.calls[0][0]).toContain('will not hand over the screen');
-		await waitFor(() => expect(screen.queryByRole('button', { name: /full screen/i })).toBeNull());
+		await waitFor(() => expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull());
 	}, 10_000);
 
 	// A spoken rejection may be transient (an untrusted gesture), so it is reported but the
@@ -156,10 +156,10 @@ describe('Present — full screen', () => {
 		const notify = vi.fn();
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
-		await user.click(screen.getByRole('button', { name: 'Full screen' }));
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
 		expect(notify.mock.calls[0][0]).toContain('not user-initiated');
-		expect(screen.getByRole('button', { name: 'Full screen' })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'false');
 	}, 10_000);
 
 	// Closing Present must give the window back. Otherwise the EDITOR is left

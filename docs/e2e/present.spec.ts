@@ -201,7 +201,7 @@ test('@parity a one-finger swipe still turns the deck in Present', async ({ page
 
 test('@gecko full screen is offered, granted, and driven from the button', async ({ page }) => {
 	const dialog = page.getByRole('dialog', { name: 'Present' });
-	const btn = dialog.getByRole('button', { name: 'Full screen' });
+	const btn = dialog.getByRole('button', { name: 'Fullscreen' });
 	await expect(btn).toBeVisible();
 	await expect(btn).toHaveAttribute('aria-pressed', 'false');
 
@@ -211,12 +211,12 @@ test('@gecko full screen is offered, granted, and driven from the button', async
 	await expect
 		.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement))
 		.toBe(true);
-	const leave = dialog.getByRole('button', { name: 'Leave full screen' });
+	const leave = dialog.getByRole('button', { name: 'Fullscreen' });
 	await expect(leave).toHaveAttribute('aria-pressed', 'true');
 
 	await leave.click();
 	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
-	await expect(dialog.getByRole('button', { name: 'Full screen' })).toHaveAttribute('aria-pressed', 'false');
+	await expect(dialog.getByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('@gecko `f` toggles full screen', async ({ page }) => {
@@ -238,7 +238,7 @@ test('@gecko Escape leaves full screen without closing Present', async ({ page }
 	// to close would leave the reader fullscreen with Escape no longer doing anything.
 	// The assertion below therefore holds on every engine, however it routes the key.
 	const dialog = page.getByRole('dialog', { name: 'Present' });
-	await dialog.getByRole('button', { name: 'Full screen' }).click();
+	await dialog.getByRole('button', { name: 'Fullscreen' }).click();
 	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
 
 	await page.keyboard.press('Escape');
@@ -252,7 +252,7 @@ test('@gecko Escape leaves full screen without closing Present', async ({ page }
 
 test('@gecko closing Present hands the window back', async ({ page }) => {
 	const dialog = page.getByRole('dialog', { name: 'Present' });
-	await dialog.getByRole('button', { name: 'Full screen' }).click();
+	await dialog.getByRole('button', { name: 'Fullscreen' }).click();
 	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
 	await dialog.getByRole('button', { name: 'Exit present' }).click();
 	await expect(dialog).toBeHidden();
