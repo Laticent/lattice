@@ -23,7 +23,11 @@
  * has no effect. Accordingly every colour here is a FIXED hex, not a
  * `light-dark()` pair: there is no dark side to flip.
  *
- * TWO EXCEPTIONS, and neither is a mode. The `:root` pin cannot reach anything
+ * TWO EXCEPTIONS BELOW, plus a third that IS a mode: the shipped `--player`
+ * export sets `color-scheme` as an INLINE style on <html>, which no selector can outrank,
+ * and re-scopes `light-dark()` arms under `[data-lp-scheme=dark]` independently — so the
+ * player's toggle DOES flip an a11y deck. Pre-existing and unchanged by the pin (measured
+ * both ways); recorded because this block used to say no mode reaches past it. The `:root` pin cannot reach anything
  * that sets color-scheme BELOW it, and two things do:
  *   1. a per-slide `_class: dark`, which sets it on the SECTION (#1323 — the
  *      same seam that forced --cat-on-fill / --cat-on-mark to be pinned below);
@@ -58,15 +62,22 @@
  *     — and no concat order can help, because the author's block is always last.
  *     Specificity is the only lever. With plain `:root` alone, an a11y deck exported
  *     with that directive renders `color-scheme: dark`, canvas rgb(0,0,0).
- *   · plain `:root` is what the PACKED paths need — the Studio, the docs Playground
- *     and Specimen, which inject their own unpacked `:root{color-scheme:MODE}` into
- *     the preview frame (docs/src/lib/single-slide-render.ts, deck-preview.js).
+ *   · plain `:root` is what the PACKED paths need — specifically every frame built by
+ *     `docs/src/lib/single-slide-render.ts`, which injects its own unpacked
+ *     `:root{color-scheme:MODE}` (the component reference pages / Specimen, the Studio,
+ *     the landing previews). NOT the Playground: `docs/src/playground/deck-preview.js`
+ *     can inject that rule but its `colorScheme` option defaults to null and no
+ *     production caller passes it, so the Playground frame resolves `normal` and its
+ *     dark mode works by swapping to a `-dark` theme file — which the a11y palettes do
+ *     not have. Measured on the real running site; an earlier version of this comment
+ *     said "the Playground" and was wrong about the surface.
  *     `lib/engine/css.js` rewrites a plain `:root` onto the slide <section>, and a
  *     DIRECT declaration on the section beats a value inherited from <html> whatever
  *     its specificity. The doubled form gets `…:not([\20 root]):root` instead, whose
  *     trailing `:root` can never match a section — so with `:root:root` alone the pin
- *     is inert there and all four a11y palettes FOLLOW the dark toggle, painting
- *     rgb(0,0,0) on the one surface their fixed CVD-safe canvas exists for.
+ *     is inert there and all four a11y palettes FOLLOW the injected dark scheme, painting
+ *     rgb(0,0,0) where their fixed CVD-safe canvas should be white. Measured on a real
+ *     component reference page at site-dark: before, rgb(0,0,0); after, rgb(255,255,255).
  *
  * So this is NOT the same case as the status trio, which lost its duplicate when
  * #1527 flipped the engine/palette concat (2026-08-24-status-trio-single-root.md).

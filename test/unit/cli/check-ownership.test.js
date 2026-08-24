@@ -3384,11 +3384,29 @@ describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)',
     } finally { fsx.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  test('a selector LIST cannot hide the shape behind a comma', () => {
-    // `:root:root, section { … }` is the same inert declaration with a second part bolted
-    // on. Testing the selector WHOLE let it through; each part is tested on its own now.
-    const { overSpecific } = rootDeclSites(':root:root, section { --l: 1 }');
-    assert.deepEqual([...overSpecific.keys()], ['--l']);
+  test('a LIVE arm in a selector list means the declaration reaches — not a finding', () => {
+    // The first cut flagged any list with a repeated-`:root` part, which is a FALSE
+    // POSITIVE in the worse direction: it blocks a theme whose token demonstrably paints.
+    // Measured through the real packer, `:root:root, section` becomes
+    //   `…:not([\20 root]):root, article.lattice > section`
+    // whose SECOND arm matches every slide. Inert requires EVERY part to be inert.
+    assert.deepEqual([...rootDeclSites(':root:root, section { --l: 1 }').overSpecific.keys()], []);
+    // …and a list of only-inert parts is still caught.
+    assert.deepEqual([...rootDeclSites(':root:root, :root:root:root { --m: 1 }').overSpecific.keys()], ['--m']);
+  });
+
+  test('a comma INSIDE :is()/:not()/:where() or an attribute value is not a list separator', () => {
+    // Splitting the raw string on `,` treated `:is(.foo, :root:root, .bar)` as three parts
+    // and reported the middle one. Top-level splitting only.
+    assert.deepEqual([...rootDeclSites(':is(.foo, :root:root, .bar) { --y: 2 }').overSpecific.keys()], []);
+    assert.deepEqual([...rootDeclSites('[data-sel="a,:root:root"] { --u: 6 }').overSpecific.keys()], []);
+  });
+
+  test('the plain-`:root` side is list-aware too, so a live plain arm counts', () => {
+    // Asymmetric before: `over` split on commas while `plain` matched the whole selector,
+    // so `:root, section.print { --v }` plus a `:root:root` copy reported "declared ONLY at
+    // :root:root — declare it at plain :root", which it already was.
+    assert.deepEqual([...rootDeclSites(':root, section.print { --v: 5 }').plain], ['--v']);
   });
 
   test('the envelope is stated and held: conditional and zero-specificity roots are NOT judged', () => {
@@ -3408,8 +3426,11 @@ describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)',
     //   · packed paths — the rival is the preview frame's injected `:root{color-scheme}`,
     //     and the PLAIN half wins by landing directly on the <section>, which beats an
     //     inherited value whatever its specificity.
-    // Measured: with `:root:root` alone all four a11y palettes followed the dark toggle in
-    // the Playground and painted rgb(0,0,0) — the defect their fixed canvas exists to stop.
+    // Measured on a real component reference page (a `single-slide-render.ts` frame, which
+    // injects its own `:root{color-scheme:MODE}`): with `:root:root` alone all four a11y
+    // palettes followed that injected dark scheme and painted rgb(0,0,0) where their fixed
+    // canvas should be white. NOT the Playground — its frame injects nothing and its dark
+    // mode swaps to a `-dark` theme the a11y palettes do not have.
     const { overSpecific } = rootDeclSites(':root:root { color-scheme: light; }');
     assert.deepEqual([...overSpecific.keys()], [], 'the gate must not judge color-scheme');
     const src = fsx.readFileSync(pathx.join(__dirname, '..', '..', '..', 'themes', 'a11y-base.css'), 'utf8');

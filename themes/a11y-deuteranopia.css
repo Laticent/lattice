@@ -17,8 +17,10 @@
 @import 'a11y-base';
 
 :root {
-  /* PAIRED even though this palette is mode-invariant. The `:root:root` pin in
-   * a11y-base makes the deck-wide dark TOGGLE inert, but TWO seams reach past it:
+  /* PAIRED even though this palette is mode-invariant. The color-scheme pin in
+   * a11y-base (declared at BOTH `:root` and `:root:root` as of #1797 — the doubled form
+   * alone was inert on every PACKED path) makes the deck-wide dark TOGGLE inert, but TWO
+   * seams reach past it:
    * a per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
    * and the status-marker pseudo, which base.variants.css pins to
    * `color-scheme: dark` on every title / closing / non-light divider — so the

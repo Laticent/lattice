@@ -242,9 +242,10 @@ section.state-chart .state-node .state-label {
  * 33/54 -> 18/30 in #1807); this component's were not, because nothing in
  * tools/composed-contrast.js models a state-chart pill and the retune wants its own
  * surfaces and its own visual pass. Measured through that tool's own evalSurface over
- * 32 palettes x 5 states, the stops below are sub-AA on 19 pairs light (worst
- * concrete|pass 2.48:1) and 28 dark (worst laguna|pass 3.12:1). So a node's badge no
- * longer reads identically to a chart-family status pill. Tracked. */
+ * 32 palettes x 5 states, the stops below are sub-AA on 21 pairs light (19 at the 100%
+ * stop, worst concrete|pass 2.48:1, plus 2 at the 0% stop, worst 4.38:1) and 28 dark
+ * (all at the 100% stop) — 49 in total. So a node's badge no longer reads identically to
+ * a chart-family status pill. Tracked as #1830. */
 section.state-chart .state-node .state-index {
   position: absolute;
   top: 0.15625cqi;
@@ -701,7 +702,7 @@ section.state-chart .state-label-t {
  * quiet numeral; a status node gets the colored disc behind it. Same tone
  * vocabulary and the same --pill-* SHAPE as the HTML badge and the legend swatch —
  * and, like them, still on the pre-#1807 stops that chart-family has moved off.
- * This is the THIRD site carrying them (with :257-258 and the legend swatch); see
+ * This is the THIRD site carrying them (with :264-265 and the legend swatch); see
  * the note above the HTML badge for the measured sub-AA counts. */
 section.state-chart .state-index-t {
   fill: var(--state-index-ink);

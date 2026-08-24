@@ -151,9 +151,10 @@ The first cut of this change scoped the gate to `--*` properties and justified i
 author's INJECTED `:root{color-scheme:dark}` … the one legitimate use of the shape left in
 the tree." An independent checker attacked that sentence and it does not survive.
 
-**The pin was defeated on exactly the paths this note is about.** The docs preview injects a
-raw, UNPACKED `:root{color-scheme:MODE}` into the frame (`docs/src/lib/single-slide-render.ts`,
-`docs/src/playground/deck-preview.js`), and the theme's pin is packed to
+**The pin was defeated on exactly the paths this note is about.** Every frame built by
+`docs/src/lib/single-slide-render.ts` injects a raw, UNPACKED `:root{color-scheme:MODE}` — the
+component reference pages (Specimen), the Studio, the landing previews — and the theme's pin is
+packed to
 `article.lattice > :where(section):not([\20 root]):root` — a selector that can never match.
 Measured in real Chromium on the packed composition, `a11y-deuteranopia` with the dark toggle
 applied:
@@ -164,8 +165,24 @@ applied:
 | `:root` alone | light ✓ | `color-scheme: dark`, canvas **rgb(0,0,0)** ✗ |
 | **both** — as shipped here | **light ✓** | **light ✓** |
 
-So all four `a11y-*` palettes followed the dark toggle in the Playground and painted black —
-on the one surface a fixed, mode-invariant CVD-safe canvas exists for.
+So all four `a11y-*` palettes followed that injected dark scheme and painted black where a
+fixed, mode-invariant CVD-safe canvas should be white. Driven on a real component reference
+page at site-dark: **before rgb(0,0,0), after rgb(255,255,255)**.
+
+**AND THE SURFACE NAME WAS WRONG, in four shipped places, until a second checker drove the real
+site.** This note, the gate docblock, the unit test and the theme comment all said "the
+Playground". They should not have. `docs/src/playground/deck-preview.js` CAN inject that rule,
+but its `colorScheme` option defaults to `null` and no production caller passes it — so the
+Playground frame resolves `color-scheme: normal` in both site modes and painted white before
+this change and after it. Its dark mode works by swapping to a `-dark` theme FILE, which the
+a11y palettes do not have. The defect and the fix are real; they live on the
+`single-slide-render.ts` surfaces, not that one.
+
+The first claim came from reading `deck-preview.js:289` and assuming it unconditional, then
+measuring on a synthetic `composeCss` harness — which is HARD RULE #23's exact failure: a
+verification claim naming a surface it never drove. It is recorded here rather than quietly
+corrected because the harness AGREED with the conclusion, and an agreeing proxy is how the
+first four defects in this swimlane survived.
 
 **The fix is to ADD the plain half, not to remove the doubled one**, and the reason the pair is
 permanent here is genuinely different from the trio's:
@@ -224,10 +241,10 @@ This is squarely HARD RULE #18's on-path arm — the change is literally "find e
 **Envelope, stated rather than implied.** The gate matches `(:root){2,}` only. It does not
 judge `:root.print` / `:root[data-x]` (conditional overrides, a different contract) or
 `:where(:root)` (the zero-specificity default), and it is scoped to `--*` properties so that
-`a11y-base`'s `:root:root { color-scheme: light }` stays legal — that one is a deliberate
-specificity war with an author's INJECTED `:root{color-scheme:dark}`, a live competitor
-rather than a cascade-order workaround, and it is the only legitimate use of the shape left
-in the tree. Mutation-checked in both directions: reintroducing either defect shape reddens
+`a11y-base`'s `color-scheme` pin stays out of scope — see §3a, which is where that pin's
+actual behaviour is measured. (An earlier draft called it "the only legitimate use of the
+shape left in the tree". §3a disproves that: the doubled form alone was inert on the packed
+paths there too, and the pin needed its plain half adding.) Mutation-checked in both directions: reintroducing either defect shape reddens
 the gate with the right message, and the fixed tree is green.
 
 ## 4. The removal makes the order test stronger, which is the argument for it
@@ -344,14 +361,25 @@ caught it; comparing the two computed gradients showed them identical when they 
 ## 7. What this does NOT fix
 
 - **`state-chart` has the same gradient defect, on BOTH arms, at THREE sites, and no catalog
-  entry at all.** `state-chart.styles.css:257-258` (the HTML badge / legend swatch) and
-  `:705-710` (the SVG `.state-index-disc`, which an earlier draft of this note missed) both
+  entry at all.** `state-chart.styles.css:264-265` (the HTML badge / legend swatch) and
+  `:718-719` (the SVG `.state-index-disc`, which an earlier draft of this note missed) both
   carry `33%/54%` light and `48%/64%` dark — the dark pair is the value #1809 replaced one file
   over, so it never received that fix, and the light pair is what this change replaced.
-  Measured through `composed-contrast`'s own `evalSurface` over 32 palettes x 5 states:
-  **19 sub-AA pairs on the light arm** (worst `concrete|pass` 2.48:1) and **28 on the dark**
-  (worst `laguna|pass` 3.12:1) — 47 in total, none gated and none frozen, because nothing in
-  `SURFACES` models a state-chart pill. That is a larger population than this change fixed.
+  Measured through `composed-contrast`'s own `evalSurface` over 32 palettes x 5 states, per
+  stop — because this change's whole point is that the 0% stop is a surface too:
+
+  | stop | sub-AA pairs | worst |
+  |---|---|---|
+  | light 54% (100%) | 19 | `concrete\|pass` 2.48:1 |
+  | light 33% (0%) | **2** | `concrete\|pass` 4.38:1 |
+  | dark 64% (100%) | 28 | `laguna\|pass` 3.12:1 |
+  | dark 48% (0%) | 0 | — |
+
+  **49 in total**, none gated and none frozen, because nothing in `SURFACES` models a
+  state-chart pill. (An earlier draft of this note said 47, counting only the two 100% stops —
+  omitting the light 0% stop while arguing two paragraphs earlier that omitting exactly that
+  stop is how #1807 stayed hidden. Corrected.) That is a larger population than this change
+  fixed.
   **Pre-existing and off the path** of both #1797 and #1807 (a different component, needing its
   own surfaces and its own visual pass), so it is logged rather than pulled in, per HARD RULE
   #18. It is the natural next slice, and the fix is already known — the same stops.

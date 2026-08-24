@@ -321,12 +321,25 @@ async function settle(page, floorMs) {
 	// that follows lands the screenshot in the middle of a transition that began at
 	// t=50ms. Sleep, then settle, then check whether settling started anything new.
 	await new Promise((r) => setTimeout(r, floorMs));
-	// Up to five rounds. Finishing one animation can start the next (a staggered entrance,
-	// a transitionend handler), so one pass is not a fixed point; five is well past what
-	// the corpus needs and still bounded. Hitting the cap means something is STILL running
-	// when the screenshot is taken, so it is warned about rather than returned and dropped
-	// — an earlier version claimed "the count is reported" while all three call sites
-	// discarded it, which is the same silence it was written to prevent.
+	// A BOUNDED SETTLE WINDOW — and calling it that rather than a fixed-point detector is
+	// the honest description, arrived at by instrumenting it rather than by reading it.
+	//
+	// The loop finishes/pauses whatever is live, waits a beat, and looks again. On this
+	// corpus round 1 NEVER observes a running animation: round 0's pass has already
+	// finished them, so the second round contributes a 120ms delay and no information.
+	// Measured — the per-round running counts on every settle of `anima-scene` are [0,0]
+	// or [n,0]. Removing the second round makes the oracle unstable again (3/1/3 findings
+	// across three runs) and re-adding a bare 120ms sleep in its place makes it stable
+	// again, which is what identifies the delay as the active ingredient.
+	//
+	// So what this buys is a window, roughly floor + 120ms, in which a transition that
+	// starts late is given time to appear and be finished. A transition starting AFTER the
+	// window is still sampled mid-flight and nothing warns — that is a real limit, not a
+	// guarantee, and it is why this is described as a window. The corpus is deterministic
+	// inside it; a future deck with a longer entrance delay would need the floor raised.
+	//
+	// Five rounds is the cap. Falling out of the loop without two quiet rounds means
+	// something was still running at the last look, and that is what warns.
 	let rounds = 0;
 	let quiet = 0;
 	for (; rounds < 5; rounds++) {
@@ -358,7 +371,8 @@ async function settle(page, floorMs) {
 			// animation and a `fill: forwards` finished one both stay in `getAnimations()` —
 			// so the loop below always ran its full five rounds, at 812ms per slide instead
 			// of 120ms on any deck that holds an animation. Measured in Chromium; no deck in
-			// the corpus holds one today, which is why it was latent rather than slow.
+			// the corpus holds one today — which was WRONG: three `anima-scene` slides hold a
+			// finished animation, so those slides really did pay the full five rounds.
 			return document.getAnimations().filter((a) => a.playState === 'running').length;
 		});
 		// TWO consecutive quiet rounds, not one, and the difference is measured rather than
@@ -375,7 +389,11 @@ async function settle(page, floorMs) {
 		// screenshot.
 		await new Promise((r) => setTimeout(r, 120));
 	}
-	if (rounds >= 5) {
+	// `rounds >= 5` was the first condition and it lies in the common case: the loop can
+	// exhaust its rounds with the LAST look quiet (quiet === 1), and then it printed
+	// "still animating" about a page that was not. The honest test is whether the window
+	// ever closed.
+	if (quiet < 2) {
 		console.warn(`  !! still animating after ${rounds} settle rounds — this slide is sampled mid-flight`);
 	}
 	return rounds;

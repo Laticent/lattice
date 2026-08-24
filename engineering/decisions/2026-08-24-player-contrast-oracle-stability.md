@@ -120,17 +120,32 @@ the bare 120ms.
   - it returned the count of animations found BEFORE pausing them, which never reaches zero (a
     paused animation and a `fill: forwards` finished one both stay in `getAnimations()`), so the
     loop always ran all five rounds — 812ms per slide instead of 120ms, measured in Chromium, on
-    any deck holding an animation. Latent today because no deck in the corpus holds one;
-  - fixing that to break on the first quiet round **reintroduced the instability**, and this is
-    the interesting part: the player's control fade starts on a delay, so round 0 finds nothing
-    running, exits, and the screenshot lands mid-fade again. Three runs went 3 / 2 / 3 findings.
-    The always-five-rounds bug had been accidentally load-bearing. One quiet round only says
-    nothing is running *now*; the 120ms beat is what gives a delayed transition time to declare
-    itself, and a **second** quiet round is what says none did. Four consecutive runs identical
-    after that;
-  - and hitting the five-round cap now WARNS. The first cut's docblock claimed "the count is
-    reported so a deck that never settles is visible" while all three call sites discarded the
-    return value — the same silence it was written to prevent;
+    any deck holding an animation — and NOT latent, as an earlier draft of this note claimed:
+    three `anima-scene` slides hold a finished animation, so those slides really were paying
+    all five rounds;
+  - fixing that to break on the first quiet round **reintroduced the instability** — three runs
+    went 3 / 2 / 3 findings — so the always-five-rounds bug had been accidentally load-bearing.
+    An earlier draft of this note explained that as "a second quiet round is what says none
+    started". **Instrumenting it refutes that explanation**, and the correction is the useful
+    part: round 1 never observes a running animation at all. Round 0's pass has already
+    finished them, and the per-round running counts on every settle of `anima-scene` are
+    `[0,0]` or `[n,0]`. Removing the second round destabilises the oracle and re-adding a bare
+    120ms sleep in its place re-stabilises it, which identifies the DELAY as the active
+    ingredient, not the inspection.
+
+    So this is a **bounded settle window**, roughly floor + 120ms, not a fixed-point detector,
+    and the note now calls it that. A transition starting after the window is still sampled
+    mid-flight and nothing warns — a real limit rather than a guarantee. The corpus is
+    deterministic inside it; a deck with a longer entrance delay would need the floor raised.
+    That also qualifies this note's own headline: "stop sampling a moving target rather than
+    sleep longer" is only half true — the target is stopped where it is visible, and the rest
+    is a longer, bounded wait;
+  - and failing to reach two quiet rounds now WARNS. Two corrections here, both found by an
+    independent checker: the first cut's docblock claimed "the count is reported so a deck that
+    never settles is visible" while all three call sites discarded the return value; and the
+    warn's first condition (`rounds >= 5`) lies in the common case, because the loop can
+    exhaust its rounds with the LAST look quiet and then announce "still animating" about a
+    page that was not. The honest test is whether the window ever closed (`quiet < 2`);
 - the old sleep is **kept, after all of that**, as a floor for work this cannot see (a
   JS-driven layout, a deferred component bake). It is a margin now, not the mechanism.
 

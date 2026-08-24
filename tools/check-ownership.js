@@ -568,7 +568,7 @@ const FACE_TOKENS = ['bg', 'bg-alt', 'text-body', 'text-heading', 'border', 'acc
  *   `:where(:root) { color-scheme: light }`  a zero-specificity DEFAULT. Every base
  *                                           palette ships one; an author override wins.
  *   `:root { color-scheme: dark }`           a PIN. The `-dark` wrappers use this.
- *   `:root:root { color-scheme: light }`     a HARD pin (a11y-base: color-vision
+ *   `:root { … }` + `:root:root { … }`       a HARD pin, declared at BOTH (a11y-base: color-vision
  *                                           separation is tuned for one canvas).
  *
  * A pin narrows the palette to one face. A default does not — carbone ships a `dark`
@@ -1441,17 +1441,55 @@ const RETIRED_TOKEN_NAMES = new Set(TOKEN_CROSSWALK.map((p) => `--${p.old}`));
  * export the thing it must outrank is the deck's own `style:` directive, which the shell
  * emits LAST by construction, so no concat order can help and specificity is the only
  * lever; on the packed paths the plain half is what lands, as a DIRECT declaration on the
- * section, beating the preview frame's injected `:root{color-scheme:MODE}` by directness
- * rather than by specificity. Measured both ways — with `:root:root` alone all four a11y
- * palettes followed the dark toggle in the Playground and painted rgb(0,0,0), which is the
- * defect their fixed CVD-safe canvas exists to prevent. So this gate must not judge that
+ * section, beating the injected `:root{color-scheme:MODE}` that every
+ * `docs/src/lib/single-slide-render.ts` frame carries — the component reference pages, the
+ * Studio, the landing previews — by directness rather than by specificity. Measured on a
+ * real page: with `:root:root` alone all four a11y palettes followed that injected dark
+ * scheme and painted rgb(0,0,0) where their fixed CVD-safe canvas should be white. (NOT the
+ * Playground, which an earlier version of this comment named: its frame injects nothing and
+ * its dark mode swaps to a `-dark` theme the a11y palettes do not have.) So this gate must not judge that
  * property, and the exemption is a statement about the competitor, not about the shape.
  * engineering/decisions/2026-08-24-status-trio-single-root.md
  */
 const REPEATED_ROOT = /^(?::root){2,}$/;
-// A list can hide the shape behind a comma (`:root:root, section { … }`), so each part is
-// tested on its own rather than the whole selector string.
-const hasRepeatedRoot = (sel) => sel.split(',').some((part) => REPEATED_ROOT.test(part.trim()));
+
+/**
+ * Split a selector list on TOP-LEVEL commas only — a comma inside `:is()`, `:not()`,
+ * `:where()` or an attribute value is part of one compound, not a separator.
+ */
+function selectorParts(sel) {
+  const out = [];
+  let depth = 0, quote = null, cur = '';
+  for (const ch of sel) {
+    if (quote) { cur += ch; if (ch === quote) quote = null; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; }
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out.filter(Boolean);
+}
+
+/**
+ * A declaration is inert on the packed paths only when NO part of its selector reaches.
+ *
+ * `ANY part is a repeated :root` was the first cut and it was wrong in the worse direction —
+ * a FALSE POSITIVE that blocks a theme whose token demonstrably paints. `:root:root, section`
+ * packs to `…:not([\20 root]):root, article.lattice > section`: the first arm never matches,
+ * the second one matches every slide. The gate told the author the declaration was inert and
+ * "falls back to the engine default", which is the opposite of what the browser does.
+ *
+ * So: inert iff EVERY top-level part is a repeated `:root`. Anything else — a bare `section`,
+ * a class, an `:is()` — is a live arm, and a live arm makes the declaration reach.
+ */
+const isInertRoot = (sel) => {
+  const parts = selectorParts(sel);
+  return parts.length > 0 && parts.every((p) => REPEATED_ROOT.test(p));
+};
+/** Does any top-level part declare at plain `:root`? */
+const hasPlainRoot = (sel) => selectorParts(sel).some((p) => p === ':root');
 
 function rootDeclSites(css) {
   const out = { plain: new Set(), overSpecific: new Map() };   // token -> selector
@@ -1467,8 +1505,8 @@ function rootDeclSites(css) {
     // Drop anything up to the last `;` — a theme opens with `@import 'parent';`, which the
     // brace scan otherwise swallows into the next rule's "selector".
     const sel = m[1].replace(/^[\s\S]*;/, '').trim();
-    const plain = sel === ':root';
-    const over = hasRepeatedRoot(sel);
+    const plain = hasPlainRoot(sel);
+    const over = !plain && isInertRoot(sel);
     if (!plain && !over) continue;
     for (const d of m[2].matchAll(/(--[a-z0-9-]+)\s*:/gi)) {
       if (plain) out.plain.add(d[1]);
