@@ -5,6 +5,5 @@
   404ed. Measured on a real sidecar: 74 declared faces, 37 `loaded` and 37 `error`. Type
   was never wrong (each doomed face had a working twin — the base64 block, or KaTeX's
   `<link>` — and the browser fell back within the family group), so nothing showed. The
-  inlined copy now drops a face the document already supplies and rebases one it does not,
-  which also makes the documented "no `assets/`" fallback work for the first time: 37
-  failed requests → 0, and ~21 ms per navigation.
+  inlined copy now drops a face the document already supplies and leaves everything else
+  byte for byte: 37 failed requests → 0, and ~21 ms per navigation.

@@ -753,7 +753,7 @@ const { resolveDiagramLook, resolveDiagramHandType, paletteUsesTextureChannel } 
 // the other font plumbing further down, these were in the TDZ when `warnOnUnloadedFaces`
 // fired — the same trap `escAttrLocal` documents a few hundred lines below, and it
 // surfaced the same way: a misleading "Mermaid render failed" for a bug in our own code.
-const { fontFaceCss, fontDir, resolveInlinedSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, scanFontFaceRules, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { TEXT_FACES } = require('./lib/fonts/text-faces.js');
 // THE diagram render kernel — it walks the deck and calls this path back (#1332
 // step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
@@ -876,32 +876,35 @@ const layoutCSSLinked = flattenCssImports(cssFile, {
 // identically before and after this line. So the export was correct by accident, resting
 // on within-family fallback that nothing documented and nothing gated.
 //
-// `resolveInlinedSheetFaces` drops a doomed face whose family the document already
-// carries, and REBASES one it does not (a `--css` override's own face; the engine sheet
-// when `assets/` is missing so the base64 block is empty — the fallback the old comment
-// at `embeddedFontsStyle` claimed already worked, which it never did: those urls 404ed
-// from the output directory too).
+// `dropCoveredSheetFaces` removes exactly those doomed duplicates and touches nothing
+// else — an uncovered face keeps its relative url, still broken, exactly as before. An
+// earlier cut of this change also REBASED those onto the sheet's own directory; that is
+// withdrawn, because it could not help the case it named AND it fed
+// `html-player.js`'s `inlineFileUrls` an arbitrary local-file read that got baked into
+// the shipped `--player` HTML. The full argument is in the function's docblock.
 //
-// DROP, not rebase-everything, and that is measured. Rebasing all 37 makes them resolve
-// — and then really fetches 37 woff2 the document already carries inline: 405 ms median
-// per navigation against 229 ms for the broken status quo. Dropping is 204 ms with zero
-// failed requests. See the PR's ## Performance section.
+// DROPPING is also the fast answer, measured before it was chosen: making all 37 resolve
+// really fetches 37 woff2 the document already carries inline — 405 ms per navigation
+// against 229 ms for the broken status quo, and 204 ms for dropping them.
 const KATEX_FAMILIES = katexCssAbsPath
   // Whatever families the LINKED sheet actually declares — read from its bytes rather
   // than a hardcoded KaTeX list here, which would rot the first time KaTeX added a face.
-  ? [...new Set([...fs.readFileSync(katexCssAbsPath, 'utf8')
-      .matchAll(/@font-face\s*\{[^{}]*font-family\s*:\s*([^;}]+)/g)]
-      .map((m) => m[1].trim().replace(/^['"]|['"]$/g, '')))]
+  ? [...new Set(scanFontFaceRules(fs.readFileSync(katexCssAbsPath, 'utf8'))
+      .map((r) => r.family).filter(Boolean))]
   : [];
-const inlinedFaces = resolveInlinedSheetFaces(layoutCSSLinked, {
-  sheetDir: path.dirname(path.resolve(cssFile)),
+// THE FACES THE BASE64 BLOCK ACTUALLY EMITS, not the families the manifest lists.
+// `fontFaceCss` skips any face whose woff2 is missing from disk (`if (!fs.existsSync(fp))
+// continue`), so a `covered` list built from `TEXT_FACES` alone could claim a family the
+// block does not in fact supply — and this path would then delete the sheet's copy of it,
+// silently losing the face. Reading the emitted CSS back is authoritative and cannot
+// drift. Computed once here and handed to `embeddedFontsStyle` below rather than built
+// twice. (Caught by the HARD RULE #25 checker.)
+const embeddedFaceCss = fontFaceCss(PKG_ROOT);
+const EMBEDDED_FAMILIES = [...new Set(scanFontFaceRules(embeddedFaceCss).map((r) => r.family).filter(Boolean))];
+const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   // A family is COVERED when this document supplies it another way: the engine's own
-  // faces via the base64 block (only when the woff2 are actually on disk — `fontDir`
-  // is the same test `fontFaceCss` makes), KaTeX's via the link.
-  covered: [
-    ...(fontDir(PKG_ROOT) ? [...new Set(TEXT_FACES.map((f) => f.family))] : []),
-    ...KATEX_FAMILIES,
-  ],
+  // faces via the base64 block, KaTeX's via the `<link>`.
+  covered: [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES],
 });
 const layoutCSS = inlinedFaces.css;
 // THE CASCADE, in the order every theme declares it (#1527). The engine sheet
@@ -2217,11 +2220,15 @@ aside.lattice-notes { display: none !important; }
 // These local faces embed the real type into the printed PDF with zero network —
 // the whole point of the library carrying its own fonts. The face list is the
 // canonical manifest (lib/fonts/text-faces.js), shared with the build emitter
-// and the parity gate. Absent (assets/ isn't in the tarball) it returns '', and the
-// stylesheet's own `fonts/` URLs carry the faces instead — REBASED onto the sheet's real
-// directory by `resolveInlinedSheetFaces` above, which is what makes that fallback real.
-// This comment used to say those URLs "are used unchanged"; unchanged, they 404ed off the
-// output directory, so the documented fallback had never worked. Covers the full engine
+// and the parity gate. Absent (assets/ isn't in the tarball) it returns '' and the
+// stylesheet's own `fonts/` URLs are left in place — which this comment used to describe
+// as a working FALLBACK. It is not one, and never was: inlined, those urls resolve
+// against the OUTPUT directory and 404 there (see `dropCoveredSheetFaces`). Nor can it be
+// fixed by rebasing them onto the sheet's own directory, because `fontDir()` returns null
+// — the condition that empties this block — only when `dist/fonts/` does not exist, which
+// is exactly where such a rebase would point. A tarball with no font bytes anywhere has
+// no fonts; the honest reading is that the faces are DECLARED and unresolvable, and the
+// deck renders in fallback type. Recorded rather than papered over. Covers the full engine
 // type stack: display serif (Playfair, incl. italics), body sans (Outfit), mono
 // (JetBrains), and the `sketch` hand pair (Caveat, Shantell). See
 // assets/fonts/README.md.
@@ -2235,8 +2242,9 @@ aside.lattice-notes { display: none !important; }
 // type stack — display serif (Playfair, incl. italics), body sans (Outfit), mono
 // (JetBrains), and the `sketch` hand pair (Caveat, Shantell). See assets/fonts/README.md.
 function embeddedFontsStyle() {
-  const faces = fontFaceCss(PKG_ROOT);
-  return faces ? `<style id="lattice-embedded-fonts">${faces}</style>` : '';
+  // `embeddedFaceCss` — built once beside the `covered` list the inlined sheet is
+  // filtered against, so the two can never disagree about which faces exist.
+  return embeddedFaceCss ? `<style id="lattice-embedded-fonts">${embeddedFaceCss}</style>` : '';
 }
 const embeddedFonts = embeddedFontsStyle();
 
@@ -3788,13 +3796,22 @@ async function renderBody(browser, g, closeBrowser) {
               try {
                 // `load`, not `networkidle0` — the fourth and last navigation wait on this
                 // path to be sized rather than inherited (#1795 did the other three).
-                // This document is the easiest of the four to argue and the numbers say
-                // so: it is a string this process just built, holding pre-rendered
-                // Mermaid SVG and two stylesheets, and after the `@font-face` fix above
-                // it issues NO subresource request at all — the engine sheet's relative
-                // `fonts/` urls, the only requests it ever made, are dropped as covered
-                // before they reach here. `load` therefore fires with nothing outstanding
-                // and `networkidle0` can only add its own idle floor on top.
+                // This page issues NO subresource request AT ALL, and the reason is the
+                // one the comment above already gives: `setContent` leaves the document
+                // at `about:blank`, against which a relative url cannot resolve, so it is
+                // never even requested. Measured on a real Chromium in this exact document
+                // shape: 0 requests started, 0 failed, `document.fonts` at 36 `unloaded`
+                // + 1 `error`. `load` therefore fires with nothing outstanding and
+                // `networkidle0` can only add its own idle floor on top — 1,986 ms against
+                // 154 ms, measured through the real CLI on an image-set export.
+                //
+                // A first draft of this comment credited the `@font-face` fix above with
+                // making the page request-free. That is FALSE and it overwrote a comment
+                // that was already right: the page never fetched anything, before the fix
+                // or after. The fix changes what this document DECLARES, not what it asks
+                // for. Caught by the HARD RULE #25 checker; the wait change stands on its
+                // own measurement, which is unaffected.
+                //
                 // The 120 ms settle below is unchanged: it is a LAYOUT wait for the SVG,
                 // not a network one, and it is what the flatten pass actually depends on.
                 await g(() => scratch.setContent(scratchDoc, { waitUntil: 'load', timeout: 60000 }), 'load look scratch');
