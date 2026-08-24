@@ -405,6 +405,27 @@ Stated precisely, because getting this wrong once already cost a correction.
   the .chart-status pill fill recipe (AA-vetted)" and "reads identically to its legend key".
   Both were true before this diff and false after it — a doc-truth window this change created
   rather than found. Corrected in place to name the divergence and its measured numbers.
+- **`examples/portrait-roadmap` drifts 8 pages at worst 64.15% locally, and it is NOT a
+  defect — it is the documented page-count flip.** Recorded because the wrong conclusion was
+  drawn first and filed as an issue (#1836, since closed invalid).
+  `2026-06-12-p4-regression-gate-retire-marp.md` already carries it: the deck "renders 5 pages
+  here against the golden's 8 — auto-split is height-driven, so once font metrics differ by a
+  hair the split decisions flip and the whole deck re-paginates", in a table whose worst
+  bucket is "up to **64.1%**, and one page-count flip". The measurement here was 64.15%: the
+  same number.
+
+  The reasoning that went wrong is the transferable part. Reproducing the drift byte-identically
+  on `origin/main` was read as proof of a stale golden — but an ENVIRONMENTAL cause predicts
+  exactly the same observation, and that note says in as many words that "a percentage cannot
+  distinguish that from a real regression". The control was sound and the inference from it was
+  not. Grepping `engineering/decisions/` for the deck name would have cost seconds and was
+  skipped.
+
+  It does not bear on the six goldens re-blessed here: those move 0.32-0.70% with no page-count
+  change, are clean on `main` and drift only with the pill retune applied, and every other
+  pill-bearing deck plus the CI baseline `gallery` renders clean in the same sandbox — which is
+  itself the evidence that this environment's metrics otherwise match the runner.
+
 - **The joint trio re-solve** is untouched. 66 pairs remain below bar and cannot be cleared one
   token at a time; `2026-08-23-status-trio-export-cascade.md` §8 still carries it, and the
   removal of the duplicate makes it materially cheaper — every value now has ONE edit site per
