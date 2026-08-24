@@ -223,7 +223,8 @@ const pgData = {
 							// through to the CSS fallbacks, which are the panels' own defaults. `Number.isFinite`
 							// and not `> 0` alone — `JSON.parse('1e400')` is `Infinity`, which is a number, is
 							// positive, and is not a valid `flex-grow` token, so the parser drops the declaration
-							// and the pane sizes to its content.
+							// and the pane sizes to its content. (Same for the #1800 reservation's `flex`
+							// shorthand, which spends the same var.)
 							if (isFinite(pgA) && isFinite(pgB) && typeof pgA === 'number' && typeof pgB === 'number' && pgA > 0 && pgB > 0) {
 								r.style.setProperty('--pg-split-a', String(pgA));
 								r.style.setProperty('--pg-split-b', String(pgB));

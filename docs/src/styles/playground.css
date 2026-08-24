@@ -114,8 +114,9 @@
    the old CSS-var seed. The vars are set by the pre-paint script in playground.astro from the
    SAME saved layout the app will restore, so a returning resizer's first paint is already their
    split; the fallbacks are the panels' own defaultSize, so a newcomer's first paint is what
-   hydration is about to produce. Once React commits, the library writes a real inline
-   `flex-grow` and takes the layout back — these rules cannot fight it. */
+   hydration is about to produce. Once React commits, the library writes a real inline `flex`
+   SHORTHAND and takes the layout back — these rules cannot fight it. (#1800 added the
+   reservation below, for the window in which only ONE of the two panes has parsed.) */
 .pg-split > #pg-split-editor {
 	flex-basis: 0;
 	flex-grow: var(--pg-split-a, 45);
@@ -123,6 +124,38 @@
 .pg-split > #pg-split-preview {
 	flex-basis: 0;
 	flex-grow: var(--pg-split-b, 55);
+}
+/* RESERVE THE PANE THAT HAS NOT PARSED YET (#1800). `flex-grow` divides the row between the
+   children that ARE there, and the document is STREAMED: for as long as the parser has emitted
+   the editor and the separator but not the preview panel, the editor is the only growing child
+   and takes the whole row. On a 4-core box that window closes inside one frame; on a 2-core CI
+   runner under the spec's 6x CPU throttle it spanned ~170ms of PAINTED frames, and
+   `playground-first-paint.spec.ts` caught the editor at 1193px before it narrowed to its saved
+   337px. Reproduced deterministically by flushing the same document in two pieces with a stall
+   before `#pg-split-preview`: 1193px with no preview pane, 337px once it arrived.
+
+   The fix supplies the MISSING CHILD rather than changing the algebra. One rule, live only while
+   the pane is absent, so the layout stays DERIVED from what is present — which is what makes the
+   two properties below hold, and both were measured:
+
+   · Explore needs no special case. It hides the editor so the preview is the only growing child
+     and fills the row, exactly as before — a declared share would have painted the preview at its
+     EDIT width there and corrected at hydration, the same defect one surface over. (A first draft
+     of this fix declared both shares, broke Explore that way, and had to patch it back.)
+   · The width is EXACT at any separator width, because grow distributes the real free space
+     rather than claiming 100% of a container that also holds the seam. Measured cut-vs-whole
+     drift: 0.00px at a 1px seam and 0.00px at 8px, against 0.27px for the declared-share draft
+     at 1px — an error that scales with the seam, on a splitter whose touch target is a live
+     direction (2026-08-10-input-verb-parity.md).
+
+   `:has()` is sanctioned: HARD RULE #12 banned exactly this form in THEME css and was retired in
+   place on 2026-07-10 after an empirical retest. A browser without `:has()` support degrades to
+   the pre-fix behavior for the parse window — today's defect, not a new one. Once React commits,
+   the preview pane exists, the rule stops matching, and the library's inline `flex` shorthand
+   owns the layout regardless. */
+.pg-split:not(:has(> #pg-split-preview))::after {
+	content: '';
+	flex: var(--pg-split-b, 55) 1 0;
 }
 /* THE PANES' PIXEL MINIMUMS are NOT applied here (#1589) — the seed in playground.astro
    appends them to <head> as a media-query-scoped stylesheet, because which of them applies
