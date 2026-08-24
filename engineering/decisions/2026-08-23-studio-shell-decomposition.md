@@ -493,6 +493,113 @@ and is as capable of reinstating the edge as any `.tsx`. Each arm is mutation-te
 
 ---
 
+### 5.3 The deferred fetch stays deferred — the one-line removal was measured and buys nothing
+
+§5.2's resolution left one thing open: the split **defers** `architect-model.js` rather
+than removing it, because `StudioShell.tsx:2055` calls `useArchitectStatus()`
+unconditionally, so the provider layer is still fetched on every Studio load — just after
+hydration, as its own chunk. The obvious follow-up was "stop that one call site forcing the
+fetch, and the win becomes an elimination." **Measured, and it does not work. Nothing was
+changed.**
+
+**The measurement** (real Chromium via Playwright against `astro preview` on the
+production `dist/`, cold profile, no `lattice-db-or-key` seeded, no AI interaction;
+every `/_astro/*.js` request recorded with its offset from navigation start):
+
+| | Baseline | `StudioShell.tsx:2055` hook replaced with a floor literal |
+|---|---|---|
+| `load` event | 183ms | 127ms |
+| `architect-model.*.js` fetched? | **yes**, `@422ms` | **yes**, `@472ms` |
+| JS chunks after `load` | 36 | 46 |
+| requests to a non-local host | **0** | **0** |
+
+The chunk is still fetched with that call site gone, because **it is not the only caller.**
+`useArchitectStatus` has eight call sites outside its own definition, and one more of them
+mounts on a cold load: **`WorkspaceSheet`** (`WorkspaceSheet.tsx:269`). `StudioShell.tsx:4845`
+mounts that sheet **unconditionally** — it is a bare sibling in the Overlays block, not
+inside a `{cond && …}` (the line above it, `CrashReportSheet`, is one, which makes the
+contrast plain), and `open` controls Radix visibility, not mounting. The hook sits at the
+top level of the component body, so it runs before `open` is consulted at all.
+
+The other six are gated behind a user action, and it is worth being exact about one of them
+because it looks eager and is not: `SlideContextBody` (`SlideContext.tsx:295`) is mounted at
+`StudioShell.tsx:3473`, but that JSX is the else-branch of an `inspectorScope` ternary whose
+three render sites are each gated on `inspectorOpen` — which is `activeSettings !== null`
+(`StudioShell.tsx:410`), and `activeSettings` starts `null` and is never restored from
+persistence (`StudioShell.tsx:398`, and the file's own note at `:632-635`: the app always
+boots with the Settings column closed). So it contributes nothing to a cold load.
+
+`architect.ts`'s module-level `modelPromise` (`architect.ts:247`) dedupes every caller into
+one fetch, which is exactly why removing any single caller changes nothing observable.
+
+**This is the shape the maker-checker pass on #1782 was written to catch, arriving a second
+time.** The one-line change compiles, lints, leaves `docs/route-budget.json` untouched
+(correctly — it moves no eager bytes), keeps every gate green, and would have been written
+up as "the Studio no longer fetches the AI provider layer on load." It is simply false, and
+only a request log off the real built site says so.
+
+**And it would not have been worth doing even if it had worked.** The measurement bounds
+the prize:
+
+- `architect-model.*.js` is **16.2KB raw / 6.2KB gz** (16,211 and 6,210 bytes; decimal KB),
+  and it arrives **last** — the 66th and final JS chunk the page requests, 30 of which land
+  before the `load` event and 36 after it. Nothing waits on it.
+- `sw.js` serves `/_astro/` **cache-first** (`sw.js:246`), so the recurring per-launch cost
+  after the first visit is a cache read plus a 16.2KB parse, not a network fetch.
+- It makes **no external request** with no key. `refreshAvailability()` is
+  `detectPromptApi()` — a `LanguageModel.availability()` call, or an immediate
+  `'unavailable'` where the global is absent — and `detectWebGPU()` is `'gpu' in navigator`.
+  No adapter request, no download, no API call. (Verified: zero non-localhost requests in
+  both runs.)
+
+**The cost of removing it, by contrast, is asymmetric.** The brief for this follow-up
+observed that "the `openRouterReady` half is literally *is there a key in localStorage*,
+which needs no module" — true, and it is the wrong half. The field that gates affordances
+is `ready`, which is `pickBackend().name !== 'floor'` — and that consults, in order
+(`architect-model.js:760-784`): the model-off switch / an explicit `floor` preference, an
+injected test backend, an explicit on-device tier pick (the Studio passes
+`explicitTierWins`, `architect.ts:273`), **then** OpenRouter, and only then the auto ladder
+— WebLLM, the built-in Prompt API, the universal/Transformers rung — before falling to the
+floor. Four of those rungs make `ready` true with no OpenRouter key at all: a user running
+the built-in Prompt API is `ready`, and a localStorage key-peek reports them as not. Reproducing that
+outside its owner is the duplication HARD RULES #1/#7 exist to prevent, and it fails
+silently — `ready` decides real affordances at five sites in `StudioShell`
+(`:3031, 3036, 3058, 3135, 3513`), one of which is the `aiReady` prop `ArchitectChat` gates
+its connect nudge and input placeholder on, plus each of `Fabricate` (`:256`),
+`MotionStudio` (`:202`) and `FinishStudio` (`:107`) reading it through their own hook call.
+A wrong answer there hides features rather than erroring.
+
+**Reproducing the measurement.** There is no committed artifact — it is a Playwright run
+against `astro preview` on the production `dist/`, and re-running it is the only way to
+re-check the numbers:
+
+```js
+// docs/, after `npm run build:e2e && npx astro preview --port 4321`
+import { chromium } from '@playwright/test';
+const b = await chromium.launch(), p = await (await b.newContext()).newPage();
+const t0 = Date.now(), js = [], ext = [];
+p.on('request', (r) => {
+  const u = new globalThis.URL(r.url());
+  if (/\/_astro\/.*\.js$/.test(u.pathname)) js.push({ n: u.pathname.slice(8), at: Date.now() - t0 });
+  if (!/localhost/.test(u.host)) ext.push(u.host + u.pathname);
+});
+await p.goto('http://localhost:4321/studio/', { waitUntil: 'load' });
+const loadAt = Date.now() - t0;
+await p.waitForTimeout(10_000);                       // let every post-hydration import settle
+console.log({ loadAt, ext, architectModel: js.filter((r) => /architect-model/.test(r.n)) });
+await b.close();
+```
+
+Cold profile, no `lattice-db-or-key` seeded, no interaction. The "after" column comes from
+the same script against a build with `StudioShell.tsx:2055`'s hook replaced by a
+`FLOOR_STATUS`-shaped literal.
+
+**Closed out. No registry, no deferral-to-elimination, no change.** If someone reopens this,
+the question to answer first is not "which call site forces the fetch" but "what reports
+`ready` correctly without the ladder" — and the answer to that is the ladder.
+
+---
+
 ## 6. What genuinely shared state would an async mount boundary reorder
 
 The issue named the hard cases directly: imperative handles (`composeRef`/`editorRef`-style)

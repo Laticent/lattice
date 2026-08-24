@@ -125,7 +125,13 @@ describe('StudioShell — fuzz: no jank across random journeys', () => {
 			}),
 			{ numRuns: 15, endOnFailure: true },
 		);
-	}, 60_000);
+		// 15 runs x (a full shell render + up to 12 interactions) is 12.99s on an idle
+		// machine and 43.14s under 4-way CPU contention — a measured 3.3x. The old
+		// 60_000 left 1.39x of headroom over that, i.e. the next wolf-cry queued up in
+		// the very family #1328 filed. Raised to ~2.8x the contended measurement rather
+		// than cutting numRuns, which would buy the margin with fuzz coverage. See
+		// engineering/decisions/2026-08-23-jsdom-suite-timeout-budget.md.
+	}, 120_000);
 });
 
 // A second, content-level fuzz: arbitrary edits to the deck source must never

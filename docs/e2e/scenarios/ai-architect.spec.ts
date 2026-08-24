@@ -25,12 +25,23 @@ test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 // A live completion (plus the app's own render debounce) sets the clock here.
 test.describe.configure({ timeout: 180_000 });
 
-// A deliberately rewritable two-slide deck: slide 1 buries its lead in filler
-// and the last line is long and redundant, so the deterministic findings (and
-// Shorten) have real work to do. Small on purpose — the deck IS the prompt.
+// A deliberately rewritable two-slide deck. It has to trip a SLIDE-scoped
+// deterministic finding, because the Coach's per-finding "Fix" chip renders only
+// when `canFix = ai.ready && !!f.slide` (StudioShell.tsx) — a deck whose only
+// finding is deck-level can never show one, and that is exactly how this scenario
+// went permanently red (#1781: 95/100, one deck-level "no opening / title slide").
+//
+// The finding it hangs on is `verbose-eyebrow` on slide 1: `EYEBROW` is 10 words
+// against review-core's 8-word hard ceiling for an eyebrow (`UNIVERSAL_PROSE_BUDGETS`
+// in lib/authoring/prose-budgets.js), which is the anti-pattern big-number.docs.md
+// names outright — "the eyebrow names the metric class", not a sentence. The AI's
+// job ("Tighten the eyebrow to ~5 words") is a small, unambiguous source edit.
+// Slide 2's last line stays long and redundant so Shorten has real work to do.
+// Small on purpose — the deck IS the prompt.
 const WORDY = 'This paragraph is deliberately long and redundant and it repeats the same point over and over in far more words than the point ever needed.';
+const EYEBROW = 'Quarterly result for the partner referral program across every region';
 const DECK = [
-	'<!-- _class: big-number -->\n\n`Quarterly result`\n\n- 42%\n  - of the pipeline came from partner referrals, which was an interesting operational detail among several others we noticed this quarter.',
+	`<!-- _class: big-number -->\n\n\`${EYEBROW}\`\n\n- 42%\n  - of the pipeline came from partner referrals, which was an interesting operational detail among several others we noticed this quarter.`,
 	`<!-- _class: closing -->\n\n## The program earns its budget.\n\n\`The ask\`\n\n${WORDY}`,
 ].join('\n\n---\n\n');
 
@@ -54,12 +65,25 @@ function sessionTokens(page: import('@playwright/test').Page): Promise<number> {
 }
 
 test('Architect per-finding AI fix edits the deck source and checkpoints the undo path', async ({ page }) => {
-	// The wordy deck trips a deterministic finding; the Coach offers a per-finding
-	// "Fix" that proposes a reviewable diff (the standalone "Rewrite lead" chip was
-	// removed — per-finding fix + chat are the deck-edit AI actions now).
+	// The Coach offers a per-finding "Fix" that proposes a reviewable diff (the
+	// standalone "Rewrite lead" chip was removed — per-finding fix + chat are the
+	// deck-edit AI actions now).
 	const before = await persistedSource(page);
 	await openArchitect(page);
-	const fix = page.getByRole('button', { name: /Fix ≈/ }).first();
+
+	// PREMISE FIRST (#1781). The chip only exists if the deterministic scorer raised a
+	// slide-scoped finding, so assert that finding rather than discovering its absence
+	// as a 30s timeout on the chip — a scorer change then fails HERE, naming the rule
+	// that moved, instead of looking like a broken AI affordance.
+	const finding = page.getByRole('listitem').filter({ hasText: 'verbose-eyebrow' });
+	await expect(finding).toBeVisible({ timeout: 30_000 });
+	await expect(finding).toContainText('Slide 1');
+
+	// The chip's label carries the live cost estimate ("Fix ≈ $0.001") once the model
+	// catalog has priced the connected model, and "Fix · on your key" until it has
+	// (StudioShell's `fixCostLabel`). Scope to the card and match the verb, so a slow
+	// catalog is not a false red — the old `/Fix ≈/` was a second way for this to hang.
+	const fix = finding.getByRole('button', { name: /^Fix\b/ });
 	await expect(fix).toBeVisible({ timeout: 30_000 });
 	await fix.click();
 
@@ -82,7 +106,13 @@ test('Chat: an instructed edit arrives as a diff and Apply lands it in the sourc
 	await openChat(page);
 
 	const input = page.getByRole('textbox', { name: 'Message the Architect' });
-	await input.fill('Replace the h1/h2 heading of slide 2 with exactly "ATLAS ROADMAP". Change nothing else in the deck.');
+	// "the heading", not "the h1/h2 heading": slide 2 is a `closing`, whose only heading
+	// is an h2, and the deck has no h1 anywhere. Asked for a heading it could not find,
+	// the live model reasonably answers with a clarifying question instead of an edit
+	// ("I notice slide 2 is a closing layout … There is no h1 on that slide. Did you
+	// mean to …?") and no diff card ever arrives — observed on a real run while fixing
+	// #1781. The instruction now matches the deck it is given.
+	await input.fill('Replace the heading of slide 2 with exactly "ATLAS ROADMAP". Change nothing else in the deck.');
 	// `exact` matters: the shared header carries "Send feedback" (CHROME.feedback), and a
 	// non-exact accessible-name match resolves to both buttons — strict-mode violation (#1504).
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
