@@ -103,7 +103,15 @@
   --text-display: #FAF7F2;      /* on dark surfaces — 16.19:1 on bg-dark         */
   --text-heading: light-dark(var(--brand-canvas), var(--scheme-dark-text-heading)); /* 16.19:1 / 17.58:1 */
   --text-body:    light-dark(#6B5D4F, var(--scheme-dark-text-body));   /* 5.95:1 / 11.02:1 AA  */
-  --text-label:   light-dark(#6F604F, var(--scheme-dark-text-label));  /* 5.68:1 /  9.63:1 AA  */
+  /* ACCENT-HUED, which it had stopped being. --text-label is emphasis: design/theming.md
+   * calls it "accent-hued labels / kickers", and on palettes with chroma to spare it is
+   * separated from body by HUE rather than by a lightness step. cuoio had neither. The
+   * light arm was #6F604F against body #6b5d4f — dL 0.0109, da -0.0002, db 0.0045, so no
+   * hue distinction at all, OKLab 0.0118 from body and 0.0638 from the saddle gold it is
+   * supposed to carry; the dark arm was a pale tan at chroma 0.026 against the accent's
+   * 0.122. Both arms are the accent now (C 0.094 / 0.122), which clears AA on --bg and
+   * --bg-alt on both canvases without repair. */
+  --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label));  /* 5.47:1 / 7.05:1 AA */
   --text-secondary: light-dark(#75685C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA on bg + bg-alt both sides */
   --text-muted:   light-dark(#766854, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
   --muted-mark:   light-dark(#92856F, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
@@ -138,11 +146,22 @@
    * arms at once: moving --warn alone closes its deficiency separation from
    * --pass and --fail, and lightness is the only channel a deficiency preserves
    * (tools/composed-contrast.js, test/unit/palette/cvd-trio-floor.test.js). */
-  --pass: light-dark(#215F35, #6FCC4D);
-  --fail: light-dark(#8F0A11, #F87171);
-  /* light warn darkened #B47200 -> #885800 to clear AA (5.71:1 on --bg / 5.24:1
-     on --bg-alt / 6.10:1 as a white-text chip; the original was 3.4-3.7:1). */
-  --warn: light-dark(#885800, #F2A24A);
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1206 light /
+   * 0.1195 dark, from 0.0503 / 0.0127. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#001305, #96f576);
+  --fail: light-dark(#8a010c, #ed6868);
+  /* The light --warn was darkened from #B47200 to clear AA (the original was
+     3.4-3.7:1); the respacing below then re-solved it again, so the value here is
+     not the #885800 that fix landed. */
+  --warn: light-dark(#8a5903, #f7a64f);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -233,7 +252,7 @@
   --scheme-dark-text-muted:   #A69882;
   --scheme-dark-muted-mark:   #A69882;
   --scheme-dark-text-secondary: #AB9C85;
-  --scheme-dark-text-label:   #C4B8A8;  /* pale tan — 9.63:1 on dark-bg AAA      */
+  --scheme-dark-text-label:   #C8A040;  /* saddle gold (= --accent) — 7.05:1 AA   */
   --scheme-dark-text-display: #FAF7F2;
 }
 

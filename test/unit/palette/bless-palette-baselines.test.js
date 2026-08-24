@@ -138,12 +138,19 @@ describe('bless-palette-baselines · the table parser', () => {
     // The real proof the strict parser did not break the tool: a dry run over the
     // shipped tables reports every entry, and blessing them is a no-op.
     const out = execFileSync(process.execPath, [TOOL, '--dry-run'], { encoding: 'utf8' });
-    // 108, down from 110: deepening `mustard`'s `--accent` for AA cleared both
-    // `policy-recommendation/default-badge` rows, and `composed-contrast.js` FAILS on a
-    // stale entry — a frozen pair that now passes has to be deleted, not left to rot. This
-    // number tracks the size of that shrinking baseline and is expected to keep falling.
-    assert.match(out, /108 entries/, 'the contrast table still parses in full');
-    assert.match(out, /576 entries/, 'the CVD table still parses in full');
+    // 70, down from 108: respacing the status trio to clear the achromatopsia floor
+    // moved every status ink AWAY from its canvas, which cleared 40 composed pairs
+    // outright. `composed-contrast.js` FAILS on a stale entry — a frozen pair that now
+    // passes has to be deleted, not left to rot. This number tracks the size of that
+    // shrinking baseline and is expected to keep falling.
+    // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
+    // "768 entries" as a substring, so the contrast assertion passed while reading the
+    // wrong line — and would have kept passing whatever the contrast table said.
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*70 entries/,
+      'the contrast table still parses in full');
+    // 768, up from 576: the monochromacy arm is 192 more (theme x mode x pair), added
+    // when the trio was respaced to clear it. 32 x 2 x 3 x 4.
+    assert.match(out, /CVD_FROZEN[^\n]*\n\s*768 entries/, 'the CVD table still parses in full');
     assert.match(out, /0 ratcheted up · 0 new · 0 dropped/, 'blessing the committed tree is a no-op');
   });
 

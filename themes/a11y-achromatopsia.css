@@ -50,13 +50,23 @@
    * wins the cascade, so a dark slide gets base's own trio
    * (#4ADE80/#F97316/#F87171 — 1.01:1 for an achromat, fully collapsed) and
    * these arms are inert until #1527 flips the order. */
-  --pass: light-dark(#4d4d4d, #B7B7B7);
-  --warn: light-dark(#6E6E6E, #959595);
-  --fail: light-dark(#2e2e2e, #DEDEDE);
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1180 light /
+   * 0.1207 dark, from 0.1180 / 0.1096. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#4d4d4d, #bbbbbb);
+  --warn: light-dark(#6e6e6e, #959595);
+  --fail: light-dark(#2d2d2d, #e2e2e2);
   --chart-state-pass: #4d4d4d;
-  --chart-state-warn: #6E6E6E;
-  --chart-state-fail: #2e2e2e;
-  --diagram-critical: #2e2e2e;
+  --chart-state-warn: #6e6e6e;
+  --chart-state-fail: #2d2d2d;
+  --diagram-critical: #2d2d2d;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
    * Until now this palette declared NONE, so a11y-base's import of onyx handed

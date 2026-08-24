@@ -91,9 +91,19 @@
    * token recipe relies on shape, not inner glyphs, so brighter dark-
    * mode values are safe. Warn is bumped clear of fail in hue and
    * luminance (fixes "warn and fail look alike"). */
-  --pass: light-dark(#357849, #73DF88);
-  --fail: light-dark(#A02323, #FF8482);
-  --warn: light-dark(#C2570C, #F97316);
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1197 light /
+   * 0.1201 dark, from 0.0415 / 0.0454. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#428555, #92ffa6);
+  --fail: light-dark(#a22525, #ffaba7);
+  --warn: light-dark(#ec7d40, #fa7419);
   --pass-bg: color-mix(in srgb, var(--pass) 18%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 18%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 18%, transparent);
@@ -306,9 +316,13 @@
    * a vivid cool blue tuned to the dark canvas; mute is a mid-gray near
    * carbone's own --muted-mark (#757A82) — that value was --text-muted until #1715
    * split the tier; the text half is now #8A9098. */
-  --chart-state-pass: #73DF88;   /* electric green — dark-side of --pass */
-  --chart-state-warn: #F97316;   /* vivid amber    — dark-side of --warn */
-  --chart-state-fail: #FF8482;   /* coral red      — dark-side of --fail */
+  /* These WERE the dark arms of the trio. The respacing that put the trio over the
+   * achromatopsia floor moved those arms and deliberately left these: a five-token
+   * chart group takes the audit's 0.065 floor, a three-token status trio takes 0.11,
+   * and one value cannot serve both. Curated here, measured by chart-contrast. */
+  --chart-state-pass: #73DF88;   /* electric green */
+  --chart-state-warn: #F97316;   /* vivid amber    */
+  --chart-state-fail: #FF8482;   /* coral red      */
   --chart-state-info: #4A9EE8;       /* vivid sky-blue — ≥3:1 on #1A1A1C */
   --chart-state-mute: #8A8F96;       /* cool mid-gray  — ≥3:1 on #1A1A1C */
 }

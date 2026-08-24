@@ -612,7 +612,11 @@ Then, in order of impact:
    `light-dark()` pairs (`--text-muted` → `var(--scheme-dark-text-muted)`,
    `--muted-mark` → `var(--scheme-dark-muted-mark)`) so the dark variant
    resolves automatically. `checkMutedTierFloors` gates both floors; run
-   `node tools/contrast-audit.js` to verify.
+   `node tools/contrast-audit.js` to verify. It also gates a CEILING on the two
+   quiet TEXT tiers — `--text-muted` and `--text-secondary` must each sit at
+   least OKLab 0.030 from `--text-body`. A floor cannot say this: an ink that
+   clears 4.5:1 against the canvas clears it just as well sitting on top of the
+   body ink, which is what "quieter than body" has to rule out.
 4. **Accent** (`--accent`, `--accent-soft`, `--on-accent`). Most-seen
    color after ink. Must clear contrast against `--bg` *and* against
    `--accent-soft`.

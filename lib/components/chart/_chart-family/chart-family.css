@@ -401,11 +401,18 @@ section.chart-frame,
    * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue
    * canvas neutralizes to brown (near-complementary). Toward black the hue
    * stays true and vivid for every status, so the bar/pill reads as its
-   * colour, not mud. ~58% keeps it rich but dark enough for white text. */
-  --state-pass-fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 58%, black));
-  --state-warn-fill: light-dark(color-mix(in oklab, var(--state-warn-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-warn-hue) 58%, black));
-  --state-fail-fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 58%, black));
-  --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 58%, black));
+   * colour, not mud. The percentage is what keeps the fill dark enough for
+   * --text-heading to sit ON it (chart-contrast.test.js scores exactly that),
+   * so it is calibrated against the LIGHTEST status hue any palette carries.
+   * It was ~58%, set when the status trio sat in a narrow mid band; respacing
+   * that trio to clear the achromatopsia floor (#1776 follow-up) lifted the
+   * lightest hues past what 58% could carry — burgundy's --pass fill fell to
+   * 4.47:1 — so it is 50%, which clears every shipped hue with margin and
+   * takes every OTHER state fill further from the bar, never closer. */
+  --state-pass-fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 50%, black));
+  --state-warn-fill: light-dark(color-mix(in oklab, var(--state-warn-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-warn-hue) 50%, black));
+  --state-fail-fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 50%, black));
+  --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 50%, black));
   --state-mute-fill: light-dark(color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-mute-hue) 46%, black));
 
   --state-pass-ink: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 78%, white));

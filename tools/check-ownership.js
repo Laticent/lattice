@@ -8682,19 +8682,51 @@ function checkMutedTierFloors(errors, themesDir = THEMES_DIR) {
       const bgAlt = catResolve(map, '--bg-alt', mode);
       if (!bg || !bgAlt) continue;
 
-      // THE CEILING. Muted TEXT must stay perceptibly quieter than body text, or the tier
-      // is a name with no behavior. Checked before the floors so a collapse is reported
-      // even on a palette whose values otherwise pass.
-      const mutedForSep = catResolve(map, '--text-muted', mode);
+      // THE CEILING. A quiet tier must stay perceptibly quieter than the body text it
+      // exists to be quieter than, or it is a name with no behavior. Checked before the
+      // floors so a collapse is reported even on a palette whose values otherwise pass.
+      //
+      // BOTH quiet tiers, not just muted. `--text-secondary` carries the same contract
+      // ("secondary content, AA on both canvases"), is repaired against the same two
+      // surfaces a few lines apart in lib/theme/derive.js, and its committed worst is
+      // 0.0384 — 0.0004 from muted's 0.0380, i.e. the same value to within noise. It was
+      // measured nowhere: #1776 gave the STUDIO meter the row and left the build-time
+      // gate over themes/ measuring muted alone, which is a population a fabricated
+      // theme never joins and a gate an author never sees, in opposite directions.
       const bodyForSep = catResolve(map, '--text-body', mode);
-      if (mutedForSep && bodyForSep) {
-        const sep = oklabDistance(mutedForSep, bodyForSep);
+      for (const quiet of ['--text-muted', '--text-secondary']) {
+        const quietForSep = catResolve(map, quiet, mode);
+        if (!quietForSep || !bodyForSep) continue;
+        const sep = oklabDistance(quietForSep, bodyForSep);
         if (!(sep >= MUTED_SEPARATION_FLOOR)) {
           errors.push(
-            `${name}/${mode}: --text-muted ${mutedForSep} sits OKLab ${sep.toFixed(4)} from `
+            `${name}/${mode}: ${quiet} ${quietForSep} sits OKLab ${sep.toFixed(4)} from `
             + `--text-body ${bodyForSep}, under the ${MUTED_SEPARATION_FLOOR} separation floor. `
-            + 'A muted tier defined only by its distance from the canvas collapses into the body '
+            + 'A quiet tier defined only by its distance from the canvas collapses into the body '
             + 'ink it exists to be quieter than — the floor cannot express this on its own (#1715).');
+        }
+      }
+
+      // THE SAME PREDICATE, THE OPPOSITE ROLE. `--text-label` is EMPHASIS, not a quiet
+      // tier — "accent-hued labels / kickers" (design/theming.md) — and on palettes with
+      // chroma to spare it is separated from body by HUE rather than by a lightness step,
+      // which is why it is measured here and not in the loop above. It still has to be
+      // TELLABLE FROM BODY, and on cuoio it had stopped being: light label #6F604F against
+      // body #6b5d4f decomposed to dL 0.0109, da -0.0002, db 0.0045 — no hue distinction at
+      // all, OKLab 0.0118 from body and 0.0638 from the accent it is meant to carry. AA held
+      // the whole time (contentPairs() and structural-text-contrast.test.js both pass it),
+      // because a floor against the CANVAS cannot see two inks converging on each other.
+      // Committed worst after that palette was re-tuned: 0.0355 (brina/dark).
+      const labelForSep = catResolve(map, '--text-label', mode);
+      if (labelForSep && bodyForSep) {
+        const sep = oklabDistance(labelForSep, bodyForSep);
+        if (!(sep >= MUTED_SEPARATION_FLOOR)) {
+          errors.push(
+            `${name}/${mode}: --text-label ${labelForSep} sits OKLab ${sep.toFixed(4)} from `
+            + `--text-body ${bodyForSep}, under the ${MUTED_SEPARATION_FLOOR} separation floor. `
+            + 'A label tier is accent-hued EMPHASIS; one that has drifted onto the body ink is '
+            + 'a kicker nobody can see is a kicker, and its AA reading against the canvas says '
+            + 'nothing about that.');
         }
       }
 

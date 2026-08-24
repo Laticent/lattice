@@ -601,6 +601,43 @@ to say they need a Google-Fonts CDN the sandbox blocks; `journeys/author-export`
 and `journeys/chart-export` were driven green repeatedly against the real Share
 sheet during #1552, download artifact and all. Don't skip them on the old advice.
 
+**A DEPLOYED page IS reachable from here — through a loopback reverse proxy.** The
+sandbox gives *Node* an agent proxy (`HTTPS_PROXY`) and Chromium does not inherit it,
+so `page.goto('https://…')` on any external host fails while `fetch()` in the same
+repo succeeds. The failure mode varies by session — measured as `ERR_CONNECTION_RESET`
+here, and as an `SSL_CONNECT net_error -101` on the tunnelled handshake (with no
+certificate error anywhere in the net log, while `openssl` through the identical proxy
+completed TLS 1.3 with `Verification: OK`) during #1776. The conclusion is the same
+either way, and it is NOT "the deployed preview cannot be checked": put Node in the
+middle. It fetches, Chromium only ever speaks to `127.0.0.1`, and what renders is the
+real deployed bytes rather than a local rebuild of them — which is the whole point,
+since a local build is exactly the thing a deployed-preview check is not allowed to
+substitute (HARD RULE #23).
+
+```js
+// Run from docs/ (playwright lives there). Verified against a real deployed page.
+import http from 'node:http';
+import { chromium } from 'playwright';
+const origin = new URL(process.argv[2]).origin;
+const server = http.createServer(async (req, res) => {
+  const up = await fetch(new URL(req.url, origin), { redirect: 'follow' });
+  res.writeHead(up.status, { 'content-type': up.headers.get('content-type') || 'application/octet-stream' });
+  res.end(Buffer.from(await up.arrayBuffer()));
+});
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const page = await browser.newPage();
+await page.goto(`http://127.0.0.1:${server.address().port}/`);
+```
+
+Same-origin subresources ride along (the handler rewrites nothing — it forwards the
+path). CROSS-origin ones do not, so a page that pulls a font or script from another
+host renders without it; widen the handler to proxy those origins too before reading
+anything into a missing asset. PR #1776's body claims the deployed Cloudflare preview
+was UNVERIFIED because "Chromium cannot reach any external host through the agent
+proxy" — that is false and this is what it should have said; the correction is on that
+PR as comment 5387941880.
+
 **WebKit is not in the base image — check before you conclude a spec is broken.** Only
 Chromium is baked in (`/opt/pw-browsers/chromium-1194`). The `@webkit-phone` /
 `@webkit-tablet` projects (`back-gesture`, the tablet-divergence specs) need WebKit

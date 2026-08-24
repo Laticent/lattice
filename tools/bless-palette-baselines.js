@@ -52,7 +52,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { simulate } = require('../lib/theme/cvd.js');
+const { simulate, SIMULATED_TYPES } = require('../lib/theme/cvd.js');
 const { oklabDistance } = require('../lib/theme/color.js');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
 const composed = require('./composed-contrast.js');
@@ -62,7 +62,13 @@ const CONTRAST_FILE = path.join(ROOT, 'tools', 'composed-contrast.js');
 const CVD_FILE = path.join(ROOT, 'test', 'unit', 'palette', 'cvd-trio-floor.test.js');
 
 const TRIO = ['pass', 'warn', 'fail'];
-const TYPES = ['protanopia', 'deuteranopia', 'tritanopia'];
+/**
+ * All FOUR conditions, taken from `lib/theme/cvd.js` rather than re-listed here, so
+ * the blessed table cannot drift from what the gate measures. It was the three
+ * Machado matrices; the monochromacy arm joined the frozen table when the status
+ * trio was respaced to clear it (see the CVD_FROZEN docblock).
+ */
+const TYPES = SIMULATED_TYPES;
 
 /**
  * The rule, as a function, so it is testable rather than merely asserted in

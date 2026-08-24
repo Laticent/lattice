@@ -84,11 +84,21 @@
    * the backdrop moves with the value), which is a stricter surface than the
    * canvas and is what set #E784B9 — solved jointly with --warn, because clearing
      that band alone rotated --fail into --warn under tritanopia (#1704). */
-  --fail: light-dark(#7E2F38, #E784B9);
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1188 light /
+   * 0.1198 dark, from 0.0248 / 0.0607. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --fail: light-dark(#500013, #ffabd6);
   /* Self-curated semantic trio — warm green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --pass: light-dark(#2D6A3F, #6FCC4D);
-  --warn: light-dark(#925800, #FFC782);
+  --pass: light-dark(#0a4d24, #afff94);
+  --warn: light-dark(#905600, #c7914d);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

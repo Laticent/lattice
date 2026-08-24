@@ -20,6 +20,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 
 const { CVD_TYPES, SIMULATED_TYPES, ACHROMATOPSIA } = require('../../../lib/theme/cvd.js');
 
@@ -99,26 +101,35 @@ describe('cvd-audit achromatopsia arm', () => {
    * check written to catch exactly that.
    */
   test('BITES: the status trio keeps a higher floor than the crowded groups', () => {
+    // Structure first, over the shipped tree: the report SAYS which floor it used on the
+    // row it used it on, rather than applying it silently, and a crowded group carries no
+    // marker because it takes the condition default.
     const { out } = run('ardesia');
-    const trio = groupRow(out, 'achromatopsia', 'semantic signals');
-    assert.equal(trio.flag, '✗',
-      "ardesia's pass/fail render 1.36:1 apart as grays — the trio must not read clean");
-    assert.ok(trio.collapsed >= 2, `expected at least 2 collapsed, got ${trio.collapsed}`);
-    // …and the report SAYS which floor it used, rather than applying it silently.
     assert.match(out, /semantic signals.*\[floor 0\.11\]/);
     assert.match(out, /achromatopsia\s+\(collapse < 0\.065; semantic signals < 0\.11\)/);
-    // The crowded groups keep the reduced floor — the split is real, not a blanket revert.
-    assert.equal(groupRow(out, 'achromatopsia', 'categorical marks').flag, '✗');
     assert.doesNotMatch(
       out.split('categorical marks')[1].split('\n')[0], /\[floor/,
       'a crowded group takes the condition default and should carry no floor marker');
+
+    // …and then the NUMBER, on a synthetic witness. This assertion used to ride on
+    // ardesia's own trio, which sat at 1.36:1 as grays; respacing the trio to clear 0.11
+    // on all 32 palettes removed every committed pair in the [0.065, 0.11) band, so the
+    // shipped tree can no longer tell the two floors apart — it reads clean under either.
+    // The witness restores the discrimination: three hues a sighted reader separates
+    // easily (dn 0.166-0.237) whose WEIGHTS sit 0.0795 apart. Flagged at the trio's 0.11,
+    // invisible at the crowded groups' 0.065.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cvd-trio-floor-'));
+    fs.writeFileSync(path.join(dir, 'synth.css'),
+      ':root {\n  --bg: #ffffff; --bg-alt: #f4f4f4;\n'
+      + '  --pass: #005a20; --warn: #885a00; --fail: #77000f;\n}\n');
+    const w = run('--themes-dir', dir, 'synth', '--type', 'achromatopsia');
+    const trio = groupRow(w.out, 'achromatopsia', 'semantic signals');
+    assert.equal(trio.flag, '✗', `the witness must not read clean:\n${w.out}`);
+    assert.equal(trio.collapsed, 2);
+    assert.ok(trio.worst > 0.065 && trio.worst < 0.11,
+      `the witness must sit BETWEEN the two floors, got ${trio.worst}`);
   });
 
-  /**
-   * The trio floor is ratcheted from what `a11y-achromatopsia` actually achieves (0.1180),
-   * so that palette must sit just above it. If this fails, either the palette regressed or
-   * someone raised the floor past what the purpose-built palette can reach.
-   */
   test('the trio floor sits just under what a11y-achromatopsia achieves', () => {
     const { out, code } = run('a11y-achromatopsia', '--strict', '--type', 'achromatopsia');
     assert.equal(code, 0, out);
@@ -161,23 +172,27 @@ describe('cvd-audit achromatopsia arm', () => {
    * (dn 0.1138, under the 0.15 normal-vision half). The flagged pair is `pass^fail` at
    * 0.0038. The report prints `worst <n>` beside the count for exactly this reason.
    */
-  test('FINDS: concrete pass/fail nearly collapse, and the dichromacies read it clean', () => {
-    const { out } = run('concrete');
-    const ach = groupRow(out, 'achromatopsia', 'semantic signals');
-    assert.equal(ach.flag, '✗');
-    assert.equal(ach.collapsed, 1);
-    // The FLAGGED pair's own reading, not the group minimum.
-    assert.ok(ach.worst !== null && ach.worst > 0 && ach.worst < 0.005,
-      `expected the flagged pair around 0.004, got ${ach.worst}`);
-    assert.equal(groupRow(out, 'tritanopia', 'semantic signals').flag, '✓',
-      'the point is that a dichromacy arm reads this palette clean');
+  /**
+   * The trio is CLEAN now, on every palette, and that is the thing most likely to decay
+   * silently — a palette re-tune driven by some other constraint puts it back. The
+   * primary guard is `cvd-trio-floor.test.js`, which freezes all 192 monochromacy
+   * distances; this one asserts the same fact through the REPORT a human reads, because
+   * the two can drift apart (the tool applies a floor, the table freezes a distance).
+   *
+   * `concrete` is the case worth naming: its `--pass` and `--warn` used to render the
+   * IDENTICAL gray #464646, and the audit stayed silent because the normal-vision half
+   * (correctly) keeps 0.15 and their dn was 0.1138. It was reachable only by reading the
+   * palette by hand. It is separated now.
+   */
+  test('FINDS: the shipped status trio reads clean under the monochromacy', () => {
+    for (const theme of ['concrete', 'ardesia', 'cuoio', 'a11y-achromatopsia']) {
+      const { out } = run(theme, '--type', 'achromatopsia');
+      const row = groupRow(out, 'achromatopsia', 'semantic signals');
+      assert.equal(row.flag, '✓', `${theme}: the status trio must stay separated\n${out}`);
+      assert.equal(row.collapsed, 0, `${theme}: expected no induced trio collapse`);
+    }
   });
 
-  /**
-   * A pair that IS byte-identical under the condition, and IS flagged — so the report
-   * can say `worst 0.000` truthfully somewhere. ardesia-dark's categorical fills carry
-   * 38 induced collapses, several at exactly ΔE 0.
-   */
   test('FINDS: ardesia-dark fills that a monochromat sees as one identical gray', () => {
     const row = groupRow(run('ardesia-dark').out, 'achromatopsia', 'categorical fills');
     assert.equal(row.flag, '✗');
