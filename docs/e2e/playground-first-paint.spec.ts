@@ -214,6 +214,52 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 	assertOneGeometry(log, TRACKED);
 });
 
+// THE SAME DEFECT, HELD STILL (#1800). The case above samples frames and hopes the window is
+// wide enough to land in one; on a 4-core box it never is, and on the 2-core CI runner it was —
+// once, as `editorPane was laid out 2 different ways … [1193 … ] [337 … ]`, which is the pane at
+// FULL WIDTH before it narrowed to its saved split. It is a real defect a person can see, not a
+// sampling artifact: the job artifact's first content-bearing screencast frame shows it. The cause is not the seed and not the
+// sampler: the document is STREAMED, and for as long as the parser has emitted the editor pane
+// and the 1px separator but not `#pg-split-preview`, a `flex-grow` editor is the only child of
+// the row and takes all of it.
+//
+// So stop sampling for it. Serve the same document CUT just before the preview panel — the DOM
+// state the parser really passes through, held still — and ask the only question that matters:
+// is the editor's width the same with the preview pane absent as with it present? A share of the
+// CONTAINER is; a share of the CHILDREN PRESENT is not. Deterministic, ~5s, and measured failing
+// against the pre-fix stylesheet at exactly the width CI reported (1193 against a settled 337).
+//
+// @smoke to sit in the same tier as the case it complements — which is ADVISORY, not merge-
+// blocking (`ci.yml`'s `ci` gate needs lint/unit/integration/docs-build and deliberately not
+// `studio-smoke`, pending the nightly green streak in #800). #1800 called it blocking and this
+// comment repeated that; the required gate went green on the very run the flake was seen. What
+// the tag buys is a certain signal where there was a probabilistic one, ~4s of an ~80s tier.
+// The sampling case above stays: it covers every OTHER element, and Explore.
+test('@smoke the editor pane holds its width before the preview pane has parsed', async ({ page }) => {
+	await seedRealSession(page);
+	const settled = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
+
+	await page.route('**/playground/**', async (route) => {
+		// Only the document — every asset the cut page still needs must load normally.
+		if (route.request().resourceType() !== 'document') return route.fallback();
+		const html = await (await route.fetch()).text();
+		const at = html.indexOf('id="pg-split-preview"');
+		expect(at, 'the preview panel is not in the served document — this test would prove nothing').toBeGreaterThan(0);
+		await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html.slice(0, html.lastIndexOf('<div', at)) });
+	});
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+
+	expect(await page.locator('#pg-split-preview').count(), 'the cut did not remove the preview panel').toBe(0);
+	// WITHIN A PIXEL, not equal. The cut page has no separator to overflow the row, so its width
+	// is larger than `settled` by exactly this pane's share of that 1px (measured 337.125 against
+	// 336.859). `toBe` on the rounded values happens to hold today and would start failing the
+	// moment a rounding boundary falls between them — reintroducing, in the guard, the flake class
+	// this case exists to remove. The defect is 856px wide; ±1 catches it with room to spare, and
+	// it is the tolerance the sampler beside it already uses (`sameRect`, ±2).
+	const width = (await page.locator('#pg-split-editor').boundingBox())!.width;
+	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
+});
+
 // A saved split is a pair of PERCENTAGES; the panes' minimums are PIXELS. A share that clears
 // its minimum at the window it was saved in can fall below it at a narrower one — the library
 // clamps at hydration, and the pre-paint seed used to spend the raw share, so the two disagreed

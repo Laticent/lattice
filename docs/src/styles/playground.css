@@ -114,15 +114,30 @@
    the old CSS-var seed. The vars are set by the pre-paint script in playground.astro from the
    SAME saved layout the app will restore, so a returning resizer's first paint is already their
    split; the fallbacks are the panels' own defaultSize, so a newcomer's first paint is what
-   hydration is about to produce. Once React commits, the library writes a real inline
-   `flex-grow` and takes the layout back — these rules cannot fight it. */
+   hydration is about to produce. Once React commits, the library writes a real inline `flex`
+   SHORTHAND and takes the layout back — these rules cannot fight it. (How the share is spent
+   changed in #1800; see the block below. It is no longer a `flex-grow`.) */
+/* A SHARE, NOT A GROW — because the second pane may not exist yet (#1800). `flex-grow` divides
+   the row between the children that ARE there, and the document is STREAMED: for as long as the
+   parser has emitted the editor and the 1px separator but not the preview panel, a growing editor
+   is the only child and takes the whole row. On a 4-core box that window closes inside one frame;
+   on a 2-core CI runner under the spec's 6x CPU throttle it spanned ~170ms of PAINTED frames, and
+   `playground-first-paint.spec.ts` caught the editor at 1193px before it narrowed to its saved
+   337px. Reproduced deterministically by flushing the same document in two pieces with a stall
+   before `#pg-split-preview`: 1193px at t=55 with no preview pane, 337px at t=556 with one.
+   A percentage BASIS with no grow is the same width either way, because it is a share of the
+   CONTAINER rather than of the children present. The two shares are normalized against their own
+   sum, which is what the saved pair is (`pgTotal = pgA + pgB` in the seed) — not percentages of
+   100. The separator's 1px overflows the row by a pixel and default `flex-shrink` absorbs it,
+   landing inside the spec's own +/-2 tolerance. Once React commits, the library writes real inline
+   `flex-basis` AND `flex-grow` and takes the layout back — these rules cannot fight it. */
 .pg-split > #pg-split-editor {
-	flex-basis: 0;
-	flex-grow: var(--pg-split-a, 45);
+	flex-grow: 0;
+	flex-basis: calc(var(--pg-split-a, 45) / (var(--pg-split-a, 45) + var(--pg-split-b, 55)) * 100%);
 }
 .pg-split > #pg-split-preview {
-	flex-basis: 0;
-	flex-grow: var(--pg-split-b, 55);
+	flex-grow: 0;
+	flex-basis: calc(var(--pg-split-b, 55) / (var(--pg-split-a, 45) + var(--pg-split-b, 55)) * 100%);
 }
 /* THE PANES' PIXEL MINIMUMS are NOT applied here (#1589) — the seed in playground.astro
    appends them to <head> as a media-query-scoped stylesheet, because which of them applies
@@ -659,6 +674,15 @@
 	}
 	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-pane.preview .pg-rail {
 		display: none !important;
+	}
+	/* …and give the preview the WHOLE row, explicitly. It used to inherit that for free from
+	   `flex-grow`: with the editor hidden it was the only growing child, so it filled what was
+	   left. The share basis that fixed #1800 does not work that way — a share is a share
+	   whether or not the other pane is there — so without this Explore's first paint is the
+	   preview at its EDIT width (857px of 1194), correcting to full-bleed at hydration: the
+	   same assembles-in-view defect, moved one surface over. */
+	:is(:root[data-pg-view='read'], body[data-view='read']) .pg-split > #pg-split-preview {
+		flex-basis: 100%;
 	}
 }
 /* Fit a whole slide to the pane (Explore) — the "first slide fully visible"

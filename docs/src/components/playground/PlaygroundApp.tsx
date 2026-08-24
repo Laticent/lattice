@@ -168,8 +168,10 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
 	const root = document.documentElement;
 	root.removeAttribute('data-pg-view');
 	root.removeAttribute('data-pg-pane');
-	// The split seed's PIXEL CLAMP goes with them (#1589). The grow vars can stay — the
-	// library's inline `flex-grow` outranks a stylesheet — but the `min-width` the clamp
+	// The split seed's PIXEL CLAMP goes with them (#1589). The share vars can stay — the library
+	// writes the `flex` SHORTHAND inline, which outranks any stylesheet (it was `flex-grow` that
+	// the vars drove until #1800; they drive a `flex-basis` share now, and the shorthand covers
+	// both) — but the `min-width` the clamp
 	// rules apply has no inline counterpart to lose to, so left up it would pin a pane the
 	// visitor collapses at its 320px minimum instead of letting it reach the 28px rail.
 	root.removeAttribute('data-pg-split-seed');
