@@ -77,6 +77,29 @@ const ROOT = path.join(__dirname, '..');
 
 function die(msg) { console.error(`export-marp: ${msg}`); process.exit(1); }
 
+/**
+ * The deck read — this path's ONLY ingest of author markdown, and therefore a LINE-ENDING
+ * BOUNDARY: LF endings, no leading BOM, made canonical here so no reader downstream has to
+ * remember (`engineering/decisions/2026-08-04-line-endings-lf-boundaries.md`).
+ *
+ * It was missing, and that is #1388. `readTheme` below anchors on `^---`, which a BOM
+ * defeats outright, so a deck saved by Notepad or PowerShell `>` exported to a Marp bundle
+ * carrying the DEFAULT palette's theme files while its own front matter declared another —
+ * #1349 recurring one file over, at the ninth ingest. Measured on a `theme: cuoio` deck:
+ * before, the bundle shipped `themes/indaco*.css`; after, `themes/cuoio*.css`, and the
+ * bundle is otherwise identical to the same deck's LF twin.
+ *
+ * `\r\n?` covers Windows CRLF and classic-Mac lone CR at identical cost; a reader-style
+ * `\r?\n` structurally cannot match a lone CR. It is a no-op on an already-LF deck.
+ *
+ * Named rather than inlined so `test/unit/core/line-endings.test.js` can drive the real
+ * boundary instead of a copy of it. Listed in SANCTIONED_EOL_BOUNDARIES
+ * (tools/check-ownership.js) — the gate is what makes that list a fact rather than a claim.
+ */
+function readDeckSource(deckPath) {
+  return fs.readFileSync(deckPath, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+}
+
 /** Read the deck's `theme:` front-matter palette, or null. */
 function readTheme(src) {
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
@@ -266,7 +289,7 @@ function main(argv) {
     }
   }
 
-  const src = fs.readFileSync(deckPath, 'utf8');
+  const src = readDeckSource(deckPath);
   const palette = (paletteArg || readTheme(src) || 'indaco').toLowerCase();
   const name = path.basename(deckPath).replace(/\.md$/i, '');
   // Every PATH in the bundle — the directory, the deck file, and the commands the
@@ -397,4 +420,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { localizeAssets, localizeFrontMatter, readTheme };
+module.exports = { localizeAssets, localizeFrontMatter, readTheme, readDeckSource };

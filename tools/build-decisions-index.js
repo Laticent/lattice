@@ -170,7 +170,7 @@ const BLOCK_SCALAR = /^([|>])([1-9]?)([+-]?)$/;
  * field's contract, and `collect()` rejects a header with no block after it.
  */
 function frontMatter(raw) {
-  const text = raw.replace(/\r\n/g, '\n'); // tolerate CRLF-saved notes
+  const text = raw.replace(/\r\n?/g, '\n'); // tolerate CRLF-saved notes
   if (!text.startsWith('---\n')) return null;
   const end = text.indexOf('\n---', 4);
   if (end === -1) return null;
@@ -418,7 +418,7 @@ function parseIndex(readme) {
   if (readme.indexOf(BEGIN, b + BEGIN.length) !== -1 || readme.indexOf(END, e + END.length) !== -1) {
     return { headings: [], rows: [], stray: ['a second decisions-index marker pair is present — only the first is ever regenerated'], footer: null, footers: 0, blankRuns: true };
   }
-  const body = readme.slice(b + BEGIN.length, e).replace(/\r\n/g, '\n').split('\n');
+  const body = readme.slice(b + BEGIN.length, e).replace(/\r\n?/g, '\n').split('\n');
   const headings = [];
   const rows = []; // { group, file, line }
   const stray = [];

@@ -141,3 +141,40 @@ test('lone CR is covered, which a reader-side `\\r?\\n` cannot be', () => {
 	assert.equal(eng.render(AS.CR, 'lattice').html, eng.render(AS.LF, 'lattice').html);
 	assert.equal(resolvePalette({ md: AS.CR }).name, 'cuoio');
 });
+
+test('export-marp reads its deck through the boundary — #1388, the ninth ingest', () => {
+	// THE RECURRENCE THIS FILE EXISTS TO PREVENT, and it happened anyway. #1357 normalized
+	// eight ingests; `tools/export-marp.js` was the ninth and was never touched, so a BOM'd
+	// deck exported to a Marp bundle carrying the DEFAULT palette's theme files while its own
+	// front matter declared another (#1388) — #1349, one file over.
+	//
+	// It escaped because the gate that would have caught it did not exist: `checkLineEndingBoundaries`
+	// was cited as shipped in nine places and was never written (#1524,
+	// `engineering/decisions/2026-08-24-what-shipped-was-a-claim.md`). Both halves are now real —
+	// the gate lists this file, and this test drives the boundary function itself.
+	const { readTheme, readDeckSource } = require('../../../tools/export-marp.js');
+	const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'lattice-eol-marp-'));
+	try {
+		const LF = ['---', 'theme: cuoio', '---', '', '# Probe', ''].join('\n');
+		for (const [name, raw] of Object.entries({
+			LF,
+			CRLF: LF.replace(/\n/g, '\r\n'),
+			CR: LF.replace(/\n/g, '\r'),
+			BOM_CRLF: `﻿${LF.replace(/\n/g, '\r\n')}`,
+		})) {
+			const p = path.join(dir, `${name}.md`);
+			fs.writeFileSync(p, raw);
+			// The BOUNDARY is what makes the reader work. Reverting the normalization in
+			// readDeckSource turns the CR and BOM_CRLF rows red — two of the three non-LF rows;
+			// CRLF survives on its own because `readTheme`'s pattern already carries `\r?\n`.
+			// That mutation is what proves this test is not asserting `readTheme(x) === readTheme(x)`.
+			assert.equal(readTheme(readDeckSource(p)), 'cuoio', `${name} must export in its declared palette`);
+		}
+		// And the reason the boundary is load-bearing rather than belt-and-braces: readTheme
+		// alone CANNOT rescue either input, because `^---` is what a BOM and a lone CR defeat.
+		assert.equal(readTheme(`﻿${LF}`), null, 'a BOM defeats the ^--- anchor — this is the bug, not a hypothetical');
+		assert.equal(readTheme(LF.replace(/\n/g, '\r')), null, 'a lone CR defeats it too, and `\\r?\\n` cannot help');
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});

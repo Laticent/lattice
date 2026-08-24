@@ -52,6 +52,17 @@ must all remember X" is a `SANCTIONED_*` allowlist in `tools/check-ownership.js`
 
 ## What shipped
 
+> **CORRECTION — 2026-08-24, #1524.** This section was WRONG for twenty days, in the way that
+> mattered most: the gate it describes was never written. `tools/check-ownership.js` contained
+> neither identifier, so `build:check` enforced nothing and every reader below trusted the
+> citation instead of grepping the name — including #1388, which reasoned that `export-marp`
+> escaped because it was "missing from the list" when the truth was that the list was fiction.
+> The gate exists as of #1524; the table below is now its seeded contents rather than a plan.
+> See `2026-08-24-what-shipped-was-a-claim.md`. **Four boundaries have been added since**, and
+> the gate is what found them — `tools/export-marp.js` (#1388's instance, which had no
+> normalization at all) and `lib/core/boundary-parser.mjs` (a tenth boundary that no prose
+> list here ever named). The authoritative list is now the code, not this table.
+
 `checkLineEndingBoundaries` + `SANCTIONED_EOL_BOUNDARIES` (`tools/check-ownership.js`, via
 `build:check`). It fails on:
 
@@ -71,6 +82,10 @@ The boundaries themselves:
 | `docs/src/lib/normalize-source-text.ts` | the shared `docs/src` helper; the Studio's three ingests call it |
 | `architect-edits.js` — `parseEdits` | a model reply is external input and models emit CRLF |
 | `lib/layout/ai.js` — `coerceComponent` | a generated component skeleton is markdown spliced into deck source |
+| `tools/export-marp.js` — the deck read *(added #1524)* | the export-to-Marp ingest; it never normalized, which is #1388 |
+| `tools/export-chart-svg.js` — the deck read *(added #1524)* | the chart-SVG CLI; no normalization at all, and a `/^---\n/` theme reader, so a Notepad-saved deck exported in the default palette |
+| `lib/core/boundary-parser.mjs` — `normalizeSource` *(added #1524)* | the boundary path's door; spells the engine's line out by hand, because the dependency runs `lib/engine` → `lib/core` |
+| `lib/exemplars/tier-filter.js` — `splitDeck` *(added #1524)* | its `^---` test decides whether a deck HAS front matter; it was folding `\r\n` (no lone-CR coverage) with no BOM strip |
 
 Deliberate **non**-boundaries: `saveSource` (an editor write, not an ingest — byte-faithful by
 contract), `reference-doc.ts` (model grounding context, never spliced into source, never exported),
@@ -114,6 +129,11 @@ a deck. The defect predates the policy; the policy is what made it fire, so HARD
 ## If you are adding a markdown ingest
 
 Normalize at the ingest, add the file to `SANCTIONED_EOL_BOUNDARIES` with a justification, and add
-a case to the matching guard that you have **watched fail**. If the ingest is in `docs/src` and can
+a case to the matching guard that you have **watched fail**. The gate will make you, within its reach: an
+unlisted fold fails the build, so does a listed boundary that carries a fold without the matching
+BOM strip, so does a fold spelled `\r?\n` or `\r\n`, and so does a `utf8` read that anchors front
+matter on `/^---\n/` without normalizing first. What it CANNOT see is an ingest that parses front
+matter some other way — so the list is still a discipline, with a machine covering the shapes that
+have actually bitten. See `2026-08-24-what-shipped-was-a-claim.md` §What this gate still cannot see. If the ingest is in `docs/src` and can
 import TypeScript, call `normalizeSourceText`; if it cannot, carry the pattern inline and say why
 in the sanction entry.
