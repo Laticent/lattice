@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Re-blessing 359 committed PDFs hurts, and the cause is NOT the artifact format —
   it is that the one tool capable of catching a stale golden runs on no cadence.
@@ -319,10 +319,37 @@ spot 1**. That content is invisible to both the gate and the proposed medium.
 **Decouple the addition from the subtraction.** Medium, granularity and storage are
 independent choices; the first draft coupled them.
 
-1. **Wire `regress` to a cadence.** Nightly, ~3% tolerance, rolling issue — the shape
+1. ~~**Wire `regress` to a cadence.**~~ **SHIPPED.** Nightly, rolling issue — the shape
    `2026-08-04-committed-pdf-freshness.md:153` already specified and `perf-nightly.yml`
    already models. **This is the whole fix for §2**, it fixes #1730's leak, and it
    needs no new artifact class. If exactly one thing ships from this note, it is this.
+   It runs report-only in `integration-nightly.yml`, over BOTH scopes rather than the
+   `--scope decks` the 2026-08-04 note recommended: the drift THIS note documents is in
+   galleries, so decks-only would have missed the very defect that motivated the wiring.
+   **The "~3% tolerance" in the line above was wrong and was not applied** — that figure
+   was written about `--scope decks`, whose visible drifts ran 3.7-8.9%, and gallery
+   drift scores an order of magnitude lower: §2.3's plainly-visible 17,044-pixel `quote`
+   drift reports `worst 0.26%`, so a 3% floor would not have caught it. `FAIL_FRACTION`
+   is unchanged at 0.0005, and the per-class precedent (`FAIL_FRACTION_MERMAID = 0.01`)
+   is the shape to reach for if a cross-runner comparison ever shows real noise.
+   **A full run on `main` at 5ce794d, the first anyone has taken, reverses this note's
+   picture of WHERE the staleness is: 75/75 galleries green, 184 of 199 deck goldens
+   drifted, worst page 64%.** §2.3's `quote` drift is gone — `--only quote` now reports
+   `light:ok dark:ok` — because #1777 re-blessed the galleries on 2026-08-23 and closed
+   #1730. So the evidence this note rests on was real and has since been spent, while the
+   two thirds of the corpus it was not looking at were quietly rotting the whole time.
+   That does not weaken the argument, it sharpens it: the corpus went from
+   "galleries stale, decks unknown" to "galleries clean, decks 92% stale" in three days
+   with no watcher in either state, which is the defect, not the direction. It also
+   retires the scope debate — this note argued galleries, `2026-08-04` argued decks, and
+   the measurement says whichever you pick you are betting on which half rotted most
+   recently. Both.
+   Two further things: **runtime is 78 minutes**, not the header's ~45 (that run was
+   184-red, so it also paid for 184 montages, 225 MB of them). And **nothing has run on a
+   GitHub runner** — cross-runner rasterization flakiness is why `ci.yml:278` retired this
+   gate, it is still §9.3's first unmeasured item, and a local sandbox is precisely the
+   surface that cannot measure it. That is what report-only is for: the first reports
+   answer whether the drifted SET is stable (staleness) or moves run to run (noise).
 2. **Re-bless the corpus once**, on that cadence's first red, so `main` is clean.
 3. ~~**`waitUntil: 'load'`.**~~ **SHIPPED.** All three items in this line were
    carried out: the two in-code comments were corrected (and a third, which
@@ -338,7 +365,25 @@ independent choices; the first draft coupled them.
    why the earlier probe read high. Verified across all **277** shipped decks:
    0 page-count, 0 clipped-page and 0 auto-split differences.
 4. **Fix byte-irreproducibility** — and the `classDiagram` diagnosis is **the wrong
-   target**. Measured across all 277 shipped decks rather than 30, **at least 11**
+   target**. **CORRECTION (2026-08-24): half wrong. There are TWO mechanisms, and the
+   `classDiagram` one is real, found, and now fixed.** What this item legitimately
+   refuted is "`classDiagram` is the ONLY driver" — it is not, and the AX-node
+   measurement below stands. What it over-reached on is "not the driver": a classic
+   `classDiagram` fence rendered twice differs by **1,207 bytes inside a Flate-compressed
+   CONTENT stream**, which is nothing like the 26 bytes in `/ID` and `/Headers` that row
+   17 measured. Decompressed, the differing bytes are bezier control points. The cause is
+   rough.js: Mermaid's `classBox` builds its box through rough.js on every render and only
+   flattens the wobble afterwards (`if (node.look !== 'handDrawn') { options.roughness = 0 }`),
+   `roughness` is a multiplier applied AFTER the random draws are taken, and rough.js's
+   `_line` spends one draw on `divergePoint = 0.2 + random(o) * 0.2` that is never scaled
+   by it. Lattice emitted `handDrawnSeed` only under `look: handDrawn`, so a classic deck
+   fell through to Mermaid's default `0`, which rough.js reads as `Math.random()`. Both
+   control points stay ON the segment between the endpoints, so the cubic IS that segment
+   wherever they land — which is why it rasterizes pixel-identical and why a pixel oracle
+   could never have found it. Fixed by stating the seed on both looks; measured across all
+   31 committed mermaid decks, 7 changed bytes and 0 changed pixels. **The two mechanisms
+   are independent**, so this does not close the item: the AX-node churn is untouched, and
+   it is the one that reaches decks containing no mermaid at all. Measured across all 277 shipped decks rather than 30, **at least 11**
    render to different bytes on two same-code runs (the set is not stable — a third
    run differs on 9, and `cover-paginate.md`, outside the 11, reproduces it too).
    Only 5 of the 11 contain `classDiagram`; four contain no mermaid at all. The
