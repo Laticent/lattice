@@ -163,3 +163,52 @@ describe('subGraphTitleMargin is set on NEITHER path', () => {
     assert.equal(/subGraphTitleMargin:\s*\{/.test(readCode(path.join('lib', 'runtime', 'index.js'))), false);
   });
 });
+
+describe('handDrawnSeed is pinned on BOTH looks, not just handDrawn', () => {
+  // WHY THIS IS NOT A HAND-DRAWN CONCERN. The seed used to ride with `look`, on the
+  // reasoning that rough.js is the hand-drawn renderer and a classic deck cannot
+  // reach it. Mermaid 11 does not honor that boundary: `classBox` builds its box
+  // through rough.js on EVERY render and only flattens the wobble afterwards
+  // (`if (node.look !== 'handDrawn') { options.roughness = 0 }`). `roughness` is a
+  // multiplier applied AFTER the random draws are taken, and rough.js's `_line`
+  // spends one draw on `divergePoint = 0.2 + random(o) * 0.2` that positions the two
+  // bezier control points along the segment and is never scaled by roughness.
+  //
+  // So a classic `classDiagram` consulted `handDrawnSeed`, found Mermaid's default
+  // `0`, and rough.js reads a falsy seed as "use Math.random()". Both control points
+  // stay ON the straight line between the endpoints, so the cubic IS that segment
+  // wherever they land: the renders are pixel-identical and the `<path d>` text
+  // differs every time. That is the whole of the `classDiagram` byte churn — measured
+  // as 12 differing `<path d="…">` lines of 161 on a two-line classic deck, 0 px.
+  //
+  // Pinning it on both looks is what makes a diagram deck's committed PDF stop
+  // rewriting itself, which is what lets a byte oracle watch the diagram path at all.
+  test('the classic config states the seed', () => {
+    const cfg = engineInitConfig({ primaryColor: '#fff' }, { look: 'classic' });
+    assert.equal(cfg.look, undefined, 'a classic render still emits no `look` key');
+    assert.ok(Number.isInteger(cfg.handDrawnSeed), 'and it must still carry a seed');
+    assert.notEqual(cfg.handDrawnSeed, 0, 'rough.js reads a falsy seed as Math.random()');
+  });
+
+  test('the hand-drawn config states the same seed', () => {
+    const classic = engineInitConfig({ primaryColor: '#fff' }, { look: 'classic' });
+    const hand = engineInitConfig({ primaryColor: '#fff' }, { look: 'handDrawn' });
+    assert.equal(hand.look, 'handDrawn');
+    assert.equal(hand.handDrawnSeed, classic.handDrawnSeed,
+      'one seed for both looks — a per-look seed would re-draw sketch decks for nothing');
+  });
+
+  test('the default (no `look` passed) carries the seed too', () => {
+    assert.notEqual(engineInitConfig({ primaryColor: '#fff' }).handDrawnSeed, 0);
+  });
+
+  test('the seed is not spread with `look`', () => {
+    // The source-level pin. Both keys are correct in the object above, but the
+    // failure this guards is a REVERT of the shape — folding the seed back into the
+    // `look === 'handDrawn'` spread restores the bug with every value assertion
+    // above still green on the hand-drawn arm.
+    const src = readCode(path.join('lib', 'integrations', 'mermaid', 'init-directive.js'));
+    assert.equal(/handDrawnSeed[^\n]*\}\s*:\s*\{\}\)/.test(src), false,
+      'the seed must not be conditional on `look` — see this describe block');
+  });
+});
