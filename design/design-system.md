@@ -898,17 +898,26 @@ until #1783. It is on-demand: the narrow, ~0.5s answer to "is `dist/lattice.css`
 what `bundle()` computes?" when you want just that one.
 
 What runs in CI is the broader `build:check:all`, in the **`unit` job immediately
-after the full build**, covering all 38 generated artifacts. Where it sits is the
-whole point, and it is a different question from the `lint` job's `build:check`:
+after the full build**, re-running all 39 generators' own `--check`. Where it
+sits is the whole point, and it asks a different question from the `lint` job's
+`build:check`:
 
 - **`build:check` (lint job, before any build)** — "did you *commit* the
   regenerated artifact?" A staleness question about the checkout, so it must run
   before a build or it passes vacuously. It uses `--exclude-uncommitted` and so
   never looks at `dist/`.
-- **`build:check:all` (unit job, after the build)** — "does each generator
-  *write* what its own `--check` recomputes, and does a later step clobber an
-  earlier one's output?" A question about the writers, answerable only on a
-  freshly built tree.
+- **`build:check:all` (unit job, after the build)** — "does each generator still
+  verify clean against a freshly built tree?" It is the only CI gate that looks
+  at the 25 built-not-committed artifacts.
+
+**What the second one does not catch, deliberately.** It delegates to each
+generator's `--check`, and those semantics differ on purpose. `build-decisions-index`
+verifies that every note has one correctly-formatted row, *not* that the file
+equals a regeneration — so two decision-doc PRs can share the merge queue without
+ejecting each other (#1547). Measured consequences: reversing that index's sort,
+or appending to an *authored* `*.gallery.md` (checked for existence only), both
+leave the gate green. What it does catch, mutation-tested, is a generator whose
+writer drifts from its own `--check`.
 
 Asked on a developer's machine, either one only measures how recently they built:
 `dist/` has been gitignored since #1742, so a rebase makes it stale by

@@ -115,14 +115,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   nine-line comment added above `section.journey .journey-mood-key-label`, less
   the `opacity: 0.85` line the same commit deleted from the rule.
 - **What checks this properly, and where:** `npm run build:check:all` runs in
-  CI's `unit` job right after the full build, re-checking all 38 generated
-  artifacts. It is meaningful *only* there — on a freshly built tree it asks
-  whether each generator wrote what its own `--check` recomputes, and whether a
-  later step clobbered an earlier one. Do not confuse it with the `lint` job's
-  `build:check`, which asks the opposite-facing question ("did you commit the
-  regenerated artifact?"), must therefore run *before* any build, and skips
+  CI's `unit` job right after the full build, re-running all 39 generators' own
+  `--check`. It is meaningful *only* there, and it is the one CI gate that looks
+  at the 25 built-not-committed artifacts. Do not confuse it with the `lint`
+  job's `build:check`, which asks the opposite-facing question ("did you commit
+  the regenerated artifact?"), must therefore run *before* any build, and skips
   `dist/` entirely via `--exclude-uncommitted`. By hand, `npm run css:check` is
-  the same check narrowed to the CSS, in about half a second. A unit test asking
-  it was removed in #1783: vacuous in CI, which full-builds first, and spuriously
-  red locally after the rebase the repo requires.
+  the same question narrowed to the CSS, in about half a second. A unit test
+  asking it was removed in #1783: vacuous in CI, which full-builds first, and
+  spuriously red locally after the rebase the repo requires.
+- **What `build:check:all` does NOT catch — and don't "fix" it:** it delegates to
+  each generator's own `--check`, and some are deliberately weaker than a
+  byte-diff. `build-decisions-index` asserts every note has one correctly-formatted
+  row rather than comparing to a regeneration, which is what lets two decision-doc
+  PRs share the merge queue (#1547); `build-component-docs` checks an *authored*
+  `*.gallery.md` for existence only. Both were measured: reversing the index's sort
+  and appending to an authored gallery each leave the gate green. Rebuilding the
+  tree and git-diffing it would catch them and has already re-opened #1547 once.
+  A generator wanting a true byte-diff says so in its own `--check`.
 - **Triggered by:** #1783, found while pushing #1779.

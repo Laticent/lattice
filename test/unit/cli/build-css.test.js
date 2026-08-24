@@ -127,9 +127,9 @@ describe('build-css', () => {
   // The question this test used to ask still has an answer, and it did NOT go
   // unowned: `npm run build:check:all` runs in CI's `unit` job right after the
   // full build (.github/workflows/ci.yml). That is the one place it is a real
-  // question — after a build, "did each generator write what its own --check
-  // recomputes, and did a later step clobber it?" — and it is mutation-checked
-  // there: making main() write `freshMin` to OUTPUT turns that step red while
+  // question — after a build, "does each generator still verify clean?" — and it
+  // is mutation-checked there: making main() write `freshMin` to OUTPUT turns
+  // that step red while
   // this file stays green, which is exactly the coverage the disk comparison was
   // carrying and the reason it moved to CI rather than being dropped.
   // (`npm run css:check` asks the same thing for the CSS alone, in ~0.5s, and is
