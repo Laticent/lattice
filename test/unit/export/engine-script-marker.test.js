@@ -39,7 +39,9 @@ const ATTR_PLACEHOLDER_RE = /\$\{ENGINE_SCRIPT_ATTR\}/;
  * and regex literals. What survives is markup the file writes into the document.
  *
  * Regex literals are matched narrowly (`/…/` with flags, on one line, not preceded by a
- * word character or `*`) rather than by a general JS parse: the only two in this file are
+ * word character or `*`). The alternation keeps `[` out of the catch-all branch so exactly
+ * one branch can open a character class — with both able to, CodeQL measured exponential
+ * backtracking on input like `/[][][]…` rather than by a general JS parse: the only two in this file are
  * `RUNTIME_SCRIPT` and the `</script` escape in `toFluidViewer`, and both MATCH markup
  * rather than emitting it — `RUNTIME_SCRIPT` in particular exists to strip a DECK-authored
  * runtime tag, which must never be marked as ours.
@@ -48,7 +50,7 @@ function emittedMarkupOnly(source) {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/[^\n]*/gm, '$1')
-    .replace(/(^|[^\w*/])\/(?:\\.|\[[^\]]*\]|[^/\n\\])+\/[gimsuy]*/g, '$1 ');
+    .replace(/(^|[^\w*/])\/(?:\\.|\[[^\]\n]*\]|[^/\n\\[])+\/[gimsuy]*/g, '$1 ');
 }
 
 describe('engine-script-marker census', () => {
@@ -58,7 +60,7 @@ describe('engine-script-marker census', () => {
   test('every emitted <script> opening tag carries the engine marker', () => {
     // Opening tags only: `</script>` closes one, and a `<script` inside a template that the
     // file writes out is what this census is about.
-    const opens = [...markup.matchAll(/<script\b([^>]*)>/g)];
+    const opens = [...markup.matchAll(/<script\b([^>]*)>/gi)];
     assert.ok(opens.length >= 2, `expected the emitter set to be non-trivial, found ${opens.length}`);
     // The source is JavaScript, so a marked tag reads either as the literal attribute or as
     // the `${ENGINE_SCRIPT_ATTR}` placeholder the template interpolates. Both count; a tag
@@ -94,7 +96,7 @@ describe('engine-script-marker census', () => {
     // says why rather than the census failing with a confusing "unmarked emitter".
     assert.match(source, /const RUNTIME_SCRIPT = \//, 'still a regex literal');
     assert.ok(
-      !markup.includes('<script\\b'),
+      !/<script\\b/i.test(markup),
       'a regex that MATCHES a <script> tag must not survive into the emitted-markup view — it would be censused as an emitter and "fixed" by marking a tag the deck wrote',
     );
   });

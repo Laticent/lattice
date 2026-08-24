@@ -163,10 +163,14 @@ promotes deferred media (`loading="lazy"`) to eager and waits for the pixels,
 because the browser deferred that on its own and the document did ask for it.
 
 **It does not wait for your `<script>`'s timers.** A slide that paints itself from
-a `setTimeout`, a `requestAnimationFrame`, or a `fetch(...).then(...)` ships
-**without** that content. This is deliberate: there is no wait that is correct for
-author code racing the exporter — whatever budget we published, the next deck could
-ask for one millisecond more.
+a `setTimeout`, a `fetch(...).then(...)`, or a `Worker` reply ships **without** that
+content. This is deliberate: there is no wait that is correct for author code racing
+the exporter — whatever budget we published, the next deck could ask for one
+millisecond more.
+
+`requestAnimationFrame` is the exception, and it is safe: a rAF scheduled while the
+page parses runs at the next paint, which happens well before the export captures. Its
+output does land in the PDF.
 
 ```md
 <div id="chart">loading…</div>
@@ -181,12 +185,15 @@ ask for one millisecond more.
 ```
 
 **You will be told, twice.** `lint:deck` flags a deferring inline `<script>` while
-you are writing (rule `author-script-defers`), and the render names what had not
-run at the moment it captured:
+you are writing (rule `author-script-defers`), and the render names what had not run
+at the moment it captured. The linter is the wider net of the two — it also catches
+`fetch`, `Worker`, `requestIdleCallback` and a `<script type="module">`, which the
+render cannot attribute to you — so **run it**:
 
 ```
-  ⚠ 1 deck-authored script task had not run when the export captured — whatever it writes is NOT in this file.
+  ⚠ 1 deck-authored script task had not run when the export captured:
       slide 3 · inline <script> · setTimeout(400ms)
+    …so anything that task would have written is NOT in this file.
 ```
 
 The fix is to do the work synchronously, or — better — to author the content in

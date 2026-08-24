@@ -281,11 +281,16 @@ This is the imperative half of the hole row 19 opened. The declarative half —
 **Why decline.** There is no number that is right. A bounded settle that admits
 a 400 ms timer excludes a 500 ms one, and the deck that needs 500 ms is written
 the day after the budget is published; the budget would also be spent on every
-navigation of every deck, against a class **no shipped deck uses** — all 277
-were scanned, 3 carry a raw `<script>`, and all 3 are parser-blocking
-`<script src>` scaffolding for the live preview with no deferral of their own.
-Picking a number is a product promise, not a measurement, and this is the
-promise: **what the page has painted by `load` is what the export captures.**
+navigation of every deck, against a class **essentially no shipped deck uses**.
+Measured on this tree: raw `<script>` appears in **4** tracked decks
+(`examples/gallery-jargon.md`, `lib/components/diagram/diagram/diagram.gallery.md`,
+`test/integration/baseline-decks/gallery.md`, `kit/Sample-Deck.md`), and every
+one is parser-blocking `<script src>` scaffolding for the live preview — mermaid
+and `lattice-runtime` — with no deferral of its own. (The issue said "3 of 277";
+277 is this document's render-sweep corpus and 4 is a `git ls-files` scan, so the
+instruments differ. Neither count changes the conclusion.) Picking a number is a
+product promise, not a measurement, and this is the promise: **what the page has
+painted by `load` is what the export captures.**
 
 **Why the grace period was never a contract.** Under `networkidle0` a deck could
 appear to work — its idle floor granted a few hundred ms incidentally. Bisected
@@ -299,20 +304,58 @@ content, exit 0, no diagnostic. Two nets now say it out loud:
 
 - **At capture** — `lib/core/author-deferral-probe.js`, installed through
   `page.evaluateOnNewDocument` before the document's first script and read at the
-  last moment the page is still the page. It patches `setTimeout`, `setInterval`,
-  `requestAnimationFrame`, `requestIdleCallback`, `fetch` and `XMLHttpRequest`,
-  attributes each schedule to the `<script>` element that made it via
-  `document.currentScript`, and reports what has NOT run. **It never waits.**
-  Every `<script>` the export emits carries `data-lattice-script` so the probe can
-  tell our timers from the deck's — the overflow watcher arms a 2,000 ms
-  `settleFonts` race on every deck in the repo, and counting it would have made
-  the warning fire everywhere and mean nothing.
-- **At authoring** — `lint:deck` rule `author-script-defers`, which is also the
-  answer to the probe's structural blind spot: `document.currentScript` is null
-  inside a `<script type="module">` and inside any promise continuation, so those
-  are invisible at capture. Unknown provenance is deliberately NOT reported —
-  defaulting it to "the deck" would blame the deck for the engine's own
-  `settleFonts(...).then(check)` work, on every render.
+  last moment the page is still the page. It wraps `setTimeout`, `setInterval`
+  and `XMLHttpRequest`, attributes each schedule to the `<script>` element that
+  made it via `document.currentScript`, and reports what has NOT run. **It never
+  waits.** Every `<script>` the export emits carries `data-lattice-script` so the
+  probe can tell our timers from the deck's — the overflow watcher arms a
+  2,000 ms `settleFonts` race on every deck in the repo, and counting it would
+  have made the warning fire everywhere and mean nothing.
+- **At authoring** — `lint:deck` rule `author-script-defers`. It is the only net
+  under everything the probe cannot see, which is a longer list than the probe's
+  own: a `<script type="module">` (where `document.currentScript` is null, so
+  there is nobody to attribute the work to), `fetch`, `requestIdleCallback`,
+  `Worker`, `MutationObserver`, `IntersectionObserver`, `WebSocket`,
+  `EventSource`, `queueMicrotask`, `element.animate` and dynamic `import()`.
+
+**THE PRIME DIRECTIVE, and what it cost.** The probe runs in every export render,
+so a wrapper that changes what deck code SEES is a defect strictly worse than the
+silence it was written to fix. The first cut broke that rule three times over, and
+an independent checker caught all three (HARD RULE #18 — a regression this change
+introduced, fixed before merge rather than filed):
+
+| what it did | what a deck saw |
+|---|---|
+| wrapped the callback in a zero-parameter arrow | `requestAnimationFrame(ts => …)` got `undefined`; `requestIdleCallback(d => d.timeRemaining())` **threw**, into a page with no `pageerror` handler — a wrong slide, exit 0, no warning |
+| put timer ids and frame ids in one map | `setTimeout` and `rAF` id spaces both start at 1, so `clearTimeout` settled a stranger's record |
+| installed in every frame | changed embedded documents that are never even read |
+
+The fixes are structural rather than patches, and two of them REMOVE capability:
+
+- **`requestAnimationFrame` is no longer wrapped at all.** A rAF scheduled at
+  parse time runs at the next paint, long before capture — measured, its output
+  is in the PDF — so it can never be the lost-content signal, and a paint loop
+  always has one frame outstanding, which made it a guaranteed false alarm on a
+  deck that rendered perfectly. `requestIdleCallback` went with it: same
+  argument-shape hazard, and what "idle" means inside a headless print is not
+  something this file can reason about honestly.
+- **`fetch` is no longer wrapped either, and this one is the sharpest lesson.**
+  Settling a fetch record means attaching to the deck's promise, and *attaching is
+  what marks a promise handled*. Both strategies were built and measured in a real
+  render: `p.then(settle, settle)` stopped a deck's `unhandledrejection` fallback
+  from painting at all, and re-throwing fired that fallback **spuriously** on a
+  deck whose own `.catch` had already handled the error. There is no third option,
+  so a working feature was withdrawn rather than shipped with either behavior.
+  XHR stays, because `addEventListener('loadend')` is purely additive.
+
+**What the warning claims, precisely.** An earlier draft of this section called it
+a biconditional — "it fires exactly when content was lost". That was too strong and
+is withdrawn. What holds, and is tested: it never fires for work that RAN, for work
+CANCELED with `clearTimeout`, for an interval that has already ticked, or for the
+engine's own scripts; and it does fire for deck-authored work still outstanding at
+capture. The gap between the two is a long housekeeping `setInterval` that never
+meant to paint anything — reportable but harmless — so the wording states what
+happened (a task had not run) rather than asserting what the author intended.
 
 **Scope of the warning.** Every captured format (PDF/PPTX/PNG/image set) and
 `--player`, which strips every inline script from the file it ships. A plain
@@ -326,20 +369,37 @@ on the same machine: **−4.5% / +1.5% / +0.2%** on the decks that drive 1, 3 an
 navigations — inside those datasets' own 3–8% RME. L2's saving is intact; the
 baseline was not re-blessed, because there is nothing to ratchet.
 
-**And it changes nothing about what ships.** Patching `setTimeout` in the page
-is the part of this with real blast radius, so it was checked at the artifact
-rather than argued: the same deck rendered on the commit before and the commit
-after is **byte-identical**, on `test/fixtures/preview-deck.md` (143,917 B) and
-on `examples/state-chart-stress.md` (1,279,338 B) — the second chosen because
-its geometry is MEASURED in the page after `fonts.ready`, so a wrapper that
-perturbed timing would move those bytes. Neither moved, and neither moved the
-AX-node channel of §9 row 17 either.
+**And it changes nothing about what ships.** Checked at the artifact rather than
+argued: the same deck rendered before and after is **byte-identical**, on
+`test/fixtures/preview-deck.md` (143,917 B) and on
+`examples/state-chart-stress.md` (1,279,338 B) — the second chosen because its
+geometry is MEASURED in the page after `fonts.ready`, so a wrapper that perturbed
+timing would move those bytes. Neither moved, and neither moved the AX-node
+channel of §9 row 17. **Read that evidence for exactly what it covers**: it was
+also true of the first cut, which was simultaneously breaking rAF — neither deck
+contains deck-authored script, so byte-identity says the ENGINE's own path is
+untouched and says nothing about deck code. The deck-code claims rest on the
+render matrix below instead.
 
-**Verified on the real surface** (HARD RULE #23): a rendered PDF carries the
-synchronous script's text and not the 400 ms one, and the warning names the
-second and not the first — `test/integration/export/author-script-deferral.test.js`.
-A `lint:deck --all` sweep over the 274 shipped decks reports the new rule zero
-times.
+**Verified on the real surface** (HARD RULE #23), one render per row:
+
+| deck script | warns | what is in the PDF |
+|---|---|---|
+| synchronous write | no | the text |
+| `setTimeout(…, 0)` | no | the text |
+| `setTimeout` then `clearTimeout` | no | `placeholder` — the deck said never mind |
+| `setInterval(…, 20)`, ticked | no | `TICKED` |
+| `requestAnimationFrame(ts => …)` | no | `RAFARG number` — the timestamp survives |
+| a rAF paint loop | no | `FRAME 5` |
+| `fetch(...).catch(…)` | no | `HANDLED CLEANLY` — no spurious rejection event |
+| `fetch` with no catch + `unhandledrejection` listener | no | `UNHANDLED SEEN` — the deck's own path still runs |
+| `setTimeout(…, 400)` | **yes** | `placeholder` |
+| a timer chained off a timer | **yes** | `placeholder` |
+| an external `<script src>` with a timer | **yes** | `placeholder` |
+
+Pinned in `test/integration/export/author-script-deferral.test.js` and
+`test/unit/core/author-deferral-probe.test.js`. A `lint:deck --all` sweep over the
+274 decks that tool discovers reports the new rule zero times.
 
 ### 2b. mmdc launches a second browser **per diagram** — the largest cost here
 

@@ -58,11 +58,35 @@ function makeWindow() {
   // deliberately-never-fired 5,000 ms timer is the whole point of half these cases, and
   // leaving it armed keeps the node:test process alive after the assertions pass.
   const live = { timeouts: new Set(), intervals: new Set() };
+  // EVERY arm the probe wraps is present here, and that is a correction: the first cut of
+  // this harness supplied only the four timer functions, so `wrapScheduler` took its
+  // `typeof orig !== 'function'` bail for fetch, XHR and the frame callbacks — four of six
+  // wrapped APIs had ZERO coverage and the suite was green while they were broken.
   const win = {
     setTimeout: (fn, ms, ...rest) => { const id = setTimeout(fn, ms, ...rest); live.timeouts.add(id); return id; },
     clearTimeout: (id) => { live.timeouts.delete(id); return clearTimeout(id); },
     setInterval: (fn, ms, ...rest) => { const id = setInterval(fn, ms, ...rest); live.intervals.add(id); return id; },
     clearInterval: (id) => { live.intervals.delete(id); return clearInterval(id); },
+    // Present so a regression that starts wrapping them again is caught here. The probe
+    // must leave both alone: see WHAT IS WRAPPED in the module header.
+    requestAnimationFrame: (fn) => { const id = setTimeout(() => fn(1234.5), 1); live.timeouts.add(id); return id; },
+    cancelAnimationFrame: (id) => { live.timeouts.delete(id); return clearTimeout(id); },
+    requestIdleCallback: (fn) => {
+      const id = setTimeout(() => fn({ timeRemaining: () => 16, didTimeout: false }), 1);
+      live.timeouts.add(id);
+      return id;
+    },
+    cancelIdleCallback: (id) => { live.timeouts.delete(id); return clearTimeout(id); },
+    fetch: (_url, _opts) => win.__nextFetch ?? new Promise(() => {}),
+    XMLHttpRequest: class FakeXHR {
+      open(_method, url) { this.url = url; }
+      send() {
+        if (this.__throwOnSend) throw new DOMExceptionLike('InvalidStateError');
+        this.__sent = true;
+      }
+      addEventListener(name, fn) { (this.__on ||= {})[name] = fn; }
+      finish() { this.__on?.loadend?.(); }
+    },
   };
   const doc = { currentScript: null };
   const disarm = () => {
@@ -78,9 +102,9 @@ function makeWindow() {
 async function withProbe(run) {
   const { win, doc, disarm } = makeWindow();
   const prevWindow = globalThis.window;
-  const prevDocument = globalThis.document;
+  const prevDoc = activeDoc;
   globalThis.window = win;
-  globalThis.document = doc;
+  activeDoc = doc;
   try {
     installAuthorDeferralProbe();
     // AWAITED inside the try, not returned out of it: `run` is async, so returning its
@@ -98,12 +122,22 @@ async function withProbe(run) {
   } finally {
     disarm();
     globalThis.window = prevWindow;
-    globalThis.document = prevDocument;
+    activeDoc = prevDoc;
   }
 }
 
+/** Stands in for the DOMException a real `send()` throws on a bad state. */
+class DOMExceptionLike extends Error {}
+
 /** Let the real event loop run for `ms`, so tracked callbacks actually fire. */
 const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// `track()` reads `document.currentScript` at CALL time, which can be long after the test
+// that scheduled the work returned. A per-test `globalThis.document` that the next test's
+// `finally` had already torn down therefore threw from inside a timer callback. One stable
+// shim, re-pointed per test, removes the race entirely.
+let activeDoc = { currentScript: null };
+globalThis.document = { get currentScript() { return activeDoc.currentScript; } };
 
 describe('author-deferral-probe · attribution', () => {
   test('a deck script that has not run yet is reported, with its slide', async () => {
@@ -266,9 +300,169 @@ describe('author-deferral-probe · the warning text', () => {
   });
 
   test('the message says what happened AND where the contract is written down', () => {
-    const lines = formatAuthorDeferralWarning([{ kind: 'fetch', detail: './d.json', slide: 1, where: 'inline <script>' }]).join('\n');
+    const lines = formatAuthorDeferralWarning([{ kind: 'XMLHttpRequest', detail: './d.json', slide: 1, where: 'inline <script>' }]).join('\n');
     assert.match(lines, /NOT in this file/, 'the author must learn content is missing, not just that a timer exists');
     assert.match(lines, /does not wait on author timers/);
     assert.match(lines, /design\/skill\.md/);
+  });
+});
+
+describe('author-deferral-probe · observe, never perturb', () => {
+  // The prime directive, and every case here is a regression pin for a defect an
+  // independent checker found in the first cut. Each one changed what DECK CODE SAW —
+  // strictly worse than the silence the probe was written to fix, and invisible because
+  // the emulator registers no `pageerror` handler.
+
+  test('requestAnimationFrame is left alone entirely', async () => {
+    // The first cut wrapped it with a zero-parameter arrow, so the browser's
+    // DOMHighResTimeStamp was dropped and `rAF(ts => …)` saw `undefined` — measured in a
+    // real PDF as `RAFARG undefined`. It is not wrapped at all now: a rAF scheduled at
+    // parse time runs at the next paint, long before the capture, so it can never be the
+    // lost-content signal, and a paint loop always has one frame outstanding.
+    const seen = await withProbe(async (p) => {
+      let arg = 'never ran';
+      p.as(fakeScript({ slide: 1 }), () => p.win.requestAnimationFrame((ts) => { arg = ts; }));
+      await tick(30);
+      return { arg, pending: p.read().pending };
+    });
+    assert.equal(seen.arg, 1234.5, 'the timestamp must reach the deck untouched');
+    assert.deepEqual(seen.pending, [], 'a rAF is never reported — its output is in the capture');
+  });
+
+  test('requestIdleCallback is left alone entirely', async () => {
+    const seen = await withProbe(async (p) => {
+      let remaining = 'never ran';
+      p.as(fakeScript({ slide: 1 }), () => p.win.requestIdleCallback((d) => { remaining = d.timeRemaining(); }));
+      await tick(30);
+      return { remaining, pending: p.read().pending };
+    });
+    assert.equal(seen.remaining, 16, 'the IdleDeadline must reach the deck — the first cut made this throw');
+    assert.deepEqual(seen.pending, []);
+  });
+
+  test('setTimeout forwards its trailing arguments, in both directions', async () => {
+    // `setTimeout(fn, 0, 'a', 'b')` must still deliver 'a','b'. The wrapper passes them to
+    // the ORIGINAL and forwards whatever the platform hands back, rather than building an
+    // argument list of its own.
+    const got = await withProbe(async (p) => {
+      let args = null;
+      p.as(fakeScript({ slide: 1 }), () => p.win.setTimeout((...a) => { args = a; }, 1, 'a', 'b'));
+      await tick(30);
+      return args;
+    });
+    assert.deepEqual(got, ['a', 'b']);
+  });
+
+  test('a synchronous throw out of the timer API is re-thrown and leaves nothing pending', async () => {
+    const out = await withProbe(async (p) => {
+      const realSetTimeout = p.win.setTimeout;
+      p.win.setTimeout = () => { throw new RangeError('too many timers'); };
+      let caught = null;
+      // Re-install against the throwing original.
+      delete p.win.__latticeAuthorDeferral;
+      installAuthorDeferralProbe();
+      p.as(fakeScript({ slide: 1 }), () => {
+        try { p.win.setTimeout(() => {}, 1); } catch (e) { caught = e; }
+      });
+      const snapshot = p.read();
+      p.win.setTimeout = realSetTimeout;
+      return { caught, pending: snapshot.pending };
+    });
+    assert.ok(out.caught instanceof RangeError, 'the deck must see its own error, unchanged');
+    assert.deepEqual(out.pending, [], 'nothing was scheduled, so nothing is outstanding');
+  });
+});
+
+describe('author-deferral-probe · network', () => {
+  test('fetch is left alone entirely — neither wrapped nor reported', async () => {
+    // The feature existed and worked, and was withdrawn on the prime directive. Settling a
+    // fetch record means ATTACHING to the deck's promise, and attaching is what marks a
+    // promise handled. Both strategies were built and measured in a real render:
+    //   · `p.then(settle, settle)` -> a deck painting a fallback from `unhandledrejection`
+    //     stopped painting it;
+    //   · re-throwing -> a deck that correctly `.catch`ed its fetch got that fallback
+    //     SPURIOUSLY, overwriting a slide that had rendered fine.
+    // There is no third option, so a pending fetch is a documented false negative and
+    // `lint:deck` names `fetch(` statically instead.
+    const out = await withProbe(async (p) => {
+      const original = p.win.fetch;
+      const returned = p.as(fakeScript({ slide: 2 }), () => p.win.fetch('./data.json'));
+      return { same: p.win.fetch === original, returned, pending: p.read().pending };
+    });
+    assert.equal(out.same, true, 'window.fetch must be the platform function, untouched');
+    assert.ok(out.returned instanceof Promise, 'and it must still return the deck its own promise');
+    assert.deepEqual(out.pending, [], 'a fetch is never reported — see the module header');
+  });
+
+  test('an XHR is reported until loadend, and its url is a non-enumerable stamp', async () => {
+    // XHR is wrapped where fetch is not, and the difference is the whole rule:
+    // `addEventListener('loadend')` is purely ADDITIVE — it observes without changing what
+    // any deck handler sees.
+    const out = await withProbe(async (p) => {
+      const xhr = new p.win.XMLHttpRequest();
+      p.as(fakeScript({ slide: 3 }), () => {
+        xhr.open('GET', './rows.csv');
+        xhr.send();
+      });
+      const whilePending = p.read().pending;
+      const keys = Object.keys(xhr);
+      xhr.finish();
+      return { whilePending, keys, after: p.read().pending };
+    });
+    assert.equal(out.whilePending.length, 1);
+    assert.equal(out.whilePending[0].detail, './rows.csv');
+    assert.deepEqual(out.after, [], 'loadend settles it');
+    assert.ok(!out.keys.includes('__latticeUrl'), 'the probe must not show up in Object.keys of a deck-visible object');
+  });
+
+  test('a synchronous throw out of XHR.send is re-thrown and leaves nothing pending', async () => {
+    const out = await withProbe(async (p) => {
+      const xhr = new p.win.XMLHttpRequest();
+      xhr.__throwOnSend = true;   // the PROTOTYPE send throws, so the wrapper's try/catch runs
+      let caught = null;
+      p.as(fakeScript({ slide: 1 }), () => {
+        xhr.open('GET', './x');
+        try { xhr.send(); } catch (e) { caught = e; }
+      });
+      return { caught, sawListener: !!xhr.__on?.loadend, pending: p.read().pending };
+    });
+    assert.ok(out.caught instanceof DOMExceptionLike, 'the deck must see the error unchanged');
+    assert.equal(out.sawListener, true, 'the wrapper really did run — otherwise this passes for the wrong reason');
+    assert.deepEqual(out.pending, [], 'a send that never went out is not outstanding work');
+  });
+});
+
+describe('author-deferral-probe · bookkeeping', () => {
+  test('a fired timer is not retained by id', async () => {
+    // `byId` used to be pruned only on the cancel path, so every fired timer's record was
+    // retained forever keyed by an id the page will never reuse. Asserted through the
+    // public surface: after a cancel of a REUSED id the probe must not settle a stranger.
+    const state = await withProbe(async (p) => {
+      let firstId;
+      p.as(fakeScript({ slide: 1 }), () => { firstId = p.win.setTimeout(() => {}, 1); });
+      await tick(30);                       // fires, and drops itself from the id map
+      let second;
+      p.as(fakeScript({ slide: 2 }), () => { second = p.win.setTimeout(() => {}, 5000); });
+      p.win.clearTimeout(firstId);          // a stale id — must settle nothing
+      assert.ok(second !== undefined);
+      return p.read();
+    });
+    assert.equal(state.pending.length, 1, 'clearing a long-fired id must not settle a live record');
+    assert.equal(state.pending[0].slide, 2);
+  });
+
+  test('the installer declines to run inside a frame', () => {
+    // evaluateOnNewDocument reaches every frame, but only the main frame is ever read —
+    // so installing in an <iframe> would change an embedded document for zero benefit.
+    const frame = { setTimeout: () => 1, clearTimeout: () => {} };
+    frame.top = { different: true };
+    const prevWindow = globalThis.window;
+    globalThis.window = frame;
+    try {
+      installAuthorDeferralProbe();
+      assert.equal(frame.__latticeAuthorDeferral, undefined, 'a subframe must be left untouched');
+    } finally {
+      globalThis.window = prevWindow;
+    }
   });
 });

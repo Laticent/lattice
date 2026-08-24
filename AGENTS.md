@@ -139,8 +139,9 @@ edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
   memory — they change as the engine evolves.
 - **A raw `<script>` in a deck must do its work synchronously.** The export
   captures the page at the `load` event (plus an explicit wait for deferred
-  media) and does **not** wait on `setTimeout` / `requestAnimationFrame` /
-  `fetch` — a slide painted from a timer ships empty into the PDF. `lint:deck`
-  flags it (`author-script-defers`) and the render names what had not run at
-  capture. Only a plain `.html` export keeps your script live.
+  media) and does **not** wait on `setTimeout` / `fetch` / a `Worker` reply — a
+  slide painted from one of those ships empty into the PDF. (`requestAnimationFrame`
+  is fine: it runs at the next paint, before the capture.) `lint:deck` flags it
+  (`author-script-defers`) and the render names what had not run at capture. Only a
+  plain `.html` export keeps your script live.
   See `design/skill.md` § Raw HTML in a deck.

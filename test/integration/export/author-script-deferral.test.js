@@ -6,10 +6,13 @@
  * synthetic window; they cannot show what Chromium actually captured. These render the
  * real fixture through the real CLI and read the real PDF.
  *
- * THE PROPERTY THAT MATTERS is a biconditional, not a warning count: the warning fires
- * exactly when content was lost. A warning on a deck that rendered correctly is worse than
- * no warning at all — it teaches authors to ignore the channel — so the synchronous script
- * on slide 2 and the deferred one on slide 3 are asserted together, from the same render.
+ * THE PROPERTY THAT MATTERS is that the warning agrees with the artifact. An earlier
+ * version of this comment called it a biconditional — "fires exactly when content was
+ * lost" — which was too strong: an un-ticked housekeeping `setInterval` is reportable and
+ * harmless. What is asserted here is the half that must hold, because a warning on a deck
+ * that rendered correctly teaches authors to ignore the channel: the synchronous script on
+ * slide 2 and the deferred one on slide 3 are checked TOGETHER, from the same render,
+ * against what `pdftotext` actually finds.
  *
  * Slow tier: spawns Chromium once per case.
  */
@@ -91,7 +94,9 @@ describe('author-script-deferral', () => {
     const out = path.join(tmpDir(), 'marked.pdf');
     render(out);
     const html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
-    const tags = [...html.matchAll(/<script\b([^>]*)>/g)].map((m) => m[1]);
+    // Case-insensitive: an uppercase `<SCRIPT>` emitter would otherwise skip this census
+    // entirely (CodeQL 190).
+    const tags = [...html.matchAll(/<script\b([^>]*)>/gi)].map((m) => m[1]);
     assert.ok(tags.length >= 3, `expected engine + deck scripts in the sidecar, found ${tags.length}`);
     const unmarked = tags.filter((a) => !a.includes('data-lattice-script'));
     // Exactly the fixture's two author scripts stay unmarked. Anything else means an engine
