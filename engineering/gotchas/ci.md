@@ -194,6 +194,15 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `main` with no shuffle flag at all. So one green full shuffled run is not evidence
   the suite is order-independent, and one red one is not evidence it isn't; the
   per-file runs are what carry the claim.
+- **A `setup()` that awaits NO boundary leaves the first cross-boundary wait exposed.**
+  The helpers below work because every later read finds the pane already resolved — so the
+  budget only has to live on the ONE wait that crosses the split first. A file whose
+  `setup()` merely renders (`StudioShell.test.tsx`) has no such wait, which makes whichever
+  assertion happens to touch Fabricate or the Editor first the one paying the cold transform
+  on the 1000 ms default. That file was a third member of the #1471 flake pool, named in
+  neither that card nor #1324, and surfaced once in 20 full runs — so when you budget one of
+  these, check whether the file has a helper doing it for you or whether the raw assertion is
+  the boundary.
 - **Mitigation:** Wait for the pane in the shared setup helper (`editorReady`,
   `openFabricate` in
   [studio.controls.test.tsx](../docs/src/components/studio/studio.controls.test.tsx)),
