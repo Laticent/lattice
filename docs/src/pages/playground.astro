@@ -221,12 +221,10 @@ const pgData = {
 							var pgA = pgSaved[PG_SPLIT_PANEL_IDS[0]], pgB = pgSaved[PG_SPLIT_PANEL_IDS[1]];
 							// Both must be real, FINITE, positive numbers: a half-written or corrupt entry falls
 							// through to the CSS fallbacks, which are the panels' own defaults. `Number.isFinite`
-							// and not `> 0` alone — `JSON.parse('1e400')` is `Infinity`, which is a number and is
-							// positive, and substituting it into the panes' `flex-basis` share makes the whole
-							// calc invalid at computed-value time, so the declaration falls back to `auto` and
-							// the pane sizes to its content — the #1553 shape this seed exists to prevent.
-							// (Before #1800 the same value was rejected one step earlier, as an invalid
-							// `flex-grow` token; the guard here is what makes either moot.)
+							// and not `> 0` alone — `JSON.parse('1e400')` is `Infinity`, which is a number, is
+							// positive, and is not a valid `flex-grow` token, so the parser drops the declaration
+							// and the pane sizes to its content. (Same for the #1800 reservation's `flex`
+							// shorthand, which spends the same var.)
 							if (isFinite(pgA) && isFinite(pgB) && typeof pgA === 'number' && typeof pgB === 'number' && pgA > 0 && pgB > 0) {
 								r.style.setProperty('--pg-split-a', String(pgA));
 								r.style.setProperty('--pg-split-b', String(pgB));

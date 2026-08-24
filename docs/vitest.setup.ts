@@ -1,4 +1,4 @@
-import { configure } from '@testing-library/dom';
+import { configure } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 
@@ -21,17 +21,29 @@ import { afterEach } from 'vitest';
 // measured that one and concluded 3.1-3.7x headroom. The marginal site is the 23rd test in
 // a worker that has already rendered StudioShell 22 times — same chunk, twice the cost.
 //
-// 5000ms is 5.0x the slowest MEASURED wait. More than #1799's 3.3x on purpose: a run that
-// fails yields no measurement, so 996ms is a censored floor rather than a maximum — the
-// multiple has to be taken against a number known to be too small. It also stays 4x inside
-// `testTimeout` (20s), which is the constraint that actually matters: an inner budget the
-// outer one cannot reach is the contradiction #1799 found and fixed, and an inner wait that
-// expires first reports what it was waiting for ("Unable to find an element with the
-// placeholder text of: /Describe a look/i") instead of a bare "Test timed out".
+// WHY 3000, AND WHY NOT MORE. The number is not a multiple anyone argued for; it is read off
+// the suite. This file already carries 18 explicit per-call budgets (11 `waitFor`, 7
+// `findBy*`) and the SMALLEST of them is exactly 3000ms. A default above that would make
+// eight waits — six at 3000 in `StudioShell.test.tsx`, two at 4000 in
+// `studio.present-fullscreen` — TIGHTER than the default, i.e. an author's deliberate
+// widening turned into the suite's narrowest budget, in the very file this change exists to
+// stabilize. 3000 is therefore the largest value that leaves every existing budget coherent,
+// and it is independently 3.0x the slowest wait measured above.
 //
-// The 11 `waitFor`s that already carry explicit budgets keep them — every one is above this.
+// (An earlier draft set 5000 and justified it as "5x a CENSORED floor, since a failing run
+// yields no measurement". An independent checker refuted that: the 996.0ms sample was taken
+// with a 60s ceiling precisely so it would report its true duration, so it is uncensored by
+// construction. The honest caveat is small-sample — n=3, at one site — which is an argument
+// for care, not for a bigger number. The same check found the "every explicit budget is at
+// or above this" claim was false at 5000, and that the findBy* count was 284/7, not 283/3.)
+//
+// The cost this buys, stated because the earlier draft did not: a FAILING wait now takes 3s
+// to report instead of 1s. 187 test blocks carry at least one bare Testing Library wait, so
+// a broken shared selector makes a red run meaningfully slower. Green runs are unaffected —
+// a wait resolves as soon as its condition does.
+//
 // See engineering/decisions/2026-08-24-testing-library-async-budget.md.
-configure({ asyncUtilTimeout: 5_000 });
+configure({ asyncUtilTimeout: 3_000 });
 
 // The Studio persists decks + settings to localStorage; without a reset between
 // tests, created/renamed decks bleed across cases and break "starts on deck 0"

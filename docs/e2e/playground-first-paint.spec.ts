@@ -250,12 +250,14 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 
 	expect(await page.locator('#pg-split-preview').count(), 'the cut did not remove the preview panel').toBe(0);
-	// WITHIN A PIXEL, not equal. The cut page has no separator to overflow the row, so its width
-	// is larger than `settled` by exactly this pane's share of that 1px (measured 337.125 against
-	// 336.859). `toBe` on the rounded values happens to hold today and would start failing the
-	// moment a rounding boundary falls between them — reintroducing, in the guard, the flake class
-	// this case exists to remove. The defect is 856px wide; ±1 catches it with room to spare, and
-	// it is the tolerance the sampler beside it already uses (`sameRect`, ±2).
+	// WITHIN A PIXEL, not equal. The shipped mechanism is exact here — measured 0.00px drift at a
+	// 1px separator and at 8px, because a reserved share distributes the row's real free space
+	// rather than claiming 100% of a container that also holds the seam. The tolerance is for the
+	// mechanism this case does NOT assume: a declared-share variant drifts by the pane's share of
+	// the separator (0.27px at 1px, and it scales), and `toBe` on rounded values would start
+	// failing at a rounding boundary — reintroducing, inside the guard, the flake class this case
+	// exists to remove. The defect is 856px wide; ±1 catches it with room to spare, and it is the
+	// tolerance the sampler beside it already uses (`sameRect`, ±2).
 	const width = (await page.locator('#pg-split-editor').boundingBox())!.width;
 	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
 });

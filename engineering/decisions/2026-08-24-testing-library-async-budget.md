@@ -99,38 +99,86 @@ not a site that resembles it.**
 `docs/vitest.setup.ts`:
 
 ```ts
-configure({ asyncUtilTimeout: 5_000 });
+import { configure } from '@testing-library/react';
+configure({ asyncUtilTimeout: 3_000 });
 ```
 
-**Sized 5.0x the slowest measured wait, deliberately above #1799's 3.3x.** A run that FAILS
-yields no measurement — the wait is truncated at its budget — so 996ms is a censored floor,
-not a maximum, and a multiple has to be taken against a number known to be too small.
+**The number is read off the suite, not argued from a multiple.** This suite already carries
+**18 explicit per-call budgets** — 11 on `waitFor`, 7 on `findBy*` — and sorted, they are:
 
-**The binding constraint is the outer budget, not the multiple.** 5s is 4x inside
-`testTimeout`'s 20s, so a single expired inner wait still expires first and reports what it
-was waiting for (`Unable to find an element with the placeholder text of: …`) rather than a
-bare `Test timed out`. An inner grace the outer clock cannot reach is the contradiction #1799
-found in `studio.controls.test.tsx` and fixed; this must not reintroduce it in the other
-direction.
+```
+3000 x6   4000 x2   5000 x2   6000 x2   10000 x2   15000 x4
+```
+
+The smallest is exactly **3000**. A default above it makes those eight waits *tighter than the
+default* — an author's deliberate widening turned into the narrowest budget in the suite, six of
+them in `StudioShell.test.tsx`, the very file this change exists to stabilize. So 3000 is the
+largest value that leaves the existing patchwork coherent. It is independently 3.0x the slowest
+wait measured above, which is roughly #1799's own factor, but the coherence argument is the one
+that does the work: it comes from the repo rather than from a preference.
+
+**Why the import is from `@testing-library/react` and not `@testing-library/dom`.** The `dom`
+package is **not declared** in `docs/package.json` — it resolves only as a transitive peer of
+`@testing-library/react`. Importing from it works today by luck of npm's peer auto-install; an
+install that does not auto-install peers would leave the specifier unresolvable and every one of
+the 251 docs test files would fail to collect. `react` re-exports `configure` and is declared.
 
 **Global, not one explicit budget on the failing wait.** The narrow fix was the honest option
 if the tail had been fine — it is not. Two distinct sites, in two files, in two call shapes
-(`waitFor` and `findBy*`), on the same lazy boundary; and eleven `waitFor`s in this suite
-already carry private explicit budgets, every one of them above 5s. That is the same
-five-authors-worked-around-the-same-default pattern #1799 argued from, one clock down.
+(`waitFor` and `findBy*`), on the same lazy boundary; and eighteen waits in this suite already
+carry private explicit budgets. That is the same five-authors-worked-around-the-same-default
+pattern #1799 argued from, one clock down.
 
-**The 11 explicit budgets keep theirs**, all at or above 5s, so this weakens none of them.
+### The first draft set 5000, and the argument for it was wrong
+
+Kept in place because the error is the instructive kind. The draft said: *5.0x the slowest
+measured wait, deliberately above #1799's 3.3x, because a run that FAILS yields no measurement —
+so 996ms is a censored floor, not a maximum.*
+
+**An independent checker refuted it in one line.** The 996.0ms sample was taken with a **60s
+budget precisely so it would report its true duration**. It completed; it hit no ceiling. It is
+uncensored *by construction*, so the sentence reduces to "the number I measured with the
+censoring removed is censored." The honest caveat is **small sample** — n=3, at one site — and
+that is an argument for care, not for a larger number.
+
+The same check found two more false statements in that draft, both now corrected above: that
+"every explicit budget is at or above this" (false at 5000 — eight are below), and that the
+`findBy*` surface was 283 with 3 explicit budgets (it is **284 with 7**). The survey that
+sentence rested on had not actually been run.
+
+**What that draft would have cost:** the eight sub-5000 budgets inverted as described, and a
+narrower margin on the slowest tests — `StudioShell.test.tsx:525` measures 12.2s contended, so
+one expired wait at 5000 puts it at ~17.2s against the 20s outer budget, where 3000 puts it at
+~15.2s. The failure mode is losing the diagnostic this change exists to buy: the test reports
+`Test timed out in 20000ms` instead of naming the element it was waiting for.
 
 ## Verified
 
-- **The knob is wired, proved by forcing it the wrong way** rather than by reading the source
-  (the method #1799's own correction insists on): at `asyncUtilTimeout: 5` the `StudioShell`
-  file goes red (2 failures / 92), at `5_000` it is green (92/92).
+- **The knob is wired, proved two ways** rather than by reading the source (the method #1799's
+  own correction insists on). Forcing it the wrong way: at `asyncUtilTimeout: 5` the
+  `StudioShell` file goes red (2 failures / 92), at `3_000` it is green (92/92). And directly,
+  which is stronger because a red/green flip is only *consistent* with the knob working — a
+  doomed `screen.findByText` measures **3007ms** and a doomed `waitFor` **3002ms** through the
+  `@testing-library/react` import. There is exactly one `@testing-library/dom` on the
+  filesystem, so there is no second config singleton to miss.
 - **3 contended full runs green** under the recipe above — the recipe that failed 2 of 3
   before the change. A plain idle run cannot distinguish a fix from a quiet machine.
 - The instrumented and probe measurements above, 75 samples in total.
 
 ## What this does NOT fix, and does NOT claim
+
+**A cost this does not remove: a red run gets slower.** A failing wait now takes 3s to report
+instead of 1s, and 187 test blocks carry at least one bare Testing Library wait — so a broken
+shared selector makes a red run meaningfully longer. Green runs are unaffected (a wait resolves
+as soon as its condition does, measured). The first draft did not disclose this at all.
+
+**A pre-existing flake found while checking this, not fixed here.** `studio.controls.test.tsx:431`
+carries its own explicit `{ timeout: 5000 }` and expired once in three runs on an **idle** box,
+with none of #1328's busy loops running. This change does not touch it — an explicit per-call
+budget wins over the default either way — so it is off the path (HARD RULE #18) and recorded
+rather than pulled in. It is also a data point worth keeping: a 5000ms wait in this suite can
+expire under mere self-contention, which is a reason to treat any future "just raise it" with
+suspicion.
 
 **It does not claim the docs suite no longer flakes.** It claims a second specific class is
 addressed: waits that expire on Testing Library's inner clock. What remains unmeasured is
