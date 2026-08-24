@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Minimize2, Monitor, MousePointer2, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Maximize, Minimize, Minimize2, Monitor, MousePointer2, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
@@ -24,6 +24,7 @@ import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOve
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { keyAction, PRESENT_KEYMAP } from '../../../../lib/core/present-transport.mjs';
+import { exitFullscreen, fullscreenSupported, isFullscreen, toggleFullscreen, watchFullscreen } from '../../lib/fullscreen';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { SLIDE_SEP } from './deck-ops';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
@@ -1075,6 +1076,40 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		zoomRef.current?.reset();
 	}, [clamped, open]);
 
+	// ── Whole-screen delivery ────────────────────────────────────────────────────
+	//
+	// Present already covers the VIEWPORT; fullscreen is what removes the browser
+	// around it — the tab strip, the URL bar, the OS dock. That is the difference
+	// between a deck on a laptop and a deck in a room, and it is the one thing the
+	// overlay could not do for itself.
+	//
+	// `canFull` is settled in an effect, never in initial state: the Studio is a
+	// hydrated island, so seeding from `document` at render time would make the
+	// server's `false` disagree with the client and warn. `full` is driven ONLY by
+	// the document's own event (see `watchFullscreen`) — a reader can leave
+	// fullscreen with Escape, F11, the traffic lights, or iPad Safari's own exit
+	// chip, none of which pass through our button, so a boolean we set ourselves
+	// would go stale on the first one of those.
+	const [canFull, setCanFull] = React.useState(false);
+	const [full, setFull] = React.useState(false);
+	React.useEffect(() => {
+		setCanFull(fullscreenSupported());
+		return watchFullscreen(setFull);
+	}, []);
+	const toggleFull = React.useCallback(() => { void toggleFullscreen(); }, []);
+	// Closing Present gives the window back at the size the reader had it. Without
+	// this, exiting the deck leaves the EDITOR full-screen — a state nothing in the
+	// Studio chrome explains, since the button that produced it just went away.
+	React.useEffect(() => {
+		if (open) return;
+		void exitFullscreen();
+	}, [open]);
+	// The same guarantee for the path that never sets `open` to false: an unmount
+	// while presenting — the crash boundary above, or the Studio island itself going
+	// down. That is precisely when a stranded fullscreen is least explicable, because
+	// the surface that owns the exit is the thing that just disappeared.
+	React.useEffect(() => () => { void exitFullscreen(); }, []);
+
 	// First-run hint — teach the bloom + gestures exactly once, then never again.
 	//
 	// It is retired by the USER, not by a clock. The old version auto-faded after
@@ -1113,7 +1148,35 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				e.preventDefault();
 				return;
 			}
-			if (e.key === 'Escape') { onClose(); return; }
+			// ONE Escape, ONE effect: the first leaves the whole screen, the second exits
+			// Present — the two-step every video player has trained people to expect.
+			//
+			// Without this, Escape did both at once for a Safari user: Chromium and Firefox
+			// swallow the keydown that leaves fullscreen, but Safari delivers it, so one
+			// press dropped out of fullscreen AND shut the deck down, dumping a presenter
+			// into the editor mid-sentence.
+			//
+			// We exit fullscreen OURSELVES rather than just declining to close. Deferring to
+			// the browser looks equivalent and is not: it makes the outcome depend on whether
+			// this browser maps Escape to exit at all, and a browser that neither swallows the
+			// key nor acts on it (measured: headless Chromium under Playwright) would trap the
+			// reader in a fullscreen deck that no longer answers Escape. Calling exit is
+			// idempotent where the browser already acted, and load-bearing where it did not.
+			if (e.key === 'Escape') {
+				if (isFullscreen()) { e.preventDefault(); void exitFullscreen(); return; }
+				onClose();
+				return;
+			}
+			// `f` — the key every player binds for this, and the one the shared kernel's
+			// docblock already reserved for each consumer to own (fullscreen `f`, notes `n`,
+			// presenter `s`, overview `g`). Silent on a browser that cannot do it, matching
+			// the hidden button: a shortcut for an absent capability is worse than no
+			// shortcut, because nothing on screen explains why it did nothing.
+			if ((e.key === 'f' || e.key === 'F') && canFull) {
+				e.preventDefault();
+				toggleFull();
+				return;
+			}
 			if (e.key === 'g' || e.key === 'G') {
 				e.preventDefault();
 				setOverviewOpen(true);
@@ -1136,7 +1199,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [open, onClose, NAV, overviewOpen, wake]);
+	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull]);
 	// Close the sorter whenever Present closes, so re-opening starts on the slide.
 	React.useEffect(() => {
 		if (!open) setOverviewOpen(false);
@@ -1230,6 +1293,25 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				)}
 				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button></Tip>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>
+				{/* Whole screen — the staging cluster (Slides · Rehearse · Presenter screen),
+				    NOT the delivery dock below. Fullscreen is a thing you do ONCE, before you
+				    start talking, alongside the other "put this on the right surface" verbs;
+				    the dock is Play/CC/Voice/Guide, it dims at rest, and its 760px width is
+				    tightest on exactly the device (an iPhone) where this button never appears.
+				    It also mirrors the Exit ✕ at the far left, which is the other window verb.
+
+				    HIDDEN, not disabled, where the API is absent — iPhone Safari being the real
+				    case (see `lib/fullscreen.ts`). A disabled control makes a promise the device
+				    cannot keep and invites a reader to hunt for the setting that enables it.
+				    `aria-pressed` reads the DOCUMENT, so it is right after an Escape, an F11, or
+				    iPad Safari's own exit chip. */}
+				{canFull && (
+					<Tip label={full ? 'Leave full screen (F)' : 'Full screen (F) — hide the browser and fill the display'}>
+						<button type="button" onClick={toggleFull} aria-pressed={full} aria-label={full ? 'Leave full screen' : 'Full screen'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', full ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}>
+							{full ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+						</button>
+					</Tip>
+				)}
 				<Tip label="Presenter view on your second screen — current + next slide, speaker notes, timer"><button type="button" onClick={() => { const wasOpen = presenterRef.current?.isOpen(); presenterRef.current?.toggle(); if (!wasOpen && !presenterRef.current?.isOpen()) notify('Allow pop-ups to open the presenter view on your second screen.'); }} aria-pressed={presenterOn} className={cn('hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-semibold hover:text-foreground md:inline-flex', presenterOn ? 'text-[var(--accent)]' : 'text-muted-foreground')}><Monitor className="size-4" />{presenterOn ? 'Presenter on' : 'Presenter screen'}</button></Tip>
 			</div>
 

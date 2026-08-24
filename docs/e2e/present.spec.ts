@@ -189,3 +189,73 @@ test('@parity a one-finger swipe still turns the deck in Present', async ({ page
 	await send('touchEnd', from - 200);
 	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 });
+
+// ── Full screen ──────────────────────────────────────────────────────────────
+//
+// Driven on the REAL browser, because every interesting part of the Fullscreen
+// API is browser behavior we do not control: whether the request is granted at
+// all, what the document reports afterwards, and — the one that motivated the
+// guard — who gets the Escape that leaves it. A jsdom test can only assert that
+// we called the method (studio.present-fullscreen.test.tsx does exactly that);
+// only this one can show the screen actually changed hands.
+
+test('full screen is offered, granted, and driven from the button', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	const btn = dialog.getByRole('button', { name: 'Full screen' });
+	await expect(btn).toBeVisible();
+	await expect(btn).toHaveAttribute('aria-pressed', 'false');
+
+	await btn.click();
+	// The ROOT element, not the dialog — the overlay already covers the viewport, and
+	// the root is exempt from the UA rules that restyle a non-root fullscreen element.
+	await expect
+		.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement))
+		.toBe(true);
+	const leave = dialog.getByRole('button', { name: 'Leave full screen' });
+	await expect(leave).toHaveAttribute('aria-pressed', 'true');
+
+	await leave.click();
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+	await expect(dialog.getByRole('button', { name: 'Full screen' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('`f` toggles full screen', async ({ page }) => {
+	await page.keyboard.press('f');
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+	await page.keyboard.press('f');
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+});
+
+test('Escape leaves full screen without closing Present', async ({ page }) => {
+	// The two-step every video player has trained people to expect, and the reason the
+	// overlay's Escape branch consults the document first: Safari DELIVERS the keydown
+	// that leaves fullscreen (Chromium and Firefox swallow it), so an unguarded handler
+	// dropped the presenter back into the editor mid-sentence on a Mac.
+	//
+	// This run is ALSO the third case, and it is why the overlay exits fullscreen itself
+	// instead of leaving it to the browser: headless Chromium under Playwright neither
+	// swallows the synthesized Escape nor acts on it, so a handler that merely declined
+	// to close would leave the reader fullscreen with Escape no longer doing anything.
+	// The assertion below therefore holds on every engine, however it routes the key.
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await dialog.getByRole('button', { name: 'Full screen' }).click();
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+
+	await page.keyboard.press('Escape');
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+	await expect(dialog).toBeVisible();
+
+	// The second press is the one that ends the talk.
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+});
+
+test('closing Present hands the window back', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await dialog.getByRole('button', { name: 'Full screen' }).click();
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+	await dialog.getByRole('button', { name: 'Exit present' }).click();
+	await expect(dialog).toBeHidden();
+	// Otherwise the EDITOR is left full-screen, in a state nothing on screen explains.
+	await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+});
