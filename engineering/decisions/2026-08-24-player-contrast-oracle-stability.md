@@ -128,7 +128,17 @@ Three consecutive isolated runs, after the fix:
 44 runs across 1 deck(s) · 3 below AA      ← run 3
 ```
 
-Identical rows, identical pages, identical ratios. **Six findings became three**, and the
+Identical rows, identical pages, identical ratios. And the same question asked of a
+six-deck sweep (`anima-scene`, `anima-chart`, `gallery-jargon`, `palette-cascade-flip`,
+`a11y`, `kanban-chart-redesign`), run three times end to end:
+
+```
+2608 runs across 6 deck(s) · 34 below AA      ← sweep 1
+2608 runs across 6 deck(s) · 34 below AA      ← sweep 2
+2608 runs across 6 deck(s) · 34 below AA      ← sweep 3
+```
+
+**Six findings became three** on the deck at issue, and the
 three that went away were never findings: the "as exported" rows were the control's fade
 caught halfway. The oracle had three phantom entries on this deck.
 
