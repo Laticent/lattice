@@ -20,6 +20,7 @@
     "logo-wall",
     "math",
     "matrix-2x2",
+    "matrix-grid",
     "policy-recommendation",
     "premise",
     "pricing",
@@ -38,14 +39,21 @@
   "clipped": {
     "hd": [],
     "square": [
-      "policy-recommendation",
-      "roadmap",
+      "authority-chain",
+      "decision",
+      "glossary",
+      "kanban",
+      "kpi",
+      "list",
+      "list-tabular",
       "split-compare",
       "statute-stack"
     ],
     "portrait": [
+      "actors",
       "authority-chain",
       "cards-grid",
+      "cards-stack",
       "compare-code",
       "compare-prose",
       "cycle",
@@ -58,6 +66,7 @@
       "logo-wall",
       "matrix-2x2",
       "policy-recommendation",
+      "premise",
       "pricing",
       "q-and-a",
       "regulatory-update",
@@ -68,19 +77,24 @@
       "verdict-grid"
     ],
     "story": [
+      "authority-chain",
       "cards-grid",
+      "compare-prose",
+      "cycle",
       "decision",
+      "glossary",
       "list",
-      "policy-recommendation",
+      "list-tabular",
+      "premise",
       "pricing",
-      "roadmap",
+      "regulatory-update",
       "split-compare",
       "stats",
       "statute-stack"
     ],
     "mobile": [
-      "pricing",
-      "roadmap"
+      "cards-grid",
+      "pricing"
     ]
   }
 }
