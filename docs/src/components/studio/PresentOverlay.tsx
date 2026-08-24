@@ -83,6 +83,28 @@ const UNAVAILABLE_COPY: Record<string, { title: string; body: string }> = {
 	unknown: { title: 'This view doesn’t exist', body: 'No reader view by that name is defined for this deck.' },
 };
 
+/**
+ * Is the console wide enough for its side panel? `lg` in Tailwind's scale, asked in JS
+ * rather than left to a `hidden lg:flex` class — because the panel carries a LIVE ENGINE
+ * FRAME (the next-slide preview), and a CSS-hidden one is still mounted, still rendering
+ * and still costing memory on the device least able to spare it. The gallery keeps a
+ * budget on exactly this (`docs/e2e/gallery-preview-budget.spec.ts`); a frame nobody can
+ * see should not be in it. One rule also means the panel is either fully there or fully
+ * absent, with no width band where its box shows and its preview is empty.
+ */
+function useConsolePanel(): boolean {
+	const QUERY = '(min-width: 1024px)';
+	const [wide, setWide] = React.useState(() => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(QUERY).matches : false));
+	React.useEffect(() => {
+		const mq = window.matchMedia(QUERY);
+		const update = () => setWide(mq.matches);
+		update();
+		mq.addEventListener('change', update);
+		return () => mq.removeEventListener('change', update);
+	}, []);
+	return wide;
+}
+
 type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
@@ -90,6 +112,7 @@ type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: Rehe
 export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
+	const wideConsole = useConsolePanel();
 	// The LANDING view — the deck's `lens-default:` (Lente's `registry.default`), which is where a
 	// reader STARTS, not what they may see. The two are different levers with opposite failure
 	// behavior, and conflating them is why this field sat parsed-but-unread since Lente landed
@@ -338,6 +361,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// that ruled out putting the browser itself on the projector.
 	const [stageHost, setStageHost] = React.useState<{ win: Window; cc: HTMLElement | null; rail: HTMLElement | null } | null>(null);
 	const stageDocRef = React.useRef('');
+	/** The Stage's letterbox color — what the audience chrome's ink is resolved against. */
+	const stageBgRef = React.useRef('#15110d');
 	const clampedRef = React.useRef(0);
 	const countRef = React.useRef(0);
 	const curRef = React.useRef('');
@@ -359,6 +384,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// nodes in a document nobody is looking at any more.
 			onChange: (win: Window | null) =>
 				setStageHost(win ? { win, cc: win.document.getElementById('latt-cc'), rail: win.document.getElementById('latt-rail') } : null),
+			// STAGE DISCONNECTED, said out loud (§4). Only a close the console did NOT ask
+			// for reaches this — the presenter closing the window by hand, or a browser
+			// taking it. Everything else about it is already visible (the pill goes off,
+			// the captions and the rail come back to the dock), but none of that says the
+			// ROOM just lost the deck, and that is the one fact a presenter mid-sentence
+			// needs. Silent when the console closed it, which is why the controller
+			// separates the two.
+			onLost: () => notifyRef.current('Stage disconnected — press S to put the deck back on your second screen.'),
 			// DETECT to decide whether to OFFER; VERIFY the outcome to decide whether it
 			// WORKED (§7). A popup has no transient activation of its own, so its
 			// self-requested fullscreen may simply be declined — and a presenter looking at
@@ -380,9 +413,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		let cancelled = false;
 		const source = fmAll + set.join(SLIDE_SEP);
 		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride)
-			.then(({ doc }) => {
+			.then(({ doc, bg }) => {
 				if (cancelled) return;
 				stageDocRef.current = doc;
+				stageBgRef.current = bg;
 				stageRef.current?.write(doc);
 			})
 			.catch(() => {});
@@ -390,14 +424,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
 	// Keep the room's slide in step with the console's.
 	React.useEffect(() => { stageRef.current?.show(clamped); }, [clamped]);
-	// The audience chrome reads the site's four color tokens, and a popup inherits
-	// none of its opener's cascade — so write them in. Re-run on every palette change
-	// as well as on open: the Studio's palette picker is live, and a Stage left on the
-	// previous palette is a mismatch the ROOM sees.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the palette props ARE the triggers — the values painted are read off the live cascade, not off these.
+	// The audience chrome's palette, resolved against the LETTERBOX rather than copied
+	// from the app: a popup inherits none of its opener's cascade, and the Stage's
+	// surround is dark in both modes, so the app's own ink would be dark-on-dark for a
+	// whole room (see paintStageTokens). Re-run on every palette change as well as on
+	// open — the Studio's picker is live, and a Stage left on the previous palette is a
+	// mismatch the ROOM sees.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the palette props ARE the triggers — the values painted are resolved off the live cascade, not off these.
 	React.useEffect(() => {
 		if (!stageHost) return;
-		paintStageTokens(stageHost.win.document.documentElement, document.documentElement);
+		paintStageTokens(stageHost.win.document.documentElement, document.documentElement, stageBgRef.current);
 	}, [stageHost, paletteOverride, modeOverride]);
 
 	// Real read-aloud: a synchronized teleprompter over the current slide's prose,
@@ -1278,7 +1314,15 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// while presenting — the crash boundary above, or the Studio island itself going
 	// down. That is precisely when a stranded fullscreen is least explicable, because
 	// the surface that owns the exit is the thing that just disappeared.
-	React.useEffect(() => () => { void exitFullscreen(); }, []);
+	//
+	// The STAGE goes with it, and it is the more expensive of the two: a fullscreen
+	// browser window strands the presenter, a live Stage strands a deck on the wall of
+	// a room, with the only control that could close it gone. The controller is a ref
+	// created once, so this reads the live one.
+	React.useEffect(() => () => {
+		void exitFullscreen();
+		stageRef.current?.close();
+	}, []);
 
 	// First-run hint — teach the bloom + gestures exactly once, then never again.
 	//
@@ -1625,8 +1669,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				    speaker view had. `w-[clamp(...)]` rather than a fraction so a wide display
 				    gives the slide the extra room, not the panel. Hidden below `lg`: the slide
 				    is what a narrow console owes you. */}
-				{!unavailable && (
-					<aside className="pointer-events-auto hidden min-h-0 w-[clamp(240px,22vw,340px)] shrink-0 flex-col gap-2 self-stretch py-1 lg:flex" aria-label="Presenter panel">
+				{!unavailable && wideConsole && (
+					<aside className="pointer-events-auto flex min-h-0 w-[clamp(240px,22vw,340px)] shrink-0 flex-col gap-2 self-stretch py-1" aria-label="Notes and next slide">
 						<div className="text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-muted-foreground">Next</div>
 						<div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border bg-card">
 							{nextIdx >= 0 ? (

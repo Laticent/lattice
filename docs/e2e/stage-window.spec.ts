@@ -28,9 +28,10 @@ async function openStage(page: import('@playwright/test').Page, context: import(
 	await expect(dialog).toBeVisible();
 
 	// A ≥ md affordance: the launcher is `hidden … md:inline-flex`, because a phone has no
-	// second screen to stage onto. So the mobile projects SKIP here rather than pass —
-	// there is no surface to drive at 390px. Keyed on the control actually being offered
-	// rather than on a width, so it tracks the breakpoint.
+	// second screen to stage onto. This file carries no width tag, so today only `desktop`
+	// runs it — the guard is here so that tagging it onto a narrow project later SKIPS
+	// rather than fails, and it is keyed on the control actually being offered rather than
+	// on a width, so it tracks the breakpoint instead of a number copied out of the CSS.
 	const launcher = dialog.getByRole('button', { name: 'Stage' });
 	test.skip((await launcher.count()) === 0, 'the Stage is not offered below the md breakpoint');
 
@@ -98,6 +99,27 @@ test('the progress rail lives on whichever surface the room is watching', async 
 	await expect.poll(() => stageRail.count()).toBe(1);
 	await expect(consoleRail).toHaveCount(0);
 
+	// AND IT IS ACTUALLY DRAWN. "The rail is on the Stage" passed while the rail was
+	// twelve pixels wide: the host div shrink-wrapped, so `width:100%` resolved against
+	// nothing and the row's own padding pushed it off a 1280px display. A presence check
+	// cannot see that, which makes it a vacuous pass on the one surface where an invisible
+	// progress bar is unrecoverable. So measure: the rail spans most of the window, its
+	// segments have real width, and its track paints an actual color.
+	const geom = await stage.evaluate(() => {
+		const rail = document.querySelector('#latt-rail [role="group"]') as HTMLElement | null;
+		const seg = document.querySelector('.latt-rail-seg') as HTMLElement | null;
+		const track = document.querySelector('.latt-rail-fill[data-tier="track"]') as HTMLElement | null;
+		return {
+			railW: rail ? rail.getBoundingClientRect().width : 0,
+			winW: window.innerWidth,
+			segW: seg ? seg.getBoundingClientRect().width : 0,
+			ink: track ? getComputedStyle(track).backgroundColor : '',
+		};
+	});
+	expect(geom.railW, 'the Stage rail does not span the display').toBeGreaterThan(geom.winW * 0.7);
+	expect(geom.segW, 'the Stage rail has zero-width segments').toBeGreaterThan(4);
+	expect(geom.ink, 'the Stage rail track paints nothing — the palette tokens never reached the popup').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent|^$/);
+
 	// Closing the Stage hands it back, in the same press.
 	await launcher.click();
 	await expect(consoleRail).toHaveCount(1);
@@ -113,4 +135,73 @@ test('a Stage the presenter closes by hand is reported, not left driving a dead 
 	await stage.close();
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
+});
+
+test('the caption crawl plays on the Stage, and not in the console', async ({ page, context }) => {
+	// Captions are an accessibility feature FOR THE ROOM — they only work on the screen the
+	// room is watching (§3). No key and no voice are needed: the reader's cue clock runs on
+	// the silent rung exactly as it does on a narrated one.
+	test.setTimeout(120_000);
+	const { stage, dialog } = await openStage(page, context);
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+
+	// The crawl is REAL text from the reader's track, painted in the Stage's own document —
+	// which is what proves the portal reached across, not merely that a host div exists.
+	const crawl = stage.locator('#latt-cc .latt-cc-line');
+	await expect.poll(() => crawl.count(), { timeout: 60_000 }).toBeGreaterThan(0);
+	await expect(crawl.first()).not.toBeEmpty();
+	// …and the console's dock is not running a second copy at the same time.
+	await expect(dialog.locator('.latt-cc-line')).toHaveCount(0);
+
+	// AND IT IS LEGIBLE FROM THE BACK OF THE ROOM. The first version copied the opener's
+	// ink across, and the Stage's letterbox is dark in BOTH modes — so a light-mode app
+	// painted near-black captions on a near-black surround. "The crawl is present" cannot
+	// see that; contrast can. 4.5:1 is the text floor, measured on the spoken line.
+	const ink = await stage.evaluate(() => {
+		const lin = (c: number) => {
+			const x = c / 255;
+			return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+		};
+		const parse = (v: string) => (v.match(/-?[\d.]+/g) ?? ['0', '0', '0']).slice(0, 3).map(Number);
+		const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+		const line = document.querySelector('.latt-cc-line[data-state="now"]') ?? document.querySelector('.latt-cc-line');
+		if (!line) return { ratio: 0 };
+		const fg = parse(getComputedStyle(line).color);
+		const bgc = parse(getComputedStyle(document.body).backgroundColor);
+		const a = lum(fg);
+		const b = lum(bgc);
+		return { ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+	});
+	expect(ink.ratio, 'the caption crawl is not legible against the Stage letterbox').toBeGreaterThanOrEqual(4.5);
+});
+
+test('the Guide cursor is drawn in the Stage document, not on the console', async ({ page, context }) => {
+	// Guide aims the ROOM's attention at the text being narrated. Pointing at the console's
+	// copy would gesture at a screen only the presenter can see — so the Vetrina stage is
+	// mounted in the Stage window, and its cues resolve against that document (`guideCueInDoc`).
+	test.setTimeout(120_000);
+	const CURSOR = '.vetrina-cursor';
+	const { stage, dialog } = await openStage(page, context);
+	await expect(page.locator(CURSOR)).toHaveCount(0);
+
+	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
+	await expect(stage.locator(CURSOR)).toHaveCount(1);
+	await expect(page.locator(CURSOR)).toHaveCount(0);
+
+	// And it really points: driving the narration moves it onto the slide, away from the
+	// spawn point Vetrina puts it at. A stage that resolved nothing leaves it at spawn; one
+	// that resolved the wrong document leaves it nowhere at all.
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	const size = await stage.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+	const spawn = { x: size.w / 2, y: size.h * 0.42 };
+	await expect
+		.poll(
+			async () => {
+				const box = await stage.locator(CURSOR).boundingBox();
+				if (!box) return 0;
+				return Math.hypot(box.x + box.width / 2 - spawn.x, box.y + box.height / 2 - spawn.y);
+			},
+			{ timeout: 60_000, message: 'the Guide cursor never left its spawn point inside the Stage — it resolved no target there' },
+		)
+		.toBeGreaterThan(40);
 });

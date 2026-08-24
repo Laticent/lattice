@@ -19,10 +19,14 @@ import { buildDeckRender, type ExtraTheme } from './share-export';
  * `modeOverride` pins the render mode (a deck-dark deck stays dark regardless of the
  * site light/dark), mirroring DeckPreview's own modeOverride.
  */
-export async function buildStageDocument(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string, modeOverride?: 'light' | 'dark'): Promise<{ doc: string; total: number }> {
+export async function buildStageDocument(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string, modeOverride?: 'light' | 'dark'): Promise<{ doc: string; total: number; bg: string }> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
 	const render = await buildDeckRender(options, source, palette, mode, extraTheme);
+	// THE LETTERBOX, and it is dark in BOTH modes on purpose: a projected deck sits on a
+	// black surround whatever the app is set to. Returned as well as baked in, because the
+	// audience chrome is painted ON it — its ink has to be resolved against this color and
+	// not against the app's background (`paintStageTokens`).
 	const bg = mode === 'dark' ? '#0c0c0c' : '#15110d';
 	const doc = buildStageDoc({
 		html: render.html,
@@ -46,5 +50,5 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 		// hosts, the opener handshake and the `f` fallback (see buildStageDoc).
 		standalone: true,
 	});
-	return { doc, total };
+	return { doc, total, bg };
 }

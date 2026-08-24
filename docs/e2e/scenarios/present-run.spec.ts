@@ -47,17 +47,25 @@ test('the console carries the speaker note and the next slide — with no second
 		page,
 		`<!-- _class: title -->\n\n# Atlas kickoff\n\n\`Board · Kickoff\`\n\nOne platform, three bets.\n\n<!-- note: ${NOTE} -->\n\n---\n\n# The ask\n\nThirty months, one platform.`,
 	);
-	await expect(page.getByText('Slide 1 / 2', { exact: true })).toBeVisible();
+	// Wait for the editor's text to reach the deck model — the rail is the honest signal.
+	await expect.poll(() => slideCount(page)).toBe(2);
 
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	await expect(dialog).toBeVisible();
 
-	// The panel is a ≥ lg affordance — below that the console is the slide alone, which is
-	// a fact about the product and not a hole in this evidence. Keyed on the panel actually
-	// being offered rather than on a width, so it tracks the breakpoint.
-	const panel = dialog.getByRole('complementary', { name: 'Presenter panel' });
-	test.skip((await panel.count()) === 0, 'the presenter panel is not offered below the lg breakpoint');
+	// The panel is a ≥ lg affordance — below that the console is the slide alone, which is a
+	// fact about the product and not a hole in this evidence. Only `desktop` runs this file
+	// today; the guard is here so that tagging it onto a narrow project later SKIPS rather
+	// than fails. It is not a CSS hide: the panel carries a live engine frame, so below `lg`
+	// it is not rendered at all (`useConsolePanel`), which is what makes counting it honest.
+	const panel = dialog.getByRole('complementary', { name: 'Notes and next slide' });
+	test.skip((await panel.count()) === 0, 'the panel is not offered below the lg breakpoint');
+
+	// Present opens on the slide you were EDITING, and `setEditorContent` leaves the caret at
+	// the end — so go to the top deliberately rather than assuming it.
+	await page.keyboard.press('Home');
+	await expect(dialog.getByText('1 / 2', { exact: true })).toBeVisible();
 
 	await expect(panel.getByText(NOTE)).toBeVisible();
 	// And the NEXT slide is really rendered, not a placeholder: its own engine frame paints.
@@ -65,7 +73,8 @@ test('the console carries the speaker note and the next slide — with no second
 
 	// Walking to the last slide retires the preview and says so, rather than showing
 	// slide 1 again or an empty box.
-	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('End');
+	await expect(dialog.getByText('2 / 2', { exact: true })).toBeVisible();
 	await expect(panel.getByText('End of the deck')).toBeVisible();
 	await expect(panel.getByText('No speaker notes on this slide.')).toBeVisible();
 });

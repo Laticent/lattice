@@ -29,7 +29,7 @@
 const CC_MASK = 'linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%)';
 
 export const STAGE_CHROME_CSS = `
-.latt-chrome{display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;}
+.latt-chrome{display:flex;flex-direction:column;align-items:stretch;gap:.5rem;width:100%;}
 /* Visually hidden, still announced — the Stage document has no Tailwind \`sr-only\`. */
 .latt-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 /* ── the caption crawl ───────────────────────────────────────────────────── */
@@ -68,21 +68,90 @@ export const STAGE_CHROME_CSS = `
 `;
 
 /**
- * The four tokens the sheet above reads, resolved off `from` (the console's own
- * root) and written onto `root` (the Stage document's). A popup inherits none of
- * its opener's cascade, so without this the audience chrome would paint against
- * `initial` — the rail's whole measured ink ladder collapsing to transparent.
+ * Paint the chrome band's palette onto the Stage's root.
  *
- * Re-run on every palette change, not once at open: the Studio's palette picker
- * is live, and a Stage left on the previous palette is a mismatch the ROOM sees.
+ * Two problems, and the second one is why this is not a five-line copy of the
+ * opener's tokens (which is what it was, and it shipped dark text on a near-black
+ * surround — the caption crawl unreadable on the one surface a whole ROOM is
+ * looking at).
+ *
+ * ONE — a custom property is not a color. `getComputedStyle().getPropertyValue`
+ * hands back the token's TEXT, so a palette written as `light-dark(…)` or
+ * `color-mix(…)` copies across unresolved and then resolves against the Stage's
+ * cascade, which has neither. Every value is therefore resolved through a probe
+ * element's `color` first, which is the one place the engine does the work for us.
+ *
+ * TWO — the Stage's letterbox is DARK IN BOTH MODES (see `buildStageDocument`: a
+ * projected deck sits on a black surround whatever the app is set to). So the
+ * app's ink, which is authored against the app's background, is exactly wrong
+ * here. The band gets an on-dark ramp instead — white composited over the real
+ * letterbox at the same 90% / 65% rungs the themes use for text on a dark canvas
+ * — and the accent is forwarded only while it CLEARS 4.5:1 against that
+ * letterbox, lightened toward white in 8% steps until it does. Measured, not
+ * chosen: a light-mode accent (cuoio's `#7a5a10`) reaches 2.4:1 on `#15110d`,
+ * which is the spoken word in the caption crawl and the rail's progress fill.
  */
-export const STAGE_TOKENS = ['--accent', '--on-accent', '--bg', '--text-heading', '--text-muted'];
-export function paintStageTokens(root, from) {
-	if (!root || !from) return;
-	const cs = from.ownerDocument.defaultView?.getComputedStyle(from);
-	if (!cs) return;
-	for (const name of STAGE_TOKENS) {
-		const v = cs.getPropertyValue(name).trim();
-		if (v) root.style.setProperty(name, v);
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Resolve a color STRING (token text, hex, color-mix, light-dark) to [r,g,b]. */
+function resolveColor(value, doc) {
+	const raw = String(value || '').trim();
+	if (!raw) return null;
+	if (HEX.test(raw)) {
+		const h = raw.slice(1);
+		const full = h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h;
+		return [Number.parseInt(full.slice(0, 2), 16), Number.parseInt(full.slice(2, 4), 16), Number.parseInt(full.slice(4, 6), 16)];
 	}
+	try {
+		const probe = doc.createElement('span');
+		probe.style.cssText = 'position:absolute;left:-9999px;top:0;width:0;height:0';
+		probe.style.color = raw;
+		doc.body.appendChild(probe);
+		const out = doc.defaultView.getComputedStyle(probe).color;
+		probe.remove();
+		const m = out.match(/-?[\d.]+/g);
+		return m && m.length >= 3 ? [Number(m[0]), Number(m[1]), Number(m[2])] : null;
+	} catch {
+		return null;
+	}
+}
+const toLin = (c) => {
+	const x = c / 255;
+	return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+};
+const lum = ([r, g, b]) => 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
+function contrast(a, b) {
+	const la = lum(a);
+	const lb = lum(b);
+	return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+/** `over` composited on `under` at `alpha` — the on-dark ink ramp, resolved to a solid. */
+const mix = (over, under, alpha) => over.map((c, i) => Math.round(c * alpha + under[i] * (1 - alpha)));
+const css = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
+const WHITE = [255, 255, 255];
+
+/**
+ * @param root      the Stage document's `documentElement`
+ * @param from      the opener's `documentElement` (where the app's accent lives)
+ * @param letterbox the Stage's surround color, from `buildStageDocument`
+ */
+export function paintStageTokens(root, from, letterbox) {
+	if (!root || !from) return;
+	const doc = from.ownerDocument;
+	const view = doc.defaultView;
+	if (!view) return;
+	const bg = resolveColor(letterbox, doc) || [21, 17, 13];
+	const appAccent = resolveColor(view.getComputedStyle(from).getPropertyValue('--accent'), doc);
+
+	// Lighten the accent until it is legible ON THE LETTERBOX. Bounded: 12 steps is
+	// white, and white always clears — so this terminates whatever it is handed.
+	let accent = appAccent || [200, 160, 64];
+	for (let i = 0; i < 12 && contrast(accent, bg) < 4.5; i++) accent = mix(WHITE, accent, 0.08);
+
+	const set = (name, value) => root.style.setProperty(name, value);
+	set('--bg', css(bg));
+	set('--accent', css(accent));
+	set('--on-accent', css(bg));
+	set('--text-heading', css(mix(WHITE, bg, 0.9)));
+	set('--text-muted', css(mix(WHITE, bg, 0.65)));
 }

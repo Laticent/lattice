@@ -173,14 +173,36 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'#latt-fit{overflow:hidden;}' +
 		'#latt-film{position:relative;transform-origin:top left;}' +
 		'#latt-film .lattice{margin:0;padding:0;}' +
-		'#latt-chrome{flex:0 0 auto;padding:0 clamp(16px,4vw,48px) 18px;}' +
+		// The chrome row's own typography, and it lives HERE rather than in the shared sheet
+		// on purpose: `stage-chrome.js` is injected into the console too, where a font-family
+		// would overwrite the site's. This document has no site font to inherit — the deck's
+		// registered faces belong to the SLIDE — so the audience chrome states a stack instead
+		// of silently rendering the caption crawl in the browser's serif default.
+		'#latt-chrome{flex:0 0 auto;padding:0 clamp(16px,4vw,48px) 18px;' +
+		"font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;line-height:1.4;}" +
+		// BORDER-BOX, and SCOPED to the chrome row. A bare `*{box-sizing:border-box}` would
+		// reach the deck as well, and the deck's own sheet is the authority on how the deck
+		// measures — this row is the only thing here that is ours. Without it the row's own
+		// side padding is ADDED to its stretched width and the rail is clipped off the edge
+		// of the display (measured: 1376px of chrome in a 1280px window).
+		'#latt-chrome,#latt-chrome *{box-sizing:border-box;}' +
+		// The two hosts are the PORTAL TARGETS, and React renders its own root inside each —
+		// so a host that shrink-wraps hands its child a zero-width box to be `width:100%` of.
+		// Measured: `#latt-rail` came out 12px wide and `#latt-cc` 0x0, i.e. an invisible rail
+		// and no captions at all, on the surface where that is least recoverable.
+		'#latt-cc,#latt-rail{width:100%;}' +
 		slideBox(sw, sh) +
-		(standalone ? STAGE_CHROME_CSS : '') +
 		// HARD RULE #22, stylesheet channel — the deck's composed sheet is caller
 		// influenced (a Studio theme's label/description sit in its comment header), and
 		// a `</style>` in it would end this element and turn the remainder into markup in
 		// the stage window. Everything above is ours; `css` is not.
-		sanitizeStyleText(css) + '</style></head><body>' +
+		sanitizeStyleText(css) +
+		// AFTER the deck, not before. Source order breaks a specificity tie, and a deck's
+		// composed sheet is thousands of rules of someone else's CSS — every one of them
+		// authored without knowing this row exists. Our selectors are all `.latt-*`, which
+		// no deck uses, so putting them last costs the deck nothing and removes the whole
+		// class of "a theme quietly restyled the room's captions".
+		(standalone ? STAGE_CHROME_CSS : '') + '</style></head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div></div>' + chrome + '</div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
@@ -250,13 +272,18 @@ async function autoPlaceStage(win) {
  *     state: it is the portal host for the audience chrome and the root the
  *     Guide's cursor is mounted into, so "the Stage went away" has to be a
  *     rendered state, not a flag.
+ *   • onLost() → the Stage went away WITHOUT the console asking. Separate from
+ *     `onChange(null)` because the two need opposite treatment: closing the
+ *     Stage yourself needs no announcement, and having the room's window
+ *     disappear mid-talk needs one. Only the unload beat reaches this — `close()`
+ *     detaches the listener first, so our own teardown cannot trip it.
  *   • onPlaced({ placed, full }) → the outcome of the auto-placement attempt.
  *
  * Returns { toggle, write, show, close, isOpen }. `toggle()` MUST run in a user
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, onChange, onPlaced }) {
+export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
@@ -316,6 +343,7 @@ export function createStageController({ getDoc, getIndex, onChange, onPlaced }) 
 			onChange?.(stageWin);
 		} else if (d.stage === 'closed') {
 			teardown();
+			onLost?.();
 		}
 	}
 	function teardown() {

@@ -113,7 +113,7 @@ describe('stage-window — createStageController', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		const onChange = vi.fn();
-		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 2, onChange, onPlaced: vi.fn() });
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 2, onChange, onLost: vi.fn(), onPlaced: vi.fn() });
 
 		// Open (user gesture). The HOLDING page goes up synchronously — the room must never
 		// watch about:blank while the engine renders — and the deck follows it.
@@ -155,7 +155,7 @@ describe('stage-window — createStageController', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		let doc = '';
-		const ctl = createStageController({ getDoc: () => doc, getIndex: () => 0, onChange: vi.fn(), onPlaced: vi.fn() });
+		const ctl = createStageController({ getDoc: () => doc, getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn() });
 		ctl.toggle();
 		// Only the holding page so far — the engine has not finished.
 		expect(writes(win)).toHaveLength(1);
@@ -167,7 +167,7 @@ describe('stage-window — createStageController', () => {
 	it('does not re-write an UNCHANGED doc — a rewrite reboots the engine in front of the room', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
-		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onPlaced: vi.fn() });
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn() });
 		ctl.toggle();
 		const n = writes(win).length;
 		ctl.write('<stage/>');
@@ -183,7 +183,7 @@ describe('stage-window — createStageController', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		const onChange = vi.fn();
-		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange, onPlaced: vi.fn() });
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange, onLost: vi.fn(), onPlaced: vi.fn() });
 		ctl.toggle();
 		postFromStage({ stage: 'ready' }, win);
 		expect(onChange).toHaveBeenCalledTimes(1);
@@ -197,11 +197,33 @@ describe('stage-window — createStageController', () => {
 		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, '*');
 	});
 
+	it('reports a Stage that went away on its own — and stays silent when WE closed it', () => {
+		// §4's "Stage disconnected" state. The two closes need opposite treatment: the room
+		// losing the deck mid-talk is worth a sentence, and the presenter pressing the pill
+		// they just pressed is not. `close()` detaches the listener before the window's
+		// unload beat can arrive, which is what makes the split hold rather than race.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		postFromStage({ stage: 'closed' }, win);
+		expect(onLost).toHaveBeenCalledTimes(1);
+
+		onLost.mockClear();
+		ctl.toggle(); // re-open
+		postFromStage({ stage: 'ready' }, win);
+		ctl.close(); // WE closed it — the window's own unload beat must not announce anything
+		postFromStage({ stage: 'closed' }, win);
+		expect(onLost).not.toHaveBeenCalled();
+	});
+
 	it('toggling again closes the held window', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		const onChange = vi.fn();
-		const ctl = createStageController({ getDoc: () => '', getIndex: () => 0, onChange, onPlaced: vi.fn() });
+		const ctl = createStageController({ getDoc: () => '', getIndex: () => 0, onChange, onLost: vi.fn(), onPlaced: vi.fn() });
 		ctl.toggle();
 		ctl.toggle();
 		expect(win.close).toHaveBeenCalled();
@@ -212,7 +234,7 @@ describe('stage-window — createStageController', () => {
 	it('leaves the toggle off when the popup is blocked (window.open → null)', () => {
 		vi.spyOn(window, 'open').mockReturnValue(null);
 		const onChange = vi.fn();
-		const ctl = createStageController({ getDoc: () => '', getIndex: () => 0, onChange, onPlaced: vi.fn() });
+		const ctl = createStageController({ getDoc: () => '', getIndex: () => 0, onChange, onLost: vi.fn(), onPlaced: vi.fn() });
 		ctl.toggle();
 		expect(onChange).not.toHaveBeenCalled();
 		expect(ctl.isOpen()).toBe(false);
@@ -228,7 +250,7 @@ describe('stage-window — createStageController', () => {
 		const screens = { screens: [{ isInternal: true, availLeft: 0, availTop: 0, availWidth: 1440, availHeight: 900 }, { isInternal: false, availLeft: 1440, availTop: 0, availWidth: 1920, availHeight: 1080 }], currentScreen: null };
 		Object.defineProperty(window, 'getScreenDetails', { value: () => Promise.resolve(screens), configurable: true, writable: true });
 		const onPlaced = vi.fn();
-		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onPlaced });
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced });
 		ctl.toggle();
 		return Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve()).then(() => {
 			expect(win.moveTo).toHaveBeenCalledWith(1440, 0);
