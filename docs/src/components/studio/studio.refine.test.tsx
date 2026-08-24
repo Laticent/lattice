@@ -95,20 +95,29 @@ afterEach(() => {
 	}
 });
 
-function setup() {
+// StudioShell loads the Editor through `React.lazy` (StudioShell.tsx:127) behind a Suspense
+// fallback, and React.lazy memoizes its resolution on a MODULE-scope object. So only the FIRST
+// test in this file to mount the Studio pays the cold import and sees `EditorSkeleton`; every
+// later one finds the stub already resolved. A synchronous query for a stub control therefore
+// passed or failed on which test vitest happened to run first. Await the stub here and each
+// test stands on its own, in any order (#1324).
+async function setup() {
 	const user = userEvent.setup();
 	render(<StudioShell options={options} />);
+	// Explicit budget: this waits on Vite transforming the stub Editor module, ~0.4s idle but
+	// measured past the 1000ms `asyncUtilTimeout` default under CPU contention (#1806).
+	await screen.findByRole('button', { name: 'stub-select-all' }, { timeout: 15000 });
 	return user;
 }
 
 describe('Studio — Architect selection Refine', () => {
-	it('hides the Refine control until there is a selection', () => {
-		setup();
+	it('hides the Refine control until there is a selection', async () => {
+		await setup();
 		expect(screen.queryByRole('button', { name: 'Refine selection' })).not.toBeInTheDocument();
 	});
 
 	it('reveals Refine on a selection and applies the model rewrite to the editor', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'stub-select-all' }));
 		const refineBtn = await screen.findByRole('button', { name: 'Refine selection' });
 		await user.click(refineBtn);
@@ -127,7 +136,7 @@ describe('Studio — Architect selection Refine', () => {
 
 	it('offers a connect path instead of actions when no model is ready', async () => {
 		statusSpy.mockReturnValue({ ready: false, generation: 'floor', modelName: null, remaining: null });
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'stub-select-all' }));
 		await user.click(await screen.findByRole('button', { name: 'Refine selection' }));
 		const menu = await screen.findByRole('menu');

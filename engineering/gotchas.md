@@ -76,6 +76,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The `CodeQL` check reports a verdict BEFORE its `Analyze` jobs finish](gotchas/ci.md#the-codeql-check-reports-a-verdict-before-its-analyze-jobs-finish)
 - [Rendering in the cloud sandbox needs `CHROME_PATH`](gotchas/ci.md#rendering-in-the-cloud-sandbox-needs-chrome_path)
 - [A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect](gotchas/ci.md#a-generated-dist-artifact-goes-stale-after-a-rebase-and-that-is-not-a-defect)
+- [A docs test passes in declaration order and fails under `--sequence.shuffle.tests`](gotchas/ci.md#a-docs-test-passes-in-declaration-order-and-fails-under---sequenceshuffletests)
 
 ### [CSS](gotchas/css.md)
 

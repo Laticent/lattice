@@ -27,19 +27,51 @@ afterEach(() => {
 	localStorage.clear();
 });
 
-function setup() {
+// StudioShell loads the Editor through `React.lazy` (StudioShell.tsx:127) behind a Suspense
+// fallback, and React.lazy memoizes its resolution on a MODULE-scope object. So only the FIRST
+// test in this file to mount the Studio pays CodeMirror's cold import and sees `EditorSkeleton`;
+// every later one finds it already resolved. A synchronous `getByLabelText('Deck source')`
+// therefore passed or failed on which test vitest happened to run first — 49 of 50 green and
+// whichever drew the short straw red. Await the editor pane here and each test stands on its
+// own, in any order (#1324).
+async function editorReady() {
+	// An EXPLICIT budget, not the 1000ms `asyncUtilTimeout` default, because this wait is not
+	// waiting on a state update — it is waiting on Vite to transform CodeMirror on first use in
+	// this file. Measured on a 4-core box: 420ms cold / 46ms warm idle, but 1070-1424ms cold
+	// under 2x CPU oversubscription — over the default on all three runs. #1806 characterizes
+	// this class and asks for exactly this narrow per-call fix rather than a global bump; note
+	// its "the only one waiting on a React.lazy boundary" is the Fabricate wait, which stays
+	// under 600ms because it resolves a much smaller module than this one does.
+	await screen.findByLabelText('Deck source', undefined, { timeout: 15000 });
+}
+
+async function setup() {
 	const user = userEvent.setup();
 	render(<StudioShell options={options} />);
+	await editorReady();
 	return user;
+}
+
+/** Open the Fabricate pane and wait for it to actually be there. Fabricate is a SECOND
+ *  `React.lazy` boundary (StudioShell.tsx:113) with the same order dependence as the Editor:
+ *  the first test in this file to open it pays the cold import, so a synchronous read of a
+ *  control inside it — `getByRole('button', { name: /Component/ })` — failed on whichever test
+ *  vitest happened to run first, and passed for every later one. Explicit budget for the same
+ *  reason `editorReady` carries one. */
+async function openFabricate(user: ReturnType<typeof userEvent.setup>) {
+	await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+	await user.click(await screen.findByText('Fabricate'));
+	await screen.findByRole('button', { name: /Component/ }, { timeout: 15000 });
 }
 
 const CATALOG = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics as big numbers', skeleton: '<!-- _class: kpi -->\n\n## Metrics\n\n1. 100\n   - Done' },
 	{ name: 'quote', bucket: 'statement', description: 'A pull quote', skeleton: '<!-- _class: quote -->\n\n> Words.\n\n— Someone' },
 ];
-function setupWithCatalog() {
+async function setupWithCatalog() {
 	const user = userEvent.setup();
 	render(<StudioShell options={options} components={CATALOG} />);
+	await editorReady();
 	return user;
 }
 
@@ -48,21 +80,21 @@ function setupWithCatalog() {
 // regression in any single affordance fails a named test.
 describe('Studio — every top-bar control responds', () => {
 	it('the palette dropdown applies a Studio theme to the document', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Theme' }));
 		await user.click(await screen.findByRole('menuitem', { name: /burgundy/i }));
 		expect(document.documentElement.getAttribute('data-palette')).toBe('burgundy');
 	});
 
 	it('the deck switcher creates a New deck (deck CRUD lives there, not in the launcher)', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		await user.click(await screen.findByText('New deck'));
 		expect(screen.getByRole('button', { name: /Untitled deck/ })).toBeInTheDocument();
 	});
 
 	it('a new deck takes its name from the heading you type — no rename step (#deck-title-tracks-h1)', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		await user.click(await screen.findByText('New deck'));
 		// It starts as "Untitled deck" — the starter template's own heading.
@@ -90,7 +122,7 @@ describe('Studio — every top-bar control responds', () => {
 		// Rename writes into the deck, so what it round-trips must be the RAW heading —
 		// prefilling from the display title (stripped, capped at 60) silently deleted the
 		// author's emphasis and everything past the cap from their cover slide.
-		const user = setup();
+		const user = await setup();
 		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70 chars
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
@@ -113,7 +145,7 @@ describe('Studio — every top-bar control responds', () => {
 		// the production wiring reverted (an independent checker caught it). This types an
 		// override into the REAL editor and asserts what the debounced save actually mirrored —
 		// which is what studio.astro paints before hydration.
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		await user.click(await screen.findByText('New deck'));
 		const editor = screen.getByLabelText('Deck source');
@@ -132,7 +164,7 @@ describe('Studio — every top-bar control responds', () => {
 		// Rename never grows front matter on a deck that has none, so without this control the
 		// override could only be reached by hand-writing YAML — in a drawer whose entire purpose
 		// is front matter without the YAML. This is the feature's only entry point.
-		const user = setup();
+		const user = await setup();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- _class: title -->\n\n# Q4\n\nbody');
@@ -160,7 +192,7 @@ describe('Studio — every top-bar control responds', () => {
 		// NO front matter — the one input where a whole-block rebuild has nothing to destroy. All
 		// three trio lenses independently found that setting a Deck name shredded a real deck's
 		// block. Drive a deck that HAS front matter, or this test proves nothing.
-		const user = setup();
+		const user = await setup();
 		const rich = ['---', '# author note — keep me', 'theme: indaco', '_class: lead', 'style: |', '  section { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- _class: title -->', '', '# Q4', '', 'body'].join('\n');
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
@@ -186,7 +218,7 @@ describe('Studio — every top-bar control responds', () => {
 	it('the Deck name control does not eat slide 1 when the leading `---` is a separator', async () => {
 		// FM_RE cannot tell a slide separator from front matter, so the whole-block rebuild
 		// deleted the swallowed slide outright — demonstrated on the real built Studio.
-		const user = setup();
+		const user = await setup();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n');
@@ -209,7 +241,7 @@ describe('Studio — every top-bar control responds', () => {
 		// The whole point of the override is a shelf name the cover slide does not say. So the
 		// switcher must show the override, and Rename — which writes back — must target the
 		// override; rewriting the heading instead would look like Rename did nothing.
-		const user = setup();
+		const user = await setup();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n<!-- _class: title -->\n\n# Q4\n\nbody');
@@ -231,7 +263,7 @@ describe('Studio — every top-bar control responds', () => {
 	});
 
 	it('imports a deck from a .md file (title from its heading)', async () => {
-		const user = setup();
+		const user = await setup();
 		// Drive the hidden file input directly (a real <input type=file> change).
 		const input = document.querySelector('input[type="file"]') as HTMLInputElement;
 		const file = new File(['<!-- _class: title -->\n\n# Acme Annual Review\n\nThe year in numbers.'], 'acme.md', { type: 'text/markdown' });
@@ -247,6 +279,7 @@ describe('Studio — every top-bar control responds', () => {
 		const user = userEvent.setup();
 		const lintVocab = { names: ['cards-grid', 'kpi', 'title'], modifiers: [], mapRegions: {}, finishNames: [], splitNames: [], capacity: {} };
 		render(<StudioShell options={options} lintVocab={lintVocab} />);
+		await editorReady();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.keyboard('{Control>}a{/Control}');
@@ -258,7 +291,7 @@ describe('Studio — every top-bar control responds', () => {
 	});
 
 	it('the slide toolbar adds (via the gallery), duplicates, and deletes slides', async () => {
-		const user = setup();
+		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
 		expect(start).toBeGreaterThan(1);
@@ -285,7 +318,7 @@ describe('Studio — every top-bar control responds', () => {
 	});
 
 	it('the add-slide gallery inserts a component as a new slide', async () => {
-		const user = setupWithCatalog();
+		const user = await setupWithCatalog();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
 		// Open the add-slide gallery from the editor header. With a catalog seeded there are
@@ -305,7 +338,7 @@ describe('Studio — every top-bar control responds', () => {
 	});
 
 	it('edits survive a deck switch (persistence)', async () => {
-		const user = setup();
+		const user = await setup();
 		// Edit deck 1 — paste a unique marker into the source.
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
@@ -322,7 +355,7 @@ describe('Studio — every top-bar control responds', () => {
 	});
 
 	it('⌘K runs a command (Fabricate) and a theme', async () => {
-		const user = setup();
+		const user = await setup();
 		// AT DESKTOP ⌘K IS NO LONGER A DIALOG (#1707). The header's search pill expands in
 		// place into a combobox and drops its list beneath itself, so there is no
 		// `role="dialog"` named "Studio commands" to scope to any more — `matchMedia` is
@@ -347,7 +380,7 @@ describe('Studio — every top-bar control responds', () => {
 
 describe('Studio — Architect + editor controls respond', () => {
 	it('"Fix all" clears an unknown component flagged inline', async () => {
-		const user = setup();
+		const user = await setup();
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' })); // panels start closed now — the Architect "Fix all" banner needs the coach open
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
@@ -360,7 +393,7 @@ describe('Studio — Architect + editor controls respond', () => {
 	});
 
 	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {
-		const user = setup();
+		const user = await setup();
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		// The Lenses panel: add a Bottom-line reader view…
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
@@ -376,7 +409,7 @@ describe('Studio — Architect + editor controls respond', () => {
 	});
 
 	it('the Architect Chat thread sends a message and degrades honestly offline', async () => {
-		const user = setup();
+		const user = await setup();
 		// Chat is its own panel now (own toolbar icon) — no tab-switching.
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Chat' }));
 		const box = await screen.findByRole('textbox', { name: 'Message the Architect' });
@@ -389,7 +422,7 @@ describe('Studio — Architect + editor controls respond', () => {
 	});
 
 	it('the deterministic Coach chips work with no model connected', async () => {
-		const user = setup();
+		const user = await setup();
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' })); // panels start closed now — open the coach
 		// The Coach's value is deterministic (Coach-vs-Converse): the "quick reads" chips
 		// compute a result card from the deck with NO model — they must work offline, not
@@ -401,9 +434,8 @@ describe('Studio — Architect + editor controls respond', () => {
 
 describe('Studio — Fabricate + Present dock respond', () => {
 	it('Fabricate switches Theme/Component tabs and exports', async () => {
-		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
-		await user.click(await screen.findByText('Fabricate'));
+		const user = await setup();
+		await openFabricate(user);
 		expect(await screen.findByPlaceholderText(/Describe a look/i)).toBeInTheDocument();
 		// The shared header Export (theme tab) confirms via toast.
 		await user.click(screen.getByRole('button', { name: /Export/ }));
@@ -416,9 +448,8 @@ describe('Studio — Fabricate + Present dock respond', () => {
 	});
 
 	it('Component tab: the shared header Save + Export ride the real gate', async () => {
-		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
-		await user.click(await screen.findByText('Fabricate'));
+		const user = await setup();
+		await openFabricate(user);
 		await user.click(screen.getByRole('button', { name: /Component/ }));
 		// The starter is gate-clean → the SAME header Save the theme tab uses is enabled.
 		expect(await screen.findByText(/Gate — all clear/)).toBeInTheDocument();
@@ -430,9 +461,8 @@ describe('Studio — Fabricate + Present dock respond', () => {
 	});
 
 	it('Component tab: the Manifest JSON view two-way syncs and guards invalid JSON', async () => {
-		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
-		await user.click(await screen.findByText('Fabricate'));
+		const user = await setup();
+		await openFabricate(user);
 		await user.click(screen.getByRole('button', { name: /Component/ }));
 		// Switch the manifest panel to the raw-JSON view.
 		await user.click(screen.getByRole('button', { name: 'JSON' }));
@@ -450,9 +480,8 @@ describe('Studio — Fabricate + Present dock respond', () => {
 	});
 
 	it('Fabricate derives a REAL token contract + palette audit from the engine', async () => {
-		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
-		await user.click(await screen.findByText('Fabricate'));
+		const user = await setup();
+		await openFabricate(user);
 		// The token tree lists the real derived contract (12 roles) + the ten
 		// essentials (the three ink roles are unique to the essentials group) —
 		// proof the theme engine ran, not a mock.
@@ -473,7 +502,7 @@ describe('Studio — Fabricate + Present dock respond', () => {
 	});
 
 	it('Present Play/Pause toggles and shows the live teleprompter', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		const dialog = await screen.findByRole('dialog', { name: 'Present' });
 		// One Play (2026-07-12 redesign): narrates + advances. Captions run even muted.
@@ -490,7 +519,7 @@ describe('Studio — Fabricate + Present dock respond', () => {
 	});
 
 	it('Present → Rehearse mode (Practice) surfaces pacing + coaching', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		const dialog = await screen.findByRole('dialog', { name: 'Present' });
 		const d = within(dialog);
@@ -507,7 +536,7 @@ describe('Studio — Fabricate + Present dock respond', () => {
 
 describe('Studio — Inspector controls respond', () => {
 	it('the Inspector deck-theme dropdown pins the deck theme, not the website palette', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		const sitePaletteBefore = document.documentElement.getAttribute('data-palette');
 		// The Look group's grouped theme dropdown (Automatic / Curated / AA / More)
@@ -520,7 +549,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Inspector deck-theme dropdown surfaces the AA color-blind-safe palettes', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
 		// An a11y/CVD palette is selectable and pins to the deck.
@@ -529,7 +558,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Inspector deck-theme "Auto" clears the deck theme (follows the site)', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
 		await user.click(await screen.findByRole('option', { name: /^Cuoio/ }));
@@ -541,7 +570,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the top-bar control toggles light / dark mode', async () => {
-		const user = setup();
+		const user = await setup();
 		document.documentElement.setAttribute('data-mode', 'light');
 		// The top-bar mode toggle flips the document's data-mode (light-dark() resolves off it).
 		await user.click((await screen.findAllByRole('button', { name: 'Switch to dark mode' }))[0]);
@@ -549,7 +578,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('authoring a speaker note writes it into the slide source', async () => {
-		const user = setup();
+		const user = await setup();
 		// The speaker note lives in the per-slide "Slide settings" drawer now (not the
 		// Inspector), opened from the editor row, under the Notes tab.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
@@ -562,7 +591,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('version history saves a checkpoint and restores it', async () => {
-		const user = setup();
+		const user = await setup();
 		// History moved out of the inspector into its own sheet (an action, not a
 		// deck setting), opened from the top-bar "Version history" button.
 		await user.click(screen.getByRole('button', { name: 'Version history' }));
@@ -584,7 +613,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Page-numbers switch writes paginate front-matter to the source', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
@@ -599,7 +628,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('a settings change raises a one-click Undo toast that reverts it', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
@@ -617,7 +646,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
@@ -632,7 +661,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		// Header & footer are text DECLARATIONS, not toggles: typing text (committed
@@ -656,7 +685,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
@@ -672,7 +701,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Size control writes a `size` directive to the source', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// The Size control opens a menu of real @size tokens; picking one writes it.
 		await user.click(await screen.findByRole('button', { name: /Widescreen|16 : 9/ }));
@@ -696,7 +725,7 @@ describe('Studio — Inspector controls respond', () => {
 		expect(src, `${label}: the block scalar was stringified`).not.toContain('style: "|"');
 	}
 
-	async function pasteRichDeck(user: ReturnType<typeof setup>) {
+	async function pasteRichDeck(user: Awaited<ReturnType<typeof setup>>) {
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste(RICH_DECK);
@@ -704,7 +733,7 @@ describe('Studio — Inspector controls respond', () => {
 	}
 
 	it('the Size control preserves front matter it did not come to change', async () => {
-		const user = setup();
+		const user = await setup();
 		await pasteRichDeck(user);
 		await user.click(await screen.findByRole('button', { name: /Widescreen|16 : 9/ }));
 		await user.click(await screen.findByRole('menuitem', { name: /Square/ }));
@@ -716,7 +745,7 @@ describe('Studio — Inspector controls respond', () => {
 		// `theme:` is the one key this deck already carries, so it exercises the splice path
 		// (the others insert). The whole-block rebuild also REORDERED the survivors, pushing
 		// the edited key to the end — so the position is part of the claim, not decoration.
-		const user = setup();
+		const user = await setup();
 		await pasteRichDeck(user);
 		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
 		await user.click(await screen.findByRole('option', { name: /^Cuoio/ }));
@@ -731,7 +760,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Header field preserves front matter it did not come to change', async () => {
-		const user = setup();
+		const user = await setup();
 		await pasteRichDeck(user);
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		const header = await screen.findByRole('textbox', { name: 'Header' });
@@ -745,7 +774,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Section-rail switch (a class-token write) preserves the rest of the block', async () => {
 		// `mergeClassTokens` / `removeClassTokens` route through the same writer now — the card
 		// scoped `class:` in with the 23 named directives, since it is the same flat scalar.
-		const user = setup();
+		const user = await setup();
 		await pasteRichDeck(user);
 		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
@@ -760,7 +789,7 @@ describe('Studio — Inspector controls respond', () => {
 		// shared x, right edges aligned, at 390/820/1440) runs against the built site.
 		// This is what fails if someone reverts TextRow to a layout of its own instead of
 		// routing through `Field`.
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		const field = await screen.findByRole('textbox', { name: /Deck name/ });
@@ -798,7 +827,7 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
-		const user = setup();
+		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: 'General' }));
 		await user.click(await screen.findByText('Developer')); // the dev aids are General's "more" disclosure
@@ -824,22 +853,22 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	// deliberately unanchored — `/^key: value$/m` can never match here.
 	const source = () => screen.getByLabelText('Deck source').textContent ?? '';
 
-	async function openDeckTab(user: ReturnType<typeof setup>, tab: string) {
+	async function openDeckTab(user: Awaited<ReturnType<typeof setup>>, tab: string) {
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('tab', { name: tab }));
 	}
 	/** Open a tab's collapsed "more" disclosure by its summary text. */
-	async function openMore(user: ReturnType<typeof setup>, label: string) {
+	async function openMore(user: Awaited<ReturnType<typeof setup>>, label: string) {
 		await user.click(await screen.findByText(label));
 	}
 	/** Pick `option` from the CatalogSelect named `name`. */
-	async function pick(user: ReturnType<typeof setup>, name: string, option: RegExp | string) {
+	async function pick(user: Awaited<ReturnType<typeof setup>>, name: string, option: RegExp | string) {
 		await user.click(await screen.findByRole('combobox', { name }));
 		await user.click(await screen.findByRole('option', { name: option }));
 	}
 
 	it('Corners writes and clears the `corners:` register', async () => {
-		const user = setup();
+		const user = await setup();
 		await openDeckTab(user, 'Look');
 		await openMore(user, 'More look settings');
 		await pick(user, 'Choose corners', 'Rounded');
@@ -849,7 +878,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	});
 
 	it('Claim writes and clears the `claim:` register', async () => {
-		const user = setup();
+		const user = await setup();
 		await openDeckTab(user, 'Look');
 		await openMore(user, 'More look settings');
 		await pick(user, 'Choose claim', 'Bleed');
@@ -859,7 +888,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	});
 
 	it('the Logo field writes `logo:` — and its modifiers stay hidden until there is one', async () => {
-		const user = setup();
+		const user = await setup();
 		await openDeckTab(user, 'Chrome');
 		// The four modifiers are meaningless without a logo, so an empty deck must not
 		// open this tab on four dead rows.
@@ -878,7 +907,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	});
 
 	it('the Meta line writes `meta:`, and clearing the field removes the key', async () => {
-		const user = setup();
+		const user = await setup();
 		await openDeckTab(user, 'Chrome');
 		const field = await screen.findByRole('textbox', { name: 'Meta line' });
 		await user.click(field);
@@ -891,7 +920,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	});
 
 	it('New slide on / Deck chrome / Auto-glossary write their registers', async () => {
-		const user = setup();
+		const user = await setup();
 		await openDeckTab(user, 'General');
 		await pick(user, 'Choose how slides split', /dividers only/);
 		await waitFor(() => expect(source()).toMatch(/split: rule/));
@@ -906,7 +935,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	});
 
 	it('the Default slide class field never shows or eats the Section rail token', async () => {
-		const user = setup();
+		const user = await setup();
 		// Turn the rail OFF first — that stamps `no-progress` into the same `class:` key
 		// this field writes. A naive text field would show the token, and any edit would
 		// silently flip a control in another tab.
@@ -927,7 +956,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	});
 
 	it('Pace writes the `pace:` register and clears at the default', async () => {
-		const user = setup();
+		const user = await setup();
 		await openDeckTab(user, 'Speech');
 		await pick(user, 'Choose pace', 'Deliberate');
 		await waitFor(() => expect(source()).toMatch(/pace: deliberate/));

@@ -134,3 +134,66 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   tree and git-diffing it would catch them and has already re-opened #1547 once.
   A generator wanting a true byte-diff says so in its own `--check`.
 - **Triggered by:** #1783, found while pushing #1779.
+
+## A docs test passes in declaration order and fails under `--sequence.shuffle.tests`
+
+- **Symptom:** A `docs/` test file is green in every ordinary run and red the
+  moment test order is shuffled — `npx vitest run <file> --sequence.shuffle.tests
+  --sequence.seed=11`. It reproduces on the file ALONE in seconds; no full run is
+  needed. The failure text is an element that cannot be found, or a boolean that
+  is the exact opposite of what the test set up.
+- **Cause:** Two mechanisms, both of which make a case silently depend on a
+  sibling having run first. Neither is the cross-file state leakage the flaky-docs
+  cards hypothesize — these are *intra*-file, deterministic given a seed, and a
+  different class from the load-dependent timeouts in
+  `engineering/decisions/2026-08-23-jsdom-suite-timeout-budget.md`.
+  - **`vi.resetModules()` does not reach the MOCK registry.** A hoisted `vi.mock`
+    factory is evaluated once and its result cached for the whole file, so a case
+    needing an import to FAIL gets the previous case's successful resolution back.
+    `vi.doMock` in `beforeEach` re-registers the factory per test — it is not
+    hoisted, so it runs *after* `resetModules` — giving each case a fresh module
+    under test AND a fresh dependency resolution.
+  - **`React.lazy` memoizes on a module-scope object.** The Studio code-splits its
+    heaviest panes ([StudioShell.tsx:113](../docs/src/components/studio/StudioShell.tsx)
+    `Fabricate`, `:127` `Editor`, `:137` `ComposeView`). Only the FIRST case in a
+    file to mount one pays the cold Vite transform and sees the Suspense fallback;
+    every later case finds it resolved. So a synchronous `getByLabelText('Deck
+    source')` or `getByRole('button', { name: /Component/ })` passes or fails on
+    which case vitest happened to schedule first — in `studio.controls` that was
+    49 of 50 green and whichever drew the short straw red.
+  A third mechanism, in `read-aloud.test.ts`, is the INVERSE of the first: a
+  describe that `vi.doMock`s a dependency and `vi.doUnmock`s it in `afterEach`
+  removes the file's HOISTED mock along with its own. That one is #1814, still
+  open — so `--sequence.shuffle.tests` is green suite-wide on seeds 11 and 42 but
+  not on 3001 or 999.
+- **Mitigation:** Wait for the pane in the shared setup helper (`editorReady`,
+  `openFabricate` in
+  [studio.controls.test.tsx](../docs/src/components/studio/studio.controls.test.tsx)),
+  with an **explicit** per-call budget rather than Testing Library's 1000 ms
+  `asyncUtilTimeout` default. That wait is not waiting on a state update — it is
+  waiting on Vite transforming CodeMirror, measured at **420 ms cold / 46 ms warm
+  idle but 1070–1424 ms cold under 2x CPU oversubscription**, i.e. over the
+  default on every contended run. #1806 characterizes this class and asks for
+  exactly this narrow per-call fix instead of a global bump; note its "the only
+  one waiting on a `React.lazy` boundary" refers to the *Fabricate* wait, which
+  stays under 600 ms because it resolves a much smaller module than the Editor.
+- **Worth knowing:** a mocked dependency's cache also makes call-COUNT assertions
+  lie in the other direction. A repeat `import()` of an already-resolved module is
+  a registry cache hit that never re-runs the factory, so a counter incremented
+  inside the factory cannot see a loader that lost its memo entirely — that
+  assertion was vacuous and passed under mutation. Count namespace reads through a
+  getter instead.
+- **Before you push a `docs/` test change, run `cd docs && npm run typecheck`.**
+  The pre-push hook runs `lint`, `lint:deck:all`, `build:check` and the root
+  `npm test` — it runs **neither `typecheck` nor the docs vitest suite**, both of
+  which live only in CI's `docs-build`. So a TypeScript-only error under `docs/`
+  passes every local gate and every hook, and first appears as a red required
+  check. Making one `setup()` helper `async` did exactly that: four sibling
+  helpers typed `user: ReturnType<typeof setup>` silently became
+  `Promise<UserEvent>`, which no test run can see because it is types-only. The
+  fix is `Awaited<ReturnType<typeof setup>>`; the lesson is that `npm test` green
+  is not evidence about `docs/`.
+- **Triggered by:** Any run with `--sequence.shuffle.tests`; otherwise latent.
+  Found while working #1324.
+- **Removable when:** Nothing upstream — this is a test-authoring hazard, not a
+  dependency defect.

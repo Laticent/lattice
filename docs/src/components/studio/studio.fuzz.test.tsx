@@ -140,7 +140,13 @@ describe('StudioShell — fuzz: arbitrary source never desyncs the derived views
 	it('keeps rail count == counter total for random editor input', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		const editor = screen.getByLabelText('Deck source');
+		// Wait for the editor rather than reading it synchronously: it arrives through a
+		// `React.lazy` boundary (StudioShell.tsx:127) whose resolution is memoized at module
+		// scope, so this passed only when the sibling property above had already mounted the
+		// shell and warmed it. Explicit budget — the cold Vite transform of CodeMirror is
+		// 420ms idle but 1070-1424ms under CPU contention, past the 1000ms `asyncUtilTimeout`
+		// default (#1806).
+		const editor = await screen.findByLabelText('Deck source', undefined, { timeout: 15000 });
 		await fc.assert(
 			fc.asyncProperty(fc.string({ maxLength: 40 }), async (chunk) => {
 				await user.click(editor);
