@@ -177,6 +177,28 @@ permanent here is genuinely different from the trio's:
   rewrite puts it on the `<section>` as a real declaration, and a declaration on the element
   beats a value inherited from `<html>` whatever the specificity of the rule that set it.
 
+**The obvious objection to adding the plain half, checked rather than waved away.** Pinning
+`color-scheme` directly onto every slide `<section>` looks like it should defeat the seams that
+are supposed to reach past the pin — `a11y-achromatopsia.css`'s own comment names two (a
+per-slide `_class: dark`, and the status-marker pseudo `base.variants.css` pins to
+`color-scheme: dark`), and those seams are precisely why the a11y trios carry dark arms at all.
+The arithmetic looks bad: the packed pin is `article.lattice > :where(section):not([\20 root])`
+at (0,2,1) and `section.dark` is (0,1,1), same element.
+
+It holds, because `composeCss` inlines the base bundle INTO the theme and packs the whole thing,
+so `section.dark` takes the same `article.lattice >` prefix and keeps its class advantage.
+Measured on the packed composition, before and after:
+
+| section | before commit 5 (`:root:root` only) | after (both halves) |
+|---|---|---|
+| plain | `color-scheme: normal` — no pin at all | **`light`** — the fix landing |
+| `_class: dark` | `dark`, rgb(0,0,0) | **`dark`, rgb(0,0,0)** — seam intact |
+| `.title` (bookend) | `dark`, rgb(0,0,0) | **`dark`, rgb(0,0,0)** — seam intact |
+
+The `::before` seam is safe for a different reason worth stating: a pseudo-element is a separate
+element, so a rule setting `color-scheme` on it beats INHERITANCE from the section regardless of
+either selector's specificity — it was never a contest.
+
 The gate's `--*` scoping is therefore still correct, but as a statement about the COMPETITOR
 rather than about the shape — and the docblock, this note and the unit test all said the wrong
 thing. The test is worse than the prose was: it pinned `:root:root` and would have **failed if
