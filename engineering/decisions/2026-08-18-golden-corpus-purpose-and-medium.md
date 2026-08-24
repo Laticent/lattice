@@ -344,12 +344,11 @@ independent choices; the first draft coupled them.
    retires the scope debate — this note argued galleries, `2026-08-04` argued decks, and
    the measurement says whichever you pick you are betting on which half rotted most
    recently. Both.
-   Two further things: **runtime is 78 minutes**, not the header's ~45 (that run was
-   184-red, so it also paid for 184 montages, 225 MB of them). And **nothing has run on a
-   GitHub runner** — cross-runner rasterization flakiness is why `ci.yml:278` retired this
-   gate, it is still §9.3's first unmeasured item, and a local sandbox is precisely the
-   surface that cannot measure it. That is what report-only is for: the first reports
-   answer whether the drifted SET is stable (staleness) or moves run to run (noise).
+   Runtime is **78 minutes**, not the header's ~45 (that run was 184-red, so it also paid
+   for 184 montages, 225 MB of them). **The gate has since run on GitHub runners, and
+   §9.3's first unmeasured item is answered** — the drifted set is byte-identical across
+   two machine classes and three runs, so it is staleness rather than the cross-runner
+   noise that retired the gate. It stays report-only regardless; see §9.3.
 2. **Re-bless the corpus once**, on that cadence's first red, so `main` is clean.
 3. ~~**`waitUntil: 'load'`.**~~ **SHIPPED.** All three items in this line were
    carried out: the two in-code comments were corrected (and a third, which
@@ -442,10 +441,19 @@ negative control whose probe selector matched no element.
 
 ### 9.3 Still not measured
 
-- **Cross-host stability**, for pixels *and* snapshots. The Skia claim that
-  `regression-gate.mjs` and `golden-diff.mjs` both rest on is asserted in-tree with
-  no measurement behind it, and §5's counter-claim is equally unmeasured. One CI run
-  settles both.
+- ~~**Cross-host stability**, for pixels *and* snapshots.~~ **MEASURED 2026-08-24 for
+  PIXELS, and it did not reproduce.** The Skia claim that `regression-gate.mjs` and
+  `golden-diff.mjs` both rest on was asserted in-tree with no measurement behind it.
+  Three runs of `fd3176e` across two machine classes — the sandbox, the scheduled
+  nightly (run 32688459462) and a fresh dispatch (run 32689182307) — each reported
+  **196 DRIFTED with byte-identical SETS**: 196/196 names, zero symmetric difference,
+  same md5. Not similar counts, the same set. So on this corpus the drift is genuine
+  staleness and the "~0.4-2% on a different gallery each run" flake that retired the
+  gate from CI is absent. What this does NOT license: one corpus and one runner pair
+  is not every corpus and every runner pair, and it says nothing about a different
+  runner OS or architecture. It also leaves the SNAPSHOT half of this row entirely
+  unmeasured — §5's counter-claim still has nothing behind it. The pixel half is the
+  half that was blocking, and it is answered.
 - **`waitUntil: 'load'` on the overflow corpus and the auto-split path** — 48
   artifacts plus a hostile pass is not the whole corpus. And **no artifact was
   retained** from that run, so §3's "verified" cannot be re-inspected: a HARD RULE

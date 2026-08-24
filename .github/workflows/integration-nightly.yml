@@ -230,18 +230,33 @@ jobs:
       # `FAIL_FRACTION_MERMAID = 0.01`, justified by a runner-vs-runner comparison — not one
       # global loosening, and not a number carried over from a differently-scoped note.
       #
-      # REPORT-ONLY, and it must stay that way for now. This gate was removed from CI
-      # (`ci.yml:278`) for cross-runner rasterization flakiness, and NOTHING HERE HAS RUN ON
-      # A GITHUB RUNNER — only on a local sandbox, which is the one thing that cannot
-      # measure a cross-runner flake. The capture-into-an-output pattern every gate above
-      # uses keeps the job green; the rolling issue is the signal. EXPECT THE FIRST RUNS
-      # RED: the 184 above are real and land the morning this merges. Two things to read
-      # from those first reports before anyone proposes making this blocking — does the
-      # drifted SET stay stable run to run (a moving set is cross-runner noise, a fixed one
-      # is genuine staleness), and does anything in the clean gallery half start flapping.
-      # The one-time re-bless is deliberately NOT in this change: it is ~50 MB of binary
-      # churn that would bury the diff, and it should follow observing the gate rather than
-      # precede it.
+      # REPORT-ONLY — and the reason it was removed from CI (`ci.yml:278`), cross-runner
+      # rasterization flakiness, HAS NOW BEEN MEASURED AND DID NOT REPRODUCE.
+      #
+      # Three runs of the same commit (`fd3176e`), two machine classes: this sandbox, the
+      # SCHEDULED nightly (run 32688459462), and a fresh dispatch (run 32689182307). All
+      # three reported **196 DRIFTED**, and the drifted SETS are byte-identical — 196/196
+      # names, zero symmetric difference, same md5. Not "similar counts": the same set.
+      # So the 196 are genuine staleness, and the ~0.4-2%-on-a-different-gallery-each-run
+      # flake that retired this gate is, on this corpus and this pair of machine classes,
+      # not present. §9.3 of `2026-08-18-golden-corpus-purpose-and-medium.md` listed
+      # cross-host stability as unmeasured and said one CI run would settle it. It did.
+      #
+      # Also measured on the runner rather than estimated: the step takes **72m39s** there
+      # (79m07s in the sandbox) and the whole job **2h04m39s**, well inside the 6h ceiling;
+      # the job concludes SUCCESS with the gate red, which is the report-only contract
+      # actually holding rather than merely intended; and the rolling issue APPENDED to
+      # #1529 instead of opening a duplicate.
+      #
+      # It stays report-only anyway, and the evidence above is what a future case for
+      # changing that should build on rather than replace. One corpus and one runner pair
+      # is not every corpus and every runner pair, a green day here says nothing about a
+      # `windows-latest` or an arm64 runner, and the gate is 72 minutes — which is a
+      # nightly's budget, not a PR's. What HAS changed is that "we think it flakes" is no
+      # longer the argument; anyone proposing to block on it now has a number to beat.
+      # EXPECT IT RED until the corpus is re-blessed: the 196 are real. That re-bless is
+      # deliberately NOT in this change — ~50 MB of binary churn that would bury the diff,
+      # and it should follow observing the gate rather than precede it.
       - name: Committed-golden freshness (regress, report-only)
         id: regress
         run: |

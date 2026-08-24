@@ -186,10 +186,16 @@ would be the same species of claim this whole swimlane exists to stamp out (HARD
   headroom, the shape is a measured per-scope constant like `FAIL_FRACTION_MERMAID`, not
   one global loosening.
 
-The HARD RULE #23 caveat above still stands and is the whole reason the step is
-report-only: the workflow arm has still never run on a GitHub runner, and cross-runner
-rasterization flakiness is why this gate left CI in the first place. Report-only is how
-that gets measured instead of assumed.
+The HARD RULE #23 caveat above has since been DISCHARGED on the real surface. The
+workflow arm has run on GitHub runners — the scheduled nightly (run 32688459462) and a
+fresh dispatch (run 32689182307), both on `fd3176e`, both concluding SUCCESS with the
+gate red, which is the report-only contract holding rather than merely intended. The
+cross-runner rasterization flakiness that sent this gate out of CI did not reproduce:
+those two runs and the sandbox all report **196 DRIFTED with byte-identical sets**
+(196/196 names, same md5), so the drift is staleness. Runner cost measured at 72m39s for
+the step and 2h04m39s for the job. The step stays report-only anyway — one corpus and one
+runner pair is not every corpus and every runner pair, and 72 minutes is a nightly's
+budget rather than a PR's — but the case for blocking now has numbers instead of a fear.
 
 ## Verified
 
