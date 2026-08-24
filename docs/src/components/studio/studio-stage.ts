@@ -6,10 +6,17 @@
 // render + the vendored fonts + KaTeX/Mermaid/a11y assets) the way
 // single-slide-render.ts does for the in-page preview.
 
+import { resolveTokenColor, stageChromeDecls } from '@/components/studio/present/stage-chrome.js';
 import { buildStageDoc } from '@/components/studio/present/stage-window.js';
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { A11Y_DEFS, KATEX_URL, MERMAID_URL } from '@/playground/deck-preview.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
+
+/** `#rrggbb` → [r,g,b]. The letterbox is ours and always a literal, so this is all it needs. */
+function hexRgb(hex: string): [number, number, number] {
+	const h = hex.replace('#', '');
+	return [Number.parseInt(h.slice(0, 2), 16), Number.parseInt(h.slice(2, 4), 16), Number.parseInt(h.slice(4, 6), 16)];
+}
 
 /**
  * Render the FULL deck and wrap it as a standalone Stage document. `source` is the
@@ -49,6 +56,10 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 		// The projected window, not an iframe: this is what adds the audience-chrome
 		// hosts, the opener handshake and the `f` fallback (see buildStageDoc).
 		standalone: true,
+		// …and the chrome's palette, resolved HERE because this is the one place that
+		// knows the letterbox. Baked into the document rather than painted after it
+		// opens, so the caption crawl is never rendered against unset tokens.
+		chromeDecls: stageChromeDecls(hexRgb(bg), resolveTokenColor(document.documentElement, '--accent')),
 	});
 	return { doc, total, bg };
 }

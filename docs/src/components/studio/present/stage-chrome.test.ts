@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paintStageTokens, STAGE_CHROME_CSS } from './stage-chrome.js';
+import { paintStageTokens, STAGE_CHROME_CSS, stageChromeDecls, stageChromeTokens } from './stage-chrome.js';
 
 // ── The audience chrome's palette ────────────────────────────────────────────
 //
@@ -81,6 +81,24 @@ describe('stage-chrome — paintStageTokens', () => {
 		const root = document.createElement('html');
 		paintStageTokens(root, document.documentElement, '#15110d');
 		expect(rgb(root.style.getPropertyValue('--accent'))).toHaveLength(3);
+	});
+
+	it('bakes a legible palette with no live root at all — the document ships self-sufficient', () => {
+		// The painter runs in an effect AFTER the Stage says ready, and the audience chrome
+		// renders in that same commit: for that window `--text-muted` was unset, so
+		// `color-mix(in srgb, var(--text-muted) 45%, transparent)` was an INVALID color and
+		// fell back to `canvastext` — black on a near-black letterbox, measured on the real
+		// popup at 1.12:1. So the values are computed with no DOM and baked into the built
+		// document; nothing has to arrive later for the room to be able to read it.
+		const LETTERBOX: [number, number, number] = [21, 17, 13];
+		const t = stageChromeTokens(LETTERBOX, [122, 90, 16]);
+		expect(ratio(rgb(t['--text-heading']), LETTERBOX)).toBeGreaterThan(12);
+		expect(ratio(rgb(t['--accent']), LETTERBOX)).toBeGreaterThanOrEqual(4.5);
+		// And as a declaration body a `<style>` can carry.
+		const decls = stageChromeDecls(LETTERBOX, [122, 90, 16]);
+		expect(decls).toContain('--text-heading:');
+		expect(decls).toContain('--text-muted:');
+		expect(decls.endsWith(';')).toBe(true);
 	});
 
 	it('is one stylesheet, and it names both hosts', () => {

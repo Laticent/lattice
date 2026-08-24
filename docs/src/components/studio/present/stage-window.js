@@ -57,7 +57,7 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  * All three are gated on `window.opener`, which is null in an iframe — so the
  * srcdoc hosts are byte-identical to what they were before the split.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false }) {
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '' }) {
 	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
@@ -179,6 +179,14 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// registered faces belong to the SLIDE — so the audience chrome states a stack instead
 		// of silently rendering the caption crawl in the browser's serif default.
 		'#latt-chrome{flex:0 0 auto;padding:0 clamp(16px,4vw,48px) 18px;' +
+		// The chrome's PALETTE, baked in. It is not painted from the opener any more —
+		// that ran one step after the chrome first rendered, and in that window
+		// `color-mix(in srgb, var(--text-muted) …, transparent)` had no color to mix, so
+		// it resolved invalid and fell back to `canvastext`: measured at 1.12:1 against
+		// this letterbox. A built document should not need a second party to be legible.
+		// The opener still writes these inline for a LIVE palette change (`paintStageTokens`),
+		// and inline beats this rule, which is the ordering we want.
+		(standalone ? chromeDecls : '') +
 		"font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;line-height:1.4;}" +
 		// BORDER-BOX, and SCOPED to the chrome row. A bare `*{box-sizing:border-box}` would
 		// reach the deck as well, and the deck's own sheet is the authority on how the deck

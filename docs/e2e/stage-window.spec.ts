@@ -162,16 +162,26 @@ test('the caption crawl plays on the Stage, and not in the console', async ({ pa
 			const x = c / 255;
 			return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
 		};
-		const parse = (v: string) => (v.match(/-?[\d.]+/g) ?? ['0', '0', '0']).slice(0, 3).map(Number);
+		// TWO SERIALIZATIONS, and reading only the first one is how this oracle lied to its
+		// author. Chromium reports a plain color as `rgb(232, 231, 231)` — 0–255 — but the
+		// result of a `color-mix()` as `color(srgb 0.68 0.67 0.67 / 0.45)`, where the channels
+		// are 0–1. A parser that takes "the first three numbers" reads the second form as
+		// near-black and reports 1.12:1 for a line that is plainly legible on screen. The
+		// crawl's read/upcoming lines ARE `color-mix()`, so this is the common case, not an edge.
+		const parse = (v: string) => {
+			const n = (v.match(/-?[\d.]+/g) ?? ['0', '0', '0']).slice(0, 3).map(Number);
+			return v.startsWith('color(') ? n.map((c) => c * 255) : n;
+		};
 		const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
-		const line = document.querySelector('.latt-cc-line[data-state="now"]') ?? document.querySelector('.latt-cc-line');
-		if (!line) return { ratio: 0 };
-		const fg = parse(getComputedStyle(line).color);
-		const bgc = parse(getComputedStyle(document.body).backgroundColor);
-		const a = lum(fg);
-		const b = lum(bgc);
-		return { ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+		// The SPOKEN line specifically. Falling back to "any caption line" would let this pass
+		// by measuring a deliberately faded one, which is the opposite of what it is asking.
+		const line = document.querySelector('.latt-cc-line[data-state="now"]');
+		if (!line) return { ratio: 0, found: false };
+		const a = lum(parse(getComputedStyle(line).color));
+		const b = lum(parse(getComputedStyle(document.body).backgroundColor));
+		return { ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), found: true };
 	});
+	expect(ink.found, 'no line was marked as the one being spoken — the oracle had nothing to measure').toBe(true);
 	expect(ink.ratio, 'the caption crawl is not legible against the Stage letterbox').toBeGreaterThanOrEqual(4.5);
 });
 

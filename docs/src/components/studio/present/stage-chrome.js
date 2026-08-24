@@ -68,7 +68,58 @@ export const STAGE_CHROME_CSS = `
 `;
 
 /**
- * Paint the chrome band's palette onto the Stage's root.
+ * The chrome band's palette, as VALUES — the math with no DOM in it.
+ *
+ * Split out from the painter below because the painter was one step too late. It
+ * runs in an effect after the Stage says `ready`, and the audience chrome renders
+ * in that same commit — so for one frame (and for however long a React commit
+ * takes under load) `--text-heading` was unset and
+ * `color-mix(in srgb, var(--text-muted) 45%, transparent)` resolved to an INVALID
+ * color, which falls back to `canvastext`: black on a near-black letterbox,
+ * measured at 1.12:1. Baking these into the document at build time closes the
+ * window entirely — the Stage is a string-built document and should not need a
+ * second party to become legible.
+ *
+ * @param letterbox  the surround, as [r,g,b]
+ * @param accent     the app's accent as [r,g,b], or null for the fallback gold
+ */
+export function stageChromeTokens(letterbox, accent) {
+	const bg = letterbox || [21, 17, 13];
+	// Lighten the accent until it is legible ON THE LETTERBOX. Bounded: 12 steps is
+	// white, and white always clears — so this terminates whatever it is handed.
+	let ink = accent || [200, 160, 64];
+	for (let i = 0; i < 12 && contrast(ink, bg) < 4.5; i++) ink = mix(WHITE, ink, 0.08);
+	return {
+		'--bg': css(bg),
+		'--accent': css(ink),
+		'--on-accent': css(bg),
+		'--text-heading': css(mix(WHITE, bg, 0.9)),
+		'--text-muted': css(mix(WHITE, bg, 0.65)),
+	};
+}
+
+/** The same tokens as a CSS declaration body, for baking into a built document. */
+export function stageChromeDecls(letterbox, accent) {
+	const t = stageChromeTokens(letterbox, accent);
+	return Object.keys(t)
+		.map((k) => `${k}:${t[k]};`)
+		.join('');
+}
+
+/** Resolve a token STRING off a live root, for the two callers that have one. */
+export function resolveTokenColor(from, name) {
+	const view = from?.ownerDocument?.defaultView;
+	if (!view) return null;
+	return resolveColor(view.getComputedStyle(from).getPropertyValue(name), from.ownerDocument);
+}
+
+/**
+ * Paint the chrome band's palette onto the Stage's root — the LIVE-UPDATE path.
+ *
+ * The document already ships legible (`stageChromeDecls`, baked in at build time);
+ * this exists so a mid-talk palette change reaches the room, since a Stage left on
+ * the previous palette is a mismatch the audience sees. Inline properties on the
+ * root beat the baked rule, which is the ordering we want.
  *
  * Two problems, and the second one is why this is not a five-line copy of the
  * opener's tokens (which is what it was, and it shipped dark text on a near-black
@@ -138,20 +189,7 @@ const WHITE = [255, 255, 255];
 export function paintStageTokens(root, from, letterbox) {
 	if (!root || !from) return;
 	const doc = from.ownerDocument;
-	const view = doc.defaultView;
-	if (!view) return;
-	const bg = resolveColor(letterbox, doc) || [21, 17, 13];
-	const appAccent = resolveColor(view.getComputedStyle(from).getPropertyValue('--accent'), doc);
-
-	// Lighten the accent until it is legible ON THE LETTERBOX. Bounded: 12 steps is
-	// white, and white always clears — so this terminates whatever it is handed.
-	let accent = appAccent || [200, 160, 64];
-	for (let i = 0; i < 12 && contrast(accent, bg) < 4.5; i++) accent = mix(WHITE, accent, 0.08);
-
-	const set = (name, value) => root.style.setProperty(name, value);
-	set('--bg', css(bg));
-	set('--accent', css(accent));
-	set('--on-accent', css(bg));
-	set('--text-heading', css(mix(WHITE, bg, 0.9)));
-	set('--text-muted', css(mix(WHITE, bg, 0.65)));
+	if (!doc?.defaultView) return;
+	const t = stageChromeTokens(resolveColor(letterbox, doc), resolveTokenColor(from, '--accent'));
+	for (const name of Object.keys(t)) root.style.setProperty(name, t[name]);
 }
