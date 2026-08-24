@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Maximize, Minimize, Minimize2, Monitor, MousePointer2, Pause, Play, RotateCcw, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Maximize, Minimize, Minimize2, Monitor, MousePointer2, Pause, Play, RotateCcw, Sparkles, StickyNote, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
@@ -113,6 +113,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
 	const wideConsole = useConsolePanel();
+	// Notes on a narrow console: opened deliberately, because a phone-width Present has no
+	// room to keep them up. Reset whenever Present closes, like every other transient here.
+	const [notesOpen, setNotesOpen] = React.useState(false);
 	// The LANDING view — the deck's `lens-default:` (Lente's `registry.default`), which is where a
 	// reader STARTS, not what they may see. The two are different levers with opposite failure
 	// behavior, and conflating them is why this field sat parsed-but-unread since Lente landed
@@ -282,7 +285,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			return resolveNarration({
 				caption: getCaption(md),
 				fmCaption: fmCaptions.get((setIndices[i] ?? i) + 1), // front-matter captions[author slide number]
-				note: getNote(md),
+				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
+				// panel below — never this, which is what the room hears and reads.
 				chart: narrateChart(md),
 				projected: aligned ? (projected.texts[i] ?? '') : null,
 				fallback: aligned ? null : slideToSpeech(md),
@@ -1113,7 +1117,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Leaving a deck on the projector after the presenter has walked back into the editor
 	// is the one failure mode of a second window that a room actually notices.
 	React.useEffect(() => {
-		if (!open) { setRehearse(false); setElapsed(0); setPlaying(false); setAutoplay(false); stageRef.current?.close(); }
+		if (!open) { setRehearse(false); setElapsed(0); setPlaying(false); setAutoplay(false); setNotesOpen(false); stageRef.current?.close(); }
 	}, [open]);
 	// THE TALK CLOCK. It counts from the moment the deck starts being delivered, which is
 	// what the retired second window's clock was for and is not the same instrument as the
@@ -1396,6 +1400,15 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				setOverviewOpen(true);
 				return;
 			}
+			// `n` — notes, the third of the four per-consumer keys the shared kernel reserves.
+			// Only meaningful on a narrow console: at `lg` and up the notes are already on
+			// screen in the side column, so there is nothing to toggle and the key stays out
+			// of the way rather than collapsing something the presenter did not ask to lose.
+			if ((e.key === 'n' || e.key === 'N') && !wideConsole) {
+				e.preventDefault();
+				setNotesOpen((v) => !v);
+				return;
+			}
 			// `s` — the key the shared kernel's docblock already reserved for the second
 			// window, now that there is one worth opening. A keydown IS a user gesture, so
 			// `window.open` here is as popup-blocker-safe as the button; the same notify
@@ -1425,7 +1438,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull, notify]);
+	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull, notify, wideConsole]);
 	// Close the sorter whenever Present closes, so re-opening starts on the slide.
 	React.useEffect(() => {
 		if (!open) setOverviewOpen(false);
@@ -1466,6 +1479,26 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// happens. The coach pill is clamped to two lines to make its ceiling knowable;
 	// `--present-band` and that clamp are set together, so neither can drift alone.
 	const bandCls = coachPillUp ? 'pb-[4.75rem]' : showHint ? 'pb-14' : 'pb-4 sm:pb-5';
+	// ── THE SPEAKER NOTES, BUILT ONCE, PLACED TWICE ─────────────────────────────
+	//
+	// A note is the presenter's and reaches no other surface (narration-resolve.ts), so the
+	// console owes it at EVERY width Present runs at — the window this replaced was a
+	// separate popup and therefore had notes on a small laptop too. What is genuinely a
+	// wide-console luxury is the NEXT-SLIDE preview, because that is a second live engine
+	// frame; the notes are text. So the two are gated apart: the side column at `lg`, and
+	// below it a panel the presenter opens with the Notes pill or `n`.
+	const notesBody = (sizing: string) => (
+		<div className={cn('overflow-auto rounded-xl border border-border bg-card px-3.5 py-3 text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere]', sizing)}>
+			{notePara.length ? (
+				notePara.map((para) => (
+					<p key={para} className="mb-2 last:mb-0">{para}</p>
+				))
+			) : (
+				<p className="italic text-muted-foreground">No speaker notes on this slide.</p>
+			)}
+		</div>
+	);
+
 	// ── THE AUDIENCE CHROME, BUILT ONCE ─────────────────────────────────────────
 	//
 	// Captions, the guide pointer and the rail follow the deck (§3): they are aimed at
@@ -1687,15 +1720,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						<div className="text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-muted-foreground">Speaker notes</div>
 						{/* The talk track. Scrolls on its own — a long note must never push the
 						    Next preview off the column. */}
-						<div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card px-3.5 py-3 text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
-							{notePara.length ? (
-								notePara.map((para) => (
-									<p key={para} className="mb-2 last:mb-0">{para}</p>
-								))
-							) : (
-								<p className="italic text-muted-foreground">No speaker notes on this slide.</p>
-							)}
-						</div>
+						{notesBody('min-h-0 flex-1')}
 					</aside>
 				)}
 				{/* Real delivery coaching — the plan's role-specific guidance, with the
@@ -1742,6 +1767,21 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				)}
 			</div>
 
+			{/* The narrow-console notes panel. It sits ABOVE the dock and BELOW the slide row
+			    rather than over the slide: the slide row is `flex-1`, so opening this shrinks
+			    the deck instead of covering it — the same bargain the caption band makes, and
+			    the reason neither ever hides what it is annotating. Scrolls on its own, capped
+			    so a long note can never push the transport off a phone. */}
+			{!wideConsole && notesOpen && !unavailable && (
+				<section className="pointer-events-auto flex w-full max-w-[760px] shrink-0 flex-col gap-1.5 px-3 pb-1" aria-label="Speaker notes">
+					<div className="flex items-center justify-between">
+						<span className="text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-muted-foreground">Speaker notes</span>
+						<button type="button" onClick={() => setNotesOpen(false)} aria-label="Hide speaker notes" className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><X className="size-3.5" /></button>
+					</div>
+					{notesBody('max-h-[32vh]')}
+				</section>
+			)}
+
 			{/* Bottom dock (layout A, 2026-07-12 redesign): caption (top) → controls (middle) →
 			    section title → full-width rail (bottom). Pointer-over / focus-within PINS the
 			    bloom open so aiming a click never makes it fold.
@@ -1761,7 +1801,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				{/* Controls row (middle). The transport pill is always-on and hugs its content
 				    (Play + position); the CC / Voice cluster BLOOMS beside it — collapsing to zero
 				    width at rest so the resting pill stays tight and centered, no trailing void. */}
-				<div className="flex max-w-full items-center gap-2">
+				{/* WRAPS, and that is load-bearing at 390px. The cluster beside the transport
+				    grew a fourth pill (Notes) and pushed Guide clean off the display —
+				    measured at x=390 on a 390px viewport, i.e. entirely unreachable, with the
+				    row overflowing 414 into 366. Nothing here may be unreachable at a width
+				    Present runs at, so the cluster drops to its own line instead of being
+				    clipped; `justify-center` keeps both rows centered under the slide. */}
+				<div className="flex max-w-full flex-wrap items-center justify-center gap-2">
 					<div className="flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3">
 						<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : delivering ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : delivering) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
@@ -1802,6 +1848,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							    reads as the control itself becoming a different control. Buffering
 							    is reported on the rail, where it belongs. */}
 							<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
+							{/* NOTES — only where the side column is not carrying them. A note is the
+							    presenter's and the console owes it at every width; what it cannot afford
+							    on a narrow screen is keeping it permanently on top of the slide. */}
+							{!wideConsole && (
+								<Tip label="Speaker notes (N) — what you'll say on this slide"><button type="button" onClick={() => setNotesOpen((v) => !v)} aria-pressed={notesOpen} aria-label="Speaker notes" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', notesOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><StickyNote className="size-3.5" /><span className="hidden sm:inline">Notes</span></button></Tip>
+							)}
 							<Tip label="Guide — point at what is being narrated"><button type="button" onClick={() => setGuideOn((v) => !v)} aria-pressed={guideOn} aria-label={guideOn ? 'Guide on — turn off to stop pointing at the narrated text' : 'Guide off — turn on to point at the narrated text'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', guideOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><MousePointer2 className="size-3.5" /><span className="hidden sm:inline">Guide</span></button></Tip>
 						</div>
 					)}

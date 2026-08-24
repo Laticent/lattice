@@ -356,10 +356,12 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
 	const TIMEOUT = 120000;
 	// Single distinctive tokens survive the .vtt's word-by-word cue split.
+	// Slide 3 carries a note and NO caption — the shape the leak lived in.
 	const DECK = [
 		'---', 'theme: indaco', 'captions:', '  1: FRONTCAP the front-matter caption', '---', '',
-		'# One', '', '<!-- NOTEONE the first note -->', '', 'Body A.', '',
-		'---', '', '# Two', '', '<!-- caption: INLINECAP the inline caption -->', '<!-- NOTETWO the second note -->', '', 'Body B.', '',
+		'# One', '', '<!-- NOTEONE the first note -->', '', 'BODYONE the first body.', '',
+		'---', '', '# Two', '', '<!-- caption: INLINECAP the inline caption -->', '<!-- NOTETWO the second note -->', '', 'BODYTWO the second body.', '',
+		'---', '', '# Three', '', '<!-- NOTETHREE the third note -->', '', 'BODYTHREE the third body.', '',
 	].join('\n');
 
 	function render(flags) {
@@ -382,25 +384,52 @@ describe('html-player export — captions + --strip-captions (orthogonal to --st
 		assert.ok(source.includes('FRONTCAP') && source.includes('INLINECAP'), 'both captions ride in the envelope source');
 	});
 
-	test('--strip-captions scrubs caption text from the .vtt AND the source, but KEEPS the notes (the fallback)', { timeout: TIMEOUT }, () => {
+	test('A SPEAKER NOTE NEVER REACHES THE .vtt — the caption is generated from CONTENT', { timeout: TIMEOUT }, () => {
+		// THE REGRESSION CELL. A note used to outrank the slide's own content in the narration
+		// ladder, so a deck with notes shipped the author's private talk track inside the
+		// caption sidecar a recipient opens. `design/skills/speaker-notes.md` requires the two
+		// channels never bleed into one another; this is that requirement, measured on real
+		// exported bytes rather than on the ladder in isolation.
+		const { vtt, source } = render([]);
+		for (const tok of ['NOTEONE', 'NOTETWO', 'NOTETHREE']) {
+			assert.equal(vtt.includes(tok), false, `${tok} — a speaker note must never appear in the caption track`);
+		}
+		// Slide 3 has a note and no caption: it narrates its OWN BODY, which is the whole point.
+		// Without this the cell above would also pass on a deck that simply narrated nothing.
+		assert.ok(vtt.includes('BODYTHREE'), 'a note-bearing slide narrates its own content');
+		// And the notes still travel WITH the deck as comments, for the author.
+		assert.ok(source.includes('NOTEONE') && source.includes('NOTETHREE'), 'notes ride in the envelope source as comments');
+	});
+
+	test('--strip-captions scrubs the OVERRIDES; slides fall back to their generated content', { timeout: TIMEOUT }, () => {
 		const { vtt, source } = render(['--strip-captions']);
 		// caption text gone from both surfaces
 		assert.equal(vtt.includes('FRONTCAP'), false, 'front-matter caption gone from the .vtt');
 		assert.equal(vtt.includes('INLINECAP'), false, 'inline caption gone from the .vtt');
 		assert.equal(source.includes('FRONTCAP'), false, 'front-matter caption gone from the source');
 		assert.equal(source.includes('INLINECAP'), false, 'inline caption gone from the source');
-		// the slides fall back to their notes — which are NOT stripped (orthogonality)
-		assert.ok(vtt.includes('NOTEONE'), 'slide 1 falls back to its note in the .vtt');
-		assert.ok(vtt.includes('NOTETWO'), 'slide 2 falls back to its note in the .vtt');
+		// …and they fall back to the PROJECTION, not to the notes. This flag used to hand you
+		// the private channel when you asked to scrub the public one, which is why its own help
+		// text had to tell you to strip twice.
+		assert.ok(vtt.includes('BODYONE'), 'slide 1 falls back to its own content');
+		assert.ok(vtt.includes('BODYTWO'), 'slide 2 falls back to its own content');
+		for (const tok of ['NOTEONE', 'NOTETWO', 'NOTETHREE']) {
+			assert.equal(vtt.includes(tok), false, `${tok} is not a fallback — a note is never a narration source`);
+		}
 		assert.ok(source.includes('NOTEONE') && source.includes('NOTETWO'), 'the notes still ride in the source (only captions were stripped)');
 	});
 
-	test('--strip-captions --strip-notes → a fully silent track (no caption or note narration)', { timeout: TIMEOUT }, () => {
+	test('--strip-captions --strip-notes → both channels scrubbed, and the deck still narrates itself', { timeout: TIMEOUT }, () => {
+		// This used to produce a SILENT track, because suppressing the projection was the only
+		// way to stop `--strip-notes` leaking the notes it had just scrubbed. With captions
+		// generated from slide content there is nothing private left in them to protect, so a
+		// stripped deck keeps its caption track — which is what a recipient needs for a11y.
 		const { vtt, source } = render(['--strip-captions', '--strip-notes']);
-		for (const tok of ['FRONTCAP', 'INLINECAP', 'NOTEONE', 'NOTETWO']) {
+		for (const tok of ['FRONTCAP', 'INLINECAP', 'NOTEONE', 'NOTETWO', 'NOTETHREE']) {
 			assert.equal(vtt.includes(tok), false, `no ${tok} in the fully-stripped .vtt`);
 			assert.equal(source.includes(tok), false, `no ${tok} in the fully-stripped source`);
 		}
+		assert.ok(vtt.includes('BODYONE') && vtt.includes('BODYTHREE'), 'the slides still narrate their own content');
 	});
 });
 

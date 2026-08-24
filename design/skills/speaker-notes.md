@@ -88,25 +88,35 @@ when the same words are a real note elsewhere in the deck.
 **Definition.** A caption is a slide's **read-as text** — the exact words it
 narrates for read-aloud, the HTML player's read-along, the exported `.vtt`, and TTS.
 It is the **highest-precedence narration source** and it *replaces* the whole
-slide's narration (unlike a note or description, which are additive).
+slide's narration — entirely, never in part.
 
 **The narration precedence chain:**
-`caption → front-matter captions map → speaker note → projection/chart narrator`.
+`caption → front-matter captions map → projection/chart narrator`.
 
-**Three ways to author a caption:**
+**A speaker note is NOT in that chain**, and it used to be — sitting above the
+projection, so any slide carrying a note narrated the note rather than its own
+content, in the live crawl, in the exported `.vtt`, and in the audio baked into a
+shared deck. That is the bleed the 10/10 bar above forbids in its first sentence,
+and the CLI had to carry the consequence in its own `--strip-captions` help: you
+stripped the *public* channel for privacy and were handed the *private* one, so it
+told you to strip twice. A note reaches the presenter's own surface and nothing
+else; it travels in the deck as an HTML comment, for the author.
 
-1. **Inline comment** (outranks the note on that slide):
+**Two ways to author a caption, and a default:**
+
+1. **Inline comment** — replaces this slide's generated narration entirely:
    ```markdown
-   <!-- caption: This spoken line outranks the speaker note below. -->
+   <!-- caption: The spoken line for this slide, in full. -->
    ```
-2. **Front-matter map, keyed by slide number** (for slides with no note):
+2. **Front-matter map, keyed by slide number:**
    ```yaml
    captions:
      6: Your registry taught it ARR and NDR, so this slide speaks them in full.
    ```
-3. **Implicit** — with no caption or map entry, the speaker note *is* the caption;
-   with nothing at all, a component-aware projection / chart narrator generates one
-   (a chart narrates a computed insight — e.g. funnel conversion % — prose can't).
+3. **Generated (the default)** — with no override, a component-aware projection /
+   chart narrator writes the caption from what the slide actually says (a chart
+   narrates a computed insight — e.g. funnel conversion % — prose can't). A slide
+   with nothing to project reads as silence; a note is not a substitute for it.
 
 **Display form vs spoken form.** A word carries both `$4.2M` (displayed) and "four
 point two million dollars" (spoken); the caption shows the glyphs while the timed
@@ -125,11 +135,12 @@ depth, phrase-final lengthening) drives the highlight; when TTS plays, each
 sentence's measured onset re-anchors its words. The highlight is biased ~40 ms ahead
 of the voice (a lagging highlight is the error to avoid). `.vtt` is a sidecar
 (`--captions`), never baked into the deck bytes; `--strip-captions` removes both the
-inline comments and the map.
+inline comments and the map, leaving the generated captions. `--strip-notes` is a
+separate channel and does not touch captions at all.
 
 **Great caption:** written to be spoken and understood — acronyms expanded, numbers
 allowed to read as words. Use an inline `caption:` override only when the spoken line
-should differ from both the note and the on-slide prose. A live caption is a
+should differ from the on-slide prose. A live caption is a
 rehearsal mirror, not a teleprompter crutch — it fades as the talk is mastered.
 
 ---

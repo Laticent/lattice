@@ -249,9 +249,10 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
 
 	// Caption — the slide's read-as OVERRIDE, the highest-precedence narration source
-	// (caption → front-matter caption → note → projection). A SEPARATE channel from the
-	// speaker note: the note is what you SAY off-slide; the caption is the exact words the
-	// slide READS (read-aloud, the HTML player's Read-Article, the export `.vtt`, a11y).
+	// (caption → front-matter caption → projection). A SEPARATE channel from the speaker
+	// note, and the note is not in the chain at all: the note is what you SAY off-slide; the
+	// caption is the exact words the slide READS (read-aloud, the HTML player's Read-Article,
+	// the export `.vtt`, a11y).
 	// Same draft-then-commit shape; writes a `<!-- caption: … -->` the engine routes to
 	// narration only, never to the presenter-note field.
 	const curCaption = React.useMemo(() => getCaption(chunk), [chunk]);
@@ -573,18 +574,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								onChange={(e) => setNoteDraft(e.target.value)}
 								onBlur={commitNote}
 								aria-label="Speaker note for this slide"
-								placeholder="What you'll say on this slide — read aloud in Present, exported to PDF/PPTX notes."
+								placeholder="What you'll say on this slide — shown on your Present console, exported to PDF/PPTX notes."
 								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 							/>
 							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-								{curCaption
-									? 'Exported to the PDF/PPTX speaker-notes field. Note: this slide has a caption, which overrides the note in read-aloud / the caption track.'
-									: 'Read aloud in Present, and exported to the PDF/PPTX speaker-notes field.'}
+								{/* Yours, and only yours — the note is not a narration source. It used to be
+								    (it outranked the slide's own content), which is how a private remark
+								    reached a recipient's caption track; see narration-resolve.ts. */}
+								Yours alone: shown beside the slide while you present, and exported to the PDF/PPTX
+								speaker-notes field. Never read aloud, and never in the caption track.
 							</p>
 
-							{/* CAPTION — the read-as OVERRIDE. A separate channel from the note: the
-							    highest-precedence narration source (caption → front-matter → note →
-							    projection), for a clean caption track / Read-Article / export `.vtt`.
+							{/* CAPTION — the read-as OVERRIDE, and it REPLACES the generated narration
+							    rather than merging with it. A separate channel from the note, which is
+							    not a narration source at all: caption → front-matter → projection, for a
+							    clean caption track / Read-Article / export `.vtt`.
 							    Writes `<!-- caption: … -->`; never lands in the presenter-note field. */}
 							<div className="mt-5 border-t border-border pt-4">
 								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Captions className="size-3.5 text-[var(--accent)]" />Caption <span className="font-normal text-muted-foreground">what this slide reads aloud</span></span>

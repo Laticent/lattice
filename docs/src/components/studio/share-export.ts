@@ -825,10 +825,12 @@ type ReadAlongCore = {
 		},
 	) => { slides: { index: number }[] };
 	// The SAME merge the CLI export uses (HARD RULE #1): caption → front-matter caption →
-	// note → projection, with the alignment guard that drops the projection wholesale on a
+	// projection, with the alignment guard that drops the projection wholesale on a
 	// section/slide count mismatch. Re-exported from the read-along-core bundle.
+	// The first argument is a slide COUNT, not the notes it used to be — a speaker note is
+	// not a narration source (narration-resolve.ts).
 	mergeNarration: (
-		notes: readonly (string | null | undefined)[],
+		slideCount: number,
 		projected: readonly string[],
 		opts?: { captions?: readonly (string | null | undefined)[]; fmCaptions?: ReadonlyMap<number, string> | null },
 	) => string[];
@@ -917,7 +919,7 @@ export async function shareCaptions(
 	// export never did, so the same deck's captions disagreed with what Present spoke. Same
 	// substitution, shared rather than copied (narration-resolve.ts).
 	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
-	const slideTexts = readAlongCore.mergeNarration(notes, projected, { captions, fmCaptions });
+	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { captions, fmCaptions });
 
 	onStatus?.('Building captions…');
 	const readAlong = readAlongCore.buildReadAlong(slideTexts, {
