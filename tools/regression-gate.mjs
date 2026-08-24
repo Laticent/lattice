@@ -482,6 +482,23 @@ function main() {
       if (!json) process.stdout.write(`blessed ${only ? `gallery "${only}"` : 'all galleries'} — commit the refreshed PDFs.\n`);
       decks = [];
     }
+    // SAY WHAT THE DEFAULT DID NOT DO. The scope defaults above are asymmetric on purpose —
+    // check means `all`, bless means `galleries` — and the corpus rots along that seam: an
+    // author who lands a shared CSS change and runs `npm run bless` has refreshed 150
+    // artifacts and left 199, with nothing in the session saying so. Measured 2026-08-24,
+    // the morning after the nightly gate went in: 184 of 199 deck goldens drifted against 12
+    // of 150 gallery goldens, and the three most recent blesses (#1777, #1801, #1804) had all
+    // taken this default. This line does NOT go and measure the deck drift — that is a
+    // multi-hour render, and defeating the narrow default is the one thing the default is
+    // for. It just stops the omission being silent.
+    // (engineering/decisions/2026-08-24-golden-corpus-re-bless.md §4.)
+    if (scopeIdx < 0 && !json) {
+      process.stdout.write(
+        'NOTE: --bless defaults to GALLERIES. The deck scope (examples/, exemplars/, design/, ' +
+          'themes/, the CI baseline) was NOT touched.\n' +
+          '      If your change moves them too: node tools/regression-gate.mjs --scope decks --bless\n',
+      );
+    }
     if (!goldens.length) return 0;
   }
 
