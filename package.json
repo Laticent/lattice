@@ -105,6 +105,7 @@
     "emulator:build": "node tools/build-emulator.js",
     "emulator:check": "node tools/build-emulator.js --check",
     "playground:build": "node tools/build-playground.js",
+    "hljs:build": "node tools/build-hljs-languages.js",
     "playground:check": "node tools/build-playground.js --check",
     "playground:watch": "node tools/build-playground.js --watch",
     "katex-provider:build": "node tools/build-katex-provider.js",

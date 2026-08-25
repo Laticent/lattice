@@ -31,6 +31,18 @@ export interface LatticePlaygroundEngine {
 	 *  engineering/decisions/2026-08-16-theme-identity-ownership.md. */
 	addThemes: (themes: Array<{ name: string; css: string } | string>) => void;
 	hasTheme: (name: string) => boolean;
+	/** Fenced-code grammars this deck asks for that the bundle cannot color.
+	 *  The bundle carries highlight.js's 36-language `common` build; the rest are
+	 *  fetched per deck by docs/src/lib/ensure-hljs-language.ts. */
+	missingLanguages?: (markdown: string) => string[];
+	/** Register everything queued on `window.__latticeHljs`; returns what took. */
+	drainLanguages?: () => string[];
+	languages?: {
+		has: (name: string) => boolean;
+		list: () => string[];
+		needed: (markdown: string) => string[];
+		missing: (markdown: string) => string[];
+	};
 }
 
 export interface LatticeDeckPreviewController {
@@ -59,5 +71,12 @@ declare global {
 		// lattice-katex.js loads; __latticeKatexReady is the loader's poll target.
 		__latticeRegisterKatex?: (katex: unknown) => void;
 		__latticeKatexReady?: boolean;
+		// On-demand highlight.js grammars (docs/src/lib/ensure-hljs-language.ts +
+		// tools/build-hljs-languages.js): each grammar file pushes
+		// `[name, definition]` onto this queue, and lib/playground's
+		// `drainLanguages()` registers them. A QUEUE rather than a callback so a
+		// file that lands before the engine bundle finishes evaluating is not lost —
+		// classic <script> arrival order is not something the page controls.
+		__latticeHljs?: Array<[string, unknown]>;
 	}
 }

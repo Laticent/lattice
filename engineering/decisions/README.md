@@ -293,6 +293,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-08-25-on-demand-fence-grammars.md](2026-08-25-on-demand-fence-grammars.md) — The 2026-07-19 preview-bundle work swapped highlight.js's full 192-language build for the 36-language `common` one and halved cold load.
 - ☑ [2026-08-25-status-trio-joint-solve-model.md](2026-08-25-status-trio-joint-solve-model.md) — The design model the joint re-solve brief asked for, with the answer measured rather than assumed — and it refutes the brief's own framing.
 - ☑ [2026-08-25-typed-glyphs.md](2026-08-25-typed-glyphs.md) — We spent real effort on SVG mask tokens so a status mark renders identically regardless of font or OS, and then went on typing `✓`, `→` and…
 - ☑ [2026-08-24-chat-stream-teardown.md](2026-08-24-chat-stream-teardown.md) — The Architect's reply rendered TWICE, permanently, whenever the last token's paint frame was still queued as `chatComplete` resolved…

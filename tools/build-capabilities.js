@@ -78,6 +78,7 @@ const SCRIPT_META = {
   'playground:check':         ['Build & bundle', 'Freshness gate for the playground bundle.'],
   'playground:watch':         ['Build & bundle', 'Rebuild the playground bundle on change.'],
   'katex-provider:build':     ['Build & bundle', 'Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle.'],
+  'hljs:build':               ['Build & bundle', 'Build docs/public/playground/hljs/ — the 156 highlight.js grammars the preview bundle\'s 36-language `common` build omits, one small file each (median 1.9 KB) plus an alias manifest, fetched per deck so the Playground colors every language the CLI export does.'],
   'katex-provider:check':     ['Build & bundle', 'Freshness gate for the katex-provider bundle.'],
   'katex-provider:watch':     ['Build & bundle', 'Rebuild the katex-provider bundle on change.'],
   'theme-core:build':         ['Build & bundle', 'Bundle the pure Theme Studio core for the browser (docs site).'],

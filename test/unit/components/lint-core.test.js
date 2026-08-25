@@ -1118,3 +1118,40 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
     assert.equal(found.line, '- Ship it ✓');
   });
 });
+
+describe('lint-core: shell-fence-is-script (rule 12b)', () => {
+  // The tag that makes highlighting look broken while every renderer behaves.
+  // `shell` / `console` / `shellsession` are highlight.js's terminal-SESSION
+  // grammar; the same eleven-line script measured 15 highlight spans as ```sh
+  // and 2 as ```shell on every render path.
+  const F = '```';
+  const slide = (tag, ...body) => `${FM}<!-- _class: code -->\n\n## A block.\n\n${F}${tag}\n${body.join('\n')}\n${F}\n`;
+
+  test('flags a script tagged with a session grammar', () => {
+    const f = ruleFor(slide('shell', '#!/bin/sh', 'set -eu'), 'shell-fence-is-script');
+    assert.ok(f, 'expected a finding');
+    assert.equal(f.severity, 'info');
+    assert.equal(f.classToken, 'shell');
+    assert.match(f.fix, /```bash/);
+  });
+
+  test('info, not a warning — the tag is legal and the render is correct', () => {
+    const findings = core.lintTextWith(slide('shell', 'set -eu'), vocab);
+    assert.equal(findings.filter((x) => x.rule === 'shell-fence-is-script' && x.severity !== 'info').length, 0);
+  });
+
+  test('silent on a genuine transcript', () => {
+    assert.equal(ruleFor(slide('console', '$ ./deploy.sh', 'ok'), 'shell-fence-is-script'), undefined);
+  });
+
+  test('silent on a script already tagged bash / sh / zsh', () => {
+    for (const tag of ['bash', 'sh', 'zsh']) {
+      assert.equal(ruleFor(slide(tag, '#!/bin/sh', 'set -eu'), 'shell-fence-is-script'), undefined, tag);
+    }
+  });
+
+  test('fires regardless of the slide component — it is a fence rule, not a layout rule', () => {
+    const src = `${FM}## No class directive here.\n\n${F}shell\nset -eu\n${F}\n`;
+    assert.ok(ruleFor(src, 'shell-fence-is-script'), 'a slide with no _class directive is still linted');
+  });
+});

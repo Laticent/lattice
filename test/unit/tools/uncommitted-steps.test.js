@@ -47,6 +47,7 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-concepts.js',
   'build-playground.js',
   'build-katex-provider.js',
+  'build-hljs-languages.js',
   'build-theme-core.js',
   'build-layout-core.js',
   'build-authoring-core.js',

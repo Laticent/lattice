@@ -103,6 +103,19 @@ for (const { file } of TEXT_FACES) {
 // component's `![bg](sample-image-landscape.svg)`. Staged under samples/ so the
 // playground preview can load them; the component render passes this base as
 // `{ baseUrl }` to the engine, which resolves the deck-relative path against it.
+// On-demand highlight.js grammars — one file per language the engine bundle's
+// 36-language `common` build does NOT carry, plus the alias manifest
+// (tools/build-hljs-languages.js). Staged into the same hashed dir as the engine
+// bundle so docs/src/lib/ensure-hljs-language.ts derives the directory with one
+// path swap, exactly like lattice-katex.js. 156 files, ~932 KB on disk, and the
+// page fetches only the ones a deck's fences actually name — median 1.9 KB.
+const hljsDir = join(pgDir, 'hljs');
+if (existsSync(hljsDir)) {
+  for (const file of readdirSync(hljsDir)) {
+    if (file.endsWith('.js') || file === 'index.json') assets.push([`hljs/${file}`, join(hljsDir, file)]);
+  }
+}
+
 const imageSamplesDir = join(repoRoot, 'lib', 'components', 'imagery', 'image');
 for (const file of readdirSync(imageSamplesDir)) {
   if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(imageSamplesDir, file)]);
