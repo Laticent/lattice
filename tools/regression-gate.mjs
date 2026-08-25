@@ -78,6 +78,24 @@ const OUT = join(ROOT, '.scratch', 'regression');
 // cross-environment rasterizer AA, not a license for visible change.
 const FUZZ = '3%'; // ≈ channel delta 8 / 255, the engine-parity threshold
 const FAIL_FRACTION = 0.0005; // 0.05% of the page (≈ 260 px at 72dpi 960×540)
+// THE COROLLARY NOBODY HAD WRITTEN DOWN: a real, intended change SMALLER than the
+// floor leaves its goldens stale, and `--bless` will not promote them — the branch
+// below is `if (opts.bless && drifted.length)`, so a sub-floor render is produced and
+// discarded. There is no flag to force it, deliberately.
+//
+// That is not hypothetical. #1821 re-pointed one small mark (a hollow state ring) at a
+// different token; MEASURED by diffing two FRESH renders — main's tree against the fix's,
+// which isolates the change from any staleness already on main — it moves ~31 deck
+// goldens by 0.015–0.055%. Every one is at or under its applicable floor, so the corpus
+// kept shipping the old ink and the gate was right to say "ok". Two sat within a hair of
+// the flat floor (0.0482%, 0.0467%), which is the case worth knowing about: a host that
+// rasterizes a shade differently pushes them over and the nightly reports them on
+// somebody else's PR.
+//
+// Accepted rather than fixed, as a decision: forcing promotion would need a new flag AND
+// would bake one host's rasterization into every file it touched, which is the exact
+// thing this floor exists to prevent. The human catch is the golden-diff before/after
+// comment, which since #1843 covers the deck scope too.
 // Mermaid galleries (the chart + diagram buckets) render fine mmdc-produced SVG
 // vector/text whose sub-pixel anti-aliasing is NOT bit-identical across machine
 // classes: a golden blessed on one machine drifts ~0.4–0.5% on another (e.g. the
