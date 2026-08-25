@@ -3610,12 +3610,13 @@ function checkUsEnglish(errors) {
 // the remaining backlog is burned down by lowering this. Target zero.
 // Re-measure with a temporary `= 0` — the failure message prints the live total.
 //
-// 198 (2026-08-25) — the honest count the moment the gate went in, measured with
-// the fence rule already applied (a glyph inside a ``` block is quoted material,
-// not slide chrome). Pinned to the MEASURED number, never above it: a budget with
-// slack is not a ratchet, it is a hole, and #1852 showed exactly how five new
-// entries walk through 29 units of it.
-const TYPED_GLYPH_BUDGET = 198;
+// TARGET REACHED. The backlog measured 198 when the gate went in and is now zero:
+// every typed shape in a shipped deck was converted in the same change. Pinned to
+// the MEASURED number, never above it — a budget with slack is not a ratchet, it is
+// a hole, and #1852 showed exactly how five new entries walk through 29 units of one.
+// At zero this is no longer a burn-down; it is a floor, and the next typed glyph
+// fails the build.
+const TYPED_GLYPH_BUDGET = 0;
 
 // ══════════════════════════════════════════════════════════════════════════
 // HARD RULE #29 — typed glyphs never reach a rendered surface.
@@ -3644,15 +3645,49 @@ const TYPED_GLYPH_BUDGET = 198;
 // scope; so is `engineering/decisions/**`, which is a dated archive.
 const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice } = require('../lib/core/shape-glyphs.js');
 
+// A `quadrant` slide's axis eyebrow is the component's axis DSL, not chrome: the
+// transform splits it to get the two axis names and their ranges. The ASCII
+// spelling the regex advertises does NOT work (the eyebrow arrives as escaped
+// HTML, so `->` reaches it as `-&gt;` and the split never fires — measured on
+// examples/stage-inset.md slide 3: one axis name printed literally, the second
+// axis gone, the scale fallen back, and the data points moved). There is no
+// better spelling, so counting it would be counting something with no fix.
+// Recorded in engineering/decisions/2026-08-25-typed-glyphs.md.
+const QUADRANT_AXIS_EYEBROW = /^[ \t]*`[^`\n]*`[ \t]*$/;
+
+function stripQuadrantAxisEyebrows(text) {
+  let quadrant = false;
+  return text.split('\n').map((line) => {
+    const cls = line.match(/<!--\s*_?class:\s*([^>]*?)\s*-->/);
+    if (cls) { quadrant = /\bquadrant\b/.test(cls[1]); return line; }
+    if (/^---[ \t]*$/.test(line)) { quadrant = false; return line; }
+    if (quadrant && QUADRANT_AXIS_EYEBROW.test(line)) return ' '.repeat(line.length);
+    return line;
+  }).join('\n');
+}
+
+// The deck ROOTS the authoring linter itself walks (tools/lint-deck.js
+// `discoverDecks`). Kept in step deliberately: the gate and `lint:deck --all`
+// disagreeing about what counts as a deck is how a file ends up governed by
+// neither, which is exactly what happened — examples/split-envelope.md carries
+// no `marp: true` (Lattice is the engine; the key is optional), so a
+// front-matter-only test skipped it while the linter warned on it.
+const GLYPH_DECK_ROOTS = Object.freeze([
+  'examples/', 'exemplars/', 'test/integration/baseline-decks/',
+]);
+
 function isGlyphDeck(rel, text) {
   if (!rel.endsWith('.md')) return false;
   if (rel.endsWith('.docs.md')) return false; // prose ABOUT a component, never projected
   if (rel.startsWith('engineering/decisions/')) return false; // a dated archive
-  // The definition is the front matter, not the folder: a rendered surface is a
-  // file the engine will paginate into slides. A path list would have swept in
-  // design/design-system.md and design/forms.md (79 glyphs between them), which
-  // are reference PROSE — exactly the "not even in documentation" over-reach the
-  // scope decision ruled out.
+  // Two halves, and each catches what the other misses. The ROOTS are the
+  // linter's; the front-matter half then picks up a deck that lives outside them
+  // (test/fixtures/*, themes/palette-audit.md) and declares itself. A path list
+  // alone would also have swept in design/design-system.md and design/forms.md —
+  // 79 glyphs of reference PROSE, not slides — which is why there is no
+  // `design/` root here.
+  if (GLYPH_DECK_ROOTS.some((r) => rel.startsWith(r))) return true;
+  if (rel.endsWith('.gallery.md')) return true;
   return /^---\r?\n[\s\S]*?\bmarp:\s*true/m.test(text.slice(0, 400));
 }
 
@@ -3790,7 +3825,7 @@ function checkTypedGlyphs(errors) {
     if (!isGlyphDeck(rel, text)) continue;
     // A glyph inside a ``` fence is quoted material (two decks quote the CLI's
     // own ⚠ overflow warning verbatim), not slide chrome. See stripFencedCode.
-    const n = (stripFencedCode(text).match(shapeGlyphRe()) || []).length;
+    const n = (stripQuadrantAxisEyebrows(stripFencedCode(text)).match(shapeGlyphRe()) || []).length;
     if (!n) continue;
     if (sanctioned.has(rel)) { sanctionSeen.add(rel); continue; }
     total += n;
@@ -11063,6 +11098,9 @@ module.exports = {
   listRepoTextFiles,
   UK_ENGLISH_FORMS,
   US_ENGLISH_BUDGET,
+  TYPED_GLYPH_BUDGET,
+  SANCTIONED_GLYPH_DECKS,
+  checkTypedGlyphs,
   CANONICAL_FS_TOKENS,
   parseThemeTokens,
   listBasePalettes,

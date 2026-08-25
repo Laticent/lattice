@@ -259,6 +259,28 @@ stage floor. `no-note` keeps the trailing paragraph as body copy.
 These two phases are one decision, and the second does not stand without the first.
 ```
 
+#### Marking a note as an alarm — `note-warn`
+
+The other half of the pair. `note-warn` marks the slide's callout as a warning:
+the drawn warning triangle (`--icon-warning`) beside the label, both painted in
+the theme's warn token.
+
+```markdown
+<!-- _class: list note-warn -->
+
+## Adoption, as reported in June.
+
+- Adoption reached 12% against a 90% target.
+- The calibration loop has run once.
+
+> These figures predate the Q3 restatement and are superseded by it.
+```
+
+Use it instead of typing a `⚠` in front of the sentence. The glyph is the single
+most likely character in a deck to arrive as a full-color emoji on somebody
+else's machine — ignoring the palette entirely — where the mark here is drawn
+from a mask, flips with the theme, and prints in grayscale (HARD RULE #29).
+
 Per-slide as above, or deck-wide in front matter (`class: no-note`) for a deck whose
 prose habitually ends this way. It suppresses only the promotion; nothing else about
 the slide changes, and a Key Insight (`> blockquote`) on the same slide is untouched.
@@ -502,6 +524,38 @@ pair. Neither reaches a component that owns its own table.
 ```markdown
 <!-- _class: table-plain table-fill -->
 ```
+
+### A third switch — `state-cells`, for status in cells
+
+`state-cells` is not a look; it changes what the table's cells MEAN. It opts the
+slide into the universal state-marker decoding — `[x]` `[-]` `[ ]` `[/]` become
+the color-blind-safe status disc — which `obligation-matrix` and `matrix-grid`
+get by layout and every other table used to go without.
+
+That gap is why so many comparison tables were typed with a `✓`. A typed check is
+not a shape we draw: the deck's type family carries no glyph for it, so the
+renderer falls back to whatever font that machine has, or to a color emoji that
+ignores the palette, or to a hollow box (HARD RULE #29). The disc is drawn from a
+mask, takes the status color from the theme, and — because each state has a
+DISTINCT shape, not just a distinct hue — still parses in grayscale and for a
+color-blind reader.
+
+```markdown
+<!-- _class: compare-table state-cells -->
+
+## Where each tool actually lands.
+
+| Criterion    | Chorus | Productboard | Notion | Sprig + Log |
+| ------------ | :----: | :----------: | :----: | :---------: |
+| Speed        | [x]    | [ ]          | [x]    | [x]         |
+| Auditability | [ ]    | [x]          | [x]    | [x]         |
+| Calibration  | [ ]    | [-]          | [ ]    | [x]         |
+```
+
+`[ ]` reads NEUTRAL in a cell — a true hollow ring, "not this one" rather than
+"failed" — matching `obligation-matrix`, not `verdict-grid`. Every `checks-*`
+style variant and `heat` works on it unchanged. A trailing label in the cell
+(`[x] Certified`) is hidden, so the column header carries the meaning.
 
 ```css
 /* or deck-wide, with no class on any slide */

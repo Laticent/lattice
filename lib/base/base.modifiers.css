@@ -1186,6 +1186,101 @@ section .state.todo {
 }
 section .state.todo::after { display: none; }
 
+/* ── `state-cells` — the state markers, in ANY table's cells ───────────────
+ * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
+ * layouts decoded `[x]` / `[-]` / `[ ]` / `[/]` inside a `<td>`:
+ * obligation-matrix and matrix-grid. Everywhere else a comparison table had
+ * no drawn status at all, so authors typed a check — which is not a shape we
+ * draw, and lands as a different font, a color emoji, or a hollow box
+ * depending on the machine. `state-cells` widens the SAME decoder (one parse,
+ * HARD RULE #1 — lib/integrations/markdown-it/plugins.js and its runtime
+ * mirror) to any slide that asks for it:
+ *
+ *     <!-- _class: compare-table state-cells -->
+ *
+ *     | Criterion    | Chorus | Notion |
+ *     | ------------ | :----: | :----: |
+ *     | Auditability | [ ]    | [x]    |
+ *
+ * The disc recipe below is the fourth mirror of one already carried by
+ * checklist, verdict-grid and obligation-matrix — the established shape here,
+ * because the geometry belongs to the consumer and only the scalar knobs are
+ * shared (base.tokens.css explains why the knobs cannot embed --state-color).
+ * `[ ]` decodes NEUTRAL in a cell (`todo`, a true hollow ring): a blank cell
+ * in a comparison table reads "not this one", not "failed".
+ *
+ * Every `checks-*` style variant and `heat` works on it unchanged, since both
+ * act on the same knobs. */
+section.state-cells td .state {
+  position: relative;
+  display: inline-block;
+  width: calc(1.4em * var(--state-disc-scale));
+  height: calc(1.4em * var(--state-disc-scale));
+  border-radius: 50%;
+  box-sizing: border-box;
+  vertical-align: middle;
+  /* Hide a trailing label while keeping `em` resolving against the cell's
+   * font-size — `font-size:0` here would collapse the disc. */
+  overflow: hidden;
+  text-indent: 200%;
+  white-space: nowrap;
+  line-height: 1;
+  background: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
+  box-shadow:
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+}
+section.state-cells td .state.pass { --state-color: var(--pass); }
+section.state-cells td .state.warn { --state-color: var(--warn); }
+section.state-cells td .state.fail { --state-color: var(--fail); }
+section.state-cells td .state.skip { --state-color: var(--muted-mark); }
+section.state-cells td .state.todo { --state-color: var(--text-label); }
+section.state-cells td .state::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  -webkit-mask: var(--state-mark) center / 100% 100% no-repeat;
+          mask: var(--state-mark) center / 100% 100% no-repeat;
+}
+
+/* ── `note-warn` — the callout, marked as an alarm ─────────────────────────
+ * The other half of HARD RULE #29's answer: a typed `⚠` in front of a note is
+ * the most common shape glyph after the check, and it is the one most likely
+ * to arrive as a full-color emoji that ignores the slide's palette entirely.
+ * This draws it instead — the same --icon-warning mask, painted in the warn
+ * token, so it flips with the theme and prints in grayscale.
+ *
+ *     <!-- _class: list note-warn -->
+ *     > These figures are superseded; see the Q3 restatement.
+ *
+ * The mark rides the blockquote's ::after because ::before already carries
+ * the KEY INSIGHT label text, and a mask applies to an element's WHOLE
+ * rendering — masking the label's own box would erase the label. The label
+ * makes room for it with padding-left. */
+section.note-warn:not(.quote):not(.math):not(.citation-card) > blockquote,
+section.note-warn:not(.quote):not(.math):not(.citation-card) > .cell-stage > blockquote {
+  position: relative;
+}
+section.note-warn:not(.quote):not(.math):not(.citation-card) > blockquote::before,
+section.note-warn:not(.quote):not(.math):not(.citation-card) > .cell-stage > blockquote::before {
+  color: var(--warn);
+  padding-left: 1.7em; /* the well the mark sits in, inside the no-bg pseudo (HARD RULE #20) */
+}
+section.note-warn:not(.quote):not(.math):not(.citation-card) > blockquote::after,
+section.note-warn:not(.quote):not(.math):not(.citation-card) > .cell-stage > blockquote::after {
+  content: '';
+  position: absolute;
+  left: var(--sp-md);
+  top: var(--sp-xs);
+  font-size: var(--fs-meta);
+  width: 1.15em;
+  height: 1.15em;
+  background-color: var(--warn);
+  -webkit-mask: var(--icon-warning) var(--icon-paint);
+          mask: var(--icon-warning) var(--icon-paint);
+}
+
 /* Style variants — author opts in per slide (`_class: checklist checks-bold`)
  * or per deck (`class: checks-outline`). Each sets ONLY scalar knobs (plus,
  * for bold, the heavier mark tokens) — never a value embedding --state-color

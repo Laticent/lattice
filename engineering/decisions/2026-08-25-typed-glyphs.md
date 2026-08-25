@@ -146,6 +146,37 @@ Export-to-Marp bundle takes) with parity kept across all three. Under HARD RULE 
 "found, not caused, and off-path" case: recorded here rather than pulled into this diff, and
 pinned by content in `test/unit/core/shape-glyphs.test.js` so a THIRD one cannot appear quietly.
 
+## 5b. The quadrant eyebrow — the advice that was wrong
+
+The obvious coaching for a `quadrant` axis eyebrow is "the arrow is a parse-time delimiter
+that never reaches the slide, and the parser already accepts ASCII `->`". Both halves of that
+are false, and only rendering the deck showed it.
+
+`quadrant.transform.js` splits the eyebrow on `/(?:→|->)/`, so `->` looks supported. But the
+eyebrow reaches the transform as ALREADY-ESCAPED HTML, so a source `->` arrives as `-&gt;`
+and the branch never matches. Measured on `examples/stage-inset.md` slide 3, converting one
+eyebrow produced:
+
+| | with `→` | with `->` |
+|---|---|---|
+| x axis | `Effort`, range 0–10 | `Effort 0–10 -&gt; Reach` — printed with the entity, literally |
+| y axis | `Reach`, range 0–100 | gone |
+| scale | from the eyebrow | fallen back |
+| data points | correct | **moved** |
+
+So a sweep that "just" swapped the character would have silently corrupted the charts in
+fifteen decks. It was written, run, rendered, and reverted.
+
+And the arrow is not consumed either: the eyebrow is ALSO set verbatim on the masthead, so
+even with the escaping fixed, `->` would put an ASCII arrow on a boardroom slide. There is no
+better spelling to coach toward, so the quadrant axis eyebrow is **out of scope for both the
+gate and the linter**, and the table's `note:` field says why in the place the next person
+will look. A warning with no good answer is worse than silence.
+
+The escaping mismatch itself is a real, pre-existing defect — the regex advertises a spelling
+that cannot work — but fixing it would not change this rule's answer, so it is recorded here
+rather than pulled into this diff.
+
 ## 6. Why engine JS is not gated
 
 The first draft of the gate had a JS arm that looked for glyphs in lines that also looked like
