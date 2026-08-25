@@ -4,118 +4,118 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 4.94,
-    "rmePct": 6.01
+    "ms": 2.73,
+    "rmePct": 1.32
   },
   "blessedOn": {
     "node": "v22",
     "platform": "linux/x64",
     "cpus": 4,
-    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz"
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
   },
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 11.41,
-      "ms": 56.34,
-      "slidesPerSec": 1029,
-      "rmePct": 4.62
+      "index": 16.54,
+      "ms": 45.14,
+      "slidesPerSec": 1285,
+      "rmePct": 2.23
     },
     "charts": {
       "slides": 15,
-      "index": 9.91,
-      "ms": 48.92,
-      "slidesPerSec": 307,
-      "rmePct": 3.91
+      "index": 13.14,
+      "ms": 35.87,
+      "slidesPerSec": 418,
+      "rmePct": 1.63
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 32.55,
-      "ms": 160.68,
-      "slidesPerSec": 2166,
-      "rmePct": 6.39
+      "index": 51.31,
+      "ms": 140.04,
+      "slidesPerSec": 2485,
+      "rmePct": 4.62
     }
   },
   "printDatasets": {
     "print full · normal (jargon)": {
       "slides": 58,
-      "ms": 120908.28,
-      "rmePct": 2.05
+      "ms": 96424.09,
+      "rmePct": 6.18
     },
     "print re-place · normal (jargon)": {
       "slides": 58,
-      "ms": 81690.18,
-      "rmePct": 2.78
+      "ms": 64628,
+      "rmePct": 1.45
     },
     "print full · charts": {
       "slides": 15,
-      "ms": 7679.53,
-      "rmePct": 2.64
+      "ms": 6432.03,
+      "rmePct": 4.82
     },
     "print re-place · charts": {
       "slides": 15,
-      "ms": 3161.55,
-      "rmePct": 7.01
+      "ms": 2557.05,
+      "rmePct": 5.18
     }
   },
   "sweepDatasets": {
     "normal (jargon)": {
       "slides": 58,
       "overflowing": 1,
-      "scopedMs": 0.2,
-      "unscopedMs": 6.1,
-      "ratio": 30.5,
-      "backstopMs": 0.2
+      "scopedMs": 0.1,
+      "unscopedMs": 4.9,
+      "ratio": 49,
+      "backstopMs": 0.1
     },
     "charts": {
       "slides": 15,
       "overflowing": 0,
-      "scopedMs": 0.5,
-      "unscopedMs": 2.9,
-      "ratio": 5.8,
-      "backstopMs": 0.1
+      "scopedMs": 0.3,
+      "unscopedMs": 2,
+      "ratio": 6.67,
+      "backstopMs": 0
     },
     "overflowing (x40)": {
       "slides": 40,
       "overflowing": 40,
-      "scopedMs": 1.8,
-      "unscopedMs": 16.5,
-      "ratio": 9.17,
+      "scopedMs": 1.4,
+      "unscopedMs": 12.2,
+      "ratio": 8.71,
       "backstopMs": 0.1
     }
   },
   "cliDatasets": {
     "cli · portrait-roadmap (1 nav)": {
       "slides": 5,
-      "ms": 1731.4,
-      "rmePct": 10.37
+      "ms": 1500.51,
+      "rmePct": 10.89
     },
     "cli · auto-split (3 nav)": {
       "slides": 9,
-      "ms": 2086.03,
-      "rmePct": 9.18
+      "ms": 1768.69,
+      "rmePct": 3.04
     },
     "cli · cover-paginate (4 nav)": {
       "slides": 30,
-      "ms": 2722.03,
-      "rmePct": 6.31
+      "ms": 2185.63,
+      "rmePct": 4.9
     },
     "cli · imageset look-scratch (svg re-bake)": {
       "slides": 16,
-      "ms": 9792.99,
-      "rmePct": 5.25
+      "ms": 7809.21,
+      "rmePct": 2.07
     }
   },
   "exportDatasets": {
     "export · normal (jargon)": {
       "slides": 58,
-      "ms": 40405.34,
-      "rmePct": 6.7
+      "ms": 34018.97,
+      "rmePct": 7.4
     },
     "export · charts": {
       "slides": 15,
-      "ms": 4981.5,
-      "rmePct": 4.78
+      "ms": 4158.13,
+      "rmePct": 2.3
     }
   }
 }
