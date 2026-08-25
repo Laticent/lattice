@@ -524,12 +524,13 @@ of any timing. That failure used to read as a spectacular win.
 carries `exportDatasets`, so `bench:check -- --export` compares like the print and CLI
 tiers: same-machine on timing, any-machine on the `slides` screenshot count.
 
-**"Same machine" is not "the machine that blessed it."** `comparableMachine()` wants the
-fingerprint *and* a probe in band, so a box can bless a tier and then decline to gate it on
-the next run — the 2026-08-25 bless stamped a 4.94ms probe and an independent run on the
-identical fingerprint read 3.78–3.85ms, 22% off. Treat the browser tiers' timing as
-best-effort and their workload counts as the part that actually holds
-(`engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`).
+**"Same machine" is not automatically "the machine that blessed it," and which sandbox you
+drew matters.** `comparableMachine()` wants the fingerprint *and* a probe in band. On a
+`@2.80GHz` sandbox the probe swings ~39% run to run, so a bless there stamped 4.94ms and an
+independent run on the identical fingerprint read 3.78–3.85ms — 22% off, timing reported not
+gated. On the `@2.10GHz` class it reads within 2.9% and gates cleanly. **Bless on a box whose
+probe is stable, and confirm with `bench:check` that it prints `wall clock GATES` rather than
+assuming it will** (`engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`).
 
 A tier **this repo has not blessed yet** reports rather than failing: drift means a
 blessed row has been recording nothing, and a tier nobody has blessed has no rows to

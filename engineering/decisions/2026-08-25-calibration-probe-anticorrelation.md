@@ -13,10 +13,13 @@ summary: >
   needs a blessed probe of at least 4.783ms to admit the highest and at most
   4.647ms to admit the lowest, which is an empty range. An independent checker on
   the same machine class later read 3.78 / 3.82 / 3.85ms, below that whole range,
-  and found the freshly blessed 4.94 stamp out of band on its own hardware. The
-  instrument is noisier than the measurements it certifies and does not track them.
-  Recorded, not fixed: re-sizing the band or replacing the probe changes what
-  `bench:check` gates for every future PR, which is the human's call.
+  and found the freshly blessed 4.94 stamp out of band on its own hardware.
+  CRUCIALLY, THIS IS A PROPERTY OF ONE MACHINE CLASS, NOT OF THE PROBE: the same
+  measurement on a `@2.10GHz` box read 2.78 / 2.80 / 2.72ms, a 2.9% spread, and a
+  bless there gates cleanly. The probe is a usable instrument that degrades badly
+  on `@2.80GHz` sandboxes, which is a narrower and more actionable claim than
+  "the probe is unreliable". Recorded, not fixed: re-sizing the band or replacing
+  the probe changes what `bench:check` gates for every future PR — the human's call.
 tags: [benchmark, performance, calibration, bench-check, hard-rule-19]
 ---
 
@@ -104,13 +107,32 @@ value keeps this box in band against its own readings. (The first four readings
 alone do *not* prove that: they admit `c ∈ [4.296, 4.647]`. The four-run subset was
 what this note originally showed, and the claim was unsupported by it.)
 
-**Two caveats on the sample itself, both against the bless.** Run 4 — the one whose
-numbers are committed — is the **slowest of the session for all three datasets and
-for the probe**, so the blessed baseline is roughly 5–7% permissive rather than
-representative. And an independent checker on the same machine class, in a cold
-session, read the probe at **3.78 / 3.82 / 3.85ms** — below this entire range, and
-22% off the committed 4.94, which put the freshly blessed stamp out of band on its
-own fingerprint. See §"What this means for the stamp this note ships with".
+An independent checker on the same machine class, in a cold session, read the probe
+at **3.78 / 3.82 / 3.85ms** — below this entire range, and 22% off the then-committed
+4.94, which put that stamp out of band on its own fingerprint.
+
+## The instability belongs to the machine class, not to the probe
+
+Everything above was measured on a sandbox reporting `Intel(R) Xeon(R) Processor
+@ 2.80GHz`. Repeating it on a `@2.10GHz` box — the class that set the original
+committed baseline — gives a completely different instrument:
+
+| box | probe readings | spread | blessed stamp gates? |
+|---|---|---|---|
+| `@2.80GHz` | 3.95 / 4.64 / 4.72 / 4.94 / 5.11 / 5.50 (+ 3.78 / 3.82 / 3.85 cold) | **~39%** | **no** — 22% out of band on its own fingerprint |
+| `@2.10GHz` | 2.78 / 2.80 / 2.72 | **2.9%** | **yes** — `wall clock GATES`, probe 2.73 → 2.72 (1.00×) |
+
+That is the difference between an instrument and a coin flip, and it lands on the
+same code. So the honest claim is **not** "the calibration probe is unreliable" — it
+is "the probe is reliable on some silicon and unusable on other silicon, and nothing
+in `bench:check` tells you which you are on except the refusal itself." That refusal
+is `comparableMachine()` working as designed; the defect is that the `index` it falls
+back to is *also* computed from the bad probe, so the fallback inherits the failure
+it exists to absorb.
+
+It also means the three exits below are not equally urgent. Widening the band would
+have to accommodate a 39% swing that only one machine class produces, degrading the
+gate everywhere to accommodate the worst host.
 
 Two consequences follow directly, and both are observable rather than predicted:
 
@@ -161,41 +183,55 @@ probe, not the engine.
 
 ## What this means for the stamp this note ships with
 
-The measurements above were taken while blessing the four browser tiers (#1852), and
-they indict that bless's own `calibration` stamp. Stated plainly so no later reader
-has to reconstruct it:
+The first bless (#1852) ran on the `@2.80GHz` box, which moved `blessedOn` off the
+class that had set the baseline, loosened every absolute `ms` by 15–34%, and wrote an
+`index` contaminated by the +80% probe move. That stamp did **not** gate on its own
+hardware. It has been replaced: the tiers were re-blessed on a `@2.10GHz` box, and
+the record that ships is
 
-- **The wall-clock half of the stamp is provisional.** `blessedOn` records
-  `Intel(R) Xeon(R) Processor @ 2.80GHz` with a probe of 4.94ms. An independent run
-  on that same fingerprint read 3.78–3.85ms — 22% off, out of band — so
-  `comparableMachine()` refuses to gate there and the render rows print
-  `slower (not gated)` on an unchanged tree. **Do not read "blessed on this machine"
-  as "gates on this machine".** It gates only when the probe also lands in band,
-  which on this sandbox class it frequently does not.
-- **The stamp is permissive.** Run 4 was the slowest of its session, so the blessed
-  render numbers sit roughly 5–7% above what the same box produces cold.
-- **The workload half is NOT provisional and does not depend on any of this.** Slide
-  counts, the sweep's `overflowing` counts, and the two new `exportDatasets` rows'
-  screenshot counts gate on any machine, and they were unchanged by the bless.
+```
+calibration probe: 2.73ms blessed → 2.72ms here (1.00×)
+same machine as the baseline (linux/x64, 4× Intel(R) Xeon(R) Processor @ 2.10GHz,
+node v22) — wall clock GATES
+```
 
-Re-blessing on faster silicon would tighten the numbers and may make the probe land
-in band. It is not a precondition for the workload signals, and the choice of exit
-above may make it unnecessary — if `index` is dropped or the probe replaced, the
-question of "which box blessed this" changes shape entirely.
+with all 16 rows across the four browser tiers `ok` and exit 0. Against the previous
+committed baseline the render tier now reads +4.3% / −1.4% / +2.6% (was +30 / +34 /
++18) and the `index` +5.2% / −0.7% / +3.4% (was −27 / −25 / −34). **The stamp gates,
+and the numbers are representative rather than permissive.** That is the difference
+between this note describing a problem and this note *being* one.
 
-### The sweep's blessed ratio fell 49× → 30.5×, and it is not a scope regression
+The workload half never depended on any of this: slide counts, the sweep's
+`overflowing` counts, and the `exportDatasets` screenshot counts gate on any machine,
+and no bless in this sequence moved one.
 
-Worth flagging because HARD RULE #19 makes this file's diff the durable record of
-the sweep rework, and that record just halved. The cause is timer granularity, not
-a widened scope: `scopedMs` for `normal (jargon)` went 0.1 → 0.2ms — one 0.1ms
-bucket — and 6.1/0.2 = 30.5 where 4.9/0.1 = 49. A re-measure on the same box read
-29×. The 3× floor the tier actually gates on is untouched and nowhere near.
+### The sweep's blessed ratio is quantization-dominated, and the row it hurts is named
 
-This also undercuts the claim at `engine-bench.mjs` that the ratio is
-machine-independent because "the hardware divides out": a ratio built on a
-sub-millisecond measurement inherits that measurement's quantization, so it moves
-between boxes anyway. **Read the blessed ratio as a floor check, never as a trend.**
-Pre-existing, surfaced by this diff, logged here rather than fixed.
+Worth flagging because HARD RULE #19 makes this file's diff the durable record of the
+sweep rework. `sweepDatasets["normal (jargon)"].ratio` has now been measured at
+**49× / 30.5× / 49× / 16.67×** across four runs of an unchanged tree. It is not the
+scope re-widening — it is that `scopedMs` for that deck sits at **0.1ms, one timer
+bucket**, so the ratio is `unscopedMs` divided by a number with ~100% quantization
+error. The pattern is clean across the three rows:
+
+| sweep row | `scopedMs` | ratio stability |
+|---|---|---|
+| `normal (jargon)` | 0.1 ms — one bucket | 49 → 30.5 → 49 → **16.67** (±3×) |
+| `charts` | 0.3–0.4 ms | 5.75 → 6.67 → 5.75 (±16%) |
+| `overflowing (x40)` | 1.4–1.7 ms | 8.71 → 8.56 (**±1.7%**) |
+
+Resolution buys stability, monotonically. So the blessed ratio for the sub-millisecond
+rows records almost nothing, and this also refutes the claim at `engine-bench.mjs` that
+the ratio is machine-independent because "the hardware divides out" — a ratio built on
+a quantized measurement inherits the quantization, whatever the hardware does.
+
+**Read the blessed ratio as a floor check, never as a trend.** The 3× floor the tier
+actually gates on is untouched and nowhere near, which is why this is a record-quality
+defect rather than a broken gate — and it is exactly the "pick the gate that names the
+property, not the one that names the number" reasoning in `workflow.md` paying off.
+Pre-existing and unchanged by this PR (`main` also carries 49×), so it is logged here
+rather than fixed. The fix, when someone wants it, is to give the sweep's timing more
+resolution or to stop blessing a ratio whose denominator is one bucket wide.
 
 ## Also found, not fixed
 

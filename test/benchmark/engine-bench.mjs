@@ -1180,13 +1180,14 @@ function checkBaseline(summary, render, opts = {}) {
   // compared. THE RECORD IS NOW WRITTEN: `baseline.json` carries `exportDatasets` as of
   // 2026-08-25, so the block compares like the print and CLI tiers — same-machine only.
   //
-  // "SAME MACHINE" IS NOT "THE MACHINE THAT BLESSED IT", and the difference bit immediately.
-  // `comparableMachine()` needs the fingerprint AND a probe within PROBE_BAND, so a box can
-  // bless these rows and then refuse to gate them on its very next run: the 2026-08-25 bless
-  // stamped a 4.94ms probe, and an independent run on the identical fingerprint read
-  // 3.78–3.85ms — 22% off, out of band, `slower (not gated)` on an unchanged tree. The
-  // timing half of this block is therefore best-effort on this sandbox class; what it
-  // reliably gates on ANY machine is `slides`, the screenshot count below.
+  // "SAME MACHINE" IS NOT AUTOMATICALLY "THE MACHINE THAT BLESSED IT", and it is worth
+  // knowing which silicon you are on before trusting the timing half. `comparableMachine()`
+  // needs the fingerprint AND a probe within PROBE_BAND, and on a `@2.80GHz` sandbox the
+  // probe swings ~39% run to run — a bless there stamped 4.94ms and an independent run on
+  // the identical fingerprint read 3.78–3.85ms, 22% off, `slower (not gated)` on an
+  // unchanged tree. On the `@2.10GHz` class the same probe reads within 2.9% and gates
+  // cleanly, which is where these rows were blessed. What holds on ANY machine either way
+  // is `slides`, the screenshot count below.
   // See `engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`.
   //
   // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
