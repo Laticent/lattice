@@ -28,3 +28,7 @@
   presenter's slides; that window is now refused and closed, so pressing Stage opens a fresh one
   instead of silently doing nothing. Links inside the Stage are ignored in every form (including
   SVG links and image maps, which were previously followed).
+- **The Stage lands on the right screen.** On a machine whose displays do not report which
+  one is built in — common on external-GPU and docking setups — the Stage could open on the
+  laptop, on top of the console you drive from, instead of on the projector. It now picks a
+  screen that is not the one showing the console.

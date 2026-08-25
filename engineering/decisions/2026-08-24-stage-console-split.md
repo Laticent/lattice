@@ -737,6 +737,40 @@ control clipped off the edge is unrecoverable: there is no scrollbar to reach fo
 copy of the transport.
 
 
+### The projector path, and the defect that was hiding in it
+
+The pre-merge card's confidence floor was set by one thing: "press Stage, it lands on the
+projector and fills it" had never been driven, because this sandbox has one screen. Reading
+the code is not verifying it (#23), so `docs/e2e/stage-placement.spec.ts` drives everything
+either side of the monitor we do not have — and it found a live defect on the first run.
+
+**Screen selection was inverted.** `find((s) => !s.isInternal) || find((s) => s !== currentScreen)`
+reads as "an external screen, or failing that any other screen". It is not. The second arm is
+**unreachable whenever any screen reports `isInternal: false`** — and on hardware that does not
+flag its internal panel, *every* screen reports that. So the first arm matched `screens[0]`,
+which is as likely to be the laptop as the projector, and the fallback written for exactly
+that hardware could never run. Measured: two unflagged screens moved the Stage to `(0, 0)` —
+on top of the console the presenter drives from. It now excludes the current screen FIRST,
+then prefers a non-internal one among what is left, which is what the intent always was.
+
+**What is real here, and what is a harness**, because that distinction is the whole point:
+
+| Cell | Engine | Real or harnessed |
+|---|---|---|
+| The Stage opens and drives where Window Management does not exist | **WebKit** | REAL — the API is genuinely absent, and the cell asserts that before testing it |
+| `f` and the button fill the screen | **Firefox + Chromium** | REAL — fullscreen is granted by the browser, which is why the `gecko` project exists |
+| One screen never takes the display from the console | Chromium + Firefox | REAL — this machine has one screen |
+| Which screen, and at what coordinates | Chromium | HARNESSED **in the topology only**: the screen list is injected; the popup, controller and code are real. Whether Chromium then physically moves a window onto a monitor is Chromium's job, and is **not** claimed |
+
+**The single-screen cells were vacuous when first written**, and the mutation is what said so.
+Deleting the `placed ?` guard — the one whose docblock says an unconditional request "meant a
+single-screen laptop could have the Stage cover the console" — left all eight cells green,
+because headless declines an un-gestured `requestFullscreen` anyway. The cell was reading the
+OUTCOME when the guard controls the CALL. It records `requestFullscreen` invocations now, and
+the same mutation fails two cells. That is the eighth vacuous gate found on this branch, and
+the first one caught before it shipped rather than after.
+
+
 ### Still open
 
 - **The rewrite de-morph — DRIVEN, and it does not happen.** Two lenses reasoned from source

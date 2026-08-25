@@ -4693,6 +4693,19 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/stage-placement.spec.ts', ms: 1200, count: 3,
+    why: 'ABSENCE ASSERTIONS on an ASYNC path. `autoPlaceStage` runs off the open gesture as a '
+       + 'promise chain, so "the Stage was never moved" and "the Stage was never fullscreened" '
+       + 'have no signal to poll — a poll goes green on its first tick, before the placement it '
+       + 'is meant to catch could have been attempted. All three are the cases where the correct '
+       + 'behavior is that NOTHING happens: a single screen (which must never take the display '
+       + 'from the console the presenter drives), a refused Window Management permission, and an '
+       + 'engine with no Window Management at all. Everything pollable around them already is — '
+       + 'the popup via `context.waitForEvent(\'page\')`, the deck paint via `not.toBeEmpty()`, '
+       + 'the slide index via `toBeVisible`, and every case where placement SHOULD happen is an '
+       + '`expect.poll` on the recorded call rather than a wait.',
+  },
+  {
     file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 5,
     why: 'ABSENCE ASSERTIONS, four of them, all the same "and then nothing happened" shape. (1) The '
        + 'ECHO: the Stage and the console both drive the deck now, and the relay that carries a Stage '

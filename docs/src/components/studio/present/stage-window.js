@@ -424,7 +424,21 @@ async function autoPlaceStage(win) {
 	try {
 		if ('getScreenDetails' in window) {
 			const details = await window.getScreenDetails();
-			const ext = details.screens.find((s) => !s.isInternal) || details.screens.find((s) => s !== details.currentScreen);
+			// NOT-CURRENT FIRST, then prefer a non-internal one among those.
+			//
+			// The order matters and the original had it inverted: `find((s) => !s.isInternal)
+			// || find((s) => s !== currentScreen)` reads as "an external screen, or failing
+			// that any other screen", but the second arm is UNREACHABLE whenever any screen
+			// reports `isInternal: false` — and on hardware that does not flag its internal
+			// panel, EVERY screen reports that. So the first arm matched `screens[0]`, which
+			// is as likely to be the laptop as the projector, and the fallback written for
+			// exactly that hardware never ran. Measured: two unflagged screens placed the
+			// Stage at (0, 0) — on top of the console the presenter drives from.
+			//
+			// Excluding the current screen FIRST is the rule that actually expresses the
+			// intent: the Stage belongs on a surface that is not the one showing the console.
+			const others = details.screens.filter((s) => s !== details.currentScreen);
+			const ext = others.find((s) => !s.isInternal) || others[0];
 			if (ext) {
 				win.moveTo(ext.availLeft, ext.availTop);
 				// resizeTo before the fullscreen attempt, so a browser that declines still
