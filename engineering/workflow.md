@@ -417,8 +417,13 @@ So `bench:check` re-measures the regressed datasets once and exits 1 only for a
 dataset that regresses on **both** passes — you'll see a `PERF CHECK · pass 2
 (confirming)` block, and a `Not reproduced on the second pass` line for anything
 that was just load. The extra ~1 min is paid only when something already looks red.
-The **export tier** stands on one pass (an ~11-minute puppeteer arm cannot be re-run
-on a hunch); its ±50% band is sized for that.
+Only the RENDER tier is re-measured: the browser tiers stand on one pass, because a
+puppeteer arm cannot be re-run on a hunch (`--print` is ~11 min, `--export` ~3, and
+`--cli` spawns a fresh browser per iteration). Their ±50% band — and the sweep's 3×
+floor — is sized for that. The re-measure is selected BY DATASET NAME, which is why
+every browser tier prefixes its rows (`export · `, `print full · `, `cli · `): a tier
+reusing the render tier's names would be handed to a second *render* pass, come back
+green, and be reported as "not reproduced — machine load, not code".
 
 **Three tiers, three flags — and the third measures something the other two
 structurally cannot.** `--export` (rasterize) and `--print` (re-place) are whole
@@ -479,7 +484,7 @@ expensive for anything scheduled to pass it:
 | flag | tier | cost | blessed rows |
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
-| `--export` | rasterize — screenshot every slide | ~2 min | *(compared by the nightly, not blessed)* |
+| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
@@ -490,9 +495,23 @@ export path: a change to its navigation strategy moves no other number in the fi
 (that is the HARD RULE #19(c) hole it was added to close). Its `slides` column is the
 PDF **page count**, so the row doubles as a pagination guard that fails on any machine.
 
-So a full re-bless is `npm run bench:bless -- --print --sweep --cli`, and `bench:bless`
-**alone preserves** any existing `printDatasets` / `sweepDatasets` / `cliDatasets`
-rather than dropping them. One caveat that bites: the render tier always runs, so ANY
+The rasterize tier was blessed by neither for a long time — it had the right
+`{ main, summary }` shape and `main()` handed that summary to the `--json` dump and
+nothing else, so the nightly compared it head-vs-base on one runner and no durable
+record survived. A 14-day CI artifact is not the before→after evidence HARD RULE
+#19(b) asks for; `exportDatasets` is. Its `slides` column is the number of slides the
+run actually SCREENSHOTTED — not a section count another renderer reported — so a
+cycle that quietly stops rasterizing fails as a workload change on any machine, ahead
+of any timing. That failure used to read as a spectacular win.
+
+A tier whose baseline block has **never existed** reports rather than failing: drift
+means a blessed row has been recording nothing, and a tier nobody has blessed has no
+rows to rot. A *partly* blessed tier still drifts normally, so one newly added row
+among three blessed ones stays red until someone blesses it.
+
+So a full re-bless is `npm run bench:bless -- --export --print --sweep --cli`, and
+`bench:bless` **alone preserves** any existing `exportDatasets` / `printDatasets` /
+`sweepDatasets` / `cliDatasets` rather than dropping them. One caveat that bites: the render tier always runs, so ANY
 bless restamps `blessedOn` and `calibration` to the blessing machine — bless the
 browser tiers together with it, or their preserved rows end up filed under a machine
 they were never measured on.
