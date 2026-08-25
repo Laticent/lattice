@@ -3,7 +3,7 @@
 // A slide's CAPTION is its read-as TEXT — the exact words a slide narrates
 // (read-aloud, the HTML player's Read-Article, the export `.vtt`, a11y, future
 // translation). It is the HIGHEST-precedence narration source (caption →
-// front-matter caption → note → projection) and a SEPARATE channel from both the
+// front-matter caption → projection) and a SEPARATE channel from both the
 // speaker note (what you SAY off-slide) and the `describe:` accessibility text
 // (an objective equivalent of what's THERE). The engine consumes `<!-- caption: … -->`
 // via notes-core (`isCaptionComment` / `captionFromHtml`) and routes it to narration

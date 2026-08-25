@@ -39,7 +39,6 @@ import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getCaption } from './slide-caption';
-import { getNote } from './slide-notes';
 import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
 
 /** One spoken sentence, as it ships. */
@@ -398,7 +397,8 @@ function resolveDeck(source: string, projected?: readonly string[]) {
 		resolveNarration({
 			caption: getInlineCaption(md),
 			fmCaption: fmCaptions.get(i + 1),
-			note: getSlideNote(md),
+			// NO NOTE RUNG — see narration-resolve.ts. What gets BAKED is what the deck says,
+			// not what its author planned to say over it.
 			chart: aligned ? null : narrateChartSafe(md), // already substituted into `aligned`
 			projected: aligned ? (aligned[i] ?? '') : null,
 			// The SAME last rung Present supplies under the same condition, and it has to be here
@@ -426,13 +426,6 @@ function resolveDeck(source: string, projected?: readonly string[]) {
 function getInlineCaption(md: string): string | null {
 	try {
 		return getCaption(md);
-	} catch {
-		return null;
-	}
-}
-function getSlideNote(md: string): string | null {
-	try {
-		return getNote(md);
 	} catch {
 		return null;
 	}

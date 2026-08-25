@@ -4594,7 +4594,7 @@ const SANCTIONED_STYLE_SINK_EXEMPT = [];
 const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path); the theme/component CSS bakes into the document <style>.' },
   { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview; themeStyleContent() is the one place theme + author CSS is baked, and the RESTYLE fast path re-swaps it.' },
-  { file: 'docs/src/components/studio/present/presenter-window.js', why: 'buildStageDoc — the Studio\'s dual-screen presenter AND rehearsal stage; embeds the deck\'s composed CSS in the stage <style>.' },
+  { file: 'docs/src/components/studio/present/stage-window.js', why: 'buildStageDoc — the Studio\'s Stage window AND rehearsal stage; embeds the deck\'s composed CSS in the stage <style>. Under `standalone` the same document is a top-level window the audience reads, so the stylesheet channel matters there most.' },
 ];
 
 // ── HARD RULE #22, the POST-SANITIZE INJECTION shape (#1246) ────────────────────
@@ -4692,6 +4692,40 @@ function listSourceFiles(dir, out = []) {
 //   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
+  {
+    file: 'docs/e2e/stage-placement.spec.ts', ms: 1200, count: 3,
+    why: 'ABSENCE ASSERTIONS on an ASYNC path. `autoPlaceStage` runs off the open gesture as a '
+       + 'promise chain, so "the Stage was never moved" and "the Stage was never fullscreened" '
+       + 'have no signal to poll — a poll goes green on its first tick, before the placement it '
+       + 'is meant to catch could have been attempted. All three are the cases where the correct '
+       + 'behavior is that NOTHING happens: a single screen (which must never take the display '
+       + 'from the console the presenter drives), a refused Window Management permission, and an '
+       + 'engine with no Window Management at all. Everything pollable around them already is — '
+       + 'the popup via `context.waitForEvent(\'page\')`, the deck paint via `not.toBeEmpty()`, '
+       + 'the slide index via `toBeVisible`, and every case where placement SHOULD happen is an '
+       + '`expect.poll` on the recorded call rather than a wait.',
+  },
+  {
+    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 5,
+    why: 'ABSENCE ASSERTIONS, four of them, all the same "and then nothing happened" shape. (1) The '
+       + 'ECHO: the Stage and the console both drive the deck now, and the relay that carries a Stage '
+       + 'gesture to the console invites a move posted out, applied, and posted back as a second move '
+       + '— so the cell presses once and asserts the counter is STILL on the same slide. (2) The LINK '
+       + 'GUARD, once per shape: a click on a deck link inside the projected copy used to strand the '
+       + 'console and hand a foreign origin `window.opener` on the origin holding the user\'s API key, '
+       + 'and the assertion is that the URL did NOT change — measured across all three shapes that '
+       + 'survive the sanitizer, because the first selector caught only the plain anchor and a real '
+       + 'click on an SVG `xlink:href` navigated. (3) The PINCH and the trackpad `ctrl`+wheel: both '
+       + 'were read as swipes and turned the deck (#1294 again), and the fix is that they now do '
+       + 'NOTHING, which is again an absence. None has a signal to poll — a poll goes green on its '
+       + 'first tick, before the navigation or the extra advance it is meant to catch could commit. '
+       + '(5) The REWRITE FLICKER: a site palette change is announced and the presenter view must '
+       + 'not blink off while the Stage document is rebuilt — the assertion is a 16ms SAMPLER over '
+       + 'that window reading zero, so the wait is what gives the sampler a window to sample. '
+       + 'Everything pollable around them already is: the popup via `context.waitForEvent(\'page\')`, '
+       + 'the deck paint via `not.toBeEmpty()`, every slide ARRIVAL via `toBeVisible`, and the pill '
+       + 'state via `toHaveAttribute`.',
+  },
   // ── #1246, the post-sanitize injection suite ─────────────────────────────────
   // Both are the canonical "and then nothing happened" shape this allowlist exists for:
   // the assertion is that a payload did NOT execute and did NOT reach the network, and an

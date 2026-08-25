@@ -59,15 +59,21 @@ export function WebpageOptionsPanel({
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
 	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, allowPartial: false, voice: { model: '', voice: '', speed: 1 } });
 
-	// The two options are mutually exclusive, and the veto runs in this direction on purpose:
-	// for most decks the narration the author rehearsed IS their speaker notes, so shipping
-	// the audio — or the captions, which are the same words on screen — of a deck they asked
-	// to strip would hand the recipient the private text back, in the presenter's own voice.
-	// Stripping notes therefore turns narration OFF and locks it.
-	const narrationBlocked = stripNotes;
-	React.useEffect(() => {
-		if (narrationBlocked) setNarration((n) => (n.captions || n.audio ? { ...n, captions: false, audio: false } : n));
-	}, [narrationBlocked]);
+	// STRIPPING NOTES NO LONGER TOUCHES NARRATION, because narration no longer reads the
+	// note. This used to be `const narrationBlocked = stripNotes`, vetoing both switches on
+	// the reasoning that "the narration the author rehearsed IS their speaker notes, so
+	// either switch would hand them back" — true of the old ladder, where a note outranked
+	// the slide's own content. The note rung is gone (lib/core/read-along-build.js,
+	// narration-resolve.ts): captions and audio are generated from slide CONTENT, which
+	// `--strip-notes` does not touch.
+	//
+	// Leaving the veto in place was not a harmless leftover. The CLI had already been made
+	// orthogonal, so the same deck and the same intent produced a caption track through
+	// `lattice-emulator.js --strip-notes --captions` and NO caption track through this
+	// panel — the two render paths disagreeing about one user intent, which is the shape
+	// HARD RULE #1 exists to prevent. It also cost a stripped deck the caption track a
+	// recipient needs for accessibility, for a privacy reason that no longer applied.
+	// (2026-08-24-stage-console-split.md §10.)
 
 	// One launcher for both buttons, so `allowPartial` can never leak from an override into the
 	// NEXT ordinary export — it is passed for this call only and never written into state.
@@ -155,7 +161,7 @@ export function WebpageOptionsPanel({
 					value={narration}
 					onChange={setNarration}
 					disabled={busy}
-					blockedReason={narrationBlocked ? 'Unavailable while speaker notes are stripped — for most decks the narration you rehearsed IS your notes, so either switch would hand them back.' : null}
+					blockedReason={null}
 					// Withdrawn the moment the narrator changes: the refusal named sentences in ONE
 					// voice, and a different voice is a different bake with a different failure set.
 					failures={

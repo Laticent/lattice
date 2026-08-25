@@ -20,7 +20,7 @@ vi.mock('@/playground/voice-model.js', () => ({
 	createVoiceModel: () => ({ synthOne: async () => ({ rung: 'silent', bytes: null, key: 'k' }), speakThis() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent', warm: warmSpy }),
 }));
 // The presenter stage doc needs the engine — stub it out (it's best-effort anyway).
-vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () => ({ doc: '', total: 0 })) }));
+vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const slides = ['<!-- _class: title -->\n\n# One\n\nThe first slide has some spoken prose.', '<!-- _class: kpi -->\n\n# Two\n\nThe second slide also reads aloud.'];

@@ -128,7 +128,7 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     });
     ci.onSlide(0); // bind, no pointer has moved
 
-    // Number key '2' → mark index 1, with NO live pointer (the Present presenter-window / keyboard path).
+    // Number key '2' → mark index 1, with NO live pointer (the Present keyboard path).
     expect(ci.handleKey(new KeyboardEvent('keydown', { key: '2' }))).toBe(true);
     const opened = payloads.filter(Boolean).at(-1);
     expect(opened).toBeTruthy();

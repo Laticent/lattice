@@ -212,7 +212,7 @@ function syncAgent(gap) {
 // reach the iframe fine on iOS (it's touch-move gestures that don't), so this hook
 // is enough — no parent hit-surface needed.
 //
-// Exported so the OTHER preview builders (presenter-window.js, single-slide-render.ts)
+// Exported so the OTHER preview builders (present/stage-window.js, single-slide-render.ts)
 // that assemble their own srcdoc can inject the same
 // guard — it fixes the external-link-tap-blanks-the-frame bug on ALL of them, and
 // carries the video-playback bridge to each.

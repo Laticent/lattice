@@ -93,10 +93,11 @@ const CENSUS = {
 			'builder nor a document assembler, so NEITHER text-matching gate can see this file — the ' +
 			'census is the only pin it has.',
 	},
-	'docs/src/components/studio/present/presenter-window.js': {
+	'docs/src/components/studio/present/stage-window.js': {
 		guards: 1,
 		why:
-			'buildStageDoc — the dual-screen presenter / rehearsal stage embeds the deck\'s composed CSS. ' +
+			'buildStageDoc — the Stage window / rehearsal stage embeds the deck\'s composed CSS, and under ' +
+			'`standalone` that document is a WINDOW the room reads rather than an iframe. ' +
 			'A #1718 preview builder rather than an export path, censused here because the anti-vacuity ' +
 			'arm below found it and a census that skipped it would not describe the surface it claims to.',
 	},

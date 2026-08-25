@@ -22,6 +22,21 @@
 // export. The CLI had already closed that gap for its own captions (#902 Gap 1,
 // lattice-emulator.js); the browser export had not. `applyChartNarration` below is that
 // same substitution, shared rather than copied a third time.
+//
+// THE SPEAKER NOTE IS NOT A RUNG. It was one — sitting above the chart facts and the
+// projection, so any slide carrying a note narrated the note instead of its own content, on
+// every surface: the live crawl, the `.vtt` sidecars, and the audio baked into a shared deck.
+// That collapsed two channels the rest of the system is explicit about keeping apart.
+// `design/skills/speaker-notes.md` opens by demanding "each in its own register, none bleeding
+// into the others" and that "a caption must never carry a private remark" — and then, two
+// sections on, documented the note BECOMING the caption. The CLI carried the consequence in
+// its own `--strip-captions` help: strip the PUBLIC channel for privacy and you were handed
+// the PRIVATE one, so it had to tell you to strip twice.
+//
+// The model is two things now. A caption is GENERATED from the slide's own content; an author
+// may OVERRIDE it, and an override replaces the whole slide's narration rather than merging
+// into it. A note is the author's alone — it rides in the deck as an HTML comment and reaches
+// the presenter's own surface, and nothing else reads it.
 
 import { narrateChart as narrateChartDefault } from '@/playground/read-along-core.generated.js';
 
@@ -32,15 +47,13 @@ export type NarrationChain = {
 	caption?: string | null;
 	/** 2. the front-matter `captions:` entry for this slide (keyed by AUTHORED number). */
 	fmCaption?: string | null;
-	/** 3. the authored speaker note. */
-	note?: string | null;
-	/** 4. a recognized chart's COMPUTED facts (`narrateChart`) — a funnel's conversion rate,
+	/** 3. a recognized chart's COMPUTED facts (`narrateChart`) — a funnel's conversion rate,
 	 *     the auto-fit scale an unlabeled axis is plotted against — which exist only in the
 	 *     render and never in the figure projection's heading-only caption. */
 	chart?: string | null;
-	/** 5. the component-aware DOM speech projection for this slide. */
+	/** 4. the component-aware DOM speech projection for this slide. */
 	projected?: string | null;
-	/** 6. a last-resort local flatten, for a surface that has to say SOMETHING before the
+	/** 5. a last-resort local flatten, for a surface that has to say SOMETHING before the
 	 *     async projection lands (Present opens instantly; the export never needs this). */
 	fallback?: string | null;
 };
@@ -48,7 +61,7 @@ export type NarrationChain = {
 /** The one precedence ladder. Pure, synchronous, and total — an all-blank chain reads as
  *  silence (`''`), which is a legitimate answer for a genuinely contentless slide. */
 export function resolveNarration(chain: NarrationChain): string {
-	const rungs = [chain.caption, chain.fmCaption, chain.note, chain.chart, chain.projected, chain.fallback];
+	const rungs = [chain.caption, chain.fmCaption, chain.chart, chain.projected, chain.fallback];
 	for (const rung of rungs) {
 		// Trim only to TEST the rung — a caption's own leading/trailing space is the author's,
 		// and `buildTrack` is what normalizes for speech.
@@ -59,8 +72,8 @@ export function resolveNarration(chain: NarrationChain): string {
 
 /**
  * Substitute each recognized chart slide's computed narration into the DOM projection, at
- * the PROJECTION precedence level — so an inline caption, a front-matter caption, or a
- * speaker note still wins, exactly as `resolveNarration` and the CLI both order it.
+ * the PROJECTION precedence level — so an inline caption or a front-matter caption still
+ * wins, exactly as `resolveNarration` and the CLI both order it.
  *
  * Returns a NEW array; `projected` is not mutated. When the two inputs disagree on length
  * the projection is returned untouched: an index mapping we cannot trust would bind a

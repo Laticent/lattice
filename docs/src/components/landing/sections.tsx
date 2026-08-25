@@ -322,7 +322,7 @@ const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 		label: 'Present & ship',
 		// Split from one 21-word sentence carrying six list items. Formats stay in
 		// the plain register the "How it works" band already uses two sections up.
-		body: 'A presenter window on your second screen, with a rehearsal plan. Export a PDF, a PowerPoint, or a single web page that works offline.',
+		body: 'The deck on your second screen, your notes and the next slide on yours, and a rehearsal plan. Export a PDF, a PowerPoint, or a single web page that works offline.',
 	},
 ];
 

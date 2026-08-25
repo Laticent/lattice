@@ -16,6 +16,18 @@ const EMPTY_READY: number[] = [];
 // the section title lives in a STABLE aria-live region (a remounting node isn't announced);
 // and the rail is ONE tab stop with roving arrow-key movement (not N stops) — its arrow
 // handling stops the native event so the overlay's global ←/→ slide-nav doesn't double-fire.
+//
+// AUDIENCE-SIDE (2026-08-24-stage-console-split.md §3). Where the deck goes, the rail
+// goes: it is what tells a room that a silence is BUFFERING rather than BROKEN (see
+// `prefetchFront` below — that is an argument about what the AUDIENCE can tell, which is
+// why the rail sits with the deck and not with the transport). So it renders into the
+// Stage window when one is open, and into the console's own dock when there is none. Two
+// hosts means no Tailwind: every class here is a scoped name out of
+// `present/stage-chrome.js`, whose sheet is injected into both documents.
+//
+// It stays INTERACTIVE in both. Nobody clicks a projector, so the click-to-jump and the
+// roving tabindex cost the audience nothing — and keeping one implementation is worth more
+// than stripping the buttons out of the copy the room happens to be looking at.
 function PresentRailImpl({
 	sections,
 	current,
@@ -109,25 +121,23 @@ function PresentRailImpl({
 	const curSec = sectionOfIndex(sections, current);
 	const name = curSec >= 0 ? sections[curSec].name : '';
 	return (
-		<div className={`flex min-w-0 flex-col items-stretch gap-1.5 ${className ?? ''}`}>
+		<div className={`latt-rail${className ? ` ${className}` : ''}`}>
 			{/* Section title — ONE centered line above a full-width rail (2026-07-12 redesign,
 			    layout A). STABLE polite live region so a section change is announced (a
 			    key-remounted region is not); the visual cross-fade rides a keyed INNER span so
 			    the announced node itself never remounts. Only rendered when the deck has named
 			    sections (a flat deck degrades to the bare rail). */}
 			{name ? (
-				<div className="h-[13px] truncate text-center text-[10px] font-bold uppercase leading-none tracking-[0.16em] text-muted-foreground" aria-live="polite">
-					<span key={name} className="inline-block animate-[lx-fade-rise_.4s_ease] motion-reduce:animate-none">
-						{name}
-					</span>
+				<div className="latt-rail-title" aria-live="polite">
+					<span key={name}>{name}</span>
 				</div>
 			) : null}
 			{/* biome-ignore lint/a11y/useSemanticElements: role=group + aria-label is the correct ARIA for a segmented progress/jump control (not a fieldset form group) */}
-			<div className="flex min-w-0 items-end gap-1.5 overflow-hidden" role="group" aria-label="Deck progress — jump to a slide" onKeyDown={onKeyDown}>
+			<div className="latt-rail-track" role="group" aria-label="Deck progress — jump to a slide" onKeyDown={onKeyDown}>
 				{sections.map((sec, si) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: sections are positional + stable per render
-					<div key={si} className="flex min-w-0 flex-col" style={{ flex: sec.count }}>
-						<div className="flex min-w-0 gap-[2px]">
+					<div key={si} className="latt-rail-sec" style={{ flex: sec.count }}>
+						<div className="latt-rail-segs">
 						{Array.from({ length: sec.count }).map((_, k) => {
 								const gi = sec.start + k;
 								const here = gi === current;
@@ -158,7 +168,7 @@ function PresentRailImpl({
 										onFocus={() => setFocusIdx(gi)}
 										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${(ready[gi] ?? 0) >= 1 && !here ? ' — narration ready' : ''}`}
 										aria-current={here ? 'step' : undefined}
-										className="relative h-[8px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
+										className="latt-rail-seg"
 									>
 										{/* ONE HEIGHT, ONE INK, TWO CHANNELS.
 
@@ -173,20 +183,20 @@ function PresentRailImpl({
 										    accidentally measure something the rail is not painting. */}
 										<span
 											data-tier="track"
-											className="absolute inset-x-0 bottom-0 h-[8px] rounded-full"
+											className="latt-rail-fill"
 											style={{ background: trackTier(here) }}
 										/>
 										{prePct > 0 && (
 											<span
 												data-tier="prefetch"
-													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+													className="latt-rail-fill"
 												style={{ width: `${prePct}%`, background: bufferedTier, backgroundPosition: bufferedPosition, backgroundOrigin: bufferedOrigin }}
 											/>
 										)}
 										{proPct > 0 && (
 											<span
 												data-tier="progress"
-													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
+													className="latt-rail-fill"
 												style={{ width: `${proPct}%`, background: progressTier }}
 											/>
 										)}
@@ -208,12 +218,12 @@ function PresentRailImpl({
 										{here && (
 											<span
 												data-tier="playhead"
-													className="absolute bottom-0 h-[8px] w-[2px] rounded-full transition-[left] duration-150 motion-reduce:transition-none"
+													className="latt-rail-head"
 												style={{ left: `${proPct}%`, marginLeft: -1, background: progressTier, boxShadow: '0 0 0 1px var(--bg)' }}
 											/>
 										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}
-										<span className="absolute -inset-x-0.5 -top-2.5 -bottom-2.5" aria-hidden="true" />
+										<span className="latt-rail-hit" aria-hidden="true" />
 									</button>
 								);
 							})}

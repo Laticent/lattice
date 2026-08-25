@@ -1170,3 +1170,113 @@ export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: stri
 		rest: cue.rest ? innerPoint(getFrame, alive, cue.rest) : null,
 	};
 }
+
+/**
+ * WHICH element a cue would name, inside a document the POINTER SHARES — the Stage window.
+ *
+ * The frame pair above and this pair answer the same two questions; what differs is whether a
+ * coordinate boundary sits between the slide and the cursor. Under the Stage/console split
+ * (2026-08-24-stage-console-split.md) the Guide follows the deck to the audience's window, and
+ * there the slide is the document rather than an iframe inside one — so Vetrina's stage root and
+ * the elements it points at are laid out in ONE viewport and every rect is already in the space
+ * the cursor moves in. No `frameGeom`, no `/ S`, nothing to map.
+ */
+/**
+ * THE SHOWN SLIDE, not the document.
+ *
+ * The Stage is a FILMSTRIP: every section of the deck is in the DOM at once, and the
+ * non-current ones are hidden with `visibility` (deliberately — `stage-window.js` needs
+ * their `offsetTop` to survive). `visibility: hidden` keeps the boxes, so every block on
+ * every other slide still measures non-zero and is still a candidate. Handing the whole
+ * `Document` to the matcher therefore searched the ENTIRE DECK — measured at 49 blocks
+ * across 7 sections where the console's framed path sees 4, because
+ * `single-slide-render` narrows that one to a single section before the pointer ever
+ * looks. Two consequences, both on the audience surface: a sentence that also appears on
+ * another slide (a repeated heading, a running kicker) could resolve to a block nobody
+ * can see, and the obstacle scan measured twelve times as many rects per spoken
+ * sentence — on the thread this module's own cadence notes promise not to stall.
+ */
+function shownSection(doc: Document | null): Document | Element | null {
+	if (!doc) return null;
+	const secs = Array.from(doc.querySelectorAll('.lattice > section')) as HTMLElement[];
+	return secs.find((sec) => sec.style.visibility !== 'hidden') ?? doc;
+}
+
+export function guideAimIn(doc: Document | null, text: string): Element | null {
+	const block = findCueTarget(shownSection(doc), text);
+	return block ? aimTarget(block, text).el : null;
+}
+
+/**
+ * The full decision with NO frame boundary to cross (see `guideAimIn`).
+ *
+ * Two consequences worth naming, because both are places the frame version has to work and this
+ * one does not. The keep-out is the cursor's own 28px UNCONVERTED: `POINTER_BOX` is measured in
+ * the space the stage draws in, and here that IS the space the slide is measured in — dividing by
+ * a scale would be the #1403 error with its sign flipped. And the "frame" the placement solver
+ * clamps against is the WINDOW: the Stage fit-scales one slide to fill the display, so its
+ * viewport is the slide's own box plus the letterbox, which is exactly the region a cursor may
+ * rest in.
+ *
+ * `#latt-film` carries the fit transform, so `getBoundingClientRect()` on anything inside it
+ * already reports post-scale viewport pixels — which is why the live re-measure below can hand
+ * its box straight back rather than mapping it.
+ */
+export function guideCueInDoc(doc: Document | null, text: string): GuideCue | null {
+	const view = doc?.defaultView;
+	if (!doc || !view) return null;
+	const half = POINTER_BOX / 2;
+	// TWO DIFFERENT BOXES, and conflating them re-tunes every gesture. The ROOT is the shown
+	// section (see `shownSection`) — that is what may be searched and measured. The FRAME is
+	// the fit box, which is what `chooseGesture` reads `slideW` from: its width fractions
+	// (`TAP_WIDTH` 0.1, `RING_WIDTH` 0.42) are fractions OF THE SLIDE, and the Stage
+	// letterboxes, so passing `innerWidth` over-reported the slide by 7.6% at rest and ~20%
+	// with the caption band up — the same content classifying differently on the Stage than
+	// on the console. `#latt-fit` is the slide's own painted box; the window is only the
+	// clamp the cursor may come to rest inside.
+	const fit = doc.getElementById('latt-fit');
+	const box = fit ? fit.getBoundingClientRect() : null;
+	const frame = box && box.width > 0 ? { left: box.left, top: box.top, width: box.width, height: box.height } : { left: 0, top: 0, width: view.innerWidth, height: view.innerHeight };
+	const cue = guideCueIn(shownSection(doc) ?? doc, text, frame, half, half + 5);
+	if (!cue) return null;
+
+	const { el, inkRange, markerOffset, role } = cue;
+	const alive = () => el.isConnected;
+	// THE HANDLE, RE-MEASURED PER FRAME — the same three cases as the framed version: a phrase
+	// keeps its block (the cursor must clear the words that follow), a marker rides its element's
+	// box plus the offset the classifier solved once, and everything else is its ink's hull.
+	const liveBox = (): Box | null => {
+		const r = el.getBoundingClientRect();
+		if (markerOffset) return { left: r.left + markerOffset.dx, top: r.top + markerOffset.dy, width: markerOffset.width, height: markerOffset.height };
+		if (role === 'phrase') return { left: r.left, top: r.top, width: r.width, height: r.height };
+		const live = rectsOf(inkRange);
+		return live ? hull(live) : { left: r.left, top: r.top, width: r.width, height: r.height };
+	};
+	return {
+		el,
+		kind: cue.kind,
+		strength: cue.strength,
+		target: {
+			getBoundingClientRect(): DOMRect {
+				try {
+					const b = alive() ? liveBox() : null;
+					return b ? asRect(b) : GONE;
+				} catch {
+					return GONE;
+				}
+			},
+			getClientRects(): DOMRect[] {
+				try {
+					if (!alive()) return [];
+					const live = markerOffset ? [asRect(liveBox() as Box)] : rectsOf(inkRange);
+					return live ?? [];
+				} catch {
+					return [];
+				}
+			},
+		},
+		// A 2x2 box around the point, so Vetrina's `aimAt` resolves to the point itself
+		// (the same shape `innerPoint` builds on the framed path).
+		rest: cue.rest ? { getBoundingClientRect: () => (alive() ? asRect({ left: (cue.rest as { x: number; y: number }).x - 1, top: (cue.rest as { x: number; y: number }).y - 1, width: 2, height: 2 }) : GONE) } : null,
+	};
+}

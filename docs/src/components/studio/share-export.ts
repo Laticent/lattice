@@ -465,7 +465,7 @@ export async function shareHtmlPlayer(
 	let katexText: string | null = null;
 	if (needsKatex) {
 		// Fall back to the bundled KATEX_URL when the caller didn't pass one (mirrors
-		// studio-presenter) — else a math deck would ship with KaTeX unstyled.
+		// studio-stage) — else a math deck would ship with KaTeX unstyled.
 		const katexUrl = options.katexUrl || deck.KATEX_URL;
 		try {
 			katexText = await (await fetch(katexUrl)).text();
@@ -825,10 +825,12 @@ type ReadAlongCore = {
 		},
 	) => { slides: { index: number }[] };
 	// The SAME merge the CLI export uses (HARD RULE #1): caption → front-matter caption →
-	// note → projection, with the alignment guard that drops the projection wholesale on a
+	// projection, with the alignment guard that drops the projection wholesale on a
 	// section/slide count mismatch. Re-exported from the read-along-core bundle.
+	// The first argument is a slide COUNT, not the notes it used to be — a speaker note is
+	// not a narration source (narration-resolve.ts).
 	mergeNarration: (
-		notes: readonly (string | null | undefined)[],
+		slideCount: number,
 		projected: readonly string[],
 		opts?: { captions?: readonly (string | null | undefined)[]; fmCaptions?: ReadonlyMap<number, string> | null },
 	) => string[];
@@ -886,7 +888,7 @@ export async function shareCaptions(
 
 	// The FULL narration chain, identical to the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`
-	// entry → its speaker note → the component-aware DOM projection. So a note-free deck
+	// entry → the component-aware DOM projection. A speaker note is not a rung. So a deck
 	// exported from the docs site now produces the SAME projected captions the CLI does —
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
@@ -902,8 +904,9 @@ export async function shareCaptions(
 	const lexicon = resolveCaptionsMod.lexiconMap(source); // author lexicon beats the built-in commons
 	const lang = resolveCaptionsMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
-	// by construction). Failure degrades to notes-only, exactly as the CLI's projection does
-	// (lattice-emulator.js projectDeckSpeechFromHtml), so a notes-full deck still exports.
+	// by construction). Failure leaves the projection empty, exactly as the CLI's does
+	// (lattice-emulator.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
+	// so a deck whose projection fails exports only its authored caption overrides.
 	let projected: string[] = [];
 	try {
 		projected = await projectionMod.projectSectionsToSpeech(sections);
@@ -917,7 +920,7 @@ export async function shareCaptions(
 	// export never did, so the same deck's captions disagreed with what Present spoke. Same
 	// substitution, shared rather than copied (narration-resolve.ts).
 	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
-	const slideTexts = readAlongCore.mergeNarration(notes, projected, { captions, fmCaptions });
+	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { captions, fmCaptions });
 
 	onStatus?.('Building captions…');
 	const readAlong = readAlongCore.buildReadAlong(slideTexts, {
@@ -929,7 +932,7 @@ export async function shareCaptions(
 		lexicon,
 		lang: lang ?? undefined,
 	});
-	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no notes, captions, or projectable slide content');
+	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no captions and no projectable slide content (a speaker note is never narrated)');
 
 	onStatus?.('Packaging…');
 	const { default: JSZip } = await import('jszip');

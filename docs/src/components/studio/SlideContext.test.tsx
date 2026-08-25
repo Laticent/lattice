@@ -333,17 +333,27 @@ describe('SlideContextBody controls', () => {
 		expect(out).toContain('<!-- caption: Revenue grew forty percent across three quarters. -->');
 	});
 
-	it('the note field warns that a caption overrides it when one is set', () => {
-		// Precedence is caption → note; with a caption present, the note does NOT narrate.
-		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- caption: The board-facing line. -->');
-		goTab('Notes');
-		expect(screen.getByText(/caption, which overrides the note/i)).toBeTruthy();
-	});
-
-	it('the note field shows the plain read-aloud hint when NO caption is set', () => {
+	it('the note field says the note is PRIVATE — never read aloud, never in the caption track', () => {
+		// These two cells used to assert the opposite, because the product did the opposite:
+		// the field promised "Read aloud in Present", and with a caption present it explained
+		// that the caption "overrides the note in read-aloud". Both sentences were true of a
+		// ladder that ranked the note above the slide's own content — which is how a private
+		// remark reached a recipient's `.vtt`. A note is not a narration source now, so there
+		// is nothing for a caption to override and nothing to read aloud, and the copy has to
+		// say so on the one surface where an author decides what to put in that box.
 		setup('<!-- _class: kpi -->\n\n# Q3');
 		goTab('Notes');
-		expect(screen.getByText(/Read aloud in Present/i)).toBeTruthy();
+		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
+		expect(screen.getByText(/Never read aloud/i)).toBeTruthy();
+		expect(screen.queryByText(/Read aloud in Present/i)).toBeNull();
+	});
+
+	it('says the same thing WITH a caption set — the two channels are independent', () => {
+		// The copy no longer varies on the caption, because the relationship it described is
+		// gone: a caption replaces the GENERATED narration, and the note was never part of it.
+		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- caption: The board-facing line. -->');
+		goTab('Notes');
+		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
 		expect(screen.queryByText(/overrides the note/i)).toBeNull();
 	});
 

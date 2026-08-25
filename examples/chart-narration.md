@@ -98,6 +98,6 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ## One kernel, two surfaces — no drift.
 
-The narrators live once in `lib/core`; live Present and the `--captions` export both call the same kernel. A speaker note, an inline `<!-- caption: -->`, or a front-matter `captions:` entry still wins — the chart narrator only speaks when nothing more specific does.
+The narrators live once in `lib/core`; live Present and the `--captions` export both call the same kernel. An inline `<!-- caption: -->` or a front-matter `captions:` entry still wins — the chart narrator only speaks when the author has not overridden the slide.
 
 <!-- caption: That's the whole feature: charts narrate their computed facts, identically live and in the export, because both surfaces read from one shared kernel. -->

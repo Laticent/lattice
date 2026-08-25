@@ -71,62 +71,65 @@ test('end-to-end: a built section round-trips through the manifest and derives a
 });
 
 // ── mergeNarration (Phase 2 export producer unification) ──────────────────────
+//
+// THE SPEAKER NOTE IS NOT A RUNG. Every cell below used to assert the opposite — that an
+// authored note won over the projection — which is exactly how a private note reached the
+// `.vtt` a recipient opens. `design/skills/speaker-notes.md` requires the two channels never
+// bleed into one another; this is where that is now enforced for the export producer.
+// First argument is a slide COUNT, not the notes array it was.
 
-test('mergeNarration: an authored note wins; projection fills a note-less slide', () => {
-	const merged = mergeNarration(['Authored note.', '   ', null], ['PROJ 0', 'PROJ 1', 'PROJ 2']);
-	assert.deepEqual(merged, ['Authored note.', 'PROJ 1', 'PROJ 2']);
+test('mergeNarration: a slide narrates its own CONTENT — a note is not a narration source', () => {
+	// The regression cell for the leak. On origin/main this returned the note verbatim.
+	assert.deepEqual(mergeNarration(3, ['PROJ 0', 'PROJ 1', 'PROJ 2']), ['PROJ 0', 'PROJ 1', 'PROJ 2']);
 });
 
 test('mergeNarration: a length mismatch drops projection wholesale (never misaligns)', () => {
-	// 3 authored slides but 4 rendered sections (an autosplit) → notes-only.
-	const merged = mergeNarration([null, 'Note.', null], ['P0', 'P1', 'P2', 'P3']);
-	assert.deepEqual(merged, ['', 'Note.', '']);
+	// 3 authored slides but 4 rendered sections (an autosplit) → SILENCE, not notes. There is
+	// no other source to fall back to now, which is why the CLI logs that the track is empty.
+	assert.deepEqual(mergeNarration(3, ['P0', 'P1', 'P2', 'P3']), ['', '', '']);
 });
 
-test('mergeNarration: empty projection (e.g. --strip-notes) yields notes-only', () => {
-	assert.deepEqual(mergeNarration(['A', null], []), ['A', '']);
-	assert.deepEqual(mergeNarration([null, null], []), ['', '']);
+test('mergeNarration: no projection yields silence, never a note', () => {
+	assert.deepEqual(mergeNarration(2, []), ['', '']);
 });
 
-// ── Layer-1 captions precedence: caption → fmCaption → note → projection (§16) ─────
+// ── Layer-1 captions precedence: caption → fmCaption → projection (§16) ───────
 
-test('mergeNarration: an inline caption outranks note AND projection', () => {
-	const merged = mergeNarration(
-		['Authored note.', 'Note two.'],
-		['PROJ 0', 'PROJ 1'],
-		{ captions: ['Inline caption zero.', '  '] }, // slide 1 caption; slide 2 blank → falls through
-	);
-	assert.deepEqual(merged, ['Inline caption zero.', 'Note two.']);
+test('mergeNarration: an inline caption REPLACES the whole slide narration', () => {
+	const merged = mergeNarration(2, ['PROJ 0', 'PROJ 1'], { captions: ['Inline caption zero.', '  '] });
+	// slide 1: the override, and ONLY the override — an author caption replaces, never merges.
+	// slide 2: blank caption → falls through to the generated projection.
+	assert.deepEqual(merged, ['Inline caption zero.', 'PROJ 1']);
 });
 
-test('mergeNarration: a front-matter caption (1-based slide number) outranks note + projection, below inline', () => {
+test('mergeNarration: a front-matter caption (1-based slide number) outranks projection, below inline', () => {
 	const fmCaptions = new Map([[1, 'FM caption for slide 1.'], [3, 'FM caption for slide 3.']]);
-	const merged = mergeNarration(
-		['Note A.', 'Note B.', null],
-		['P0', 'P1', 'P2'],
-		{ captions: ['Inline wins.', null, null], fmCaptions },
-	);
-	// slide 1: inline beats its own fmCaption; slide 2: no caption → note; slide 3: fmCaption beats projection
-	assert.deepEqual(merged, ['Inline wins.', 'Note B.', 'FM caption for slide 3.']);
+	const merged = mergeNarration(3, ['P0', 'P1', 'P2'], { captions: ['Inline wins.', null, null], fmCaptions });
+	// slide 1: inline beats its own fmCaption; slide 2: no override → projection; slide 3: fmCaption.
+	assert.deepEqual(merged, ['Inline wins.', 'P1', 'FM caption for slide 3.']);
 });
 
 test('mergeNarration: fmCaptions keys are 1-based (get(i+1)), never off-by-one', () => {
 	const fmCaptions = new Map([[2, 'Second slide reads this.']]);
-	const merged = mergeNarration([null, null, null], [], { fmCaptions });
-	assert.deepEqual(merged, ['', 'Second slide reads this.', '']); // index 1 ← key 2
+	assert.deepEqual(mergeNarration(3, [], { fmCaptions }), ['', 'Second slide reads this.', '']); // index 1 ← key 2
 });
 
-test('mergeNarration: the 2-arg form is unchanged (back-compat), and a non-Map fmCaptions is ignored', () => {
-	assert.deepEqual(mergeNarration(['A', null], ['P0', 'P1']), ['A', 'P1']);
-	assert.deepEqual(mergeNarration(['A', null], ['P0', 'P1'], { fmCaptions: {} }), ['A', 'P1']);
+test('mergeNarration: a non-Map fmCaptions is ignored', () => {
+	assert.deepEqual(mergeNarration(2, ['P0', 'P1']), ['P0', 'P1']);
+	assert.deepEqual(mergeNarration(2, ['P0', 'P1'], { fmCaptions: {} }), ['P0', 'P1']);
 });
 
-test('mergeNarration: a whitespace-only fm caption falls through to the note (trim guard; live parity)', () => {
+test('mergeNarration: a whitespace-only fm caption falls through to the projection (trim guard; live parity)', () => {
 	// A quoted "   " survives parseCaptions (space is protectable), but an all-whitespace caption
 	// is silence — the export trims-to-decide and falls through; PresentOverlay uses the same
 	// String(fm ?? "").trim() guard so the two producers agree (§16 F3 fix).
-	const merged = mergeNarration(['Note one.', null], [], { fmCaptions: new Map([[1, '   '], [2, 'Real caption.']]) });
-	assert.deepEqual(merged, ['Note one.', 'Real caption.']); // slide 1: blank fm → note; slide 2: fm
+	const merged = mergeNarration(2, ['P0', 'P1'], { fmCaptions: new Map([[1, '   '], [2, 'Real caption.']]) });
+	assert.deepEqual(merged, ['P0', 'Real caption.']); // slide 1: blank fm → projection; slide 2: fm
+});
+
+test('mergeNarration: a non-numeric slide count answers for nothing rather than throwing', () => {
+	assert.deepEqual(mergeNarration(undefined, ['P0']), []);
+	assert.deepEqual(mergeNarration(-3, ['P0']), []);
 });
 
 // ── Author acronym registry threads into the exported spoken track (§15) ──────

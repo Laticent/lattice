@@ -10,7 +10,7 @@ import { PresentOverlay } from './PresentOverlay';
 // unsupported case. Each supported-case test installs the members the module
 // reads, which keeps the two states explicit rather than ambient.
 vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
-vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () => ({ doc: '', total: 0 })) }));
+vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const slides = ['<!-- _class: title -->\n\n# One\n\nThe first slide.', '<!-- _class: kpi -->\n\n# Two\n\nThe second slide.'];

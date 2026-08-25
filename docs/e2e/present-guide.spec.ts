@@ -32,7 +32,7 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 	// its spawn point (screen center) means the cross-frame mapping produced nothing.
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 
-	const card = dialog.locator('iframe.live');
+	const card = dialog.locator('[aria-label="Presented slide"] iframe.live');
 	await expect(card).toBeVisible();
 	const frame = await card.boundingBox();
 	expect(frame, 'no slide frame to point into').not.toBeNull();
@@ -73,10 +73,12 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 	// made first. What is a defect is SETTLING there: sitting on the words while they are read.
 	// So a hit counts only once the cursor has held the same position for `STILL` samples.
 	//
-	// Scoped to the DIALOG. There are two `iframe.live` on this page — the editor's live preview
-	// and Present's slide card — and `document.querySelector` returns the editor's, which is
-	// behind the overlay. Measuring Present's cursor against the editor's frame finds no overlap
-	// ever: the first version of this check passed against the defect, twice.
+	// Scoped to the PRESENTED SLIDE, not to the dialog and certainly not to the document.
+	// `document.querySelector('iframe.live')` returns the EDITOR's preview, which is behind the
+	// overlay — measuring Present's cursor against that frame finds no overlap ever, and the
+	// first version of this check passed against the defect twice. A dialog-scoped query is no
+	// longer enough either: the console's own panel carries a second `iframe.live` for the next
+	// slide (2026-08-24-stage-console-split.md), so only the slide card's own label is unambiguous.
 	const resting = await page.evaluate(async () => {
 		const STILL = 5; // ~500ms of not moving. A glide never holds a position that long.
 		const hits: string[] = [];
@@ -85,7 +87,7 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 		const deadline = Date.now() + 30_000;
 		while (Date.now() < deadline) {
 			const cur = document.querySelector('.vetrina-cursor');
-			const frame = document.querySelector('[role="dialog"] iframe.live') as HTMLIFrameElement | null;
+			const frame = document.querySelector('[role="dialog"] [aria-label="Presented slide"] iframe.live') as HTMLIFrameElement | null;
 			const doc = frame?.contentDocument;
 			if (cur && frame && doc && getComputedStyle(cur).opacity !== '0') {
 				const c = cur.getBoundingClientRect();

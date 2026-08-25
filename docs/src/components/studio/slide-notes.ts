@@ -1,7 +1,7 @@
 // Speaker notes — read/write a slide's presenter note in its source.
 //
 // In LFM (Marp-faithful) a NON-directive HTML comment on a slide IS that slide's
-// speaker note; the engine surfaces it in the presenter view / PDF notes / PPTX.
+// speaker note; the engine surfaces it on the Present console / PDF notes / PPTX.
 // The Studio authors notes as `<!-- note: … -->` (still a plain note to the
 // engine) and, when reading, accepts any non-directive comment so a hand-authored
 // note round-trips.

@@ -112,9 +112,9 @@ The narrator defaults to the voice the deck was rehearsed in, and can be changed
 
 `The privacy interaction`
 
-## Stripping speaker notes turns narration off.
+## Stripping speaker notes leaves narration alone.
 
-For most decks the narration an author rehearsed *is* their speaker notes. Shipping that audio — or the captions, which are the same words on screen — would hand that private text to whoever opens the file. The options are mutually exclusive, in the panel and again in the exporter.
+Narration is generated from what is on the slide, so a note has nothing to do with it — stripping notes removes them from the shared file and the caption track ships as usual. The two used to be mutually exclusive, back when a note outranked the slide's own content; a recipient who needs captions no longer pays for an author's privacy.
 
 ---
 

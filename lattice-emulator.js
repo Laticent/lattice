@@ -176,24 +176,25 @@ OPTIONS
   -q, --quiet             Suppress non-error progress output
       --notes             Also write a plaintext speaker-notes sidecar
                           (<output>.notes.txt), one block per slide
-      --captions          Also write read-along WebVTT caption sidecars from the
-                          speaker notes — one deck-level <output>.vtt (continuous
-                          timeline) plus per-slide <output>.NN.vtt. Timing is
-                          Cadenza's estimate (no audio, no key); honors --strip-notes
-                          and --strip-captions
+      --captions          Also write read-along WebVTT caption sidecars — one
+                          deck-level <output>.vtt (continuous timeline) plus
+                          per-slide <output>.NN.vtt. Each slide narrates its own
+                          CONTENT unless the author overrode it with a caption.
+                          Timing is Cadenza's estimate (no audio, no key); honors
+                          --strip-captions
       --no-split          Do NOT paginate an overflowing slide — render it whole
                           and let it ring. INSTRUMENTATION only: a measurement rig
                           needs page N to stay slide N. A deck that means to show
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
-                          shareable file with no speaker text
-      --strip-captions    Scrub the read-as caption channel (inline <!-- caption: -->
+                          shareable file with no speaker text. Captions are
+                          unaffected: they narrate slide content, not notes
+      --strip-captions    Scrub the author's caption OVERRIDES (inline <!-- caption: -->
                           and front-matter captions:) from the .vtt and embedded
-                          source — orthogonal to --strip-notes; those slides fall back
-                          to the note / auto projection. NOTE: a slide that had BOTH a
-                          caption and a note will now narrate the NOTE — add
-                          --strip-notes too if the note is also private
+                          source; those slides fall back to the generated projection.
+                          Orthogonal to --strip-notes — a speaker note is never a
+                          caption source, so neither flag can leak the other's channel
       --notes-icon        Show a clickable sticky-note icon on each slide with
                           a note (default: notes are embedded but hidden)
       --fluid             Emit the .html as the opt-in fluid-box VIEWER: each
@@ -443,7 +444,7 @@ const STRIP_NOTES = !!flags['strip-notes'];
 // orthogonal to `--strip-notes`. Notes (what you SAY) and captions (what a slide READS)
 // are independent channels, so each has its own strip. This scrubs the author's caption
 // OVERRIDES — inline `<!-- caption: -->` AND the front-matter `captions:` map — from the
-// baked copies: the read-along `.vtt` (those slides fall back to note → projection) and
+// baked copies: the read-along `.vtt` (those slides fall back to the generated projection) and
 // the envelope/attached `source`. Notes and the auto DOM projection are untouched.
 const STRIP_CAPTIONS = !!flags['strip-captions'];
 // Compose the privacy strips for any re-embedded SOURCE copy (the player envelope, the
@@ -4163,9 +4164,11 @@ async function renderBody(browser, g, closeBrowser) {
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next to the deck,
-  // not baked into its bytes. `--strip-notes` blanks the note channel (materializedNotes) and the
-  // projection, but NOT the captions: a caption is public-facing narration the author opts into via
-  // `--captions`, not a private note, so it composes with `--strip-notes` (ship captions, drop notes).
+  // not baked into its bytes. `--strip-notes` blanks the note channel (materializedNotes) but NOT
+  // the projection and NOT the captions: a caption is public-facing narration generated from slide
+  // content, so it composes with `--strip-notes` (ship captions, drop notes). It used to suppress
+  // the projection too, which was the only way to stop the flag leaking the notes it had just
+  // scrubbed — unnecessary now that nothing promotes a note into narration.
   if (CAPTIONS) {
     // PAGE-bound notes, not authored ones: `projectDeckSpeechFromHtml` projects the
     // RENDERED sections, so feeding it the authored array made the two lengths disagree
@@ -4173,7 +4176,7 @@ async function renderBody(browser, g, closeBrowser) {
     // the front-matter captions with it) rather than misalign. One index space fixes all
     // three channels at once.
     const pageNotesForCaptions = notesPerRenderedPage(cleanDocHtml, materializedNotes);
-    await writeCaptionsSidecar(outFile, pageNotesForCaptions, cleanDocHtml, slideCaptions);
+    await writeCaptionsSidecar(outFile, pageNotesForCaptions.length, cleanDocHtml, slideCaptions);
   }
 }
 
@@ -4742,9 +4745,16 @@ async function projectDeckSpeechFromHtml(docHtml) {
       .filter(Boolean);
     return projectDeckToSpeech(clean);
   } catch (e) {
-    // Degrade to notes-only, but SURFACE the failure — a swallowed projection
-    // crash is otherwise indistinguishable from "nothing to project".
-    if (!QUIET) console.warn(`  note: caption projection failed (${e?.message}); falling back to speaker notes only`);
+    // SURFACE THE FAILURE, and say what actually happens now. This used to read
+    // "falling back to speaker notes only" — true of the old ladder, false since the
+    // note rung was removed: there is no fallback left, so the deck gets NO caption
+    // track at all. A wrong message is worse than none, because it tells an operator
+    // whose projection just crashed that their captions survived it.
+    //
+    // UNGATED by --quiet, matching the honesty warnings above (`--quiet is exactly the
+    // mode a pipeline runs in`): the user asked for --captions and is not getting them,
+    // which is a silently missing deliverable, not chatter.
+    console.warn(`  warning: caption projection failed (${e?.message}); no caption track will be written for this deck.`);
     return [];
   }
 }
@@ -4753,15 +4763,15 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // estimate tracks via the shared root producer, then derives one deck-level .vtt
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
 // offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
-// EXPORT NARRATION SOURCE (§6 Phase 2): an authored speaker note wins per slide;
-// where a slide has none, the component-aware DOM speech projection narrates it —
-// so a deck with no notes still gets read-along captions (the old behavior wrote
-// nothing). This narrates the EXPORT's projected prose; the live Studio Present
-// path is markdown-only and still narrates differently for the chart family —
-// giving Present the same DOM projection is Phase 3, not done here.
-// `--strip-notes` intentionally suppresses BOTH notes AND projection (a stripped
-// deck emits no narration, honoring the documented contract).
-async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
+// EXPORT NARRATION SOURCE: the slide's own CONTENT, narrated by the component-aware
+// DOM speech projection, unless the author overrode it — an inline `<!-- caption: -->`
+// or a front-matter `captions:` entry replaces the generated line entirely. A speaker
+// note is NOT a source: it is the author's, and nothing here reads it. (It was the top
+// rung until 2026-08-24, which is how a private remark reached a recipient's caption
+// sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)
+// `--strip-notes` does not touch this path — it scrubs the note channel, and captions
+// narrate content, so the two flags are independent.
+async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = []) {
   const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
@@ -4781,12 +4791,22 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   } catch (e) {
     if (!QUIET) console.warn(`  note: narration front-matter parse failed (${e?.message})`);
   }
-  const projected = STRIP_NOTES ? [] : await projectDeckSpeechFromHtml(docHtml);
+  // The projection runs REGARDLESS of `--strip-notes`. It used to be suppressed by it, which
+  // made sense only while the note was a narration rung: stripping notes then had to mean
+  // "narrate nothing", or the caption track would have exposed the very text being scrubbed.
+  // A caption is generated from the slide's own CONTENT — which is on the slide, in front of
+  // the room — so it carries nothing `--strip-notes` is protecting, and emptying it was the
+  // last place a note still decided what a caption said.
+  const projected = await projectDeckSpeechFromHtml(docHtml);
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
   // rather than misalign a caption — surface that here so it isn't silent.
-  if (projected.length && projected.length !== notes.length && !QUIET) {
-    console.log(`Captions: slide count and rendered sections differ (${notes.length} vs ${projected.length}) — narrating authored notes only`);
+  // A mismatch now means SILENCE, not a fallback, so say so plainly. While the note was a
+  // rung this logged "narrating authored notes only" and the deck still got a caption track;
+  // with captions generated from content there is nothing else to narrate, and a quiet .vtt
+  // that nobody was warned about is the worst version of this.
+  if (projected.length && projected.length !== slideCount && !QUIET) {
+    console.log(`Captions: slide count and rendered sections differ (${slideCount} vs ${projected.length}) — captions will be EMPTY for this deck`);
   }
   // Chart-narration parity (#902 Gap 1). A chart slide (funnel / journey-weighted /
   // radar / quadrant / state-chart) narrates a COMPUTED fact — funnel conversion %,
@@ -4796,8 +4816,8 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // (lib/core/chart-narration.js) per chart slide and, when it fires (non-null),
   // substitute its FULL-slide narration for the figure projection at that index. It
   // sits at the PROJECTION precedence level (mergeNarration still lets an inline
-  // caption / front-matter caption / speaker note win), exactly as Present's narrationAt
-  // orders note → chart → projection. `splitSourceToSections` recovers each rendered
+  // caption or a front-matter caption win), exactly as Present's narrationAt
+  // orders chart → projection. `splitSourceToSections` recovers each rendered
   // section's SOURCE Markdown from the engine's OWN `hr`-token boundary (bake headings
   // boundaries → `---`, then group on markdown-it's hr tokens), so blocks[i] ⇔ section i
   // by construction — it can't drift from the render the way a parallel line-splitter
@@ -4805,7 +4825,7 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // The count guard is a belt-and-suspenders: autosplit / focus-step expansion ADD
   // sections after this split, so a mismatch stands chart narration down (a logged
   // note) rather than misalign — the same guard mergeNarration applies to the projection.
-  if (projected.length === notes.length && projected.length > 0) {
+  if (projected.length === slideCount && projected.length > 0) {
     try {
       const { narrateChart } = require('./lib/core/chart-narration.js');
       const { splitSourceToSections } = require('./lib/core/section-source-split.js');
@@ -4843,7 +4863,7 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
       if (!QUIET) console.warn(`  note: chart narration skipped (${e?.message})`);
     }
   }
-  // The front-matter `captions:` map is keyed by AUTHORED slide number, but `notes` is indexed
+  // The front-matter `captions:` map is keyed by AUTHORED slide number, but the caption array is indexed
   // per RENDERED section. Autosplit ADDS sections, so rendered-index+1 ≠ the author's number and a
   // number-keyed caption would misbind past a split — so drop the front-matter map under autosplit
   // (with a note). Inline `<!-- caption: -->` is unaffected: it rides with its section, staying
@@ -4877,14 +4897,16 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
       }
     }
   }
-  // `--strip-captions` blanks the author's caption OVERRIDES (inline + front-matter) — a
-  // channel separate from `--strip-notes`. Those slides fall back to note → projection, so
-  // the deck still gets an auto caption track (add `--strip-notes` too to fall back to the
-  // projection alone). Inline captions come in via the `captions` arg; drop both here.
+  // `--strip-captions` blanks the author's caption OVERRIDES (inline + front-matter), so those
+  // slides fall back to the generated projection — the deck still gets an auto caption track.
+  // It no longer has anything to do with `--strip-notes`: a note is not a narration source, so
+  // stripping the public channel cannot hand anyone the private one (it used to, and the help
+  // text for this flag had to warn you to strip twice). Inline captions come in via the
+  // `captions` arg; drop both here.
   const inlineForMerge = STRIP_CAPTIONS ? [] : captions;
   if (STRIP_CAPTIONS) fmForMerge = null;
-  // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → note → projection.
-  const slideTexts = mergeNarration(notes, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
+  // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → projection.
+  const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
@@ -4894,12 +4916,12 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
   });
   if (!readAlong.slides.length) {
-    if (!QUIET) console.log('Captions: nothing to narrate (no notes, no projectable slide prose) — no .vtt written');
+    if (!QUIET) console.log('Captions: nothing to narrate (no caption overrides, no projectable slide prose) — no .vtt written');
     return;
   }
   fs.writeFileSync(`${base}.vtt`, readAlongToVtt(readAlong)); // deck-level, continuous
   const parts = readAlongToVttParts(readAlong); // per-slide, slide-relative
-  const pad = Math.max(2, String(notes.length).length);
+  const pad = Math.max(2, String(slideCount).length);
   for (const { index, vtt } of parts) {
     fs.writeFileSync(`${base}.${String(index + 1).padStart(pad, '0')}.vtt`, vtt);
   }

@@ -591,7 +591,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// keeps it in un-persisted useState) — the adversarial trio flagged that as data loss, so
 	// Present now leaves Fabricate mounted.
 	// Present is the heaviest thing the Studio opens (a second render surface, plus a
-	// popup window when the presenter view is used) — the crumb is what tells a later
+	// popup window when the Stage is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
 	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
 	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
@@ -600,7 +600,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// it stays mounted across close/reopen like Editor/ComposeView do — PresentOverlay's own
 	// internal state (`idx`, its `prevOpenRef` open-transition tracking) is written assuming it
 	// never unmounts once it has rendered once; its `if (!open)` cleanup effects (closing the
-	// presenter popup window, resetting rehearsal state) depend on that too.
+	// Stage window, resetting rehearsal state) depend on that too.
 	//
 	// Deliberately NOT latched on `presentOpen` alone (a first cut of this did, and shipped a
 	// second regression, caught in review): the chunk fetch is async, so between the click and
@@ -2695,7 +2695,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// a "desktop" is as likely to be a touchscreen laptop as a tower, a tablet
 	// takes a keyboard case and a mouse, and a phone can be paired with both
 	// (#1294). The thresholds come from the shared kernel so the shell, Present and
-	// the presenter screen cannot drift apart again — the horizontal-only wheel
+	// the export player cannot drift apart again — the horizontal-only wheel
 	// rule this replaces ignored every wheel mouse ever made.
 	//
 	// `nav('next'|'prev')` is the one mover: goToSlide(slideNo) is next,

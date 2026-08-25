@@ -16,7 +16,7 @@
 //   - the popover renders as parent present-chrome in stage coordinates, reading
 //     the mark's inert <template class="chart-detail" data-mark> by index;
 //   - reveal is one command bound to pointer (in the hit-surface), number keys
-//     (1–9 → slice n, 0/Esc clears), and (later) a presenter-window control.
+//     (1–9 → slice n, 0/Esc clears), and (later) a console control.
 // Navigation never leaves keyboard / edge-arrows / wheel, so ceding the chart's
 // own rectangle is safe — there is no click-to-advance to lose.
 //
@@ -264,7 +264,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   }
 
   // Anchor point for mark i in PARENT-viewport coords, computed from the mark's OWN box. The fallback
-  // when there is NO live pointer — a number-key or presenter-window reveal in Present — so the popover
+  // when there is NO live pointer — a number-key reveal in Present — so the popover
   // still opens AT the mark instead of the host's off-screen (-9999) no-anchor default. A pointer reveal
   // keeps the cursor anchor; this only fires for the keyboard path.
   function markAnchor(i) {
@@ -416,7 +416,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     const lean = !body && !meta;
     // Freeze the anchor at the cursor point that opened THIS mark, so the card holds
     // its spot instead of sliding as the cursor drifts within the mark. With NO pointer
-    // (number-key / presenter-window reveal), fall back to the mark's own center, then the
+    // (a number-key reveal), fall back to the mark's own center, then the
     // whole chart's center — so the popover opens on the chart rather than off-screen at the
     // host's (-9999) default (or, on the vanilla path, unplaced — see placePop's guard).
     anchorPt = ptr ? { x: ptr.x, y: ptr.y } : (markAnchor(i) || chartCenter());
