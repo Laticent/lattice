@@ -81,7 +81,7 @@ comfortably inside it.
 
 **Measured with `review-core`'s own `proseWordCount`**, which strips the `_class`
 directive but NOT speaker-note comments. An earlier version of this table stripped all
-comments, which is a different population — 52.9% of content slides carry one, mean +9.1
+comments, which is a different population — 53.2% of 1,890 content slides carry one, mean +9.1
 words — and left every budget about three words tight against its own stated basis. The
 rule and the calibration must use the same counter; they now do.
 
@@ -209,12 +209,13 @@ Three independent review passes then broke inference on the merits, not the arit
 - **It never helped.** Across the corpus it fired on 46 decks, made **40 of them worse**
   than abstaining, and 0 better. Every inferable profile was tighter than the fallback, so
   committing was a pure penalty — an accuracy figure with no cost model behind it.
-- **Half its firings were on things that are not a genre.** 21 of 46 were `examples/`
-  feature demos — eight `token-contrast/*` palette tests, the `social-*` decks — which use
-  a quote beside a metric because that is what exercises the layout.
+- **Half its firings were on things that are not a genre.** 22 of 46 were `examples/`
+  feature demos — thirteen `token-contrast/*` palette tests, four `social-*` decks and five
+  others — which use a quote beside a metric because that is what exercises the layout. All
+  22 were labeled `mission` except `gallery-jargon.md`, labeled `boardroom`.
 - **It made a rule unreachable.** Inference reached `boardroom` only when a `decision`
-  slide was present, which is exactly what suppresses `no-ask`. That rule scored on **0 of
-  202 decks**.
+  slide was present, which is exactly what suppresses `no-ask`. Measured on the old design:
+  `no-ask` **fired on 152 decks and deducted on none of them**.
 
 So inference is gone, and profiles are **declared only**. Nothing in the component
 vocabulary positively marks a genre; a wrong guess is never neutral; and the honest
