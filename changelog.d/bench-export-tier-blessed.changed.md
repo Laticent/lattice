@@ -5,9 +5,8 @@
   tier has had the right `{ main, summary }` shape since 2026-08-03, but `main()`
   handed that summary to the `--json` dump and to nothing else, so the only thing
   comparing it was the nightly — head-vs-base on one runner, leaving no durable
-  before/after record (HARD RULE #19(b)). The apparatus ships wired but **inert**: no
-  `exportDatasets` block exists yet, so the check reports until someone blesses the
-  tier on a machine whose calibration probe is in band.
+  before/after record (HARD RULE #19(b)). The apparatus shipped wired but inert; the
+  record was written shortly after, and the block is in the committed baseline.
 - **A rasterize cycle that screenshots nothing now fails instead of reporting a
   record time.** `exportTier` swallows a `setContent` failure by design — a
   `networkidle0` timeout over a fully laid-out page is a false alarm — and then

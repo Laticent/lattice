@@ -409,6 +409,14 @@ six spinners on four cores moved the probe +38% and the indices +26/+48/+49%), s
 it is a reading, not an assertion. Bless on your own machine first if you want the
 timing to gate.
 
+**Read an `index` move with the probe value beside it.** The probe is measured, and on
+at least one sandbox it is both noisier than the datasets it divides (25% spread across
+four runs on an unchanged tree, against its own ±15% `PROBE_BAND`) and moving *against*
+them — a render tier 30% slower in wall clock came out 27% "faster" by index, because
+the probe itself had moved +80%. A large `index` delta with no matching `ms` delta is
+the probe, not the engine. Evidence and the three possible fixes, none yet chosen:
+`engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`.
+
 **A timing REGRESSION is confirmed on a second pass before it fails the run.** Same
 fingerprint is not the same machine *state*: on a shared or virtualized box, two
 runs of an identical tree measured 15% apart (65.1ms vs 56.3ms for
@@ -420,10 +428,18 @@ that was just load. The extra ~1 min is paid only when something already looks r
 Only the RENDER tier is re-measured: the browser tiers stand on one pass, because a
 puppeteer arm cannot be re-run on a hunch (`--print` is ~11 min, `--export` ~3, and
 `--cli` spawns a fresh browser per iteration). Their ±50% band — and the sweep's 3×
-floor — is sized for that. The re-measure is selected BY DATASET NAME, which is why
-every browser tier prefixes its rows (`export · `, `print full · `, `cli · `): a tier
-reusing the render tier's names would be handed to a second *render* pass, come back
-green, and be reported as "not reproduced — machine load, not code".
+floor — is sized for that. The re-measure is selected BY DATASET NAME, so every browser
+tier's rows must be UNAMBIGUOUS against the render tier's: a tier reusing a render name
+would be handed to a second *render* pass, come back green, and be reported as "not
+reproduced — machine load, not code".
+
+Two mechanisms achieve that, and a new tier has to pick one deliberately. Export, print
+and CLI **prefix at the dataset name** (`export · `, `print full · `, `cli · `), so the
+name is distinct everywhere. **The sweep does not** — its rows are bare `normal (jargon)`
+/ `charts`, which collide with the render tier's — and it is safe only because it appends
+its marker at the PUSH SITE instead: `regressedDatasets.push(\`${s.dataset} (sweep)\`)`.
+Copy the sweep's `dataset: d.name` shape without copying that push-site suffix and you
+reintroduce exactly the bug this paragraph exists to prevent.
 
 **Three tiers, three flags — and the third measures something the other two
 structurally cannot.** `--export` (rasterize) and `--print` (re-place) are whole
@@ -484,7 +500,7 @@ expensive for anything scheduled to pass it:
 | flag | tier | cost | blessed rows |
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
-| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` *(not blessed yet — see below)* |
+| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
@@ -504,10 +520,17 @@ run actually SCREENSHOTTED — not a section count another renderer reported —
 cycle that quietly stops rasterizing fails as a workload change on any machine, ahead
 of any timing. That failure used to read as a spectacular win.
 
-**The apparatus is wired; the record is not written.** `baseline.json` carries no
-`exportDatasets` yet, so `bench:check -- --export` reports and exits 0. Blessing it
-needs a machine whose calibration probe reads in band (`comparableMachine`), because
-any bless restamps `blessedOn` for every tier — see the caveat below.
+**The apparatus is wired, and as of 2026-08-25 the record is written.** `baseline.json`
+carries `exportDatasets`, so `bench:check -- --export` compares like the print and CLI
+tiers: same-machine on timing, any-machine on the `slides` screenshot count.
+
+**"Same machine" is not automatically "the machine that blessed it," and which sandbox you
+drew matters.** `comparableMachine()` wants the fingerprint *and* a probe in band. On a
+`@2.80GHz` sandbox the probe swings ~39% run to run, so a bless there stamped 4.94ms and an
+independent run on the identical fingerprint read 3.78–3.85ms — 22% off, timing reported not
+gated. On the `@2.10GHz` class it reads within 2.9% and gates cleanly. **Bless on a box whose
+probe is stable, and confirm with `bench:check` that it prints `wall clock GATES` rather than
+assuming it will** (`engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`).
 
 A tier **this repo has not blessed yet** reports rather than failing: drift means a
 blessed row has been recording nothing, and a tier nobody has blessed has no rows to
@@ -516,10 +539,13 @@ guess at whether the block is there — an absent block cannot distinguish "neve
 blessed" from "blessed once and since deleted", and the second is precisely the rot
 the MISSING arms exist to catch. It is reachable, too: a bless drops all four browser
 blocks when the existing baseline fails `JSON.parse`, so inferring from the block
-would have made a silent drop and a silent check into one silent pair. An entry
-retires itself — once a tier has a block the list stops applying to it — so a stale
-name is inert rather than a hole. A *partly* blessed tier still drifts normally, so
-one newly added row among three blessed ones stays red until someone blesses it.
+would have made a silent drop and a silent check into one silent pair. **The list is
+empty today, and an entry must be REMOVED by the bless that earns it** — it does not
+retire itself. A name left on the list after its tier is blessed re-opens the hole the
+list exists to close: drop the whole block and the stale name makes the check print
+`NOT BLESSED` rather than failing, while the MISSING loop has no rows left to iterate.
+A *partly* blessed tier still drifts normally, so one newly added row among three
+blessed ones stays red until someone blesses it.
 
 So a full re-bless is `npm run bench:bless -- --export --print --sweep --cli`, and
 `bench:bless` **alone preserves** any existing `exportDatasets` / `printDatasets` /

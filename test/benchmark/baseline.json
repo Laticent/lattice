@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 2.75,
-    "rmePct": 1.42
+    "ms": 2.73,
+    "rmePct": 1.32
   },
   "blessedOn": {
     "node": "v22",
@@ -16,46 +16,46 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 15.72,
-      "ms": 43.26,
-      "slidesPerSec": 1341,
-      "rmePct": 2.22
+      "index": 16.54,
+      "ms": 45.14,
+      "slidesPerSec": 1285,
+      "rmePct": 2.23
     },
     "charts": {
       "slides": 15,
-      "index": 13.23,
-      "ms": 36.39,
-      "slidesPerSec": 412,
-      "rmePct": 1.73
+      "index": 13.14,
+      "ms": 35.87,
+      "slidesPerSec": 418,
+      "rmePct": 1.63
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 49.62,
-      "ms": 136.52,
-      "slidesPerSec": 2549,
-      "rmePct": 3.19
+      "index": 51.31,
+      "ms": 140.04,
+      "slidesPerSec": 2485,
+      "rmePct": 4.62
     }
   },
   "printDatasets": {
     "print full · normal (jargon)": {
       "slides": 58,
-      "ms": 97112.47,
-      "rmePct": 1.48
+      "ms": 96424.09,
+      "rmePct": 6.18
     },
     "print re-place · normal (jargon)": {
       "slides": 58,
-      "ms": 63728.35,
-      "rmePct": 1.88
+      "ms": 64628,
+      "rmePct": 1.45
     },
     "print full · charts": {
       "slides": 15,
-      "ms": 6320.63,
-      "rmePct": 5.12
+      "ms": 6432.03,
+      "rmePct": 4.82
     },
     "print re-place · charts": {
       "slides": 15,
-      "ms": 2444.49,
-      "rmePct": 1.67
+      "ms": 2557.05,
+      "rmePct": 5.18
     }
   },
   "sweepDatasets": {
@@ -70,35 +70,52 @@
     "charts": {
       "slides": 15,
       "overflowing": 0,
-      "scopedMs": 0.4,
-      "unscopedMs": 2.3,
-      "ratio": 5.75,
-      "backstopMs": 0.1
+      "scopedMs": 0.3,
+      "unscopedMs": 2,
+      "ratio": 6.67,
+      "backstopMs": 0
     },
     "overflowing (x40)": {
       "slides": 40,
       "overflowing": 40,
-      "scopedMs": 1.7,
-      "unscopedMs": 17.1,
-      "ratio": 10.06,
+      "scopedMs": 1.4,
+      "unscopedMs": 12.2,
+      "ratio": 8.71,
       "backstopMs": 0.1
     }
   },
   "cliDatasets": {
     "cli · portrait-roadmap (1 nav)": {
       "slides": 5,
-      "ms": 1489.54,
-      "rmePct": 3.02
+      "ms": 1500.51,
+      "rmePct": 10.89
     },
     "cli · auto-split (3 nav)": {
       "slides": 9,
-      "ms": 1810.85,
-      "rmePct": 7.83
+      "ms": 1768.69,
+      "rmePct": 3.04
     },
     "cli · cover-paginate (4 nav)": {
       "slides": 30,
-      "ms": 2348.22,
-      "rmePct": 5.76
+      "ms": 2185.63,
+      "rmePct": 4.9
+    },
+    "cli · imageset look-scratch (svg re-bake)": {
+      "slides": 16,
+      "ms": 7809.21,
+      "rmePct": 2.07
+    }
+  },
+  "exportDatasets": {
+    "export · normal (jargon)": {
+      "slides": 58,
+      "ms": 34018.97,
+      "rmePct": 7.4
+    },
+    "export · charts": {
+      "slides": 15,
+      "ms": 4158.13,
+      "rmePct": 2.3
     }
   }
 }

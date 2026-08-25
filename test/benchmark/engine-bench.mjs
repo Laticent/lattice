@@ -1177,9 +1177,18 @@ function checkBaseline(summary, render, opts = {}) {
   // The real `exportTier()` can now be blessed and checked (see the EXPORT CHECK block below);
   // it used to be neither, with `main()` handing its summary to the `--json` dump and nothing
   // else, even though the tier was given a `{ main, summary }` shape precisely so it could be
-  // compared. NOTHING IS BLESSED YET: `baseline.json` carries no `exportDatasets`, so the block
-  // reports and exits 0 until someone runs `bench:bless -- --export` on a machine whose probe
-  // is in band. The apparatus is wired; the record is not written.
+  // compared. THE RECORD IS NOW WRITTEN: `baseline.json` carries `exportDatasets` as of
+  // 2026-08-25, so the block compares like the print and CLI tiers — same-machine only.
+  //
+  // "SAME MACHINE" IS NOT AUTOMATICALLY "THE MACHINE THAT BLESSED IT", and it is worth
+  // knowing which silicon you are on before trusting the timing half. `comparableMachine()`
+  // needs the fingerprint AND a probe within PROBE_BAND, and on a `@2.80GHz` sandbox the
+  // probe swings ~39% run to run — a bless there stamped 4.94ms and an independent run on
+  // the identical fingerprint read 3.78–3.85ms, 22% off, `slower (not gated)` on an
+  // unchanged tree. On the `@2.10GHz` class the same probe reads within 2.9% and gates
+  // cleanly, which is where these rows were blessed. What holds on ANY machine either way
+  // is `slides`, the screenshot count below.
+  // See `engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`.
   //
   // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
   // they are far more exposed to machine and I/O noise than an in-process render. 50% catches a
@@ -1207,11 +1216,23 @@ function checkBaseline(summary, render, opts = {}) {
   // and made the pair silent end to end. Caught by the HARD RULE #25 checker.
   //
   // So the exception is a NAMED LIST of the tiers this repo has not blessed yet, and everything
-  // else keeps failing loudly on an absent block. An entry retires itself: once a tier has a
-  // block, `neverBlessed` is false whatever the list says, so a stale name is inert rather than
-  // a hole. Today that is the rasterize tier alone — print, sweep and CLI are all blessed in
-  // `test/benchmark/baseline.json`, and an absent block for any of them means a deletion.
-  const TIERS_NOT_YET_BLESSED = new Set(['exportDatasets']);
+  // else keeps failing loudly on an absent block.
+  //
+  // AN ENTRY DOES NOT RETIRE ITSELF — IT MUST BE REMOVED BY THE BLESS THAT EARNS IT. An earlier
+  // note here claimed a stale name was "inert rather than a hole" because `neverBlessed` also
+  // tests the block. That is true only while the block EXISTS, which is the one case that needs
+  // no protection. Delete the whole block — the `JSON.parse` drop path two paragraphs up does
+  // exactly that — and the stale name is what decides: the `!b` arm reads `unblessed` and prints
+  // NOT BLESSED instead of setting drift, and the MISSING loop below iterates
+  // `Object.keys(base.exportDatasets ?? {})`, which is empty, so it has nothing to report. A
+  // stale entry therefore re-opens precisely the silent-drop hole the list was written to close.
+  // The other three tiers fail loudly on a dropped block for exactly one reason: they are not
+  // named here.
+  //
+  // The rasterize tier was the last name on the list and is blessed as of 2026-08-25, so the
+  // list is empty and every tier now fails loudly on an absent block. Add a name here ONLY for
+  // a tier that has never been blessed, and remove it in the same change that first blesses it.
+  const TIERS_NOT_YET_BLESSED = new Set([]);
   const neverBlessed = (key) => TIERS_NOT_YET_BLESSED.has(key) && !Object.keys(base[key] ?? {}).length;
 
   // THE RASTERIZE TIER. Only compared when THIS run produced it (`--export`), so a plain
