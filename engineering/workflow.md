@@ -409,6 +409,14 @@ six spinners on four cores moved the probe +38% and the indices +26/+48/+49%), s
 it is a reading, not an assertion. Bless on your own machine first if you want the
 timing to gate.
 
+**Read an `index` move with the probe value beside it.** The probe is measured, and on
+at least one sandbox it is both noisier than the datasets it divides (25% spread across
+four runs on an unchanged tree, against its own ±15% `PROBE_BAND`) and moving *against*
+them — a render tier 30% slower in wall clock came out 27% "faster" by index, because
+the probe itself had moved +80%. A large `index` delta with no matching `ms` delta is
+the probe, not the engine. Evidence and the three possible fixes, none yet chosen:
+`engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`.
+
 **A timing REGRESSION is confirmed on a second pass before it fails the run.** Same
 fingerprint is not the same machine *state*: on a shared or virtualized box, two
 runs of an identical tree measured 15% apart (65.1ms vs 56.3ms for
@@ -484,7 +492,7 @@ expensive for anything scheduled to pass it:
 | flag | tier | cost | blessed rows |
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
-| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` *(not blessed yet — see below)* |
+| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
@@ -504,10 +512,9 @@ run actually SCREENSHOTTED — not a section count another renderer reported —
 cycle that quietly stops rasterizing fails as a workload change on any machine, ahead
 of any timing. That failure used to read as a spectacular win.
 
-**The apparatus is wired; the record is not written.** `baseline.json` carries no
-`exportDatasets` yet, so `bench:check -- --export` reports and exits 0. Blessing it
-needs a machine whose calibration probe reads in band (`comparableMachine`), because
-any bless restamps `blessedOn` for every tier — see the caveat below.
+**The apparatus is wired, and as of 2026-08-25 the record is written.** `baseline.json`
+carries `exportDatasets`, so `bench:check -- --export` gates on the blessing machine
+and reports anywhere else, like every other browser tier.
 
 A tier **this repo has not blessed yet** reports rather than failing: drift means a
 blessed row has been recording nothing, and a tier nobody has blessed has no rows to
@@ -516,10 +523,13 @@ guess at whether the block is there — an absent block cannot distinguish "neve
 blessed" from "blessed once and since deleted", and the second is precisely the rot
 the MISSING arms exist to catch. It is reachable, too: a bless drops all four browser
 blocks when the existing baseline fails `JSON.parse`, so inferring from the block
-would have made a silent drop and a silent check into one silent pair. An entry
-retires itself — once a tier has a block the list stops applying to it — so a stale
-name is inert rather than a hole. A *partly* blessed tier still drifts normally, so
-one newly added row among three blessed ones stays red until someone blesses it.
+would have made a silent drop and a silent check into one silent pair. **The list is
+empty today, and an entry must be REMOVED by the bless that earns it** — it does not
+retire itself. A name left on the list after its tier is blessed re-opens the hole the
+list exists to close: drop the whole block and the stale name makes the check print
+`NOT BLESSED` rather than failing, while the MISSING loop has no rows left to iterate.
+A *partly* blessed tier still drifts normally, so one newly added row among three
+blessed ones stays red until someone blesses it.
 
 So a full re-bless is `npm run bench:bless -- --export --print --sweep --cli`, and
 `bench:bless` **alone preserves** any existing `exportDatasets` / `printDatasets` /
