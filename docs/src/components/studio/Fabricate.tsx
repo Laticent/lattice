@@ -18,7 +18,7 @@ import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaff
 // contract (~100 tokens, contrast-repaired — the exact count is
 // `requiredTokenList().length`, deliberately not restated here), auditBoth →
 // live WCAG report, serializeTheme → a real themes/*.css.
-import { auditBoth, contrastRatio, deriveTheme, STARTERS, serializeTheme, validateEssentials } from '@/playground/theme-core.generated.js';
+import { auditBoth, contrastRatio, deriveTheme, gateThemeCss, parseTheme, renameThemeDirective, resolveVars, STARTERS, serializeTheme, themeTokenMap, validateEssentials } from '@/playground/theme-core.generated.js';
 import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
 import { auditMeterRows, isUnchecked } from './audit-meter';
 import { CodeField } from './CodeField';
@@ -29,7 +29,7 @@ import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_M
 import { MotionStudio } from './MotionStudio';
 import { manifestJsonCompletion } from './manifest-complete';
 import { useReferenceDoc } from './reference-doc-ui';
-import { saveStudioTheme } from './theme-library';
+import { type StudioTheme, saveStudioTheme } from './theme-library';
 
 // You pick ALL TEN essentials — the same set the engine derivation + the
 // Workbench Theme Studio take (theme-core ESSENTIAL_KEYS). The derivation
@@ -161,6 +161,49 @@ type Selected = { scope: 'essential'; id: EssKey } | { scope: 'derived'; id: str
 // token's live contrast, so selecting an essential still shows its WCAG.
 const ESS_TOKEN: Record<EssKey, string> = { bg: 'bg', bgAlt: 'bg-alt', textHeading: 'text-heading', textBody: 'text-body', textMuted: 'text-muted', accent: 'accent', accentSoft: 'accent-soft', pass: 'pass', warn: 'warn', fail: 'fail' };
 const isHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
+/**
+ * The ten essentials READ BACK OUT of a token map, for a theme whose CSS the author
+ * edited by hand.
+ *
+ * `essentials` stopped being the model the moment the record became one — but four
+ * surfaces still render from it (the Library card's swatch row, the theme picker dot
+ * in two places, the Studio drawer) and the `lattice-asset/1` zip carries it. Left
+ * pointing at the pickers they would paint the palette the author walked away from.
+ * Derived from the record they stay true, which is the whole reason the design note
+ * calls them advisory rather than authoritative.
+ *
+ * A token the record does not declare falls back to the picker's value: better a
+ * stale swatch than a missing one, and a theme that composes via `@import` genuinely
+ * does not declare most of these.
+ */
+function essentialsFromMap(map: Record<string, string>, fallback: Record<EssKey, string>): Record<EssKey, string> {
+	// RESOLVED TO THE LIGHT ARM, and that is not cosmetic. Every one of these tokens
+	// is a `light-dark(#fbfbfd, #04060a)` PAIR in a derived theme, and the surfaces
+	// that render `essentials` paint each value straight into a CSS `background` —
+	// the Library card filters on `/^#|^oklch|^rgb|^hsl/`, so a `light-dark()` value
+	// is dropped outright. Measured before this line existed: 0 of 10 swatches
+	// survived, i.e. reading the record honestly blanked the card. `resolveVars` is
+	// the same resolution the auditor runs, so a swatch shows the color the light
+	// canvas actually paints.
+	//
+	// A value that still is not paintable — a half-typed hex, a `var()` that resolves
+	// to nothing, an unreadable function — keeps the PICKER's value. A stale swatch
+	// is a small lie; a blank card is a broken window.
+	const light = resolveVars(map, 'light') as Record<string, string>;
+	const out = { ...fallback };
+	for (const key of Object.keys(ESS_TOKEN) as EssKey[]) {
+		const v = light[ESS_TOKEN[key]];
+		// HEX ONLY, and that is stricter than "paintable" on purpose. These values go
+		// back into `core` when a saved theme is reopened, and `validateEssentials`
+		// THROWS on anything that is not a hex — so an `oklch()` accent (the exact case
+		// the design note predicts a hand-editor writes) round-tripped into the pickers
+		// collapsed the whole faculty to the derivation's catch branch: blank specimen,
+		// empty tree, Save disabled. A stale swatch is a small lie; an empty faculty is
+		// a broken window.
+		if (typeof v === 'string' && isHex(v.trim())) out[key] = v.trim();
+	}
+	return out;
+}
 // Only FOREGROUND roles (ink / brand / signals) have an on-background AA target;
 // surfaces (bg, bg-alt, border, accent wash) and the decorative muted ink are
 // WCAG-exempt — so we never stamp them pass/FAIL against the canvas (it would be
@@ -179,7 +222,7 @@ const contractLabelOf = (id: string) => CONTRACT.find((c) => c.token === id)?.la
 const tokenLabel = (id: string) => contractLabelOf(id) ?? bandLabel(id);
 const tierOf = (ratio: number | null, ok: boolean) => ((ratio ?? 0) >= 7 ? 'AAA' : ok ? 'AA' : 'FAIL');
 
-export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: StudioTheme | null; savedThemes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -263,11 +306,76 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	const setOverride = (token: string, side: 'light' | 'dark', hex: string) => setOverrides((o) => ({ ...o, [token]: { ...o[token], [side]: hex } }));
 	const clearOverride = (token: string) => setOverrides((o) => { const n = { ...o }; delete n[token]; return n; });
 
+	// THE HAND-EDITED STYLESHEET, or `null` while the pickers are the model.
+	//
+	// This is the whole point of the CSS view and it is a state question, not an
+	// editor question. `derived` below recomputes on a KEYSTROKE — two of its five
+	// original dependencies are free-text fields, so typing one character into the
+	// description regenerated the CSS. Drop a code editor beside that and you have
+	// built a fork: the author edits the CSS, touches anything else, and the edit is
+	// gone with no warning. So the hand-edited record BECOMES the memo's source
+	// rather than sitting next to it, and going back to the pickers is an explicit,
+	// announced discard. See
+	// `engineering/decisions/2026-08-25-hand-editing-generated-assets.md`.
+	const [handCss, setHandCss] = React.useState<string | null>(null);
+	// `handDirty` is whether the author actually TYPED, as distinct from whether the
+	// CSS view is open. Opening the view seeds the record from the derivation, which
+	// is byte-identical to what the pickers were already producing — so leaving again
+	// costs nothing and must not demand a confirmation. Only a real edit is a fork.
+	const [handDirty, setHandDirty] = React.useState(false);
+	// WHERE THE RECORD CAME FROM, which decides whether going back to the pickers is
+	// free. A record seeded from the DERIVATION is byte-identical to what the pickers
+	// were already producing, so dropping it costs nothing. A record seeded from a
+	// SAVED THEME is the author's stored stylesheet — re-deriving over it and saving
+	// replaces every hand-authored byte in a record that already exists, and there is
+	// no version history wired to undo that. `handDirty` cannot tell the two apart
+	// (a reopened record starts clean), so it is not the flag to arm on.
+	const [handOrigin, setHandOrigin] = React.useState<'derived' | 'seed' | null>(null);
+	const handEdited = handCss !== null;
+	const [themeView, setThemeView] = React.useState<'fields' | 'css'>('fields');
+	// Armed-then-confirm rather than a `window.confirm` — there is not one of those
+	// anywhere in the docs site. NOT the full DeleteBtn pattern: that one also
+	// disarms on a 3s timeout and on an outside pointerdown. Here typing again is
+	// what disarms, which covers the mis-click that matters (you were editing), and
+	// the armed state is visibly red rather than silent.
+	const [discardArmed, setDiscardArmed] = React.useState(false);
+	const [closeArmed, setCloseArmed] = React.useState(false);
+	// The saved record this session is EDITING, so Save updates it instead of
+	// creating a second theme. `theme-library.ts` keys on the id for exactly this
+	// reason: without it a rename is a create, and every deck saying
+	// `theme: <old name>` keeps pointing at the untouched original.
+	const [editingId, setEditingId] = React.useState<string | null>(null);
+
 	// Derive the full token map from the ten picked essentials, then layer any
 	// per-side contract overrides — REAL, every render. The live specimen uses a
 	// STABLE content-hash name (so it doesn't churn while you type a name); export
 	// + save re-serialize under the final slug.
+	//
+	// WHEN HAND-EDITED, the derivation is not consulted at all: the record is read
+	// back out of the author's own bytes (`parseTheme` → `themeTokenMap`) so the
+	// specimen, the token tree and the WCAG audit all describe the file that will
+	// actually be saved. The map can be PARTIAL or unreadable in that mode — half a
+	// hex while typing, an `oklch()` the auditor declines to measure — which is why
+	// `auditVars` had to stop reporting AA over rows it never measured before this
+	// could ship honestly.
 	const derived = React.useMemo(() => {
+		if (handCss !== null) {
+			try {
+				const record = parseTheme(handCss);
+				const map = themeTokenMap(record) as Record<string, string>;
+				return {
+					map: map as Record<string, unknown>,
+					audit: auditBoth(map, { level: 'full' }),
+					name: `fab-${hash(handCss)}`,
+					css: handCss,
+					error: null as string | null,
+				};
+			} catch (e) {
+				// A parse that throws must not take the whole faculty down with it; the
+				// author still needs their text on screen to fix it.
+				return { map: {} as Record<string, unknown>, audit: { light: { results: [] }, dark: { results: [] }, ok: false }, name: 'indaco', css: handCss, error: String((e as Error)?.message || e) };
+			}
+		}
 		const essentials = { ...core };
 		try {
 			validateEssentials(essentials);
@@ -279,7 +387,27 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 		} catch (e) {
 			return { map: {} as Record<string, unknown>, audit: { light: { results: [] }, dark: { results: [] }, ok: false }, name: 'indaco', css: '', error: String((e as Error)?.message || e) };
 		}
-	}, [core, overrides, themeName, themeDesc, rampStrategy]);
+	}, [handCss, core, overrides, themeName, themeDesc, rampStrategy]);
+
+	// The theme CSS gate (lib/theme/gate.js), live beside the editor. It is NOT
+	// `gateCss` — that one rejects all 32 shipped palettes, because a palette IS hex
+	// literals at `:root` and is unscoped on purpose.
+	//
+	// `knownThemes` is deliberately just the base: this host does not hold a live
+	// `ThemeStore` handle here, and the gate's contract is that the registry is what
+	// is actually REGISTERED, not what the catalog lists. Claiming more would allow a
+	// palette-to-palette import that the engine then hoists and fetches. A theme
+	// fabricated here imports the base and nothing else, so nothing legitimate is lost.
+	const themeFindings = React.useMemo<Finding[]>(
+		() => (handEdited ? (gateThemeCss(derived.css) as { findings: Finding[] }).findings : []),
+		[handEdited, derived.css],
+	);
+	// The LayoutStudio pattern (`extraCss={cssBlocked ? '' : css}`): a finding on the
+	// SAFETY rung pauses the CSS out of the preview frame. A conformance error does
+	// NOT — a theme missing a token is wrong and still renders, and hiding it would
+	// hide the thing the author is trying to fix.
+	const themeBlocked = themeFindings.some((f) => (f as { blocking?: boolean }).blocking);
+	const previewCss = themeBlocked ? '' : derived.css;
 
 	// The Component tab's live gate — the SAME bundled gate the body used to run
 	// internally, lifted here so the shared header's Save button and the body's
@@ -313,6 +441,19 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	async function runDescribe(text: string) {
 		const p = text.trim();
 		if (!p || gen === 'working') return;
+		// THE SAME DESTRUCTIVE PLACE AS "re-derive", REACHED FROM A TEXT BOX. On
+		// success this sets core + ramp and clears overrides, which for a hand-edited
+		// theme means discarding the record — silently, with no button that announced
+		// itself. The AI bar is disabled while hand-edited for that reason; this is the
+		// guard behind the disable, so a stale keystroke or a test cannot route past it.
+		if (handDirty) {
+			notify('This theme is hand-edited. Discard your CSS edits (Fields ▸ Discard) before generating a new palette.');
+			return;
+		}
+		// An OPEN but untouched CSS view is not a fork — the record was seeded from
+		// the derivation and is byte-identical to it — so generating simply drops it
+		// and goes back to the pickers, with nothing lost and nothing to announce.
+		if (handEdited) { setHandCss(null); setThemeView('fields'); }
 		setGen('working');
 		try {
 			const out = await generateTheme(core, p, themeDoc.docs);
@@ -446,7 +587,14 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	const canExport = tab === 'theme' ? !!derived.css : compNameOk;
 	function exportArtifact() {
 		if (tab === 'theme') {
-			const css = serializeTheme(derived.map, { name: themeSlug, label: titleize(themeSlug), description: themeDesc });
+			// Same rule as Save: a hand-edited theme exports the author's own bytes.
+			// Re-serializing from the map would hand back a reformatted file with every
+			// comment and every non-contract token dropped — which is exactly the
+			// data loss `lib/theme/parse.js` exists to prevent, reintroduced at the
+			// download button.
+			const css = handEdited
+				? renameThemeDirective(derived.css, themeSlug)
+				: serializeTheme(derived.map, { name: themeSlug, label: titleize(themeSlug), description: themeDesc });
 			downloadText(`${themeSlug}.css`, css || '/* theme */', 'text/css');
 			notify(`Exported ${themeSlug}.css — a real theme token set.`);
 			return;
@@ -457,17 +605,48 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 		notify(`Exported ${compName} — manifest, styles & skeleton (drop into lib/components/).`);
 	}
 
-	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css : compOk && compNameOk);
+	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD. Save is id-pinned, and `putAsset`
+	// skips its (kind, name) dedupe when an id is given — so renaming this theme onto
+	// another one's name writes two records with one name, and the picker resolves by
+	// name (`savedThemes.find(t => t.name === palette)`), leaving the older card
+	// listed but unreachable. Refuse rather than silently make one of them a ghost.
+	const nameTakenBy = savedThemes.find((t) => t.name === themeName && t.id !== editingId);
+	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk);
 	async function saveToLibrary() {
 		if (!canSave) return;
 		setSaving(true);
 		try {
 			if (tab === 'theme') {
-				// Re-serialize under the FINAL slug so the CSS's `@theme <name>` matches
-				// the stored record name (the live specimen uses a stable content-hash
-				// name to avoid churn while you type).
-				const css = serializeTheme(derived.map, { name: themeName, label: titleize(themeName), description: themeDesc });
-				const t = await saveStudioTheme({ name: themeName, label: titleize(themeName), essentials: core, css });
+				// A HAND-EDITED THEME SAVES THE AUTHOR'S OWN BYTES. Re-serializing from
+				// `derived.map` would round-trip the record through a 107-name emitter
+				// and hand back a DIFFERENT file — reformatted, with every comment and
+				// every non-contract token gone. The one exception is the `@theme`
+				// directive, which is the sheet's identity and has to match the record
+				// name; `renameThemeDirective` rewrites that token and nothing else.
+				//
+				// Otherwise: re-serialize under the FINAL slug (the live specimen uses a
+				// stable content-hash name to avoid churn while you type).
+				const css = handEdited
+					? renameThemeDirective(derived.css, themeName)
+					: serializeTheme(derived.map, { name: themeName, label: titleize(themeName), description: themeDesc });
+				// `essentials` is what four surfaces paint a theme's swatches from (the
+				// Library card, the two picker dots, the drawer). After a hand edit the
+				// PICKERS no longer describe the file, so reading them back would make
+				// those four lie. Read the record instead — it is the model now.
+				const essentials = handEdited ? essentialsFromMap(derived.map as Record<string, string>, core) : core;
+				// `id` is what makes this an UPDATE. Without it the store keys on the
+				// name, so editing-then-renaming creates a second theme and leaves every
+				// deck that says `theme: <old name>` pointing at the untouched original.
+				// `overrides` / `rampStrategy` ride along for the first time here: they
+				// are what a re-derivation would need, and no production caller had ever
+				// persisted them.
+				const t = await saveStudioTheme({
+					...(editingId ? { id: editingId } : {}),
+					name: themeName, label: titleize(themeName), essentials, css,
+					...(handEdited ? {} : { overrides, rampStrategy }),
+				});
+				setEditingId(t.id);
+				setHandDirty(false);
 				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
 			} else {
 				const c = await saveStudioComponent({ name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } });
@@ -483,6 +662,92 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 
 	const q = query.trim().toLowerCase();
 	const startTheme = (e: Record<string, string>) => { setCore({ ...(e as Record<EssKey, string>) }); setOverrides({}); setRampStrategy('spectrum'); };
+
+	/**
+	 * HYDRATE FROM A SAVED RECORD. `seed.css` is the theme's TEXT, and the text is
+	 * what every consumer already renders (`StudioShell` passes `extraTheme = {name,
+	 * css}`), so opening it as the hand-edit record is not a reinterpretation of the
+	 * data — it is reading it as what it already was.
+	 *
+	 * Deliberately NOT re-derived from `seed.essentials`. No production caller has
+	 * ever persisted `overrides` or `rampStrategy` (`Fabricate.tsx`'s own Save did
+	 * not, nor the zip import, nor the workspace backup), so no theme in any user's
+	 * library can be faithfully reproduced from its essentials — re-deriving would
+	 * hand the author a DIFFERENT theme from the one they saved and call it theirs.
+	 * The essentials still seed the pickers, so discarding the CSS lands somewhere
+	 * recognizable rather than on the default starter.
+	 *
+	 * Keyed on `seed?.id` so re-opening the SAME record does not stomp edits in
+	 * progress on every unrelated re-render.
+	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the record identity, not its contents — re-seeding on every field change would fight the editor.
+	React.useEffect(() => {
+		if (!seed) return;
+		setTab('theme');
+		setEditingId(seed.id);
+		setThemeName(seed.name);
+		setHandCss(seed.css);
+		setHandDirty(false);
+		setHandOrigin('seed');
+		setDiscardArmed(false);
+		setThemeView('css');
+		// KEY-CONSTRAINED, not spread. A record's `essentials` is stored data — a zip
+		// import or an older schema can carry keys this faculty does not know, and
+		// spreading them into `core` puts them in front of `validateEssentials` and
+		// `deriveTheme` on the next discard.
+		if (seed.essentials) {
+			const from = seed.essentials as Record<string, string>;
+			setCore((c) => {
+				const next = { ...c };
+				for (const k of Object.keys(ESS_TOKEN) as EssKey[]) if (typeof from[k] === 'string' && from[k].trim()) next[k] = from[k];
+				return next;
+			});
+		}
+		if (seed.overrides) setOverrides(seed.overrides as Record<string, Override>);
+		if (seed.rampStrategy) setRampStrategy(seed.rampStrategy);
+	}, [seed?.id]);
+
+	/**
+	 * Open the CSS view. The record is seeded from the derivation and BECOMES the
+	 * model immediately — not on the first keystroke — so there is never a window in
+	 * which the editor shows one thing and the specimen renders another.
+	 */
+	const openCssView = () => {
+		setHandCss((c) => (c === null ? derived.css : c));
+		setHandOrigin((o) => o ?? 'derived');
+		setThemeView('css');
+		setDiscardArmed(false);
+	};
+	/**
+	 * Go back to the pickers. THIS IS THE DISCARD, and it is the only one: while the
+	 * CSS view is open the token tree is not on screen, and the AI bar and the ramp
+	 * strategy are disabled — so every path that would re-derive over a hand edit
+	 * comes through here, announced, in two clicks. That is the affordance the design
+	 * note asks for, applied to `runDescribe` (which reaches the same destructive
+	 * place from a text box) as much as to the button.
+	 */
+	/**
+	 * Leave the faculty. A hand-edited, UNSAVED stylesheet is the one thing here
+	 * that cannot be reproduced by clicking around again — the pickers can, the
+	 * component draft has its own Undo — so closing over one arms first.
+	 *
+	 * Deliberately NOT a `beforeunload` handler: this guards the in-app exit, which
+	 * is the one a user takes by reflex. A browser-level close is the browser's to
+	 * warn about and hijacking it for a Studio draft is worse than the loss.
+	 */
+	const closeFaculty = () => {
+		if (handDirty && !closeArmed) { setCloseArmed(true); return; }
+		onClose();
+	};
+
+	const leaveCssView = () => {
+		if ((handDirty || handOrigin === 'seed') && !discardArmed) { setDiscardArmed(true); return; }
+		setHandCss(null);
+		setHandDirty(false);
+		setHandOrigin(null);
+		setDiscardArmed(false);
+		setThemeView('fields');
+	};
 	// On mobile the right inspector column is far below the tree, so we ALSO render
 	// the inspector inline directly under the selected row (lg:hidden) — the editor
 	// appears where you tapped. The desktop column is hidden on mobile (lg:block).
@@ -516,7 +781,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 		return (
 			<div className="flex min-h-0 flex-1 flex-col">
 				<div className="flex h-[44px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
-					<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground" aria-label="Back to Compose"><X className="size-4" /></button>
+					<button type="button" onClick={closeFaculty} className={cn('shrink-0 rounded-md p-1', closeArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : 'text-muted-foreground hover:text-foreground')} aria-label={closeArmed ? 'Leave and discard your CSS edits' : 'Back to Compose'} title={closeArmed ? 'Leave and discard your unsaved CSS edits?' : undefined}><X className="size-4" /></button>
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
@@ -529,7 +794,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 		return (
 			<div className="flex min-h-0 flex-1 flex-col">
 				<div className="flex h-[44px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
-					<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground" aria-label="Back to Compose"><X className="size-4" /></button>
+					<button type="button" onClick={closeFaculty} className={cn('shrink-0 rounded-md p-1', closeArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : 'text-muted-foreground hover:text-foreground')} aria-label={closeArmed ? 'Leave and discard your CSS edits' : 'Back to Compose'} title={closeArmed ? 'Leave and discard your unsaved CSS edits?' : undefined}><X className="size-4" /></button>
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
@@ -544,7 +809,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 			    Name (a slug the AI seeds, you own) · Description disclosure · the
 			    Theme|Component toggle · the SAME Export + Save UX. */}
 			<div className="flex h-[50px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
-				<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground" aria-label="Back to Compose"><X className="size-4" /></button>
+				<button type="button" onClick={closeFaculty} className={cn('shrink-0 rounded-md p-1', closeArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : 'text-muted-foreground hover:text-foreground')} aria-label={closeArmed ? 'Leave and discard your CSS edits' : 'Back to Compose'} title={closeArmed ? 'Leave and discard your unsaved CSS edits?' : undefined}><X className="size-4" /></button>
 				<span className="size-2 shrink-0 rounded-full" style={{ background: accent }} />
 				<div className={cn('flex min-w-0 max-w-[200px] flex-shrink items-center rounded-md border bg-transparent px-1.5 py-0.5 focus-within:border-[var(--accent)]', name && !nameOk ? 'border-[color-mix(in_srgb,var(--fail)_55%,var(--border))]' : 'border-transparent hover:border-border')}>
 					{tab === 'layout' && <span className="shrink-0 font-mono text-[13px] text-muted-foreground">.</span>}
@@ -561,7 +826,9 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
+				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : ''}>
+					<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
+				</Tip>
 			</div>
 			{/* Description disclosure — collapsed by default on both tabs. AI-seeded for
 			    themes; captured in the saved model + stamped into the export. */}
@@ -584,14 +851,14 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 							value={prompt}
 							onChange={(e) => setPrompt(e.target.value)}
 							onKeyDown={(e) => { if (e.key === 'Enter') runDescribe(prompt); }}
-							disabled={gen === 'working' || !modelReady}
-							placeholder="Describe a look — e.g. “warm editorial, deep navy accent, confident”"
+							disabled={gen === 'working' || !modelReady || handDirty}
+							placeholder={handDirty ? 'Hand-edited — discard your CSS edits to generate a new palette' : 'Describe a look — e.g. “warm editorial, deep navy accent, confident”'}
 							aria-label="Describe a look"
 							className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-heading)] outline-none placeholder:text-muted-foreground disabled:opacity-60"
 						/>
 						{themeDoc.attachButton}
 						{modelReady ? (
-							<button type="button" onClick={() => runDescribe(prompt)} disabled={gen === 'working' || !prompt.trim()} aria-label="Generate theme" className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--accent)] text-[var(--on-accent,#fff)] disabled:opacity-40">
+							<button type="button" onClick={() => runDescribe(prompt)} disabled={gen === 'working' || !prompt.trim() || handDirty} aria-label="Generate theme" className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--accent)] text-[var(--on-accent,#fff)] disabled:opacity-40">
 								{gen === 'working' ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
 							</button>
 						) : (
@@ -613,7 +880,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 						<div className="flex flex-wrap items-center gap-1.5">
 							<span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Refine</span>
 							{['Warmer', 'More corporate', 'Higher contrast', 'Calmer accent'].map((c) => (
-								<button key={c} type="button" onClick={() => runDescribe(c)} disabled={gen === 'working'} className="rounded-full border border-border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--text-heading)] disabled:opacity-40">{c}</button>
+								<button key={c} type="button" onClick={() => runDescribe(c)} disabled={gen === 'working' || handDirty} className="rounded-full border border-border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--text-heading)] disabled:opacity-40">{c}</button>
 							))}
 							<span className="ml-auto font-mono text-[10px] text-muted-foreground/70" title="Categorical hue layout the AI chose">ramp: {rampStrategy}</span>
 						</div>
@@ -624,16 +891,60 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 
 				{/* The Pro Inspector — left token tree · center live canvas · right per-token
 				    inspector. Stacks below lg; a real 3-column workbench at desktop. */}
-				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:overflow-hidden lg:[grid-template-columns:296px_1fr_330px]">
+				{/* The left column is a 296px token tree in Fields and a CODE EDITOR in CSS,
+				    and 296px is not a width you can read a stylesheet in — the first build
+				    wrapped `--bg: light-dark(#fbfbfd, #04060a);` across three lines. The
+				    specimen keeps the rest. */}
+				<div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:overflow-hidden', themeView === 'css' ? 'lg:[grid-template-columns:minmax(420px,34%)_1fr_330px]' : 'lg:[grid-template-columns:296px_1fr_330px]')}>
 
-					{/* LEFT — searchable token tree */}
-					<aside className="shrink-0 border-b border-border bg-card lg:overflow-y-auto lg:border-r lg:border-b-0">
-						<div className="sticky top-0 z-[1] border-b border-border bg-card px-3 py-2.5">
-							<div className="flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5">
-								<Search className="size-3.5 shrink-0 text-muted-foreground" />
-								<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search tokens…" aria-label="Search tokens" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-[var(--text-heading)] outline-none placeholder:text-muted-foreground" />
+					{/* LEFT — searchable token tree, or the CSS view over the same model */}
+					<aside className="flex shrink-0 flex-col border-b border-border bg-card lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
+						<div className="sticky top-0 z-[1] flex flex-col gap-2 border-b border-border bg-card px-3 py-2.5">
+							{/* Fields ⇄ CSS, the same shape the Component tab's Fields ⇄ manifest-JSON
+							    toggle already has — one model, two representations. */}
+							<div className="flex items-center gap-1.5">
+								<div className="inline-flex flex-1 rounded-lg border border-border bg-background p-[3px]">
+									<button type="button" onClick={leaveCssView} aria-pressed={themeView === 'fields'} className={cn('flex-1 rounded-md px-2 py-1 text-[11.5px] font-semibold', discardArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : themeView === 'fields' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{discardArmed ? (handOrigin === 'seed' ? 'Replace saved CSS?' : 'Discard edits?') : 'Fields'}</button>
+									<button type="button" onClick={openCssView} aria-pressed={themeView === 'css'} className={cn('flex-1 rounded-md px-2 py-1 text-[11.5px] font-semibold', themeView === 'css' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>CSS</button>
+								</div>
+								{handDirty && <span className="shrink-0 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-wide text-[var(--warn)]">Hand-edited</span>}
 							</div>
+							{themeView === 'fields' && (
+								<div className="flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5">
+									<Search className="size-3.5 shrink-0 text-muted-foreground" />
+									<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search tokens…" aria-label="Search tokens" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-[var(--text-heading)] outline-none placeholder:text-muted-foreground" />
+								</div>
+							)}
 						</div>
+						{themeView === 'css' ? (
+						<div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
+							<p className="px-1 text-[11px] leading-snug text-muted-foreground">
+								{handDirty
+									? 'This stylesheet is the theme now — the pickers no longer feed it. Going back to Fields re-derives and discards these edits.'
+									: 'Edit the stylesheet directly. The first change makes it the model: the specimen, the audit and Save all read this text, not the pickers.'}
+							</p>
+							<CodeField
+								value={derived.css}
+								// Typing again is how you say "I did not mean that" — it disarms both
+								// two-step confirmations, so a mis-click never leaves a red button
+								// waiting to eat the next one.
+								onChange={(next) => { setHandCss(next); setHandDirty(true); setDiscardArmed(false); setCloseArmed(false); }}
+								language="css"
+								ariaLabel="Theme CSS"
+								className="min-h-[320px] flex-1"
+							/>
+							{/* THE PARSE ERROR, which was computed and rendered nowhere. If the
+							    record cannot be read the specimen goes blank and the tree empties;
+							    saying nothing about it leaves the author staring at a dead faculty
+							    with their text still on screen and no idea why. */}
+							{derived.error && (
+								<p className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
+									This stylesheet could not be read: {derived.error}
+								</p>
+							)}
+							<ThemeFindings findings={themeFindings} blocked={themeBlocked} />
+						</div>
+						) : (
 						<div className="px-2 py-2">
 							{/* Essentials */}
 							<TreeGroup name="Essentials" count={10} collapsed={collapsed.has('Essentials')} onToggle={() => toggleGroup('Essentials')}>
@@ -690,6 +1001,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 								</div>
 							</TreeGroup>
 						</div>
+						)}
 					</aside>
 
 					{/* CENTER — live canvas */}
@@ -707,7 +1019,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 						<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
 							<div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2">
 								<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">Slide</span>
-								<DeckPreview options={options} sample={SPECIMEN} mermaid={false} paletteOverride={derived.name} extraTheme={derived.css ? { name: derived.name, css: derived.css } : undefined} modeOverride={specimenMode} coalesce className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label="Theme specimen" />
+								<DeckPreview options={options} sample={SPECIMEN} mermaid={false} paletteOverride={derived.name} extraTheme={previewCss ? { name: derived.name, css: previewCss } : undefined} modeOverride={specimenMode} coalesce className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label="Theme specimen" />
 							</div>
 							{[
 								{ label: 'Chart', sample: CHART_SPECIMEN, mermaid: false, aria: 'Chart specimen' },
@@ -715,7 +1027,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 							].map((p) => (
 								<div key={p.label} className="flex min-w-0 flex-col gap-1.5">
 									<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">{p.label}</span>
-									<DeckPreview options={options} sample={p.sample} mermaid={p.mermaid} paletteOverride={derived.name} extraTheme={derived.css ? { name: derived.name, css: derived.css } : undefined} modeOverride={specimenMode} coalesce className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label={p.aria} />
+									<DeckPreview options={options} sample={p.sample} mermaid={p.mermaid} paletteOverride={derived.name} extraTheme={previewCss ? { name: derived.name, css: previewCss } : undefined} modeOverride={specimenMode} coalesce className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label={p.aria} />
 								</div>
 							))}
 						</div>
@@ -725,7 +1037,11 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 					<aside className="shrink-0 border-t border-border bg-card lg:overflow-y-auto lg:border-l lg:border-t-0">
 						{/* Desktop-only column inspector; below desktop it renders inline under the
 						    selected row (above), so the column hides to avoid a far-below scroll. */}
-						{isDesktop && <Inspector selected={selected} core={core} map={derived.map} overrides={overrides} mode={specimenMode} onHex={setHex} onOverride={setOverride} onReset={clearOverride} />}
+						{/* NOT IN CSS VIEW. The Inspector edits `core` / `overrides`, and neither
+						    reaches `derived` while the record is the model — so it would be a live,
+						    enabled control that moves nothing on screen while quietly changing the
+						    fallback essentials Save persists. */}
+						{isDesktop && themeView === 'fields' && <Inspector selected={selected} core={core} map={derived.map} overrides={overrides} mode={specimenMode} onHex={setHex} onOverride={setOverride} onReset={clearOverride} />}
 						<AuditPanel rows={auditRows} ok={derived.audit.ok} />
 					</aside>
 				</div>
@@ -1205,6 +1521,38 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
 // FAILS, which is a different and equally false claim from the one the auditor used to
 // make by painting nothing at all. It gets `--warn`, its own `n/a` tier, and the name
 // of the operand nobody could read.
+/**
+ * The theme gate's findings, beside the CSS editor.
+ *
+ * THE BLOCKED BANNER IS THE LOAD-BEARING PART. `lib/theme/gate.js` separates `ok`
+ * from `blocked` on purpose: a theme missing a contract token is wrong and still
+ * renders, so it stays in the preview while the author fixes it, but a finding on
+ * the SAFETY rung — a remote `url()`, an `@import` the engine cannot resolve —
+ * pauses the CSS out of a same-origin frame holding the user's OpenRouter key
+ * (HARD RULE #24). A blank specimen with no explanation is the one thing that must
+ * not happen, so the reason is stated where the specimen went blank.
+ */
+function ThemeFindings({ findings, blocked }: { findings: Finding[]; blocked: boolean }) {
+	if (!findings.length) {
+		return <p className="px-1 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--pass)]">Gate clean</p>;
+	}
+	return (
+		<div className="flex max-h-[40%] shrink-0 flex-col gap-1 overflow-y-auto">
+			{blocked && (
+				<p className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
+					The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.
+				</p>
+			)}
+			{findings.map((f, i) => (
+				<div key={`${f.rule}-${f.line ?? i}`} className="flex items-start gap-1.5 px-1 text-[11px] leading-snug">
+					<span className={cn('mt-[3px] shrink-0 font-mono text-[9px] font-bold uppercase', f.level === 'error' ? 'text-[var(--fail)]' : 'text-[var(--warn)]')}>{f.line ? `L${f.line}` : f.level === 'error' ? 'ERR' : 'WARN'}</span>
+					<span className="min-w-0 text-[var(--text-body)]">{f.message}</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
 function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; status: string; kind?: string; distance?: number | null; unreadable?: string[] }[]; ok: boolean }) {
 	return (
 		<div className="px-4 py-4">

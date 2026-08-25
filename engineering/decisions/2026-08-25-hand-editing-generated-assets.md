@@ -487,6 +487,56 @@ log them), but the design rests on them:
   undiscussed, because a shared `.zip` is the one path where the author and the
   victim are different people.
 
+## Third correction, on shipping the CSS view (2026-08-25, #1839)
+
+Two of this note's own preconditions were measured wrong, and the UI it specifies
+is now built, so what it predicted can be checked.
+
+| This note says | Measured on the shipped surface |
+|---|---|
+| Precondition 1 — no production caller persists `overrides` / `rampStrategy` | **True, and now fixed.** Save passes both when the pickers are the model. It deliberately does NOT pass them for a hand-edited theme: they describe a derivation that is no longer what produces the file |
+| The four `essentials` readers "start lying after a hand edit" | **True, and the reader census in the note is stale.** `StudioShell.tsx:1804` is `:1822`, and it is a single funnel that fixes three picker dots at once; `:3169` is `:3225` and is an INDEPENDENT second read; `StudioDrawer.tsx:439` is a comment, not a read, and its site (`:442`) is fixed transitively by the funnel. A fifth reader the note does not name is the Library card's own metadata line, which prints `${Object.keys(essentials).length} essentials` — the most explicit of the lies. All are fed from the record now |
+| "It does not make a hand-edited theme reproducible from its essentials" | Held, and it is the reason the reopen path hydrates from `seed.css` rather than re-deriving. Re-deriving would hand the author a different theme from the one they saved |
+
+**What could not be checked before and now can.** The note's closing line said every
+behavioural prediction owed a real-surface check because there was no UI. There is
+one: `docs/e2e/fabricate.spec.ts` drives the real CodeMirror through
+edit → save → reopen → export and compares BYTES, and drives the blocking rung
+through a remote `url()` to a paused preview and back. Both pass. The claims that
+remain unverified on a real surface are the ones about *other* producers — the
+`.zip` import path is still ungated, as this note already says.
+
+### The reopen path is where the danger moved
+
+The note frames the hazard as "hand-editing forks away from the pickers." Building
+it showed the sharper edge is the other direction: **re-deriving over a hand edit in
+a record that already exists.** Three defects, all in the state machine rather than
+in any transform, and all found by an independent checker rather than by a gate:
+
+1. **A reopened record arrives CLEAN.** Arming the discard on "has the author typed"
+   is therefore no protection at all on the path this change introduces — one click
+   dropped a stored stylesheet silently, and the id-pinned Save then wrote a
+   re-derivation over that exact record. Arming is on the record's ORIGIN.
+2. **The seed outlived the view.** `view` leaves `'fabricate'` through at least six
+   paths and only one of them cleared the seed, so the next visit opened on someone
+   else's saved theme, still id-pinned — renaming it destroyed the original.
+3. **`putAsset` skips its name dedupe when an id is given**, so a rename onto a
+   taken name wrote two records with one name and made the older card unreachable.
+
+**And the safety net the design leans on is not wired.** `library/asset-history.js`
+exists, is tested, and says in its own docblock that history "is what makes that
+overwrite safe to offer at all" — and it has **zero production callers**. This change
+ships the in-place overwrite without it. That is logged rather than fixed here (it is
+#1839's own scope and a separate surface), and it is the reason all three fixes above
+are about *not reaching* the overwrite rather than about undoing it.
+
+Two smaller things the same pass found, both now fixed and both worth the sentence
+because each was a claim rather than a bug: `themeTokenMap` ignored `!important` and
+treated a `@media (prefers-color-scheme: dark)` block as the unconditional value
+(checked against real Chromium — 4 of 8 cases disagreed with the browser), and
+`renameThemeDirective` could splice over a name TRUNCATED by its own 4 KB scan
+bound, producing a directive that was neither the old name nor the new one.
+
 ## Sequencing
 
 Tracked by #1841.

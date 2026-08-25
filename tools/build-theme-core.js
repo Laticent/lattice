@@ -2,7 +2,7 @@
 /**
  * Bundle the pure Theme Studio core for the browser.
  *
- *   lib/theme/{color,derive,contrast,serialize,starters}.js
+ *   lib/theme/{color,derive,contrast,serialize,parse,gate,starters}.js
  *     →  docs/src/playground/theme-core.generated.js   (ESM, named exports)
  *
  * WHY a bundle (not a direct import like the Architect does with lint-core):
@@ -45,6 +45,8 @@ import color from './color.js';
 import derive from './derive.js';
 import contrast from './contrast.js';
 import serialize from './serialize.js';
+import parse from './parse.js';
+import gate from './gate.js';
 import starters from './starters.js';
 import ai from './ai.js';
 
@@ -66,6 +68,14 @@ export const {
 } = contrast;
 // serialize
 export const { serializeTheme, themeAsset } = serialize;
+// parse — the INVERSE, so the Studio's CSS view can edit the record a hand-edited
+// theme actually is, instead of a re-derivation that discards the edit on the next
+// keystroke. themeTokenMap is the flatten the contrast meter consumes.
+export const { parseTheme, serializeThemeRecord, themeRecordView, themeTokenMap, renameThemeDirective } = parse;
+// gate — the validator for that hand-edited CSS. It brings lib/core/css-scan.js with
+// it (the shared CSS safety scanners), NOT lib/layout/gate.js: reaching them through
+// the component gate would inline a 41 KB manifest schema into this bundle.
+export const { gateThemeCss, ENGINE_DEFAULTED_TOKENS } = gate;
 // starters
 export const { STARTERS, getStarter } = starters;
 // ai (Phase 2 — one prompt builder + reply coercion; the model call is the caller's)

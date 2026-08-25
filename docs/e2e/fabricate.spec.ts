@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { expect, gotoStudio, test } from './studio-fixture';
 
 // Fabricate — the Theme / Component studio. Deterministic surfaces: the derived
@@ -103,4 +104,90 @@ test('a collapsed muted tier shows a failing separation row with its dE', async 
 	// …and it drags the aggregate verdict down, so the badge and the rows agree.
 	await expect(panel.getByText('review')).toBeVisible();
 	await expect(panel.getByText('AA + tiers')).toHaveCount(0);
+});
+
+/**
+ * THE HAND-EDIT ROUND TRIP, on the real surface (HARD RULE #23).
+ *
+ * The product claim of the CSS view is one sentence: open a saved theme's CSS, edit
+ * one token, save, reopen — the edit survives and every other byte of the file is
+ * unchanged. Nothing short of the real browser can carry it. Under jsdom `CodeField`
+ * renders a `<textarea>` fallback (`CodeField.tsx:50`), so a unit test proves the
+ * state wiring and not the editor; and the round trip runs through IndexedDB, the
+ * theme registry and a real CodeMirror, none of which jsdom has.
+ *
+ * IT COMPARES EXPORTED BYTES, NOT EDITOR TEXT, and that is deliberate twice over.
+ * CodeMirror's content is a contenteditable — `inputValue()` throws on it, and
+ * reading `.cm-line` back would be reading the editor's own rendering of the thing
+ * under test. The export is the artifact a human actually receives, so comparing two
+ * downloads asks the question the claim is about: is the file the same file.
+ */
+async function exportedCss(page: import('@playwright/test').Page): Promise<string> {
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: 'Export' }).click(),
+	]);
+	return fs.readFileSync(await download.path(), 'utf8');
+}
+
+test('a hand-edited theme survives save → reopen, byte-identical apart from the edit', async ({ page }) => {
+	await page.getByRole('textbox', { name: 'Theme name' }).fill('handedit');
+
+	// 1. The generated baseline, as a file.
+	const generated = await exportedCss(page);
+	expect(generated).toMatch(/@theme\s+handedit\b/);
+
+	// 2. Edit it the way the pickers never could: a comment, and a token OUTSIDE the
+	//    107-name contract. A save that re-serialized from the token map would drop
+	//    both — the exact data loss `lib/theme/parse.js` exists to prevent.
+	const edited = `${generated.replace(/--accent:\s*[^;]+;/, '--accent: #4b2fd6;')}\n/* hand-written note */\n:root { --brand-bright: #4b2fd6; }\n`;
+	await page.getByRole('button', { name: 'CSS', exact: true }).click();
+	const cssBox = page.locator('.cm-content[aria-label="Theme CSS"]');
+	await expect(cssBox).toBeVisible();
+	await cssBox.fill(edited);
+	await expect(page.getByText('Hand-edited')).toBeVisible();
+
+	// 3. Save the record, leave, and come back in through the Library — the only
+	//    path back into a saved theme.
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(page.getByText(/Saved/)).toBeVisible();
+	await page.getByRole('button', { name: 'Back to Compose' }).click();
+	// The desktop shell docks the Library behind "Open Library"; the compact shells
+	// put it in a sheet. Accept either, so this test is not silently desktop-only.
+	const openLibrary = page.getByRole('button', { name: 'Open Library' });
+	await (await openLibrary.count() ? openLibrary : page.getByRole('button', { name: 'Library', exact: true })).click();
+	await page.getByRole('button', { name: 'Edit Handedit' }).click();
+	await expect(page.locator('.cm-content[aria-label="Theme CSS"]')).toBeVisible();
+
+	// 4. THE CLAIM, as bytes.
+	const reopened = await exportedCss(page);
+	expect(reopened).toContain('--accent: #4b2fd6;');
+	expect(reopened).toContain('/* hand-written note */');
+	expect(reopened).toContain('--brand-bright: #4b2fd6;');
+	expect(reopened).toEqual(edited);
+});
+
+/**
+ * THE BLOCKING RUNG, on the real preview frame. `lib/theme/gate.js` separates `ok`
+ * from `blocked` so a theme that merely fails the contract stays visible while a
+ * theme that reaches OFF THE DEVICE is paused out of a same-origin frame holding the
+ * user's OpenRouter key (HARD RULE #24). The unit tests prove the verdict; this
+ * proves the real author sees the reason and can recover from it.
+ */
+test('CSS that reaches off the device is paused out of the preview, with a reason', async ({ page }) => {
+	const clean = await exportedCss(page);
+	await page.getByRole('button', { name: 'CSS', exact: true }).click();
+	const cssBox = page.locator('.cm-content[aria-label="Theme CSS"]');
+	await expect(cssBox).toBeVisible();
+	await expect(page.getByText('Gate clean')).toBeVisible();
+
+	await cssBox.fill(`${clean}\n:root { --leak: url(https://evil.example/?beacon); }\n`);
+	await expect(page.getByText(/The preview is paused/)).toBeVisible();
+	await expect(page.getByText(/fetches a remote resource/)).toBeVisible();
+
+	// …and it is recoverable. A gate you cannot get out of is one authors learn to
+	// route around.
+	await cssBox.fill(clean);
+	await expect(page.getByText(/The preview is paused/)).toHaveCount(0);
+	await expect(page.getByText('Gate clean')).toBeVisible();
 });

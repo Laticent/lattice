@@ -22,12 +22,17 @@ vi.mock('./theme-library', async (orig) => {
 	const actual = (await orig()) as Record<string, unknown>;
 	return {
 		...actual,
-		saveStudioTheme: vi.fn(async (input: { name: string; label: string; css: string; essentials: Record<string, string> }) => {
+		saveStudioTheme: vi.fn(async (input: { id?: string; name: string; label: string; css: string; essentials: Record<string, string> }) => {
 			// Mirror the real name resolution (trust a valid slug name, else the label
 			// slug) so the mock's stored name matches production.
 			const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : (actual.slugify as (s: string) => string)(input.label) || input.name;
-			const t = { id: `t_${name}`, name, label: input.label, css: input.css, essentials: input.essentials };
-			const i = themeStore.findIndex((x) => x.name === t.name);
+			// KEYED ON `id` WHEN THERE IS ONE, exactly as `putAsset` is — and this mock
+			// used to key on NAME alone, which meant it could not exhibit id-pinning at
+			// all. A save that overwrote the wrong record in place looked identical here
+			// to one that created a new theme, so the test suite was blind to the whole
+			// class of defect the Edit path introduces.
+			const t = { id: input.id ?? `t_${name}`, name, label: input.label, css: input.css, essentials: input.essentials };
+			const i = input.id ? themeStore.findIndex((x) => x.id === input.id) : themeStore.findIndex((x) => x.name === t.name);
 			if (i >= 0) themeStore[i] = t;
 			else themeStore.unshift(t);
 			return t;
@@ -185,6 +190,282 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 		const preview = document.querySelector('[data-label="Live deck preview"]') as HTMLElement;
 		await waitFor(() => expect(preview.getAttribute('data-extra-theme')).toBe('ocean'));
 		expect(preview.getAttribute('data-palette-override')).toBe('ocean');
+	});
+
+	/**
+	 * THE CSS VIEW — the hand-edited record BECOMES the model.
+	 *
+	 * These drive the STATE WIRING, which is what jsdom can carry: `CodeField`
+	 * renders its `<textarea>` fallback here (CodeMirror cannot lay out without real
+	 * geometry), so a real CodeMirror round trip belongs in `docs/e2e/fabricate.spec.ts`
+	 * and is there. What is provable here is the part that decides whether an edit
+	 * survives at all: does the record feed Save, does the derivation stop feeding it,
+	 * and can anything re-derive over it without announcing itself (HARD RULE #23 —
+	 * this is not a claim that the editor works).
+	 */
+	describe('the CSS view', () => {
+		const openCss = async (user: ReturnType<typeof userEvent.setup>) => {
+			await user.click(screen.getByRole('button', { name: 'CSS' }));
+			return (await screen.findByLabelText('Theme CSS')) as HTMLTextAreaElement;
+		};
+
+		it('opens on the derived stylesheet and hands Save the AUTHOR\'s bytes, not a re-derivation', async () => {
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			const nameInput = screen.getByLabelText('Theme name') as HTMLInputElement;
+			await user.clear(nameInput);
+			await user.type(nameInput, 'harbor');
+
+			const box = await openCss(user);
+			expect(box.value).toMatch(/@theme\s+fab-/);
+
+			// A hand edit the pickers could never produce: a comment, and a token that
+			// is NOT in the 107-name contract. Re-serializing from the token map would
+			// drop both — that is precisely the data loss `lib/theme/parse.js` exists
+			// to prevent, and it would arrive here at the Save button.
+			const edited = `${box.value}\n/* hand-written note */\n:root { --brand-bright: #4b2fd6; }\n`;
+			fireEvent.change(box, { target: { value: edited } });
+			expect(await screen.findByText('Hand-edited')).toBeInTheDocument();
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await waitFor(() => expect(saveStudioTheme).toHaveBeenCalled());
+			const arg = (saveStudioTheme as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0] as { css: string; essentials: Record<string, string> };
+			expect(arg.css).toContain('/* hand-written note */');
+			expect(arg.css).toContain('--brand-bright: #4b2fd6;');
+			// Identity is reconciled and NOTHING else is: the `@theme` directive follows
+			// the record name, byte-for-byte the only difference from what was typed.
+			expect(arg.css).toMatch(/@theme\s+harbor\b/);
+			expect(arg.css).toEqual(edited.replace(/@theme\s+fab-[0-9a-z]+/, '@theme harbor'));
+		});
+
+		it('reads the swatch essentials back out of the RECORD once it is hand-edited', async () => {
+			// Four surfaces paint a theme from `essentials`. Left pointing at the
+			// pickers they would show the palette the author walked away from.
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			await user.clear(screen.getByLabelText('Theme name'));
+			await user.type(screen.getByLabelText('Theme name'), 'harbor');
+			const box = await openCss(user);
+			fireEvent.change(box, { target: { value: box.value.replace(/--accent:\s*[^;]+;/, '--accent: #4b2fd6;') } });
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await waitFor(() => expect(saveStudioTheme).toHaveBeenCalled());
+			const arg = (saveStudioTheme as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0] as { essentials: Record<string, string> };
+			expect(arg.essentials.accent).toBe('#4b2fd6');
+			expect(Object.keys(arg.essentials).sort()).toEqual(['accent', 'accentSoft', 'bg', 'bgAlt', 'fail', 'pass', 'textBody', 'textHeading', 'textMuted', 'warn']);
+			// BITES: every value must be PAINTABLE. A derived theme's tokens are
+			// `light-dark(a, b)` pairs, and `Library.tsx`'s swatch row filters on
+			// `/^#|^oklch|^rgb|^hsl/` — so reading the record without resolving the
+			// pair blanked the card outright (measured: 0 of 10 swatches survived).
+			for (const [k, v] of Object.entries(arg.essentials)) {
+				expect(v, `${k} must be paintable as a swatch`).toMatch(/^#|^oklch|^rgb|^hsl/i);
+			}
+		});
+
+		it('BITES: the AI bar cannot silently re-derive over a hand edit', async () => {
+			// `runDescribe` sets core + ramp and clears overrides — the same destructive
+			// place as a re-derive button, reached from a text box. The design note calls
+			// for the same explicit-overwrite affordance; here it is a disabled control
+			// plus a guard behind it.
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			// Assert on the PLACEHOLDER, not on `disabled`: no model is connected under
+			// jsdom, so the bar is already disabled for an unrelated reason and a
+			// disabled-state assertion would pass without the guard existing at all.
+			const prompt = screen.getByLabelText('Describe a look') as HTMLInputElement;
+			expect(prompt.placeholder).toMatch(/Describe a look/);
+
+			const box = await openCss(user);
+			fireEvent.change(box, { target: { value: `${box.value}\n:root { --brand-bright: #4b2fd6; }\n` } });
+			await waitFor(() => {
+				expect((screen.getByLabelText('Describe a look') as HTMLInputElement).placeholder).toMatch(/Hand-edited/);
+			});
+			expect(screen.getByLabelText('Describe a look')).toBeDisabled();
+		});
+
+		it('going back to Fields ARMS before it discards, and only when there are edits', async () => {
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			await openCss(user);
+
+			// Untouched: leaving is free, no confirmation.
+			await user.click(screen.getByRole('button', { name: 'Fields' }));
+			expect(screen.queryByLabelText('Theme CSS')).toBeNull();
+
+			// Edited: the first click arms, the second discards.
+			const box2 = await openCss(user);
+			fireEvent.change(box2, { target: { value: `${box2.value}\n:root { --brand-bright: #4b2fd6; }\n` } });
+			await user.click(screen.getByRole('button', { name: 'Fields' }));
+			expect(await screen.findByRole('button', { name: 'Discard edits?' })).toBeInTheDocument();
+			expect(screen.getByLabelText('Theme CSS')).toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Discard edits?' }));
+			await waitFor(() => expect(screen.queryByLabelText('Theme CSS')).toBeNull());
+			expect(screen.queryByText('Hand-edited')).toBeNull();
+		});
+
+		it('leaving the faculty ARMS over unsaved CSS edits, and typing disarms it', async () => {
+			// A hand-edited stylesheet is the one thing here that cannot be reproduced
+			// by clicking around again, so the in-app exit does not eat one silently.
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			const box = await openCss(user);
+			const base = box.value;
+			fireEvent.change(box, { target: { value: `${base}\n:root { --brand-bright: #4b2fd6; }\n` } });
+
+			await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
+			expect(await screen.findByRole('button', { name: 'Leave and discard your CSS edits' })).toBeInTheDocument();
+			expect(screen.getByLabelText('Theme CSS')).toBeInTheDocument();
+
+			// Typing again is "I did not mean that".
+			fireEvent.change(screen.getByLabelText('Theme CSS'), { target: { value: `${base}\n:root { --brand-bright: #123456; }\n` } });
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Back to Compose' })).toBeInTheDocument());
+
+			// A second click on the armed control does leave.
+			await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
+			await user.click(await screen.findByRole('button', { name: 'Leave and discard your CSS edits' }));
+			await waitFor(() => expect(screen.queryByLabelText('Theme CSS')).toBeNull());
+		});
+
+		/**
+		 * THE EDIT PATH, END TO END — and the two-click destruction it opened.
+		 *
+		 * Reopening a saved theme seeds the record from `seed.css`, which arrives
+		 * CLEAN: nothing has been typed. Arming on `handDirty` alone therefore let one
+		 * click on Fields drop the author's stored stylesheet with no confirmation, and
+		 * because Save is id-pinned the next Save wrote a re-derivation over that exact
+		 * record — comments gone, non-contract tokens gone, no version history to undo
+		 * it. Arming is on the record's ORIGIN, not on dirtiness.
+		 */
+		const saveThemeNamed = async (user: ReturnType<typeof userEvent.setup>, name: string, css?: (base: string) => string) => {
+			await user.clear(screen.getByLabelText('Theme name'));
+			await user.type(screen.getByLabelText('Theme name'), name);
+			if (css) {
+				const box = await openCss(user);
+				fireEvent.change(box, { target: { value: css(box.value) } });
+			}
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+			await waitFor(() => expect(saveStudioTheme).toHaveBeenCalled());
+		};
+
+		it('BITES: reopening a SAVED theme arms before it replaces the stored stylesheet', async () => {
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			await saveThemeNamed(user, 'harbor', (base) => `${base}\n/* SIGNATURE-KEEP-ME */\n:root { --brand-bright: #4b2fd6; }\n`);
+			expect(themeStore[0].css).toContain('SIGNATURE-KEEP-ME');
+
+			// Leave, reopen through the Library — the only path back into a saved theme.
+			await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
+			await user.click(screen.getByRole('button', { name: 'Open Library' }));
+			await user.click(await screen.findByRole('button', { name: 'Edit Harbor' }));
+			const reopened = (await screen.findByLabelText('Theme CSS')) as HTMLTextAreaElement;
+			expect(reopened.value).toContain('SIGNATURE-KEEP-ME');
+
+			// ONE click on Fields must NOT discard it — nothing has been typed, so
+			// `handDirty` is false, and that is exactly the state the bug lived in.
+			await user.click(screen.getByRole('button', { name: 'Fields' }));
+			expect(await screen.findByRole('button', { name: 'Replace saved CSS?' })).toBeInTheDocument();
+			expect(screen.getByLabelText('Theme CSS')).toBeInTheDocument();
+			// The stored record is still intact at this point.
+			expect(themeStore[0].css).toContain('SIGNATURE-KEEP-ME');
+		});
+
+		it('the id-pinned save UPDATES the record it was opened on rather than adding a second', async () => {
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			await saveThemeNamed(user, 'harbor', (base) => `${base}\n/* ONE */\n`);
+			expect(themeStore).toHaveLength(1);
+			const id = themeStore[0].id;
+
+			await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
+			await user.click(screen.getByRole('button', { name: 'Open Library' }));
+			await user.click(await screen.findByRole('button', { name: 'Edit Harbor' }));
+			const box = (await screen.findByLabelText('Theme CSS')) as HTMLTextAreaElement;
+			fireEvent.change(box, { target: { value: box.value.replace('/* ONE */', '/* TWO */') } });
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			await waitFor(() => expect(themeStore[0].css).toContain('/* TWO */'));
+			expect(themeStore).toHaveLength(1);
+			expect(themeStore[0].id).toBe(id);
+		});
+
+		it('refuses to save one theme onto ANOTHER saved theme\'s name', async () => {
+			// Save is id-pinned, and `putAsset` skips its (kind, name) dedupe when an id
+			// is given — so a rename onto a taken name writes two records with one name
+			// and the picker resolves by name, leaving the older one unreachable.
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			await saveThemeNamed(user, 'harbor');
+			await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
+			await openFabricate(user);
+			await saveThemeNamed(user, 'lagoon');
+			expect(themeStore).toHaveLength(2);
+
+			// Rename this one onto the other's name → Save goes away rather than
+			// producing a second `harbor`.
+			await user.clear(screen.getByLabelText('Theme name'));
+			await user.type(screen.getByLabelText('Theme name'), 'harbor');
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+			expect(themeStore).toHaveLength(2);
+		});
+
+		it('BITES: a non-hex color in a saved record does not collapse the faculty on reopen', async () => {
+			// `oklch()` is the exact case the design note predicts a hand-editor writes.
+			// Round-tripped into `core` it hit `validateEssentials`, which THROWS on a
+			// non-hex — blank specimen, empty tree, Save disabled, and no message.
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			await saveThemeNamed(user, 'harbor', (base) => base.replace(/--accent:\s*[^;]+;/, '--accent: oklch(50% 0.1 250);'));
+			for (const [k, v] of Object.entries(themeStore[0].essentials)) {
+				expect(v, `${k} must be a hex the pickers can hold`).toMatch(/^#[0-9a-fA-F]{6}$/);
+			}
+
+			await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
+			await user.click(screen.getByRole('button', { name: 'Open Library' }));
+			await user.click(await screen.findByRole('button', { name: 'Edit Harbor' }));
+			await user.click(await screen.findByRole('button', { name: 'Fields' }));
+			await user.click(await screen.findByRole('button', { name: 'Replace saved CSS?' }));
+
+			// The faculty is alive: the token tree renders and Save is available.
+			expect(await screen.findByText(/Contract . \d+ roles/)).toBeInTheDocument();
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+		});
+
+		it('BITES: CSS that reaches off the device is withheld from the preview frame', async () => {
+			// The `extraCss={cssBlocked ? '' : css}` pattern, applied to a theme. A
+			// conformance error must NOT do this — see the next test.
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			const box = await openCss(user);
+			const specimen = document.querySelector('[data-label="Theme specimen"]') as HTMLElement;
+			expect(specimen.getAttribute('data-extra-theme')).toMatch(/^fab-/);
+
+			fireEvent.change(box, { target: { value: `${box.value}\n:root { --leak: url(https://evil.example/?beacon); }\n` } });
+			await waitFor(() => expect(specimen.getAttribute('data-extra-theme')).toBe(''));
+			expect(await screen.findByText(/The preview is paused/)).toBeInTheDocument();
+		});
+
+		it('…but a merely non-conforming theme keeps rendering while you fix it', async () => {
+			const user = userEvent.setup();
+			render(<StudioShell options={options} />);
+			await openFabricate(user);
+			const box = await openCss(user);
+			const specimen = document.querySelector('[data-label="Theme specimen"]') as HTMLElement;
+
+			fireEvent.change(box, { target: { value: box.value.replace(/--spectrum:\s*[^;]+;/, '') } });
+			await waitFor(() => expect(screen.queryByText(/is not declared/)).toBeInTheDocument());
+			expect(specimen.getAttribute('data-extra-theme')).not.toBe('');
+			expect(screen.queryByText(/The preview is paused/)).toBeNull();
+		});
 	});
 
 	it('removes a saved theme and reverts the deck to a built-in palette', async () => {

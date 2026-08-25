@@ -19,7 +19,7 @@ wired, only ever proposes an *essential set*; this core disposes).
 | `contrast.js` | The contrast **meter / auditor**. Runs the gate's pair checks over an in-memory token map (`auditVars`, `auditBoth`), resolving `light-dark()`/`var()` per mode. `meter(fg, bg)` is the live reading the UI paints. A row it cannot measure is `skipped` and **counts against `ok`** — see below. |
 | `derive.js` | The **derivation**. `deriveTheme(essentials)` → full token map, repaired to clear AA in both canvas modes for every gate-checked pair. Exports the essential-set + required-token contracts. |
 | `serialize.js` | `serializeTheme(map, {name})` → droppable `themes/<name>.css` text (the `@theme` directive, `@import 'lattice'`, grouped `:root` blocks, then an **extras block** for names outside the contract). |
-| `parse.js` | The **inverse**. `parseTheme(css)` → an ordered, selector-aware declaration record; `serializeThemeRecord` writes it back. `themeRecordView` is the four-bucket read (tokens · non-token root declarations · at-rules · the non-root tail). Hand-rolled rather than css-tree — see below. |
+| `parse.js` | The **inverse**. `parseTheme(css)` → an ordered, selector-aware declaration record; `serializeThemeRecord` writes it back. `themeRecordView` is the four-bucket read (tokens · non-token root declarations · at-rules · the non-root tail); `themeTokenMap` flattens it to the map the auditor consumes, by SPECIFICITY not source order. Hand-rolled rather than css-tree — see below. |
 | `gate.js` | The **validator** for hand-edited theme CSS. `gateThemeCss(css, { knownThemes })` → `{ ok, blocked, composes, findings }`. Composed from `lib/layout/gate.js`'s `find*` primitives, never from `gateCss` — see below. |
 | `starters.js` | A small seed library of essential sets ("on the floor") so the loop runs with no model. |
 
@@ -184,6 +184,36 @@ One widening comes with it: a **fully opaque** 8- or 4-digit hex (`#000000ff`,
 `#000f`) *is* measured — it is exactly the 6-digit color, so refusing it would be a
 false alarm. A translucent alpha is not, because the composite depends on a
 backdrop a token map does not know.
+
+## The record is the model (the Studio's CSS view)
+
+The Theme faculty's token tree toggles **Fields ⇄ CSS**, and the CSS is not a
+read-only export — it is the theme. That is a state decision, not an editor one,
+and it is the whole reason `parse.js` exists:
+
+- `Fabricate.tsx`'s derivation memo recomputes on a **keystroke**. Two of its
+  inputs are free-text header fields, so typing one character into the
+  *description* regenerated the stylesheet. A code editor sitting beside that is a
+  fork with no warning — you edit the CSS, touch anything else, and the edit is
+  gone. So the hand-edited record **becomes** the memo's source.
+- **Save and Export write the author's bytes.** Re-serializing from the token map
+  hands back a reformatted file with every comment and every non-contract token
+  dropped. The one reconciled byte-range is the `@theme` directive
+  (`renameThemeDirective`), because that is the sheet's identity and it has to
+  match the record's name.
+- **`essentials` are read back out of the record** once it is hand-edited. Four
+  surfaces paint a theme from them; left pointing at the pickers they describe a
+  generator that no longer produces the file.
+- **Nothing re-derives without announcing it.** Going back to Fields arms before
+  it discards, and the AI bar is disabled while the CSS is edited — `runDescribe`
+  reaches the same destructive place from a text box rather than a button. Opening
+  the view and closing it costs nothing; only a real edit is a fork.
+
+Proved on the real surface, not in jsdom: `docs/e2e/fabricate.spec.ts` fabricates
+a theme, edits one declaration plus a comment and a non-contract token in the real
+CodeMirror, saves, reopens it from the Library, and compares **exported bytes**.
+Under jsdom `CodeField` renders a `<textarea>` fallback, so a unit test there
+proves the wiring and not the editor (HARD RULE #23).
 
 ## Gating a hand-edited theme (`gate.js`)
 

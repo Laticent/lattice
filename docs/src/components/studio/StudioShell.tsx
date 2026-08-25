@@ -744,6 +744,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// theme derived + saved in Fabricate lands here and becomes selectable. Loaded
 	// async (the store is IndexedDB); refreshed after a save/delete.
 	const [savedThemes, setSavedThemes] = React.useState<StudioTheme[]>([]);
+	// The saved theme Fabricate opens ON, so a theme can be reopened and edited
+	// rather than only made once. Until this existed there was no path back into a
+	// saved theme at all: <Fabricate> took no seed, so the CSS a user saved was
+	// unreachable from the UI that produced it.
+	const [fabricateSeed, setFabricateSeed] = React.useState<StudioTheme | null>(null);
+	// A plain function, not a `useCallback`: `setLibraryOpen` and `setView` are not
+	// bare state setters here, and every other prop Library takes is an inline arrow
+	// anyway — a memo that has to list them buys nothing and can go stale.
+	const editTheme = (t: StudioTheme) => {
+		setFabricateSeed(t);
+		setLibraryOpen(false);
+		setView('fabricate');
+	};
+	// CLEARED ON EVERY EXIT, not just Fabricate's own Close. `view` moves from
+	// 'fabricate' through at least six other paths (the launcher's Decks item, the
+	// mode buttons, a share/present entry), and a seed left standing means the NEXT
+	// visit to Fabricate silently opens on someone else's saved theme — id-pinned, so
+	// naming it something new renames and overwrites the original. One effect on the
+	// view is the only place that catches all of them.
+	React.useEffect(() => {
+		if (view !== 'fabricate') setFabricateSeed(null);
+	}, [view]);
 	// Current palette read through a ref so refreshThemes (a stable callback) can
 	// self-heal without re-subscribing on every palette flip.
 	const paletteRef = React.useRef(palette);
@@ -4561,7 +4583,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -4762,7 +4784,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
+										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onEditTheme={editTheme} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -4953,6 +4975,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onApplyTheme={applyPalette}
 					onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
 					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))}
+					onEditTheme={editTheme}
 					onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
 					notify={notify}
 				/>

@@ -33,7 +33,9 @@ const csstree = require('css-tree');
 
 const {
   parseTheme, serializeThemeRecord, themeRecordView, tokenMapBySelector, isRootIsh,
+  themeTokenMap, rootSpecificity, renameThemeDirective,
 } = require('../../../lib/theme/parse.js');
+const { auditBoth } = require('../../../lib/theme/contrast.js');
 const { deriveTheme, requiredTokenList } = require('../../../lib/theme/derive.js');
 const { serializeTheme, extraNames } = require('../../../lib/theme/serialize.js');
 const { STARTERS } = require('../../../lib/theme/starters.js');
@@ -477,5 +479,110 @@ describe('theme-parse — hazards', () => {
     const after = out.split('\n');
     const changed = before.map((l, i) => (l === after[i] ? null : i)).filter((i) => i != null);
     assert.equal(changed.length, 1, `expected exactly one changed line, got ${changed.length}`);
+  });
+
+  /**
+   * FLATTENING THE RECORD FOR THE AUDIT (`themeTokenMap`).
+   *
+   * The Studio's contrast meter takes a flat `{ name: value }` map, so the CSS view
+   * has to reduce the record to one — and the reduction is NOT "last declaration
+   * wins". Across selectors CSS resolves by SPECIFICITY and does not care which came
+   * first, so a `:where(:root)` fallback written at the bottom of a file must lose to
+   * the `:root` declaration above it. Getting that backwards would make the meter
+   * measure a palette nobody renders.
+   */
+  describe('themeTokenMap — the flat map the audit consumes', () => {
+    test('specificity beats source order, in both directions', () => {
+      assert.equal(themeTokenMap(parseTheme(':root{--accent:#111}\n:where(:root){--accent:#999}')).accent, '#111',
+        'a zero-specificity fallback written LATER must not win');
+      assert.equal(themeTokenMap(parseTheme(':root:root{--accent:#999}\n:root{--accent:#111}')).accent, '#999',
+        '…and a higher-specificity declaration written EARLIER still wins');
+    });
+
+    /**
+     * THE TWO AXES ABOVE SPECIFICITY, both checked against real Chromium during
+     * review and both wrong in the first cut. A flatten that gets these backwards
+     * makes the WCAG meter measure a palette nobody renders — and, worse,
+     * `essentialsFromMap` then PERSISTS those values into the stored record.
+     */
+    test('`!important` beats specificity, wherever it was written', () => {
+      assert.equal(themeTokenMap(parseTheme(':where(:root){--accent:red !important}\n:root{--accent:blue}')).accent, 'red');
+      assert.equal(themeTokenMap(parseTheme(':root:root{--accent:blue}\n:root{--accent:red !important}')).accent, 'red');
+      // Two importants fall back to the axes below: specificity, then source order.
+      assert.equal(themeTokenMap(parseTheme(':where(:root){--accent:red !important}\n:root{--accent:blue !important}')).accent, 'blue');
+    });
+
+    test('a token inside a CONDITIONAL at-rule is not the unconditional value', () => {
+      // A `@media (prefers-color-scheme: dark)` block is the most idiomatic thing a
+      // hand-editor adds, it sits later in the file, and read as an ordinary
+      // declaration it won the LIGHT canvas too. It stays in the record — the view
+      // still carries it — but a flat map has nowhere to put "…when dark".
+      const css = ':root{--accent:blue}\n@media (prefers-color-scheme: dark){:root{--accent:red}}';
+      assert.equal(themeTokenMap(parseTheme(css)).accent, 'blue');
+      assert.equal(themeTokenMap(parseTheme(':root{--accent:blue}\n@media print{:root{--accent:red}}')).accent, 'blue');
+      // …and it is NOT dropped from the record itself.
+      const view = themeRecordView(parseTheme(css));
+      assert.equal(view.tokens.filter((t) => t.name === 'accent').length, 2);
+      assert.deepEqual(view.tokens.map((t) => t.conditional), [false, true]);
+    });
+
+    test('a selector LIST takes the strongest of its parts, in either order', () => {
+      // Read as one string, `:where(:root), :root` scored 0 (the prefix swallowed the
+      // list) and `:root, :where(:root)` scored 2 (counting across the comma).
+      assert.equal(rootSpecificity(':where(:root), :root'), 1);
+      assert.equal(rootSpecificity(':root, :where(:root)'), 1);
+      assert.equal(themeTokenMap(parseTheme(':where(:root), :root{--accent:red}\n:where(:root){--accent:blue}')).accent, 'red');
+    });
+
+    test('within one selector it IS source order — that half is unchanged', () => {
+      assert.equal(themeTokenMap(parseTheme(':root{--accent:#111;--accent:#999}')).accent, '#999');
+    });
+
+    test('rootSpecificity ranks the shapes isRootIsh admits', () => {
+      assert.deepEqual(
+        [':where(:root)', ':root', ':is(:root)', ':root:root', ':ROOT', ':root /* c */'].map(rootSpecificity),
+        [0, 1, 1, 2, 1, 1],
+      );
+    });
+
+    test('every self-contained shipped palette audits CLEAN through the flatten', () => {
+      // The end-to-end claim: parse a real theme, flatten it, and the contrast auditor
+      // reaches the same verdict the palette gate does. A flatten that dropped or
+      // mis-ranked a token would show up here as a failure or a missing row.
+      let checked = 0;
+      for (const f of THEME_FILES) {
+        const record = parseTheme(readTheme(f));
+        const composes = themeRecordView(record).atRules
+          .some((a) => a.name === 'import' && !/^(['"])lattice\1;?$/.test(a.prelude.trim()));
+        if (composes) continue; // inherits its tokens; the record alone cannot audit
+        checked++;
+        const audit = auditBoth(themeTokenMap(record), { level: 'gate' });
+        assert.equal(audit.ok, true, `${f}: ${JSON.stringify(audit.light.failures.concat(audit.light.missing).slice(0, 3))}`);
+      }
+      assert.equal(checked, 14, 'the 14 palettes whose only import is the base');
+    });
+
+    test('renameThemeDirective rewrites one token, and refuses a name it can only see half of', () => {
+      const css = readTheme('indaco.css');
+      const out = renameThemeDirective(css, 'harbor');
+      const changed = css.split('\n').map((l, i) => (l === out.split('\n')[i] ? null : i)).filter((i) => i != null);
+      assert.deepEqual(changed, [0], 'exactly the header line, and nothing else');
+      assert.match(out, /@theme harbor\b/);
+      assert.equal(renameThemeDirective(css, 'indaco'), css, 'the same name is a no-op');
+      assert.equal(renameThemeDirective(':root{--a:1}', 'x'), ':root{--a:1}', 'no directive → untouched');
+      assert.equal(renameThemeDirective(css, 'Bad Name'), css, 'an invalid slug → untouched');
+      // THE SCAN BOUNDARY. With ~4 KB of preamble (a pasted license header) the
+      // 4096-char head can hold a TRUNCATED name, and splicing over only the visible
+      // part produced `@theme harborjklmnop` — a directive that is neither name, in
+      // the one function that promises to touch a single token.
+      const truncating = `/*${'x'.repeat(4076)}*/@theme abcdefghijklmnop\n:root{}`;
+      assert.equal(renameThemeDirective(truncating, 'harbor'), truncating);
+    });
+
+    test('a composing theme flattens to what it DECLARES, not to what it renders', () => {
+      // Stated so nobody reads a `missing` row off a wrapper as a defect: the record
+      // is one file. `themes/ardesia-dark.css` declares zero tokens and is correct.
+      assert.deepEqual(themeTokenMap(parseTheme(readTheme('ardesia-dark.css'))), {});
+    });
   });
 });
