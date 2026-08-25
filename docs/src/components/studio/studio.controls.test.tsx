@@ -428,7 +428,15 @@ describe('Studio — Architect + editor controls respond', () => {
 		// compute a result card from the deck with NO model — they must work offline, not
 		// point at Workspace. (The model-gated AI fix is what degrades; covered elsewhere.)
 		await user.click(await screen.findByRole('button', { name: 'Structure' }));
-		expect(await screen.findByText(/Structure check/i, undefined, { timeout: 5000 })).toBeInTheDocument();
+		// A BARE wait, on the suite's considered 3000ms default. It used to carry a private
+		// 5000ms budget, and that budget was the tell rather than the fix: no budget can rescue
+		// a card that has been REMOVED, and this one was — the debounced deck assessment landed
+		// behind the click and cleared it (#1831). Instrumented with a 60s ceiling on an idle
+		// box, the card resolves in 4-14ms and the settling round landed 25-30ms ahead of the
+		// click; under load it landed behind, and the wait spent its whole 5000ms watching a
+		// card that was already gone. The clear is narrowed at the source now — see
+		// `studio.coach-card-race.test.tsx`, which pins the race by hand instead of racing it.
+		expect(await screen.findByText(/Structure check/i)).toBeInTheDocument();
 	});
 });
 
