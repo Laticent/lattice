@@ -3053,7 +3053,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							))}
 						</div>
 						{/* The profile is never applied silently — it is named, its ORIGIN is named, and it
-						    can be changed here. An inferred profile is a visible guess. */}
+						    can be changed here. Nothing is ever inferred — a deck that declares
+						    nothing is judged on `general`, and the control says so. */}
 						<div className="mt-2.5 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-[var(--bg-alt)] px-2.5 py-1.5">
 							<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Style judged as</span>
 							<select
@@ -3067,9 +3068,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							</select>
 							{profileOverride && (
 								<button type="button" onClick={() => setProfileOverride(null)} className="text-[10.5px] font-semibold text-[var(--accent)]">reset</button>
-							)}
-							{scorecard.profile.origin === 'inferred' && !profileOverride && (
-								<span className="basis-full text-[10px] leading-snug text-muted-foreground">Guessed from the components you used — set <code>profile:</code> in front matter to make it certain.</span>
 							)}
 							{scorecard.profile.declaredInvalid && (
 								<span className="basis-full text-[10px] leading-snug text-[var(--warn)]">Front matter says <code>profile: {scorecard.profile.declaredInvalid}</code>, which isn’t a profile — using {scorecard.profile.label} instead.</span>

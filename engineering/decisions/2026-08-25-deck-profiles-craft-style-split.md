@@ -284,6 +284,57 @@ the shipped `split: headings` deck is no longer penalised for a splitter limitat
 - **The Coach panel is unreachable between ~1024px and ~1180px.** Pre-existing, off-path,
   recorded in the previous section.
 
+## 8.5 · What a SECOND red team found on the reworked design
+
+The rework in §5–§6 was itself red-teamed before merge, because the trio had reviewed the
+design that was replaced. It broke it again. Three findings were mine and are fixed; two
+are not, and are recorded here rather than left implied-fixed.
+
+**Fixed — the inversion came back through a different door.** The soft brevity families'
+ceilings summed to 24+16+10+8 = **58**, above `wall-of-text`'s **40**, and three of them can
+co-fire on ONE slide while `wall-of-text` fires at most once. Measured: a deck of twelve
+220-word walls scored brevity **68**; a deck INSIDE the 70-word budget carrying only
+cosmetic nits scored **62**. The category named Brevity ranked the 2.5×-longer deck higher.
+The denominator fix closed one door onto that failure; the family ceilings, new in this
+change, opened another. Soft families are now capped **as a group** (`SOFT_BREVITY_CAP`,
+26) strictly below the severe ceiling (`SEVERE_BREVITY_MAX`, 44), and a test pins the
+inequality itself rather than a fixture that happens to depend on it.
+
+**Fixed — the numbers were unpinned.** Mutation testing found **24 of 31** mutations
+survived the whole suite: the `verbose` term could be deleted, `no-ask` and
+`agenda-missing` zeroed, half the craft terms zeroed, all with CI green. The `verbose`
+case is the sharp one — its own docblock says the previous claim that those findings
+counted "was itself the defect", and the fix then landed **with no test**, so the identical
+silent regression could recur. Every penalty term now has a DIFFERENTIAL test (score the
+deck twice, once with that rule's findings filtered out) because a bare `< 100` assertion
+passes for unrelated reasons — the first version of these tests let `duplicate-heading`
+survive for exactly that reason.
+
+**Fixed — "no issues found" was rendered on 9 committed decks carrying live scored
+findings**, five pixels above the findings list contradicting it. The summary now reads
+the categories it summarizes.
+
+**NOT fixed, pre-existing — the default split mode is invisible to the scorer.**
+`DEFAULT_SPLIT = 'headings'` (`lib/core/resolve-split.js`), but `splitTopLevel` splits only
+on `hr`. A document-style deck with no `---` scores Craft 100 / Style 95 as authored and
+Craft 96 / Style 61 once its boundaries are baked — the same rendered deck. It reproduces
+on `origin/main` at comparable magnitude (97 → 60), so it is not this change's doing, and
+exactly **one** committed deck is affected. Evidence added to **#1570**. §4.2 says the
+denominator made this unreachable; that is true of the denominator only — the
+`contentSlides` thresholds still misread such a deck, and this change RAISED the weight of
+the rules those thresholds gate.
+
+**NOT fixed, a live design critique — `contract` now holds 38.2% of Craft's weight and
+0.0% of its variance.** Re-running this record's own methodology against the new grades:
+`structure` 90.5% of Craft's variance, `craftProse` 9.5%, `contract` **0.0%** (100 on
+197/197, sd 0.0). Its nominal weight went UP, 24% → 38%. §2 condemns exactly this shape.
+The defence at `scorecard.js:183` is that the corpus is lint-gated and `contract` would
+vary on a real un-linted draft — which is true, and was equally true of the old Contract
+category this record rejects. **It is left as-is deliberately, because re-tuning a weight
+to look better against a corpus it was tuned against is how the first version went wrong.**
+A reader should know the number, not have it decided by omission: Craft's measured variance
+on this corpus is sd 2.3.
+
 ## 9 · What the review process caught, and what that says
 
 This change was reviewed by the full adversarial trio (HARD RULE #25) after the author had

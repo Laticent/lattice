@@ -63,7 +63,7 @@ describe('buildChatSystem — the static/dynamic split', () => {
 		// than DeckScorecard: grounding needs the two grades and the profile's name/origin,
 		// not its blurb, summaries or categories. Passing a wider literal here would hide
 		// the contract drifting to match whatever the Coach happens to hold.
-		const b = buildChatSystem('openrouter', { scorecard: { craft: { score: 62, band: 'C' }, style: { score: 70, band: 'B' }, profile: { label: 'Boardroom', origin: 'inferred' } }, findings: [{ message: 'Something else entirely' }] });
+		const b = buildChatSystem('openrouter', { scorecard: { craft: { score: 62, band: 'C' }, style: { score: 70, band: 'B' }, profile: { label: 'General', origin: 'default' } }, findings: [{ message: 'Something else entirely' }] });
 		// Cache hits on turns 2..N depend on this exact equality.
 		expect(b.staticPrefix).toBe(a.staticPrefix);
 		expect(b.dynamicTail).not.toBe(a.dynamicTail);

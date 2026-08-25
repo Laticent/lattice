@@ -34,7 +34,7 @@ describe('assessDeck', () => {
 		expect(typeof a.scorecard?.style.band).toBe('string');
 		// The profile the Style half was measured against always travels with the score.
 		expect(typeof a.scorecard?.profile.key).toBe('string');
-		expect(['declared', 'override', 'inferred', 'default']).toContain(a.scorecard?.profile.origin);
+		expect(['declared', 'override', 'default']).toContain(a.scorecard?.profile.origin);
 	});
 });
 

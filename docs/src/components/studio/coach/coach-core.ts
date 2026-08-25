@@ -12,10 +12,10 @@ import { splitSlides as studioSplitSlides } from '../lint';
 
 export type ScoreCategory = { key: string; half: 'craft' | 'style'; label: string; score: number | null; na?: boolean; notes: string[] };
 export type ScoreHalf = { score: number; band: string; summary: string };
-/** Which genre the STYLE half was measured against, and where that came from. An
- *  inferred profile is a VISIBLE guess — the panel shows it and offers the override,
- *  because a silently-applied wrong bar is worse than no profile at all. */
-export type DeckProfileRead = { key: string; label: string; blurb: string; origin: 'declared' | 'override' | 'inferred' | 'default'; declaredInvalid: string | null };
+/** Which genre the STYLE half was measured against, and where that came from. Genre is
+ *  never inferred — a deck that declares nothing is judged on `general`, the default and
+ *  strictest bar — so the panel can always name the profile AND say why it applies. */
+export type DeckProfileRead = { key: string; label: string; blurb: string; origin: 'declared' | 'override' | 'default'; declaredInvalid: string | null };
 export type DeckScorecard = { craft: ScoreHalf; style: ScoreHalf; profile: DeckProfileRead; categories: ScoreCategory[] };
 export type CoachAssessment = {
 	/** Whether the deck has real content to assess. `false` → scorecard/findings empty;

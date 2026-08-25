@@ -204,6 +204,104 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   });
 });
 
+// EVERY penalty term, pinned.
+//
+// A red team mutation-tested the scorer and found 24 of 31 mutations survived the whole
+// suite: the `verbose` term could be DELETED, `no-ask` and `agenda-missing` zeroed, the
+// contract-warning term removed, half the craft terms zeroed — all with CI green. The
+// `verbose` one is the sharp case: its own docblock says the previous claim that those
+// findings counted "was itself the defect", and the fix then landed with no test, so the
+// identical silent regression could recur.
+//
+// Each row builds the smallest deck that trips exactly one rule and asserts the category
+// actually moves. Zero the term and the row fails.
+describe('scorecard: every penalty term actually deducts', () => {
+  const FM_G = '---\nmarp: true\nprofile: general\n---\n\n';
+  const card = (src, lint = []) => scoreDeck({ source: src, lintFindings: lint, reviewFindings: reviewText(src, { bucketOf, densityOf: () => ({ axis: 'item', soft: 6, hard: 8, note: 'x' }) }) });
+  const cat = (c, key) => c.categories.find((x) => x.key === key);
+  const slides = (...body) => FM_G + body.join('\n---\n\n');
+
+  const CASES = [
+    ['wall-of-text', 'brevity', slides(`<!-- _class: content -->\n\n## A real takeaway lands\n\n${'word '.repeat(120)}\n`)],
+    ['long-heading', 'brevity', slides(`<!-- _class: content -->\n\n## ${'word '.repeat(20)}\n\nbody\n`)],
+    ['density-overflow', 'brevity', slides(`<!-- _class: cards-grid -->\n\n## A real takeaway lands\n\n- ${'item '.repeat(14)}\n`)],
+    ['verbose-eyebrow', 'brevity', slides(`<!-- _class: content -->\n\n\`${'eyebrow '.repeat(14)}\`\n\n## A real takeaway lands\n\nbody\n`)],
+    ['label-title', 'craftProse', slides('<!-- _class: content -->\n\n## Overview\n\nbody\n')],
+    ['image-no-alt', 'craftProse', slides('<!-- _class: content -->\n\n## A real takeaway lands\n\n![](x.png)\n')],
+    ['possessive-stacking', 'craftProse', slides("<!-- _class: content -->\n\n## A real takeaway lands\n\nThe system's policy's enforcement is slow.\n")],
+    ['duplicate-heading', 'structure', slides('<!-- _class: content -->\n\n## Results here\n\nx\n', '<!-- _class: content -->\n\n## Results here\n\ny\n')],
+    ['title-incomplete', 'structure', slides('<!-- _class: title -->\n\n# Title\n')],
+    ['metric-no-referent', 'data', slides('<!-- _class: big-number -->\n\n# 4.2M\n\nrevenue\n')],
+    ['chart-no-takeaway', 'data', slides('<!-- _class: kpi -->\n\n## Metrics\n\n1. 18%\n')],
+  ];
+
+  // DIFFERENTIAL, not `< 100`. Scoring the same deck twice — once with every finding,
+  // once with THIS rule's findings filtered out — isolates exactly this term. A bare
+  // `< 100` passes for any unrelated reason: the `duplicate-heading` fixture also lacks a
+  // title slide, so it sat below 100 with the term zeroed and the row proved nothing.
+  for (const [rule, key, src] of CASES) {
+    test(`${rule} deducts from ${key}`, () => {
+      const all = reviewText(src, { bucketOf, densityOf: () => ({ axis: 'item', soft: 6, hard: 8, note: 'x' }) });
+      assert.ok(all.some((f) => f.rule === rule), `fixture must trip ${rule} — it does not, so this row proves nothing`);
+      const without = all.filter((f) => f.rule !== rule);
+      const withIt = cat(scoreDeck({ source: src, lintFindings: [], reviewFindings: all }), key).score;
+      const withoutIt = cat(scoreDeck({ source: src, lintFindings: [], reviewFindings: without }), key).score;
+      assert.ok(withIt < withoutIt, `${rule} fired but ${key} did not move (${withoutIt} -> ${withIt})`);
+    });
+  }
+
+  test('no-ask and agenda-missing each deduct from framing', () => {
+    let deck = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
+    for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## Point ${i} stands alone\n\nbody\n`;
+    const findings = reviewText(deck, { bucketOf });
+    assert.ok(findings.some((f) => f.rule === 'no-ask'));
+    assert.ok(findings.some((f) => f.rule === 'agenda-missing'));
+    // Both graded under `general`, so framing must be below the single-rule value.
+    assert.ok(cat(card(deck), 'framing').score < 60, 'both structural rules must bite');
+  });
+
+  test('lint errors AND warnings each deduct from contract', () => {
+    const clean = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
+    const errs = card(clean, [{ rule: 'x', severity: 'error' }]);
+    const warns = card(clean, [{ rule: 'x', severity: 'warning' }]);
+    assert.ok(cat(errs, 'contract').score < 100, 'an error must deduct');
+    assert.ok(cat(warns, 'contract').score < 100, 'a warning must deduct');
+    assert.ok(cat(errs, 'contract').score < cat(warns, 'contract').score, 'an error must cost more than a warning');
+  });
+
+  // THE inversion a red team constructed. Cosmetic overruns must never outweigh slides
+  // that genuinely overrun their prose budget, however many of them there are.
+  test('no pile of cosmetic nits can outrank a deck of walls of text', () => {
+    const build = (body) => {
+      let d = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
+      for (let i = 0; i < 12; i++) d += `\n---\n\n<!-- _class: content -->\n\n${body(i)}`;
+      return d;
+    };
+    const nits = build((i) => `\`${'eyebrow '.repeat(14)}\`\n\n## ${'word '.repeat(16)}${i}\n\n- ${'item '.repeat(12)}\n\n${'word '.repeat(30)}\n`);
+    const walls = build((i) => `## Point ${i} lands cleanly\n\n${'word '.repeat(220)}\n`);
+    const nb = cat(card(nits), 'brevity').score;
+    const wb = cat(card(walls), 'brevity').score;
+    assert.ok(nb > wb, `a deck inside the prose budget must beat a deck of walls on BREVITY (got nits=${nb}, walls=${wb})`);
+  });
+
+  // The structural guarantee behind that test, asserted directly so the reason survives
+  // even if the fixtures drift.
+  test('the soft-family cap is strictly below the severe ceiling', () => {
+    const { SEVERE_BREVITY_MAX, SOFT_BREVITY_CAP } = require('../../../lib/authoring/scorecard');
+    assert.ok(SOFT_BREVITY_CAP < SEVERE_BREVITY_MAX, `${SOFT_BREVITY_CAP} must be < ${SEVERE_BREVITY_MAX}`);
+  });
+
+  // The summary is rendered directly above the findings list; it must not contradict it.
+  test('a half never reports "no issues found" while a category deducted', () => {
+    const src = slides(`<!-- _class: content -->\n\n## ${'word '.repeat(20)}\n\nbody\n`);
+    const c = card(src);
+    for (const half of ['craft', 'style']) {
+      const deducted = c.categories.some((x) => x.half === half && !x.na && x.score < 100);
+      if (deducted) assert.notEqual(c[half].summary, 'no issues found', `${half} deducted but claims nothing was found`);
+    }
+  });
+});
+
 describe('deck-profiles: declared-only resolution', () => {
   const { SLIDE_PROSE_BUDGET, UNIVERSAL_PROSE_BUDGETS } = require('../../../lib/authoring/prose-budgets');
 
