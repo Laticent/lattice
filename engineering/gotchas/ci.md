@@ -257,6 +257,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   claim a browser can actually falsify: a rendering, a layout, a control that must exist. Splitting
   it that way is not a concession — a real-browser test that cannot fail is worse than no test,
   because it reads in the PR as the strongest evidence in the diff.
+- **This bans the ORDERING claim, not the whole surface — read it that way.** The Coach chips DO
+  have real-browser coverage now: `@smoke the Top fixes quick read does not congratulate a deck
+  nobody assessed` in `docs/e2e/architect.spec.ts` drives a chip in Chromium and **fails when the
+  honesty guard is reverted** (mutation-checked both ways, not read). The line between the two is
+  not "unit vs e2e", it is **what the claim is about**: an ordering claim needs a round held open
+  and no real page lets you hold one, while a STEADY-STATE claim — what words are on the card once
+  everything has settled — is exactly what a browser is good at. Before writing either, ask which
+  kind you have.
+- **Getting a settle signal for free: start from the OTHER state and transition into it.** The
+  jsdom file seeds the class-less deck into `localStorage` and then has no signal to wait on — the
+  "Add a slide or two" placeholder renders from the first frame (`deckHasContent` starts false), so
+  waiting for it proves only that the component mounted, and that file falls back to a bounded
+  1200 ms sleep. The e2e starts on the assessed built-in deck and types the `_class` directives
+  away, which turns the same placeholder into a **transition** that can only appear after a
+  completed round set `deckHasContent` false — and `setAssessing(false)` is published in the same
+  React batch, so `assessing` is provably false too. Same assertion, no sleep. It also sidesteps
+  the seeding trap: `lattice-studio-src-<deckId>` is `JSON.parse`d behind a `try`, so a raw string
+  degrades silently to the built-in deck, which HAS `_class` directives — the test would then pass
+  while exercising the opposite of its name.
 - **The tell:** before believing any test that covers a race, revert the fix and watch it fail.
   If it still passes, it is pinning the harness rather than the defect. This applies with more
   force to e2e than to unit tests, because e2e is slow enough that nobody re-runs it idly.

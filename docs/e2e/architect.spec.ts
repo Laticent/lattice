@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, openArchitect, openChat, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openArchitect, openChat, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // The Coach and Chat panels. They are SEPARATE panels now (own toolbar icon, own
 // drawer) — the Coach score card is deterministic (no model); Chat degrades honestly
@@ -57,6 +57,59 @@ test.describe('Coach and Chat panels', () => {
 		// empty-thread placeholder, so this can only pass if the send path ran (never a
 		// fabricated edit). "…Workspace → AI and I can answer…" is the notice wording.
 		await expect(page.getByText(/Workspace → AI and I can answer/)).toBeVisible();
+	});
+
+	// A deck with NO `<!-- _class: -->` anywhere — an imported .md, or a starter whose class
+	// line the author deleted. `hasContent` gates assessment on that directive, so the deck is
+	// never assessed and `findings` stays `[]` — which the two findings-derived quick reads
+	// (`Top fixes`, `Weakest slide`) used to report as a clean bill of health.
+	//
+	// THE FIRST REAL-BROWSER COVERAGE THE COACH CHIPS HAVE HAD. Every other claim about them is
+	// jsdom, and HARD RULE #23 wants the real surface for a claim about what a person reads.
+	//
+	// WHY THIS CLAIM AND NOT THE RACE. The sibling defect (#1831/#1840 — a settling round wiping
+	// a card out from under a click) is NOT pinnable here: in a real browser the round always
+	// lands before a click can, so a Playwright test for it passes against the broken code too.
+	// That is measured and recorded in engineering/gotchas/ci.md. This one is steady-state text
+	// in a settled DOM, which a browser can falsify.
+	//
+	// WHY THE DECK IS SWAPPED IN THE EDITOR rather than seeded into localStorage. Seeding costs
+	// a real settle signal: on a cold boot the "Add a slide or two" placeholder renders from the
+	// FIRST frame (`deckHasContent` starts false), so waiting for it proves only that the
+	// component mounted, and the jsdom file falls back to a bounded 1200ms sleep. Starting from
+	// the assessed built-in deck and typing the classes away turns the same placeholder into a
+	// TRANSITION — it can only appear once a completed round set `deckHasContent` false, and
+	// `setAssessing(false)` is published in the same React batch. So the wait below is a genuine
+	// round-completion signal and this test needs no sleep. (It also dodges the seeding trap:
+	// that key is JSON-parsed, and a raw string silently falls back to the built-in deck, which
+	// HAS `_class` directives.)
+	test('@smoke the Top fixes quick read does not congratulate a deck nobody assessed', async ({ page }) => {
+		const CLASSLESS = '# Quarterly update\n\n---\n\n## Progress\n\nWe shipped the thing.\n\n---\n\n## Next steps\n\nDecide on budget.\n';
+		await openArchitect(page);
+		// PREMISE FIRST: the deck we start on IS assessed, so the flip below means something.
+		await expect(page.getByText(/\/ 100/)).toBeVisible();
+
+		await setEditorContent(page, CLASSLESS);
+		await expect.poll(() => persistedSource(page)).toContain('Quarterly update');
+
+		// The round landed and reported the deck unassessable — the grade is gone and Board
+		// readiness says so. This is the signal that `assessing` is false and `findings` empty.
+		await expect(page.getByText(/Add a slide or two/i)).toBeVisible();
+		await expect(page.getByText(/\/ 100/)).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Top fixes' }).click();
+		// The card must not claim a clean bill of health for a deck it never read, and it must
+		// agree with the Board readiness card an inch above it. Scoped to the card's own <li>
+		// rather than the title, because a findings-derived card's TITLE is identical to the chip
+		// that opens it — a title locator matches the button and passes either way.
+		await expect(page.getByRole('listitem').filter({ hasText: /haven.t assessed this deck/i })).toBeVisible();
+		await expect(page.getByRole('listitem').filter({ hasText: /every slide follows/i })).toHaveCount(0);
+
+		// And the guard stays NARROW. `structureCheck` reads the source directly, so it is honest
+		// on a class-less deck and must not be suppressed along with the other two — otherwise
+		// "say nothing" would pass as "stop lying".
+		await page.getByRole('button', { name: 'Structure' }).click();
+		await expect(page.getByRole('listitem').filter({ hasText: /Opening/i })).toBeVisible();
 	});
 });
 
