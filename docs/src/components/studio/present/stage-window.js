@@ -433,6 +433,12 @@ function stageToken() {
  *     state: it is the portal host for the audience chrome and the root the
  *     Guide's cursor is mounted into, so "the Stage went away" has to be a
  *     rendered state, not a flag.
+ *   • onNav(action) → a gesture made ON the Stage — 'next' | 'prev' | 'first' |
+ *     'last'. DEFAULTED, and that default is load-bearing rather than cosmetic:
+ *     these parameters carry no JSDoc types, so TypeScript infers the option bag
+ *     from the destructuring and every un-defaulted key becomes REQUIRED. Adding
+ *     this one without a default broke twelve existing call sites at
+ *     `astro check` time while `vitest` — which does not typecheck — stayed green.
  *   • onLost() → the Stage went away WITHOUT the console asking. Separate from
  *     `onChange(null)` because the two need opposite treatment: closing the
  *     Stage yourself needs no announcement, and having the room's window
@@ -444,7 +450,7 @@ function stageToken() {
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced, onNav }) {
+export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
