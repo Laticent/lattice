@@ -1450,30 +1450,49 @@ async function main() {
       printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary,
     });
     if (pass1.regressedDatasets.length) {
-      console.log(`\nRe-measuring ${pass1.regressedDatasets.length} regressed dataset(s) to separate a real slowdown from machine load…`);
-      const second = await renderTier();
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
       // the cheap in-process one; the BROWSER tiers are not re-run on a hunch — the print arm
       // is ~11 minutes, the export arm ~3, and the CLI tier spawns a fresh browser per
       // iteration. A regression in any of them stands on pass 1 alone, which their ±50% band
       // (and the sweep's 3× floor) is already sized for.
       //
-      // The filter is BY NAME, which is why every browser tier prefixes its dataset names
+      // The split is BY NAME, which is why every browser tier prefixes its dataset names
       // (`export · `, `print full · `, `cli · `) and the sweep suffixes `(sweep)`. A tier
       // that reused the render tier's names verbatim would land inside `render.summary`,
       // be handed to a second RENDER pass that of course does not reproduce it, and be
       // reported as "not reproduced — machine load, not code".
-      const browserTierRegressed = pass1.regressedDatasets.filter((n) => !render.summary.some((s) => s.dataset === n));
-      const again = checkBaseline(second.summary, second, {
-        confirming: new Set(pass1.regressedDatasets),
-      });
-      const confirmed = [...browserTierRegressed, ...pass1.regressedDatasets.filter((n) => again.regressedDatasets.includes(n))];
+      //
+      // AND THE SPLIT DECIDES WHETHER PASS 2 RUNS AT ALL. It used to happen after an
+      // unconditional `renderTier()`, so a run where ONLY a browser tier regressed spent a
+      // second render tier to confirm nothing — announcing "Re-measuring 1 regressed
+      // dataset(s)" about a dataset pass 2 then skips, since `confirming` matches no render
+      // row. Unreachable while nothing but the render tier could regress on a plain
+      // `bench:check`; reachable the moment the export tier gates.
+      const renderRegressed = pass1.regressedDatasets.filter((n) => render.summary.some((s) => s.dataset === n));
+      const browserTierRegressed = pass1.regressedDatasets.filter((n) => !renderRegressed.includes(n));
+      let confirmedRender = renderRegressed;
+      if (renderRegressed.length) {
+        console.log(`\nRe-measuring ${renderRegressed.length} regressed dataset(s) to separate a real slowdown from machine load…`);
+        const second = await renderTier();
+        const again = checkBaseline(second.summary, second, { confirming: new Set(renderRegressed) });
+        confirmedRender = renderRegressed.filter((n) => again.regressedDatasets.includes(n));
+      }
+      const confirmed = [...browserTierRegressed, ...confirmedRender];
       const cleared = pass1.regressedDatasets.filter((n) => !confirmed.includes(n));
       if (cleared.length) {
         console.log(`\nNot reproduced on the second pass (machine load, not code): ${cleared.join(', ')}`);
       }
       if (confirmed.length) {
-        console.error(`\nPerf regression beyond the variance band, confirmed on two passes: ${confirmed.join(', ')}. `
+        // NAME THE EVIDENCE EACH ROW RESTS ON. A render row is confirmed on TWO passes; a
+        // browser row stands on ONE, because its tier is not re-measured. Reporting the pair
+        // under one "confirmed on two passes" banner claimed a second measurement that never
+        // happened — and once a browser-tier regression can be the ONLY thing red (which the
+        // export tier now makes reachable on a plain `bench:check -- --export`), the whole
+        // sentence was untrue.
+        const parts = [];
+        if (confirmedRender.length) parts.push(`${confirmedRender.join(', ')} — confirmed on two passes`);
+        if (browserTierRegressed.length) parts.push(`${browserTierRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
+        console.error(`\nPerf regression beyond the variance band: ${parts.join('; ')}. `
           + 'Investigate, or re-bless if the change is intentional and justified in the PR.');
         process.exitCode = 1;
       } else if (!pass1.drift) {
