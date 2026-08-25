@@ -122,7 +122,7 @@ describe('stage-window — buildStageDoc({ standalone })', () => {
 		expect(doc).toMatch(/\.latt-ctl\{[^}]*opacity:0/);
 		// An in-page stage is already surrounded by the console's own transport; a second
 		// set inside the frame would be two controls for one deck.
-		expect(plain()).not.toContain(String.raw`id="latt-ctl"`);
+		expect(plain()).not.toContain(`id="latt-ctl"`);
 	});
 	it('leaves the iframe hosts exactly as they were — every addition is opener-gated', () => {
 		// ONE document, two hosts. `window.opener` is null in an iframe, so the handshake and
