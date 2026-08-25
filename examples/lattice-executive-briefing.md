@@ -10,6 +10,7 @@ lenses:
   investor: { label: "For investors", base: none }
   buyer:    { label: "For buyers",    base: none }
   board:    { label: "For the board", base: all }
+  pager:    { label: "Three-page brief", base: none }
 acronyms:
   WCAG: wuh-cag
   AA: double A
@@ -39,7 +40,7 @@ What is actually here, ranked by what it is worth — and what it is not.
 ---
 
 <!-- _class: compare-prose transition -->
-<!-- _lens: brief investor buyer -->
+<!-- _lens: brief investor buyer pager -->
 
 ## The category error is thinking this is about slides.
 
@@ -122,6 +123,26 @@ The same file carries a **bottom line** view, an **investor** view, and a **buye
 
 ## The Marquee
 
+---
+<!-- _class: list-tabular register -->
+<!-- _lens: pager investor buyer -->
+
+`Measured against Marp, Slidev, Beamer and Quarto`
+
+## Four capabilities with no equivalent in the tools it competes with.
+
+1. Reader lenses
+   - One source file, many audience views, membership bound to a content hash
+   - `unique`
+2. Honest clipping
+   - Of five tools measured, the only one that reports content it could not fit
+   - `unique`
+3. Achromatopsia support
+   - Five color-vision palettes, with texture carrying meaning where color cannot
+   - `unique`
+4. Word-level narration
+   - The deck reads itself aloud in sync, diagrams included
+   - `unique`
 ---
 
 <!-- _class: split-panel metric -->
@@ -720,7 +741,7 @@ The four slides that follow are the same audit the engineering team runs on itse
 ---
 
 <!-- _class: compare-prose -->
-<!-- _lens: investor buyer -->
+<!-- _lens: investor buyer pager -->
 
 ## What this is, stated without the adjectives.
 
