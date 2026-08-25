@@ -4,6 +4,16 @@
 > slides, projected at a chosen altitude (bottom-line / story / evidence / the-ask)
 > without editing the source.
 
+> **Two words, one feature — and which to use where.** The MACHINE register is
+> `lens`: the front-matter `lenses:` block, `lens-default:`, the per-slide `_lens`
+> tag, and every name in `@workwel/lente`. The HUMAN register is **view**: every
+> string a person reads says "reader view" (the panel is titled *Reader views*, not
+> *Lenses*). Write prose in the human register; write keys and identifiers in the
+> machine one. Neither migrates into the other — see
+> `engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md` §2. (Unrelated
+> homonym, so a grep does not mislead you: the components-reference browser's
+> `lens` is a catalog *facet*, nothing to do with readers.)
+
 **Read this when** you are asked to create a reader view, an exec summary view, a
 "show me just the ask" projection, or any saved subset of a deck. **You'll produce**
 a `LensDef` in the deck's front-matter `lenses:` block, per-slide `_lens` tags, and
@@ -57,8 +67,9 @@ interface LensDef {
   `<!-- _lens: brief -->`. Used by `brief`, `story`, `ask`.
 - `base: 'all'` (**subtractive**) — every slide is IN unless it opts OUT with
   `<!-- _lens: -evidence -->`. Used by `evidence`.
-- `full` is neither — the implicit identity lens, always present, un-removable, the
-  only lens a reader lands on by default (safe because it's the whole deck).
+- `full` is neither — the implicit identity lens, always present, un-removable, and
+  the fallback a reader lands on whenever the deck's landing view is unavailable
+  (safe because it's the whole deck).
 
 The **read path** (`project.ts`) computes a reader's view from approved tags +
 registry via one predicate filter over the author-ordered slides. The **suggest
@@ -69,6 +80,44 @@ Studio is the only thing that writes tags and stamps the content hash.
 The four built-in **archetypes**: `brief` (Bottom line, base none), `story` (The
 story, base none), `evidence` (The evidence, base all), `ask` (The ask, base none,
 single).
+
+---
+
+## The landing view — and the one thing it is not
+
+`lens-default:` names the view a reader **starts** in. It is not a lock on what
+they may see: the picker still offers every reader-eligible view, and a reader can
+switch to the full deck at any time.
+
+That is why it **fails soft.** If the landing view is unapproved, edited since
+approval, staged, empty, or names nothing at all, Present opens the full deck
+instead. Nothing leaks by doing so — the picker offered `full` anyway. Eligibility
+is resolved *before* the view is selected, so an ineligible id never becomes the
+active view and the fail-closed projection below is never asked to fall open.
+
+**Do not confuse this with a pin.** A pinned handoff — "send the exec a link that
+shows only the brief" — is a different lever with the opposite failure behavior: it
+withholds the picker and must fail **closed**, because a scoped view can be a
+deliberate redaction. It travels on the share/export channel rather than in the
+deck, and it is **not built yet**. When it is, remember what it can honestly claim:
+client-side projection **hides, it does not withhold** — a reader who views source
+sees every non-member slide's bytes.
+
+## Depth — rungs and cuts (designed, not yet built)
+
+Reader views are two different kinds of thing, and only one of them has a "deeper":
+
+- **Rungs** are altitudes in a single containment-checked chain — each contains the
+  one below, so going deeper is always *additive* and a reader never loses a slide
+  they just read. Today `brief` ⊂ `evidence` ⊂ `full`.
+- **Cuts** are arbitrary subsets with no order and no containment — `ask` (one
+  slide) and `story` (a narrative slice that keeps the chapter dividers `evidence`
+  drops). You land on a cut or pin it; you never escalate from one.
+
+Nothing in the schema expresses this yet — the model, the containment invariant, and
+the delta-authoring form (`includes:`) are specified in
+`engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md` §4. Until they
+ship, a "deep dive" is authored as an ordinary second view, tagged in full.
 
 ---
 
@@ -122,7 +171,7 @@ Front matter — the registry block:
 ```yaml
 ---
 title: Q3 Board Review
-lens-default: brief          # the lens a shared/pinned link opens in (default: full)
+lens-default: brief          # the LANDING view — where a reader starts (default: full)
 lenses:
   brief:    { label: "Bottom line",  base: none, approved: "sha256:…" }
   ask:      { label: "The ask",      base: none, single: true, hidden: true }
@@ -152,7 +201,7 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
 ## What good looks like
 
 - A `brief` lens of 5 slides — the two bookends, the headline metric, the ask —
-  approved, opening by default via `lens-default: brief`.
+  approved, and set as the deck's landing view via `lens-default: brief`.
 - An `evidence` lens (`base: all`) that drops only the logistics and imagery slides
   via `-evidence` tags, so it stays clean as slides are added.
 - Every reader consumer routed through `lensEligibility`, so a drifted lens shows an
