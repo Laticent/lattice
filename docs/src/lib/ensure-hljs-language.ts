@@ -17,6 +17,19 @@
 // this module answers only HOW to fetch, because the asset base, the content hash
 // and the service worker are the host's business and not the engine's.
 
+/**
+ * How long any single fetch here may hold up a render, in ms.
+ *
+ * THIS BOUND IS LOAD-BEARING, not defensive habit. `ensureFenceLanguages` is
+ * awaited immediately before the synchronous `PG.render` in render-engine.ts, so
+ * anything that can hang here hangs the preview. A `<script>` whose request
+ * STALLS — no response rather than a refused connection — fires neither `load`
+ * nor `error` until the browser's own timeout, which is minutes. ensure-katex.ts
+ * bounds itself at ~10s for the same reason; matching it keeps the worst case a
+ * fence rendered in plain monospace instead of an editor that stopped repainting.
+ */
+const LOAD_TIMEOUT_MS = 10_000;
+
 /** Per-URL singletons, so two decks needing `dockerfile` share one fetch. */
 const loaders = new Map<string, Promise<boolean>>();
 
@@ -48,10 +61,26 @@ export function deriveHljsBase(): string | null {
 	return src ? hljsBaseFor(src) : null;
 }
 
+/** An abort signal that fires after LOAD_TIMEOUT_MS, on browsers old enough to
+ *  lack `AbortSignal.timeout` too (it is Chrome 124+; the bundle targets 109). */
+function timeoutSignal(): AbortSignal | undefined {
+	try {
+		if (typeof AbortSignal?.timeout === 'function') return AbortSignal.timeout(LOAD_TIMEOUT_MS);
+		const c = new AbortController();
+		setTimeout(() => c.abort(), LOAD_TIMEOUT_MS);
+		return c.signal;
+	} catch {
+		return undefined; // no AbortController at all — the fetch is unbounded, as before
+	}
+}
+
 async function loadManifest(base: string): Promise<Manifest | null> {
 	const existing = manifests.get(base);
 	if (existing) return existing;
-	const p = fetch(`${base}index.json`, { credentials: 'same-origin' })
+	// AbortSignal, not a bare fetch: same stall reasoning as LOAD_TIMEOUT_MS — the
+	// manifest is awaited in front of the render too, and a hung request here would
+	// block every grammar behind it.
+	const p = fetch(`${base}index.json`, { credentials: 'same-origin', signal: timeoutSignal() })
 		.then((r) => (r.ok ? (r.json() as Promise<Manifest>) : null))
 		.catch(() => null)
 		// A failed manifest is re-fetchable: drop the memo so a later render can
@@ -71,7 +100,15 @@ function injectGrammar(url: string): Promise<boolean> {
 	if (existing) return existing;
 
 	const p = new Promise<boolean>((resolve) => {
+		let settled = false;
+		// Declared before `done` closes over it — `done` only ever runs from a
+		// listener or the deadline, but a `const` below would put this in the
+		// temporal dead zone for any future caller that fires it earlier.
+		let timer: ReturnType<typeof setTimeout>;
 		const done = (ok: boolean) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
 			// Drain here rather than in the caller: the queue may hold grammars from
 			// several concurrent injections, and draining on each arrival keeps a slow
 			// file from holding up one that already landed.
@@ -83,6 +120,12 @@ function injectGrammar(url: string): Promise<boolean> {
 			if (!ok) loaders.delete(url); // a failed fetch is retryable
 			resolve(ok);
 		};
+		// Resolve `false` on the deadline rather than leaving the promise pending:
+		// the script element stays in the DOM and may still land and register, in
+		// which case a later drain picks it up. What must not happen is the render
+		// waiting on it.
+		timer = setTimeout(() => done(false), LOAD_TIMEOUT_MS);
+
 		const s = document.createElement('script');
 		s.src = url;
 		s.async = true;
