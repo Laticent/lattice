@@ -277,7 +277,15 @@ the number is invariant to the fill choice, and its floor is `carbone|light|pass
 again). That clears the repo's own justified non-text floor (`PANEL_EDGE_MIN` 1.5) though not
 WCAG 1.4.11's 3:1. So the chip stays a shape; it is the *fill* that stops carrying the tile
 separation, and the border that takes over. That is a design judgment, not a measurement — which
-is why it belongs in the ask rather than in a decision made here.
+is why it belonged in the ask rather than in a decision made here.
+
+**It was put to the human and accepted**, in the same round as the package pick: *"accept the
+border as the edge, modelling it as a new surface family with a justified sub-3:1 floor — the
+`PANEL_EDGE_MIN` precedent"*, chosen over holding a tile-visible fill floor or rendering first.
+The shipped floor is **per-tile** rather than the single number that ask implied — 3 on the card,
+2.5 on the hero — because the population is bimodal and one flat floor low enough for the hero
+would permit a 60% collapse on the other 63 pairs. The measured worst chip was then rendered and
+reads.
 
 ### 8.3 The redline BAND half of R is not worth what it costs
 

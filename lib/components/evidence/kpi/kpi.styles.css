@@ -109,8 +109,10 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { 
  *
  * Two things change and one deliberately does not:
  *  · the mix is OPAQUE, into `--bg`, so the ground no longer inherits the tile;
- *  · 8%, not the palette's 10/12/18% — measured as the depth where every palette
- *    clears AA, with the last points buying nothing;
+ *  · 8%, not the palette's 10/12/18% — the DEEPEST depth that passes the whole gate.
+ *    5-8% and 10% all leave the same 22 pairs below their bar; 10% costs an already-frozen
+ *    carbone entry its ratchet and 11% adds ten unlisted, so the constraint is a ceiling
+ *    rather than a floor and 8% keeps the most fill under it;
  *  · the INK stays the state hue at full saturation. That is load-bearing, not
  *    inertia: it is the channel that carries the state under color-vision
  *    deficiency. Re-inking these pills in `--text-heading` on a state-hued ground
@@ -122,12 +124,18 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { 
  *    holds arbitrary author text and takes its color from row POSITION, so it has
  *    no `data-s` and cannot have one.
  *
- * The cost, accepted with the border as the mitigation: an opaque ground can land
- * on its tile's own color (worst 1.000:1 against `--accent-soft`), so the FILL no
- * longer guarantees the chip's edge. `--pill-border` does — the state hue at full
+ * The cost, accepted with the border as the mitigation, and it is BROADER than the worst
+ * case alone. Over every tile kpi paints a pill on (32 palettes × 2 modes × 2 states ×
+ * `--bg-alt` / `--accent-soft` / `--bg`, n=384) the fill-vs-tile separation goes from a
+ * floor of 1.120 with NOTHING under 1.05, to a floor of 1.000 with 51 pairs under 1.02 and
+ * 116 under 1.05 — 371 of 384 get worse. It is not an `--accent-soft` phenomenon either;
+ * `--bg-alt`, the tile under `.ops` and `.trajectory`, reaches 1.003. So on many palettes
+ * the FILL no longer guarantees the chip's edge at all, not merely on the worst one. `--pill-border` does — the state hue at full
  * saturation, 2.60:1 against the tile at worst, above the repo's justified
- * `PANEL_EDGE_MIN` of 1.5 though under WCAG 1.4.11's 3:1. It is modeled and
- * floored in tools/composed-contrast.js rather than left unmeasured (#1847).
+ * `PANEL_EDGE_MIN` of 1.5 though under WCAG 1.4.11's 3:1. It is modeled and floored
+ * per-tile in tools/composed-contrast.js rather than left unmeasured (#1847). The bet was
+ * checked, not assumed: the measured worst chip — `.ops` at indaco-dark, fill 1.003 against
+ * its tile — was rendered and reads, carried by the border and the full-saturation label.
  * engineering/decisions/2026-08-25-status-trio-joint-solve-model.md §5, §8. */
 section.kpi {
   --kpi-pass-pill-bg: color-mix(in srgb, var(--pass) 8%, var(--bg));

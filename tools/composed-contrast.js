@@ -123,9 +123,11 @@ const BUNDLE     = path.join(ROOT, 'dist', 'lattice.css');
 //   src     the declaration site, and `requires` regexes that must still match it
 //           — a surface whose rule has moved is re-derived, never silently kept.
 //
-// The 4% variants of the redline cards are deliberately absent: 5% is the same
-// shape one step deeper (a fatter own-hue layer under the same band), so it
-// bounds them. Scoring both would double the table and report the same defect.
+// All four redline card families sit at 4% as of #1846, which levelled `.stacked` and
+// `.rl-old`/`.rl-new` down from 5% to match `.split` / `.three-col`. One depth means one
+// surface bounds them all -- but it also means the depth alone no longer IDENTIFIES a
+// site, so the card pins below are anchored to their selectors. (Before the levelling
+// this note said 5% "bounds" the 4% variants; that argument retired with the 5%.)
 const REDLINE = 'lib/components/comparison/redline/redline.styles.css';
 const WORDCLOUD = 'lib/components/chart/word-cloud/word-cloud.transform.js';
 const POLICY = 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css';
@@ -247,10 +249,15 @@ function stateChartStop(state, which, lightPct, darkPct) {
     min: 4.5,
     src: STATECHART,
     requires: [
-      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
-      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${darkPct}%, black\\)`),
+      // ANCHORED INTO THE GRADIENT. The disc's flat fill carries the SAME two literals as
+      // the 100% stop, so an unanchored pair of value pins is satisfiable by the disc --
+      // measured: moving the gradient's high stop back to 44/68 while leaving the disc
+      // alone left the gate green. The `linear-gradient(` prefix is what separates them.
+      new RegExp(`background: linear-gradient\\(180deg,[\\s\\S]{0,400}?color-mix\\(in oklab, var\\(--pill-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
+      new RegExp(`background: linear-gradient\\(180deg,[\\s\\S]{0,400}?color-mix\\(in oklab, var\\(--pill-hue\\) ${darkPct}%, black\\)`),
       new RegExp(`--pill-hue: var\\(--state-${state}-hue\\)`),
-      // The SVG disc's flat fill IS this stop. Pinned here rather than scored again.
+      // The SVG disc's flat fill IS this stop. Pinned here rather than scored again --
+      // a duplicate ratio adds no information, but the site still needs drift protection.
       ...(high ? [/\.state-index-disc\s*\{[^}]*fill: light-dark\(\s*color-mix\(in oklab, var\(--pill-hue\) 30%, var\(--bg\)\),\s*color-mix\(in oklab, var\(--pill-hue\) 54%, black\)\)/] : []),
     ],
   };
@@ -299,7 +306,7 @@ const SURFACES = [
   },
   // ── redline · .split / .stacked / .three-col / rl-old|rl-new cards ────────
   // The band lands on a SECOND own-hue tint, so the ink has less to work with
-  // than on the bare card above. 5% is the deepest shipped tint.
+  // than on the bare card above. 4% is the depth every redline card carries since #1846.
   {
     id: 'redline/ins-on-new-card',
     proactive: true,
@@ -307,7 +314,15 @@ const SURFACES = [
     base: '--bg-alt', groups: [{ bg: CARD('--pass', 4) }, { bg: '--pass-bg' }],
     ink: '--pass', min: 4.5,
     src: REDLINE,
-    requires: [/blockquote(?:\.rl-new|:nth-of-type\(2\))[^{]*\{[^}]*color-mix\(in srgb, var\(--pass\) 4%, var\(--bg-alt\)\)/],
+    // ANCHORED to the .stacked / .rl-new families this surface models. Levelling the
+    // card 5% -> 4% put the same literal at FOUR other sites (.split :145/:160 and
+    // .three-col :277/:292), so the pre-levelling pins -- which only had to find `4%`
+    // anywhere in the file -- became satisfiable by a decoy: deepening BOTH modeled
+    // families to 8% left the gate green. Caught by mutation, not by a gate.
+    requires: [
+      /section\.redline\.stacked\.stacked > \.cell-stage > blockquote:nth-of-type\(2\)\s*\{[^}]*color-mix\(in srgb, var\(--pass\) 4%, var\(--bg-alt\)\)/,
+      /blockquote\.rl-new[^{]*\{[^}]*color-mix\(in srgb, var\(--pass\) 4%, var\(--bg-alt\)\)/,
+    ],
   },
   {
     id: 'redline/del-on-old-card',
@@ -316,16 +331,21 @@ const SURFACES = [
     base: '--bg-alt', groups: [{ bg: CARD('--fail', 4) }, { bg: '--fail-bg' }],
     ink: '--fail', min: 4.5,
     src: REDLINE,
-    requires: [/blockquote(?:\.rl-old|:nth-of-type\(1\))[^{]*\{[^}]*color-mix\(in srgb, var\(--fail\) 4%, var\(--bg-alt\)\)/],
+    // Anchored, for the reason on redline/ins-on-new-card above.
+    requires: [
+      /section\.redline\.stacked\.stacked > \.cell-stage > blockquote:nth-of-type\(1\)\s*\{[^}]*color-mix\(in srgb, var\(--fail\) 4%, var\(--bg-alt\)\)/,
+      /blockquote\.rl-old[^{]*\{[^}]*color-mix\(in srgb, var\(--fail\) 4%, var\(--bg-alt\)\)/,
+    ],
     // The engine's own quality bar is that a REDLINE reads: this is the deepest
     // own-hue stack it ships (a 12% band on a 4% card), so it binds --fail. The card
     // went 5% -> 4% to level with the four .split/.three-col sites that always shipped
     // at 4%; the 12% BAND is palette-declared and deliberately untouched (§8.3 of
     // 2026-08-25-status-trio-joint-solve-model.md).
   },
-  // The OLD / NEW label sits directly on the card, no band. Four rules paint each
-  // one — .split and .three-col at a 4% tint, .stacked and the carousel block-split
-  // at 5% — so all four are pinned and the DEEPEST (5%) is what gets scored.
+  // The OLD / NEW label sits directly on the card, no band. Four rules paint each one and
+  // ALL FOUR are at 4% since #1846 levelled them, so every rule is pinned and the single
+  // shared depth is what gets scored. (They were 4% / 4% / 5% / 5%; the split had no
+  // recorded reason and the deeper pair was holding two dark-arm pairs under the bar.)
   {
     id: 'redline/old-label',
     ctx: 'redline .stacked / .split / .three-col: the OLD label on the own-hue card (4%, levelled with .split/.three-col)',
@@ -412,11 +432,26 @@ const SURFACES = [
   // all three surfaces resolve the same ground -- they are kept separate anyway,
   // because they pin three different CSS sites and the tile still decides whether the
   // chip is VISIBLE (see the border family below).
+  //
+  // EVERY PIN IS ANCHORED TO THE SELECTOR ITS SURFACE ACTUALLY MODELS, and that is not
+  // decoration. The first cut of these three shared one template with unanchored
+  // `--pill-bg: var\(--kpi-warn-pill-bg\)` pins, so ANY of the eight sites satisfied
+  // ALL THREE surfaces -- deleting the `.attention` hero block left every gate green on
+  // a surface modeling nothing. That is the same defect, in the same file, that the
+  // anchoring on the PREVIOUS version of these entries existed to prevent; it was
+  // reintroduced by generating them from a template and caught by mutation, not by a
+  // gate. Mutate a site and re-run before trusting a pin here.
   ...[
-    ['warn-pill',      'warn', '--bg-alt',      'kpi.ops / .attention: the warn pill ink on its own 8% ground over the --bg-alt tile'],
-    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on its 8% ground over the accent-soft hero tile'],
-    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on its 8% ground over the accent-soft hero tile'],
-  ].map(([slug, state, tile, ctx]) => ({
+    ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill ink on its own 8% ground over the --bg-alt tile',
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--kpi-warn-pill-bg\)/,
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/],
+    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on its 8% ground over the accent-soft hero tile',
+      /section\.kpi\.briefing[^{]*\{[^}]*--pill-bg: var\(--kpi-pass-pill-bg\)/,
+      /section\.kpi\.briefing[^{]*\{[^}]*--pill-fg: var\(--pass\)/],
+    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on its 8% ground over the accent-soft hero tile',
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--kpi-warn-pill-bg\)/,
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/],
+  ].map(([slug, state, tile, ctx, bgPin, fgPin]) => ({
     id: `kpi/${slug}`,
     ctx,
     base: tile,
@@ -426,13 +461,13 @@ const SURFACES = [
     requires: [
       // The shared declaration, pinned by VALUE so a depth change reddens the gate.
       new RegExp(`--kpi-${state}-pill-bg: color-mix\\(in srgb, var\\(--${state}\\) 8%, var\\(--bg\\)\\)`),
-      // ...and that the pill still points at it and still inks the state hue. The ink
-      // pin is the one that matters most: re-inking these in `--text-heading` would
-      // score BETTER here and collapse the trio's achromatopsia separation from
-      // 0.1174 to 0.034, which cvd-trio-floor.test.js cannot see because it scores
-      // raw token hexes. 2026-08-25-status-trio-joint-solve-model.md §8.1.
-      new RegExp(`--pill-bg: var\\(--kpi-${state}-pill-bg\\)`),
-      new RegExp(`--pill-fg: var\\(--${state}\\)`),
+      // ...and that THIS site still points at it and still inks the state hue. The ink
+      // pin matters most: re-inking these in `--text-heading` would score BETTER here
+      // and collapse the trio's achromatopsia separation from 0.1174 to 0.034, which
+      // cvd-trio-floor.test.js cannot see because it scores raw token hexes.
+      // 2026-08-25-status-trio-joint-solve-model.md §8.1.
+      bgPin,
+      fgPin,
       // The tile the surface is BASED on. `--accent-soft` repaints are additionally
       // held by NO_TILE_REPAINT below, because a `requires` can only assert presence
       // and the risk on the hero is something being ADDED.
@@ -442,33 +477,34 @@ const SURFACES = [
     ],
   })),
   // ── kpi · the status pill's BORDER, which is what makes it a chip (#1847) ─
-  // Modeled because the ground above went opaque. An alpha tint was always N% of the
-  // state hue laid OVER the tile, so the fill could never match it; an opaque mix into
-  // `--bg` ignores the tile, and on `--accent-soft` it can land on the tile's own
-  // color (1.000:1 measured). The fill therefore no longer carries the chip's edge
-  // and the border does -- the state hue at full saturation, which is also the reason
-  // the ink was left at full saturation (§8.1).
+  // Modeled because the ground went opaque. An alpha tint was always N% of the state
+  // hue laid OVER the tile, so the fill could never match it; an opaque mix into `--bg`
+  // ignores the tile, and on the deepest tiles it can land within 1.01:1 of the tile's
+  // own color. The fill therefore no longer carries the chip's edge and the border
+  // does -- the state hue at full saturation, which is also why the INK was left at
+  // full saturation (§8.1).
   //
-  // The bar is 2.5, not WCAG 1.4.11's 3:1, and the reasoning is the same shape as
-  // PANEL_EDGE_MIN above rather than a ratchet-to-fit. The population's floor is
-  // 2.60:1 and it is INVARIANT to every ground considered -- shipped alpha tint,
-  // opaque 8%, or the `.chart-status` inversion all measure 2.60 -- because the border
-  // is the state hue against the tile and none of those touch either. Its floor is
-  // carbone|light, whose light-arm trio is inks for a light canvas the palette does not
-  // yet have (#1302); every other palette-mode is 3.2:1 or better. So 2.5 separates
-  // "the chip has an edge" from "it does not" without being tuned to carbone, and it
-  // will be raised to 3 when #1302 gives carbone a light face.
-  ...[['pass', '--bg-alt'], ['pass', '--accent-soft'], ['warn', '--bg-alt'], ['warn', '--accent-soft']]
-    .map(([state, tile]) => ({
-      id: `kpi/${state}-pill-border-on-${tile === '--bg-alt' ? 'card' : 'hero'}`,
-      ctx: `kpi: the ${state} pill's 1px border against the ${tile} tile it sits on`,
-      base: tile, groups: [], ink: `--${state}`, min: 2.5,
-      src: KPI,
-      requires: [
-        /border: 1px solid var\(--pill-border, var\(--muted-mark\)\)/,
-        new RegExp(`--pill-border: var\\(--${state}\\)`),
-      ],
-    })),
+  // THE FLOOR IS PER-TILE, not one number for all four. The population is bimodal and
+  // one palette owns the whole bottom: carbone|light reads 2.60 on the hero and 3.39 on
+  // the card, and EVERY other palette-mode is 4.10 or better. A single floor low enough
+  // to admit the hero pair would permit a 60% collapse on the other 63, which is a
+  // budget rather than a ratchet. So: 3 on the card (WCAG 1.4.11's non-text bar, which
+  // every card pair already clears) and 2.5 on the hero, the `PANEL_EDGE_MIN` precedent
+  // -- a FLOOR against invisibility, not an accessibility claim. Both hero exceptions
+  // are carbone's light arm, whose trio is inks for a light canvas the palette does not
+  // have yet (#1302); when that lands, the hero floor rises to 3 and this note goes.
+  ...[
+    ['pass', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(2\)[\s\S]{0,120}?--pill-border: var\(--pass\)/],
+    ['pass', 'hero', '--accent-soft', 2.5, /section\.kpi\.briefing[\s\S]{0,200}?--pill-border: var\(--pass\)/],
+    ['warn', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
+    ['warn', 'hero', '--accent-soft', 2.5, /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
+  ].map(([state, tile, base, min, pin]) => ({
+    id: `kpi/${state}-pill-border-on-${tile}`,
+    ctx: `kpi: the ${state} pill's 1px border against the ${base} tile it sits on`,
+    base, groups: [], ink: `--${state}`, min,
+    src: KPI,
+    requires: [/border: 1px solid var\(--pill-border, var\(--muted-mark\)\)/, pin],
+  })),
   // ── kanban · the [data-s] card's status wash, and the two inks on it ─────
   // The wash is `--state-{s}-fill` mixed into the card — 55% light, 26% dark — and it is
   // the deepest own-hue ground the engine paints on a card. TWO inks land on it and they

@@ -175,9 +175,12 @@ describe('bless-palette-baselines · the table parser', () => {
     //   · `policy-recommendation`'s stance tint 12% -> 9%, its measured knee, clears 10;
     //   · `redline`'s own-hue card 5% -> 4%, levelling it with the four `.split` /
     //     `.three-col` sites that always shipped at 4%, clears 4.
-    // The DENOMINATOR rises 3264 -> 3520: the kpi pills' three surfaces are re-pinned to
-    // the new declaration and the pill's BORDER is modelled for the first time (#1847) —
-    // it is what carries the chip's edge now that an opaque ground can match its tile.
+    // The DENOMINATOR rises 2624 -> 4160 across the branch, in three steps: +640 for
+    // state-chart's ten stops, +256 for the kpi pill BORDER modelled for the first time
+    // (#1847 — it is what carries the chip's edge now that an opaque ground can match its
+    // tile), and +640 for the kanban status wash and the two inks it carries. The shipped
+    // gate reports 4160; an earlier draft of this comment said 3520, which was true at the
+    // middle commit and not updated when the kanban surfaces landed.
     // What is LEFT is the honest residue: carbone's light arm (whose trio is inks for a
     // light canvas the palette does not have yet — #1302 owns that, and this pass
     // deliberately does not pre-empt it) and concrete's dark `--fail`, re-derived as
