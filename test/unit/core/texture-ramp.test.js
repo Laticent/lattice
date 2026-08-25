@@ -279,14 +279,34 @@ describe('texture-ramp — every shipped theme derives a usable set', () => {
     assert.equal(byName['a11y-base'].dark, null, 'the a11y family declares one literal ramp');
   });
 
-  test('the arm follows the CHIPS — carbone\'s single ramp is dark and gets the dark arm', () => {
-    // carbone is NOT mode-invariant (its file carries 39 light-dark() declarations);
-    // it simply has no light-dark() on --cat-N-fill, which is a different thing. Its
-    // one ramp is dark (mean L 0.367), and slot-based arm selection gave it a
-    // near-black #121116 for deep chips — inverted from every hand-tuned set, and
-    // held off pure black only by INK_L_MIN.
+  test('carbone now declares BOTH arms — it is no longer the single-ramp case', () => {
+    // It USED TO BE: carbone had no light-dark() on --cat-N-fill, so it shipped one dark
+    // ramp, and slot-based arm selection handed it a near-black #121116 for deep chips —
+    // inverted from every hand-tuned set and held off pure black only by INK_L_MIN. That
+    // is fixed at the source: carbone was curated a real light face, so each --cat-N-fill
+    // is a pale-light / deep-dark pair like every other base palette.
     const ramp = derived.find((d) => d.name === 'carbone').ramp;
     const set = textureSetFrom({ lightFills: ramp.light, darkFills: ramp.dark });
+    assert.ok(set.darkFills, 'carbone declares --cat-N-fill as light-dark() pairs now');
+    assert.equal(set.lightArm, 'light', 'its light chips are pale, so the light arm is light');
+    // The rule this arm follows is "the light arm whispers BELOW the chips" (pinned in
+    // `texture-ramp — the pieces`), so the check is RELATIVE to the ramp, not an absolute
+    // lightness: an absolute threshold reads a pale-chip ink as if it were a dark-chip one.
+    const chipL = meanLightness(ramp.light);
+    assert.ok(hexToOklch(set.lightInk).L < chipL,
+      `expected the light ink to sit below its pale chips (mean L ${chipL.toFixed(3)}), got ${set.lightInk}`);
+  });
+
+  test('a SINGLE dark ramp still takes the dark arm, whichever slot it sits in', () => {
+    // Pinned SYNTHETICALLY, on purpose. carbone was the only shipped palette with one dark
+    // ramp, and curating its light face removed the last real exerciser of this branch.
+    // Deleting the assertion with it would drop the behaviour silently, so the input is
+    // constructed here instead: textureSetFrom is pure, and the rule it encodes — arm
+    // selection follows the CHIPS, not the slot they arrived in — is what stops a dark
+    // ramp being handed a near-black ink.
+    const darkRamp = ['#304936', '#2B4B41', '#2C4950', '#293A59', '#303455', '#3C3356',
+      '#47324B', '#522F3A', '#553130', '#54352A', '#54452B', '#444D2F'];
+    const set = textureSetFrom({ lightFills: darkRamp, darkFills: null });
     assert.equal(set.darkFills, null, 'one ramp');
     assert.equal(set.lightArm, 'dark', 'a dark ramp takes the dark arm whichever slot it sits in');
     assert.ok(hexToOklch(set.lightInk).L > 0.7, `expected a light ink on dark chips, got ${set.lightInk}`);

@@ -64,14 +64,18 @@ describe('portal color-scheme derivation', () => {
     for (const p of resolvePalettes()) {
       scheme[p.name] = { light: isDarkSurface(p.light.bg) ? 'dark' : 'light', dark: isDarkSurface(p.dark.bg) ? 'dark' : 'light' };
     }
-    // carbone is an always-dark canvas → dark native widgets in BOTH modes.
-    assert.deepEqual(scheme.carbone, { light: 'dark', dark: 'dark' });
+    // carbone USED TO BE the always-dark example here — `{ light: 'dark', dark: 'dark' }`,
+    // because its canvas did not follow color-scheme. It was curated a real light face and
+    // now flips like any other base palette, so it is asserted with the normal case below.
+    // The edge the test is named for is still covered, by the a11y-* set: this gate reads
+    // the CANVAS, and it would still catch a palette whose scheme and --bg disagree.
     // a11y-* stay white in both modes → light native widgets even in "dark".
     for (const name of Object.keys(scheme).filter((n) => n.startsWith('a11y-'))) {
       assert.deepEqual(scheme[name], { light: 'light', dark: 'light' }, `${name} should be light in both modes`);
     }
-    // A normal light↔dark palette still flips per mode.
+    // Normal light↔dark palettes flip per mode — carbone among them now.
     assert.deepEqual(scheme.indaco, { light: 'light', dark: 'dark' });
+    assert.deepEqual(scheme.carbone, { light: 'light', dark: 'dark' });
   });
 });
 

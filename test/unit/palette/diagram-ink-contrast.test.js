@@ -191,39 +191,29 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
  * fails below, so it cannot rot. Adding a row means arguing for it.
  */
 const KNOWN_BELOW_AA = new Set([
-  // The LAST one, down from four, and by the end it is not a diagram defect at all.
-  // `errorTextColor` (`--bg`) on `errorBkgColor` (`--fail`) — the Mermaid parse-error box.
-  // ONE combo of 64: **carbone light, 2.34:1**. Everything #1348 said about this pair —
-  // "the fix is a palette-side --fail curation, not a map edit" — holds, and the map side
-  // is already optimal: of seven candidate inks measured against `--fail` across all 64
-  // combos, `--bg` fails 1, `--bg-alt` fails 1, `--cat-on-mark` fails 6 and every other
-  // ink tier fails 58 or more. There is no map edit that improves this.
+  // EMPTY, and the way it emptied is the point.
   //
-  // WHAT IT ACTUALLY IS. carbone pins `--bg` FLAT dark (#1A1A1C, no `light-dark()`
-  // wrapping) while still declaring its status trio as `light-dark()` pairs whose LIGHT
-  // arms are tuned, in the palette's own words, for "the off-white canvas" — a canvas this
-  // palette does not have. Measured against the canvas it does have: `--pass` 3.90:1,
-  // `--fail` 2.34:1, both short of AA as TEXT, before any diagram is involved. It is
-  // reachable, not theoretical: `section.light` / `section.print` set color-scheme on the
-  // ELEMENT and govern their own subtree past carbone's `:where(:root)` pin, which is the
-  // same seam `paired-token-parity.test.js` spells out as the cost of carbone's exemption
-  // there — so a `_class: light` slide flips the status ink to a light-canvas tuning while
-  // the canvas stays dark. `tools/contrast-audit.js` does not see it because it audits
-  // carbone in `[dark]` only.
+  // The last survivor was `errorTextColor` (`--bg`) on `errorBkgColor` (`--fail`) — the
+  // Mermaid parse-error box — at 2.34:1 on ONE combo of 64: carbone light. #1348 called
+  // the fix "a palette-side --fail curation, not a map edit", and the map side was already
+  // optimal: of seven candidate inks measured against `--fail` across all 64 combos, every
+  // alternative tier failed more.
   //
-  // WHY IT IS NOT FIXED HERE, having been tried. Pinning the trio flat to its dark arms
-  // was implemented and measured end-to-end: it fixes this pair, lifts `--pass` to 14.13:1
-  // and `--fail` to 9.63:1, and RETIRES TEN `KNOWN_SUB_THRESHOLD` sanctions in
-  // `tools/composed-contrast.js` (every `carbone|light|*` entry). It also drops
-  // `warn^fail` under deuteranopia from 0.2386 to 0.1465, through the 0.15 collapse floor
-  // in `cvd-trio-floor.test.js`. That number is not incidental: carbone's DARK arms — the
-  // trio it actually renders — are frozen at that same 0.1465 and grandfathered, so the
-  // pin does not introduce the weakness, it propagates an existing one onto a second
-  // reading. Choosing between WCAG AA on the canvas and CVD separation, on values
-  // `2026-08-24-status-trio-monochromacy-respacing.md` set the same day, is a palette
-  // contract decision rather than a gate fix. Raised with the measured trade rather than
-  // taken; see `engineering/decisions/2026-08-24-diagram-ink-tier-errors.md` §4.
-  'errorTextColor',
+  // It was never a diagram defect. carbone pinned `--bg` FLAT dark while declaring its
+  // status trio as `light-dark()` pairs whose light arms were tuned, in the palette's own
+  // words, for "the off-white canvas" — a canvas the palette did not have. The ink was
+  // correct; the canvas underneath it was fiction, reachable through `section.light` /
+  // `section.print`, which set color-scheme on the ELEMENT and govern their own subtree.
+  //
+  // The recorded fix was to pin the trio flat, and it was declined with the measurement:
+  // it retired the sanction but dropped `warn^fail` under deuteranopia from 0.2386 to
+  // 0.1465, through the 0.15 collapse floor. Curating carbone a REAL light face resolves
+  // it from the other side instead — the light arms now land on the off-white canvas they
+  // were always written for, and the CVD trade never has to be made. That is why this set
+  // is empty rather than one shorter.
+  //
+  // Do not add a row without arguing for it; the stale arm below deletes one that stops
+  // failing, so this list cannot rot back into a waiver.
 ]);
 
 /** Every palette, with its `@import` chain flattened (base first, then overrides). */

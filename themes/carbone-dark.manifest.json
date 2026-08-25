@@ -1,0 +1,10 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "carbone-dark",
+  "role": "variant-dark",
+  "extends": "carbone",
+  "family": "brand",
+  "modes": [
+    "dark"
+  ]
+}

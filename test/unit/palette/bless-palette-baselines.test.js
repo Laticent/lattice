@@ -188,9 +188,11 @@ describe('bless-palette-baselines · the table parser', () => {
     // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
     assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*22 entries/,
       'the contrast table still parses in full');
-    // 768, up from 576: the monochromacy arm is 192 more (theme x mode x pair), added
-    // when the trio was respaced to clear it. 32 x 2 x 3 x 4.
-    assert.match(out, /CVD_FROZEN[^\n]*\n\s*768 entries/, 'the CVD table still parses in full');
+    // 792, up from 768: `carbone-dark` is a NEW theme (carbone grew a curated light face
+    // and took the house two-file shape), so the table gains one theme's worth --
+    // 1 x 2 modes x 3 pairs x 4 conditions = 24. The identity is 33 x 2 x 3 x 4 = 792.
+    // 768 was 32 x 2 x 3 x 4, itself up from 576 when the monochromacy arm added 192.
+    assert.match(out, /CVD_FROZEN[^\n]*\n\s*792 entries/, 'the CVD table still parses in full');
     assert.match(out, /0 ratcheted up · 0 new · 0 dropped/, 'blessing the committed tree is a no-op');
   });
 

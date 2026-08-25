@@ -133,6 +133,32 @@ const themeFiles = new Map(
 // through each a11y-<type> that imports it.
 const PALETTES = [...manifests.keys()].filter((n) => themeFiles.has(n) && n !== 'a11y-base').sort();
 
+/**
+ * Flat overrides that are DELIBERATE, keyed `theme|token`, each with the reason the
+ * value is the same on both faces. Same shape as SANCTIONED_MARGINS (#20) and
+ * SANCTIONED_PREVIEW_BUILDERS (#22): a record, not a waiver.
+ *
+ * It fails BOTH ways. An unlisted flat override fails as before; a listed entry that
+ * is no longer flat — or no longer declared — fails as STALE, so the list cannot rot
+ * into a blanket exemption the way carbone's whole-palette exemption did.
+ *
+ * The bar for an entry is that the SURFACE the token is painted on does not itself
+ * flip. That is the only honest reason for an ink not to: if the ground moves and the
+ * ink does not, dark mode gets "a value nobody chose", which is what this gate is for.
+ */
+const SANCTIONED_FLAT_OVERRIDES = new Map([
+  ['carbone|panel-edge-mark',
+    'The split-panel / split-compare top-edge mark is painted on --surface-inverse, ' +
+    'which carbone pins to graphite (#0E0E10) on BOTH faces — it is the code-block ' +
+    'ground, and keeping it dark on the light face is what preserves the terminal ' +
+    'register and the twelve --hljs-* values curated on it. Base derives the mark from ' +
+    '--accent, which DOES flip; on carbone light that is #037829 (a dark green) landing ' +
+    'on graphite, which is the disappearing-edge defect this surface already has a ' +
+    'decision note about (2026-08-18-split-frame-edge-ownership.md, where onyx measured ' +
+    '1.00:1). Pinned to --brand-accent, the bright lime, because the panel it sits on is ' +
+    'dark in both schemes. If --surface-inverse ever flips, this entry must go.'],
+]);
+
 describe('paired-token parity: no flat override of a base light-dark() pair', () => {
   assert.ok(PALETTES.length >= 15, `expected the shipped palette set, got ${PALETTES.length}`);
 
@@ -177,12 +203,35 @@ describe('paired-token parity: no flat override of a base light-dark() pair', ()
         flat.push(`--${token}: ${own[token]}`);
       }
 
+      // Split the findings against the allowlist, and check it BOTH ways.
+      const sanctioned = [];
+      const unsanctioned = [];
+      // A `-dark` wrapper carries its parent's declarations verbatim through @import,
+      // so it inherits the parent's sanctions rather than duplicating them — the
+      // declaration being argued about lives in exactly one file.
+      const owner = manifests.get(name)?.extends || name;
+      for (const entry of flat) {
+        const token = entry.slice(2, entry.indexOf(':'));
+        (SANCTIONED_FLAT_OVERRIDES.has(`${owner}|${token}`) ? sanctioned : unsanctioned).push(entry);
+      }
+      // Only the OWNER reports staleness; a wrapper seeing its parent's entry as
+      // unused would report a phantom.
+      const stale = (manifests.get(name)?.extends ? [] : [...SANCTIONED_FLAT_OVERRIDES.keys()])
+        .filter((k) => k.startsWith(`${name}|`))
+        .filter((k) => !sanctioned.some((e) => e.slice(2, e.indexOf(':')) === k.split('|')[1]));
       assert.deepEqual(
-        flat,
+        stale,
+        [],
+        `${name}: SANCTIONED_FLAT_OVERRIDES lists an entry that is no longer a flat override ` +
+        `of a base pair. Delete it — a stale sanction is an exemption nobody re-argued:\n  ${stale.join('\n  ')}`,
+      );
+
+      assert.deepEqual(
+        unsanctioned,
         [],
         `${name} overrides a base light-dark() pair with a flat value — dark mode gets a value ` +
         `nobody chose, on every path since #1527 gave the palette the cascade. Give it a dark arm:\n  ` +
-        flat.join('\n  '),
+        unsanctioned.join('\n  '),
       );
     });
   }
