@@ -1,4 +1,4 @@
-import { appToast, expect, test } from './studio-fixture';
+import { appToast, controlReady, expect, test } from './studio-fixture';
 
 // PR 5 of the Specimen Book plan (2026-07-05 decision §4/§6): the playground
 // remembers where you were, syncs honestly, and never destroys a draft. These
@@ -25,7 +25,11 @@ async function gotoPlayground(page: import('@playwright/test').Page) {
 	// Explore by design (PR 6), so pin the surface. The Explore default itself
 	// is covered in playground-explore.spec.ts.
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
-	await expect(page.locator('#pg-template-trigger')).toBeVisible();
+	// Visible is not WIRED — the island is `client:load`, so every control here is server
+	// rendered and clickable-looking a few hundred ms before React commits, and a click in
+	// that window is dropped on the floor (#1815). Same unguarded shape that reached the
+	// nightly from playground-paint.spec.ts; gated once here for all seven callers.
+	await controlReady(page.locator('#pg-template-trigger'));
 }
 
 // Make sure the editor is showing: flip to ✎ Edit via the mode toggle if the

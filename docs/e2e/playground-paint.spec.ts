@@ -1,4 +1,4 @@
-import { expect, test } from './studio-fixture';
+import { controlReady, expect, test } from './studio-fixture';
 
 // Consolidation of scripts/check-preview-render.mjs (the puppeteer paint guard
 // behind preview-e2e-nightly.yml) into the Playwright suite, per the decision
@@ -26,7 +26,19 @@ test('@crosswidth playground: loading a gallery flips to Preview and the deck pa
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 
 	// Open the Galleries sheet and load the first gallery deck (the reported flow).
-	await page.locator('#pg-galleries-trigger').click();
+	// GATE ON HYDRATION, not on the button being there (#1815). The Playground island is
+	// `client:load`, so the trigger is server-rendered and Playwright's auto-wait (attached +
+	// visible + stable + enabled) is satisfied ~300-480ms before anything wires it — measured
+	// on this page. A click in that window is DROPPED, not queued: React does not replay it,
+	// so the button stays inert, the sheet never opens, and the failure surfaces one line
+	// later as `expect(dialog).toBeVisible()` timing out on a page that looks perfectly fine.
+	// Reproduced deterministically by delaying the island's own module the way a contended
+	// worker does (the test below); as REPORTED it was one nightly red on `mobile` at two
+	// workers against 8/8 green at `--workers=1`, which is what the window looks like from
+	// the outside. Mechanism and the trap inside it: engineering/gotchas/docs-site.md.
+	const galleries = page.locator('#pg-galleries-trigger');
+	await controlReady(galleries);
+	await galleries.click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
 	await dialog.locator('button', { hasText: /\d+\s+slides?/ }).first().click();
@@ -40,6 +52,41 @@ test('@crosswidth playground: loading a gallery flips to Preview and the deck pa
 	const preview = page.frameLocator('#preview');
 	await expect(preview.locator('.lattice')).toBeVisible({ timeout: 12_000 });
 	await expect(preview.locator('section').first()).toBeVisible();
+});
+
+// ── The gate above has to be a GATE (#1815) ───────────────────────────────────────────
+//
+// The defect this pins is a test that cannot fail honestly: a click that lands in the
+// unwired window is DROPPED, so the spec fails one line later, blaming a dialog that was
+// never asked to open. It surfaced as one intermittent nightly red and would have gone on
+// looking like a different bug every time.
+//
+// Holding the window open is what makes it a test rather than a hope. Delaying the island's
+// own modules does to hydration exactly what a contended worker does — the server HTML is
+// painted and interactive-LOOKING for as long as we choose. With no gate at all the sheet
+// opened 0 times out of 8 under this delay; with the gate, 8 of 8.
+//
+// It pins the READINESS GATE, not the whole of `controlReady`: the React-commit half of that
+// helper closes a further ~100ms margin that Playwright's own click round-trip happens to
+// cover, so removing that half would not turn this red. The docblock on `controlReady` and
+// the gotchas entry carry that measurement.
+test('@crosswidth a Galleries click waits for hydration, not just for the button', async ({ page }) => {
+	await page.route(/\/_astro\/.*\.js($|\?)/, async (route) => {
+		await new Promise((r) => setTimeout(r, 800));
+		await route.continue();
+	});
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+
+	// The trap, stated: the button passes every actionability check Playwright makes long
+	// before anything is listening to it. Asserting this first is the point — it is what a
+	// spec written against presence alone would have been satisfied by.
+	const galleries = page.locator('#pg-galleries-trigger');
+	await expect(galleries).toBeVisible();
+	expect(await page.evaluate(() => document.body.hasAttribute('data-view')), 'the island hydrated before the delay could open the window — this test proves nothing').toBe(false);
+
+	await controlReady(galleries);
+	await galleries.click();
+	await expect(page.getByRole('dialog')).toBeVisible();
 });
 
 // ── The instant shell must actually FIRE (#1553) ──────────────────────────────────────────

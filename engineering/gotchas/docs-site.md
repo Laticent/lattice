@@ -150,3 +150,37 @@ owe nothing here. See
   pattern that can't match the current command line.
 - **Triggered by:** "Restart the dev server" one-liners.
 - **Removable when:** Never — inherent to `pkill -f` self-matching.
+
+## An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish
+
+- **Symptom:** An e2e click on a server-rendered React control does nothing. The
+  element is attached, visible, stable and enabled, so Playwright's auto-wait is
+  satisfied and the click "succeeds" — then the assertion on the next line times
+  out against a page that looks perfectly healthy. Intermittent: it shows up under
+  worker contention and disappears at `--workers=1`, which reads like a blip.
+- **Cause, part one:** an island rendered `client:load` ships its HTML in the
+  document. Presence proves the SERVER ran, nothing about the client. React does
+  not replay an event that fired before hydration, so the click is dropped on the
+  floor rather than queued. Measured on `/playground/?view=edit`: the Galleries
+  trigger is in the DOM at ~50–85ms and nothing is wired to it until ~380–540ms —
+  a 294–481ms window on an idle machine, wider on a busy one.
+- **Cause, part two, and this is the trap inside the trap:** the obvious fix — wait
+  for `<astro-island>` to drop its `ssr` attribute — is **also too early, by about
+  100ms.** `@astrojs/react`'s client calls `startTransition(() => hydrateRoot(…))`,
+  which returns immediately; the island's `await this.hydrator(...)` therefore
+  resolves and it removes `ssr` while React has not yet committed. Measured with the
+  island's JS delayed: `ssr` dropped 93–103ms before the first click that actually
+  worked, 6 runs of 6.
+- **Fix:** `controlReady` in `docs/e2e/studio-fixture.ts` requires BOTH — the island
+  has dropped `ssr`, AND the control's own DOM node carries React's commit marker
+  (`__reactFiber$…` / `__reactProps$…`, attached when React commits that host node).
+  The marker landed in the same frame as the first working click in every run. It is
+  a React internal on purpose: there is no app-level signal covering every control
+  this helper is pointed at, and if a React upgrade renames it the poll times out
+  loudly instead of certifying an unwired control.
+- **How to tell them apart when you are stuck:** the window is invisible to
+  `page.waitForLoadState`, to `networkidle`, and to any assertion about the element
+  itself — they are all true throughout it. Reproduce it deterministically by
+  delaying the island's module (`page.route(/\/_astro\/.*\.js/, …)` with a sleep),
+  which does to hydration what a contended worker does.
+- **Triggered by:** #1815.

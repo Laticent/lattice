@@ -108,6 +108,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)](gotchas/docs-site.md#a-docs-panel-is-dead-in-astro-dev-only-source-cjs-served-over-fs)
 - [Docs `npm run dev` → `sh: 1: astro: not found`](gotchas/docs-site.md#docs-npm-run-dev--sh-1-astro-not-found)
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
+- [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
 
 ### [Export (PDF, PPTX, the HTML player)](gotchas/export.md)
 

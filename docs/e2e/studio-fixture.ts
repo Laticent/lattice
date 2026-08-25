@@ -237,11 +237,39 @@ export function currentSlide(page: Page): Locator {
  * (StudioPreview, RestyleShowcase) unhydrated forever, so `astro-island[ssr]` never reaches zero
  * there. Fails CLOSED — a control with no island ancestor is not "ready" by default, or this
  * silently becomes a no-op the day the chrome moves out of an island (the #780 drift class).
+ *
+ * TWO conditions, because the island attribute ALONE FIRES ~100ms TOO EARLY (#1815, measured).
+ * `@astrojs/react`'s client wraps `hydrateRoot` in `startTransition`, which returns immediately —
+ * so the island's `await this.hydrator(...)` resolves and it drops `ssr` while React has not yet
+ * committed, and a click in that window is still swallowed. Measured on the Playground's Galleries
+ * trigger with the island's JS delayed: `ssr` dropped 93–103ms before the first click that
+ * actually opened the sheet, in 6 of 6 runs.
+ *
+ * The second condition is React's OWN per-node marker. React attaches `__reactFiber$…` /
+ * `__reactProps$…` to a host DOM node when it COMMITS that node, which is exactly when a click on
+ * it starts reaching a handler — same frame as the first working click in all 6 runs. It is a
+ * React internal, deliberately: the alternative is a per-surface app signal, and there isn't one
+ * that covers every control this helper is pointed at. The failure direction is safe — if a React
+ * upgrade renamed it, this poll TIMES OUT LOUDLY rather than certifying an unwired control.
+ * (Consequence: this helper is for REACT controls. A non-React island control never satisfies it.)
+ *
+ * Scope of the claim: this CLOSES A MARGIN, it does not fix an observed failure at the three
+ * `back-gesture.spec.ts` call sites. Gated on the island attribute alone, a click still landed
+ * 8/8 under the same stress — Playwright's own click round-trip happens to cover ~100ms. The
+ * point is that it was covering it by luck, on a budget nobody chose.
  */
 export async function controlReady(control: Locator): Promise<void> {
 	await control.waitFor({ state: 'visible' });
 	await expect
-		.poll(() => control.evaluate((el) => { const i = el.closest('astro-island'); return !!i && !i.hasAttribute('ssr'); }), { timeout: 20_000 })
+		.poll(
+			() =>
+				control.evaluate((el) => {
+					const i = el.closest('astro-island');
+					if (!i || i.hasAttribute('ssr')) return false;
+					return Object.keys(el).some((k) => k.startsWith('__reactFiber$') || k.startsWith('__reactProps$'));
+				}),
+			{ timeout: 20_000 },
+		)
 		.toBe(true);
 }
 
