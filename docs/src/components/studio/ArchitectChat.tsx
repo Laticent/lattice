@@ -56,6 +56,32 @@ function cancelPaint(ref: React.MutableRefObject<number>) {
 	ref.current = 0;
 }
 
+type ChatNotice = { deck: string; kind: 'offline' | 'blocked' | 'error'; text: string };
+
+// A FAILURE NOTICE HAS TO OUTLIVE THE PANEL, NOT JUST THE RENDER.
+//
+// `notice` was component state, so closing Chat mid-turn destroyed it — and because the
+// shell action below is guarded too, a turn that failed while the panel was shut said
+// nothing, anywhere: the author reopened Chat on the deck that asked and saw their own
+// question with nothing after it. The `ok` branch never had that hole, because `commit`
+// calls `saveChat` unconditionally — so only a FAILED turn could vanish, which is the
+// worst possible way round (checker, #1849).
+//
+// Module scope, deliberately NOT storage. Still ephemeral in the sense the contract means
+// — gone on reload, never an assistant turn, so it can never re-enter the model's history
+// and be re-sent — but it survives the panel closing, which is what makes the guard on
+// `onConnect()` honest rather than a way to drop the news on the floor.
+//
+// Keyed BY DECK, which also settles a second defect: one slot meant a send on deck-2 wiped
+// a notice deck-1 was still waiting to show. A map holds each deck's own.
+const pendingNotices = new Map<string, ChatNotice>();
+
+/** Test seam. Module state outlives a `render()`, so a suite that never cleared this would
+ *  carry one case's failure into the next. Not used by the app. */
+export function __clearPendingNotices() {
+	pendingNotices.clear();
+}
+
 export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
@@ -78,14 +104,22 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// `streaming`: a turn keeps completing across a deck switch, so one that started on
 	// deck-1 and ends while deck-2 is on screen would otherwise paint deck-1's "connect a
 	// model" / "blocked" / "something went wrong" into deck-2's transcript. Filtered at the
-	// render (`shownNotice`), never cleared on the switch — so coming BACK still shows what
-	// that turn actually produced, instead of a deck that silently swallowed its own failure
-	// (#1813).
-	const [notice, setNotice] = React.useState<{ deck: string; kind: 'offline' | 'blocked' | 'error'; text: string } | null>(null);
+	// render (`shownNotice`) and parked in `pendingNotices` — so coming BACK still shows what
+	// that turn actually produced, whether the author changed deck or shut the panel,
+	// instead of a deck that silently swallowed its own failure (#1813).
+	const [notice, setNotice] = React.useState<ChatNotice | null>(() => pendingNotices.get(deckId) ?? null);
 	const [pulse, setPulse] = React.useState(0);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const refDoc = useReferenceDoc(notify, onManageDocs);
 	const status = useArchitectStatus(pulse);
+	// Every notice goes through here: parked for its deck FIRST (so it survives an unmount),
+	// then handed to the render. `setNotice` on a dead component is a no-op — the park is
+	// what carries it.
+	const raiseNotice = (deck: string, kind: ChatNotice['kind'], text: string) => {
+		const n: ChatNotice = { deck, kind, text };
+		pendingNotices.set(deck, n);
+		setNotice(n);
+	};
 
 	const deckIdRef = React.useRef(deckId);
 	deckIdRef.current = deckId;
@@ -111,6 +145,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		};
 	}, []);
 	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
+	React.useEffect(() => setNotice(pendingNotices.get(deckId) ?? null), [deckId]);
 	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
@@ -140,7 +175,10 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			if (mountedRef.current && deckIdRef.current === sendDeckId) setMessages(next);
 		};
 		setBusy(true);
-		setNotice(null);
+		// Only this deck's. A new turn supersedes the last failure on the deck it is sent
+		// from; it says nothing about a notice another deck is still waiting to show.
+		pendingNotices.delete(sendDeckId);
+		if (deckIdRef.current === sendDeckId) setNotice(null);
 		const controller = new AbortController();
 		abortRef.current = controller;
 		bufferRef.current = '';
@@ -160,22 +198,33 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
 			if (out.status === 'offline') {
-				setNotice({ deck: sendDeckId, kind: 'offline', text: 'Connect a model in Workspace → AI and I can answer and edit your deck.' });
+				raiseNotice(sendDeckId, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
 				// looking at. So it fires only if they are still on the deck that asked, in a
 				// panel that is still open — otherwise it opens a sheet over a deck that never
-				// asked for anything (#1813). Nothing is lost by not firing: the notice above is
-				// waiting on the originating deck to say why, and it names Workspace → AI.
+				// asked for anything (#1813).
+				//
+				// This is only honest because the notice is PARKED (`pendingNotices`) rather
+				// than merely set: it is genuinely waiting on the originating deck, naming
+				// Workspace → AI, whichever of the two conditions withheld the sheet. Guarding
+				// the shell action while the notice could still evaporate is how a failed turn
+				// ends up saying nothing at all — see the note on `pendingNotices`.
+				//
+				// The MOUNTED half is load-bearing in its own right, and not for the reason it
+				// looks: `deckIdRef` is assigned during render, so it FREEZES at unmount. Drop
+				// the mounted check and a turn sent from deck-1 with Chat since closed still
+				// reads `deckIdRef.current === 'deck-1'`, passes, and pops the sheet over
+				// whatever deck the author has moved to — #1813 again, wearing a hat.
 				if (mountedRef.current && deckIdRef.current === sendDeckId) onConnect();
 			} else if (out.status === 'blocked') {
-				setNotice({ deck: sendDeckId, kind: 'blocked', text: out.reply });
+				raiseNotice(sendDeckId, 'blocked', out.reply);
 			} else {
 				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined }]);
 			}
 		} catch {
-			setNotice({ deck: sendDeckId, kind: 'error', text: 'Something went wrong reaching the model — try again.' });
+			raiseNotice(sendDeckId, 'error', 'Something went wrong reaching the model — try again.');
 		} finally {
 			abortRef.current = null;
 			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
@@ -239,7 +288,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
 		// standing so they can Discard it deliberately.
 		if (!outcome.applied) {
-			setNotice({ deck: deckId, kind: 'error', text: outcome.refusals[0] || "That edit couldn't be applied to this deck." });
+			raiseNotice(deckId, 'error', outcome.refusals[0] || "That edit couldn't be applied to this deck.");
 			return;
 		}
 		onApply(outcome.source);
@@ -247,7 +296,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
 		// were refused is the same false claim, just smaller.
 		if (outcome.refusals.length) {
-			setNotice({ deck: deckId, kind: 'error', text: outcome.refusals[0] });
+			raiseNotice(deckId, 'error', outcome.refusals[0]);
 			// BLOCKS on both sides of the "of" — `slides` is a different unit and summing them
 			// produced counts describing nothing that existed (checker).
 			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);

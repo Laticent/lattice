@@ -962,6 +962,20 @@ never turn "passed in headless" into "works on iOS."
   - **A shell action** (`onConnect()` popping the Workspace sheet) — fire it only
     if the panel is still mounted AND still on the originating deck. It is not
     state that can wait; it happens NOW, to whatever is on screen (#1813).
+- **The trapdoor under that third rule, and it cost a blocker at review.** Guarding
+  the shell action is only safe if the deck state it defers to genuinely SURVIVES.
+  Component state does not survive an unmount, and the Studio's assistant slot is
+  mutually exclusive — flipping to the Coach unmounts the chat panel. So "notice in
+  state + guarded `onConnect`" meant a turn that failed while the panel was shut said
+  **nothing, anywhere**, on the very deck that asked; the `ok` branch was fine only
+  because `commit` calls `saveChat` unconditionally, which made a FAILED turn the one
+  that could vanish. Fix: park the notice in a module-scope per-deck map
+  (`pendingNotices`) — still ephemeral in the sense that matters (gone on reload, never
+  an assistant turn, so it can't re-enter the model's history) but it outlives the panel.
+- **And do not "fix" it by dropping the mounted check.** `deckIdRef` is assigned during
+  render, so it FREEZES at unmount: a turn sent from deck-1 with the panel since closed
+  still reads `deckIdRef.current === 'deck-1'`, passes the deck test, and pops the sheet
+  over whatever deck the author moved to — the original bug wearing a hat.
 - **Why it keeps recurring:** the guard lives inside `commit`, so the `ok` branch
   reads as guarded and the `offline`/`blocked`/`error` branches beside it read as
   finished code. Adding a fourth outcome, or any new `setX` after the `await`, is

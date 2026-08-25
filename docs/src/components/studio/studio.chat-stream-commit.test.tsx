@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ArchitectChat } from './ArchitectChat';
+import { __clearPendingNotices, ArchitectChat } from './ArchitectChat';
 import { loadChat } from './studio-store';
 
 // #1787 — the streaming bubble has to be GONE once the reply commits.
@@ -53,6 +53,9 @@ const props = { deckId: 'deck-1', source: '# One\n', aiReady: true, onApply: () 
 
 beforeEach(() => {
 	localStorage.clear();
+	// Parked notices are MODULE state — they outlive a `render()`, so without this one
+	// case's failure shows up in the next.
+	__clearPendingNotices();
 	frames = [];
 	nextFrameId = 1;
 	vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -322,5 +325,78 @@ describe('Architect chat — a turn ending offline/blocked/errored stays on the 
 
 		rerender(<ArchitectChat {...props} deckId="deck-1" />);
 		expect(screen.getByText(/Something went wrong reaching the model/)).toBeTruthy();
+	});
+});
+
+// A REGRESSION THE #1813 FIX ITSELF CREATED, caught by the independent checker and fixed
+// with it (HARD RULE #18 — a window you create, you close before shipping).
+//
+// Guarding `onConnect()` on `mountedRef` was half right and half a trapdoor. `notice` was
+// component state, so closing the Chat panel mid-turn destroyed it; with the shell action
+// withheld as well, a turn that failed while the panel was shut said NOTHING, anywhere.
+// The `ok` branch never had that hole — `commit` calls `saveChat` unconditionally — so only
+// a FAILED turn could vanish, which is the worst way round. One click reaches it: send,
+// flip to the Coach while you wait (the Studio's assistant slot is mutually exclusive, so
+// that unmounts this panel), turn comes back offline.
+//
+// Note what the fix is NOT: dropping the mounted check. `deckIdRef` is assigned during
+// render, so it FREEZES at unmount — that "fix" would let a turn sent from deck-1 with Chat
+// since closed pop the Workspace sheet over whatever deck the author moved to. The notice
+// is parked per deck instead, which is what makes withholding the sheet honest.
+describe('Architect chat — a failed turn is still there when the panel reopens (#1813 follow-on)', () => {
+	it('shows the notice on reopen when the turn failed while the panel was closed', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		const { unmount } = render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		// The author flips to the Coach mid-turn. The panel goes away; the turn does not.
+		unmount();
+		await turn.release();
+		await flushFrames();
+		expect(onConnect, 'a sheet opened over a shell whose chat panel is closed').not.toHaveBeenCalled();
+
+		// Reopen Chat on the deck that asked. Before the fix this was the question with
+		// nothing after it — no notice, no sheet, no explanation anywhere.
+		render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		expect(screen.getByText(OFFLINE), 'the turn failed while the panel was shut and said nothing, anywhere').toBeTruthy();
+	});
+
+	it("does not let a send on one deck wipe another deck's waiting notice", async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const failed = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+		await failed.release();
+		await flushFrames();
+		expect(screen.getByText(OFFLINE)).toBeTruthy();
+
+		// A second turn, on a DIFFERENT deck. It supersedes nothing on deck-1.
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		const other = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'and something else');
+		await other.release();
+		await flushFrames();
+
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(OFFLINE), "deck-2's turn cleared the notice deck-1 was still waiting to show").toBeTruthy();
+	});
+
+	it('a new turn on the SAME deck does supersede its own last failure', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const failed = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+		await failed.release();
+		await flushFrames();
+		expect(screen.getByText(OFFLINE)).toBeTruthy();
+
+		// Otherwise a stale "connect a model" sits under a turn that just worked.
+		const good = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'try again');
+		await good.release();
+		await flushFrames();
+		expect(screen.queryByText(OFFLINE), 'a stale failure notice survived a turn that succeeded on the same deck').toBeNull();
 	});
 });
