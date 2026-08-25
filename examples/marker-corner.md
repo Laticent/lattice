@@ -26,11 +26,11 @@ Every one of them wants the slide's top-right. This deck renders the collision, 
 - The status stamp
   - `confidential` and its shape variants paint on the section's own `::before`, flush to the corner.
 - The clip tab
-  - The overflow marker. It reserves a row below whichever stamp shape is present.
+  - The overflow marker, reserving a row below whichever stamp is present.
 - The legibility tab
-  - The type-floor alarm, one row below the clip tab. Authoring surfaces only — a delivered export never draws it, but the reserve still counts its row.
+  - The type-floor alarm, one row below the clip tab. Authoring only.
 - The deck logo
-  - The author's mark, at the frame inset — inside the band the tabs stack into.
+  - The author's mark, at the frame inset — inside the tabs' band.
 
 The first three have engine-owned geometry. The fourth does not.
 
