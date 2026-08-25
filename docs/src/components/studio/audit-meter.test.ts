@@ -57,9 +57,36 @@ describe('auditMeterRows', () => {
 		expect(auditMeterRows({ light: { results } }).map((r) => r.role)).toEqual(['b', 'a', 'c']);
 	});
 
-	test('`missing` and `skipped` rows are not shown as either', () => {
-		const results = [pass('a'), { role: 'b', ratio: null, status: 'missing' }, { role: 'c', ratio: null, status: 'skipped' }];
-		expect(auditMeterRows({ light: { results } }).map((r) => r.role)).toEqual(['a']);
+	// ── UNCHECKED rows (#1841) ────────────────────────────────────────────────
+	//
+	// These used to be filtered out, which was safe only while `auditVars`'s `ok`
+	// ignored them too. It does not any more — a palette of `oklch()` values was
+	// measuring nothing and reporting AA — so a hidden unchecked row would put a red
+	// `review` badge over six green checks with nothing to act on: the #1457 symptom
+	// arriving through the other door.
+	test('an unchecked row IS shown, and sorts between failures and passes', () => {
+		const results = [pass('a'), { role: 'b', ratio: null, status: 'missing' }, { role: 'c', ratio: null, status: 'skipped', unreadable: ['bg'] }, fail('d')];
+		const rows = auditMeterRows({ light: { results } });
+		expect(rows.map((r) => r.role)).toEqual(['d', 'b', 'c', 'a']);
+		expect(rows.find((r) => r.role === 'c')?.unreadable).toEqual(['bg']);
+	});
+
+	test('a role unreadable in ONE mode and passing in the other reads as unchecked', () => {
+		// Otherwise a theme readable on the light canvas and not on the dark would
+		// render green while `ok` said review.
+		const rows = auditMeterRows({
+			light: { results: [pass('heading', 13.2)] },
+			dark: { results: [{ role: 'heading', ratio: null, status: 'skipped', unreadable: ['text-heading'] }] },
+		});
+		expect(rows).toEqual([{ role: 'heading', ratio: null, status: 'skipped', unreadable: ['text-heading'] }]);
+	});
+
+	test('a KNOWN failure still outranks an unchecked row — it is the more actionable one', () => {
+		const rows = auditMeterRows({
+			light: { results: [{ role: 'heading', ratio: null, status: 'skipped' }] },
+			dark: { results: [fail('heading', 2.1)] },
+		});
+		expect(rows[0]).toMatchObject({ role: 'heading', status: 'fail' });
 	});
 
 	test('an absent mode, absent results and an empty audit are all handled', () => {
@@ -139,13 +166,13 @@ describe('auditMeterRows', () => {
 			// left with nothing, which is the property #1457 was actually about.
 		});
 
-		test('skipped / missing separation rows are hidden, exactly like contrast ones', () => {
+		test('skipped / missing separation rows are shown as unchecked, exactly like contrast ones', () => {
 			const results = [
 				pass('heading'),
 				{ role: 'muted-separation', ratio: null, status: 'skipped', kind: 'separation', distance: null },
 				{ role: 'secondary-separation', ratio: null, status: 'missing', kind: 'separation', distance: null },
 			];
-			expect(auditMeterRows({ light: { results } }).map((r) => r.role)).toEqual(['heading']);
+			expect(auditMeterRows({ light: { results } }).map((r) => r.role)).toEqual(['muted-separation', 'secondary-separation', 'heading']);
 		});
 
 		test('the two scales never meet: a contrast row is not out-ranked by a distance', () => {

@@ -42,14 +42,33 @@ export type AuditResult = {
 	status: string;
 	kind?: string;
 	distance?: number | null;
+	/** On a `skipped` row: the token name(s) the auditor could not read (#1841). */
+	unreadable?: string[];
 };
 export type AuditRow = AuditResult;
 
 /** The default number of rows the panel shows. */
 export const AUDIT_METER_ROWS = 6;
 
-/** Lower is worse. `skipped` / `missing` rank last; they are filtered out below. */
-const statusRank = (r: AuditResult) => (r.status === 'fail' ? 0 : r.status === 'pass' ? 1 : 2);
+/** A row nobody could measure — the operand was unreadable, or the token was absent. */
+export const isUnchecked = (r: { status: string }) => r.status === 'skipped' || r.status === 'missing';
+
+/**
+ * Lower is worse: `fail` < unchecked < `pass`.
+ *
+ * UNCHECKED USED TO RANK LAST AND THEN BE FILTERED OUT, which was safe only while
+ * `ok` ignored those rows too. It does not any more (#1841 — a palette of
+ * `oklch()` values was measuring nothing and reporting AA), so a filtered-out
+ * unchecked row would put a red `review` badge over six green checks with nothing
+ * to act on: precisely the #1457 symptom the rest of this file exists to prevent,
+ * arriving through the other door.
+ *
+ * Between the two: an unchecked row must beat a `pass` in the other mode, or a
+ * palette readable on one canvas and unreadable on the other would render green.
+ * It must NOT beat a `fail`, because a known failure is the more actionable of
+ * the two.
+ */
+const statusRank = (r: AuditResult) => (r.status === 'fail' ? 0 : isUnchecked(r) ? 1 : 2);
 
 /**
  * The row's own magnitude, whichever kind it is — a contrast ratio or an OKLab
@@ -73,6 +92,7 @@ function rowOf(r: AuditResult): AuditRow {
 	const row: AuditRow = { role: r.role, ratio: r.ratio, status: r.status };
 	if (r.kind !== undefined) row.kind = r.kind;
 	if (r.distance !== undefined) row.distance = r.distance;
+	if (r.unreadable !== undefined) row.unreadable = r.unreadable;
 	return row;
 }
 
@@ -101,6 +121,14 @@ export function auditMeterRows(
 			if (!prev || worseThan(r, prev)) byRole.set(r.role, rowOf(r));
 		}
 	}
-	const rows = [...byRole.values()].filter((r) => r.status === 'pass' || r.status === 'fail');
-	return [...rows.filter((r) => r.status === 'fail'), ...rows.filter((r) => r.status !== 'fail')].slice(0, limit);
+	const rows = [...byRole.values()];
+	// Same ordering the rank encodes: failures, then what could not be checked, then
+	// passes. The cap can still hide a row once more than `limit` are non-passing —
+	// arithmetic, not a bug, and the same edge the header records — but it can never
+	// hide the whole reason for a red badge behind a wall of green.
+	return [
+		...rows.filter((r) => r.status === 'fail'),
+		...rows.filter(isUnchecked),
+		...rows.filter((r) => r.status === 'pass'),
+	].slice(0, limit);
 }

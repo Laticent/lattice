@@ -20,7 +20,7 @@ import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaff
 // live WCAG report, serializeTheme → a real themes/*.css.
 import { auditBoth, contrastRatio, deriveTheme, STARTERS, serializeTheme, validateEssentials } from '@/playground/theme-core.generated.js';
 import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
-import { auditMeterRows } from './audit-meter';
+import { auditMeterRows, isUnchecked } from './audit-meter';
 import { CodeField } from './CodeField';
 import { type ComponentMeta, saveStudioComponent } from './component-library';
 import { downloadText } from './download';
@@ -1198,7 +1198,14 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
 // WCAG was unmet when it was met. (Reachable: Dusk with Body ink #333333 and Muted ink
 // #282828 fails `secondary-separation` and nothing else.) Careful not to put an `AA`
 // badge on the ROW and then leave the PANEL making the same claim in aggregate.
-function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; status: string; kind?: string; distance?: number | null }[]; ok: boolean }) {
+//
+// THREE STATES, NOT TWO (#1841). A row can now be UNCHECKED — the auditor could not
+// read one of its operands (an `oklch()` / `color-mix()` / translucent value a hand
+// edit is free to write) or the token is absent. Painting that red would say the pair
+// FAILS, which is a different and equally false claim from the one the auditor used to
+// make by painting nothing at all. It gets `--warn`, its own `n/a` tier, and the name
+// of the operand nobody could read.
+function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; status: string; kind?: string; distance?: number | null; unreadable?: string[] }[]; ok: boolean }) {
 	return (
 		<div className="px-4 py-4">
 			<div className="mb-2.5 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -1208,18 +1215,22 @@ function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; 
 			</div>
 			{rows.map((r) => {
 				const good = r.status === 'pass';
+				const unchecked = isUnchecked(r);
 				const separation = r.kind === 'separation';
-				const tier = separation ? (good ? 'OK' : 'FAIL') : tierOf(r.ratio, good);
-				const colour = good ? 'var(--pass)' : 'var(--fail)';
-				const reading = separation
+				const tier = unchecked ? 'n/a' : separation ? (good ? 'OK' : 'FAIL') : tierOf(r.ratio, good);
+				const colour = good ? 'var(--pass)' : unchecked ? 'var(--warn)' : 'var(--fail)';
+				const unread = r.unreadable?.length ? r.unreadable.map((n) => `--${n}`).join(', ') : 'not set';
+				const reading = unchecked
+					? unread
+					: separation
 					? (typeof r.distance === 'number' ? `ΔE ${r.distance.toFixed(3)}` : '—')
 					: (r.ratio ? `${r.ratio.toFixed(1)} : 1` : '—');
 				return (
-					<div key={r.role} className="my-1.5 flex items-center gap-2.5 text-[12px] text-foreground">
-						<span className="grid size-[18px] place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${colour} 16%, transparent)`, color: colour }}>{good ? <Check className="size-3" /> : <TriangleAlert className="size-3" />}</span>
+					<div key={r.role} className="my-1.5 flex items-center gap-2.5 text-[12px] text-foreground" title={unchecked ? `Could not be measured — ${unread} is not a plain hex color, so this pair has no contrast ratio.` : undefined}>
+						<span className="grid size-[18px] place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${colour} 16%, transparent)`, color: colour }}>{good ? <Check className="size-3" /> : unchecked ? <Info className="size-3" /> : <TriangleAlert className="size-3" />}</span>
 						<span className="capitalize text-[var(--text-body)]">{r.role}</span>
-						<span className="ml-auto font-mono text-[11px] text-muted-foreground">{reading}</span>
-						<span className="rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}>{tier}</span>
+						<span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">{reading}</span>
+						<span className="shrink-0 rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}>{tier}</span>
 					</div>
 				);
 			})}

@@ -16,7 +16,7 @@ wired, only ever proposes an *essential set*; this core disposes).
 | File | What it is |
 | --- | --- |
 | `color.js` | Colour math. WCAG sRGB luminance + `contrastRatio` (the **exact** functions `test/unit/palette/contrast.test.js` asserts with — extracted here, shared not duplicated) **plus** OKLCH ↔ sRGB for perceptual lightness/hue control and contrast-aware repair (`ensureContrast`, `pickInk`, `mix`). |
-| `contrast.js` | The contrast **meter / auditor**. Runs the gate's pair checks over an in-memory token map (`auditVars`, `auditBoth`), resolving `light-dark()`/`var()` per mode. `meter(fg, bg)` is the live reading the UI paints. |
+| `contrast.js` | The contrast **meter / auditor**. Runs the gate's pair checks over an in-memory token map (`auditVars`, `auditBoth`), resolving `light-dark()`/`var()` per mode. `meter(fg, bg)` is the live reading the UI paints. A row it cannot measure is `skipped` and **counts against `ok`** — see below. |
 | `derive.js` | The **derivation**. `deriveTheme(essentials)` → full token map, repaired to clear AA in both canvas modes for every gate-checked pair. Exports the essential-set + required-token contracts. |
 | `serialize.js` | `serializeTheme(map, {name})` → droppable `themes/<name>.css` text (the `@theme` directive, `@import 'lattice'`, grouped `:root` blocks, then an **extras block** for names outside the contract). |
 | `parse.js` | The **inverse**. `parseTheme(css)` → an ordered, selector-aware declaration record; `serializeThemeRecord` writes it back. `themeRecordView` is the four-bucket read (tokens · non-token root declarations · at-rules · the non-root tail). Hand-rolled rather than css-tree — see below. |
@@ -152,6 +152,38 @@ serializer no gate watches is exactly the third-arm shape #22 exists for, so the
 property is held by a test rather than by a claim. It is **not** a sanitizer — the
 guard for a document that embeds theme CSS stays at the frame
 (`lib/core/sanitize-style-text.mjs`).
+
+## An unreadable palette is not a clean one (`contrast.js`)
+
+`auditVars` reports each pair as `pass` / `fail` / `missing` / `skipped`, and its
+verdict used to count `skipped` as **neither** a failure nor a missing token. So a
+palette it could not read at all came back clean. Measured: a map of all 107
+contract tokens set to `oklch(50% 0.1 250)` returned **`ok: true` with every
+single row skipped**. Nothing was checked, and the answer was yes.
+
+That was never load-bearing while the pickers were the only producer — they emit
+hex and nothing else — but hand-editing is exactly where `oklch()`,
+`color-mix()`, `rgb()` and `#RRGGBBAA` arrive. So `ok` now requires that every row
+was actually **measured**, and each skipped row carries `unreadable`: the token
+name(s) behind it.
+
+Two things this deliberately does **not** do:
+
+- **It does not convert `oklch()` to hex to measure it.** `color.js` could — but
+  out-of-gamut components clamp on the way to sRGB, so the value measured would
+  not be the value painted, and this module's contract is to be the *same*
+  predicate the shipped gate asserts. An unmeasurable operand is reported as
+  unmeasurable.
+- **It does not call a skipped row a failure.** That is a different false claim in
+  the other direction. `audit-meter.ts` ranks it between `fail` and `pass`, and the
+  Fabricate panel gives it its own `n/a` tier in `--warn` — because a red `review`
+  badge over rows that all read green is the exact defect
+  `docs/src/components/studio/audit-meter.ts` exists to prevent.
+
+One widening comes with it: a **fully opaque** 8- or 4-digit hex (`#000000ff`,
+`#000f`) *is* measured — it is exactly the 6-digit color, so refusing it would be a
+false alarm. A translucent alpha is not, because the composite depends on a
+backdrop a token map does not know.
 
 ## Gating a hand-edited theme (`gate.js`)
 
