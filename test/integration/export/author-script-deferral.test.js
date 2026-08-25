@@ -40,6 +40,35 @@
  * At 400 ms the window reached 450/458/870/941 ms and `LATE ARRIVED` landed in 4 of 6.
  * At 600000 ms the contract held 6 of 6 under that same contention.
  *
+ * ═══ WHAT THIS FILE CAN NO LONGER FALSIFY — READ THIS BEFORE TRUSTING IT ═══
+ *
+ * The fixture's timer is sized against the suite's own timeout rather than a measured window
+ * (#1835), which is what makes the verdict independent of runner load. It also costs
+ * something, and the cost is worth stating at full strength because a green run will
+ * otherwise read as evidence of a contract nothing here checks:
+ *
+ *     THIS FILE CANNOT DETECT A BOUNDED AUTHOR-TIMER WAIT OF ANY SIZE UP TO THE DELAY.
+ *
+ * Add `await sleep(5000)` before the probe read and capture — the shape
+ * `engineering/decisions/2026-08-16-render-format-cost-assessment.md` §2a-ter explicitly
+ * rejects — and every case below STAYS GREEN: the timer is still pending, the warning still
+ * prints, the DOM is unchanged. The 400ms fixture caught exactly that regression as a side
+ * effect of being racy. Measured by injecting it, not reasoned.
+ *
+ * It is given up because there is NO race-free formulation that keeps it. Detecting "the
+ * export inserts no wait of size X" requires a timer of size X, and any such timer is the
+ * same stopwatch on a machine whose speed is not ours — which is the defect #1835 fixed. The
+ * agreement invariant (content landed <-> no warning) is race-free and blind to it for the
+ * same reason; timing the export directly is the perf-guard hazard
+ * (`engineering/decisions/2026-08-03-performance-guard.md`). Nothing cheap covers this;
+ * nothing here covers it; do not read a green run as evidence that it does.
+ *
+ * What IS retained, and is deterministic: the synchronous script lands, the deferred one does
+ * not, the warning names the call and the slide, no false alarm on the synchronous slide, and
+ * — slide 4, added for this reason — a timer that DOES fire clears its record instead of
+ * warning. That last one is the only real-browser coverage of the probe's settle path, which
+ * a delay this large otherwise leaves unreachable.
+ *
  * Slow tier: spawns Chromium once per case.
  */
 
@@ -65,7 +94,13 @@ describe('author-script-deferral', () => {
       env: { ...process.env },
       timeout: TIMEOUT,
     });
-    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // Name the SIGNAL and the error code, not just stderr. A `spawnSync` timeout kill sets
+    // `status: null`, `signal: 'SIGTERM'`, `error.code: 'ETIMEDOUT'` — and the bare message
+    // rendered that as truncated stderr plus `null !== 0`, which does not tell the next person
+    // in CI that they hit the 120s cap. That case is load-bearing: it is the branch the
+    // fixture's "sized against the suite's own timeout" argument exits through.
+    const how = r.signal ? ` [killed by ${r.signal}${r.error?.code ? `, ${r.error.code}` : ''} — the ${TIMEOUT}ms harness cap]` : '';
+    assert.equal(r.status, 0, `emulator failed${how}: ${r.stderr}`);
     // The warning goes to stderr (console.warn); read both so a move between streams does
     // not silently turn this suite green.
     return { ...r, output: `${r.stdout}\n${r.stderr}` };
@@ -78,13 +113,22 @@ describe('author-script-deferral', () => {
 
     // What actually shipped. This is the ground truth the warning has to agree with.
     assert.match(text, /SYNC LANDED/, 'a synchronous script writes before capture and must land');
+    // NOT a claim that a small grace window is absent — see WHAT THIS FILE CAN NO LONGER
+    // FALSIFY below. It is the weaker claim that a task which could not have run, did not.
     assert.doesNotMatch(text, /LATE ARRIVED/, 'a timer that has not fired by capture is lost — the contract, not a bug');
+    // Slide 4's 0ms timer DID fire, and the probe must have cleared its record rather than
+    // reporting it. Safe direction: a slower runner only makes this more certain.
+    assert.match(text, /TICK LANDED/, 'a 0ms timer fires long before capture — if it is missing the export is dropping author script wholesale');
 
     // And what the author was told about it.
     assert.match(output, /deck-authored script task/, 'silent loss is the defect this closes');
     assert.match(output, /setTimeout\(600000ms\)/, 'the warning must name the call, not just complain');
     assert.match(output, /slide 3/, 'and the slide, so the author can find it');
     assert.ok(!/slide 2/.test(output), 'the synchronous script landed — warning about it would be a false alarm');
+    // The settle-on-fire path. A record left open after its callback ran is a FALSE POSITIVE
+    // on every deck whose timers do fire — the asymmetry the probe is deliberately tuned against.
+    assert.ok(!/slide 4/.test(output), 'slide 4\'s timer fired, so its record must have settled — warning about it is the false-positive machine');
+    assert.match(output, /1 deck-authored script task had not run/, 'exactly one outstanding record: the deferred timer, and not slide 4\'s');
   });
 
   test('--quiet stays quiet', { timeout: TIMEOUT }, () => {
@@ -97,7 +141,11 @@ describe('author-script-deferral', () => {
     const out = path.join(tmpDir(), 'deck.html');
     const { output } = render(out);
     const html = fs.readFileSync(out, 'utf8');
-    assert.match(html, /LATE ARRIVED/, 'the sidecar carries the deck\'s script, so the recipient\'s browser runs the timer');
+    // A claim about the BYTES, not the recipient: the fixture's timer is ten minutes, so
+    // "their browser runs it" (what this line used to say) is false even though the export did
+    // everything right. What matters is that the deck's script SHIPS, unstripped — the whole
+    // difference from `--player` below, and why warning here would be a false alarm.
+    assert.match(html, /LATE ARRIVED/, 'the sidecar carries the deck\'s own script rather than stripping it');
     assert.ok(
       !/deck-authored script task/.test(output),
       'nothing was captured and nothing was lost — warning here would be the false alarm that trains authors to ignore this',
@@ -129,8 +177,8 @@ describe('author-script-deferral', () => {
     // emitter lost its marker.
     assert.equal(
       unmarked.length,
-      2,
-      `expected only the fixture's 2 deck scripts to be unmarked, got ${unmarked.length}: ${JSON.stringify(unmarked)}`,
+      3,
+      `expected only the fixture's 3 deck scripts to be unmarked, got ${unmarked.length}: ${JSON.stringify(unmarked)}`,
     );
   });
 });

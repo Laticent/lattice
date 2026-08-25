@@ -48,3 +48,23 @@ setTimeout(function () {
   if (el) el.textContent = 'LATE ARRIVED';
 }, 600000);
 </script>
+
+---
+
+## A timer that fires still clears its record
+
+<div id="tick-target">placeholder</div>
+
+<script>
+// Exercises the probe's settle-on-fire path, which nothing else in this suite reaches in a
+// real browser now that the deferred timer above can never run. A record left open after its
+// callback ran is a FALSE POSITIVE on every deck whose timers do fire.
+//
+// Race-free IN THE SAFE DIRECTION, which is why 0 is sound here where 400 was not: this
+// asserts the timer LANDS, and a slower runner only pushes capture further past the next
+// macrotask. Contention makes it more certain to pass, not less.
+setTimeout(function () {
+  var el = document.getElementById('tick-target');
+  if (el) el.textContent = 'TICK LANDED';
+}, 0);
+</script>

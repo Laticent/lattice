@@ -78,6 +78,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect](gotchas/ci.md#a-generated-dist-artifact-goes-stale-after-a-rebase-and-that-is-not-a-defect)
 - [A docs test passes in declaration order and fails under `--sequence.shuffle.tests`](gotchas/ci.md#a-docs-test-passes-in-declaration-order-and-fails-under---sequenceshuffletests)
 - [A Playwright test for a settling-round race passes on the broken code](gotchas/ci.md#a-playwright-test-for-a-settling-round-race-passes-on-the-broken-code)
+- [An integration test that asks the export to BEAT a timer ejects PRs from the merge queue](gotchas/ci.md#an-integration-test-that-asks-the-export-to-beat-a-timer-ejects-prs-from-the-merge-queue)
 
 ### [CSS](gotchas/css.md)
 

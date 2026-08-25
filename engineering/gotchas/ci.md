@@ -281,3 +281,48 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   force to e2e than to unit tests, because e2e is slow enough that nobody re-runs it idly.
 - **Triggered by:** Porting the #1471 work onto #1840.
 - **Removable when:** Nothing upstream — this is a property of real browsers.
+
+## An integration test that asks the export to BEAT a timer ejects PRs from the merge queue
+
+- **Symptom:** A test passes locally every time — 5/5, 20/20 — then fails once inside a merge
+  group, taking an unrelated PR out of the queue with it. The failure names content that was
+  supposed to be absent from an artifact and is present, or a warning that was supposed to be
+  printed and is missing. Re-running locally reproduces nothing.
+- **Cause:** the assertion is a **wall-clock race the export has to win**, and a merge-queue
+  runner is contended enough to lose it. `test/integration/export/author-script-deferral.test.js`
+  asserted that a deck-authored `setTimeout(…, 400)` had NOT fired before capture. The window it
+  had to beat is everything between the script parsing and `page.pdf()`. **Measured (#1835):**
+  125/245/335 ms across three runs on an *idle* sandbox — 65 ms of headroom in the worst of
+  three, with 210 ms of spread on a machine doing nothing else. Six concurrent renders push it
+  to 450-941 ms, where the timer wins **4 times in 6**. That is how it ejected #1824.
+- **It fails in BOTH directions at once,** which is why it reads as two unrelated bugs: when the
+  timer wins, the content lands in the artifact *and* the probe's record settles, so no warning
+  prints either.
+- **How to tell it apart from an ordinary flake:** re-read the assertion and ask *what has to
+  happen first for this to pass.* If the answer is "our code has to finish before a clock the
+  test itself started", it is this. A duration in the fixture (`400`, `120`, `2000`) is the tell.
+- **Fix: size the delay against the HARNESS's own timeout, not against a measured window.** The
+  fixture's timer is 10 minutes against a 120 s `spawnSync` cap, so for it to fire the render
+  would have to outlast the test itself — load can no longer decide the verdict, and a
+  pathological render fails loudly as a timeout instead of quietly as a wrong assertion. That is
+  what makes it *structural* rather than merely a wider tolerance, and it is the distinction to
+  preserve if anyone retunes it. Make the harness message name the signal and `ETIMEDOUT`, or
+  that branch surfaces as an unexplained `null !== 0`.
+- **Do NOT "make it safer" by raising the delay much further.** The delay goes through IDL
+  `ToInt32`, so behavior is **modular, not monotone** — only `[1, 2147483647]` means what it
+  says. MEASURED identically in Chrome 131 (the build puppeteer bundles, i.e. the one the export
+  runs) and Chromium 141: `2147483647` and `600000` do not fire, `2147483648` fires at **0 ms**,
+  and `4294967696` (2³² + 400) fires at **400 ms** — silently restoring the exact race. "Past the
+  clamp, bigger means immediate" is the wrong rule and hides the hazard.
+- **What the fix COSTS, and you must say so.** The old delay was also the only thing detecting a
+  **bounded wait added before capture**: inject `await sleep(5000)` ahead of the probe read and
+  every case stays green now, where the 400 ms fixture caught it. That claim is inherently racy —
+  a statement about a duration on a machine whose speed is not ours — so it cannot be made
+  reliable, only deleted. Deleting it is right; leaving the file implying it still holds is not.
+- **A large delay also strands the settle-on-fire path.** With no timer that ever runs, the
+  probe's `invoke`/`settle` is unreachable in a real browser, so a record left open after its
+  callback ran — a false-positive warning on every deck whose timers fire — stays green. Keep one
+  `setTimeout(…, 0)` case that asserts its text LANDS and that no warning names its slide: that is
+  race-free in the safe direction, since contention only makes it more certain to pass.
+- **Triggered by:** #1824's ejection; fixed in #1835/#1843, hardened after.
+- **Removable when:** Nothing upstream — this is a test-authoring hazard.
