@@ -509,9 +509,20 @@ function stageToken() {
  *     Separate from `onChange(null)` because the two need opposite treatment:
  *     the console reverting to plain Present is the visible fact, and whether
  *     the ROOM still has the deck is the one a presenter mid-sentence needs
- *     said out loud. `reason` is `'navigated'` (the window is still open,
- *     showing something that is not our deck) or `'gone'` (it vanished without
- *     a goodbye — a crash, a discarded tab, a projector that lost power).
+ *     said out loud. `reason` names an OBSERVED STATE, never a guessed cause:
+ *     `'navigated'` — the window is still there and is not our deck any more (a
+ *     link click, a reload, a Back, or a renderer that died and left an error
+ *     page in it) — or `'gone'`, the window is not there at all and never said
+ *     goodbye.
+ *
+ *     AN EARLIER DRAFT NAMED CAUSES — "a crash, a discarded tab, a projector
+ *     that lost power" — and all three were wrong. A crashed or discarded tab
+ *     keeps `closed === false`, so it arrives as `'navigated'`; and a projector
+ *     losing power changes nothing observable here at all, because the window is
+ *     fine and it is the DISPLAY that went. (Measured while checking this: a
+ *     popup shares its opener's renderer, so a Stage renderer crash generally
+ *     takes the console down with it and no code here runs.) What this file can
+ *     see is whether the window is still there. That is what the names say.
  *
  *     THREE TEARDOWN PATHS, TWO OF THEM DELIBERATE, AND THE SPLIT IS THE POINT.
  *     `close()` (the pill, `S`) announces nothing — the presenter pressed it.
@@ -551,6 +562,16 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	 *  just went. The sequence captured at schedule time is what makes the pending answer
 	 *  stale rather than wrong. */
 	let ownSeq = 0;
+	/** The pending step of a loss classification, so it can be CANCELED rather than merely
+	 *  ignored. `ownSeq` already stops a stale answer being announced, but the chain itself
+	 *  went on scheduling — up to twelve more timers belonging to a window this controller
+	 *  had already let go of. Harmless in a browser and NOT harmless anywhere the timer can
+	 *  outlive its globals: it surfaced as `ReferenceError: window is not defined` fired
+	 *  after a jsdom environment was torn down, which vitest reports as an unhandled error
+	 *  beside a green suite — the exact "passes for a reason other than the one it names"
+	 *  shape this file keeps producing. An owned handle is also simply the honest lifetime:
+	 *  the chain belongs to the window that went, and teardown is per-window. */
+	let lossTimer = 0;
 
 	// The holding page, written synchronously inside the gesture. Without it the
 	// room watches `about:blank` for as long as the deck takes to render, which on a
@@ -608,9 +629,9 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	// ── DID IT DIE, OR DID SOMEONE CLOSE IT? ────────────────────────────────────────
 	//
 	// `closed` is the only discriminator the platform offers, and READING IT ONCE IS THE
-	// WRONG WAY TO ASK IT. Measured on real Chromium (the probe is reproduced in
-	// 2026-08-24-stage-console-split.md §13), holding the handle and sampling it from the
-	// moment the `{stage:'closed'}` beat arrives:
+	// WRONG WAY TO ASK IT. Measured on real Chromium, holding the handle and sampling it from
+	// the moment the `{stage:'closed'}` beat arrives (the probe itself, and the same table for
+	// WebKit and Firefox, are in 2026-08-24-stage-console-split.md §13):
 	//
 	//   teardown path            at the beat   next task   +50ms   +200ms
 	//   hand-close (the X)          false        false     true     true
@@ -645,7 +666,10 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			onLost?.('navigated');
 			return;
 		}
-		window.setTimeout(() => announceUnlessClosed(w, seq, waited + CLOSED_STEP_MS), CLOSED_STEP_MS);
+		lossTimer = window.setTimeout(() => {
+			lossTimer = 0;
+			announceUnlessClosed(w, seq, waited + CLOSED_STEP_MS);
+		}, CLOSED_STEP_MS);
 	}
 
 	function paint(doc) {
@@ -750,6 +774,13 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		ready = false;
 		written = '';
 		ownSeq += 1;
+		// Cancel any classification still walking. It belongs to a window this controller has
+		// already let go of, and the beat path re-schedules a fresh one immediately after this
+		// returns when there is something new to classify.
+		if (lossTimer) {
+			window.clearTimeout(lossTimer);
+			lossTimer = 0;
+		}
 		if (pollId) {
 			window.clearInterval(pollId);
 			pollId = 0;
@@ -821,10 +852,15 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		// THE POLL ALWAYS ANNOUNCES, and it does not consult `closed` the way the beat path
 		// does. Reaching here means the Stage stopped being our document and never said
 		// goodbye — and a goodbye is what a deliberate close reliably sends (measured: a
-		// hand-close fires BOTH `pagehide` and `unload`, so the beat arrives twice). A
-		// window that went without one is a renderer that was killed, a tab that was
-		// discarded, a projector that lost power: the room went dark, and that is the whole
-		// case this notice exists for. A `closed` check here would silence exactly it.
+		// hand-close fires BOTH `pagehide` and `unload`, so the beat arrives twice). Whatever
+		// took the deck off the room's screen without a goodbye, nobody asked for it, so it
+		// gets said. A `closed` check here would silence exactly that.
+		//
+		// The two arms below are OBSERVED STATE, not diagnosis. The common one is
+		// `'navigated'` — the window is still there and is not ours: a same-origin page took
+		// it over without its beat reaching us, or the document became unreadable. `'gone'`
+		// is the window vanishing with no beat at all, which is rarer than it sounds: a
+		// crashed or discarded tab keeps `closed === false` and lands in the first arm.
 		pollId = window.setInterval(() => {
 			if (alive()) return;
 			const w = stageWin;

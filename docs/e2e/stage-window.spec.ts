@@ -399,30 +399,54 @@ test('a Stage the presenter closes by hand reverts the console — and says noth
 	const { stage, dialog, launcher } = await openStage(page, context);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
 
-	// The `{stage:'closed'}` unload beat, on the real window. Polling `win.closed` would
-	// report this up to a poll late — mid-sentence, on the one control a presenter is
-	// looking at to know whether the room can still see the deck.
+	// AND NOT A WORD. The presenter closed that window; announcing it back to them is the
+	// notice people learn to dismiss unread, which costs the one case it exists for.
+	//
+	// ACCUMULATED, NOT SAMPLED — and the first draft of this cell got it wrong in the way this
+	// whole branch keeps getting things wrong. It waited 3000ms and then read
+	// `toHaveCount(0)`. But `notify` is `toast(msg, { duration: 2600 })` and sonner unmounts
+	// the node 200ms after that, so a toast raised by the close is GONE FROM THE DOM by ~2800ms
+	// and a read at ~3100ms sees an empty toaster whether or not the defect is present. The
+	// assertion could not see the thing it forbids; worse, the mutation that appeared to kill
+	// this cell was really killing the positive control below. Reading a state that expires is
+	// the same mistake as reading an OUTCOME where the guard controls the CALL (§12).
+	//
+	// So watch from BEFORE the close and keep what was seen: a toast that appears and
+	// auto-dismisses still leaves its text in the log.
+	const seen = async () => page.evaluate(() => (window as unknown as { __toastLog?: string[] }).__toastLog ?? []);
+	await page.evaluate(() => {
+		const w = window as unknown as { __toastLog?: string[] };
+		w.__toastLog = [];
+		new MutationObserver(() => {
+			for (const el of document.querySelectorAll('[data-sonner-toast]')) {
+				const t = (el.textContent ?? '').trim();
+				if (t && !w.__toastLog?.includes(t)) w.__toastLog?.push(t);
+			}
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+
+	// The `{stage:'closed'}` unload beat, on the real window. Polling `win.closed` would report
+	// this up to a poll late — mid-sentence, on the one control a presenter is looking at to
+	// know whether the room can still see the deck.
 	await stage.close();
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
-
-	// AND NOT A WORD. The presenter closed that window; announcing it back to them is the
-	// notice people learn to dismiss unread, which costs the one case it exists for. Waiting
-	// past BOTH deadlines — the 600ms loss classification and a 2s liveness poll — because
-	// "no toast yet" a beat after the close would be true for the wrong reason.
+	// Past BOTH deadlines the notice could arrive on — the 600ms loss classification and a 2s
+	// liveness poll — because "nothing yet" a beat after the close is true for the wrong reason.
 	await page.waitForTimeout(3000);
-	await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+	expect(await seen(), 'a Stage the presenter closed by hand must not announce itself').toEqual([]);
 
-	// THE POSITIVE CONTROL, in this same cell and on this same surface. Without it "no toast
-	// appeared" is satisfied by a Studio whose toaster never renders at all — which is the
-	// exact shape of vacuity this branch keeps producing. So put the Stage back, take it away
-	// in a way NOBODY asked for, and watch the same locator light up.
+	// THE POSITIVE CONTROL, in this same cell and on this same surface. Without it "nothing was
+	// ever raised" is satisfied by a Studio whose toaster never renders at all. So put the Stage
+	// back, take it away in a way NOBODY asked for, and watch the same log fill.
 	const secondPopup = context.waitForEvent('page');
 	await launcher.click();
 	const stage2 = await secondPopup;
 	await expect(stage2.locator('#latt-film .lattice')).not.toBeEmpty();
 	await stage2.goto('/');
-	await expect(page.locator('[data-sonner-toast]')).toContainText(/showing the room something else/i, { timeout: 10_000 });
+	await expect
+		.poll(seen, { timeout: 10_000, message: 'the toaster never raised anything for a loss nobody asked for' })
+		.toEqual([expect.stringMatching(/showing the room something else/i)]);
 });
 
 test('the caption crawl plays on the Stage, and not in the console', async ({ page, context }) => {

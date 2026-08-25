@@ -53,9 +53,14 @@ const MUTS = [
 	[
 		'\t\t\tconst w = stageWin;\n\t\t\tteardown();\n\t\t\t// Still open',
 		'\t\t\tconst w = stageWin;\n\t\t\tif (w && w.closed) { teardown(); return; }\n\t\t\tteardown();\n\t\t\t// Still open',
-		'the poll goes quiet on a window that is closed (a crash reports nothing)',
+		'the poll goes quiet on a window that is closed (a loss nobody asked for reports nothing)',
 	],
 	["onLost?.(navigated ? 'navigated' : 'gone');", "onLost?.('gone');", 'the poll reports every loss as a death'],
+	[
+		'\t\tif (lossTimer) {\n\t\t\twindow.clearTimeout(lossTimer);\n\t\t\tlossTimer = 0;\n\t\t}',
+		'\t\tif (lossTimer) {\n\t\t\tlossTimer = 0;\n\t\t}',
+		'teardown leaves a classification walking (a timer outliving its window)',
+	],
 	["onLost?.('navigated');\n\t\t\treturn;", "onLost?.('gone');\n\t\t\treturn;", 'a navigated Stage is announced as a death'],
 	[
 		'\t\tconst w = stageWin;\n\t\tteardown();\n\t\tif (w && !w.closed) {',

@@ -4728,19 +4728,26 @@ const SANCTIONED_E2E_SLEEPS = [
   },
   {
     file: 'docs/e2e/stage-window.spec.ts', ms: 3000, count: 1,
-    why: 'ABSENCE ASSERTION, and the ONE number in this list that is DERIVED rather than judged. '
-       + 'A Stage the presenter closes by hand must revert the console and say NOTHING — a notice '
-       + 'for an act you just performed is the one people learn to dismiss unread, which costs the '
-       + 'case it exists for (2026-08-24-stage-console-split.md §13). "No toast ever appeared" has '
-       + 'no signal to poll, and here a poll would be worse than useless: the notice has TWO '
-       + 'deadlines it could arrive on, and both are later than a first tick — the loss '
-       + 'classification samples `window.closed` for up to 600ms (a hand-closed window still '
-       + 'reports `closed === false` when its own unload beat lands, measured), and the liveness '
-       + 'poll fires every 2000ms. So the wait is 600 + 2000 + margin: it is the sum of the '
-       + 'deadlines being outlived, not an interval somebody guessed, and shortening it would make '
-       + 'the cell pass for the wrong reason. The cell carries its POSITIVE CONTROL inside itself '
-       + '— it then re-opens the Stage, navigates it away, and awaits the same locator lighting up '
-       + '— so a Studio whose toaster never rendered at all cannot satisfy it.',
+    why: 'ABSENCE ASSERTION over an ACCUMULATOR, which is what makes this length safe rather '
+       + 'than merely long. A Stage the presenter closes by hand must revert the console and say '
+       + 'NOTHING — a notice for an act you just performed is the one people learn to dismiss '
+       + 'unread, which costs the case it exists for (2026-08-24-stage-console-split.md §13). The '
+       + 'wait outlives the TWO deadlines the notice could arrive on: the loss classification '
+       + 'samples `window.closed` for up to 600ms (a hand-closed window still reports '
+       + '`closed === false` when its own unload beat lands, measured), and the liveness poll '
+       + 'fires every 2000ms. There is no signal to poll for a thing that must never happen. '
+       + 'THE TRAP THIS ENTRY ORIGINALLY WALKED INTO, recorded because the number looks like a '
+       + 'derivation either way: the first draft read `toHaveCount(0)` on the toaster at the end '
+       + 'of the wait, and `notify` is `toast(msg, {duration: 2600})` with a 200ms unmount — so '
+       + 'the toast it forbids is GONE FROM THE DOM by ~2800ms and the read could not see it. '
+       + 'Two deadlines were derived and a third clock (how long the notice lives) decided '
+       + 'whether the assertion had anything to look at, which made LENGTHENING the wait the '
+       + 'thing that broke it. The cell now installs a MutationObserver BEFORE the close and '
+       + 'accumulates every toast text that appears, so an auto-dismissal cannot hide one and the '
+       + 'wait can be as long as the deadlines require. Its POSITIVE CONTROL is inside the same '
+       + 'cell — it re-opens the Stage, navigates it away, and awaits the same log filling — so a '
+       + 'Studio whose toaster never rendered cannot satisfy it. Verified by mutation: the cell '
+       + 'now fails on its OWN assertion, where before it failed on the control.',
   },
   // ── #1246, the post-sanitize injection suite ─────────────────────────────────
   // Both are the canonical "and then nothing happened" shape this allowlist exists for:

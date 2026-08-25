@@ -288,7 +288,13 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'closed' }, {});
 		expect(onChange).not.toHaveBeenCalled();
 
-		// The Stage closing tears down.
+		// The Stage closing tears down. `closed` is set FIRST because this models the window
+		// going away for real, and that is the state a closed window reports by the time the
+		// beat is handled in the opener-close case (measured — see the classifier's table).
+		// It also keeps this cell honest about its own scope: leaving `closed` false would
+		// start a loss classification the cell never resolves, and a timer chain outliving the
+		// test environment is reported by vitest as an unhandled error beside a green suite.
+		win.closed = true;
 		postFromStage({ stage: 'closed' }, win);
 		expect(onChange).toHaveBeenLastCalledWith(null);
 		expect(ctl.isOpen()).toBe(false);
@@ -356,7 +362,7 @@ describe('stage-window — createStageController', () => {
 		// "the room lost the deck", and a notice that fires for an act you just performed is
 		// the one people learn to dismiss unread.
 		//
-		// The hand-close is modelled the way Chromium actually behaves: the unload beat
+		// The hand-close is modeled the way Chromium actually behaves: the unload beat
 		// arrives while `closed` is STILL FALSE, and the flag flips a beat later (measured —
 		// see the controller's table). A fake that sets `closed` up front would let a
 		// synchronous read pass here and misfile every real hand-close in the browser.
@@ -386,13 +392,18 @@ describe('stage-window — createStageController', () => {
 		vi.useRealTimers();
 	});
 
-	it('announces a Stage that vanished with NO goodbye — the crash the beat cannot report', async () => {
-		// The liveness poll, and the case the whole notice exists for: a renderer killed, a
-		// tab discarded, a projector that lost power. There is no unload beat, so nothing but
-		// the poll can notice — and unlike the beat path it does NOT consult `closed`, because
-		// a deliberate close reliably sends a goodbye (measured: a hand-close fires both
-		// `pagehide` and `unload`). A window that went without one is a death, and a `closed`
-		// check here would silence exactly the case being tested.
+	it('announces a window that is GONE and never said so', async () => {
+		// The liveness poll's `'gone'` arm, named for the STATE it reads rather than a cause it
+		// cannot see. An earlier name — "the crash the beat cannot report" — asserted a cause
+		// this fixture does not model and a real crash does not produce: a crashed or discarded
+		// tab keeps `closed === false` and lands in the *other* arm (the cell below), and a
+		// popup shares its opener's renderer, so a Stage crash generally takes the console with
+		// it. Naming a cause the setup does not create is §12's pattern exactly.
+		//
+		// What IS pinned: reaching the poll means the Stage stopped being our document and
+		// never said goodbye, and a goodbye is what a deliberate close reliably sends
+		// (measured: a hand-close fires both `pagehide` and `unload`). So the poll does not
+		// consult `closed` — a check here would silence the loss nobody asked for.
 		vi.useFakeTimers();
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
@@ -406,6 +417,31 @@ describe('stage-window — createStageController', () => {
 		expect(onLost).toHaveBeenCalledTimes(1);
 		expect(onLost, 'a beatless disappearance is a death, not a navigation').toHaveBeenCalledWith('gone');
 		expect(ctl.isOpen()).toBe(false);
+		vi.useRealTimers();
+	});
+
+	it('cancels a classification still walking, rather than leaving it to time out', async () => {
+		// `ownSeq` makes a stale answer un-ANNOUNCEABLE; it does not stop the chain from
+		// re-scheduling itself, and for a while this code did exactly that — up to twelve more
+		// timers belonging to a window the controller had already let go of. Harmless in a
+		// browser, and NOT harmless where a timer can outlive its globals: it surfaced as a
+		// `ReferenceError: window is not defined` fired after the jsdom environment was torn
+		// down, which vitest reports as an unhandled error BESIDE A GREEN SUITE. That is the
+		// same "green for a reason other than the one it names" shape as §12's eight, arriving
+		// from the other direction, so the lifetime is asserted rather than assumed.
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+
+		navigateSameOrigin(win);
+		postFromStage({ stage: 'closed', tok: ctl.token }, {});
+		expect(vi.getTimerCount(), 'a classification should be walking at this point').toBeGreaterThan(0);
+
+		ctl.close();
+		expect(vi.getTimerCount(), 'the controller left a timer running after it was closed').toBe(0);
 		vi.useRealTimers();
 	});
 
@@ -462,6 +498,12 @@ describe('stage-window — createStageController', () => {
 		// teardown path that ever reported itself, and it is the only one the popup e2e cell
 		// exercises. Downstream the console kept a dead handle: pill lit, captions and rail on
 		// NEITHER surface, and the live slide index still being posted at a foreign page.
+		// FAKE TIMERS BEFORE `toggle()`, and the order is load-bearing. `toggle()` installs the
+		// 2s liveness interval; if it is a NATIVE id, `teardown()` hands that id to the fake
+		// `clearInterval`, which silently ignores it — and then zeroes `pollId`, so the real
+		// interval is unreachable and runs for the rest of the process, re-entering teardown
+		// every 2s on dead mocks. Installing the clock first keeps one timer implementation.
+		vi.useFakeTimers();
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		const onChange = vi.fn();
@@ -471,7 +513,6 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'ready' }, win);
 		expect(ctl.isOpen()).toBe(true);
 
-		vi.useFakeTimers();
 		navigateSameOrigin(win);
 		// The beat arrives from a source we cannot match — the TOKEN is what identifies it.
 		postFromStage({ stage: 'closed', tok: ctl.token }, {});
