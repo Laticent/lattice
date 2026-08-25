@@ -58,6 +58,6 @@ The generated page lists each defined term alphabetically, with the runtime's au
 
 ## It also rides in the manifest.
 
-Beyond the slide, the exported `.html` manifest carries the term → definition map, so a downstream tool can read your glossary without scraping the page. The stored field is no longer dead.
+Beyond the slide, the exported `.html` manifest carries the term-to-definition map, so a downstream tool can read your glossary without scraping the page. The stored field is no longer dead.
 
 The next slide is generated — you didn't write it.

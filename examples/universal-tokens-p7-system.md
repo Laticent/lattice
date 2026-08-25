@@ -25,7 +25,7 @@ footer: "Phase 7 — the whole system"
 ## Organized on two axes.
 
 - Abstraction
-  - Primitive → Semantic → Component. What it means flows into how it is used.
+  - Primitive, then Semantic, then Component. What it means flows into how it is used.
 - Render shape
   - css-rich (live cascade) vs bridge-flat (the offline Mermaid resolver) — now both evaluate the same expressions.
 - Foreground

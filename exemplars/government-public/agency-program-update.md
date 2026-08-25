@@ -83,7 +83,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 <!-- _class: roadmap -->
 <!-- tier: short -->
 
-`Plan · FY2027 → FY2028`
+`Plan · FY2027 – FY2028`
 
 ## What ships in each phase, by workstream.
 

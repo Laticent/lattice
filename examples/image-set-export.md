@@ -77,7 +77,7 @@ flowchart LR
 The same set comes off the command line or out of the Studio — one shared kernel packs both, so a zip is a zip wherever it's made.
 
 - **CLI.** `lattice deck.md out.zip` — add `--image-format webp`, `--image-size 1x`, or `--no-svg` to tune. `--help` lists every knob.
-- **Studio.** Share → **Images (.zip)** → pick the format, resolution, and extras → **Download images**.
+- **Studio.** Share › **Images (.zip)**, then pick the format, resolution and extras, then **Download images**.
 
 ---
 

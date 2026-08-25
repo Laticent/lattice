@@ -11,7 +11,7 @@ footer: "SlideWright · inventory component"
 
 `Component · inventory`
 
-The next four slides carry the **byte-identical** content — same eyebrow, same heading, same four items, same insight. Only the variant changes: `inventory` → `inventory cards` → `inventory timeline` → `inventory editorial`. Pure CSS, no re-author.
+The next four slides carry the **byte-identical** content — same eyebrow, same heading, same four items, same insight. Only the variant changes: `inventory`, then `inventory cards`, then `inventory timeline`, then `inventory editorial`. Pure CSS, no re-author.
 
 ---
 

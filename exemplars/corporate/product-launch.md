@@ -103,7 +103,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 1. −68%
    - time to diagnose
-2. 47→9 min
+2. 47 to 9 min
    - median MTTR
 3. 3.4×
    - incidents auto-explained

@@ -67,14 +67,14 @@ style: |
 
 ---
 
-<!-- _class: title -->
+<!-- _class: title note-warn -->
 
 # Palette audit
 ## every token tier, every theme
 
 Each slide hardcodes the resolved hex values for one palette so the swatches show *that* palette regardless of the deck's active theme.
 
-> **⚠️ The `--cat-*` categorical proposals here are SUPERSEDED (2026-07-16, #1022).** They were
+> **The `--cat-*` categorical proposals here are SUPERSEDED (2026-07-16, #1022).** They were
 > scored under the retired "pale L≈87 / deep L≈32, fixed non-flipping ink" model; the shipped
 > categorical cycle is now the **three-layer contrast contract** (`engineering/decisions/2026-07-15-categorical-token-contract.md`,
 > gated by `checkCatContrast`). **Do not copy these `--cat-*` values into a new theme** — copy a

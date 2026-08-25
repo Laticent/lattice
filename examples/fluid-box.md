@@ -30,7 +30,7 @@ header: "Lattice · fluid-box viewer"
 ---
 
 <!-- _class: stats -->
-<!-- _footer: "stats · reflows 4-across → stacked" -->
+<!-- _footer: "stats · reflows 4-across to stacked" -->
 
 `Impact · Pilot Results`
 

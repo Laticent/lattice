@@ -23,47 +23,47 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _focus: row 4 -->
 
 ## `_focus: row 4` — ring the deciding criterion.
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | ✓      | ✗            | ✓         | ✓           |
-| Auditability | ✗      | ✓            | ✓         | ✓           |
-| Adoption     | ✓      | ✓            | ✗         | ✓           |
-| Calibration  | ✗      | ✗            | ✗         | ✓           |
+| Speed        | [x]    | [ ]          | [x]       | [x]         |
+| Auditability | [ ]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [ ]       | [x]         |
+| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _focus: col 5 -->
 
 ## `_focus: col 5` — read one option, top to bottom.
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | ✓      | ✗            | ✓         | ✓           |
-| Auditability | ✗      | ✓            | ✓         | ✓           |
-| Adoption     | ✓      | ✓            | ✗         | ✓           |
-| Calibration  | ✗      | ✗            | ✗         | ✓           |
+| Speed        | [x]    | [ ]          | [x]       | [x]         |
+| Auditability | [ ]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [ ]       | [x]         |
+| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _focus: cell 4,5 -->
 
 ## `_focus: cell 4,5` — the single decisive cell.
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | ✓      | ✗            | ✓         | ✓           |
-| Auditability | ✗      | ✓            | ✓         | ✓           |
-| Adoption     | ✓      | ✓            | ✗         | ✓           |
-| Calibration  | ✗      | ✗            | ✗         | ✓           |
+| Speed        | [x]    | [ ]          | [x]       | [x]         |
+| Auditability | [ ]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [ ]       | [x]         |
+| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---
@@ -119,7 +119,7 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _focus: row 4 -->
 <!-- _focusStyle: pop -->
 
@@ -127,10 +127,10 @@ const entry = await framework.decisions.log(decision, { signals });
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | ✓      | ✗            | ✓         | ✓           |
-| Auditability | ✗      | ✓            | ✓         | ✓           |
-| Adoption     | ✓      | ✓            | ✗         | ✓           |
-| Calibration  | ✗      | ✗            | ✗         | ✓           |
+| Speed        | [x]    | [ ]          | [x]       | [x]         |
+| Auditability | [ ]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [ ]       | [x]         |
+| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 ---

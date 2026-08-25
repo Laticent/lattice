@@ -47,15 +47,15 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _build: rows -->
 
 ## `_build: rows` — reveal the comparison row by row.
 
 | Criterion    | Option A | Option B | Option C |
 | ------------ | -------- | -------- | -------- |
-| Speed        | ✓        | ✗        | ✓        |
-| Auditability | ✗        | ✓        | ✓        |
+| Speed        | [x]      | [ ]      | [x]      |
+| Auditability | [ ]      | [x]      | [x]      |
 | Cost         | Low      | High     | Low      |
 
 ---

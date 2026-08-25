@@ -42,7 +42,7 @@ _Measured on a 1280×720 indaco render — distance in px from the slide edge, b
 
 ## An SVG chart keeps its ink and gains its box.
 
-The figure box goes 896 → 1024; the letterboxed drawing is height-bound, so the room around it changes, not the mark.
+The figure box goes 896 to 1024; the letterboxed drawing is height-bound, so the room around it changes, not the mark.
 
 - Quick Wins
   - Weekly signal digest `2, 82`

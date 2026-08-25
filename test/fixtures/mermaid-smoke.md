@@ -16,7 +16,7 @@ small so the test stays fast (one diagram ≈ 3-5 s through mmdc).
 
 <!-- _class: diagram -->
 
-## A → B
+## A to B
 
 ```mermaid
 flowchart LR

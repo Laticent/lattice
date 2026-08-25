@@ -378,17 +378,17 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _footer: "Comparison table · compare-table" -->
 
 ## The four tools side by side
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
-| Speed        | ✓      | ✗            | ✓         | ✓           |
-| Auditability | ✗      | ✓            | ✓         | ✓           |
-| Adoption     | ✓      | ✓            | ✗         | ✓           |
-| Calibration  | ✗      | ✗            | ✗         | ✓           |
+| Speed        | [x]    | [ ]          | [x]       | [x]         |
+| Auditability | [ ]    | [x]          | [x]       | [x]         |
+| Adoption     | [x]    | [x]          | [ ]       | [x]         |
+| Calibration  | [ ]    | [ ]          | [ ]       | [x]         |
 | Setup time   | 1 day  | 3–4 weeks    | 40+ hours | Same day    |
 
 _Criteria defined by the team building Sprig + Log. We're transparent about it. It's in the footnote._
@@ -775,11 +775,11 @@ The pilot team measured what the pilot team built.
 
 ## Before the results, what you should have learned in the first 47 slides
 
-- Four components. Two used regularly. → Section 01
-- The evaluation team recommended the tool the evaluation team built. → Section 02
-- Phase 01 shipped. Phase 03 in the roadmap since 2024. → Section 03
-- Adoption is 12%. Target 90%. The gap is "cultural." → this section
-- The calibration loop has run once. We call it "calibrated." → this section
+- Four components. Two used regularly. — see Section 01
+- The evaluation team recommended the tool the evaluation team built. — see Section 02
+- Phase 01 shipped. Phase 03 in the roadmap since 2024. — see Section 03
+- Adoption is 12%. Target 90%. The gap is "cultural." — see this section
+- The calibration loop has run once. We call it "calibrated." — see this section
 
 ---
 

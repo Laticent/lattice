@@ -13,7 +13,7 @@ header: "Lattice · Fast reprint"
 
 The Print drawer now rasterizes each slide **once** and caches the images. Changing paper or orientation re-places those images onto the new sheet — no re-rasterize.
 
-<!-- Speaker: this deck is the demo for the cached-image re-place path; print it, flip Letter↔Legal↔A4, and the second build is instant. -->
+<!-- Speaker: this deck is the demo for the cached-image re-place path; print it, flip between Letter, Legal and A4, and the second build is instant. -->
 
 ---
 
@@ -21,7 +21,7 @@ The Print drawer now rasterizes each slide **once** and caches the images. Chang
 
 ## A paper change used to rebuild the whole PDF.
 
-- Every Letter → Legal → A4 flip re-ran the expensive step: **clone, embed fonts, rasterize** each slide.
+- Every Letter-to-Legal-to-A4 flip re-ran the expensive step: **clone, embed fonts, rasterize** each slide.
 - On a chart-heavy deck that is the dominant cost — paid again on every toggle.
 - The pixels never changed, though — only where they land on the page did.
 

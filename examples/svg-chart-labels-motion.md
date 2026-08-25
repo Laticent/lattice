@@ -109,7 +109,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ## Why not `foreignObject`.
 
-It wraps natively, so it looks like the obvious answer. It is not "fully SVG", it is unreliable in the Chromium→PDF export path — and, decisively, a `foreignObject` label is an HTML `<div>`. Chart motion grants the label role to `<text>` nodes, so such a label would be invisible to the very system this work exists to serve.
+It wraps natively, so it looks like the obvious answer. It is not "fully SVG", it is unreliable in the Chromium-to-PDF export path — and, decisively, a `foreignObject` label is an HTML `<div>`. Chart motion grants the label role to `<text>` nodes, so such a label would be invisible to the very system this work exists to serve.
 
 ---
 

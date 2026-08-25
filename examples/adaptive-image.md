@@ -27,7 +27,7 @@ You hand it any rectangle. It reads the asset's shape, weighs the deck it's on, 
 ---
 
 <!-- _class: image -->
-<!-- _footer: "wide photo → clean — the card takes the photo's own shape" -->
+<!-- _footer: "wide photo becomes clean — the card takes the photo's own shape" -->
 
 ## Activation is where the trial is won or lost.
 
@@ -38,7 +38,7 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 ---
 
 <!-- _class: image -->
-<!-- _footer: "square photo → clean — same default, a square card" -->
+<!-- _footer: "square photo becomes clean — same default, a square card" -->
 
 ## The signal, framed and centered.
 
@@ -49,7 +49,7 @@ The card adapts: a squarish photo sits in a square card. One default, every mode
 ---
 
 <!-- _class: image -->
-<!-- _footer: "tall photo → split — shown whole in a full-height column" -->
+<!-- _footer: "tall photo becomes split — shown whole in a full-height column" -->
 
 ## Built for the long climb.
 
@@ -60,7 +60,7 @@ An extreme aspect would waste a card, so the resolver upgrades to **split** — 
 ---
 
 <!-- _class: image -->
-<!-- _footer: "panorama → spotlight — full-bleed, with a SOLID card" -->
+<!-- _footer: "panorama becomes spotlight — full-bleed, with a SOLID card" -->
 
 ## A panorama earns the full frame.
 
