@@ -169,7 +169,9 @@ A "deep dive variant" is not a sibling view next door. It is the same argument w
 which means it is *parented*, and it means going deeper must never take a slide away.
 
 That is the property that separates the shipped views into two families. Reading the rule table in
-`suggest.ts` against the component classifications in `dist/docs/components.json`:
+`suggest.ts` against the component classifications in `dist/docs/components.json` — and now pinned by
+`docs/src/components/studio/lens-containment.test.ts`, which asserts each relation below against
+those same two sources on every PR:
 
 - **`brief` ⊆ `evidence`.** Brief takes anchor bookends, non-`connect` statements, and `kpi`/`stats`.
   Evidence drops only `imagery`, `connect` statements, and anchor **dividers**. Bookends are not
@@ -250,10 +252,13 @@ to give it one and let a real deck exercise it before adding a depth vocabulary 
 
 ## 6. What is unverified
 
-- **The containment analysis is a reading of the suggester's rule table, not a measurement over
-  authored decks.** It holds for the default *suggestions*; nothing enforces it today, so an author
-  can tag arbitrarily and produce a set where `brief ⊄ evidence`. That is exactly what the validator
-  in the follow-up slice would catch.
+- **The containment decomposition is now pinned, but only over the SUGGESTER.**
+  `docs/src/components/studio/lens-containment.test.ts` asserts `brief ⊂ evidence ⊂ full` and the two
+  non-containments that make `story` a cut, against the real rule table and the real 61-component
+  catalog — and it runs on the merge gate (`docs-build`), so a drift in either source fails there
+  rather than rotting this note. What is **still** unverified: nothing enforces containment for
+  **author-tagged** membership, so a person can tag arbitrarily and produce `brief ⊄ evidence` in
+  their own deck. That is the follow-up slice's validator, not something this note can claim.
 - **The tagging tax (R6) is still unmeasured.** The `includes:` decision above is argued from the
   shape of the problem, not from a count on a real multi-view deck. If a deck ever carries a ladder,
   count it.

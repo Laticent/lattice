@@ -8,6 +8,11 @@ import { CHROME, expect, gotoStudio, openLenses, test } from './studio-fixture';
 // unapproved target opens the full deck — which is safe precisely because the picker offered the full
 // deck anyway. That is the opposite of a view a reader PICKS, which fails CLOSED (lenses.spec.ts).
 
+// Deliberately NOT `@smoke`: the smoke set stays lean and `studio-smoke` is advisory anyway
+// (ci.yml keeps it out of `ci.needs`), so tagging would add per-PR runtime without adding a gate.
+// This sits in the nightly tier beside lenses.spec.ts, and the merge-gating proof of the same
+// behavior is the jsdom pair in studio.present-landing-view.test.tsx, which runs in `docs-build`.
+
 test.beforeEach(async ({ page }) => {
 	// Start from an empty reader-view slate: workspace inheritance off before the app loads, matching
 	// lenses.spec.ts (the inherited-starters path has its own spec).
