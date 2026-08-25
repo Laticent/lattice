@@ -484,7 +484,7 @@ expensive for anything scheduled to pass it:
 | flag | tier | cost | blessed rows |
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
-| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
+| `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` *(not blessed yet — see below)* |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
@@ -504,10 +504,22 @@ run actually SCREENSHOTTED — not a section count another renderer reported —
 cycle that quietly stops rasterizing fails as a workload change on any machine, ahead
 of any timing. That failure used to read as a spectacular win.
 
-A tier whose baseline block has **never existed** reports rather than failing: drift
-means a blessed row has been recording nothing, and a tier nobody has blessed has no
-rows to rot. A *partly* blessed tier still drifts normally, so one newly added row
-among three blessed ones stays red until someone blesses it.
+**The apparatus is wired; the record is not written.** `baseline.json` carries no
+`exportDatasets` yet, so `bench:check -- --export` reports and exits 0. Blessing it
+needs a machine whose calibration probe reads in band (`comparableMachine`), because
+any bless restamps `blessedOn` for every tier — see the caveat below.
+
+A tier **this repo has not blessed yet** reports rather than failing: drift means a
+blessed row has been recording nothing, and a tier nobody has blessed has no rows to
+rot. Which tiers those are is a **declared list** (`TIERS_NOT_YET_BLESSED`), not a
+guess at whether the block is there — an absent block cannot distinguish "never
+blessed" from "blessed once and since deleted", and the second is precisely the rot
+the MISSING arms exist to catch. It is reachable, too: a bless drops all four browser
+blocks when the existing baseline fails `JSON.parse`, so inferring from the block
+would have made a silent drop and a silent check into one silent pair. An entry
+retires itself — once a tier has a block the list stops applying to it — so a stale
+name is inert rather than a hole. A *partly* blessed tier still drifts normally, so
+one newly added row among three blessed ones stays red until someone blesses it.
 
 So a full re-bless is `npm run bench:bless -- --export --print --sweep --cli`, and
 `bench:bless` **alone preserves** any existing `exportDatasets` / `printDatasets` /

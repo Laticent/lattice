@@ -1174,10 +1174,12 @@ function checkBaseline(summary, render, opts = {}) {
   // `main()`. A reader comparing an export change against this output was reading the wrong
   // rows. The label is now the tier.
   //
-  // The real `exportTier()` is blessed and checked as of this change (see the EXPORT CHECK
-  // block below); it used to be neither, with `main()` handing its summary to the `--json`
-  // dump and nothing else, even though the tier was given a `{ main, summary }` shape
-  // precisely so it could be compared.
+  // The real `exportTier()` can now be blessed and checked (see the EXPORT CHECK block below);
+  // it used to be neither, with `main()` handing its summary to the `--json` dump and nothing
+  // else, even though the tier was given a `{ main, summary }` shape precisely so it could be
+  // compared. NOTHING IS BLESSED YET: `baseline.json` carries no `exportDatasets`, so the block
+  // reports and exits 0 until someone runs `bench:bless -- --export` on a machine whose probe
+  // is in band. The apparatus is wired; the record is not written.
   //
   // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
   // they are far more exposed to machine and I/O noise than an in-process render. 50% catches a
@@ -1185,15 +1187,32 @@ function checkBaseline(summary, render, opts = {}) {
   // CLI tiers share it, for the same reason.
   const EXPORT_BAND = 50;
 
-  // A TIER WHOSE BASELINE BLOCK HAS NEVER EXISTED IS NOT DRIFT — and the difference matters,
-  // because drift exits 1 on ANY machine. Drift means a blessed row has been recording nothing:
-  // something rotted. A tier that was never blessed has no rows to rot; it has a bless nobody has
-  // run yet, and the honest verdict is "not blessed here", not "stale". Failing there would ship
-  // a gate that is red the day it lands for anyone who passes the flag on a machine that cannot
-  // bless (see `comparableMachine` — a probe out of band). A PARTLY blessed tier still drifts
-  // normally, which is what keeps a newly ADDED row (one new dataset among three blessed ones)
-  // red until someone blesses it. Inert for print/sweep/cli today: all three have blessed blocks.
-  const neverBlessed = (block) => !block || !Object.keys(block).length;
+  // A TIER THAT IS NOT YET PART OF THE COMMITTED BASELINE IS NOT DRIFT — and the difference
+  // matters, because drift exits 1 on ANY machine. Drift means a blessed row has been recording
+  // nothing: something rotted. A tier nobody has blessed has no rows to rot; it has a bless
+  // nobody has run yet, and the honest verdict is "not blessed here", not "stale". Failing there
+  // would ship a gate that is red the day it lands for anyone who passes the flag on a machine
+  // that cannot bless (see `comparableMachine` — a probe out of band). A PARTLY blessed tier
+  // still drifts normally, which is what keeps a newly ADDED row (one new dataset among three
+  // blessed ones) red until someone blesses it.
+  //
+  // WHICH TIERS THOSE ARE IS DECLARED, NOT INFERRED, and the first cut got this wrong in a way
+  // that opened a hole. It asked the BLOCK — `!block || !Object.keys(block).length` — which
+  // cannot tell "never blessed" from "blessed once and since DELETED". Those are opposite
+  // states: the second is exactly the "a blessed row nothing ever reads again" rot the MISSING
+  // arms below exist to end, and it is reachable without hand-editing, because `blessBaseline`
+  // drops all four browser blocks when the existing baseline fails `JSON.parse` (an unresolved
+  // merge conflict, a truncated write — a pre-existing behavior). The silent drop was survivable
+  // only because the next `bench:check` failed loudly; inferring from the block took that away
+  // and made the pair silent end to end. Caught by the HARD RULE #25 checker.
+  //
+  // So the exception is a NAMED LIST of the tiers this repo has not blessed yet, and everything
+  // else keeps failing loudly on an absent block. An entry retires itself: once a tier has a
+  // block, `neverBlessed` is false whatever the list says, so a stale name is inert rather than
+  // a hole. Today that is the rasterize tier alone — print, sweep and CLI are all blessed in
+  // `test/benchmark/baseline.json`, and an absent block for any of them means a deletion.
+  const TIERS_NOT_YET_BLESSED = new Set(['exportDatasets']);
+  const neverBlessed = (key) => TIERS_NOT_YET_BLESSED.has(key) && !Object.keys(base[key] ?? {}).length;
 
   // THE RASTERIZE TIER. Only compared when THIS run produced it (`--export`), so a plain
   // `bench:check` is unchanged. Same-machine-only and no calibration index, for the print
@@ -1209,7 +1228,7 @@ function checkBaseline(summary, render, opts = {}) {
   // inversion: 50% catches a doubling and the RME is recorded in the file for a reader.
   if (exportSummary?.length) {
     console.log('\n=== EXPORT CHECK · rasterize cycle vs committed baseline ===');
-    const unblessed = neverBlessed(base.exportDatasets);
+    const unblessed = neverBlessed('exportDatasets');
     if (unblessed) console.log('  no `exportDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless -- --export` to start gating.');
     for (const s2 of exportSummary) {
       const b = base.exportDatasets?.[s2.dataset];
@@ -1248,7 +1267,7 @@ function checkBaseline(summary, render, opts = {}) {
 
   if (printSummary?.length) {
     console.log('\n=== PRINT CHECK · current vs committed baseline ===');
-    const unblessed = neverBlessed(base.printDatasets);
+    const unblessed = neverBlessed('printDatasets');
     if (unblessed) console.log('  no `printDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless -- --print` to start gating.');
     for (const s of printSummary) {
       const b = base.printDatasets?.[s.dataset];
@@ -1316,7 +1335,7 @@ function checkBaseline(summary, render, opts = {}) {
   const SWEEP_RATIO_FLOOR = 3;
   if (sweepSummary?.length) {
     console.log('\n=== FIT-SWEEP CHECK · scoped-vs-whole-document ratio ===');
-    const unblessed = neverBlessed(base.sweepDatasets);
+    const unblessed = neverBlessed('sweepDatasets');
     if (unblessed) console.log('  no `sweepDatasets` in the baseline — the 3× floor below still gates; the blessed ratio is what is missing.');
     for (const s of sweepSummary) {
       const b = base.sweepDatasets?.[s.dataset];
@@ -1357,7 +1376,7 @@ function checkBaseline(summary, render, opts = {}) {
   // booting Chromium.
   if (cliSummary?.length) {
     console.log('\n=== CLI CHECK · whole-emulator render vs committed baseline ===');
-    const unblessed = neverBlessed(base.cliDatasets);
+    const unblessed = neverBlessed('cliDatasets');
     if (unblessed) console.log('  no `cliDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless -- --cli` to start gating.');
     for (const s2 of cliSummary) {
       const b = base.cliDatasets?.[s2.dataset];
