@@ -248,5 +248,17 @@ declaration-only by design.
   split has real usage behind it.
 - **The `teaching` numbers are the least grounded in the table.** They come from
   two decks. Widen the sample before tuning them further.
+- **The Coach panel is unreachable between ~1024px and ~1180px, and that is NOT
+  this change's doing.** Verifying the new panel at the three required widths
+  (1440 / 820 / 390) found no "Toggle Coach" control at all in the 820–1024 band:
+  it appears at ≥1180px, and separately through the mobile eight-cell bar at
+  390px. `git diff origin/main...HEAD` touches zero lines of panel-visibility
+  logic, so this is pre-existing and OFF the path of this change (it lives in the
+  Studio shell's responsive layout, not the card this change edits). Logged here
+  rather than fixed, per HARD RULE #18's on-path/off-path rule — pulling it in
+  would widen the PR against #17. **What this means for the verification claim:
+  the new panel is verified at 1440 and 390 (no overflow, no horizontal scroll,
+  the profile control usable at both); 820 is NOT verified, because there is
+  nothing of this change reachable there to verify.**
 - **`general` covers 149 of 197 committed decks**, which is honest but blunt:
   most of those are feature demos that are not really a genre at all.
