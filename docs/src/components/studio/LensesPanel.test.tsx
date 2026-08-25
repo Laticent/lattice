@@ -191,3 +191,75 @@ describe('LensesPanel — remove', () => {
 		expect(onWriteRegistry).not.toHaveBeenCalled(); // removal is NOT a plain registry edit
 	});
 });
+
+describe('LensesPanel — the landing view (`lens-default:`)', () => {
+	// The deck-level lever: where readers START. One winner per deck, so it is one select above the
+	// list, not a toggle repeated down every row. The interesting logic is the honest note — the
+	// landing lever fails SOFT, so an author who picks an unapproved view must be told that readers
+	// land on Full until they approve it, rather than left guessing why nothing changed.
+	// See 2026-08-25-lens-view-defaults-and-depth.md §3.
+	const tagged = ['<!-- _class: title -->\n# Cover', '<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number'];
+	const bare = 'lenses:\n  brief: { label: "Bottom line", base: none }';
+	const approvedFm = (head = '') => `${head}lenses:\n  brief: { label: "Bottom line", base: none, approved: ${JSON.stringify(approvalHash(tagged, parseLensRegistry(bare), 'brief'))} }`;
+	// shadcn/radix SelectTrigger exposes role="combobox" with its aria-label (the PaletteControls pattern).
+	const control = () => screen.getByRole('combobox', { name: /view readers land on/i });
+
+	it('is absent until the deck has a reader view — there is nothing to land on but the full deck', () => {
+		setup('', { slides: tagged });
+		expect(screen.queryByRole('combobox', { name: /view readers land on/i })).not.toBeInTheDocument();
+	});
+
+	it('reads "Full deck" with no default set, and says readers can still switch', () => {
+		setup(bare, { slides: tagged });
+		expect(control()).toHaveTextContent('Full deck');
+		expect(screen.getByText(/opens on the whole deck/i)).toBeInTheDocument();
+	});
+
+	it('reads the deck default when that view is approved', () => {
+		setup(approvedFm('lens-default: brief\n'), { slides: tagged });
+		expect(control()).toHaveTextContent('Bottom line');
+		expect(screen.getByText(/Present opens on Bottom line/i)).toBeInTheDocument();
+	});
+
+	it('keeps an UNAPPROVED choice selected but says readers land on Full until it is approved', () => {
+		// The author's intent is durable — they are usually about to approve it — so the control does not
+		// silently snap back to Full. It states the consequence instead.
+		setup(`lens-default: brief\n${bare}`, { slides: tagged });
+		expect(control()).toHaveTextContent('Bottom line');
+		expect(screen.getByText(/isn’t approved yet, so readers land on Full deck/i)).toBeInTheDocument();
+	});
+
+	it('a DRIFTED view says the deck CHANGED — not that it was never approved', () => {
+		// Approved against different slides → the hash no longer matches → readers land on Full. The
+		// author's fix is "re-approve", which is a different action from "approve", so the copy differs.
+		const drifted = `lens-default: brief\nlenses:\n  brief: { label: "Bottom line", base: none, approved: "sha256:stale" }`;
+		setup(drifted, { slides: tagged });
+		expect(screen.getByText(/changed since you approved it, so readers land on Full deck/i)).toBeInTheDocument();
+	});
+});
+
+describe('LensesPanel — the landing note names the REAL reason', () => {
+	// A landing view can miss for four different reasons, and "not approved yet" is only one of them.
+	// Each state gets its own sentence, because an author told the wrong reason goes looking in the
+	// wrong place — and the stale-id case would otherwise leave the select rendering nothing at all.
+	const tagged = ['<!-- _class: title -->\n# Cover', '<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number'];
+
+	it('a STAGED (hidden) landing view says it is staged, not unapproved', () => {
+		const hidden = 'lens-default: brief\nlenses:\n  brief: { label: "Bottom line", base: none, hidden: true }';
+		setup(hidden, { slides: tagged });
+		expect(screen.getByText(/Bottom line is staged, so readers are never offered it/i)).toBeInTheDocument();
+	});
+
+	it('an EMPTY landing view says it has no slides yet', () => {
+		setup('lens-default: brief\nlenses:\n  brief: { label: "Bottom line", base: none }', { slides: ['<!-- _class: title -->\n# Cover'] });
+		expect(screen.getByText(/Bottom line has no slides yet/i)).toBeInTheDocument();
+	});
+
+	it('a landing view left behind by a rename is normalized away before the panel sees it', () => {
+		// The library resolves a dangling `lens-default:` to `full` at parse (registry.ts), which is why
+		// the panel carries no "that view no longer exists" branch — it would be unreachable copy.
+		setup('lens-default: exec\nlenses:\n  brief: { label: "Bottom line", base: none }', { slides: tagged });
+		expect(screen.getByRole('combobox', { name: /view readers land on/i })).toHaveTextContent('Full deck');
+		expect(screen.getByText(/opens on the whole deck/i)).toBeInTheDocument();
+	});
+});

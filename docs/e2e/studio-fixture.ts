@@ -61,6 +61,10 @@ export const CHROME = {
 	 *  as is the drawer row, so the launcher agreed with neither. "Lenses" survives only as
 	 *  the internal name (lensesBody, lens-picker, /lib/lente). */
 	lenses: 'Toggle Reader views',
+	/** The Reader views panel's deck-level "Readers land on" select — front matter's `lens-default:`,
+	 *  the view a reader STARTS in (2026-08-25-lens-view-defaults-and-depth.md §3). A radix
+	 *  SelectTrigger, so it is addressed by role="combobox" + this aria-label. */
+	landingView: 'The view readers land on',
 	/** Activity-bar toggle for the Library (saved themes / components / finishes) panel. */
 	library: 'Open Library',
 	/** The deck-switcher / workspace launcher in the top bar. */
