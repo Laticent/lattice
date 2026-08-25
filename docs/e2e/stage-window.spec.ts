@@ -156,6 +156,50 @@ test('the Stage carries auto-hiding controls, and its full-screen button is real
 	await expect.poll(() => stage.evaluate(() => !!document.fullscreenElement)).toBe(false);
 });
 
+// THE BAR AT THREE WIDTHS, AND THE KEY THAT DOES WHAT THE BUTTON DOES.
+//
+// The record claimed both and carried an artifact for neither: "four pills, no clipping, no
+// page overflow" was asserted with nothing committed, and the changelog said "`f` still works"
+// while only the BUTTON path had been driven. A projected window is the one surface where a
+// control clipped off the edge is unrecoverable — there is no scrollbar to reach for and no
+// second copy of the transport.
+test('the Stage control bar fits, and `f` fills the screen like the button does', async ({ page, context }) => {
+	const { stage } = await openStage(page, context);
+
+	await stage.locator('body').click({ position: { x: 5, y: 5 } });
+	await stage.keyboard.press('f');
+	await expect
+		.poll(() => stage.evaluate(() => !!document.fullscreenElement), { message: '`f` did not fill the screen' })
+		.toBe(true);
+	await stage.keyboard.press('f');
+	await expect.poll(() => stage.evaluate(() => !!document.fullscreenElement)).toBe(false);
+
+	for (const w of [1440, 820, 390]) {
+		await stage.setViewportSize({ width: w, height: 720 });
+		await stage.mouse.move(w / 2, 360); // summon it
+		const m = await stage.evaluate(() => {
+			const bar = document.getElementById('latt-ctl');
+			if (!bar) return null;
+			const b = bar.getBoundingClientRect();
+			return {
+				left: b.left,
+				right: b.right,
+				bottom: b.bottom,
+				kids: bar.children.length,
+				winW: window.innerWidth,
+				winH: window.innerHeight,
+				overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+			};
+		});
+		if (!m) throw new Error(`no control bar at ${w}`);
+		expect(m.kids, `the bar lost a control at ${w}`).toBe(4);
+		expect(m.left, `the bar is clipped off the left at ${w}`).toBeGreaterThanOrEqual(0);
+		expect(m.right, `the bar is clipped off the right at ${w}`).toBeLessThanOrEqual(m.winW);
+		expect(m.bottom, `the bar is clipped off the bottom at ${w}`).toBeLessThanOrEqual(m.winH);
+		expect(m.overflowX, `the bar made the page scroll sideways at ${w}`).toBe(false);
+	}
+});
+
 test('the progress rail lives on whichever surface the room is watching', async ({ page, context }) => {
 	// §3's rule, as an observable: the rail is audience furniture, so it follows the deck
 	// to the Stage and comes back to the console when there is no Stage — and is never on

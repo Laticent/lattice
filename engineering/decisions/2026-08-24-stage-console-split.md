@@ -715,6 +715,28 @@ taught the retired model in prose: *"One progress rail. No buttons"*, *"The room
 *"Keys pressed on the Stage do nothing at all."* Rule 6 exists so a behavior change and its docs
 land together; the deck is the surface where that failed, and the trio is what caught it.
 
+### The two claims that had no artifact, now measured
+
+§11 asserted the bar's responsive behavior and the changelog said "`f` still works", and
+neither carried evidence — the first was asserted with nothing committed, the second reasoned
+from a code path while only the BUTTON had been driven. Both are now driven on the real popup,
+and both hold:
+
+```
+F-KEY:  fullscreen false -> true
+W1440:  bar 208px, left 616 right 824, 4 controls, pageOverflowX false
+W820:   bar 208px, left 306 right 514, 4 controls, pageOverflowX false
+W390:   bar 208px, left  91 right 299, 4 controls, pageOverflowX false
+```
+
+The bar is a fixed 208px, centered, and fits inside 390 with 91px to spare. One correction to
+§11's wording while we are here: it said "icon-only at 390", which implies the bar sheds labels
+at that width. It does not — it is icon-only at every width, so the claim was true for a reason
+other than the one it stated. Pinned now, because a projected window is the one surface where a
+control clipped off the edge is unrecoverable: there is no scrollbar to reach for, and no second
+copy of the transport.
+
+
 ### Still open
 
 - **The rewrite de-morph — DRIVEN, and it does not happen.** Two lenses reasoned from source
