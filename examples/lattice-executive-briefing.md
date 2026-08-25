@@ -81,11 +81,9 @@ The slides are the output format. They are not the product.
 Visibility decides the treatment, not importance — the second tier is where the defensibility lives.
 
 1. The marquee
-   - Ten things you can see and demonstrate.
-   - Checkable against a competitor in an afternoon.
+   - Ten things you can see and check in an afternoon.
 2. The substrate
    - The engineering nobody sees and everything rests on.
-   - Compressed, because its value is cumulative.
 
 ---
 
