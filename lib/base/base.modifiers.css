@@ -2439,16 +2439,26 @@ section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on
    on its own stage, and `.cell-coda` in the path adds the unit that settles it. Layering
    is still not available (HARD RULE #26 — the bundle is never half-layered), so the weight
    stays explicit; it is simply no longer extreme. */
+/* The stage on an insight page is EMPTY — the beat is the page's content and rides the
+   coda Cell beside it, since the frame peels that cell out of the stage wrap. So the
+   centering that used to live here has to move one cell over: an empty `flex: 1 1 auto`
+   stage would eat the whole column and strand the beat on the floor. The stage stops
+   growing, the CELL takes the slack, and it centers its own one child — which is what
+   this rule has always been for, on the element that now holds the thing. */
 section.form.lat-split-insight.lat-split-insight > .cell-stage {
-  justify-content: center;
-  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the coda cell */
+  flex: 0 0 auto;
+  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
 }
 /* An insight PAGE is the beat by itself — there is no body above it for the band to sit
    under, so the step that separates them has nothing to separate. Zero it, or the cell's
    `--coda-step` pushes the one thing on the page off its optical center. */
-section.form.lat-split-insight.lat-split-insight > .cell-stage > .cell-coda { padding-top: 0; }
-section.form.lat-split-insight.lat-split-insight > .cell-stage > .cell-coda > blockquote p,
-section.form.lat-split-insight.lat-split-insight > .cell-stage > .cell-coda > blockquote li {
+section.form.lat-split-insight.lat-split-insight > .cell-coda {
+  padding-top: 0;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote p,
+section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug);
 }
 
@@ -2498,19 +2508,27 @@ section.form.lat-split-insight.lat-split-insight > .cell-stage > .cell-coda > bl
  * size regardless of layout (found by the third maker-checker pass, confirmed on a
  * real render: an em-only cards-grid note read 16.8px instead of ANNOTATION's 14.04px). */
 section.form.lat-split-native.lat-split-native > .cell-stage > p.lat-split-note,
-section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:not(.below-note) > p {
+section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:not(.below-note) > p,
+/* The coda-Cell arm. The split's re-marked note now rides in `.cell-coda`, which the
+   frame seats BESIDE the stage, so every `> .cell-stage >` arm here stopped matching:
+   measured on the split-envelope demo, the checklist and cards-grid notes rendered at
+   46.98px instead of --fs-body-compact's 39.96px. */
+section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > p {
   font-size: var(--fs-body-compact);
 }
 /* Rule 2 — a WRAPPED note, any layout, the common non-em-only case. */
 section.form.lat-split-native.lat-split-native > .cell-stage > .below-note.lat-split-note > p:not(:has(> em:only-child)),
-section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note > .below-note > p:not(:has(> em:only-child)) {
+section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note > .below-note > p:not(:has(> em:only-child)),
+section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .below-note > p:not(:has(> em:only-child)) {
   font-size: var(--fs-body-compact);
 }
 /* Rule 3 — a WRAPPED, em-only note, but ONLY on a layout ANNOTATION does not cover. */
 section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
   > .cell-stage > .below-note.lat-split-note > p:has(> em:only-child),
 section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child) {
+  > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child),
+section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
+  > .cell-coda.lat-split-note > .below-note > p:has(> em:only-child) {
   font-size: var(--fs-body-compact);
 }
 

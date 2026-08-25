@@ -71,7 +71,7 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
         // direct child of the stage — the whole point of that change being that the
         // panel stops depending on an exact DOM position.
         const p = document.querySelector(
-          `section[data-lattice-slide="${slide}"] > .cell-stage > .cell-coda > blockquote p`,
+          `section[data-lattice-slide="${slide}"] > .cell-coda > blockquote p`,
         );
         if (!p) return null;
         const probe = document.createElement('span');

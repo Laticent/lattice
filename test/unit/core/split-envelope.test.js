@@ -56,18 +56,24 @@ const formInner = ({ eyebrow = '', subtitle = '', lede = '', n = 9, note = '', i
 // both trailing beats live inside one `.cell-coda`, not as bare siblings. The envelope
 // still has to tell them apart — the insight earns its own page, the note rides the last
 // body page — so it decomposes the cell rather than treating it as one opaque block.
+//
+// THE CELL IS A SIBLING OF `.cell-stage`, NOT A CHILD OF IT, and getting that wrong here
+// is not cosmetic: this fixture previously nested the cell INSIDE the stage, and because
+// every scan in split-envelope.js bounds itself by `extractStage`, all eight tests below
+// passed against a DOM the engine cannot produce while the real export duplicated the
+// Key Insight onto every body page and emitted no insight page at all. A fixture that
+// drifts from the render is worse than no fixture — it certifies the bug. Measured on
+// examples/split-envelope.md at the time: 27 pages, the insight 6x, the note lost.
 const codaInner = ({ n = 9, note = '', insight = '' } = {}) =>
   '<header>Deck</header>' +
   band({}) +
-  '<div class="cell-stage">' +
-    items(n) +
-    ((insight || note)
-      ? '<div class="cell-coda" data-dock="column">' +
-          (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
-          (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
-        '</div>'
-      : '') +
-  '</div>' +
+  '<div class="cell-stage">' + items(n) + '</div>' +
+  ((insight || note)
+    ? '<div class="cell-coda" data-dock="column">' +
+        (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
+        (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
+      '</div>'
+    : '') +
   '<div class="cell-footer"><footer>Probe</footer><span class="lat-pagination">1</span></div>';
 
 const openTag = '<section data-lattice-slide="4" id="s4" data-lattice-pagination="4" class="checklist form">';
@@ -877,11 +883,17 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
     assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
   });
 
-  test('the stage cell is closed AND non-empty — a blank stage is also balanced', () => {
+  test('the stage cell is closed, and the beat survives in the coda beside it', () => {
+    // The empty-stage check this used to make was a PROXY for "content was dropped and
+    // the markup broke". It stopped being one when the frame peeled `.cell-coda` out to
+    // sit beside the stage: on an insight page the beat IS the content, it lives in the
+    // cell, and the stage is legitimately empty because there is no body on that page.
+    // What still has to hold is what the proxy stood in for — balanced markup, the stage
+    // closed, and the beat actually present.
     const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
-    const stage = page.slice(page.indexOf('<div class="cell-stage">'));
-    assert.doesNotMatch(page, /<div class="cell-stage"><\/div>/, 'the insight page must not ship an empty stage');
-    assert.match(stage, /^<div class="cell-stage">.+<\/div><\/section>$/, 'cell-stage must close before </section>');
+    assert.match(page, /<div class="cell-stage">[\s\S]*?<\/div>/, 'cell-stage must open and close');
+    assert.match(page, /<div class="cell-coda"[^>]*>[\s\S]*?<blockquote>/, 'the beat must survive in the coda cell');
+    assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
   });
 
   test('the OTHER caller — splitEnvelope\'s insightPage — is balanced too', () => {
@@ -894,7 +906,11 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
         (sec.match(/<div\b/g) || []).length, (sec.match(/<\/div>/g) || []).length,
         `unbalanced <div> in a split section:\n${sec}`,
       );
-      assert.doesNotMatch(sec, /<div class="cell-stage"><\/div>/, 'no section may ship an empty stage');
+      // An empty stage is correct on the INSIGHT page (the beat rides the coda cell
+      // beside it); anywhere else it means the body was dropped.
+      if (!sec.includes('lat-split-insight')) {
+        assert.doesNotMatch(sec, /<div class="cell-stage"><\/div>/, 'no body section may ship an empty stage');
+      }
     }
     assert.ok(secs.some((s) => s.includes('Ship it.')), 'the insight must survive the split');
   });

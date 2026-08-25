@@ -295,7 +295,12 @@ section.sketch.citation-card > .cell-stage > blockquote,
    (0,5,2, beating base.modifiers' 0,4,2 chrome) all outrank their component
    rules on specificity, so no !important is needed here. */
 section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > blockquote,
-section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-stage > blockquote {
+section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-stage > blockquote,
+/* …and the coda Cell, which is where a trailing key insight actually lives now: the
+   frame harvests the beat into `.cell-coda` and peels that cell out to sit beside the
+   stage, so BOTH older arms stopped matching and the whole hand-drawn box vanished on
+   a sketch slide. lib/forms/cell/coda/coda.css. */
+section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-coda > blockquote {
   border: 2px solid var(--sketch-ink);
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
