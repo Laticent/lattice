@@ -82,9 +82,13 @@ async function openStage(user: ReturnType<typeof import('@testing-library/user-e
 	window.open = (() => fake) as typeof window.open;
 	await user.click(screen.getByRole('button', { name: 'Stage' }));
 	window.open = realOpen;
-	// The document's own `ready`, replayed. `source` is what the controller trusts.
+	// The document's own `ready`, replayed. `source` is what the controller trusts — AND
+	// `origin`, which it now checks first: a WindowProxy survives navigation, so `e.source`
+	// alone would let a page that took the Stage over drive the deck. A real Stage is written
+	// into `about:blank` and INHERITS the opener's origin, which is why `location.origin` here
+	// is the faithful value rather than a convenience.
 	await act2(async () => {
-		window.dispatchEvent(new MessageEvent('message', { data: { stage: 'ready' }, source: fake as unknown as MessageEventSource }));
+		window.dispatchEvent(new MessageEvent('message', { data: { stage: 'ready' }, source: fake as unknown as MessageEventSource, origin: location.origin }));
 	});
 	return fake;
 }
@@ -124,7 +128,7 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		expect(screen.getByRole('complementary', { name: 'Notes and next slide' })).toBeInTheDocument();
 		// The document's own goodbye — the same beat a hand-closed window fires.
 		await act2(async () => {
-			window.dispatchEvent(new MessageEvent('message', { data: { stage: 'closed' }, source: fake as unknown as MessageEventSource }));
+			window.dispatchEvent(new MessageEvent('message', { data: { stage: 'closed' }, source: fake as unknown as MessageEventSource, origin: location.origin }));
 		});
 		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Reset the talk clock' })).toBeNull();
@@ -137,7 +141,7 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		const fake = await openStage(user);
 		const nav = async (act: string) => {
 			await act2(async () => {
-				window.dispatchEvent(new MessageEvent('message', { data: { stage: 'nav', act }, source: fake as unknown as MessageEventSource }));
+				window.dispatchEvent(new MessageEvent('message', { data: { stage: 'nav', act }, source: fake as unknown as MessageEventSource, origin: location.origin }));
 			});
 		};
 
