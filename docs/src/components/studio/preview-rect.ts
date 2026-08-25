@@ -89,15 +89,23 @@ export const STUDIO_SPLIT_COLLAPSE_KEY = collapseKeyFor(STUDIO_SPLIT_KEY);
  * So read a number here as "the height this band has at the default font size, and the floor
  * it never goes below" — not as "the height of this band".
  *
- * TWO PLACEMENTS still derive from the constants and therefore still drift for those readers.
- * Both are pinned by the `@minfont` cases in studio-instant-shell.spec.ts so they cannot grow
- * unseen:
+ * ONE PLACEMENT still derives from a constant and therefore still drifts for those readers,
+ * pinned by the `@minfont` cases in studio-instant-shell.spec.ts so it cannot grow unseen:
  *   - `mobileBarH` PLACES everything below the phone's action bar. The bar itself is fluid and
  *     correct; the sub-bar under it sits up to 24px high at 24px minimum font.
- *   - `footerWrite` reserves the stage's bottom padding, so the slide box's TOP is up to 11px
- *     off on a wide viewport. Its SIZE is unaffected.
- * A post-paint measure-and-republish fixes both numbers and loses a race against the rotation
- * re-seed; the note in studio.astro records what broke when it was tried.
+ * The SECOND one is resolved. `headerWrite*` and `footerWrite` used to place the slide box from
+ * their frozen values while the bands themselves grew, putting the box up to 11px off on a wide
+ * viewport (13.4px once the sub-bar got shorter — the two errors had been partly canceling).
+ * The seed now GROWS both from the root's computed font size, which Blink clamps by the same
+ * minimum-font-size setting and which `getComputedStyle` will answer in `<head>`, where a probe
+ * element cannot: measured 13.40px -> <= 2px, i.e. band-agreement tolerance. The derivation and
+ * its fit live in studio.astro beside the code; these numbers stay the DEFAULT-SIZE floors that
+ * derivation starts from.
+ * The phone is deliberately excluded from that correction — its third frozen band (`mobileBarH`)
+ * errs the other way, so correcting two of its three bands moved its box OUT of tolerance
+ * (measured). It keeps the frozen model until the action bar can be modeled with them.
+ * A post-paint measure-and-republish would fix `mobileBarH` too and loses a race against the
+ * rotation re-seed; the note in studio.astro records what broke when it was tried.
  */
 export const PREVIEW_CHROME = {
 	topbarH: 54, // the studio topbar (StudioShell `header` h-[54px])

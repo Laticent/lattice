@@ -1,6 +1,6 @@
 - **Changed: the Studio's preview sub-bar is shorter on a phone, and its two pills
   are one size.** The bar dropped the word "Preview" below 700px — the pane switcher
-  directly above it already says which pane is showing, so the label was ~72px of
+  directly above it already says which pane is showing, so the label was ~65px of
   duplication, and losing it is what stopped the reader-view pill truncating to
   "Full de…" at 390px. The reader-view pill is now sized to the `Slide N / M`
   counter it sits beside (`px-2 py-0.5`, 12px) instead of standing ~9px taller, at

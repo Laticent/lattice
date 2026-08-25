@@ -672,12 +672,18 @@ test.describe('@minfont a raised browser minimum font size', () => {
 			const topGap = Math.abs((shell.panehdr as Rect)[1] - (app.panehdr as Rect)[1]);
 			expect(topGap, 'phone sub-bar top drifted past its recorded bound').toBeLessThanOrEqual(shell.mobile ? 26 : TOLERANCE);
 
-			// 2. The slide box `top` on a wide viewport: the stage reserves footer space from
-			//    `--sh-ftr`, which is the CONSTANT, while the footer band itself now grows.
-			//    Measured 11px at 24px minimum font — an order of magnitude below the 39px the
-			//    bands used to be out by, and the box's SIZE is unaffected either way.
+			// 2. The slide box `top` on a wide viewport: RESOLVED, and this bound is now the plain
+			//    band-agreement tolerance rather than a recorded residual. It used to be 11px,
+			//    because the stage reserved header and footer space from the CONSTANTS while the
+			//    bands themselves grew. The seed now derives both from the root's computed font
+			//    size — which Blink clamps by the same minimum-font-size setting — so at 24px it
+			//    places from 57.4/120.0 against the app's real 57.39/120.78 (studio.astro's note).
+			//    Measured across all four cases here: 13.40 -> <= 2, i.e. sub-pixel rounding.
+			//    The PHONE keeps a frozen model on purpose (see studio.astro): its `mobileBarH`
+			//    error runs opposite, so correcting only two of its three bands made it worse.
+			//    It passed this same TOLERANCE before and still does.
 			const boxTopGap = Math.abs((shell.box as Rect)[1] - (app.box as Rect)[1]);
-			expect(boxTopGap, 'slide box top drifted past its recorded bound').toBeLessThanOrEqual(shell.mobile ? TOLERANCE : 13);
+			expect(boxTopGap, 'slide box top drifted past its recorded bound').toBeLessThanOrEqual(TOLERANCE);
 			expect(Math.abs((shell.box as Rect)[3] - (app.box as Rect)[3]), 'slide box height').toBeLessThanOrEqual(TOLERANCE);
 		});
 	}

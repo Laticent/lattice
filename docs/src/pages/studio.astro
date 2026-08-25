@@ -268,14 +268,22 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    skeleton inside now carries the app's own text metrics, so it grows exactly as the app's
    row does when a reader raises the browser's minimum font size (#1496). Pinning the height
    clipped that growth and left the band up to 18px short of the row it is standing in for.
-   At the default font size the content lands ON the constant (measured: 47.0 vs 47), so the
-   floor decides and this is byte-identical to the pinned version — which is what makes the
-   change safe for the surface everybody actually sees. */
-/* A SIZE CONTAINER, because the app's sub-bar lives inside one and its lens picker drops its
-   text label below 21rem of PANE width — which is what makes that bar 41px instead of 47.
-   The skeleton mirrors the query, so it needs the same query basis: this band's width IS the
-   pane width, so it is the container. Without this the narrow-pane case draws a 47px band
-   against the app's 41. */
+   At the default font size the content lands ON the constant (measured: 45.0 vs 45 on the
+   two-pane tiers, 38.2 vs 38.2 on the phone), so the floor decides and this is byte-identical
+   to the pinned version — which is what makes the change safe for the surface everybody
+   actually sees. */
+/* A SIZE CONTAINER, and it is MORE load-bearing than it looks — do not remove it because the
+   band's HEIGHT no longer depends on pane width. Two things inside mirror the app's own
+   container queries against this band, and both need this element as their query basis
+   (its width IS the pane width):
+     - the lens pill's text label, at 21rem of pane — it now costs the row WIDTH rather than
+       height, since the pill is sized to the slide counter beside it (lens-picker.tsx);
+     - the "Preview" caption, at 24rem of pane AND a 700px viewport — the app hides it on
+       the phone, where the pane switcher above already names the pane.
+   Without the containment the skeleton would show its caption at every pane width on a wide
+   viewport and never show its label bar, against an app doing the opposite. (This note used
+   to say the label made the bar "41px instead of 47" — that mechanism is retired; the bar is
+   45 on the two-pane tiers and 38.2 on the phone, at every pane width.) */
 #studio-ssr-shell .ssr-panehdr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);top:var(--sh-pane-t,54px);min-height:var(--sh-hdr,0px);container-type:inline-size;}
 :root[data-ssr-read] #studio-ssr-shell .ssr-panehdr{display:none;}
 /* The footer is two stacked bands: the slide navigator, then the deck status strip. At Read
@@ -579,7 +587,46 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var padX = cinema ? 0 : (vw2 < 640 ? C.padMobile : C.padDesktop);
 						var padY = cinema ? C.padCinemaY : padX;
 						var paneTop = cinema ? 0 : C.topbarH + (bpMobile ? C.mobileBarH : 0);
-						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite);
+						// ── The reader's MINIMUM FONT SIZE, and why it is read here ────────────────
+						// The two write/build bands are TEXT ROWS, so they grow for a reader who
+						// raises the browser's minimum font size (Chrome: Settings -> Appearance ->
+						// Customize fonts). The bands themselves already follow — they are floored by
+						// these constants, not pinned to them, and the skeleton carries the app's own
+						// text metrics (#1496). What could NOT follow was the PLACEMENT: the slide box
+						// is positioned from `headerH` and `footerH` as numbers, and a frozen number
+						// put the box 11px off at a 24px minimum, pinned as a known residual in
+						// preview-rect.ts and in studio-instant-shell.spec.ts.
+						//
+						// It no longer has to be frozen. Blink clamps the ROOT's computed font size by
+						// the same setting (16px default, 20/24 when the reader picks 20/24), and
+						// `getComputedStyle` answers here in <head> — where a probe ELEMENT cannot,
+						// because there is no body yet, and the post-paint re-measure that would give
+						// one loses a race against the rotation re-seed (see the note below).
+						//
+						// From it, the app's own line box: 1.6 (the inherited unitless line-height) x
+						// the pill's used size, which is `max(12, minimum)`. The two bands are then
+						// linear in that line box — fitted to the app measured at minimum font
+						// 12/16/20/24, and EXACT at 20 and 24, the settings that actually move them:
+						//   sub-bar  the pill grows until it passes the 32px collapse button, so the
+						//            two-pane row is flat until the line box clears 26px, then follows.
+						//   footer   two stacked text rows -> two line boxes. The fit runs ~0.8px
+						//            under above the default (inside the 2px band-agreement
+						//            tolerance); at the default it is the measured constant itself.
+						// `lhGrow` is 0 at the default size, so nothing about the common case moves.
+						//
+						// TWO-PANE TIERS ONLY, and that restriction is measured rather than cautious.
+						// The phone places everything below `mobileBarH`, a THIRD frozen band (the
+						// eight-cell action bar, ~24px high at a 24px minimum — the residual pinned
+						// beside this one). Its error runs opposite to the two here, so correcting
+						// these two alone does not improve the phone: it UNMASKS the action bar and
+						// pushes the phone's box out of the 2px band the spec holds it to (measured:
+						// both phone cases fail with the correction applied there, and pass without
+						// it). The phone therefore keeps the frozen model until the action bar can be
+						// modeled with it — one band short of a complete fix is worse than none.
+						var rootFs = 16;
+						try { rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; } catch (eF) {}
+						var lhGrow = bpMobile ? 0 : Math.max(0, 1.6 * Math.max(12, rootFs > 16 ? rootFs : 12) - 1.6 * 12);
+						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite + 2 * lhGrow);
 						// No width cap — the app stopped capping the preview box (#1283), so a cap
 						// here would paint a narrower skeleton than the box the hydrated app
 						// measures, and the hand-off would show as a jump.
@@ -640,7 +687,11 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// lens picker used to be the tallest thing in the row and shed 6px when a
 						// narrow pane dropped its label; it is counter-sized now and never governs
 						// (preview-rect.ts).
-						var headerH = chromeless ? C.headerRead : (bpMobile ? C.headerWriteMobile : C.headerWriteSplit);
+						// `lhGrow` above carries the raised-minimum-font case, and is 0 on the phone for
+						// the reason given there. The two-pane row is FLAT until the line box passes the
+						// 32px collapse button — 26px of line box, i.e. 6.8px of growth — so the split
+						// tier takes only what exceeds that.
+						var headerH = chromeless ? C.headerRead : (bpMobile ? C.headerWriteMobile : C.headerWriteSplit + Math.max(0, lhGrow - 6.8));
 						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
 						// Publishing is a function because the REPLAY seed below can widen the pane to
 						// contain a replayed box (see there) and must re-publish the corrected values.

@@ -18,9 +18,11 @@ export type LensEntry = { key: PresentLens; label: string; desc: string; icon: R
 // `@[21rem]` the label is `display:none`, and a flex container has no strut, so the pill's
 // height would fall to its 14px icon — 5px SHORTER than the counter, the same mismatch in
 // the other direction. The floor restates the counter's own box from its own metrics —
-// `1lh` (the used value of `line-height: normal` at this font size) + `py-0.5` + the 1px
-// border, under the `.lx-ui` border-box reset — so it tracks a reader's raised minimum font
-// size instead of freezing today's 25.2px. Do NOT replace it with a px constant.
+// `1lh` + `py-0.5` + the 1px border, under the `.lx-ui` border-box reset — so it tracks a
+// reader's raised minimum font size instead of freezing today's 25.2px (measured: 25.19px
+// at the default, 44.39px at a 24px browser minimum, matching the counter at both). Do NOT
+// replace it with a px constant. `1lh` here is the COMPUTED line-height — an inherited
+// unitless 1.6 over the element's own used font size, not `normal`'s font-metric value.
 const DENSE_PILL = 'min-h-[calc(1lh_+_0.25rem_+_2px)] gap-1 px-2 py-0.5 text-[12px]';
 
 // The base reader-lens catalog when a deck defines no `lenses:` registry: just the whole deck. The
