@@ -17,6 +17,25 @@ tags: [studio, authoring, theme, finish, component, css, validation]
 
 # Hand-editing a generated asset (2026-08-25)
 
+## Correction, on implementing the first slice (2026-08-25, #1841)
+
+Five figures below were taken against a tree that had already moved, and one of
+them specifies a producer change **the tree now rejects**. The parser and its
+round-trip test were built against the measurements, not against this note, and
+these are what the corpus actually says. Everything else here held.
+
+| This note says | Measured | Where |
+|---|---|---|
+| `serializeTheme` needs a **`:root:root` status-trio mirror** | **Dead — and now a gate failure.** #1826 landed after this note and retired the duplicates; `checkStatusTrioParity` no longer exists. Its replacement `checkPackedRootReach` fails a custom property declared at BOTH `:root` and `:root:root`: **3 errors per theme with the mirror, 0 without.** One producer change, not two | `tools/check-ownership.js:1523`, `2026-08-24-status-trio-single-root.md` |
+| Precondition 5 — Studio themes "could not be graduated without failing `build:check`" | **False now.** A generated theme runs `checkPackedRootReach` clean. Plain `:root` is exactly right post-#1527 | measured on `serializeTheme` output |
+| **47** distinct non-contract custom properties | **48** | `themeRecordView` over `themes/` |
+| **15 of 32** declare one inside a root block | **19 of 32** — all at plain `:root`. The four `a11y-*` variants were missed; they carry `--hljs-params` / `--hljs-tag` | ” |
+| `@import` is the whole token content of **18 of 32** | **13 of 32** — the `*-dark` wrappers only. 18 is `32 importers − 14 self-contained`, and that subtraction double-counts: the four `a11y-*` variants both import *and* declare 19 tokens of their own | ” |
+
+The validation-ladder row for `checkStatusTrioParity` is therefore struck — the
+pairing rule it named no longer exists, and the invariant that replaced it says
+the opposite.
+
 ## The ask
 
 > "Whether we want direct css editing for themes, css and manifest for
@@ -115,9 +134,9 @@ Measured over `themes/`:
 | | |
 |---|---|
 | `REQUIRED_TOKENS` names (what the emitter can write) | **107** |
-| distinct custom properties in `themes/` outside that list | **47** |
+| distinct custom properties in `themes/` outside that list | ~~47~~ → **48** |
 | themes declaring ≥1 of them | **19 of 32** |
-| themes declaring ≥1 *inside a root block* (what a parser eats) | **15 of 32** |
+| themes declaring ≥1 *inside a root block* (what a parser eats) | ~~15~~ → **19 of 32** |
 
 The dropped names are not decoration: `--chart-catN-ink` ×8, the `--diagram-*`
 state family, `--cat-N-texture` ×12 (the categorical texture channel,
@@ -143,13 +162,13 @@ this repo's own worst shipped palette bug.
 
 ### Why "root-ish → the map" fails twice more
 
-**`:root:root` is a protocol, not a specificity curiosity.** The status trio
-`--pass` / `--warn` / `--fail` is declared **twice, identically**, at `:root` and
-at `:root:root`, because the CLI export concatenates the bundle last and a plain
-`:root` override loses on source order. `checkStatusTrioParity`
-(`tools/check-ownership.js:1463`) fails the build if the two copies drift. A flat
-map has one slot per name and cannot hold "this value, at two specificities,
-because two render paths disagree about which selector they can see."
+**`:root:root` is a protocol, not a specificity curiosity.** A flat map has one
+slot per name and cannot hold "this value, at two selectors." *(The example this
+paragraph used — the status trio declared twice — is gone: #1826 retired the
+duplicates and `checkPackedRootReach` now fails them, so `checkStatusTrioParity`
+no longer exists. The argument survives on a narrower case that still ships:
+`themes/a11y-base.css:89` pins `color-scheme` at `:root:root` as well as `:root`.
+The record is keyed by (selector, name) so the shape is representable at all.)*
 
 **`color-scheme` is not a token.** It appears under a root selector in **28 of 32**
 themes. `themes/ardesia-dark.css` is, in its entirety:
@@ -165,10 +184,12 @@ dark` enters the map, is not a `REQUIRED_TOKEN`, is dropped on the way out, and
 `serializeTheme` hard-codes `:where(:root) { color-scheme: light; }` in its
 place. **Open a dark theme in the CSS view, save, and it is a light theme.**
 
-**`@import` carries inheritance.** It appears in **32 of 32** themes, and in **18
-of 32** it is the theme's entire token content — the 13 `*-dark` wrappers and the
-`a11y-*` variants declare nothing themselves. Only **14** of the 32 are
-self-contained palettes. A parser that files at-rules under "everything else"
+**`@import` carries inheritance.** It appears in **32 of 32** themes, and in
+~~18~~ **13 of 32** it is the theme's entire token content — the `*-dark`
+wrappers. *(The `a11y-*` variants were counted here and should not have been:
+they import `a11y-base` AND declare 19 tokens of their own, the status trio moved
+off the red-green axis being the one thing that differs per CVD type.)* A parser
+that files at-rules under "everything else"
 loses `@import 'ardesia'` outright, and the conformance rung then reports ~106
 phantom missing tokens as errors against a file that is correct.
 
@@ -185,9 +206,11 @@ phantom missing tokens as errors against a file that is correct.
 4. **non-root rules** → the verbatim tail, round-tripped untouched.
 
 `REQUIRED_TOKENS` is the **validator** and never the **emitter**. `serializeTheme`
-needs two producer changes before any of this works: an **extras emitter** for
-unrecognized names, and a **`:root:root` mirror** for the status trio. Both change
-the emitted byte layout of every generated theme, so they are their own slice.
+needs an **extras emitter** for unrecognized names before any of this works.
+*(This paragraph called for a second producer change, a `:root:root` mirror for
+the status trio. See the correction at the top: #1826 landed after this note and
+made that mirror a gate failure. The extras block is additive, so a theme
+carrying no extras keeps its exact byte layout.)*
 
 The tail (bucket 4) remains the escape hatch for a rule the token model can't
 express — found by parsing rather than bolted on as a separate "custom CSS" box.
@@ -286,8 +309,10 @@ should ship; the Fields ⇄ JSON view should wait for a user who wants it.
 Every code surface opens on a **template**, never an empty box:
 
 - **Theme** — every `REQUIRED_TOKENS` name present in `serializeTheme`'s section
-  order, **plus the `:root:root` status-trio mirror**, so the template is a theme
-  that would pass `checkStatusTrioParity` if it were graduated to `themes/`.
+  order, at plain `:root` and nowhere else, so the template is a theme that would
+  pass `checkPackedRootReach` if it were graduated to `themes/`. *(This called for
+  a `:root:root` mirror; adding one is what would now fail the gate — see the
+  correction at the top.)*
 - **Component** — ships already (`STARTER_CSS` / `STARTER_SKELETON` /
   `STARTER_META`).
 - **Finish** — `coerceRecipe(DEFAULT_RECIPE)`, not `DEFAULT_RECIPE`: coercion adds
@@ -305,7 +330,7 @@ is only fair if the author was handed the full list to begin with.
 | Theme CSS | `REQUIRED_TOKENS` conformance — **only for a self-contained theme**; a theme composing via `@import` inherits and must not be indicted | error |
 | Theme CSS | `auditBoth` AA in both modes — **with the blindness below surfaced** | warning |
 | Theme CSS | `findCssExfil` **minus `css-import`**, plus the theme-import allowlist below | **blocking** — pause the CSS out of the preview, the `LayoutStudio.tsx:126` pattern |
-| Theme CSS | `checkStatusTrioParity`'s pairing rule | error |
+| Theme CSS | ~~`checkStatusTrioParity`'s pairing rule~~ — **struck**; the gate is retired. Its replacement `checkPackedRootReach` inverts it: a custom property above plain `:root` is dead weight or inert | error |
 | Component CSS | `gateCss` — unchanged | error / warning as today |
 | Finish JSON | `coerceRecipe` + a clamp/drop report | normalizes; report what changed |
 | Any CSS → preview frame | `sanitizeStyleText` (HARD RULE #22) | neutralizes `</style`; it is **not** a CSS sanitizer and blocks nothing on its own |
@@ -377,9 +402,11 @@ log them), but the design rests on them:
    none; `DB_VERSION` versions the database, not the record. Changing what a
    `kind:'theme'` record *means* is an unversioned reinterpretation of data
    already in users' browsers.
-5. **Studio-generated themes already ship an export-inert status trio** — no
-   `:root:root` mirror is emitted, so none could be graduated to `themes/` without
-   failing `build:check` today.
+5. ~~**Studio-generated themes already ship an export-inert status trio**~~ —
+   **struck, and it was false when written.** Measured: a `serializeTheme` output
+   runs `checkPackedRootReach` clean, and adding the `:root:root` mirror this note
+   asked for is what produces errors (3 per theme). Since #1527 flipped the export
+   concat, plain `:root` reaches every render path.
 
 ## What this does not do
 
