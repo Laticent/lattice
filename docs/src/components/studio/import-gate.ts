@@ -1,5 +1,3 @@
-import { gateCss } from '@/playground/layout-core.generated.js';
-import { gateThemeCss } from '@/playground/theme-core.generated.js';
 
 // The safety check on IMPORTED asset CSS — a `.zip` a stranger sent you.
 //
@@ -50,6 +48,31 @@ const REFUSING_RULES = new Set([
 	'css-binding', // -moz-binding
 ]);
 
+// BOTH CORES ARE LOADED ON DEMAND, and that is a budget rule, not a preference.
+// `Library.tsx` is on the Studio's EAGER path, and these `*.generated.js` bundles are
+// esbuild `__commonJS` registries — importing one export pulls the whole core. A
+// static import here put ~40KB gzipped of theme + layout core onto the cold path and
+// blew the studio route's `eagerJsGz` budget by 39.6KB.
+//
+// `theme-library.ts` already carries this scar: its own docblock records being the
+// THIRD eager importer of `theme-core.generated.js`, found by the 2026-08-17 loading
+// audit, and notes that a changelog once claimed the core had come off the eager path
+// when it had not. This file was briefly the fourth, and added `layout-core` beside
+// it. An import gate only runs when someone imports a `.zip` — a user action, and the
+// same shape of user action that justifies the deferral there.
+type ThemeCore = typeof import('@/playground/theme-core.generated.js');
+type LayoutCore = typeof import('@/playground/layout-core.generated.js');
+let themeCoreLoad: Promise<ThemeCore> | null = null;
+let layoutCoreLoad: Promise<LayoutCore> | null = null;
+function loadThemeCore(): Promise<ThemeCore> {
+	if (!themeCoreLoad) themeCoreLoad = import('@/playground/theme-core.generated.js');
+	return themeCoreLoad;
+}
+function loadLayoutCore(): Promise<LayoutCore> {
+	if (!layoutCoreLoad) layoutCoreLoad = import('@/playground/layout-core.generated.js');
+	return layoutCoreLoad;
+}
+
 export type ImportRefusal = { name: string; why: string } | null;
 
 type Finding = { rule?: string; message?: string; blocking?: boolean };
@@ -69,7 +92,8 @@ function firstRefusal(findings: Finding[] | undefined, name: string): ImportRefu
  * palette-to-palette import would not resolve in the receiving browser anyway, and
  * since #1841 the engine drops rather than hoists it.)
  */
-export function refuseImportedTheme(css: string, name: string): ImportRefusal {
+export async function refuseImportedTheme(css: string, name: string): Promise<ImportRefusal> {
+	const { gateThemeCss } = await loadThemeCore();
 	const verdict = gateThemeCss(css) as { findings?: Finding[] };
 	return firstRefusal(verdict.findings, name);
 }
@@ -84,8 +108,9 @@ export function refuseImportedTheme(css: string, name: string): ImportRefusal {
  * already runs on component CSS in Fabricate for live findings, so this is the same
  * "guards a preview, not the library" gap, closed on the same path.
  */
-export function refuseImportedComponent(css: string, name: string): ImportRefusal {
-	const findings = (gateCss(css, name) as { findings?: Finding[] } | Finding[]);
+export async function refuseImportedComponent(css: string, name: string): Promise<ImportRefusal> {
+	const { gateCss } = await loadLayoutCore();
+	const findings = gateCss(css, name) as { findings?: Finding[] } | Finding[];
 	const list = Array.isArray(findings) ? findings : findings?.findings;
 	return firstRefusal(list, name);
 }

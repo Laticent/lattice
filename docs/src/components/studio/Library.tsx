@@ -376,13 +376,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// record (the store dedupes by kind+name when no id is passed), so the version it
 				// snapshots is the one thing between a stranger's .zip and your own work.
 				for (const t of ts) {
-					const no = refuseImportedTheme(t.css, t.label || t.name);
+					const no = await refuseImportedTheme(t.css, t.label || t.name);
 					if (no) { refused.push(no); continue; }
 					await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' });
 					nThemes++;
 				}
 				for (const c of cs) {
-					const no = refuseImportedComponent(c.css, c.name);
+					const no = await refuseImportedComponent(c.css, c.name);
 					if (no) { refused.push(no); continue; }
 					await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' });
 					nComps++;
