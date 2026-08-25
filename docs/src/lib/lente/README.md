@@ -77,17 +77,44 @@ cryptographic property of the hash.
 
 ## The default lenses
 
-| Lens | Base | Serves | Suggests |
-|---|---|---|---|
-| `full` | — | the whole case; the safe default | identity (every slide) |
-| `brief` | none | bottom-line / TLDR / exec summary / so-what | bookend frame · assertions · headline metrics |
-| `ask` | none, single | the ask | one slide: the CTA / decision / top metric — or none |
-| `story` | none | story / problem statement | anchors (incl. dividers) · the journey · the problem setup |
-| `evidence` | all | technical depth (the auditor) | everything substantive; drops decoration / logistics / dividers |
+| Lens | Base | Kind | Serves | Suggests |
+|---|---|---|---|---|
+| `full` | — | rung (top) | the whole case; the safe default | identity (every slide) |
+| `brief` | none | **rung** | bottom-line / TLDR / exec summary / so-what | bookend frame · assertions · headline metrics |
+| `ask` | none, single | cut | the ask | one slide: the CTA / decision / top metric — or none |
+| `story` | none | cut | story / problem statement | anchors (incl. dividers) · the journey · the problem setup |
+| `evidence` | all | **rung** | technical depth (the auditor) | everything substantive; drops decoration / logistics / dividers |
 
 Membership is a **diff from the base**: a `base:none` lens carries an include token
 (`<!-- _lens: brief -->`) only for members; a `base:all` lens carries a `-`exclude
 (`<!-- _lens: -evidence -->`) only for non-members. Slides stay clean.
+
+## Depth — rungs and cuts
+
+Views are two different kinds of thing, and only one has a "deeper". **Rungs** are
+altitudes in one containment-checked chain (`brief` ⊂ `evidence` ⊂ `full`): each
+contains the one below, so climbing is guaranteed *additive* and a reader never
+loses a slide they just read. **Cuts** are arbitrary subsets — `ask`, `story` — with
+no order and no containment; you land on a cut or you are handed one.
+
+```ts
+import { ladderRungs, validateLadder, deeperLens } from '@workwel/lente';
+
+ladderRungs(slides, registry);            // [brief, evidence, full] — narrowest first
+validateLadder(slides, registry);          // [] when every rung contains the one below
+
+// The read-path primitive a "go deeper" affordance is built on. Fails CLOSED: it
+// returns the next rung that is reader-eligible AND strictly contains the current
+// view, stepping over one that is neither — and `undefined` from a cut, from
+// `full`, and whenever nothing honest is available.
+deeperLens(slides, registry, 'brief');
+```
+
+`kind: 'rung'` on a `LensDef` declares an altitude; **absent means `cut`**, so a
+view that never claimed to nest promises nothing. Altitude itself is *derived* from
+what each rung projects, not declared — `order` is a picker position and
+deliberately not this. Design note:
+[`2026-08-25-lens-view-defaults-and-depth.md`](../../../../engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md) §4.
 
 ## Where things live
 
@@ -96,10 +123,10 @@ Membership is a **diff from the base**: a `base:none` lens carries an include to
 | `types.ts` | the shared type surface |
 | `tags.ts` | per-slide `_lens` tag parse + `applyTag` writer |
 | `registry.ts` | the front-matter `lenses:` block parse / emit / upsert (Lente is the sole writer) |
-| `project.ts` | the read path — `lensPairs`/`lensSlides`/`lensIndices`, `readerLenses`, `approvalHash`, eligibility |
+| `project.ts` | the read path — `lensPairs`/`lensSlides`/`lensIndices`, `readerLenses`, `approvalHash`, eligibility, and the ladder (`lensKind`, `ladderRungs`, `lensEscapees`, `deeperLens`) |
 | `builder.ts` | the fluent `lens()` front door — a pass-through over `project.ts` (read-path only) |
 | `suggest.ts` | the suggest path — the no-AI heuristic rule table (a separate module) |
-| `validate.ts` | `unknownLensTokens`, `validateRegistry`, `rebaseLensTags` |
+| `validate.ts` | `unknownLensTokens`, `validateRegistry`, `validateLadder`, `rebaseLensTags` |
 | `hash.ts` | a pure, dependency-free SHA-256 (deterministic in Node + browser) |
 | `index.ts` | the curated public surface |
 

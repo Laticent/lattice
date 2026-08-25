@@ -4,7 +4,7 @@
 
 import { sha256Hex } from './hash';
 import { parseSlideTags } from './tags';
-import { FULL_LENS_ID, type LensDef, type LensProjection, type LensRegistry, type LensSlide } from './types';
+import { FULL_LENS_ID, type LensDef, type LensKind, type LensProjection, type LensRegistry, type LensSlide } from './types';
 
 /** Is this slide a member of this lens? Pure function of the slide's approved tags + the lens base. */
 function memberOf(slideSrc: string, lens: LensDef): boolean {
@@ -78,6 +78,86 @@ export function lensEligibility(slides: string[], reg: LensRegistry, lensId: str
 	if (pairs.length === 0) return { status: 'unavailable', reason: 'empty' };
 	if (lens.approved !== approvalHash(slides, reg, lensId)) return { status: 'unavailable', reason: 'drifted' };
 	return { status: 'ok', pairs };
+}
+
+// ── The depth model: rungs, the ladder, and an honest step deeper ───────────────────────────────
+// (engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md §4.) Views are two different
+// kinds of thing. RUNGS are altitudes in one containment-checked chain — each contains the one below,
+// so climbing is guaranteed ADDITIVE and a reader never loses a slide they just read. CUTS are
+// arbitrary subsets with no order and no containment; there is no altitude above "the ask", so a cut
+// is landed on or handed over, never escalated from.
+
+/** The EFFECTIVE kind of a view, resolving both defaults the field cannot carry: absent means `cut`
+ *  (a view that never declared itself a rung promises nothing), and `full` is ALWAYS a rung whatever
+ *  its record says — it contains every view by construction, so it terminates every ladder. Callers
+ *  read kind through here, never off `lens.kind`, because a registry assembled in code (a test, a
+ *  host that builds its own `full` entry) routinely omits it. */
+export function lensKind(lens: LensDef): LensKind {
+	if (lens.id === FULL_LENS_ID) return 'rung';
+	return lens.kind === 'rung' ? 'rung' : 'cut';
+}
+
+/** The slides that ESCAPE a containment relation: every member of `innerId`'s projection that
+ *  `outerId`'s projection does NOT show, as author indices in ascending order. Empty means
+ *  `inner ⊆ outer`. This is the one primitive the whole depth model rests on — the validator reports
+ *  what it returns, and `deeperLens` refuses to climb while it is non-empty. Compares PROJECTIONS, not
+ *  raw tags, so a `single` view is measured at the one slide a reader actually gets. */
+export function lensEscapees(slides: string[], reg: LensRegistry, outerId: string, innerId: string): number[] {
+	const outer = new Set(lensIndices(slides, reg, outerId));
+	return lensIndices(slides, reg, innerId).filter((i) => !outer.has(i));
+}
+
+/** The deck's ONE ladder: every rung ordered by ALTITUDE, narrowest first, with `full` always on top.
+ *
+ *  Altitude is DERIVED from the projections (member count ascending), not declared, because
+ *  containment IS the order — under a sound ladder a lower rung is a strict subset, so it is strictly
+ *  smaller. Three things follow, and each is why this is not `order`-driven:
+ *   - the chain does not depend on the order the author happened to ADD the views in, nor on a picker
+ *     position they re-numbered for display reasons (`LensDef.order` is explicitly not this);
+ *   - a ladder that does NOT nest fails in `validateLadder` naming the two views that do not, rather
+ *     than presenting as a mystery ordering;
+ *   - it stays right while the author is still tagging — a half-tagged rung sits low and rises as it
+ *     fills, instead of being wrong until some separate number is updated.
+ *  Ties break on registry order, so the result is deterministic for equal-sized rungs. */
+export function ladderRungs(slides: string[], reg: LensRegistry): LensDef[] {
+	const rungs = reg.lenses.filter((l) => l.id !== FULL_LENS_ID && lensKind(l) === 'rung');
+	const size = new Map(rungs.map((l) => [l.id, lensPairs(slides, reg, l.id).length]));
+	const pos = new Map(reg.lenses.map((l, i) => [l.id, i]));
+	const sorted = [...rungs].sort((a, b) => (size.get(a.id) ?? 0) - (size.get(b.id) ?? 0) || (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
+	const full = reg.lenses.find((l) => l.id === FULL_LENS_ID);
+	return full ? [...sorted, full] : sorted;
+}
+
+/** The next altitude a reader may HONESTLY climb to from `lensId` — the read-path primitive a "go
+ *  deeper" affordance is built on. `undefined` means there is nothing honest to offer, which is the
+ *  ordinary case and not an error:
+ *   - `lensId` is a cut, is unknown, or is already `full` — a cut has no altitude above it (§4.2);
+ *   - no rung above it is reader-ELIGIBLE right now (unapproved / drifted / staged / empty);
+ *   - no eligible rung above it actually CONTAINS the current view.
+ *
+ *  It walks UP the ladder and takes the first rung clearing all three, so an unapproved or broken
+ *  middle rung is stepped over rather than switching the affordance off — and containment is re-checked
+ *  against the CANDIDATE directly, never inferred through the chain, so a ladder `validateLadder` is
+ *  complaining about can never produce a "deeper" that drops a slide the reader just read. That is the
+ *  fail-CLOSED half: the affordance goes quiet rather than lying.
+ *
+ *  The superset must be STRICT. A rung projecting exactly the current members is a button promising
+ *  more and delivering the same slides; it is skipped, and no diagnostic is needed for it because the
+ *  read path already declines to offer it. */
+export function deeperLens(slides: string[], reg: LensRegistry, lensId: string): LensDef | undefined {
+	const here = reg.lenses.find((l) => l.id === lensId);
+	if (!here || here.id === FULL_LENS_ID || lensKind(here) !== 'rung') return undefined;
+	const ladder = ladderRungs(slides, reg);
+	const at = ladder.findIndex((l) => l.id === lensId);
+	if (at < 0) return undefined;
+	const mine = lensIndices(slides, reg, lensId).length;
+	for (const cand of ladder.slice(at + 1)) {
+		if (lensEligibility(slides, reg, cand.id).status !== 'ok') continue;
+		if (lensEscapees(slides, reg, cand.id, lensId).length > 0) continue;
+		if (lensIndices(slides, reg, cand.id).length <= mine) continue;
+		return cand;
+	}
+	return undefined;
 }
 
 /** The lenses a READER may actually pick: `full`, plus every lens that is eligible right now. */

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { catalogFromComponents, type LensRegistry, suggestMembership } from '@/lib/lente';
+import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, ladderRungs, suggestMembership, validateLadder } from '@/lib/lente';
+import { ARCHETYPES } from './lens-archetypes';
 
 // The RUNGS-AND-CUTS decomposition, pinned against the REAL suggester and the REAL component
 // catalog (2026-08-25-lens-view-defaults-and-depth.md §4.1).
@@ -91,5 +92,67 @@ describe('reader views decompose into rungs and cuts', () => {
 		const askReg: LensRegistry = { ...registry, lenses: [...registry.lenses, { id: 'ask', label: 'The ask', base: 'none', single: true }] };
 		const ask = suggestMembership(slides, askReg, catalog).filter((s) => s.lensId === 'ask');
 		expect(ask.length).toBeLessThanOrEqual(1); // exactly one, or none when confidence is low
+	});
+});
+
+// ── The SCHEMA half: what the archetypes DECLARE must be what the suggester DOES ─────────────────
+//
+// Everything above proves a property of the rule table. This half proves the product agrees with it:
+// `lens-archetypes.ts` hard-codes a `kind` per view, and `validateLadder` enforces containment on
+// whatever an author tags. If those two ever disagree with the relations proved above, the shipped
+// Studio either withholds a rung that nests or complains about one that does — and it fails here.
+
+/** The four archetypes as a registry, so the schema is exercised through the same defs the panel writes. */
+function archetypeRegistry(over: Record<string, Partial<LensDef>> = {}): LensRegistry {
+	const lenses: LensDef[] = [
+		{ id: 'full', label: 'Full deck', base: 'all' },
+		...ARCHETYPES.map((a) => ({
+			id: a.id,
+			label: a.label,
+			base: a.base,
+			...(a.single ? { single: true } : {}),
+			...(a.kind === 'rung' ? { kind: 'rung' as const } : {}),
+			...(over[a.id] ?? {}),
+		})),
+	];
+	return { default: 'full', lenses };
+}
+
+/** The catalog-wide deck with every suggestion actually WRITTEN as `_lens` tags — the membership an
+ *  author would end up with by pressing "Accept all" on each view. */
+function suggesterTaggedDeck(reg: LensRegistry): string[] {
+	const bases = new Map(reg.lenses.map((l) => [l.id, l.base]));
+	const out = [...slides];
+	for (const s of suggestMembership(slides, reg, catalog)) {
+		out[s.index] = applyTag(out[s.index], s.lensId, s.member, bases.get(s.lensId) ?? 'none');
+	}
+	return out;
+}
+
+describe('the depth SCHEMA matches the decomposition', () => {
+	it('declares as rungs exactly the views proved to nest', () => {
+		const byKind = (k: string) => ARCHETYPES.filter((a) => a.kind === k).map((a) => a.id).sort();
+		expect(byKind('rung')).toEqual(['brief', 'evidence']);
+		expect(byKind('cut')).toEqual(['ask', 'story']);
+	});
+
+	it('derives the ladder as brief → evidence → full over the real catalog', () => {
+		const reg = archetypeRegistry();
+		expect(ladderRungs(suggesterTaggedDeck(reg), reg).map((l) => l.id)).toEqual(['brief', 'evidence', 'full']);
+	});
+
+	it('the containment validator is SILENT on a deck the real suggester tagged', () => {
+		const reg = archetypeRegistry();
+		expect(validateLadder(suggesterTaggedDeck(reg), reg)).toEqual([]);
+	});
+
+	it('…and FIRES the moment `story` is declared a rung — the check is not vacuous', () => {
+		// Guard the guard, again. `story` keeps the chapter dividers `evidence` drops and misses brief's
+		// headline metrics, so calling it a rung must produce findings. A validator that stayed quiet
+		// here would be certifying nothing.
+		const reg = archetypeRegistry({ story: { kind: 'rung' } });
+		const findings = validateLadder(suggesterTaggedDeck(reg), reg);
+		expect(findings.length).toBeGreaterThan(0);
+		expect(findings.every((f) => f.code === 'ladder-containment')).toBe(true);
 	});
 });

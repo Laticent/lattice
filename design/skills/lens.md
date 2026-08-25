@@ -83,7 +83,8 @@ interface LensDef {
   base: 'none' | 'all';  // additive vs subtractive (see below)
   single?: boolean;  // render only the first member in author order (the "ask")
   hidden?: boolean;  // defined + suggestible but kept out of the reader's picker (staging)
-  order?: number;    // picker position; default = registry order
+  order?: number;    // picker position; default = registry order — NOT the ladder order
+  kind?: 'rung' | 'cut'; // depth: a rung nests in a ladder, a cut stands alone. Absent = cut
   approved?: string; // a content hash "sha256:…" written on human Approve — the reader gate
 }
 ```
@@ -104,9 +105,9 @@ path** (`suggest.ts`) is a transparent, no-AI rule table over each slide's `_cla
 that *proposes* membership and writes nothing. A human pressing **Approve** in
 Studio is the only thing that writes tags and stamps the content hash.
 
-The four built-in **archetypes**: `brief` (Bottom line, base none), `story` (The
-story, base none), `evidence` (The evidence, base all), `ask` (The ask, base none,
-single).
+The four built-in **archetypes**: `brief` (Bottom line, base none, **rung**),
+`story` (The story, base none, cut), `evidence` (The evidence, base all, **rung**),
+`ask` (The ask, base none, single, cut).
 
 ---
 
@@ -132,7 +133,7 @@ remember what it can honestly claim: client-side projection **hides, it does not
 withhold** — a reader who views source sees every non-member slide's bytes. A pin is a
 scoping convenience, never a confidentiality control.
 
-## Depth — rungs and cuts (designed, not yet built)
+## Depth — rungs and cuts
 
 Reader views are two different kinds of thing, and only one of them has a "deeper":
 
@@ -141,12 +142,47 @@ Reader views are two different kinds of thing, and only one of them has a "deepe
   they just read. Today `brief` ⊂ `evidence` ⊂ `full`.
 - **Cuts** are arbitrary subsets with no order and no containment — `ask` (one
   slide) and `story` (a narrative slice that keeps the chapter dividers `evidence`
-  drops). You land on a cut or pin it; you never escalate from one.
+  drops). You land on a cut or you are handed one; you never escalate from one.
 
-Nothing in the schema expresses this yet — the model, the containment invariant, and
-the delta-authoring form (`includes:`) are specified in
-`engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md` §4. Until they
-ship, a "deep dive" is authored as an ordinary second view, tagged in full.
+`kind: rung` on a `LensDef` is what declares an altitude. **Absent means `cut`** —
+a view that never claimed to nest promises nothing, so no deck written before the
+field existed gains a ladder (or a validator complaint) on its next rewrite. `full`
+is always the top rung whatever its record says; read the effective value through
+`lensKind`, never off the field.
+
+**Altitude is derived, not declared.** `ladderRungs` orders the rungs by what they
+actually project — narrowest first, `full` last — because containment *is* the
+order: a lower rung is a strict subset, so it is strictly smaller. `order:` is a
+picker position and deliberately not this, so re-numbering the panel never re-orders
+the depth chain, and a half-tagged rung sits low and rises as it fills instead of
+being wrong until some separate number is updated.
+
+**Containment is the invariant, and `validateLadder` enforces it.** Every rung must
+contain the rung below it; a slide that escapes is an `error`-level
+`ladder-containment` diagnostic naming that slide, because the fix is per slide (tag
+it into the deeper view, or drop it from this one). The Reader views panel shows
+these on the offending view. This is the same rule that neutralizes the finding
+which deferred `includes:` — a cross-polarity include that balloons a low rung is
+not a case to be restricted, it is a ladder violation the validator reports.
+
+**A "go deeper" step is `deeperLens`, and it fails closed.** It walks up the ladder
+and returns the first rung that is reader-eligible *and* strictly contains the
+current view — so an unapproved or non-nesting middle rung is stepped over rather
+than switching the affordance off, and a broken ladder makes the step go quiet
+rather than lie. A cut, `full`, and an unknown id all return `undefined`. **The
+affordance itself is not built yet** — `deeperLens` is the read-path primitive it
+will be built on; nothing in Present offers a deeper step today.
+
+Still specified but unbuilt: **`includes:`**, the delta-authoring form where a rung
+declares its parent and tags only what it *adds*
+(`engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md` §4.2). Until it
+ships, a rung is tagged in full like any other view.
+
+**The cost of a ladder, stated plainly.** Each rung is its own approval unit with
+its own hash, and because a rung contains its parent, editing a slide in `brief`
+de-approves `brief` *and every rung above it*. That is correct — the approved
+content genuinely changed — and it is a real tax that argues for two or three rungs,
+never five.
 
 ---
 
@@ -156,7 +192,9 @@ ship, a "deep dive" is authored as an ordinary second view, tagged in full.
   `docs/src/lib/lente/` — `types.ts` (the `LensDef`), `tags.ts` (the `_lens`
   grammar + `applyTag`), `registry.ts` (parse/emit the `lenses:` block — Lente is
   the *sole* writer), `project.ts` (the read path + `lensEligibility` +
-  `approvalHash`), `suggest.ts` (the 4 archetype rules), `validate.ts`, `hash.ts`.
+  `approvalHash` + the ladder: `lensKind` / `ladderRungs` / `lensEscapees` /
+  `deeperLens`), `suggest.ts` (the 4 archetype rules), `validate.ts` (including
+  `validateLadder`, the containment check), `hash.ts`.
 - **Studio integration**: `lens-archetypes.ts` (the archetype catalog),
   `workspace-lenses.ts`, `LensesPanel.tsx` (the human-in-the-loop UI),
   `lens-picker.tsx` / `PresentOverlay.tsx` (the reader switchers).
@@ -181,7 +219,9 @@ ship, a "deep dive" is authored as an ordinary second view, tagged in full.
 **By hand — defining a custom lens type:**
 
 1. Add the block to front matter:
-   `lenses:\n  myview: { label: "My view", base: none }`.
+   `lenses:\n  myview: { label: "My view", base: none }`. Add `kind: rung` **only**
+   if it is a genuine altitude — a strict superset of the rung below it — because
+   `validateLadder` will hold you to that.
 2. Tag member slides: `<!-- _lens: myview -->` (or `-myview` on a `base: all`
    lens).
 3. To ship a suggester for it, add an entry to `SUGGESTERS` in `suggest.ts` keyed
@@ -204,11 +244,15 @@ Front matter — the registry block:
 title: Q3 Board Review
 lens-default: brief          # the LANDING view — where a reader starts (default: full)
 lenses:
-  brief:    { label: "Bottom line",  base: none, approved: "sha256:…" }
+  brief:    { label: "Bottom line",  base: none, kind: rung, approved: "sha256:…" }
   ask:      { label: "The ask",      base: none, single: true, hidden: true }
-  evidence: { label: "Show the work", base: all, hidden: true }
+  evidence: { label: "Show the work", base: all, kind: rung, hidden: true }
 ---
 ```
+
+`kind: rung` enrolls a view in the depth ladder; omit it and the view is a cut,
+which is the right default for anything that is not a strict superset of the rung
+below it.
 
 Per-slide tags mirror the `_class` grammar (lowercase, space-separated tokens):
 
@@ -265,6 +309,8 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
 - [ ] `lensPairs` stays a predicate filter over author order (keeps number-keyed
       captions correct under reorder).
 - [ ] A custom lens's suggester id matches across `suggest.ts` + `lens-archetypes.ts`.
+- [ ] `kind: rung` claimed only where containment actually holds — `validateLadder`
+      silent on the deck.
 - [ ] Co-located unit tests green (round-trip `parseLensRegistry(emitRegistry(x)) ≡ x`).
 
 ---
@@ -277,7 +323,10 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
 4. **Letting the suggester write** or reach a reader.
 5. **Guessing** on low-confidence single/`ask` lenses.
 6. **Uppercase tags.**
-7. **Confusing a lens with a theme/finish/mode** — a lens changes *which slides*,
+7. **Declaring a rung that does not nest** — a "deeper" that drops a slide the
+   reader just read is the exact failure containment exists to prevent. If the two
+   views merely overlap, they are cuts.
+8. **Confusing a lens with a theme/finish/mode** — a lens changes *which slides*,
    never their look. (`tier:` short/standard/full is a separate, adjacent
    progressive-disclosure feature, not Lente.)
 
@@ -292,6 +341,12 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
   safety core).
 - `docs/src/lib/lente/tags.ts` — the `_lens` tag grammar and `applyTag`.
 - `docs/src/lib/lente/suggest.ts` — the four archetype rules.
-- `docs/src/components/studio/lens-archetypes.ts` — the archetype catalog.
+- `docs/src/components/studio/lens-archetypes.ts` — the archetype catalog (and each
+  view's `kind`).
+- `docs/src/components/studio/lens-containment.test.ts` — proves the rungs/cuts
+  split against the real suggester and the real component catalog, and that the
+  declared kinds match it.
 - `engineering/decisions/2026-07-13-lente-reader-lenses.md` — the full design
   rationale (note: its "not started" status line is stale — the feature ships).
+- `engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md` — the register
+  split, the landing view vs. a pin, and §4 the depth model.

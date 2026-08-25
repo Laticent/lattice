@@ -5,7 +5,7 @@ import type { LensRegistry, WorkspaceLensConfig } from './types';
 const WORKSPACE: WorkspaceLensConfig = {
 	default: 'full',
 	lenses: [
-		{ id: 'brief', label: 'Bottom line', base: 'none' },
+		{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' },
 		{ id: 'ask', label: 'The ask', base: 'none', single: true, hidden: true },
 		{ id: 'evidence', label: 'Show the work', base: 'all', hidden: true },
 	],
@@ -164,7 +164,9 @@ describe('workspace-inherited registry — upsert emits only the deck DELTA', ()
 		const reg = pristine();
 		// brief's def is untouched (pristine), but the deck tagged slides into it → force-materialize {brief}.
 		const fm = upsertLensRegistry('', reg, WORKSPACE, new Set(['brief']));
-		expect(fm).toContain('brief: { label: "Bottom line", base: none }');
+		// `kind: rung` rides along: a materialized view has to be self-contained, and dropping it here
+		// would silently demote the deck's own rung to a cut the moment the workspace setting goes off.
+		expect(fm).toContain('brief: { label: "Bottom line", base: none, kind: rung }');
 		expect(fm).not.toMatch(/\bask:/); // ask NOT tagged → stays inherited (no block)
 		expect(fm).not.toMatch(/\bevidence:/);
 		expect(parseLensRegistry(fm, WORKSPACE)).toEqual(reg); // still round-trips with the workspace
@@ -241,5 +243,71 @@ describe('workspace-inherited registry — upsert emits only the deck DELTA', ()
 		const reg = parseLensRegistry('', wsBad);
 		expect(reg.lenses.filter((l) => l.id === 'full')).toHaveLength(1);
 		expect(reg.lenses[0].label).toBe('Full deck'); // the canonical implicit full, not the workspace's
+	});
+});
+
+describe('the `kind` field — rung / cut, and the absent-means-cut default', () => {
+	it('parses a declared rung and leaves an undeclared view without the field', () => {
+		const reg = parseLensRegistry('lenses:\n  brief: { label: "B", base: none, kind: rung }\n  story: { label: "S", base: none }');
+		expect(reg.lenses.find((l) => l.id === 'brief')?.kind).toBe('rung');
+		expect(reg.lenses.find((l) => l.id === 'story')?.kind).toBeUndefined();
+	});
+
+	it('normalizes a redundant explicit `cut` away — absent already means cut', () => {
+		const reg = parseLensRegistry('lenses:\n  story: { label: "S", base: none, kind: cut }');
+		expect(reg.lenses.find((l) => l.id === 'story')?.kind).toBeUndefined();
+	});
+
+	it('ignores a junk value rather than inventing a third kind', () => {
+		const reg = parseLensRegistry('lenses:\n  story: { label: "S", base: none, kind: ladder }');
+		expect(reg.lenses.find((l) => l.id === 'story')?.kind).toBeUndefined();
+	});
+
+	it('emits and round-trips a rung', () => {
+		const reg: LensRegistry = {
+			default: 'full',
+			lenses: [
+				{ id: 'full', label: 'Full deck', base: 'all' },
+				{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' },
+				{ id: 'story', label: 'The story', base: 'none' },
+			],
+		};
+		const fm = upsertLensRegistry('title: Deck', reg);
+		expect(fm).toContain('brief: { label: "Bottom line", base: none, kind: rung }');
+		expect(fm).toContain('story: { label: "The story", base: none }'); // a cut writes nothing extra
+		expect(parseLensRegistry(fm)).toEqual(reg);
+	});
+
+	it('leaves a deck that predates the field byte-identical — no `kind:` appears anywhere', () => {
+		// The absent-means-cut default exists so nothing in the wild gains a field, or a ladder, on
+		// its next rewrite.
+		const reg = parseLensRegistry('lenses:\n  brief: { label: "B", base: none }');
+		expect(upsertLensRegistry('title: Deck', reg)).not.toContain('kind:');
+	});
+
+	it('DEMOTING an inherited rung to a cut round-trips — it never silently re-enrolls in the ladder', () => {
+		// Same hazard as the `single`/`hidden` clear: an omitted value re-merges the workspace's `rung`,
+		// so a containment complaint the author resolved by demoting the view would come straight back.
+		const reg = parseLensRegistry('', WORKSPACE);
+		const demoted: LensRegistry = { ...reg, lenses: reg.lenses.map((l) => (l.id === 'brief' ? { id: 'brief', label: 'Bottom line', base: 'none' as const } : l)) };
+		const fm = upsertLensRegistry('', demoted, WORKSPACE);
+		expect(fm).toContain('kind: cut');
+		const back = parseLensRegistry(fm, WORKSPACE);
+		expect(back.lenses.find((l) => l.id === 'brief')?.kind).toBeUndefined(); // stayed a cut
+		expect(back).toEqual(demoted);
+	});
+
+	it('an inherited rung the deck never touched stays pristine — no block, and the rung survives', () => {
+		const reg = parseLensRegistry('', WORKSPACE);
+		expect(upsertLensRegistry('', reg, WORKSPACE)).toBe('');
+		expect(parseLensRegistry('', WORKSPACE).lenses.find((l) => l.id === 'brief')?.kind).toBe('rung');
+	});
+
+	it('PROMOTING a deck view to a rung materializes it against a workspace that has no opinion', () => {
+		const reg = parseLensRegistry('', WORKSPACE);
+		const promoted: LensRegistry = { ...reg, lenses: reg.lenses.map((l) => (l.id === 'evidence' ? { ...l, kind: 'rung' as const } : l)) };
+		const fm = upsertLensRegistry('', promoted, WORKSPACE);
+		expect(fm).toContain('kind: rung');
+		expect(parseLensRegistry(fm, WORKSPACE)).toEqual(promoted);
 	});
 });

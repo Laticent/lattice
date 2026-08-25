@@ -263,3 +263,97 @@ describe('LensesPanel — the landing note names the REAL reason', () => {
 		expect(screen.getByText(/opens on the whole deck/i)).toBeInTheDocument();
 	});
 });
+
+describe('LensesPanel — the depth model (rungs, cuts, and the ladder)', () => {
+	// The panel is where an author meets `kind`. Two things have to reach them: WHICH kind a view is
+	// (a rung's containment is enforced, a cut's is not), and WHEN a rung stops containing the rung
+	// below it — because that is a broken invariant they, not a reader, have to fix.
+	// See 2026-08-25-lens-view-defaults-and-depth.md §4.
+
+	// Slide 1 (kpi) is in brief AND evidence; slide 3 (closing) is in brief only — so brief escapes
+	// evidence by one slide, and the ladder is broken exactly once.
+	const broken = [
+		'<!-- _class: title -->\n# Cover',
+		'<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number',
+		'<!-- _class: quote -->\n# A voice',
+		'<!-- _class: closing -->\n<!-- _lens: brief -evidence -->\n# The ask',
+	];
+	const sound = broken.map((s) => s.replace(' -evidence', ''));
+	const LADDER = 'lenses:\n  brief: { label: "Bottom line", base: none, kind: rung }\n  evidence: { label: "The evidence", base: all, kind: rung }';
+
+	async function open(name: RegExp, fm: string, slides: string[]) {
+		const user = userEvent.setup();
+		setup(fm, { slides });
+		await user.click(screen.getByRole('button', { name }));
+	}
+
+	it('names a rung by its altitude in the ladder', async () => {
+		await open(/Bottom line/, LADDER, sound);
+		expect(screen.getByText(/Rung 1 of 3 — the shallowest altitude/i)).toBeInTheDocument();
+	});
+
+	it('tells a middle rung what it sits on', async () => {
+		await open(/The evidence/, LADDER, sound);
+		expect(screen.getByText(/Rung 2 of 3 .*everything in Bottom line, plus more/i)).toBeInTheDocument();
+	});
+
+	it('says plainly that a cut has no altitude above it', async () => {
+		await open(/The story/, 'lenses:\n  story: { label: "The story", base: none }', sound);
+		expect(screen.getByText(/a standalone slice, not part of the deck’s depth ladder/i)).toBeInTheDocument();
+	});
+
+	it('is silent about the ladder when every rung contains the one below it', async () => {
+		await open(/Bottom line/, LADDER, sound);
+		expect(screen.queryByText(/missing from the rung above/i)).not.toBeInTheDocument();
+		expect(screen.queryByText('Ladder')).not.toBeInTheDocument();
+	});
+
+	it('marks the row and names the escaping slide BY TITLE when a rung stops nesting', async () => {
+		await open(/Bottom line/, LADDER, broken);
+		// The row marker is visible without expanding — an author who never opens the view still sees it.
+		expect(screen.getByText('Ladder')).toBeInTheDocument();
+		expect(screen.getByText(/1 slide here is missing from the rung above/i)).toBeInTheDocument();
+		expect(screen.getByText(/Add it to the deeper view, or drop it from this one/i)).toBeInTheDocument();
+		const finding = screen.getByText(/missing from the rung above/i).closest('div');
+		expect(within(finding as HTMLElement).getByText('The ask')).toBeInTheDocument();
+	});
+
+	it('attributes the finding to the LOWER rung — the evidence row stays clean', async () => {
+		await open(/The evidence/, LADDER, broken);
+		expect(screen.queryByText(/missing from the rung above/i)).not.toBeInTheDocument();
+	});
+
+	it('says nothing at all when the same membership is carried by CUTS', async () => {
+		// Identical slides, `kind` dropped: a cut promises no containment, so there is nothing to report.
+		await open(/Bottom line/, 'lenses:\n  brief: { label: "Bottom line", base: none }\n  evidence: { label: "The evidence", base: all }', broken);
+		expect(screen.queryByText('Ladder')).not.toBeInTheDocument();
+		expect(screen.queryByText(/missing from the rung above/i)).not.toBeInTheDocument();
+	});
+
+	it('labels each archetype in the add menu as a rung or a cut', async () => {
+		const user = userEvent.setup();
+		setup('', { slides: sound });
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		const bottomLine = screen.getByRole('button', { name: /Bottom line/ });
+		expect(within(bottomLine).getByText(/· rung/)).toBeInTheDocument();
+		expect(within(screen.getByRole('button', { name: /The story/ })).getByText(/· cut/)).toBeInTheDocument();
+	});
+
+	it('writes `kind: rung` into the registry when a rung archetype is added', async () => {
+		const user = userEvent.setup();
+		const { onWriteRegistry } = setup('', { slides: sound });
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		const [, reg] = onWriteRegistry.mock.calls[0];
+		expect(reg.lenses.find((l: { id: string }) => l.id === 'brief').kind).toBe('rung');
+	});
+
+	it('adds a cut archetype WITHOUT a kind — absent means cut, and nothing writes it', async () => {
+		const user = userEvent.setup();
+		const { onWriteRegistry } = setup('', { slides: sound });
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		await user.click(screen.getByRole('button', { name: /The story/ }));
+		const [, reg] = onWriteRegistry.mock.calls[0];
+		expect(reg.lenses.find((l: { id: string }) => l.id === 'story').kind).toBeUndefined();
+	});
+});
