@@ -425,11 +425,11 @@ Variants don't all belong to one component. Some apply to every layout
 "accent"); some apply to a family of layouts ("checks-*" for the
 state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
-recognises four tiers:
+recognizes four tiers:
 
-**Tier 1 — Universal (46 variants).** Apply to every component. Added
+**Tier 1 — Universal (51 variants).** Apply to every component. Added
 automatically by `effectiveVariants()`; manifests must NOT list them. The
-canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Nine
+canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Eleven
 categories:
 
 | Category | Variants |
@@ -443,6 +443,8 @@ categories:
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
 | Insight (11) | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask`, `insight-our-view`, `insight-implication`, `insight-next-step`, `insight-why` |
 | Claim (3) | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
+| Note (2) | `no-note`, `note-warn` |
+| Table (3) | `table-plain`, `table-fill`, `state-cells` |
 
 The State variants are the team-collaboration vocabulary — visible
 markers for slides that are in-progress, confidential, or otherwise
@@ -456,6 +458,15 @@ Insight panel and the split-compare verdict tag share one
 default stays put; `insight-key`/`insight-recommendation` are the two
 defaults as explicit modifiers, so either can move onto the other surface
 (`engineering/decisions/2026-07-17-insight-label-vocabulary.md`). The
+**Note** variants act on the author's own trailing sentence rather than the
+running frame: `no-note` keeps a concluding paragraph as body copy instead of
+promoting it to a footnote, and `note-warn` marks the slide's callout as an alarm
+— the drawn warning triangle in the warn token, so a caveat needs no typed `⚠`
+(HARD RULE #29). The **Table** switches sit over the universal table treatment:
+`table-plain` drops the zebra, `table-fill` spreads the rows into the leftover
+stage height, and `state-cells` opts the cells into the universal state-marker
+decoding (`[x]` `[-]` `[ ]` `[/]` → the color-blind-safe status disc) that
+`obligation-matrix` and `matrix-grid` get by layout. The
 **Claim** variants let content claim the stage by receding the chrome
 (quiet → hero → bleed); they compose with the Chrome switches above and
 are the author surface of the `claim:` register (`design/concepts.md`;

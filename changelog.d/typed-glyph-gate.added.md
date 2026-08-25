@@ -18,3 +18,6 @@
   measurements behind them (empty-alt `content` is the only thing that keeps them out
   of the accessibility tree; the doubled declaration is a cross-engine pair) are
   recorded in `engineering/decisions/2026-08-25-typed-glyphs.md`.
+- **New demo deck `examples/drawn-not-typed.md`** — what a typed glyph actually does
+  on a machine that is not yours, both new modifiers in use, and the three places the
+  rule deliberately stops.
