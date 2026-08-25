@@ -1265,6 +1265,23 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const id = window.setTimeout(() => setResetArmed(false), 2500);
 		return () => window.clearTimeout(id);
 	}, [resetArmed]);
+	// THE TALK STARTS WHEN THE ROOM DOES. The clock is presenter-view furniture — it
+	// appears with the Stage — so its zero point has to be the Stage too. Keyed on `open`
+	// alone it counted from Present-open, and a presenter who spent five minutes picking a
+	// lens before projecting saw "Talk time 5:00" the instant the room first saw a slide
+	// (measured). Only the null -> host transition re-zeros: a rewrite (lens, palette, mode)
+	// briefly drops `stageHost` to null and restores it, and that must NOT reset a talk in
+	// progress, so the previous value is what decides.
+	const hadStageRef = React.useRef(false);
+	React.useEffect(() => {
+		const has = !!stageHost;
+		if (has && !hadStageRef.current) {
+			talkStartRef.current = Date.now();
+			setResetArmed(false);
+			paintClock();
+		}
+		hadStageRef.current = has;
+	}, [stageHost, paintClock]);
 	const resetTalkClock = React.useCallback(() => {
 		if (resetArmed) {
 			talkStartRef.current = Date.now();
@@ -1545,7 +1562,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// module is bundled, not inlined), but it is the form someone would copy into a
 			// document built as a STRING, where `.toString()` inlining drops the closure and the
 			// default resolves to a minified name that does not exist there. The export player
-			// is the live instance of that; the Stage no longer navigates at all.
+			// is the live instance of that; the Stage is the other, and it inlines this same
+			// kernel by `.toString()` — which is exactly why the explicit map matters here.
 			// `test/unit/export/inlinable-kernels.test.js` pins both halves of that contract.
 			const act = keyAction(e.key, PRESENT_KEYMAP);
 			if (act && NAV[act]) {
