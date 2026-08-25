@@ -238,25 +238,33 @@ export function currentSlide(page: Page): Locator {
  * there. Fails CLOSED — a control with no island ancestor is not "ready" by default, or this
  * silently becomes a no-op the day the chrome moves out of an island (the #780 drift class).
  *
- * TWO conditions, because the island attribute ALONE FIRES ~100ms TOO EARLY (#1815, measured).
+ * TWO conditions, because the island attribute ALONE FIRES TOO EARLY (#1815, measured).
  * `@astrojs/react`'s client wraps `hydrateRoot` in `startTransition`, which returns immediately —
  * so the island's `await this.hydrator(...)` resolves and it drops `ssr` while React has not yet
- * committed, and a click in that window is still swallowed. Measured on the Playground's Galleries
- * trigger with the island's JS delayed: `ssr` dropped 93–103ms before the first click that
- * actually opened the sheet, in 6 of 6 runs.
+ * done its work, and a click in that window is still swallowed.
  *
- * The second condition is React's OWN per-node marker. React attaches `__reactFiber$…` /
- * `__reactProps$…` to a host DOM node when it COMMITS that node, which is exactly when a click on
- * it starts reaching a handler — same frame as the first working click in all 6 runs. It is a
- * React internal, deliberately: the alternative is a per-surface app signal, and there isn't one
- * that covers every control this helper is pointed at. The failure direction is safe — if a React
- * upgrade renamed it, this poll TIMES OUT LOUDLY rather than certifying an unwired control.
+ * HOW EARLY depends on the profile, so take the ORDERING as the finding and the magnitude as an
+ * illustration: on the Playground's Galleries trigger, `ssr` dropped **81–118ms** (n=8) before the
+ * first click that actually opened the sheet under `devices['Pixel 5']` emulation, and an
+ * independent re-measurement on a desktop context put the same gap at 31–70ms. Different numbers,
+ * same sign, every run: `ssr` is never late.
+ *
+ * The second condition is React's OWN per-node marker, `__reactFiber$…` / `__reactProps$…`. Be
+ * precise about what that proves: React assigns them in `completeWork` — the RENDER phase, not
+ * the commit — so in principle the marker can precede the commit, and this is a behavioral gate,
+ * not a proof. What earns it is the measurement: the marker landed in the SAME FRAME as the first
+ * working click in every run of both re-measurements above. It is a React internal, deliberately:
+ * the alternative is a per-surface app signal, and there isn't one that covers every control this
+ * helper is pointed at. The failure direction is safe — if a React upgrade renamed it, this poll
+ * TIMES OUT LOUDLY rather than certifying an unwired control.
  * (Consequence: this helper is for REACT controls. A non-React island control never satisfies it.)
  *
  * Scope of the claim: this CLOSES A MARGIN, it does not fix an observed failure at the three
  * `back-gesture.spec.ts` call sites. Gated on the island attribute alone, a click still landed
- * 8/8 under the same stress — Playwright's own click round-trip happens to cover ~100ms. The
- * point is that it was covering it by luck, on a budget nobody chose.
+ * 8/8 under the same stress — Playwright's own click round-trip happens to cover a gap this size.
+ * The point is that it was covering it by luck, on a budget nobody chose. Nothing PINS this second
+ * condition either: delete it and every spec stays green, because the margin re-hides. Its
+ * evidence is the measurement above, not a test — so treat it as load-bearing when editing.
  */
 export async function controlReady(control: Locator): Promise<void> {
 	await control.waitFor({ state: 'visible' });

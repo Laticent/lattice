@@ -169,15 +169,22 @@ owe nothing here. See
   100ms.** `@astrojs/react`'s client calls `startTransition(() => hydrateRoot(…))`,
   which returns immediately; the island's `await this.hydrator(...)` therefore
   resolves and it removes `ssr` while React has not yet committed. Measured with the
-  island's JS delayed: `ssr` dropped 93–103ms before the first click that actually
-  worked, 6 runs of 6.
+  island's JS delayed: `ssr` dropped **81–118ms** (n=8) before the first click that
+  actually worked under phone emulation, and 31–70ms on a desktop context in an
+  independent re-measurement. The magnitude moves with the profile; the sign never
+  does — `ssr` is never late.
 - **Fix:** `controlReady` in `docs/e2e/studio-fixture.ts` requires BOTH — the island
-  has dropped `ssr`, AND the control's own DOM node carries React's commit marker
-  (`__reactFiber$…` / `__reactProps$…`, attached when React commits that host node).
-  The marker landed in the same frame as the first working click in every run. It is
-  a React internal on purpose: there is no app-level signal covering every control
-  this helper is pointed at, and if a React upgrade renames it the poll times out
-  loudly instead of certifying an unwired control.
+  has dropped `ssr`, AND the control's own DOM node carries React's per-node marker
+  (`__reactFiber$…` / `__reactProps$…`). Be precise about that second one: React
+  assigns those in `completeWork`, the RENDER phase rather than the commit, so it is
+  a behavioral gate rather than a proof — what earns it is that the marker landed in
+  the same frame as the first working click in every run of two independent
+  measurements. It is a React internal on purpose: there is no app-level signal
+  covering every control this helper is pointed at, and if a React upgrade renames it
+  the poll times out loudly instead of certifying an unwired control.
+- **Nothing pins the second condition.** Delete it and every spec stays green — the
+  margin simply re-hides behind Playwright's own click round-trip. Its evidence is
+  the measurement, not a test.
 - **How to tell them apart when you are stuck:** the window is invisible to
   `page.waitForLoadState`, to `networkidle`, and to any assertion about the element
   itself — they are all true throughout it. Reproduce it deterministically by

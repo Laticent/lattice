@@ -4,53 +4,60 @@ import { CHROME, expect, gotoStudio, openArchitect, openChat, test } from './stu
 // drawer) — the Coach score card is deterministic (no model); Chat degrades honestly
 // offline instead of fabricating a reply.
 
-test.beforeEach(async ({ page }) => {
-	await gotoStudio(page);
-});
+// SCOPED, not file-level. The #1813 case at the bottom installs a route before its own
+// `goto`, so it cannot inherit a page that has already been to the Studio — and a
+// `beforeEach` paint plus its own would put TWO cold first paints in one 60s slot, which
+// `FIRST_PAINT_TIMEOUT`'s docblock in studio-fixture.ts says cannot both fit under the
+// oversubscription its 45s budget was sized against (checker; the #1572 class).
+test.describe('Coach and Chat panels', () => {
+	test.beforeEach(async ({ page }) => {
+		await gotoStudio(page);
+	});
 
-test('Coach and Chat are separate panels, mutually exclusive in the assistant slot', async ({ page }) => {
-	// Each has its own activity-bar launcher — no tab to switch between them.
-	await openArchitect(page); // the Coach
-	await expect(page.getByText('Board readiness')).toBeVisible();
+	test('Coach and Chat are separate panels, mutually exclusive in the assistant slot', async ({ page }) => {
+		// Each has its own activity-bar launcher — no tab to switch between them.
+		await openArchitect(page); // the Coach
+		await expect(page.getByText('Board readiness')).toBeVisible();
 
-	await openChat(page); // opening Chat takes the assistant slot from the Coach
-	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
-	await expect(page.getByText('Board readiness')).toHaveCount(0);
+		await openChat(page); // opening Chat takes the assistant slot from the Coach
+		await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
+		await expect(page.getByText('Board readiness')).toHaveCount(0);
 
-	await openArchitect(page); // and back
-	await expect(page.getByText('Board readiness')).toBeVisible();
-});
+		await openArchitect(page); // and back
+		await expect(page.getByText('Board readiness')).toBeVisible();
+	});
 
-test('the Coach score card scores the seeded deck', async ({ page }) => {
-	await openArchitect(page);
-	await expect(page.getByText('Board readiness')).toBeVisible();
-	// The REAL engine scorecard: an overall out of 100 and a per-dimension read
-	// (Structure/Clarity are always-present categories). The toy 3-check heuristic
-	// (Components valid / Opens with a title / Variety, scored / 10) was deleted.
-	await expect(page.getByText(/\/ 100/)).toBeVisible();
-	// Scope the per-dimension read to the Board readiness card. Bare
-	// `getByText('Structure')` is a case-INSENSITIVE SUBSTRING match, so it also
-	// caught the card's own disclaimer prose ("…authoring hygiene (structure,
-	// clarity, contract)") and the "Structure" quick-read chip in the sibling
-	// "Ask the deck" card — three matches, a strict-mode violation.
-	const readiness = page.getByText('Board readiness').locator('..');
-	await expect(readiness.getByText('Structure', { exact: true })).toBeVisible();
-	await expect(readiness.getByText('Clarity', { exact: true })).toBeVisible();
-});
+	test('the Coach score card scores the seeded deck', async ({ page }) => {
+		await openArchitect(page);
+		await expect(page.getByText('Board readiness')).toBeVisible();
+		// The REAL engine scorecard: an overall out of 100 and a per-dimension read
+		// (Structure/Clarity are always-present categories). The toy 3-check heuristic
+		// (Components valid / Opens with a title / Variety, scored / 10) was deleted.
+		await expect(page.getByText(/\/ 100/)).toBeVisible();
+		// Scope the per-dimension read to the Board readiness card. Bare
+		// `getByText('Structure')` is a case-INSENSITIVE SUBSTRING match, so it also
+		// caught the card's own disclaimer prose ("…authoring hygiene (structure,
+		// clarity, contract)") and the "Structure" quick-read chip in the sibling
+		// "Ask the deck" card — three matches, a strict-mode violation.
+		const readiness = page.getByText('Board readiness').locator('..');
+		await expect(readiness.getByText('Structure', { exact: true })).toBeVisible();
+		await expect(readiness.getByText('Clarity', { exact: true })).toBeVisible();
+	});
 
-test('offline chat degrades honestly and points to Workspace', async ({ page }) => {
-	await page.getByRole('button', { name: CHROME.chat }).click();
-	const input = page.getByRole('textbox', { name: 'Message the Architect' });
-	await input.fill('Tighten slide two.');
-	// Exact — "Send feedback" in the shared header also matches a loose "Send" (#1504).
-	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	test('offline chat degrades honestly and points to Workspace', async ({ page }) => {
+		await page.getByRole('button', { name: CHROME.chat }).click();
+		const input = page.getByRole('textbox', { name: 'Message the Architect' });
+		await input.fill('Tighten slide two.');
+		// Exact — "Send feedback" in the shared header also matches a loose "Send" (#1504).
+		await page.getByRole('button', { name: 'Send', exact: true }).click();
 
-	// The message was actually submitted (a user bubble rendered)…
-	await expect(page.getByText('Tighten slide two.')).toBeVisible();
-	// …and the reply is the honest degradation — an ephemeral notice, distinct from the
-	// empty-thread placeholder, so this can only pass if the send path ran (never a
-	// fabricated edit). "…Workspace → AI and I can answer…" is the notice wording.
-	await expect(page.getByText(/Workspace → AI and I can answer/)).toBeVisible();
+		// The message was actually submitted (a user bubble rendered)…
+		await expect(page.getByText('Tighten slide two.')).toBeVisible();
+		// …and the reply is the honest degradation — an ephemeral notice, distinct from the
+		// empty-thread placeholder, so this can only pass if the send path ran (never a
+		// fabricated edit). "…Workspace → AI and I can answer…" is the notice wording.
+		await expect(page.getByText(/Workspace → AI and I can answer/)).toBeVisible();
+	});
 });
 
 // ── A turn that fails belongs to the deck that asked (#1813) ───────────────────────────
@@ -70,20 +77,30 @@ test('offline chat degrades honestly and points to Workspace', async ({ page }) 
 //
 // HOW THE TURN IS HELD OPEN, with nothing patched: `chatComplete`'s first await is
 // `architectModel()`, a dynamic import of the `architect-model` chunk. Hold that request
-// and the turn hangs exactly where a slow model would leave it. The chunk is
-// modulepreloaded at page load, so the route must be installed before `goto` — and the
-// hold is asserted below, because a Vite change that inlined the chunk would make this
-// spec pass while testing nothing.
+// and the turn hangs exactly where a slow model would leave it.
+//
+// The route must be installed before `goto`, but NOT because the chunk is modulepreloaded
+// — it isn't; its vite preload-deps array is empty and `inject-modulepreload.mjs` doesn't
+// cover it, and `build:e2e` doesn't run that script at all. It is because the SHELL fetches
+// it at mount: `useArchitectStatus()` in StudioShell calls `architectModel()` long before
+// anyone presses Send (checker corrected an earlier claim here).
+//
+// That is also why the hold has to be measured AT THE SEND. `intercepted`-ever is true from
+// page load, so an assertion on it would be true in every run whether or not this turn was
+// held — an anti-vacuity guard that cannot detect the thing it names.
 test('a turn ending offline paints on the deck that asked, not the one on screen (#1813)', async ({ page }) => {
 	let release: () => void = () => {};
 	const held = new Promise<void>((r) => {
 		release = r;
 	});
 	let holding = true;
-	let intercepted = false;
+	let heldNow = false;
 	await page.route(/architect-model\.[^/]*\.js/, async (route) => {
-		intercepted = true;
-		if (holding) await held;
+		if (holding) {
+			heldNow = true;
+			await held;
+			heldNow = false;
+		}
 		await route.continue();
 	});
 
@@ -106,7 +123,7 @@ test('a turn ending offline paints on the deck that asked, not the one on screen
 	// Stop in place of Send IS the turn being in flight. Without it the hold did not take
 	// and everything below would pass against a turn that already finished.
 	await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
-	expect(intercepted, 'the architect-model chunk was never requested — the turn was not actually held, so this test proves nothing').toBe(true);
+	expect(heldNow, 'no architect-model request is being held at this moment — the turn is not actually blocked, so everything below would pass against a turn that already finished').toBe(true);
 
 	// The author walks away mid-turn.
 	await goToDeck(DECK_TWO);
