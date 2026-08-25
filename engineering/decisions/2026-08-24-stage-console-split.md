@@ -717,11 +717,29 @@ land together; the deck is the surface where that failed, and the trio is what c
 
 ### Still open
 
-- **The rewrite de-morph.** `paint()` fires `onChange(null)` before every rewrite, so a lens,
-  palette or mode change unmounts the notes aside, its live next-slide frame and the talk clock
-  for the length of an engine boot, then remounts them. Reasoned from source by two lenses;
-  **not reproduced** — jsdom's fake window makes `write()` a no-op, so `ready` never returns.
-  Marked UNVERIFIED rather than fixed speculatively.
+- **The rewrite de-morph — DRIVEN, and it does not happen.** Two lenses reasoned from source
+  that `paint()`'s `onChange(null)` would unmount the notes aside, its live next-slide frame and
+  the talk clock on any lens/palette/mode change. Neither reproduced it, and the note first
+  recorded it as UNVERIFIED. It is verified now, on the real popup, and the finding does not
+  hold: **one line in `update()` prevents it** — `doc === written` refuses a rewrite unless the
+  built document actually DIFFERS. A site palette change announces itself, `chromeGen` bumps,
+  the document is rebuilt, and it comes back identical.
+
+  Three triggers were driven and none rewrote a live Stage: an OS `prefers-color-scheme` flip, a
+  bare `lattice-chrome-change` event, and the exact pair `setPalette()` performs (root
+  `data-palette` attribute, then the announcement). The Stage document was **stamped with a
+  global** so a rewrite would be observable — `document.open()` replaces it — and the stamp
+  survived all three.
+
+  What is NOT claimed: that no path can rewrite a live Stage. The deck-theme controls
+  (`paletteOverride`, `extraTheme`, `modeOverride`) sit outside the Present modal and could not
+  be reached while it is open, which is itself most of why this is not a live defect. Pinned by
+  a cell that SAMPLES at 16ms rather than checking before and after, because the failure shape is
+  a flicker and a before/after check would miss an unmount-and-remount entirely.
+
+  The first two attempts at this measurement were themselves vacuous, in the way this branch
+  keeps producing: the trigger never fired, so "nothing blinked" was true for the wrong reason.
+  The stamp is what caught that, and it is why the stamp is worth describing here.
 - **`onLost` does not distinguish a Stage that DIED from one the presenter deliberately closed.**
   Both revert the console to plain Present, which is right for the second and arguably wrong for
   the first. A decision, not a defect — it goes to the maintainer.

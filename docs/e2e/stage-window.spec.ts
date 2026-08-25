@@ -308,6 +308,49 @@ test('the Stage control bar answers to the keyboard it is reachable by', async (
 	await expect(at(2), 'the arrows stopped working while the bar had focus').toBeVisible();
 });
 
+// THE PRESENTER VIEW SURVIVES A SITE PALETTE CHANGE.
+//
+// Two lenses reasoned from source that it would not: `paint()` fires `onChange(null)` before
+// every rewrite, and the presenter view is gated on `stageHost`, so a rewrite should unmount
+// the notes aside, its live next-slide frame and the talk clock for the length of an engine
+// boot. Neither reproduced it — jsdom makes `write()` a no-op, so `ready` never returns.
+//
+// Driven on the real popup, it does not happen, and the reason is one line in `update()`:
+// `doc === written` refuses a rewrite unless the built document actually DIFFERS. A site
+// palette change announces itself, `chromeGen` bumps, the document is rebuilt — and it comes
+// back identical, so nothing is repainted and nothing unmounts.
+//
+// This cell exists to keep it that way. It samples at 16ms rather than checking before and
+// after, because the failure it guards against is a FLICKER: a check on either side of the
+// change would miss an unmount-and-remount entirely.
+test('a site palette change does not blink the presenter view off', async ({ page, context }) => {
+	const { stage, dialog } = await openStage(page, context);
+	const clock = dialog.getByText(/Talk time/i);
+	await expect(clock).toBeVisible();
+
+	await page.evaluate(() => {
+		const w = window as unknown as { __gone: number };
+		w.__gone = 0;
+		window.setInterval(() => {
+			if (!document.body.textContent?.match(/Talk time/)) w.__gone++;
+		}, 16);
+	});
+	// Exactly what `setPalette()` does — set the root attribute, then announce on the event
+	// `PresentOverlay`'s rewrite effect listens for.
+	for (const palette of ['indaco', 'cuoio']) {
+		await page.evaluate((p) => {
+			document.documentElement.setAttribute('data-palette', p);
+			window.dispatchEvent(new CustomEvent('lattice-chrome-change'));
+		}, palette);
+		await page.waitForTimeout(400);
+	}
+
+	const gone = await page.evaluate(() => (window as unknown as { __gone: number }).__gone);
+	expect(gone, 'the presenter view blinked off during a rewrite').toBe(0);
+	await expect(clock).toBeVisible();
+	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
+});
+
 test('a Stage the presenter closes by hand is reported, not left driving a dead window', async ({ page, context }) => {
 	const { stage, dialog, launcher } = await openStage(page, context);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');

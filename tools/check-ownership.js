@@ -4693,7 +4693,7 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 4,
+    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 5,
     why: 'ABSENCE ASSERTIONS, four of them, all the same "and then nothing happened" shape. (1) The '
        + 'ECHO: the Stage and the console both drive the deck now, and the relay that carries a Stage '
        + 'gesture to the console invites a move posted out, applied, and posted back as a second move '
@@ -4706,6 +4706,9 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'were read as swipes and turned the deck (#1294 again), and the fix is that they now do '
        + 'NOTHING, which is again an absence. None has a signal to poll — a poll goes green on its '
        + 'first tick, before the navigation or the extra advance it is meant to catch could commit. '
+       + '(5) The REWRITE FLICKER: a site palette change is announced and the presenter view must '
+       + 'not blink off while the Stage document is rebuilt — the assertion is a 16ms SAMPLER over '
+       + 'that window reading zero, so the wait is what gives the sampler a window to sample. '
        + 'Everything pollable around them already is: the popup via `context.waitForEvent(\'page\')`, '
        + 'the deck paint via `not.toBeEmpty()`, every slide ARRIVAL via `toBeVisible`, and the pill '
        + 'state via `toHaveAttribute`.',
