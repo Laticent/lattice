@@ -39,6 +39,14 @@ export const DECK_GOLDEN_EXCLUDE = [
   (f) => f.startsWith('kit/'),
   // The light/dark gallery pairs are their own scope; counting them here would render
   // every one twice and report each drift twice.
+  //
+  // BELT-AND-BRACES, and knowing that is the point: all 150 pairs are named
+  // `X.gallery.{light,dark}.pdf` but source from `X.gallery.md`, so none carries the
+  // same-stem `.md` the sibling rule looks for — that rule already drops every one of
+  // them (measured, `test/unit/tools/golden-set.test.js`). This entry states the intent
+  // rather than doing the work, and the same regex IS load-bearing one function down, in
+  // `classifyChangedPdf`. Kept deliberately; the test fails loudly if a same-stem `.md`
+  // ever appears and this becomes the thing actually holding the line.
   (f) => GALLERY_GOLDEN_RE.test(f),
 ];
 
