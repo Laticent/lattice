@@ -36,6 +36,69 @@ The validation-ladder row for `checkStatusTrioParity` is therefore struck — th
 pairing rule it named no longer exists, and the invariant that replaced it says
 the opposite.
 
+## Second correction, on building the gate (2026-08-25, #1841)
+
+Three more figures, and one thing the note asserts that turned out to be *true
+for the wrong reason*.
+
+| This note says | Measured | Where |
+|---|---|---|
+| `gateCss`'s `no-hex` fires **118–200** times on each of the 19 palettes | **22–194.** The four `a11y-*` variants sit at 22 (they declare only a status trio); `carbone` at 147 is the lowest real palette, `cuoio` at 194 the highest | `findHexLiterals` over `themes/` |
+| `scope` fires **6–39** times each | **1–41**, and only after fixing the walker — see the row below | `findUnscopedSelectors` over `themes/` |
+| — (not claimed) | **`findUnscopedSelectors` was returning 0 findings for the four `a11y-*` variants**, i.e. it was not measuring what the note reported. `eachRule` never reset its selector chunk at a `;`, so a `;`-terminated top-level at-rule stayed glued to the rule after it: `@import 'a11y-base';\n:root {…}` read as ONE head starting with `@` and was discarded, selector and all. Exactly one rule after every such at-rule was invisible. Fixed in this change, along with the `partScoped` blindness the fix exposed (a `.name` spelled inside a quoted attribute value was reading as scoping) | `lib/layout/gate.js` |
+| — (not claimed) | **`--on-accent-soft` and `--accent-soft-body` are declared by ZERO of the 14 self-contained palettes.** They are in `REQUIRED_TOKENS` because `deriveTheme` solves them for contrast, but `lib/base/base.tokens.css:682-683` defaults both — so a `REQUIRED_TOKENS` conformance rung run as an error fails two thirds of the catalog for writing correct CSS. They warn instead, off an enumerated allowlist the test re-derives from the corpus | `themeRecordView` over `themes/` |
+
+Confirmed unchanged: all 32 rejected by `gateCss`; exactly **3** files carry
+non-root rules (`a11y-base`, `concrete`, `onyx`). *(The note's "the 13 `*-dark`
+wrappers are rejected by `css-import` alone" was true only because of the walker
+bug above: with it fixed they carry one `scope` finding each, for their one
+`:root` block. The claim it was standing on — that no `gateCss` rule is reusable
+as-is for a theme — is unaffected and in fact stronger.)*
+
+### What the gate found in the gate it was built on
+
+Three defects in `lib/layout/gate.js`, all fixed in the same change because the
+theme gate composes on them. Each was found by building the rung, not by
+reviewing the file:
+
+1. **The comment strip was a live bypass.** Every scanner there blanked comments
+   with `replace(/\/\*[\s\S]*?\*\//g, …)` — the exact naive regex
+   `lib/core/css-comments.mjs` was written to abolish, whose docblock lists four
+   consumers bitten by it and never listed this one. Comments and strings are not
+   independent layers, so a `content: "/*"` string pairs with the next real closer
+   and blanks everything between. Measured: `gateCss` returned **zero findings**
+   over CSS carrying both a remote `@import` beacon and a remote `url()` exfil.
+   The scanners moved to `lib/core/css-scan.js` and onto the canonical walk.
+2. **`eachRule` swallowed the rule after any `;`-terminated at-rule** (above), and
+   the quote tracking that fixed it introduced a **worse** hole until escapes were
+   handled too: `.a\'b` is a legal class name, read as a string opener it runs the
+   walk to end of input, and `findUnscopedSelectors` returns nothing for the rest
+   of the sheet. Driven through real Chromium, which applied the unscoped rule.
+3. **`partScoped` counted a `.name` inside a quoted attribute value as scoping.**
+   `ul[data-state="} section.x "]` scopes nothing and claimed to scope to `.x`.
+
+The theme gate's own first cut then reproduced the class one level up: it judged
+a **decoded** import target against a **re-derived** name grammar, so
+`@import '\61 rdesia'` and `@IMPORT 'ardesia'` both passed while the engine
+resolver — raw bytes, case-sensitive — left them in the sheet for `hoistImports`
+to lift into position 0. The rule that came out of it is worth stating once:
+**detect with the semantics of the thing that will EXECUTE the CSS, judge with the
+semantics of the thing that will CONSUME it.** Those are different parsers and a
+gate that uses one reading for both is wrong in one direction or the other.
+
+### Logged, not fixed here: the engine hoists what it cannot resolve
+
+The root cause under all of the import findings is in the engine, not the gate:
+`ThemeStore.resolveThemeImports` leaves an unknown or cyclic theme-name import
+**in place**, and `composeCss`'s `hoistImports` then lifts every surviving quoted
+import to the TOP of the composed sheet — where CSS resolves it as a relative URL
+and fetches it. The gate closes this for the Studio path. It does not close it for
+the other producers the design note already lists as ungated (a `.zip` import, a
+shared payload), and the honest fix is for `hoistImports` to DROP a quoted
+theme-name import that no longer resolves rather than promote it to first
+position. Off the path of this change (#18's log-it branch), and named here with
+its reproduction so the next session does not have to rediscover it.
+
 ## The ask
 
 > "Whether we want direct css editing for themes, css and manifest for
@@ -423,6 +486,56 @@ log them), but the design rests on them:
   on the import path in the same change or log it — but do not leave it
   undiscussed, because a shared `.zip` is the one path where the author and the
   victim are different people.
+
+## Third correction, on shipping the CSS view (2026-08-25, #1839)
+
+Two of this note's own preconditions were measured wrong, and the UI it specifies
+is now built, so what it predicted can be checked.
+
+| This note says | Measured on the shipped surface |
+|---|---|
+| Precondition 1 — no production caller persists `overrides` / `rampStrategy` | **True, and now fixed.** Save passes both when the pickers are the model. It deliberately does NOT pass them for a hand-edited theme: they describe a derivation that is no longer what produces the file |
+| The four `essentials` readers "start lying after a hand edit" | **True, and the reader census in the note is stale.** `StudioShell.tsx:1804` is `:1822`, and it is a single funnel that fixes three picker dots at once; `:3169` is `:3225` and is an INDEPENDENT second read; `StudioDrawer.tsx:439` is a comment, not a read, and its site (`:442`) is fixed transitively by the funnel. A fifth reader the note does not name is the Library card's own metadata line, which prints `${Object.keys(essentials).length} essentials` — the most explicit of the lies. All are fed from the record now |
+| "It does not make a hand-edited theme reproducible from its essentials" | Held, and it is the reason the reopen path hydrates from `seed.css` rather than re-deriving. Re-deriving would hand the author a different theme from the one they saved |
+
+**What could not be checked before and now can.** The note's closing line said every
+behavioural prediction owed a real-surface check because there was no UI. There is
+one: `docs/e2e/fabricate.spec.ts` drives the real CodeMirror through
+edit → save → reopen → export and compares BYTES, and drives the blocking rung
+through a remote `url()` to a paused preview and back. Both pass. The claims that
+remain unverified on a real surface are the ones about *other* producers — the
+`.zip` import path is still ungated, as this note already says.
+
+### The reopen path is where the danger moved
+
+The note frames the hazard as "hand-editing forks away from the pickers." Building
+it showed the sharper edge is the other direction: **re-deriving over a hand edit in
+a record that already exists.** Three defects, all in the state machine rather than
+in any transform, and all found by an independent checker rather than by a gate:
+
+1. **A reopened record arrives CLEAN.** Arming the discard on "has the author typed"
+   is therefore no protection at all on the path this change introduces — one click
+   dropped a stored stylesheet silently, and the id-pinned Save then wrote a
+   re-derivation over that exact record. Arming is on the record's ORIGIN.
+2. **The seed outlived the view.** `view` leaves `'fabricate'` through at least six
+   paths and only one of them cleared the seed, so the next visit opened on someone
+   else's saved theme, still id-pinned — renaming it destroyed the original.
+3. **`putAsset` skips its name dedupe when an id is given**, so a rename onto a
+   taken name wrote two records with one name and made the older card unreachable.
+
+**And the safety net the design leans on is not wired.** `library/asset-history.js`
+exists, is tested, and says in its own docblock that history "is what makes that
+overwrite safe to offer at all" — and it has **zero production callers**. This change
+ships the in-place overwrite without it. That is logged rather than fixed here (it is
+#1839's own scope and a separate surface), and it is the reason all three fixes above
+are about *not reaching* the overwrite rather than about undoing it.
+
+Two smaller things the same pass found, both now fixed and both worth the sentence
+because each was a claim rather than a bug: `themeTokenMap` ignored `!important` and
+treated a `@media (prefers-color-scheme: dark)` block as the unconditional value
+(checked against real Chromium — 4 of 8 cases disagreed with the browser), and
+`renameThemeDirective` could splice over a name TRUNCATED by its own 4 KB scan
+bound, producing a directive that was neither the old name nor the new one.
 
 ## Sequencing
 

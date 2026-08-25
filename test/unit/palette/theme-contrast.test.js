@@ -14,8 +14,10 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  resolveVars, auditVars, auditBoth, meter, separationPairs, SEPARATION_FLOOR,
+  resolveVars, readableHex, auditVars, auditBoth, meter, separationPairs, SEPARATION_FLOOR,
 } = require('../../../lib/theme/contrast.js');
+const { deriveTheme, requiredTokenList } = require('../../../lib/theme/derive.js');
+const { STARTERS } = require('../../../lib/theme/starters.js');
 
 /**
  * The ink trio every separation row stands on. Hand-built fixtures below carry it
@@ -196,9 +198,16 @@ describe('theme-contrast', () => {
       assert.equal(row.status, 'skipped');
       assert.equal(row.distance, null);
       assert.equal(row.ratio, null);
-      // `skipped` is not a failure and not a pass — it does not sink `ok`, exactly as
-      // an unresolvable CONTRAST pair does not (the gate skips those too).
-      assert.ok(auditVars(mixed, { mode: 'light' }).ok);
+      // `skipped` is not a failure and not a pass — but it DOES sink `ok`, and this
+      // assertion used to say the opposite. An unmeasured row is a hole in the
+      // evidence, and a verdict that ignores it certifies something nobody checked:
+      // a map of all 107 contract tokens set to `oklch(50% 0.1 250)` returned
+      // `ok: true` with every row skipped. See auditVars's header.
+      const v = auditVars(mixed, { mode: 'light' });
+      assert.equal(v.ok, false, 'an unmeasured row must not report a clean bill of health');
+      assert.equal(v.failures.length, 0, 'and it is still NOT a failure');
+      assert.deepEqual(v.skipped.map(r => r.role), ['muted-separation']);
+      assert.deepEqual(v.skipped[0].unreadable, ['text-muted'], 'names the operand it could not read');
     });
 
     test('an absent tier reports MISSING, distinctly from a failure', () => {
@@ -281,6 +290,70 @@ describe('theme-contrast', () => {
     test('present at BOTH audit levels — separation is not a stricter contrast bar', () => {
       for (const level of ['gate', 'full']) {
         assert.equal(auditVars(withInks(), { mode: 'light', level }).separation.length, 2, level);
+      }
+    });
+  });
+
+  /**
+   * THE UNREADABLE-PALETTE HOLE (#1841). The auditor's verdict counted `skipped` as
+   * neither a failure nor a missing token, so a palette it could not read at all
+   * came back clean. The exact map from the design note is pinned here rather than
+   * a smaller stand-in, because the number that makes it indefensible is that
+   * NOTHING was measured — not that one row was.
+   */
+  describe('an unreadable palette is not a clean one', () => {
+    const allOklch = () => {
+      const map = {};
+      for (const n of requiredTokenList()) map[n] = 'oklch(50% 0.1 250)';
+      return map;
+    };
+
+    test('a 107-token map of oklch() does NOT return ok:true', () => {
+      const map = allOklch();
+      assert.equal(Object.keys(map).length, 107, 'the full contract, as the note measured it');
+      for (const level of ['gate', 'full']) {
+        const a = auditBoth(map, { level });
+        assert.equal(a.ok, false, `${level}: an unreadable palette must not report AA`);
+        assert.equal(a.light.failures.length, 0, `${level}: and it is not reported as failing either`);
+        assert.equal(a.light.missing.length, 0, `${level}: the tokens are all present`);
+        assert.equal(a.light.skipped.length, a.light.total, `${level}: every row is unmeasured`);
+      }
+    });
+
+    test('the other hand-edit arrivals are unreadable too, and say which operand', () => {
+      for (const value of ['color-mix(in srgb, #fff 50%, #000)', 'rgb(10 20 30)', 'hsl(200 50% 40%)', 'rebeccapurple', '#aabbcc80', 'var(--nope)']) {
+        const map = { ...INKS, bg: value, 'text-heading': '#000000' };
+        const row = auditVars(map, { mode: 'light' }).results.find((r) => r.role === 'heading' && r.fill === 'bg');
+        assert.equal(row.status, 'skipped', `${value} must not be measured`);
+        assert.deepEqual(row.unreadable, ['bg'], `${value} must name the operand`);
+      }
+    });
+
+    test('a FULLY OPAQUE 8- or 4-digit hex IS measured — it is exactly the 6-digit color', () => {
+      // The one widening: `#000000ff` is not an approximation of `#000000`, so
+      // refusing to measure it would be a false alarm on a legitimate hand edit.
+      // The alpha is dropped; the remaining bytes are carried as written.
+      assert.equal(readableHex('#000000ff'), '#000000');
+      assert.equal(readableHex('#000f'), '#000');
+      assert.equal(readableHex('#FFFFFFFF'), '#FFFFFF');
+      assert.equal(readableHex('#AABBCC'), '#AABBCC');
+      const map = { ...INKS, bg: '#ffffffff', 'text-heading': '#000000ff' };
+      const row = auditVars(map, { mode: 'light' }).results.find((r) => r.role === 'heading' && r.fill === 'bg');
+      assert.equal(row.status, 'pass');
+      assert.equal(Math.round(row.ratio), 21);
+    });
+
+    test('a TRANSLUCENT alpha is NOT measured — the composite depends on the backdrop', () => {
+      assert.equal(readableHex('#00000080'), null);
+      assert.equal(readableHex('#0008'), null);
+      assert.equal(readableHex('#000000fe'), null, 'nearly opaque is still not opaque');
+    });
+
+    test('every derived starter still measures completely — the fix costs no false alarm', () => {
+      for (const s of STARTERS) {
+        const a = auditBoth(deriveTheme(s.essentials), { level: 'full' });
+        assert.equal(a.light.skipped.length + a.dark.skipped.length, 0, `${s.name} must be fully measurable`);
+        assert.equal(a.ok, true, `${s.name} must still pass`);
       }
     });
   });

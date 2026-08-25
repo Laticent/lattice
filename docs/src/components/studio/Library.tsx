@@ -1,4 +1,4 @@
-import { Check, Download, FileBox, FileText, Package, Plus,  Share2, Trash2, Upload } from 'lucide-react';
+import { Check, Download, FileBox, FileText, Package, Pencil, Plus,  Share2, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
@@ -126,7 +126,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onChanged, notify }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onChanged, notify }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -139,6 +139,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onApplyTheme: (name: string) => void;
 	onApplyFinish: (name: string) => void;
 	onInsert: (skeleton: string, name: string) => void;
+	/** Reopen a saved theme in Fabricate for editing. Optional so a host that has no
+	 *  Fabricate mount (there is only one) simply does not show the control. */
+	onEditTheme?: (t: StudioTheme) => void;
 	onChanged: () => void;
 	notify: (msg: string) => void;
 }) {
@@ -478,6 +481,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 											<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{t.name} · {t.essentials ? `${Object.keys(t.essentials).length} essentials` : 'theme'} · AA</div>
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyTheme(t.name); notify(`Applied ${t.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
+												{/* Icon-only, like Share: the row is already tight at mobile. This is
+												    the ONLY way back into a saved theme — Fabricate had no seed at all,
+												    so a theme could be made and never reopened. */}
+												{onEditTheme && <button type="button" onClick={() => { onEditTheme(t); onOpenChange(false); }} aria-label={`Edit ${t.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
 												<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
 												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
 											</div>

