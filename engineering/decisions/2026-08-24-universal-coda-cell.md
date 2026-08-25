@@ -172,6 +172,27 @@ Separately, `compare-code`, `premise`, `scene` and `video` gain blocks they now 
 but that is a RENDER change, not a contract change; their `authoring.blocks` was already correct
 and unchanged.
 
+## 5b. The cell is CONDITIONAL, not a reserved band (owner-confirmed)
+
+`.cell-footer` is a reserved band: the frame sets aside its height whether or not the deck
+declares any footer text, because the slide's geometry depends on that reservation. The coda
+is deliberately NOT that. It is content, it sits in normal flow on the content plane
+(`position: static`, `z: 2` against the footer's `absolute`, `z: 3`), and when a slide has no
+trailing beat **the element is not emitted at all** — there is nothing to collapse or hide.
+Measured on two slides of one deck: footer present on both (h=24), coda absent on the slide
+without a beat and 95px on the slide with one.
+
+The alternative — a reserved band, dimensionally stable like the footer — was considered and
+rejected. It would charge every slide in every deck the band's height for a block most slides
+do not have: a permanent tax on the whole corpus to serve a minority of slides, and a worse
+defect than the one this change fixes. A slide with no trailing beat must lay out exactly as it
+did before this change, and it does.
+
+Two consequences worth knowing. The step's cost is bounded to slides that actually carry a
+beat — it is never paid for absent content. And a component that never hosts a coda pays
+nothing at all for its existence, which is what makes the opt-out default honest rather than
+merely convenient.
+
 ## 6. What was NOT taken
 
 **#1363's substring wart is resolved as a side effect, not re-litigated.** below-note's old matcher
