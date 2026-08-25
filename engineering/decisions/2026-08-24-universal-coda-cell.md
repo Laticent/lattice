@@ -207,3 +207,14 @@ a pre-existing, off-path defect, logged rather than pulled into this diff (HARD 
 **split-panel's base variant still renders no Key Insight panel.** It claims the blockquote because
 its `pullquote` variant genuinely uses it, and a variant-scoped claim is a bigger design question
 than this change. Today's rendering is unchanged; only the contract stopped lying about it.
+
+**Declared capacity is coda-blind, and that is a separate card (#1875).** Sweeping every layout's
+own gallery-default slide and adding one line of key insight, seven layouts clip: `kpi` 95px,
+`logo-wall` 87px, `regulatory-update` 82px, `q-and-a` 74px, `agenda` 48px, `obligation-matrix`
+33px, `matrix-grid` 32px. The proof that this is a contract defect rather than authoring debt is
+`q-and-a`: 4 items against a declared hard cap of 6 — inside its own published budget — clipped by
+74px with a coda on it. The declared number describes a slide with no coda, and nothing subtracts
+the coda's cost. That is pre-existing and off the path of this change (the beat's cost went UP
+here, but a coda-blind budget was already wrong at the old cost), so it is logged, not pulled in
+(HARD RULE #18). The four slides this branch DID fix are the other case — beats we ourselves added
+to test decks, over budget, trimmed in place.
