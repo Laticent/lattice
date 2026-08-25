@@ -391,6 +391,27 @@ That may be a worse experience than the picker for someone who by construction
 cannot express anything new. The read-only CSS view is cheap and honest and
 should ship; the Fields ⇄ JSON view should wait for a user who wants it.
 
+**SHIPPED (2026-08-25).** The read-only view is in, under the live specimen in the
+centre column, and the Fields ⇄ JSON view is still waiting for that user. Three
+notes from building it:
+
+- **It renders the SLUG form, not the preview form.** `FinishStudio` already
+  generated CSS twice — `generateFinishCss(PREVIEW_SLUG, recipe)` for the specimen
+  and `generateFinishCss(slug, recipe)` inside both `exportCss` and `save`. The view
+  reads the second, because the question an author is asking it is "what will Save
+  write", and answering with the preview's selector would be a quietly different
+  file.
+- **`CodeField` grew a `readOnly` mode rather than the Studio growing a second code
+  surface** (HARD RULE #15). It sets BOTH `EditorState.readOnly` and
+  `EditorView.editable`: the first alone leaves a field that takes focus, shows a
+  caret and silently eats every keystroke, which reads as broken rather than as
+  read-only. The e2e asserts `contenteditable="false"` and that typing changes
+  nothing, which is a claim only a real browser can carry — under jsdom `CodeField`
+  renders its `<textarea>` fallback and neither switch is exercised.
+- **The reasoning is restated at the call site**, not just cited. Someone reading
+  `FinishStudio.tsx` and wondering why this one view is not editable when the theme
+  faculty's is should not have to find this note to learn that the answer is a
+  property of the artifact.
 
 ## Templates
 

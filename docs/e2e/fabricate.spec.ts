@@ -306,3 +306,45 @@ test('restoring checkpoints the current version, so a mis-clicked restore is its
 	await expect(page.locator('.cm-content[aria-label="Theme CSS"]')).toBeVisible();
 	expect(await exportedCss(page)).toEqual(versionB);
 });
+
+/**
+ * THE FINISH FACULTY'S CSS VIEW, on the real surface (HARD RULE #23).
+ *
+ * The last faculty whose generated CSS an author could not see at all. It is
+ * READ-ONLY, and that is a property of the artifact rather than a shortcut: a finish
+ * recipe is a structured four-layer object and `generateFinishCss` is a projection
+ * with no inverse — the opaque print/export mirrors are emitted twice from one
+ * source so they cannot drift, and a wash `type` swap is a whole different slot set.
+ * So the two claims to prove here are that the CSS is VISIBLE and TRACKS the recipe,
+ * and that it does not offer an edit it could not honor.
+ *
+ * The read-only half needs a real browser specifically: under jsdom `CodeField`
+ * renders its `<textarea>` fallback, so `EditorView.editable` — the switch that stops
+ * the field being a focus stop with a caret it will never honor — is never exercised.
+ */
+test('the Finish CSS view shows what Save would write, tracks the recipe, and refuses edits', async ({ page }) => {
+	await page.getByRole('button', { name: 'Finish', exact: true }).click();
+	await page.getByRole('textbox', { name: 'Finish name' }).fill('viewdemo');
+
+	const cssBox = page.locator('.cm-content[aria-label="Finish CSS"]');
+	await expect(cssBox).toBeVisible();
+
+	// 1. It is the SLUG form — what Export/Save write — not the preview form.
+	await expect(cssBox).toContainText('finish-viewdemo');
+	await expect(page.getByText('· finish-viewdemo · read-only')).toBeVisible();
+
+	// 2. It TRACKS the recipe. Toggling the spotlight is a whole different slot set,
+	//    which is one of the reasons this view cannot be an editor.
+	const before = (await cssBox.textContent()) || '';
+	await page.getByRole('checkbox', { name: 'Spotlight one area' }).check();
+	await expect(cssBox).not.toHaveText(before);
+
+	// 3. It does not offer an edit. `EditorView.editable.of(false)` drops
+	//    contenteditable, so the field is not a focus stop — a box that looked
+	//    editable and silently ate keystrokes would read as broken, not read-only.
+	await expect(cssBox).toHaveAttribute('contenteditable', 'false');
+	const typed = (await cssBox.textContent()) || '';
+	await cssBox.click();
+	await page.keyboard.type('/* nope */');
+	await expect(cssBox).toHaveText(typed);
+});

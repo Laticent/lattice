@@ -1,8 +1,9 @@
-import { ArrowUp, Check, Cloud, Download, FileDown, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown, Cloud, Copy, Download, FileDown, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
 import * as React from 'react';
 import { DeckPreview } from '@/components/DeckPreview';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
 	Select,
@@ -15,6 +16,7 @@ import { Slider } from '@/components/ui/slider';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateFinish, useArchitectStatus } from './architect';
+import { CodeField } from './CodeField';
 import { downloadText } from './download';
 import {
 	coerceRecipe,
@@ -104,6 +106,7 @@ export function FinishStudio({
 	const [prompt, setPrompt] = React.useState('');
 	const [gen, setGen] = React.useState<'idle' | 'working'>('idle');
 	const [saving, setSaving] = React.useState(false);
+	const [cssOpen, setCssOpen] = React.useState(true);
 	const modelReady = useArchitectStatus().ready;
 
 	// The generated CSS drives BOTH the live preview (targets finish-preview) and the
@@ -113,6 +116,10 @@ export function FinishStudio({
 	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
 	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
+	// What Save and Export would actually WRITE — the slug form, not the preview form.
+	// Two generators would be two things to keep in step, so the view reads the same
+	// `generateFinishCss` those two call, with the same argument they pass.
+	const exportedCss = React.useMemo(() => generateFinishCss(slug, recipe), [slug, recipe]);
 
 	// Mutators — each layer's controls write back through coerceRecipe so state can
 	// never drift out of the closed vocabulary.
@@ -304,6 +311,65 @@ export function FinishStudio({
 					<p className="text-[12px] leading-relaxed text-muted-foreground">
 						A finish is a stack of five palette-blind layers. Start from a preset, tune the layers, then <strong className="text-[var(--text-heading)]">Save</strong> it to your library or <strong className="text-[var(--text-heading)]">Export</strong> the CSS.
 					</p>
+
+					{/* ── The generated CSS, READ-ONLY ────────────────────────────────────
+					    The last faculty whose generated CSS an author could not see at all.
+					    The theme faculty makes its CSS editable and the hand-edited record
+					    the model; this one deliberately does NOT, and the reason is a
+					    property of the artifact rather than a shortcut.
+
+					    A finish recipe is a structured four-layer object, and
+					    `generateFinishCss` is a projection with NO INVERSE. The opaque
+					    `@media print` and `.lattice-exporting` mirrors are emitted twice
+					    from ONE `opaqueBody` specifically so they cannot drift, so a hand
+					    edit to one is a fork with no representation in the recipe. And a
+					    wash `type` swap is a whole different slot set — which is exactly
+					    why a deck's `finish-override:` overrides by REGENERATING the finish
+					    rather than by racing a rival custom property (`mergeFinishOverride`).
+					    Editing here would detach the CSS from the recipe that the PDF and
+					    PPTX export paths actually read, so what you saw would stop being
+					    what you shipped.
+
+					    Read-only is therefore the honest surface: see exactly what Save and
+					    Export write, copy it, and change it the one way that stays true —
+					    through the layers on the right.
+					    See engineering/decisions/2026-08-25-hand-editing-generated-assets.md
+					    §"Finish — recipe ⇄ JSON is isomorphic; recipe → CSS is not". */}
+					<Collapsible open={cssOpen} onOpenChange={setCssOpen} className="rounded-lg border border-border bg-card">
+						<div className="flex items-center gap-2 px-3 py-2">
+							<CollapsibleTrigger asChild>
+								<button type="button" aria-label="Generated CSS" className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+									<ChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', cssOpen ? '' : '-rotate-90')} />
+									<span className="whitespace-nowrap font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Generated CSS</span>
+									{/* The slug and the read-only marker are a nicety, not the label — at 390px
+									    they push "Generated CSS" onto two lines, so they drop instead. The
+									    read-only fact is still carried by the footnote and by the field itself. */}
+									<span className="hidden truncate font-mono text-[10.5px] text-muted-foreground sm:inline">· finish-{slug} · read-only</span>
+								</button>
+							</CollapsibleTrigger>
+							<button
+								type="button"
+								onClick={() => { navigator.clipboard?.writeText(exportedCss).then(() => notify('Copied the finish CSS.'), () => notify('Could not copy — use Export instead.')); }}
+								aria-label="Copy the generated CSS"
+								className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] font-semibold text-muted-foreground"
+							>
+								<Copy className="size-3.5" />Copy
+							</button>
+						</div>
+						<CollapsibleContent>
+							<CodeField
+								language="css"
+								readOnly
+								ariaLabel="Finish CSS"
+								value={exportedCss}
+								onChange={() => {}}
+								className="max-h-[320px] w-full border-t border-border"
+							/>
+							<p className="px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
+								Generated from the layers — edit those, not this. A finish is a recipe, and its CSS cannot be read back into one: the print and export faces are emitted twice from a single source so they can never drift, and the export path renders the recipe rather than this file.
+							</p>
+						</CollapsibleContent>
+					</Collapsible>
 				</div>
 
 				{/* RIGHT — the layer stack as Inspector groups */}
