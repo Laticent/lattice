@@ -3658,7 +3658,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the PREVIEW; the source stays whole. `dense` collapses its label to an icon
 				    when the PANE is narrow (the pane is a size container above), so a tight
 				    preview keeps a usable header instead of overflowing. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} dense onAddView={() => { revealCraftDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} dense onAddView={() => { revealCraftDock(); setLensesOpen(true); notify('Add a reader view in the Reader views panel.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -3996,7 +3996,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<DropdownMenuItem onSelect={fromOverflow(() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat')))}><ChatIcon className="size-4" />Chat</DropdownMenuItem>
 							<DropdownMenuItem onSelect={fromOverflow(() => setActiveSettings((p) => (p ? null : 'deck')))}><SlidersHorizontal className="size-4" />Settings — deck &amp; slide</DropdownMenuItem>
 							<DropdownMenuItem onSelect={fromOverflow(() => setLibraryOpen(true))}><FileBox className="size-4" />Library</DropdownMenuItem>
-							<DropdownMenuItem onSelect={fromOverflow(() => setLensesOpen(true))}><LensIcon className="size-4" />Lenses — reader views</DropdownMenuItem>
+							{/* "Reader views", not "Lenses — reader views": this row is an entry point into the panel, and
+							    every entry point owes the panel's own title (#1211). It was the one the rename missed — the
+							    tablet overflow says one word while the phone drawer row, the activity bar and the panel header
+							    all say the other. The register split is now policy, not just a comment on the panel:
+							    2026-08-25-lens-view-defaults-and-depth.md §2. */}
+							<DropdownMenuItem onSelect={fromOverflow(() => setLensesOpen(true))}><LensIcon className="size-4" />Reader views</DropdownMenuItem>
 						</>
 					)}
 					<DropdownMenuItem onSelect={fromOverflow(() => setWorkspaceOpen(true))}><SettingsCog className="size-4" />Workspace settings</DropdownMenuItem>
