@@ -292,42 +292,95 @@ async function exportTier() {
     `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0}${SLIDE_BOX}.lattice>section{display:block;transform:none;margin:0}${css}</style></head><body>${html}<script>${RUNTIME}</script></body></html>`;
 
   const browser = await puppeteer.launch({ executablePath: chrome || undefined, args: ['--no-sandbox'] });
-  // One full export cycle = render → load → screenshot every slide (what the
-  // Drawing Board's html-to-image PDF/PPTX export does, server-side).
-  async function exportOnce(d) {
-    const out = api.render(d.src, d.theme);
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 720 });
-    await page.setContent(srcdoc(out.html, out.css), { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
-    for (const sec of await page.$$('.lattice > section')) await sec.screenshot({ type: 'png' });
-    await page.close();
+  try {
+    // One full export cycle = render → load → screenshot every slide (what the
+    // Drawing Board's html-to-image PDF/PPTX export does, server-side).
+    //
+    // It RETURNS THE SHOT COUNT, and that is the whole guard. `setContent` is deliberately
+    // allowed to fail: `networkidle0` over a deck with a slow font or image can time out on a
+    // page that is nevertheless fully laid out, and killing the tier for that would be a false
+    // alarm. But a cycle that then screenshots NOTHING is not slow, it is absent — and absent
+    // reads as an enormous win. `tools/perf-nightly-compare.mjs` says so in its own words and
+    // compensates downstream with a `-90%` WORKLOAD COLLAPSED heuristic, which can only fire
+    // where there is a base arm to compare against; a `--bless` would have ratcheted the broken
+    // number straight into the committed record with nothing to catch it. So the failure mode
+    // stays safe and the COUNT holds the opinion, at the source, for every consumer.
+    async function exportOnce(d) {
+      const out = api.render(d.src, d.theme);
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 720 });
+      await page.setContent(srcdoc(out.html, out.css), { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
+      let shots = 0;
+      for (const sec of await page.$$('.lattice > section')) {
+        await sec.screenshot({ type: 'png' });
+        shots++;
+      }
+      await page.close();
+      return shots;
+    }
+    // Skip the 481-slide stress deck here — thousands of screenshots would dominate
+    // runtime without adding signal; the render tier already covers stress scaling.
+    const decks = datasets.filter((x) => !x.name.startsWith('stress'));
+
+    // One UNTIMED cycle per deck, to record the workload signal and to fail loudly BEFORE the
+    // timed loop — the same guard shape the CLI tier uses, for the same reason. The count also
+    // belongs in the baseline in place of `d.slides`: that number came from `rawEngine.render`,
+    // while THIS tier drives `api.render` and shoots what the browser actually laid out, so the
+    // row would otherwise be labeled with a workload a different renderer reported.
+    const shot = new Map();
+    for (const d of decks) {
+      const n = await exportOnce(d);
+      if (!n) throw new Error(`export tier · ${d.name}: the cycle screenshotted 0 slides — it measured nothing, which reads as fast`);
+      shot.set(d.name, n);
+    }
+
+    // Heavy + IO-bound: a few samples is plenty, no warmup.
+    // FOUR, not two. Two samples cannot produce a meaningful RME, and the nightly comparator widens
+    // its band by the two arms' RME — so a noisy measurement made the gate WEAKER, unboundedly. The
+    // 58-slide deck read 82% RME at two iterations, which gave a +/-164 band on which an exact 2x
+    // regression reported `ok`. The comparator now caps the widening; this halves the noise that
+    // makes the cap bind. Cost: ~96s -> ~190s per arm, which the nightly can afford.
+    const bench = new Bench({ name: 'export', warmup: false, time: 1, iterations: 4 });
+    for (const d of decks) {
+      bench.add(d.name, async () => {
+        const n = await exportOnce(d);
+        // A cycle that silently loses slides must not read as a win — the CLI tier's guard.
+        if (n !== shot.get(d.name)) throw new Error(`${d.name}: slide count moved ${shot.get(d.name)} -> ${n}`);
+      });
+    }
+    await bench.run();
+    // tinybench CATCHES a throw from a task and files it on `task.result.error` — it does not
+    // abort the run. So both guards above would otherwise surface as a NaN mean that reads like a
+    // missing row rather than a failure. Re-raise (same as the CLI and diagram tiers).
+    for (const t of bench.tasks) {
+      if (t.result?.error) throw new Error(`export tier · ${t.name}: ${t.result.error.message || t.result.error}`);
+    }
+    console.log('\n=== EXPORT / RASTERIZE · per-deck screenshot cycle ===');
+    console.table(bench.table());
+    // A `{ main, summary }` shape like the render tier's, and it did NOT have one before. This tier
+    // returned a raw `bench.table()` — display rows keyed "Task name" / "Latency avg (ns)" — so
+    // `export.summary` was `undefined` and NOTHING could compare it, whatever flag was passed.
+    // `rmePct` rides along because these samples are genuinely noisy (the charts deck read ±66% at
+    // 2 iterations here) and the nightly widens its band by the two arms' RME rather than pretending
+    // a fixed percentage fits a 6-second I/O-bound cycle.
+    //
+    // The dataset names are PREFIXED, as the print and CLI tiers' are. They used to be the render
+    // tier's names verbatim, which is fine while nothing compares them and wrong the moment
+    // something does: `checkBaseline` collects regressed dataset NAMES into one list, and `main()`
+    // decides what to re-measure by asking whether a name is in the render summary. An export
+    // regression on `charts` would have been handed to a second RENDER pass, come back green, and
+    // been reported as "not reproduced — machine load, not code".
+    const summary = decks.map((d) => ({
+      dataset: `export · ${d.name}`,
+      slides: shot.get(d.name),
+      ms: mean(bench.getTask(d.name)),
+      rmePct: bench.getTask(d.name).result.latency.rme,
+    }));
+    return { main: bench.table(), summary };
+  } finally {
+    // A throw from either guard must not leave a Chromium behind.
+    await browser.close();
   }
-  // Heavy + IO-bound: a few samples is plenty, no warmup. Skip the 481-slide
-  // stress deck here — thousands of screenshots would dominate runtime without
-  // adding signal; render-tier already covers stress scaling.
-  // FOUR, not two. Two samples cannot produce a meaningful RME, and the nightly comparator widens
-  // its band by the two arms' RME — so a noisy measurement made the gate WEAKER, unboundedly. The
-  // 58-slide deck read 82% RME at two iterations, which gave a +/-164 band on which an exact 2x
-  // regression reported `ok`. The comparator now caps the widening; this halves the noise that
-  // makes the cap bind. Cost: ~96s -> ~190s per arm, which the nightly can afford.
-  const bench = new Bench({ name: 'export', warmup: false, time: 1, iterations: 4 });
-  for (const d of datasets.filter((x) => !x.name.startsWith('stress'))) {
-    bench.add(d.name, () => exportOnce(d));
-  }
-  await bench.run();
-  console.log('\n=== EXPORT / RASTERIZE · per-deck screenshot cycle ===');
-  console.table(bench.table());
-  await browser.close();
-  // A `{ main, summary }` shape like the render tier's, and it did NOT have one before. This tier
-  // returned a raw `bench.table()` — display rows keyed "Task name" / "Latency avg (ns)" — so
-  // `export.summary` was `undefined` and NOTHING could compare it, whatever flag was passed.
-  // `rmePct` rides along because these samples are genuinely noisy (the charts deck read ±66% at
-  // 2 iterations here) and the nightly widens its band by the two arms' RME rather than pretending
-  // a fixed percentage fits a 6-second I/O-bound cycle.
-  const summary = datasets
-    .filter((x) => !x.name.startsWith('stress'))
-    .map((d) => ({ dataset: d.name, slides: d.slides, ms: mean(bench.getTask(d.name)), rmePct: bench.getTask(d.name).result.latency.rme }));
-  return { main: bench.table(), summary };
 }
 
 // ── fit-sweep tier (HARD RULE #19 evidence for the overflow-sweep rework) ─────
@@ -846,7 +899,15 @@ function comparableMachine(base, here, probeNow) {
   return { ok: true, why: '' };
 }
 
-function blessBaseline(summary, printSummary, render, sweepSummary, cliSummary) {
+/**
+ * @param opts  The browser tiers' summaries, each present only when its flag was passed:
+ *   `printSummary`, `sweepSummary`, `cliSummary`, `exportSummary`. An OBJECT rather than
+ *   four more positionals — the signature was `(summary, printSummary, render, sweepSummary,
+ *   cliSummary)`, with `render` wedged between two summaries, and a fifth tier is one
+ *   transposition away from blessing the sweep rows into `printDatasets`.
+ */
+function blessBaseline(summary, render, opts = {}) {
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null } = opts;
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -868,54 +929,48 @@ function blessBaseline(summary, printSummary, render, sweepSummary, cliSummary) 
       rmePct: round2(s.rmePct),
     };
   }
-  // The fit-sweep tier (puppeteer) only runs under --sweep, so a plain
-  // `bench:bless` PRESERVES any existing sweepDatasets — same rule as print below.
-  let sweepOut;
-  if (sweepSummary?.length) {
-    sweepOut = {};
-    for (const s of sweepSummary) {
-      sweepOut[s.dataset] = {
-        slides: s.slides,
-        overflowing: s.overflowing,
-        // BOTH numbers, deliberately. `scopedMs` alone would ratchet the current
-        // cost; the pair records the SHAPE of the win, so a future change that
-        // re-widens the scope shows up as the two converging rather than as a
-        // slightly slower absolute number someone attributes to the machine.
-        scopedMs: round2(s.scopedMs),
-        unscopedMs: round2(s.unscopedMs),
-        ratio: round2(s.ratio),
-        // The completeness backstop in its steady state. Blessed so a change that
-        // makes it expensive — the one thing that would invalidate keeping the
-        // band at all — shows up in this file's diff.
-        backstopMs: round2(s.backstopMs),
-      };
-    }
-  } else if (existsSync(BASELINE)) {
-    try { sweepOut = JSON.parse(readFileSync(BASELINE, 'utf8')).sweepDatasets; } catch { /* none */ }
-  }
-  // The print re-place tier (puppeteer) only runs under --print, so a plain
-  // `bench:bless` PRESERVES any existing printDatasets rather than dropping them.
-  let printOut;
-  if (printSummary?.length) {
-    printOut = {};
-    for (const s of printSummary) printOut[s.dataset] = { slides: s.slides, ms: round2(s.ms), rmePct: round2(s.rmePct) };
-  } else if (existsSync(BASELINE)) {
-    try { printOut = JSON.parse(readFileSync(BASELINE, 'utf8')).printDatasets; } catch { /* none */ }
-  }
-  // The whole-CLI tier only runs under --cli, so a plain `bench:bless` PRESERVES any
-  // existing cliDatasets — same rule as print and sweep above. Skipping this branch
-  // would make the next `npm run bench:bless` silently delete the rows.
-  let cliOut;
-  if (cliSummary?.length) {
-    cliOut = {};
-    // No `index`: the calibration probe is a markdown-it parse and says nothing about a
-    // whole CLI render (node boot + browser launch + PDF encode), so these rows gate on
-    // absolute `ms` on the blessing machine and are merely reported anywhere else —
-    // exactly how printDatasets behaves.
-    for (const s2 of cliSummary) cliOut[s2.dataset] = { slides: s2.slides, ms: round2(s2.ms), rmePct: round2(s2.rmePct) };
-  } else if (existsSync(BASELINE)) {
-    try { cliOut = JSON.parse(readFileSync(BASELINE, 'utf8')).cliDatasets; } catch { /* none */ }
-  }
+  const prior = existsSync(BASELINE)
+    ? (() => { try { return JSON.parse(readFileSync(BASELINE, 'utf8')); } catch { return null; } })()
+    : null;
+  // EVERY BROWSER TIER IS BEHIND ITS OWN FLAG, so a bless that did not RUN a tier must
+  // PRESERVE its rows rather than silently deleting them. That rule was written out four
+  // separate times, once per tier, and a fifth copy is a fifth chance to forget the `else`
+  // branch — which would make the next plain `npm run bench:bless` drop the rows.
+  // `rows` is null/empty exactly when the tier did not run.
+  const tierRows = (rows, key, shape) => (rows?.length
+    ? Object.fromEntries(rows.map((s) => [s.dataset, shape(s)]))
+    : prior?.[key]);
+
+  const sweepOut = tierRows(sweepSummary, 'sweepDatasets', (s) => ({
+    slides: s.slides,
+    overflowing: s.overflowing,
+    // BOTH numbers, deliberately. `scopedMs` alone would ratchet the current
+    // cost; the pair records the SHAPE of the win, so a future change that
+    // re-widens the scope shows up as the two converging rather than as a
+    // slightly slower absolute number someone attributes to the machine.
+    scopedMs: round2(s.scopedMs),
+    unscopedMs: round2(s.unscopedMs),
+    ratio: round2(s.ratio),
+    // The completeness backstop in its steady state. Blessed so a change that
+    // makes it expensive — the one thing that would invalidate keeping the
+    // band at all — shows up in this file's diff.
+    backstopMs: round2(s.backstopMs),
+  }));
+  const printOut = tierRows(printSummary, 'printDatasets', (s) => ({ slides: s.slides, ms: round2(s.ms), rmePct: round2(s.rmePct) }));
+  // No `index` on any of the three browser tiers below: the calibration probe is a
+  // markdown-it parse and says nothing about a whole CLI render (node boot + browser
+  // launch + PDF encode) or a rasterize cycle, so these rows gate on absolute `ms` on
+  // the blessing machine and are merely reported anywhere else.
+  const cliOut = tierRows(cliSummary, 'cliDatasets', (s) => ({ slides: s.slides, ms: round2(s.ms), rmePct: round2(s.rmePct) }));
+  // THE RASTERIZE TIER, blessed at last. It has had a `{ main, summary }` shape since
+  // 2026-08-03 — given one precisely so it could be compared — and until now `main()`
+  // handed that summary to the `--json` dump and to nothing else. The nightly
+  // (`tools/perf-nightly-compare.mjs`) reads the dump and compares head vs base on one
+  // runner, which catches a regression but leaves no durable record: HARD RULE #19(b)
+  // wants the committed baseline's DIFF to be the before→after evidence, and an artifact
+  // with a 14-day retention is not that. `slides` here is the number of slides actually
+  // screenshotted (see the tier), so it is a workload signal this tier can vouch for.
+  const exportOut = tierRows(exportSummary, 'exportDatasets', (s) => ({ slides: s.slides, ms: round2(s.ms), rmePct: round2(s.rmePct) }));
   // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
   //
   // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
@@ -933,9 +988,6 @@ function blessBaseline(summary, printSummary, render, sweepSummary, cliSummary) 
   // sweep-only or print-only bless carries the previous one forward with the rows
   // it did not re-measure.
   const measuredRenderTier = !!summary?.length;
-  const prior = existsSync(BASELINE)
-    ? (() => { try { return JSON.parse(readFileSync(BASELINE, 'utf8')); } catch { return null; } })()
-    : null;
   const payload = {
     version: 2,
     note: 'Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; '
@@ -973,24 +1025,33 @@ function blessBaseline(summary, printSummary, render, sweepSummary, cliSummary) 
     // strategy changes, which is the point (HARD RULE #19(c)). Blessed via
     // `bench:bless -- --cli`.
     ...(cliOut ? { cliDatasets: cliOut } : {}),
+    // The rasterize cycle, per deck. `slides` is what the browser actually screenshotted,
+    // so a row that stopped doing its work fails as a WORKLOAD change before any timing is
+    // compared. Blessed via `bench:bless -- --export`.
+    ...(exportOut ? { exportDatasets: exportOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
   const wrote = [`${summary.length} render`];
   if (printSummary?.length) wrote.push(`${printSummary.length} print`);
   if (sweepSummary?.length) wrote.push(`${sweepSummary.length} sweep`);
   if (cliSummary?.length) wrote.push(`${cliSummary.length} cli`);
+  if (exportSummary?.length) wrote.push(`${exportSummary.length} export`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
 
 /**
+ * @param opts  `printSummary` / `sweepSummary` / `cliSummary` / `exportSummary`, each present
+ *   only when its flag was passed — an object for the same reason `blessBaseline` takes one.
  * @param opts.confirming  A Set of dataset names. When present this is the SECOND
  *   pass of a two-pass timing check: only those datasets are compared, the
  *   workload/drift sweeps are skipped (pass 1 already settled them), and nothing
  *   sets an exit code — `main()` owns the verdict. See the two-pass note in main().
  */
-function checkBaseline(summary, printSummary, render, opts = {}) {
+function checkBaseline(summary, render, opts = {}) {
+  const printSummary = opts.printSummary ?? null;
   const sweepSummary = opts.sweepSummary ?? null;
   const cliSummary = opts.cliSummary ?? null;
+  const exportSummary = opts.exportSummary ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -1113,23 +1174,106 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
   // `main()`. A reader comparing an export change against this output was reading the wrong
   // rows. The label is now the tier.
   //
-  // The real `exportTier()` is STILL neither blessed nor checked: `main()` computes `exp` and
-  // passes it only to the `--json` dump, even though that tier was given a `{ main, summary }`
-  // shape (see its own note) precisely so it could be compared. That is a genuine hole in the
-  // harness rather than a mislabel, it is not this PR's path, and it is logged rather than
-  // widened into this diff (HARD RULE #18, off-path arm).
+  // The real `exportTier()` can now be blessed and checked (see the EXPORT CHECK block below);
+  // it used to be neither, with `main()` handing its summary to the `--json` dump and nothing
+  // else, even though the tier was given a `{ main, summary }` shape precisely so it could be
+  // compared. NOTHING IS BLESSED YET: `baseline.json` carries no `exportDatasets`, so the block
+  // reports and exits 0 until someone runs `bench:bless -- --export` on a machine whose probe
+  // is in band. The apparatus is wired; the record is not written.
   //
   // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
   // they are far more exposed to machine and I/O noise than an in-process render. 50% catches a
-  // doubling — which is the failure worth having — without firing on a slow disk.
+  // doubling — which is the failure worth having — without firing on a slow disk. The export and
+  // CLI tiers share it, for the same reason.
   const EXPORT_BAND = 50;
+
+  // A TIER THAT IS NOT YET PART OF THE COMMITTED BASELINE IS NOT DRIFT — and the difference
+  // matters, because drift exits 1 on ANY machine. Drift means a blessed row has been recording
+  // nothing: something rotted. A tier nobody has blessed has no rows to rot; it has a bless
+  // nobody has run yet, and the honest verdict is "not blessed here", not "stale". Failing there
+  // would ship a gate that is red the day it lands for anyone who passes the flag on a machine
+  // that cannot bless (see `comparableMachine` — a probe out of band). A PARTLY blessed tier
+  // still drifts normally, which is what keeps a newly ADDED row (one new dataset among three
+  // blessed ones) red until someone blesses it.
+  //
+  // WHICH TIERS THOSE ARE IS DECLARED, NOT INFERRED, and the first cut got this wrong in a way
+  // that opened a hole. It asked the BLOCK — `!block || !Object.keys(block).length` — which
+  // cannot tell "never blessed" from "blessed once and since DELETED". Those are opposite
+  // states: the second is exactly the "a blessed row nothing ever reads again" rot the MISSING
+  // arms below exist to end, and it is reachable without hand-editing, because `blessBaseline`
+  // drops all four browser blocks when the existing baseline fails `JSON.parse` (an unresolved
+  // merge conflict, a truncated write — a pre-existing behavior). The silent drop was survivable
+  // only because the next `bench:check` failed loudly; inferring from the block took that away
+  // and made the pair silent end to end. Caught by the HARD RULE #25 checker.
+  //
+  // So the exception is a NAMED LIST of the tiers this repo has not blessed yet, and everything
+  // else keeps failing loudly on an absent block. An entry retires itself: once a tier has a
+  // block, `neverBlessed` is false whatever the list says, so a stale name is inert rather than
+  // a hole. Today that is the rasterize tier alone — print, sweep and CLI are all blessed in
+  // `test/benchmark/baseline.json`, and an absent block for any of them means a deletion.
+  const TIERS_NOT_YET_BLESSED = new Set(['exportDatasets']);
+  const neverBlessed = (key) => TIERS_NOT_YET_BLESSED.has(key) && !Object.keys(base[key] ?? {}).length;
+
+  // THE RASTERIZE TIER. Only compared when THIS run produced it (`--export`), so a plain
+  // `bench:check` is unchanged. Same-machine-only and no calibration index, for the print
+  // tier's reasons: the probe is a markdown-it parse and says nothing about the cost of
+  // launching Chromium and encoding a few hundred PNGs.
+  //
+  // THE BAND IS FLAT 50%, NOT WIDENED BY RME, and that is deliberate even though these rows
+  // carry an `rmePct`. The nightly comparator widens by the two arms' RME because it has two
+  // measurements and no fixed reference; it then has to CAP the widening at 95, because the
+  // 58-slide deck read 82% RME and `max(80, 82+82)` is a ±164 band on which an exact doubling
+  // reported `ok` — the noisier the measurement, the weaker the gate. Here there is one
+  // measurement against a blessed one, so there is nothing to gain from importing that
+  // inversion: 50% catches a doubling and the RME is recorded in the file for a reader.
+  if (exportSummary?.length) {
+    console.log('\n=== EXPORT CHECK · rasterize cycle vs committed baseline ===');
+    const unblessed = neverBlessed('exportDatasets');
+    if (unblessed) console.log('  no `exportDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless -- --export` to start gating.');
+    for (const s2 of exportSummary) {
+      const b = base.exportDatasets?.[s2.dataset];
+      if (!b) {
+        if (!unblessed) drift = true;
+        console.log(`${s2.dataset.padEnd(32)}${'—'.padStart(10)}${(s2.ms / 1000).toFixed(1).padStart(10)}s  ${unblessed ? 'NOT BLESSED' : 'NEW (re-bless)'}`);
+        continue;
+      }
+      // `slides` is the count of slides this run actually SCREENSHOTTED, not a section count
+      // another renderer reported — so a cycle that quietly stopped rasterizing fails here, on
+      // any machine, before a single millisecond is compared. That failure used to read as a
+      // spectacular win (see the tier's own note).
+      if (b.slides !== s2.slides) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(32)}${String(b.slides).padStart(10)}${String(s2.slides).padStart(10)}   SLIDE COUNT CHANGED (re-bless)`);
+        continue;
+      }
+      const d = ((s2.ms - b.ms) / b.ms) * 100;
+      const verdict = d > EXPORT_BAND
+        ? (comparable ? 'REGRESSION' : 'slower (not gated)')
+        : d < -EXPORT_BAND ? (comparable ? 'win' : 'faster (not gated)') : 'ok';
+      if (verdict === 'REGRESSION') regressedDatasets.push(s2.dataset);
+      console.log(
+        `${s2.dataset.padEnd(32)}${(b.ms / 1000).toFixed(2).padStart(9)}s${(s2.ms / 1000).toFixed(2).padStart(9)}s${((d >= 0 ? '+' : '') + d.toFixed(1)).padStart(8)}${('±' + EXPORT_BAND + '%').padStart(8)}  ${verdict}`,
+      );
+    }
+    // The MISSING mirror the print, sweep and CLI tiers carry — a REMOVED export dataset would
+    // otherwise leave a blessed row nothing ever reads again.
+    for (const name of Object.keys(base.exportDatasets ?? {})) {
+      if (!exportSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(32)}${'—'.padStart(10)}${'absent'.padStart(10)}   MISSING (re-bless)`);
+      }
+    }
+  }
+
   if (printSummary?.length) {
     console.log('\n=== PRINT CHECK · current vs committed baseline ===');
+    const unblessed = neverBlessed('printDatasets');
+    if (unblessed) console.log('  no `printDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless -- --print` to start gating.');
     for (const s of printSummary) {
       const b = base.printDatasets?.[s.dataset];
       if (!b) {
-        drift = true;
-        console.log(`${s.dataset.padEnd(32)}${'—'.padStart(10)}${(s.ms / 1000).toFixed(1).padStart(10)}s  NEW (re-bless)`);
+        if (!unblessed) drift = true;
+        console.log(`${s.dataset.padEnd(32)}${'—'.padStart(10)}${(s.ms / 1000).toFixed(1).padStart(10)}s  ${unblessed ? 'NOT BLESSED' : 'NEW (re-bless)'}`);
         continue;
       }
       if (b.slides !== s.slides) {
@@ -1191,11 +1335,13 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
   const SWEEP_RATIO_FLOOR = 3;
   if (sweepSummary?.length) {
     console.log('\n=== FIT-SWEEP CHECK · scoped-vs-whole-document ratio ===');
+    const unblessed = neverBlessed('sweepDatasets');
+    if (unblessed) console.log('  no `sweepDatasets` in the baseline — the 3× floor below still gates; the blessed ratio is what is missing.');
     for (const s of sweepSummary) {
       const b = base.sweepDatasets?.[s.dataset];
       if (!b) {
-        drift = true;
-        console.log(`${s.dataset.padEnd(24)}${'—'.padStart(10)}${round2(s.ratio).toString().padStart(10)}×  NEW (re-bless)`);
+        if (!unblessed) drift = true;
+        console.log(`${s.dataset.padEnd(24)}${'—'.padStart(10)}${round2(s.ratio).toString().padStart(10)}×  ${unblessed ? 'NOT BLESSED' : 'NEW (re-bless)'}`);
         continue;
       }
       if (b.slides !== s.slides || b.overflowing !== s.overflowing) {
@@ -1230,11 +1376,13 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
   // booting Chromium.
   if (cliSummary?.length) {
     console.log('\n=== CLI CHECK · whole-emulator render vs committed baseline ===');
+    const unblessed = neverBlessed('cliDatasets');
+    if (unblessed) console.log('  no `cliDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless -- --cli` to start gating.');
     for (const s2 of cliSummary) {
       const b = base.cliDatasets?.[s2.dataset];
       if (!b) {
-        drift = true;
-        console.log(`${s2.dataset.padEnd(32)}${'—'.padStart(10)}${(s2.ms / 1000).toFixed(1).padStart(10)}s  NEW (re-bless)`);
+        if (!unblessed) drift = true;
+        console.log(`${s2.dataset.padEnd(32)}${'—'.padStart(10)}${(s2.ms / 1000).toFixed(1).padStart(10)}s  ${unblessed ? 'NOT BLESSED' : 'NEW (re-bless)'}`);
         continue;
       }
       // `slides` here is the PDF PAGE COUNT, not the engine's section count — so this
@@ -1292,7 +1440,11 @@ async function main() {
   const print = wantPrint ? await printTier() : null;
   const diagrams = wantDiagrams ? await diagramTier() : null;
   const cli = wantCli ? await cliTier() : null;
-  if (wantBless) blessBaseline(render.summary, print?.summary, render, sweep?.summary, cli?.summary);
+  if (wantBless) {
+    blessBaseline(render.summary, render, {
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary,
+    });
+  }
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
   } else if (wantCheck) {
@@ -1313,25 +1465,53 @@ async function main() {
     //
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
-    const pass1 = checkBaseline(render.summary, print?.summary, render, { sweepSummary: sweep?.summary, cliSummary: cli?.summary });
+    const pass1 = checkBaseline(render.summary, render, {
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary,
+    });
     if (pass1.regressedDatasets.length) {
-      console.log(`\nRe-measuring ${pass1.regressedDatasets.length} regressed dataset(s) to separate a real slowdown from machine load…`);
-      const second = await renderTier();
-      // The EXPORT and CLI tiers are not re-measured — an ~11-minute puppeteer arm
-      // cannot be run twice on a hunch, and the CLI tier spawns a fresh browser per
-      // iteration — so a regression in either stands on pass 1 alone. Their ±50% band
-      // is already sized for that.
-      const exportRegressed = pass1.regressedDatasets.filter((n) => !render.summary.some((s) => s.dataset === n));
-      const again = checkBaseline(second.summary, null, second, {
-        confirming: new Set(pass1.regressedDatasets),
-      });
-      const confirmed = [...exportRegressed, ...pass1.regressedDatasets.filter((n) => again.regressedDatasets.includes(n))];
+      // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
+      // the cheap in-process one; the BROWSER tiers are not re-run on a hunch — the print arm
+      // is ~11 minutes, the export arm ~3, and the CLI tier spawns a fresh browser per
+      // iteration. A regression in any of them stands on pass 1 alone, which their ±50% band
+      // (and the sweep's 3× floor) is already sized for.
+      //
+      // The split is BY NAME, which is why every browser tier prefixes its dataset names
+      // (`export · `, `print full · `, `cli · `) and the sweep suffixes `(sweep)`. A tier
+      // that reused the render tier's names verbatim would land inside `render.summary`,
+      // be handed to a second RENDER pass that of course does not reproduce it, and be
+      // reported as "not reproduced — machine load, not code".
+      //
+      // AND THE SPLIT DECIDES WHETHER PASS 2 RUNS AT ALL. It used to happen after an
+      // unconditional `renderTier()`, so a run where ONLY a browser tier regressed spent a
+      // second render tier to confirm nothing — announcing "Re-measuring 1 regressed
+      // dataset(s)" about a dataset pass 2 then skips, since `confirming` matches no render
+      // row. Unreachable while nothing but the render tier could regress on a plain
+      // `bench:check`; reachable the moment the export tier gates.
+      const renderRegressed = pass1.regressedDatasets.filter((n) => render.summary.some((s) => s.dataset === n));
+      const browserTierRegressed = pass1.regressedDatasets.filter((n) => !renderRegressed.includes(n));
+      let confirmedRender = renderRegressed;
+      if (renderRegressed.length) {
+        console.log(`\nRe-measuring ${renderRegressed.length} regressed dataset(s) to separate a real slowdown from machine load…`);
+        const second = await renderTier();
+        const again = checkBaseline(second.summary, second, { confirming: new Set(renderRegressed) });
+        confirmedRender = renderRegressed.filter((n) => again.regressedDatasets.includes(n));
+      }
+      const confirmed = [...browserTierRegressed, ...confirmedRender];
       const cleared = pass1.regressedDatasets.filter((n) => !confirmed.includes(n));
       if (cleared.length) {
         console.log(`\nNot reproduced on the second pass (machine load, not code): ${cleared.join(', ')}`);
       }
       if (confirmed.length) {
-        console.error(`\nPerf regression beyond the variance band, confirmed on two passes: ${confirmed.join(', ')}. `
+        // NAME THE EVIDENCE EACH ROW RESTS ON. A render row is confirmed on TWO passes; a
+        // browser row stands on ONE, because its tier is not re-measured. Reporting the pair
+        // under one "confirmed on two passes" banner claimed a second measurement that never
+        // happened — and once a browser-tier regression can be the ONLY thing red (which the
+        // export tier now makes reachable on a plain `bench:check -- --export`), the whole
+        // sentence was untrue.
+        const parts = [];
+        if (confirmedRender.length) parts.push(`${confirmedRender.join(', ')} — confirmed on two passes`);
+        if (browserTierRegressed.length) parts.push(`${browserTierRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
+        console.error(`\nPerf regression beyond the variance band: ${parts.join('; ')}. `
           + 'Investigate, or re-bless if the change is intentional and justified in the PR.');
         process.exitCode = 1;
       } else if (!pass1.drift) {
