@@ -240,7 +240,7 @@ there is now a Stage one, and the reserved-key list says `stage s`.
 | Claim | Surface | Artifact |
 |---|---|---|
 | The Stage opens, paints the deck, and carries no presenter instrument | real Chromium popup, production build | `docs/e2e/stage-window.spec.ts` |
-| The console drives the room; the room cannot drive the console | ditto — every deck key pressed INSIDE the Stage | ditto |
+| EITHER surface drives the deck, and the console stays the single writer | ditto — keys, wheel and swipe pressed INSIDE the Stage, read back on the console's counter | ditto |
 | The rail is on exactly one surface, and moves back on close | ditto | ditto |
 | A Stage is reported gone on ALL FOUR paths — hand-close, same-origin navigation, cross-origin navigation, killed renderer | real popup + unit interleavings | ditto + `present/stage-window.test.ts` |
 | A navigated Stage does not take the Studio down with it | real popup, cross-origin, then a re-render | `docs/e2e/stage-window.spec.ts` + the §9 probe |
@@ -582,9 +582,146 @@ Same shape as the `paintStageTokens` finding in §9 — a palette that never rea
 reading it — and it survived a screenshot, because a black glyph on a #1a1a1a slide reads as
 "a bit dim" rather than as broken. The measurement is what caught it. The decls are repeated
 on `.latt-ctl` rather than widened: same values, second scope, deck untouched. Contrast after:
-**17.01:1**.
+**15.22:1** — `#E8E7E7` on the bar's actual backdrop, `#15110D`.
+
+*(Corrected. This note first said 17.01:1, which is the ratio against pure black — the figure
+you get by measuring the glyph against the wrong backdrop. The palette fix is real either way,
+and 15.22 clears AAA with room to spare, but a number in a verification section that nobody can
+reproduce is the defect the section exists to prevent.)*
 
 The bar was also anchored `position:fixed` to the viewport at first, which put it on top of
 the caption band and the rail and clipped it off the bottom edge of a short window. It is
 absolute inside `#latt-view` now — over the slide, above the chrome, out of flow so summoning
 it cannot resize the deck underneath.
+
+## 12. The trio on the rework — three lenses, ten findings, and the ones that were real
+
+§11 rebuilt the interaction model. That is a large enough change to the *shape* of the thing —
+a second driver, an overlay transport, a new toggle — to earn the full trio again (HARD RULE
+#25), rather than the maker-checker one rung down. It found ten things. Six were live defects,
+four were coverage holes, and two claims *in this note* were wrong.
+
+### The security finding, and why `e.source` was never the check
+
+The `nav` branch guarded itself with `if (!ours) return;` and a comment stating the
+requirement in as many words: *"A page that navigated our Stage away must not be able to drive
+the deck."* It does not do that. **A `WindowProxy` identifies a browsing context, not a
+document, so it survives navigation** — measured in real Chromium:
+
+```
+ours (e.source === stageWin) after cross-origin nav : true
+e.origin                                           : http://127.0.0.1:8202
+alive()                                            : false
+```
+
+`ours` was granted to the foreign page. The half that *does* change is the origin, which the
+controller never read at all. A Stage written into `about:blank` inherits the opener's origin
+(measured: `e.origin === location.origin`), so an origin check costs the real Stage nothing and
+rejects the impostor with no window at all — where `alive()` would have taken up to one 2s poll.
+Both are in now, and `alive()` is the belt to the origin check's braces: it is what holds if a
+*same-origin* page ever takes the window over.
+
+Getting there needed a link click, and **the link guard was narrower than the threat.**
+`closest("a[href]")` misses two of the three shapes, all of which survive `sanitizeSlideHtml`:
+
+| vector | `closest('a[href]')` | real click navigates |
+|---|---|---|
+| `<a href>` | true | blocked |
+| SVG `<a xlink:href>` | **false** — it is inside an `<a>` with no `href` *attribute* | **yes, it navigated** |
+| `<area href>` | **false** — `<area>` is not an `<a>` | — |
+| `<meta http-equiv=refresh>` | — | **no** — inert in a `document.write`n `about:blank` doc |
+
+That last row is the useful bound: every live vector needs a click, so one listener is enough.
+The selector is `a,area[href]` now. The e2e cell named for this tested only the plain anchor —
+the one shape the guard caught — so it was green the entire time the other two were open.
+
+And the recovery path was worse than the breach. Once the Stage went cross-origin,
+`window.open('', 'lattice-stage', …)` hands back **the same context** (measured:
+`sameAsOld: true`, `canPaint: false`), so the presenter pressed S forever and nothing happened.
+Dropping the handle does not help, because the *name* is what resolves. Closing it does — and a
+window we opened ourselves closes even once it is cross-origin (measured: no throw,
+`closed === true`).
+
+### The input finding — the kernel's own contract, broken by the surface that inlined it
+
+The Stage hand-rolled its wheel and touch readers, and shipped both halves of #1294 again.
+Measured on the real Stage document before the fix:
+
+```
+pinch-out  -> next        pinch-in -> next        ctrl+wheel -> prev
+```
+
+`present-transport.mjs` names this exact pair as the #1294 root cause, and its `up()` docblock
+states the contract in one line: *"Reading it [`swipeBlocked`] is what a surface must do BEFORE
+calling `swipeAction`."* The Stage did not, and read no `ctrlKey` either — while the console
+guards both. So the in-code claim that the Stage applied *"the same gate, threshold and cooldown
+the console applies"* was false in both directions.
+
+The fix is to stop hand-rolling: `createZoomGesture({min:1,max:1})` is inlined as a **pure
+finger counter**. `max:1` pins the scale at 1, so no zoom or pan behavior reaches the Stage
+(it is the projected copy, not a Studio surface, and owes keyboard + wheel + touch but not
+zoom); and a genuine one-finger swipe returns `null` from `move` without ever setting `moved`,
+so `swipeBlocked` stays false for exactly the gesture that should still turn the deck.
+
+### The accessibility finding — a bar reachable by keyboard, and wrong to it
+
+`PRESENT_KEYMAP` maps Space to `next`, and the Stage binds `keydown` on `window` without
+reading `e.target`. So a keyboard user who tabbed to **Previous slide** and pressed Space had
+the native activation suppressed and the deck moved **forward** (measured: `3 / 7 -> 4 / 7`);
+Space on the full-screen button advanced the deck instead of filling the screen. The bar's
+entire justification is that it stays keyboard-reachable — reachable and wrong is worse than
+absent. Space and Enter now belong to the focused control; every other key still drives the
+deck, so the arrows keep working while a button holds focus.
+
+Honest attribution: **the console has the same bug today.** It is pre-existing there and is not
+this PR's to fix (#18's off-path rule), but the Stage bar is a window this change opened, so it
+is fixed here.
+
+### The talk clock started before the talk
+
+The clock is presenter-view furniture — §11 made it arrive with the Stage — but its zero point
+stayed keyed on Present opening. A presenter who spent five minutes picking a lens before
+projecting saw **"Talk time 5:00"** the instant the room first saw a slide. It re-zeros on the
+Stage now, and only on the `null -> host` transition, because a rewrite briefly drops the host
+and must not reset a talk in progress.
+
+### Four gates that could not see what they were named for
+
+This is the seventh vacuous pass on this branch, and the pattern is stable enough to name:
+**a cell that asserts a NAME rather than a BEHAVIOR is true for a reason other than the one it
+is named for.** *"Drives the deck with the SHARED input kernel, not a hand-rolled twin"* was
+five `toContain('keyAction')`-shaped assertions — satisfied by `var keyAction=function(k,m)
+{return m[k]}` (the exact `Object.prototype`-reaching form the real kernel's `Object.hasOwn`
+exists to prevent) and by a `swipeAction` with no threshold at all. Both twins were dropped in
+and the suite stayed green.
+
+It now *runs* the emitted kernel in an empty scope and asserts behavior — the idiom
+`inlinable-kernels.test.js` already used — and the twin is killed. The other three:
+
+| gate | was | now |
+|---|---|---|
+| the `nav` `ours` guard | deleting it left 1611 tests green | killed by three separate mutations (origin, `ours`, `alive`) |
+| `createWheelGate` / `padInset` | newly inlined, never pinned | pinned, closure state and all |
+| the rail toggle | never opened a Stage | drives the toggle on the real popup |
+
+### Two claims in this note were wrong
+
+The contrast figure in §11 (corrected in place above) was measured against pure black rather
+than the bar's actual backdrop: **15.22:1**, not 17.01:1. Still far past AAA — but a number in a
+verification section that nobody can reproduce is precisely what that section exists to prevent.
+
+And `examples/stage-console-split.md` — the per-feature demo deck, with a committed PDF — still
+taught the retired model in prose: *"One progress rail. No buttons"*, *"The room only follows"*,
+*"Keys pressed on the Stage do nothing at all."* Rule 6 exists so a behavior change and its docs
+land together; the deck is the surface where that failed, and the trio is what caught it.
+
+### Still open
+
+- **The rewrite de-morph.** `paint()` fires `onChange(null)` before every rewrite, so a lens,
+  palette or mode change unmounts the notes aside, its live next-slide frame and the talk clock
+  for the length of an engine boot, then remounts them. Reasoned from source by two lenses;
+  **not reproduced** — jsdom's fake window makes `write()` a no-op, so `ready` never returns.
+  Marked UNVERIFIED rather than fixed speculatively.
+- **`onLost` does not distinguish a Stage that DIED from one the presenter deliberately closed.**
+  Both revert the console to plain Present, which is right for the second and arguably wrong for
+  the first. A decision, not a defect — it goes to the maintainer.

@@ -31,13 +31,13 @@ The controls did not move because they were untidy. They moved because they were
 - Stage
   - The slide, filling the display
   - Captions, so a muted room follows
-  - One progress rail. No buttons
+  - A rail you can switch off
 - Console
   - Play, the lens, the slide grid
   - Next slide and speaker notes
   - A talk clock and private zoom
 
-<!-- note: The rule is one line: if it is aimed at the room it goes to the Stage, and if it is aimed at you it stays on the laptop. Captions and the rail are for the room. Notes never are. -->
+<!-- note: The rule is one line: if it is aimed at the room it goes to the Stage, and if it is aimed at you it stays on the laptop. Captions and the rail are for the room. Notes never are. The Stage keeps a transport, but it hides itself until you reach for it. -->
 
 ---
 
@@ -81,9 +81,9 @@ The controls did not move because they were untidy. They moved because they were
 2. Place
    - *It finds the external display; F fills it.*
 3. Talk
-   - *Drive from the console. The room only follows.*
+   - *Drive from either. One deck, one place it is kept.*
 
-<!-- note: Emphasize the one-way wire. Keys pressed on the Stage do nothing at all — an audience is not a second driver, which is exactly what the old second window was. -->
+<!-- note: Emphasize that you are not locked out of the window you are standing at. Keys, wheel and swipe work on the Stage as well as the console — but the console owns the slide index, so a move made anywhere lands in one place and the two can never drift apart. -->
 
 ---
 
