@@ -137,7 +137,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 - More than one filled cell per row
   - Each row names one position — one `[x]`. Multiple filled cells in a row breaks the "this is where you are" read; use `[-]` for the cells the row can still reach.
 - Unordered axes
-  - The grid earns its shape when both axes have a real order (shallow → deep, narrow → wide). Two free categorical labels belong in `matrix-2x2`.
+  - The grid earns its shape when both axes have a real order (shallow to deep, narrow to wide). Two free categorical labels belong in `matrix-2x2`.
 
 ---
 

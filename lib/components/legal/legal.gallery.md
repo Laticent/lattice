@@ -105,7 +105,7 @@ Pick this when the room wants three parallel facts at a glance.
 <!-- _class: statute-stack preemption -->
 <!-- _footer: "Variant 1D · statute-stack preemption" -->
 
-## Federal floor → State adds opt-in → Local adds audit duty.
+## Federal floor, then State opt-in, then Local audit duty.
 
 - Federal
   - `15 U.S.C. §6501 · COPPA`
@@ -138,7 +138,7 @@ Pick this when the audience wants to scan many obligations at once.
 <!-- _paginate: false -->
 <!-- _footer: "Anchor 02 · citation-card" -->
 
-`Anchor 02 · quote → translate → act`
+`Anchor 02 · quote, translate, act`
 
 ## The verbatim regulation, in plain English, with the obligation.
 
@@ -379,7 +379,7 @@ Pick when each cell carries a sentence, not a glyph.
 
 ## Privacy & AI motion — Q1 2026 timeline.
 
-`January → February → March 2026`
+`January – March 2026`
 
 1. PIPEDA Reform
    - `C-27`
@@ -530,7 +530,7 @@ Pick when each cell carries a sentence, not a glyph.
 <!-- _paginate: false -->
 <!-- _footer: "Anchor 06 · authority-chain" -->
 
-`Anchor 06 · statute → regulation → guidance → case`
+`Anchor 06 · statute, regulation, guidance, case`
 
 ## What actually binds us — and how far down the chain we are.
 

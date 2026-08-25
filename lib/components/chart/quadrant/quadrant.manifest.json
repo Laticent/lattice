@@ -79,7 +79,7 @@
     },
     {
       "title": "Coordinates without an audience-shared scale",
-      "body": "If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either label the axis units in the eyebrow (`Effort 0–10 → Reach 0–100`) or normalise to a familiar scale before authoring."
+      "body": "If `8, 80` requires a footnote to interpret, the slide doesn't pay off. Either label the axis units in the eyebrow — the `Effort 0–10` / `Reach 0–100` line above every slide here — or normalize to a familiar scale before authoring."
     }
   ],
   "related": [

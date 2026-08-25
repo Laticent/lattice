@@ -373,7 +373,7 @@ C4Context
   Rel(platform, reg, "Logs decisions")
 ```
 
-> Marked 🦺⚠️ in the docs — supported but the team flags it as work-in-progress. Theme support partial.
+> Flagged work-in-progress in the docs — supported, but the team says so, and theme support is partial.
 
 ---
 

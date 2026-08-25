@@ -39,7 +39,7 @@
   "sample": "<!-- _class: word-cloud -->\n\n## Weight is meaning in a word cloud.\n\n- time-to-value `5`\n- security `4`\n- onboarding `4`\n- pricing `3`\n- integrations `3`\n- support `2`\n- roadmap `2`\n- contracts `1`\n- residency `1`\n",
   "stressDoc": {
     "summary": "The densest cloud that still reads.",
-    "sample": "<!-- _class: word-cloud dense -->\n\n## Stress test — 20 terms, raw frequency counts (512 → 5).\n\n- component `512`\n- variant `327`\n- manifest `261`\n- gallery `204`\n- function `168`\n- form `139`\n- substance `116`\n- transform `94`\n- selector `77`\n- palette `63`\n- cascade `51`\n- bundle `42`\n- scaffolder `34`\n- token `28`\n- normalize `22`\n- packer `17`\n- spiral `13`\n- footer `9`\n- eyebrow `7`\n- watermark `5`\n"
+    "sample": "<!-- _class: word-cloud dense -->\n\n## Stress test — 20 terms, raw frequency counts, 512 down to 5.\n\n- component `512`\n- variant `327`\n- manifest `261`\n- gallery `204`\n- function `168`\n- form `139`\n- substance `116`\n- transform `94`\n- selector `77`\n- palette `63`\n- cascade `51`\n- bundle `42`\n- scaffolder `34`\n- token `28`\n- normalize `22`\n- packer `17`\n- spiral `13`\n- footer `9`\n- eyebrow `7`\n- watermark `5`\n"
   },
   "whenToUse": [
     {
