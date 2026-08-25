@@ -21,11 +21,22 @@ name: Overflow nightly (corpus clip ratchet)
 #
 # COST, MEASURED RATHER THAN ESTIMATED. The catalog note sized this from the tool's own
 # header — "~185 renders, tens of minutes" — and filed it under a weekly tier on that
-# basis. Both halves were wrong. A full green sweep is **279 decks in 5m21** on 4 cores,
-# and `--jobs 4` comes in at 5m22, i.e. the box saturates at 3 and parallelism is not a
-# lever. ~5.5 runner-minutes a night is ~165 a month, against the ~1,900 runner-minutes
-# A DAY the same note measured for per-PR CI — roughly 0.3%, which is why "weekly" stopped
-# being the obvious answer once the number was real.
+# basis. Both halves were wrong. A full green sweep is **279 decks in 5m21-5m31** on a
+# 4-vCPU box, and `--jobs 4` comes in at 5m22, so raising the worker count buys nothing.
+#
+# THE DEFAULT WORKER COUNT IS 2 HERE, NOT 3. `check-overflow-corpus.js:142` computes
+# `min(4, max(1, cpus - 2))`, so 4 vCPUs give 2 workers and 2 vCPUs give 1. An earlier
+# revision of this header said "the box saturates at 3", which was read off the TOOL'S OWN
+# stale usage comment (`--jobs 6 # parallelism (default 3)`) rather than off the run — the
+# same mistake as the estimate it was correcting. The timing conclusion survives the fix;
+# the number did not. On a 2-vCPU runner the worker count halves and the wall clock will be
+# longer than the figures above, which is part of why `timeout-minutes` is set below.
+#
+# BUDGET: ~5.5 min of sweep plus checkout / setup-node / apt / `npm ci`, so call it ~7
+# runner-minutes a night — ~210 a month, not the ~165 an earlier revision quoted from the
+# sweep alone. Against the ~1,900 runner-minutes A DAY the same note measured for per-PR CI
+# that is still ~0.4%, which is why "weekly" stopped being the obvious answer once the
+# number was real.
 #
 # WHY ITS OWN WORKFLOW, and not a step in `integration-nightly.yml`. That job already has
 # Chromium, poppler and `npm ci` warm, so a step there would be strictly cheaper in setup —
@@ -66,16 +77,41 @@ concurrency:
 jobs:
   overflow:
     runs-on: ubuntu-latest
+    # ~7 min expected (see the budget note above); 30 leaves room for a 2-vCPU runner, where
+    # the worker count halves. Without a ceiling this inherits GitHub's 360-minute default,
+    # and `check-overflow-corpus.js` bounds only a single deck (300s), never the sweep — so a
+    # hung run would burn six hours. On a JOB timeout the steps below are canceled and the
+    # issue step does not fire, so that case shows up as a red run with no issue; the
+    # `!= 'false'` condition on the issue step covers the cheaper case where the sweep step
+    # itself dies.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - uses: browser-actions/setup-chrome@v1
-        id: chrome
+      # THE BROWSER, and the thing that is easy to get wrong here. `lattice-emulator.js`
+      # does NOT read `CHROME_PATH` — `detectChromeExecutable()` (lattice-emulator.js:1253)
+      # resolves `PUPPETEER_EXECUTABLE_PATH`, then puppeteer's own cache under
+      # `$HOME/.cache/puppeteer`, then `which google-chrome|chromium|...`. Only
+      # `check-overflow-corpus.js:145` reads `CHROME_PATH`, and only to refuse to start
+      # without it. So setting `CHROME_PATH` alone satisfies the guard while the RENDER
+      # silently happens on whatever else resolves first — measured: with
+      # `CHROME_PATH=/nonexistent/chrome` the emulator renders a deck fine.
+      #
+      # The browser is therefore pinned to puppeteer's own cached Chromium, the same one
+      # `integration-nightly.yml` uses and the same one the ratchet's baseline was blessed
+      # against, and BOTH variables are set from it: `PUPPETEER_EXECUTABLE_PATH` so the
+      # emulator actually uses it, `CHROME_PATH` so the corpus tool starts. A
+      # `browser-actions/setup-chrome` step was tried here and removed: it installs Chrome
+      # *stable*, which is a different build from the baseline's Chromium, and its binary is
+      # on PATH as `chrome`, a name the emulator's `which` list does not even look for.
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
         with:
-          chrome-version: stable
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install color emoji font
         # An installed color emoji font so headless-Chromium renders emit emoji in
         # color. No poppler or ImageMagick here: this gate reads the emulator's own
@@ -83,24 +119,38 @@ jobs:
         # why it costs 5 minutes and the regression gate costs 72.
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
       - run: npm ci
+      - name: Resolve the puppeteer Chromium both tools must agree on
+        id: chrome
+        run: echo "path=$(node -p "require('puppeteer').executablePath()")" >> "$GITHUB_OUTPUT"
 
-      # The sweep exits 1 on a deck above its baseline and 2 on a setup error.
-      # Capture the verdict into an output and keep the JOB green, so the summary and
-      # issue steps always run and the issue keys off `failed` rather than the step's
-      # own exit — the report-only contract, same shape integration-nightly uses.
+      # Keep the JOB green whatever the ratchet says, so the summary and issue steps run and
+      # the issue keys off an output rather than the step's own exit — the report-only
+      # contract, same shape integration-nightly uses.
       #
-      # CHROME_PATH is REQUIRED, not optional: check-overflow-corpus.js exits 2 without
-      # it (:145). The emulator itself would fall back to puppeteer's own resolution, so
-      # a missing env var here fails loudly rather than silently rendering with a
-      # different browser than the one this job installed.
+      # THE TWO FAILURE EXITS ARE NOT THE SAME THING and must not file the same issue.
+      # `check-overflow-corpus.js` exits 1 when a deck clips MORE than its baseline (the
+      # finding this job exists for) and 2 on a SETUP error — a missing CHROME_PATH, an
+      # unwritable scratch dir. An earlier revision collapsed both into `failed=true`, so a
+      # permanently broken setup would have filed "corpus overflow ratchet above baseline"
+      # at priority:high every night, against a green check, forever: the "red six nights
+      # running" failure this file's own header cites against studio-e2e-nightly, inverted
+      # into green and given the wrong title. The exit code is carried through so the issue
+      # can say which happened.
+      #
+      # `PIPESTATUS[0]` rather than `$?`, because the pipe into `tee` would otherwise report
+      # tee's exit. `pipefail` makes the `if` correct but discards the distinction.
       - name: Overflow corpus sweep (report-only)
         id: sweep
         env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          PUPPETEER_EXECUTABLE_PATH: ${{ steps.chrome.outputs.path }}
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
         run: |
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/overflow-nightly-report.txt"
-          if npm run --silent overflow:check 2>&1 | tee "$REPORT"; then
+          npm run --silent overflow:check 2>&1 | tee "$REPORT"
+          CODE=${PIPESTATUS[0]}
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" -eq 0 ]; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
@@ -128,20 +178,38 @@ jobs:
       # One rolling issue, found by a title marker so it never spams. Self-labeled at
       # creation with the four required axes (`area:`/`type:`/`priority:`/`status:`),
       # because a GITHUB_TOKEN-opened issue cannot trigger the triage gate.
+      # `!= 'false'` rather than `== 'true'`, so a sweep step that DIED before writing its
+      # output (an npm failure, an OOM) still files rather than passing in silence. A job
+      # TIMEOUT cancels this step and is not covered — that case is a red run, by design.
       - name: Open / append overflow issue
-        if: steps.sweep.outputs.failed == 'true'
+        if: always() && steps.sweep.outputs.failed != 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           MARKER='[overflow-nightly]'
           BODY="$GITHUB_WORKSPACE/overflow-nightly-body.md"
+          CODE='${{ steps.sweep.outputs.code }}'
+          if [ "$CODE" = '1' ]; then
+            SUBJECT='corpus overflow ratchet above baseline on main'
+          else
+            SUBJECT="overflow-nightly could not run (exit ${CODE:-unknown})"
+          fi
           {
-            echo "The corpus overflow ratchet is above its baseline on \`main@${{ github.sha }}\`."
-            echo ""
-            echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
-            echo "if the change is deliberate and the content is right — re-bless with"
-            echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
+            if [ "$CODE" = '1' ]; then
+              echo "The corpus overflow ratchet is above its baseline on \`main@${{ github.sha }}\`."
+              echo ""
+              echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
+              echo "if the change is deliberate and the content is right — re-bless with"
+              echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
+            else
+              echo "The sweep did NOT run to a verdict on \`main@${{ github.sha }}\` — exit \`${CODE:-unknown}\`."
+              echo ""
+              echo "This is a SETUP failure, not an overflow finding: the corpus was never scored."
+              echo "Exit 2 is \`check-overflow-corpus.js\` refusing to start (typically CHROME_PATH);"
+              echo "an empty code means the step itself died. Nothing is known about the corpus until"
+              echo "this is fixed — treat a quiet night as unmeasured, not clean."
+            fi
             echo ""
             echo '```'
             tail -n 60 "$GITHUB_WORKSPACE/overflow-nightly-report.txt" || echo '(no report)'
@@ -155,7 +223,7 @@ jobs:
             echo "Appended to issue #$ISSUE"
           else
             gh issue create \
-              --title "$MARKER corpus overflow ratchet above baseline on main" \
+              --title "$MARKER $SUBJECT" \
               --label "area:engine" --label "type:fix" \
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"

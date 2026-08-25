@@ -10,7 +10,7 @@ summary: >
   cost was already paid: #1388 (`export-marp` exports a BOM'd deck in the wrong palette) is
   #1349 recurring one file over, at the ninth ingest, and its own diagnosis reasoned that
   "the gate cannot see it" because the file was missing from a list that did not exist. The
-  gate is now written, in five arms, each watched red on the real tree: a listed boundary
+  gate is now written, in six arms, each watched red on the real tree: a listed boundary
   that stopped normalizing, a stale entry, a pinned normalization COUNT that moved (the
   engine has two public doors and #1357 measured the divergence when only one normalized),
   an UNLISTED fold, and `\r?\n` used to normalize where a boundary needs `\r\n?`. The
@@ -183,5 +183,5 @@ Written down because the defect this note is about was a doc that did not say th
 ## Gates
 
 `npm run lint` · `npm test` · `npm run build:check` ·
-`node --test test/unit/tools/line-ending-boundary-gate.test.js` (21/21) ·
+`node --test test/unit/tools/line-ending-boundary-gate.test.js` (31/31) ·
 `node --test test/unit/core/line-endings.test.js`
