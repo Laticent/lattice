@@ -469,6 +469,44 @@ const SURFACES = [
         new RegExp(`--pill-border: var\\(--${state}\\)`),
       ],
     })),
+  // ── kanban · the [data-s] card's status wash, and the two inks on it ─────
+  // The wash is `--state-{s}-fill` mixed into the card — 55% light, 26% dark — and it is
+  // the deepest own-hue ground the engine paints on a card. TWO inks land on it and they
+  // fail differently, so both are scored: the title at `--text-heading` (clear, 6.65:1 at
+  // worst) and the lane tag, which was `--text-secondary` and sub-AA on 152 of 320 before
+  // #1788 stepped it up.
+  //
+  // MODELING NOTE, because getting this wrong is silent. `--state-{s}-fill` and
+  // `--chart-state-*` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
+  // cannot see them and they are seeded here from chart-family.css. And the card must stay a
+  // TOKEN (`--kanban-card`) rather than being inlined: `resolveTokenExpr` reduces a
+  // `color-mix()` nested directly inside another `color-mix()`'s argument to a WRONG hex
+  // rather than returning its input verbatim, which is the contract the rest of this file
+  // relies on. Inlined, this surface scored concrete|dark at #897d7e; as a token it scores
+  // #524647, which is the pixel the render actually paints. No other surface in the catalog
+  // is written in that shape (checked), so nothing else is affected — but a future one could
+  // be, and it would report a confident wrong number rather than an unresolved one.
+  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((state) => {
+    const wash = `light-dark(color-mix(in oklab, var(--state-${state}-fill) 55%, var(--bg-alt)), `
+               + `color-mix(in oklab, var(--state-${state}-fill) 26%, var(--kanban-card-dark)))`;
+    return [
+      ['title', '--text-heading', /\.kanban-card-title\s*\{[^}]*color:\s*var\(--text-heading\)/],
+      ['lane',  '--text-heading', /\.kanban-card\[data-s\] \.kanban-lane\s*\{\s*color:\s*var\(--text-heading\)/],
+    ].map(([slot, ink, pin]) => ({
+      id: `kanban/${state}-card-${slot}`,
+      ctx: `kanban: the ${slot} on a [data-s="${state}"] card's status wash over the card fill`,
+      base: KANBAN_CARD, groups: [{ bg: wash }], ink, min: 4.5,
+      src: KANBAN,
+      requires: [
+        /\.kanban-card\[data-s\]\s*\{[^}]*color-mix\(in oklab, var\(--status-fill\) 55%, var\(--bg-alt\)\)/,
+        /\.kanban-card\[data-s\]\s*\{[^}]*color-mix\(in oklab, var\(--status-fill\) 26%, color-mix\(in oklab, var\(--bg-alt\) 88%, white\)\)/,
+        new RegExp(`--status-fill: var\\(--state-${state}-fill\\)`),
+        // The seeded recipe, pinned against chart-family so a retune there reddens this.
+        [CHARTFAMILY, new RegExp(`--state-${state}-fill: light-dark\\(color-mix\\(in oklab, var\\(--state-${state}-hue\\) ${state === 'mute' ? 22 : 24}%, var\\(--bg\\)\\), color-mix\\(in oklab, var\\(--state-${state}-hue\\) ${state === 'mute' ? 46 : 50}%, black\\)\\)`)],
+        pin,
+      ],
+    }));
+  }),
   // ── checklist · the state row, whose own-hue wash sits on the CANVAS ─────
   // Same shape as redline's band one layer up: `--bg` rather than `--bg-alt`.
   ...[['pass', '--pass'], ['warn', '--warn'], ['fail', '--fail']].map(([state, tok]) => ({
@@ -879,11 +917,40 @@ function bundleVars() {
  * value worse than the default it replaces" is a question about two inks on one
  * canvas, not about a cascade anyone still ships.
  */
+/**
+ * Component tokens `mergedVars` cannot see, seeded so a surface can NAME them.
+ *
+ * `--state-{s}-hue` / `--state-{s}-fill` are declared on `section.chart-frame`
+ * (lib/components/chart/_chart-family/chart-family.css:394-416), not on `:root`, so the
+ * `:root`-block parser below never collects them. A surface that needs one had to inline its
+ * definition instead — and inlining puts a `color-mix()` inside another `color-mix()`'s
+ * argument, which `resolveTokenExpr` reduces to a WRONG hex rather than returning verbatim.
+ * Seeding them keeps the surface expression one level deep, where the resolver is correct.
+ *
+ * The values are pinned against the CSS by `checkSurfaceEvidence`'s `requires` on the kanban
+ * surfaces, so a retune in chart-family reddens the gate rather than silently re-pointing what
+ * is measured here.
+ */
+const CHART_FAMILY_TOKENS = Object.freeze(Object.fromEntries([
+  // The kanban card's own dark-arm fill, as a token for the same reason: the status wash
+  // mixes INTO it, and inlining it would nest a color-mix in a color-mix argument.
+  ['kanban-card-dark', 'color-mix(in oklab, var(--bg-alt) 88%, white)'],
+  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((s) => {
+    const [lp, dp] = s === 'mute' ? [22, 46] : [24, 50];
+    const hue = `var(--chart-state-${s}, ${PILL_STATE_FALLBACK[s]})`;
+    return [
+      [`state-${s}-hue`, hue],
+      [`state-${s}-fill`, `light-dark(color-mix(in oklab, ${hue} ${lp}%, var(--bg)), `
+                        + `color-mix(in oklab, ${hue} ${dp}%, black))`],
+    ];
+  }),
+]));
+
 function mergedVars(theme, { baseWins = false } = {}) {
   const palette = { vars: {}, spec: {} };
   for (const f of paletteChainFiles(theme)) parseRootVars(fs.readFileSync(f, 'utf8'), palette);
   const bundle = bundleVars();
-  if (!baseWins) return { ...bundle.vars, ...palette.vars };
+  if (!baseWins) return { ...CHART_FAMILY_TOKENS, ...bundle.vars, ...palette.vars };
   // THE BASE-WINS REFERENCE MAP. It is NOT "what the export does" any more — since #1527
   // the export loads the engine sheet first and the palette wins there too. What this arm
   // models is the REGRESSION question: is a palette's curated value worse than the base
@@ -892,7 +959,7 @@ function mergedVars(theme, { baseWins = false } = {}) {
   // copy, the copy won THIS map too, both arms resolved the same value, and the regression
   // arm was silently vacuous for the trio. Removing the copy surfaced 18 real regressions.
   // engineering/decisions/2026-08-24-status-trio-single-root.md
-  const out = { ...palette.vars };
+  const out = { ...CHART_FAMILY_TOKENS, ...palette.vars };
   for (const [k, v] of Object.entries(bundle.vars)) {
     if ((palette.spec[k] ?? -1) <= (bundle.spec[k] ?? 0)) out[k] = v;
   }

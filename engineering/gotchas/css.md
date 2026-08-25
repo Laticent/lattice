@@ -36,6 +36,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
      its tile's own color, so whatever carries the chip's edge (for kpi, its border)
      has to be modelled and floored rather than assumed.
      `engineering/decisions/2026-08-25-status-trio-joint-solve-model.md`.
+
+     **A tier-named ink does not carry to a surface built to differ from the canvas.**
+     `--text-secondary` / `--text-muted` have their AA contract against `--bg`. A kanban
+     `[data-s]` card differs from it twice — the card fill sits lighter than the canvas in
+     both modes, and the status wash then sits on that — and `.kanban-lane` was sub-AA on
+     152 of 320 palette-modes there while every canvas-based number said it was a compliant
+     secondary tier (#1788). When a component moves an ink onto a surface it was not solved
+     for, model that surface; the fix is usually a rung UP the ink scale, not a shallower
+     ground.
+- **Silent mis-scoring: a `color-mix()` nested inside another `color-mix()`'s argument.**
+  `resolveTokenExpr` returns its input verbatim when it cannot reduce a value — that is the
+  contract `tools/check-ownership.js` and `tools/composed-contrast.js` both rely on to tell
+  "unresolved" from "resolved". It does NOT hold for a `color-mix()` sitting directly inside
+  another `color-mix()`'s argument list: that reduces to a **plausible but wrong hex**, so a
+  gate scores it confidently and incorrectly. Measured: the kanban status wash read `#897d7e`
+  inlined and `#524647` — the pixel the page actually paints — with the inner mix hoisted to a
+  token. Keep every surface expression one level deep, naming intermediates as tokens
+  (`CHART_FAMILY_TOKENS` in `composed-contrast.js` is how). No shipped surface is written in
+  the bad shape today; the risk is the next one.
   2. **`check-slide-contrast.js` cannot see `opacity`.** It reads computed `color`
      and the ancestor paints. A CSS opacity composites the whole subtree buffer —
      ink and background together — so the ink moves much further than its band.
