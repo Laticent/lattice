@@ -86,7 +86,7 @@ to lift into position 0. The rule that came out of it is worth stating once:
 semantics of the thing that will CONSUME it.** Those are different parsers and a
 gate that uses one reading for both is wrong in one direction or the other.
 
-### Logged, not fixed here: the engine hoists what it cannot resolve
+### The engine hoists what it cannot resolve — FIXED (2026-08-25)
 
 The root cause under all of the import findings is in the engine, not the gate:
 `ThemeStore.resolveThemeImports` leaves an unknown or cyclic theme-name import
@@ -96,8 +96,32 @@ and fetches it. The gate closes this for the Studio path. It does not close it f
 the other producers the design note already lists as ungated (a `.zip` import, a
 shared payload), and the honest fix is for `hoistImports` to DROP a quoted
 theme-name import that no longer resolves rather than promote it to first
-position. Off the path of this change (#18's log-it branch), and named here with
-its reproduction so the next session does not have to rediscover it.
+position.
+
+**That fix has now landed** (`lib/engine/css.js`, `hoistImports`), so it closes
+for every producer rather than for the Studio alone. Two things about it are worth
+keeping:
+
+- **The reproduction, confirmed before the fix.** A theme carrying
+  `@import 'ghost-theme';` composed to a sheet whose literal first line was
+  `@import 'ghost-theme';`. Pinned in `test/unit/engine/hoist-dangling-import.test.js`,
+  which fails 7 of its 11 cases against the pre-fix engine.
+- **The judgment DECODES, and that arm is the sharp one.** The engine resolver
+  matches raw bytes case-sensitively, so `@import '\61 rdesia'` survives resolution
+  even though `ardesia` is registered — and the browser, which decodes, then
+  fetches `./ardesia`. Reading the target the resolver's way here would have
+  re-opened exactly the hole `lib/theme/gate.js` closed, one layer down. This is
+  the same "detect with the semantics of the thing that will EXECUTE the CSS,
+  judge with the semantics of the thing that will CONSUME it" rule as the second
+  correction above, applied in the direction where the hoist is what hands the
+  browser its bytes.
+
+Scope stayed narrow on purpose: it drops a dangling NAME and does not judge a real
+URL. `@import url(…)` and quoted paths hoist exactly as before, because a theme
+author may legitimately want one and the engine is not the security boundary for
+it — `lib/theme/gate.js` is, and it rejects both outright for hand-edited theme
+CSS. Measured: all 32 shipped themes compose byte-identically across the change
+(SHA-256 over `cssFor(name, size)` for every theme at two sizes).
 
 ## The ask
 
