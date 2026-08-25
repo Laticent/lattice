@@ -60,6 +60,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, w
 import { createRequire } from 'node:module';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deckGoldenPdfs } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -77,6 +78,24 @@ const OUT = join(ROOT, '.scratch', 'regression');
 // cross-environment rasterizer AA, not a license for visible change.
 const FUZZ = '3%'; // ≈ channel delta 8 / 255, the engine-parity threshold
 const FAIL_FRACTION = 0.0005; // 0.05% of the page (≈ 260 px at 72dpi 960×540)
+// THE COROLLARY NOBODY HAD WRITTEN DOWN: a real, intended change SMALLER than the
+// floor leaves its goldens stale, and `--bless` will not promote them — the branch
+// below is `if (opts.bless && drifted.length)`, so a sub-floor render is produced and
+// discarded. There is no flag to force it, deliberately.
+//
+// That is not hypothetical. #1821 re-pointed one small mark (a hollow state ring) at a
+// different token; MEASURED by diffing two FRESH renders — main's tree against the fix's,
+// which isolates the change from any staleness already on main — it moves ~31 deck
+// goldens by 0.015–0.055%. Every one is at or under its applicable floor, so the corpus
+// kept shipping the old ink and the gate was right to say "ok". Two sat within a hair of
+// the flat floor (0.0482%, 0.0467%), which is the case worth knowing about: a host that
+// rasterizes a shade differently pushes them over and the nightly reports them on
+// somebody else's PR.
+//
+// Accepted rather than fixed, as a decision: forcing promotion would need a new flag AND
+// would bake one host's rasterization into every file it touched, which is the exact
+// thing this floor exists to prevent. The human catch is the golden-diff before/after
+// comment, which since #1843 covers the deck scope too.
 // Mermaid galleries (the chart + diagram buckets) render fine mmdc-produced SVG
 // vector/text whose sub-pixel anti-aliasing is NOT bit-identical across machine
 // classes: a golden blessed on one machine drifts ~0.4–0.5% on another (e.g. the
@@ -138,28 +157,18 @@ function galleryDecks() {
 // The set is DERIVED from `git ls-files`, never hand-listed, for the reason #1279
 // records: a hand-kept list of artifacts is silent by default, and the set of committed
 // artifacts drifting from the set any gate knows about IS the defect. A deck golden is
-// any committed PDF with a sibling `.md`, minus the exclusions below — each of which is
-// a rule from PDF_OWNERSHIP that says, in prose, why re-rendering it is wrong.
-const DECK_GOLDEN_EXCLUDE = [
-  // Frozen evidence beside a dated decision record. Rebuilding destroys the thing
-  // being evidenced (PDF_OWNERSHIP: "a frozen artifact of the decision it sits beside").
-  (f) => f.startsWith('engineering/decisions/'),
-  // Rendered by REAL marp-cli on purpose, to show what a recipient's toolchain
-  // produces. Re-rendering it through our engine replaces the artifact with one made
-  // by the engine it exists to be compared against.
-  (f) => f.startsWith('kit/'),
-  // The light/dark gallery pairs are the scope above; diffing them here would render
-  // every one twice and report each drift twice.
-  (f) => /\.gallery\.(light|dark)\.pdf$/.test(f),
-];
+// any committed PDF with a sibling `.md`, minus a short exclusion list — each entry a
+// rule from PDF_OWNERSHIP that says, in prose, why re-rendering it is wrong.
+//
+// THE RULE AND THE EXCLUSIONS NOW LIVE IN `tools/lib/golden-set.mjs`, shared with
+// `golden-diff.mjs`. They were duplicated in neither direction before — `golden-diff`
+// simply had a NARROWER corpus and nothing said so, which is the §6a seam of
+// `2026-08-24-golden-corpus-re-bless.md`. Do not re-inline this list here.
 
 function deckGoldens() {
-  const out = execFileSync('git', ['ls-files', '*.pdf'], { cwd: ROOT, encoding: 'utf8' })
-    .trim().split('\n').filter(Boolean)
-    .filter((f) => !DECK_GOLDEN_EXCLUDE.some((ex) => ex(f)))
-    .filter((f) => existsSync(join(ROOT, f.replace(/\.pdf$/, '.md'))))
-    .map((f) => join(ROOT, f.replace(/\.pdf$/, '.md')));
-  return out.sort();
+  return deckGoldenPdfs(ROOT)
+    .map((f) => join(ROOT, f.replace(/\.pdf$/, '.md')))
+    .sort();
 }
 
 // A deck golden's display name, and the `--only` token: the path with its extension

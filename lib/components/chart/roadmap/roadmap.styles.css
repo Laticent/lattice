@@ -79,7 +79,9 @@
 /* Per-state tokens, legend scope — mirror the cell tokens above. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--pass);        --state-mark:var(--mark-check); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--warn);        --state-mark:var(--mark-dash);  }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--text-label); }
+/* planned = the neutral "not started" tier (#1821) — --muted-mark, not
+ * --text-label, which is accent-hued emphasis since #1801. Matches the cells. */
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark);  --state-mark:var(--mark-slash); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
@@ -243,9 +245,14 @@
   --state-mark:var(--mark-dash);
   --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
 }
+/* planned — the NEUTRAL "on the slate, not started" tier that base.modifiers
+ * groups with checklist todo and obligation exempt. --muted-mark, not
+ * --text-label (#1821): #1801 restored the latter to accent-hued emphasis and
+ * took this ring with it, so a planned milestone painted the brand accent one
+ * row under the amber --wip it was supposed to contrast with. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned {
-  --state-color:var(--text-label);
+  --state-color:var(--muted-mark);
   --cell-state-bg:var(--bg-alt);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
@@ -358,15 +365,63 @@
   line-height:1.2;
 }
 
-/* The SKIPPED label is the one TEXT read of --state-color, and that local is graphical
- * (3:1) — it paints discs, rings and rails, and both the legend above and `heat` in
- * base.modifiers.css set it to --muted-mark. Overriding the local for the whole cell
- * would desync the legend from the cells it decodes, so the repair is here, at the read:
- * the label alone takes the 4.5 text tier. Scoped with `.state-skipped`, so it also wins
- * against `section.heat`, which re-points --state-color later in the bundle at equal
- * specificity and re-broke an earlier version of this fix (#1715). */
+/* `color:` above is the ONE text read of --state-color in the whole component tree
+ * (verified by grep, #1821), and that local is graphical (3:1) — it paints discs, rings
+ * and rails, and both the legend above and `heat` in base.modifiers.css set it to
+ * --muted-mark. Overriding the local for the whole cell would desync the legend from the
+ * cells it decodes, so the repair is here, at the read: the label alone takes the 4.5
+ * text tier. Scoped per state, so it also wins against `section.heat`, which re-points
+ * --state-color later in the bundle at equal specificity and re-broke an earlier version
+ * of this fix (#1715).
+ *
+ * WHY `skipped` NEEDS NO `heat` EXEMPTION AND `planned` DOES. That rationale transfers
+ * only when heat maps the state to the same ink the label is being pinned to, and it
+ * does for exactly one of the two (base.modifiers.css:1125-1136):
+ *
+ *   heat skipped -> --muted-mark   so --text-muted is a faithful TEXT-TIER stand-in
+ *   heat planned -> --pass         so --text-muted would DISCARD the heat encoding
+ *
+ * Under `roadmap status heat` a planned cell's ring and left ribbon go relief-green
+ * while an unexempted label would sit muted grey beside them — the label disagreeing
+ * with its own cell. So the planned arm carries `:not(.heat)` and heat keeps its own
+ * read. Nothing in the committed corpus combines `roadmap` with `heat` (heat appears
+ * only on obligation-matrix), so no golden would have shown it and no gate would have
+ * caught it; an independent checker did.
+ *
+ * That leaves heat's planned label reading --pass as text, which is the tier question
+ * this comment is about — but it is PRE-EXISTING and unchanged by #1821, so it is
+ * recorded here rather than fixed under cover of a different repair.
+ *
+ * PLANNED JOINED SKIPPED HERE IN #1821, and it is the same defect one state over. That
+ * state used to read --text-label, which is a TEXT tier (AA on both canvases), so the
+ * label was compliant by accident of which token the ring happened to name. Pointing the
+ * ring at the graphical --muted-mark — correct for the ring — dragged the label down with
+ * it. MEASURED against --bg-alt on the ten accent-hued palettes, light arm:
+ *
+ *   --text-label (before)  4.72 - 13.94   all pass
+ *   --muted-mark (ring)    3.11 -  4.15   ALL TEN FAIL the 4.5 text floor
+ *   --text-muted (here)    4.65 -  4.69   all pass
+ *
+ * cuoio and magnolia sat at 3.11. Confirmed on the SHIPPED ARTIFACT rather than only in
+ * token math — sampling the painted label pixels out of a 200 dpi raster of
+ * `roadmap.gallery.dark.pdf` page 4, against the modal cell ground `#002847`:
+ *
+ *   before  #6B7F9A  3.68   FAILS
+ *   after   #7C91AC  4.66   passes
+ *
+ * Nothing in CI covers this: the contrast gates model token matrices and composed
+ * surfaces, not `.cell-state-label` — it is the only `color: var(--state-color)` in the
+ * component tree — and the full 792-test integration tier passed over it. Found by
+ * rendering the slide and looking at it. */
+/* The `.horizon-rows` arms are INERT today and kept only so the two states stay
+ * symmetrical: `applyStatusMarkers` emits `.cell-state-label` into a `<td>` only
+ * (roadmap.transform.js:141), and the horizons path emits `row-label` / `row-text`.
+ * The skipped twin has been inert the same way since #1715. Stated rather than left to
+ * imply a coverage these selectors do not have. */
 :is(section.roadmap, figure.roadmap).status td.cell-state.state-skipped .cell-state-label,
-:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label {
+:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label,
+:is(section.roadmap, figure.roadmap).status:not(.heat) td.cell-state.state-planned .cell-state-label,
+:is(section.roadmap, figure.roadmap).status:not(.heat) .horizon-rows > li.cell-state.state-planned .cell-state-label {
   color:var(--text-muted);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {

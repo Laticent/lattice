@@ -1338,7 +1338,7 @@ discs, distinguished only by how full they were, did not).
 **Why `[ ]` flexes — clarity over uniformity.** In `checklist` (todo),
 `obligation-matrix` (exempt), and `roadmap` (planned), `[ ]` is a
 **neutral "not yet / on the slate"** — not a failure — so it renders as a
-**true hollow ring** (`--text-label` edge ring, empty centre — no inner mark,
+**true hollow ring** (`--muted-mark` edge ring, empty center — no inner mark,
 so it reads "open", not a "selected" centre-dot bullseye). In `verdict-grid`,
 `[ ]` is a criterion **not met**, which *is* a negative,
 so it keeps the **red ✕** (`--fail`, `--mark-x`). The decoder is
@@ -1365,9 +1365,15 @@ scope; the leaf disc mixes the actual colours from `--state-color` +
 `--bg`, so variants stay theme-aware. See `base.modifiers.css`.
 
 **Theme tokens:** `--pass`, `--warn`, `--fail` (disc fill + ring + left
-bar), `--text-label` (the neutral `[ ]` todo ring) and `--muted-mark`
-(`[/]` — the skipped mark is a SHAPE, so it takes the 3:1 graphical tier;
-it read `--text-muted` until #1715 split that token's two roles); plus `--pass-bg` / `--warn-bg` / `--fail-bg` (10% color-mix row
+bar) and `--muted-mark` — which carries BOTH the neutral `[ ]` todo ring and
+the `[/]` skipped mark, because each is a SHAPE and so takes the 3:1
+graphical tier rather than a text one. The skipped mark read `--text-muted`
+until #1715 split that token's two roles; the todo ring read `--text-label`
+until #1821, when #1801 restored that token to accent-hued emphasis and took
+the supposedly-neutral ring with it. Sharing one ink is deliberate and safe
+here precisely because the two are told apart by shape, not color: the todo
+ring carries no inner mark at all, while `[/]` is a filled disc with a slash
+and a struck-through label. Plus `--pass-bg` / `--warn-bg` / `--fail-bg` (10% color-mix row
 tints). The mark *shapes* are the shared masks `--mark-check` /
 `--mark-dash` / `--mark-x` / `--mark-slash` (each with a `-bold` sibling for
 `checks-bold`); the neutral `[ ]` todo uses no mask — it's a hollow ring.

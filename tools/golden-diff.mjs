@@ -1,5 +1,16 @@
 // Golden before/after — what visually changed in THIS PR's committed goldens.
-// Post a PR comment + before/after montage of the gallery slides whose committed golden moved vs the base branch.
+// Post a PR comment + before/after montage of the slides whose committed golden moved vs the base branch.
+//
+// SCOPE IS THE WHOLE CORPUS — both the 150 gallery goldens under `lib/` and the 201
+// deck goldens under `examples/`, `exemplars/`, `design/`, `themes/` and the CI
+// baseline. It covered only the gallery half until #1843, which is the §6a seam of
+// `2026-08-24-golden-corpus-re-bless.md`: the gate watched all 351, the reviewer's
+// before/after watched 150, and nothing said so. What counts as a golden now comes from
+// `tools/lib/golden-set.mjs`, shared with the regression gate, so the two cannot drift
+// apart again. Cost of the widening, measured rather than estimated: 272 ms per
+// golden-page on the runner, so a typical touch (1-4 decks) is ~11 s and a full
+// re-bless of every deck is ~10 min, in a job that gates nothing. Montage volume is the
+// part that needed a bound — see MONTAGE_CAP.
 //
 // The regression gate (tools/regression-gate.mjs) answers the AUTHOR's question:
 // "did I bless correctly?" (a fresh render == the committed golden). This tool
@@ -45,6 +56,7 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { classifyChangedPdf } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -59,17 +71,48 @@ const MONTAGE_DIR = join(OUT, 'montages');
 // inline; the complete set always lives in the changes.pdf artifact.
 const INLINE_CAP = 8;
 
+// Cap how many montages are PRODUCED at all. Distinct from INLINE_CAP, which only
+// decides how many embed in the comment.
+//
+// This is the one cost that does not scale gracefully once the deck scope is in
+// (below). Rasterization does: MEASURED on the runner at 272 ms per golden-page —
+// 12 gallery goldens, 287 pages, 78 s in run 32800078459 — so even a full 2,123-page
+// deck re-bless is ~10 minutes in a job that gates nothing. What does not scale is
+// montage VOLUME: a triptych PNG measures ~150 KB (sampled from real ones), the full
+// set uploads as an artifact AND is pushed to the orphan `ci-drift-images` branch,
+// where it stays. `2026-08-24-golden-corpus-re-bless.md` records a 184-red run
+// producing 225 MB of montages, which matches 150 KB x ~1,800 slides.
+//
+// 120 is ~18 MB at that rate, and ~4x the largest real review set observed (PR #1843
+// moved 28 slides across 8 gallery-moods). Nobody flips through 1,800 triptychs; the
+// point past which more montages stop informing a reviewer is far below the point
+// where they stop being cheap. Over the cap the slides are still COUNTED and still
+// reported — see `montagesOmitted` and the summary line, because a cap nobody is told
+// about reads as "that was everything" (HARD RULE #25: log any dropped coverage).
+const MONTAGE_CAP = 120;
+
 // Mirror the regression gate's tolerance so "what changed" agrees with "what the
 // gate would catch": a page counts as changed only if its over-fuzz pixel count
 // exceeds FAIL_FRACTION of the page (AA shimmer from rasterization is not drift).
 const FUZZ = '3%';
 const FAIL_FRACTION = 0.0005;
 
-// A committed golden: lib/components/**/<name>.gallery.{light,dark}.pdf.
-const GOLDEN_RE = /\.gallery\.(light|dark)\.pdf$/;
-
 function git(args) {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
+// Does `relPath` exist at HEAD (working tree) or on the base ref? Used to decide
+// whether a changed `.pdf` has the sibling `.md` that makes it a DECK golden. Both
+// sides matter: a branch that ADDS a deck has no base sibling, one that DELETES a deck
+// has no working-tree sibling, and both are worth reporting.
+function existsEitherSide(base, relPath) {
+  if (existsSync(join(ROOT, relPath))) return true;
+  try {
+    execFileSync('git', ['cat-file', '-e', `${base}:${relPath}`], { cwd: ROOT, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Candidate goldens this PR touched at all (byte-level git diff — the cheap
@@ -77,17 +120,30 @@ function git(args) {
 function changedGoldens(base) {
   let raw;
   try {
-    // `lib/` and not `lib/components`: the pathspec used to stop at the components
-    // tree, so `lib/base/_logo/logo.gallery.{light,dark}.pdf` — two committed goldens
-    // GOLDEN_RE matches perfectly well — moved their pixels with no montage on the PR.
-    // Demonstrated, not theorized: #1275 regenerated both and this reported 4
-    // gallery-moods rather than 6 (#1279).
-    raw = git(['diff', '--name-only', base, '--', 'lib']);
+    // NO PATHSPEC, deliberately. This used to be `-- lib`, which is how the reviewer's
+    // before/after came to cover only the gallery half of the corpus while the gate
+    // covered all of it — `2026-08-24-golden-corpus-re-bless.md` §6a, found on a PR that
+    // moved 183 goldens and got no montage at all. An earlier narrowing had already
+    // caused the same class of miss one level down: the pathspec stopped at
+    // `lib/components`, so `lib/base/_logo/logo.gallery.{light,dark}.pdf` moved silently
+    // (#1275 regenerated both and this reported 4 gallery-moods rather than 6, #1279).
+    //
+    // Twice is enough. The scope is now the whole diff, and what counts as a golden is
+    // decided by `tools/lib/golden-set.mjs` — the SAME definition the regression gate
+    // uses, so the review surface and the gate can no longer disagree about the corpus.
+    // A new golden under a root nobody thought to list is picked up for free.
+    raw = git(['diff', '--name-only', base]);
   } catch (err) {
     process.stderr.write(`golden-diff: git diff against "${base}" failed: ${err.message}\n`);
     process.exit(2);
   }
-  return raw.split('\n').map((s) => s.trim()).filter((p) => GOLDEN_RE.test(p)).sort();
+  return raw
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((p) => ({ relPath: p, kind: classifyChangedPdf(p, (md) => existsEitherSide(base, md)) }))
+    .filter((c) => c.kind)
+    .sort((a, b) => a.relPath.localeCompare(b.relPath));
 }
 
 // Write the base-branch blob of a path to a temp file; null if it didn't exist
@@ -102,10 +158,18 @@ function baseBlob(base, relPath, tmp) {
   }
 }
 
-// Pretty name + mood from a golden path: …/<name>.gallery.<mood>.pdf
-function describe(relPath) {
-  const m = relPath.match(/([^/]+)\.gallery\.(light|dark)\.pdf$/);
-  return { name: m ? m[1] : relPath, mood: m ? m[2] : '?' };
+// Pretty name + mood for the human-facing table.
+//   gallery: …/<name>.gallery.<mood>.pdf  ->  { name: '<name>',        mood: 'light' }
+//   deck:    examples/<name>.pdf          ->  { name: 'examples/<name>', mood: '·'   }
+// A deck golden has no mood — it is one artifact, not a light/dark pair — so it takes a
+// placeholder rather than a made-up '?' that would read like a parse failure. The name
+// keeps its directory because deck stems repeat across the five roots the corpus spans.
+function describe(relPath, kind) {
+  if (kind === 'gallery') {
+    const m = relPath.match(/([^/]+)\.gallery\.(light|dark)\.pdf$/);
+    return { name: m ? m[1] : relPath, mood: m ? m[2] : '?' };
+  }
+  return { name: relPath.replace(/\.pdf$/, ''), mood: '·' };
 }
 
 function main() {
@@ -122,29 +186,37 @@ function main() {
   const montagePngs = []; // absolute paths under MONTAGE_DIR, for the changes.pdf artifact
   const montageMeta = []; // { name, mood, page, file } — file is the stable basename
 
-  for (const relPath of candidates) {
-    const { name, mood } = describe(relPath);
+  let montagesOmitted = 0;
+
+  for (const { relPath, kind } of candidates) {
+    const { name, mood } = describe(relPath, kind);
     const headPath = join(ROOT, relPath);
-    const tmpBase = join(OUT, `.base-${name}.${mood}.pdf`);
+    // Key the temp file off the full relPath, not `name`.`mood`: deck names carry a
+    // directory separator and gallery leaf names repeat across buckets, so a
+    // name-derived temp path could both escape OUT and collide.
+    const tmpBase = join(OUT, `.base-${relPath.replace(/[^a-z0-9]+/gi, '_')}.pdf`);
     const base0 = baseBlob(base, relPath, tmpBase);
 
     if (!existsSync(headPath)) {
-      entries.push({ name, mood, relPath, status: 'removed', slides: 0 });
+      entries.push({ name, mood, kind, relPath, status: 'removed', slides: 0 });
       if (base0) rmSync(base0, { force: true });
       continue;
     }
     if (!base0) {
-      entries.push({ name, mood, relPath, status: 'added', slides: 0 });
+      entries.push({ name, mood, kind, relPath, status: 'added', slides: 0 });
       continue;
     }
 
-    const diff = pixelDiff(base0, headPath, `golden-${name}-${mood}`, { fuzz: FUZZ });
+    // Label from the relPath, not `name`: a deck golden's name carries directory
+    // separators (`examples/state-marks`) and pixelDiff uses the label to build a temp
+    // directory, so an unslugged name would try to nest — or escape — one.
+    const diff = pixelDiff(base0, headPath, `golden-${relPath.replace(/[^a-z0-9]+/gi, '_')}`, { fuzz: FUZZ });
     rmSync(base0, { force: true });
     const drifted = diff.perPage.filter(
       (p) => p.pixels === -1 || (p.total ? p.pixels / p.total > FAIL_FRACTION : p.pixels > 0),
     );
     if (!drifted.length) {
-      entries.push({ name, mood, relPath, status: 'rebuild-only', slides: 0 });
+      entries.push({ name, mood, kind, relPath, status: 'rebuild-only', slides: 0 });
       continue;
     }
     // Montage each changed slide. montageTriptych returns null when a tile is
@@ -152,7 +224,15 @@ function main() {
     // skipped automatically; a page-RESIZE sentinel keeps both tiles and IS
     // montaged on purpose (a geometry change is a real visual diff to show).
     for (const d of drifted) {
-      const m = join(diff.tmpDir, `gd-${name}-${mood}-${String(d.page).padStart(3, '0')}.png`);
+      // Past the cap, stop PRODUCING montages but keep counting — `slides` below is
+      // still the true drift count, so the table and the total stay honest and only
+      // the pictures are bounded.
+      if (montagePngs.length >= MONTAGE_CAP) {
+        montagesOmitted += 1;
+        continue;
+      }
+      const slugName = `${relPath.replace(/[^a-z0-9]+/gi, '_')}`;
+      const m = join(diff.tmpDir, `gd-${slugName}-${String(d.page).padStart(3, '0')}.png`);
       const made = montageTriptych(d, m, { title: `${name} · ${mood} · slide ${d.page}` });
       if (!made) continue;
       // Persist into MONTAGE_DIR under a stable, URL-safe, COLLISION-FREE basename
@@ -169,7 +249,7 @@ function main() {
       montagePngs.push(dest);
       montageMeta.push({ name, mood, page: d.page, file });
     }
-    entries.push({ name, mood, relPath, status: 'changed', slides: drifted.length });
+    entries.push({ name, mood, kind, relPath, status: 'changed', slides: drifted.length });
   }
 
   const changedEntries = entries.filter((e) => e.status === 'changed');
@@ -187,8 +267,17 @@ function main() {
     lines.push('✅ **No visual changes** to committed goldens on this branch.');
   } else {
     if (changedEntries.length) {
-      lines.push(`**${totalSlides} slide${totalSlides === 1 ? '' : 's'} changed** across ${changedEntries.length} gallery·mood${changedEntries.length === 1 ? '' : 's'}.`, '');
-      lines.push('| Gallery | Mood | Slides changed |', '|---|---|---|');
+      const nGal = changedEntries.filter((e) => e.kind === 'gallery').length;
+      const nDeck = changedEntries.filter((e) => e.kind === 'deck').length;
+      // Name both halves of the corpus explicitly. Saying only "N gallery·moods" is
+      // what made the deck half invisible for as long as it was (§6a) — a reader had
+      // no way to tell "no decks changed" from "decks are not looked at".
+      const scope = [
+        nGal ? `${nGal} gallery·mood${nGal === 1 ? '' : 's'}` : '',
+        nDeck ? `${nDeck} deck golden${nDeck === 1 ? '' : 's'}` : '',
+      ].filter(Boolean).join(' + ');
+      lines.push(`**${totalSlides} slide${totalSlides === 1 ? '' : 's'} changed** across ${scope}.`, '');
+      lines.push('| Golden | Mood | Slides changed |', '|---|---|---|');
       for (const e of changedEntries.sort((a, b) => b.slides - a.slides || a.name.localeCompare(b.name))) {
         lines.push(`| \`${e.name}\` | ${e.mood} | ${e.slides} |`);
       }
@@ -196,9 +285,12 @@ function main() {
       lines.push(artifact
         ? '↪ Flip through the full **before │ after │ overlay** montage in the **`golden-diff-changes`** artifact below.'
         : '_(montage artifact unavailable — ImageMagick `montage`/`convert` missing on the runner.)_');
+      if (montagesOmitted) {
+        lines.push('', `⚠️ **${montagesOmitted} changed slide${montagesOmitted === 1 ? '' : 's'} ${montagesOmitted === 1 ? 'has' : 'have'} no montage** — the montage cap is ${MONTAGE_CAP} and this change is past it. Every changed slide is still counted in the table above; only the pictures stop. Re-run \`node tools/golden-diff.mjs\` locally for the full set.`);
+      }
     }
-    if (added.length) lines.push('', `🆕 New goldens (no base to compare): ${added.map((e) => `\`${e.name}.${e.mood}\``).join(', ')}.`);
-    if (removed.length) lines.push('', `🗑️ Removed goldens: ${removed.map((e) => `\`${e.name}.${e.mood}\``).join(', ')}.`);
+    if (added.length) lines.push('', `🆕 New goldens (no base to compare): ${added.map((e) => `\`${e.name}${e.kind === 'gallery' ? `.${e.mood}` : ''}\``).join(', ')}.`);
+    if (removed.length) lines.push('', `🗑️ Removed goldens: ${removed.map((e) => `\`${e.name}${e.kind === 'gallery' ? `.${e.mood}` : ''}\``).join(', ')}.`);
     lines.push('', '_Rebuild-only goldens (PDF byte-churn, no pixels moved) are not listed — the pixel-diff filters them out._');
   }
   const summary = lines.join('\n') + '\n';
@@ -226,6 +318,8 @@ function main() {
     montages: montageMeta,
     inlineMontages: inlineOrder.slice(0, INLINE_CAP),
     inlineCapped: montageMeta.length > INLINE_CAP,
+    montageCap: MONTAGE_CAP,
+    montagesOmitted,
   };
   writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 
