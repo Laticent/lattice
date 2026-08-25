@@ -223,3 +223,104 @@ describe('Architect chat — a turn that ends on another deck still tears down',
 		expect(loadChat('deck-1').at(-1)?.content, 'the survival contract: the reply still commits to the deck that asked for it').toBe(REPLY);
 	});
 });
+
+// #1813 — the three non-`ok` outcomes had NO deck guard, unlike the `ok` branch (which
+// carries one inside `commit`). A turn that started on deck-1 and ended while the author
+// was looking at deck-2 painted deck-1's notice into deck-2's transcript, and — on the
+// `offline` branch — called `onConnect()`, popping the Workspace sheet over a deck that
+// never asked for anything. Reachable BY DESIGN, not by accident: the survival contract
+// says a turn keeps completing across a deck switch.
+const OFFLINE = /and I can answer and edit your deck/;
+
+/** A turn that WAITS to be released, then ends on the given outcome (or throws). */
+const deferredOutcome = (out: { status: string; reply: string } | { throws: true }) => {
+	let settle: () => void = () => {};
+	chatSpy.mockImplementationOnce(
+		() =>
+			new Promise((resolve, reject) => {
+				settle = () => ('throws' in out ? reject(new Error('network')) : resolve({ ...out, proposed: null }));
+			}),
+	);
+	return {
+		release: async () => {
+			await act(async () => {
+				settle();
+			});
+		},
+	};
+};
+
+describe('Architect chat — a turn ending offline/blocked/errored stays on the deck that asked (#1813)', () => {
+	it('keeps an offline notice out of another deck, and still has it when the author returns', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText(OFFLINE), "deck-1's offline notice is showing in deck-2's transcript").toBeNull();
+
+		// Not cleared — WAITING. A notice the author never sees is a turn that failed silently.
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(OFFLINE), 'the deck that asked was never told why nothing came back').toBeTruthy();
+	});
+
+	it('does not pop the Workspace sheet over a deck that never asked', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		const { rerender } = render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(onConnect, 'a sheet opened over a deck whose author asked for nothing').not.toHaveBeenCalled();
+	});
+
+	it('DOES pop the Workspace sheet when the turn ends on the deck that asked', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		await turn.release();
+		await flushFrames();
+		// The guard must not cost the offline branch its whole point on the ordinary path.
+		expect(onConnect, 'the guard swallowed the connect prompt on the deck that asked for it').toHaveBeenCalledTimes(1);
+		expect(screen.getByText(OFFLINE)).toBeTruthy();
+	});
+
+	it('keeps a blocked notice out of another deck', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'blocked', reply: 'Spend cap reached for this session.' });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText('Spend cap reached for this session.'), "deck-1's blocked notice is showing in deck-2's transcript").toBeNull();
+
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText('Spend cap reached for this session.')).toBeTruthy();
+	});
+
+	it('keeps an error notice out of another deck', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ throws: true });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText(/Something went wrong reaching the model/), "deck-1's error is showing in deck-2's transcript").toBeNull();
+
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(/Something went wrong reaching the model/)).toBeTruthy();
+	});
+});
