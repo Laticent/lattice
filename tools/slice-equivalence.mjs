@@ -7,13 +7,15 @@
  * rendered inside the whole deck? This sweeps every committed deck and answers it as a rate.
  *
  * READ THE PRELUDE COUNT, NOT JUST THE RATE. Each slice is rendered behind a synthesized prelude —
- * the running directives an earlier slide set and this one inherits. On the CURRENT corpus that
- * prelude is EMPTY for every single slide: no committed deck sets an in-vocabulary running global
- * outside front matter (which is prepended verbatim anyway), because real decks write directives in
- * the `_` spot form. So today's rate measures the residual left by the repairs that already ship —
- * NOT the prelude prototype's contribution, which this corpus does not exercise at all. The header
- * line prints the count so that claim cannot quietly become false again; it was stated three ways in
- * the docs before anyone counted.
+ * the running directives an earlier slide set and this one inherits. The header line prints the
+ * count so the claim about it cannot quietly become false; it was stated three ways in the docs
+ * before anyone counted, and it HAS since changed. It read "EMPTY for every single slide" until
+ * 2026-08-25, when the count was measured at **9** (`deck-class-register.md` slides 3–7 and
+ * `slide-class-forms.md` slides 4–7 — two decks that write a running `class:` global outside front
+ * matter; every other committed deck still uses the `_` spot form, which sets nothing running). So
+ * the rate is overwhelmingly still the residual left by the repairs that already ship, and the
+ * prelude prototype is exercised on 9 of 1461 slides rather than 0 — barely, not never. Read the
+ * count, do not quote a remembered zero.
  *
  * The author-facing twin is the Studio's PREVIEW FIDELITY overlay (Workspace → Diagnostics), which
  * asks the same question about the one slide in front of the author. Same core, two surfaces: this
@@ -36,7 +38,15 @@
  *
  * So a regression in the supply path now shows up as a rate COLLAPSE, not a rounding error. The
  * `positions` count in the header (and in the blessed baseline) is the direct readout: at 0, this
- * tool is measuring the pre-#1272 engine no matter how healthy the percentage looks.
+ * tool is measuring the pre-#1272 engine no matter how healthy the percentage looks. Re-derived
+ * 2026-08-25 against the 96.6% baseline: stubbing `positionIsTrustworthy` to `return false` takes
+ * the rate to 9.9%, and `deckSectionFor` to `undefined` takes it to 74.0%.
+ *
+ * `positions` is NOT the same count as `slides`, and a doc claiming it is by construction was
+ * corrected on 2026-08-25. It is 1453 of 1461, and all 8 of the shortfall are `slide-class-forms.md`
+ * — every slide of it. That deck is refused by `positionIsTrustworthy` but still satisfies the
+ * section/chunk equality that decides skipping, so it stays in the measurement with no supplied
+ * position and contributes 7 of the 49 residual slides. Two different tests, two different sets.
  *
  * WHAT IT STILL IS NOT.
  *
