@@ -162,7 +162,28 @@ describe('bless-palette-baselines · the table parser', () => {
     // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
     // "768 entries" as a substring, so the contrast assertion passed while reading the
     // wrong line — and would have kept passing whatever the contrast table said.
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*66 entries/,
+    //
+    // 22, down from 66, and this is the first pass that cut the table by composition
+    // rather than by curating a hue — no palette file is touched at all. Three moves,
+    // each measured against this same gate as the objective function:
+    //   · the kpi status pill's ground stopped being the palette's ALPHA `--{pass,warn}-bg`
+    //     over whatever tile it landed on and became an opaque 8% mix into `--bg`, which
+    //     clears 30 — the two KPI pills were 30 of the 66 on their own. The pill's INK
+    //     stays the state hue: re-inking it `--text-heading` on a state-hued ground scores
+    //     better here and collapses the trio's achromatopsia separation from 0.1174 to
+    //     0.034, which CVD_FROZEN below cannot see because it scores raw token hexes;
+    //   · `policy-recommendation`'s stance tint 12% -> 9%, its measured knee, clears 10;
+    //   · `redline`'s own-hue card 5% -> 4%, levelling it with the four `.split` /
+    //     `.three-col` sites that always shipped at 4%, clears 4.
+    // The DENOMINATOR rises 3264 -> 3520: the kpi pills' three surfaces are re-pinned to
+    // the new declaration and the pill's BORDER is modelled for the first time (#1847) —
+    // it is what carries the chip's edge now that an opaque ground can match its tile.
+    // What is LEFT is the honest residue: carbone's light arm (whose trio is inks for a
+    // light canvas the palette does not have yet — #1302 owns that, and this pass
+    // deliberately does not pre-empt it) and concrete's dark `--fail`, re-derived as
+    // infeasible without a visible design change.
+    // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*22 entries/,
       'the contrast table still parses in full');
     // 768, up from 576: the monochromacy arm is 192 more (theme x mode x pair), added
     // when the trio was respaced to clear it. 32 x 2 x 3 x 4.

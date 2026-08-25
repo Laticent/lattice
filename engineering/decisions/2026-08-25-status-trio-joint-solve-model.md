@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   The design model the joint re-solve brief asked for, with the answer measured rather than
   assumed — and it refutes the brief's own framing. The work is NOT "re-curate the status trio
@@ -29,7 +29,7 @@ builds-on: 2026-08-24-status-trio-joint-solve-brief.md, 2026-08-24-status-trio-s
 
 **2026-08-25 · design model — no values changed in this note**
 
-**Status: proposed.** `2026-08-24-status-trio-joint-solve-brief.md` scoped this item and told
+**Status: shipped — the revised package in §8.5 is what landed.** `2026-08-24-status-trio-joint-solve-brief.md` scoped this item and told
 its successor to do one thing first: *"Measure that before solving anything; the cheapest solve
 is the one that turns out to be a component fix."* That measurement was made, it came back
 positive, and it came back bigger than the brief's hypothesis. This note is the design model
@@ -324,6 +324,33 @@ Its 3 residual kpi pairs are all `carbone|light|pass` — bucket A, which no rec
 
 The aggressive package reaches 17 instead of 22. The 5 extra pairs cost: the CVD channel (1
 pair), and 4 pairs on a surface nobody renders, bought with an 18-file palette edit.
+
+### 8.6 The carbone option, and why it was withdrawn
+
+A fourth move was measured and looked almost free: carbone's `--bg` is a flat `#1A1A1C` that
+does not flip, so its light-arm trio is light-arm inks on a dark canvas. Mirroring the light
+arm onto the dark one takes carbone from **14 below-bar pairs to 4**, and the package from 22
+to **12**. Three lines.
+
+**It is withdrawn, and the reason matters more than the measurement: #1302 already owns this,
+and the mirror would have made its job harder.** That issue is "curated light-mode tokens —
+the one palette with no light face". carbone has no light canvas *yet*; #1302 is the ticket
+that authors one, and its plan explicitly re-checks "the `light-dark()` pairs that already
+exist (`--pass` / `--fail` / `--warn`) … against the new canvas rather than assumed". It also
+says the file's header comment "stays accurate and should not be edited" until then.
+
+So carbone's light trio is not miscurated — it is **orphaned**. `#428555` / `#a22525` /
+`#ec7d40` are sensible inks for a light canvas; they measure 2.34:1 because they are being
+scored against a dark one. Mirroring them to the dark arm's light-on-dark values would delete
+the only half of carbone's light face that is already built, and #1302 would have to undo it.
+
+Bucket A is therefore **#1302's**, not this swimlane's. Its 9 residual pairs stay frozen with
+that pointer, which is HARD RULE #18's found-not-caused arm: a defect this change neither
+caused nor worsens, recorded rather than absorbed.
+
+*(This was caught because a human asked whether another session already had a ticket for
+carbone's light mode. It did. The analysis had no way to see that from the tree, and a
+three-line change that looked free would have collided with a designed feature.)*
 
 ## 9. What this note does NOT claim
 

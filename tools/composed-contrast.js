@@ -223,7 +223,7 @@ function pillStop(state, which, lightPct, darkPct) {
  * reimplemented `.chart-status`'s recipe rather than sharing it, so it missed both AA
  * retunes chart-family took (dark 48/64 -> 42/54 in #1809, light 33/54 -> 18/30 in #1807)
  * and shipped FORTY-NINE sub-AA pairs, worst concrete|light|pass at 2.48:1. None of them
- * was ever reported, because until now nothing here modelled a state-chart pill at all —
+ * was ever reported, because until now nothing here modeled a state-chart pill at all —
  * a missing surface reads as a pass.
  *
  * THREE sites carry the recipe and only TWO surfaces are generated per state, because the
@@ -303,30 +303,33 @@ const SURFACES = [
   {
     id: 'redline/ins-on-new-card',
     proactive: true,
-    ctx: 'redline .stacked/.split: <ins> on --pass-bg over the 5% NEW card',
-    base: '--bg-alt', groups: [{ bg: CARD('--pass', 5) }, { bg: '--pass-bg' }],
+    ctx: 'redline .stacked/.split: <ins> on --pass-bg over the 4% NEW card',
+    base: '--bg-alt', groups: [{ bg: CARD('--pass', 4) }, { bg: '--pass-bg' }],
     ink: '--pass', min: 4.5,
     src: REDLINE,
-    requires: [/blockquote(?:\.rl-new|:nth-of-type\(2\))[^{]*\{[^}]*color-mix\(in srgb, var\(--pass\) 5%, var\(--bg-alt\)\)/],
+    requires: [/blockquote(?:\.rl-new|:nth-of-type\(2\))[^{]*\{[^}]*color-mix\(in srgb, var\(--pass\) 4%, var\(--bg-alt\)\)/],
   },
   {
     id: 'redline/del-on-old-card',
     proactive: true,
-    ctx: 'redline .stacked/.split: <del> on --fail-bg over the 5% OLD card',
-    base: '--bg-alt', groups: [{ bg: CARD('--fail', 5) }, { bg: '--fail-bg' }],
+    ctx: 'redline .stacked/.split: <del> on --fail-bg over the 4% OLD card',
+    base: '--bg-alt', groups: [{ bg: CARD('--fail', 4) }, { bg: '--fail-bg' }],
     ink: '--fail', min: 4.5,
     src: REDLINE,
-    requires: [/blockquote(?:\.rl-old|:nth-of-type\(1\))[^{]*\{[^}]*color-mix\(in srgb, var\(--fail\) 5%, var\(--bg-alt\)\)/],
+    requires: [/blockquote(?:\.rl-old|:nth-of-type\(1\))[^{]*\{[^}]*color-mix\(in srgb, var\(--fail\) 4%, var\(--bg-alt\)\)/],
     // The engine's own quality bar is that a REDLINE reads: this is the deepest
-    // own-hue stack it ships (a 12% band on a 5% card), so it binds --fail.
+    // own-hue stack it ships (a 12% band on a 4% card), so it binds --fail. The card
+    // went 5% -> 4% to level with the four .split/.three-col sites that always shipped
+    // at 4%; the 12% BAND is palette-declared and deliberately untouched (§8.3 of
+    // 2026-08-25-status-trio-joint-solve-model.md).
   },
   // The OLD / NEW label sits directly on the card, no band. Four rules paint each
   // one — .split and .three-col at a 4% tint, .stacked and the carousel block-split
   // at 5% — so all four are pinned and the DEEPEST (5%) is what gets scored.
   {
     id: 'redline/old-label',
-    ctx: 'redline .stacked / .split / .three-col: the OLD label on the own-hue card (5%, the deepest)',
-    base: '--bg-alt', groups: [{ bg: CARD('--fail', 5) }], ink: '--fail', min: 4.5,
+    ctx: 'redline .stacked / .split / .three-col: the OLD label on the own-hue card (4%, levelled with .split/.three-col)',
+    base: '--bg-alt', groups: [{ bg: CARD('--fail', 4) }], ink: '--fail', min: 4.5,
     src: REDLINE,
     requires: [
       /blockquote\.rl-old::before[^}]*color:var\(--fail\)/,
@@ -337,8 +340,8 @@ const SURFACES = [
   },
   {
     id: 'redline/new-label',
-    ctx: 'redline .stacked / .split / .three-col: the NEW label on the own-hue card (5%, the deepest)',
-    base: '--bg-alt', groups: [{ bg: CARD('--pass', 5) }], ink: '--pass', min: 4.5,
+    ctx: 'redline .stacked / .split / .three-col: the NEW label on the own-hue card (4%, levelled with .split/.three-col)',
+    base: '--bg-alt', groups: [{ bg: CARD('--pass', 4) }], ink: '--pass', min: 4.5,
     src: REDLINE,
     requires: [
       /blockquote\.rl-new::before[^}]*color:var\(--pass\)/,
@@ -349,8 +352,8 @@ const SURFACES = [
   },
   {
     id: 'redline/stacked-old-body',
-    ctx: 'redline .stacked: the struck OLD passage on the 5% own-hue card',
-    base: '--bg-alt', groups: [{ bg: CARD('--fail', 5) }], ink: '--text-heading', min: 4.5,
+    ctx: 'redline .stacked: the struck OLD passage on the 4% own-hue card',
+    base: '--bg-alt', groups: [{ bg: CARD('--fail', 4) }], ink: '--text-heading', min: 4.5,
     src: REDLINE,
     requires: [/\.stacked\.stacked > \.cell-stage > blockquote:nth-of-type\(1\)\s*\{/],
   },
@@ -372,17 +375,17 @@ const SURFACES = [
     src: WORDCLOUD,
     requires: [new RegExp(`return 'var\\(--seq-${stop}\\)'`)],
   })),
-  // ── policy-recommendation · the stance badge on its own 12% tint ─────────
+  // ── policy-recommendation · the stance badge on its own 9% tint ──────────
   ...[['adopt', '--pass'], ['amend', '--warn'], ['oppose', '--fail'],
       ['defer', '--text-secondary'], ['', '--accent']].map(
     ([variant, tok]) => ({
       id: `policy-recommendation/${variant || 'default'}-badge`,
       ctx: `policy-recommendation${variant ? `.${variant}` : ''}: the stance badge ink on --stance-bg`,
       base: '--bg',
-      groups: [{ bg: `color-mix(in srgb, var(${tok}) 12%, var(--bg))` }],
+      groups: [{ bg: `color-mix(in srgb, var(${tok}) 9%, var(--bg))` }],
       ink: tok, min: 4.5,
       src: POLICY,
-      requires: [/--stance-bg: color-mix\(in srgb, var\(--stance\) 12%, var\(--bg\)\)/],
+      requires: [/--stance-bg: color-mix\(in srgb, var\(--stance\) 9%, var\(--bg\)\)/],
     }),
   ),
   // ── kpi · the status pill on its own-hue fill ────────────────────────────
@@ -401,51 +404,71 @@ const SURFACES = [
   // token table — 4.44:1 on ardesia, under the bar, invisible to this file.
   // A missing surface is the failure mode this gate exists to prevent: it does
   // not report a defect, it reports nothing at all, which reads as a pass.
-  {
-    id: 'kpi/warn-pill',
-    ctx: 'kpi.ops / .attention: the warn pill ink on its own --warn-bg tint over the tile',
-    base: '--bg-alt', groups: [{ bg: '--warn-bg' }], ink: '--warn', min: 4.5,
+  // The ground is now `--kpi-{pass,warn}-pill-bg` -- an OPAQUE 8% mix into `--bg`,
+  // declared once in kpi.styles.css and pointed at from all eight per-modifier sites.
+  // It was the palette's alpha `--{pass,warn}-bg` over whatever tile the pill landed
+  // on, which is why the same pill scored three different ways and thirty pairs were
+  // frozen. Because the ground is opaque the TILE is now inert to the ink score, so
+  // all three surfaces resolve the same ground -- they are kept separate anyway,
+  // because they pin three different CSS sites and the tile still decides whether the
+  // chip is VISIBLE (see the border family below).
+  ...[
+    ['warn-pill',      'warn', '--bg-alt',      'kpi.ops / .attention: the warn pill ink on its own 8% ground over the --bg-alt tile'],
+    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on its 8% ground over the accent-soft hero tile'],
+    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on its 8% ground over the accent-soft hero tile'],
+  ].map(([slug, state, tile, ctx]) => ({
+    id: `kpi/${slug}`,
+    ctx,
+    base: tile,
+    groups: [{ bg: `color-mix(in srgb, var(--${state}) 8%, var(--bg))` }],
+    ink: `--${state}`, min: 4.5,
     src: KPI,
-    // Anchored to `.ops`, order-insensitive. Unanchored, the `.attention` HERO block
-    // twelve lines below satisfied it — so deleting the `.ops` rules this surface
-    // actually models left the gate green on a surface modeling nothing.
     requires: [
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--warn-bg\)/,
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/,
+      // The shared declaration, pinned by VALUE so a depth change reddens the gate.
+      new RegExp(`--kpi-${state}-pill-bg: color-mix\\(in srgb, var\\(--${state}\\) 8%, var\\(--bg\\)\\)`),
+      // ...and that the pill still points at it and still inks the state hue. The ink
+      // pin is the one that matters most: re-inking these in `--text-heading` would
+      // score BETTER here and collapse the trio's achromatopsia separation from
+      // 0.1174 to 0.034, which cvd-trio-floor.test.js cannot see because it scores
+      // raw token hexes. 2026-08-25-status-trio-joint-solve-model.md §8.1.
+      new RegExp(`--pill-bg: var\\(--kpi-${state}-pill-bg\\)`),
+      new RegExp(`--pill-fg: var\\(--${state}\\)`),
+      // The tile the surface is BASED on. `--accent-soft` repaints are additionally
+      // held by NO_TILE_REPAINT below, because a `requires` can only assert presence
+      // and the risk on the hero is something being ADDED.
+      ...(tile === '--accent-soft'
+        ? [/li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/]
+        : []),
     ],
-  },
-  {
-    id: 'kpi/hero-pass-pill',
-    ctx: 'kpi (default/briefing): the pass pill on --pass-bg over the accent-soft hero tile',
-    base: '--accent-soft', groups: [{ bg: '--pass-bg' }], ink: '--pass', min: 4.5,
-    src: KPI,
-    // Order-insensitive, and whitespace-tolerant on the fill: the repo's own compact
-    // style (`background:var(--accent-soft)`, live in title/divider/regulatory-update)
-    // reddened this gate on a pure whitespace edit.
-    requires: [
-      /--pill-bg: var\(--pass-bg\)/,
-      /--pill-fg: var\(--pass\)/,
-      /li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/,
-    ],
-  },
-  {
-    id: 'kpi/hero-warn-pill',
-    ctx: 'kpi.attention: the warn pill on --warn-bg over the accent-soft hero tile',
-    base: '--accent-soft', groups: [{ bg: '--warn-bg' }], ink: '--warn', min: 4.5,
-    src: KPI,
-    // Two INDEPENDENT, order-insensitive pins rather than one that fixed the
-    // declaration order: the ordered form reddened the gate on a cosmetic reorder
-    // that changes nothing, which trains a reader to re-bless rather than read.
-    // The tile's own `--accent-soft` fill — the modeled BASE, and the thing that
-    // makes this a distinct stack from `kpi/warn-pill` over `--bg-alt` — is held
-    // by NO_TILE_REPAINT below, because a `requires` regex can only assert that
-    // something IS present and the risk here is something being ADDED.
-    requires: [
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-bg: var\(--warn-bg\)/,
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--pill-fg: var\(--warn\)/,
-      /li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/,
-    ],
-  },
+  })),
+  // ── kpi · the status pill's BORDER, which is what makes it a chip (#1847) ─
+  // Modeled because the ground above went opaque. An alpha tint was always N% of the
+  // state hue laid OVER the tile, so the fill could never match it; an opaque mix into
+  // `--bg` ignores the tile, and on `--accent-soft` it can land on the tile's own
+  // color (1.000:1 measured). The fill therefore no longer carries the chip's edge
+  // and the border does -- the state hue at full saturation, which is also the reason
+  // the ink was left at full saturation (§8.1).
+  //
+  // The bar is 2.5, not WCAG 1.4.11's 3:1, and the reasoning is the same shape as
+  // PANEL_EDGE_MIN above rather than a ratchet-to-fit. The population's floor is
+  // 2.60:1 and it is INVARIANT to every ground considered -- shipped alpha tint,
+  // opaque 8%, or the `.chart-status` inversion all measure 2.60 -- because the border
+  // is the state hue against the tile and none of those touch either. Its floor is
+  // carbone|light, whose light-arm trio is inks for a light canvas the palette does not
+  // yet have (#1302); every other palette-mode is 3.2:1 or better. So 2.5 separates
+  // "the chip has an edge" from "it does not" without being tuned to carbone, and it
+  // will be raised to 3 when #1302 gives carbone a light face.
+  ...[['pass', '--bg-alt'], ['pass', '--accent-soft'], ['warn', '--bg-alt'], ['warn', '--accent-soft']]
+    .map(([state, tile]) => ({
+      id: `kpi/${state}-pill-border-on-${tile === '--bg-alt' ? 'card' : 'hero'}`,
+      ctx: `kpi: the ${state} pill's 1px border against the ${tile} tile it sits on`,
+      base: tile, groups: [], ink: `--${state}`, min: 2.5,
+      src: KPI,
+      requires: [
+        /border: 1px solid var\(--pill-border, var\(--muted-mark\)\)/,
+        new RegExp(`--pill-border: var\\(--${state}\\)`),
+      ],
+    })),
   // ── checklist · the state row, whose own-hue wash sits on the CANVAS ─────
   // Same shape as redline's band one layer up: `--bg` rather than `--bg-alt`.
   ...[['pass', '--pass'], ['warn', '--warn'], ['fail', '--fail']].map(([state, tok]) => ({
@@ -610,103 +633,38 @@ const SURFACES = [
 const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
-  // ── chart/status-pill · the LIGHT arm ──
-  // The `chart/status-pill-*` LIGHT arm used to be frozen here — 19 pairs, worst
-  // `concrete|pass` at 2.48:1 — with a long note arguing it carried no regression and
-  // wanted its own change. Both halves of that argument turned out to be wrong, and the
-  // entries are gone rather than re-frozen (#1807):
-  //
-  //   · it DID carry a regression, and nothing could see it. This file's regression arm
-  //     ranks root blocks by specificity, so the status trio's since-retired `:root:root`
-  //     copy won the base-wins reference map too and both arms resolved the same value.
-  //     The arm was vacuous for the trio from the moment that copy landed, and these
-  //     surfaces were added straight into the blind spot. Removing the copy surfaced 18
-  //     real regressions, every one of them a pair from this group.
-  //   · the fix was a percentage after all: 33%/54% -> 18%/30%, the light arm's twin of
-  //     the dark retune, taking the worst pair to 4.72:1. Both gradient stops are modelled
-  //     now — the 0% one was itself sub-AA at 4.38:1 and listed nowhere.
-  //
-  // engineering/decisions/2026-08-24-status-trio-single-root.md
   // ── checklist/fail-row ── 1
   ['carbone|light|checklist/fail-row', 2.14],
   // ── kpi/hero-pass-pill ── 1
-  ['carbone|light|kpi/hero-pass-pill', 2.18],
-  // ── kpi/hero-warn-pill ── 14
-  ['a11y-achromatopsia|light|kpi/hero-warn-pill', 3.86],
-  ['a11y-deuteranopia|light|kpi/hero-warn-pill', 3.94],
-  ['a11y-protanopia|light|kpi/hero-warn-pill', 3.94],
-  ['a11y-tritanopia|light|kpi/hero-warn-pill', 3.97],
-  ['atelier-dark|light|kpi/hero-warn-pill', 3.68],
-  ['atelier|light|kpi/hero-warn-pill', 3.68],
-  ['burgundy-dark|light|kpi/hero-warn-pill', 3.54],
-  ['burgundy|light|kpi/hero-warn-pill', 3.54],
-  ['carbone|dark|kpi/hero-warn-pill', 3.31],
-  ['carbone|light|kpi/hero-warn-pill', 3.24],
-  ['crepuscolo-dark|light|kpi/hero-warn-pill', 4.01],
-  ['crepuscolo|light|kpi/hero-warn-pill', 4.01],
-  ['magnolia-dark|light|kpi/hero-warn-pill', 4.04],
-  ['magnolia|light|kpi/hero-warn-pill', 4.04],
-  // ── kpi/warn-pill ── 16
-  ['a11y-achromatopsia|light|kpi/warn-pill', 4.04],
-  ['a11y-deuteranopia|light|kpi/warn-pill', 4.10],
-  ['a11y-protanopia|light|kpi/warn-pill', 4.10],
-  ['a11y-tritanopia|light|kpi/warn-pill', 4.12],
-  ['atelier-dark|light|kpi/warn-pill', 4.07],
-  ['atelier|light|kpi/warn-pill', 4.07],
-  ['burgundy-dark|light|kpi/warn-pill', 4.06],
-  ['burgundy|light|kpi/warn-pill', 4.06],
-  ['carbone|dark|kpi/warn-pill', 4.14],
-  ['carbone|light|kpi/warn-pill', 4.07],
-  ['crepuscolo-dark|light|kpi/warn-pill', 4.18],
-  ['crepuscolo|light|kpi/warn-pill', 4.18],
-  ['magnolia-dark|light|kpi/warn-pill', 4.13],
-  ['magnolia|light|kpi/warn-pill', 4.13],
-  ['mustard-dark|light|kpi/warn-pill', 3.97],
-  ['mustard|light|kpi/warn-pill', 3.97],
+  ['carbone|light|kpi/hero-pass-pill', 3.58],
   // ── policy-recommendation/adopt-badge ── 1
-  ['carbone|light|policy-recommendation/adopt-badge', 3.43],
-  // ── policy-recommendation/amend-badge ── 8
-  ['a11y-achromatopsia|light|policy-recommendation/amend-badge', 4.39],
-  ['a11y-deuteranopia|light|policy-recommendation/amend-badge', 4.45],
-  ['a11y-protanopia|light|policy-recommendation/amend-badge', 4.45],
-  ['a11y-tritanopia|light|policy-recommendation/amend-badge', 4.48],
-  ['burgundy-dark|light|policy-recommendation/amend-badge', 4.42],
-  ['burgundy|light|policy-recommendation/amend-badge', 4.42],
-  ['mustard-dark|light|policy-recommendation/amend-badge', 4.42],
-  ['mustard|light|policy-recommendation/amend-badge', 4.42],
-  // ── policy-recommendation/defer-badge ── 2
-  ['cuoio-dark|light|policy-recommendation/defer-badge', 4.34],
-  ['cuoio|light|policy-recommendation/defer-badge', 4.34],
+  ['carbone|light|policy-recommendation/adopt-badge', 3.54],
   // ── policy-recommendation/oppose-badge ── 3
-  ['carbone|light|policy-recommendation/oppose-badge', 2.22],
-  ['concrete-dark|light|policy-recommendation/oppose-badge', 3.98],
-  ['concrete|light|policy-recommendation/oppose-badge', 3.98],
+  ['carbone|light|policy-recommendation/oppose-badge', 2.24],
+  ['concrete-dark|light|policy-recommendation/oppose-badge', 4.17],
+  ['concrete|light|policy-recommendation/oppose-badge', 4.17],
   // ── redline/del ── 3
   ['carbone|light|redline/del', 1.88],
   ['concrete-dark|dark|redline/del', 3.91],
   ['concrete|dark|redline/del', 3.91],
-  // ── redline/del-on-old-card ── 11
-  ['ardesia-dark|dark|redline/del-on-old-card', 4.23],
-  ['ardesia|dark|redline/del-on-old-card', 4.23],
-  ['brina-dark|dark|redline/del-on-old-card', 4.33],
-  ['brina|dark|redline/del-on-old-card', 4.33],
-  ['carbone|light|redline/del-on-old-card', 1.84],
-  ['carta-dark|dark|redline/del-on-old-card', 4.41],
-  ['carta|dark|redline/del-on-old-card', 4.41],
-  ['concrete-dark|dark|redline/del-on-old-card', 3.61],
-  ['concrete|dark|redline/del-on-old-card', 3.61],
-  ['laguna-dark|dark|redline/del-on-old-card', 4.46],
-  ['laguna|dark|redline/del-on-old-card', 4.46],
+  // ── redline/del-on-old-card ── 7
+  ['ardesia-dark|dark|redline/del-on-old-card', 4.31],
+  ['ardesia|dark|redline/del-on-old-card', 4.31],
+  ['brina-dark|dark|redline/del-on-old-card', 4.43],
+  ['brina|dark|redline/del-on-old-card', 4.43],
+  ['carbone|light|redline/del-on-old-card', 1.85],
+  ['concrete-dark|dark|redline/del-on-old-card', 3.68],
+  ['concrete|dark|redline/del-on-old-card', 3.68],
   // ── redline/ins ── 1
   ['carbone|light|redline/ins', 2.78],
   // ── redline/ins-on-new-card ── 1
-  ['carbone|light|redline/ins-on-new-card', 2.64],
+  ['carbone|light|redline/ins-on-new-card', 2.68],
   // ── redline/new-label ── 1
-  ['carbone|light|redline/new-label', 3.21],
+  ['carbone|light|redline/new-label', 3.24],
   // ── redline/old-label ── 3
-  ['carbone|light|redline/old-label', 1.99],
-  ['concrete-dark|dark|redline/old-label', 4.35],
-  ['concrete|dark|redline/old-label', 4.35],
+  ['carbone|light|redline/old-label', 2.00],
+  ['concrete-dark|dark|redline/old-label', 4.43],
+  ['concrete|dark|redline/old-label', 4.43],
 ]);
 
 // ── Color compositing ──────────────────────────────────────────────────────

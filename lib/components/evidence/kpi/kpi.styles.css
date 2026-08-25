@@ -95,6 +95,45 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) {
 }
 section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { content: ''; }
 
+/* The status pill's own GROUND, declared once and pointed at from all eight
+ * per-modifier sites below.
+ *
+ * It used to be the palette's `--pass-bg` / `--warn-bg` directly, which is
+ * `color-mix(..., transparent)` — an ALPHA tint, so the ground was N% of the state
+ * hue laid over whatever tile the pill happened to land on, and kpi lands pills on
+ * three different tiles (`--bg-alt` on .ops/.trajectory, `--accent-soft` on the
+ * .briefing/.spotlight heroes, bare `--bg` on .compliance rows). Inking the state
+ * hue on a tint OF ITSELF means the ground moves with the ink, so the deeper the
+ * tile the less the ink has to work with — THIRTY of the 66 frozen sub-AA pairs
+ * were these two pills, worst `carbone|light|hero-warn` at 3.24:1.
+ *
+ * Two things change and one deliberately does not:
+ *  · the mix is OPAQUE, into `--bg`, so the ground no longer inherits the tile;
+ *  · 8%, not the palette's 10/12/18% — measured as the depth where every palette
+ *    clears AA, with the last points buying nothing;
+ *  · the INK stays the state hue at full saturation. That is load-bearing, not
+ *    inertia: it is the channel that carries the state under color-vision
+ *    deficiency. Re-inking these pills in `--text-heading` on a state-hued ground
+ *    — the shape `.chart-status` uses — clears more contrast pairs but collapses
+ *    the trio's achromatopsia separation from 0.1174 (above the 0.11 floor #1801
+ *    respaced every palette to buy) to 0.034, and `cvd-trio-floor.test.js` cannot
+ *    see it because it scores raw token hexes. `.chart-status` gets away with the
+ *    inversion because it ships a `[data-s]` glyph as a second channel; a kpi pill
+ *    holds arbitrary author text and takes its color from row POSITION, so it has
+ *    no `data-s` and cannot have one.
+ *
+ * The cost, accepted with the border as the mitigation: an opaque ground can land
+ * on its tile's own color (worst 1.000:1 against `--accent-soft`), so the FILL no
+ * longer guarantees the chip's edge. `--pill-border` does — the state hue at full
+ * saturation, 2.60:1 against the tile at worst, above the repo's justified
+ * `PANEL_EDGE_MIN` of 1.5 though under WCAG 1.4.11's 3:1. It is modeled and
+ * floored in tools/composed-contrast.js rather than left unmeasured (#1847).
+ * engineering/decisions/2026-08-25-status-trio-joint-solve-model.md §5, §8. */
+section.kpi {
+  --kpi-pass-pill-bg: color-mix(in srgb, var(--pass) 8%, var(--bg));
+  --kpi-warn-pill-bg: color-mix(in srgb, var(--warn) 8%, var(--bg));
+}
+
 /* Pills — any `code` inside a kpi slide renders as a pill. First pill on
  * each row carries the status colour (set per-row by the modifier's
  * nth-child hooks); subsequent pills stay neutral. */
@@ -295,7 +334,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 section.kpi.briefing > .cell-stage > ol > li,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li {
   --pill-border: var(--pass);
-  --pill-bg: var(--pass-bg);
+  --pill-bg: var(--kpi-pass-pill-bg);
   --pill-fg: var(--pass);
 }
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
@@ -303,7 +342,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * when the hero metric is below target / off plan. */
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   --pill-border: var(--warn);
-  --pill-bg: var(--warn-bg);
+  --pill-bg: var(--kpi-warn-pill-bg);
   --pill-fg: var(--warn);
 }
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
@@ -341,13 +380,13 @@ section.kpi.ops > .cell-stage > ol > li > strong {
 section.kpi.ops > .cell-stage > ol > li:nth-child(1),
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
   --pill-border: var(--warn);
-  --pill-bg: var(--warn-bg);
+  --pill-bg: var(--kpi-warn-pill-bg);
   --pill-fg: var(--warn);
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(2),
 section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
   --pill-border: var(--pass);
-  --pill-bg: var(--pass-bg);
+  --pill-bg: var(--kpi-pass-pill-bg);
   --pill-fg: var(--pass);
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1) > strong,
@@ -402,12 +441,12 @@ section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
   --pill-border: var(--pass);
-  --pill-bg: var(--pass-bg);
+  --pill-bg: var(--kpi-pass-pill-bg);
   --pill-fg: var(--pass);
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --pill-border: var(--warn);
-  --pill-bg: var(--warn-bg);
+  --pill-bg: var(--kpi-warn-pill-bg);
   --pill-fg: var(--warn);
 }
 section.kpi.compliance > .cell-stage > p:last-of-type {
@@ -456,7 +495,7 @@ section.kpi.trajectory > .cell-stage > ol > li > strong {
 }
 section.kpi.trajectory > .cell-stage > ol > li {
   --pill-border: var(--pass);
-  --pill-bg: var(--pass-bg);
+  --pill-bg: var(--kpi-pass-pill-bg);
   --pill-fg: var(--pass);
 }
 
@@ -517,7 +556,7 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li + li {
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   --pill-border: var(--pass);
-  --pill-bg: var(--pass-bg);
+  --pill-bg: var(--kpi-pass-pill-bg);
   --pill-fg: var(--pass);
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(2) { grid-column: 2; grid-row: 1; }

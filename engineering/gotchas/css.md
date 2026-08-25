@@ -14,7 +14,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
      against `--bg` / `--bg-alt`, the opaque canvases a palette declares. Several
      components paint the ink on a tint OF ITSELF instead — `--pass-bg` /
      `--fail-bg` are `color-mix(in srgb, var(--pass) 12%, transparent)`,
-     `--stance-bg` is 12% of `--stance`. Re-tuning the hue moves the band with it,
+     `--stance-bg` is 9% of `--stance` (12% until #1830's swimlane; see below).
+     Re-tuning the hue moves the band with it,
      so a value can be pushed a long way and gain almost nothing, and no
      canvas-based number describes what is on screen. Same class: an ink the BASE
      derives from a palette anchor (`--seq-700` is 45% of the way from `--seq-500`
@@ -23,6 +24,18 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
      ramp anchor fails, not the anchor: an arm that reads beautifully itself can
      still land `--seq-700` under 3:1, or land it so close to `--seq-500` that
      the two tiers stop being two (#1697).
+     **The DEPTH of that tint is a weak lever, and cutting it has a floor.** Measured
+     over all 32 palettes against `composed-contrast`'s own `evalSurface`: a uniform
+     `--{pass,warn,fail}-bg` at 12% leaves 74 pairs below their bar, at 8% 56, and at
+     2% — a wash that is not visibly a wash — still 35. The surfaces that fail hardest
+     carry their own component-local tint and never read the palette token at all. And
+     the wash's own visibility against its host falls from a 1.22:1 median at 12% to
+     1.08:1 at 5%, so past a point you are spending the signal to save it. The lever
+     that DOES pay is making the ground opaque and independent of the tile — see
+     `--kpi-{pass,warn}-pill-bg` — with one caveat: an opaque ground can then land on
+     its tile's own color, so whatever carries the chip's edge (for kpi, its border)
+     has to be modelled and floored rather than assumed.
+     `engineering/decisions/2026-08-25-status-trio-joint-solve-model.md`.
   2. **`check-slide-contrast.js` cannot see `opacity`.** It reads computed `color`
      and the ancestor paints. A CSS opacity composites the whole subtree buffer —
      ink and background together — so the ink moves much further than its band.
