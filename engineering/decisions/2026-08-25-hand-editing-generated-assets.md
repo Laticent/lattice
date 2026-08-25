@@ -5,10 +5,13 @@ summary: >
   component faculty already gives you CSS + skeleton + a Fields ⇄ manifest-JSON
   toggle. What theme and finish lack is not an editor but a decision about which
   artifact is the MODEL: their CSS is generated, so hand-editing it forks away
-  from the pickers that generated it. The rule this note adopts — be isomorphic
-  where the two representations can round-trip, and validate where they can't —
-  splits the three faculties three different ways, and the measurements say which
-  goes where.
+  from the pickers that generated it. The rule adopted here — be isomorphic where
+  the two representations can round-trip, and validate where they can't — splits
+  the three faculties three ways. A first draft claimed theme CSS ⇄ a flat token
+  map was already isomorphic; the adversarial trio refuted that against the
+  shipped corpus, so the theme model is specified here as a total, ordered,
+  selector-aware declaration record, and `serializeTheme` needs producer changes
+  before any of it works.
 tags: [studio, authoring, theme, finish, component, css, validation]
 ---
 
@@ -43,8 +46,9 @@ The manifest surface is already a **Fields ⇄ JSON toggle** over one model, and
 its own copy says so: *"Edit the raw manifest — the Fields view stays in sync,
 completion suggests valid values. The gate validates it live."* Findings from
 `gateCss` render live beside the editor, and a CSS exfil finding **pauses** the
-CSS from reaching the preview frame (`LayoutStudio.tsx:82-87`) rather than
-rendering it.
+CSS out of the preview frame — the decision is commented at
+`LayoutStudio.tsx:82-87` and the mechanism is one line, `extraCss={cssBlocked ?
+'' : css}` at `LayoutStudio.tsx:126`.
 
 So the component faculty is already the thing being asked for. Theme and finish
 have no code surface at all.
@@ -56,13 +60,24 @@ The axis that matters is **whether the code IS the model or an OUTPUT of it.**
 | Faculty | The model | The CSS | Inverse |
 |---|---|---|---|
 | **Component** | the CSS + skeleton + manifest, authored directly | authored | not needed — the code *is* the model |
-| **Theme** | 10 essentials + per-token `overrides` + a `rampStrategy` | `serializeTheme(deriveTheme(…))`, ~171 declarations / ~453 lines | **none exists** |
+| **Theme** | 10 essentials + per-token `overrides` + a `rampStrategy` | `serializeTheme(deriveTheme(…))` — **107 declarations / 153 lines** | **none exists** |
 | **Finish** | a `FinishRecipe` object | `generateFinishCss(slug, recipe)` | **none exists** |
 
+*(A hand-authored palette runs larger — `onyx.css` is 167 custom properties
+across 453 lines. The generated figure is the one that matters here.)*
+
 Drop a `CodeField` over a generated stylesheet and you have built a fork: the
-author edits the CSS, then moves one picker, the model regenerates, and the edit
-is gone with no warning. That is the actual design problem, and it is why "add a
-code editor" is the wrong shape of answer for two of the three.
+author edits the CSS, then changes something in the faculty, the model
+regenerates, and the edit is gone with no warning. That is the actual design
+problem, and it is why "add a code editor" is the wrong shape of answer for two
+of the three.
+
+**The fork window is a keystroke, not a picker move.** `Fabricate.tsx:270-282`
+recomputes `deriveTheme → applyOverrides → serializeTheme` in a `useMemo` keyed
+on `[core, overrides, themeName, themeDesc, rampStrategy]`, commented "REAL,
+every render." Two of those are free-text fields. Typing one character into the
+*description* regenerates the CSS. So the hand-edited model must **become** that
+memo's source, not sit beside it.
 
 ## The rule
 
@@ -81,48 +96,133 @@ one-way generation honest and put a validator on the hand-written side.
 Applied to the three faculties, the rule does not give one answer — it gives
 three, and each is a measurement, not a preference.
 
-## Theme — CSS ⇄ token map is genuinely isomorphic
+## Theme — the model is a total, ordered, selector-aware declaration record
 
-`serializeTheme` (`lib/theme/serialize.js:87-127`) emits, in order: a comment
-header, `@import 'lattice';`, one zero-specificity `:where(:root) { color-scheme:
-light; }` line, and then **nothing but `:root { --token: value; }` blocks** —
-`rootBlock` maps a name list through `decl`, which writes exactly `  --name:
-value;` and omits absent tokens. There is no computation on the way out.
+**A first draft of this note claimed theme CSS ⇄ a flat token map was already
+isomorphic, and that no producer change was needed. Both were wrong.** The
+adversarial trio (HARD RULE #25) refuted it against the shipped corpus; the
+measurements are below, because they are what constrains the design.
 
-That makes the inverse straightforward: parse the `:root` declarations back into
-a flat map, and you have the model. Two facts make it more than a hunch:
+### Why the flat map fails
 
-- **`auditBoth(vars, …)` (`lib/theme/contrast.js:324`) already takes a flat
-  token map.** The AA validator runs on the parsed representation with no
-  adaptation — the same function the pickers use today.
-- **`REQUIRED_TOKENS` (`lib/theme/derive.js:158`) is the conformance contract**,
-  and `serializeTheme` already consumes it as the section ordering. Parse →
-  check against the same list → tell the author which tokens are missing.
+`serializeTheme` is a **projection onto 107 names, not a bijection.** `rootBlock`
+(`lib/theme/serialize.js:74-79`) walks a fixed name list — the `REQUIRED_TOKENS`
+sections at `serialize.js:112-120` — so any key outside that list is never
+visited. `parse` then `serialize` silently deletes it.
 
-**What is genuinely lossy is `essentials` + `rampStrategy`** — and the resolution
-is to stop calling them the model. They are a **generator**: ten colors and a
-strategy that *produce* a token map. The map is the model; the pickers seed and
-nudge it; the CSS view edits it directly. Under that reading nothing is lost by a
-round-trip, because the thing that round-trips is the map.
+Measured over `themes/`:
 
-This is a real change of meaning, and it has a visible consequence: after a hand
-edit, the ten essential swatches no longer describe the map they generated. The
-honest UI is to keep showing them as *what this theme was generated from*, with a
-"re-derive from essentials" action that overwrites the map — an explicit,
-undoable act, not a silent one.
+| | |
+|---|---|
+| `REQUIRED_TOKENS` names (what the emitter can write) | **107** |
+| distinct custom properties in `themes/` outside that list | **47** |
+| themes declaring ≥1 of them | **19 of 32** |
+| themes declaring ≥1 *inside a root block* (what a parser eats) | **15 of 32** |
 
-**Non-root rules are a real case, not a corner.** Measured across the 32 shipped
-themes: 89 `:root`, 23 `:root:root`, 14 `:where(:root)` — and **3 files**
-(`a11y-base.css`, `concrete.css`, `onyx.css`) that also carry ordinary rules
-(`section.dark:not(.print)`, per-series `section.radar .radar-poly[data-series]`
-blocks, and similar). So the parser needs two buckets: **declarations under a
-root-ish selector → the token map**, and **everything else → a verbatim tail**
-that round-trips untouched.
+The dropped names are not decoration: `--chart-catN-ink` ×8, the `--diagram-*`
+state family, `--cat-N-texture` ×12 (the categorical texture channel,
+`engineering/textures.md`), `--hljs-params` / `--hljs-tag`, `--seq-500`.
 
-That tail is worth noticing, because it is the escape hatch the original question
-was reaching for — arrived at by parsing rather than bolted on as a separate
-"custom CSS" box. A rule the token model can't express lives in the tail, the
-pickers keep owning the map, and neither erases the other.
+**And the failure cascades.** `themes/indaco.css:173` declares
+
+```css
+--spectrum: linear-gradient(90deg, var(--brand-canvas) 0%,
+                            var(--brand-bright) 55%, var(--brand-alt) 100%);
+```
+
+`--spectrum` is in the contract and survives. All three operands are outside it
+and are dropped. `--spectrum` then resolves to the guaranteed-invalid value, and
+because it is read bare inside `background:` / `border-image-source:` shorthands
+(`lib/base/base.elements.css:73`, `base.modifiers.css:477`,
+`base.variants.css:160`), the whole declaration is invalidated at computed-value
+time. That is precisely the failure
+`engineering/decisions/2026-08-10-no-safe-default-token-contract.md` records: *a
+missing `--spectrum` invalidates the whole `background:` shorthand it rides in,
+so a divider slide rendered white-on-white, 1.0:1.* The naive inverse reproduces
+this repo's own worst shipped palette bug.
+
+### Why "root-ish → the map" fails twice more
+
+**`:root:root` is a protocol, not a specificity curiosity.** The status trio
+`--pass` / `--warn` / `--fail` is declared **twice, identically**, at `:root` and
+at `:root:root`, because the CLI export concatenates the bundle last and a plain
+`:root` override loses on source order. `checkStatusTrioParity`
+(`tools/check-ownership.js:1463`) fails the build if the two copies drift. A flat
+map has one slot per name and cannot hold "this value, at two specificities,
+because two render paths disagree about which selector they can see."
+
+**`color-scheme` is not a token.** It appears under a root selector in **28 of 32**
+themes. `themes/ardesia-dark.css` is, in its entirety:
+
+```css
+@import 'ardesia';
+
+:root { color-scheme: dark; }
+```
+
+Under "declarations under a root-ish selector → the token map", `color-scheme:
+dark` enters the map, is not a `REQUIRED_TOKEN`, is dropped on the way out, and
+`serializeTheme` hard-codes `:where(:root) { color-scheme: light; }` in its
+place. **Open a dark theme in the CSS view, save, and it is a light theme.**
+
+**`@import` carries inheritance.** It appears in **32 of 32** themes, and in **18
+of 32** it is the theme's entire token content — the 13 `*-dark` wrappers and the
+`a11y-*` variants declare nothing themselves. Only **14** of the 32 are
+self-contained palettes. A parser that files at-rules under "everything else"
+loses `@import 'ardesia'` outright, and the conformance rung then reports ~106
+phantom missing tokens as errors against a file that is correct.
+
+### The model this implies
+
+**Four buckets, not two**, and a record rather than a map:
+
+1. **custom properties under a root-ish selector** → the declaration record,
+   keyed by **(selector, name)** so `:root` and `:root:root` stay distinct, in
+   source order, **including names outside `REQUIRED_TOKENS`**;
+2. **non-custom-property declarations under a root-ish selector** (`color-scheme`)
+   → their own slot, never the token record;
+3. **at-rules** (`@import`) → their own slot, preserved and understood;
+4. **non-root rules** → the verbatim tail, round-tripped untouched.
+
+`REQUIRED_TOKENS` is the **validator** and never the **emitter**. `serializeTheme`
+needs two producer changes before any of this works: an **extras emitter** for
+unrecognized names, and a **`:root:root` mirror** for the status trio. Both change
+the emitted byte layout of every generated theme, so they are their own slice.
+
+The tail (bucket 4) remains the escape hatch for a rule the token model can't
+express — found by parsing rather than bolted on as a separate "custom CSS" box.
+
+### What is genuinely lossy, and the demotion
+
+`essentials` + `rampStrategy` do not round-trip, and the resolution is to stop
+calling them the model. They are a **generator**: ten colors and a strategy that
+*produce* a declaration record. The record is the model; the pickers seed and
+nudge it; the CSS view edits it directly.
+
+This is closer to writing down what the code already does than the first draft
+realized. `Fabricate.tsx:470` — the only production caller of `saveStudioTheme` —
+passes `{name, label, essentials, css}` and **never passes `overrides` or
+`rampStrategy`**, though `saveStudioTheme` (`theme-library.ts:81`) and
+`themeAsset` (`serialize.js:143`) both accept them and the latter's docblock
+promises a saved theme reloads as itself. `asset-bundle.ts`'s `ThemeItem` has no
+field for them at all. What every consumer actually renders is `text`
+(`StudioShell.tsx` `extraTheme = {name, css}`). Essentials are already advisory.
+
+Two consequences the design owes:
+
+- **Four surfaces read `essentials` back** and start lying after a hand edit: the
+  Library card's swatch row (`Library.tsx:99-103` — it *is*
+  `Object.values(essentials)`), the theme picker dot (`StudioShell.tsx:1804`,
+  `:3169`), `StudioDrawer.tsx:439`, and the `lattice-asset/1` zip manifest. Derive
+  those from the record's `--accent`, and decide whether the zip's `essentials`
+  field becomes advisory or deprecated — that is a compatibility surface.
+- **The AI path is a silent overwrite.** `architect.ts:510-551` returns
+  `{essentials, rampStrategy, tokens}` and `Fabricate.tsx:313-343` `runDescribe`
+  sets core + ramp and clears overrides. Running "describe a look" on a
+  hand-edited theme destroys the record exactly as "re-derive from essentials"
+  would, but reached from a text box rather than a button that announces itself.
+  Both need the same explicit-overwrite affordance. The same shape applies to the
+  component faculty's `runDescribeComponent`.
 
 ## Component — nothing to reconcile
 
@@ -135,12 +235,13 @@ the rule, already working: `gateCss` (`lib/layout/gate.js:461`) runs `no-hex`,
 selector `scope`, `findCssExfil`, `no-margin` (HARD RULE #20) and `fs-token`
 (HARD RULE #4) live against the editor.
 
-**The trap for whoever implements this: `gateCss` is component-shaped and must
-not be reused wholesale.** A theme is *made of* hex literals and is scoped to
-`:root` by definition, so `no-hex` and `scope` would reject every valid theme
-ever written, including all 32 shipped ones. Only `findCssExfil` is universal.
-Compose the per-faculty gate out of the individual `find*` primitives — they are
-all exported from `lib/layout/gate.js` — rather than calling `gateCss`.
+**The trap for whoever implements this: no `gateCss` rule is reusable as-is for a
+theme.** Measured: `gateCss` rejects **all 32** shipped themes, but not for one
+reason. For the 19 full palettes it is `no-hex` (118–200 findings each) and
+`scope` (6–39 each) — a theme *is* hex literals at `:root`. For the 13 `*-dark`
+wrappers neither rule fires; they are rejected by `css-import` alone. Compose the
+theme gate from the individual `find*` primitives (all exported from
+`lib/layout/gate.js`) — never by calling `gateCss`.
 
 ## Finish — recipe ⇄ JSON is isomorphic; recipe → CSS is not
 
@@ -149,37 +250,50 @@ screen face, an `@media print` opaque mirror, and a `.lattice-exporting` opaque
 mirror — and each is a slot list, so the output *looks* token-shaped. It isn't
 reversible:
 
-- `spotlightMask` turns `{x, y, radius}` into a `radial-gradient(…)` **string**,
-  at two different feather profiles. Recovering the three numbers means parsing
-  generated gradient text, per face.
-- The opaque mirrors are emitted twice from one body specifically so they cannot
-  drift; a hand edit to one is a fork with no representation in the recipe.
+- The opaque mirrors are emitted twice from **one** `opaqueBody` specifically so
+  they cannot drift; a hand edit to one is a fork with no representation in the
+  recipe.
 - A wash `type` swap is a whole different slot set, which is exactly why a deck's
   `finish-override:` overrides by **regenerating the finish** rather than by
   racing a rival custom property (`mergeFinishOverride`).
+- `spotlightMask` turns `{x, y, radius}` into `radial-gradient(…)` strings at two
+  feather profiles. *(This is the weakest of the three arguments — the values are
+  `toFixed(0)` integers `coerceRecipe` already clamps, so that string is
+  parseable. The two above carry the section.)*
 
-So the finish's isomorphic pair is **Fields ⇄ recipe JSON**, not Fields ⇄ CSS —
-and `coerceRecipe(input: unknown)` (`finish-generate.ts:218`) already exists to
-be its validator, normalizing arbitrary input, clamping numbers, resolving
-keywords and dropping reset-to-default axes. It is the same shape as the
-component's manifest editor and needs almost no new machinery.
+So the finish's isomorphic pair is **Fields ⇄ recipe JSON**, not Fields ⇄ CSS.
+The generated CSS gets a **read-only** view with copy/export: the export path
+reads the recipe (`--fin-backdrop-*` slots, the opaque mirrors), so hand-edited
+finish CSS detaches from the artifact the PDF and PPTX actually render.
 
-The generated CSS gets a **read-only** view with copy/export. This is the one
-place the answer is narrower than the ask, and the reason is concrete rather than
-conservative: the export path reads the recipe (`--fin-backdrop-*` slots, the
-opaque mirrors), so hand-edited finish CSS detaches from the artifact the PDF and
-PPTX actually render.
+`coerceRecipe(input: unknown)` (`finish-generate.ts:218`) is the validator — with
+two caveats that must not be discovered at implementation time. It **normalizes
+silently and reports nothing**, so "tell the author what was clamped" needs a
+second return channel that does not exist today. And it is a normalizer rather
+than a validator in exactly one field: `mark.glyph` (`:244`) is stored raw. That
+is inert only because `sanitizeGlyph` (`:93-102`) strips `["'\\<>{};]` and
+truncates at *emit* time — the guard is downstream, not in the "validator".
+
+**Open question, deliberately not settled here:** the recipe is a closed
+vocabulary — every axis is an enum or a clamped range — so a JSON view lets an
+author type `wash.type: "sparkle"`, get `"none"` back, and read a diff about it.
+That may be a worse experience than the picker for someone who by construction
+cannot express anything new. The read-only CSS view is cheap and honest and
+should ship; the Fields ⇄ JSON view should wait for a user who wants it.
 
 ## Templates
 
 Every code surface opens on a **template**, never an empty box:
 
-- **Theme** — every `REQUIRED_TOKENS` name present, in `serializeTheme`'s section
-  order, with the section headings it already writes. A new theme's CSS view is
-  the contract, spelled out.
+- **Theme** — every `REQUIRED_TOKENS` name present in `serializeTheme`'s section
+  order, **plus the `:root:root` status-trio mirror**, so the template is a theme
+  that would pass `checkStatusTrioParity` if it were graduated to `themes/`.
 - **Component** — ships already (`STARTER_CSS` / `STARTER_SKELETON` /
   `STARTER_META`).
-- **Finish** — `DEFAULT_RECIPE` serialized as JSON.
+- **Finish** — `coerceRecipe(DEFAULT_RECIPE)`, not `DEFAULT_RECIPE`: coercion adds
+  `wash.x/y/spread` and `mark.x/y/scale/angle`, so the raw constant mutates on the
+  author's first keystroke. Seed with the coerced form and the template *is* the
+  model.
 
 The template is also what makes the validator teachable: "this token is missing"
 is only fair if the author was handed the full list to begin with.
@@ -188,16 +302,84 @@ is only fair if the author was handed the full list to begin with.
 
 | Surface | Validates against | Blocking? |
 |---|---|---|
-| Theme CSS | `REQUIRED_TOKENS` conformance; `auditBoth` AA in both modes | contract → error; AA → warning (a deliberate low-contrast accent is the author's call) |
-| Theme CSS | `findCssExfil` (HARD RULE #22) | **blocking** — pause the CSS out of the preview frame, as `LayoutStudio` already does |
+| Theme CSS | `REQUIRED_TOKENS` conformance — **only for a self-contained theme**; a theme composing via `@import` inherits and must not be indicted | error |
+| Theme CSS | `auditBoth` AA in both modes — **with the blindness below surfaced** | warning |
+| Theme CSS | `findCssExfil` **minus `css-import`**, plus the theme-import allowlist below | **blocking** — pause the CSS out of the preview, the `LayoutStudio.tsx:126` pattern |
+| Theme CSS | `checkStatusTrioParity`'s pairing rule | error |
 | Component CSS | `gateCss` — unchanged | error / warning as today |
-| Finish JSON | `coerceRecipe` | normalizes; report what it clamped or dropped |
-| Any CSS → preview frame | `sanitizeStyleText` (HARD RULE #22) | **blocking** |
+| Finish JSON | `coerceRecipe` + a clamp/drop report | normalizes; report what changed |
+| Any CSS → preview frame | `sanitizeStyleText` (HARD RULE #22) | neutralizes `</style`; it is **not** a CSS sanitizer and blocks nothing on its own |
 
-HARD RULE #22 is not a formality here: the Studio preview is a same-origin,
-un-sandboxed `srcdoc` iframe holding the user's BYOK key, and hand-written CSS is
-a new author-controlled path into it. Every surface this note adds is a
-stylesheet channel and owes the guard.
+### The `@import` allowlist is a security decision, not a convenience
+
+`CSS_EXFIL_RULES[0]` (`lib/layout/gate.js:69`) bans `@import` unconditionally, and
+`findCssExfil(serializeTheme(deriveTheme(…)))` returns `css-import` at line 14 —
+**the theme template trips the blocking rung.** The obvious fix is to drop the
+rule for themes. That opens a live channel: `hoistImports`
+(`lib/engine/css.js:216-233`) *deliberately* hoists `@import url(…)` to the top of
+the composed sheet so it survives the "@import must be first" rule, and
+`prunePlayerCss` (`lib/export/player-prune.js:129`) always keeps `@import` into a
+downloaded player.
+
+What makes a hoisted remote import inert today is that theme CSS is never first
+in the `<style>` — `single-slide-render.ts:611-635` and `deck-preview.js:325`
+both prepend rules — so CSS ignores the import. That is an **accident of
+concatenation order**, gated by nothing, one refactor from being false, in a
+frame holding the user's BYOK key (HARD RULE #24).
+
+So the theme gate allows **a bare quoted import of a registered theme name**
+(the `THEME_IMPORT_RE` / `THEME_NAME_IMPORT_RE` grammar at `lib/engine/css.js:51`,
+`lib/engine/themes.js:45`) and **rejects `@import url(…)` and any other target
+outright**. Write it as an allowlist, not a relaxation.
+
+### `auditBoth` fails open on non-hex color
+
+`isHex` (`lib/theme/contrast.js:51`) is `#rgb` / `#rrggbb` only. A non-hex
+operand yields `status: 'skipped'`, and `auditVars`'s verdict counts `skipped` as
+neither failure nor missing. Measured: a 107-token map of `oklch(50% 0.1 250)`
+returns **`ok: true`**. The pickers only ever emit hex, so this was never
+load-bearing — but hand-editing is exactly where `oklch()` / `color-mix()` /
+`rgb()` / `#RRGGBBAA` arrive. Either normalize parsed values to hex before
+auditing, or surface `skipped` as a first-class "could not be checked" finding.
+Silently reporting a clean bill of health on an unreadable theme is the one
+outcome not available.
+
+### A css-tree parser would be an ungated re-wrap sink
+
+If the parser uses css-tree (already a dependency via `player-prune.js`), it
+becomes a HARD RULE #22 third-arm sink: any CSS serializer normalizes `<\/style`
+back into a live terminator, and `themes/a11y-base.css:234-241` is exactly the
+`content: "…"` shape that carries it. `checkCssTreeRewrapSinks`
+(`tools/check-ownership.js:5583`) discovers sinks by matching
+`prunePlayer(Css|FontFaces)\s*\(`, so a new `csstree.generate()` site matches
+nothing and the gate stays green. The parser owes `sanitizeStyleText` at the
+re-wrap **and** an entry in that gate's discovery. css-tree also drops comments by
+default, which would eat the theme header and the a11y docblocks.
+
+## Preconditions — things that must be true before this is buildable
+
+These are pre-existing and off-path for this note's own diff (HARD RULE #18 says
+log them), but the design rests on them:
+
+1. **`overrides` / `rampStrategy` are never persisted by any production caller**
+   (`Fabricate.tsx:470`, `Library.tsx:295`, `workspace-backup.ts:129` all omit
+   them; only a unit test passes them). So no theme in any user's library today
+   can be faithfully re-derived, and "re-derive from essentials" is a destructive
+   button on records that cannot honor it.
+2. **The zip format cannot carry them** — `ThemeItem` / `ParsedTheme`
+   (`asset-bundle.ts:28,39`) are `{kind, name, label, essentials, css}`. Export →
+   import is lossy by type.
+3. **Asset history is not in the workspace backup.** `asset-history.js:19-22`
+   states the backup "carries it separately"; `workspace-backup.ts` never
+   references it. The docblock is false, and #1839's recoverability — the safety
+   net this note leans on — does not survive a backup/restore.
+4. **No record-level schema version.** `putAsset` (`asset-store.js:76-85`) has
+   none; `DB_VERSION` versions the database, not the record. Changing what a
+   `kind:'theme'` record *means* is an unversioned reinterpretation of data
+   already in users' browsers.
+5. **Studio-generated themes already ship an export-inert status trio** — no
+   `:root:root` mirror is emitted, so none could be graduated to `themes/` without
+   failing `build:check` today.
 
 ## What this does not do
 
@@ -208,18 +390,61 @@ stylesheet channel and owes the guard.
 - **It does not add a raw-CSS path for finishes.** If that is wanted later, it
   should arrive as an explicit detach with a revert, on top of the version
   history #1839 specifies — not as a silently forking editor.
+- **It does not gate the zip import path.** A theme imported from a `.zip`
+  (`Library.tsx:295`) reaches `extraTheme` with no CSS gate at all, and the tail
+  is arbitrary unscoped CSS that reaches every export. Either put the theme gate
+  on the import path in the same change or log it — but do not leave it
+  undiscussed, because a shared `.zip` is the one path where the author and the
+  victim are different people.
 
 ## Sequencing
 
-Tracked by #1841. This lands **after** #1839 (edit a saved asset in place). A code view is most
-useful once a saved asset can be reopened in its faculty, and #1839's version
-history is what makes any destructive action here recoverable — "re-derive from
-essentials" included.
+Tracked by #1841.
+
+The **record-shape decision is a precondition on #1839's implementation**, even
+though the UI ships after it. #1839 must decide what a saved theme reopens as, and
+the two candidate implementations are mutually exclusive: re-derive from
+`essentials` + `overrides` + `rampStrategy` (which first requires fixing
+`Fabricate.tsx:470` to persist them, plus a migration for every record saved to
+date), or hydrate from `text`. If #1839 ships the first, #1841 discards it and the
+migration was net-negative work on user data. Decide the record shape first;
+build the UI second.
 
 ## Prior art in the codebase
 
 - The deck-level `style:` front matter is already a raw-CSS escape hatch (and
   #1790 is the open question of keeping the AI out of it).
 - Per-token `overrides` on a theme are already a structured escape hatch, with
-  `Override = { light?, dark? }` (`Fabricate.tsx:88`) — the token map generalizes
-  them rather than replacing them.
+  `Override = { light?, dark? }` (`Fabricate.tsx:88`), reaching any token name —
+  the declaration record generalizes them rather than replacing them.
+
+## What the adversarial trio changed
+
+Run per HARD RULE #25: red team + Munger inversion + independent checker, three
+agents on Opus, against the first draft of this note.
+
+**Refuted, and rewritten above:** the flat-map isomorphism claim (the emitter is a
+projection onto 107 names); "only `findCssExfil` is universal" (it bans `@import`,
+so the template tripped the note's own blocking rung); "`no-hex`/`scope` would
+reject every valid theme" (false for 13 of 32); "~171 declarations / ~453 lines"
+(the real generated figure is 107 / 153 — the wrong number was a hand-authored
+theme's).
+
+**Confirmed and kept:** the axis and the three-way split; the component analysis;
+the finish irreversibility argument (the strongest section — the trio could not
+break its central claim); the selector census (89 / 23 / 14, exactly 3 files with
+non-root rules), reproduced independently with a css-tree AST walk; and the
+round-trip itself, which is byte-identical **for Studio-generated themes** — the
+scope the first draft failed to state.
+
+**Attacks that held:** duplicate declarations of one token (last-wins matches
+CSS); declaration order within a block (custom properties are not order-resolved);
+a value divergence between the `:root` and `:root:root` arms (zero across all 32 —
+the parity gate keeps them identical); `</style>` through the theme header
+(`sanitizeStyleText` is called at both sanctioned builders); a hand-edited
+`@theme` line hijacking the live registry (blocked by the named `addThemes`
+form).
+
+**Unverified, by construction:** nothing here has been driven on the running
+Studio, because there is no UI yet. Every behavioral prediction owes a real-surface
+check at implementation time (HARD RULE #23).
