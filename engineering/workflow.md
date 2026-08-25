@@ -614,6 +614,23 @@ when the secret is unset, with a tiny per-run budget (~a cent a night) and a har
 Such a workflow goes on `SANCTIONED_OPENROUTER_WORKFLOWS`; the gate **rejects it if it triggers on
 `pull_request`/`push`** (that would spend on every PR — the exact hole). Per-PR CI stays mock-only.
 
+**A nightly that cannot raise an alarm is not a gate — it is a color.** Every job in the nightly
+family opens or appends ONE rolling tracking issue on failure, found by EXACT title client-side
+(`--search "in:title [marker]"` tokenizes on brackets and hyphens and will append to a
+human-authored issue instead). `studio-e2e-nightly.yml`'s `e2e-ai` job was the family's only
+holdout, and it failed eight nights running on a real regression while the red X on a scheduled
+run was the only signal (#1743). The shape to copy: `tee` the run into a report file and keep the
+STEP green so later steps run, carry the verdict in an output, put the step timeout BELOW the
+job's (a job-level timeout kills every later step, including one guarded by `always()`), and gate
+the issue step on `always() && (outputs.failed == 'true' || outcome != 'success')`.
+
+**A live-key job owes one thing the others do not: redact before you publish.** Actions masks
+secrets in the LOG, but `tee` writes the report to disk unmasked and `gh issue create` posts that
+text verbatim — so one echoed `Authorization` header would publish our key in an issue. `e2e-ai`
+does a literal (non-regex) replacement via `python3` before building the body, reading the key
+from the environment so it never appears in `argv`, and guarded on the key being non-empty
+because replacing `''` rewrites every position in the file.
+
 *Scope of the gate: it scans `docs/` code (incl. `.astro` build-time frontmatter and the
 astro/build config), `test/**`, CI workflows, and `test`-family npm scripts for the key
 NAME. It is **name-based**, not a secret-scanner: it

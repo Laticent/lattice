@@ -238,8 +238,25 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: docs
 
+      # Same shape as the `e2e` job's run step: `tee` the output to a report file, keep the
+      # STEP green on a spec failure so the alarm below always gets to run, and carry the
+      # verdict in an output. `pipefail` is load-bearing — without it `tee` swallows the
+      # non-zero exit and every run reports success.
+      #
+      # The STEP timeout is deliberately BELOW the job's 30. A job-level timeout kills the job
+      # outright and no later step runs, not even one guarded by always(), so a suite killed
+      # mid-flight would file nothing — the exact case #1743 is about.
       - name: Run AI-assisted Studio scenarios (live OpenRouter)
-        run: npm run test:e2e -- e2e/scenarios/ai-architect.spec.ts --project=desktop
+        id: ai
+        timeout-minutes: 25
+        run: |
+          set -uo pipefail
+          if npm run test:e2e -- e2e/scenarios/ai-architect.spec.ts --project=desktop 2>&1 \
+            | tee "$GITHUB_WORKSPACE/studio-e2e-ai-report.txt"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
         working-directory: docs
         env:
           CI: 'true'
@@ -253,3 +270,91 @@ jobs:
           path: docs/playwright-report/**
           if-no-files-found: warn
           retention-days: 14
+
+      # Open / append ONE rolling tracking issue — the half of #1743 that was missing. This
+      # job was the only member of the nightly family (perf, preview-e2e, integration,
+      # modulepreload-coverage, and its own `e2e` sibling all file) with no alarm, so when it
+      # failed eight nights running the workflow's red X was the only signal and nobody was
+      # paged for it.
+      #
+      # A SEPARATE rolling title from the `e2e` sibling, on purpose: this tier fails for its
+      # own reasons (a live model, a paid key, a priced-branch label) and folding it into the
+      # deterministic suite's issue would bury a real spec regression under API weather.
+      #
+      # `always()` plus an outcome check, not just the output: the run step exits 0 by design
+      # when specs fail, so `failed` catches that — but a STEP timeout leaves the output
+      # unwritten, and that is the case most worth hearing about.
+      - name: Open / append regression issue
+        if: always() && (steps.ai.outputs.failed == 'true' || steps.ai.outcome != 'success')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}
+        run: |
+          set -euo pipefail
+          TITLE='[studio-e2e-ai] Live AI Studio scenarios failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-e2e-ai-report.txt"
+          BODY="$GITHUB_WORKSPACE/studio-e2e-ai-body.md"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
+
+          # REDACT THE KEY BEFORE ANY OF THIS REACHES AN ISSUE BODY. Actions masks secrets in
+          # the LOG, but `tee` wrote the report to disk unmasked and `gh issue create` posts
+          # that text verbatim — so a single echoed Authorization header would publish our
+          # OpenRouter key (HARD RULE #24). Literal string replacement via python, not `sed`:
+          # the key never appears in argv (visible to `ps`), and no character in it is treated
+          # as a regex metacharacter. A no-op when the secret is unset — which is also why the
+          # empty-key guard matters, since replacing '' would rewrite every position.
+          python3 - "$REPORT" <<'PY'
+          import os, sys
+          key = os.environ.get('OPEN_ROUTER_KEY', '')
+          path = sys.argv[1]
+          text = open(path, encoding='utf-8', errors='replace').read()
+          if key:
+              text = text.replace(key, '***')
+          open(path, 'w', encoding='utf-8').write(text)
+          PY
+
+          {
+            echo "The nightly live-AI Studio scenarios failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.ai.outcome }})."
+            echo ""
+            echo "This tier drives a REAL OpenRouter model on our key, so triage it in this order:"
+            echo "1. Is it a spec/product regression? The failing locator and its call log are below."
+            echo "2. Is it the model or the API? A timeout waiting for a diff card, or a 4xx/5xx, points here."
+            echo "3. Is the key unset or out of budget? Then the run reports **skipped**, not failed — the tally below says which."
+            echo ""
+            echo "What failed (full report in the run's artifact):"
+            echo ""
+            echo '```'
+            # `skipped` is in the pattern deliberately: a keyless run self-skips and stays
+            # green, so if this alarm ever fires on a run whose tally is all-skipped, the
+            # cause is the harness, not a spec.
+            grep -E '^\s+[0-9]+\) |✘|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ (failed|passed|skipped)' \
+              "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
+            echo '```'
+            echo ""
+            echo "<details><summary>Last 120 lines</summary>"
+            echo ""
+            echo '```'
+            tail -n 120 "$REPORT" 2>/dev/null | head -c 20000 || true
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "_Run: ${RUN_URL}._"
+          } > "$BODY"
+          # Find the rolling issue by EXACT title, client-side — `--search "in:title [studio-e2e-ai]"`
+          # looks right and is not: GitHub tokenizes on the brackets and the hyphens, so the query
+          # degrades to `studio` + `e2e` + `ai` and matches human-authored issues. `.[0]` would then
+          # append to someone else's issue nightly and the rolling issue would never be created.
+          # --limit is deliberately far above the open-issue count; gh paginates to reach it, and a
+          # limit the backlog can outgrow would file a fresh duplicate every night.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create --title "$TITLE" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
