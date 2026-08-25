@@ -14,6 +14,32 @@
  * slide 2 and the deferred one on slide 3 are checked TOGETHER, from the same render,
  * against what `pdftotext` actually finds.
  *
+ * THE FIXTURE'S TIMER IS SIZED AGAINST THIS SUITE'S TIMEOUT, NOT AGAINST A MEASURED
+ * WINDOW — see the comment on the `setTimeout` in `test/fixtures/author-script-deferral.md`.
+ * It was 400 ms until #1835, where a loaded merge-queue runner beat it and ejected #1824
+ * on a diff this suite cannot reach.
+ *
+ * Note for anyone revisiting #1835's options: "assert the warning rather than the
+ * artifact" does NOT remove the race, and that is worth knowing before it is tried
+ * again. The warning is computed from whether the task is still OUTSTANDING at capture
+ * (`readAuthorDeferralProbe`), which is decided by the same clock as the artifact — when
+ * the timer wins, the text lands AND the warning correctly falls silent, so both
+ * assertions flip together. The two signals are not independent, so only re-sizing the
+ * timer fixes anything. Asserting both, as this test does, is strictly stronger once the
+ * timer can no longer lose: it is what pins the warning to the artifact.
+ *
+ * HOW TO REPRODUCE THE OLD FAILURE ON DEMAND, since #1835 recorded it as "once in maybe a
+ * dozen runs" and a fix nobody can falsify is not a fix. CPU load alone does NOT do it —
+ * twelve busy loops on 4 cores left the window at 160-230 ms, flat. What moves it is
+ * CONCURRENT RENDERS competing for the same cores, which is what a CI runner is actually
+ * doing to this suite. Six at once:
+ *
+ *   for i in $(seq 1 6); do (node lattice-emulator.js test/fixtures/author-script-deferral.md \
+ *     /tmp/f$i.pdf >/tmp/o$i.txt 2>&1) & done; wait
+ *
+ * At 400 ms the window reached 450/458/870/941 ms and `LATE ARRIVED` landed in 4 of 6.
+ * At 600000 ms the contract held 6 of 6 under that same contention.
+ *
  * Slow tier: spawns Chromium once per case.
  */
 
@@ -52,11 +78,11 @@ describe('author-script-deferral', () => {
 
     // What actually shipped. This is the ground truth the warning has to agree with.
     assert.match(text, /SYNC LANDED/, 'a synchronous script writes before capture and must land');
-    assert.doesNotMatch(text, /LATE ARRIVED/, 'a 400ms timer loses the race — that is the contract, not a bug');
+    assert.doesNotMatch(text, /LATE ARRIVED/, 'a timer that has not fired by capture is lost — the contract, not a bug');
 
     // And what the author was told about it.
     assert.match(output, /deck-authored script task/, 'silent loss is the defect this closes');
-    assert.match(output, /setTimeout\(400ms\)/, 'the warning must name the call, not just complain');
+    assert.match(output, /setTimeout\(600000ms\)/, 'the warning must name the call, not just complain');
     assert.match(output, /slide 3/, 'and the slide, so the author can find it');
     assert.ok(!/slide 2/.test(output), 'the synchronous script landed — warning about it would be a false alarm');
   });
