@@ -17,8 +17,10 @@
 @import 'a11y-base';
 
 :root {
-  /* PAIRED even though this palette is mode-invariant. The `:root:root` pin in
-   * a11y-base makes the deck-wide dark TOGGLE inert, but TWO seams reach past it:
+  /* PAIRED even though this palette is mode-invariant. The color-scheme pin in
+   * a11y-base (declared at BOTH `:root` and `:root:root` as of #1797 — the doubled form
+   * alone was inert on every PACKED path) makes the deck-wide dark TOGGLE inert, but TWO
+   * seams reach past it:
    * a per-slide `_class: dark`, which sets color-scheme on the SECTION (#1323),
    * and the status-marker pseudo, which base.variants.css pins to
    * `color-scheme: dark` on every title / closing / non-light divider — so the
@@ -151,33 +153,6 @@
   --hljs-punctuation: #888888;   /* punctuation */
 }
 
-/* ── Semantic status trio, declared a SECOND time at (0,2,0) ─────────────────
- *
- * The trio above is the curated one; this block repeats it verbatim, and both are
- * load-bearing because the three render paths do not agree on selectors.
- *
- *   · the `:root` above — `lib/engine/css.js` packs a theme the way Marpit does,
- *     rewriting `:root` onto the slide `<section>`. That is the form the ENGINE path
- *     (Studio, docs Playground, Specimen) and export-to-Marp can see, and it wins there
- *     on source order. On the CLI export path it LOSES — nothing is packed there and
- *     `lattice-emulator.js` concatenates the bundle last, so base's `:root` (0,1,0)
- *     beats it at equal specificity.
- *
- *   · this `:root:root` — (0,2,0), so it beats the bundle whatever the source order,
- *     which is what the CLI export path needs. It is INERT on the packed paths:
- *     Marpit's rewrite only touches a `:root` preceded by a combinator, so the second
- *     one survives literally and lands on the `<section>`, where `:root` cannot match.
- *     Measured under real marp-cli too, not just ours — see §2c of the note below.
- *
- * Ship one and the other path silently reads base's trio. Before this change every
- * palette's curated trio was inert in a CLI export — an exported deck painted base's
- * own values on all 32 palettes, including the ones #1801 had just re-solved.
- *
- * The two blocks must carry identical values; `checkStatusTrioParity` in
- * tools/check-ownership.js fails the build if they drift.
- * engineering/decisions/2026-08-23-status-trio-export-cascade.md */
-:root:root {
-  --pass: light-dark(#054c86, #82bfff);
-  --warn: light-dark(#926300, #ffdcad);
-  --fail: light-dark(#5f0009, #e9716a);
-}
+/* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
+ * retired the `:root:root` duplicate that used to reach the CLI export.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */

@@ -174,6 +174,47 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 // a rounding-level difference in the last decimal is not reported as a regression.
 const REGRESSION_EPSILON = 0.01;
 
+/**
+ * One `.chart-status` gradient stop as a scored surface.
+ *
+ * The pill's ground is `color-mix(in oklab, var(--pill-hue) N%, <base>)` — `--bg` on the
+ * light arm, `black` on the dark one — and its label is the shared `--text-heading`,
+ * which flips dark-on-light / light-on-dark. So each stop is a real, separately-failing
+ * surface on each arm, and both are listed rather than one being argued safe.
+ *
+ * `requires` pins the stop percentages AND the state's hue mapping in the component CSS,
+ * so a retune of either reddens the gate instead of silently re-pointing what is measured.
+ */
+const PILL_STATE_FALLBACK = {
+  pass: 'light-dark(#1E9E48, #34D058)',
+  warn: 'light-dark(#C2790A, #FFB02E)',
+  fail: 'light-dark(#CE2F2F, #FF5B52)',
+  info: 'light-dark(#0A6CE0, #2E8BFF)',
+  mute: 'light-dark(#6B7480, #9AA7B6)',
+};
+
+function pillStop(state, which, lightPct, darkPct) {
+  const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
+  const stop = which === 'high' ? '100%' : '0%';
+  return {
+    id: `chart/status-pill-${state}${which === 'low' ? '-low' : ''}`,
+    ctx: `chart-family .chart-status[${state}]: --text-heading on the pill gradient's ${stop} stop`,
+    base: '--bg',
+    groups: [{
+      bg: `light-dark(color-mix(in oklab, ${hue} ${lightPct}%, var(--bg)), `
+        + `color-mix(in oklab, ${hue} ${darkPct}%, black))`,
+    }],
+    ink: '--text-heading',
+    min: 4.5,
+    src: CHARTFAMILY,
+    requires: [
+      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
+      new RegExp(`color-mix\\(in oklab, var\\(--pill-hue\\) ${darkPct}%, black\\)`),
+      new RegExp(`--pill-hue: var\\(--state-${state}-hue\\)`),
+    ],
+  };
+}
+
 const SURFACES = [
   // ── split frames · the panel's own top-edge mark on the panel fill ────────
   // NOT text: a 4px structural rule, so the bar is WCAG 1.4.11's non-text 3:1 rather
@@ -452,84 +493,19 @@ const SURFACES = [
   // "on-track", 4.40:1) and NOTHING analytic could see it, because the pill's ground
   // is a raw color-mix rather than a `*-bg` token.
   //
-  // The ground modelled here is the gradient's 100% stop, which is the light end on
-  // both arms and therefore the worst for each arm's ink. The 0% stop is quieter by
-  // construction and is not separately listed.
-  {
-    id: 'chart/status-pill-pass',
-    ctx: 'chart-family .chart-status[pass]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-pass, light-dark(#1E9E48, #34D058)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-pass, light-dark(#1E9E48, #34D058)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-pass-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-warn',
-    ctx: 'chart-family .chart-status[warn]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-warn, light-dark(#C2790A, #FFB02E)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-warn, light-dark(#C2790A, #FFB02E)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-warn-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-fail',
-    ctx: 'chart-family .chart-status[fail]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-fail-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-info',
-    ctx: 'chart-family .chart-status[info]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-info-hue\)/,
-    ],
-  },
-  {
-    id: 'chart/status-pill-mute',
-    ctx: 'chart-family .chart-status[mute]: --text-heading on the pill gradient\'s 100% stop',
-    base: '--bg',
-    groups: [{ bg: 'light-dark(color-mix(in oklab, var(--chart-state-mute, light-dark(#6B7480, #9AA7B6)) 54%, var(--bg)), color-mix(in oklab, var(--chart-state-mute, light-dark(#6B7480, #9AA7B6)) 54%, black))' }],
-    ink: '--text-heading', min: 4.5,
-    src: CHARTFAMILY,
-    // Pinned on the gradient's own stops AND on this state's hue mapping, so a retune
-    // of either reddens the gate rather than silently re-pointing what is measured.
-    requires: [
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, var\(--bg\)\)/,
-      /color-mix\(in oklab, var\(--pill-hue\) 54%, black\)/,
-      /--pill-hue: var\(--state-mute-hue\)/,
-    ],
-  },
+  // BOTH STOPS ARE LISTED, and the reason the 0% one was not is worth keeping. The
+  // original entries modelled only the 100% stop, on the argument that the 0% stop is
+  // "quieter by construction". That is true of the DARK arm — less hue mixed into black
+  // is a darker ground under a LIGHT label — and false of the light arm, where less hue
+  // mixed into `--bg` is a LIGHTER ground under a DARK label, so quieter means safer on
+  // one arm and says nothing on the other. Measured on the shipped tree, the light 0%
+  // stop was itself sub-AA at 4.38:1 on concrete|pass while every gate was green (#1807).
+  // A stop nobody lists is a stop nobody scores, which is the fourth time in this
+  // swimlane that a raw color-mix ground has been invisible.
+  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((state) => [
+    pillStop(state, 'high', 30, 54),
+    pillStop(state, 'low', 18, 42),
+  ]),
 ];
 
 // ── The frozen sub-threshold baseline ───────────────────────────────────────
@@ -543,10 +519,12 @@ const SURFACES = [
 // It is a SHRINKING baseline, and it has shrunk twice. The 24 `word-cloud/seq-*`
 // rows left when this file landed were the canvas-blind sequential ramp, and #1697
 // made the ramp's poles canvas-relative. Then #1698's second pass took the status
-// population from 106 to 0: the trios were re-solved against the bands they land on
-// AND declared at BOTH `:root` and `:root:root`, without which the curated values never
-// reached one render path or the other (the concat order vs Marpit's `:root` rewrite — see
-// engineering/decisions/2026-08-23-status-trio-export-cascade.md). All of them are
+// population from 106 to 0: the trios were re-solved against the bands they land on AND
+// made to reach every render path — at the time by declaring them at BOTH `:root` and
+// `:root:root`, since neither form alone reached all three (the concat order vs Marpit's
+// `:root` rewrite). #1527 then flipped the concat and the duplicate was retired; a plain
+// `:root` declaration reaches every path on its own now
+// (engineering/decisions/2026-08-24-status-trio-single-root.md). All of them are
 // gone — deleted, not re-frozen, which is what the stale arm below exists to force.
 //
 // WHAT THE TWO SURVIVORS ARE, because a two-row baseline is read as "nearly done"
@@ -581,45 +559,22 @@ const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
   // ── chart/status-pill · the LIGHT arm ──
-  // FROZEN, NOT ACCEPTED, and deliberately not fixed in the change that added this
-  // surface. The pill's light gradient mixes the status hue into `--bg` and labels it
-  // with `--text-heading` — a DARK ink on a light canvas. #1801 respaced every trio to
-  // hold three distinct weights under a monochromacy, and for the palettes below that
-  // moved --pass / --fail toward the dark end: concrete's `--pass` is `#000f01`, so a
-  // 54% mix of it into a light canvas lands a mid-gray under near-black ink (2.48:1).
+  // The `chart/status-pill-*` LIGHT arm used to be frozen here — 19 pairs, worst
+  // `concrete|pass` at 2.48:1 — with a long note arguing it carried no regression and
+  // wanted its own change. Both halves of that argument turned out to be wrong, and the
+  // entries are gone rather than re-frozen (#1807):
   //
-  // The DARK arm of the same gradient WAS retuned in place (48%/64% -> 42%/54%) because
-  // that arm carried a REGRESSION — a real sub-AA finding on a rendered `--player`
-  // export (gallery-jargon p50, crepuscolo, "on-track", 4.40:1). The light arm carries
-  // no regression: it fails identically before that change, and no swept deck reaches
-  // it — which is why 139 decks of player-contrast surfaced the dark arm and none of
-  // these.
+  //   · it DID carry a regression, and nothing could see it. This file's regression arm
+  //     ranks root blocks by specificity, so the status trio's since-retired `:root:root`
+  //     copy won the base-wins reference map too and both arms resolved the same value.
+  //     The arm was vacuous for the trio from the moment that copy landed, and these
+  //     surfaces were added straight into the blind spot. Removing the copy surfaced 18
+  //     real regressions, every one of them a pair from this group.
+  //   · the fix was a percentage after all: 33%/54% -> 18%/30%, the light arm's twin of
+  //     the dark retune, taking the worst pair to 4.72:1. Both gradient stops are modelled
+  //     now — the 0% one was itself sub-AA at 4.38:1 and listed nowhere.
   //
-  // Fixing it is a DIFFERENT change, and a visible one: the light end has to come down
-  // from 54% to <=30% for the worst pair to clear, which restyles every status pill on
-  // every palette in light mode. That wants its own visual sign-off (QUALITY BAR), not
-  // a number nudged inside a regression fix. Tracked as #1807.
-  // ── chart/status-pill-fail (light) ── 12
-  ['atelier-dark|light|chart/status-pill-fail', 3.94],
-  ['atelier|light|chart/status-pill-fail', 3.94],
-  ['brina-dark|light|chart/status-pill-fail', 3.54],
-  ['brina|light|chart/status-pill-fail', 3.54],
-  ['burgundy-dark|light|chart/status-pill-fail', 4.28],
-  ['burgundy|light|chart/status-pill-fail', 4.28],
-  ['concrete-dark|light|chart/status-pill-fail', 4.32],
-  ['concrete|light|chart/status-pill-fail', 4.32],
-  ['laguna-dark|light|chart/status-pill-fail', 3.16],
-  ['laguna|light|chart/status-pill-fail', 3.16],
-  ['mustard-dark|light|chart/status-pill-fail', 3.90],
-  ['mustard|light|chart/status-pill-fail', 3.90],
-  // ── chart/status-pill-pass (light) ── 7
-  ['carbone|light|chart/status-pill-pass', 4.42],
-  ['concrete-dark|light|chart/status-pill-pass', 2.48],
-  ['concrete|light|chart/status-pill-pass', 2.48],
-  ['cuoio-dark|light|chart/status-pill-pass', 3.43],
-  ['cuoio|light|chart/status-pill-pass', 3.43],
-  ['laguna-dark|light|chart/status-pill-pass', 4.11],
-  ['laguna|light|chart/status-pill-pass', 4.11],
+  // engineering/decisions/2026-08-24-status-trio-single-root.md
   // ── checklist/fail-row ── 1
   ['carbone|light|checklist/fail-row', 2.14],
   // ── kpi/hero-pass-pill ── 1
@@ -774,18 +729,19 @@ const ROOT_COMPOUND = /^(?::root|:root:root|:where\(:root\))(?:\[[^\]]*\]|:(?!:)
  * palettes that had already escaped it, and it would score a re-curated trio as
  * inert on the one path where it is the whole point.
  *
- * "PHANTOM" IS TOO KIND FOR THOSE 13, and an earlier version of this note called
- * them pairs "on an arm that renders correctly". They are not. `--panel-edge-mark`
- * is declared ONLY at `:root:root` in ardesia / atelier / concrete / onyx, and this
- * change's own measurement is that `:root:root` is inert on the packed engine path —
- * so the Studio and the docs Playground resolve base's `var(--accent)` there, which
- * on onyx IS `--surface-inverse`: `light-dark(#000000, #FFFFFF)` against a black
- * panel, 1.00:1, no visible edge. This arm now reports 3.66 for a surface that
- * renders at 1.00. The specificity fix is still right — it makes the EXPORT arm
- * truthful, which is what it models — but the four palettes need the `:root` half
- * too, and that is #1797, not this change (pre-existing, off this diff's path,
- * HARD RULE #18's found-not-caused arm). `:where(:root)` is 0 and loses to everything,
- * which is what it is for.
+ * BOTH OF THOSE MOTIVATING CASES ARE GONE, and the ranking is kept anyway. #1527
+ * flipped the concat — the engine sheet loads FIRST now, so a plain `:root` palette
+ * declaration wins the export on source order and needs no bump — and #1797 moved
+ * `--panel-edge-mark` to plain `:root` in all four palettes, closing the 1.00:1 onyx
+ * panel edge this docblock used to describe as live. `checkPackedRootReach` fails any
+ * theme custom property declared above plain `:root`, so no palette should present a
+ * ranked tie again.
+ *
+ * It stays because the ranking is what makes the arm TRUTHFUL rather than lucky: a flat
+ * merge would be wrong the moment anything reintroduces the shape, and it would be wrong
+ * silently, which is the failure mode this whole file exists to catch. `:where(:root)`
+ * is 0 and loses to everything, which is what it is for.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md
  */
 function rootSpecificity(compound) {
   // `:where()` contributes ZERO — but only for what is INSIDE it. `:where(:root):root` is
@@ -918,9 +874,14 @@ function mergedVars(theme, { baseWins = false } = {}) {
   for (const f of paletteChainFiles(theme)) parseRootVars(fs.readFileSync(f, 'utf8'), palette);
   const bundle = bundleVars();
   if (!baseWins) return { ...bundle.vars, ...palette.vars };
-  // EXPORT ORDER. The bundle is concatenated last, so it wins every tie — but a
-  // tie is what source order decides, and specificity outranks it. A palette
-  // declaration at a HIGHER root specificity (`:root:root`) still paints.
+  // THE BASE-WINS REFERENCE MAP. It is NOT "what the export does" any more — since #1527
+  // the export loads the engine sheet first and the palette wins there too. What this arm
+  // models is the REGRESSION question: is a palette's curated value worse than the base
+  // default it overrides? Specificity still outranks source order in it, and that is
+  // load-bearing in a way that bit once: while the status trio carried a `:root:root`
+  // copy, the copy won THIS map too, both arms resolved the same value, and the regression
+  // arm was silently vacuous for the trio. Removing the copy surfaced 18 real regressions.
+  // engineering/decisions/2026-08-24-status-trio-single-root.md
   const out = { ...palette.vars };
   for (const [k, v] of Object.entries(bundle.vars)) {
     if ((palette.spec[k] ?? -1) <= (bundle.spec[k] ?? 0)) out[k] = v;

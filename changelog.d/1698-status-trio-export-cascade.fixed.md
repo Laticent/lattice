@@ -10,7 +10,7 @@
   wins the engine (Studio, docs Playground) and export-to-Marp paths, while
   `:root:root` survives that rewrite literally — inert there — and wins the
   unpacked CLI export on specificity. Confirmed on all three, including under
-  real marp-cli. `checkStatusTrioParity` fails the build if the two blocks drift.
+  real marp-cli.
 - **Fixed: three inks that only fail on a surface no token table can see.**
   `--code-inline-fg`'s dark arm on brina / burgundy / crepuscolo / cuoio /
   laguna / mustard (the inline-code chip inside a `kanban` card, whose fill lifts

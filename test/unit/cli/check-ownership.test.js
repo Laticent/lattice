@@ -3340,3 +3340,114 @@ describe('check-ownership: checkDanglingTokenReads (#1688)', () => {
     // live-tree test above is what proves no row here has rotted.
   });
 });
+
+describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)', () => {
+  const { rootDeclSites, checkPackedRootReach } = require('../../../tools/check-ownership.js');
+  const fsx = require('node:fs');
+  const osx = require('node:os');
+  const pathx = require('node:path');
+  const fixture = (files) => {
+    const dir = fsx.mkdtempSync(pathx.join(osx.tmpdir(), 'packed-root-'));
+    for (const [name, body] of Object.entries(files)) fsx.writeFileSync(pathx.join(dir, name), body);
+    return dir;
+  };
+
+  test('rootDeclSites separates a plain `:root` from a repeated one', () => {
+    const { plain, overSpecific } = rootDeclSites(':root { --a: 1; --b: 2 }\n:root:root { --b: 2; --c: 3 }\n');
+    assert.deepEqual([...plain].sort(), ['--a', '--b']);
+    assert.deepEqual([...overSpecific.entries()].sort(), [['--b', ':root:root'], ['--c', ':root:root']]);
+  });
+
+  test('a token declared ONLY above plain `:root` is the #1797 defect and is REPORTED', () => {
+    // An earlier cut of this test asserted `errors.length === 0` on an array nothing wrote
+    // to, under a name claiming the error path was covered. It exercised the parser and
+    // certified the gate. `checkPackedRootReach` reads themes/ on disk, so the error path
+    // is driven here by pointing ROOT's themes dir at a fixture.
+    const dir = fixture({ 'probe.css': ':root:root { --panel-edge-mark: red }' });
+    try {
+      const errors = [];
+      checkPackedRootReach(errors, dir);
+      assert.equal(errors.length, 1, 'the ONLY-there branch must emit');
+      assert.match(errors[0], /--panel-edge-mark is declared ONLY at `:root:root`/);
+      assert.match(errors[0], /inert on every PACKED path/);
+    } finally { fsx.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('a token declared at BOTH is the dead-weight branch, and it emits its own message', () => {
+    const dir = fixture({ 'probe.css': ':root { --x: 1 }\n:root:root { --x: 1 }' });
+    try {
+      const errors = [];
+      checkPackedRootReach(errors, dir);
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /--x is declared at BOTH/);
+      assert.match(errors[0], /dead weight since #1527/);
+    } finally { fsx.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('a LIVE arm in a selector list means the declaration reaches — not a finding', () => {
+    // The first cut flagged any list with a repeated-`:root` part, which is a FALSE
+    // POSITIVE in the worse direction: it blocks a theme whose token demonstrably paints.
+    // Measured through the real packer, `:root:root, section` becomes
+    //   `…:not([\20 root]):root, article.lattice > section`
+    // whose SECOND arm matches every slide. Inert requires EVERY part to be inert.
+    assert.deepEqual([...rootDeclSites(':root:root, section { --l: 1 }').overSpecific.keys()], []);
+    // …and a list of only-inert parts is still caught.
+    assert.deepEqual([...rootDeclSites(':root:root, :root:root:root { --m: 1 }').overSpecific.keys()], ['--m']);
+  });
+
+  test('a comma INSIDE :is()/:not()/:where() or an attribute value is not a list separator', () => {
+    // Splitting the raw string on `,` treated `:is(.foo, :root:root, .bar)` as three parts
+    // and reported the middle one. Top-level splitting only.
+    assert.deepEqual([...rootDeclSites(':is(.foo, :root:root, .bar) { --y: 2 }').overSpecific.keys()], []);
+    assert.deepEqual([...rootDeclSites('[data-sel="a,:root:root"] { --u: 6 }').overSpecific.keys()], []);
+  });
+
+  test('the plain-`:root` side is list-aware too, so a live plain arm counts', () => {
+    // Asymmetric before: `over` split on commas while `plain` matched the whole selector,
+    // so `:root, section.print { --v }` plus a `:root:root` copy reported "declared ONLY at
+    // :root:root — declare it at plain :root", which it already was.
+    assert.deepEqual([...rootDeclSites(':root, section.print { --v: 5 }').plain], ['--v']);
+  });
+
+  test('the envelope is stated and held: conditional and zero-specificity roots are NOT judged', () => {
+    // `:root.print` / `:root[data-x]` are conditional overrides — a different contract —
+    // and `:where(:root)` is the zero-specificity default. None is the inert shape.
+    const { overSpecific } = rootDeclSites(
+      ':root.print { --a: 1 }\n:root[data-x] { --b: 2 }\n:where(:root) { --c: 3 }\n:root :root { --d: 4 }\n',
+    );
+    assert.deepEqual([...overSpecific.keys()], []);
+  });
+
+  test('`color-scheme` is out of scope because its COMPETITOR differs, and a11y-base needs BOTH halves', () => {
+    // Not "the one legitimate use of the shape". The exemption is a statement about what
+    // the pin has to outrank, and the two surfaces defeat it in opposite ways:
+    //   · unpacked CLI export — the rival is the deck's own `style:` directive, emitted
+    //     LAST by construction, so no concat order helps and specificity is the only lever;
+    //   · packed paths — the rival is the preview frame's injected `:root{color-scheme}`,
+    //     and the PLAIN half wins by landing directly on the <section>, which beats an
+    //     inherited value whatever its specificity.
+    // Measured on a real component reference page (a `single-slide-render.ts` frame, which
+    // injects its own `:root{color-scheme:MODE}`): with `:root:root` alone all four a11y
+    // palettes followed that injected dark scheme and painted rgb(0,0,0) where their fixed
+    // canvas should be white. NOT the Playground — its frame injects nothing and its dark
+    // mode swaps to a `-dark` theme the a11y palettes do not have.
+    const { overSpecific } = rootDeclSites(':root:root { color-scheme: light; }');
+    assert.deepEqual([...overSpecific.keys()], [], 'the gate must not judge color-scheme');
+    const src = fsx.readFileSync(pathx.join(__dirname, '..', '..', '..', 'themes', 'a11y-base.css'), 'utf8');
+    assert.match(src, /^:root \{ color-scheme: light; \}$/m,
+      'the PLAIN half is what reaches a packed render — without it the a11y palettes follow the dark toggle');
+    assert.match(src, /^:root:root \{ color-scheme: light; \}$/m,
+      'the DOUBLED half is what outranks an author style: directive on the unpacked export');
+  });
+
+  test('a docblock naming the selector in prose is not mistaken for a rule', () => {
+    const { overSpecific } = rootDeclSites('/* this `:root:root { --x: 1 }` is only an explanation */\n:root { --x: 1 }\n');
+    assert.deepEqual([...overSpecific.keys()], []);
+  });
+
+  test('LIVE TREE — no shipped palette declares a custom property above plain `:root`', () => {
+    const errors = [];
+    checkPackedRootReach(errors);
+    assert.deepEqual(errors, [], errors.join('\n'));
+  });
+});

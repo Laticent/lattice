@@ -141,10 +141,18 @@ describe('the palette wins the cascade on the export path', () => {
 
       // THE VACUITY GUARD, measured rather than assumed — and an earlier cut of this
       // got it wrong in a way worth keeping. It counted tokens the two FILES spell
-      // differently and required four. But #1789 declares the status trio a second time
-      // at `:root:root`, which is (0,2,0) and therefore beats the bundle in EITHER order,
-      // so `--pass`/`--warn`/`--fail` are spelled differently and resolve identically:
+      // differently and required four. But #1789 declared the status trio a second time
+      // at `:root:root`, which is (0,2,0) and therefore beat the bundle in EITHER order,
+      // so `--pass`/`--warn`/`--fail` were spelled differently and resolved identically:
       // three of the four could be order-BLIND and the guard would still read satisfied.
+      //
+      // That duplicate is gone (2026-08-24-status-trio-single-root.md): once THIS flip
+      // landed, plain `:root` won the export on source order and the second declaration
+      // was inert weight. So the trio is order-SENSITIVE again and these three are live
+      // discriminators rather than passengers — the removal makes this test stronger, not
+      // weaker, which is a large part of why the duplicate was retired rather than kept
+      // as belt-and-braces. The guard below stays exactly as it is: it does not care
+      // WHICH tokens discriminate, only that enough of them do.
       //
       // So the discriminators are found by inverting the real document: move the palette
       // region back in front of the engine bundle, re-read, and count what actually

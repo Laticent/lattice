@@ -102,6 +102,16 @@ CVD-safe values exist to be seen on.
 `engineering/gotchas/marp.md` documents this class for `:root[…]`. A `:root` residue is
 strictly worse than an attribute residue — an attribute can at least match a section.
 
+> **SUPERSEDED, 2026-08-24 — the table below describes the PRE-FLIP tree.** #1527 landed
+> (`2026-08-24-palette-cascade-flip.md`) and the export now loads the engine sheet FIRST, so
+> plain `:root` wins the CLI export on source order. Re-measured on all four paths at once,
+> the `:root` column is clean and the doubled form is dead weight everywhere — under real
+> marp-cli the `:root:root`-only variant is the one that paints BASE's trio. The duplicate is
+> removed from all 18 palettes and `checkStatusTrioParity` is retired in favour of
+> `checkPackedRootReach`. The current table, the readings behind it and what the removal
+> unmasked: **`2026-08-24-status-trio-single-root.md`**. What follows is kept as the record of
+> why the doubled form was correct while the concat ran the other way.
+
 **Neither form reaches all three paths, so the trio is declared at both.** Measured, not
 reasoned — `--pass` read off a real render on each path:
 
@@ -114,8 +124,9 @@ reasoned — `--pass` read off a real render on each path:
 `:root` wins the packed paths on source order (`composeCss` inlines the base at the theme's
 own `@import 'lattice'`, above); `:root:root` wins the unpacked CLI path on specificity and
 is harmlessly dead on the others. `checkStatusTrioParity` in `tools/check-ownership.js`
-fails the build if the two blocks drift, because a palette shipping two different greens
-depending on which surface a reader is looking at is exactly what this pair prevents.
+failed the build if the two blocks drifted, because a palette shipping two different greens
+depending on which surface a reader is looking at is exactly what this pair prevented.
+*(Retired 2026-08-24 with the pair itself — see the note at the head of this section.)*
 
 **This is still not the #1527 flip and still does not prejudge it.** The flip changes the
 order for the whole palette region — 36 tokens, 99 distinct changed renderings, a repair

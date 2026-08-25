@@ -286,13 +286,19 @@ function parseThemeVars(css) {
   const clean = css
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/@import\s+(?:url\([^)]*\)|"[^"]*"|'[^']*')\s*[^;]*;/g, '');
-  // THREE tiers, not two, and the third is not decoration. `:root:root` is (0,2,0)
-  // and a palette reaches for it exactly when its value MUST outrank the engine
-  // default on the CLI export path, where the bundle is concatenated after the
-  // palette (`--panel-edge-mark`, and the status trio as of #1698). Matching the
-  // selector WHOLE — which is right, and is what keeps a descendant rule out — means
-  // `:root:root` fell through the `isRoot` test entirely, so the doubled block was
-  // invisible here while it was the winning declaration everywhere else.
+  // THREE tiers, not two. The third one is now empty of custom properties by contract
+  // and is kept deliberately. `:root:root` is (0,2,0), and palettes reached for it while
+  // the CLI export concatenated the engine bundle AFTER the palette — matching the
+  // selector WHOLE (which is right, and is what keeps a descendant rule out) meant the
+  // doubled block fell through the `isRoot` test entirely, invisible here while it was
+  // the winning declaration everywhere else. #1527 flipped that concat and
+  // `checkPackedRootReach` now FAILS a theme custom property declared above plain
+  // `:root`, so nothing should reach tier 2 today. It stays because the ranking is what
+  // makes that true rather than lucky: drop the tier and a re-introduced doubled block
+  // goes back to being silently invisible here, which is the failure this was written
+  // for. (`a11y-base`'s `color-scheme` pin is still doubled and still legitimate — a
+  // different competitor — but it is not a custom property, so it never reaches this.)
+  // engineering/decisions/2026-08-24-status-trio-single-root.md
   const tiers = [new Map(), new Map(), new Map()];   // :where(:root) < :root < :root:root
   for (const m of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = m[1].trim();
