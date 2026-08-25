@@ -1,0 +1,32 @@
+{
+  "note": "Committed baseline for the Studio edit→paint loop — the number a person feels. Refresh with `npm run perf:frame:bless`, compare with `npm run perf:frame:check`. Timing gates ONLY on a machine matching `blessedOn`; a metric must break BOTH tolerancePct AND its floorMs to fail, so sub-millisecond jitter cannot redden it. A null metric was not measurable on the blessing run and is skipped.",
+  "tolerancePct": 25,
+  "floorMs": {
+    "lcpMs": 300,
+    "framePatchMs": 2,
+    "frameWriteMs": 8,
+    "totalPatchMs": 4,
+    "totalWriteMs": 12,
+    "engineMs": 2
+  },
+  "config": {
+    "url": "/studio",
+    "cpu": 4,
+    "net": "none",
+    "runs": 5
+  },
+  "blessedOn": {
+    "node": "v22",
+    "platform": "linux/x64",
+    "cpus": 4,
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
+  },
+  "metrics": {
+    "lcpMs": 1467,
+    "framePatchMs": 1.3,
+    "frameWriteMs": null,
+    "totalPatchMs": 11.1,
+    "totalWriteMs": null,
+    "engineMs": 3.4
+  }
+}
