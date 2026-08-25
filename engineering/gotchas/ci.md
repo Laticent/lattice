@@ -142,7 +142,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   --sequence.seed=11`. It reproduces on the file ALONE in seconds; no full run is
   needed. The failure text is an element that cannot be found, or a boolean that
   is the exact opposite of what the test set up.
-- **Cause:** Two mechanisms, both of which make a case silently depend on a
+- **Cause:** Three mechanisms, each of which makes a case silently depend on a
   sibling having run first. Neither is the cross-file state leakage the flaky-docs
   cards hypothesize — these are *intra*-file, deterministic given a seed, and a
   different class from the load-dependent timeouts in
@@ -161,11 +161,48 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
     source')` or `getByRole('button', { name: /Component/ })` passes or fails on
     which case vitest happened to schedule first — in `studio.controls` that was
     49 of 50 green and whichever drew the short straw red.
-  A third mechanism, in `read-aloud.test.ts`, is the INVERSE of the first: a
-  describe that `vi.doMock`s a dependency and `vi.doUnmock`s it in `afterEach`
-  removes the file's HOISTED mock along with its own. That one is #1814, still
-  open — so `--sequence.shuffle.tests` is green suite-wide on seeds 11 and 42 but
-  not on 3001 or 999.
+  - **`vi.doUnmock` removes the file's HOISTED mock too**, not just the local
+    `vi.doMock` it was written to undo — the registration is keyed by resolved
+    path, and `doUnmock` deletes the entry rather than popping a layer. This is
+    the INVERSE of the first mechanism and it was `read-aloud.test.ts`'s (#1814,
+    fixed). **It only bites a dependency reached by DYNAMIC `import()`**, which is
+    why it can hide for so long: a static import is bound once at file load, while
+    `read-aloud.ts` reaches `voice-model.js` only through `import()` (its
+    `getVoice()` singleton, `listTtsCatalog`, `listTtsModels`), so each call
+    re-resolves against the *current* registry and quietly got the REAL module.
+    The failures read as a spy called 0 times or a highlight that never advanced —
+    they do not look like a mocking problem at all. The fix is to **restore**, not
+    unmock: extract the hoisted factory to a named `function` (declarations hoist,
+    so `vi.mock`'s own hoisting still finds it) and `vi.doMock(path, thatFactory)`
+    in `afterEach`. Note that *not* cleaning up is not an option either — the local
+    `doMock` would then outlive its describe.
+  A file's own comments can point at the wrong one of these: `read-aloud.test.ts`
+  blamed the module-level singleton in `read-aloud.ts`, which is the reason those
+  describes call `vi.resetModules()` at all but is NOT what leaked across cases.
+  Attribute by mutation, not by reading — breaking each of that file's two restores
+  separately reproduced exactly one of the two failing seeds each (999 → 10 failed,
+  3001 → 8 failed), which is what proved both load-bearing and the singleton a decoy.
+- **Do NOT read a red full-suite shuffle run as "another ordering bug".** All three
+  mechanisms above are *intra*-file and DETERMINISTIC given a seed, so the diagnostic
+  that separates them from everything else costs seconds: **run the one file alone at
+  that seed.** If it is green alone and red in the suite, ordering is not your
+  problem — you are looking at the separate load-dependent `asyncUtilTimeout` flake
+  (#1324/#1471), which is intermittent, moves between tests run to run, and **appears
+  in UNSHUFFLED runs too**. Measured while closing #1814: four consecutive full runs
+  failed a *different* test each time (`studio.findings-fix` ×2, then
+  `studio.controls` "deterministic Coach chips"), and the last of those was on clean
+  `main` with no shuffle flag at all. So one green full shuffled run is not evidence
+  the suite is order-independent, and one red one is not evidence it isn't; the
+  per-file runs are what carry the claim.
+- **A `setup()` that awaits NO boundary leaves the first cross-boundary wait exposed.**
+  The helpers below work because every later read finds the pane already resolved — so the
+  budget only has to live on the ONE wait that crosses the split first. A file whose
+  `setup()` merely renders (`StudioShell.test.tsx`) has no such wait, which makes whichever
+  assertion happens to touch Fabricate or the Editor first the one paying the cold transform
+  on the 1000 ms default. That file was a third member of the #1471 flake pool, named in
+  neither that card nor #1324, and surfaced once in 20 full runs — so when you budget one of
+  these, check whether the file has a helper doing it for you or whether the raw assertion is
+  the boundary.
 - **Mitigation:** Wait for the pane in the shared setup helper (`editorReady`,
   `openFabricate` in
   [studio.controls.test.tsx](../docs/src/components/studio/studio.controls.test.tsx)),
@@ -183,17 +220,45 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   inside the factory cannot see a loader that lost its memo entirely — that
   assertion was vacuous and passed under mutation. Count namespace reads through a
   getter instead.
-- **Before you push a `docs/` test change, run `cd docs && npm run typecheck`.**
-  The pre-push hook runs `lint`, `lint:deck:all`, `build:check` and the root
-  `npm test` — it runs **neither `typecheck` nor the docs vitest suite**, both of
-  which live only in CI's `docs-build`. So a TypeScript-only error under `docs/`
-  passes every local gate and every hook, and first appears as a red required
-  check. Making one `setup()` helper `async` did exactly that: four sibling
-  helpers typed `user: ReturnType<typeof setup>` silently became
-  `Promise<UserEvent>`, which no test run can see because it is types-only. The
-  fix is `Awaited<ReturnType<typeof setup>>`; the lesson is that `npm test` green
-  is not evidence about `docs/`.
+- **A `docs/` TYPE error still passes the docs vitest suite — but the pre-push
+  hook now catches it.** As of the `docs-typecheck` job, pre-push runs
+  `tsc --noEmit` over the docs workspace whenever a push touches `docs/`
+  (~36-40s; skipped otherwise). Before that job existed, pre-push ran only
+  `lint`, `lint:deck:all`, `build:check` and the root `npm test` — **none of
+  which typecheck `docs/`**, because biome does not typecheck and vitest strips
+  types via esbuild without checking them, so the error first appeared as a red
+  required check in CI's `docs-build`. Two things that have NOT changed: the
+  docs **vitest** suite still runs only in CI, and the new job is scoped to
+  `docs/` pushes, so a root-`lib/` change that breaks docs types (docs imports
+  root `lib/` directly) still reaches you only via CI.
+  The case that motivated the job: making one `setup()` helper `async` silently
+  retyped four sibling helpers declared `user: ReturnType<typeof setup>` as
+  `Promise<UserEvent>` — invisible to every test run, because it is types-only.
+  The fix is `Awaited<ReturnType<typeof setup>>`; the lesson that outlives it is
+  that a green `npm test` is not evidence about `docs/`.
 - **Triggered by:** Any run with `--sequence.shuffle.tests`; otherwise latent.
   Found while working #1324.
 - **Removable when:** Nothing upstream — this is a test-authoring hazard, not a
   dependency defect.
+
+## A Playwright test for a settling-round race passes on the broken code
+
+- **Symptom:** You fix a race where an async round lands *behind* a user action and wipes what it
+  produced, then write a real-browser test for it — per HARD RULE #23, since the claim is about
+  what a person sees. The test passes. It also passes with the fix reverted.
+- **Cause:** In a real browser the round has already settled by the time a click can land. The
+  ordering that produces the bug — click first, round second — needs the round held open, and
+  nothing in a real page lets you hold it. Measured while porting the Coach quick-read fixes: a
+  Playwright test that clicked a chip and then waited for the assessment to complete passed
+  identically against the shipped fix and against the pre-fix unconditional clear.
+- **What to do instead.** Pin the ORDERING in jsdom, where the round can be hand-released — the
+  pattern in `docs/src/components/studio/studio.coach-card-race.test.tsx` (#1840) and
+  `studio.coach-card.test.tsx` (the chip's own in-flight window). Spend the real-browser test on a
+  claim a browser can actually falsify: a rendering, a layout, a control that must exist. Splitting
+  it that way is not a concession — a real-browser test that cannot fail is worse than no test,
+  because it reads in the PR as the strongest evidence in the diff.
+- **The tell:** before believing any test that covers a race, revert the fix and watch it fail.
+  If it still passes, it is pinning the harness rather than the defect. This applies with more
+  force to e2e than to unit tests, because e2e is slow enough that nobody re-runs it idly.
+- **Triggered by:** Porting the #1471 work onto #1840.
+- **Removable when:** Nothing upstream — this is a property of real browsers.

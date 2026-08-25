@@ -467,7 +467,15 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
 		await user.click(await screen.findByText('Fabricate'));
-		expect(await screen.findByPlaceholderText(/Describe a look/i)).toBeInTheDocument();
+		// An EXPLICIT budget, not the 1000ms `asyncUtilTimeout` default. This file's `setup()`
+		// awaits no lazy boundary, so THIS is the first wait in the file to cross Fabricate's
+		// `React.lazy` split (StudioShell.tsx:113) — it is waiting on Vite transforming a module,
+		// not on a state update, and under full-suite load that runs past 1000ms. Same reason
+		// `openFabricate` in studio.controls.test.tsx carries one; this file never got the
+		// treatment and stayed a 1-in-20 red in a full run (#1471). #1806 asks for exactly this
+		// narrow per-call fix rather than a global `asyncUtilTimeout` bump, which would slow every
+		// genuine failure in the suite to buy one test its grace.
+		expect(await screen.findByPlaceholderText(/Describe a look/i, undefined, { timeout: 15000 })).toBeInTheDocument();
 		expect(screen.getByText('Essentials')).toBeInTheDocument();
 	});
 

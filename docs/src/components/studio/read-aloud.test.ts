@@ -62,34 +62,51 @@ vi.mock('@/lib/suono', () => ({
 		},
 	}),
 }));
-vi.mock('@/playground/voice-model.js', () => ({
-	createVoiceModel: () => ({
-		synthOne: async () => ({ rung: voiceState.rung, bytes: null, key: 'test-key' }),
-		speakThis: () => {},
-		warm: () => {},
-		stop() {},
-		pause() {},
-		resume() {},
-		rung: () => voiceState.rung,
-		orModel: () => 'test/model',
-		orVoice: () => 'test-voice',
-		// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
-		// (the label's non-alphanumerics collapse away), which the calibration tests below assert on.
-		kokoroVoice: () => '',
-		speedPref: () => 1,
-		synthSample: synthSampleSpy,
-		// The two explicit-identity entry points the webpage export bakes through. Recorded
-		// rather than stubbed flat, so a test can see EXACTLY what the wrapper passed down.
-		clipKeyFor: (o: Record<string, unknown>) => {
-			clipKeyForCalls.push(o);
-			return JSON.stringify([o.rung, o.model, o.voice, o.speed, o.text]);
-		},
-		synthFor: async (o: Record<string, unknown>) => {
-			synthForCalls.push(o);
-			return { ok: true, bytes: { size: 8 }, key: 'k' };
-		},
-	}),
-}));
+// The file's voice-model stub, as a NAMED factory rather than an inline arrow.
+//
+// Two describes below need their OWN voice-model for one test (a constructor that
+// throws; one that resolves on a gate), so they `vi.doMock` over this one. What they
+// must NOT do is `vi.doUnmock` to clean up: `doUnmock` drops the module's mock
+// registration ENTIRELY — this hoisted `vi.mock` included — so the next dynamic
+// `import('@/playground/voice-model.js')` resolves the REAL module. `read-aloud.ts`
+// reaches voice-model only through dynamic imports (its `getVoice()` singleton at
+// :203, `listTtsCatalog` at :1211, `listTtsModels` at :1249), so every later test
+// that touches the top-level import silently ran against the real voice model.
+// In declaration order those describes run last and nothing observes the aftermath;
+// under `--sequence.shuffle.tests` they can run first, which is #1814.
+// Naming the factory lets them RESTORE it (`vi.doMock(path, voiceModelStub)`) instead.
+// A `function` declaration, so `vi.mock`'s hoisting still finds it.
+function voiceModelStub() {
+	return {
+		createVoiceModel: () => ({
+			synthOne: async () => ({ rung: voiceState.rung, bytes: null, key: 'test-key' }),
+			speakThis: () => {},
+			warm: () => {},
+			stop() {},
+			pause() {},
+			resume() {},
+			rung: () => voiceState.rung,
+			orModel: () => 'test/model',
+			orVoice: () => 'test-voice',
+			// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
+			// (the label's non-alphanumerics collapse away), which the calibration tests below assert on.
+			kokoroVoice: () => '',
+			speedPref: () => 1,
+			synthSample: synthSampleSpy,
+			// The two explicit-identity entry points the webpage export bakes through. Recorded
+			// rather than stubbed flat, so a test can see EXACTLY what the wrapper passed down.
+			clipKeyFor: (o: Record<string, unknown>) => {
+				clipKeyForCalls.push(o);
+				return JSON.stringify([o.rung, o.model, o.voice, o.speed, o.text]);
+			},
+			synthFor: async (o: Record<string, unknown>) => {
+				synthForCalls.push(o);
+				return { ok: true, bytes: { size: 8 }, key: 'k' };
+			},
+		}),
+	};
+}
+vi.mock('@/playground/voice-model.js', voiceModelStub);
 const clipKeyForCalls: Record<string, unknown>[] = [];
 const synthForCalls: Record<string, unknown>[] = [];
 
@@ -309,11 +326,15 @@ describe('useReadAloud — audio-clock sync', () => {
 // loop never runs a frame before the mode is known. That moved the "always runs" floor
 // out of play()'s synchronous body — this guards the fallback that keeps it true when
 // the voice model fails to load entirely. Uses its own module instance (resetModules)
-// because `read-aloud.ts`'s voice-model promise is a file-wide singleton the earlier
-// tests in this file have already resolved.
+// because `read-aloud.ts`'s voice-model promise is a file-wide singleton, which any
+// case that plays resolves for the whole file — so this one cannot reuse the top-level
+// import and still see a FAILING load. That singleton is why the reset is here; it is
+// NOT what used to leak between cases. The leak was the `vi.doUnmock` this afterEach
+// used to call (#1814) — see voiceModelStub.
 describe('useReadAloud — resilience when the voice model fails to load', () => {
 	afterEach(async () => {
-		vi.doUnmock('@/playground/voice-model.js');
+		// RESTORE the file's stub, never `vi.doUnmock` — see voiceModelStub above (#1814).
+		vi.doMock('@/playground/voice-model.js', voiceModelStub);
 		vi.resetModules();
 	});
 
@@ -350,7 +371,8 @@ describe('useReadAloud — resilience when the voice model fails to load', () =>
 // resume() or the pending getVoice().then() callback gets there second.
 describe('useReadAloud — pause/resume during the voice-arming window', () => {
 	afterEach(async () => {
-		vi.doUnmock('@/playground/voice-model.js');
+		// RESTORE the file's stub, never `vi.doUnmock` — see voiceModelStub above (#1814).
+		vi.doMock('@/playground/voice-model.js', voiceModelStub);
 		vi.resetModules();
 	});
 

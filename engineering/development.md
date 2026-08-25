@@ -252,6 +252,15 @@ Configuration in `lefthook.yml`.
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
+- `docs-typecheck` — `tsc --noEmit` over the docs workspace (~36-40s), skipped
+  when a push touches no `docs/` files. It is here because a docs TYPE error is
+  invisible to every other local gate — biome does not typecheck, and vitest
+  strips types via esbuild without checking them — so it used to surface only as
+  a red required check in CI's `docs-build`. **Known gap:** `docs/src` imports
+  root `lib/` directly, so a root-lib change can break docs types without
+  tripping this guard; CI's `docs` paths-filter (which also lists `lib/` and
+  `themes/`) still covers that. Widening the guard to match would put ~36s on
+  nearly every engine push.
 - `unit-tests` — full unit suite
 - `integration-tests` — full cross-renderer parity + PDF page-count tier.
   Skipped when a push touches no render-relevant files (the job mirrors CI's

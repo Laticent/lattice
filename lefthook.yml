@@ -119,6 +119,42 @@ pre-push:
       # The CI build / stale-artifact gate. Deterministic (no rendering),
       # fast. Catches "edited a generator source, forgot to rebuild dist/".
       run: npm run build:check
+    - name: docs-typecheck
+      # `tsc --noEmit` over the docs workspace. This is the one gate that lives
+      # ONLY in CI's docs-build and had no local equivalent, so "everything green
+      # locally" was actively misleading for docs/: a TYPE error is invisible to
+      # biome AND to vitest (esbuild strips types without checking them), so lint,
+      # lint:deck:all, build:check and the root unit suite can all pass over it.
+      # Making one `setup()` helper async did exactly that — four sibling helpers
+      # typed `ReturnType<typeof setup>` silently became `Promise<UserEvent>` and
+      # the breakage first appeared as a red required check. See
+      # engineering/gotchas/ci.md § "A docs test passes in declaration order".
+      #
+      # Placed here on purpose: ~36-40s, so it runs after the cheap deterministic
+      # gates (lint 3s, lint-deck 1s, build:check 13s) and before the ~108s unit
+      # suite, keeping this hook fail-fast cheap-first.
+      #
+      # Path guard — same shape as integration-tests below, deliberately scoped to
+      # docs/ ONLY: this is worth ~36s when you actually touched docs/, not on an
+      # engine- or deck-only push that cannot produce a docs type error.
+      # KNOWN GAP, stated rather than papered over: docs/src imports root `lib/`
+      # directly (e.g. `../../../../lib/core/resolve-spectrum.js`), so a root-lib
+      # change CAN break docs types and this guard will not fire on it. That case
+      # stays with CI's docs-build, which is why ci.yml's `docs` paths-filter also
+      # lists lib/ and themes/. Mirroring that filter here would put 36s on nearly
+      # every engine push — the tax this scoping exists to avoid.
+      # Fail OPEN — if the merge-base/diff can't resolve, run it.
+      run: |
+        base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+        run_it=1
+        if [ -n "$base" ] && files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
+          printf '%s\n' "$files" | grep -qE '^docs/' || run_it=0
+        fi
+        if [ "$run_it" = 1 ]; then
+          npm --prefix docs run typecheck
+        else
+          echo "docs-typecheck: skipped — no docs/ changes vs origin/main"
+        fi
     - name: unit-tests
       # Safety net: full unit suite runs before push regardless of what
       # pre-commit's affected-tests ran.
