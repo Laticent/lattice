@@ -31,10 +31,12 @@ async function openStage(page: import('@playwright/test').Page, context: import(
 	await expect(dialog).toBeVisible();
 
 	// A ≥ md affordance: the launcher is `hidden … md:inline-flex`, because a phone has no
-	// second screen to stage onto. This file carries no width tag, so today only `desktop`
-	// runs it — the guard is here so that tagging it onto a narrow project later SKIPS
-	// rather than fails, and it is keyed on the control actually being offered rather than
-	// on a width, so it tracks the breakpoint instead of a number copied out of the CSS.
+	// second screen to stage onto. The guard is keyed on the control actually being OFFERED
+	// rather than on a width, so it tracks the breakpoint instead of a number copied out of
+	// the CSS — and that is what makes tagging a cell onto a narrower project safe: it skips
+	// rather than fails. One cell now carries `@webkit-tablet` (1180px, so the launcher is
+	// offered) because the hand-close silence rests on a platform timing fact that does not
+	// transfer between engines.
 	const launcher = dialog.getByRole('button', { name: 'Stage' });
 	test.skip((await launcher.count()) === 0, 'the Stage is not offered below the md breakpoint');
 
@@ -395,7 +397,14 @@ test('a site palette change does not blink the presenter view off', async ({ pag
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
 });
 
-test('a Stage the presenter closes by hand reverts the console — and says nothing about it', async ({ page, context }) => {
+// @webkit-tablet — TAGGED ONTO A SECOND ENGINE, because the silence this cell asserts rests on a
+// PLATFORM TIMING FACT and those do not transfer. The classifier reads `window.closed`, which a
+// hand-closed window flips only AFTER its own unload beat lands: 10ms on Chromium, 1ms on WebKit,
+// measured. A 600ms grace calibrated against one browser is a claim that is true until it is not,
+// so the headline behavior is driven on two. (Firefox is not tagged and could not be: the Stage's
+// opener handshake never arrives there at all — a pre-existing defect written up in §13 of the
+// decision note, which also bounds what this change delivers on that engine.)
+test('a Stage the presenter closes by hand reverts the console — and says nothing about it @webkit-tablet', async ({ page, context }) => {
 	const { stage, dialog, launcher } = await openStage(page, context);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
 

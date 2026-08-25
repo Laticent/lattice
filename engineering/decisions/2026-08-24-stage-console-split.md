@@ -894,7 +894,10 @@ is not. Sampling the flip at 10ms granularity:
 | Firefox | — | — | **never delivered** |
 
 Chromium and WebKit are comfortably inside 600ms and preserve the asymmetry the design rests on.
-Firefox is a different finding entirely, and it is not this change's:
+**And the headline cell is now DRIVEN on both** — it carries `@webkit-tablet`, so "a Stage the
+presenter closes by hand says nothing" is a real-surface result on two engines rather than a
+Chromium result plus a timing argument. Firefox is a different finding entirely, and it is not
+this change's:
 
 > **PRE-EXISTING, OFF-PATH, AND BIGGER THAN THIS PR (HARD RULE #18 — logged, not pulled in).**
 > On Firefox the Stage's opener handshake **never arrives at all**. `window.opener` is set and
