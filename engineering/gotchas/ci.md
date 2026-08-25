@@ -240,3 +240,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Found while working #1324.
 - **Removable when:** Nothing upstream — this is a test-authoring hazard, not a
   dependency defect.
+
+## A Playwright test for a settling-round race passes on the broken code
+
+- **Symptom:** You fix a race where an async round lands *behind* a user action and wipes what it
+  produced, then write a real-browser test for it — per HARD RULE #23, since the claim is about
+  what a person sees. The test passes. It also passes with the fix reverted.
+- **Cause:** In a real browser the round has already settled by the time a click can land. The
+  ordering that produces the bug — click first, round second — needs the round held open, and
+  nothing in a real page lets you hold it. Measured while porting the Coach quick-read fixes: a
+  Playwright test that clicked a chip and then waited for the assessment to complete passed
+  identically against the shipped fix and against the pre-fix unconditional clear.
+- **What to do instead.** Pin the ORDERING in jsdom, where the round can be hand-released — the
+  pattern in `docs/src/components/studio/studio.coach-card-race.test.tsx` (#1840) and
+  `studio.coach-card.test.tsx` (the chip's own in-flight window). Spend the real-browser test on a
+  claim a browser can actually falsify: a rendering, a layout, a control that must exist. Splitting
+  it that way is not a concession — a real-browser test that cannot fail is worse than no test,
+  because it reads in the PR as the strongest evidence in the diff.
+- **The tell:** before believing any test that covers a race, revert the fix and watch it fail.
+  If it still passes, it is pinning the harness rather than the defect. This applies with more
+  force to e2e than to unit tests, because e2e is slow enough that nobody re-runs it idly.
+- **Triggered by:** Porting the #1471 work onto #1840.
+- **Removable when:** Nothing upstream — this is a property of real browsers.

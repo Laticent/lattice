@@ -258,6 +258,18 @@ const PREVIEW_MIN = PREVIEW_CHROME.splitPreviewMin;
 // tells them nothing. See the staleness effects in the shell body.
 const FINDINGS_DERIVED_CHIPS = new Set(['top', 'weak']);
 
+// `assessDeck` refuses to assess a deck with no classed slide (`hasContent`, K1: never fabricate
+// a grade), and returns `findings: []` for it — which means "not looked at", NOT "no problems
+// found". `topFixes([])` and `weakestSlide([])` cannot tell those apart: both answer "Nothing
+// flagged — every slide follows the authoring contract". On a plain-Markdown deck that sat one
+// inch below a Board readiness card correctly reporting the same deck as unassessed, so the panel
+// contradicted itself and the chip was the half that lied. Only the two FINDINGS_DERIVED_CHIPS
+// can do this; `structure`, `ask` and `pacing` read the source directly and are honest either way.
+const unassessedCard = (id: string): CoachCard => ({
+	title: id === 'top' ? 'Top fixes' : 'Weakest slide',
+	body: ['Nothing to rank yet — I haven’t assessed this deck. Add a slide with a `_class` directive and I’ll read it.'],
+});
+
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
 type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
 
@@ -2079,6 +2091,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The active deterministic Coach chip result card (one open at a time). No model.
 	const [coachCard, setCoachCard] = React.useState<{ id: string; card: CoachCard } | null>(null);
 	const [talkMinutes, setTalkMinutes] = React.useState<number | null>(null);
+	// Bumped by anything that supersedes an in-flight chip answer — another chip, the toggle,
+	// Close. `theAsk`, `structureCheck` and `pacing(src, minutes)` all await a lazily-imported
+	// chunk, so a click stays in flight long enough for the user to act again.
+	const chipRunRef = React.useRef(0);
 	// Per-finding fix lifecycle, keyed by finding IDENTITY (findingKeys) — not list index.
 	// Keying by identity is what lets an open/in-flight fix SURVIVE a re-lint: editing
 	// another slide re-runs the assessment, but a finding that persists keeps its fix
@@ -2928,15 +2944,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const scoreIntent = (band?: string): 'pass' | 'review' | 'fix' | 'info' => (!band ? 'info' : /^A/.test(band) ? 'pass' : /^[BC]/.test(band) ? 'review' : 'fix');
 	const runChip = async (id: string) => {
 		if (coachCard?.id === id && id !== 'pacing') {
+			chipRunRef.current++;
 			setCoachCard(null);
 			return;
 		}
+		// Without this token the late answer wrote unconditionally, so a card the user had CLOSED
+		// came back from the dead, and an older chip's answer overwrote the chip they clicked
+		// last — chip highlight included, since `coachCard?.id` drives it.
+		const token = ++chipRunRef.current;
 		let card: CoachCard;
-		if (id === 'top') card = topFixes(findings);
+		// Claim "not assessed" only once a round has actually FINISHED and come back with nothing:
+		// `!assessing` as well as the flag and an empty findings list. While a round is in flight
+		// the honest answer is not yet known, and saying so would be its own overclaim — and a
+		// findings array with entries in it is proof the deck was assessed whatever the flag
+		// currently reads, since the two are published by the same round and can be observed out
+		// of step. Both narrowings were caught by studio.coach-card-race.test.tsx (#1840), which
+		// parks the round and injects findings directly.
+		if (!assessing && !deckHasContent && !findings.length && FINDINGS_DERIVED_CHIPS.has(id)) card = unassessedCard(id);
+		else if (id === 'top') card = topFixes(findings);
 		else if (id === 'weak') card = weakestSlide(findings);
 		else if (id === 'ask') card = await theAsk(source);
 		else if (id === 'structure') card = await structureCheck(source);
 		else card = await pacing(source, talkMinutes ?? undefined);
+		if (chipRunRef.current !== token) return;
 		setCoachCard({ id, card });
 	};
 	const CHIPS: [string, string][] = [
@@ -3009,7 +3039,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<div className="mt-2 rounded-lg border border-border bg-background px-2.5 py-2">
 						<div className="flex items-center justify-between gap-2">
 							<span className="text-[12px] font-semibold text-foreground">{coachCard.card.title}</span>
-							<button type="button" onClick={() => setCoachCard(null)} aria-label="Close"><X className="size-3 text-muted-foreground" /></button>
+							<button type="button" onClick={() => { chipRunRef.current++; setCoachCard(null); }} aria-label="Close"><X className="size-3 text-muted-foreground" /></button>
 						</div>
 						<ul className="mt-1 space-y-1 text-[11.5px] leading-snug text-muted-foreground">
 							{coachCard.card.body.map((b, i) => (
@@ -3030,7 +3060,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 											const v = Number((e.target as HTMLInputElement).value);
 											if (v > 0) {
 												setTalkMinutes(v);
-												pacing(source, v).then((card) => setCoachCard({ id: 'pacing', card }));
+												((t) =>
+													pacing(source, v).then((card) => {
+														if (chipRunRef.current !== t) return;
+														setCoachCard({ id: 'pacing', card });
+													}))(++chipRunRef.current);
 											}
 										}
 									}}
