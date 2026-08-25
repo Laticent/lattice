@@ -187,12 +187,56 @@ test('a turn that fails while the panel is CLOSED is waiting when it reopens (#1
 	holding = false;
 	release();
 
-	// No sheet over a shell whose chat panel is shut…
-	await expect(page.getByRole('dialog').filter({ hasText: 'Workspace' })).toHaveCount(0);
-
-	// …and the answer is waiting when they come back. Before the fix this was their own
-	// question with nothing after it, and no explanation anywhere in the app.
+	// The answer is waiting when they come back. Before the fix this was their own question
+	// with nothing after it, and no explanation anywhere in the app.
 	await page.getByRole('button', { name: CHROME.chat }).click();
 	await expect(page.getByText('Tighten slide two.')).toBeVisible();
 	await expect(page.getByText(/and I can answer and edit your deck/), 'the turn failed while the panel was shut and said nothing, anywhere').toBeVisible();
+
+	// ONLY NOW the absence check. Asserted straight after `release()` it resolved ~7ms in,
+	// against an outcome that was not observable for ~88ms — an absence assertion evaluated
+	// before the thing it denies could exist (checker N3). The line above is the gate.
+	await expect(page.getByRole('dialog').filter({ hasText: 'Workspace' }), 'a sheet opened over a shell whose chat panel was shut').toHaveCount(0);
+});
+
+// AND THE HARDER HALF: closed and REOPENED before the turn lands (checker N1). Parking the
+// notice was not enough — a park only sampled at mount or on a deck change never reaches a
+// panel that is already open on the same deck, so this flow still ended in silence. The
+// store publishes now. This is the case that was still failing on the real Studio one round
+// after the "fix", which is why it gets its own real-surface pin rather than a unit test.
+test('a turn that fails after the panel closes AND reopens is not lost (#1813)', async ({ page }) => {
+	let release: () => void = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	let holding = true;
+	let heldNow = false;
+	await page.route(/architect-model\.[^/]*\.js/, async (route) => {
+		if (holding) {
+			heldNow = true;
+			await held;
+			heldNow = false;
+		}
+		await route.continue();
+	});
+
+	await gotoStudio(page);
+	await page.getByRole('button', { name: CHROME.chat }).click();
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('Tighten slide two.');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+	expect(heldNow, 'no architect-model request is being held — the turn is not blocked, so this proves nothing').toBe(true);
+
+	// Coach and straight back — a NEW panel instance, same deck, turn still in flight.
+	await page.getByRole('button', { name: CHROME.coach }).click();
+	await expect(page.getByText('Board readiness')).toBeVisible();
+	await page.getByRole('button', { name: CHROME.chat }).click();
+	await expect(page.getByText('Tighten slide two.')).toBeVisible();
+
+	holding = false;
+	release();
+
+	// It has to arrive at the panel that is ALREADY OPEN — nothing will sample for it.
+	await expect(page.getByText(/and I can answer and edit your deck/), 'the notice was parked but never reached the panel that was already open').toBeVisible();
+	await expect(page.getByRole('dialog').filter({ hasText: 'Workspace' })).toHaveCount(0);
 });

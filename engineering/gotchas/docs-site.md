@@ -161,18 +161,21 @@ owe nothing here. See
 - **Cause, part one:** an island rendered `client:load` ships its HTML in the
   document. Presence proves the SERVER ran, nothing about the client. React does
   not replay an event that fired before hydration, so the click is dropped on the
-  floor rather than queued. Measured on `/playground/?view=edit`: the Galleries
-  trigger is in the DOM at ~50–85ms and nothing is wired to it until ~380–540ms —
-  a 294–481ms window on an idle machine, wider on a busy one.
+  floor rather than queued. Measured on `/playground/?view=edit` across two
+  independent runs: the Galleries trigger is in the DOM at ~40–90ms and nothing is
+  wired to it until ~310–540ms — a window of roughly **230–480ms** idle, and wider
+  on a busy machine. The spread is profile-dependent; the window's existence is not.
 - **Cause, part two, and this is the trap inside the trap:** the obvious fix — wait
-  for `<astro-island>` to drop its `ssr` attribute — is **also too early, by about
-  100ms.** `@astrojs/react`'s client calls `startTransition(() => hydrateRoot(…))`,
-  which returns immediately; the island's `await this.hydrator(...)` therefore
-  resolves and it removes `ssr` while React has not yet committed. Measured with the
-  island's JS delayed: `ssr` dropped **81–118ms** (n=8) before the first click that
-  actually worked under phone emulation, and 31–70ms on a desktop context in an
-  independent re-measurement. The magnitude moves with the profile; the sign never
-  does — `ssr` is never late.
+  for `<astro-island>` to drop its `ssr` attribute — is **also too early.**
+  `@astrojs/react`'s client calls `startTransition(() => hydrateRoot(…))`, which
+  returns immediately; the island's `await this.hydrator(...)` therefore resolves and
+  it removes `ssr` while React has not yet done its work. Measured with the island's
+  JS delayed: `ssr` dropped roughly **30–70ms** before React's per-node marker
+  appeared (31–70ms desktop, 39–48ms phone, two independent runs). Take the ordering
+  as the finding — `ssr` was never late in any run — and the magnitude as an
+  illustration. An earlier probe reported 81–118ms by timing `ssr` → the first
+  synthetic click that worked, but it clicked on every frame and so perturbed the
+  hydration it was timing; that figure is an upper bound from the method, not the gap.
 - **Fix:** `controlReady` in `docs/e2e/studio-fixture.ts` requires BOTH — the island
   has dropped `ssr`, AND the control's own DOM node carries React's per-node marker
   (`__reactFiber$…` / `__reactProps$…`). Be precise about that second one: React

@@ -243,20 +243,26 @@ export function currentSlide(page: Page): Locator {
  * so the island's `await this.hydrator(...)` resolves and it drops `ssr` while React has not yet
  * done its work, and a click in that window is still swallowed.
  *
- * HOW EARLY depends on the profile, so take the ORDERING as the finding and the magnitude as an
- * illustration: on the Playground's Galleries trigger, `ssr` dropped **81–118ms** (n=8) before the
- * first click that actually opened the sheet under `devices['Pixel 5']` emulation, and an
- * independent re-measurement on a desktop context put the same gap at 31–70ms. Different numbers,
- * same sign, every run: `ssr` is never late.
+ * HOW EARLY: take the ORDERING as the finding and the magnitude as an illustration. Measured on
+ * the Playground's Galleries trigger, `ssr` dropped roughly **30–70ms** before React's per-node
+ * marker appeared — 31–70ms on a desktop context and 39–48ms under `devices['Pixel 5']`, two
+ * independent runs. `ssr` was never late, in any run of either.
+ *
+ * A NOTE ON THE NUMBER YOU MIGHT EXPECT TO SEE HERE. An earlier probe put this at 81–118ms by
+ * measuring `ssr` → the first synthetic click that actually opened the sheet. That probe clicked
+ * the control on EVERY animation frame until one worked, which perturbs the very hydration it is
+ * timing — so treat its figure as an upper bound produced by the measurement, not as the gap. The
+ * marker-based number above is the one to quote; both agree on the sign, which is the part the
+ * gate rests on.
  *
  * The second condition is React's OWN per-node marker, `__reactFiber$…` / `__reactProps$…`. Be
  * precise about what that proves: React assigns them in `completeWork` — the RENDER phase, not
- * the commit — so in principle the marker can precede the commit, and this is a behavioral gate,
- * not a proof. What earns it is the measurement: the marker landed in the SAME FRAME as the first
- * working click in every run of both re-measurements above. It is a React internal, deliberately:
- * the alternative is a per-surface app signal, and there isn't one that covers every control this
- * helper is pointed at. The failure direction is safe — if a React upgrade renamed it, this poll
- * TIMES OUT LOUDLY rather than certifying an unwired control.
+ * the commit — so in principle the marker can precede the commit. This is a behavioral gate, not
+ * a proof, and the honest statement of the evidence is that the marker has never been observed
+ * EARLIER than a click starting to work. It is a React internal, deliberately: the alternative is
+ * a per-surface app signal, and there isn't one that covers every control this helper is pointed
+ * at. The failure direction is safe — if a React upgrade renamed it, this poll TIMES OUT LOUDLY
+ * rather than certifying an unwired control.
  * (Consequence: this helper is for REACT controls. A non-React island control never satisfies it.)
  *
  * Scope of the claim: this CLOSES A MARGIN, it does not fix an observed failure at the three

@@ -74,12 +74,56 @@ type ChatNotice = { deck: string; kind: 'offline' | 'blocked' | 'error'; text: s
 //
 // Keyed BY DECK, which also settles a second defect: one slot meant a send on deck-2 wiped
 // a notice deck-1 was still waiting to show. A map holds each deck's own.
+// IT HAS TO BE OBSERVABLE, NOT SAMPLED. The first version of this parked the notice and
+// then called the DEAD instance's setter; a live reader only ever picked the park up at
+// mount or on a deck change. Close the panel mid-turn and reopen it on the SAME deck and
+// neither happens — the notice sits in the map, invisible, and the author is back to their
+// own question with nothing after it. That is the original bug one click further in
+// (checker N1), which is why this is a store with subscribers rather than a cache.
 const pendingNotices = new Map<string, ChatNotice>();
+const noticeListeners = new Set<() => void>();
+
+// A per-deck turn counter, so a notice cannot arrive from a turn that has been SUPERSEDED.
+// `run()` clears the deck's park at its start, but a turn that was already in flight
+// resolves afterwards and would park its failure under the newer turn's reply — a stale
+// "something went wrong" sitting beneath an answer that worked (checker N2). Reachable only
+// because the notice now outlives the panel: a remounted panel resets `busy`, so a second
+// turn can be sent while the first is still running.
+const deckTurnSeq = new Map<string, number>();
+
+function subscribeNotices(fn: () => void): () => void {
+	noticeListeners.add(fn);
+	return () => {
+		noticeListeners.delete(fn);
+	};
+}
+
+function publishNotices() {
+	for (const fn of noticeListeners) fn();
+}
+
+// Park a notice for its deck and tell every live reader. `seq` is the turn counter this
+// turn captured at send: if the deck has moved on since, the turn has been superseded and
+// its failure is not news any more — dropping it is what stops a stale "something went
+// wrong" landing under a later reply that worked.
+function raiseNotice(deck: string, seq: number, kind: ChatNotice['kind'], text: string) {
+	if (deckTurnSeq.get(deck) !== seq) return;
+	pendingNotices.set(deck, { deck, kind, text });
+	publishNotices();
+}
+
+// Apply runs SYNCHRONOUSLY from a click on the rendered deck, so there is no turn to be
+// superseded by — it claims the deck's current sequence rather than matching one.
+function raiseApplyNotice(deck: string, text: string) {
+	raiseNotice(deck, deckTurnSeq.get(deck) ?? 0, 'error', text);
+}
 
 /** Test seam. Module state outlives a `render()`, so a suite that never cleared this would
  *  carry one case's failure into the next. Not used by the app. */
 export function __clearPendingNotices() {
 	pendingNotices.clear();
+	deckTurnSeq.clear();
+	publishNotices();
 }
 
 export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
@@ -98,28 +142,22 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// transcript. Filtered at the render (`live`), never cleared on the switch, so switching
 	// BACK shows the reply still arriving rather than a blank turn (#1787, checker F1).
 	const [streaming, setStreaming] = React.useState<{ deck: string; text: string } | null>(null);
-	// An EPHEMERAL notice (offline / blocked / error), CARRYING THE DECK IT BELONGS TO.
-	// NEVER persisted as an assistant turn — a persisted notice would re-enter the model
-	// history and be re-sent. The deck travels with it for the same reason it travels with
-	// `streaming`: a turn keeps completing across a deck switch, so one that started on
-	// deck-1 and ends while deck-2 is on screen would otherwise paint deck-1's "connect a
-	// model" / "blocked" / "something went wrong" into deck-2's transcript. Filtered at the
-	// render (`shownNotice`) and parked in `pendingNotices` — so coming BACK still shows what
-	// that turn actually produced, whether the author changed deck or shut the panel,
-	// instead of a deck that silently swallowed its own failure (#1813).
-	const [notice, setNotice] = React.useState<ChatNotice | null>(() => pendingNotices.get(deckId) ?? null);
+	// An EPHEMERAL notice (offline / blocked / error). NEVER persisted as an assistant turn —
+	// a persisted notice would re-enter the model history and be re-sent. It is read from the
+	// module store rather than held in state, keyed by THIS deck: a turn keeps completing
+	// across a deck switch and across the panel closing, so the answer has to be waiting
+	// wherever the author comes back to, and has to reach a reader that is already on screen
+	// (#1813, checker N1). `useSyncExternalStore` makes all three the same code path — mount,
+	// deck change, and a park that lands while this instance is live.
+	const notice = React.useSyncExternalStore(
+		subscribeNotices,
+		() => pendingNotices.get(deckId) ?? null,
+		() => null,
+	);
 	const [pulse, setPulse] = React.useState(0);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const refDoc = useReferenceDoc(notify, onManageDocs);
 	const status = useArchitectStatus(pulse);
-	// Every notice goes through here: parked for its deck FIRST (so it survives an unmount),
-	// then handed to the render. `setNotice` on a dead component is a no-op — the park is
-	// what carries it.
-	const raiseNotice = (deck: string, kind: ChatNotice['kind'], text: string) => {
-		const n: ChatNotice = { deck, kind, text };
-		pendingNotices.set(deck, n);
-		setNotice(n);
-	};
 
 	const deckIdRef = React.useRef(deckId);
 	deckIdRef.current = deckId;
@@ -145,7 +183,6 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		};
 	}, []);
 	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
-	React.useEffect(() => setNotice(pendingNotices.get(deckId) ?? null), [deckId]);
 	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
@@ -176,9 +213,13 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		};
 		setBusy(true);
 		// Only this deck's. A new turn supersedes the last failure on the deck it is sent
-		// from; it says nothing about a notice another deck is still waiting to show.
+		// from; it says nothing about a notice another deck is still waiting to show. The
+		// bumped sequence is what a turn already in flight will fail to match when it
+		// resolves later, so it cannot park its failure under this turn's answer.
+		const turnSeq = (deckTurnSeq.get(sendDeckId) ?? 0) + 1;
+		deckTurnSeq.set(sendDeckId, turnSeq);
 		pendingNotices.delete(sendDeckId);
-		if (deckIdRef.current === sendDeckId) setNotice(null);
+		publishNotices();
 		const controller = new AbortController();
 		abortRef.current = controller;
 		bufferRef.current = '';
@@ -198,7 +239,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
 			if (out.status === 'offline') {
-				raiseNotice(sendDeckId, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
+				raiseNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
@@ -219,12 +260,12 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				// whatever deck the author has moved to — #1813 again, wearing a hat.
 				if (mountedRef.current && deckIdRef.current === sendDeckId) onConnect();
 			} else if (out.status === 'blocked') {
-				raiseNotice(sendDeckId, 'blocked', out.reply);
+				raiseNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
 				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined }]);
 			}
 		} catch {
-			raiseNotice(sendDeckId, 'error', 'Something went wrong reaching the model — try again.');
+			raiseNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
 		} finally {
 			abortRef.current = null;
 			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
@@ -288,7 +329,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
 		// standing so they can Discard it deliberately.
 		if (!outcome.applied) {
-			raiseNotice(deckId, 'error', outcome.refusals[0] || "That edit couldn't be applied to this deck.");
+			raiseApplyNotice(deckId, outcome.refusals[0] || "That edit couldn't be applied to this deck.");
 			return;
 		}
 		onApply(outcome.source);
@@ -296,7 +337,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
 		// were refused is the same false claim, just smaller.
 		if (outcome.refusals.length) {
-			raiseNotice(deckId, 'error', outcome.refusals[0]);
+			raiseApplyNotice(deckId, outcome.refusals[0]);
 			// BLOCKS on both sides of the "of" — `slides` is a different unit and summing them
 			// produced counts describing nothing that existed (checker).
 			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);
@@ -316,10 +357,9 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// `!busy` is part of "empty": without it a deck with no history showed the *nothing has
 	// happened here* placeholder while the composer showed Stop — a contradiction on screen
 	// (checker F2). A turn in flight elsewhere leaves this transcript blank, not reassuring.
-	// A notice belongs to the deck whose turn produced it — the same filter as `live`, for
-	// the same reason. Applied here rather than by clearing on the switch so the notice is
-	// still there when the author returns to the deck that failed.
-	const shownNotice = notice && notice.deck === deckId ? notice : null;
+	// Already this deck's — the store is keyed by deck, so there is nothing left to filter.
+	// Named apart from `notice` only because the render below reads it twice.
+	const shownNotice = notice;
 	const empty = messages.length === 0 && live === null && !shownNotice && !busy;
 
 	return (

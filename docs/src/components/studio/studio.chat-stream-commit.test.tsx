@@ -400,3 +400,56 @@ describe('Architect chat — a failed turn is still there when the panel reopens
 		expect(screen.queryByText(OFFLINE), 'a stale failure notice survived a turn that succeeded on the same deck').toBeNull();
 	});
 });
+
+// SECOND CHECKER ROUND. Parking the notice fixed "close the panel mid-turn"; it did not fix
+// "close it and open it straight back", because a park was only ever SAMPLED — at mount, or
+// on a deck change. Reopen on the same deck and neither happens, so the notice sat in the
+// map, invisible, and the author was back to their own question with nothing after it: the
+// original bug one click further in (N1). The store publishes to live readers now.
+//
+// N2 came with it: a remounted panel resets `busy`, so a second turn can be sent while the
+// first is still running — and the first would then park its failure UNDER the second's
+// answer. Each turn captures the deck's sequence at send and drops its notice if the deck
+// has moved on.
+describe('Architect chat — a parked notice reaches a reader already on screen (#1813 follow-on)', () => {
+	it('shows the notice when the panel was closed AND reopened before the turn landed', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		const { unmount } = render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		// Coach, then straight back to Chat — still mid-turn, same deck. A fresh instance
+		// mounts while the map is still empty, so nothing it samples at mount can help it.
+		unmount();
+		render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+
+		await turn.release();
+		await flushFrames();
+		expect(screen.getByText(OFFLINE), 'the notice was parked but never reached the panel that was already open').toBeTruthy();
+		expect(onConnect, 'the sheet fired at a panel that had been unmounted when the turn ended').not.toHaveBeenCalled();
+	});
+
+	it("drops a superseded turn's failure instead of parking it under a later reply", async () => {
+		const user = userEvent.setup();
+		const { unmount } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const slow = deferredOutcome({ throws: true });
+		await sendOnce(user, 'first ask');
+
+		// The remount is what makes this reachable: `busy` is panel state, so the fresh
+		// instance shows Send again and a second turn can go out under the first.
+		unmount();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const quick = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'second ask');
+		await quick.release();
+		await flushFrames();
+		expect(screen.getByText(REPLY)).toBeTruthy();
+
+		// The FIRST turn now fails, long after it stopped being the current one.
+		await slow.release();
+		await flushFrames();
+		expect(screen.queryByText(/Something went wrong reaching the model/), "a superseded turn's failure landed under the reply that succeeded").toBeNull();
+		expect(screen.getByText(REPLY), 'the successful reply was disturbed').toBeTruthy();
+	});
+});
