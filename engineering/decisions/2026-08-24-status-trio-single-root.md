@@ -367,14 +367,29 @@ Stated precisely, because getting this wrong once already cost a correction.
 - **Driven on the real running site**: a component reference page served by `npm run dev`,
   with the site's own palette and mode controls, at site-dark. Before `rgb(0,0,0)`, after
   `rgb(255,255,255)`, for all four `a11y-*` palettes. This is the artifact the claim rests on.
-- **NOT driven on the deployed build.** The branch's Cloudflare preview exists, but headless
-  Chromium cannot reach an external host through this sandbox's egress proxy (`curl` can;
-  the browser's tunnel resets). The production bundle differs from the dev server only in
-  bundling and asset hashing, neither of which touches cascade order — but that is an
-  argument, not a measurement, so the deployed surface is **UNVERIFIED**.
-- **The Studio proper** (`/studio`) was not driven either. It imports the same
-  `single-slide-render` builder as the page that was driven, so it should follow; again an
-  inference. **UNVERIFIED.**
+- **DRIVEN ON THE DEPLOYED BUILD AND THE STUDIO PROPER — by the owner, not by this session.**
+  Both were marked UNVERIFIED here because headless Chromium cannot reach an external host
+  through this sandbox's egress proxy and the Studio had only been inferred from a shared
+  builder. The owner drove the branch's Cloudflare preview on mobile Safari: the Studio at
+  `a11y-deuteranopia` with the **mode control** set to dark renders the slide canvas WHITE.
+  That is the pin holding, on the deployed artifact, on the real Studio, on a real device —
+  the three things this note could not reach. Confirmed the palette by comparison rather than
+  by the status line: the checklist rows are a11y-deuteranopia's blue-grey, not cuoio's cream.
+
+  **One observation from that session, unverified and recorded as such:** the Studio's status
+  line read `cuoio · dark` while `a11y-deuteranopia` was rendering, the deck's front-matter
+  `theme:` having won. That may be correct — a picker reporting picker state — or a display
+  inconsistency. Nobody has measured it.
+
+- **A deck-level `color-mode: dark` is NOT this pin's business, and the first attempt to verify
+  hit that.** The verification deck said "must stay WHITE in dark mode" without saying which
+  dark. Rendered with `color-mode: dark` in front matter, every canvas is black — correctly:
+  that key stamps `section.dark` on every slide, the same mechanism as `_class: dark`, which
+  `a11y-achromatopsia.css` names as the FIRST of the seams that deliberately reach past the
+  pin (#1323). An explicit author instruction outranks a palette preference. Measured on
+  `origin/main` with this branch absent: byte-identical, so the branch changes nothing there.
+  Recorded because the ambiguity was in the instructions, not the engine, and a reader
+  checking this pin will meet the same fork.
 
 ## 7. What this does NOT fix
 
