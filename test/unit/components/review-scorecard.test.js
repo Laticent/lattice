@@ -269,6 +269,37 @@ describe('scorecard: every penalty term actually deducts', () => {
     assert.ok(cat(errs, 'contract').score < cat(warns, 'contract').score, 'an error must cost more than a warning');
   });
 
+  // Contract's 0.0%-variance figure on the committed corpus is a SAMPLING ARTIFACT, not
+  // evidence that the category is dead weight — `lint:deck:all` is `--all --strict` and
+  // gates CI + pre-push, so a deck carrying any lint finding cannot be committed and
+  // Contract is pinned to 100 there BY CONSTRUCTION (measured: 0 findings across 198
+  // committed decks and 164 historical revisions). The population this scorer actually
+  // runs against is a DRAFT in the editor, and there it discriminates — driven on the
+  // real Studio Coach, a half-typed class name read 93 and an unterminated comment 72.
+  //
+  // An earlier docblock summed Contract's row with Pacing's and concluded "47.6% of the
+  // weight graded nothing", which is wrong about Contract and would argue for cutting a
+  // weight that is carrying real signal. This pins the property that makes that reading
+  // false, so it cannot quietly come back: across a realistic ladder of draft findings,
+  // Contract must take at least three DISTINCT values and be strictly monotonic.
+  test('contract discriminates across draft states — it is not a corpus constant', () => {
+    const clean = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
+    const ladder = [
+      [],
+      [{ rule: 'x', severity: 'warning' }],
+      [{ rule: 'x', severity: 'warning' }, { rule: 'y', severity: 'warning' }],
+      [{ rule: 'x', severity: 'error' }],
+      [{ rule: 'x', severity: 'error' }, { rule: 'y', severity: 'error' }],
+    ];
+    const scores = ladder.map((l) => cat(card(clean, l), 'contract').score);
+    assert.ok(new Set(scores).size >= 3, `contract must take >=3 distinct values across drafts, got ${scores.join(', ')}`);
+    for (let i = 1; i < scores.length; i++) {
+      assert.ok(scores[i] < scores[i - 1], `contract must fall monotonically: ${scores.join(' > ')}`);
+    }
+    assert.equal(scores[0], 100, 'a lint-clean draft is the ceiling');
+    assert.ok(scores.at(-1) > 0, 'and the floor is never reached — the curve saturates, it does not clamp');
+  });
+
   // THE inversion a red team constructed. Cosmetic overruns must never outweigh slides
   // that genuinely overrun their prose budget, however many of them there are.
   test('no pile of cosmetic nits can outrank a deck of walls of text', () => {
