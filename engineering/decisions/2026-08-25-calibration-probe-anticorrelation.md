@@ -133,6 +133,15 @@ Until one is chosen, read `index` deltas in this file's history with the probe
 value beside them; a large `index` move with no corresponding `ms` move is the
 probe, not the engine.
 
+**Tracked as #1856.** It is not merely a follow-up: the bless that produced these
+numbers (#1852) is **held** pending a re-bless on a box that matches the committed
+baseline, and how reachable such a box is depends on which exit above is taken.
+Note that a matching probe is not sufficient on its own — `comparableMachine()`
+tests `sameFingerprint()` FIRST, and that compares the CPU model string, so the
+re-bless needs a box reporting `Intel(R) Xeon(R) Processor @ 2.10GHz` *and* a probe
+within ±15% of 2.75ms. The sandbox class that produced this session reported
+`@2.80GHz`.
+
 ## Also found, not fixed
 
 No browser-tier check block sets `won`. `won` is assigned only inside the render
@@ -140,4 +149,7 @@ loop (`test/benchmark/engine-bench.mjs`), so a genuine >50% export / print / CLI
 improvement prints per row and the run still ends "Within variance band — no
 regression" instead of prompting the ratchet. Pre-existing on `main` in all three
 blocks and off the path of the bless; logged rather than pulled into the diff, per
-HARD RULE #18.
+HARD RULE #18. **Tracked as #1855.**
+
+It is the mirror of the hole #1852 closes on the other side: that one lets blessed
+rows disappear without failing the run, this one lets a genuine win go unrecorded.
