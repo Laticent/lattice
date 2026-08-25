@@ -115,6 +115,23 @@ keeping:
   judge with the semantics of the thing that will CONSUME it" rule as the second
   correction above, applied in the direction where the hoist is what hands the
   browser its bytes.
+- **And "the browser's reading" is THREE normalizations, not one.** The first cut
+  decoded escapes and stopped, which an independent checker showed is a bypass one
+  keystroke wide: `@import 'ghost ';` — a single trailing space — was still hoisted
+  to position 0 and still fetched as `/ghost` by a real Chromium. A CSS string also
+  loses a `\`+newline line continuation during tokenization (css-syntax-3 §4.3.4 —
+  `decodeCssEscapes` deliberately leaves it, and its docblock's "as CSS leaves it" is
+  true *outside* a string and false inside one, which is the only context this runs
+  in), and the URL resolver strips surrounding whitespace. Leading space, trailing
+  tab and a trailing `\a` were all measured hoisting too. The rule generalizes: when
+  you judge by a consumer's semantics, you owe **all** of that consumer's
+  normalizations, and knowing one of them is not knowing them.
+- **The decode is bounded.** `decodeCssEscapesMapped` builds a decoded copy *and* a
+  per-character index map, so an unbounded call on a multi-megabyte quoted target
+  cost 651 ms and 141 MB — on a path the live preview re-runs per keystroke.
+  `lib/core/css-scan.js` caps the same class of input at `MAX_IMPORT_STATEMENT`;
+  calling its decoder primitive directly walked around that cap. A target longer
+  than a theme name is not one, so it hoists without being decoded (5.5 ms).
 
 Scope stayed narrow on purpose: it drops a dangling NAME and does not judge a real
 URL. `@import url(…)` and quoted paths hoist exactly as before, because a theme
@@ -529,19 +546,45 @@ log them), but the design rests on them:
 - ~~**It does not gate the zip import path.**~~ **DONE (2026-08-25).** A theme
   imported from a `.zip` reached `extraTheme` with no CSS gate at all, and a shared
   `.zip` is the one path where the author and the victim are different people. The
-  refusal went in **`saveStudioTheme`**, not on the import button, and building it
-  turned up a second hole the note had not spotted: `lib/theme/gate.js` ran live in
-  Fabricate, but `canSave` never consulted it — so the blocking rung guarded a
-  PREVIEW and not the LIBRARY, and a hand-edited theme carrying a remote `url()`
-  could be saved and then applied, reaching the preview `<style>` and every export
-  by a route the paused Fabricate preview never sees. The import, the workspace
-  restore and Fabricate's own Save all meet at `saveStudioTheme`, so one guard there
-  closes all three. Only the BLOCKING rung refuses: a theme missing a contract token
-  is wrong and still renders, and refusing it would be the false indictment this note
-  argues against. Driven through the real Library door in
-  `docs/e2e/theme-import-style-sink.spec.ts`, for the reason that spec already
-  existed — a unit test of a gate cannot see whether anything calls it, and "nothing
-  calls it" was the defect.
+  refusal is per item, on the import, and it covers the **component** arm of the same
+  bundle too — that was ungated while the theme arm was not, which is the same hole in
+  the same file: hostile component CSS reaches the same preview `<style>` and every
+  export, and the intended workflow (import, then insert the skeleton) is what fires
+  it. A finish needs no gate by construction — `saveStudioFinish` discards the
+  bundle's CSS and regenerates from the recipe, which `coerceRecipe` clamps and
+  enum-checks.
+
+  **The first cut put the refusal in `saveStudioTheme`, and that was wrong — a
+  checker measured why.** The reasoning was the one that put version history in
+  `putAsset`: the import, the workspace restore and Fabricate's own Save all meet at
+  the store, so one guard covers all three. That reasoning holds for a
+  **non-destructive** action and breaks for a **refusal**, because a refusal's false
+  positives destroy work rather than pausing a preview. And the gate has false
+  positives that are not exotic — both measured against it:
+
+  | input | verdict | why |
+  |---|---|---|
+  | `:root{--code-javascript:#f0db4f}` | `blocked` | the `css-scheme` rule matches `javascript:` inside the **property name**; `.javascript:hover` trips it too |
+  | `@import 'indaco'; :root{…}` | `blocked` | a composing theme, unless the caller passes a registry — **18 of the 32 shipped themes** are blocked under the default, and Fabricate's CSS view lets an author type exactly this |
+
+  Behind a store-level refusal the first can never be saved, and inside
+  `restoreWorkspace` — which has no per-item guard and runs *after* decks and settings
+  are already merged — one such theme in your **own backup** aborts the whole restore
+  with no way to skip it. A guard meant to protect you from a stranger became a denial
+  of service on your own data. So the refusal now applies where the threat model
+  actually points, and `css-scheme` is excluded from the refusing set outright: it is
+  the rule with demonstrated false positives on a name and on a selector, and a
+  `javascript:` URL in a stylesheet cannot execute in any shipping browser, so vetoing
+  on it buys nothing and costs a legitimate import.
+
+  **The general lesson, worth more than the fix:** *where* a check lives is decided by
+  what it DOES, not by which call sites happen to converge. Convergence is an argument
+  for putting a **record** at the chokepoint; it is not an argument for putting a
+  **veto** there.
+
+  Pinned per-PR by `docs/src/components/studio/import-gate.test.ts` — the e2e that
+  drives a hostile bundle through the real Library door carries no `@smoke` tag, so it
+  runs nightly and would not have blocked a merge that deleted the guard.
 
 ## Third correction, on shipping the CSS view (2026-08-25, #1839)
 

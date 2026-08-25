@@ -30,7 +30,7 @@
  * The corpus arm below pins that the 32 shipped themes are untouched.
  *
  * See engineering/decisions/2026-08-25-hand-editing-generated-assets.md
- * §"Logged, not fixed here: the engine hoists what it cannot resolve".
+ * §"The engine hoists what it cannot resolve — FIXED (2026-08-25)".
  */
 
 const { test, describe } = require('node:test');
@@ -54,6 +54,40 @@ describe('hoistImports — a dangling theme name is dropped, a URL is hoisted', 
     // which would have handed the import back in exactly this case.
     const out = hoistImports("@import 'ghost';\n.a{color:red}");
     assert.ok(!out.includes('@import'), out.slice(0, 80));
+  });
+
+  test('drops a name the BROWSER would normalize to one — whitespace and continuations', () => {
+    // Decoding escapes is one of THREE normalizations a browser applies inside a CSS
+    // string, and getting only that one is a bypass a single keystroke wide: with the
+    // first cut, `@import 'ghost ';` was hoisted to position 0 and fetched by a real
+    // Chromium as `/ghost` — the exact request the drop exists to prevent.
+    for (const target of ["'ghost '", "' ghost'", "'ghost\t'", "'ghos\\\nt'", "'ghost\\a '"]) {
+      const out = hoistImports(`@import ${target};\n.a{color:red}`);
+      assert.ok(!out.startsWith('@import'), `${JSON.stringify(target)} was hoisted: ${out.slice(0, 40)}`);
+    }
+  });
+
+  test('drops the MINIFIED form, which carries no space after @import', () => {
+    // The whole `\s*` history in THEME_IMPORT_RE / THEME_NAME_IMPORT_RE is about this.
+    assert.ok(!hoistImports('@import"ghost";\n.a{}').includes('ghost'));
+  });
+
+  test('drops a name carrying a media / layer tail', () => {
+    for (const tail of [' screen', ' layer(x)', ' supports(display:grid)']) {
+      assert.ok(!hoistImports(`@import 'ghost'${tail};\n.a{}`).includes('ghost'), tail);
+    }
+  });
+
+  test('does NOT decode a multi-megabyte target — the cost bound', () => {
+    // `decodeCssEscapesMapped` builds a decoded copy AND a per-character index map, so
+    // an unbounded call cost 651ms / 141MB on a path the live preview re-runs per
+    // keystroke. Over the bound the target is not a name, so it hoists without decoding.
+    const huge = `@import '${'a'.repeat(2_000_000)}';\n.a{}`;
+    const t0 = process.hrtime.bigint();
+    const out = hoistImports(huge);
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(out.startsWith('@import'), 'an over-long target is not a theme name — it hoists');
+    assert.ok(ms < 150, `decoding was not bounded: ${ms.toFixed(0)}ms`);
   });
 
   test('drops a name hidden behind a CSS escape', () => {
@@ -136,8 +170,29 @@ describe('the 32 shipped themes are untouched', () => {
     }
   });
 
-  test('composeCss is a no-op change for a sheet with no imports at all', () => {
+  test('hoistImports is IDENTITY on a sheet with no imports', () => {
+    // The `hoisted.length === 0 ? (dropped ? body : css)` branch. Asserting only
+    // "contains no @import" would pass for a function that returned '' — this pins the
+    // exact string, which is what "no-op" has to mean.
+    const sheet = ':root{--x:1}\nsection{color:red}\n/* @import "prose" mentioned in a comment */';
+    assert.strictEqual(hoistImports(sheet), sheet);
+  });
+
+  test('a real url() import in a theme still survives composition', () => {
+    // The corpus arm below can only show that nothing was over-dropped for sheets that
+    // have nothing to hoist — every shipped theme imports only `lattice`, which is
+    // inlined before hoistImports runs. This is the arm that would fail if the drop
+    // ever widened to real URLs.
+    const s = new ThemeStore();
+    s.add('lattice', ':root{--base:1}');
+    s.add('withfont', "@import 'lattice';\n@import url(https://fonts.example/f.css);\n:root{--y:2}");
+    const css = s.cssFor('withfont');
+    assert.ok(css.startsWith('@import url(https://fonts.example/f.css);'), css.slice(0, 60));
+  });
+
+  test('composeCss emits no stray @import for a plain theme', () => {
     const plain = composeCss({ themeCss: ':root{--x:1}', baseLatticeCss: ':root{--b:1}' });
     assert.ok(!plain.includes('@import'));
+    assert.ok(plain.includes('--x:1'));
   });
 });

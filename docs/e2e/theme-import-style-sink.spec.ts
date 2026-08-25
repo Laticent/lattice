@@ -172,28 +172,37 @@ test('an imported theme cannot break out of the preview `<style>` (#1458, #1718)
 
 const BEACON = 'beacon.invalid';
 
-/** A bundle whose theme CSS carries a remote `url()` — the exfil rung, not a malformed file. */
-async function beaconThemeZip(): Promise<Buffer> {
+/** A bundle carrying a beaconing theme AND a clean one, so the per-item behavior shows. */
+async function mixedBundleZip(): Promise<Buffer> {
 	const { default: JSZip } = await import('jszip');
 	const zip = new JSZip();
-	const css = [
+	const beacon = [
 		'/* @theme beaconing */',
 		"@import 'lattice';",
 		`:root[data-palette="beaconing"]{--bg:#101014;--fg:#f4f4f5;--accent:#2f6feb;--leak:url(https://${BEACON}/?deck)}`,
 	].join('\n');
-	zip.file('beaconing.css', css);
+	const clean = [
+		'/* @theme wholesome */',
+		"@import 'lattice';",
+		':root[data-palette="wholesome"]{--bg:#fffdf7;--fg:#141414;--accent:#2f6feb}',
+	].join('\n');
+	zip.file('beaconing.css', beacon);
+	zip.file('wholesome.css', clean);
 	zip.file(
 		'manifest.json',
 		JSON.stringify({
 			format: 'lattice-asset/1',
-			kind: 'theme',
-			items: [{ kind: 'theme', name: 'beaconing', label: 'Beaconing', essentials: { bg: '#101014', fg: '#f4f4f5', accent: '#2f6feb' }, css: 'beaconing.css' }],
+			kind: 'bundle',
+			items: [
+				{ kind: 'theme', name: 'beaconing', label: 'Beaconing', essentials: { bg: '#101014', fg: '#f4f4f5', accent: '#2f6feb' }, css: 'beaconing.css' },
+				{ kind: 'theme', name: 'wholesome', label: 'Wholesome', essentials: { bg: '#fffdf7', fg: '#141414', accent: '#2f6feb' }, css: 'wholesome.css' },
+			],
 		}),
 	);
 	return zip.generateAsync({ type: 'nodebuffer' });
 }
 
-test('an imported theme whose CSS reaches off the device is refused, with its reason', async ({ page }) => {
+test('an imported theme whose CSS reaches off the device is refused, and a clean one beside it still lands', async ({ page }) => {
 	const hits: string[] = [];
 	await page.context().route(`**://${BEACON}/**`, (route) => {
 		hits.push(route.request().url());
@@ -203,17 +212,20 @@ test('an imported theme whose CSS reaches off the device is refused, with its re
 	await gotoStudio(page);
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.locator('input[type="file"]').first().setInputFiles({
-		name: 'beaconing.lattice-theme.zip',
+		name: 'mixed.lattice-assets.zip',
 		mimeType: 'application/zip',
-		buffer: await beaconThemeZip(),
+		buffer: await mixedBundleZip(),
 	});
 
 	// Refused, and the author is told WHY rather than left with a silent no-op — the
 	// gate's message names the construct, not just "invalid".
-	await expect(page.getByText(/Import failed/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByText(/Refused Beaconing/)).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByText(/fetches a remote resource/)).toBeVisible();
 
-	// And it did not land on the shelf.
+	// PER ITEM: the clean theme in the same bundle still imported. The whole import
+	// used to sit in one try/catch, so one hostile asset silently dropped every asset
+	// after it — and left the shelf unrefreshed, so it read as "nothing happened".
+	await expect(page.getByRole('button', { name: 'Select Wholesome' })).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByRole('button', { name: 'Select Beaconing' })).toHaveCount(0);
 	expect(hits).toEqual([]);
 });

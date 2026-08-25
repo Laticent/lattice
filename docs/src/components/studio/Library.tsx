@@ -12,6 +12,7 @@ import { componentZipName, finishZipName, packBundle, packComponent, packFinish,
 import { deleteStudioComponent, listStudioComponents, type StudioComponent, saveStudioComponent } from './component-library';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFinish } from './finish-library';
+import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
@@ -362,25 +363,46 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nThemes = 0;
 		let nComps = 0;
 		let nFinishes = 0;
+		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
+		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
+		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
+		// landed. The result was a silent partial import that the toast denied. Now a
+		// refused item is named and the rest still import.
+		const refused: ImportRefusal[] = [];
 		try {
-			// `historyLabel` — an import that lands on a name you already use REPLACES that
-			// record (the store dedupes by kind+name when no id is passed), so the version it
-			// snapshots is the one thing between a stranger's .zip and your own work. Naming it
-			// "Before import" is what makes that version findable afterwards.
 			for (const f of Array.from(files)) {
 				const { themes: ts, components: cs, finishes: fs } = await unpackBundle(f);
-				for (const t of ts) { await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' }); nThemes++; }
-				for (const c of cs) { await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' }); nComps++; }
-				// Symmetric unpack — a shared finish lands in the finish library, pickable
-				// from the Inspector Finish menu (the same consumption loop a saved finish uses).
+				// `historyLabel` — an import that lands on a name you already use REPLACES that
+				// record (the store dedupes by kind+name when no id is passed), so the version it
+				// snapshots is the one thing between a stranger's .zip and your own work.
+				for (const t of ts) {
+					const no = refuseImportedTheme(t.css, t.label || t.name);
+					if (no) { refused.push(no); continue; }
+					await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' });
+					nThemes++;
+				}
+				for (const c of cs) {
+					const no = refuseImportedComponent(c.css, c.name);
+					if (no) { refused.push(no); continue; }
+					await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' });
+					nComps++;
+				}
+				// A finish needs no CSS gate: `saveStudioFinish` DISCARDS the bundle's CSS and
+				// regenerates it from the recipe, and `coerceRecipe` clamps every number and
+				// enum-checks every keyword on the way in. Safe by construction, not by a scan.
 				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe }, { historyLabel: 'Before import' }); nFinishes++; }
 			}
-			reload();
-			onChanged();
-			notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}.`);
 		} catch (e) {
 			notify(`Import failed — ${String((e as Error)?.message || e)}`);
 		} finally {
+			// ALWAYS refresh, even on the failure path: whatever did land is on the shelf, and
+			// a stale shelf is how a partial import reads as "nothing happened".
+			reload();
+			onChanged();
+			const got = nThemes + nComps + nFinishes;
+			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}.`);
+			for (const r of refused) if (r) notify(`Refused ${r.name} — ${r.why}`);
+			if (!got && !refused.length) notify('Nothing to import from that file.');
 			setBusy(null);
 			if (fileRef.current) fileRef.current.value = '';
 		}
