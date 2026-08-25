@@ -117,20 +117,26 @@ export const PREVIEW_CHROME = {
 	padCinemaY: 12,
 	// Chrome ABOVE/BELOW the holder inside the preview pane, per stop (CSS-fixed):
 	//  read/chromeless — no preview header, a 49px read affordance below.
-	//  write/build     — 47px preview header, 81.6px slide-navigator below.
+	//  write/build     — a 45px (two-pane) / 38.2px (phone) preview header, 81.6px
+	//                    slide-navigator below.
 	headerRead: 0,
-	headerWrite: 47,
-	// The preview sub-bar is a CONTAINER query, not a viewport one: the pane is
-	// `[container-type:inline-size]`, and the lens picker keeps its text label only at
-	// `@[21rem]` (336px) and up. Below that the label drops and the bar gets shorter. That is
-	// reachable two ways — a ≤335px phone, and a splitter dragged down to the 300px preview
-	// minimum on any width — so the threshold is on the PANE width, never the viewport's.
-	// Once the label is gone the tallest thing left decides, and that differs by tier: the
-	// "Collapse preview" button exists only where the split does (tablet + desktop), so a
-	// narrow phone bar is 41px and a narrow SPLIT pane is 45px.
-	headerWriteNarrowSplit: 45,
-	headerWriteNarrowMobile: 41,
-	headerNarrowPaneW: 336,
+	// The write/build sub-bar has ONE height per tier, and the tier is the whole story: the
+	// height is set by the tallest control in the row, and the two tiers do not have the same
+	// one.
+	//   · two-pane (tablet + desktop) — the 32px `icon-sm` "Collapse preview" button, which
+	//     exists only where the split does. 32 + 12 (`py-1.5`) + 1 (`border-b`) = 45.
+	//   · phone — no collapse button, so the pills decide: 25.2 + 13 = 38.2.
+	// It used to depend on the PANE's width too, through a container query: the lens picker
+	// was `px-3 py-1.5 text-[12.5px]`, the tallest thing in the row at 34px, and it shed 6px
+	// when a narrow pane (<336px) dropped its text label. That is gone — the picker is now
+	// sized to the `Slide N / M` counter beside it (lens-picker.tsx `DENSE_PILL`), so it is
+	// 25.2px labeled AND 20px bare, under both tiers' governing control either way. Dropping
+	// the label still narrows the row; it no longer shortens it, so `headerNarrowPaneW` and
+	// the two `…Narrow…` constants it selected are retired rather than re-measured.
+	// Re-measured 2026-08-25 on the built site at 320/360/390/430/600/699 (38.2px, flat) and
+	// at 700/760/820/1024/1099/1100/1280/1440 (45px, flat).
+	headerWriteSplit: 45,
+	headerWriteMobile: 38.2,
 	footerRead: 49,
 	footerWrite: 81.6,
 	// The write/build footer is TWO stacked bands — the slide navigator on top, the deck

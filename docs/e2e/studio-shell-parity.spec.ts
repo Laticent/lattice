@@ -66,7 +66,7 @@ const CASES: {
 	 */
 	minfont?: boolean;
 }[] = [
-	{ w: 320, h: 844, stop: 'write', why: 'narrow phone — the preview sub-bar shrinks here' },
+	{ w: 320, h: 844, stop: 'write', why: 'narrow phone — the preview sub-bar drops its lens label here' },
 	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
 	{ w: 390, h: 844, stop: 'read', why: 'phone at Read — chromeless preview' },
 	{ w: 639, h: 844, stop: 'write', why: 'just below Tailwind sm' },

@@ -97,8 +97,11 @@ const CASES: Case[] = [
 	{ w: 1280, h: 720, stop: 'write', smoke: true, why: 'the shipped default — laptop, factory settings' },
 	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
 	// 320 is below the lens picker's `@[21rem]` container query, so the app's preview sub-bar
-	// is 41px there and 47px everywhere else. The shell modelled one number for both.
-	{ w: 320, h: 844, stop: 'write', why: 'phone too narrow for the lens label — the 41px sub-bar' },
+	// drops its lens label there. It used to also SHORTEN the bar (41px against 47px
+	// everywhere else) and the shell modelled one number for both. The picker is now sized to
+	// the slide counter beside it, so the label costs width and not height — this case is the
+	// guard on THAT: the phone's band is 38.2px at 320 and at 390 alike.
+	{ w: 320, h: 844, stop: 'write', why: 'phone too narrow for the lens label — the band must not shrink with it' },
 	{ w: 390, h: 844, stop: 'read', why: 'phone at Read — chromeless preview' },
 	{ w: 820, h: 1180, stop: 'write', why: 'tablet' },
 	// One case per TIER x STOP, so no tier is verified only at the stop that happens to be the
@@ -114,7 +117,9 @@ const CASES: Case[] = [
 	{ w: 1440, h: 900, stop: 'write', split: 75, why: 'splitter dragged toward the editor' },
 	{ w: 1440, h: 900, stop: 'write', split: 30, why: 'splitter dragged toward the preview' },
 	// Drag the preview down to its 300px minimum and its sub-bar loses the lens label too —
-	// the container query is on the PANE, so the narrow bar is reachable on a 1440px desktop.
+	// the container query is on the PANE, so a label-less bar is reachable on a 1440px desktop.
+	// Its HEIGHT is the two-pane 45px either way (the "Collapse preview" button governs there),
+	// which is the claim these two cases hold.
 	{ w: 1024, h: 900, stop: 'write', split: 30, why: 'preview pane below the lens-label threshold' },
 	{ w: 820, h: 1180, stop: 'write', split: 40, why: 'tablet, pane below the lens-label threshold' },
 	{ w: 1440, h: 900, stop: 'write', collapsed: 'a', why: 'editor collapsed to its 46px rail' },

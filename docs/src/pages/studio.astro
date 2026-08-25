@@ -634,10 +634,13 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							}
 							paneX = vw2 - paneW;
 						}
-						// The preview sub-bar's height is a CONTAINER query on the PANE, not the
-						// viewport — so it has to be resolved after the split, and it is why a
-						// dragged divider can shorten a band on a 1440px desktop.
-						var headerH = chromeless ? C.headerRead : (paneW >= C.headerNarrowPaneW ? C.headerWrite : (bpMobile ? C.headerWriteNarrowMobile : C.headerWriteNarrowSplit));
+						// The preview sub-bar's height is per TIER: the two-pane row carries a 32px
+						// "Collapse preview" button and the phone's does not, so the phone's band is
+						// the shorter of the two. It no longer varies with the PANE's width — the
+						// lens picker used to be the tallest thing in the row and shed 6px when a
+						// narrow pane dropped its label; it is counter-sized now and never governs
+						// (preview-rect.ts).
+						var headerH = chromeless ? C.headerRead : (bpMobile ? C.headerWriteMobile : C.headerWriteSplit);
 						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
 						// Publishing is a function because the REPLAY seed below can widen the pane to
 						// contain a replayed box (see there) and must re-publish the corrected values.
