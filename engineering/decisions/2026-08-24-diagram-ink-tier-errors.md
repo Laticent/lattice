@@ -5,7 +5,7 @@ summary: >
   shape — `--cat-on-fill` is curated for the PALE `--cat-N-fill` band, and each key put it on
   a surface from another tier. Ranked by damage the filed pairs were not the worst: the
   sequence AUTONUMBER BADGE (`sequenceNumberColor` on `--diagram-line`) was below AA on 57 of
-  64 palette x scheme combos and at exactly 1.00:1 on 45 of them, because most palettes derive
+  64 palette x scheme combos and at exactly 1.00:1 on 47 of them, because most palettes derive
   both tokens from the same end of the ramp — the badge rendered as a blank disc with an
   invisible number, in every deck that ever used `autonumber`, and nothing had ever looked.
   A foreground-tier fill takes CANVAS ink, so it moves to `--bg`; that clears 62 of 64, and
@@ -50,7 +50,7 @@ Measured across all 32 palettes x both schemes (64 combos), through the shipping
 
 | pair | surface | below AA | worst |
 |---|---|---:|---|
-| `sequenceNumberColor` | `--diagram-line` | **57 / 64** | **1.00:1** on 45 |
+| `sequenceNumberColor` | `--diagram-line` | **57 / 64** | **1.00:1** on 47 |
 | `gitBranchLabel0-7` | `--cat-N-mark` | 64 / 64 | 1.2:1 |
 | `noteTextColor` | `--diagram-note` | 5 / 64 | 3.83:1 |
 | `errorTextColor` | `--fail` | 1 / 64 | 2.34:1 |

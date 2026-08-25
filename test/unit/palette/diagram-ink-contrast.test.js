@@ -138,11 +138,13 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
 }
 
 /**
- * Ink keys sanctioned as BELOW AA. **This list is now EMPTY, and that is the point of
- * #1348:** every ink key the map feeds clears AA against the surface it is drawn on, on
- * all 32 palettes in both schemes. It is kept as a named, exceed-only escape hatch rather
- * than deleted, because deleting it would make the next below-AA pair look like a choice
- * between "fix it" and "delete the assertion".
+ * Ink keys sanctioned as BELOW AA. **Down from four entries to ONE** — the point of #1348.
+ * The survivor is `errorTextColor`, at 2.34:1 on carbone light and nowhere else, and it is
+ * a palette-contract question rather than a map one (see the entry). An earlier revision of
+ * this docblock opened "this list is now EMPTY", which was written when the carbone fix was
+ * still in the tree and left standing after it was reverted — a lead that contradicted the
+ * `Set` fifty lines below it, in a file whose whole subject is gates that assert what they
+ * do not do.
  *
  * All four entries it once held shared ONE shape — `--cat-on-fill` is curated for the PALE
  * `--cat-N-fill` band, and each key put it somewhere else — and each needed a different
@@ -277,6 +279,23 @@ function tokenFor(key) {
   return entry.nested?.[nested]?.var ?? null;
 }
 
+/**
+ * Ink keys that must ALWAYS have a SITES row, whatever token feeds them.
+ *
+ * `inkKeys()` below discovers coverage by asking which keys are fed from an INK TIER, and
+ * that has a hole: move a key onto a token outside the tier set and it silently drops out
+ * of the coverage assertion — the guard stops watching the very key you just touched. It
+ * is not hypothetical. `errorTextColor` has been fed from `--bg` since #1181 and was never
+ * covered; `sequenceNumberColor` joined it when #1348 moved the autonumber badge onto
+ * `--bg`, i.e. the change that FIXED the pair also stopped the gate watching it, in the
+ * same edit. Both are here because the ink that belongs on a FOREGROUND-tier fill is the
+ * canvas, so "fed from an ink tier" will never be true of them.
+ *
+ * Anything listed here is judged by the per-theme loop like any other SITES row; this list
+ * only stops the row being deletable in silence.
+ */
+const ALWAYS_COVERED = ['errorTextColor', 'sequenceNumberColor'];
+
 /** Every ink-bearing themeVariable, nested blocks included, as dotted keys. */
 function inkKeys() {
   // All three ink tiers the map feeds. `cat-on-mark` joined when the gitgraph
@@ -301,11 +320,16 @@ describe('baked diagram ink clears AA on the surface it sits on', () => {
     // nothing while every remaining assertion stayed green. NESTED blocks are
     // walked too: an earlier version of this file looked only at top-level
     // entries, so the five xyChart label colours were never judged at all.
-    const keys = inkKeys();
+    const keys = [...new Set([...inkKeys(), ...ALWAYS_COVERED])];
     const uncovered = keys.filter((k) => !SITES[k]);
     assert.deepEqual(uncovered, [],
       'these themeVariables carry ink but name no surface in SITES — add the pairing, do not drop the key');
     assert.ok(keys.length >= 45, `expected the ink tier to be substantial, got ${keys.length}`);
+    // The ALWAYS_COVERED entries must still be REAL keys in the map, or the list rots into
+    // a guard over names nothing emits.
+    for (const k of ALWAYS_COVERED) {
+      assert.ok(tokenFor(k), `${k} is in ALWAYS_COVERED but the map no longer feeds it — retire the entry`);
+    }
     assert.ok(keys.some((k) => k.includes('.')), 'the sweep must reach nested blocks');
   });
 
