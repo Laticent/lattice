@@ -5420,7 +5420,7 @@ function checkFrontMatterReaders(errors) {
 //
 // A `## What shipped` heading is a claim, and nothing in the tree checks it.
 //
-// THE FIVE ARMS. Each one is a way the list can become a lie, and each has been watched fail:
+// THE SIX ARMS. Each one is a way the list can become a lie, and each has been watched fail:
 //   1. a listed boundary that STOPPED normalizing (the guarantee silently withdrawn);
 //   2. a listed boundary whose FILE IS GONE — a stale entry, so the list cannot rot;
 //   3. a listed boundary whose normalization COUNT moved, where the count is load-bearing
@@ -5434,6 +5434,12 @@ function checkFrontMatterReaders(errors) {
 //      *and* classic-Mac lone CR at identical cost; a reader-style `\r?\n` structurally cannot
 //      match a lone CR, because there is no `\n` to anchor on. Not academic: a lone-CR deck
 //      mis-SPLIT into slides, so it produced a different page count, not just a palette.
+//   6. an ingest that never normalizes AT ALL — a `utf8` read whose front-matter anchor is
+//      `^---` followed by a literal newline. Arms 1-5 all key on a fold that EXISTS, so none
+//      of them can fail on the shape the whole policy was built for: #1349 and #1388 were both
+//      readers with NO fold. An independent checker ran that probe against this gate and found
+//      it green over `tools/export-chart-svg.js`, a user-facing CLI reading an author's deck
+//      raw. See the arm's own block below for why it is narrow.
 //
 // Arm 4 keys on the RAW fold idiom, never on a call to the shared helper — delegating to
 // `normalizeSourceText` is the behavior this design wants, so flagging its callers would

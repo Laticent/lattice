@@ -41,7 +41,7 @@ name: Overflow nightly (corpus clip ratchet)
 # WHY ITS OWN WORKFLOW, and not a step in `integration-nightly.yml`. That job already has
 # Chromium, poppler and `npm ci` warm, so a step there would be strictly cheaper in setup —
 # but two things make it the wrong home. It runs **~2h05m**, so a 6-minute check inherits a
-# two-hour blast radius: a timeout, a cancellation or a dead runner and this never executes.
+# two-hour blast radius: a timeout, a cancelation or a dead runner and this never executes.
 # And that job is **expected red** for now (its `regress` step says so in writing, until the
 # golden corpus is re-blessed), so a new signal added there lands inside a color nobody
 # reads — which is precisely the failure mode the catalog note records against
@@ -77,13 +77,18 @@ concurrency:
 jobs:
   overflow:
     runs-on: ubuntu-latest
-    # ~7 min expected (see the budget note above); 30 leaves room for a 2-vCPU runner, where
-    # the worker count halves. Without a ceiling this inherits GitHub's 360-minute default,
-    # and `check-overflow-corpus.js` bounds only a single deck (300s), never the sweep — so a
-    # hung run would burn six hours. On a JOB timeout the steps below are canceled and the
-    # issue step does not fire, so that case shows up as a red run with no issue; the
-    # `!= 'false'` condition on the issue step covers the cheaper case where the sweep step
-    # itself dies.
+    # ~7 min expected (see the budget note above). 30 leaves ~2x headroom for a 2-vCPU runner,
+    # where the worker count halves: measured 332s at 2 workers on 4 vCPU, so ~11m of sweep at
+    # 1 worker plus ~2.5-3.5m of setup is ~14m worst case, and that also absorbs a few decks
+    # hitting the tool's own 300s per-deck cap. Without a ceiling this inherits GitHub's
+    # 360-minute default while `check-overflow-corpus.js` bounds only a single deck, never the
+    # sweep — so a hung run would burn six hours.
+    #
+    # On a JOB timeout the run is canceled; `if: always()` on the steps below DOES still run
+    # under cancelation (that is why GitHub documents `success() || failure()` for the
+    # opposite intent), so the issue is filed with an empty `kind` and reads "could not run",
+    # which is the correct thing to say about a timed-out sweep. An earlier revision of this
+    # comment asserted the reverse.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -119,26 +124,53 @@ jobs:
         # why it costs 5 minutes and the regression gate costs 72.
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
       - run: npm ci
+      # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
+      # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That
+      # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH
+      # unconditionally (lattice-emulator.js:1254) — setting it turns the cache scan and `which`
+      # fallbacks into dead code. So a partial or stale cache restore would hand both variables a
+      # path to nothing, sail past the `check-overflow-corpus.js:145` guard (which only asks that
+      # CHROME_PATH is non-empty), and fail all 279 renders. This step therefore fails HERE, where
+      # the message says "browser missing", rather than 279 decks later where it reads as a corpus
+      # finding. No `-e` subtlety: this step WANTS to die on failure, which is `bash -e`'s default.
       - name: Resolve the puppeteer Chromium both tools must agree on
         id: chrome
-        run: echo "path=$(node -p "require('puppeteer').executablePath()")" >> "$GITHUB_OUTPUT"
+        run: |
+          CHROME="$(node -p "require('puppeteer').executablePath()")"
+          if [ ! -x "$CHROME" ]; then
+            echo "::error::puppeteer resolved $CHROME but nothing executable is there — the browser cache did not restore and npm ci did not download it."
+            exit 1
+          fi
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
 
       # Keep the JOB green whatever the ratchet says, so the summary and issue steps run and
       # the issue keys off an output rather than the step's own exit — the report-only
       # contract, same shape integration-nightly uses.
       #
-      # THE TWO FAILURE EXITS ARE NOT THE SAME THING and must not file the same issue.
-      # `check-overflow-corpus.js` exits 1 when a deck clips MORE than its baseline (the
-      # finding this job exists for) and 2 on a SETUP error — a missing CHROME_PATH, an
-      # unwritable scratch dir. An earlier revision collapsed both into `failed=true`, so a
-      # permanently broken setup would have filed "corpus overflow ratchet above baseline"
-      # at priority:high every night, against a green check, forever: the "red six nights
-      # running" failure this file's own header cites against studio-e2e-nightly, inverted
-      # into green and given the wrong title. The exit code is carried through so the issue
-      # can say which happened.
+      # `if …; then` — NOT a bare pipeline followed by `${PIPESTATUS[0]}`. GitHub runs every
+      # step under `bash -e {0}`, and `set -uo pipefail` ADDS to that; it does not clear the
+      # `-e` the shell was invoked with. A bare failing pipeline therefore kills the step
+      # before the next line runs. This repo already paid for that lesson once and wrote it
+      # down at `perf-nightly.yml:259-266`, where a real dispatch proved it — and the first
+      # revision of THIS step walked into it anyway, because it was verified by running the
+      # extracted script under a plain `bash` rather than under `bash -e`. Measured, on the
+      # exact step body: `bash -e` → step exit 1, outputs EMPTY; plain `bash` → step exit 0,
+      # outputs written. A command on the left of `if` is exempt from `-e`.
       #
-      # `PIPESTATUS[0]` rather than `$?`, because the pipe into `tee` would otherwise report
-      # tee's exit. `pipefail` makes the `if` correct but discards the distinction.
+      # What that cost, had it shipped: a genuine ratchet regression would turn the JOB red
+      # (against the report-only contract this file states twice) AND file the finding under
+      # "could not run (exit unknown)" — a real overflow finding titled as a setup error,
+      # with the report text contradicting the title in the same issue body. The exact
+      # mirror of the defect this discrimination exists to prevent.
+      #
+      # AND THE EXIT CODE ALONE CANNOT DISCRIMINATE. `check-overflow-corpus.js:186,206`
+      # exits 1 for `regressions.length || errors.length` — so a browser that cannot launch
+      # fails all 279 renders and exits 1, indistinguishable by code from a deck that
+      # genuinely clipped. Exit 2 is only the guard refusing to start (`:145`), a `--bless`
+      # misuse, or an uncaught throw. So the classification reads the REPORT, which prints
+      # unambiguous markers for each: `failed to render` per deck, and `clip MORE slides
+      # than the baseline` for the finding. Render errors win when both are present — a
+      # ratchet verdict computed over decks that did not render is not a verdict.
       - name: Overflow corpus sweep (report-only)
         id: sweep
         env:
@@ -147,13 +179,21 @@ jobs:
         run: |
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/overflow-nightly-report.txt"
-          npm run --silent overflow:check 2>&1 | tee "$REPORT"
-          CODE=${PIPESTATUS[0]}
+          CODE=0
+          if npm run --silent overflow:check 2>&1 | tee "$REPORT"; then CODE=0; else CODE=$?; fi
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           if [ "$CODE" -eq 0 ]; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
+            echo "kind=clean" >> "$GITHUB_OUTPUT"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
+            if grep -q 'failed to render' "$REPORT"; then
+              echo "kind=broken" >> "$GITHUB_OUTPUT"
+            elif grep -q 'clip MORE slides than the baseline' "$REPORT"; then
+              echo "kind=finding" >> "$GITHUB_OUTPUT"
+            else
+              echo "kind=unknown" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Job summary
@@ -179,8 +219,8 @@ jobs:
       # creation with the four required axes (`area:`/`type:`/`priority:`/`status:`),
       # because a GITHUB_TOKEN-opened issue cannot trigger the triage gate.
       # `!= 'false'` rather than `== 'true'`, so a sweep step that DIED before writing its
-      # output (an npm failure, an OOM) still files rather than passing in silence. A job
-      # TIMEOUT cancels this step and is not covered — that case is a red run, by design.
+      # output (an npm failure, an OOM, a canceled job) still files rather than passing in
+      # silence. On a green run `failed=false` is written and this does not fire — verified.
       - name: Open / append overflow issue
         if: always() && steps.sweep.outputs.failed != 'false'
         env:
@@ -190,26 +230,38 @@ jobs:
           MARKER='[overflow-nightly]'
           BODY="$GITHUB_WORKSPACE/overflow-nightly-body.md"
           CODE='${{ steps.sweep.outputs.code }}'
-          if [ "$CODE" = '1' ]; then
-            SUBJECT='corpus overflow ratchet above baseline on main'
-          else
-            SUBJECT="overflow-nightly could not run (exit ${CODE:-unknown})"
-          fi
+          KIND='${{ steps.sweep.outputs.kind }}'
+          case "$KIND" in
+            finding) SUBJECT='corpus overflow ratchet above baseline on main' ;;
+            broken)  SUBJECT='overflow-nightly cannot render the corpus' ;;
+            *)       SUBJECT="overflow-nightly could not run (exit ${CODE:-unknown})" ;;
+          esac
           {
-            if [ "$CODE" = '1' ]; then
-              echo "The corpus overflow ratchet is above its baseline on \`main@${{ github.sha }}\`."
-              echo ""
-              echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
-              echo "if the change is deliberate and the content is right — re-bless with"
-              echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
-            else
-              echo "The sweep did NOT run to a verdict on \`main@${{ github.sha }}\` — exit \`${CODE:-unknown}\`."
-              echo ""
-              echo "This is a SETUP failure, not an overflow finding: the corpus was never scored."
-              echo "Exit 2 is \`check-overflow-corpus.js\` refusing to start (typically CHROME_PATH);"
-              echo "an empty code means the step itself died. Nothing is known about the corpus until"
-              echo "this is fixed — treat a quiet night as unmeasured, not clean."
-            fi
+            case "$KIND" in
+              finding)
+                echo "The corpus overflow ratchet is above its baseline on \`main@${{ github.sha }}\`."
+                echo ""
+                echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
+                echo "if the change is deliberate and the content is right — re-bless with"
+                echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
+                ;;
+              broken)
+                echo "One or more decks FAILED TO RENDER on \`main@${{ github.sha }}\`, so the corpus"
+                echo "was not scored. This is not an overflow finding."
+                echo ""
+                echo "The usual cause is the browser: the job pins PUPPETEER_EXECUTABLE_PATH and"
+                echo "CHROME_PATH to puppeteer's cached Chromium, so a cache that restored without the"
+                echo "binary lands here. Note the ratchet CANNOT be read on a run with render errors —"
+                echo "a verdict computed over decks that did not render is not a verdict."
+                ;;
+              *)
+                echo "The sweep did NOT run to a verdict on \`main@${{ github.sha }}\` — exit \`${CODE:-unknown}\`."
+                echo ""
+                echo "The corpus was never scored. An empty exit code means the step itself died or the"
+                echo "job was canceled (it has a 30-minute ceiling). Nothing is known about the corpus"
+                echo "until this is fixed — treat a quiet night as unmeasured, not clean."
+                ;;
+            esac
             echo ""
             echo '```'
             tail -n 60 "$GITHUB_WORKSPACE/overflow-nightly-report.txt" || echo '(no report)'
@@ -219,8 +271,13 @@ jobs:
           } > "$BODY"
           ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
           if [ -n "$ISSUE" ]; then
+            # Retitle on append. The rolling issue outlives the condition that opened it, so an
+            # issue first opened by a broken browser would otherwise keep saying "cannot render"
+            # for months after the night a real ratchet regression appeared. The body already
+            # discriminates; without this the TITLE — the part anyone reads in a list — does not.
+            gh issue edit "$ISSUE" --title "$MARKER $SUBJECT" >/dev/null
             gh issue comment "$ISSUE" --body-file "$BODY"
-            echo "Appended to issue #$ISSUE"
+            echo "Appended to issue #$ISSUE (title set to: $SUBJECT)"
           else
             gh issue create \
               --title "$MARKER $SUBJECT" \

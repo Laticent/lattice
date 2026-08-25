@@ -143,3 +143,32 @@ before│after montages. The badge and note montages are in the PR.
 
 `npm run lint` · `npm test` · `npm run build:check` ·
 `node --test test/unit/palette/` (diagram ink 67/67, CVD floor, composed-surface, baselines).
+
+## 5. What a second checker found in the fix
+
+The repair above was itself reviewed, and two of its own statements did not survive.
+
+**The pixel count was unreproducible as quoted.** "8,019 differing pixels on page 13" is
+correct — at **60 DPI**, the resolution it was measured at, which was never stated. A reader
+re-measuring at 150 DPI gets 37,601, and at the regression gate's own fuzz gets a third
+number; the checker reasonably concluded the figure was invented. The resolution-independent
+figure is the one the gate itself reports, **`worstFraction 0.00184`**, and that is what a
+claim like this should carry. A raw pixel count without its DPI is not evidence, it is a
+number.
+
+**The scope argument named the wrong token pair.** It read "`--bg` differs from
+`--text-heading` only on the five a11y palettes in dark", which is not the operative
+comparison for any key in the diff — the key that moved to `--text-heading` is
+`noteTextColor`, and it came from `--cat-on-fill`. The conclusion is unchanged and was
+re-derived independently: **`--cat-on-fill` and `--text-heading` resolve identically on 59 of
+64 combos**, differing only on those five, which is why the blast radius is one deck.
+
+**And the guard the repair added was itself only half a guard.** `ALWAYS_COVERED` was a
+hand-written list of the two keys fed from a non-ink tier. It caught deleting a `SITES` row —
+the mutation the commit demonstrated — and stayed **silent** on deleting the row *and* the
+list entry, which is the two-line edit an author reaches for when the coverage test goes red.
+A list that guards a list is not a guard. It is now derived from the map by name
+(`TEXT_BEARING_NAME`), so dropping a key out of coverage requires renaming it in
+`MERMAID_VAR_MAP` — a visible, arguable change rather than a deletion that leaves the suite
+green. Mutation-proved on three shapes: delete the row, delete the row and narrow the
+pattern, and empty the pattern entirely — all three now red.

@@ -164,7 +164,7 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
  *                      worst 4.63:1.
  *
  *   sequenceNumberColor  on `signalColor` = `--diagram-LINE`. The worst of the four and
- *                      the least visible: 57 of 64 combos below AA, and 45 of those at
+ *                      the least visible: 57 of 64 combos below AA, and 47 of those at
  *                      exactly 1.00:1, because most palettes derive `--cat-on-fill` and
  *                      `--diagram-line` from the same end of the ramp — the autonumber
  *                      badge rendered as a blank disc. The fill is a FOREGROUND tier, so
@@ -280,21 +280,41 @@ function tokenFor(key) {
 }
 
 /**
- * Ink keys that must ALWAYS have a SITES row, whatever token feeds them.
+ * Keys whose NAME says they carry text. **Derived from the map, never hand-listed** — that
+ * distinction is the whole point of this block.
  *
  * `inkKeys()` below discovers coverage by asking which keys are fed from an INK TIER, and
  * that has a hole: move a key onto a token outside the tier set and it silently drops out
- * of the coverage assertion — the guard stops watching the very key you just touched. It
- * is not hypothetical. `errorTextColor` has been fed from `--bg` since #1181 and was never
+ * of the coverage assertion — the guard stops watching the very key you just touched. Not
+ * hypothetical. `errorTextColor` has been fed from `--bg` since #1181 and was never
  * covered; `sequenceNumberColor` joined it when #1348 moved the autonumber badge onto
  * `--bg`, i.e. the change that FIXED the pair also stopped the gate watching it, in the
- * same edit. Both are here because the ink that belongs on a FOREGROUND-tier fill is the
- * canvas, so "fed from an ink tier" will never be true of them.
+ * same edit.
  *
- * Anything listed here is judged by the per-theme loop like any other SITES row; this list
- * only stops the row being deletable in silence.
+ * The first repair was a hand-written `ALWAYS_COVERED = ['errorTextColor',
+ * 'sequenceNumberColor']`, and an independent checker showed it only moved the hole: it
+ * caught deleting the SITES row, and stayed SILENT on deleting the SITES row AND the list
+ * entry — a two-line edit an author hits naturally when the coverage test goes red and
+ * they "resolve" it. A list that guards a list is not a guard.
+ *
+ * So the set is computed from `MERMAID_VAR_MAP` by NAME. To drop a key out of coverage you
+ * now have to rename it in the map, which is a visible, arguable change rather than a
+ * deletion that leaves the suite green. The pattern deliberately keys on what Mermaid calls
+ * things (`…TextColor`, `…TextFill`, `…LabelColor`, `…TitleColor`, `…NumberColor`), because
+ * that naming is Mermaid's contract, not ours.
  */
-const ALWAYS_COVERED = ['errorTextColor', 'sequenceNumberColor'];
+const TEXT_BEARING_NAME = /(?:TextColor|TextFill|LabelColor|TitleColor|NumberColor)$/;
+function textBearingKeys() {
+  const out = [];
+  for (const [key, entry] of Object.entries(MERMAID_VAR_MAP)) {
+    if (entry.nested) {
+      for (const nk of Object.keys(entry.nested)) if (TEXT_BEARING_NAME.test(nk)) out.push(`${key}.${nk}`);
+      continue;
+    }
+    if (TEXT_BEARING_NAME.test(key)) out.push(key);
+  }
+  return out;
+}
 
 /** Every ink-bearing themeVariable, nested blocks included, as dotted keys. */
 function inkKeys() {
@@ -320,16 +340,18 @@ describe('baked diagram ink clears AA on the surface it sits on', () => {
     // nothing while every remaining assertion stayed green. NESTED blocks are
     // walked too: an earlier version of this file looked only at top-level
     // entries, so the five xyChart label colours were never judged at all.
-    const keys = [...new Set([...inkKeys(), ...ALWAYS_COVERED])];
+    const byName = textBearingKeys();
+    const keys = [...new Set([...inkKeys(), ...byName])];
     const uncovered = keys.filter((k) => !SITES[k]);
     assert.deepEqual(uncovered, [],
       'these themeVariables carry ink but name no surface in SITES — add the pairing, do not drop the key');
     assert.ok(keys.length >= 45, `expected the ink tier to be substantial, got ${keys.length}`);
-    // The ALWAYS_COVERED entries must still be REAL keys in the map, or the list rots into
-    // a guard over names nothing emits.
-    for (const k of ALWAYS_COVERED) {
-      assert.ok(tokenFor(k), `${k} is in ALWAYS_COVERED but the map no longer feeds it — retire the entry`);
-    }
+    // The name-derived set must stay substantial too. Without this, narrowing
+    // TEXT_BEARING_NAME to match nothing would empty the second arm in silence — the same
+    // shape of hole the hand-written list had, one level further out.
+    assert.ok(byName.length >= 30, `expected the name-derived text set to be substantial, got ${byName.length}`);
+    assert.ok(byName.includes('errorTextColor') && byName.includes('sequenceNumberColor'),
+      'the two keys fed from a NON-ink tier must be reachable by name — they are why this arm exists');
     assert.ok(keys.some((k) => k.includes('.')), 'the sweep must reach nested blocks');
   });
 

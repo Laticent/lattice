@@ -13,7 +13,9 @@ summary: >
   gate is now written, in six arms, each watched red on the real tree: a listed boundary
   that stopped normalizing, a stale entry, a pinned normalization COUNT that moved (the
   engine has two public doors and #1357 measured the divergence when only one normalized),
-  an UNLISTED fold, and `\r?\n` used to normalize where a boundary needs `\r\n?`. The
+  an UNLISTED fold, a fold spelled so it cannot match a lone CR, and — the one an independent
+  checker forced — an ingest that never normalizes AT ALL, which the other five cannot see
+  because they all key on a fold that already exists. The
   unlisted-fold arm earned itself immediately: it found `lib/core/boundary-parser.mjs`, a
   tenth boundary no prose list had ever named, and the export-marp entry the issue asked
   for went red on its first run because that ingest genuinely never normalized — so writing
