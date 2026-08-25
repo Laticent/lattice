@@ -289,12 +289,12 @@ describe('LensesPanel — the depth model (rungs, cuts, and the ladder)', () => 
 
 	it('names a rung by its altitude in the ladder', async () => {
 		await open(/Bottom line/, LADDER, sound);
-		expect(screen.getByText(/Rung 1 of 3 — the shallowest altitude/i)).toBeInTheDocument();
+		expect(screen.getByText(/Rung 1 in the depth ladder \(Bottom line → The evidence → Full deck\) — the shallowest altitude/i)).toBeInTheDocument();
 	});
 
 	it('tells a middle rung what it sits on', async () => {
 		await open(/The evidence/, LADDER, sound);
-		expect(screen.getByText(/Rung 2 of 3 .*everything in Bottom line, plus more/i)).toBeInTheDocument();
+		expect(screen.getByText(/Rung 2 in the depth ladder \(Bottom line → The evidence → Full deck\) — it shows everything in Bottom line, plus more/i)).toBeInTheDocument();
 	});
 
 	it('says plainly that a cut has no altitude above it', async () => {

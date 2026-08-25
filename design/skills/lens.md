@@ -144,11 +144,20 @@ Reader views are two different kinds of thing, and only one of them has a "deepe
   slide) and `story` (a narrative slice that keeps the chapter dividers `evidence`
   drops). You land on a cut or you are handed one; you never escalate from one.
 
-`kind: rung` on a `LensDef` is what declares an altitude. **Absent means `cut`** —
-a view that never claimed to nest promises nothing, so no deck written before the
-field existed gains a ladder (or a validator complaint) on its next rewrite. `full`
-is always the top rung whatever its record says; read the effective value through
-`lensKind`, never off the field.
+`kind: rung` on a `LensDef` is what declares an altitude. **Absent means `cut`** — a
+view that never claimed to nest promises nothing, so a custom view, or one a deck
+already wrote out for itself, is never enrolled in a ladder it was not designed for.
+`full` is always the top rung whatever its record says; read the effective value
+through `lensKind`, never off the field.
+
+**That default does not mean "nothing changes for anyone."** The workspace starters
+ship `kind: rung`, because `brief` and `evidence` are exactly the pair that provably
+nests — so a deck inheriting the default reader views is in a ladder from the moment
+this landed, and a rewrite writes `kind: rung` into its block. If its hand-tagged
+membership happens to break the nesting, the panel now reports it where it was
+silent before. That is the validator doing its job, not a regression — but it *is* a
+real change for the default population, and an earlier draft of this page claimed
+otherwise.
 
 **Altitude is derived, not declared.** `ladderRungs` orders the rungs by what they
 actually project — narrowest first, `full` last — because containment *is* the

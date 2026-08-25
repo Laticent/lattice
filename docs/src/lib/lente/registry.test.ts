@@ -278,11 +278,28 @@ describe('the `kind` field — rung / cut, and the absent-means-cut default', ()
 		expect(parseLensRegistry(fm)).toEqual(reg);
 	});
 
-	it('leaves a deck that predates the field byte-identical — no `kind:` appears anywhere', () => {
-		// The absent-means-cut default exists so nothing in the wild gains a field, or a ladder, on
-		// its next rewrite.
+	it('leaves a pre-field deck byte-identical WITH NO WORKSPACE — the scope of that promise', () => {
+		// Deliberately narrow, and the title says so. Absent-means-cut protects the UNDECLARED view: with
+		// no workspace there is nothing to inherit a `kind` from, so a deck written before the field
+		// gains nothing on a rewrite. It does NOT generalize — see the next test, which is the case
+		// almost every real deck is in, and which an earlier version of THIS test's title claimed to
+		// cover while exercising the one mode where it is trivially true.
 		const reg = parseLensRegistry('lenses:\n  brief: { label: "B", base: none }');
 		expect(upsertLensRegistry('title: Deck', reg)).not.toContain('kind:');
+	});
+
+	it('a WORKSPACE rung reaches a deck that never asked for one — the honest opposite case', () => {
+		// The workspace starters ship `kind: rung` on purpose (workspace-lenses.ts): brief and evidence
+		// are the pair that provably nests, and shipping them as cuts would leave every default deck
+		// with an empty ladder. The consequence, pinned here rather than left to a doc claim: a deck
+		// carrying its own `brief` entry INHERITS the rung, and the next rewrite writes it into the
+		// block. That is churn on a file the author did not edit, it is intended, and the design note
+		// (§5.1) now says so instead of promising the reverse.
+		const ws: WorkspaceLensConfig = { default: 'full', lenses: [{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' }] };
+		const src = 'lenses:\n  brief: { label: "Bottom line", base: none, approved: "sha256:zzz" }';
+		const reg = parseLensRegistry(src, ws);
+		expect(reg.lenses.find((l) => l.id === 'brief')?.kind).toBe('rung'); // inherited, unasked
+		expect(upsertLensRegistry(src, reg, ws)).toContain('kind: rung'); // and written back out
 	});
 
 	it('DEMOTING an inherited rung to a cut round-trips — it never silently re-enrolls in the ladder', () => {

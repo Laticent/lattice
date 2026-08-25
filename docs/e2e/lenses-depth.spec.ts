@@ -77,11 +77,11 @@ test('two rungs the suggester filled report their altitudes, and nothing complai
 
 	await addView(page, /The evidence/);
 	await acceptAllIfOffered(page);
-	await expect(page.getByText(/Rung 2 of 3 .*everything in Bottom line, plus more/i)).toBeVisible();
+	await expect(page.getByText(/Rung 2 in the depth ladder .*everything in Bottom line, plus more/i)).toBeVisible();
 	await collapse(page, /The evidence/);
 
 	await expand(page, /Bottom line/);
-	await expect(page.getByText(/Rung 1 of 3 — the shallowest altitude/i)).toBeVisible();
+	await expect(page.getByText(/Rung 1 in the depth ladder .*the shallowest altitude/i)).toBeVisible();
 
 	// Nothing escapes: no marker on either row, no finding on the one that is open.
 	await expect(ladderMarker(page)).toHaveCount(0);

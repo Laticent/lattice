@@ -382,11 +382,16 @@ function LensRow({
 	const rung = lensKind(lens) === 'rung';
 	const at = rung ? ladder.findIndex((l) => l.id === lens.id) : -1;
 	const below = at > 0 ? ladder[at - 1] : undefined;
+	// The chain is spelled out rather than counted. "Rung 1 of 3" is true — the full deck IS the top
+	// rung — but the list above shows only the two non-`full` rows, so a bare count asks the author to
+	// reconcile a 3 against a 2. Naming the ladder end to end removes the arithmetic and doubles as the
+	// one place the model is taught.
+	const chain = ladder.map((l) => l.label).join(' → ');
 	const depthNote = !rung
 		? 'A cut — a standalone slice, not part of the deck’s depth ladder. There’s no altitude above it.'
 		: below
-			? `Rung ${at + 1} of ${ladder.length} in the depth ladder — it shows everything in ${below.label}, plus more.`
-			: `Rung ${at + 1} of ${ladder.length} — the shallowest altitude in the depth ladder.`;
+			? `Rung ${at + 1} in the depth ladder (${chain}) — it shows everything in ${below.label}, plus more.`
+			: `Rung ${at + 1} in the depth ladder (${chain}) — the shallowest altitude.`;
 
 	function applySuggestions(list: typeof pending) {
 		if (!list.length) return;
@@ -409,7 +414,7 @@ function LensRow({
 						<span title={copy.full} className={cn('rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide', copy.tone)}>{copy.label}</span>
 						{ladderFindings.length > 0 && (
 							<span
-								title={`This rung drops ${ladderFindings.length} slide${ladderFindings.length === 1 ? '' : 's'} that the rung above it doesn’t show. Open the view to see which.`}
+								title={`This rung shows ${ladderFindings.length} slide${ladderFindings.length === 1 ? '' : 's'} that the rung above it doesn’t. Open the view to see which.`}
 								className="rounded-full border border-[color-mix(in_srgb,var(--warn)_40%,transparent)] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--warn)]"
 							>
 								Ladder

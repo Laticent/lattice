@@ -265,13 +265,26 @@ side-effect is the good kind — a half-tagged rung sits low and rises as it fil
 wrong until some separate number is updated.
 
 **Absent means `cut`.** A `kind` defaulting to `rung` would enroll every view in every deck in the
-wild into a ladder it was never designed for, and greet the author with containment errors on their
-next rewrite. Defaulting to `cut` means a view promises nothing until it says so, and a deck that
-predates the field stays byte-identical through a rewrite (pinned in `registry.test.ts`). The one
-place the default bites is the workspace delta: a deck that DEMOTES an inherited rung has to write
-`kind: cut` explicitly, or the workspace's `rung` wins the `{...ws, ...deck}` merge and the complaint
-the author just resolved comes straight back — the same clear-to-inherit hazard `single`/`hidden`
-already had, in a new shape.
+wild into a ladder it was never designed for. Defaulting to `cut` means a view promises nothing until
+it says so: a hand-written custom view is safe, and a deck with no workspace inheritance rewrites
+byte-identically (pinned in `registry.test.ts`).
+
+**What that default does NOT buy, corrected.** An earlier draft of this section claimed no
+pre-existing deck gains a ladder or a complaint. That is false for the population almost every deck is
+in. `workspace-lenses.ts` ships `kind: rung` on both starters — deliberately, because `brief` and
+`evidence` are precisely the pair §4.1 proves nests, and shipping them as cuts would leave the default
+population with an empty ladder and the feature inert. So a deck inheriting the default reader views
+**is** in a `brief → evidence → full` ladder as of this change, its next rewrite writes `kind: rung`
+into its block, and hand-tagged membership that breaks the nesting now raises an `error` in the panel
+where there was silence. The finding is true when it fires — that deck's `brief` genuinely is not
+contained by its `evidence`, and a future "go deeper" there would have dropped a slide — so the
+behavior stands. The claim was the defect, and an independent checker found it; the honest statement
+is that `cut` protects the *undeclared* view, not that nothing changes.
+
+The one place the default bites mechanically is the workspace delta: a deck that DEMOTES an inherited
+rung has to write `kind: cut` explicitly, or the workspace's `rung` wins the `{...ws, ...deck}` merge
+and the complaint the author just resolved comes straight back — the same clear-to-inherit hazard
+`single`/`hidden` already had, in a new shape.
 
 **What is enforced vs. what is offered.** `validateLadder` is authoring-time and it reports; it gates
 nothing at read. The read path fails closed on its own: `deeperLens` returns the next rung only if
@@ -300,8 +313,16 @@ never a reader's view to lose.
   follow-on was not. The two decisions with real blast radius — the pin channel and `includes:` — are
   specified here but not built, so the trio applies to them when they ship, per HARD RULE #25. The
   schema slice (§5.1) sits inside that boundary rather than on it: a pure additive library field plus
-  a reporting validator, no reader-visible behavior change and no export bytes. **No independent
-  checker ran on it either** — it shipped on the gates, the co-located unit tier, and a real-browser
-  spec (`docs/e2e/lenses-depth.spec.ts`). The serializer is the part of it that would most reward a
-  second pair of eyes, since Lente is the sole writer of the `lenses:` block; what stands in for that
-  is the round-trip suite, extended to the clear-to-inherit case a demoted rung creates.
+  a reporting validator, no reader-visible behavior change and no export bytes. It went through the
+  gates, the co-located unit tier, a real-browser spec, and **maker-checker** — the middle rung, not
+  the trio. **The checker earned it**, which is worth recording because the ladder's cost is otherwise
+  easy to argue away. It found that the single line making "go deeper" honest — the containment check
+  in `deeperLens` — could be **deleted with all 113 tests still green**, because the test that claimed
+  to cover it was satisfied by the strictness check on the next line instead (its fixture had no
+  strictly-larger non-nesting rung, the only shape that isolates containment). It also found the
+  false claim §5.1 now carries a correction for. Both are the class of defect that survives
+  self-review by construction: a test author cannot notice the case they did not think of.
+- **`docs/e2e/lenses-depth.spec.ts` runs in NO automated job.** It is untagged, `studio-smoke` greps
+  `@smoke`, and `studio-smoke` is itself outside `ci.needs` — deliberate, and matching
+  `lenses-landing.spec.ts`, but it means the real-browser evidence above rests on a local run rather
+  than a gate. The merge-gating proof of the same panel behavior is the jsdom tier in `docs-build`.

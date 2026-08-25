@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { approvalHash, deeperLens, ladderRungs, lensEscapees, lensKind } from './project';
+import { approvalHash, deeperLens, ladderRungs, lensEscapees, lensIndices, lensKind } from './project';
 import type { LensRegistry } from './types';
-import { validateLadder } from './validate';
+import { validateLadder, validateRegistry } from './validate';
 
 // The DEPTH model — rungs, the ladder, and an honest step deeper
 // (engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md §4).
@@ -66,10 +66,17 @@ describe('ladderRungs — altitude is derived, not declared', () => {
 		const flipped: LensRegistry = { ...r, lenses: [r.lenses[0], r.lenses[2], r.lenses[1], r.lenses[3]] };
 		expect(ladderRungs(DECK, flipped).map((l) => l.id)).toEqual(['brief', 'evidence', 'full']);
 	});
-	it('is deterministic for equal-sized rungs (ties break on registry order)', () => {
-		const r = reg({ evidence: { base: 'none' } }); // evidence now additive => 0 members, same as… nothing
-		const ladder = ladderRungs(['# A'], r).map((l) => l.id);
-		expect(ladder).toEqual(['brief', 'evidence', 'full']);
+	it('is stable across repeated calls when two rungs are the same size', () => {
+		// Deliberately NOT "ties break on registry order": `Array.prototype.sort` is required to be
+		// stable (ES2019), so equal-sized rungs keep their `reg.lenses` order whether or not the
+		// comparator says so — an assertion on the ORDER passes with the tiebreak deleted and proves
+		// nothing about it. What is worth pinning is the property a caller depends on: the same
+		// registry always yields the same ladder, so a rung cannot change altitude between two renders.
+		const r = reg({ evidence: { base: 'none' } }); // additive with nothing tagged => 0 members, tying brief
+		const deck = ['# A'];
+		expect(ladderRungs(deck, r).map((l) => l.id)).toEqual(ladderRungs(deck, r).map((l) => l.id));
+		expect(new Set(ladderRungs(deck, r).map((l) => l.id))).toEqual(new Set(['brief', 'evidence', 'full']));
+		expect(ladderRungs(deck, r).at(-1)?.id).toBe('full'); // full still terminates it
 	});
 	it('an empty deck still yields a ladder terminating at full', () => {
 		expect(ladderRungs([], reg()).map((l) => l.id)).toEqual(['brief', 'evidence', 'full']);
@@ -108,8 +115,46 @@ describe('validateLadder — the invariant nothing enforced before', () => {
 		expect(escaped?.lensId).toBe('brief');
 		expect(escaped?.message).toContain('Bottom line');
 	});
+	it('reports a break between the SECOND and THIRD rungs, not just the first pair', () => {
+		// The loop in validateLadder walks every adjacent pair, but every other fixture puts its
+		// violation in the first one — so `i > 0` was never executed and truncating the loop to the
+		// first pair left the suite green.
+		const deck = [
+			'<!-- _lens: low mid -->\n# A', //     0 — low, mid, and (base:all) top
+			'<!-- _lens: mid -->\n# B', //         1 — mid and top
+			'<!-- _lens: mid -top -->\n# C', //    2 — in mid, EXCLUDED from top: the break
+			'# D', //                              3 — top and full only
+			'# E', //                              4 — top and full only
+		];
+		const r: LensRegistry = {
+			default: 'full',
+			lenses: [
+				{ id: 'full', label: 'Full deck', base: 'all' },
+				{ id: 'low', label: 'Low', base: 'none', kind: 'rung' }, //   {0}
+				{ id: 'mid', label: 'Mid', base: 'none', kind: 'rung' }, //   {0,1,2}
+				{ id: 'top', label: 'Top', base: 'all', kind: 'rung' }, //    {0,1,3,4} — drops 2, which IS in mid
+			],
+		};
+		expect(ladderRungs(deck, r).map((l) => l.id)).toEqual(['low', 'mid', 'top', 'full']);
+		// low ⊆ mid holds, so the FIRST pair is clean and only the SECOND pair can report.
+		expect(lensEscapees(deck, r, 'mid', 'low')).toEqual([]);
+		const findings = validateLadder(deck, r);
+		expect(findings.map((f) => f.lensId)).toEqual(['mid']); // attributed to the lower rung of the broken pair
+		expect(findings.map((f) => f.slide)).toEqual([2]);
+	});
+
+	it('surfaces ladder findings through validateRegistry — the single deck-health entry point', () => {
+		// validateRegistry folds validateLadder in; deleting that one line left every test green.
+		const d = validateRegistry(DECK, reg({ story: { kind: 'rung' } }));
+		expect(d.some((x) => x.code === 'ladder-containment')).toBe(true);
+		expect(d.some((x) => x.level === 'error')).toBe(true); // the only error among otherwise warnings
+	});
+
 	it('says nothing about a CUT that fails to nest — a cut promises nothing', () => {
-		// The identical membership, with `story` left as the cut it is: no finding at all.
+		// The contrast, on ONE membership: promoted to a rung `story` produces findings; left as the cut
+		// it is, the very same tags produce none. (An earlier version of this test re-ran the
+		// sound-ladder assertion verbatim and carried no signal of its own.)
+		expect(validateLadder(DECK, reg({ story: { kind: 'rung' } })).length).toBeGreaterThan(0);
 		expect(validateLadder(DECK, reg())).toEqual([]);
 	});
 });
@@ -132,6 +177,36 @@ describe('deeperLens — the honest step up', () => {
 		const staged: LensRegistry = { ...r, lenses: r.lenses.map((l) => (l.id === 'evidence' ? { ...l, hidden: true } : l)) };
 		expect(deeperLens(DECK, staged, 'brief')?.id).toBe('full');
 	});
+	it('never climbs to a STRICTLY LARGER rung that does not contain the current one', () => {
+		// The counterexample the whole design exists to prevent, and the one case the fixture above
+		// cannot express. `wide` is bigger than `brief` AND approved AND directly above it — so
+		// eligibility and the strict-superset rule both wave it through, and ONLY the containment check
+		// refuses it. Delete that check and this is the test that notices: `deeperLens` starts returning
+		// `wide`, and a reader clicking "deeper" loses the slide they were just reading.
+		const deck = [
+			'<!-- _lens: brief wide -->\n# A', // 0 — in both
+			'<!-- _lens: wide -->\n# B', //       1 — wide only
+			'<!-- _lens: wide -->\n# C', //       2 — wide only
+			'<!-- _lens: brief -->\n# D', //      3 — brief only: the slide `wide` would drop
+			'# E', //                             4 — full only, so full outgrows wide
+		];
+		const base: LensRegistry = {
+			default: 'full',
+			lenses: [
+				{ id: 'full', label: 'Full deck', base: 'all' },
+				{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' },
+				{ id: 'wide', label: 'Wider, but not deeper', base: 'none', kind: 'rung' },
+			],
+		};
+		const r = approved(base, deck);
+		// The trap is armed: `wide` sits directly above `brief` in the ladder and IS strictly larger.
+		expect(ladderRungs(deck, r).map((l) => l.id)).toEqual(['brief', 'wide', 'full']);
+		expect(lensIndices(deck, r, 'wide').length).toBeGreaterThan(lensIndices(deck, r, 'brief').length);
+		expect(lensEscapees(deck, r, 'wide', 'brief')).toEqual([3]); // …and it drops slide 3.
+		// So the step must pass over it entirely.
+		expect(deeperLens(deck, r, 'brief')?.id).toBe('full');
+	});
+
 	it('never climbs to a rung that would DROP a slide the reader just read', () => {
 		// story promoted to a rung and approved, but it does not contain brief. Even sitting directly
 		// above brief in the ladder it is refused — containment is re-checked against the CANDIDATE,
@@ -158,8 +233,9 @@ describe('deeperLens — the honest step up', () => {
 		expect(lensEscapees(deck, r, 'twin', 'brief')).toEqual([]); // it DOES contain brief…
 		expect(deeperLens(deck, r, 'brief')?.id).toBe('full'); // …and is still not a step deeper
 	});
-	it('offers nothing when the only rung above is unapproved and full adds nothing', () => {
-		// A rung that already IS the whole deck: `full` is not a strict superset, so there is no step.
+	it('offers nothing from a rung that already IS the whole deck', () => {
+		// `full` is not a STRICT superset here, so there is no step to take — everything is approved,
+		// which is the point: the refusal comes from the strictness rule, not from eligibility.
 		const deck = ['<!-- _lens: brief -->\n# A'];
 		const r = approved(reg(), deck);
 		expect(deeperLens(deck, r, 'brief')).toBeUndefined();
