@@ -102,20 +102,30 @@ function publishNotices() {
 	for (const fn of noticeListeners) fn();
 }
 
-// Park a notice for its deck and tell every live reader. `seq` is the turn counter this
-// turn captured at send: if the deck has moved on since, the turn has been superseded and
-// its failure is not news any more — dropping it is what stops a stale "something went
-// wrong" landing under a later reply that worked.
-function raiseNotice(deck: string, seq: number, kind: ChatNotice['kind'], text: string) {
-	if (deckTurnSeq.get(deck) !== seq) return;
+// Park a notice for its deck and tell every live reader. UNGATED — every caller that
+// reaches this is saying something the author needs to see now.
+function raiseNotice(deck: string, kind: ChatNotice['kind'], text: string) {
 	pendingNotices.set(deck, { deck, kind, text });
 	publishNotices();
 }
 
-// Apply runs SYNCHRONOUSLY from a click on the rendered deck, so there is no turn to be
-// superseded by — it claims the deck's current sequence rather than matching one.
-function raiseApplyNotice(deck: string, text: string) {
-	raiseNotice(deck, deckTurnSeq.get(deck) ?? 0, 'error', text);
+// The GATED path, and the signature is the point: only a caller holding a real sequence
+// from `run()` can reach the gate, and there is no way to hand this a number you made up.
+//
+// The first version of the gate lived inside `raiseNotice` and Apply called it with
+// `deckTurnSeq.get(deck) ?? 0` — which does not "claim" a sequence, it FABRICATES one that
+// the identity check on the next line then rejects (`undefined !== 0`). So a failed Apply
+// said nothing at all on any deck that had not had a turn this page session: come back the
+// next day, hit Apply on a proposal that no longer fits the deck, and the refusal was
+// discarded — the exact silent failure this whole branch exists to remove (checker B1).
+//
+// Splitting the two is what stops that recurring: the ungated call cannot take a sequence,
+// and the gated one cannot be reached without a genuine one.
+function raiseTurnNotice(deck: string, seq: number, kind: ChatNotice['kind'], text: string) {
+	// Superseded — a newer turn on this deck has already bumped the counter, so this
+	// failure is not news any more and must not land under the newer turn's answer.
+	if (deckTurnSeq.get(deck) !== seq) return;
+	raiseNotice(deck, kind, text);
 }
 
 /** Test seam. Module state outlives a `render()`, so a suite that never cleared this would
@@ -239,7 +249,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
 			if (out.status === 'offline') {
-				raiseNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
+				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
@@ -260,12 +270,12 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				// whatever deck the author has moved to — #1813 again, wearing a hat.
 				if (mountedRef.current && deckIdRef.current === sendDeckId) onConnect();
 			} else if (out.status === 'blocked') {
-				raiseNotice(sendDeckId, turnSeq, 'blocked', out.reply);
+				raiseTurnNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
 				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined }]);
 			}
 		} catch {
-			raiseNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
+			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
 		} finally {
 			abortRef.current = null;
 			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
@@ -329,7 +339,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
 		// standing so they can Discard it deliberately.
 		if (!outcome.applied) {
-			raiseApplyNotice(deckId, outcome.refusals[0] || "That edit couldn't be applied to this deck.");
+			raiseNotice(deckId, 'error', outcome.refusals[0] || "That edit couldn't be applied to this deck.");
 			return;
 		}
 		onApply(outcome.source);
@@ -337,7 +347,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
 		// were refused is the same false claim, just smaller.
 		if (outcome.refusals.length) {
-			raiseApplyNotice(deckId, outcome.refusals[0]);
+			raiseNotice(deckId, 'error', outcome.refusals[0]);
 			// BLOCKS on both sides of the "of" — `slides` is a different unit and summing them
 			// produced counts describing nothing that existed (checker).
 			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);

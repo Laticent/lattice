@@ -161,10 +161,14 @@ owe nothing here. See
 - **Cause, part one:** an island rendered `client:load` ships its HTML in the
   document. Presence proves the SERVER ran, nothing about the client. React does
   not replay an event that fired before hydration, so the click is dropped on the
-  floor rather than queued. Measured on `/playground/?view=edit` across two
-  independent runs: the Galleries trigger is in the DOM at ~40–90ms and nothing is
-  wired to it until ~310–540ms — a window of roughly **230–480ms** idle, and wider
-  on a busy machine. The spread is profile-dependent; the window's existence is not.
+  floor rather than queued. Measured on `/playground/?view=edit`, idle: the Galleries
+  trigger is in the DOM at **~40–90ms**, and "wired" depends on which milestone you
+  time — React's per-node marker at **~310–385ms** (window ~230–300ms), the app's own
+  `body[data-view]` at **~380–540ms** (window ~290–480ms). `data-view` is set from an
+  effect and so lands strictly later than the marker; both are non-clicking
+  measurements and they agree on the ordering. Wider on a busy machine. Don't blend
+  the two ends into one range — an earlier version of this entry did, and half of it
+  came from a clicking probe that perturbs what it times.
 - **Cause, part two, and this is the trap inside the trap:** the obvious fix — wait
   for `<astro-island>` to drop its `ssr` attribute — is **also too early.**
   `@astrojs/react`'s client calls `startTransition(() => hydrateRoot(…))`, which

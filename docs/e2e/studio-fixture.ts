@@ -258,8 +258,13 @@ export function currentSlide(page: Page): Locator {
  * The second condition is React's OWN per-node marker, `__reactFiber$…` / `__reactProps$…`. Be
  * precise about what that proves: React assigns them in `completeWork` — the RENDER phase, not
  * the commit — so in principle the marker can precede the commit. This is a behavioral gate, not
- * a proof, and the honest statement of the evidence is that the marker has never been observed
- * EARLIER than a click starting to work. It is a React internal, deliberately: the alternative is
+ * a proof. Be equally honest about what is NOT evidence: there is no sound measurement of when a
+ * click starts to work, because the only instrument for that is the per-frame clicking probe this
+ * docblock has just disavowed — and an independent run of it put the first apparently-working
+ * click BEFORE the marker, which if taken at face value would make this gate conservative rather
+ * than coincident. Late is the safe direction, so that reading costs nothing; either way what is
+ * actually measured is narrower: the marker never precedes the `ssr` drop, and Playwright's own
+ * click round-trip covers the remainder. It is a React internal, deliberately: the alternative is
  * a per-surface app signal, and there isn't one that covers every control this helper is pointed
  * at. The failure direction is safe — if a React upgrade renamed it, this poll TIMES OUT LOUDLY
  * rather than certifying an unwired control.

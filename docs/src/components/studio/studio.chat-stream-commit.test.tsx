@@ -1,8 +1,8 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __clearPendingNotices, ArchitectChat } from './ArchitectChat';
-import { loadChat } from './studio-store';
+import { loadChat, saveChat } from './studio-store';
 
 // #1787 — the streaming bubble has to be GONE once the reply commits.
 //
@@ -37,11 +37,12 @@ const chatSpy = vi.hoisted(() =>
 		return { status: 'ok', reply: REPLY, proposed: null };
 	}),
 );
+const applySpy = vi.hoisted(() => vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] }) as { source: string; applied: number; refusals: string[] }));
 const statusSpy = vi.hoisted(() => vi.fn((): Record<string, unknown> => ({ ready: true, generation: 'openrouter', modelName: 'test', remaining: null, price: { promptPerM: 1, completionPerM: 2 } })));
 vi.mock('./architect', () => ({
 	chatComplete: chatSpy,
 	useArchitectStatus: statusSpy,
-	applyProposedEditsChecked: vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] })),
+	applyProposedEditsChecked: applySpy,
 	estimateUsd: () => 0.004,
 	CHAT_OUTPUT_EST: 4096,
 	chatSystemTokens: () => 0,
@@ -451,5 +452,52 @@ describe('Architect chat — a parked notice reaches a reader already on screen 
 		await flushFrames();
 		expect(screen.queryByText(/Something went wrong reaching the model/), "a superseded turn's failure landed under the reply that succeeded").toBeNull();
 		expect(screen.getByText(REPLY), 'the successful reply was disturbed').toBeTruthy();
+	});
+});
+
+// THIRD CHECKER ROUND (B1). The turn-supersede gate was written INSIDE `raiseNotice`, and
+// Apply — which has no turn — called it with `deckTurnSeq.get(deck) ?? 0`. That does not
+// claim a sequence, it fabricates one the next line rejects (`undefined !== 0`), so a
+// refused Apply said nothing at all on any deck that had not had a turn this page session.
+// A proposal persists through a reload, so the ordinary path reaches it: come back the next
+// day, hit Apply on a proposal that no longer fits the deck, get silence.
+//
+// The gate now lives in a separate `raiseTurnNotice` whose signature cannot be reached
+// without a real sequence, and Apply goes through the ungated `raiseNotice`.
+describe('Architect chat — a refused Apply speaks on a deck that has had no turn (#1813, B1)', () => {
+	const REFUSAL = "Slide 9 doesn't exist — the deck has 1 slide.";
+	const PROPOSAL = [{ label: 'Slide 9', slide: 9, action: 'replace', raw: { action: 'replace', slide: 9, body: '# nine' }, before: '# old', after: '# nine', diff: [{ type: 'add', text: '# nine' }] }];
+
+	it('shows the refusal with no send first — the reload-and-Apply path', async () => {
+		const user = userEvent.setup();
+		applySpy.mockReturnValueOnce({ source: props.source, applied: 0, refusals: [REFUSAL] });
+		// A proposal that survived a reload: seeded into storage, never sent this session.
+		saveChat('deck-1', [
+			{ role: 'user', content: 'tighten slide nine' },
+			{ role: 'assistant', content: 'Here is a diff.', proposed: PROPOSAL },
+		]);
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+
+		await user.click(screen.getByRole('button', { name: 'Apply' }));
+		expect(screen.getByText(REFUSAL), 'the refusal was discarded — the author clicked Apply and nothing happened, silently').toBeTruthy();
+	});
+
+	it('still shows it after a send, so the fix is not just the sequence happening to match', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'a turn, to move the deck sequence on');
+		await turn.release();
+		await flushFrames();
+
+		applySpy.mockReturnValueOnce({ source: props.source, applied: 0, refusals: [REFUSAL] });
+		saveChat('deck-1', [
+			...loadChat('deck-1'),
+			{ role: 'assistant', content: 'Here is a diff.', proposed: PROPOSAL },
+		]);
+		cleanup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		await user.click(screen.getByRole('button', { name: 'Apply' }));
+		expect(screen.getByText(REFUSAL)).toBeTruthy();
 	});
 });
