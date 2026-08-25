@@ -526,12 +526,22 @@ log them), but the design rests on them:
 - **It does not add a raw-CSS path for finishes.** If that is wanted later, it
   should arrive as an explicit detach with a revert, on top of the version
   history #1839 specifies — not as a silently forking editor.
-- **It does not gate the zip import path.** A theme imported from a `.zip`
-  (`Library.tsx:295`) reaches `extraTheme` with no CSS gate at all, and the tail
-  is arbitrary unscoped CSS that reaches every export. Either put the theme gate
-  on the import path in the same change or log it — but do not leave it
-  undiscussed, because a shared `.zip` is the one path where the author and the
-  victim are different people.
+- ~~**It does not gate the zip import path.**~~ **DONE (2026-08-25).** A theme
+  imported from a `.zip` reached `extraTheme` with no CSS gate at all, and a shared
+  `.zip` is the one path where the author and the victim are different people. The
+  refusal went in **`saveStudioTheme`**, not on the import button, and building it
+  turned up a second hole the note had not spotted: `lib/theme/gate.js` ran live in
+  Fabricate, but `canSave` never consulted it — so the blocking rung guarded a
+  PREVIEW and not the LIBRARY, and a hand-edited theme carrying a remote `url()`
+  could be saved and then applied, reaching the preview `<style>` and every export
+  by a route the paused Fabricate preview never sees. The import, the workspace
+  restore and Fabricate's own Save all meet at `saveStudioTheme`, so one guard there
+  closes all three. Only the BLOCKING rung refuses: a theme missing a contract token
+  is wrong and still renders, and refusing it would be the false indictment this note
+  argues against. Driven through the real Library door in
+  `docs/e2e/theme-import-style-sink.spec.ts`, for the reason that spec already
+  existed — a unit test of a gate cannot see whether anything calls it, and "nothing
+  calls it" was the defect.
 
 ## Third correction, on shipping the CSS view (2026-08-25, #1839)
 

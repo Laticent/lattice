@@ -167,6 +167,44 @@ describe('restoreAssetVersion', () => {
 		expect((await restoreAssetVersion(v)).addedAt).toBeGreaterThan(2);
 	});
 
+	it('refuses to restore into a name another record now holds', async () => {
+		// The scenario the id-pinned save makes reachable, and it is on the feature's own
+		// main line: id-pinning exists so you can RENAME while editing. Restoring is
+		// id-pinned too, so it writes the old name back without passing the (kind, name)
+		// dedupe — and then two live records share one name. The next save that passes no
+		// id (the .zip import) resolves that name to whichever sorts newest and overwrites
+		// the record that was just restored.
+		const a = await putAsset(theme({ name: 'alpha', text: 'A' }));
+		await putAsset({ ...theme({ name: 'beta', text: 'B' }), id: a.id }, { ts: 10 }); // rename
+		const b = await putAsset(theme({ name: 'alpha', text: 'NEW' })); // the name is free again
+		const [v] = await listAssetVersions(a.id);
+		expect(v.snapshot.name).toBe('alpha');
+
+		await expect(restoreAssetVersion(v)).rejects.toThrow(/another saved theme/);
+
+		// Nothing moved: one record per name, and the new one is untouched.
+		const names = (await listAssets('theme')).map((t: { name: string }) => t.name).sort();
+		expect(names).toEqual(['alpha', 'beta']);
+		expect((await getAsset(b.id))?.text).toBe('NEW');
+		expect((await getAsset(a.id))?.text).toBe('B');
+	});
+
+	it('allows the restore once the clashing name is freed', async () => {
+		const a = await putAsset(theme({ name: 'alpha', text: 'A' }));
+		await putAsset({ ...theme({ name: 'beta', text: 'B' }), id: a.id }, { ts: 10 });
+		const b = await putAsset(theme({ name: 'alpha', text: 'NEW' }));
+		const [v] = await listAssetVersions(a.id);
+		await deleteAsset(b.id);
+		expect((await restoreAssetVersion(v)).name).toBe('alpha');
+	});
+
+	it('a record restoring onto its OWN name is not a clash', async () => {
+		const a = await putAsset(theme({ name: 'solo', text: 'A' }));
+		await putAsset({ ...theme({ name: 'solo', text: 'B' }), id: a.id }, { ts: 10 });
+		const [v] = await listAssetVersions(a.id);
+		expect((await restoreAssetVersion(v)).text).toBe('A');
+	});
+
 	it('refuses a version with no snapshot rather than writing junk', async () => {
 		await expect(restoreAssetVersion({ id: 'x' } as never)).rejects.toThrow(/no snapshot/);
 	});

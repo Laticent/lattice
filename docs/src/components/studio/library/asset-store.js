@@ -17,7 +17,7 @@
 //
 // ── EVERY OVERWRITE IS VERSIONED, AND IT HAPPENS HERE ───────────────────────
 //
-// `asset-history.js` was written alongside #1839's in-place edit and says in its own
+// `asset-history.js` was written alongside the in-place edit #1873 shipped, and says in its own
 // docblock that history "is what makes that overwrite safe to offer at all". It then
 // shipped with ZERO production callers, so the Studio offered the overwrite without
 // the thing that made it safe. This is that wiring.
@@ -130,9 +130,18 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     toStore = { ...record, id: existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', scene: 's', refdoc: 'd' }[record.kind] || 'a') };
   }
   if (VERSIONED_KINDS.has(toStore.kind)) {
-    // Read through `getAsset` rather than reusing the transaction above: a snapshot
-    // that shares a transaction with the put would be rolled back with it, which is
-    // the one ordering that must never happen.
+    // NOT ATOMIC WITH THE PUT, and that is a real limit rather than a design choice.
+    // Sharing one `readwrite` transaction across both stores would be the atomic
+    // answer, but `saveAssetVersion` awaits between its requests, and in a real
+    // browser an IndexedDB transaction auto-closes when the microtask queue drains
+    // with no request pending — so the shared-transaction version would have to
+    // reshape the history kernel, not just widen a scope.
+    //
+    // What that costs: two tabs saving the SAME asset can interleave (read-previous,
+    // read-previous, snapshot, snapshot, put, put), and the middle save then exists
+    // in neither the store nor history. One tab cannot reach it — Fabricate disables
+    // Save while saving and the import loop awaits sequentially — so it needs genuine
+    // concurrency on one record. Named here rather than left for someone to find.
     const previous = await getAsset(toStore.id);
     if (previous && !sameExceptVolatile(previous, toStore)) {
       await saveAssetVersion(previous, historyLabel, ts);
@@ -169,10 +178,29 @@ export async function getAsset(id) {
  * — the CSS, the name, the essentials, the recipe — comes back exactly as it was;
  * `addedAt` is not part of the asset, it is the Library's sort key, and restoring
  * the old one would file a record you just touched at the bottom of the shelf.
+ *
+ * IT REFUSES WHEN THE OLD NAME IS NOW SOMEONE ELSE'S. A snapshot carries the name the
+ * asset had, and restoring is id-pinned, so it writes that name back WITHOUT passing
+ * the `(kind, name)` dedupe below. Rename `alpha` to `beta`, save a new `alpha`, then
+ * restore: two live records are called `alpha`, and the next save that passes no id —
+ * the `.zip` import — resolves the name to whichever sorts newest and overwrites the
+ * record that was just restored. Uniqueness on `(kind, name)` is what the whole
+ * no-id path resolves against, so a restore is not allowed to break it.
+ *
+ * Refusing rather than auto-renaming is deliberate. The name is the DECK-FACING
+ * identity (a deck says `theme: alpha`), and it must also match the `@theme` inside
+ * the stylesheet or the engine registers the theme under one name while the deck
+ * renders by the other — a blank, unthemed slide. So both halves have to move
+ * together, which is a rename, which is a decision only the person can make.
  */
 export async function restoreAssetVersion(version) {
-  if (!version?.snapshot?.id) throw new Error('restoreAssetVersion: version has no snapshot');
-  return putAsset({ ...version.snapshot, addedAt: Date.now() }, { historyLabel: 'Before restore' });
+  const snapshot = version?.snapshot;
+  if (!snapshot?.id) throw new Error('restoreAssetVersion: version has no snapshot');
+  const clash = (await listAssets(snapshot.kind)).find((a) => a.name === snapshot.name && a.id !== snapshot.id);
+  if (clash) {
+    throw new Error(`Can't restore — “${snapshot.name}” is now another saved ${snapshot.kind}. Rename that one first.`);
+  }
+  return putAsset({ ...snapshot, addedAt: Date.now() }, { historyLabel: 'Before restore' });
 }
 
 /**

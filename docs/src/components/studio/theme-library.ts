@@ -64,6 +64,41 @@ function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
 }
 
 /**
+ * Refuse to STORE theme CSS that reaches off the device.
+ *
+ * WHY AT THE STORE AND NOT AT THE IMPORT BUTTON. `lib/theme/gate.js` already runs
+ * live in Fabricate — but only to pause the CSS out of the preview and show the
+ * author the reason. `canSave` never consulted it, so a hand-edited theme carrying a
+ * remote `url()` beacon could be SAVED and then applied, reaching the preview
+ * `<style>` and every export by a route the paused Fabricate preview never sees.
+ *
+ * And the theme an author typed is not the dangerous one. A `.zip` is the single
+ * path in HARD RULE #22's threat model where the author and the victim are DIFFERENT
+ * people, and it reached storage through `Library.tsx`'s import and
+ * `workspace-backup.ts`'s restore with no CSS gate at all. All three funnel through
+ * `saveStudioTheme`, so this is the one place that closes all three — the same
+ * reasoning that put version history in `putAsset` rather than in the four faculties.
+ *
+ * ONLY THE BLOCKING RUNG REFUSES. The gate separates `ok` from `blocked` on purpose:
+ * a theme missing a contract token is wrong and still RENDERS, so refusing to store
+ * it would be the false indictment the design note argues against, and would throw
+ * away an author's work over a fixable mistake. What refuses is exfiltration —
+ * `@import url(…)`, a remote `url()`, `expression()`, a `javascript:` scheme.
+ *
+ * `knownThemes` stays at its default (the base theme alone) for the reason the gate's
+ * own docblock gives: the registry is what is actually REGISTERED, not what a catalog
+ * lists, and claiming more would admit a palette-to-palette import the engine cannot
+ * resolve and then hoists. Nothing legitimate is lost — `packTheme` only ever exports
+ * a Studio theme, and a Studio theme imports the base and nothing else.
+ */
+function assertThemeCssIsSafe(core: ThemeCore, css: string, label: string): void {
+	const verdict = core.gateThemeCss(css) as { blocked?: boolean; findings?: { message: string; blocking?: boolean }[] };
+	if (!verdict?.blocked) return;
+	const why = verdict.findings?.find((f) => f.blocking)?.message ?? 'it reaches off the device.';
+	throw new Error(`Refused to save “${label}” — ${why}`);
+}
+
+/**
  * Save a derived theme to the shared library. `name` is preferred when it's
  * already a valid slug (Fabricate's content-hash name always is); otherwise we
  * slug the label, then fall back to the given name. Re-saving the same name
@@ -86,7 +121,9 @@ export async function saveStudioTheme(input: { id?: string; name: string; label:
 	// `input.name`, so TRUST it when it's a valid slug; only fall back (to the
 	// label slug, then a stamped form) when it isn't.
 	const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
-	const asset = (await loadThemeCore()).themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
+	const core = await loadThemeCore();
+	const asset = core.themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
+	assertThemeCssIsSafe(core, asset.text, input.label || name);
 	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }

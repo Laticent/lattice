@@ -84,6 +84,10 @@ export function AssetVersionsDialog({
 	React.useEffect(() => {
 		if (!open || !assetId) return;
 		let live = true;
+		// CLEAR FIRST. The effect runs after commit and paint, so without this the dialog
+		// renders asset B's title over asset A's rows for a frame or two — with live
+		// Restore buttons. A click in that window restores A while the dialog says B.
+		setVersions([]);
 		setLoading(true);
 		listAssetVersions(assetId)
 			.then((rows: Version[]) => { if (live) setVersions(rows); })

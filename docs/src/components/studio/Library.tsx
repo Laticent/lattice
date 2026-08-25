@@ -13,6 +13,7 @@ import { deleteStudioComponent, listStudioComponents, type StudioComponent, save
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFinish } from './finish-library';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
+import { listAssets } from './library/asset-store.js';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
 import { renderThemeShowcase } from './share-export';
@@ -176,16 +177,27 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setDocs(d);
 			// Version counts, and the orphan net, in the same pass.
 			//
-			// `deleteAsset` drops an asset's versions with it, so orphans should not arise —
-			// but "should not" is not "cannot": that delete is two steps and the second can
-			// fail, and a workspace RESTORE re-saves assets with no id, so a record whose name
-			// changed between backup and restore returns under a NEW id and strands its old
-			// history on a dead one. An orphan is invisible through the UI and un-deletable, so
-			// it only ever accumulates. Opening the Library is the natural sweep point: the live
-			// id set is already in hand, and the prune only runs when there is something to drop.
-			listAllAssetVersions()
-				.then(async (rows: { assetId: string }[]) => {
-					const live = new Set<string>([...t, ...c, ...f].map((a) => a.id));
+			// `listAssets()` — the RAW store, every kind, one read — and deliberately not the
+			// `t`/`c`/`f` lists above. Those three each swallow a throw and return `[]` so a
+			// read never breaks the shelf, which is right for rendering and catastrophic for a
+			// prune: one transient failure would hand `pruneOrphanVersions` a live set missing
+			// a whole kind, and it would permanently delete every version of it. The raw read
+			// rejects instead, so the `.catch` below skips the prune entirely.
+			//
+			// It also has to be every kind rather than the three the Library shows: the prune
+			// sweeps the WHOLE history store, so a kind that is versioned but not displayed
+			// would be wiped on every Library open. Nothing is versioned but undisplayed today
+			// — and `asset-store.js` tells the next change to add `'scene'` to `VERSIONED_KINDS`
+			// when scenes get a card, which is exactly that shape.
+			//
+			// Why prune at all, when `deleteAsset` drops an asset's versions with it: a
+			// workspace RESTORE re-saves assets with no id, so a record whose name changed
+			// between backup and restore returns under a NEW id and strands its old history on
+			// a dead one. An orphan is invisible through the UI and un-deletable, so it only
+			// ever accumulates.
+			Promise.all([listAllAssetVersions(), listAssets()])
+				.then(async ([rows, all]: [{ assetId: string }[], { id: string }[]]) => {
+					const live = new Set<string>(all.map((a) => a.id));
 					const counts: Record<string, number> = {};
 					for (const r of rows) if (live.has(r.assetId)) counts[r.assetId] = (counts[r.assetId] || 0) + 1;
 					setVersionCounts(counts);

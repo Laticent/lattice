@@ -73,10 +73,17 @@ export async function listAssetVersions(assetId) {
  * Snapshot `record` as it is NOW, before something replaces it. Returns the
  * updated list, newest first.
  *
- * Skips a no-op when the newest version is already byte-identical, so opening an
- * asset in its faculty and saving without touching anything does not manufacture a
- * version — the same guard the deck checkpoints use, for the same reason: a
- * history full of identical entries is a history nobody scrolls.
+ * Skips a no-op when the newest version is already byte-identical — the same guard
+ * the deck checkpoints use, for the same reason: a history full of identical entries
+ * is a history nobody scrolls.
+ *
+ * IT IS NOT WHAT STOPS A NO-OP SAVE FROM MAKING A VERSION, though it was written
+ * believing it was. Every faculty re-stamps `addedAt` with `Date.now()` on save, so
+ * two saves of identical content are never byte-identical RECORDS and this comparison
+ * could not fire in production — measured, three no-op saves produced three versions.
+ * That question is answered one level up, by `sameExceptVolatile` in `asset-store.js`,
+ * which compares on authored content. This guard remains as the kernel's own
+ * belt-and-braces for a caller that snapshots the same bytes twice.
  */
 export async function saveAssetVersion(record, label, ts) {
   if (!record?.id) return [];
