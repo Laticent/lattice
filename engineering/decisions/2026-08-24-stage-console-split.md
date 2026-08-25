@@ -798,4 +798,196 @@ the first one caught before it shipped rather than after.
   The stamp is what caught that, and it is why the stamp is worth describing here.
 - **`onLost` does not distinguish a Stage that DIED from one the presenter deliberately closed.**
   Both revert the console to plain Present, which is right for the second and arguably wrong for
-  the first. A decision, not a defect — it goes to the maintainer.
+  the first. A decision, not a defect — it goes to the maintainer. *(Settled in §13.)*
+
+## 13. Which losses are worth a sentence — and the premise that was wrong
+
+§12's last open item went to the maintainer as "a crashed projector looks identical to putting
+the deck away: **both silently revert** the console mid-talk." **That premise did not hold.**
+Read against what actually shipped, every loss *except* the console's own `close()` was already
+announced: the beat path and the 2s liveness poll both called `onLost`, and `PresentOverlay`
+turned that into "Stage disconnected — press S…". So the choice on the table was not "add a
+signal for a death" — the signal was there — but **"which losses deserve it"**, and the answer
+went the other way from the way the question was posed.
+
+### The notice was firing for an act the presenter had just performed
+
+A presenter who closes the Stage window by hand was told *"Stage disconnected — press S to put
+the deck back on your second screen."* They know. The cost is not the pixel: a notice that fires
+for a deliberate act is the notice people learn to dismiss without reading, and the one case it
+exists for — the room going dark while you are mid-sentence — is the one that gets dismissed
+with it. So the split is now **deliberate vs. unintended**, not *ours vs. theirs*:
+
+| teardown | reverts the console | says something |
+|---|---|---|
+| `close()` — the pill, or `S` | yes | no |
+| the presenter closes the window by hand | yes | **no** (was: yes) |
+| the window is navigated away | yes | yes — *"showing the room something else"* |
+| it vanishes with no goodbye | yes | yes — *"Stage disconnected"* |
+
+Two sentences rather than one, because the recovery differs: a navigated Stage is *sitting on
+the projector showing the room the wrong page*, which is worth walking over to; a vanished one
+left the projector blank.
+
+**The rows name OBSERVED STATE, and an earlier draft of this section named causes instead — "a
+crash, a discarded tab, a projector that lost power" — with all three wrong.** A crashed or
+discarded tab keeps `closed === false`, so it lands in the *navigated* row, where the sentence
+happens to be right anyway (the window is showing the room an error page). A projector losing
+power changes nothing this code can see: the window is fine, the display is not, and no teardown
+path runs at all. Measured while checking it: a popup shares its opener's renderer, so a Stage
+renderer crash generally takes the console down with it and none of this executes. The honest
+reading of the last row is "the window is not there and never said goodbye", which is rarer than
+the cause list made it sound.
+
+One more class belongs on the record, between rows two and three: a close the presenter did not
+*perform* but which still unloads cleanly — a "restart to update", the OS closing the window,
+quitting the browser. Those were announced before this change and are silent now. Defensible,
+because the presenter is looking at the bigger event either way, but it is the discriminator
+being "delivered a goodbye and then flipped `closed`" rather than "the presenter meant it", and
+the two are not the same sentence.
+
+### `closed` is the right discriminator, and reading it once is the wrong way to ask
+
+`window.closed` is the only thing that separates a closed window from a navigated one. Measured
+on real Chromium, holding the handle and sampling from the moment the `{stage:'closed'}` beat
+arrives:
+
+| teardown path | at the beat | next task | +50ms | +200ms |
+|---|---|---|---|---|
+| hand-close (the X) | `false` | `false` | **`true`** | `true` |
+| opener `close()` | `true` | `true` | `true` | `true` |
+| navigate same-origin | `false` | `false` | `false` | `false` |
+
+The probe, so the number is re-derivable rather than merely reported — an opener that holds the
+handle, a stage document written into `about:blank` that posts the same beats the real one does,
+and a sampler started the moment the beat lands:
+
+```js
+// in the opener, having held `w = window.open('', '', …)` and written the doc into it
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin || e.data?.stage !== 'closed') return;
+  const t0 = Date.now();
+  (function tick() {
+    if (w.closed) return record(Date.now() - t0);     // flipped — how long it took
+    if (Date.now() - t0 > 3000) return record(-1);    // never flipped
+    setTimeout(tick, 10);
+  })();
+});
+// drive it three ways: popup.close() · w.close() from the opener · popup.goto(elsewhere)
+```
+
+**A synchronous read files every hand-close as a navigation** — the flag simply has not flipped
+when the dying document's own unload beat reaches the opener. The navigated row is what makes
+sampling sound rather than lucky: a navigated window *never* flips, so waiting can only turn
+"not closed yet" into "closed". The classifier samples for up to 600ms (12× the 50ms observed),
+and **only the sentence waits** — `teardown()` has already run, so the console stops driving a
+window it no longer owns at the instant it learns.
+
+**And the grace is calibrated on one engine, so the other two were measured too** — a constant
+this load-bearing, pinned against a single browser, is the shape of a claim that is true until it
+is not. Sampling the flip at 10ms granularity:
+
+| engine | hand-close | navigate | the `{stage:'closed'}` beat |
+|---|---|---|---|
+| Chromium | flips at **10ms** | never flips (>3s) | delivered — `pagehide` *and* `unload` |
+| WebKit | flips at **1ms** | never flips (>3s) | delivered |
+| Firefox | — | — | **never delivered** |
+
+Chromium and WebKit are comfortably inside 600ms and preserve the asymmetry the design rests on.
+**And the headline cell is now DRIVEN on both** — it carries `@webkit-tablet`, so "a Stage the
+presenter closes by hand says nothing" is a real-surface result on two engines rather than a
+Chromium result plus a timing argument. Firefox is a different finding entirely, and it is not
+this change's:
+
+> **PRE-EXISTING, OFF-PATH, AND BIGGER THAN THIS PR (HARD RULE #18 — logged, not pulled in).**
+> On Firefox the Stage's opener handshake **never arrives at all**. `window.opener` is set and
+> our marker is in the document, but `tell()` throws
+> `SyntaxError: An invalid or illegal string was specified` on
+> `postMessage(..., location.origin)`: the Stage document is written into `about:blank`, whose
+> origin Firefox serializes as `"null"`, and `"null"` is not a valid `targetOrigin`. So no
+> `ready` is posted -- which means `onChange` never fires, the console never portals the caption
+> crawl or the progress rail into the Stage, and `show()` (gated on `ready`) never posts a slide
+> index. The room's window paints slide 0 and stays there.
+>
+> This predates the present change and is untouched by it. What it costs *here* is a claim: the
+> hand-close silence is verified on Chromium and WebKit and **does not take effect on Firefox**,
+> because the beat path is never reached and the loss falls through to the poll -- exactly as it
+> did before. The likely fix is to bake the opener's origin into the document the way `token`
+> already is, rather than reading `location.origin` inside it; that is a change to the handshake
+> on a surface with no Firefox coverage, so it wants its own pass, not a widened diff here.
+> `stage-placement.spec.ts`'s `@gecko` cells stay green because they exercise fullscreen and
+> placement, neither of which needs a beat.
+
+Two consequences fell out of writing it:
+
+- **A re-opened Stage must not inherit the old one's obituary.** The classification is in flight
+  for up to 600ms; a presenter who presses `S` inside that window would be told the Stage left
+  the deck while looking at the one that just came up. An ownership sequence, bumped on every
+  open and teardown, makes the pending answer stale rather than wrong.
+- **`close()` now tears down *before* it closes.** The old order leaned on `postMessage` being
+  asynchronous — true, but a fact about the platform rather than something this file controls.
+  Detaching the listener first makes "the console's own close is never a loss" a guarantee.
+
+**The poll does not consult `closed` at all, deliberately.** Reaching it means the Stage stopped
+being our document and never said goodbye — and a goodbye is what a deliberate close reliably
+sends (measured: a hand-close fires *both* `pagehide` and `unload`, so the beat arrives twice).
+Whatever took the deck off the room's screen without one, nobody asked for it. A `closed` check
+there would silence exactly that.
+
+### Every cell here was made to fail before it was believed
+
+This surface shipped eight vacuous gates (§12), so nothing here is trusted on a green run.
+`npm run mutate:stage-window` is a committed battery — same idiom as `mutate:guide`, aimed at
+this file — that injects the defect each cell is named for and fails on a survivor **and** on a
+mutation that did not apply. **13 mutations, 13 killed, 0 survived.** Eight cover the loss
+classifier; five are §12's leftover markup cells (the `#latt-ctl` element, the buttons'
+accessible names, `opacity:0`, `:focus-within`, and the bar's absence from the srcdoc hosts),
+which were the last cells on this surface never proven able to fail. They were not vacuous —
+but that is now measured rather than assumed, and it stays measured.
+
+
+**And the battery earned its keep before it was even committed.** Running the suite over the
+whole `present/` directory rather than one file surfaced `ReferenceError: window is not defined`,
+thrown by the classification chain **after the jsdom environment was torn down** — reported by
+vitest as an unhandled error *beside a green 33/33*. `ownSeq` made a stale answer
+un-ANNOUNCEABLE but never stopped the chain re-scheduling itself, so up to twelve timers went on
+walking for a window the controller had already let go of. Harmless in a browser; not harmless
+anywhere a timer can outlive its globals, and a defect that presents as green is precisely this
+branch's recurring shape arriving from the other direction. The chain is now an owned handle
+canceled in `teardown()`, and the lifetime is asserted (`vi.getTimerCount()` after `close()`)
+rather than assumed.
+
+The two **real-popup** cells cost a docs rebuild apiece, so they are driven by hand rather than
+committed to the battery. Both were killed:
+
+| mutation | cell that died |
+|---|---|
+| the beat path announces every close | *a Stage the presenter closes by hand … says nothing about it* |
+| a navigated Stage gets the generic "disconnected" wording | *a Stage that is NAVIGATED away is noticed …* |
+
+The hand-close cell carries its **positive control inside itself** — it re-opens the Stage and
+navigates it away, and watches the same log fill. Without that, "nothing was ever raised" is
+satisfied by a Studio whose toaster never renders at all.
+
+**And the first draft of that cell was vacuous anyway — the ninth on this branch, found by the
+independent checker.** It waited 3000ms and then read `toHaveCount(0)` on `[data-sonner-toast]`.
+But `notify` is `toast(msg, { duration: 2600 })` and sonner unmounts the node 200ms after the
+duration expires, so a toast raised by the close is **gone from the DOM by ~2800ms** and a read
+at ~3100ms sees an empty toaster whether the defect is present or not. Worse, the mutation that
+appeared to kill the cell was really killing the *positive control* — the mutation makes the
+navigated path emit the other wording — so the cell looked mutation-proven while its own headline
+assertion could not fail. That is the §12 pattern once more: reading a state that has expired is
+reading an OUTCOME where the thing you care about is the EVENT.
+
+It now installs a `MutationObserver` **before** the close and accumulates every toast text that
+ever appears, so an auto-dismissal cannot hide one. Re-run under the same mutation, it fails on
+its own line — *"a Stage the presenter closed by hand must not announce itself"* — rather than on
+the control. The lesson is one the sanction entry had to absorb too: the 3000ms wait is derived
+from the two deadlines the notice can arrive on, but a *third* clock (how long the notice lives)
+decided whether the assertion could see it at all, and lengthening the wait was what broke it.
+
+### Still open
+
+- **Whether Chromium physically lands the Stage on a second monitor** — unchanged from §12, and
+  not reachable from a one-screen sandbox. Everything our code decides on the way there is
+  pinned across Chromium, WebKit and Firefox.

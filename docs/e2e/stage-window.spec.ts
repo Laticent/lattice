@@ -31,10 +31,12 @@ async function openStage(page: import('@playwright/test').Page, context: import(
 	await expect(dialog).toBeVisible();
 
 	// A ≥ md affordance: the launcher is `hidden … md:inline-flex`, because a phone has no
-	// second screen to stage onto. This file carries no width tag, so today only `desktop`
-	// runs it — the guard is here so that tagging it onto a narrow project later SKIPS
-	// rather than fails, and it is keyed on the control actually being offered rather than
-	// on a width, so it tracks the breakpoint instead of a number copied out of the CSS.
+	// second screen to stage onto. The guard is keyed on the control actually being OFFERED
+	// rather than on a width, so it tracks the breakpoint instead of a number copied out of
+	// the CSS — and that is what makes tagging a cell onto a narrower project safe: it skips
+	// rather than fails. One cell now carries `@webkit-tablet` (1180px, so the launcher is
+	// offered) because the hand-close silence rests on a platform timing fact that does not
+	// transfer between engines.
 	const launcher = dialog.getByRole('button', { name: 'Stage' });
 	test.skip((await launcher.count()) === 0, 'the Stage is not offered below the md breakpoint');
 
@@ -395,16 +397,65 @@ test('a site palette change does not blink the presenter view off', async ({ pag
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
 });
 
-test('a Stage the presenter closes by hand is reported, not left driving a dead window', async ({ page, context }) => {
+// @webkit-tablet — TAGGED ONTO A SECOND ENGINE, because the silence this cell asserts rests on a
+// PLATFORM TIMING FACT and those do not transfer. The classifier reads `window.closed`, which a
+// hand-closed window flips only AFTER its own unload beat lands: 10ms on Chromium, 1ms on WebKit,
+// measured. A 600ms grace calibrated against one browser is a claim that is true until it is not,
+// so the headline behavior is driven on two. (Firefox is not tagged and could not be: the Stage's
+// opener handshake never arrives there at all — a pre-existing defect written up in §13 of the
+// decision note, which also bounds what this change delivers on that engine.)
+test('a Stage the presenter closes by hand reverts the console — and says nothing about it @webkit-tablet', async ({ page, context }) => {
 	const { stage, dialog, launcher } = await openStage(page, context);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
 
-	// The `{stage:'closed'}` unload beat, on the real window. Polling `win.closed` would
-	// report this up to a poll late — mid-sentence, on the one control a presenter is
-	// looking at to know whether the room can still see the deck.
+	// AND NOT A WORD. The presenter closed that window; announcing it back to them is the
+	// notice people learn to dismiss unread, which costs the one case it exists for.
+	//
+	// ACCUMULATED, NOT SAMPLED — and the first draft of this cell got it wrong in the way this
+	// whole branch keeps getting things wrong. It waited 3000ms and then read
+	// `toHaveCount(0)`. But `notify` is `toast(msg, { duration: 2600 })` and sonner unmounts
+	// the node 200ms after that, so a toast raised by the close is GONE FROM THE DOM by ~2800ms
+	// and a read at ~3100ms sees an empty toaster whether or not the defect is present. The
+	// assertion could not see the thing it forbids; worse, the mutation that appeared to kill
+	// this cell was really killing the positive control below. Reading a state that expires is
+	// the same mistake as reading an OUTCOME where the guard controls the CALL (§12).
+	//
+	// So watch from BEFORE the close and keep what was seen: a toast that appears and
+	// auto-dismisses still leaves its text in the log.
+	const seen = async () => page.evaluate(() => (window as unknown as { __toastLog?: string[] }).__toastLog ?? []);
+	await page.evaluate(() => {
+		const w = window as unknown as { __toastLog?: string[] };
+		w.__toastLog = [];
+		new MutationObserver(() => {
+			for (const el of document.querySelectorAll('[data-sonner-toast]')) {
+				const t = (el.textContent ?? '').trim();
+				if (t && !w.__toastLog?.includes(t)) w.__toastLog?.push(t);
+			}
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+
+	// The `{stage:'closed'}` unload beat, on the real window. Polling `win.closed` would report
+	// this up to a poll late — mid-sentence, on the one control a presenter is looking at to
+	// know whether the room can still see the deck.
 	await stage.close();
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
+	// Past BOTH deadlines the notice could arrive on — the 600ms loss classification and a 2s
+	// liveness poll — because "nothing yet" a beat after the close is true for the wrong reason.
+	await page.waitForTimeout(3000);
+	expect(await seen(), 'a Stage the presenter closed by hand must not announce itself').toEqual([]);
+
+	// THE POSITIVE CONTROL, in this same cell and on this same surface. Without it "nothing was
+	// ever raised" is satisfied by a Studio whose toaster never renders at all. So put the Stage
+	// back, take it away in a way NOBODY asked for, and watch the same log fill.
+	const secondPopup = context.waitForEvent('page');
+	await launcher.click();
+	const stage2 = await secondPopup;
+	await expect(stage2.locator('#latt-film .lattice')).not.toBeEmpty();
+	await stage2.goto('/');
+	await expect
+		.poll(seen, { timeout: 10_000, message: 'the toaster never raised anything for a loss nobody asked for' })
+		.toEqual([expect.stringMatching(/showing the room something else/i)]);
 });
 
 test('the caption crawl plays on the Stage, and not in the console', async ({ page, context }) => {
@@ -506,6 +557,11 @@ test('a Stage that is NAVIGATED away is noticed, and does not take the Studio wi
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	// The audience chrome comes HOME rather than vanishing from both surfaces.
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
+	// AND IT IS SAID OUT LOUD, which is the half a hand-close does not get. Everything else
+	// about this is visible only if the presenter happens to be looking at the console —
+	// meanwhile the projector is showing the room a page that is not the deck, and the
+	// wording is what tells them to go and look at it rather than assume a blank screen.
+	await expect(page.locator('[data-sonner-toast]')).toContainText(/showing the room something else/i, { timeout: 10_000 });
 	// And the Studio is still standing — this is the crash the render-time deref caused.
 	await expect(dialog).toBeVisible();
 	await page.keyboard.press('ArrowRight'); // force a re-render, which is what used to kill it

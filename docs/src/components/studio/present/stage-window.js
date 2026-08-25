@@ -57,8 +57,11 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  *   • the two empty hosts the console portals the audience chrome into
  *     (`#latt-cc`, `#latt-rail`) plus their shared stylesheet;
  *   • the opener handshake — `{stage:'ready'}` once the fit is live, and
- *     `{stage:'closed'}` on unload, so the console can show "Stage disconnected"
- *     rather than driving a window that is gone;
+ *     `{stage:'closed'}` on unload, so the console stops driving a window that is
+ *     gone the instant it goes — rather than up to one 2s liveness poll later,
+ *     mid-sentence. (Whether that also gets SAID out loud is a separate question,
+ *     answered by `onLost` below: a window the presenter closed by hand is not
+ *     announced back to them.);
  *   • `f` for fullscreen, because auto-fullscreening a popup from the opener's
  *     gesture is not something a browser is obliged to allow (§7 of the decision
  *     note); when it is declined, this key is the whole fallback.
@@ -502,11 +505,35 @@ function stageToken() {
  *     from the destructuring and every un-defaulted key becomes REQUIRED. Adding
  *     this one without a default broke twelve existing call sites at
  *     `astro check` time while `vitest` — which does not typecheck — stayed green.
- *   • onLost() → the Stage went away WITHOUT the console asking. Separate from
- *     `onChange(null)` because the two need opposite treatment: closing the
- *     Stage yourself needs no announcement, and having the room's window
- *     disappear mid-talk needs one. Only the unload beat reaches this — `close()`
- *     detaches the listener first, so our own teardown cannot trip it.
+ *   • onLost(reason) → the Stage stopped carrying the deck and NOBODY MEANT IT.
+ *     Separate from `onChange(null)` because the two need opposite treatment:
+ *     the console reverting to plain Present is the visible fact, and whether
+ *     the ROOM still has the deck is the one a presenter mid-sentence needs
+ *     said out loud. `reason` names an OBSERVED STATE, never a guessed cause:
+ *     `'navigated'` — the window is still there and is not our deck any more (a
+ *     link click, a reload, a Back, or a renderer that died and left an error
+ *     page in it) — or `'gone'`, the window is not there at all and never said
+ *     goodbye.
+ *
+ *     AN EARLIER DRAFT NAMED CAUSES — "a crash, a discarded tab, a projector
+ *     that lost power" — and all three were wrong. A crashed or discarded tab
+ *     keeps `closed === false`, so it arrives as `'navigated'`; and a projector
+ *     losing power changes nothing observable here at all, because the window is
+ *     fine and it is the DISPLAY that went. (Measured while checking this: a
+ *     popup shares its opener's renderer, so a Stage renderer crash generally
+ *     takes the console down with it and no code here runs.) What this file can
+ *     see is whether the window is still there. That is what the names say.
+ *
+ *     THREE TEARDOWN PATHS, TWO OF THEM DELIBERATE, AND THE SPLIT IS THE POINT.
+ *     `close()` (the pill, `S`) announces nothing — the presenter pressed it.
+ *     Neither does the window the presenter closes BY HAND: they closed it, and
+ *     a notice for an act you just performed is the noise that teaches a
+ *     presenter to ignore the notice that matters. What is left — a navigated
+ *     window and a beatless disappearance — is exactly the set where the room
+ *     went dark without anyone asking, and that set is what `onLost` announces.
+ *     Before this it fired for a hand-close too, so the sentence "Stage
+ *     disconnected" was as likely to mean "you closed it" as "the room lost the
+ *     deck".
  *   • onPlaced({ placed, full }) → the outcome of the auto-placement attempt.
  *
  * Returns { toggle, write, show, close, isOpen }. `toggle()` MUST run in a user
@@ -529,6 +556,22 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	 *  requiring the window to actually be gone before a token-matched goodbye counts. */
 	const token = stageToken();
 	let pollId = 0;
+	/** Bumped every time this controller starts or stops owning a window. A loss
+	 *  classification is in flight for up to `CLOSED_GRACE_MS` (below), and a presenter who
+	 *  re-opens the Stage inside that window must not be handed a notice about the one that
+	 *  just went. The sequence captured at schedule time is what makes the pending answer
+	 *  stale rather than wrong. */
+	let ownSeq = 0;
+	/** The pending step of a loss classification, so it can be CANCELED rather than merely
+	 *  ignored. `ownSeq` already stops a stale answer being announced, but the chain itself
+	 *  went on scheduling — up to twelve more timers belonging to a window this controller
+	 *  had already let go of. Harmless in a browser and NOT harmless anywhere the timer can
+	 *  outlive its globals: it surfaced as `ReferenceError: window is not defined` fired
+	 *  after a jsdom environment was torn down, which vitest reports as an unhandled error
+	 *  beside a green suite — the exact "passes for a reason other than the one it names"
+	 *  shape this file keeps producing. An owned handle is also simply the honest lifetime:
+	 *  the chain belongs to the window that went, and teardown is per-window. */
+	let lossTimer = 0;
 
 	// The holding page, written synchronously inside the gesture. Without it the
 	// room watches `about:blank` for as long as the deck takes to render, which on a
@@ -581,6 +624,52 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		} catch {
 			return false; // cross-origin: not ours any more, and we can no longer look
 		}
+	}
+
+	// ── DID IT DIE, OR DID SOMEONE CLOSE IT? ────────────────────────────────────────
+	//
+	// `closed` is the only discriminator the platform offers, and READING IT ONCE IS THE
+	// WRONG WAY TO ASK IT. Measured on real Chromium, holding the handle and sampling it from
+	// the moment the `{stage:'closed'}` beat arrives (the probe itself, and the same table for
+	// WebKit and Firefox, are in 2026-08-24-stage-console-split.md §13):
+	//
+	//   teardown path            at the beat   next task   +50ms   +200ms
+	//   hand-close (the X)          false        false     true     true
+	//   opener close()              true         true      true     true
+	//   navigate same-origin        false        false     false    false
+	//
+	// So a synchronous read files EVERY hand-close as a navigation — the flag has simply
+	// not flipped yet when the dying document's own unload beat reaches us. A navigated
+	// window, by contrast, never flips: it is still open, showing someone else's page. That
+	// asymmetry is what makes sampling sound rather than merely lucky — waiting can only
+	// ever turn "not closed yet" into "closed", so the grace window costs the navigation
+	// case a late notice and the close case nothing at all.
+	//
+	// The REVERT is not delayed by any of this; `teardown()` has already run. Only the
+	// sentence waits.
+	const CLOSED_GRACE_MS = 600; // 12× the 50ms the flag actually took, for a slow machine
+	const CLOSED_STEP_MS = 50;
+	/**
+	 * Announce the loss unless the window turns out to have simply been closed.
+	 * @param {Window | null} w the handle teardown just let go of
+	 * @param {number} seq the ownership sequence at schedule time
+	 * @param {number} waited
+	 */
+	function announceUnlessClosed(w, seq, waited = 0) {
+		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
+		try {
+			if (w.closed) return; // deliberate: the presenter closed the window themselves
+		} catch {
+			return; // we cannot even ask any more; do not invent a failure
+		}
+		if (waited >= CLOSED_GRACE_MS) {
+			onLost?.('navigated');
+			return;
+		}
+		lossTimer = window.setTimeout(() => {
+			lossTimer = 0;
+			announceUnlessClosed(w, seq, waited + CLOSED_STEP_MS);
+		}, CLOSED_STEP_MS);
 	}
 
 	function paint(doc) {
@@ -673,13 +762,25 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			// case this exists for (a navigated Stage) it is already false, so the beat
 			// still lands immediately rather than waiting for the poll.
 			if (!ours && alive()) return;
+			// HOLD THE HANDLE ACROSS THE TEARDOWN. `teardown()` drops it, and the handle is
+			// the only thing that can answer whether this window was closed or taken over —
+			// so the classification is scheduled with it, not with `stageWin`.
+			const w = stageWin;
 			teardown();
-			onLost?.();
+			announceUnlessClosed(w, ownSeq);
 		}
 	}
 	function teardown() {
 		ready = false;
 		written = '';
+		ownSeq += 1;
+		// Cancel any classification still walking. It belongs to a window this controller has
+		// already let go of, and the beat path re-schedules a fresh one immediately after this
+		// returns when there is something new to classify.
+		if (lossTimer) {
+			window.clearTimeout(lossTimer);
+			lossTimer = 0;
+		}
 		if (pollId) {
 			window.clearInterval(pollId);
 			pollId = 0;
@@ -691,14 +792,22 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		onChange?.(null);
 	}
 	function close() {
-		if (stageWin && !stageWin.closed) {
+		// TEARDOWN FIRST, then close. The order is the guarantee, not a tidiness preference:
+		// detaching the listener before the window is even asked to go means the beat its
+		// unload fires cannot reach `onMsg` at all, so the console's own close can never be
+		// mistaken for a loss — and `ownSeq` has already moved, so any classification still
+		// in flight from a previous window goes quiet too. The old order (close, then tear
+		// down) leaned on `postMessage` being asynchronous, which is true but is a fact about
+		// the platform rather than something this file controls.
+		const w = stageWin;
+		teardown();
+		if (w && !w.closed) {
 			try {
-				stageWin.close();
+				w.close();
 			} catch {
 				/* gone */
 			}
 		}
-		teardown();
 	}
 	function toggle() {
 		if (isOpen()) {
@@ -726,6 +835,11 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		const win = window.open('', 'lattice-stage', 'width=1280,height=720');
 		if (!win) return; // blocked — leave the toggle off
 		stageWin = win;
+		// A NEW STAGE MAKES THE OLD ONE'S OBITUARY STALE. A navigated window's
+		// classification is still in flight for up to `CLOSED_GRACE_MS`, and a presenter who
+		// re-opens inside that window would be told the Stage left the deck while looking at
+		// the one that just came up.
+		ownSeq += 1;
 		ready = false;
 		written = '';
 		window.addEventListener('message', onMsg);
@@ -735,10 +849,32 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		// instantly, and catches nothing when the renderer is killed — which
 		// 2026-08-10-studio-crash-sentinel.md exists because it happens here. Slow on
 		// purpose: this is a liveness check on one window, not a sync channel.
+		// THE POLL ALWAYS ANNOUNCES, and it does not consult `closed` the way the beat path
+		// does. Reaching here means the Stage stopped being our document and never said
+		// goodbye — and a goodbye is what a deliberate close reliably sends (measured: a
+		// hand-close fires BOTH `pagehide` and `unload`, so the beat arrives twice). Whatever
+		// took the deck off the room's screen without a goodbye, nobody asked for it, so it
+		// gets said. A `closed` check here would silence exactly that.
+		//
+		// The two arms below are OBSERVED STATE, not diagnosis. The common one is
+		// `'navigated'` — the window is still there and is not ours: a same-origin page took
+		// it over without its beat reaching us, or the document became unreadable. `'gone'`
+		// is the window vanishing with no beat at all, which is rarer than it sounds: a
+		// crashed or discarded tab keeps `closed === false` and lands in the first arm.
 		pollId = window.setInterval(() => {
 			if (alive()) return;
+			const w = stageWin;
 			teardown();
-			onLost?.();
+			// Still open, just not ours → someone took the window over and the beat did not
+			// reach us. Two seconds have passed, so `closed` has long since settled and this
+			// read needs no grace window.
+			let navigated = false;
+			try {
+				navigated = !!w && !w.closed;
+			} catch {
+				navigated = false;
+			}
+			onLost?.(navigated ? 'navigated' : 'gone');
 		}, 2000);
 		autoPlaceStage(win)
 			.then(async (placed) => {
