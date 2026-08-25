@@ -956,6 +956,7 @@ anywhere a timer can outlive its globals, and a defect that presents as green is
 branch's recurring shape arriving from the other direction. The chain is now an owned handle
 canceled in `teardown()`, and the lifetime is asserted (`vi.getTimerCount()` after `close()`)
 rather than assumed.
+
 The two **real-popup** cells cost a docs rebuild apiece, so they are driven by hand rather than
 committed to the battery. Both were killed:
 
