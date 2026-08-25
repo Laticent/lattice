@@ -89,15 +89,14 @@ test('the present-transport kernels the player already inlines are still self-co
 		assert.throws(() => keyAction('ArrowRight'), ReferenceError, 'the no-map form is NOT inlinable — the player must pass the keymap');
 
 		// The zoom rule joined the inlined set when the presenter screen gained pinch
-		// (2026-08-10-preview-pinch-zoom.md). That window is retired — the Stage/console
-		// split gave the room a deck with no controls on it and left zooming to the
-		// console, which is bundled and imports normally (2026-08-24-stage-console-split.md)
-		// — so NOTHING inlines these two today. The guard stays because the requirement
-		// does: `present-transport.mjs`'s header promises every export is self-contained,
-		// and `createZoomGesture` is the biggest kernel in the file and the easiest to
-		// break this way (it closes over `emit`, `bound` and `about`, all of which must be
-		// INTERNAL, not module-scope). The export player is one sign-off away from wanting
-		// it, and a promise re-verified only when someone needs it is not a promise.
+		// (2026-08-10-preview-pinch-zoom.md). `createZoomGesture` is inlined AGAIN today, by
+		// the Stage window, and for a reason worth stating: the Stage does not zoom, it uses
+		// the gesture purely as the FINGER COUNTER that `swipeAction` has to consult first.
+		// `zoomStep` still has no live caller, and the guard stays for it anyway —
+		// `present-transport.mjs`'s header promises every export is self-contained, and a
+		// promise re-verified only when someone needs it is not a promise. `createZoomGesture`
+		// is the biggest kernel in the file and the easiest to break this way (it closes over
+		// `emit`, `bound` and `about`, all of which must be INTERNAL, not module-scope).
 		const zoomStep = inlineIntoEmptyScope(t.zoomStep, 'zoomStep');
 		assert.ok(zoomStep(-100) > 1, 'the inlined step still zooms in on a push away');
 
@@ -106,6 +105,19 @@ test('the present-transport kernels the player already inlines are still self-co
 		zoom.move([{ x: -50, y: 0 }, { x: 150, y: 0 }], { w: 1000, h: 600 });
 		assert.equal(zoom.state().scale, 2, 'the inlined gesture still pinches');
 		assert.equal(zoom.up(0).swipeBlocked, true, 'and still blocks the swipe it would otherwise fake');
+
+		// `createWheelGate` and `padInset` are the two the Stage window added to the inlined
+		// set, and neither was pinned here when it did — the gate this file IS was simply not
+		// extended to the kernels the change inlined. `createWheelGate` is the riskier of the
+		// two: it returns a CLOSURE over `last`, so a refactor that lifted that state to
+		// module scope would keep working in the bundle and silently stop gating in the popup.
+		const wheelGate = inlineIntoEmptyScope(t.createWheelGate, 'createWheelGate')();
+		assert.equal(wheelGate(0, 60, 1000), 'next', 'the inlined gate still turns on a firm flick');
+		assert.equal(wheelGate(0, 60, 1010), null, 'and its cooldown state survived the trip');
+		assert.equal(wheelGate(0, 6, 9000), null, 'and so did its threshold');
+
+		const pad = inlineIntoEmptyScope(t.padInset, 'padInset');
+		assert.ok(pad(1280, 720, { factor: 0.05 }) > 0, 'the inlined inset still computes a pad');
 	});
 });
 
