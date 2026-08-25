@@ -798,4 +798,74 @@ the first one caught before it shipped rather than after.
   The stamp is what caught that, and it is why the stamp is worth describing here.
 - **`onLost` does not distinguish a Stage that DIED from one the presenter deliberately closed.**
   Both revert the console to plain Present, which is right for the second and arguably wrong for
-  the first. A decision, not a defect — it goes to the maintainer.
+  the first. A decision, not a defect — it goes to the maintainer. *(Settled in §13.)*
+
+## 13. Which losses are worth a sentence — and the premise that was wrong
+
+§12's last open item went to the maintainer as "a crashed projector looks identical to putting
+the deck away: **both silently revert** the console mid-talk." **That premise did not hold.**
+Read against what actually shipped, every loss *except* the console's own `close()` was already
+announced: the beat path and the 2s liveness poll both called `onLost`, and `PresentOverlay`
+turned that into "Stage disconnected — press S…". So the choice on the table was not "add a
+signal for a death" — the signal was there — but **"which losses deserve it"**, and the answer
+went the other way from the way the question was posed.
+
+### The notice was firing for an act the presenter had just performed
+
+A presenter who closes the Stage window by hand was told *"Stage disconnected — press S to put
+the deck back on your second screen."* They know. The cost is not the pixel: a notice that fires
+for a deliberate act is the notice people learn to dismiss without reading, and the one case it
+exists for — the room going dark while you are mid-sentence — is the one that gets dismissed
+with it. So the split is now **deliberate vs. unintended**, not *ours vs. theirs*:
+
+| teardown | reverts the console | says something |
+|---|---|---|
+| `close()` — the pill, or `S` | yes | no |
+| the presenter closes the window by hand | yes | **no** (was: yes) |
+| the window is navigated away | yes | yes — *"showing the room something else"* |
+| it vanishes with no goodbye (crash, discard) | yes | yes — *"Stage disconnected"* |
+
+Two sentences rather than one, because the recovery differs: a navigated Stage is *sitting on
+the projector showing the room the wrong page*, which is worth walking over to; a vanished one
+left the projector blank.
+
+### `closed` is the right discriminator, and reading it once is the wrong way to ask
+
+`window.closed` is the only thing that separates a closed window from a navigated one. Measured
+on real Chromium, holding the handle and sampling from the moment the `{stage:'closed'}` beat
+arrives:
+
+| teardown path | at the beat | next task | +50ms | +200ms |
+|---|---|---|---|---|
+| hand-close (the X) | `false` | `false` | **`true`** | `true` |
+| opener `close()` | `true` | `true` | `true` | `true` |
+| navigate same-origin | `false` | `false` | `false` | `false` |
+
+**A synchronous read files every hand-close as a navigation** — the flag simply has not flipped
+when the dying document's own unload beat reaches the opener. The navigated row is what makes
+sampling sound rather than lucky: a navigated window *never* flips, so waiting can only turn
+"not closed yet" into "closed". The classifier samples for up to 600ms (12× the 50ms observed),
+and **only the sentence waits** — `teardown()` has already run, so the console stops driving a
+window it no longer owns at the instant it learns.
+
+Two consequences fell out of writing it:
+
+- **A re-opened Stage must not inherit the old one's obituary.** The classification is in flight
+  for up to 600ms; a presenter who presses `S` inside that window would be told the Stage left
+  the deck while looking at the one that just came up. An ownership sequence, bumped on every
+  open and teardown, makes the pending answer stale rather than wrong.
+- **`close()` now tears down *before* it closes.** The old order leaned on `postMessage` being
+  asynchronous — true, but a fact about the platform rather than something this file controls.
+  Detaching the listener first makes "the console's own close is never a loss" a guarantee.
+
+**The poll does not consult `closed` at all, deliberately.** Reaching it means the Stage stopped
+being our document and never said goodbye — and a goodbye is what a deliberate close reliably
+sends (measured: a hand-close fires *both* `pagehide` and `unload`, so the beat arrives twice).
+A window that went without one is a killed renderer, a discarded tab, a projector that lost
+power. A `closed` check there would silence exactly the case the notice exists for.
+
+### Still open
+
+- **Whether Chromium physically lands the Stage on a second monitor** — unchanged from §12, and
+  not reachable from a one-screen sandbox. Everything our code decides on the way there is
+  pinned across Chromium, WebKit and Firefox.

@@ -395,7 +395,7 @@ test('a site palette change does not blink the presenter view off', async ({ pag
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
 });
 
-test('a Stage the presenter closes by hand is reported, not left driving a dead window', async ({ page, context }) => {
+test('a Stage the presenter closes by hand reverts the console — and says nothing about it', async ({ page, context }) => {
 	const { stage, dialog, launcher } = await openStage(page, context);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
 
@@ -405,6 +405,24 @@ test('a Stage the presenter closes by hand is reported, not left driving a dead 
 	await stage.close();
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
+
+	// AND NOT A WORD. The presenter closed that window; announcing it back to them is the
+	// notice people learn to dismiss unread, which costs the one case it exists for. Waiting
+	// past BOTH deadlines — the 600ms loss classification and a 2s liveness poll — because
+	// "no toast yet" a beat after the close would be true for the wrong reason.
+	await page.waitForTimeout(3000);
+	await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+
+	// THE POSITIVE CONTROL, in this same cell and on this same surface. Without it "no toast
+	// appeared" is satisfied by a Studio whose toaster never renders at all — which is the
+	// exact shape of vacuity this branch keeps producing. So put the Stage back, take it away
+	// in a way NOBODY asked for, and watch the same locator light up.
+	const secondPopup = context.waitForEvent('page');
+	await launcher.click();
+	const stage2 = await secondPopup;
+	await expect(stage2.locator('#latt-film .lattice')).not.toBeEmpty();
+	await stage2.goto('/');
+	await expect(page.locator('[data-sonner-toast]')).toContainText(/showing the room something else/i, { timeout: 10_000 });
 });
 
 test('the caption crawl plays on the Stage, and not in the console', async ({ page, context }) => {
@@ -506,6 +524,11 @@ test('a Stage that is NAVIGATED away is noticed, and does not take the Studio wi
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	// The audience chrome comes HOME rather than vanishing from both surfaces.
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
+	// AND IT IS SAID OUT LOUD, which is the half a hand-close does not get. Everything else
+	// about this is visible only if the presenter happens to be looking at the console —
+	// meanwhile the projector is showing the room a page that is not the deck, and the
+	// wording is what tells them to go and look at it rather than assume a blank screen.
+	await expect(page.locator('[data-sonner-toast]')).toContainText(/showing the room something else/i, { timeout: 10_000 });
 	// And the Studio is still standing — this is the crash the render-time deref caused.
 	await expect(dialog).toBeVisible();
 	await page.keyboard.press('ArrowRight'); // force a re-render, which is what used to kill it

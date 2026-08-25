@@ -4726,6 +4726,22 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'the deck paint via `not.toBeEmpty()`, every slide ARRIVAL via `toBeVisible`, and the pill '
        + 'state via `toHaveAttribute`.',
   },
+  {
+    file: 'docs/e2e/stage-window.spec.ts', ms: 3000, count: 1,
+    why: 'ABSENCE ASSERTION, and the ONE number in this list that is DERIVED rather than judged. '
+       + 'A Stage the presenter closes by hand must revert the console and say NOTHING — a notice '
+       + 'for an act you just performed is the one people learn to dismiss unread, which costs the '
+       + 'case it exists for (2026-08-24-stage-console-split.md §13). "No toast ever appeared" has '
+       + 'no signal to poll, and here a poll would be worse than useless: the notice has TWO '
+       + 'deadlines it could arrive on, and both are later than a first tick — the loss '
+       + 'classification samples `window.closed` for up to 600ms (a hand-closed window still '
+       + 'reports `closed === false` when its own unload beat lands, measured), and the liveness '
+       + 'poll fires every 2000ms. So the wait is 600 + 2000 + margin: it is the sum of the '
+       + 'deadlines being outlived, not an interval somebody guessed, and shortening it would make '
+       + 'the cell pass for the wrong reason. The cell carries its POSITIVE CONTROL inside itself '
+       + '— it then re-opens the Stage, navigates it away, and awaits the same locator lighting up '
+       + '— so a Studio whose toaster never rendered at all cannot satisfy it.',
+  },
   // ── #1246, the post-sanitize injection suite ─────────────────────────────────
   // Both are the canonical "and then nothing happened" shape this allowlist exists for:
   // the assertion is that a payload did NOT execute and did NOT reach the network, and an

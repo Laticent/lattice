@@ -432,14 +432,27 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						return null; // not ours any more — the controller's poll will confirm it
 					}
 				}),
-			// STAGE DISCONNECTED, said out loud (§4). Only a close the console did NOT ask
-			// for reaches this — the presenter closing the window by hand, or a browser
-			// taking it. Everything else about it is already visible (the pill goes off,
-			// the captions and the rail come back to the dock), but none of that says the
-			// ROOM just lost the deck, and that is the one fact a presenter mid-sentence
-			// needs. Silent when the console closed it, which is why the controller
-			// separates the two.
-			onLost: () => notifyRef.current('Stage disconnected — press S to put the deck back on your second screen.'),
+			// THE ROOM WENT DARK AND NOBODY MEANT IT — said out loud (§4). Everything else
+			// about a lost Stage is already visible (the pill goes off, the captions and the
+			// rail come back to the dock), but none of it says whether the ROOM still has the
+			// deck, and that is the one fact a presenter mid-sentence needs.
+			//
+			// This fires for an UNINTENDED loss only. Neither deliberate close reaches it: not
+			// the pill or `S`, and — since §13 — not the presenter closing the Stage window by
+			// hand either. Announcing an act the presenter just performed is what teaches them
+			// to dismiss the notice without reading it, which costs exactly the one case it is
+			// here for.
+			//
+			// TWO SENTENCES, because the recovery differs. A window that is still open on
+			// someone else's page is sitting on the projector showing the room the wrong
+			// thing, and the presenter should know to look at it; a window that vanished has
+			// left the projector blank. Both are re-opened with `S`.
+			onLost: (reason: 'navigated' | 'gone') =>
+				notifyRef.current(
+					reason === 'navigated'
+						? 'The Stage left the deck — that window is showing the room something else. Press S to put the deck back on it.'
+						: 'Stage disconnected — press S to put the deck back on your second screen.',
+				),
 			// DETECT to decide whether to OFFER; VERIFY the outcome to decide whether it
 			// WORKED (§7). A popup has no transient activation of its own, so its
 			// self-requested fullscreen may simply be declined — and a presenter looking at

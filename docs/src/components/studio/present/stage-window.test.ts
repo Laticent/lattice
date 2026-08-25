@@ -242,7 +242,15 @@ function postFromStage(data: unknown, source: unknown, origin: string = location
 const writes = (win: ReturnType<typeof fakeWindow>) => win.document.write.mock.calls.map((c) => String(c[0]));
 
 describe('stage-window — createStageController', () => {
-	afterEach(() => vi.restoreAllMocks());
+	afterEach(() => {
+		// TIMERS TOO, and in `afterEach` rather than at the end of each cell. `restoreAllMocks`
+		// does not touch them, and a cell that installs fake timers and then FAILS never
+		// reaches its own `useRealTimers()` — so one red cell would hang or corrupt every
+		// later cell in the file, and the first real failure on this surface would arrive
+		// disguised as a cascade. (`1324-test-order-independence` is the same lesson.)
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
 
 	it('runs the open → holding → doc → ready → show → close lifecycle', async () => {
 		const win = fakeWindow();
@@ -338,29 +346,115 @@ describe('stage-window — createStageController', () => {
 		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, location.origin);
 	});
 
-	it('reports a Stage that went away on its own — and stays silent when WE closed it', () => {
-		// §4's "Stage disconnected" state. The two closes need opposite treatment: the room
-		// losing the deck mid-talk is worth a sentence, and the presenter pressing the pill
-		// they just pressed is not. `close()` detaches the listener before the window's
-		// unload beat can arrive, which is what makes the split hold rather than race.
+	it('stays silent when WE closed the Stage — and when the PRESENTER closed the window', async () => {
+		// §4's "Stage disconnected" state, narrowed by §13 to the losses NOBODY MEANT.
+		//
+		// Two deliberate closes, and neither is worth a sentence: the presenter pressing the
+		// pill they just pressed, and the presenter closing the projected window by hand.
+		// This cell used to assert the OPPOSITE of its second half — a hand-close announced
+		// "Stage disconnected", which made the sentence as likely to mean "you closed it" as
+		// "the room lost the deck", and a notice that fires for an act you just performed is
+		// the one people learn to dismiss unread.
+		//
+		// The hand-close is modelled the way Chromium actually behaves: the unload beat
+		// arrives while `closed` is STILL FALSE, and the flag flips a beat later (measured —
+		// see the controller's table). A fake that sets `closed` up front would let a
+		// synchronous read pass here and misfile every real hand-close in the browser.
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const onChange = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange, onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+
+		postFromStage({ stage: 'closed' }, win); // the beat, with `closed` not yet flipped
+		expect(onChange, 'the console must let go the moment the beat lands').toHaveBeenLastCalledWith(null);
+		expect(ctl.isOpen()).toBe(false);
+		win.closed = true; // …and now the platform catches up
+		await vi.advanceTimersByTimeAsync(2000);
+		expect(onLost, 'a window the presenter closed is not a loss to announce').not.toHaveBeenCalled();
+
+		onChange.mockClear();
+		ctl.toggle(); // re-open
+		postFromStage({ stage: 'ready' }, win);
+		ctl.close(); // WE closed it — the window's own unload beat must not announce anything
+		postFromStage({ stage: 'closed' }, win);
+		await vi.advanceTimersByTimeAsync(2000);
+		expect(onLost).not.toHaveBeenCalled();
+		vi.useRealTimers();
+	});
+
+	it('announces a Stage that vanished with NO goodbye — the crash the beat cannot report', async () => {
+		// The liveness poll, and the case the whole notice exists for: a renderer killed, a
+		// tab discarded, a projector that lost power. There is no unload beat, so nothing but
+		// the poll can notice — and unlike the beat path it does NOT consult `closed`, because
+		// a deliberate close reliably sends a goodbye (measured: a hand-close fires both
+		// `pagehide` and `unload`). A window that went without one is a death, and a `closed`
+		// check here would silence exactly the case being tested.
+		vi.useFakeTimers();
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		const onLost = vi.fn();
 		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
 		ctl.toggle();
 		postFromStage({ stage: 'ready' }, win);
-		postFromStage({ stage: 'closed' }, win);
-		expect(onLost).toHaveBeenCalledTimes(1);
 
-		onLost.mockClear();
-		ctl.toggle(); // re-open
-		postFromStage({ stage: 'ready' }, win);
-		ctl.close(); // WE closed it — the window's own unload beat must not announce anything
-		postFromStage({ stage: 'closed' }, win);
-		expect(onLost).not.toHaveBeenCalled();
+		win.closed = true; // gone, and it never said so
+		await vi.advanceTimersByTimeAsync(2500);
+		expect(onLost).toHaveBeenCalledTimes(1);
+		expect(onLost, 'a beatless disappearance is a death, not a navigation').toHaveBeenCalledWith('gone');
+		expect(ctl.isOpen()).toBe(false);
+		vi.useRealTimers();
 	});
 
-	it('notices a Stage that was NAVIGATED away — the case `e.source` cannot see', () => {
+	it('the poll tells a window that VANISHED from one that was taken over', async () => {
+		// The poll's other arm. Every navigation fires `pagehide`, so in practice the beat
+		// gets there first and this is the backstop — but the arm exists, and an arm no cell
+		// can distinguish is an arm that reports whatever it likes. Here the beat is simply
+		// never delivered (a script that never ran, a post that did not land) and the poll is
+		// left to classify a window that is open and is not ours.
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+
+		navigateSameOrigin(win); // open, reachable, someone else's document — and no beat
+		await vi.advanceTimersByTimeAsync(2500);
+		expect(onLost).toHaveBeenCalledWith('navigated');
+		vi.useRealTimers();
+	});
+
+	it('does not report a loss once the presenter has already re-opened the Stage', async () => {
+		// The classification is in flight for up to 600ms, and a presenter who presses S
+		// inside that window would otherwise be told the Stage left the deck while looking at
+		// the one that just came up. `ownSeq` is what makes the pending answer stale.
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+
+		navigateSameOrigin(win); // a real loss — it WOULD be announced if left alone
+		postFromStage({ stage: 'closed', tok: ctl.token }, {});
+		await vi.advanceTimersByTimeAsync(100);
+		const fresh = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(fresh as unknown as Window);
+		ctl.toggle(); // the presenter puts it back before the grace window is out
+		postFromStage({ stage: 'ready' }, fresh);
+		await vi.advanceTimersByTimeAsync(2000);
+		expect(onLost, 'the obituary of the old Stage must not land on the new one').not.toHaveBeenCalled();
+		expect(ctl.isOpen()).toBe(true);
+		vi.useRealTimers();
+	});
+
+	it('notices a Stage that was NAVIGATED away — the case `e.source` cannot see', async () => {
 		// THE REGRESSION CELL. A deck's own `<a href>` survives sanitizing, so a click on the
 		// projected copy navigated the window; F5 and Back do the same. The unload beat IS
 		// posted, but Chromium delivers it with a different `e.source` — measured — so the
@@ -377,12 +471,24 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'ready' }, win);
 		expect(ctl.isOpen()).toBe(true);
 
+		vi.useFakeTimers();
 		navigateSameOrigin(win);
 		// The beat arrives from a source we cannot match — the TOKEN is what identifies it.
 		postFromStage({ stage: 'closed', tok: ctl.token }, {});
-		expect(onLost).toHaveBeenCalledTimes(1);
+		// THE REVERT IS IMMEDIATE. Only the sentence waits on the classification, and that
+		// order is the point: the console must stop driving a window it no longer owns at the
+		// instant it learns, whatever it later decides to say about it.
 		expect(onChange).toHaveBeenLastCalledWith(null);
 		expect(ctl.isOpen()).toBe(false);
+		expect(onLost).not.toHaveBeenCalled();
+
+		// …and then it is announced, as a NAVIGATION rather than a death. The window is still
+		// open — it is sitting on the projector showing the room someone else's page, which
+		// is a different thing for the presenter to do something about than a blank screen.
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(onLost).toHaveBeenCalledTimes(1);
+		expect(onLost).toHaveBeenCalledWith('navigated');
+		vi.useRealTimers();
 	});
 
 	it('refuses a nav from a page that TOOK OVER the Stage — `e.source` cannot see it', () => {
