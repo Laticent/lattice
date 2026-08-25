@@ -334,7 +334,7 @@ Sizes are measured or arithmetic on measured figures; each says which.
 | **C** | **Fix `golden-diff`'s checkout.** ✅ **SHIPPED in this change** as `filter: blob:none` (history kept, blobs fetched on demand — the job reads blob OIDs out of trees and materializes only the goldens that moved). `fetch-depth: 0` alone cost **1m23** for a job whose work took **1s**. | 83s → 12s of checkout, measured (§3c) | shipped + measured in CI |
 | **D** | **Converge the emulator's front-matter post-process into the shared kernel** (the prior note's L3). `deck-class-fm`, `deck-mode-fm` and `deck-logo` each boot a whole browser to assert a *string* — their headers say so — only because the emulator re-implements the reader (a HARD RULE #1 violation in place). Converging makes them T2 unit tests. | 3 full renders/PR | mechanism confirmed in the test headers |
 | **E** | **`waitUntil: 'load'`** (the prior note's L2, still **UNVERIFIED**). ~1.7s per navigation, 1–3 navigations per render. | medium | measured size, unverified safety |
-| **F** | **Give the unscheduled gates a cadence.** `overflow:check`, `geometry:check`, `css:values`, `check:chart-fit`, `check:render`, `build:galleries:check` and `build:bucket-galleries:check` are wired into **no workflow and no hook** — they run when someone remembers. `lefthook.yml`'s `pre-push-disabled` block already carries a correction saying so about the last two. A blessed baseline nothing evaluates is an assertion that rots (the same reasoning `integration-nightly.yml` already gives for the family gates). | correctness, not speed | verified by grepping every workflow + `lefthook.yml` |
+| **F** | **Give the unscheduled gates a cadence.** ✅ **`overflow:check` SHIPPED** (2026-08-24, `.github/workflows/overflow-nightly.yml` — nightly 02:41 UTC, report-only, rolling issue). Its size in this row was ESTIMATED from the tool's own header and both halves were wrong: not 185 renders but **279 decks**, and not "tens of minutes" but **5m21** (with `--jobs 4` at 5m22 — the box saturates at 3, so parallelism is not a lever). ~5.5 runner-min/night against the ~1,900 runner-min A DAY §3 measured for per-PR CI, i.e. ~0.3%. That is what moved it off the "weekly" recommendation in §6 — the tier was chosen from the estimate, not the measurement. Still unscheduled: `geometry:check`, `css:values`, `check:chart-fit`, `check:render`, `build:galleries:check` and `build:bucket-galleries:check`, wired into **no workflow and no hook** — they run when someone remembers. `lefthook.yml`'s `pre-push-disabled` block already carries a correction saying so about the last two. A blessed baseline nothing evaluates is an assertion that rots (the same reasoning `integration-nightly.yml` already gives for the family gates). | correctness, not speed | verified by grepping every workflow + `lefthook.yml` |
 | **G** | **`docs-build`'s vitest step is 2m47** across 236 test files — the second-largest single step in the pipeline and never profiled. | unknown | unmeasured |
 | **H** | **Split `export-formats.test.js` (32 cases, 257s) by format.** Still conditional after A: the sum ÷ 4 is 268s against a 257s longest file, so the sum binds by 11s and splitting changes the floor by nothing — the next-longest file (`html-player`, 197s) simply takes over. H pays only once total serial work drops below ~1,030s. Listed so it is not mistaken for a free win. | conditional | arithmetic on measured figures |
 | **I** | **Prefer the `setContent` T3 pattern where the claim is about the cascade.** `invariants/bookend-ink.test.js` runs its whole suite in **1.3s** — real Chromium, real computed colors — by injecting `dist/lattice.css` + the theme into synthetic markup with `page.setContent`, no emulator and no PDF. It is the cheapest T3 in the repo by two orders of magnitude. **Its limit is real and must be stated with it:** it bypasses the engine's transforms, so it can only carry claims about the CASCADE (does this token land on this surface), never about the PIPELINE (does the transform emit this markup). HARD RULE #23 — a claim names its surface — is what keeps the two apart. | pattern, not a one-off | measured |
@@ -362,9 +362,14 @@ cadence that still catches the change that would break it.**
 - Fix the `studio-e2e-nightly` `e2e-ai` job (§7) so the workflow's color means
   something again.
 
-**Weekly** — a tier that does not exist today, and is the right home for lever F:
-`overflow:check` (185-render corpus sweep), `geometry:check`, `css:values`,
-`check:chart-fit`, `check:render`, `cvd-audit --strict`, `quality:check`,
+**Weekly** — a tier that does not exist today, and was proposed as the home for all of
+lever F. **One of them has since gone NIGHTLY instead, and the reason generalizes:**
+`overflow:check` was sized here at "185 renders, tens of minutes" from the tool's own
+header, and measured at **279 decks in 5m21**. At ~5.5 runner-min a night that is 0.3% of
+per-PR CI's daily spend, so the weekly tier bought nothing but latency. **Size the others
+before placing them** — this row placed a gate from an estimate that was wrong by an order
+of magnitude in one direction and by 50% in the other. Still unplaced: `geometry:check`,
+`css:values`, `check:chart-fit`, `check:render`, `cvd-audit --strict`, `quality:check`,
 `bench:check`. Each is expensive, each guards a baseline that moves slowly, and each
 today guards nothing on any schedule. Weekly with an auto-filed rolling issue matches
 what the nightlies already do.
@@ -389,7 +394,7 @@ high-value check a weekly tier exists for.
   night teaches everyone to ignore its color, which is the failure mode
   `2026-08-10-nightly-invalid-and-silent.md` already recorded once.
 
-- **The invariant suite's overflow assertion cannot fail.** Found while vacuity-testing
+- **The invariant suite's overflow assertion cannot fail.** *(FIXED — #1823, `2026-08-24-overflow-oracle-was-inert.md`. The paired half of this finding, that `overflow:check` was on no cadence, is fixed too: see lever F.)* Found while vacuity-testing
   lever A: `universal: slide does not overflow its frame` compares `scrollHeight` to
   `clientHeight` on the slide `<section>`, which is `overflow-y: hidden` — so the two are
   always equal. Probed with an `agenda` sample widened to 24 stops, a slide the emulator

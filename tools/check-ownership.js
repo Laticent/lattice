@@ -5393,6 +5393,409 @@ function checkFrontMatterReaders(errors) {
   }
 }
 
+// ── The LF ingest-boundary list is a GATE, not a comment (#1349 → #1357 → #1388, #1524) ──
+//
+// A Windows-authored deck exported in the WRONG PALETTE because ONE front-matter reader of
+// ~55 lacked a `\r?`. The repair was not "add `\r?` to that reader" — fifty-odd readers each
+// independently remembering it is a design that guarantees the next one forgets. Author text
+// is made canonical at an INGEST instead: LF endings, no leading BOM, so no reader downstream
+// has to care (`engineering/decisions/2026-08-04-line-endings-lf-boundaries.md`).
+//
+// WHAT THAT TRADE ACTUALLY BUYS, and why this file has to police it. Centralizing converts N
+// redundant partial guarantees into ONE guarantee plus a list that must stay true — so the
+// value of the whole design is exactly the accuracy of the boundary list. That list rotted
+// TWICE inside #1357 itself (`.gitattributes` said "two others" when there were six; the
+// shared helper claimed to be "the ONE function in docs/src" while `deck-source.ts` had been
+// doing byte-identical work since #1170), and both times a human caught it, not a machine.
+//
+// Then it rotted a third time, in the way that matters most: the note's `## What shipped`
+// section said this gate existed. It did not. Nine places cited `checkLineEndingBoundaries` /
+// `SANCTIONED_EOL_BOUNDARIES` as shipped and load-bearing — CLAUDE.md's doc-index row that
+// tells every agent what to do when adding a markdown ingest, `.gitattributes`, the changelog
+// and four source comments — while `build:check` ran nothing, because there was nothing to
+// run. #1388 (`export-marp` is an unlisted boundary: a BOM'd deck exports in the wrong
+// palette) is #1349 recurring one file over, and it reasoned that "the gate cannot see it"
+// because the file was missing from the list. The real reason was that the list was fiction.
+// #1524 is that finding; this is the gate.
+//
+// A `## What shipped` heading is a claim, and nothing in the tree checks it.
+//
+// THE SIX ARMS. Each one is a way the list can become a lie, and each has been watched fail:
+//   1. a listed boundary that STOPPED normalizing (the guarantee silently withdrawn);
+//   2. a listed boundary whose FILE IS GONE — a stale entry, so the list cannot rot;
+//   3. a listed boundary whose normalization COUNT moved, where the count is load-bearing
+//      (the engine has two public doors, and #1357 measured what happens when only one of
+//      them normalizes: `geometry()` reported 1280x720 while `render()` used 960x720 on the
+//      same lone-CR deck — a host fit-scaling against a box the render does not use);
+//   4. an UNLISTED normalizer — a second implementation of the fold outside the list, which
+//      is precisely what makes the list untrustworthy rather than merely incomplete. This arm
+//      is what found `lib/core/boundary-parser.mjs`, a tenth boundary nobody had written down;
+//   5. `\r?\n` used to NORMALIZE where a boundary needs `\r\n?`. The first covers Windows CRLF
+//      *and* classic-Mac lone CR at identical cost; a reader-style `\r?\n` structurally cannot
+//      match a lone CR, because there is no `\n` to anchor on. Not academic: a lone-CR deck
+//      mis-SPLIT into slides, so it produced a different page count, not just a palette.
+//   6. an ingest that never normalizes AT ALL — a `utf8` read whose front-matter anchor is
+//      `^---` followed by a literal newline. Arms 1-5 all key on a fold that EXISTS, so none
+//      of them can fail on the shape the whole policy was built for: #1349 and #1388 were both
+//      readers with NO fold. An independent checker ran that probe against this gate and found
+//      it green over `tools/export-chart-svg.js`, a user-facing CLI reading an author's deck
+//      raw. See the arm's own block below for why it is narrow.
+//
+// Arm 4 keys on the RAW fold idiom, never on a call to the shared helper — delegating to
+// `normalizeSourceText` is the behavior this design wants, so flagging its callers would
+// punish the right answer. A file that folds line endings for some purpose OTHER than making
+// an ingest canonical belongs in SANCTIONED_EOL_NON_BOUNDARIES with its reason, and that list
+// is stale-checked too.
+
+// `.replace(/\r\n?/g, …)` — the canonical fold. Matched as source text, so the pattern below
+// is doubly escaped: `\\r` here is the two characters a backslash-r occupies in the file.
+//
+// WIDER THAN THE ONE SPELLING THE TREE HAPPENS TO USE, deliberately, because this pattern does
+// two jobs that pull in opposite directions: arm 4 uses it to FIND folds (too narrow = a real
+// second normalizer slips past) and arm 1 uses it to CONFIRM one (too narrow = a listed
+// boundary that switched to an equivalent spelling is reported as having stopped normalizing,
+// which blocks a PR on correct code). `replaceAll` is the one a maker reaches for without
+// thinking; `split(/\r\n?/).join('\n')` is the same fold written as a partition.
+const EOL_FOLD_IDIOM = /(?:\.replace(?:All)?\(\s*\/\\r\\n\?\/[gimsuy]*\s*,|\.split\(\s*\/\\r\\n\?\/[gimsuy]*\s*\))/g;
+// `.replace(/^\uFEFF/, …)` — the BOM strip that rides with it. A BOM is what Notepad,
+// PowerShell `>` and Visual Studio emit ALONGSIDE CRLF, and it defeats the same `^---` anchor:
+// a BOM'd deck declaring `theme: cuoio` exported in `indaco`, lost its `size:`, and rendered
+// its own front matter as a visible extra slide. It also diverged BY PATH — `Blob.text()`
+// strips a BOM during the UTF-8 decode, `fs.readFileSync(p, 'utf8')` does not — so the same
+// file rendered correctly in the Studio and wrong through the CLI.
+// Both spellings count: the literal BOM character (what the first eight boundaries carry) and
+// the `\\uFEFF` escape. The literal is house style but it is an INVISIBLE character in the
+// source, so an editor or a careless paste can drop it and leave the line looking identical —
+// the escape is the legible form and this gate will not punish a boundary for choosing it.
+const EOL_BOM_STRIP = /\.replace\(\s*\/\^(?:\uFEFF|\\uFEFF)\/\s*,/g;
+// A fold in the WRONG DIRECTION, used as a normalization: `\r?\n` or `\r\n` where a boundary
+// needs `\r\n?`. BOTH are caught, and the second is the one that was missed first: `\r\n`
+// carries the identical defect — no `\n` to anchor a lone CR on — while looking nothing like
+// the spelling the rule names, and four live sites were folding that way, unlisted and silent
+// (`tier-filter.js`, the two index builders, `changelog.js`).
+//
+// Deliberately narrow in the other axis: it requires the replacement to be a bare newline, so a
+// reader's `\r?\n` inside a front-matter pattern (`/^---\r?\n/`) and an escaper that folds
+// newlines into a `\n` LITERAL (`contact.transform.js`'s vCard writer) are both left alone.
+// Only a fold that claims to canonicalize is caught.
+const EOL_WRONG_FOLD = /\.replace(?:All)?\(\s*\/(?:\\r\?\\n|\\r\\n)\/[gimsuy]*\s*,\s*(['"`])\\n\1/g;
+
+// Arm 6's two halves. `EOL_UTF8_READ` is any `utf8` text read; `EOL_STRICT_FM_ANCHOR` is a
+// front-matter anchor followed by a LITERAL newline and nothing else — `/^---\n/`,
+// `startsWith('---\n')`. That narrowness is the whole design of this arm.
+//
+// The first cut matched any `/^---` not followed by `\r`, and it was WRONG in a way worth
+// keeping written down: it fired on four SLIDE-SEPARATOR splits (`/^---\s*$/m`,
+// `/^---[ \t]*$/gm`) over repo-committed gallery decks. Those are not the #1349 shape at all —
+// `\s` matches `\r`, and `$` under `/m` matches before a CRLF too, so both already tolerate the
+// endings this rule is about. Flagging them would have taught the next reader that the arm is
+// noise. What #1349 actually was is an anchor that admits exactly one byte after the fence.
+const EOL_UTF8_READ = /readFileSync\s*\([^)]*['"]utf-?8['"]|\.text\(\)|readFile\s*\([^)]*['"]utf-?8['"]/;
+const EOL_STRICT_FM_ANCHOR = /\/\^---\\n|startsWith\(\s*['"`]---\\n/g;
+
+const EOL_BOUNDARY_ROOTS = ['lib', 'tools', 'docs/src', 'docs/scripts'];
+const EOL_BOUNDARY_FILES = ['lattice-emulator.js'];
+
+/**
+ * The authoritative boundary list. `expect` defaults to the full ingest idiom — BOM strip AND
+ * `\r\n?` fold — because a boundary owes both; `.gitattributes` is not JavaScript and declares
+ * its own. `count` is optional and pins how many normalization sites the file must carry, for
+ * the files where more than one is load-bearing.
+ */
+const SANCTIONED_EOL_BOUNDARIES = [
+  {
+    file: '.gitattributes',
+    expect: /^\*\s+text=auto\s+eol=lf\s*$/m,
+    why: 'the GIT boundary. `text=auto eol=lf` pins the working tree, so a Windows clone checks '
+       + 'out LF and cannot commit CRLF back. Everything below is a RUNTIME boundary; this one '
+       + 'is why the tree itself stays clean.',
+  },
+  {
+    file: 'lib/engine/index.js',
+    count: 2,
+    why: 'render() AND geometry() — the engine\'s two public doors. Both parse front matter, so '
+       + 'both must agree; #1357 measured the divergence when only render() normalized. The '
+       + 'count is pinned because a door added later would inherit the old bug silently.',
+  },
+  {
+    file: 'lattice-emulator.js',
+    why: 'readFileOrDie — the CLI\'s only door for author text, and the one that actually fixes '
+       + '#1349. The emulator calls resolve-palette on raw file text OUTSIDE the engine\'s '
+       + 'render(), so nothing downstream could rescue it.',
+  },
+  {
+    file: 'tools/lint-deck.js',
+    why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
+       + 'content — the lint is a reader like any other.',
+  },
+  {
+    file: 'tools/export-marp.js',
+    why: 'the deck read in exportMarp(). #1388: this ingest was never normalized, so a BOM\'d or '
+       + 'CRLF deck exported to a Marp bundle in the wrong palette — #1349 recurring one file '
+       + 'over, at the ninth ingest, because the gate that was supposed to catch it did not exist.',
+  },
+  {
+    file: 'tools/export-chart-svg.js',
+    why: 'the deck read in main(). The TENTH ingest, and the one that proves arm 6 earns its '
+       + 'place: it had no fold for the other five arms to inspect, so it was invisible to them '
+       + 'while `frontmatterTheme` anchored on `/^---\\n/` — stricter than the reader #1349 was '
+       + 'about. A BOM\'d or Windows-saved `theme: cuoio` deck exported every chart SVG in the '
+       + 'default palette.',
+  },
+  {
+    file: 'lib/core/resolve-palette.js',
+    why: 'normalizes its own input rather than growing another `\\r?`. Belt-and-braces now that '
+       + 'the read boundaries normalize, and kept because this is the reader #1349 was actually '
+       + 'about — a `\\r?\\n` pattern here is what the whole policy exists to make unnecessary.',
+  },
+  {
+    file: 'lib/core/boundary-parser.mjs',
+    why: 'normalizeSource() — the boundary path\'s door. Found by arm 4 while writing this gate: '
+       + 'a TENTH boundary that no prose list named. Spelled identically to the engine\'s line '
+       + 'rather than imported, because the dependency runs lib/engine -> lib/core; '
+       + 'test/unit/core/boundary-parser.test.js pins the two spellings together.',
+  },
+  {
+    file: 'docs/src/lib/normalize-source-text.ts',
+    why: 'the shared `docs/src` helper — the ONE raw implementation in the docs site. Every other '
+       + 'docs/src ingest (StudioShell\'s file open, studio-store\'s session merge, '
+       + 'asset-bundle\'s zip read, compose/deck-source) DELEGATES to it, which is why those are '
+       + 'not listed here: arm 4 flags a second implementation, never a caller of the first.',
+  },
+  {
+    file: 'docs/src/components/studio/ai/architect-edits.js',
+    why: 'parseEdits — a model reply is external input and models emit CRLF. Carries the pattern '
+       + 'inline rather than importing the helper: this is plain JS loaded directly by '
+       + '`node --test`, so it cannot import a `.ts` file.',
+  },
+  {
+    file: 'lib/exemplars/tier-filter.js',
+    why: 'splitDeck() — takes deck source and decides whether it HAS front matter by testing '
+       + '`^---`, so a BOM defeats that anchor exactly as a CRLF does and the whole frontmatter '
+       + 'block reads as body. Found by arm 5 (it was folding `\\r\\n`, which cannot match a '
+       + 'lone CR) and had no BOM strip at all.',
+  },
+  {
+    file: 'lib/layout/ai.js',
+    why: 'coerceComponent — a generated component skeleton is markdown spliced into deck source, '
+       + 'so a trailing `\\r` arrives as part of a card title.',
+  },
+];
+
+/**
+ * Folds that are NOT ingest boundaries. Recorded rather than ignored, so arm 4 stays a real
+ * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
+ */
+const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/build-decisions-index.js',
+    why: 'reads REPO-COMMITTED notes, not author text. `.gitattributes` (`* text=auto eol=lf`, '
+       + 'the first boundary in the list above) already guarantees LF in the working tree on '
+       + 'every platform, so this fold is tolerance for a locally CRLF-saved note and nothing '
+       + 'downstream of it decides a palette or a slide count. A BOM here breaks the index build '
+       + 'loudly rather than producing a silently wrong artifact.',
+  },
+  {
+    file: 'tools/build-gotchas-index.js',
+    why: 'same shape as the decisions index above — repo-committed markdown behind '
+       + '`.gitattributes`, folded for tolerance rather than to make author text canonical.',
+  },
+  {
+    file: 'lib/authoring/notes-core.js',
+    why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
+       + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '
+       + 'source text; the fold canonicalizes the CANDIDATE for that one comparison and the '
+       + 'source itself flows on untouched. It strips no BOM for the same reason — there is no '
+       + 'document here whose front matter could be defeated.',
+  },
+];
+
+function checkLineEndingBoundaries(
+  errors,
+  sanctions = SANCTIONED_EOL_BOUNDARIES,
+  exempt = SANCTIONED_EOL_NON_BOUNDARIES,
+  root = ROOT,
+) {
+  const countMatches = (src, re) => {
+    re.lastIndex = 0;
+    let n = 0;
+    while (re.exec(src)) n += 1;
+    return n;
+  };
+
+  // ── Arms 1–3: every listed boundary still normalizes, still exists, still counts ──
+  for (const s of sanctions) {
+    const abs = path.join(root, s.file);
+    if (!fs.existsSync(abs)) {
+      errors.push(
+        `stale line-ending sanction in tools/check-ownership.js — ${s.file} no longer exists. `
+        + `Remove the SANCTIONED_EOL_BOUNDARIES entry so the boundary list stays honest; a list `
+        + `that names a file nobody ships is how the last one rotted `
+        + `(engineering/decisions/2026-08-04-line-endings-lf-boundaries.md).`,
+      );
+      continue;
+    }
+    const src = fs.readFileSync(abs, 'utf8');
+    if (s.expect) {
+      // A `/g` here would carry `lastIndex` between calls — this function runs once per
+      // `build:check` AND four times per test file in the same process, so the second call
+      // would resume mid-file and report a boundary as broken at random.
+      if (s.expect.global || s.expect.sticky) {
+        errors.push(
+          `SANCTIONED_EOL_BOUNDARIES entry for ${s.file} declares a stateful \`expect\` regex `
+          + `(\`g\`/\`y\` flag). Drop the flag — .test() on a global regex advances lastIndex, so `
+          + `repeat calls in one process would report this boundary as broken at random.`,
+        );
+        continue;
+      }
+      if (!s.expect.test(src)) {
+        errors.push(
+          `${s.file} is a sanctioned line-ending boundary but no longer matches its declared `
+          + `normalization (${s.expect}). Restore it or remove the SANCTIONED_EOL_BOUNDARIES entry.`,
+        );
+      }
+      continue;
+    }
+    const folds = countMatches(src, EOL_FOLD_IDIOM);
+    const boms = countMatches(src, EOL_BOM_STRIP);
+    if (folds === 0 || boms === 0) {
+      errors.push(
+        `${s.file} is a sanctioned line-ending boundary but no longer normalizes author text `
+        + `(fold sites: ${folds}, BOM strips: ${boms}; both must be nonzero). An ingest owes BOTH `
+        + `\`.replace(/^\\uFEFF/, '')\` and \`.replace(/\\r\\n?/g, '\\n')\` — a BOM defeats the `
+        + `\`^---\` front-matter anchor exactly like a CRLF does, and it is worse: it also diverges `
+        + `BY PATH, because Blob.text() strips one during the UTF-8 decode and fs.readFileSync does `
+        + `not. Restore the normalization, or remove the entry if this stopped being an ingest.`,
+      );
+      continue;
+    }
+    // BOTH halves are pinned, not just the fold. Pinning only the fold left the exact hole the
+    // count exists to close, one channel over: a refactor could drop `render()`'s BOM strip while
+    // `geometry()` kept its own, and the gate stayed green on 2 folds + 1 BOM strip. The BOM is
+    // the half this file's own comment calls the worse one, because it also diverges BY PATH.
+    for (const [what, got] of [['fold', folds], ['BOM-strip', boms]]) {
+      if (s.count != null && got !== s.count) {
+        errors.push(
+          `${s.file} declares ${s.count} line-ending normalization site(s) in `
+          + `SANCTIONED_EOL_BOUNDARIES but carries ${got} ${what}(s). The count is pinned because `
+          + `this file has more than one door and they must agree — normalizing only one of the `
+          + `engine's two public doors made geometry() report 1280x720 while render() used `
+          + `960x720 on the same lone-CR deck (#1357). Normalize the new door too, or update the `
+          + `count with the reason.`,
+        );
+      }
+    }
+  }
+
+  // ── Arms 4–5: nothing folds line endings outside the list, and nobody folds it backwards ──
+  const listed = new Set(sanctions.map((s) => s.file));
+  const excused = new Map(exempt.map((e) => [e.file, e]));
+  const seenExempt = new Set();
+  const files = [
+    ...EOL_BOUNDARY_ROOTS.flatMap((d) => listClassAttrFiles(path.join(root, d))),
+    ...EOL_BOUNDARY_FILES.map((f) => path.join(root, f)).filter((f) => fs.existsSync(f)),
+  ];
+  for (const file of files) {
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    // Tests assert the rule's OUTPUT and one deliberately writes both spellings down to prove
+    // they differ, so they are not boundaries in the sense this gate polices. Generated bundles
+    // inline their sources' folds and are regenerated from them, never hand-edited (#2).
+    if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel) || /\.generated\.[a-z]+$/.test(rel)) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    const spans = commentSpans(src);
+    const inProse = (i) => spans.some(([a, b]) => i >= a && i < b); // prose may name the pattern
+    const lineOf = (i) => src.slice(0, i).split('\n').length;
+    const firstLive = (re) => {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src))) if (!inProse(m.index)) return m.index;
+      return -1;
+    };
+
+    // A file both lists excuse is answered ONCE, before any arm runs. The first cut ran arm 5
+    // ahead of this and never consulted `excused` at all, so a legitimate comparison-fold
+    // written `\r?\n` red-lit `build:check` for everyone with NO legal remedy: listing it as a
+    // non-boundary added a bogus stale-sanction error on top, and the fix its message implied
+    // (switch to `\r\n?`) simply moved the failure to arm 4. A gate a maker cannot satisfy is
+    // worse than no gate, because the only way past it is to edit the gate.
+    if (excused.has(rel)) {
+      if (firstLive(EOL_FOLD_IDIOM) !== -1 || firstLive(EOL_WRONG_FOLD) !== -1) seenExempt.add(rel);
+      continue;
+    }
+
+    EOL_WRONG_FOLD.lastIndex = 0;
+    let w;
+    while ((w = EOL_WRONG_FOLD.exec(src))) {
+      if (inProse(w.index)) continue;
+      errors.push(
+        `${rel}:${lineOf(w.index)} normalizes line endings with a pattern that cannot match a `
+        + `lone CR (\`\\r?\\n\` or \`\\r\\n\`) where a boundary needs \`\\r\\n?\`. The last covers `
+        + `Windows CRLF AND classic-Mac lone CR at identical cost; the other two structurally `
+        + `CANNOT match a lone CR, because there is no \`\\n\` to anchor on. A lone-CR deck `
+        + `mis-SPLIT into slides — a different page count, not just a different palette. Spell it `
+        + `\`\\r\\n?\`, then declare the site: SANCTIONED_EOL_BOUNDARIES if it is a markdown `
+        + `ingest (strip the BOM too), SANCTIONED_EOL_NON_BOUNDARIES with its reason if it is not `
+        + `(engineering/decisions/2026-08-04-line-endings-lf-boundaries.md).`,
+      );
+    }
+
+    if (listed.has(rel)) continue;
+    const fold = firstLive(EOL_FOLD_IDIOM);
+    if (fold !== -1) {
+      errors.push(
+        `${rel}:${lineOf(fold)} folds line endings to LF but is not in `
+        + `SANCTIONED_EOL_BOUNDARIES. A second implementation of the fold outside the list is what `
+        + `makes the list untrustworthy rather than merely incomplete — the whole design is "one `
+        + `guarantee plus a list that must stay true". If this is a markdown INGEST, strip the BOM `
+        + `too and add it to SANCTIONED_EOL_BOUNDARIES with its justification (in docs/src, call `
+        + `normalizeSourceText instead unless the file cannot import TypeScript). If it folds for `
+        + `some other reason, add it to SANCTIONED_EOL_NON_BOUNDARIES saying which.`,
+      );
+      continue;
+    }
+
+    // ── Arm 6: an ingest that never normalizes AT ALL ─────────────────────────────────
+    // The other five arms all key on a fold that EXISTS — they police how it is spelled and
+    // whether it is written down. None of them can see the defect the whole policy was built
+    // for: #1349 was a reader with NO normalization, and #1388 was the same thing one file
+    // over. A gate that only inspects existing folds certifies a tree in which the next
+    // unnormalized ingest is invisible, which is how `tools/export-chart-svg.js` sat in `tools/`
+    // reading a deck raw and anchoring on `/^---\n/` — stricter than the reader #1349 was
+    // about — while every doc in the repo said the loop was closed.
+    //
+    // The signal is deliberately conjunctive and cheap: the file READS text (`utf8`) and
+    // ANCHORS FRONT MATTER on `^---` without tolerating a `\r`. Either half alone is common and
+    // harmless; together they are a front-matter parse over bytes nobody canonicalized, which is
+    // exactly the #1349 shape. It cannot catch every unnormalized ingest — one that parses front
+    // matter some other way still slips — so this narrows the blind spot rather than closing it,
+    // and the docblock above says so rather than claiming otherwise.
+    // This file is where the pattern is WRITTEN DOWN in order to be searched for, which is the
+    // same reason `commentSpans` exists three arms up. It reads no author text.
+    if (rel === 'tools/check-ownership.js') continue;
+    if (EOL_UTF8_READ.test(src) && firstLive(EOL_STRICT_FM_ANCHOR) !== -1) {
+      const at = firstLive(EOL_STRICT_FM_ANCHOR);
+      errors.push(
+        `${rel}${at === -1 ? '' : `:${lineOf(at)}`} reads text as utf8 and anchors front matter on `
+        + `\`^---\` without normalizing line endings first. That is #1349 exactly: a BOM or a CRLF `
+        + `defeats the \`^---\` anchor, so the front matter is read as BODY and the deck exports in `
+        + `the DEFAULT palette, silently. Normalize at the read — \`.replace(/^\\uFEFF/, '')\` then `
+        + `\`.replace(/\\r\\n?/g, '\\n')\` — and add the file to SANCTIONED_EOL_BOUNDARIES. If it `
+        + `only ever sees repo-committed text (LF by .gitattributes), say so in `
+        + `SANCTIONED_EOL_NON_BOUNDARIES instead.`,
+      );
+    }
+  }
+  for (const e of exempt) {
+    if (!seenExempt.has(e.file)) {
+      errors.push(
+        `stale line-ending non-boundary sanction in tools/check-ownership.js — ${e.file} no longer `
+        + `folds line endings. Remove the SANCTIONED_EOL_NON_BOUNDARIES entry so the exemption list `
+        + `cannot rot into a blanket waiver.`,
+      );
+    }
+  }
+}
+
 // Comment SPANS, not comment LINES. The line-based first cut skipped any line whose leading
 // text began `*`, which a continuation line of a multi-line expression also does — so a live
 // matcher could be parked past the gate by putting it after `  * factor;`. Spans are anchored
@@ -10152,6 +10555,7 @@ function run() {
   checkDiagramScopeSelectors(errors);
   checkClassAttrReads(errors);
   checkFrontMatterReaders(errors);
+  checkLineEndingBoundaries(errors);
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
   checkSnapshotHtmlSinks(errors);
@@ -10325,6 +10729,12 @@ module.exports = {
   checkClassAttrReads,
   classAttrOffences,
   SANCTIONED_CLASS_ATTR_READS,
+  checkLineEndingBoundaries,
+  SANCTIONED_EOL_BOUNDARIES,
+  SANCTIONED_EOL_NON_BOUNDARIES,
+  EOL_FOLD_IDIOM,
+  EOL_BOM_STRIP,
+  EOL_WRONG_FOLD,
   checkPreviewHtmlSinks,
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,

@@ -29,7 +29,7 @@ choice:
 |---|---|
 | a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) — **one PR for the session's line of work, one commit per item**, not a PR per slice (`workflow.md` §Batch a session's slices) |
 | a PR is open | **subscribe + drive CI green**; rebase before each push (rule 7) |
-| the PR is green and rebased | **ask to merge, with a fenced 🚦 pre-merge card** (what · why · how · evidence · risk · unverified · a *derived* confidence level) — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each (`workflow.md` §Pre-merge card) |
+| the PR is green and rebased | **ask to merge, with a fenced 🚦 pre-merge card — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution and the `raise it by:` line are all in that section and all load-bearing (HARD RULE #28) |
 | merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced (`workflow.md` §Post-merge standup) |
 | a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold (same §) |
 
@@ -556,6 +556,37 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `sonnet`/`haiku`/`fable` are rejected by name. Committed files only; an ad-hoc
   `Agent()` call rides on the policy above, and harness built-ins need nothing
   passed. `engineering/decisions/2026-07-28-model-tiering-retirement.md`.)*
+- **#28 — A merge ask carries a conforming pre-merge card, and the card lands on
+  the PR, not only in chat.** The card is the *only* thing standing between "CI is
+  green" and a human decision, and green CI is not evidence of much (#23) — so the
+  card's shape is binding, not a suggestion. The contract is
+  `engineering/workflow.md` §Pre-merge card and **must be read there, not from a
+  summary**; CLAUDE.md's DEFAULT-OP-MODE row is an index entry, not the spec. Four
+  things are load-bearing and each has been got wrong:
+  - **The confidence level is DERIVED, and there are exactly four.** `low` ·
+    `medium` · `high` · `very high`. **The lowest qualifying axis wins** — evidence,
+    blast radius, reversibility, unknowns, independent eyes. A fifth level
+    (`medium-high`) is not a finer reading, it is the "high with a caveat" hedge the
+    contract exists to ban.
+  - **ONE level for the change, not one per issue.** Confidence is a chain. Splitting
+    it per closed issue reports the *best* link and buries the floor, which is the
+    same evasion in another costume.
+  - **Name the AXIS that set the floor**, not a reason. "mutation-proved" is a
+    reason; `evidence` / `blast radius` / `unknowns` is an axis, and only the axis
+    tells the reader which lever to pull.
+  - **Carry the `raise it by:` line.** The contract calls it the most useful line in
+    the card: it turns "are you sure?" into a decision — merge anyway, or spend ten
+    more minutes. "nothing outstanding" is a legitimate answer; omitting it is not.
+  **Where it goes:** in the merge ask AND as a comment on the PR. A card that lives
+  only in a chat transcript is invisible to whoever opens the PR — including me, and
+  including a future session — so the evidence has to sit next to the diff it is
+  about. Same wording both places.
+  *(discipline — no automated gate, and that is a known hole: nothing in the tree can
+  tell a conforming card from a plausible-looking one, so the test is whether the
+  card on the PR carries all four levers above. Born from PR #1834, where a card was
+  written from this file's own one-line summary instead of the workflow.md contract
+  and shipped an invented `medium-high`, three per-issue levels, no axis, no raise
+  path — in a PR whose entire subject was claims nobody re-derives.)*
 
 ---
 

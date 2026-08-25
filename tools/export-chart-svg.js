@@ -62,7 +62,7 @@ function parseArgs(argv) {
 
 /** Front-matter `theme:` of a deck, or null. */
 function frontmatterTheme(src) {
-  const m = src.match(/^---\n([\s\S]*?)\n---/);
+  const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return null;
   const t = m[1].match(/^\s*theme:\s*(\S+)/m);
   return t ? t[1] : null;
@@ -75,7 +75,13 @@ async function main() {
     process.exit(2);
   }
   const deckPath = path.resolve(a.deck);
-  const src = fs.readFileSync(deckPath, 'utf8');
+  // LINE ENDINGS: LF, no leading BOM — this is an INGEST of author markdown, the same shape
+  // as #1349 and #1388, at the TENTH reader. `frontmatterTheme` above anchors on `^---`, so
+  // a BOM'd or Windows-saved deck declaring `theme: cuoio` fell through to the 'indaco'
+  // default and exported every chart SVG in the wrong palette, silently. Found by arm 6 of
+  // `checkLineEndingBoundaries` — the arm written because the other five can only inspect a
+  // fold that already exists, and this reader had none. Listed in SANCTIONED_EOL_BOUNDARIES.
+  const src = fs.readFileSync(deckPath, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   const theme = a.theme || frontmatterTheme(src) || 'indaco';
   // The render seam: docs/public/playground/lattice-playground.js defines
   // window.LatticePlayground.render(md, theme) -> {html, css}. It is a BUILT

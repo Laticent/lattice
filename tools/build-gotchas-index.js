@@ -157,7 +157,7 @@ function collect(dir = DIR) {
     // A folder README documents the folder; it is not a topic of gotchas. Without
     // this the tool hard-fails `npm run build` the day someone adds one.
     if (file === 'README.md') continue;
-    const text = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n');
+    const text = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n?/g, '\n');
 
     const headings = parseHeadings(text); // [{ level, text }], document order
     // The row template is `- [label](target)`, so a label can carry brackets only while
@@ -263,7 +263,7 @@ function parseIndex(indexText) {
   if (indexText.indexOf(BEGIN, b + BEGIN.length) !== -1 || indexText.indexOf(END, e + END.length) !== -1) {
     return { headings: [], rows: [], stray: ['a second gotchas-index marker pair is present — only the first is ever regenerated'], footer: null, footers: 0, blankRuns: true };
   }
-  const body = indexText.slice(b + BEGIN.length, e).replace(/\r\n/g, '\n').split('\n');
+  const body = indexText.slice(b + BEGIN.length, e).replace(/\r\n?/g, '\n').split('\n');
   const headings = [];
   const rows = [];
   const stray = [];
