@@ -20,6 +20,7 @@ wired, only ever proposes an *essential set*; this core disposes).
 | `derive.js` | The **derivation**. `deriveTheme(essentials)` → full token map, repaired to clear AA in both canvas modes for every gate-checked pair. Exports the essential-set + required-token contracts. |
 | `serialize.js` | `serializeTheme(map, {name})` → droppable `themes/<name>.css` text (the `@theme` directive, `@import 'lattice'`, grouped `:root` blocks, then an **extras block** for names outside the contract). |
 | `parse.js` | The **inverse**. `parseTheme(css)` → an ordered, selector-aware declaration record; `serializeThemeRecord` writes it back. `themeRecordView` is the four-bucket read (tokens · non-token root declarations · at-rules · the non-root tail). Hand-rolled rather than css-tree — see below. |
+| `gate.js` | The **validator** for hand-edited theme CSS. `gateThemeCss(css, { knownThemes })` → `{ ok, blocked, composes, findings }`. Composed from `lib/layout/gate.js`'s `find*` primitives, never from `gateCss` — see below. |
 | `starters.js` | A small seed library of essential sets ("on the floor") so the loop runs with no model. |
 
 ## The essential set
@@ -152,5 +153,93 @@ property is held by a test rather than by a claim. It is **not** a sanitizer —
 guard for a document that embeds theme CSS stays at the frame
 (`lib/core/sanitize-style-text.mjs`).
 
-Tests: `test/unit/palette/theme-{color,contrast,cat-ink,derive,serialize,parse}.test.js`
+## Gating a hand-edited theme (`gate.js`)
+
+Reading a theme back is only half of hand-editing; the other half is that what
+the author types reaches a **same-origin, un-sandboxed preview frame** holding
+their BYOK OpenRouter key (HARD RULE #24). `gateThemeCss` is that rung.
+
+**It is not `gateCss`, and it cannot be.** The component gate rejects **all 32**
+shipped themes, and not for one reason. Measured:
+
+| rung | the 19 palettes that declare color | the 13 `*-dark` wrappers |
+| --- | --- | --- |
+| `no-hex` (#3) | 22–194 findings each | 0 — they declare nothing |
+| `scope` | 1–41 each | 1 each — their one `:root` block |
+| `css-import` | 1 each | 1 each |
+
+The first two are not near-misses to tune. A palette *is* hex literals at
+`:root` — that is the one place in the system where a raw color is the correct
+thing to write — and a theme is unscoped by construction, because reaching every
+slide is its whole job. So the theme gate is **composed from the `find*`
+primitives** and keeps only the half that transfers: the exfiltration scan.
+
+**The `@import` allowlist is the interesting part, and it is a security
+decision.** `CSS_EXFIL_RULES[0]` bans `@import` outright, which is right for a
+component and impossible for a theme (32 of 32 have one; it is the entire token
+content of 13). Dropping the rule for themes opens a live channel:
+`resolveThemeImports` leaves an unknown name in place, and `hoistImports`
+(`lib/engine/css.js`) then lifts every surviving quoted import to the **top** of
+the composed sheet, specifically so it survives the "@import must come first"
+rule. An unregistered target is therefore a live fetch in first position. What
+makes it inert today is that theme CSS is never first in the `<style>` — an
+accident of concatenation order, gated by nothing. So:
+
+- **allowed** — a bare quoted import of a **registered** theme name, spelled
+  literally, with nothing after it;
+- **rejected** — `url(…)`, a quoted path or URL, an unregistered name, an
+  unquoted target, a **self-import**, an **escaped** spelling (`'\61 rdesia'`),
+  an **uppercase** at-keyword (`@IMPORT`), and any `layer()` / `supports()` /
+  media-query **tail**.
+
+Three of those are worth their own sentence, because each was a live bypass in
+the first cut of this gate and each has the same shape:
+
+- **Detect with browser semantics; judge with the resolver's.** The scan decodes
+  CSS escapes and matches `@import` case-insensitively, because a browser does —
+  otherwise `@imp\ort url(//evil)` is invisible. But the *allow* decision runs an
+  anchored copy of the engine's own `THEME_NAME_IMPORT_RE` over the **raw source
+  bytes**, because that is what decides whether the import resolves. Judging the
+  decoded reading let `@import '\61 rdesia'` pass as the registered theme
+  `ardesia` while the engine left it in place — composed sheet starting
+  `@import '\61 rdesia';`, in first position, live. The test proves the subset
+  relation by running the engine's actual regex object over every statement the
+  gate allows.
+- **A tail is not pedantry.** Both engine grammars end at the closing quote, so a
+  qualified import does not resolve at all — which is exactly the case that gets
+  hoisted and fetched.
+- **A theme cannot import itself.** `resolveThemeImports` breaks a cycle by
+  *leaving the import in place*, so a perfectly registered name reaches position 0
+  as a live fetch. The gate reads the sheet's own `@theme` directive to catch it.
+  A *mutual* cycle (A imports B, B imports A) is not visible to a gate that sees
+  one file — pass a predicate for `knownThemes` if your host can answer that.
+
+The registry is an **argument, not a search** (the discipline
+`ThemeStore.add(name, css)` adopted), and it **fails closed**: `knownThemes`
+defaults to `['lattice']`, so a caller that forgets to pass one gets the
+strictest behavior rather than the loosest. It means **what the live `ThemeStore`
+holds**, not the shipped catalog — a palette that has not been fetched is not
+registered, and an import of it is hoisted rather than resolved. An iterable or a
+`(name) => boolean` predicate; the predicate exists so a host that can answer a
+harder question than set membership can say so.
+
+Two more shapes worth knowing:
+
+- **Conformance runs only on a self-contained theme.** A theme importing a
+  palette inherits its tokens; `themes/ardesia-dark.css` declares 0 of the 107
+  and is completely correct. Importing `lattice` is *not* composition — the base
+  supplies no palette tokens, by the same rule that decides contract membership.
+- **`ok` and `blocked` are separate.** Only the safety rung blocks (the
+  `extraCss={cssBlocked ? '' : css}` pattern the component Studio already uses).
+  A theme missing a contract token is wrong and still renders, so it stays
+  visible while the author fixes it.
+
+`ENGINE_DEFAULTED_TOKENS` is the one allowlist: `--on-accent-soft` and
+`--accent-soft-body` are in `REQUIRED_TOKENS` because `deriveTheme` solves them
+for contrast, but `lib/base/base.tokens.css` defaults both, and **no** shipped
+palette declares either — so they warn instead of failing 14 files for writing
+correct CSS. The test re-derives that set from the corpus, so a stale entry fails
+as loudly as a missing one.
+
+Tests: `test/unit/palette/theme-{color,contrast,cat-ink,derive,serialize,parse,gate}.test.js`
 (run via `npm run test:palette`).
