@@ -19,7 +19,7 @@ const FINDINGS = [
 	{ message: 'Slide opens without a title', slide: 2 },
 	{ message: 'Body prose exceeds the density budget', slide: 5 },
 ];
-const SCORECARD = { overall: 87, band: 'A−' };
+const SCORECARD = { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'teaching', label: 'Teaching', blurb: '', origin: 'declared', declaredInvalid: null }, categories: [] };
 // Shaped like the payload `studio.astro` actually ships — every field `layoutBlock`
 // reads, so a payload that drops one fails here instead of silently thinning the prompt.
 const CATALOG = [
@@ -43,7 +43,11 @@ const CATALOG = [
 describe('buildChatSystem — the static/dynamic split', () => {
 	it('puts the assessment in the DYNAMIC tail, never the cacheable prefix', () => {
 		const { staticPrefix, dynamicTail } = buildChatSystem('openrouter', { scorecard: SCORECARD, findings: FINDINGS });
-		expect(dynamicTail).toContain('A− (87/100)');
+		// BOTH grades ride the tail, each named for what it measures, and the style score
+		// never travels without the profile it was measured against — a bare number would
+		// let the model narrate genre fit as a verdict on the deck.
+		expect(dynamicTail).toContain('Craft (genre-blind authoring quality): A (94/100)');
+		expect(dynamicTail).toContain('Style (fit against the Teaching profile, declared): B+ (82/100)');
 		// JSON-quoted on purpose: the message quotes the author's deck, and the deck can be
 		// untrusted. The quoting is the containment, so pin it rather than the bare text.
 		expect(dynamicTail).toContain('"Slide opens without a title" (slide 2)');
@@ -54,7 +58,7 @@ describe('buildChatSystem — the static/dynamic split', () => {
 
 	it('keeps the static prefix byte-identical as the assessment changes', () => {
 		const a = buildChatSystem('openrouter', { scorecard: SCORECARD, findings: FINDINGS });
-		const b = buildChatSystem('openrouter', { scorecard: { overall: 62, band: 'C' }, findings: [{ message: 'Something else entirely' }] });
+		const b = buildChatSystem('openrouter', { scorecard: { craft: { score: 62, band: 'C', summary: 'a lot to fix' }, style: { score: 70, band: 'B', summary: 'several things to fix' }, profile: { key: 'boardroom', label: 'Boardroom', blurb: '', origin: 'inferred', declaredInvalid: null }, categories: [] }, findings: [{ message: 'Something else entirely' }] });
 		// Cache hits on turns 2..N depend on this exact equality.
 		expect(b.staticPrefix).toBe(a.staticPrefix);
 		expect(b.dynamicTail).not.toBe(a.dynamicTail);

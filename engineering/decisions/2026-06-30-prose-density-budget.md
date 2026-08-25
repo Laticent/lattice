@@ -5,6 +5,17 @@ summary: Phase 2 of the content-capacity contract — make per-element word budg
 
 # Prose-density budget — give the LLM a word budget, not just an element count
 
+> **Amendment (2026-08-25).** The two WHOLE-SLIDE numbers this note set —
+> `SLIDE_PROSE_BUDGET` (70 words / 6 bullets) and the 14-word title ceiling — are
+> no longer universal. Measured across the 197 committed decks they fit every
+> professional genre in the corpus *except* teaching (median slide 72 words, above
+> every other family's 90th percentile) and, on the heading axis, mission (17% over
+> 14 words). They now live in `lib/authoring/deck-profiles.js` as per-genre budgets
+> set from that distribution. **The per-element `density` contract and the universal
+> CHROME table this note is actually about are unchanged** — an eyebrow must read as
+> an eyebrow in every genre. See
+> `2026-08-25-deck-profiles-craft-style-split.md`.
+
 **Status:** proposed 2026-06-30. This is **phase 2 of the content-capacity
 contract** (`2026-06-17-content-capacity-contract.md` §3.3, which named it and
 deferred it). Phase 1 (shipped) answers *"how many things fit"* — element COUNT

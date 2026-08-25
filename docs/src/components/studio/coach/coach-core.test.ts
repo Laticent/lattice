@@ -30,7 +30,11 @@ describe('assessDeck', () => {
 		const a = await assessDeck('<!-- _class: title -->\n# Hi\n\n---\n\n## Two', null);
 		expect(a.hasContent).toBe(true);
 		expect(a.scorecard).not.toBeNull();
-		expect(typeof a.scorecard?.band).toBe('string');
+		expect(typeof a.scorecard?.craft.band).toBe('string');
+		expect(typeof a.scorecard?.style.band).toBe('string');
+		// The profile the Style half was measured against always travels with the score.
+		expect(typeof a.scorecard?.profile.key).toBe('string');
+		expect(['declared', 'override', 'inferred', 'default']).toContain(a.scorecard?.profile.origin);
 	});
 });
 

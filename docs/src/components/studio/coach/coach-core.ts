@@ -10,8 +10,13 @@ import type { Finding } from '../architect';
 import { stripFrontMatter } from '../front-matter';
 import { splitSlides as studioSplitSlides } from '../lint';
 
-export type ScoreCategory = { key: string; label: string; score: number | null; na?: boolean; notes: string[] };
-export type DeckScorecard = { overall: number; band: string; categories: ScoreCategory[] };
+export type ScoreCategory = { key: string; half: 'craft' | 'style'; label: string; score: number | null; na?: boolean; notes: string[] };
+export type ScoreHalf = { score: number; band: string; summary: string };
+/** Which genre the STYLE half was measured against, and where that came from. An
+ *  inferred profile is a VISIBLE guess — the panel shows it and offers the override,
+ *  because a silently-applied wrong bar is worse than no profile at all. */
+export type DeckProfileRead = { key: string; label: string; blurb: string; origin: 'declared' | 'override' | 'inferred' | 'default'; declaredInvalid: string | null };
+export type DeckScorecard = { craft: ScoreHalf; style: ScoreHalf; profile: DeckProfileRead; categories: ScoreCategory[] };
 export type CoachAssessment = {
 	/** Whether the deck has real content to assess. `false` → scorecard/findings empty;
 	 *  the panel shows a placeholder, NEVER a fabricated "A / 94" for a blank deck (K1). */
@@ -46,7 +51,7 @@ export function hasContent(src: string): boolean {
 /** The real deck assessment: the engine scorecard + the union of lint + review
  *  findings. Returns an empty, content-false assessment (not a grade) for a blank deck.
  *  Never throws into render. */
-export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = []): Promise<CoachAssessment> {
+export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = [], profileOverride?: string): Promise<CoachAssessment> {
 	const src = String(source ?? '');
 	if (!hasContent(src)) return { hasContent: false, scorecard: null, findings: [] };
 	const v = lintVocab as { names?: unknown } | null;
@@ -69,8 +74,12 @@ export async function assessDeck(source: string, lintVocab: unknown, components:
 		}
 		const bucketMap = new Map(components.filter((c) => c.bucket).map((c) => [c.name, c.bucket]));
 		const densityMap = new Map(components.filter((c) => c.density != null).map((c) => [c.name, c.density]));
-		const review = reviewCore.reviewText(src, { bucketOf: (n: string) => bucketMap.get(n) ?? null, densityOf: (n: string) => densityMap.get(n) ?? null }) as Finding[];
-		const sc = scorecard.scoreDeck({ source: src, lintFindings: lint, reviewFindings: review }) as DeckScorecard;
+		// The profile override rides into BOTH: review-core needs it to pick the prose
+		// budgets a finding fires against, and the scorecard needs it to resolve the same
+		// genre for the Style half. Passing it to only one would grade a deck against a
+		// profile whose findings were generated under a different one.
+		const review = reviewCore.reviewText(src, { bucketOf: (n: string) => bucketMap.get(n) ?? null, densityOf: (n: string) => densityMap.get(n) ?? null, profileOverride }) as Finding[];
+		const sc = scorecard.scoreDeck({ source: src, lintFindings: lint, reviewFindings: review, profileOverride }) as DeckScorecard;
 		return { hasContent: true, scorecard: sc, findings: [...lint, ...review] };
 	} catch {
 		return { hasContent: true, scorecard: null, findings: [] };

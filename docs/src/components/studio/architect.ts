@@ -1260,7 +1260,11 @@ export type ChatResult =
  *  the deck text alone. `catalog` is the component dossier the Lattice primer is built
  *  from. All optional — a caller that passes nothing gets the pre-grounding prompt. */
 export type ChatGrounding = {
-	scorecard?: { overall: number; band: string } | null;
+	/** The deterministic read the author is looking at. TWO grades since the Craft/Style
+	 *  split: a single number here would make the model narrate a genre-fit score as if it
+	 *  were a verdict on the deck — the exact conflation the split exists to end. The
+	 *  profile travels with the style score for the same reason. */
+	scorecard?: { craft: { score: number; band: string }; style: { score: number; band: string }; profile: { label: string; origin: string } } | null;
 	findings?: { message: string; slide?: number }[];
 	catalog?: unknown[];
 	/** Diagrams Mermaid's own parser rejects, with its message (mermaid-check.ts). A
@@ -1316,7 +1320,14 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
 	// for an empty findings list rather than nothing.
 	const canon = rich && grounding ? canonFor({ findings: all }) : '';
 	const blocks: string[] = [];
-	if (grounding?.scorecard) blocks.push(`The deck scores ${grounding.scorecard.band} (${grounding.scorecard.overall}/100).`);
+	if (grounding?.scorecard) {
+		const { craft, style, profile } = grounding.scorecard;
+		blocks.push(
+			`Craft (genre-blind authoring quality): ${craft.band} (${craft.score}/100). ` +
+			`Style (fit against the ${profile.label} profile, ${profile.origin}): ${style.band} (${style.score}/100). ` +
+			'Both measure what was FOUND, not whether the deck is good — never call a deck weak on the style score alone, and say which profile it was judged against.',
+		);
+	}
 	if (grounding)
 		blocks.push(
 			findings

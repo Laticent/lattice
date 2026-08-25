@@ -2103,6 +2103,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// toy lint.ts scoreDeck. `hasContent` false → a blank deck shows a placeholder, never
 	// a fabricated grade (K1). Populated by the debounced effect below.
 	const [scorecard, setScorecard] = React.useState<DeckScorecard | null>(null);
+	// The Coach's profile control. `null` = let the deck decide (its own `profile:` front
+	// matter, then inference, then the lenient fallback). Session-only and deliberately
+	// NOT written into the deck: an override is a "what would this look like as…" lens,
+	// and silently rewriting the author's front matter from a dropdown is not that.
+	const [profileOverride, setProfileOverride] = React.useState<string | null>(null);
 	// Diagrams Mermaid's own parser rejects. `null` until the check has run for this deck
 	// (or when it can't run) — DISTINCT from `[]`, which is the positive statement "every
 	// diagram parses". The chat grounds on that difference: an empty list lets it say the
@@ -2215,7 +2220,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let live = true;
 		setAssessing(true);
 		const id = setTimeout(() => {
-			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames).then((a: CoachAssessment) => {
+			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined).then((a: CoachAssessment) => {
 				if (!live) return;
 				setScorecard(a.scorecard);
 				setDeckHasContent(a.hasContent);
@@ -2227,7 +2232,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			live = false;
 			clearTimeout(id);
 		};
-	}, [source, lintVocab, components, localNames, savedFinishLintNames]);
+	}, [source, lintVocab, components, localNames, savedFinishLintNames, profileOverride]);
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
@@ -2991,6 +2996,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (chipRunRef.current !== token) return;
 		setCoachCard({ id, card });
 	};
+	// The profile choices offered in the Coach. Mirrors lib/authoring/deck-profiles.js
+	// PROFILES; a pinned test asserts the two lists stay in step, because a profile the
+	// engine grades but the panel cannot name is one a human can never correct.
+	const DECK_PROFILE_CHOICES: [string, string][] = [
+		['boardroom', 'Boardroom'],
+		['teaching', 'Teaching'],
+		['mission', 'Mission'],
+		['academic', 'Academic'],
+		['general', 'General'],
+	];
 	const CHIPS: [string, string][] = [
 		['top', 'Top fixes'],
 		['weak', 'Weakest slide'],
@@ -3008,11 +3023,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>
 				</div>
 			)}
-			{/* Deck-level assessment — the REAL engine scorecard (grade + per-dimension read),
-			    replacing the toy heuristic. Never a fabricated grade for an empty deck (K1). */}
-			<ArchCard tag={<IntentTag intent={scoreIntent(scorecard?.band)} />} title="Board readiness">
+			{/* Deck-level assessment — the REAL engine scorecard. TWO grades, not one: Craft is
+			    genre-blind (same bar for every deck), Style is measured against a named profile and
+			    is always shown WITH that profile, so a style score can never read as a verdict on
+			    worth. Never a fabricated grade for an empty deck (K1). */}
+			<ArchCard tag={<IntentTag intent={scoreIntent(scorecard?.craft.band)} />} title="Deck read">
 				{!deckHasContent ? (
-					<p className="text-xs leading-relaxed text-muted-foreground">Add a slide or two and I’ll assess the deck — a grade, a per-dimension read, and the fixes that matter most. No grade is shown for an empty deck.</p>
+					<p className="text-xs leading-relaxed text-muted-foreground">Add a slide or two and I’ll assess the deck — craft, style, and the fixes that matter most. No grade is shown for an empty deck.</p>
 				) : assessing && !scorecard ? (
 					<div className="space-y-2" role="status" aria-label="Assessing">
 						<div className="h-7 w-16 animate-pulse rounded bg-[var(--bg-alt)]" />
@@ -3021,9 +3038,41 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</div>
 				) : scorecard ? (
 					<>
-						<div className="flex items-baseline gap-2">
-							<span className="font-sans text-[30px] font-extrabold leading-none" style={{ color: scoreIntent(scorecard.band) === 'fix' ? 'var(--fail,#b3261e)' : 'var(--text-heading)' }}>{scorecard.band}</span>
-							<span className="text-[15px] font-semibold text-[var(--text-heading)]">{Math.round(scorecard.overall)}<span className="text-[13px] font-normal text-muted-foreground"> / 100</span></span>
+						<div className="grid grid-cols-2 gap-2">
+							{([['craft', 'Craft', 'Genre-blind — the same bar for every deck.'], ['style', 'Style', `Fit against the ${scorecard.profile.label} profile.`]] as const).map(([half, label, hint]) => (
+								<div key={half} className="rounded-lg border border-border px-2.5 py-2">
+									<div className="text-[9.5px] font-bold uppercase tracking-widest text-muted-foreground">{label}</div>
+									<div className="mt-0.5 flex items-baseline gap-1.5">
+										<span className="font-sans text-[26px] font-extrabold leading-none" style={{ color: scoreIntent(scorecard[half].band) === 'fix' ? 'var(--fail,#b3261e)' : 'var(--text-heading)' }}>{scorecard[half].band}</span>
+										<span className="text-[13px] font-semibold text-[var(--text-heading)]">{Math.round(scorecard[half].score)}</span>
+									</div>
+									<p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{scorecard[half].summary}</p>
+									<p className="sr-only">{hint}</p>
+								</div>
+							))}
+						</div>
+						{/* The profile is never applied silently — it is named, its ORIGIN is named, and it
+						    can be changed here. An inferred profile is a visible guess. */}
+						<div className="mt-2.5 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-[var(--bg-alt)] px-2.5 py-1.5">
+							<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Style judged as</span>
+							<select
+								aria-label="Deck profile — the genre the Style score is measured against"
+								value={profileOverride ?? ''}
+								onChange={(e) => setProfileOverride(e.target.value || null)}
+								className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11px] font-semibold text-[var(--text-heading)]"
+							>
+								<option value="">{scorecard.profile.label} ({scorecard.profile.origin})</option>
+								{DECK_PROFILE_CHOICES.map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+							</select>
+							{profileOverride && (
+								<button type="button" onClick={() => setProfileOverride(null)} className="text-[10.5px] font-semibold text-[var(--accent)]">reset</button>
+							)}
+							{scorecard.profile.origin === 'inferred' && !profileOverride && (
+								<span className="basis-full text-[10px] leading-snug text-muted-foreground">Guessed from the components you used — set <code>profile:</code> in front matter to make it certain.</span>
+							)}
+							{scorecard.profile.declaredInvalid && (
+								<span className="basis-full text-[10px] leading-snug text-[var(--warn)]">Front matter says <code>profile: {scorecard.profile.declaredInvalid}</code>, which isn’t a profile — using {scorecard.profile.label} instead.</span>
+							)}
 						</div>
 						<div className="mt-2.5 space-y-2">
 							{scorecard.categories.map((c) => (
@@ -3041,7 +3090,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								</div>
 							))}
 						</div>
-						<p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">Live · deterministic — checks authoring hygiene (structure, clarity, contract). It can’t judge whether your argument or numbers will persuade. Free.</p>
+						<p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">Live · deterministic. Both scores measure what was <em>found</em>, not whether the deck is good — nothing here can judge whether your argument or your numbers persuade. Free.</p>
 					</>
 				) : (
 					<p className="text-xs text-muted-foreground">Assessment unavailable right now.</p>

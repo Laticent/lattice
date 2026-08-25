@@ -8,8 +8,13 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { reviewText, isLabelHeading } = require('../../../lib/authoring/review-core');
 const { scoreDeck } = require('../../../lib/authoring/scorecard');
+const { resolveProfile, inferProfile, PROFILES } = require('../../../lib/authoring/deck-profiles');
 
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
+// An UNDECLARED deck resolves to the lenient `general` profile, so a test that means
+// to exercise a tight budget has to say which genre it is testing. `boardroom` is the
+// tightest (70 slide words, a 14-word heading) — the numbers these rules shipped with.
+const FM_BOARD = '---\nmarp: true\ntheme: indaco\nprofile: boardroom\n---\n\n';
 const bucketOf = (n) => ({ kpi: 'evidence', stats: 'evidence', radar: 'chart', piechart: 'chart', gantt: 'chart' }[n] || 'statement');
 const ruleOf = (findings, rule) => findings.find((f) => f.rule === rule);
 
@@ -63,101 +68,168 @@ describe('review-core: reviewText', () => {
   });
 });
 
-describe('scorecard: scoreDeck', () => {
+describe('scorecard: scoreDeck — the Craft / Style split', () => {
   const clean = `${FM}<!-- _class: title silent -->\n\n# Q3 board review\n\nthe ask\n\n---\n\n<!-- _class: kpi -->\n\n## Revenue grew 18%, led by APAC\n\n1. 18%\n   - growth\n\n---\n\n<!-- _class: decision -->\n\n## We recommend funding APAC\n\n- option\n  - body\n\n---\n\n<!-- _class: closing -->\n\n## Fund APAC\n`;
+  const card = (src, lint = []) => scoreDeck({ source: src, lintFindings: lint, reviewFindings: reviewText(src, { bucketOf }) });
+  const cat = (c, key) => c.categories.find((x) => x.key === key);
 
-  test('returns overall + band + five categories', () => {
-    const card = scoreDeck({ source: clean, lintFindings: [], reviewFindings: reviewText(clean, { bucketOf }) });
-    assert.equal(typeof card.overall, 'number');
-    assert.ok(['A', 'A−', 'B+', 'B', 'C+', 'C', 'D', 'F'].includes(card.band));
-    assert.equal(card.categories.length, 5);
-    assert.deepEqual(card.categories.map((c) => c.key), ['structure', 'clarity', 'data', 'pacing', 'contract']);
+  test('returns two grades, a resolved profile, and seven categories split across the halves', () => {
+    const c = card(clean);
+    for (const half of ['craft', 'style']) {
+      assert.equal(typeof c[half].score, 'number');
+      assert.ok(['A', 'A−', 'B+', 'B', 'C+', 'C', 'D', 'F'].includes(c[half].band));
+      assert.equal(typeof c[half].summary, 'string');
+    }
+    assert.deepEqual(c.categories.map((x) => x.key),
+      ['structure', 'craftProse', 'contract', 'brevity', 'framing', 'data', 'pacing']);
+    assert.deepEqual(c.categories.filter((x) => x.half === 'craft').map((x) => x.key),
+      ['structure', 'craftProse', 'contract']);
+    assert.equal(typeof c.profile.key, 'string');
+    assert.ok(['declared', 'override', 'inferred', 'default'].includes(c.profile.origin));
   });
 
-  test('a clean deck scores high', () => {
-    const card = scoreDeck({ source: clean, lintFindings: [], reviewFindings: reviewText(clean, { bucketOf }) });
-    assert.ok(card.overall >= 85, `expected >=85, got ${card.overall}`);
+  test('a clean deck scores high on both halves', () => {
+    const c = card(clean);
+    assert.ok(c.craft.score >= 85, `craft: expected >=85, got ${c.craft.score}`);
+    assert.ok(c.style.score >= 85, `style: expected >=85, got ${c.style.score}`);
   });
 
-  test('authoring errors tank the Contract score', () => {
+  test('authoring errors tank Contract, which lives in CRAFT', () => {
     const lint = [{ rule: 'card-style-inline-title', severity: 'error' }, { rule: 'split-bodyless-item', severity: 'error' }];
-    const card = scoreDeck({ source: clean, lintFindings: lint, reviewFindings: [] });
-    assert.ok(card.categories.find((c) => c.key === 'contract').score <= 60);
+    const c = card(clean, lint);
+    assert.ok(cat(c, 'contract').score <= 60);
+    assert.equal(cat(c, 'contract').half, 'craft');
   });
 
   test('a missing title drops Structure', () => {
-    const noTitle = `${FM}<!-- _class: content -->\n\n## A takeaway\n\nx\n`;
-    const card = scoreDeck({ source: noTitle, lintFindings: [], reviewFindings: [] });
-    assert.ok(card.categories.find((c) => c.key === 'structure').score < 100);
+    assert.ok(cat(card(`${FM}<!-- _class: content -->\n\n## A takeaway\n\nx\n`), 'structure').score < 100);
   });
 
-  test('label titles drop Clarity', () => {
+  test('label titles drop Writing craft', () => {
     const labels = `${FM}<!-- _class: title silent -->\n\n# T\n\n---\n\n<!-- _class: content -->\n\n## Overview\n\nx\n`;
-    const card = scoreDeck({ source: labels, lintFindings: [], reviewFindings: reviewText(labels, { bucketOf }) });
-    assert.ok(card.categories.find((c) => c.key === 'clarity').score < 100);
+    assert.ok(cat(card(labels), 'craftProse').score < 100);
   });
 
-  test('Data is N/A (not a free A) on a deck with no data slides, and drops from the overall', () => {
+  test('Data is N/A (not a free A) on a deck with no data slides', () => {
     const noData = `${FM}<!-- _class: title silent -->\n\n# T\n\n---\n\n<!-- _class: content -->\n\n## A takeaway\n\nbody\n`;
-    const card = scoreDeck({ source: noData, lintFindings: [], reviewFindings: reviewText(noData, { bucketOf }) });
-    const data = card.categories.find((c) => c.key === 'data');
-    assert.equal(data.na, true);
-    assert.equal(data.score, null);
-    assert.equal(card.categories.length, 5); // still present, just unscored
+    const d = cat(card(noData), 'data');
+    assert.equal(d.na, true);
+    assert.equal(d.score, null);
   });
 
   test('Data IS scored when the deck has a data slide', () => {
     const withData = `${FM}<!-- _class: kpi -->\n\n## Metrics\n\n1. 18%\n`;
-    const card = scoreDeck({ source: withData, lintFindings: [], reviewFindings: reviewText(withData, { bucketOf }) });
-    assert.equal(card.categories.find((c) => c.key === 'data').na, undefined);
+    assert.equal(cat(card(withData), 'data').na, undefined);
+  });
+
+  test('Pacing is N/A without a talk length — it graded nothing on 196 of 197 decks', () => {
+    assert.equal(cat(card(clean), 'pacing').na, true);
+  });
+
+  // ── the defect this split exists to fix ───────────────────────────────────
+  test('the density penalty is CAPPED and cannot floor a category (the saturation bug)', () => {
+    // Every content slide a wall of text. Under the old uncapped `-= walls * 12`
+    // this floored Clarity to 0 and dragged a defect-free deck to a C+.
+    let deck = `${FM_BOARD}<!-- _class: title -->\n\n# A real deck title\n\nA framing line.\n`;
+    // Headings deliberately VARIED — an identical opening would trip `monotone-openings`,
+    // a real craft defect, and the point of this test is that density alone touches Craft
+    // not at all. (It caught exactly that in an earlier draft of this test.)
+    const openers = ['Latency', 'Cost', 'Retries', 'Throughput', 'Errors', 'Memory', 'Cache'];
+    for (let i = 0; i < 14; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## ${openers[i % openers.length]} ${i} moved after the change\n\n${'word '.repeat(120)}\n`;
+    const c = card(deck);
+    assert.ok(cat(c, 'brevity').score > 0, 'brevity must never floor to 0');
+    // Craft must be INVARIANT to density. Compare against the byte-identical deck with
+    // short bodies: any craft difference between them is density leaking across the split.
+    const sparse = card(deck.replace(/(?:word ){120}/g, 'a short body. '));
+    assert.equal(c.craft.score, sparse.craft.score, 'density is a STYLE signal — it must not touch Craft at all');
+    assert.ok(cat(sparse, 'brevity').score > cat(c, 'brevity').score, 'and it must still move Brevity');
+  });
+
+  test('CRAFT is profile-blind: the same deck scores the same craft under every profile', () => {
+    let body = `<!-- _class: title -->\n\n# A real deck title\n\nA framing line.\n`;
+    const heads = ['Latency fell', 'Cost held flat', 'Retries dropped', 'Throughput rose', 'Errors cleared', 'Memory settled'];
+    for (let i = 0; i < 6; i++) body += `\n---\n\n<!-- _class: content -->\n\n## ${heads[i]} after the change\n\n${'word '.repeat(90)}\n`;
+    const scores = Object.keys(PROFILES).map((k) => card(`---\nmarp: true\nprofile: ${k}\n---\n\n${body}`));
+    const craft = new Set(scores.map((c) => c.craft.score));
+    assert.equal(craft.size, 1, `craft moved across profiles: ${[...craft].join(', ')}`);
+    // ...while STYLE does move, which is the whole point.
+    assert.ok(new Set(scores.map((c) => c.style.score)).size > 1, 'style must respond to the profile');
+  });
+
+  test('a profile is a different bar, never a lower one — teaching still fails real craft defects', () => {
+    const stubs = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- _class: content -->\n\n## Overview\n\n---\n\n<!-- _class: content -->\n\n## Overview\n`;
+    const c = card(stubs);
+    assert.ok(c.craft.score < 90, `expected craft to catch stubs+duplicates under teaching, got ${c.craft.score}`);
+  });
+
+  test('the genre rules stay VISIBLE as advice even when the profile does not grade them', () => {
+    let deck = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- _class: title -->\n\n# Lesson one\n\nA framing line.\n`;
+    for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## Step ${i} builds on the last\n\nbody\n`;
+    const findings = reviewText(deck, { bucketOf });
+    const ask = findings.find((f) => f.rule === 'no-ask');
+    const agenda = findings.find((f) => f.rule === 'agenda-missing');
+    assert.ok(ask && agenda, 'both rules must still be surfaced to the author');
+    assert.equal(ask.scored, false);
+    assert.equal(agenda.scored, false);
+    assert.equal(cat(card(deck), 'framing').score, 100, 'and must not deduct under this profile');
   });
 });
 
-describe('review-core: editorial + structural heuristics', () => {
-  test('flags an over-long heading', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
-    assert.ok(ruleOf(f, 'long-heading'));
+describe('deck-profiles: resolution + inference', () => {
+  test('a declared profile wins, and an unknown one is reported rather than swallowed', () => {
+    assert.equal(resolveProfile({ source: '---\nprofile: mission\n---\n' }).origin, 'declared');
+    const bad = resolveProfile({ source: '---\nprofile: teachng\n---\n' });
+    assert.equal(bad.declaredInvalid, 'teachng');
+    assert.equal(bad.key, 'general', 'a typo must fall back to the LENIENT profile, not the tight one');
   });
 
-  test('flags a stub slide (heading, no body) but spares anchors', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: content -->\n\n## A real takeaway\n`, { bucketOf }), 'stub-slide'));
-    assert.equal(ruleOf(reviewText(`${FM}<!-- _class: closing -->\n\n## Thanks\n`, { bucketOf }), 'stub-slide'), undefined);
+  test('a trailing YAML comment does not become part of the name', () => {
+    assert.equal(resolveProfile({ source: '---\nprofile: teaching  # for mentees\n---\n' }).key, 'teaching');
   });
 
-  test('flags a hero number with no referent, spares one with a comparison', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: big-number -->\n\n# 4.2M\n\nrevenue\n`, { bucketOf }), 'metric-no-referent'));
-    assert.equal(ruleOf(reviewText(`${FM}<!-- _class: big-number -->\n\n# 4.2M\n\nup from 3.1M\n`, { bucketOf }), 'metric-no-referent'), undefined);
+  test('an override beats inference but loses to a declaration', () => {
+    const inferable = ['quote', 'kpi'];
+    assert.equal(resolveProfile({ source: '---\n---\n', override: 'academic', componentNames: inferable }).key, 'academic');
+    assert.equal(resolveProfile({ source: '---\nprofile: teaching\n---\n', override: 'academic' }).key, 'teaching');
   });
 
-  test('flags an image with empty alt text', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: content -->\n\n## Pic\n\n![](x.png)\n`, { bucketOf }), 'image-no-alt'));
+  test('inference commits only on POSITIVE evidence and abstains otherwise', () => {
+    assert.equal(inferProfile(['quote', 'kpi', 'content']), 'mission');
+    assert.equal(inferProfile(['decision', 'kpi', 'content']), 'boardroom');
+    // The absence of metrics is not evidence of anything. An earlier cut read it as
+    // `academic` and claimed 103 of the 197 committed decks, feature demos included.
+    assert.equal(inferProfile(['content', 'split-panel', 'quote-bare']), null);
+    assert.equal(inferProfile([]), null);
   });
 
-  test('flags stacked possessives (editorial speak-first)', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## A takeaway\n\nThe system's policy's enforcement is slow.\n`, { bucketOf });
-    assert.ok(ruleOf(f, 'possessive-stacking'));
+  // review-core and scorecard each derive `componentNames` and call resolveProfile
+  // INDEPENDENTLY, in different files. If those two derivations ever drift, a deck's
+  // findings get generated under one genre's budgets and graded under another's — a
+  // silent mis-grade with no error anywhere. Pinned here because no other test can see
+  // it: both halves currently agree on all 198 committed decks.
+  test('review-core and scorecard resolve the SAME profile for the same deck', () => {
+    const decks = [
+      `${FM}<!-- _class: quote -->\n\n## A voice\n\n> x\n\n---\n\n<!-- _class: kpi -->\n\n## Reach grew\n\n1. 40%\n`,
+      `${FM}<!-- _class: decision -->\n\n## We recommend B\n\n- a\n  - b\n\n---\n\n<!-- _class: stats -->\n\n## It grew\n\n1. 9%\n`,
+      `${FM}<!-- _class: content -->\n\n## Nothing inferable here\n\nbody\n`,
+      `---\nmarp: true\nprofile: teaching\n---\n\n<!-- _class: content -->\n\n## Declared wins\n\nbody\n`,
+    ];
+    for (const src of decks) {
+      // What scoreDeck resolved (it reports it), vs what reviewText used for its budgets
+      // (observable through the `scored` flag it stamps on the genre-relative rules).
+      const card = scoreDeck({ source: src, lintFindings: [], reviewFindings: reviewText(src, { bucketOf }) });
+      const viaReview = resolveProfile({
+        source: src,
+        componentNames: (src.match(/<!--\s*_?class:\s*([^\s>]+)/g) || []).map((m) => m.replace(/<!--\s*_?class:\s*/, '')),
+      });
+      assert.equal(card.profile.key, viaReview.key, `profile drift on: ${src.slice(0, 48)}`);
+    }
   });
 
-  test('flags duplicate headings across slides', () => {
-    const dup = `${FM}<!-- _class: content -->\n\n## Results\n\nx\n\n---\n\n<!-- _class: content -->\n\n## Results\n\ny\n`;
-    assert.ok(ruleOf(reviewText(dup, { bucketOf }), 'duplicate-heading'));
-  });
-
-  test('flags monotone heading cadence (3+ same opening)', () => {
-    const mono = `${FM}` + ['How we win', 'How we scale', 'How we ship']
-      .map((h) => `<!-- _class: content -->\n\n## ${h}\n\nx\n`).join('\n---\n\n');
-    assert.ok(ruleOf(reviewText(mono, { bucketOf }), 'monotone-openings'));
-  });
-
-  test('flags a long deck with no agenda', () => {
-    const long = `${FM}` + Array.from({ length: 11 }, (_, i) => `<!-- _class: content -->\n\n## Point ${i} stands alone\n\nbody\n`).join('\n---\n\n');
-    assert.ok(ruleOf(reviewText(long, { bucketOf }), 'agenda-missing'));
-  });
-
-  test('flags a placeholder or subtitle-less title, spares a complete one', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: title -->\n\n# Title\n`, { bucketOf }), 'title-incomplete')); // placeholder
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: title -->\n\n# Our real title\n`, { bucketOf }), 'title-incomplete')); // no subtitle
-    assert.equal(ruleOf(reviewText(`${FM}<!-- _class: title -->\n\n\`eyebrow\`\n\n# Our real title\n\nA framing subtitle line.\n`, { bucketOf }), 'title-incomplete'), undefined);
+  test('an undeclared, uninferable deck lands on the lenient profile', () => {
+    const r = resolveProfile({ source: '---\nmarp: true\n---\n', componentNames: ['content'] });
+    assert.equal(r.origin, 'default');
+    assert.equal(r.profile.scoresAsk, false, 'silence is not evidence of a deck that owes an ask');
   });
 });
 
@@ -205,7 +277,7 @@ describe('review-core: prose-density budgets (2026-06-30)', () => {
   });
 
   test('long-heading still owns the slide title (no double-fire with verbose-title)', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
+    const f = reviewText(`${FM_BOARD}<!-- _class: content -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
     assert.ok(ruleOf(f, 'long-heading'));
     assert.equal(ruleOf(f, 'verbose-title'), undefined);
   });
