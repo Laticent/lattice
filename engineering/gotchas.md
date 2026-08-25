@@ -109,6 +109,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)](gotchas/docs-site.md#a-docs-panel-is-dead-in-astro-dev-only-source-cjs-served-over-fs)
 - [Docs `npm run dev` → `sh: 1: astro: not found`](gotchas/docs-site.md#docs-npm-run-dev--sh-1-astro-not-found)
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
+- [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
 
 ### [Export (PDF, PPTX, the HTML player)](gotchas/export.md)
 
@@ -233,6 +234,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A multi-line toast renders as a giant lozenge with its last line cut off](gotchas/studio-playground.md#a-multi-line-toast-renders-as-a-giant-lozenge-with-its-last-line-cut-off)
 - [A control's own icon renders sliced/outside its button, and every overflow guard is green](gotchas/studio-playground.md#a-controls-own-icon-renders-slicedoutside-its-button-and-every-overflow-guard-is-green)
 - [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/studio-playground.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)
+- [A chat panel's state lands on whichever deck is on screen when the turn ends](gotchas/studio-playground.md#a-chat-panels-state-lands-on-whichever-deck-is-on-screen-when-the-turn-ends)
 
 ### [VS Code / marp-vscode](gotchas/vscode.md)
 

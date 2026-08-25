@@ -933,3 +933,55 @@ never turn "passed in headless" into "works on iOS."
   the `@media` key appears after the `...lintTheme` spread in both consumers.
 - **Triggered by:** the lint-popup redesign,
   `engineering/decisions/2026-08-16-lint-popup-finding-card.md`.
+
+## A chat panel's state lands on whichever deck is on screen when the turn ends
+
+- **Symptom:** In the Studio's Architect panel, a turn started on deck-1 that
+  finishes while the author is looking at deck-2 leaves its residue in deck-2:
+  the streaming bubble painted there, the composer stuck showing **Stop**, or —
+  the last of the three — "Connect a model in Workspace → AI" / "Spend blocked" /
+  "Something went wrong" appearing in a transcript that asked for nothing. The
+  offline case also **opened the Workspace sheet** over that deck.
+- **Cause:** `ArchitectChat` renders ONE deck at a time but keeps ONE turn in
+  flight across a deck switch — that is the survival contract (`#1787`, the
+  2026-07-19 migration note's K2), not an accident. So every write a turn makes
+  after `await chatComplete(...)` resolves lands in a component that may be
+  rendering a different deck than the one that sent it. The send closure's
+  `sendDeckId` is the only thing that still knows which.
+- **The sorting rule, which is what actually keeps being got wrong:** ask what
+  each piece of state DESCRIBES, then guard it accordingly. There are three
+  answers and they need three different treatments:
+  - **Deck state** (the transcript, the streaming buffer, a notice) — tag it with
+    its deck and FILTER AT THE RENDER (`live`, `shownNotice`). Not cleared on the
+    switch: coming back mid-turn should show the reply still arriving, and coming
+    back after a failure should still say why (#1787, #1813).
+  - **Panel state** (`busy`, `streaming`'s teardown) — clear it UNCONDITIONALLY
+    when the turn ends, whichever deck is on screen. Gated on the deck, a switch
+    mid-turn stranded `busy` at `true` forever and that deck could never be sent
+    from again (#1787).
+  - **A shell action** (`onConnect()` popping the Workspace sheet) — fire it only
+    if the panel is still mounted AND still on the originating deck. It is not
+    state that can wait; it happens NOW, to whatever is on screen (#1813).
+- **The trapdoor under that third rule, and it cost a blocker at review.** Guarding
+  the shell action is only safe if the deck state it defers to genuinely SURVIVES.
+  Component state does not survive an unmount, and the Studio's assistant slot is
+  mutually exclusive — flipping to the Coach unmounts the chat panel. So "notice in
+  state + guarded `onConnect`" meant a turn that failed while the panel was shut said
+  **nothing, anywhere**, on the very deck that asked; the `ok` branch was fine only
+  because `commit` calls `saveChat` unconditionally, which made a FAILED turn the one
+  that could vanish. Fix: park the notice in a module-scope per-deck map
+  (`pendingNotices`) — still ephemeral in the sense that matters (gone on reload, never
+  an assistant turn, so it can't re-enter the model's history) but it outlives the panel.
+- **And do not "fix" it by dropping the mounted check.** `deckIdRef` is assigned during
+  render, so it FREEZES at unmount: a turn sent from deck-1 with the panel since closed
+  still reads `deckIdRef.current === 'deck-1'`, passes the deck test, and pops the sheet
+  over whatever deck the author moved to — the original bug wearing a hat.
+- **Why it keeps recurring:** the guard lives inside `commit`, so the `ok` branch
+  reads as guarded and the `offline`/`blocked`/`error` branches beside it read as
+  finished code. Adding a fourth outcome, or any new `setX` after the `await`, is
+  the same trap again — there is no gate for it.
+- **Pinned by:** `docs/src/components/studio/studio.chat-stream-commit.test.tsx`,
+  which holds a turn open across a deck switch with a stubbed `requestAnimationFrame`,
+  so "the turn ended on the other deck" is a state entered on purpose rather than
+  waited for.
+- **Triggered by:** #1787, #1813.

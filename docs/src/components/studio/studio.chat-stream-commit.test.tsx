@@ -1,8 +1,8 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ArchitectChat } from './ArchitectChat';
-import { loadChat } from './studio-store';
+import { __clearPendingNotices, ArchitectChat } from './ArchitectChat';
+import { loadChat, saveChat } from './studio-store';
 
 // #1787 — the streaming bubble has to be GONE once the reply commits.
 //
@@ -37,11 +37,12 @@ const chatSpy = vi.hoisted(() =>
 		return { status: 'ok', reply: REPLY, proposed: null };
 	}),
 );
+const applySpy = vi.hoisted(() => vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] }) as { source: string; applied: number; refusals: string[] }));
 const statusSpy = vi.hoisted(() => vi.fn((): Record<string, unknown> => ({ ready: true, generation: 'openrouter', modelName: 'test', remaining: null, price: { promptPerM: 1, completionPerM: 2 } })));
 vi.mock('./architect', () => ({
 	chatComplete: chatSpy,
 	useArchitectStatus: statusSpy,
-	applyProposedEditsChecked: vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] })),
+	applyProposedEditsChecked: applySpy,
 	estimateUsd: () => 0.004,
 	CHAT_OUTPUT_EST: 4096,
 	chatSystemTokens: () => 0,
@@ -53,6 +54,9 @@ const props = { deckId: 'deck-1', source: '# One\n', aiReady: true, onApply: () 
 
 beforeEach(() => {
 	localStorage.clear();
+	// Parked notices are MODULE state — they outlive a `render()`, so without this one
+	// case's failure shows up in the next.
+	__clearPendingNotices();
 	frames = [];
 	nextFrameId = 1;
 	vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -221,5 +225,279 @@ describe('Architect chat — a turn that ends on another deck still tears down',
 		await flushFrames();
 		expect(screen.queryByText(REPLY)).toBeNull();
 		expect(loadChat('deck-1').at(-1)?.content, 'the survival contract: the reply still commits to the deck that asked for it').toBe(REPLY);
+	});
+});
+
+// #1813 — the three non-`ok` outcomes had NO deck guard, unlike the `ok` branch (which
+// carries one inside `commit`). A turn that started on deck-1 and ended while the author
+// was looking at deck-2 painted deck-1's notice into deck-2's transcript, and — on the
+// `offline` branch — called `onConnect()`, popping the Workspace sheet over a deck that
+// never asked for anything. Reachable BY DESIGN, not by accident: the survival contract
+// says a turn keeps completing across a deck switch.
+const OFFLINE = /and I can answer and edit your deck/;
+
+/** A turn that WAITS to be released, then ends on the given outcome (or throws). */
+const deferredOutcome = (out: { status: string; reply: string } | { throws: true }) => {
+	let settle: () => void = () => {};
+	chatSpy.mockImplementationOnce(
+		() =>
+			new Promise((resolve, reject) => {
+				settle = () => ('throws' in out ? reject(new Error('network')) : resolve({ ...out, proposed: null }));
+			}),
+	);
+	return {
+		release: async () => {
+			await act(async () => {
+				settle();
+			});
+		},
+	};
+};
+
+describe('Architect chat — a turn ending offline/blocked/errored stays on the deck that asked (#1813)', () => {
+	it('keeps an offline notice out of another deck, and still has it when the author returns', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText(OFFLINE), "deck-1's offline notice is showing in deck-2's transcript").toBeNull();
+
+		// Not cleared — WAITING. A notice the author never sees is a turn that failed silently.
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(OFFLINE), 'the deck that asked was never told why nothing came back').toBeTruthy();
+	});
+
+	it('does not pop the Workspace sheet over a deck that never asked', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		const { rerender } = render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(onConnect, 'a sheet opened over a deck whose author asked for nothing').not.toHaveBeenCalled();
+	});
+
+	it('DOES pop the Workspace sheet when the turn ends on the deck that asked', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		await turn.release();
+		await flushFrames();
+		// The guard must not cost the offline branch its whole point on the ordinary path.
+		expect(onConnect, 'the guard swallowed the connect prompt on the deck that asked for it').toHaveBeenCalledTimes(1);
+		expect(screen.getByText(OFFLINE)).toBeTruthy();
+	});
+
+	it('keeps a blocked notice out of another deck', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'blocked', reply: 'Spend cap reached for this session.' });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText('Spend cap reached for this session.'), "deck-1's blocked notice is showing in deck-2's transcript").toBeNull();
+
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText('Spend cap reached for this session.')).toBeTruthy();
+	});
+
+	it('keeps an error notice out of another deck', async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ throws: true });
+		await sendOnce(user, 'tighten slide two');
+
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByText(/Something went wrong reaching the model/), "deck-1's error is showing in deck-2's transcript").toBeNull();
+
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(/Something went wrong reaching the model/)).toBeTruthy();
+	});
+});
+
+// A REGRESSION THE #1813 FIX ITSELF CREATED, caught by the independent checker and fixed
+// with it (HARD RULE #18 — a window you create, you close before shipping).
+//
+// Guarding `onConnect()` on `mountedRef` was half right and half a trapdoor. `notice` was
+// component state, so closing the Chat panel mid-turn destroyed it; with the shell action
+// withheld as well, a turn that failed while the panel was shut said NOTHING, anywhere.
+// The `ok` branch never had that hole — `commit` calls `saveChat` unconditionally — so only
+// a FAILED turn could vanish, which is the worst way round. One click reaches it: send,
+// flip to the Coach while you wait (the Studio's assistant slot is mutually exclusive, so
+// that unmounts this panel), turn comes back offline.
+//
+// Note what the fix is NOT: dropping the mounted check. `deckIdRef` is assigned during
+// render, so it FREEZES at unmount — that "fix" would let a turn sent from deck-1 with Chat
+// since closed pop the Workspace sheet over whatever deck the author moved to. The notice
+// is parked per deck instead, which is what makes withholding the sheet honest.
+describe('Architect chat — a failed turn is still there when the panel reopens (#1813 follow-on)', () => {
+	it('shows the notice on reopen when the turn failed while the panel was closed', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		const { unmount } = render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		// The author flips to the Coach mid-turn. The panel goes away; the turn does not.
+		unmount();
+		await turn.release();
+		await flushFrames();
+		expect(onConnect, 'a sheet opened over a shell whose chat panel is closed').not.toHaveBeenCalled();
+
+		// Reopen Chat on the deck that asked. Before the fix this was the question with
+		// nothing after it — no notice, no sheet, no explanation anywhere.
+		render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		expect(screen.getByText(OFFLINE), 'the turn failed while the panel was shut and said nothing, anywhere').toBeTruthy();
+	});
+
+	it("does not let a send on one deck wipe another deck's waiting notice", async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const failed = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+		await failed.release();
+		await flushFrames();
+		expect(screen.getByText(OFFLINE)).toBeTruthy();
+
+		// A second turn, on a DIFFERENT deck. It supersedes nothing on deck-1.
+		rerender(<ArchitectChat {...props} deckId="deck-2" />);
+		const other = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'and something else');
+		await other.release();
+		await flushFrames();
+
+		rerender(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText(OFFLINE), "deck-2's turn cleared the notice deck-1 was still waiting to show").toBeTruthy();
+	});
+
+	it('a new turn on the SAME deck does supersede its own last failure', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const failed = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+		await failed.release();
+		await flushFrames();
+		expect(screen.getByText(OFFLINE)).toBeTruthy();
+
+		// Otherwise a stale "connect a model" sits under a turn that just worked.
+		const good = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'try again');
+		await good.release();
+		await flushFrames();
+		expect(screen.queryByText(OFFLINE), 'a stale failure notice survived a turn that succeeded on the same deck').toBeNull();
+	});
+});
+
+// SECOND CHECKER ROUND. Parking the notice fixed "close the panel mid-turn"; it did not fix
+// "close it and open it straight back", because a park was only ever SAMPLED — at mount, or
+// on a deck change. Reopen on the same deck and neither happens, so the notice sat in the
+// map, invisible, and the author was back to their own question with nothing after it: the
+// original bug one click further in (N1). The store publishes to live readers now.
+//
+// N2 came with it: a remounted panel resets `busy`, so a second turn can be sent while the
+// first is still running — and the first would then park its failure UNDER the second's
+// answer. Each turn captures the deck's sequence at send and drops its notice if the deck
+// has moved on.
+describe('Architect chat — a parked notice reaches a reader already on screen (#1813 follow-on)', () => {
+	it('shows the notice when the panel was closed AND reopened before the turn landed', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		const { unmount } = render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'offline', reply: '' });
+		await sendOnce(user, 'tighten slide two');
+
+		// Coach, then straight back to Chat — still mid-turn, same deck. A fresh instance
+		// mounts while the map is still empty, so nothing it samples at mount can help it.
+		unmount();
+		render(<ArchitectChat {...props} onConnect={onConnect} deckId="deck-1" />);
+
+		await turn.release();
+		await flushFrames();
+		expect(screen.getByText(OFFLINE), 'the notice was parked but never reached the panel that was already open').toBeTruthy();
+		expect(onConnect, 'the sheet fired at a panel that had been unmounted when the turn ended').not.toHaveBeenCalled();
+	});
+
+	it("drops a superseded turn's failure instead of parking it under a later reply", async () => {
+		const user = userEvent.setup();
+		const { unmount } = render(<ArchitectChat {...props} deckId="deck-1" />);
+		const slow = deferredOutcome({ throws: true });
+		await sendOnce(user, 'first ask');
+
+		// The remount is what makes this reachable: `busy` is panel state, so the fresh
+		// instance shows Send again and a second turn can go out under the first.
+		unmount();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const quick = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'second ask');
+		await quick.release();
+		await flushFrames();
+		expect(screen.getByText(REPLY)).toBeTruthy();
+
+		// The FIRST turn now fails, long after it stopped being the current one.
+		await slow.release();
+		await flushFrames();
+		expect(screen.queryByText(/Something went wrong reaching the model/), "a superseded turn's failure landed under the reply that succeeded").toBeNull();
+		expect(screen.getByText(REPLY), 'the successful reply was disturbed').toBeTruthy();
+	});
+});
+
+// THIRD CHECKER ROUND (B1). The turn-supersede gate was written INSIDE `raiseNotice`, and
+// Apply — which has no turn — called it with `deckTurnSeq.get(deck) ?? 0`. That does not
+// claim a sequence, it fabricates one the next line rejects (`undefined !== 0`), so a
+// refused Apply said nothing at all on any deck that had not had a turn this page session.
+// A proposal persists through a reload, so the ordinary path reaches it: come back the next
+// day, hit Apply on a proposal that no longer fits the deck, get silence.
+//
+// The gate now lives in a separate `raiseTurnNotice` whose signature cannot be reached
+// without a real sequence, and Apply goes through the ungated `raiseNotice`.
+describe('Architect chat — a refused Apply speaks on a deck that has had no turn (#1813, B1)', () => {
+	const REFUSAL = "Slide 9 doesn't exist — the deck has 1 slide.";
+	const PROPOSAL = [{ label: 'Slide 9', slide: 9, action: 'replace', raw: { action: 'replace', slide: 9, body: '# nine' }, before: '# old', after: '# nine', diff: [{ type: 'add', text: '# nine' }] }];
+
+	it('shows the refusal with no send first — the reload-and-Apply path', async () => {
+		const user = userEvent.setup();
+		applySpy.mockReturnValueOnce({ source: props.source, applied: 0, refusals: [REFUSAL] });
+		// A proposal that survived a reload: seeded into storage, never sent this session.
+		saveChat('deck-1', [
+			{ role: 'user', content: 'tighten slide nine' },
+			{ role: 'assistant', content: 'Here is a diff.', proposed: PROPOSAL },
+		]);
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+
+		await user.click(screen.getByRole('button', { name: 'Apply' }));
+		expect(screen.getByText(REFUSAL), 'the refusal was discarded — the author clicked Apply and nothing happened, silently').toBeTruthy();
+	});
+
+	it('still shows it after a send, so the fix is not just the sequence happening to match', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredOutcome({ status: 'ok', reply: REPLY });
+		await sendOnce(user, 'a turn, to move the deck sequence on');
+		await turn.release();
+		await flushFrames();
+
+		applySpy.mockReturnValueOnce({ source: props.source, applied: 0, refusals: [REFUSAL] });
+		saveChat('deck-1', [
+			...loadChat('deck-1'),
+			{ role: 'assistant', content: 'Here is a diff.', proposed: PROPOSAL },
+		]);
+		cleanup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		await user.click(screen.getByRole('button', { name: 'Apply' }));
+		expect(screen.getByText(REFUSAL)).toBeTruthy();
 	});
 });

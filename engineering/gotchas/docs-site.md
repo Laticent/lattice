@@ -150,3 +150,53 @@ owe nothing here. See
   pattern that can't match the current command line.
 - **Triggered by:** "Restart the dev server" one-liners.
 - **Removable when:** Never — inherent to `pkill -f` self-matching.
+
+## An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish
+
+- **Symptom:** An e2e click on a server-rendered React control does nothing. The
+  element is attached, visible, stable and enabled, so Playwright's auto-wait is
+  satisfied and the click "succeeds" — then the assertion on the next line times
+  out against a page that looks perfectly healthy. Intermittent: it shows up under
+  worker contention and disappears at `--workers=1`, which reads like a blip.
+- **Cause, part one:** an island rendered `client:load` ships its HTML in the
+  document. Presence proves the SERVER ran, nothing about the client. React does
+  not replay an event that fired before hydration, so the click is dropped on the
+  floor rather than queued. Measured on `/playground/?view=edit`, idle: the Galleries
+  trigger is in the DOM at **~55–130ms** (the low end moves most with machine load —
+  measured 56–90ms on an idle box and 102–128ms on one mid-build), and "wired"
+  depends on which milestone you
+  time — React's per-node marker at **~310–385ms** (window ~230–300ms), the app's own
+  `body[data-view]` at **~380–540ms** (window ~290–480ms). `data-view` is set from an
+  effect and so lands strictly later than the marker; both are non-clicking
+  measurements and they agree on the ordering. Wider on a busy machine. Don't blend
+  the two ends into one range — an earlier version of this entry did, and half of it
+  came from a clicking probe that perturbs what it times.
+- **Cause, part two, and this is the trap inside the trap:** the obvious fix — wait
+  for `<astro-island>` to drop its `ssr` attribute — is **also too early.**
+  `@astrojs/react`'s client calls `startTransition(() => hydrateRoot(…))`, which
+  returns immediately; the island's `await this.hydrator(...)` therefore resolves and
+  it removes `ssr` while React has not yet done its work. Measured with the island's
+  JS delayed: `ssr` dropped roughly **30–70ms** before React's per-node marker
+  appeared (31–70ms desktop, 39–48ms phone, two independent runs). Take the ordering
+  as the finding — `ssr` was never late in any run — and the magnitude as an
+  illustration. An earlier probe reported 81–118ms by timing `ssr` → the first
+  synthetic click that worked, but it clicked on every frame and so perturbed the
+  hydration it was timing; that figure is an upper bound from the method, not the gap.
+- **Fix:** `controlReady` in `docs/e2e/studio-fixture.ts` requires BOTH — the island
+  has dropped `ssr`, AND the control's own DOM node carries React's per-node marker
+  (`__reactFiber$…` / `__reactProps$…`). Be precise about that second one: React
+  assigns those in `completeWork`, the RENDER phase rather than the commit, so it is
+  a behavioral gate rather than a proof — what earns it is that the marker landed in
+  the same frame as the first working click in every run of two independent
+  measurements. It is a React internal on purpose: there is no app-level signal
+  covering every control this helper is pointed at, and if a React upgrade renames it
+  the poll times out loudly instead of certifying an unwired control.
+- **Nothing pins the second condition.** Delete it and every spec stays green — the
+  margin simply re-hides behind Playwright's own click round-trip. Its evidence is
+  the measurement, not a test.
+- **How to tell them apart when you are stuck:** the window is invisible to
+  `page.waitForLoadState`, to `networkidle`, and to any assertion about the element
+  itself — they are all true throughout it. Reproduce it deterministically by
+  delaying the island's module (`page.route(/\/_astro\/.*\.js/, …)` with a sleep),
+  which does to hydration what a contended worker does.
+- **Triggered by:** #1815.

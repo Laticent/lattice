@@ -241,11 +241,59 @@ export function currentSlide(page: Page): Locator {
  * (StudioPreview, RestyleShowcase) unhydrated forever, so `astro-island[ssr]` never reaches zero
  * there. Fails CLOSED — a control with no island ancestor is not "ready" by default, or this
  * silently becomes a no-op the day the chrome moves out of an island (the #780 drift class).
+ *
+ * TWO conditions, because the island attribute ALONE FIRES TOO EARLY (#1815, measured).
+ * `@astrojs/react`'s client wraps `hydrateRoot` in `startTransition`, which returns immediately —
+ * so the island's `await this.hydrator(...)` resolves and it drops `ssr` while React has not yet
+ * done its work, and a click in that window is still swallowed.
+ *
+ * HOW EARLY: take the ORDERING as the finding and the magnitude as an illustration. Measured on
+ * the Playground's Galleries trigger, `ssr` dropped roughly **30–70ms** before React's per-node
+ * marker appeared — 31–70ms on a desktop context and 39–48ms under `devices['Pixel 5']`, two
+ * independent runs. `ssr` was never late, in any run of either.
+ *
+ * A NOTE ON THE NUMBER YOU MIGHT EXPECT TO SEE HERE. An earlier probe put this at 81–118ms by
+ * measuring `ssr` → the first synthetic click that actually opened the sheet. That probe clicked
+ * the control on EVERY animation frame until one worked, which perturbs the very hydration it is
+ * timing — so treat its figure as an upper bound produced by the measurement, not as the gap. The
+ * marker-based number above is the one to quote; both agree on the sign, which is the part the
+ * gate rests on.
+ *
+ * The second condition is React's OWN per-node marker, `__reactFiber$…` / `__reactProps$…`. Be
+ * precise about what that proves: React assigns them in `completeWork` — the RENDER phase, not
+ * the commit — so in principle the marker can precede the commit. This is a behavioral gate, not
+ * a proof. Be equally honest about what is NOT evidence: there is no sound measurement of when a
+ * click starts to work, because the only instrument for that is the per-frame clicking probe this
+ * docblock has just disavowed — and an independent run of it put the first apparently-working
+ * click BEFORE the marker, which if taken at face value would make this gate conservative rather
+ * than coincident. Late is the safe direction — it costs each caller ~30–70ms of wait it may not
+ * strictly need, and buys correctness — so that reading is fine either way; what is
+ * actually measured is narrower: the marker never precedes the `ssr` drop, and Playwright's own
+ * click round-trip covers the remainder. It is a React internal, deliberately: the alternative is
+ * a per-surface app signal, and there isn't one that covers every control this helper is pointed
+ * at. The failure direction is safe — if a React upgrade renamed it, this poll TIMES OUT LOUDLY
+ * rather than certifying an unwired control.
+ * (Consequence: this helper is for REACT controls. A non-React island control never satisfies it.)
+ *
+ * Scope of the claim: this CLOSES A MARGIN, it does not fix an observed failure at the three
+ * `back-gesture.spec.ts` call sites. Gated on the island attribute alone, a click still landed
+ * 8/8 under the same stress — Playwright's own click round-trip happens to cover a gap this size.
+ * The point is that it was covering it by luck, on a budget nobody chose. Nothing PINS this second
+ * condition either: delete it and every spec stays green, because the margin re-hides. Its
+ * evidence is the measurement above, not a test — so treat it as load-bearing when editing.
  */
 export async function controlReady(control: Locator): Promise<void> {
 	await control.waitFor({ state: 'visible' });
 	await expect
-		.poll(() => control.evaluate((el) => { const i = el.closest('astro-island'); return !!i && !i.hasAttribute('ssr'); }), { timeout: 20_000 })
+		.poll(
+			() =>
+				control.evaluate((el) => {
+					const i = el.closest('astro-island');
+					if (!i || i.hasAttribute('ssr')) return false;
+					return Object.keys(el).some((k) => k.startsWith('__reactFiber$') || k.startsWith('__reactProps$'));
+				}),
+			{ timeout: 20_000 },
+		)
 		.toBe(true);
 }
 
