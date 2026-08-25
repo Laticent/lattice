@@ -16,10 +16,10 @@
  * Each top-level list item carries a state marker (universal grammar):
  *   [x] → pass + state-full     (check  on --pass        green)
  *   [-] → warn + state-half     (dash   on --warn        amber)
- *   [ ] → todo + state-todo     (ring   on --text-label  neutral) — "not yet
+ *   [ ] → todo + state-todo     (ring   on --muted-mark  neutral) — "not yet
  *                                started" is a neutral todo, NOT a red gap;
  *                                verdict-grid's "not met" keeps the red x
- *   [/] → skip + state-slashed  (slash  on --text-muted; row strikethrough)
+ *   [/] → skip + state-slashed  (slash  on --muted-mark; row strikethrough)
  *
  * Every state is the SAME disc treatment carrying a DISTINCT mark, so the
  * SHAPE channel is colour-blind-safe. The Marp plugin (build) and runtime
@@ -93,10 +93,28 @@ section.checklist > .cell-stage > ol > li.state.fail {
 /* todo — `[ ]` is "not yet started", a NEUTRAL state, not a failure: a true
  * hollow ring (empty centre, --state-color edge ring; see `.state.todo` in
  * base.modifiers.css). No red, no strike — it reads "on the list, not done",
- * distinct from the red ✕ that verdict-grid keeps for a "not met" criterion. */
+ * distinct from the red ✕ that verdict-grid keeps for a "not met" criterion.
+ *
+ * --muted-mark, NOT --text-label (#1821). This ring asked for a neutral by
+ * naming a token that was neutral at the time; #1801 restored --text-label to
+ * its accent-hued EMPHASIS contract (design/theming.md), and the ring silently
+ * came with it — saddle gold on cuoio dark, one row under the amber --warn it
+ * then resembled, on all ten palettes that hue --text-label from the accent.
+ * The token was right to move and the ring was right to want a neutral; only
+ * the coupling was wrong, so the fix is here rather than on the token.
+ *
+ * SHARING --muted-mark WITH `skip` BELOW IS DELIBERATE, not a collision. #1715
+ * defines that token as de-emphasized DECORATION — "rules, hairlines,
+ * empty/skipped marks" — and an empty ring is exactly an empty mark, so todo
+ * and skip are one INK tier. They stay unmistakable in the SHAPE channel,
+ * which is the one this component is built on: todo is a hollow ring with no
+ * inner mark at all (--state-fill-pct:0%, ::after display:none), while skip is
+ * a filled disc carrying a slash, its label struck through and dropped to
+ * --text-muted. Giving todo a private neutral token would add a third value
+ * nothing could tell apart from this one. */
 section.checklist > .cell-stage > ul > li.state.todo,
 section.checklist > .cell-stage > ol > li.state.todo {
-  --state-color:var(--text-label);
+  --state-color:var(--muted-mark);
   border-left-color:var(--state-color);
   background:var(--bg-alt);
 }

@@ -79,7 +79,9 @@
 /* Per-state tokens, legend scope — mirror the cell tokens above. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--pass);        --state-mark:var(--mark-check); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--warn);        --state-mark:var(--mark-dash);  }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--text-label); }
+/* planned = the neutral "not started" tier (#1821) — --muted-mark, not
+ * --text-label, which is accent-hued emphasis since #1801. Matches the cells. */
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark);  --state-mark:var(--mark-slash); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
@@ -243,9 +245,14 @@
   --state-mark:var(--mark-dash);
   --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
 }
+/* planned — the NEUTRAL "on the slate, not started" tier that base.modifiers
+ * groups with checklist todo and obligation exempt. --muted-mark, not
+ * --text-label (#1821): #1801 restored the latter to accent-hued emphasis and
+ * took this ring with it, so a planned milestone painted the brand accent one
+ * row under the amber --wip it was supposed to contrast with. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned {
-  --state-color:var(--text-label);
+  --state-color:var(--muted-mark);
   --cell-state-bg:var(--bg-alt);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
