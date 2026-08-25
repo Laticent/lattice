@@ -235,17 +235,17 @@ section.state-chart .state-node .state-label {
 /* The index numeral doubles as the status badge: a status-LESS node keeps a
  * quiet top-right ref numeral; a status node turns that numeral into a small
  * coloured badge (index + status in ONE element — no separate dot, no widening
- * the node). The badge and the legend swatch share the SHAPE of the .chart-status
- * pill recipe — --text-heading on a hue-into-bg tint + a vivid --pill-ink edge — but
- * NOT its numbers any more, and that divergence is deliberate rather than drift.
- * chart-family's stops were retuned twice for AA (dark 48/64 -> 42/54 in #1809, light
- * 33/54 -> 18/30 in #1807); this component's were not, because nothing in
- * tools/composed-contrast.js models a state-chart pill and the retune wants its own
- * surfaces and its own visual pass. Measured through that tool's own evalSurface over
- * 32 palettes x 5 states, the stops below are sub-AA on 21 pairs light (19 at the 100%
- * stop, worst concrete|pass 2.48:1, plus 2 at the 0% stop, worst 4.38:1) and 28 dark
- * (all at the 100% stop) — 49 in total. So a node's badge no longer reads identically to
- * a chart-family status pill. Tracked as #1830. */
+ * the node). The badge and the legend swatch share the .chart-status pill recipe —
+ * --text-heading on a hue-into-bg tint + a vivid --pill-ink edge — INCLUDING its
+ * numbers, which is what #1830 restored. This component reimplemented the recipe and
+ * so missed both AA retunes chart-family took (dark 48/64 -> 42/54 in #1809, light
+ * 33/54 -> 18/30 in #1807); measured through tools/composed-contrast.js's own
+ * evalSurface over 32 palettes x 5 states the old stops were sub-AA on FORTY-NINE
+ * pairs, worst concrete|light|pass at 2.48:1, and nothing reported it because no
+ * surface modelled a state-chart pill at all. Both stops of all three sites are in
+ * SURFACES now (`stateChartStop`), so a third divergence reddens a gate instead of
+ * shipping. Worst pair today: laguna|dark|pass 4.62:1 — chart-family's own figure,
+ * because it is now literally the same recipe. */
 section.state-chart .state-node .state-index {
   position: absolute;
   top: 0.15625cqi;
@@ -262,8 +262,8 @@ section.state-chart .state-dot {
   --pill-hue: var(--state-info-hue);
   --pill-ink: var(--state-info-ink);
   background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--pill-hue) 33%, var(--bg)), color-mix(in oklab, var(--pill-hue) 48%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--pill-hue) 54%, var(--bg)), color-mix(in oklab, var(--pill-hue) 64%, black)) 100%);
+    light-dark(color-mix(in oklab, var(--pill-hue) 18%, var(--bg)), color-mix(in oklab, var(--pill-hue) 42%, black)) 0%,
+    light-dark(color-mix(in oklab, var(--pill-hue) 30%, var(--bg)), color-mix(in oklab, var(--pill-hue) 54%, black)) 100%);
   border: var(--chart-hairline) solid var(--pill-ink);
 }
 section.state-chart .state-index[data-s="on-track"], section.state-chart .state-dot[data-s="on-track"],
@@ -700,10 +700,9 @@ section.state-chart .state-label-t {
 
 /* The index numeral doubles as the status badge — a status-LESS node keeps a
  * quiet numeral; a status node gets the colored disc behind it. Same tone
- * vocabulary and the same --pill-* SHAPE as the HTML badge and the legend swatch —
- * and, like them, still on the pre-#1807 stops that chart-family has moved off.
- * This is the THIRD site carrying them (with :264-265 and the legend swatch); see
- * the note above the HTML badge for the measured sub-AA counts. */
+ * vocabulary, same --pill-* shape and — since #1830 — the same stops as the HTML
+ * badge and the legend swatch. The disc is a FLAT fill, so it carries the gradient's
+ * 100% stop alone (30% light / 54% dark); see the note above the HTML badge. */
 section.state-chart .state-index-t {
   fill: var(--state-index-ink);
   font-family: var(--font-body);
@@ -716,8 +715,8 @@ section.state-chart .state-index-disc {
   --pill-hue: var(--state-info-hue);
   --pill-ink: var(--state-info-ink);
   fill: light-dark(
-    color-mix(in oklab, var(--pill-hue) 54%, var(--bg)),
-    color-mix(in oklab, var(--pill-hue) 64%, black));
+    color-mix(in oklab, var(--pill-hue) 30%, var(--bg)),
+    color-mix(in oklab, var(--pill-hue) 54%, black));
   stroke: var(--pill-ink);
   stroke-width: 0.75;
 }
