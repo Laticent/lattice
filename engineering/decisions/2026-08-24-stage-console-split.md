@@ -864,6 +864,30 @@ sends (measured: a hand-close fires *both* `pagehide` and `unload`, so the beat 
 A window that went without one is a killed renderer, a discarded tab, a projector that lost
 power. A `closed` check there would silence exactly the case the notice exists for.
 
+### Every cell here was made to fail before it was believed
+
+This surface shipped eight vacuous gates (§12), so nothing here is trusted on a green run.
+`npm run mutate:stage-window` is a committed battery — same idiom as `mutate:guide`, aimed at
+this file — that injects the defect each cell is named for and fails on a survivor **and** on a
+mutation that did not apply. **12 mutations, 12 killed, 0 survived.** Seven cover the loss
+classifier; five are §12's leftover markup cells (the `#latt-ctl` element, the buttons'
+accessible names, `opacity:0`, `:focus-within`, and the bar's absence from the srcdoc hosts),
+which were the last cells on this surface never proven able to fail. They were not vacuous —
+but that is now measured rather than assumed, and it stays measured.
+
+The two **real-popup** cells cost a docs rebuild apiece, so they are driven by hand rather than
+committed to the battery. Both were killed:
+
+| mutation | cell that died |
+|---|---|
+| the beat path announces every close | *a Stage the presenter closes by hand … says nothing about it* |
+| a navigated Stage gets the generic "disconnected" wording | *a Stage that is NAVIGATED away is noticed …* |
+
+The hand-close cell carries its **positive control inside itself** — it re-opens the Stage and
+navigates it away, and watches the same locator light up. Without that, "no toast appeared" is
+satisfied by a Studio whose toaster never renders at all, which is precisely the shape of
+vacuity this branch keeps producing.
+
 ### Still open
 
 - **Whether Chromium physically lands the Stage on a second monitor** — unchanged from §12, and
