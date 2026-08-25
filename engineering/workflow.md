@@ -428,10 +428,18 @@ that was just load. The extra ~1 min is paid only when something already looks r
 Only the RENDER tier is re-measured: the browser tiers stand on one pass, because a
 puppeteer arm cannot be re-run on a hunch (`--print` is ~11 min, `--export` ~3, and
 `--cli` spawns a fresh browser per iteration). Their ±50% band — and the sweep's 3×
-floor — is sized for that. The re-measure is selected BY DATASET NAME, which is why
-every browser tier prefixes its rows (`export · `, `print full · `, `cli · `): a tier
-reusing the render tier's names would be handed to a second *render* pass, come back
-green, and be reported as "not reproduced — machine load, not code".
+floor — is sized for that. The re-measure is selected BY DATASET NAME, so every browser
+tier's rows must be UNAMBIGUOUS against the render tier's: a tier reusing a render name
+would be handed to a second *render* pass, come back green, and be reported as "not
+reproduced — machine load, not code".
+
+Two mechanisms achieve that, and a new tier has to pick one deliberately. Export, print
+and CLI **prefix at the dataset name** (`export · `, `print full · `, `cli · `), so the
+name is distinct everywhere. **The sweep does not** — its rows are bare `normal (jargon)`
+/ `charts`, which collide with the render tier's — and it is safe only because it appends
+its marker at the PUSH SITE instead: `regressedDatasets.push(\`${s.dataset} (sweep)\`)`.
+Copy the sweep's `dataset: d.name` shape without copying that push-site suffix and you
+reintroduce exactly the bug this paragraph exists to prevent.
 
 **Three tiers, three flags — and the third measures something the other two
 structurally cannot.** `--export` (rasterize) and `--print` (re-place) are whole
@@ -513,8 +521,15 @@ cycle that quietly stops rasterizing fails as a workload change on any machine, 
 of any timing. That failure used to read as a spectacular win.
 
 **The apparatus is wired, and as of 2026-08-25 the record is written.** `baseline.json`
-carries `exportDatasets`, so `bench:check -- --export` gates on the blessing machine
-and reports anywhere else, like every other browser tier.
+carries `exportDatasets`, so `bench:check -- --export` compares like the print and CLI
+tiers: same-machine on timing, any-machine on the `slides` screenshot count.
+
+**"Same machine" is not "the machine that blessed it."** `comparableMachine()` wants the
+fingerprint *and* a probe in band, so a box can bless a tier and then decline to gate it on
+the next run — the 2026-08-25 bless stamped a 4.94ms probe and an independent run on the
+identical fingerprint read 3.78–3.85ms, 22% off. Treat the browser tiers' timing as
+best-effort and their workload counts as the part that actually holds
+(`engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`).
 
 A tier **this repo has not blessed yet** reports rather than failing: drift means a
 blessed row has been recording nothing, and a tier nobody has blessed has no rows to

@@ -1178,8 +1178,16 @@ function checkBaseline(summary, render, opts = {}) {
   // it used to be neither, with `main()` handing its summary to the `--json` dump and nothing
   // else, even though the tier was given a `{ main, summary }` shape precisely so it could be
   // compared. THE RECORD IS NOW WRITTEN: `baseline.json` carries `exportDatasets` as of
-  // 2026-08-25, so the block gates on the blessing machine and reports anywhere else, like
-  // every other browser tier.
+  // 2026-08-25, so the block compares like the print and CLI tiers — same-machine only.
+  //
+  // "SAME MACHINE" IS NOT "THE MACHINE THAT BLESSED IT", and the difference bit immediately.
+  // `comparableMachine()` needs the fingerprint AND a probe within PROBE_BAND, so a box can
+  // bless these rows and then refuse to gate them on its very next run: the 2026-08-25 bless
+  // stamped a 4.94ms probe, and an independent run on the identical fingerprint read
+  // 3.78–3.85ms — 22% off, out of band, `slower (not gated)` on an unchanged tree. The
+  // timing half of this block is therefore best-effort on this sandbox class; what it
+  // reliably gates on ANY machine is `slides`, the screenshot count below.
+  // See `engineering/decisions/2026-08-25-calibration-probe-anticorrelation.md`.
   //
   // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
   // they are far more exposed to machine and I/O noise than an in-process render. 50% catches a
