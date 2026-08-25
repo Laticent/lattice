@@ -218,6 +218,10 @@ second set of eyes changes the merge decision. See `engineering/visual-review.md
 **Every agent runs on Opus** (HARD RULE #27) — the ladder decides *whether* an
 agent runs, and there is no second question about what it runs on.
 
+**"The trio" on its own means the adversarial trio. The additive trio
+(`seam-census` · `blast-radius` · `contradictions`) must be named in full. When a
+request is ambiguous, ask — the two do opposite work.**
+
 **Maker-checker is the middle rung of the verification ladder** (HARD RULE #25):
 routine work self-reviews with the gates; blast radius gets maker-checker;
 **critical, high-blast-radius, or genuinely novel work escalates to the
@@ -253,8 +257,15 @@ is for now:
 | `fact-checker` | Verify cited paths / fields / mechanisms against the repo |
 | `ci-triage` | Diagnose a red gate and drive it green |
 | `inventory` | Enumerate, count, extract |
-| `red-team` · `inversion` · `checker` | The trio (#25) |
+| `red-team` · `inversion` · `checker` | The adversarial trio (#25) |
+| `seam-census` · `blast-radius` · `contradictions` | The **additive** trio — discovery, not verification (`engineering/orchestration.md` § The additive trio) |
 | `docs-auditor` · `prose-checker` | Doc honesty · prose audit |
+
+**"The trio" on its own means the adversarial trio. The additive trio must be
+named in full. When a request is ambiguous, ask — the two do opposite work.** The
+adversarial three audit claims you already have; the additive three generate them
+(joins, reverse-dependency closures, refused tradeoffs). The additive trio is
+**not** a rung on the verification ladder and is never mandatory.
 
 **The session's own model never changes** (it would void the prompt cache, and
 it's the human's `/model`).

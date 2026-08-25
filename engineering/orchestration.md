@@ -232,6 +232,73 @@ the *output* of the audit is itself tier-2 (e.g. it gates a release).
 
 ---
 
+## The additive trio — discovery, not verification
+
+`seam-census` · `blast-radius` · `contradictions`. Three roster agents that ask
+**"what is here that nobody has named?"** — the opposite direction from the
+adversarial trio, which asks "is this claim true, and where does it break?"
+
+**This is NOT a rung on the verification ladder above.** The ladder scales
+*verification* effort with blast radius (tier 0 → 1 → 2). The additive trio is a
+different axis entirely: it *generates* the claims a ladder tier would then check.
+Filing it under the ladder would invite running it where the adversarial trio is
+mandatory, and running the wrong trio produces confident, well-formed, useless
+output.
+
+> **"The trio" on its own means the adversarial trio. The additive trio must be
+> named in full. When a request is ambiguous, ask — the two do opposite work.**
+
+|  | **Adversarial trio** | **Additive trio** |
+|---|---|---|
+| direction | subtractive | additive |
+| asks | is this claim true? where does it break? | what is here that nobody has named? |
+| lenses | `red-team` · `inversion` · `checker` | `seam-census` · `blast-radius` · `contradictions` |
+| input | a claim, a design, a diff | a system, a corpus, a question |
+| output | attacks, refutations, verdicts | joins, dependencies, refused tradeoffs |
+| status | **mandatory** at tier 2 | **never mandatory** — a shape you reach for |
+
+**When to reach for it.** When you do not yet have the claims — mapping an
+unfamiliar system, writing the positioning for something, deciding what is
+actually load-bearing before a refactor, answering "what is this thing" rather
+than "is this thing right."
+
+**When NOT to.** When you have a change, a design or a diff in hand and the
+question is whether it holds. That is the adversarial trio's job, and the
+additive trio run there returns an inventory nobody asked for.
+
+**Why both exist.** The adversarial trio audits claims you already have; it
+cannot generate them. Run it on a body of work whose *framing* is wrong and it
+hands back a better-defended version of the wrong argument — observed: a full trio
+pass hardened an executive briefing built on the wrong thesis, and a different
+instrument found the right one. The two are complementary, not ranked.
+
+**The lenses:**
+
+1. **`seam-census`** — enumerate the JOINS, not the parts. For each A→B, what does
+   the join produce that neither side does alone? Kill anything that is one
+   feature with two names.
+2. **`blast-radius`** — delete one thing; what dies? Real `require`/`import`
+   edges, reverse-dependency closures, ranked by user-visible capabilities lost.
+   A piece whose removal kills nine things is load-bearing however it scores on a
+   per-item rubric — which is exactly what per-item scoring cannot see.
+3. **`contradictions`** — which forced tradeoffs does the system refuse, by what
+   mechanism, at what price? Then the ones it does **not** resolve; that second
+   list is the more valuable half.
+
+**Two requirements every card carries, both from observed failures.** *(a)* A
+**kill list** — a pass that refuses to assert nothing has probably not looked hard
+enough; in the pilot the kill lists were worth more than the findings, and three
+refusals became tickets (#1854, #1578, #1867). *(b)* **"Not traced" is never
+reported as "false"**, and load-bearing claims are verified against **source, not
+prose** — #1867 is the direct evidence, a lens inheriting retired wording from a
+stale skill file months after the correction was recorded.
+
+**Cost.** Three agents, one parallel phase, feeding a synthesis a human owns. It
+counts session-cumulatively against HARD RULE #25's ~10-agent line like any other
+fan-out; there is no committed workflow and therefore no pre-registered exemption.
+
+---
+
 ## Anti-patterns (each one is a line item from a real bill)
 
 - **Fresh agent per iteration round** — re-grounds every round; iterate warm.

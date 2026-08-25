@@ -53,7 +53,7 @@ covers committed files only. That path rides on the roster below plus the
 
 ## The agent roster
 
-Nine agents, all on Opus. The roster still earns its place — **choosing the
+Twelve agents, all on Opus. The roster still earns its place — **choosing the
 agent is choosing the prompt**, which is the part that was always doing the
 real work:
 
@@ -63,11 +63,19 @@ real work:
 | `fact-checker` | Verify load-bearing claims (paths, fields, mechanisms) against the repo |
 | `ci-triage` | Read a failing job's logs, find the cause, propose or apply the fix |
 | `inventory` | Enumerate, count, extract — mechanical sweeps with a fixed output shape |
-| `red-team` | Trio lens 1: attack it, find the abuse path and the edge case |
-| `inversion` | Trio lens 2: argue it is the wrong design entirely |
-| `checker` | Trio lens 3 / maker-checker default: refute the load-bearing claims |
+| `red-team` | Adversarial trio lens 1: attack it, find the abuse path and the edge case |
+| `inversion` | Adversarial trio lens 2: argue it is the wrong design entirely |
+| `checker` | Adversarial trio lens 3 / maker-checker default: refute the load-bearing claims |
+| `seam-census` | Additive trio lens 1: enumerate the joins, and what each produces that neither side does |
+| `blast-radius` | Additive trio lens 2: delete one thing — what dies? Real import edges, reverse closures |
+| `contradictions` | Additive trio lens 3: which forced tradeoffs the system refuses, at what price — and which it does not |
 | `docs-auditor` | Cross-reference what ships against what the docs claim |
 | `prose-checker` | Audit human-facing writing for AI tells and read-aloud failures |
+
+**"The trio" on its own means the adversarial trio. The additive trio must be
+named in full. When a request is ambiguous, ask — the two do opposite work.** The
+additive three are a discovery instrument, not a rung on the verification ladder;
+see `engineering/orchestration.md` § The additive trio.
 
 `Explore`, `Plan`, and `general-purpose` are harness built-ins with no pinned
 model — they inherit Opus 5 from the session, which is now the correct tier, so
