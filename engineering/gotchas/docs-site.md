@@ -162,7 +162,9 @@ owe nothing here. See
   document. Presence proves the SERVER ran, nothing about the client. React does
   not replay an event that fired before hydration, so the click is dropped on the
   floor rather than queued. Measured on `/playground/?view=edit`, idle: the Galleries
-  trigger is in the DOM at **~40–90ms**, and "wired" depends on which milestone you
+  trigger is in the DOM at **~55–130ms** (the low end moves most with machine load —
+  measured 56–90ms on an idle box and 102–128ms on one mid-build), and "wired"
+  depends on which milestone you
   time — React's per-node marker at **~310–385ms** (window ~230–300ms), the app's own
   `body[data-view]` at **~380–540ms** (window ~290–480ms). `data-view` is set from an
   effect and so lands strictly later than the marker; both are non-clicking

@@ -109,8 +109,12 @@ function raiseNotice(deck: string, kind: ChatNotice['kind'], text: string) {
 	publishNotices();
 }
 
-// The GATED path, and the signature is the point: only a caller holding a real sequence
-// from `run()` can reach the gate, and there is no way to hand this a number you made up.
+// The GATED path. Be exact about what keeps it honest, because this file has already paid
+// once for a comment that claimed a guarantee the code did not have: the type says
+// `seq: number`, so nothing STRUCTURAL stops a future caller passing a made-up one. What
+// stops it is that this function is module-private and its only three call sites are inside
+// `run()`, each passing the sequence that same call just bumped. Keep it that way — a fourth
+// call site is the thing to argue with, not the signature.
 //
 // The first version of the gate lived inside `raiseNotice` and Apply called it with
 // `deckTurnSeq.get(deck) ?? 0` — which does not "claim" a sequence, it FABRICATES one that

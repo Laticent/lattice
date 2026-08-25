@@ -262,7 +262,8 @@ export function currentSlide(page: Page): Locator {
  * click starts to work, because the only instrument for that is the per-frame clicking probe this
  * docblock has just disavowed — and an independent run of it put the first apparently-working
  * click BEFORE the marker, which if taken at face value would make this gate conservative rather
- * than coincident. Late is the safe direction, so that reading costs nothing; either way what is
+ * than coincident. Late is the safe direction — it costs each caller ~30–70ms of wait it may not
+ * strictly need, and buys correctness — so that reading is fine either way; what is
  * actually measured is narrower: the marker never precedes the `ssr` drop, and Playwright's own
  * click round-trip covers the remainder. It is a React internal, deliberately: the alternative is
  * a per-surface app signal, and there isn't one that covers every control this helper is pointed
